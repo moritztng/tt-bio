@@ -54,6 +54,13 @@ def ids(root: Path, cat: str) -> list[str]:
     return [r["id"] for r in (block if isinstance(block, list) else block["models"])]
 
 
+def visible(root: Path, cat: str) -> list[str]:
+    """The rows the page draws. A hidden row stays in the file and does not count."""
+    block = data(root)[cat]
+    rows = block if isinstance(block, list) else block["models"]
+    return [r["id"] for r in rows if not r.get("hidden")]
+
+
 def meta(root: Path) -> str:
     return META.search((root / "site/benchmarks/index.html").read_text())[1]
 
@@ -73,8 +80,13 @@ def test_a_complete_held_row_is_published_and_both_counts_follow(sandbox: Path):
     assert "restored design/pxdesign" in guard(sandbox, "--restore").stdout
     assert ids(sandbox, "design") == ["boltzgen", "rfd3", "pxdesign"]
     assert held(sandbox) == []
-    assert data(sandbox)["subtitle"].startswith("Eight structure-prediction models, three binder")
-    assert meta(sandbox).startswith("Eighteen open biomolecular models")
+    # The counts follow the rows the page DRAWS, not the rows in the file. rfd3 is hidden,
+    # so restoring pxdesign takes the visible design count from one to two. The literal
+    # "three" that stood here went stale the day rfd3 was hidden; the returncode-0 check
+    # below is what actually pins the counts to the rows.
+    assert visible(sandbox, "design") == ["boltzgen", "pxdesign"]
+    assert data(sandbox)["subtitle"].startswith("Eight structure-prediction models, two binder")
+    assert meta(sandbox).startswith("Eleven open biomolecular models")
     assert guard(sandbox).returncode == 0
 
 
@@ -119,6 +131,6 @@ def test_a_drifted_meta_description_fails_the_guard(sandbox: Path):
                              page.read_text(), count=1))
     out = guard(sandbox)
     assert out.returncode == 1
-    assert "meta description does not match the published row counts" in out.stderr
+    assert "meta description does not match the published rows" in out.stderr
     assert guard(sandbox, "--strip").returncode == 0
     assert guard(sandbox).returncode == 0

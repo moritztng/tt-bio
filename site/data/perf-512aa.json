@@ -541,8 +541,7 @@
           }
         },
         "server_charts": false,
-        "server_charts_note": "RFdiffusion3 is not on the per-server or per-dollar charts. Those charts scale seconds per job by accelerator count, and this row's two sides do not have the same lever: a batch of eight is worth 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, measured at shipped defaults with the H200 at 79 % of its 700 W and 98 % utilisation, while the Blackhole AI Processor gains 1.04x at 3844 atoms and does not fit a batch of eight. At batch 1 the Galaxy reads 1.20x a DGX H200; at each side's best batch it reads 0.57x, so the batch decides the sign rather than the size. The seconds chart keeps the row, because one at a time is the right protocol for latency. BoltzGen stays on both charts: its batched path drifts 0.5-2.8 A per slot, which makes a batched design a different design, so batch 1 is the production configuration on the GPU as well as here.",
-        "hidden": true
+        "server_charts_note": "RFdiffusion3 is not on the per-server or per-dollar charts. Those charts scale seconds per job by accelerator count, and this row's two sides do not have the same lever: a batch of eight is worth 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, measured at shipped defaults with the H200 at 79 % of its 700 W and 98 % utilisation, while the Blackhole AI Processor gains 1.04x at 3844 atoms and does not fit a batch of eight. At batch 1 the Galaxy reads 1.20x a DGX H200; at each side's best batch it reads 0.57x, so the batch decides the sign rather than the size. The seconds chart keeps the row, because one at a time is the right protocol for latency. BoltzGen stays on both charts: its batched path drifts 0.5-2.8 A per slot, which makes a batched design a different design, so batch 1 is the production configuration on the GPU as well as here."
       }
     ]
   },

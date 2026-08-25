@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.7.1] - 2026-08-25
 
 ### Changed
 
@@ -47,6 +47,66 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   fold is dispatch-bound. Nothing runs 20 aa in production, so the 76 aa reading decides it. The
   narrower pad is not automatically the faster one, because the two widths do not select the same
   kernel. `docs/size-generality.md` has the size-by-size reading.
+
+- A job that never got the card now says so instead of looking like a bad result. A co-tenant
+  holding a device used to surface as `RuntimeError: every local worker exited`, and inside a gate
+  as an accuracy verdict against a fold that never ran. Contention now has its own reserved exit
+  code, 75, carried from the worker through the predict fan-out to the CLI.
+
+- `opendde-trpcage-nomsa` reports a real verdict in `full_parity_gate.py` again instead of
+  BLOCKED-REGEN. The harvest step wrote the regenerated fixture under the source id rather than the
+  destination id, so the leg never found what it had just produced.
+
+- The benchmarks page. Rows that are hidden no longer reach the charts and tables, a stray script
+  fragment no longer prints as page text, and design rows state the batch size they were measured
+  at. A row is only published once every processor column in it has been measured: partial rows
+  wait in `perf/page_rows_pending.json` and `scripts/site_publish_guard.py` enforces it.
+
+- An explicit `$RF3_CKPT` is no longer outranked by a stale checkpoint in the legacy cache
+  directory. The RF3 accuracy cell fell back to `~/.cache/tt-bio/rf3/` whenever the path it was
+  given did not exist, so on a host that still had an old copy there it silently folded that copy
+  instead of failing on the path the caller named.
+
+### Added
+
+- RFD3 block-sparse atom attention, opt-in with `RFD3_BLOCK_SPARSE=1`. The atom site's
+  128-neighbour index is block-sparse rather than row-sparse, so a block of neighbouring query rows
+  shares a key window narrow enough to run as a batched dense matmul. Worth 2.982 s/design on a
+  target it fits (6051 atoms, median of 7 rounds, range 2.218-3.988). It stays off by default
+  because it is target-specific, not because it is unproven: the query block has to divide the
+  tile-padded atom axis, which at the default block size holds for 288 of the 11745 atom counts
+  between 256 and 12000. Every other target takes the dense fallback, which is always available and
+  caps the downside at the dense chain. Not bit-exact against the dense path, and the only
+  difference is the softmax reduction order.
+
+- RF3 has an accuracy floor at 997 aa, not just at 117. `release_gate.py --model rf3-1024aa` folds
+  7EIP on the device and gates CA-RMSD against the deposited crystal at 4.0 A; `full_parity_gate.py`
+  scores the same leg. Measured 1.9687 A, against a reference of 2.0092 A.
+
+### Gates
+
+Cut from a tree that passed, on one Blackhole p300c host (tt-quietbox2, Python 3.12.3, ttnn 0.68.0):
+
+- Packaging: all 61 expected data files and all 43 declared runtime dependencies ship in both the
+  wheel and the sdist and land on disk after a clean install.
+- Parity (`full_parity_gate.py`, 41 legs, 201 min): 34 PASS, 4 GAP that reproduce their committed
+  values, 1 PASS-caveated, 1 fixture awaiting regeneration, 1 FAIL. No leg drifted, errored or was
+  skipped. The FAIL is `af2ig-trunk-device`, whose floor was recorded on a 13x10 board with the
+  template on host and is read here on an 11x10 board with it on card; AF2-IG has no CLI path in
+  this release.
+- Accuracy floors (`release_gate.py`): every arm passed, including Boltz-2, ESMFold2, Protenix-v2,
+  OpenDDE, OpenFold3, RF3, OpenBind, BoltzGen, RFD3, Nesso-1, ESMC and the OpenDDE antibody-antigen
+  DockQ floor. PXDesign fit-RMSD 4.909 A against a 15.0 A floor.
+- Throughput (`perf_regression.py`, +-15%): 14 of 14 models within tolerance on their recorded
+  p300c baselines. The three models whose numerics this release changed clear their re-recorded
+  post-fix baselines: Protenix-v2 +13.9%, OpenDDE -0.3%, OpenDDE-abag +0.6%.
+- CLI (`ux_regression.py`): every surface cleared progress, parse and results/manifest shape.
+
+Not covered, and worth naming rather than dropping: the size ladder has no baseline for this card
+type, so it did not run; RF3, Nesso-1 and single-sequence ESMC-300M have no throughput baseline on
+this card type; RFD3 block-sparse is dark on the gate's own fixture, so its coverage is its own
+tests rather than a gate leg; and `tt-bio design --model pxdesign` is gated through the library
+rather than end to end through the CLI.
 
 ## [0.7.0] - 2026-08-24
 

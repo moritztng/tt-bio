@@ -563,7 +563,7 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
             )
         for name in seqs:
             src = a3m_out / f"{name}.a3m"
-            if src.exists():
+            if cached(src):
                 publish_file(src, msa_dir / f"{name}.a3m")
             else:
                 click.echo(f"  warning: no A3M for {name}")

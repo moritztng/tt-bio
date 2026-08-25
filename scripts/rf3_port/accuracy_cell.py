@@ -79,6 +79,13 @@ _LEGACY_CKPT = Path("~/.cache/tt-bio/rf3/rf3_foundry_01_24_latest_remapped.ckpt"
 def _default_ckpt() -> str:
     from tt_bio import weights
     canonical = weights.resolve("rf3")
+    # An explicit override wins even when it points at nothing, so a wrong $RF3_CKPT fails
+    # naming the path the caller asked for instead of silently folding the legacy copy. Ask
+    # the artifact table which vars those are rather than re-reading RF3_CKPT here; a second
+    # hard-coded read is the bug this whole function exists to undo.
+    art = weights.ARTIFACTS["rf3"]
+    if any(os.environ.get(v) for v in art.env_vars):
+        return str(canonical)
     if canonical is not None and canonical.exists():
         return str(canonical)
     if _LEGACY_CKPT.exists():
