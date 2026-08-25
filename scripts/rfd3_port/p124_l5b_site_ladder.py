@@ -61,6 +61,7 @@ def pv_config_exists(m_tiles, n_tiles):
 
 
 def classify(atoms):
+    """`atoms` may be a raw count or an already-padded axis; padding is idempotent either way."""
     Wt = (-(-atoms // TILE) * TILE) // TILE          # _align_tile(atoms) / 32
     large, cb_sum, blk = use_large(Wt)
     ibw = in0_block_w(Wt)                            # PV's K axis IS the padded atom key axis
@@ -74,14 +75,17 @@ def classify(atoms):
 
 
 def main():
-    # The ds-fix ladder. Atom counts are proportional to the token count at a fixed contig shape;
-    # R4 is the measured pair (685 tokens, 6051 atoms) and the rest are scaled from it, so the
-    # rungs are indicative and the general rule below is not.
-    ladder = [("R0", 217), ("R1", 296), ("R2", 418), ("R3", 514), ("R4", 685)]
+    # The ds-fix ladder. Two rungs have a MEASURED padded atom axis and are used as such: R4 is
+    # 6080 (the census fixture) and R3 is 4576 (p122 on pc, perf/p122/atom_softmax_wall_R3.json).
+    # The rest are scaled from R4's 685 tokens / 6051 atoms and are estimates, which matters
+    # because the verdict turns on Wt's divisibility and scaling can land on the wrong side of it.
+    ladder = [("R0", 217, None), ("R1", 296, None), ("R2", 418, None),
+              ("R3", 514, 4576), ("R4", 685, 6080)]
     rungs = []
-    for name, tok in ladder:
-        r = classify(round(6051 * tok / 685))
+    for name, tok, measured_w in ladder:
+        r = classify(measured_w if measured_w else round(6051 * tok / 685))
         r["rung"], r["tokens"] = name, tok
+        r["width_source"] = "measured" if measured_w else "scaled from R4"
         rungs.append(r)
 
     smallest = next((Wt for Wt in range(1, 4096) if use_large(Wt)[0]), None)
@@ -110,12 +114,13 @@ def main():
            "decline_reasons": declines,
            "rule": "blk == in0_block_w iff Wt is not divisible by 4 and not divisible by 3"}
 
-    print("%-5s %-7s %-8s %-6s %-5s %-9s %-5s %-11s %s"
-          % ("rung", "tokens", "atoms~", "keyW", "Wt", "kernel?", "blk", "in0_block_w", "L5b exact?"))
+    print("%-5s %-7s %-6s %-5s %-9s %-5s %-11s %-11s %s"
+          % ("rung", "tokens", "keyW", "Wt", "kernel?", "blk", "in0_block_w", "L5b exact?", "width"))
     for r in rungs:
-        print("%-5s %-7d %-8d %-6d %-5d %-9s %-5d %-11d %s"
-              % (r["rung"], r["tokens"], r["atoms"], r["key_width"], r["Wt"],
-                 r["kernel_engages"], r["blk"], r["in0_block_w"], r["l5b_bit_exact"]))
+        print("%-5s %-7d %-6d %-5d %-9s %-5d %-11d %-11s %s"
+              % (r["rung"], r["tokens"], r["key_width"], r["Wt"],
+                 r["kernel_engages"], r["blk"], r["in0_block_w"], r["l5b_bit_exact"],
+                 r["width_source"]))
     print("\nthe fused softmax kernel engages only above key width %d (about %d atoms); below it "
           "the fold runs the shipped softmax+typecast pair and L5b has NO SITE."
           % (res["kernel_engages_above_key_width"], res["kernel_engages_above_atoms"]))

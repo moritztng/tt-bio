@@ -11,7 +11,8 @@
       "in0_block_w": 2,
       "l5b_bit_exact": false,
       "rung": "R0",
-      "tokens": 217
+      "tokens": 217,
+      "width_source": "scaled from R4"
     },
     {
       "atoms": 2615,
@@ -24,7 +25,8 @@
       "in0_block_w": 2,
       "l5b_bit_exact": false,
       "rung": "R1",
-      "tokens": 296
+      "tokens": 296,
+      "width_source": "scaled from R4"
     },
     {
       "atoms": 3692,
@@ -37,23 +39,25 @@
       "in0_block_w": 2,
       "l5b_bit_exact": false,
       "rung": "R2",
-      "tokens": 418
+      "tokens": 418,
+      "width_source": "scaled from R4"
     },
     {
-      "atoms": 4540,
-      "key_width": 4544,
-      "Wt": 142,
-      "cb_sum_kb": 1740,
+      "atoms": 4576,
+      "key_width": 4576,
+      "Wt": 143,
+      "cb_sum_kb": 1744,
       "kernel_engages": true,
       "pv_config_pinned": true,
-      "blk": 2,
-      "in0_block_w": 2,
+      "blk": 1,
+      "in0_block_w": 1,
       "l5b_bit_exact": true,
       "rung": "R3",
-      "tokens": 514
+      "tokens": 514,
+      "width_source": "measured"
     },
     {
-      "atoms": 6051,
+      "atoms": 6080,
       "key_width": 6080,
       "Wt": 190,
       "cb_sum_kb": 2316,
@@ -63,7 +67,8 @@
       "in0_block_w": 2,
       "l5b_bit_exact": true,
       "rung": "R4",
-      "tokens": 685
+      "tokens": 685,
+      "width_source": "measured"
     }
   ],
   "kernel_engages_above_key_width": 3456,

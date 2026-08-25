@@ -243,13 +243,19 @@ def main():
     else:
         # The gate is an absolute millisecond threshold set at 6051 atoms and the chain scales
         # with the atom axis, so it is not a threshold this run is entitled to evaluate.
+        # Compare medians against medians. Ranking a median against one rep's max reports the
+        # wrong winner whenever that rep happens to be the slow one.
+        per_call = collections.defaultdict(list)
+        for r in reps:
+            for row in r["rows"]:
+                if row["width"] == res["atom_key_width"]:
+                    per_call[row["call"]].append(row["ms_per_step"])
+        ranked = sorted(((statistics.median(v), k) for k, v in per_call.items()), reverse=True)
+        res["atom_calls_ranked"] = [{"call": k, "ms_per_step": round(m, 3)} for m, k in ranked]
         print("ACCEPTANCE: OFF-FIXTURE (atom axis %d, not 6080). The 25 ms/step gate is not "
               "evaluated. The structural claim this run CAN settle is the share: %.1f %% of the "
-              "step wall is the L5b chain, and softmax_into is %sthe largest call in it."
-              % (res["atom_key_width"], 100 * share,
-                 "" if softmax_ms >= max((r["ms_per_step"] for r in reps[-1]["rows"]
-                                          if r["width"] == res["atom_key_width"]), default=0)
-                 else "NOT "))
+              "step wall is the L5b chain, and the largest call in it is %s at %.1f ms/step."
+              % (res["atom_key_width"], 100 * share, ranked[0][1], ranked[0][0]))
 
     # The prize, re-stated against the number this run measured rather than against the
     # isolated one. COST-MODEL ESTIMATE, and it stays one until the fold A/B reports.

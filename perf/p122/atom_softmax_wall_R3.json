@@ -1,0 +1,188 @@
+{
+  "fixture": "perf/dsfix/fixtures/rfd3_R3.json",
+  "atoms": 6051,
+  "tokens": 685,
+  "batch": 1,
+  "num_timesteps": 8,
+  "reps": 3,
+  "host": "pc",
+  "card": "0",
+  "torch": "2.8.0+cpu",
+  "checkpoint": "/home/moritz/.boltz/rfd3/weights",
+  "step_wall_ms": 344.2,
+  "atom_chain_ms_per_step": 31.543,
+  "softmax_into_ms_per_step": 25.519,
+  "chain_share_of_step": 0.092,
+  "atom_key_width": 4576,
+  "rss_hwm_gb": 14.53,
+  "per_rep": [
+    {
+      "rep": 0,
+      "total_wall_s": 94.1,
+      "counted_steps": 4,
+      "atom_key_width": 4576,
+      "rss_hwm_gb": 14.33,
+      "step_wall_ms": 344.2,
+      "rows": [
+        {
+          "call": "softmax_into",
+          "bucket": "atom_w4576",
+          "width": 4576,
+          "ms_per_step": 25.519,
+          "calls_per_step": 9.0,
+          "ms_per_call": 2.8354
+        },
+        {
+          "call": "attn_value_matmul",
+          "bucket": "atom_w4576",
+          "width": 4576,
+          "ms_per_step": 5.614,
+          "calls_per_step": 9.0,
+          "ms_per_call": 0.6238
+        },
+        {
+          "call": "attn_value_matmul",
+          "bucket": "other_w544",
+          "width": 544,
+          "ms_per_step": 5.278,
+          "calls_per_step": 40.0,
+          "ms_per_call": 0.1319
+        },
+        {
+          "call": "ttnn.empty",
+          "bucket": "atom_w4576",
+          "width": 4576,
+          "ms_per_step": 0.41,
+          "calls_per_step": 9.0,
+          "ms_per_call": 0.0455
+        }
+      ],
+      "atom_chain_ms_per_step": 31.543,
+      "softmax_into_ms_per_step": 25.519,
+      "chain_share_of_step": 0.0916,
+      "softmax_served": 63
+    },
+    {
+      "rep": 1,
+      "total_wall_s": 13.1,
+      "counted_steps": 4,
+      "atom_key_width": 4576,
+      "rss_hwm_gb": 14.33,
+      "step_wall_ms": 340.0,
+      "rows": [
+        {
+          "call": "softmax_into",
+          "bucket": "atom_w4576",
+          "width": 4576,
+          "ms_per_step": 25.265,
+          "calls_per_step": 9.0,
+          "ms_per_call": 2.8072
+        },
+        {
+          "call": "attn_value_matmul",
+          "bucket": "atom_w4576",
+          "width": 4576,
+          "ms_per_step": 5.427,
+          "calls_per_step": 9.0,
+          "ms_per_call": 0.603
+        },
+        {
+          "call": "attn_value_matmul",
+          "bucket": "other_w544",
+          "width": 544,
+          "ms_per_step": 4.782,
+          "calls_per_step": 40.0,
+          "ms_per_call": 0.1196
+        },
+        {
+          "call": "ttnn.empty",
+          "bucket": "atom_w4576",
+          "width": 4576,
+          "ms_per_step": 0.423,
+          "calls_per_step": 9.0,
+          "ms_per_call": 0.047
+        }
+      ],
+      "atom_chain_ms_per_step": 31.115,
+      "softmax_into_ms_per_step": 25.265,
+      "chain_share_of_step": 0.0915,
+      "softmax_served": 63
+    },
+    {
+      "rep": 2,
+      "total_wall_s": 12.7,
+      "counted_steps": 4,
+      "atom_key_width": 4576,
+      "rss_hwm_gb": 14.53,
+      "step_wall_ms": 348.9,
+      "rows": [
+        {
+          "call": "softmax_into",
+          "bucket": "atom_w4576",
+          "width": 4576,
+          "ms_per_step": 25.857,
+          "calls_per_step": 9.0,
+          "ms_per_call": 2.873
+        },
+        {
+          "call": "attn_value_matmul",
+          "bucket": "atom_w4576",
+          "width": 4576,
+          "ms_per_step": 5.958,
+          "calls_per_step": 9.0,
+          "ms_per_call": 0.662
+        },
+        {
+          "call": "attn_value_matmul",
+          "bucket": "other_w544",
+          "width": 544,
+          "ms_per_step": 5.916,
+          "calls_per_step": 40.0,
+          "ms_per_call": 0.1479
+        },
+        {
+          "call": "ttnn.empty",
+          "bucket": "atom_w4576",
+          "width": 4576,
+          "ms_per_step": 0.949,
+          "calls_per_step": 9.0,
+          "ms_per_call": 0.1054
+        }
+      ],
+      "atom_chain_ms_per_step": 32.764,
+      "softmax_into_ms_per_step": 25.857,
+      "chain_share_of_step": 0.0939,
+      "softmax_served": 63
+    }
+  ],
+  "noise_floor": {
+    "step_wall_ms": 0.0259,
+    "atom_chain_ms_per_step": 0.0523,
+    "softmax_into_ms_per_step": 0.0232,
+    "chain_share_of_step": 0.0262
+  },
+  "acceptance_gate": "softmax_into >= 25 ms/step at the 6080-wide atom axis",
+  "acceptance_gate_applies": false,
+  "acceptance_pass": null,
+  "deletable_ms_per_step_estimate": 22.058,
+  "prize_frac_of_step_estimate": {
+    "at_110pct": -0.0705,
+    "at_75pct": -0.0481,
+    "at_41pct": -0.0263
+  },
+  "atom_calls_ranked": [
+    {
+      "call": "softmax_into",
+      "ms_per_step": 25.519
+    },
+    {
+      "call": "attn_value_matmul",
+      "ms_per_step": 5.614
+    },
+    {
+      "call": "ttnn.empty",
+      "ms_per_step": 0.423
+    }
+  ],
+  "note": "largest atom call re-derived from per-rep medians; the run's own printed line ranked a median against one rep's max and named the wrong winner."
+}
