@@ -1,0 +1,89 @@
+{
+  "flag": "RFD3_SOFTMAX_PV_FUSED",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 0.936,
+      "cif_sha256_16": "32fdc5f290a5f43a",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 0.953,
+      "cif_sha256_16": "32fdc5f290a5f43a",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 0.931,
+      "cif_sha256_16": "32fdc5f290a5f43a",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "sampler_s": 0.937,
+      "cif_sha256_16": "32fdc5f290a5f43a",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R1.json",
+  "arms_distinct": false,
+  "discarded_warmup_s": 20.784,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "32fdc5f290a5f43a"
+    ],
+    "off": [
+      "32fdc5f290a5f43a"
+    ]
+  },
+  "aa_control_s": [
+    0.936,
+    0.931
+  ],
+  "aa_spread_s": 0.0050000000000000044,
+  "off_median_s": 0.9335,
+  "off_min_s": 0.931,
+  "off_max_s": 0.936,
+  "on_median_s": 0.9450000000000001,
+  "on_min_s": 0.937,
+  "on_max_s": 0.953,
+  "delta_s": 0.012,
+  "ratio": 0.9878,
+  "delta_inside_aa_band": false,
+  "predicted_delta_s": null,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R1",
+  "provisional_on": "pc-card0",
+  "expect_decline": true,
+  "decline_reasons": {
+    "softmax kernel does not engage at this shape @ key 2976": 36,
+    "softmax kernel does not engage at this shape @ key 320": 144
+  },
+  "served_widths": {},
+  "atom_key": 2976,
+  "served_at_atom": 0,
+  "declined_at_atom": 36
+}

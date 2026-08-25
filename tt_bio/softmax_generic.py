@@ -402,6 +402,7 @@ def softmax_bf16(x, dtype):
 
 PVSTATS = [0]                      # calls served fused, so an A/B arm cannot silently decline
 PVDECLINES = {}                    # reason -> count, so a decline is readable rather than silent
+PVSERVED = {}                      # key width -> count, the other half of the same census
 
 _PV_ENABLED = env_flag("RFD3_SOFTMAX_PV_FUSED", False)
 
@@ -512,6 +513,11 @@ def softmax_pv_fused(x, vv, dtype, ckc):
         k = "%s @ key %d" % (v["why"], int(x.padded_shape[-1]))
         PVDECLINES[k] = PVDECLINES.get(k, 0) + 1
         return None
+    # Record the width served, not just the count. A decline census alone cannot say WHICH site a
+    # fold served, so "the lever declined at this design size" and "it served a different site of
+    # the same fold" are indistinguishable without this (root-caused on the R2 fold, §12.1).
+    kw = int(x.padded_shape[-1])
+    PVSERVED[kw] = PVSERVED.get(kw, 0) + 1
     out = ttnn.empty([int(d) for d in list(x.shape)[:-1]] + [int(vv.shape[-1])],
                      dtype, ttnn.TILE_LAYOUT, x.device(), x.memory_config())
     # The softmax half's own config, unchanged: `approx=True` is what `EXP_APPROX` rides on and

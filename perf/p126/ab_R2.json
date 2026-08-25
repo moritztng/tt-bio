@@ -1,0 +1,100 @@
+{
+  "flag": "RFD3_SOFTMAX_PV_FUSED",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 53.2,
+      "cif_sha256_16": "18172fc7e40df53b",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "sampler_s": 53.015,
+      "cif_sha256_16": "18172fc7e40df53b",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 2,
+      "sampler_s": 51.961,
+      "cif_sha256_16": "18172fc7e40df53b",
+      "n_cifs": 1,
+      "served_calls": 1791,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "sampler_s": 53.31,
+      "cif_sha256_16": "18172fc7e40df53b",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 4,
+      "sampler_s": 52.165,
+      "cif_sha256_16": "18172fc7e40df53b",
+      "n_cifs": 1,
+      "served_calls": 1791,
+      "steps": 200
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "arms": [
+    "off",
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R2.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 56.721,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "18172fc7e40df53b"
+    ],
+    "off": [
+      "18172fc7e40df53b"
+    ]
+  },
+  "aa_control_s": [
+    53.2,
+    53.015
+  ],
+  "aa_spread_s": 0.18500000000000227,
+  "off_median_s": 53.2,
+  "off_min_s": 53.015,
+  "off_max_s": 53.31,
+  "on_median_s": 52.063,
+  "on_min_s": 51.961,
+  "on_max_s": 52.165,
+  "delta_s": -1.137,
+  "ratio": 1.0218,
+  "delta_inside_aa_band": false,
+  "predicted_delta_s": -0.05,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R2",
+  "provisional_on": "pc-card0",
+  "expect_decline": false,
+  "decline_reasons": {
+    "softmax kernel does not engage at this shape @ key 448": 14328
+  },
+  "served_widths": {
+    "3872": 3582
+  },
+  "atom_key": 3872,
+  "served_at_atom": 3582,
+  "declined_at_atom": 0
+}
