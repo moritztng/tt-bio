@@ -244,17 +244,23 @@ def build(device, x, out, grid, ckc, numeric_stable=True, vv=None):
     src_a, out_a = x.buffer_address(), out.buffer_address()
     vv_a = vv.buffer_address() if pv else 0
     Wt, Ht, blk = p["Wt"], p["Ht"], p["block_size"]
+    # `plan` folds every dim between the first and the last into H, so `Ht` counts row-tiles across
+    # ALL heads and is the wrong stride for anything per-head. The value tiles are per-head, so the
+    # fused program needs the per-head row-tile count separately -- `Ht // heads`, taken off the
+    # padded row axis directly so it does not depend on how many dims got folded.
+    mt = int(x.padded_shape[-2]) // TILE
+    assert not pv or (Ht % mt == 0 and mt > 0), (Ht, mt)
     # The fused program emits one output tile per row-tile instead of Wt of them, and the writer
     # drains it a tile at a time. Everything else about the work split is untouched.
     out_w, out_blk = (1, 1) if pv else (Wt, blk)
-    pv_pad = [0, 0] if pv else []
+    pv_pad = [0, 0, 0] if pv else []
     rr, wr, cr = [], [], []
     curr_row = 0
     for i in range(p["max_cores"]):
         core = ttnn.CoreCoord(i % gx, i // gx)
         if i >= p["target"]:
             rr.append((core, [0] * 10 + [0x3F803F80, 0] + pv_pad))
-            cr.append((core, [0] * 7))
+            cr.append((core, [0] * (9 if pv else 7)))
             wr.append((core, [0] * 6))
             continue
         n = p["per1"] if (p["rem"] == 0 or i < p["rem"]) else p["per2"]
@@ -263,8 +269,9 @@ def build(device, x, out, grid, ckc, numeric_stable=True, vv=None):
         mask_id = curr_row // Ht * Wt
         rr.append((core, [src_a, blk, 0x3F800000, n, tile_offset, Wt, Ht, 0, curr_ht, mask_id,
                           0x3F803F80, p["in0_t"]]
-                        + ([vv_a, curr_row // Ht] if pv else [])))
-        cr.append((core, [n, Ht, Wt, blk, curr_ht, 0, p["cb_length"]]))
+                        + ([vv_a, curr_row, mt] if pv else [])))
+        cr.append((core, [n, Ht, Wt, blk, curr_ht, 0, p["cb_length"]]
+                        + ([curr_row, mt] if pv else [])))
         wr.append((core, [out_a, n * out_w, curr_row * out_w, out_blk, 0, 0]))
         curr_row += n
     assert curr_row == p["units"], (curr_row, p["units"])
@@ -315,7 +322,7 @@ def softmax_into(device, x, out, grid=None, ckc=None, numeric_stable=True, vv=No
             if a[3]:
                 a[0] = addrs[0]
                 if e["pv"]:
-                    a[12] = addrs[2]
+                    a[12] = addrs[2]      # same index build() emits vv_a at
         for _c, a in wr:
             if a[1]:
                 a[0] = addrs[1]

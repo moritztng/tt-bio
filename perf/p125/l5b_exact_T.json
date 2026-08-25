@@ -1,0 +1,78 @@
+{
+  "rungs": [
+    {
+      "rung": "T0",
+      "rows": 320,
+      "key_width": 3520,
+      "classify": {
+        "ok": true,
+        "why": "",
+        "Wt": 110,
+        "blk": 2,
+        "in0_block_w": 2,
+        "l1_bytes": 933888,
+        "l1_budget": 1349222
+      },
+      "host_seconds_setup": 0.0,
+      "control_reps": 3,
+      "control_unanimous": true,
+      "declined": false,
+      "torch_equal": true,
+      "maxabs": 0.0,
+      "mismatched_elements": 0,
+      "elements": 40960,
+      "pcc": 0.9999999403953552,
+      "scale_median": 1.0,
+      "ref_absmax": 2.84375,
+      "fused_absmax": 2.84375,
+      "ok": true,
+      "note": "bit-exact",
+      "host_seconds": 0.1
+    },
+    {
+      "rung": "T1",
+      "rows": 320,
+      "key_width": 3584,
+      "classify": {
+        "ok": false,
+        "why": "K-blockings differ",
+        "blk": 4,
+        "in0_block_w": 2
+      },
+      "host_seconds_setup": 0.0,
+      "control_reps": 3,
+      "control_unanimous": true,
+      "declined": true,
+      "ok": true,
+      "note": "declined as classified",
+      "host_seconds": 0.0
+    },
+    {
+      "rung": "T2",
+      "rows": 320,
+      "key_width": 3552,
+      "classify": {
+        "ok": false,
+        "why": "K-blockings differ",
+        "blk": 3,
+        "in0_block_w": 1
+      },
+      "host_seconds_setup": 0.0,
+      "control_reps": 3,
+      "control_unanimous": true,
+      "declined": true,
+      "ok": true,
+      "note": "declined as classified",
+      "host_seconds": 0.0
+    }
+  ],
+  "all_ok": true,
+  "declines_seen": 2,
+  "exact_seen": 1,
+  "provisional_on": "pc-card0",
+  "env": {
+    "TT_VISIBLE_DEVICES": "0",
+    "TT_BIO_LEASE_CARDS": "0",
+    "RFD3_SOFTMAX_PV_FUSED": "1"
+  }
+}

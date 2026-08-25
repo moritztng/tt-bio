@@ -434,8 +434,19 @@ void apply_recip_mac(
         tile_regs_release();
 
         // --- MAC one K block into the running fp32 partial ---
+        //
+        // ONLY the `_short` inits, and this is load-bearing rather than an optimisation. The full
+        // `mm_init` runs `llk_math_pack_sync_init`, which resets the MATH<->PACK dest-register
+        // semaphore; calling it mid-stream, after `binary_op_init_common` has already established
+        // that sync and the normalise half has been using it, hangs the core with unpack at UABD,
+        // math at MWDD and the writer parked in `cb_wait_front`. The reference matmul kernel
+        // full-inits once before its loop and uses `mm_block_init_short` inside for the same
+        // reason. In matmul the operands land the other way round from eltwise -- srcA takes in1
+        // and srcB takes in0 (`mm_init`: `llk_unpack_hw_configure(in1, in0)`) -- so the reconfig
+        // is (cb_vv, cb_norm), not (cb_norm, cb_vv).
         cb_norm_obj.wait_front(blk);
-        mm_init(cb_norm, cb_vv, cb_acc);
+        reconfig_data_format(cb_vv, cb_norm);
+        mm_init_short(cb_norm, cb_vv);
         tile_regs_acquire();
         if (last) {
             copy_tile_to_dst_init_short_with_dt(cb_vv, cb_acc);
@@ -535,7 +546,10 @@ void kernel_main() {
     // boundary falls inside a core's work. The reader loads Wt tiles on every boundary and this
     // side releases the previous head's before waiting, which is also what stops the reader's
     // reserve_back(Wt) from deadlocking on a CB sized at exactly Wt tiles.
-    uint32_t ht_pv = start_ht;
+    // Per-head, not per-`Ht`: `Ht` spans every head because `plan` folds them into the row axis.
+    const uint32_t pv_row = get_arg_val<uint32_t>(7);
+    const uint32_t pv_mt = get_arg_val<uint32_t>(8);
+    uint32_t ht_pv = pv_row % pv_mt;
 #endif
 
     for (uint32_t ncht = 0; ncht < NCHt; ncht++) {
@@ -707,7 +721,7 @@ void kernel_main() {
 #endif
 #ifdef PV_FUSED
         ht_pv++;
-        if (ht_pv == Ht) {
+        if (ht_pv == pv_mt) {
             ht_pv = 0;
         }
 #endif

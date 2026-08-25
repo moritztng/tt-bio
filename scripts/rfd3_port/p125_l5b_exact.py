@@ -34,7 +34,16 @@ HEAD_DIM = 32
 
 # (name, rows, key width). R4 is the census fixture's padded atom axis; R3 is what p122 measured
 # on this box; R2 and R1 are the rungs on the other side of the two size gates.
-LADDER = [("R1", 2624, 2624), ("R2", 3712, 3712), ("R3", 4576, 4576), ("R4", 6051, 6080)]
+#
+# The T rungs are the smallest shapes that reach each verdict, so a kernel change costs seconds to
+# score instead of minutes: 320 rows is 10 m-tiles, one more than the 8 `_attn_value_program_config`
+# needs to stay on its pinned 1D mirror, and a 3520 key width is 40 KB past the `use_large` trip.
+# They cover all three verdicts the ladder has -- T0 exact at `blk = in0_block_w = 2`, which is
+# also R4's blocking, and T1/T2 the two ways the blockings can disagree.
+LADDER = [("T0", 320, 3520),      # blk 2 == in0_block_w 2   -> exact
+          ("T1", 320, 3584),      # blk 4 vs in0_block_w 2   -> decline
+          ("T2", 320, 3552),      # blk 3 vs in0_block_w 1   -> decline
+          ("R1", 2624, 2624), ("R2", 3712, 3712), ("R3", 4576, 4576), ("R4", 6051, 6080)]
 
 
 def _ckc():
@@ -92,11 +101,20 @@ def run_rung(device, name, rows, key_w, ckc, seed):
         f = ttnn.to_torch(fused)
         ttnn.deallocate(fused)
         eq = bool(torch.equal(f, refs[0]))
-        d = (f.float() - refs[0].float()).abs()
+        a, b = f.float().flatten(), refs[0].float().flatten()
+        d = (a - b).abs()
         rec["torch_equal"] = eq
         rec["maxabs"] = float(d.max())
         rec["mismatched_elements"] = int((d != 0).sum())
         rec["elements"] = int(d.numel())
+        # PCC and the fused/shipped scale separate the three ways this can be wrong: a grouping
+        # difference leaves PCC at 1.0, a dropped accumulation leaves the scale short by roughly
+        # the block count, and a layout error destroys PCC outright.
+        rec["pcc"] = float(torch.corrcoef(torch.stack([a, b]))[0, 1])
+        nz = b.abs() > 1e-6
+        rec["scale_median"] = float((a[nz] / b[nz]).median())
+        rec["ref_absmax"] = float(b.abs().max())
+        rec["fused_absmax"] = float(a.abs().max())
         rec["ok"] = eq and control_ok
         rec["note"] = ("bit-exact" if eq else
                        ("card control failed, verdict void" if not control_ok

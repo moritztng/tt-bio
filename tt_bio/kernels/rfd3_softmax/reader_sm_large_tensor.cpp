@@ -33,7 +33,11 @@ void kernel_main() {
     uint32_t cb_length_t = get_arg_val<uint32_t>(11);
 #ifdef PV_FUSED
     const uint32_t vv_addr = get_arg_val<uint32_t>(12);
-    uint32_t head = get_arg_val<uint32_t>(13);
+    // `Ht` is NOT the per-head row-tile count: `plan` folds heads into the row axis, so Ht spans
+    // every head and `row / Ht` is 0 for the whole tensor. The host passes the per-head count.
+    const uint32_t pv_row = get_arg_val<uint32_t>(13);
+    const uint32_t pv_mt = get_arg_val<uint32_t>(14);
+    uint32_t head = pv_row / pv_mt;
 #endif
 #if CAUSAL_MASK
     uint32_t mask_start_ht = get_arg_val<uint32_t>(12);
@@ -76,7 +80,7 @@ void kernel_main() {
     const uint32_t vv_tile_bytes = get_tile_size(cb_id_vv);
     const auto vv_a = TensorAccessor(vv_args, vv_addr, vv_tile_bytes);
     experimental::CircularBuffer cb_id_vv_obj(cb_id_vv);
-    uint32_t ht_pv = start_ht;
+    uint32_t ht_pv = pv_row % pv_mt;
 #endif
 
     {
@@ -179,7 +183,7 @@ void kernel_main() {
 #endif
 #ifdef PV_FUSED
         ht_pv++;
-        if (ht_pv == Ht) {
+        if (ht_pv == pv_mt) {
             ht_pv = 0;
             head++;
         }
