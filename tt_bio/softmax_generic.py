@@ -442,8 +442,6 @@ def pv_classify(x, vv, dtype, ckc, grid=None):
     def no(why, **kw):
         return dict(ok=False, why=why, **kw)
 
-    if not _PV_ENABLED:
-        return no("lever off")
     if not eligible(x, dtype):
         return no("softmax kernel does not engage at this shape")
     if vv is None or len(vv.shape) != 4 or len(x.shape) != 4:
@@ -456,7 +454,7 @@ def pv_classify(x, vv, dtype, ckc, grid=None):
     if grid is None:
         g = x.device().compute_with_storage_grid_size()
         grid = (g.x, g.y)
-    p = plan(x, x, grid, True, True)
+    p = plan(x, vv, grid, True, True)
     Wt = p["Wt"]
     if int(vv.padded_shape[-2]) != Wt * TILE:
         return no("value K axis %d is not the key axis %d" % (vv.padded_shape[-2], Wt * TILE))
@@ -504,6 +502,8 @@ def softmax_pv_fused(x, vv, dtype, ckc):
     Declining is the default-safe answer and the caller runs the shipped pair. Nothing here
     widens what `softmax_bf16` already covers; it only removes the trip to DRAM between the two.
     """
+    if not _PV_ENABLED:
+        return None
     v = pv_classify(x, vv, dtype, ckc)
     if not v["ok"]:
         # Key the census by shape as well as reason: "the kernel does not engage" at a 1024 key

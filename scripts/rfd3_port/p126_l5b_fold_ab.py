@@ -58,9 +58,8 @@ def main():
 
     # Why the lever declined, whenever it did, so a decline is evidence rather than a silence.
     declines = dict(softmax_generic.PVDECLINES)
-    declines.pop("lever off", None)          # every off arm and the warmup contributes this one
     if declines:
-        print("\ndecline reasons (excluding the off arms): %s" % declines)
+        print("\ndecline reasons, keyed by padded key width: %s" % declines)
     rec["decline_reasons"] = declines
     pathlib.Path(out).write_text(__import__("json").dumps(rec, indent=2) + "\n")
 
