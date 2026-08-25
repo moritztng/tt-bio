@@ -1,0 +1,89 @@
+{
+  "flag": "RFD3_FC1_SPLIT_SILU",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 2.115,
+      "cif_sha256_16": "73112401e98737c0",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "sampler_s": 2.083,
+      "cif_sha256_16": "73112401e98737c0",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "off"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R3.json",
+  "arms_distinct": false,
+  "discarded_warmup_s": 2.807,
+  "bit_exact": true,
+  "digests": {
+    "off": [
+      "73112401e98737c0"
+    ]
+  },
+  "aa_control_s": [
+    2.115,
+    2.083
+  ],
+  "aa_spread_s": 0.03200000000000003,
+  "off_median_s": 2.099,
+  "off_min_s": 2.083,
+  "off_max_s": 2.115,
+  "on_median_s": null,
+  "on_min_s": null,
+  "on_max_s": null,
+  "delta_s": null,
+  "ratio": null,
+  "delta_inside_aa_band": null,
+  "predicted_delta_s": -0.0885,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R3",
+  "tokens": 514,
+  "site_plan": {
+    "512": {
+      "tokens": 514,
+      "hidden": 512,
+      "w_pad": 544,
+      "chunked": true,
+      "chunk_h_off": 63,
+      "chunk_h_on": 63,
+      "n_chunks_off": 9,
+      "n_chunks_on": 9,
+      "fc1_output_in_l1": false,
+      "chunk_h_moves": false
+    },
+    "256": {
+      "tokens": 514,
+      "hidden": 256,
+      "w_pad": 544,
+      "chunked": true,
+      "chunk_h_off": 64,
+      "chunk_h_on": 64,
+      "n_chunks_off": 9,
+      "n_chunks_on": 9,
+      "fc1_output_in_l1": true,
+      "chunk_h_moves": false
+    }
+  },
+  "provisional_on": "pc-card0",
+  "expect_no_site": false,
+  "l1_bytes": 70500000,
+  "fc1_served": {},
+  "fc1_declines": {},
+  "tune_matmul": false
+}

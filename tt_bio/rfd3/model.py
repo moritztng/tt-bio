@@ -748,6 +748,13 @@ class Transition(Module):
         """
         if not (_PAIR_TRANSITION_L1 and len(x.shape) == 4
                 and x.shape[2] >= _PAIR_TRANSITION_MIN_W):
+            if _FC1_SPLIT_SILU and len(x.shape) == 4:
+                # Decline route 3 of 3: no chunked site at all, so the split is never reached.
+                # Censused rather than inferred from an unchanged digest -- a rung whose verdict
+                # is "nothing happened" needs the guard to SAY it declined
+                # (`negative-control-must-break-what-check-reads`).
+                k = "w=%d no-chunked-site" % int(x.padded_shape[2])
+                FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
             return self._swiglu(x, None)
         H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
         w_pad = int(x.padded_shape[2])
@@ -764,6 +771,13 @@ class Transition(Module):
         # regress. That is every size at hidden=256, and up to 693 tokens at hidden=512.
         h3 = _pair_transition_chunk_h(x.shape[0], w_pad, hidden, H, residents=3)
         split = _FC1_SPLIT_SILU and -(-H // h3) == -(-H // h)
+        if _FC1_SPLIT_SILU and not split:
+            # Decline route 2 of 3, and the only one that was invisible: the third resident would
+            # cost an extra chunk call, so `fc1`'s output stays in DRAM and the silu stays on the
+            # call. 479 of the 689 chunked sizes at hidden=512 land here.
+            k = ("tensor_rows=%d w=%d hidden=%d chunk-count-would-rise %d->%d"
+                 % (H, w_pad, hidden, -(-H // h), -(-H // h3)))
+            FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
         if split:
             h = h3
         # Slice lazily rather than `ttnn.chunk`, which materialises a second full copy of the

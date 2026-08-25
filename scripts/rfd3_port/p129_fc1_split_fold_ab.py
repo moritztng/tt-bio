@@ -75,6 +75,26 @@ def chunk_plan(tokens, hidden):
 def main():
     argv = [a for a in sys.argv[1:] if not a.startswith("--")]
     expect_no_site = "--expect-no-site" in sys.argv
+    # `--l1-bytes=N` shrinks `_PAIR_TRANSITION_L1_BYTES` for this run only. It is the SECOND knob
+    # on the chunk-count-parity predicate: the guard compares chunk counts at two and three
+    # residents, and that comparison moves with the L1 budget exactly as it moves with the token
+    # count. So a host that cannot fold a >693-token fixture can still fold both size regimes the
+    # guard distinguishes (§10.1: pc tops out near a 5900-wide atom axis, R4 needs 6080).
+    # At R3 (514 tokens, w_pad 544) the two rungs the shipped 138 MB budget cannot reach are:
+    #   100_000_000 -- hidden=512 serves at a MOVED chunk height, h 64 -> 59 at 9 chunks either
+    #                  way. Same class as the census fixture's own h 64 -> 63, which has never
+    #                  been folded, so this is the exactness rung for 673-693 and 705-732 tokens.
+    #   90_000_000  -- hidden=512 declines on the parity guard, hidden=256 still serves. Same
+    #                  class as every size from 694 tokens up, i.e. the addressable-half boundary.
+    # In both, the OFF arm's h stays 64 at both widths, so the off path is byte-identical to the
+    # shipped one and its digest must still be the shipped digest.
+    l1_bytes = None
+    for a in sys.argv[1:]:
+        if a.startswith("--l1-bytes="):
+            l1_bytes = int(a.split("=", 1)[1])
+            rfd3_model._PAIR_TRANSITION_L1_BYTES = l1_bytes
+            print("[p129] _PAIR_TRANSITION_L1_BYTES = %d (shipped %d) -- moves the parity "
+                  "predicate, NOT the lever" % (l1_bytes, 138_000_000))
     out = argv[0] if len(argv) > 0 else "perf/p129/fc1_split_fold_ab.json"
     steps = int(argv[1]) if len(argv) > 1 else 200
     arms = (argv[2] if len(argv) > 2 else "off,off,on,off,on").split(",")
@@ -98,7 +118,8 @@ def main():
                   out=out, steps=steps, arms=arms, tag="p129_%s" % rung,
                   predicted_delta_s=PREDICTED.get(rung),
                   extra={"rung": rung, "tokens": tokens, "site_plan": plans,
-                         "provisional_on": "pc-card0", "expect_no_site": expect_no_site})
+                         "provisional_on": "pc-card0", "expect_no_site": expect_no_site,
+                         "l1_bytes": l1_bytes or rfd3_model._PAIR_TRANSITION_L1_BYTES})
 
     served, declines = dict(rfd3_model.FC1SERVED), dict(rfd3_model.FC1DECLINES)
     print("\nfc1 census -- served (pinned config AND L1 output): %s" % (served or "{} (none)"))
@@ -129,7 +150,21 @@ def main():
         print("\nSPLIT RAN BUT NOTHING SERVED -- every call declined, so any delta is the split's "
               "extra DRAM round trip and not the lever")
         return 4
-    return 0
+
+    # The census has to agree with the arithmetic PER HIDDEN WIDTH, not in total. A rung where one
+    # width serves and the other declines reads as a healthy A/B on the totals alone, which is the
+    # `gate-fixture-existence-vs-content-inversion` shape: check the content.
+    ok = True
+    for h, pl in plans.items():
+        want = pl["chunked"] and pl["fc1_output_in_l1"]
+        got = any(("hidden=%d" % h) in k for k in served)
+        rise = any(("hidden=%d chunk-count-would-rise" % h) in k for k in declines)
+        print("hidden=%-4d predicted served=%-5s  observed served=%-5s  parity-decline logged=%s"
+              % (h, want, got, rise))
+        if want != got or (not want and pl["chunked"] and not rise):
+            ok = False
+    print("per-width census agrees with the arithmetic: %s" % ok)
+    return 0 if ok else 5
 
 
 if __name__ == "__main__":
