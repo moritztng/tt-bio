@@ -1,0 +1,119 @@
+{
+  "flag": "RFD3_FC1_SPLIT_SILU",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 2.04,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 2.063,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 80,
+      "steps": 3
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 2.033,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "sampler_s": 2.012,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 80,
+      "steps": 3
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R3.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 4.377,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "6f24e62c705514e1"
+    ],
+    "off": [
+      "6f24e62c705514e1"
+    ]
+  },
+  "aa_control_s": [
+    2.04,
+    2.033
+  ],
+  "aa_spread_s": 0.007000000000000117,
+  "off_median_s": 2.0365,
+  "off_min_s": 2.033,
+  "off_max_s": 2.04,
+  "on_median_s": 2.0375,
+  "on_min_s": 2.012,
+  "on_max_s": 2.063,
+  "delta_s": 0.001,
+  "ratio": 0.9995,
+  "delta_inside_aa_band": true,
+  "predicted_delta_s": -0.0885,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R3",
+  "tokens": 514,
+  "site_plan": {
+    "512": {
+      "tokens": 514,
+      "hidden": 512,
+      "w_pad": 544,
+      "chunked": true,
+      "chunk_h_off": 64,
+      "chunk_h_on": 64,
+      "chunk_h_third_resident": 59,
+      "n_chunks_off": 9,
+      "n_chunks_on": 9,
+      "fc1_output_in_l1": false,
+      "chunk_count_kept": true
+    },
+    "256": {
+      "tokens": 514,
+      "hidden": 256,
+      "w_pad": 544,
+      "chunked": true,
+      "chunk_h_off": 64,
+      "chunk_h_on": 64,
+      "chunk_h_third_resident": 64,
+      "n_chunks_off": 9,
+      "n_chunks_on": 9,
+      "fc1_output_in_l1": true,
+      "chunk_count_kept": false
+    }
+  },
+  "provisional_on": "pc-card0",
+  "expect_no_site": false,
+  "l1_bytes": 100000000,
+  "fc1_served": {
+    "rows=64 w=544 hidden=256": 160
+  },
+  "fc1_declines": {
+    "tensor_rows=514 w=544 hidden=512 chunk-height-would-move 64->59": 20,
+    "rows=2 w=544 hidden=256 no-pinned-config": 20
+  },
+  "tune_matmul": true
+}
