@@ -1,0 +1,80 @@
+{
+  "ladder": [
+    {
+      "atoms": 1917,
+      "key_width": 1920,
+      "Wt": 60,
+      "cb_sum_kb": 772,
+      "kernel_engages": false,
+      "pv_config_pinned": true,
+      "blk": 4,
+      "in0_block_w": 2,
+      "l5b_bit_exact": false,
+      "rung": "R0",
+      "tokens": 217
+    },
+    {
+      "atoms": 2615,
+      "key_width": 2624,
+      "Wt": 82,
+      "cb_sum_kb": 1020,
+      "kernel_engages": false,
+      "pv_config_pinned": true,
+      "blk": 2,
+      "in0_block_w": 2,
+      "l5b_bit_exact": false,
+      "rung": "R1",
+      "tokens": 296
+    },
+    {
+      "atoms": 3692,
+      "key_width": 3712,
+      "Wt": 116,
+      "cb_sum_kb": 1444,
+      "kernel_engages": true,
+      "pv_config_pinned": true,
+      "blk": 4,
+      "in0_block_w": 2,
+      "l5b_bit_exact": false,
+      "rung": "R2",
+      "tokens": 418
+    },
+    {
+      "atoms": 4540,
+      "key_width": 4544,
+      "Wt": 142,
+      "cb_sum_kb": 1740,
+      "kernel_engages": true,
+      "pv_config_pinned": true,
+      "blk": 2,
+      "in0_block_w": 2,
+      "l5b_bit_exact": true,
+      "rung": "R3",
+      "tokens": 514
+    },
+    {
+      "atoms": 6051,
+      "key_width": 6080,
+      "Wt": 190,
+      "cb_sum_kb": 2316,
+      "kernel_engages": true,
+      "pv_config_pinned": true,
+      "blk": 2,
+      "in0_block_w": 2,
+      "l5b_bit_exact": true,
+      "rung": "R4",
+      "tokens": 685
+    }
+  ],
+  "kernel_engages_above_key_width": 3456,
+  "kernel_engages_above_atoms": 3425,
+  "widths_examined": 3988,
+  "widths_l5b_bit_exact": 1994,
+  "l5b_bit_exact_fraction": 0.5,
+  "decline_reasons": {
+    "blk=4 vs in0_block_w=2": 997,
+    "blk=3 vs in0_block_w=1": 665,
+    "blk=3 vs in0_block_w=2": 332
+  },
+  "rule": "blk == in0_block_w iff Wt is not divisible by 4 and not divisible by 3"
+}
