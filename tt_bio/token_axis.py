@@ -94,8 +94,9 @@ UNCENSUSED = "uncensused"  # a reduce site nobody has checked yet; `owner` is re
 TOKEN_AXIS = {
     "boltz2": (
         BUCKETED, TOKEN_BUCKET,
-        "tenstorrent.py PairformerModule, Fp32PairformerModule, DiffusionModule, "
-        ":7786 MSAModule, :8135 TrunkModule",
+        "tt_bio/tenstorrent.py::PairformerModule, tt_bio/tenstorrent.py::Fp32PairformerModule, "
+        "tt_bio/tenstorrent.py::DiffusionModule, tt_bio/tenstorrent.py::MSAModule, "
+        "tt_bio/tenstorrent.py::TrunkModule",
         "pad + pair-mask outer product + additive -1e9 attn mask + slice back; counters read "
         "tri_att 0 ragged / 560 aligned, attn_pair_bias 0 / 120",
     ),
@@ -199,17 +200,27 @@ TOKEN_AXIS = {
     ),
     "rfd3": (
         BUCKETED, TOKEN_BUCKET,
-        "rfd3/model.py TILE via _align_tile/_pad_key_axis, applied in the attention block "
-        "PairformerAttention, :1177, :1321, :1611-1624, :2022",
-        "every TOKEN-axis reduce runs on a tile multiple: censused 0 ragged / 6 aligned at :726 "
-        "and 0/45 at :1690 on both a 70-token and a 298-token design. The two sites still ragged "
-        "reduce over the ATOM axis, not the token axis -- :946 1/1 at w14 and :1428 10/10 at "
-        "w14,w3 -- and both reach primitives measured to mask. 0 masked-ragged anywhere",
+        "tt_bio/rfd3/model.py::TILE, reached through tt_bio/rfd3/model.py::_align_tile and "
+        "tt_bio/rfd3/model.py::_pad_key_axis. Applied on the TOKEN axis in "
+        "tt_bio/rfd3/model.py::PairformerAttention.__call__, and on the ATOM axis in "
+        "tt_bio/rfd3/model.py::RFD3AtomBlock.__call__ and "
+        "tt_bio/rfd3/model.py::CompactStreamingDecoder._capture_sparse_trace; the bias "
+        "templates it pads are tt_bio/rfd3/model.py::_mask_template, "
+        "tt_bio/rfd3/model.py::_zero_template and tt_bio/rfd3/model.py::_sparse_qk_inputs",
+        "every TOKEN-axis reduce runs on a tile multiple: censused 0 ragged / 6 aligned and "
+        "0 ragged / 45 aligned at the two token-axis sites, on both a 70-token and a 298-token "
+        "design. The two sites still ragged reduce over the ATOM axis, not the token axis -- "
+        "1/1 at w14 and 10/10 at w14,w3 -- and both reach primitives measured to mask. "
+        "0 masked-ragged anywhere. Which site is which was recorded as four rfd3/model.py line "
+        "numbers, and all four had moved by 2026-08-25: no rfd3 run is kept under "
+        "perf/bucketing_audit/census/, so the attribution needs a re-census to restate. The "
+        "counters are what was measured and they are unaffected",
     ),
     "pxdesign": (
         BUCKETED, TOKEN_BUCKET,
-        "pxdesign/model.py ProtenixDesign._bucket_token_axis, applied to the cond dict at "
-        ":201; everything downstream reads NT off cond[\"s_inputs\"].shape[0]",
+        "tt_bio/pxdesign/model.py::ProtenixDesign._bucket_token_axis, applied to the cond dict "
+        "in tt_bio/pxdesign/model.py::ProtenixDesign._trunk_cond; everything downstream reads "
+        "NT off cond[\"s_inputs\"].shape[0]",
         "pad + additive -1e9 on the DiT pair bias + zero-pad the atom<->token matrix S; no "
         "slice-back, because the output is atom coordinates and the token axis never reaches "
         "it. IMMUNE by route was true and is not a resting state: on the shipped fixture "

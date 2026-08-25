@@ -32,7 +32,6 @@ import atexit
 import json
 import os
 import sys
-import traceback
 
 # "op|site" -> counters. `masked_ragged` is the one that matters: a ragged key axis under an
 # additive bias the caller sized to the LOGICAL length is the 71-76x defect.
@@ -65,14 +64,25 @@ def _bump(op, site, ragged, shape="", **extra):
 
 
 def _site():
-    """The innermost tt_bio frame, i.e. the model line that made the call."""
-    for fr in reversed(traceback.extract_stack()):
-        f = os.path.abspath(fr.filename)
-        if f == _PROBE:
-            continue
+    """The innermost tt_bio frame, as ``tt_bio/mod.py::qualname``.
+
+    A symbol and not a line number, because these strings do not stay in a JSON file:
+    they get pasted into `tt_bio/token_axis.py` as the evidence for a census row, and
+    there a line number is wrong the next time anything is inserted above it. All nine
+    in the rfd3 row went stale in one merge. `tests/test_citations.py` can check the
+    symbol form against the file and cannot check the other one.
+    """
+    fr = sys._getframe(1)
+    while fr is not None:
+        f = os.path.abspath(fr.f_code.co_filename)
         i = f.rfind(os.sep + "tt_bio" + os.sep)
-        if i >= 0:
-            return f[i + 1:] + ":" + str(fr.lineno)
+        if i >= 0 and f != _PROBE:
+            # `<locals>` and `<listcomp>` are frames, not definitions; a citation that
+            # keeps them resolves against nothing.
+            qual = ".".join(part for part in fr.f_code.co_qualname.split(".")
+                            if not part.startswith("<"))
+            return f[i + 1:] + "::" + qual
+        fr = fr.f_back
     return "<non-tt_bio>"
 
 

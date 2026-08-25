@@ -7,9 +7,10 @@ irreducible 1.98 GB. Eight calls per step: `transition_2.{0,1}` at H=256 and
 `_process_` twice. Every one of the six ops in `Transition.__call__` round-trips DRAM, and `a`, `b`
 and `m` are dead the instant `fc3` consumes them.
 
-The route already ships in this repo for four other models: `tt_bio/tenstorrent.py:3934` keeps
-`x_norm`, `x_1`, `x_2` in L1 and row-chunks the pair tensor on dim 1. RFD3's `Transition` is a
-separate naive reimplementation that never got it.
+The route already ships in this repo for four other models:
+`tt_bio/tenstorrent.py::Transition` keeps `x_norm`, `x_1`, `x_2` in L1 and row-chunks the
+pair tensor on dim 1. RFD3's `Transition` is a separate naive reimplementation that never
+got it.
 
 This is a SCREEN, per `fusion-screen-prize-only-is-half-a-screen`: it prices the cost side (arm B,
 chunking with DRAM intermediates, no residency return at all) BEFORE the prize side (arm C).

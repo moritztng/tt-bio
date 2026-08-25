@@ -11,7 +11,8 @@ from ..align import rigid_transform
 # columns have nowhere to say so without inventing a residue name per position.
 #
 # The full standard _atom_site set, not the minimum that looks right in a viewer. Bio.PDB's
-# MMCIFParser hard-requires `occupancy` (tt_bio/worker.py:176 already records that one) and reads
+# MMCIFParser hard-requires `occupancy`
+# (tt_bio/worker.py::_write_atom_array_structure already records that one) and reads
 # chain and residue identity from the `auth_*` columns, so a file carrying only the `label_*` ones
 # parses in Mol* and PyMOL and raises KeyError in Biopython. That is exactly the shape of failure a
 # user hits after the run they waited for, so the columns are written even though several are

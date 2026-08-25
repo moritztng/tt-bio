@@ -223,12 +223,13 @@ def _write_cif(coords, f, out_path: Path, b_factors=None, pred_restype=None):
 
     # Atom14 slots 5..13 always carry the generic "V{i}" template name, for a
     # designed residue's synthetic pad atom AND for a motif residue's real
-    # side-chain atom alike (featurize.py:490). The delivered CIF used to ship
-    # both verbatim: 964 of des_rfd3_binder's 2051 atoms were named V0..V8.
+    # side-chain atom alike (tt_bio/rfd3/featurize.py::ATOM14_ATOM_NAMES). The
+    # delivered CIF used to ship both verbatim: 964 of des_rfd3_binder's 2051
+    # atoms were named V0..V8.
     # Only the pad atoms are meant to leave the network, and only they are
     # flagged by `is_virtual` -- a mask the feature dict has carried since
-    # featurize.py:2263 and that this writer never read. So: drop the pads, and
-    # give the real side-chain atoms their names back.
+    # tt_bio/rfd3/featurize.py::featurize and that this writer never read. So:
+    # drop the pads, and give the real side-chain atoms their names back.
     keep, real_names = [], {}
     for i in range(coords.shape[0]):
         slot = _virtual_slot(names[i])
@@ -284,7 +285,8 @@ def _dense_atom_name(res_name: str, slot: int) -> str:
 
 
 def _element_of(z: int, name: str, z2sym) -> str:
-    # ref_element is never filled for protein (featurize.py:32), so z is the
+    # ref_element is never filled for protein
+    # (tt_bio/rfd3/featurize.py::_motif_atom_layout), so z is the
     # index-0 unknown row for every protein atom and the old `z2sym.get(z, "C")`
     # labelled backbone N and O as carbon. For z >= 1 (ligand/nucleic, where the
     # featurizer does fill it) keep the atomic number. For z == 0 fall back to

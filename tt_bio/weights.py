@@ -188,13 +188,15 @@ _ROWS: tuple[Artifact, ...] = (
 
     # -- Nesso-1 (Recursion, Apache-2.0) ---------------------------------------
     # An hf-repo pair rather than two hf-file rows, the same shape as the two OpenDDE rows:
-    # `tt-bio affinity` loads both files out of the hub cache (nesso1.py:740 for the weights,
-    # nesso1_input.py:298 for the CCD), so an hf-file row would download them to a flat
+    # `tt-bio affinity` loads both files out of the hub cache
+    # (tt_bio/nesso1.py::Nesso1.from_pretrained for the weights,
+    # tt_bio/nesso1_input.py::find_ccd for the CCD), so an hf-file row would download
+    # them to a flat
     # <cache>/ path nothing reads and the status table would report missing on a host that
     # has them. One snapshot of the pinned tag brings both, plus the 1.7 KB hparams.json
     # that sits beside the weights and needs no row of its own.
     #
-    # ESM-2 650M deliberately gets no row: nesso1_input.py:175 reaches it through the
+    # ESM-2 650M deliberately gets no row: tt_bio/nesso1_input.py::run_esm reaches it through the
     # vendored `setup_esm_model`, i.e. through `transformers`, not through this fetch path.
     Artifact("nesso1", ("nesso1",), "hf-repo", "Apache-2.0 (Recursion)",
              repo=NESSO_REPO, revision=NESSO_REVISION,

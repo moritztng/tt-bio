@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """p81d -- does ttnn.scatter share ttnn.gather's silent-wrong-answer threshold?
 
-This is not a perf question. The SHIPPED RFD3 atom attention scatters the compact pair bias into
-a dense [B,H,L,6080] tensor on dim 3 with a [B,H,L,128] index (tt_bio/rfd3/model.py:1555, the
-`dense_bias` route). p81c showed ttnn.GATHER on dim 3 silently corrupts every tile-row after the
-first once the indexed dim reaches 2048 elements, dtype-independent. NK=6080 is three times past
-that. If ttnn.scatter has the same threshold, the shipped model is computing a wrong attention
-bias and this stops being a perf pass.
+This is not a perf question. The SHIPPED RFD3 atom attention scatters the compact pair bias into a
+dense [B,H,L,6080] tensor on dim 3 with a [B,H,L,128] index (the `dense_bias` route in
+tt_bio/rfd3/model.py::_sparse_qk_inputs). p81c showed ttnn.GATHER on dim 3 silently corrupts every
+tile-row after the first once the indexed dim reaches 2048 elements, dtype-independent. NK=6080 is
+three times past that. If ttnn.scatter has the same threshold, the shipped model is computing a
+wrong attention bias and this stops being a perf pass.
 
 Also pins the exact gather boundary in (1920, 2048].
 """

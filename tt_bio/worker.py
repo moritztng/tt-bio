@@ -675,7 +675,8 @@ class _WorkerState:
         BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE=1) AND the affinity ``aff_model.predict_step``
         (bf16 unless BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1) — so the bf16 reference mirrors
         the device's dtype boundary rather than leaving the scalar in fp32. Shared draws are
-        preserved: the diffusion ``torch.randn`` draws (boltz2.py:4092/4127) run on CPU MT19937
+        preserved: the diffusion ``torch.randn`` draws
+        (tt_bio/boltz2.py::AtomDiffusion.sample) run on CPU MT19937
         from the one seed, unaffected by autocast, so fp32 and bf16 references differ only in
         arithmetic dtype, nothing stochastic. Default off — device runs and the fp32 reference
         get a nullcontext and are untouched."""
