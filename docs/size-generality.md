@@ -66,15 +66,17 @@ as skipped, with the measured noise as the reason, rather than getting a gate th
 
 The ladder's rungs are residue counts, but every size-conditioned gate in the engine keys on the
 **padded token** count, and the two only agree for a bare protein. A token is a residue or a
-ligand heavy atom, and the total is padded up to a multiple of `PAIRFORMER_PAD_MULTIPLE` (64), so
-adding a 20-atom ligand at 640 aa gives 660 tokens and lands on padded 704, a rung no apo protein
-on the 64-aa lattice ever reaches.
+ligand heavy atom, and the total is padded up to a multiple of `token_axis.TOKEN_BUCKET` (32), so
+adding a 20-atom ligand at 640 aa gives 660 tokens and lands on padded 672, a rung no apo protein
+on the ladder's own lattice ever reaches.
 
-That is how Boltz-2 shipped unable to fold anything at padded 704. Apo 640 aa pads to 640 and
-folds, apo 768 aa pads to 768 and folds, and the one rung between them is only reachable with a
-ligand on the lattice or with an off-lattice residue count (641 to 704 aa apo dies identically).
-Both a protein-only ladder and a ligand ladder pass every rung on their own; only the two axes
-together reach it.
+The lattice is what matters here, not the number. Boltz-2 once shipped unable to fold anything at
+padded 704, back when the multiple was 64: apo 640 aa padded to 640 and folded, apo 768 aa padded
+to 768 and folded, and the one rung between them was reachable only with a ligand or with an
+off-lattice residue count (641 to 704 aa apo died identically). A protein-only ladder and a ligand
+ladder each passed every rung on their own; only the two axes together reached it. Moving the
+multiple to 32 halves the lattice spacing and so doubles the number of reachable rungs the ladder
+does not visit. It does not remove the blind spot, it makes it finer.
 
 So when reading a size result, convert to padded tokens first. A ligand ladder at the same
 residue rungs is a different set of shapes, not a repeat of the apo one, and that is the point of
@@ -82,35 +84,50 @@ running it.
 
 ## The token axis is padded too, and that one is a correctness fix
 
-Protenix-v2, OpenDDE and OpenDDE-abag pad the trunk token axis up to a multiple of 64 as well,
-masked, and slice back on exit. Without it an unaligned token count hands the triangle attention a
-ragged key axis, and both the stock and the fused attention read those padded columns as if they
-held real data: relative error against the aligned answer is 0.914 ragged, 0.038 padded. So the
-padding is not a perf lever, it is the difference between a right and a wrong number, and it is on
-by default.
+Every shipped model pads the trunk token axis up to a multiple of 32, masked, and slices back on
+exit. Without it an unaligned token count hands the triangle attention a ragged key axis, and both
+the stock and the fused attention read those padded columns as if they held real data: relative
+error against the aligned answer is 0.914 ragged, 0.038 padded. So the padding is not a perf lever,
+it is the difference between a right and a wrong number, and it is on by default.
+
+One mechanism does it for all of them, `token_axis.bucketed_pairformer`, and the per-model facts
+live as data in the `TOKEN_AXIS` table beside it rather than as copies of the code. The fused
+attention also masks its own ragged tail now (`TT_BIO_SDPA_RAGGED_PAD`, default on), which is a
+belt-and-braces guard rather than a duplicate: bucketing removes raggedness at the source, the guard
+keeps the primitive safe for anything that still reaches it ragged.
 
 The padding itself does not change the answer. Two different poison fill values give bit-identical
 trunk fingerprints, so what the masked columns contain cannot reach the output.
 
 Cost follows the padded pair area, so it does follow the rung arithmetic above once you convert to
-padded tokens. When the token count is already a multiple of 64 the pad is 0, both padding sites
-early-out, and this costs exactly nothing. When it is not, you pay for the columns you added,
+padded tokens. When the token count is already a multiple of 32 the pad is 0, every padding site
+early-outs, and this costs exactly nothing. When it is not, you pay for the columns you added,
 quadratically: 298 tokens round to 320, a pair area 1.15x larger, and that costs 4.8 % on
 Protenix-v2. OpenDDE pays it twice at the same input, trunk 298 to 320 and refiner 580 to 640, and
-costs 6.0 %. Short folds are the exception and they are worse, because the fold is dispatch-bound to
-begin with: 20 residues round up to 64, a 10.2x pair area, and that costs about 18 % on one p150a.
-Nothing generalises from that last number. A multiple of 32 shrinks the 20-token area fourfold and
-recovers only 2.6 of those 18 points, yet at a token count 33 to 63 past a multiple of 64 the
-multiple of 32 is the strictly cheaper pad, so the multiple is its own size-generality decision and
-a smoke-size reading does not settle it.
+costs 6.0 %. Both of those figures are unchanged by the move to 32, because 298 rounds to 320 either
+way.
 
-`TT_BIO_PROTENIX_TOKEN_BUCKET=0` restores the old ragged path for an A/B, and
-`TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE` overrides the multiple.
+**Why the multiple is 32 and not 64**, measured on Boltz-2 with the arm order alternated:
 
-Note what this does to the ladder. Every rung is a multiple of 64, so the residue axis pads to 0 at
-all four and the arm cannot price this lever on Protenix-v2. It still sees it on OpenDDE, whose
-refiner runs a second token axis at roughly twice the residue count minus one per glycine, and that
-lands on a multiple of 64 only for a sequence with no glycine at all. An off-lattice rung
+| length | 64 against 32 | why |
+|---|---|---|
+| 76 aa | 64 is **-20.1 %** | 32 pads to 96, 64 pads to 128, 2.37x the triangle work |
+| 20 aa | 64 is **+4.18 %** | both are one tile of real work; a smoke-size fold is dispatch-bound |
+
+The 76 aa reading is the one that decides it, because 20 aa is a smoke fixture and nothing runs it in
+production. Note the sign flip: the tile-count argument that a narrower pad can never be slower is
+true of tiles and false of wall clock, since the two widths do not select the same kernel. Both ends
+were measured on the same model for that reason, and a size ladder is what separates them.
+
+`TT_BIO_TOKEN_BUCKET=0` restores the old ragged path for an A/B, fleet-wide, and
+`TT_BIO_TOKEN_BUCKET_MULTIPLE` re-runs every model at another width in one variable. The older
+`TT_BIO_PROTENIX_TOKEN_BUCKET` and `TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE` still work for that family
+and are ANDed with the global.
+
+Note what this does to the ladder. Every rung is a multiple of 64 and therefore of 32 too, so the
+residue axis pads to 0 at all four and the arm cannot price this lever on Protenix-v2. It still sees
+it on OpenDDE, whose refiner runs a second token axis at roughly twice the residue count minus one
+per glycine, and that lands on a multiple of 32 only for a sequence with the right glycine count. An off-lattice rung
 (`RELEASE_GATE_SIZE_RUNGS=298`) is the only way to price it on the residue axis, which is the same
 blindness this page describes one level up: a ladder built only from multiples of the thing you are
 testing tests nothing.

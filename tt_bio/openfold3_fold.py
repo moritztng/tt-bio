@@ -291,19 +291,63 @@ class OpenFold3(Module):
         result keeps every sample and identifies ``coordinates`` / ``best_index`` using
         the OF3 sample-ranking score (0.8 ipTM + 0.2 pTM + 0.5 disorder - 100 clash).
         """
+        import torch.nn.functional as F
+        from .token_axis import (TILE, bucket_enabled, bucket_multiple, bucketed_width,
+                                 pad_amount, pad_poison, token_pad_masks_tt)
         ft = self._ft
         nb = dm_aux_host["nb"]; NP = dm_aux_host["NP"]
-        n_tok_pad = ((n_token + 31) // 32) * 32
+        n_tok_pad = bucketed_width(n_token, TILE)
+
+        # Bucket the TRUNK's token axis. The diffusion half already runs at n_tok_pad behind a
+        # real mask (openfold3_diffusion_module.py token_mask_pad_tt); the trunk was the half
+        # still running the raw n_token, which is the whole of why openfold3 and openbind sat
+        # IMMUNE -- correct only because every ragged call happened to land on ttnn.softmax,
+        # which masks its own tail, and one refactor away from the 71-76x SDPA defect.
+        #
+        # openbind shares OF3Trunk, so it cannot carry a different multiple; assert that rather
+        # than pick one of the two rows and hope.
+        assert bucket_multiple("openbind") == bucket_multiple("openfold3"), \
+            "openbind runs the same OF3Trunk, so the two BUCKET_MULTIPLE rows must agree"
+        tok_pad = pad_amount(n_token, bucket_multiple("openfold3")) if bucket_enabled() else 0
+        n_tok_trunk = n_token + tok_pad
+        pair_mask_pad = attn_mask_pad = None
 
         s_input_d = ft(s_input.unsqueeze(0))
         relpos_dev = ft(relpos.unsqueeze(0))
         token_bonds_dev = ft(token_bonds.unsqueeze(0).unsqueeze(-1))
-        s_init_d, z_init_d = self.input_glue(s_input_d, relpos_dev, token_bonds_dev)
-        tmpl_d = {k: ft(v) for k, v in template_feat.items()}
-        msa_d = ft(msa_feat.unsqueeze(0))
-        s_trunk_d, z_trunk_d = self.trunk(s_init_d, z_init_d, tmpl_d, msa_d, s_input_d,
+        if tok_pad:
+            # Trunk-local padded copies. The sampler keeps the unpadded s_input / relpos it has
+            # always had, so nothing on the diffusion path moves; these are freed after the trunk.
+            # Every OF3 trunk feature is already an embedded float here (no index-valued
+            # feature survives host prep), so all of them take the poison value.
+            q = pad_poison()
+            _pad2 = lambda t: F.pad(t, (0, 0, 0, tok_pad, 0, tok_pad), value=q)  # [..., N, N, c]
+            s_input_t = ft(F.pad(s_input, (0, 0, 0, tok_pad), value=q).unsqueeze(0))
+            relpos_t = ft(_pad2(relpos).unsqueeze(0))
+            token_bonds_t = ft(F.pad(token_bonds, (0, tok_pad, 0, tok_pad), value=q)
+                               .unsqueeze(0).unsqueeze(-1))
+            tmpl_d = {k: ft(_pad2(v)) for k, v in template_feat.items()}
+            msa_d = ft(F.pad(msa_feat, (0, 0, 0, tok_pad), value=q).unsqueeze(0))
+            _, pair_mask_pad, attn_mask_pad = token_pad_masks_tt(
+                n_token, n_tok_trunk, self.device)
+        else:
+            s_input_t, relpos_t, token_bonds_t = s_input_d, relpos_dev, token_bonds_dev
+            tmpl_d = {k: ft(v) for k, v in template_feat.items()}
+            msa_d = ft(msa_feat.unsqueeze(0))
+        s_init_d, z_init_d = self.input_glue(s_input_t, relpos_t, token_bonds_t)
+        s_trunk_d, z_trunk_d = self.trunk(s_init_d, z_init_d, tmpl_d, msa_d, s_input_t,
                                           progress_fn=progress_fn,
-                                          template_slots=template_slots)
+                                          template_slots=template_slots,
+                                          pair_mask=pair_mask_pad, attn_mask=attn_mask_pad)
+        if tok_pad:
+            # Slice both trunk outputs back: the sampler wants them at the real n_token.
+            s_trunk_d = ttnn.slice(s_trunk_d, (0, 0, 0), (1, n_token, s_trunk_d.shape[2]))
+            z_trunk_d = ttnn.slice(z_trunk_d, (0, 0, 0, 0),
+                                   (1, n_token, n_token, z_trunk_d.shape[3]))
+            for t in (s_input_t, relpos_t, token_bonds_t, msa_d, pair_mask_pad, attn_mask_pad):
+                ttnn.deallocate(t)
+            for t in tmpl_d.values():
+                ttnn.deallocate(t)
         si_trunk_d = s_trunk_d
         zij_trunk_d = z_trunk_d
 

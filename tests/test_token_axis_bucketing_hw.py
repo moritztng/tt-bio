@@ -15,6 +15,18 @@ and only when asked. Skips are printed, never silent: a skipped model is recorde
 
     TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 -m pytest tests/test_token_axis_bucketing_hw.py
     TOKEN_AXIS_HW_MODELS=esmc-300m,saprot-35m ... -k census      # opt in to the fold-level check
+
+RUN THE FOLD-LEVEL CHECK UNDER `/home/ttuser/tt-bio-dev/env/bin/python3`, not the pytest venv.
+Each job is spawned with `sys.executable`, so the interpreter you invoke pytest with is the one
+that JIT-builds the fused kernels -- and they do not build against `~/.tenstorrent-venv`'s LLK
+headers. The failure looks nothing like a toolchain problem when it happens:
+
+    TT_THROW ... program.cpp:255 ... Failed to generate binaries for compute
+    trisc1 build failed
+
+which reads as a broken model or a bad JOBS entry. It is neither. Measured 2026-08-25:
+esmfold2-fast and opendde-abag both FAIL under the pytest venv and both PASS under tt-bio-dev's,
+same commit, same card, same input.
 """
 import json
 import os
@@ -49,6 +61,33 @@ JOBS = {
     "protenix-v2": _PREDICT + ["protenix-v2"],
     "opendde": _PREDICT + ["opendde"],
     "rfd3": _RFD3,
+    # Bucketed by this task. openfold3/openbind share OF3Trunk but openbind is censused on its
+    # OWN input class as well (see the ligand test below) -- a ligand token axis is not the
+    # polymer one and may not be inherited from it.
+    "openfold3": _PREDICT + ["openfold3"],
+    "openbind": _PREDICT + ["openbind"],
+    # The rest of the BUCKETED table, so `JOBS` is not a hand-kept subset of it. Every one of these
+    # takes the same shared 98-aa ragged input through its own CLI verb.
+    "boltz2": _PREDICT + ["boltz2"],
+    "esmfold2-fast": _PREDICT + ["esmfold2-fast"],
+    # opendde-abag runs the SAME OpenDDE class on a different checkpoint, and assuming that made it
+    # redundant is exactly what let a 60x diffusion-precision regression ship undetected
+    # (tt-bio-shared-diffusion-global-env-default-regression). It gets its own row.
+    "opendde-abag": _PREDICT + ["opendde-abag"],
+    "esmc-6b": ["embed", "{fasta}", "--model", "esmc-6b"],
+    "saprot-1.3b": ["saprot", "{fasta}", "--model", "saprot-1.3b"],
+}
+
+#: BUCKETED rows with no `JOBS` entry, each with the reason it cannot take the shared 98-aa fasta.
+#: An entry here is a debt with a name on it, not an exemption: all three ARE censused, just on
+#: their own fixture and by hand rather than by this test.
+NO_SHARED_INPUT = {
+    "nesso1": "`tt-bio affinity` takes a complex YAML, not a fasta; censused on "
+              "perf/nesso1/inputs/ladder/aa128/cdk2_128.yaml at 148 ragged tokens",
+    "pxdesign": "`tt-bio design` takes a target spec; censused on tests/fixtures/pxdesign/PDL1.yaml "
+                "at 196 ragged tokens",
+    "boltzgen": "`tt-bio design` takes a target spec and a binder length, so it needs its own "
+                "fixture the way rfd3 does",
 }
 _RFD3_TARGET = os.path.join(REPO, "perf", "wh-correctness", "results", "payloads",
                             "des_rfd3_binder.json")
@@ -143,6 +182,24 @@ def _census(model, argv, env_extra=None, seq=None, tap=None):
 
 @pytest.mark.skipif(not _device_available(),
                     reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+def test_every_bucketed_model_has_a_job_or_a_written_reason():
+    """`JOBS` is hand-typed and the parametrize reads it, so a model that buckets but is missing
+    from it is silently never checked. That is `hardcoded-model-list-misses-new-port-recurring`,
+    and it is how nesso1, pxdesign and three others sat outside this guard while the file read as
+    green. Discover the requirement from the table instead of trusting the list.
+    """
+    buck = {n for n, r in TA.TOKEN_AXIS.items() if r[0] == TA.BUCKETED}
+    missing = sorted(buck - set(JOBS) - set(NO_SHARED_INPUT))
+    assert not missing, (
+        "BUCKETED models with no JOBS entry and no written reason: %s. Add a job, or add a "
+        "NO_SHARED_INPUT entry saying which fixture censuses it instead." % ", ".join(missing))
+    stale = sorted(set(NO_SHARED_INPUT) - buck)
+    assert not stale, ("NO_SHARED_INPUT names models that are not BUCKETED: %s" % ", ".join(stale))
+    thin = sorted(k for k, v in NO_SHARED_INPUT.items() if len(v.strip()) < 30)
+    assert not thin, ("NO_SHARED_INPUT reasons must say which fixture covers the model: %s"
+                      % ", ".join(thin))
+
+
 @pytest.mark.parametrize("model", sorted(JOBS))
 def test_no_bucketed_model_reaches_a_ragged_fused_sdpa(model):
     """A BUCKETED model runs a 98-aa (ragged) input without one ragged fused-SDPA key axis.
@@ -165,7 +222,12 @@ def test_no_bucketed_model_reaches_a_ragged_fused_sdpa(model):
 
 
 _ALIGNED_SEQ = ("NLYIQWLKDGGPSSGRPPPS" * 7)[:128]      # 128 tokens: already a tile multiple
-_BUCKET_OFF = {"TT_BIO_PROTENIX_TOKEN_BUCKET": "0"}
+# EXPLICIT, and the GLOBAL flag rather than protenix's own: `TT_BIO_TOKEN_BUCKET=0` turns off
+# every model's bucket, so one off-arm covers the whole file. Never spell this as `{}` -- an arm
+# spelled `{}` was the OFF arm before protenix's default flipped, and silently became the ON arm,
+# turning an A/B into an ON-vs-ON tautology that can never fail.
+_BUCKET_OFF = {"TT_BIO_TOKEN_BUCKET": "0"}
+_BUCKET_ON = {"TT_BIO_TOKEN_BUCKET": "1"}
 
 
 @pytest.mark.skipif(not _device_available(),
@@ -205,7 +267,7 @@ def test_protenix_token_bucket_is_a_noop_at_an_aligned_length():
     """
     with tempfile.TemporaryDirectory() as d:
         taps = {}
-        for arm, extra in (("off", _BUCKET_OFF), ("on", {})):
+        for arm, extra in (("off", _BUCKET_OFF), ("on", _BUCKET_ON)):
             t = os.path.join(d, f"tap_{arm}.txt")
             _census("protenix-v2", JOBS["protenix-v2"], env_extra=extra,
                     seq=_ALIGNED_SEQ, tap=t)
@@ -271,3 +333,45 @@ def test_bucket_lives_at_the_op_boundary_not_in_the_caller(name):
 
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-s", "-q"]))
+
+
+@pytest.mark.skipif(not _device_available(),
+                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+@pytest.mark.parametrize("model", ["openfold3", "openbind"])
+def test_of3_trunk_bucket_padding_is_inert(model):
+    """The padded region cannot reach a real token: two poison values, one answer.
+
+    This is the acceptance test that MATTERS for the OF3 trunk, because unlike pxdesign its
+    bucketed answer is NOT bit-identical to its ragged one -- it ran ragged into ttnn.softmax,
+    which masks its own tile tail, and the bucket replaces that with an explicit -1e9 over a
+    longer logical axis, which bf16 reassociates. Comparing the two arms therefore cannot
+    distinguish a leaking mask from a reassociated reduction. Comparing two POISON values can:
+    same logical input, same shapes, same reduction order, different garbage in the padding.
+    A mask that leaks gives two different structures here. (RFD3 p23's method.)
+    """
+    with tempfile.TemporaryDirectory() as d:
+        digests = {}
+        for q in ("0", "1000"):
+            out = os.path.join(d, "poison" + q)
+            _census(model, JOBS[model] + ["--out_dir", out],
+                    env_extra=dict(_BUCKET_ON, TT_BIO_TOKEN_PAD_POISON=q))
+            digests[q] = _structure_digest(out)
+        assert digests["0"] and digests["0"] == digests["1000"], (
+            f"{model}'s token-bucket padding is NOT inert -- poison 0 and poison 1000 gave "
+            f"different structures, so the pad mask leaks into the real region:\n"
+            f"  poison 0    {digests['0']}\n  poison 1000 {digests['1000']}")
+
+
+def _structure_digest(out_dir):
+    """md5 over every structure file the run wrote, in sorted path order."""
+    import hashlib
+    h = hashlib.md5()
+    found = []
+    for root, _dirs, files in os.walk(out_dir):
+        for f in sorted(files):
+            if f.endswith((".cif", ".pdb")):
+                found.append(os.path.join(root, f))
+    for path in sorted(found):
+        with open(path, "rb") as fh:
+            h.update(fh.read())
+    return h.hexdigest() if found else ""

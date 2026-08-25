@@ -6,8 +6,10 @@ reference at any ragged length. Every older port bucketed for kernel-recompilati
 immune to that as a side effect; RF3 did not inherit the convention and ran 117 tokens raw. So the
 convention cannot stay a convention. See tt_bio/token_axis.py and PLAYBOOKS.md §MODEL 2b.
 
-The check that matters most is the first one: a model added to a CLI --model choice without a
-bucketing decision fails here, which is exactly the way RF3 got in.
+Two things fail here. A model added to a CLI --model choice without a bucketing decision, which
+is exactly the way RF3 got in; and a model that HAS a decision other than "it buckets". EXPOSED,
+UNCENSUSED and IMMUNE are all failures now (Moritz, 2026-08-22: "i want to have bucketing
+implemented for every model"), with one allow-list entry for the row a live task owns.
 """
 import importlib
 import sys
@@ -67,20 +69,179 @@ def check_bucketed_multiples_are_tile_multiples():
 
 
 def check_declared_multiples_match_the_live_constants():
-    """The table claims values that live in five other modules. Import and compare them."""
+    """Four modules re-export the fleet bucket under a historical name. Import and compare.
+
+    They are DERIVED from `bucket_multiple()` rather than restated, so this normally cannot fail --
+    which is the point. It fails the moment someone puts a literal back, which is how a per-model
+    fork starts.
+    """
     bad = []
-    for (mod_name, attr), claimed in TA.LIVE_MULTIPLES.items():
+    for (mod_name, attr), model in TA.LIVE_MULTIPLES.items():
+        want = TA.bucket_multiple(model)
         try:
             live = getattr(importlib.import_module(mod_name), attr)
         except Exception as exc:                     # a renamed constant is a real failure
             bad.append(f"{mod_name}.{attr} unreadable ({type(exc).__name__})")
             continue
-        if live != claimed:
-            bad.append(f"{mod_name}.{attr} is {live}, table says {claimed}")
+        if live != want:
+            bad.append(f"{mod_name}.{attr} is {live}, {model} buckets at {want}")
         elif live % TA.TILE:
             bad.append(f"{mod_name}.{attr} = {live} is not a multiple of {TA.TILE}")
-    return _fail(not bad, "the live pad constants match the table and divide "
+    mod_name, attr, want = TA.MSA_AXIS_MULTIPLE
+    try:
+        live = getattr(importlib.import_module(mod_name), attr)
+        if live != want:
+            bad.append(f"{mod_name}.{attr} is {live}, expected {want}")
+    except Exception as exc:
+        bad.append(f"{mod_name}.{attr} unreadable ({type(exc).__name__})")
+    return _fail(not bad, "the live pad constants derive from the fleet value and divide "
                  + str(TA.TILE) + ("" if not bad else "; " + "; ".join(bad)))
+
+
+def check_one_multiple_for_the_whole_fleet():
+    """Every bucketed model runs the SAME multiple, or its exception carries a measured reason.
+
+    A constant that splits on when a model was written is a fork, not a hyperparameter: it encodes
+    our history rather than the hardware's, and nobody reading it later can tell whether 64 is
+    right for Boltz-2 or merely old (Moritz, 2026-08-24). BUCKET_EXCEPTIONS is the only way to
+    differ, and every entry has to carry that model's own numbers -- which is the difference
+    between an exception and a fork. No model has such numbers today: boltz2 briefly did and the
+    measurement did not replicate (it was reading run order, not the multiple), so the dict is
+    empty and the evidence machinery below is the guard rail for the next attempt.
+    """
+    seen = {}
+    for n, r in TA.TOKEN_AXIS.items():
+        if r[0] == TA.BUCKETED and n not in TA.BUCKET_EXCEPTIONS:
+            seen.setdefault(r[1], []).append(n)
+    ok = _fail(len(seen) <= 1,
+               f"one multiple for the whole fleet (TOKEN_BUCKET={TA.TOKEN_BUCKET})"
+               + ("" if len(seen) <= 1 else "; found "
+                  + ", ".join(f"{m}: {len(v)} models ({v[0]}...)" for m, v in sorted(seen.items()))))
+    # An exception is allowed, but only against that model's OWN numbers. "It has always been 64"
+    # is not a reason; a measurement is. 200 characters is not a quality bar, it is a floor that a
+    # one-line excuse cannot clear.
+    bad = []
+    for name, mult in sorted(TA.BUCKET_EXCEPTIONS.items()):
+        if name not in TA.TOKEN_AXIS:
+            bad.append(f"{name} is not a shipped model")
+        parent = TA.BUCKET_EXCEPTION_SHARED_WITH.get(name)
+        if parent:
+            # Inherited, not claimed: legitimate only if the parent really has the evidence and
+            # really runs the same width, otherwise it is a fork laundered through a third model.
+            if parent not in TA.BUCKET_EXCEPTIONS:
+                bad.append(f"{name} inherits from {parent}, which has no exception")
+            elif TA.BUCKET_EXCEPTIONS[parent] != mult:
+                bad.append(f"{name}={mult} inherits from {parent}="
+                           f"{TA.BUCKET_EXCEPTIONS[parent]}, which is a different width")
+            elif len((TA.BUCKET_EXCEPTION_EVIDENCE.get(parent) or "").strip()) < 200:
+                bad.append(f"{name} inherits from {parent}, whose evidence is too thin to inherit")
+            continue
+        why = (TA.BUCKET_EXCEPTION_EVIDENCE.get(name) or "").strip()
+        if len(why) < 200:
+            bad.append(f"{name}={mult} has no measured justification "
+                       f"({len(why)} chars in BUCKET_EXCEPTION_EVIDENCE)")
+    stale = sorted(set(TA.BUCKET_EXCEPTION_EVIDENCE) - set(TA.BUCKET_EXCEPTIONS))
+    if stale:
+        bad.append("evidence for a model that has no exception: " + ", ".join(stale))
+    return ok and _fail(not bad,
+                        f"every exception to TOKEN_BUCKET={TA.TOKEN_BUCKET} carries its own "
+                        f"measurement ({len(TA.BUCKET_EXCEPTIONS)} exception(s))"
+                        + ("" if not bad else "; " + "; ".join(bad)))
+
+
+# The one permitted unresolved row, and the task that owes it. Keyed to the owner string so the
+# entry dies with the task rather than outliving it: `rf3-4x-with-accuracy-land` is measuring the
+# bucket against its own per-call TT_BIO_SDPA_RAGGED_PAD and picks on the numbers. Delete this
+# entry the moment it lands. Nothing else may be added -- an allow-list that grows is the
+# convention this file exists to replace.
+ALLOWED_UNBUCKETED = {"rf3": "rf3-4x-with-accuracy-land"}
+
+
+def _unbucketed():
+    """Every row not BUCKETED and not the allow-listed one, as name -> status."""
+    out = {}
+    for n, r in TA.TOKEN_AXIS.items():
+        if r[0] == TA.BUCKETED:
+            continue
+        if ALLOWED_UNBUCKETED.get(n) and ALLOWED_UNBUCKETED[n] in (r[3] or ""):
+            continue
+        out[n] = r[0]
+    return out
+
+
+def check_no_unresolved_rows():
+    """EXPOSED and UNCENSUSED are failures in themselves, not merely debts with a name on them.
+
+    `check_unresolved_rows_have_an_owner` only asked that someone be blamed. That let rf3 sit
+    EXPOSED and nesso1 sit UNCENSUSED across releases while the file read as green.
+    """
+    bad = sorted(f"{n}={s}" for n, s in _unbucketed().items()
+                 if s in (TA.EXPOSED, TA.UNCENSUSED))
+    return _fail(not bad, "no model is exposed or uncensused"
+                 + ("" if not bad else "; " + ", ".join(bad)))
+
+
+def check_immune_is_not_terminal():
+    """IMMUNE is evidence about risk, not an exemption.
+
+    An immune model is correct today because every ragged call happens to land on ttnn.softmax,
+    which masks its own tail, rather than on SDPA, which does not. It still pays the kernel
+    recompilation tax at every distinct length, and it is one refactor of that route away from
+    EXPOSED. The IMMUNE constant stays -- it is the right word for the `why` of a row that also
+    buckets -- but no row may rest on it.
+    """
+    bad = sorted(n for n, s in _unbucketed().items() if s == TA.IMMUNE)
+    return _fail(not bad, "no model rests on IMMUNE instead of bucketing"
+                 + ("" if not bad else "; " + ", ".join(bad)))
+
+
+def check_every_bucketed_row_uses_the_shared_table():
+    """A BUCKETED row's multiple is what `token_axis.bucket_multiple()` returns, so a fifth
+    near-copy of the mechanism carrying its own constant fails here rather than drifting."""
+    bad = []
+    for n, r in TA.TOKEN_AXIS.items():
+        if r[0] != TA.BUCKETED:
+            continue
+        want = TA.bucket_multiple(n)
+        if want != r[1]:
+            bad.append(f"{n} runs {r[1]}, bucket_multiple() says {want}")
+    return _fail(not bad, "every bucketed row's multiple comes from bucket_multiple()"
+                 + ("" if not bad else "; " + "; ".join(bad)))
+
+
+def check_the_table_cites_symbols_not_line_numbers():
+    """A ``file.py:NNN`` citation rots the moment anything above it moves, and it rots silently.
+
+    Audited 2026-08-25 and most of them had. ``esmc.py:1263`` and ``opendde.py:380`` pointed at
+    BLANK lines; ``tenstorrent.py:7155 PairformerModule`` was about 790 lines short of the class it
+    named; and the esmc / esmfold2 / saprot citations were all 3 off because THIS task added an
+    import above them. The table is the fleet's map of where the mechanism lives, so a citation
+    pointing at a blank line is worse than no citation. Symbols move with their code; numbers do
+    not.
+    """
+    import re
+    bad = []
+    for name, row in TA.TOKEN_AXIS.items():
+        for field in row[2:]:
+            for hit in re.findall(r"[\w/]+\.py:\d+", str(field or "")):
+                bad.append("%s -> %s" % (name, hit))
+    return _fail(not bad, "the table cites symbols, not line numbers"
+                 + ("" if not bad else "; line-number citations: " + ", ".join(sorted(bad))))
+
+
+def check_every_file_the_table_names_exists():
+    """The same rot one step on: a citation naming a file that has since been moved or renamed."""
+    import pathlib as _pl
+    import re
+    root = _pl.Path(TA.__file__).resolve().parents[1]
+    bad = []
+    for name, row in TA.TOKEN_AXIS.items():
+        for field in row[2:]:
+            for hit in set(re.findall(r"[\w][\w/]*\.py", str(field or ""))):
+                if not ((root / "tt_bio" / hit).exists() or (root / hit).exists()):
+                    bad.append("%s -> %s" % (name, hit))
+    return _fail(not bad, "every file the table names exists"
+                 + ("" if not bad else "; missing: " + ", ".join(sorted(set(bad)))))
 
 
 CHECKS = (
@@ -90,6 +251,12 @@ CHECKS = (
     check_immune_rows_carry_a_reason,
     check_bucketed_multiples_are_tile_multiples,
     check_declared_multiples_match_the_live_constants,
+    check_no_unresolved_rows,
+    check_immune_is_not_terminal,
+    check_every_bucketed_row_uses_the_shared_table,
+    check_one_multiple_for_the_whole_fleet,
+    check_the_table_cites_symbols_not_line_numbers,
+    check_every_file_the_table_names_exists,
 )
 
 

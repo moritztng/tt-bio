@@ -457,8 +457,16 @@ SMALL_GRID_MSA_TILE_AREA = 0
 _WH_FULL_L1_PER_CORE = 1572864  # 1.5 MiB
 _MIN_L1_SCALE = 0.7             # floor: keep chunks workable on a very tight part
 
-PAIRFORMER_PAD_MULTIPLE = 64  # Pad token dim to this multiple to avoid kernel recompilation
-MSA_PAD_MULTIPLE = 1024  # Pad MSA dim to this multiple to avoid kernel recompilation
+# The token bucket for boltz2, boltzgen and nesso1, DERIVED from the fleet value rather than
+# restated -- a literal here is how a per-model fork starts. The pad arithmetic is one copy in
+# token_axis.py, which asserts the multiple divides the 32 tile.
+from .token_axis import bucket_enabled, bucket_multiple, pad_amount
+
+PAIRFORMER_PAD_MULTIPLE = bucket_multiple("boltz2")
+MSA_PAD_MULTIPLE = 1024  # a DIFFERENT axis, padded for the same recompilation reason; not the
+#                          token bucket, so it answers to neither TOKEN_BUCKET nor the
+#                          TT_BIO_TOKEN_BUCKET off switch -- turning the token bucket off
+#                          for an A/B must not silently change the MSA axis too.
 # Upper bound on heavy atoms per token for PROTEIN residues (Trp=14); ties the atom
 # bucket to the seq_len bucket. Nucleotide tokens carry more (up to 23), so a DNA/RNA
 # target can exceed padded_seq * 14 — _populate_diffusion_cache extends the bucket to
@@ -751,6 +759,14 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
 # 448, 576, 640, 704, 832, 896 and 960 on BOTH architectures while 256/512/768/1024 were served.
 # 640 is in that list and it is the first size past Wormhole's `SEQ_LEN_MORE_CHUNKING = 608`.
 #
+# 2026-08-25: the fleet multiple is 32 now, not 64, so the reachable padded lengths are every
+# multiple of 32 and the set 256 fails to divide is TWICE as large as the list above. K3 is what
+# makes that safe -- it picks a dividing k_chunk rather than the cap -- and the counters say so
+# rather than the argument: censused at RF3's padded 320 (a 32-multiple that is not a 64-multiple)
+# the fused kernel SERVES all 104 calls, 0 stock fallbacks. Boltz-2 reads it the other way at its
+# smoke size, 288 stock calls at width 64 against 0 at width 32. So 32 does not turn this fused
+# path off anywhere it was on; it turns it on in places 64 left it dark.
+#
 # MEASURED off-fold at Boltz-2's tri-attention shape (h=4, d=32), fused kernel against the stock op
 # the fold falls back to today, arms interleaved, A/A control on every unchanged size reading
 # 0.9957-1.0004 (perf/whb2/out/divk_qb1c1.json, qb1 13x10; the Wormhole arm is its counterpart):
@@ -907,13 +923,26 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
 # take a real share of the softmax mass. Writing a large negative into the bias over the padded key
 # columns takes it back to zero. The query axis pads with 0 instead: those output rows are sliced
 # off, and a fully-masked row would divide by zero.
-# DEFAULT ON since 2026-08-24. This is a correctness guard, not a tuning knob, and an
-# off-by-default guard protects only the people who already know about the bug. It is a
-# no-op wherever the token axis is already a multiple of 32, so it costs nothing on a
-# bucketed model and costs 1.036x / 1.031x whole fold on the two that are not yet bucketed
-# (Protenix-v2, OpenDDE), which is what buys them 0.4791 A and 0.3896 A of accuracy back.
-# Boltz-2, BoltzGen, ESMFold2 and OpenFold3 are immune and fold bit-identically either way.
-# Set TT_BIO_SDPA_RAGGED_PAD=0 to get the old behaviour, which is wrong at any ragged length.
+# DEFAULT-ON since 2026-08-24 (Moritz, ask 6378, and independently on main as 29347cd9). This is
+# a CORRECTNESS GUARD, not a perf knob, and it must not be "simplified" back to opt-in: an unmasked
+# ragged tail makes the softmax denominator sum garbage columns, which is wrong math of the same
+# class as PLAYBOOKS MODEL 2b's 72x finding, and a fix you have to know to ask for protects only the
+# people who already knew.
+#
+# It is free where it fires and it fires almost nowhere. The gate below is
+# `bias is not None and (Sq % 32 or Sk % 32)`, so on an ALIGNED axis it is one modulo and no work at
+# all -- and with token-axis bucketing landed, every shipped model presents an aligned axis by
+# construction. It therefore cannot move a published number; it only protects whatever still arrives
+# ragged: a new model, a refactor, a debug run with TT_BIO_TOKEN_BUCKET=0. Measured at a genuinely
+# ragged length (nesso1, 148 tokens, bucket forced off): -1.1 % wall clock, i.e. free inside noise,
+# because `_sdpa_pad_ragged`'s ttnn.pad ALIASES in TILE layout; and the answer moves 1.510 -> 1.523
+# toward the correctly-bucketed 1.5395.
+#
+# Before bucketing landed it cost 1.036x / 1.031x whole fold on Protenix-v2 and OpenDDE, and bought
+# back 0.4791 A and 0.3896 A. Both are bucketed now, so it fires on neither.
+#
+# `TT_BIO_SDPA_RAGGED_PAD=0` restores the old behaviour for bisecting, and the per-site
+# `TT_BIO_SDPA_RAGGED_PAD_AB` machinery is untouched.
 _SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", True)
 # Let `_TRIATT_FUSED_HIFI_MIN_S` see the PADDED length instead of the true one, so a ragged call
 # just under the gate is served rather than declined. Only meaningful with the ragged pad on.
@@ -2109,6 +2138,19 @@ def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
     is the opposite of what the fix does to rf3, so this is not diffusion chaos being read as a
     regression. Until that is root-caused, the site that measured a win is the only site that gets
     it. `TT_BIO_SDPA_RAGGED_PAD` still forces it on everywhere, which is how the above was measured.
+
+    READ THE DATE ON THAT TABLE. Every row of it was measured while those models ran a RAGGED token
+    axis. They do not any more: protenix-v2 and opendde bucket by default (1208 and 1216 ragged
+    fused-SDPA calls -> 0), so on a shipped path this selector now decides nothing for either of
+    them -- the gate upstream never sees a ragged axis to act on. That is why the global default
+    could move to True without re-opening the OpenDDE regression: it is not that the regression was
+    explained, it is that the input which produced it no longer occurs. Verified, not assumed --
+    `SDPA_RAGGED_PAD_STATS` reads 0 fired on a real fold of both models, and the folds are
+    bit-identical with the global off and on.
+
+    Keep this selector anyway. If a model ever loses its bucket, this is the knob that decides
+    whether it gets the mask, and the OpenDDE row above is the reason that decision is per site
+    rather than automatic.
     """
     return _site_flag("TT_BIO_SDPA_RAGGED_PAD_AB", token, default)
 
@@ -7945,7 +7987,7 @@ class PairformerModule(TorchWrapper):
         use_kernels: bool = False,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
         seq_len = z.shape[1]
-        pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
 
         required_cache_keys = ("mask_tt", "attn_mask_start_tt", "attn_mask_end_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8063,7 +8105,7 @@ class Fp32PairformerModule(TorchWrapper):
         use_kernels: bool = False,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
         seq_len = z.shape[1]
-        pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
 
         required_cache_keys = ("mask_tt", "tri_attn_mask_tt", "attn_mask_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8157,7 +8199,7 @@ class MiniformerModule(TorchWrapper):
         use_kernels: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         seq_len = z.shape[1]
-        pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
 
         required_cache_keys = ("mask_tt", "seq_mask_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8239,7 +8281,7 @@ class DiffusionModule(TorchWrapper):
         NW = N // ATOM_WINDOW
 
         seq_len = s_inputs.shape[1]
-        token_pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        token_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
         padded_seq = seq_len + token_pad
         N_padded = padded_seq * MAX_ATOMS_PER_TOKEN
         if N > N_padded:
@@ -8576,8 +8618,8 @@ class MSAModule(TorchWrapper):
 
         seq_len = z.shape[1]
         n_msa = m.shape[1]
-        seq_pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
-        msa_pad = (-n_msa) % MSA_PAD_MULTIPLE
+        seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
+        msa_pad = pad_amount(n_msa, MSA_PAD_MULTIPLE)
 
         required_cache_keys = ("mask_tt", "attn_mask_tt", "msa_mask_tt", "n_msa")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8925,7 +8967,7 @@ class TrunkModule(TorchWrapper):
         recycling iterations.
         """
         seq_len = z_init.shape[1]
-        seq_pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
         padded_seq = seq_len + seq_pad
 
         # ---- MSA feature tensor (host), mirrors MSAModule.forward ----
@@ -8939,7 +8981,7 @@ class TrunkModule(TorchWrapper):
             dim=-1,
         )
         n_msa = m.shape[1]
-        msa_pad = (-n_msa) % MSA_PAD_MULTIPLE
+        msa_pad = pad_amount(n_msa, MSA_PAD_MULTIPLE)
 
         # ---- pad the per-protein constants ----
         pad = torch.nn.functional.pad

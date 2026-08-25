@@ -195,11 +195,51 @@ class ProtenixDesign(Protenix):
         p_lm = p_lm + self._plm_z_term(pair_z, fi["a2t"], nb, nq, nk)
         cond = {"s_trunk": s_trunk, "s_inputs": s_inputs, "pair_z": pair_z, "c_l": c_l,
                 "p_lm": p_lm, "S": S, "mask_trunked": mt.float()}
+        cond = self._bucket_token_axis(cond, NT)
         if self.diffusion.device_dit:
-            cond["dit_z"] = self.diffusion._dit_z_device(pair_z)
+            cond["dit_z"] = self.diffusion._dit_z_device(cond["pair_z"])
         else:
-            cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
+            cond["dit_biases"] = self.diffusion._dit_pair_biases(
+                cond["pair_z"], cond.get("structural_pair_attn_bias"))
         return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=None)
+
+    def _bucket_token_axis(self, cond, NT):
+        """Pad the token axis out to ``token_axis.BUCKET_MULTIPLE["pxdesign"]``, masked.
+
+        Same pad + mask as every other model, and no slice-back: PXDesign's output is atom
+        coordinates, so the token axis never reaches it. What the padded tokens must not do is
+        reach a REAL token, and there are exactly two routes.
+
+          * As attention KEYS in the 24-block token DiT. ``structural_pair_attn_bias`` is the hook
+            already threaded to both the host (``_dit_pair_biases``) and device
+            (``_dit_block_biases``) bias precomputes, so the additive -1e9 goes there. OpenDDE
+            uses the same slot for its structural bias; PXDesign leaves it unset, which is
+            asserted rather than assumed.
+          * Through the atom<->token matrix S (N_atom, NT). Zero-padding its token axis closes
+            both directions at once: ``S_dev`` gives a padded token no atom to write to, and
+            ``Smean_dev`` divides its all-zero column by sum + 1e-6, so it reads no atom either.
+
+        Everything downstream takes NT from ``cond["s_inputs"].shape[0]`` (protenix.py
+        ``_denoise``, ``_prepare_device``), so padding the cond dict is the whole change. ``aux``
+        keeps the real NT and the unpadded tensors; the callers that write output use those.
+        """
+        import torch.nn.functional as F
+        from ..token_axis import bucket_enabled, bucket_multiple, pad_amount, token_pad_masks_torch
+        pad = pad_amount(NT, bucket_multiple("pxdesign")) if bucket_enabled() else 0
+        if not pad:
+            return cond
+        NTp = NT + pad
+        assert "structural_pair_attn_bias" not in cond, \
+            "PXDesign now sets a structural bias; add the pad mask to it instead of replacing it"
+        _, _, additive = token_pad_masks_torch(NT, NTp)
+        out = dict(cond)
+        out["s_trunk"] = F.pad(cond["s_trunk"], (0, 0, 0, pad))
+        out["s_inputs"] = F.pad(cond["s_inputs"], (0, 0, 0, pad))
+        out["pair_z"] = F.pad(cond["pair_z"], (0, 0, 0, pad, 0, pad))
+        out["S"] = F.pad(cond["S"], (0, pad))
+        # (1, NTp): a per-KEY additive, broadcast over heads and queries by both bias precomputes.
+        out["structural_pair_attn_bias"] = additive.reshape(1, NTp)
+        return out
 
     def design(self, feats, *, n_step=DESIGN_N_STEP, n_sample=1, seed=None,
                eta_schedule=None, progress_fn=None, max_parallel_samples=None):

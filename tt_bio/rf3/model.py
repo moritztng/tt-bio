@@ -95,7 +95,17 @@ class Recycler(Module):
         # NOT a residual: upstream takes the Protenix report's bugfix and replaces Z.
         z = self.msa_module(msa, z, s_inputs)
         s = ttnn.add(s_init, self.process_sh(s))
-        return self.pairformer(s, z)
+        # RF3 builds `Pairformer` directly rather than through the padding wrapper every
+        # other model gets, so its token axis reached the triangle stack raw
+        # (`rf3-pairformer-unpadded-pair-track`). Route it through the fleet's one
+        # pad + mask + slice helper instead. Censused at 298 tokens: 104 fused-SDPA calls
+        # and 48 AttentionPairBias softmaxes were arriving ragged here, correct only
+        # because the ragged-tail guard was masking them per call.
+        from tt_bio.token_axis import (TOKEN_BUCKET, bucketed_pairformer,
+                                       bucketed_width)
+        return bucketed_pairformer(
+            self.pairformer, s, z, self.device,
+            bucketed_width(int(z.shape[1]), TOKEN_BUCKET))
 
 
 #: Hoist the t-independent half of the denoiser out of the diffusion rollout: `z_cond`, the

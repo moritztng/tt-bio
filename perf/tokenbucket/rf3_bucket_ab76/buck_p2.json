@@ -1,0 +1,28 @@
+{
+  "model": "rf3",
+  "kind": "fold",
+  "unit": "structures/s",
+  "direction": "higher",
+  "hardware": "blackhole",
+  "card_type": "p300c",
+  "throughput": 0.097658,
+  "latency_ms": 10239.85,
+  "median_s": 10.2398,
+  "times_s": [
+    9.9536,
+    10.2222,
+    10.2398,
+    10.2782,
+    10.6462
+  ],
+  "load_s": 3.2,
+  "warmup": 2,
+  "repeat": 5,
+  "sampling_steps": 10,
+  "diffusion_samples": 1,
+  "recycling_steps": 1,
+  "input": "trpcage (20 aa, single-seq)",
+  "tt_bio_version": "0.7.0",
+  "date": "2026-08-25",
+  "fold_input": "/home/ttuser/.coworker/wt/token-axis-bucketing-unify-all-models/examples/8hel_nomsa.yaml"
+}

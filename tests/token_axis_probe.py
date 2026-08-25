@@ -60,7 +60,7 @@ def _bump(op, site, ragged, shape="", **extra):
     # SIGKILLs the stragglers, and a SIGKILLed worker runs no atexit handler -- which is how the
     # third run of this probe still read zero on a fold that made thousands of calls.
     _N[0] += 1
-    if _N[0] % 256 == 0:
+    if _N[0] % 64 == 0:
         _dump()
 
 
@@ -205,6 +205,24 @@ def enable():
     builtins.__import__ = hook
 
 
+def _program_cache_entries():
+    """Distinct compiled ttnn programs on the open device, without ever opening one.
+
+    The ttnn program cache keys on the LOGICAL shape, so this counts kernel VARIANTS: it is the
+    number a token bucket is meant to reduce, and the reason Moritz asked for bucketing at all.
+    Read off `tt_bio.tenstorrent._device` rather than by calling get_device(), which would open a
+    card inside a probe.
+    """
+    m = sys.modules.get("tt_bio.tenstorrent")
+    dev = getattr(m, "_device", None) if m is not None else None
+    if dev is None:
+        return None
+    try:
+        return int(dev.num_program_cache_entries())
+    except Exception:
+        return None
+
+
 def _dump():
     d = os.environ.get("TOKEN_AXIS_CENSUS_DIR")
     if not d or not COUNTS:
@@ -212,6 +230,45 @@ def _dump():
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "census-%d.json" % os.getpid()), "w") as fh:
         json.dump(list(COUNTS.values()), fh)
+    # Separate file so `merge()` keeps seeing only census records. Rewritten on every periodic
+    # dump, so the last value survives a SIGKILLed worker -- the same reason the census itself
+    # does not wait for atexit.
+    n = _program_cache_entries()
+    m = sys.modules.get("tt_bio.tenstorrent")
+    rec = {"pid": os.getpid()}
+    if n is not None:
+        rec["program_cache_entries"] = n
+    if m is not None:
+        # [ragged calls the guard PADDED, calls already aligned]. The acceptance test for
+        # TT_BIO_SDPA_RAGGED_PAD shipping default-ON is that this reads 0 fired on every bucketed
+        # model: a guard that fires on a shipped path means that path is not actually bucketed.
+        rec["sdpa_ragged_pad_fired"] = int(getattr(m, "SDPA_RAGGED_PAD_STATS", [0, 0])[0])
+        rec["sdpa_ragged_pad_on"] = bool(getattr(m, "_SDPA_RAGGED_PAD", False))
+        rec["sdpa_sites"] = {k: list(v) for k, v in
+                             getattr(m, "SDPA_RAGGED_SITES", {}).items()}
+    if len(rec) > 1:
+        with open(os.path.join(d, "pce-%d.json" % os.getpid()), "w") as fh:
+            json.dump(rec, fh)
+
+
+def _pce_records(d):
+    for n in sorted(os.listdir(d)):
+        if n.startswith("pce-") and n.endswith(".json"):
+            yield json.load(open(os.path.join(d, n)))
+
+
+def program_cache_entries(d):
+    """Max program-cache entries any process of the run reached. One worker per card, so the max
+    is that worker's final count; the parent never opens a device and writes no file."""
+    return max((r.get("program_cache_entries", 0) for r in _pce_records(d)), default=0)
+
+
+def sdpa_ragged_pad_fired(d):
+    """(total ragged calls the guard padded, was the guard on). 0 fired on a bucketed model is the
+    acceptance test for shipping TT_BIO_SDPA_RAGGED_PAD default-ON."""
+    recs = list(_pce_records(d))
+    return (sum(r.get("sdpa_ragged_pad_fired", 0) for r in recs),
+            any(r.get("sdpa_ragged_pad_on") for r in recs))
 
 
 def merge(d):
@@ -250,3 +307,8 @@ def render(s):
 
 if __name__ == "__main__":
     print(render(merge(sys.argv[1])))
+    print("program cache entries (kernel variants): %d"
+          % program_cache_entries(sys.argv[1]))
+    fired, on = sdpa_ragged_pad_fired(sys.argv[1])
+    print("sdpa ragged-pad guard: %s, fired on %d call(s)"
+          % ("ON" if on else "off", fired))

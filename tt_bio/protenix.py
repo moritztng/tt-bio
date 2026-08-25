@@ -33,6 +33,7 @@ import ttnn
 
 from . import protenix_weights as PW
 from .envflags import env_flag
+from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm,
@@ -83,7 +84,7 @@ MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
-TOKEN_PAD_MULTIPLE = 64
+TOKEN_PAD_MULTIPLE = _bucket_multiple("protenix-v2")
 # 64, the same multiple as PAIRFORMER_PAD_MULTIPLE and the rest of the Pairformer family. 32 is the
 # tile, so 32 is all correctness needs, and 32 is never the wider pad: it is strictly cheaper at
 # N % 64 in 33..63 (N=580 pads to 608 against 640, +9.9 % pair area against +21.8 %) and identical
@@ -124,8 +125,9 @@ def _pad_poison() -> float:
     the RFD3 p23 method -- same logical input, different padding -- and it is the only way to tell
     a leaking mask from a target whose fold is merely sensitive to the trunk's arithmetic.
     """
+    from .token_axis import pad_poison
     v = os.environ.get("TT_BIO_PROTENIX_PAD_POISON")
-    return float(v) if v else 0.0
+    return float(v) if v else pad_poison()
 
 
 def _token_bucket() -> bool:
@@ -142,7 +144,8 @@ def _token_bucket() -> bool:
     early-out, so this costs exactly nothing there and changes no number. Set the flag to 0 to get
     the ragged path back for an A/B.
     """
-    return env_flag("TT_BIO_PROTENIX_TOKEN_BUCKET", True)
+    from .token_axis import bucket_enabled
+    return bucket_enabled() and env_flag("TT_BIO_PROTENIX_TOKEN_BUCKET", True)
 
 
 def bucketed_width(N: int, mult: int | None = None) -> int:
@@ -151,43 +154,21 @@ def bucketed_width(N: int, mult: int | None = None) -> int:
     Callers that size something else off the same axis need this rather than their own copy of the
     arithmetic: OpenDDE's refiner prewarms its fused input-weight cache from the width it is about
     to run at, and a prewarm at the unpadded width warms an entry the call then does not use.
+
+    This is the FLAGGED wrapper -- `token_axis.bucketed_width` is the arithmetic.
     """
-    return N + (-N) % (mult or _token_pad_multiple()) if _token_bucket() else N
+    from .token_axis import bucketed_width as _w
+    return _w(N, mult or _token_pad_multiple()) if _token_bucket() else N
 
 
 def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=None):
-    """Run `pf` with its token axis padded out to `mult`, masked, and sliced back.
+    """`token_axis.bucketed_pairformer` under this family's flag and multiple.
 
-    The trunk is not the only exposure, and the census found the other two rather than the source
-    did. The confidence head's Pairformer runs at the REAL N, so bucketing the trunk alone left 8
-    of protenix-v2's 1208 ragged fused-SDPA calls behind (4 blocks x attention start+end); OpenDDE
-    keeps 8 more in its structural-token refiner, at Ns=181 for a 98-residue input, a different
-    token axis entirely. One helper covers all four call sites and any that get added -- fixing one
-    caller is the recurring failure (`fused-sdpa-ragged-tile-tail-and-census-discipline`).
+    The mechanism lives in token_axis.py next to the census; this is the two lines that decide
+    whether protenix-v2 / opendde / opendde-abag use it and how wide.
     """
-    N = int(z.shape[1])
-    pad = bucketed_width(N, mult) - N
-    if not pad:
-        return pf(s, z, extra_attn_bias=extra_attn_bias)
-    Np = N + pad
-    m1 = torch.zeros(1, Np)
-    m1[:, :N] = 1.0
-    up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-    pmask = up(m1[:, :, None] * m1[:, None, :])          # outer product -- see Trunk.__call__
-    attn = up((1 - m1).unsqueeze(1).unsqueeze(1) * -1e9)
-    s = ttnn.pad(s, [(0, 0), (0, pad), (0, 0)], 0.0) if s is not None else None
-    z = ttnn.pad(z, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0)
-    if extra_attn_bias is not None:
-        # An additive per-pair bias, so the padded region has to be pushed out of the softmax the
-        # same way `attn` does it -- padding it with 0 would put the padded keys back at score 0,
-        # which is the defect this is closing.
-        extra_attn_bias = ttnn.pad(
-            extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
-    so, zo = pf(s, z, pmask, attn, attn, extra_attn_bias)
-    if so is not None:
-        so = ttnn.slice(so, (0, 0, 0), (1, N, so.shape[2]))
-    zo = ttnn.slice(zo, (0, 0, 0, 0), (1, N, N, zo.shape[3]))
-    return so, zo
+    from .token_axis import bucketed_pairformer as _bp
+    return _bp(pf, s, z, dev, bucketed_width(int(z.shape[1]), mult), extra_attn_bias)
 
 
 def _msa_host_offload_min_bytes():
@@ -2657,7 +2638,8 @@ class Trunk(_KeyedWeights):
         # axis), TriangleAttention (softmax over one) and PairWeightedAveraging (its matmul
         # contracts the token axis). OuterProductMean reduces over MSA DEPTH, so a padded token
         # cannot reach a real pair through it, and the transitions/norms/linears are per-token.
-        pad = (-N) % _token_pad_multiple() if _token_bucket() else 0
+        from .token_axis import pad_amount, token_pad_masks_torch
+        pad = pad_amount(N, _token_pad_multiple()) if _token_bucket() else 0
         pmask_tt = attn_tt = None
         if pad:
             N = n_real + pad
@@ -2681,14 +2663,10 @@ class Trunk(_KeyedWeights):
             for k in ("template_distogram", "template_unit_vector"):
                 if k in feat:
                     feat[k] = F.pad(feat[k], (0, 0, 0, pad, 0, pad), value=q)
-            m1 = torch.zeros(1, N)
-            m1[:, :n_real] = 1.0
-            # The OUTER PRODUCT, not a 1-D mask: TriangleMultiplication multiplies an
-            # unsqueezed mask into [1,S,S,C], so a 1-D [1,S] mask lands on the second token
-            # axis only and the incoming variant then sums the padded rows in -- rel 2.00
-            # against 6.7e-03 (state/opendde-pairformer-z-parity-drop.md).
-            pmask_tt = self._up(m1[:, :, None] * m1[:, None, :])
-            attn_tt = self._up((1 - m1).unsqueeze(1).unsqueeze(1) * -1e9)
+            # Outer-product pair mask and additive -1e9 attention mask, both from the shared
+            # helper -- the reasons they are that shape and not simpler are recorded there.
+            m1, _pm, _at = token_pad_masks_torch(n_real, N)
+            pmask_tt, attn_tt = self._up(_pm), self._up(_at)
         s_init, z_init = self.trunk_input(self._up(s_inputs), self._up(relp), self._up(token_bonds.unsqueeze(-1)))
         # template feature concat (per template). Offline (no-template) inference omits
         # template_* entirely -> nt=0, template embedder skipped (the reference's

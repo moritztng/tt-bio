@@ -75,7 +75,10 @@ SEQUENCE_VOCAB = [
 ]
 BOS_TOKEN, EOS_TOKEN, UNK_TOKEN, MASK_TOKEN = 0, 2, 3, 32
 PAD_TOKEN = 1  # SEQUENCE_VOCAB index of <pad>
-BUCKET = 64    # pad the LM length to a multiple of this to avoid per-length recompilation
+from .token_axis import bucket_multiple as _bucket_multiple
+
+# pad the LM length to a multiple of this to avoid per-length recompilation; fleet value.
+BUCKET = _bucket_multiple("esmc-300m")
 # Per-batch token budget (rows x bucketed length) for the batched embed path:
 # short sequences pack a full batch_size, long ones shrink the batch toward 1 so
 # a mixed FASTA never OOMs. Scaled by batch_size so raising the knob raises headroom.
@@ -150,7 +153,7 @@ def apply_rotary(x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor) -> ttnn.Ten
 def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
     """RoPE for per-head q, k [B, H, L, head_dim].
 
-    When L is tile-aligned (the bucketed LM path — ``BUCKET`` is 64, and the 6B
+    When L is tile-aligned (the bucketed LM path — ``BUCKET`` is 32, and the 6B
     backbone always pads to it) the fused ``ttnn.experimental.rotary_embedding``
     kernel replaces ``apply_rotary``'s six-op rotate-half pile with one dispatch
     per tensor. This is the largest single share of ESMC attention (a dispatch-

@@ -102,7 +102,10 @@ def _sdpa_bf16(q, k, v, attn_mask, scale):
     return ctx
 
 C_Z = 256  # pair channels
-PAD_MULTIPLE = 32  # token-dim tile bucket for the folding trunk (pads + masks + slices).
+from .token_axis import bucket_multiple as _bucket_multiple, pad_amount
+
+# token-dim tile bucket for the folding trunk (pads + masks + slices), from the fleet value.
+PAD_MULTIPLE = _bucket_multiple("esmfold2")
 #                    Stays at 32 (not 64): the trimul's matmul contraction size depends on
 #                    the padded length, and in bf16 that is NOT exact across sizes — a 64
 #                    bucket measurably shifts RMSD-vs-truth (~0.065 Å on ubiquitin). Unlike
@@ -204,7 +207,7 @@ class FoldingTrunk(TorchWrapper):
         # Pad both sequence axes to a tile multiple and mask padding out of the
         # triangle contraction, then slice back (mirrors tt-bio PairformerModule).
         seq_len = z.shape[1]
-        pad = (-seq_len) % PAD_MULTIPLE
+        pad = pad_amount(seq_len, PAD_MULTIPLE)
         mask = None
         if pad:
             z = F.pad(z, (0, 0, 0, pad, 0, pad))

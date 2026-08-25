@@ -3,6 +3,51 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Changed
+
+- The fused attention's ragged-tail mask (`TT_BIO_SDPA_RAGGED_PAD`) now defaults **on**. An unmasked
+  ragged tail makes the softmax denominator sum padded columns, which is wrong arithmetic rather
+  than a tuning choice, and a guard you have to know to ask for only protects people who already
+  knew. With every model bucketing (below) it fires on nothing on any shipped path, so it changes no
+  published number; it protects whatever still reaches the op ragged. `TT_BIO_SDPA_RAGGED_PAD=0`
+  restores the old behaviour for bisecting.
+
+### Fixed
+
+- Models were padding the atom axis and not the token axis. At any token count that is not a
+  multiple of the bucket, the ragged tail reached the triangle attention as real key columns rather
+  than masked ones, and both the stock and the fused attention read them: on a probe, relative error
+  against the aligned answer is 0.914 ragged against 0.038 padded. A 98-residue fold presented 1208
+  ragged calls out of 1208 on Protenix-v2 and 1216 on OpenDDE, which carries a third axis in its
+  structural-token refiner at roughly twice the residue count and so is essentially never aligned.
+
+  **Every shipped model now buckets its token axis to a multiple of 32**, masked, sliced back on
+  exit, through one shared helper (`token_axis.bucketed_pairformer`) with the per-model facts held
+  as data in the `TOKEN_AXIS` table rather than as copies of the code. RF3 was the last holdout and
+  its two Pairformer sites now route through the same helper, taking 104 ragged fused-attention
+  calls per fold to 0 with a bit-identical answer. `TT_BIO_TOKEN_BUCKET=0` restores the old ragged
+  path fleet-wide for an A/B and `TT_BIO_TOKEN_BUCKET_MULTIPLE` re-runs every model at another
+  width in one variable; `TT_BIO_PROTENIX_TOKEN_BUCKET` and `TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE`
+  still work for that family and are ANDed with the global.
+
+  Where the pad is 0 the fold is byte-identical, so a token count already on the bucket costs
+  nothing and changes no number: at 512 residues both arms return CIF `5e404779d791fa8f` on
+  Protenix-v2 and agree to -0.101 s over eight interleaved pairs on OpenDDE. Where the pad is not 0
+  you pay for the columns you added: 298 residues round to 320 and **cost** 4.8 % on Protenix-v2 and
+  about 6 % on OpenDDE, on warm medians. (A previous draft of this entry reported those two as a
+  speed-up. That was a sign error: the committed paired runs read 26.578 s bucketed against 25.357 s
+  ragged on Protenix-v2, and 37.199 s against 35.040 s on OpenDDE, so the bucket is the slower arm
+  at that length. It buys correctness, not throughput.)
+
+  The multiple is 32 rather than 64 on measurement, taken on Boltz-2 with the arm order alternated:
+  64 is 20.1 % slower at 76 aa, where it pads to 128 against 32's 96 and pays 2.37x the triangle
+  work, and 4.18 % faster at the 20 aa smoke fixture, where both are one tile of real work and the
+  fold is dispatch-bound. Nothing runs 20 aa in production, so the 76 aa reading decides it. The
+  narrower pad is not automatically the faster one, because the two widths do not select the same
+  kernel. `docs/size-generality.md` has the size-by-size reading.
+
 ## [0.7.1] - 2026-08-25
 
 ### Fixed
@@ -20,12 +65,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   Where the pad is 0 the fold is byte-identical, so a token count that is already a multiple of 64
   costs nothing and changes no number: at 512 residues both arms return CIF `5e404779d791fa8f` on
   Protenix-v2 and agree to -0.101 s over eight interleaved pairs on OpenDDE. Where the pad is not 0
-  you pay for the columns you added, and at real fold lengths that is a win rather than a cost:
-  298 residues round to 320 and run 4.8 % faster on Protenix-v2 and 6.0 % faster on OpenDDE. Short
-  folds are the exception and they are worse, because the fold is dispatch-bound before the pad
-  arrives: 20 residues round to 64 and lose about 17 % of throughput. That is the smoke input
-  `perf_regression.py` times, so its baseline rows were re-recorded deliberately rather than
-  waived. `docs/size-generality.md` has the size-by-size reading.
+  you pay for the columns you added: 298 residues round to 320 and **cost** 4.8 % on Protenix-v2 and
+  about 6 % on OpenDDE, on warm medians. (This entry originally read "faster". That was a sign
+  error; the committed paired runs are 26.578 s bucketed against 25.357 s ragged on Protenix-v2 and
+  37.199 s against 35.040 s on OpenDDE. The bucket buys correctness, not throughput.) Short folds
+  are worse again, because the fold is dispatch-bound before the pad arrives: 20 residues round to
+  64 and lose about 17 % of throughput. That is the smoke input `perf_regression.py` times, so its
+  baseline rows were re-recorded deliberately rather than waived. `docs/size-generality.md` has the
+  size-by-size reading.
 
 - A job that never got the card now says so instead of looking like a bad result. A co-tenant
   holding a device used to surface as `RuntimeError: every local worker exited`, and inside a gate

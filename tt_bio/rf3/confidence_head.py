@@ -144,7 +144,15 @@ class ConfidenceHead(Module):
 
     def __call__(self, s_inputs, s_trunk, z_trunk, dist_onehot=None):
         s, z = self.embed(s_inputs, s_trunk, z_trunk, dist_onehot)
-        s, z = self.pairformer(s, z)
+        # Same shared pad + mask + slice helper the trunk uses. The head is its own
+        # Pairformer, so bucketing the trunk alone left its 8 fused-SDPA calls ragged --
+        # the exact "fixing one caller is the recurring failure" case the helper's
+        # docstring names.
+        from tt_bio.token_axis import (TOKEN_BUCKET, bucketed_pairformer,
+                                       bucketed_width)
+        s, z = bucketed_pairformer(
+            self.pairformer, s, z, self.device,
+            bucketed_width(int(z.shape[1]), TOKEN_BUCKET))
         return self.heads(s, z)
 
     def heads(self, s, z):
