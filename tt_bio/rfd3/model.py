@@ -241,9 +241,12 @@ _PAIR_TRANSITION_L1 = env_flag("RFD3_PAIR_TRANSITION_L1", True)
 # an isolated per-op figure and `tt-bio-isolated-op-timing-oversync-inflates-cost` applies to both
 # arms of it, so the fold A/B is the number that counts.
 #
-# Almost all of it is the L1 residency, not the pinned config: with the output left in DRAM the
-# split is a mere 1.05x at hidden=512, because the extra DRAM round trip eats the config gain.
-# Hence the chunk-count guard in `Transition.__call__`.
+# Almost all of it is the L1 residency, not the pinned config. With the output left in DRAM the
+# split is 1.11x at 704 tokens and 0.91x -- a LOSS -- at 1024, where calibration finds nothing to
+# pin either and the split's second dispatch is all that is left
+# (perf/p130/fc1_above_free_window.json). So the lever is all-or-nothing: `Transition.__call__`
+# takes the split only where `fc1`'s output can join `b` and `m` in L1 without costing an extra
+# chunk call, which is every size at hidden=256 and up to 693 tokens at hidden=512.
 _FC1_SPLIT_SILU = env_flag("RFD3_FC1_SPLIT_SILU", False)
 FC1STATS = [0]                     # split calls, so an A/B arm cannot silently decline
 FC1SERVED = {}                     # shape -> count, for the calls that got both halves
@@ -419,6 +422,17 @@ def _tuned_pinned(x, w, dtype, core_grid=BATCH_INVARIANT_GRID):
     the wall clock.
     """
     return _TUNED_MM_CACHE.get(_tuned_key(x, w, dtype, None, core_grid)) is not None
+
+
+def _tuned_declined(x, w, dtype, core_grid=BATCH_INVARIANT_GRID):
+    """Has calibration already tried this shape and found nothing to pin?
+
+    Not the negation of `_tuned_pinned`, which cannot tell a shape calibration declined from one
+    it has not seen yet. A caller whose lever is only worth taking WITH a pinned config uses this
+    to stop taking it once the first call has populated the cache.
+    """
+    key = _tuned_key(x, w, dtype, None, core_grid)
+    return key in _TUNED_MM_CACHE and _TUNED_MM_CACHE[key] is None
 
 
 def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID,
@@ -740,9 +754,13 @@ class Transition(Module):
         # measured LOSS of 1.3-1.5 ms/call, so buying L1 traffic with extra chunks is not
         # obviously a win and this declines to a DRAM `fc1` output instead -- which is also where
         # the split collapses to 1.05x at hidden=512, so the guard is the whole size story.
+        # The lever is all-or-nothing: `fc1`'s output goes to L1 or its silu stays fused on the
+        # call. The split without the residency is 1.11x at 704 tokens and 0.91x at 1024, so
+        # taking it only where the third resident is free keeps every measured gain and cannot
+        # regress. That is every size at hidden=256, and up to 693 tokens at hidden=512.
         h3 = _pair_transition_chunk_h(x.shape[0], w_pad, hidden, H, residents=3)
-        fc1_mem = ttnn.L1_MEMORY_CONFIG if -(-H // h3) == -(-H // h) else None
-        if _FC1_SPLIT_SILU and fc1_mem is not None:
+        split = _FC1_SPLIT_SILU and -(-H // h3) == -(-H // h)
+        if split:
             h = h3
         # Slice lazily rather than `ttnn.chunk`, which materialises a second full copy of the
         # pair tensor up front. The 685-row tail is ragged at every h and gets its own shape,
@@ -751,14 +769,14 @@ class Transition(Module):
         for s in range(0, H, h):
             c = x[:, s:min(s + h, H)]
             parts.append(self._swiglu(c, ttnn.L1_MEMORY_CONFIG,
-                                      fc1_split=_FC1_SPLIT_SILU, fc1_mem=fc1_mem))
+                                      fc1_mem=ttnn.L1_MEMORY_CONFIG if split else None))
             ttnn.deallocate(c)
         out = ttnn.concat(parts, dim=1)
         for p in parts:
             ttnn.deallocate(p)
         return out
 
-    def _swiglu(self, x, mem, fc1_split=False, fc1_mem=None):
+    def _swiglu(self, x, mem, fc1_mem=None):
         """RMSNorm + silu-gated SwiGLU. `mem=None` keeps every intermediate in DRAM.
 
         With `mem` set, `fc2`'s output and the gated product stay in L1, so `b` and `m` are never
@@ -772,35 +790,51 @@ class Transition(Module):
         program config, and no bit-exact config for a fused activation exists, so it stayed
         heuristic-blocked with a DRAM output.
 
-        `fc1_split` retires that exception rather than working around it. The shipped
+        `fc1_mem` retires that exception rather than working around it. The shipped
         `activation="silu"` call is a matmul followed by a separate eltwise silu -- it rounds
         twice, and `ttnn.silu(ttnn.linear(x, w))` is bit-identical to it at all eight live keys
         (`_FC1_SPLIT_SILU`). With the silu out of the call `fc1` is an ordinary linear, takes a
-        pinned config like its siblings, and `fc1_mem` may put its output in L1 too.
+        pinned config like its siblings, and its output goes to L1 with `b` and `m`.
+
+        Setting `fc1_mem` is the WHOLE lever, both halves at once, and that is deliberate. The
+        split on its own -- pinned config, output still in DRAM -- is 1.11x at 704 tokens and
+        0.91x at 1024, a LOSS, because the extra DRAM round trip and the second dispatch eat the
+        config's gain (perf/p130/fc1_above_free_window.json). So `__call__` asks for the split
+        only where the L1 residency comes with it, and the one shape that slips through that
+        guard, a shape calibration declines, unsplits itself on its second call.
         """
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6,
                             compute_kernel_config=self.compute_kernel_config)
-        if not fc1_split:
+        if fc1_mem is not None:
+            # Only the chunked pair path asks for the split, so only it has a rank-4 `xn` to key
+            # a census row on -- `Transition` also serves 2D and 3D sites.
+            rows = "rows=%d w=%d hidden=%d" % (int(xn.padded_shape[1]), int(xn.padded_shape[2]),
+                                               int(self.fc1_w.shape[-1]))
+            if _tuned_declined(xn, self.fc1_w, self.dtype):
+                # Calibration has already tried this shape and has nothing to pin, so all the
+                # split would buy here is its own overhead. The first call pays to find out, no
+                # later one does. Both paths are bit-identical, so this never moves a digest. The
+                # R3 ragged tail is the live example: 0.036-0.073 ms, under `_TUNE_MIN_MS`.
+                k = rows + " no-pinned-config"
+                FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
+                fc1_mem = None
+        if fc1_mem is None:
             a = ttnn.linear(xn, self.fc1_w, activation="silu",
                              compute_kernel_config=self.compute_kernel_config,
                              dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         else:
             a = _tuned_linear(xn, self.fc1_w, ckc=self.compute_kernel_config, dtype=self.dtype,
                               core_grid=BATCH_INVARIANT_GRID, mem=fc1_mem)
-            a, pre = (ttnn.silu(a) if fc1_mem is None
-                      else ttnn.silu(a, memory_config=fc1_mem)), a
+            a, pre = ttnn.silu(a, memory_config=fc1_mem), a
             ttnn.deallocate(pre)
-            # Census, both halves. An `on` arm whose every call declined is an A/A wearing an
-            # A/B's label, and the decline path is reachable two ways here: `_tuned_linear` found
-            # no bit-exact config (or bailed under `_TUNE_MIN_MS`), or `__call__`'s chunk-count
-            # guard kept the output in DRAM. Only a call with both halves is worth the headline.
+            # Provenance. An `on` arm that served nothing is an A/A wearing an A/B's label, so the
+            # lever counts its own calls rather than leaving it to be inferred from the clock.
+            # A shape's FIRST call lands here even if calibration then declines it, which is what
+            # the `no-pinned-config` census row is: the one call that paid to find out.
             FC1STATS[0] += 1
-            served = _tuned_pinned(xn, self.fc1_w, self.dtype) and fc1_mem is not None
-            k = "rows=%d w=%d hidden=%d" % (int(xn.padded_shape[1]), int(xn.padded_shape[2]),
-                                            int(self.fc1_w.shape[-1]))
-            c = FC1SERVED if served else FC1DECLINES
-            if not served:
-                k += " no-pinned-config" if fc1_mem is not None else " dram-output"
+            served = _tuned_pinned(xn, self.fc1_w, self.dtype)
+            c, k = ((FC1SERVED, rows) if served
+                    else (FC1DECLINES, rows + " no-pinned-config"))
             c[k] = c.get(k, 0) + 1
         b = _tuned_linear(xn, self.fc2_w, ckc=self.compute_kernel_config,
                           dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID, mem=mem)

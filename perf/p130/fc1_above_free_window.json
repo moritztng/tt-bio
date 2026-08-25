@@ -1,0 +1,115 @@
+{
+  "note": "isolated per-chunk screen, PROVISIONAL-ON-PC-CARD0",
+  "keys": [
+    {
+      "rung": "704 tok",
+      "x": [
+        1,
+        64,
+        704,
+        128
+      ],
+      "hidden": 512,
+      "chunk_h_2res": 64,
+      "chunk_h_3res": 63,
+      "n_chunks_2res": 11,
+      "n_chunks_3res": 12,
+      "in_free_window": false,
+      "extra_chunk_calls": 1,
+      "card_control_maxabs": [
+        0.0,
+        0.0
+      ],
+      "shipped_ms": 0.8443,
+      "split_dram_maxabs": 0.0,
+      "split_dram_ms": 0.7609,
+      "split_dram_x": 1.1096,
+      "split_l1_maxabs": 0.0,
+      "split_l1_ms": 0.3615,
+      "split_l1_x": 2.3355,
+      "pinned": true
+    },
+    {
+      "rung": "704 tok",
+      "x": [
+        1,
+        64,
+        704,
+        128
+      ],
+      "hidden": 256,
+      "chunk_h_2res": 64,
+      "chunk_h_3res": 64,
+      "n_chunks_2res": 11,
+      "n_chunks_3res": 11,
+      "in_free_window": true,
+      "extra_chunk_calls": 0,
+      "card_control_maxabs": [
+        0.0,
+        0.0
+      ],
+      "shipped_ms": 0.6718,
+      "split_dram_maxabs": 0.0,
+      "split_dram_ms": 0.4247,
+      "split_dram_x": 1.5818,
+      "split_l1_maxabs": 0.0,
+      "split_l1_ms": 0.2104,
+      "split_l1_x": 3.193,
+      "pinned": true
+    },
+    {
+      "rung": "1024 tok",
+      "x": [
+        1,
+        64,
+        1024,
+        128
+      ],
+      "hidden": 512,
+      "chunk_h_2res": 64,
+      "chunk_h_3res": 43,
+      "n_chunks_2res": 16,
+      "n_chunks_3res": 24,
+      "in_free_window": false,
+      "extra_chunk_calls": 8,
+      "card_control_maxabs": [
+        0.0,
+        0.0
+      ],
+      "shipped_ms": 1.0782,
+      "split_dram_maxabs": 0.0,
+      "split_dram_ms": 1.1814,
+      "split_dram_x": 0.9126,
+      "split_l1_error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocat",
+      "pinned": false
+    },
+    {
+      "rung": "1024 tok",
+      "x": [
+        1,
+        64,
+        1024,
+        128
+      ],
+      "hidden": 256,
+      "chunk_h_2res": 64,
+      "chunk_h_3res": 64,
+      "n_chunks_2res": 16,
+      "n_chunks_3res": 16,
+      "in_free_window": true,
+      "extra_chunk_calls": 0,
+      "card_control_maxabs": [
+        0.0,
+        0.0
+      ],
+      "shipped_ms": 0.8167,
+      "split_dram_maxabs": 0.0,
+      "split_dram_ms": 0.5654,
+      "split_dram_x": 1.4445,
+      "split_l1_maxabs": 0.0,
+      "split_l1_ms": 0.2926,
+      "split_l1_x": 2.7912,
+      "pinned": true
+    }
+  ]
+}

@@ -4,7 +4,7 @@
     {
       "arm": "off",
       "rep": 0,
-      "sampler_s": 2.086,
+      "sampler_s": 2.041,
       "cif_sha256_16": "6f24e62c705514e1",
       "n_cifs": 1,
       "served_calls": 0,
@@ -13,16 +13,16 @@
     {
       "arm": "on",
       "rep": 1,
-      "sampler_s": 1.977,
+      "sampler_s": 2.014,
       "cif_sha256_16": "6f24e62c705514e1",
       "n_cifs": 1,
-      "served_calls": 180,
+      "served_calls": 160,
       "steps": 3
     },
     {
       "arm": "off",
       "rep": 2,
-      "sampler_s": 2.047,
+      "sampler_s": 2.035,
       "cif_sha256_16": "6f24e62c705514e1",
       "n_cifs": 1,
       "served_calls": 0,
@@ -31,10 +31,10 @@
     {
       "arm": "on",
       "rep": 3,
-      "sampler_s": 2.006,
+      "sampler_s": 2.048,
       "cif_sha256_16": "6f24e62c705514e1",
       "n_cifs": 1,
-      "served_calls": 180,
+      "served_calls": 160,
       "steps": 3
     }
   ],
@@ -48,7 +48,7 @@
   ],
   "fixture": "perf/dsfix/fixtures/rfd3_R3.json",
   "arms_distinct": true,
-  "discarded_warmup_s": 6.17,
+  "discarded_warmup_s": 4.878,
   "bit_exact": true,
   "digests": {
     "on": [
@@ -59,18 +59,18 @@
     ]
   },
   "aa_control_s": [
-    2.086,
-    2.047
+    2.041,
+    2.035
   ],
-  "aa_spread_s": 0.0389999999999997,
-  "off_median_s": 2.0665,
-  "off_min_s": 2.047,
-  "off_max_s": 2.086,
-  "on_median_s": 1.9914999999999998,
-  "on_min_s": 1.977,
-  "on_max_s": 2.006,
-  "delta_s": -0.075,
-  "ratio": 1.0377,
+  "aa_spread_s": 0.005999999999999783,
+  "off_median_s": 2.0380000000000003,
+  "off_min_s": 2.035,
+  "off_max_s": 2.041,
+  "on_median_s": 2.0309999999999997,
+  "on_min_s": 2.014,
+  "on_max_s": 2.048,
+  "delta_s": -0.007,
+  "ratio": 1.0034,
   "delta_inside_aa_band": false,
   "predicted_delta_s": -0.0465,
   "card": 0,
