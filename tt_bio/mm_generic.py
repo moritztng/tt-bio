@@ -30,7 +30,18 @@ TILE_HW = 32
 NOC_FOR_DRAM_READ = ttnn.NOC.NOC_0
 NOC_FOR_DRAM_WRITE = ttnn.NOC.NOC_1
 
+#: Bytes one TILE_HW x TILE_HW tile occupies, per dtype. sdpa_generic and softmax_generic
+#: size their CBs from this same table -- see `tile_bytes`.
 _TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
+
+
+def tile_bytes(dtype):
+    """Bytes one tile occupies in `dtype`, for a CB page size or a runtime arg."""
+    try:
+        return _TILE_BYTES[dtype]
+    except KeyError:
+        raise ValueError(f"no tile size for {dtype}: these transcriptions cover the call the "
+                         "fold issues, which is bf16 and fp32 only") from None
 
 _CACHE: dict = {}
 
@@ -159,13 +170,13 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     N_chunks = len(outs)
     N_tiles_per_chunk = N_tiles // N_chunks
 
-    in0_tile_size = _TILE_BYTES[in0.dtype]
-    in1_tile_size = _TILE_BYTES[in1.dtype]
-    out_tile_size = _TILE_BYTES[out.dtype]
+    in0_tile_size = tile_bytes(in0.dtype)
+    in1_tile_size = tile_bytes(in1.dtype)
+    out_tile_size = tile_bytes(out.dtype)
     in2_tile_size = in1_tile_size          # no bias: in2_data_format = in1_data_format
     in3_tile_size = in1_tile_size          # no all-gather fusion, same fallback
     interm_fmt = ttnn.float32 if fp32_dest_acc_en else ttnn.bfloat16
-    interm_tile_size = _TILE_BYTES[interm_fmt]
+    interm_tile_size = tile_bytes(interm_fmt)
 
     transpose = M > N
     in0_noc = NOC_FOR_DRAM_READ if transpose else NOC_FOR_DRAM_WRITE
