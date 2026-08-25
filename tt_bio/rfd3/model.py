@@ -216,8 +216,12 @@ _PAIRBIAS_SLOT = 32
 # the optimum is set by the chunk count, not by the fit. The byte cap below is a safety net for an
 # unmeasured shape, bracketed by measurement -- 138 MB of live L1 fits, 185 MB throws.
 #
-# Eight calls per step (transition_2.{0,1} at H=256 and pairformer_stack.{0,1}.z_transition at
-# H=512, each twice for the two recycles): 140.8 -> 121.5 ms/step, -19.3 ms/step.
+# 140.8 -> 121.5 ms/step, -19.3 ms/step, measured end to end. SIXTEEN calls per step, not the eight
+# this comment used to claim: the `fc1` census counts 1596 calls per 200-timestep fold at EACH
+# hidden width, and 199 diffusion-module calls (`len(sched) - 1`) x 8 + 4 from the one-time
+# initializer closes that exactly. The end-to-end figure was never wrong; the call count it was
+# attributed to was, and it mis-scaled region 2's prize by 2x before a census caught it
+# (state/rfd3-fusion-programme.md §14.4).
 #
 # The chunking is NOT where the win is. With the intermediates left in DRAM, chunking alone is a
 # LOSS of 1.3-1.5 ms/call (perf/p64/pair_transition_l1.json arm B): the slice, the closing concat
