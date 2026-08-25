@@ -6,7 +6,10 @@ the real v2 reference (scripts/protenix_extract_atomtx.py -> ~/protenix_atomtx_g
 import os, pickle, pytest, ttnn
 
 _GOLD = os.path.expanduser("~/protenix_atomtx_gold.pkl")
-pytestmark = pytest.mark.skipif(not os.path.exists(_GOLD), reason="golden pkl missing; run scripts/protenix_extract_atomtx.py")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not os.path.exists(_GOLD), reason="golden pkl missing; run scripts/protenix_extract_atomtx.py"),
+]
 
 
 def _pcc(a, b):

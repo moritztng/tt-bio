@@ -30,10 +30,13 @@ import of3_golden
 _CKPT = os.path.expanduser("~/.boltz/of3-ob-2025-06-30-174k.pt")
 _GOLD = os.path.expanduser("~/of3_ob_ref.pkl")
 
-pytestmark = pytest.mark.skipif(
-    not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
-    reason="OpenBind ckpt or ~/of3_ob_ref.pkl missing "
-           "(scripts/ob0_tri_att_end_orientation_golden.py writes it)")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(
+        not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
+        reason="OpenBind ckpt or ~/of3_ob_ref.pkl missing "
+          "(scripts/ob0_tri_att_end_orientation_golden.py writes it)"),
+]
 
 _SITES = {
     "pairformer_block0": "pairformer_stack.blocks.0.pair_stack.tri_att_end",

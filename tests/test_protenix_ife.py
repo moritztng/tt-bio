@@ -7,7 +7,10 @@ real v2 reference (scripts/protenix_extract_ife.py -> ~/protenix_ife_gold.pkl).
 import os, pickle, pytest, torch, ttnn
 
 _GOLD = os.path.expanduser("~/protenix_ife_gold.pkl")
-pytestmark = pytest.mark.skipif(not os.path.exists(_GOLD), reason="golden pkl missing; run scripts/protenix_extract_ife.py")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not os.path.exists(_GOLD), reason="golden pkl missing; run scripts/protenix_extract_ife.py"),
+]
 
 
 def _pcc(a, b):

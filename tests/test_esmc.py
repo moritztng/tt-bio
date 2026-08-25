@@ -50,6 +50,7 @@ def _kernel_config():
     )
 
 
+@pytest.mark.device
 @pytest.mark.parametrize("seq_len", [16, 128])
 def test_embedding(seq_len):
     ref = make_esmc_300m()
@@ -71,6 +72,7 @@ def test_embedding(seq_len):
     assert p > 0.999, f"PCC {p:.5f} too low"
 
 
+@pytest.mark.device
 @pytest.mark.parametrize("seq_len", [16, 128])
 def test_rope(seq_len):
     from esm.layers.rotary import RotaryEmbedding
@@ -97,6 +99,7 @@ def test_rope(seq_len):
         assert p > 0.999, f"{name} PCC {p:.5f} too low"
 
 
+@pytest.mark.device
 @pytest.mark.parametrize("seq_len", [16, 128])
 def test_attention(seq_len):
     n_heads, head_dim = ESMC_300M["n_heads"], D_MODEL // ESMC_300M["n_heads"]
@@ -119,6 +122,7 @@ def test_attention(seq_len):
     assert p > 0.99, f"PCC {p:.5f} too low"
 
 
+@pytest.mark.device
 def test_attention_mask_isolates_segments():
     """The additive attn_mask (used for ESMC-6B chain-aware / padded attention)
     must block cross-segment attention: perturbing one segment's tokens leaves
@@ -185,6 +189,7 @@ def test_te_key_remap():
     assert not any("_extra_state" in k or "lm_head" in k for k in remapped)
 
 
+@pytest.mark.device
 def test_esmc_real_weights():
     """Validate against the trained ESMC-300M on a real protein (human ubiquitin).
 
@@ -230,6 +235,7 @@ def test_read_fasta(tmp_path):
     assert seqs["a_2"] == "CCC"    # collision disambiguated, not dropped
 
 
+@pytest.mark.device
 def test_embed_api_shapes_and_pooling():
     """embed_sequences returns per-residue rows aligned 1:1 with residues
     (<cls>/<eos> stripped), a pooled vector, and logits on request."""
@@ -253,6 +259,7 @@ def test_embed_api_shapes_and_pooling():
     assert cls_out.logits is None
 
 
+@pytest.mark.device
 @pytest.mark.parametrize("seq_len", [16, 64])
 def test_esmc_end_to_end(seq_len):
     ref = make_esmc_300m()
@@ -272,6 +279,7 @@ def test_esmc_end_to_end(seq_len):
     assert agree > 0.9, f"argmax agreement {agree:.3f} too low"
 
 
+@pytest.mark.device
 @pytest.mark.parametrize("seq_len", [16, 128])
 def test_block(seq_len):
     n_heads, head_dim = ESMC_300M["n_heads"], D_MODEL // ESMC_300M["n_heads"]
@@ -294,6 +302,7 @@ def test_block(seq_len):
     assert p > 0.99, f"PCC {p:.5f} too low"
 
 
+@pytest.mark.device
 @pytest.mark.parametrize("seq_len", [16, 128])
 def test_ffn(seq_len):
     ref = make_esmc_300m()

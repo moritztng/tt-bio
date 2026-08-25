@@ -7,7 +7,10 @@ import os
 import pytest
 
 CKPT = os.environ.get("PROTENIX_CKPT", os.path.expanduser("~/protenix_ckpt/protenix-v2.pt"))
-pytestmark = pytest.mark.skipif(not os.path.exists(CKPT), reason="needs the v2 checkpoint")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not os.path.exists(CKPT), reason="needs the v2 checkpoint"),
+]
 
 # deterministic pseudo-random 512-residue sequence (no external fixtures needed)
 _AA = "ARNDCQEGHILKMFPSTWYV"

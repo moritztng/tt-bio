@@ -8,9 +8,12 @@ _TRUNK = os.path.expanduser("~/protenix_trunk_gold.pkl")
 _TRUNKIN = os.path.expanduser("~/protenix_trunkin_gold.pkl")
 _REF = os.path.expanduser("~/protenix_ref_out.pkl")
 _DIFF = os.path.expanduser("~/protenix_diffusion_consistent.pkl")
-pytestmark = pytest.mark.skipif(
-    not all(os.path.exists(p) for p in (_CKPT, _TRUNK, _TRUNKIN, _REF, _DIFF)),
-    reason="v2 ckpt or golden pkls missing")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(
+        not all(os.path.exists(p) for p in (_CKPT, _TRUNK, _TRUNKIN, _REF, _DIFF)),
+        reason="v2 ckpt or golden pkls missing"),
+]
 
 
 def _pcc(a, b):

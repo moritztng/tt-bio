@@ -8,7 +8,10 @@ python3 — only needs the golden pkl + ttnn.
 import os, pickle, pytest, torch, ttnn
 
 _GOLD = os.path.expanduser("~/protenix_atomfeat_gold.pkl")
-pytestmark = pytest.mark.skipif(not os.path.exists(_GOLD), reason="golden pkl missing; run scripts/protenix_extract_atomfeat.py")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not os.path.exists(_GOLD), reason="golden pkl missing; run scripts/protenix_extract_atomfeat.py"),
+]
 
 
 def _pcc(a, b):

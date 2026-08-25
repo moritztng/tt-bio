@@ -34,8 +34,11 @@ _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
 import of3_golden
 
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
-pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
-                                reason="of3 ckpt or golden pkl missing")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
+                       reason="of3 ckpt or golden pkl missing"),
+]
 
 
 def _pcc(a, b):

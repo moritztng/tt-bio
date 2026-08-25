@@ -11,9 +11,12 @@ import os, pickle, pytest, torch, torch.nn.functional as F, ttnn
 
 _CKPT = "/home/ttuser/protenix_ckpt/protenix-v2.pt"
 _DENOISER = os.path.expanduser("~/protenix_denoiser_pre.pkl")
-pytestmark = pytest.mark.skipif(
-    not (os.path.exists(_CKPT) and os.path.exists(_DENOISER)),
-    reason="v2 ckpt or pre-mutation denoiser golden pkl missing (run scripts/protenix_extract_denoiser_pre.py)")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(
+        not (os.path.exists(_CKPT) and os.path.exists(_DENOISER)),
+        reason="v2 ckpt or pre-mutation denoiser golden pkl missing (run scripts/protenix_extract_denoiser_pre.py)"),
+]
 
 
 def _pcc(a, b):

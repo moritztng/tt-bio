@@ -53,9 +53,14 @@ as a problem, so every gate refuses before it opens a card. `test` supplies pyte
 is not a runtime dependency and so is absent from a plain wheel install.
 
 ```bash
-# Pin the card. Much of the suite opens a device, and with TT_VISIBLE_DEVICES unset
-# it takes the whole mesh, which collides with anything else running on the host.
+# Pin the card. Much of the suite opens a device, and with TT_VISIBLE_DEVICES unset it
+# takes the whole mesh, which collides with anything else running on the host -- so on a
+# host that has cards, pytest refuses to start unpinned rather than guess.
 TT_VISIBLE_DEVICES=0 python3 -m pytest -v --tb=short
+
+# No card free? Set it empty and the device tests skip, so the rest of the suite is
+# readable on its own. Same invocation on a machine with no TT hardware at all.
+TT_VISIBLE_DEVICES= python3 -m pytest -v --tb=short
 
 # Packaging guard — catches a dropped data file in the wheel/sdist before it
 # ships to PyPI (the v0.3.3 bug class: protenix-v2/opendde/boltzgen crashed on

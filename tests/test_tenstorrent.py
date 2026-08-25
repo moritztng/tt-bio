@@ -9,6 +9,8 @@ from tt_bio.reference import MSAModule as MSAModuleTorch, DiffusionModule as Dif
 from tt_bio.reference import PairformerModule as PairformerModuleTorch, PairformerNoSeqModule as PairformerNoSeqModuleTorch
 from tt_bio.boltz2 import get_indexing_matrix, single_to_keys
 
+pytestmark = pytest.mark.device
+
 torch.set_grad_enabled(False)
 torch.manual_seed(893)
 

@@ -7,7 +7,10 @@ import pytest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CKPT = os.environ.get("PROTENIX_CKPT", os.path.expanduser("~/protenix_ckpt/protenix-v2.pt"))
 
-pytestmark = pytest.mark.skipif(not os.path.exists(CKPT), reason="needs the v2 checkpoint")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not os.path.exists(CKPT), reason="needs the v2 checkpoint"),
+]
 
 
 def test_protenix_sequence_to_structure():

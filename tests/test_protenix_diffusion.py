@@ -7,9 +7,12 @@ import os, pickle, pytest, torch, ttnn
 _CKPT = "/home/ttuser/protenix_ckpt/protenix-v2.pt"
 _DEC = os.path.expanduser("~/protenix_atomdec_pre.pkl")
 _ENC = os.path.expanduser("~/protenix_atomenc_pre.pkl")
-pytestmark = pytest.mark.skipif(
-    not (os.path.exists(_CKPT) and os.path.exists(_DEC) and os.path.exists(_ENC)),
-    reason="v2 ckpt or pre-mutation golden pkls missing (run scripts/protenix_extract_atomdec_pre.py)")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(
+        not (os.path.exists(_CKPT) and os.path.exists(_DEC) and os.path.exists(_ENC)),
+        reason="v2 ckpt or pre-mutation golden pkls missing (run scripts/protenix_extract_atomdec_pre.py)"),
+]
 
 
 def _pcc(a, b):

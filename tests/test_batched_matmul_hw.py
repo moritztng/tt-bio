@@ -20,11 +20,14 @@ case here.**
 
 Run: TT_VISIBLE_DEVICES=<card> python3 tests/test_batched_matmul_hw.py
 """
+import pytest
 import torch
 import ttnn
 
 from tt_bio import tenstorrent as T
 from tt_bio.main import ensure_p300_mesh_descriptor
+
+pytestmark = pytest.mark.device
 
 F32, BF16 = ttnn.float32, ttnn.bfloat16
 

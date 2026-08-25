@@ -32,10 +32,13 @@ import of3_golden
 _CKPT = os.path.expanduser("~/.boltz/of3-ob-2025-06-30-174k.pt")
 _GOLD = os.path.expanduser("~/of3_ob_ref.pkl")
 
-pytestmark = pytest.mark.skipif(
-    not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
-    reason="OpenBind ckpt or ~/of3_ob_ref.pkl missing "
-           "(scripts/ob0_diffusion_transformer_golden.py writes it)")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(
+        not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
+        reason="OpenBind ckpt or ~/of3_ob_ref.pkl missing "
+          "(scripts/ob0_diffusion_transformer_golden.py writes it)"),
+]
 
 
 def _pcc(a, b):
