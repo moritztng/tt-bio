@@ -79,7 +79,8 @@ def fold_ab(*, flag, set_enabled, counter, fixture, out, steps, arms, tag,
         before = counter[0]
         s, dig, n = _fold(specs, "/tmp/%s_%d" % (tag, i), steps, seed, weights)
         rows.append({"arm": arm, "rep": i, "sampler_s": round(s, 3),
-                     "cif_sha256_16": dig, "n_cifs": n, "served_calls": counter[0] - before})
+                     "cif_sha256_16": dig, "n_cifs": n, "served_calls": counter[0] - before,
+                     "steps": steps})
         print("[%s] rep%d %-3s %9.3f s  %d cif  %s  served %d"
               % (tag, i, arm, s, n, dig[:20], rows[-1]["served_calls"]), flush=True)
     set_enabled(False)

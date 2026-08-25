@@ -506,7 +506,11 @@ def softmax_pv_fused(x, vv, dtype, ckc):
     """
     v = pv_classify(x, vv, dtype, ckc)
     if not v["ok"]:
-        PVDECLINES[v["why"]] = PVDECLINES.get(v["why"], 0) + 1
+        # Key the census by shape as well as reason: "the kernel does not engage" at a 1024 key
+        # width and at a 6080 one mean different things for how much of the site L5b actually
+        # serves, and a bare reason count cannot tell them apart.
+        k = "%s @ key %d" % (v["why"], int(x.padded_shape[-1]))
+        PVDECLINES[k] = PVDECLINES.get(k, 0) + 1
         return None
     out = ttnn.empty([int(d) for d in list(x.shape)[:-1]] + [int(vv.shape[-1])],
                      dtype, ttnn.TILE_LAYOUT, x.device(), x.memory_config())
