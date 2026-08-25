@@ -1,0 +1,238 @@
+{
+  "arm": "a0",
+  "arm_route": "whatever the tree ships, no override applied -- read fp32_softmax under resolved",
+  "arm_scope": "model-local (shipped default)",
+  "ref_cache": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/accuracy_cdk2_256",
+  "fixture": "cdk2_256",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "recycles": 10,
+  "steps": 50,
+  "diffusion_samples": 1,
+  "ref_device": "cpu",
+  "reference": "tt_bio._vendor.rf3 (upstream foundry), cpu torch, bf16 autocast",
+  "kabsch_selftest_A": 9.265044010831228e-15,
+  "metric_convention": "pharma_parity.noise_floor_verdict; floor = max(mean R, mean D); pairwise self-superposition, no shared frame",
+  "work": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/pc_cdk256_a5",
+  "ref_joined_from": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/accuracy_cdk2_256",
+  "ref_provenance": {
+    "from": "ref_manifest.json",
+    "devices": [
+      "cpu"
+    ],
+    "device_names": [
+      "cpu"
+    ],
+    "per_seed": {
+      "0": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T04:42:24Z",
+        "recycles": 10,
+        "steps": 50
+      },
+      "1": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T04:48:39Z",
+        "recycles": 10,
+        "steps": 50
+      },
+      "2": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T04:54:49Z",
+        "recycles": 10,
+        "steps": 50
+      },
+      "3": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T05:01:00Z",
+        "recycles": 10,
+        "steps": 50
+      },
+      "4": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T05:07:06Z",
+        "recycles": 10,
+        "steps": 50
+      }
+    }
+  },
+  "metrics": {
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 5,
+        "mean": 0.690166729811379,
+        "std": 0.19526798289769398,
+        "min": 0.41331974103465596,
+        "max": 0.9635614877787879
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 1.514295178506444,
+        "std": 0.21679393779460013,
+        "min": 1.2058737567316353,
+        "max": 1.9184927354038401
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 1.628412498452811,
+        "std": 0.3371473468874849,
+        "min": 1.1728677006190322,
+        "max": 2.227790534184822
+      },
+      "floor_mean": 1.628412498452811,
+      "cross_over_floor": 0.4238279492862656,
+      "dev_over_ref_floor": 1.0753600233072929,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "X_per_seed": {
+        "0": 0.9636,
+        "1": 0.5989,
+        "2": 0.6226,
+        "3": 0.8525,
+        "4": 0.4133
+      },
+      "R_pairs": [
+        1.7567,
+        1.7156,
+        1.9185,
+        1.2059,
+        1.282,
+        1.596,
+        1.435,
+        1.4138,
+        1.3282,
+        1.4915
+      ],
+      "D_pairs": [
+        1.9737,
+        2.2278,
+        2.0797,
+        1.55,
+        1.3277,
+        1.7037,
+        1.4808,
+        1.1729,
+        1.4258,
+        1.342
+      ]
+    },
+    "allatom_rmsd": {
+      "metric": "allatom_rmsd",
+      "cross": {
+        "n": 5,
+        "mean": 0.7497811929161651,
+        "std": 0.22000883503111618,
+        "min": 0.4783683344331412,
+        "max": 1.1133017453100622
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 1.6733453211683655,
+        "std": 0.19422020413990057,
+        "min": 1.3424960346975605,
+        "max": 1.9987409614416944
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 1.7983542059621644,
+        "std": 0.3219568616063562,
+        "min": 1.3866206918487929,
+        "max": 2.385646372071239
+      },
+      "floor_mean": 1.7983542059621644,
+      "cross_over_floor": 0.4169263154223911,
+      "dev_over_ref_floor": 1.0747059696599355,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "X_per_seed": {
+        "0": 1.1133,
+        "1": 0.6049,
+        "2": 0.6931,
+        "3": 0.8593,
+        "4": 0.4784
+      },
+      "R_pairs": [
+        1.8731,
+        1.8641,
+        1.9987,
+        1.3425,
+        1.5117,
+        1.8195,
+        1.6093,
+        1.5754,
+        1.5317,
+        1.6075
+      ],
+      "D_pairs": [
+        2.1301,
+        2.3856,
+        2.2003,
+        1.7513,
+        1.5436,
+        1.879,
+        1.6427,
+        1.3866,
+        1.6059,
+        1.4583
+      ]
+    }
+  },
+  "vs_crystal": null,
+  "timing_s": {
+    "0": [
+      15.3,
+      0.0,
+      0.0,
+      17.8
+    ],
+    "1": [
+      12.5,
+      0.0,
+      0.0,
+      12.8
+    ],
+    "2": [
+      12.1,
+      0.0,
+      0.0,
+      13.0
+    ],
+    "3": [
+      11.9,
+      0.0,
+      0.0,
+      12.1
+    ],
+    "4": [
+      12.5,
+      0.0,
+      0.1,
+      12.5
+    ]
+  },
+  "draws_sha": {
+    "0": "5e205e9b212fe87c",
+    "1": "3611dd3ea7d5d7fa",
+    "2": "ad6c35d3d1f912a1",
+    "3": "1d471fc8d0629f20",
+    "4": "b272b4a211e2e7a2"
+  }
+}

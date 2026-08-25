@@ -1,0 +1,238 @@
+{
+  "arm": "a0",
+  "arm_route": "whatever the tree ships, no override applied -- read fp32_softmax under resolved",
+  "arm_scope": "model-local (shipped default)",
+  "ref_cache": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/accuracy_cdk2_256",
+  "fixture": "cdk2_256",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "recycles": 10,
+  "steps": 50,
+  "diffusion_samples": 1,
+  "ref_device": "cpu",
+  "reference": "tt_bio._vendor.rf3 (upstream foundry), cpu torch, bf16 autocast",
+  "kabsch_selftest_A": 9.265044010831228e-15,
+  "metric_convention": "pharma_parity.noise_floor_verdict; floor = max(mean R, mean D); pairwise self-superposition, no shared frame",
+  "work": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/pc_cdk256_a1_p1",
+  "ref_joined_from": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/accuracy_cdk2_256",
+  "ref_provenance": {
+    "from": "ref_manifest.json",
+    "devices": [
+      "cpu"
+    ],
+    "device_names": [
+      "cpu"
+    ],
+    "per_seed": {
+      "0": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T04:42:24Z",
+        "recycles": 10,
+        "steps": 50
+      },
+      "1": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T04:48:39Z",
+        "recycles": 10,
+        "steps": 50
+      },
+      "2": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T04:54:49Z",
+        "recycles": 10,
+        "steps": 50
+      },
+      "3": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T05:01:00Z",
+        "recycles": 10,
+        "steps": 50
+      },
+      "4": {
+        "ref_device": "cpu",
+        "ref_device_name": "cpu",
+        "torch": "2.8.0+cpu",
+        "utc": "2026-08-25T05:07:06Z",
+        "recycles": 10,
+        "steps": 50
+      }
+    }
+  },
+  "metrics": {
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 5,
+        "mean": 0.7919944032017641,
+        "std": 0.30548258916163606,
+        "min": 0.2607520893768105,
+        "max": 1.065252718209941
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 1.514295178506444,
+        "std": 0.21679393779460013,
+        "min": 1.2058737567316353,
+        "max": 1.9184927354038401
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 1.6128562568267664,
+        "std": 0.2866478005487836,
+        "min": 1.0421170934964672,
+        "max": 1.9502912268107004
+      },
+      "floor_mean": 1.6128562568267664,
+      "cross_over_floor": 0.4910508297620912,
+      "dev_over_ref_floor": 1.0650870977595885,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "X_per_seed": {
+        "0": 0.9373,
+        "1": 1.0653,
+        "2": 1.0511,
+        "3": 0.2608,
+        "4": 0.6455
+      },
+      "R_pairs": [
+        1.7567,
+        1.7156,
+        1.9185,
+        1.2059,
+        1.282,
+        1.596,
+        1.435,
+        1.4138,
+        1.3282,
+        1.4915
+      ],
+      "D_pairs": [
+        1.0421,
+        1.6846,
+        1.9503,
+        1.2479,
+        1.8248,
+        1.8718,
+        1.3263,
+        1.6646,
+        1.8066,
+        1.7096
+      ]
+    },
+    "allatom_rmsd": {
+      "metric": "allatom_rmsd",
+      "cross": {
+        "n": 5,
+        "mean": 0.8506068435046036,
+        "std": 0.3091299271109599,
+        "min": 0.3105270550356325,
+        "max": 1.1444962539818768
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 1.6733453211683655,
+        "std": 0.19422020413990057,
+        "min": 1.3424960346975605,
+        "max": 1.9987409614416944
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 1.7588298653342747,
+        "std": 0.27374775479143376,
+        "min": 1.2011942323957085,
+        "max": 2.0850660575517472
+      },
+      "floor_mean": 1.7588298653342747,
+      "cross_over_floor": 0.4836208778743596,
+      "dev_over_ref_floor": 1.0510860149931407,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "X_per_seed": {
+        "0": 1.0263,
+        "1": 1.1445,
+        "2": 1.068,
+        "3": 0.3105,
+        "4": 0.7036
+      },
+      "R_pairs": [
+        1.8731,
+        1.8641,
+        1.9987,
+        1.3425,
+        1.5117,
+        1.8195,
+        1.6093,
+        1.5754,
+        1.5317,
+        1.6075
+      ],
+      "D_pairs": [
+        1.2012,
+        1.8216,
+        2.0851,
+        1.4591,
+        1.9313,
+        2.0388,
+        1.4649,
+        1.8138,
+        1.9502,
+        1.8224
+      ]
+    }
+  },
+  "vs_crystal": null,
+  "timing_s": {
+    "0": [
+      14.1,
+      0.0,
+      0.0,
+      28.3
+    ],
+    "1": [
+      12.2,
+      0.0,
+      0.0,
+      13.4
+    ],
+    "2": [
+      12.3,
+      0.0,
+      0.1,
+      13.2
+    ],
+    "3": [
+      12.1,
+      0.0,
+      0.0,
+      13.3
+    ],
+    "4": [
+      12.8,
+      0.0,
+      0.0,
+      12.9
+    ]
+  },
+  "draws_sha": {
+    "0": "5e205e9b212fe87c",
+    "1": "3611dd3ea7d5d7fa",
+    "2": "ad6c35d3d1f912a1",
+    "3": "1d471fc8d0629f20",
+    "4": "b272b4a211e2e7a2"
+  }
+}
