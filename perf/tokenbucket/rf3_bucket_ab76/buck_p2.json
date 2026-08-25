@@ -5,15 +5,15 @@
   "direction": "higher",
   "hardware": "blackhole",
   "card_type": "p300c",
-  "throughput": 0.09688,
-  "latency_ms": 10322.1,
-  "median_s": 10.3221,
+  "throughput": 0.097658,
+  "latency_ms": 10239.85,
+  "median_s": 10.2398,
   "times_s": [
-    9.469,
-    9.8354,
-    10.3221,
-    10.3455,
-    10.3667
+    9.9536,
+    10.2222,
+    10.2398,
+    10.2782,
+    10.6462
   ],
   "load_s": 3.2,
   "warmup": 2,
