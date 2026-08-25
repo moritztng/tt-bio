@@ -1,0 +1,1 @@
+[{"op": "ttnn.softmax", "site": "tt_bio/protenix.py:566", "ragged": 0, "aligned": 19, "masked_ragged": 0, "unfused_ragged": 0, "declined": 0, "shapes": []}, {"op": "ttnn.softmax", "site": "tt_bio/tenstorrent.py:5552", "ragged": 0, "aligned": 32, "masked_ragged": 0, "unfused_ragged": 0, "declined": 0, "shapes": []}]
