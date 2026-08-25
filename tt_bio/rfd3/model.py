@@ -670,7 +670,10 @@ class Transition(Module):
         """Whole-tensor by default; L1-resident row blocks on the token pair tensor.
 
         See `_PAIR_TRANSITION_L1` for the measurements. `RFD3_PAIR_TRANSITION_L1=0` restores
-        the whole-tensor path op for op.
+        the whole-tensor path op for op at 3-to-63-row tails; at 1- and 2-row tails (22 of 689
+        production sizes, e.g. H=513/514) it differs by 2.44e-4, one bf16 ULP at this magnitude
+        (`perf/p131/tail_sweep.json`). Not chased further: the gap is sub-ULP rounding, not a
+        wrong result.
         """
         if not (_PAIR_TRANSITION_L1 and len(x.shape) == 4
                 and x.shape[2] >= _PAIR_TRANSITION_MIN_W):
