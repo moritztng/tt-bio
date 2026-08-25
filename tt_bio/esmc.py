@@ -153,7 +153,7 @@ def apply_rotary(x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor) -> ttnn.Ten
 def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
     """RoPE for per-head q, k [B, H, L, head_dim].
 
-    When L is tile-aligned (the bucketed LM path — ``BUCKET`` is 64, and the 6B
+    When L is tile-aligned (the bucketed LM path — ``BUCKET`` is 32, and the 6B
     backbone always pads to it) the fused ``ttnn.experimental.rotary_embedding``
     kernel replaces ``apply_rotary``'s six-op rotate-half pile with one dispatch
     per tensor. This is the largest single share of ESMC attention (a dispatch-

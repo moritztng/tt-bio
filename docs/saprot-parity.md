@@ -24,8 +24,9 @@ FOLDSEEK_BIN=/path/to/foldseek TT_VISIBLE_DEVICES=0 \
 | saprot-1.3b | ubiquitin (76) | 0.995076 | 0.998952 | — |
 
 Input is ubiquitin paired with a deterministic 3Di string (the 3Di content does not affect
-parity — both paths see identical tokens). Length is bucketed to 128 (a multiple of 64) so
-the fused rotary-embedding kernel runs on-device; padded positions are masked out of
+parity — both paths see identical tokens). Length is bucketed to 96 (a multiple of 32) so
+the fused rotary-embedding kernel runs on-device; it gates on `L % 32 == 0`, so the move from
+a 64-wide bucket to a 32-wide one keeps it served. Padded positions are masked out of
 attention and zeroed in the embedding, so the 76 real residues are identical to a
 no-padding forward.
 

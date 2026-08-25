@@ -759,6 +759,14 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
 # 448, 576, 640, 704, 832, 896 and 960 on BOTH architectures while 256/512/768/1024 were served.
 # 640 is in that list and it is the first size past Wormhole's `SEQ_LEN_MORE_CHUNKING = 608`.
 #
+# 2026-08-25: the fleet multiple is 32 now, not 64, so the reachable padded lengths are every
+# multiple of 32 and the set 256 fails to divide is TWICE as large as the list above. K3 is what
+# makes that safe -- it picks a dividing k_chunk rather than the cap -- and the counters say so
+# rather than the argument: censused at RF3's padded 320 (a 32-multiple that is not a 64-multiple)
+# the fused kernel SERVES all 104 calls, 0 stock fallbacks. Boltz-2 reads it the other way at its
+# smoke size, 288 stock calls at width 64 against 0 at width 32. So 32 does not turn this fused
+# path off anywhere it was on; it turns it on in places 64 left it dark.
+#
 # MEASURED off-fold at Boltz-2's tri-attention shape (h=4, d=32), fused kernel against the stock op
 # the fold falls back to today, arms interleaved, A/A control on every unchanged size reading
 # 0.9957-1.0004 (perf/whb2/out/divk_qb1c1.json, qb1 13x10; the Wormhole arm is its counterpart):
