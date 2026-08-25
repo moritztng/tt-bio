@@ -61,7 +61,7 @@ from tt_bio._vendor.openfold3.projects.of3_all_atom.config.dataset_config_compon
 from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
     Query,
 )
-from tt_bio.cache import cached, publish_text, seq_hash
+from tt_bio.cache import cached, publish_text, seq_hash, staged
 
 
 def resolve_openfold3_msas(
@@ -108,22 +108,23 @@ def resolve_openfold3_msas(
             msa_server_url, msa_pairing_strategy, msa_server_username,
             msa_server_password, api_key, msa_endpoint=msa_endpoint,
         )
-    paths = {i: p for i, p in paths.items() if p.exists()}
+    paths = {i: p for i, p in paths.items() if cached(p)}
     for i, path in paths.items():
         # OF3 filters direct MSA files by canonical source basename. Keep the shared
         # hash cache unchanged and expose the same bytes under its ColabFold source name.
         of3_path = msa_dir / "of3" / path.stem / "colabfold_main.a3m"
         of3_path.parent.mkdir(parents=True, exist_ok=True)
-        if not of3_path.exists():
+        if not cached(of3_path):
+            # A previous run's cross-device fallback could be killed mid-copy, and the copy
+            # went straight to this name, so drop whatever is there before relinking.
+            of3_path.unlink(missing_ok=True)
             try:
                 os.link(path, of3_path)
             except FileExistsError:
                 pass  # a concurrent worker linked it first
             except OSError:
-                try:
-                    shutil.copyfile(path, of3_path)
-                except shutil.SameFileError:
-                    pass  # lost the race: of3_path is already a link to path
+                with staged(of3_path) as tmp:
+                    shutil.copyfile(path, tmp)
         query.chains[i].main_msa_file_paths = [of3_path]
     return query
 
