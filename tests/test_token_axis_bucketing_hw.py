@@ -54,6 +54,28 @@ JOBS = {
     # polymer one and may not be inherited from it.
     "openfold3": _PREDICT + ["openfold3"],
     "openbind": _PREDICT + ["openbind"],
+    # The rest of the BUCKETED table, so `JOBS` is not a hand-kept subset of it. Every one of these
+    # takes the same shared 98-aa ragged input through its own CLI verb.
+    "boltz2": _PREDICT + ["boltz2"],
+    "esmfold2-fast": _PREDICT + ["esmfold2-fast"],
+    # opendde-abag runs the SAME OpenDDE class on a different checkpoint, and assuming that made it
+    # redundant is exactly what let a 60x diffusion-precision regression ship undetected
+    # (tt-bio-shared-diffusion-global-env-default-regression). It gets its own row.
+    "opendde-abag": _PREDICT + ["opendde-abag"],
+    "esmc-6b": ["embed", "{fasta}", "--model", "esmc-6b"],
+    "saprot-1.3b": ["saprot", "{fasta}", "--model", "saprot-1.3b"],
+}
+
+#: BUCKETED rows with no `JOBS` entry, each with the reason it cannot take the shared 98-aa fasta.
+#: An entry here is a debt with a name on it, not an exemption: all three ARE censused, just on
+#: their own fixture and by hand rather than by this test.
+NO_SHARED_INPUT = {
+    "nesso1": "`tt-bio affinity` takes a complex YAML, not a fasta; censused on "
+              "perf/nesso1/inputs/ladder/aa128/cdk2_128.yaml at 148 ragged tokens",
+    "pxdesign": "`tt-bio design` takes a target spec; censused on tests/fixtures/pxdesign/PDL1.yaml "
+                "at 196 ragged tokens",
+    "boltzgen": "`tt-bio design` takes a target spec and a binder length, so it needs its own "
+                "fixture the way rfd3 does",
 }
 _RFD3_TARGET = os.path.join(REPO, "perf", "wh-correctness", "results", "payloads",
                             "des_rfd3_binder.json")
@@ -148,6 +170,24 @@ def _census(model, argv, env_extra=None, seq=None, tap=None):
 
 @pytest.mark.skipif(not _device_available(),
                     reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+def test_every_bucketed_model_has_a_job_or_a_written_reason():
+    """`JOBS` is hand-typed and the parametrize reads it, so a model that buckets but is missing
+    from it is silently never checked. That is `hardcoded-model-list-misses-new-port-recurring`,
+    and it is how nesso1, pxdesign and three others sat outside this guard while the file read as
+    green. Discover the requirement from the table instead of trusting the list.
+    """
+    buck = {n for n, r in TA.TOKEN_AXIS.items() if r[0] == TA.BUCKETED}
+    missing = sorted(buck - set(JOBS) - set(NO_SHARED_INPUT))
+    assert not missing, (
+        "BUCKETED models with no JOBS entry and no written reason: %s. Add a job, or add a "
+        "NO_SHARED_INPUT entry saying which fixture censuses it instead." % ", ".join(missing))
+    stale = sorted(set(NO_SHARED_INPUT) - buck)
+    assert not stale, ("NO_SHARED_INPUT names models that are not BUCKETED: %s" % ", ".join(stale))
+    thin = sorted(k for k, v in NO_SHARED_INPUT.items() if len(v.strip()) < 30)
+    assert not thin, ("NO_SHARED_INPUT reasons must say which fixture covers the model: %s"
+                      % ", ".join(thin))
+
+
 @pytest.mark.parametrize("model", sorted(JOBS))
 def test_no_bucketed_model_reaches_a_ragged_fused_sdpa(model):
     """A BUCKETED model runs a 98-aa (ragged) input without one ragged fused-SDPA key axis.
