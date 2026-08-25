@@ -225,7 +225,16 @@
         "3201": 0.97265625,
         "3210": 0.97265625
       },
-      "arm_B_any_hypothesis_reproduces_S2": true
+      "arm_B_hypotheses_reproduce": {
+        "H1_unnormalised_exp_x_minus_max": false,
+        "H2a_fp32_high_half_as_bf16": false,
+        "H2b_fp32_low_half_as_bf16": false,
+        "H3_packer_truncate_not_rne": false,
+        "H4_tile_face_permuted_best": false
+      },
+      "arm_B_any_hypothesis_reproduces_S2": false,
+      "arm_B_refb_absmax": 0.97265625,
+      "arm_B_maxabs_metric_degenerate": true
     },
     {
       "shape": [

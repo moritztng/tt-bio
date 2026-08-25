@@ -185,8 +185,17 @@ def one_shape(dev, shape, seed, do_full):
         rec["arm_B_hypotheses_maxabs"] = hyp
         rec["arm_B_H4_best_perm"] = best[0]
         rec["arm_B_H4_all_perms"] = perm
+        # A hypothesis reproduces the shipped output when it IS the shipped output, i.e. when its
+        # own maxabs against `shipped` is zero. Scoring "this hypothesis is as far from shipped as
+        # `ref` is" instead makes every candidate fire here, because `S2_shipped_maxabs` is just
+        # `refb.max()` hit where `got` is 0 (arm A) and so is the same number for any tensor that
+        # leaves that element alone. That degenerate metric is recorded, not relied on.
+        rec["arm_B_hypotheses_reproduce"] = {k: bool(v == 0.0) for k, v in hyp.items()}
         rec["arm_B_any_hypothesis_reproduces_S2"] = any(
-            abs(v - rec["S2_shipped_maxabs"]) < 1e-9 for v in hyp.values())
+            v == 0.0 for v in hyp.values())
+        rec["arm_B_refb_absmax"] = float(refb.abs().max())
+        rec["arm_B_maxabs_metric_degenerate"] = bool(
+            abs(rec["S2_shipped_maxabs"] - float(refb.abs().max())) < 1e-9)
 
     for t in (x, ref, ref_bf):
         ttnn.deallocate(t)
@@ -230,12 +239,16 @@ def main():
         print("   got histogram        %s" % a["got_value_histogram_where_wrong"])
         print("   ref histogram        %s" % a["ref_value_histogram_where_wrong"])
         print("   per-tile maxabs      %s" % a["per_tile_maxabs_unique"])
-        print("\n[p134] arm B, hypotheses vs S2 maxabs %.9g:" % rows[0]["S2_shipped_maxabs"])
+        print("\n[p134] arm B, each hypothesis's own maxabs against the SHIPPED output "
+              "(0 = it reproduces it):")
         for k, v in rows[0]["arm_B_hypotheses_maxabs"].items():
             print("   %-34s %.9g %s" % (k, v,
-                  "<-- REPRODUCES S2" if abs(v - rows[0]["S2_shipped_maxabs"]) < 1e-9 else ""))
-        print("   any hypothesis reproduces S2: %s"
+                  "<-- REPRODUCES SHIPPED" if v == 0.0 else "refuted"))
+        print("   any hypothesis reproduces the shipped output: %s"
               % rows[0]["arm_B_any_hypothesis_reproduces_S2"])
+        print("   S2 maxabs %.9g vs refb absmax %.9g -> maxabs metric degenerate: %s"
+              % (rows[0]["S2_shipped_maxabs"], rows[0]["arm_B_refb_absmax"],
+                 rows[0]["arm_B_maxabs_metric_degenerate"]))
 
     small = [r for r in rows if not r["use_large"]]
     rec = {"rows": rows, "provisional_on": "pc-card0",
