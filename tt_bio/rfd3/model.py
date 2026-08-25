@@ -616,7 +616,7 @@ def _pair_transition_chunk_h(batch, w_pad, hidden, height):
     of the footprint. It used to be missing, and that is what closed batching for three
     passes: at b=2 and h=64 each resident is 2*64*704*512*2 = 92 274 688 B, the second one
     fails against 68.4 MB free, and the crash lands on `m` in `_swiglu`. That byte figure
-    is exactly the request in `perf/p76/batch_r4_qb2.log`. Dividing by the batch holds the
+    is exactly the allocation that failing b=2 run asked for. Dividing by the batch holds the
     live footprint at the measured-safe 138 MB whatever the batch is, and is a no-op at
     b=1, where the cap is 95 either way and h stays 64.
     """
