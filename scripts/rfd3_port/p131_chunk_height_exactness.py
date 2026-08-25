@@ -67,7 +67,7 @@ def main():
         for h in HEIGHTS:
             M._PAIR_TRANSITION_L1_BYTES = budget_for(h, w_pad, hidden)
             got = t(x)
-            got_h = M._pair_transition_chunk_h(1, w_pad, hidden, TOKENS)
+            got_h = M._pair_transition_chunk_h(w_pad, hidden, TOKENS)
             row = {"hidden": hidden, "asked_h": h, "actual_h": got_h,
                    "l1_bytes": M._PAIR_TRANSITION_L1_BYTES,
                    "vs_whole": M._mm_maxabs(got, whole),

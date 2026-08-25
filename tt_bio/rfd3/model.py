@@ -411,13 +411,35 @@ def _tunable(x, w):
     return all(d == 1 for d in ws[:-2])
 
 
-def _tuned_key(x, w, dtype, bias, core_grid):
-    """`_TUNED_MM_CACHE`'s key. Shared, so a caller can ask what calibration decided for a shape."""
+_CKC_FIELDS = ("math_fidelity", "fp32_dest_acc_en", "packer_l1_acc", "math_approx_mode",
+               "dst_full_sync_en", "throttle_level")
+
+
+def _ckc_key(ckc):
+    """A compute-kernel config as a hashable VALUE, for `_tuned_key`.
+
+    The ttnn config object hashes and reprs by identity, so it cannot be a cache key itself:
+    two configs with identical fields would key differently, and one config reused under a
+    different fidelity would key the same. Read the fields.
+    """
+    return None if ckc is None else tuple(str(getattr(ckc, f, None)) for f in _CKC_FIELDS)
+
+
+def _tuned_key(x, w, dtype, bias, core_grid, ckc):
+    """`_TUNED_MM_CACHE`'s key. Shared, so a caller can ask what calibration decided for a shape.
+
+    The compute-kernel config is part of the key because `_calibrate_linear` proves exactness
+    *against the default call under that config*: a pinned `in0_block_w` that is bit-exact at
+    HiFi4 with `fp32_dest_acc_en` has been checked at nothing else. Every live RFD3 caller passes
+    the one `_default_compute_kernel_config()`, so this was latent rather than live -- but
+    `build_token_initializer` takes a `compute_kernel_config` from outside, and a caller that
+    passed a second fidelity would have silently reused configs pinned under the first.
+    """
     return (tuple(list(x.padded_shape)), tuple(list(w.padded_shape)), x.dtype, dtype,
-            bias is not None, core_grid)
+            bias is not None, core_grid, _ckc_key(ckc))
 
 
-def _tuned_pinned(x, w, dtype, core_grid=BATCH_INVARIANT_GRID):
+def _tuned_pinned(x, w, dtype, ckc, core_grid=BATCH_INVARIANT_GRID):
     """Did calibration pin a bit-exact program config for this shape? Read AFTER the call.
 
     `_tuned_linear` declines two ways -- no bit-exact candidate, or a default call under
@@ -425,17 +447,17 @@ def _tuned_pinned(x, w, dtype, core_grid=BATCH_INVARIANT_GRID):
     which of its calls the pinned path actually served reads this rather than inferring it from
     the wall clock.
     """
-    return _TUNED_MM_CACHE.get(_tuned_key(x, w, dtype, None, core_grid)) is not None
+    return _TUNED_MM_CACHE.get(_tuned_key(x, w, dtype, None, core_grid, ckc)) is not None
 
 
-def _tuned_declined(x, w, dtype, core_grid=BATCH_INVARIANT_GRID):
+def _tuned_declined(x, w, dtype, ckc, core_grid=BATCH_INVARIANT_GRID):
     """Has calibration already tried this shape and found nothing to pin?
 
     Not the negation of `_tuned_pinned`, which cannot tell a shape calibration declined from one
     it has not seen yet. A caller whose lever is only worth taking WITH a pinned config uses this
     to stop taking it once the first call has populated the cache.
     """
-    key = _tuned_key(x, w, dtype, None, core_grid)
+    key = _tuned_key(x, w, dtype, None, core_grid, ckc)
     return key in _TUNED_MM_CACHE and _TUNED_MM_CACHE[key] is None
 
 
@@ -468,7 +490,7 @@ def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVA
         kw["bias"] = bias
     if not _TUNE_MATMUL or not _tunable(x, w):
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
-    key = _tuned_key(x, w, dtype, bias, core_grid)
+    key = _tuned_key(x, w, dtype, bias, core_grid, ckc)
     if key not in _TUNED_MM_CACHE:
         _TUNED_MM_CACHE[key] = _calibrate_linear(x, w, kw, core_grid)
     pc = _TUNED_MM_CACHE[key]
@@ -682,21 +704,55 @@ def _tt_host(x, dtype=ttnn.bfloat16):
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=dtype)
 
 
-def _pair_transition_chunk_h(batch, w_pad, hidden, height, residents=2):
+def _pair_transition_chunk_h(w_pad, hidden, height, residents=2):
     """Rows of the pair tensor one L1-resident SwiGLU chunk may cover.
 
-    Live per chunk is `b` + `m`, both [batch, h, w_pad, hidden] bf16, so the batch is part
-    of the footprint. It used to be missing, and that is what closed batching for three
-    passes: at b=2 and h=64 each resident is 2*64*704*512*2 = 92 274 688 B, the second one
-    fails against 68.4 MB free, and the crash lands on `m` in `_swiglu`. That byte figure
-    is exactly the request the batched run died on. Dividing by the batch holds the
-    live footprint at the measured-safe 138 MB whatever the batch is, and is a no-op at
-    b=1, where the cap is 95 either way and h stays 64.
+    Live per chunk is `b` + `m`, both [1, h, w_pad, hidden] bf16. The batch is not in the
+    formula because `Transition.__call__` slices it: one `_swiglu` call covers one batch
+    element, so the footprint per call does not depend on the batch and neither does h.
+
+    The cap used to divide by the batch instead. That held the measured-safe 138 MB at any
+    batch -- it is what fixed the b=2 OOM, request 92 274 688 B against 68.4 MB free -- but it
+    made h a function of the batch, and h selects which of several bit-different answers the
+    chunked path produces (state doc §15.2/§15.3: four heights, four fold digests). So a b=2
+    design did not reproduce the b=1 structure at 62.7 % of (size, hidden) pairs, in a port
+    that carries `BATCH_INVARIANT_GRID` because batch invariance is a requirement here.
+    Slicing the batch keeps the bound and the structure: h is now a pure function of
+    (w_pad, hidden, height) and every call runs the b=1 chunk plan.
 
     `residents=3` prices the same budget with `fc1`'s output in L1 as well (`_FC1_SPLIT_SILU`).
     """
-    cap = _PAIR_TRANSITION_L1_BYTES // (2 * residents * max(1, batch) * w_pad * hidden)
+    cap = _PAIR_TRANSITION_L1_BYTES // (2 * residents * w_pad * hidden)
     return max(1, min(height, _PAIR_TRANSITION_H_CHUNK, cap))
+
+
+def _pair_transition_slices(batch, height, h):
+    """Every (batch index, row start, row stop) chunk the L1-resident path covers.
+
+    The batch extent is always 1, which is the whole point: it is what takes the batch out of
+    `_pair_transition_chunk_h` and therefore out of the model's arithmetic. At b=1 this is the
+    row split the unbatched path always did.
+    """
+    return [(b, s, min(s + h, height))
+            for b in range(max(1, batch)) for s in range(0, height, h)]
+
+
+def _pair_transition_join(parts, batch):
+    """Reassemble `_pair_transition_slices`' chunk outputs: rows on dim 1, batch on dim 0.
+
+    At b=1 this is the single dim-1 concat the unbatched path always did, in the same order,
+    which is why the b=1 digest cannot move.
+    """
+    n = len(parts) // max(1, batch)
+    rows = [ttnn.concat(parts[i:i + n], dim=1) for i in range(0, len(parts), n)]
+    for p in parts:
+        ttnn.deallocate(p)
+    if len(rows) == 1:
+        return rows[0]
+    out = ttnn.concat(rows, dim=0)
+    for r in rows:
+        ttnn.deallocate(r)
+    return out
 
 
 def _tt_refresh(x, dev_tensor, dtype=ttnn.bfloat16):
@@ -758,41 +814,39 @@ class Transition(Module):
             return self._swiglu(x, None)
         H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
         w_pad = int(x.padded_shape[2])
-        h = _pair_transition_chunk_h(x.shape[0], w_pad, hidden, H)
-        # Admit `fc1`'s output to L1 only where the third resident does not cost an extra chunk
-        # call. One L1 budget divided by three instead of two shrinks h, and past 693 tokens the
-        # chunk count rises with it (11 -> 12 at 694, 16 -> 24 at 1024). Chunking on its own is a
-        # measured LOSS of 1.3-1.5 ms/call, so buying L1 traffic with extra chunks is not
-        # obviously a win and this declines to a DRAM `fc1` output instead -- which is also where
-        # the split collapses to 1.05x at hidden=512, so the guard is the whole size story.
+        h = _pair_transition_chunk_h(w_pad, hidden, H)
+        # Admit `fc1`'s output to L1 only where the third resident leaves the chunk height
+        # ALONE. One L1 budget divided by three instead of two shrinks h, and h is not a
+        # footprint detail: at 514 tokens h=64 is the only height of 64, 63, 59 and 53 that does
+        # not reproduce the whole-tensor path (2.44e-4, one bf16 ULP per call, compounding over
+        # 200 diffusion steps into a different structure -- state doc §15.3). So a lever that
+        # moves h moves the answer, whatever it does to the clock. An equal chunk COUNT is not
+        # enough for that: 49 sizes at hidden=512 keep the count and move the height, and the
+        # first fold at one of them moved the CIF digest (§15.2).
         # The lever is all-or-nothing: `fc1`'s output goes to L1 or its silu stays fused on the
-        # call. The split without the residency is 1.11x at 704 tokens and 0.91x at 1024, so
-        # taking it only where the third resident is free keeps every measured gain and cannot
-        # regress. That is every size at hidden=256, and up to 693 tokens at hidden=512.
-        h3 = _pair_transition_chunk_h(x.shape[0], w_pad, hidden, H, residents=3)
-        split = _FC1_SPLIT_SILU and -(-H // h3) == -(-H // h)
+        # call. The split without the residency is 1.11x at 704 tokens and 0.91x at 1024, a LOSS,
+        # so taking it only where the third resident is free keeps every measured gain and cannot
+        # regress. At an equal height that is every size at hidden=256, and 161 of the 689
+        # chunked sizes at hidden=512.
+        h3 = _pair_transition_chunk_h(w_pad, hidden, H, residents=3)
+        split = _FC1_SPLIT_SILU and h3 == h
         if _FC1_SPLIT_SILU and not split:
             # Decline route 2 of 3, and the only one that was invisible: the third resident would
-            # cost an extra chunk call, so `fc1`'s output stays in DRAM and the silu stays on the
-            # call. 479 of the 689 chunked sizes at hidden=512 land here.
-            k = ("tensor_rows=%d w=%d hidden=%d chunk-count-would-rise %d->%d"
-                 % (H, w_pad, hidden, -(-H // h), -(-H // h3)))
+            # move the chunk height, so `fc1`'s output stays in DRAM and the silu stays on the
+            # call. 528 of the 689 chunked sizes at hidden=512 land here.
+            k = ("tensor_rows=%d w=%d hidden=%d chunk-height-would-move %d->%d"
+                 % (H, w_pad, hidden, h, h3))
             FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
-        if split:
-            h = h3
         # Slice lazily rather than `ttnn.chunk`, which materialises a second full copy of the
         # pair tensor up front. The 685-row tail is ragged at every h and gets its own shape,
         # hence its own program-config cache entry, which is what keeps it exact.
         parts = []
-        for s in range(0, H, h):
-            c = x[:, s:min(s + h, H)]
+        for b, s, e in _pair_transition_slices(int(x.shape[0]), H, h):
+            c = x[b:b + 1, s:e]
             parts.append(self._swiglu(c, ttnn.L1_MEMORY_CONFIG,
                                       fc1_mem=ttnn.L1_MEMORY_CONFIG if split else None))
             ttnn.deallocate(c)
-        out = ttnn.concat(parts, dim=1)
-        for p in parts:
-            ttnn.deallocate(p)
-        return out
+        return _pair_transition_join(parts, int(x.shape[0]))
 
     def _swiglu(self, x, mem, fc1_mem=None):
         """RMSNorm + silu-gated SwiGLU. `mem=None` keeps every intermediate in DRAM.
@@ -828,7 +882,7 @@ class Transition(Module):
             # a census row on -- `Transition` also serves 2D and 3D sites.
             rows = "rows=%d w=%d hidden=%d" % (int(xn.padded_shape[1]), int(xn.padded_shape[2]),
                                                int(self.fc1_w.shape[-1]))
-            if _tuned_declined(xn, self.fc1_w, self.dtype):
+            if _tuned_declined(xn, self.fc1_w, self.dtype, self.compute_kernel_config):
                 # Calibration has already tried this shape and has nothing to pin, so all the
                 # split would buy here is its own overhead. The first call pays to find out, no
                 # later one does. Both paths are bit-identical, so this never moves a digest. The
@@ -850,7 +904,7 @@ class Transition(Module):
             # A shape's FIRST call lands here even if calibration then declines it, which is what
             # the `no-pinned-config` census row is: the one call that paid to find out.
             FC1STATS[0] += 1
-            served = _tuned_pinned(xn, self.fc1_w, self.dtype)
+            served = _tuned_pinned(xn, self.fc1_w, self.dtype, self.compute_kernel_config)
             c, k = ((FC1SERVED, rows) if served
                     else (FC1DECLINES, rows + " no-pinned-config"))
             c[k] = c.get(k, 0) + 1

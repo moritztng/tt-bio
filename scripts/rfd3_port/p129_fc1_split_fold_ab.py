@@ -21,13 +21,13 @@ Three invocations, in the order §13.11 pre-committed:
 
 The lever declines three ways and all three are in the census, because an `on` arm that declined
 every call is an A/A wearing an A/B's label: no bit-exact config (or a default under
-`_TUNE_MIN_MS`), the chunk-count guard keeping `fc1`'s output in DRAM, or no chunked site at all.
+`_TUNE_MIN_MS`), the chunk-height guard keeping `fc1`'s output in DRAM, or no chunked site at all.
 
-`chunk_h` is reported per arm and per site, because the guard buys L1 residency by shrinking h,
-and h is the one thing that changes shape between arms -- a different chunk shape is a different
-program-config cache key, hence a candidate digest mover independent of the split itself. At R3 it
-does not move (64 at both hidden widths, three residents or two); at 685 tokens and hidden=512 it
-goes 64 -> 63 at constant chunk count, which pc cannot fold (§10.1, host RAM).
+`chunk_h` is reported per arm and per site because h is the one thing that could change shape
+between arms, and §15.2 folded what that costs: at a moved height the CIF digest moves, at any
+height, in both arms, with the lever's served count at zero. So the guard admits the split only
+at an EQUAL height and this script's job is to show the height did not move rather than to
+tolerate it moving.
 
 On pc card 0 every number is PROVISIONAL-ON-PC-CARD0 and is never pooled with a qb1/qb2/H200
 denominator (`pc-card0-512aa-fold-nondeterminism`).
@@ -62,30 +62,34 @@ FIXTURES = pathlib.Path("perf/dsfix/fixtures")
 def chunk_plan(tokens, hidden):
     """What `Transition.__call__` will decide at this size, from the shipped function."""
     w_pad = -(-tokens // 32) * 32
-    h2 = rfd3_model._pair_transition_chunk_h(1, w_pad, hidden, tokens)
-    h3 = rfd3_model._pair_transition_chunk_h(1, w_pad, hidden, tokens, residents=3)
-    n2, n3 = -(-tokens // h2), -(-tokens // h3)
+    h2 = rfd3_model._pair_transition_chunk_h(w_pad, hidden, tokens)
+    h3 = rfd3_model._pair_transition_chunk_h(w_pad, hidden, tokens, residents=3)
+    split = h3 == h2
     return {"tokens": tokens, "hidden": hidden, "w_pad": w_pad,
             "chunked": w_pad >= rfd3_model._PAIR_TRANSITION_MIN_W,
-            "chunk_h_off": h2, "chunk_h_on": h3 if n3 == n2 else h2,
-            "n_chunks_off": n2, "n_chunks_on": n3 if n3 == n2 else n2,
-            "fc1_output_in_l1": n3 == n2, "chunk_h_moves": n3 == n2 and h3 != h2}
+            "chunk_h_off": h2, "chunk_h_on": h2, "chunk_h_third_resident": h3,
+            "n_chunks_off": -(-tokens // h2), "n_chunks_on": -(-tokens // h2),
+            "fc1_output_in_l1": split,
+            # Under the height guard the served height never moves, so this records what the
+            # third resident WOULD have cost -- the decline reason, not a served shape.
+            "chunk_count_kept": -(-tokens // h3) == -(-tokens // h2) and not split}
 
 
 def main():
     argv = [a for a in sys.argv[1:] if not a.startswith("--")]
     expect_no_site = "--expect-no-site" in sys.argv
     # `--l1-bytes=N` shrinks `_PAIR_TRANSITION_L1_BYTES` for this run only. It is the SECOND knob
-    # on the chunk-count-parity predicate: the guard compares chunk counts at two and three
+    # on the height-parity predicate: the guard compares the chunk height at two and three
     # residents, and that comparison moves with the L1 budget exactly as it moves with the token
     # count. So a host that cannot fold a >693-token fixture can still fold both size regimes the
     # guard distinguishes (§10.1: pc tops out near a 5900-wide atom axis, R4 needs 6080).
     # At R3 (514 tokens, w_pad 544) the two rungs the shipped 138 MB budget cannot reach are:
-    #   100_000_000 -- hidden=512 serves at a MOVED chunk height, h 64 -> 59 at 9 chunks either
-    #                  way. Same class as the census fixture's own h 64 -> 63, which has never
-    #                  been folded, so this is the exactness rung for 673-693 and 705-732 tokens.
-    #   90_000_000  -- hidden=512 declines on the parity guard, hidden=256 still serves. Same
-    #                  class as every size from 694 tokens up, i.e. the addressable-half boundary.
+    #   100_000_000 -- the third resident wants h 64 -> 59 at hidden=512 at 9 chunks either way.
+    #                  The chunk-COUNT guard served this and moved the digest; the height guard
+    #                  declines it. This is the negative control for X1, and the same class as
+    #                  the census fixture's own 64 -> 63 at 685 tokens.
+    #   90_000_000  -- hidden=512 declines on either guard (h 64 -> 53, 9 -> 10 chunks),
+    #                  hidden=256 still serves. Same class as every size from 694 tokens up.
     # In both, the OFF arm's h stays 64 at both widths, so the off path is byte-identical to the
     # shipped one and its digest must still be the shipped digest.
     l1_bytes = None
@@ -106,10 +110,11 @@ def main():
     plans = {h: chunk_plan(tokens, h) for h in (512, 256)}
     print("[p129] %s: %d tokens, predicted site plan (arithmetic, not a measurement):" % (rung, tokens))
     for h, p in plans.items():
-        print("   hidden=%-4d chunked=%-5s h %d -> %d, chunks %d -> %d, fc1 in L1 %s%s"
-              % (h, p["chunked"], p["chunk_h_off"], p["chunk_h_on"], p["n_chunks_off"],
-                 p["n_chunks_on"], p["fc1_output_in_l1"] and p["chunked"],
-                 "  (CHUNK SHAPE MOVES)" if p["chunk_h_moves"] else ""))
+        print("   hidden=%-4d chunked=%-5s h %d, third resident wants %d, chunks %d, "
+              "fc1 in L1 %s%s"
+              % (h, p["chunked"], p["chunk_h_off"], p["chunk_h_third_resident"],
+                 p["n_chunks_off"], p["fc1_output_in_l1"] and p["chunked"],
+                 "  (equal count, MOVED height -- declines)" if p["chunk_count_kept"] else ""))
 
     rec = fold_ab(flag="RFD3_FC1_SPLIT_SILU",
                   set_enabled=rfd3_model.set_fc1_split_enabled,
@@ -158,7 +163,7 @@ def main():
     for h, pl in plans.items():
         want = pl["chunked"] and pl["fc1_output_in_l1"]
         got = any(("hidden=%d" % h) in k for k in served)
-        rise = any(("hidden=%d chunk-count-would-rise" % h) in k for k in declines)
+        rise = any(("hidden=%d chunk-height-would-move" % h) in k for k in declines)
         print("hidden=%-4d predicted served=%-5s  observed served=%-5s  parity-decline logged=%s"
               % (h, want, got, rise))
         if want != got or (not want and pl["chunked"] and not rise):

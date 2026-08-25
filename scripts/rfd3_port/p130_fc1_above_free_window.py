@@ -46,8 +46,8 @@ KEYS = [
 
 def one_key(dev, rung, xshape, hidden, ckc):
     tokens = int(rung.split()[0])
-    h2 = M._pair_transition_chunk_h(1, xshape[2], hidden, tokens)
-    h3 = M._pair_transition_chunk_h(1, xshape[2], hidden, tokens, residents=3)
+    h2 = M._pair_transition_chunk_h(xshape[2], hidden, tokens)
+    h3 = M._pair_transition_chunk_h(xshape[2], hidden, tokens, residents=3)
     n2, n3 = -(-tokens // h2), -(-tokens // h3)
     rec = {"rung": rung, "x": list(xshape), "hidden": hidden, "chunk_h_2res": h2,
            "chunk_h_3res": h3, "n_chunks_2res": n2, "n_chunks_3res": n3,
@@ -81,7 +81,7 @@ def one_key(dev, rung, xshape, hidden, ckc):
             rec[name + "_x"] = round(rec["shipped_ms"] / rec[name + "_ms"], 4)
         except Exception as e:                          # an L1 request can simply not fit
             rec[name + "_error"] = "%s: %s" % (type(e).__name__, str(e)[:120])
-    rec["pinned"] = M._tuned_pinned(x, w, ttnn.bfloat16, core_grid=None)
+    rec["pinned"] = M._tuned_pinned(x, w, ttnn.bfloat16, ckc, core_grid=None)
     for t in (ref, x, w):
         ttnn.deallocate(t)
     return rec

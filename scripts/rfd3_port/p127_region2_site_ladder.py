@@ -55,7 +55,7 @@ def fc1_keys(tokens, hidden, residents=2):
     chunked = tokens >= _PAIR_TRANSITION_MIN_W
     if not chunked:
         return w_pad, False, [(tokens, tokens)], None
-    h = _pair_transition_chunk_h(1, w_pad * residents // 2, hidden, tokens)
+    h = _pair_transition_chunk_h(w_pad * residents // 2, hidden, tokens)
     full, tail = divmod(tokens, h)
     rows = [(h, full * h)] + ([(tail, tail)] if tail else [])
     return w_pad, True, rows, h

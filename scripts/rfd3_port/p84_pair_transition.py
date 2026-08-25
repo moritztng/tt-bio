@@ -77,7 +77,7 @@ def main():
     totals = {}
     for hidden in (256, 512):
         t = make_transition(dev, ckc, hidden)
-        h = M._pair_transition_chunk_h(1, IP, hidden, I)
+        h = M._pair_transition_chunk_h(IP, hidden, I)
         print("\n=== hidden=%d   chunk h=%d  (%d chunks of %d rows) ==="
               % (hidden, h, -(-I // h), I), flush=True)
         per = {}
