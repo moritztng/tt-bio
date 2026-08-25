@@ -1816,7 +1816,19 @@ class RFD3AtomBlock(Module):
                 scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
                     ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
             if gathered is None:
-                attention = softmax_generic.softmax_bf16(scores, dt)
+                # L5b: the softmax kernel MACs the value tiles where it would otherwise pack the
+                # normalised row to DRAM, so neither the 294.3 MB attention write nor the PV
+                # matmul's read of it happens. It declines -- returning None -- on every shape
+                # where it cannot reproduce `attn_value_matmul`'s accumulation grouping bit for
+                # bit; see `softmax_generic.pv_classify`. Default OFF behind
+                # `RFD3_SOFTMAX_PV_FUSED` until a fold A/B has run.
+                fused_pv = softmax_generic.softmax_pv_fused(scores, vv, dt, ckc)
+                if fused_pv is not None:
+                    ttnn.deallocate(scores)
+                    out = fused_pv
+                    attention = None
+                else:
+                    attention = softmax_generic.softmax_bf16(scores, dt)
             else:
                 # Reduce over the 128 columns that carry a value, not over all 6080. Every row has
                 # exactly 128 valid indices in [0, L) -- _extend_with_neighbours fills the sequence
@@ -1829,7 +1841,8 @@ class RFD3AtomBlock(Module):
                 ttnn.deallocate(compact)
                 attention = ttnn.scatter(zeros, 3, gather_idx, weights)
                 ttnn.deallocate(weights)
-            out = attn_value_matmul(attention, vv, ckc, dt)
+            if attention is not None:
+                out = attn_value_matmul(attention, vv, ckc, dt)
         else:
             out = bs_out
         out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
