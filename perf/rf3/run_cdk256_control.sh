@@ -22,7 +22,7 @@ LEASE="TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:rf3-
 
 # 1. the reference half, no card, in the background. 16.5 s/seed at 117 aa on this CPU, so a few
 #    minutes at 256.
-env PYTHONPATH=$PP OMP_NUM_THREADS=6 timeout 5400 "$PY" -u scripts/rf3_port/accuracy_cell.py \
+env PYTHONPATH=$PP OMP_NUM_THREADS=10 timeout 5400 "$PY" -u scripts/rf3_port/accuracy_cell.py \
     --fixture cdk2_256 --seeds 0,1,2,3,4 --ref-only \
     --work "$R/accuracy_cdk2_256" --out "$R/accuracy_cdk2_256_ref.json" \
     > "$L/cdk256_ref.log" 2>&1 &

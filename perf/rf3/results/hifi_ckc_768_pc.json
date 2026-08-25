@@ -1,0 +1,668 @@
+{
+ "model": "rf3",
+ "aa": 768,
+ "arms": [
+  "a1",
+  "a5",
+  "a9"
+ ],
+ "host": "pc",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "recycling_steps": 10,
+ "sampling_steps": 50,
+ "aa_control_arm": "a1",
+ "aa_control_spread_pct": 0.047,
+ "folds": [
+  {
+   "i": 0,
+   "arm": "a1",
+   "cold": true,
+   "fold_s": 107.513,
+   "digest": "4e212919915eefee",
+   "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "op_default(HiFi2,approx,no_acc)"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 71.7985
+  },
+  {
+   "i": 1,
+   "arm": "a5",
+   "cold": true,
+   "fold_s": 97.226,
+   "digest": "f07ba7a37e8e9781",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 71.9768
+  },
+  {
+   "i": 2,
+   "arm": "a9",
+   "cold": true,
+   "fold_s": 96.972,
+   "digest": "b436a18df1d9ca47",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx ON + no fp32_dest_acc (fidelity alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=True,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 72.2622
+  },
+  {
+   "i": 3,
+   "arm": "a1",
+   "cold": false,
+   "fold_s": 94.601,
+   "digest": "4e212919915eefee",
+   "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "op_default(HiFi2,approx,no_acc)"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 71.7985
+  },
+  {
+   "i": 4,
+   "arm": "a5",
+   "cold": false,
+   "fold_s": 95.297,
+   "digest": "f07ba7a37e8e9781",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 71.9768
+  },
+  {
+   "i": 5,
+   "arm": "a9",
+   "cold": false,
+   "fold_s": 95.297,
+   "digest": "b436a18df1d9ca47",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx ON + no fp32_dest_acc (fidelity alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=True,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 72.2622
+  },
+  {
+   "i": 6,
+   "arm": "a1",
+   "cold": false,
+   "fold_s": 94.604,
+   "digest": "4e212919915eefee",
+   "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "op_default(HiFi2,approx,no_acc)"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 71.7985
+  },
+  {
+   "i": 7,
+   "arm": "a5",
+   "cold": false,
+   "fold_s": 95.385,
+   "digest": "f07ba7a37e8e9781",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 71.9768
+  },
+  {
+   "i": 8,
+   "arm": "a9",
+   "cold": false,
+   "fold_s": 95.275,
+   "digest": "b436a18df1d9ca47",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx ON + no fp32_dest_acc (fidelity alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=True,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 72.2622
+  },
+  {
+   "i": 9,
+   "arm": "a1",
+   "cold": false,
+   "fold_s": 94.645,
+   "digest": "4e212919915eefee",
+   "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "op_default(HiFi2,approx,no_acc)"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 71.7985
+  },
+  {
+   "i": 10,
+   "arm": "a5",
+   "cold": false,
+   "fold_s": 95.514,
+   "digest": "c8519e166e30c017",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 71.9623
+  },
+  {
+   "i": 11,
+   "arm": "a9",
+   "cold": false,
+   "fold_s": 95.393,
+   "digest": "b436a18df1d9ca47",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx ON + no fp32_dest_acc (fidelity alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 968,
+    "pm_rejects": {
+     "l1_budget [768, 4, 768, 32]": 1,
+     "pm_over_l1 [768, 4, 768, 32]": 967
+    },
+    "pm_over_l1": [
+     [
+      768,
+      768,
+      768,
+      256,
+      2
+     ]
+    ],
+    "pm_l1_errors": {
+     "[768, 768, 768, 256, 2]": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 si"
+    },
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "768x768": [
+      384,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=True,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 768,
+   "plddt": 72.2622
+  }
+ ],
+ "per_arm": {
+  "a1": {
+   "n": 3,
+   "folds_s": [
+    94.601,
+    94.604,
+    94.645
+   ],
+   "median_s": 94.604,
+   "spread_pct": 0.047,
+   "digests": [
+    "4e212919915eefee"
+   ]
+  },
+  "a5": {
+   "n": 3,
+   "folds_s": [
+    95.297,
+    95.385,
+    95.514
+   ],
+   "median_s": 95.385,
+   "spread_pct": 0.228,
+   "digests": [
+    "c8519e166e30c017",
+    "f07ba7a37e8e9781"
+   ]
+  },
+  "a9": {
+   "n": 3,
+   "folds_s": [
+    95.297,
+    95.275,
+    95.393
+   ],
+   "median_s": 95.297,
+   "spread_pct": 0.124,
+   "digests": [
+    "b436a18df1d9ca47"
+   ]
+  }
+ },
+ "cost_vs_a1": {
+  "a1": 1.0,
+  "a5": 1.0083,
+  "a9": 1.0073
+ }
+}
