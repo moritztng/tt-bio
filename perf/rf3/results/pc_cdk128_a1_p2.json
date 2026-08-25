@@ -1,0 +1,300 @@
+{
+  "arm": "a1",
+  "arm_route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+  "arm_scope": "model-local (PAIRFORMER_FLAGS)",
+  "ref_cache": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/accuracy_cdk2_128",
+  "fixture": "cdk2_128",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "recycles": 10,
+  "steps": 50,
+  "diffusion_samples": 1,
+  "ref_device": "cpu",
+  "reference": "tt_bio._vendor.rf3 (upstream foundry), cpu torch, bf16 autocast",
+  "kabsch_selftest_A": 9.265044010831228e-15,
+  "metric_convention": "pharma_parity.noise_floor_verdict; floor = max(mean R, mean D); pairwise self-superposition, no shared frame",
+  "work": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/pc_cdk128_a1_p2",
+  "ref_load_s": 3.7,
+  "arm_applied": {
+    "arm": "a1",
+    "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+    "scope": "model-local (PAIRFORMER_FLAGS)",
+    "changed": {
+      "fp32_softmax": [
+        false,
+        false
+      ]
+    },
+    "resolved": {
+      "fp32_softmax": false,
+      "accurate_softmax": true,
+      "_TRIATT_FUSED_HIFI": false,
+      "_FP32_SOFTMAX": false,
+      "tri_att_sdpa_hifi": false,
+      "_CKC_OVERRIDE": "op_default(HiFi2,approx,no_acc)"
+    }
+  },
+  "one_k_chunk": false,
+  "port_load_s": 2.7,
+  "timing_s": {
+    "0": [
+      9.8,
+      0.0,
+      0.0,
+      6.4
+    ],
+    "1": [
+      7.7,
+      0.0,
+      0.0,
+      4.0
+    ],
+    "2": [
+      7.7,
+      0.0,
+      0.0,
+      4.2
+    ],
+    "3": [
+      7.7,
+      0.0,
+      0.0,
+      4.0
+    ],
+    "4": [
+      7.7,
+      0.0,
+      0.0,
+      4.1
+    ]
+  },
+  "draws_sha": {
+    "0": "516c3dfee303c6d8",
+    "1": "3b4c09f4b00fa0c8",
+    "2": "b454f74e6bd034c6",
+    "3": "4769e5274004f7ef",
+    "4": "fd6cadf0053c9d44"
+  },
+  "dev_sha": {
+    "0": "54be6ad9d9d93707",
+    "1": "b97925f135879cdb",
+    "2": "b04be4c9eb2b50d7",
+    "3": "1cd1deade8841673",
+    "4": "a6f4bbed3b1e756a"
+  },
+  "triatt_fused_hifi_picks": {},
+  "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+  },
+  "triatt_instances_forced_one_k_chunk": 0,
+  "flags": {
+    "pairformer_flags": {
+      "scale_pair_bias": true,
+      "fp32_softmax": false,
+      "transpose_bias": false,
+      "gated_move": true,
+      "accurate_softmax": true,
+      "tri_att_accurate_softmax": false,
+      "tri_att_sdpa_ragged_pad": true,
+      "tri_att_sdpa_hifi": false,
+      "transpose_l1_reserve": 131072
+    },
+    "triatt_fused_hifi": false,
+    "boltz2_fp32_softmax": false,
+    "triatt_fused_hifi_stats": {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0
+    },
+    "fp32_softmax_stats": {
+      "calls": 2085,
+      "blocked": 0,
+      "blocks": 0,
+      "fused": 2085,
+      "unfused": 0,
+      "l1": 2085,
+      "l1_blocks": 0,
+      "l1_refused": 0,
+      "l1_cores": 110,
+      "l1_free_retired": 0,
+      "l1_free_walked": 0,
+      "l1_padded_diverged": 0
+    },
+    "sdpa_k_chunk_stats": [
+      0,
+      0
+    ],
+    "sdpa_ragged_pad_global": true,
+    "sdpa_ragged_pad_stats": [
+      0,
+      0
+    ],
+    "sdpa_ragged_sites": {
+      "tri_att": [
+        0,
+        4840
+      ]
+    },
+    "route_counters": {
+      "pm_served": 0,
+      "pm_declined": 4840,
+      "pm_rejects": {
+        "memory_config [128, 4, 128, 32]": 4840
+      },
+      "pm_over_l1": [],
+      "pm_l1_errors": {},
+      "sdpa_route_counts": {
+        "fused": 0,
+        "stock": 4840
+      },
+      "sdpa_chunk_picks": {
+        "128x128": [
+          128,
+          128,
+          "stock"
+        ]
+      },
+      "sdpa_hifi_calls": 0,
+      "ckc_resolved": "op_default(HiFi2,approx,no_acc)"
+    },
+    "env": {
+      "TT_BIO_LEASE_CARDS": "0",
+      "TT_BIO_LEASE_HOLDER": "worker:rf3-fused-hifi-precision-arm",
+      "TT_METAL_CACHE": "/home/moritz/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+      "TT_METAL_LOGGER_LEVEL": "FATAL",
+      "TT_VISIBLE_DEVICES": "0"
+    }
+  },
+  "metrics": {
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 5,
+        "mean": 6.975211306366195,
+        "std": 0.5042221388565525,
+        "min": 6.168576033877584,
+        "max": 7.721830371837142
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 1.961577056769586,
+        "std": 0.41967899816282855,
+        "min": 1.3927683010196634,
+        "max": 2.5759043258045207
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 2.788021751502309,
+        "std": 0.7890799595670588,
+        "min": 1.3796563557112507,
+        "max": 4.002939518223044
+      },
+      "floor_mean": 2.788021751502309,
+      "cross_over_floor": 2.5018496726604247,
+      "dev_over_ref_floor": 1.4213164565116547,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": false,
+      "X_per_seed": {
+        "0": 6.8767,
+        "1": 6.1686,
+        "2": 6.9116,
+        "3": 7.7218,
+        "4": 7.1974
+      },
+      "R_pairs": [
+        1.5399,
+        1.3928,
+        1.6806,
+        2.5759,
+        1.9735,
+        2.1847,
+        1.6681,
+        1.6246,
+        2.4794,
+        2.4963
+      ],
+      "D_pairs": [
+        3.4933,
+        2.0915,
+        1.973,
+        2.3831,
+        4.0029,
+        3.4736,
+        3.4851,
+        2.8008,
+        2.7972,
+        1.3797
+      ]
+    },
+    "allatom_rmsd": {
+      "metric": "allatom_rmsd",
+      "cross": {
+        "n": 5,
+        "mean": 7.2142338867896445,
+        "std": 0.5083033647619307,
+        "min": 6.342820644446601,
+        "max": 7.908586673959216
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 2.0544241803576635,
+        "std": 0.43562784312995056,
+        "min": 1.4069647670240417,
+        "max": 2.6813337642784405
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 2.9791867834100225,
+        "std": 0.8744995962129357,
+        "min": 1.5086868390280603,
+        "max": 4.314744893039453
+      },
+      "floor_mean": 2.9791867834100225,
+      "cross_over_floor": 2.4215446735206454,
+      "dev_over_ref_floor": 1.450132261824996,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": false,
+      "X_per_seed": {
+        "0": 7.1633,
+        "1": 6.3428,
+        "2": 7.2239,
+        "3": 7.9086,
+        "4": 7.4326
+      },
+      "R_pairs": [
+        1.6941,
+        1.407,
+        1.7653,
+        2.6813,
+        2.082,
+        2.2462,
+        1.6697,
+        1.7829,
+        2.6115,
+        2.6044
+      ],
+      "D_pairs": [
+        3.8178,
+        2.2144,
+        2.0649,
+        2.497,
+        4.3147,
+        3.7846,
+        3.8046,
+        2.8883,
+        2.8967,
+        1.5087
+      ]
+    }
+  },
+  "vs_crystal": null
+}

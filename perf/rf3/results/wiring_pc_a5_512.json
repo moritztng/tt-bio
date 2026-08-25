@@ -1,0 +1,112 @@
+{
+ "aa": 512,
+ "arm": "a5",
+ "host": "pc",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "recycling_steps": 1,
+ "sampling_steps": 2,
+ "applied": {
+  "arm": "a5",
+  "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+  "scope": "model-local flag + PROCESS-GLOBAL triatt_sdpa._CKC_OVERRIDE (all six models' fused calls)",
+  "changed": {
+   "fp32_softmax": [
+    false,
+    false
+   ],
+   "_CKC_OVERRIDE": [
+    "None",
+    "HiFi4,0,1"
+   ]
+  },
+  "resolved": {
+   "fp32_softmax": false,
+   "accurate_softmax": true,
+   "_TRIATT_FUSED_HIFI": false,
+   "_FP32_SOFTMAX": false,
+   "tri_att_sdpa_hifi": false,
+   "_CKC_OVERRIDE": "HiFi4,approx=False,fp32_dest_acc=True"
+  }
+ },
+ "pairformer_flags": {
+  "scale_pair_bias": "True",
+  "fp32_softmax": "False",
+  "transpose_bias": "False",
+  "gated_move": "True",
+  "accurate_softmax": "True",
+  "tri_att_accurate_softmax": "False",
+  "tri_att_sdpa_ragged_pad": "True",
+  "tri_att_sdpa_hifi": "False",
+  "transpose_l1_reserve": "131072"
+ },
+ "folds": [
+  {
+   "fold": 0,
+   "cold": true,
+   "fold_s": 25.533,
+   "n_tokens": 512,
+   "cif_digest": "99783ded7e5ab2b6",
+   "counters": {
+    "pm_served": 104,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 104,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   }
+  },
+  {
+   "fold": 1,
+   "cold": false,
+   "fold_s": 18.806,
+   "n_tokens": 512,
+   "cif_digest": "99783ded7e5ab2b6",
+   "counters": {
+    "pm_served": 104,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 104,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   }
+  }
+ ]
+}

@@ -1,0 +1,76 @@
+
+== cdk2_128  ALIGNED control   (None)
+    leg        ckc                                      X5 (A)     Xdrop    floor  inside   mean D
+    a1_p1      op_default(HiFi2,approx,no_acc)          6.9752         -   2.7880   False   2.7880
+               per-seed  6.8767 6.1686 6.9116 7.7218 7.1974   fused/stock None/None  hifi_calls None
+    a1_p2      op_default(HiFi2,approx,no_acc)          6.9752         -   2.7880   False   2.7880
+               per-seed  6.8767 6.1686 6.9116 7.7218 7.1974   fused/stock None/None  hifi_calls None
+    a1_p3      op_default(HiFi2,approx,no_acc)          6.9752         -   2.7880   False   2.7880
+               per-seed  6.8767 6.1686 6.9116 7.7218 7.1974   fused/stock None/None  hifi_calls None
+    a5         HiFi4,approx=False,fp32_dest_acc=True    6.9752         -   2.7880   False   2.7880
+               per-seed  6.8767 6.1686 6.9116 7.7218 7.1974   fused/stock None/None  hifi_calls None
+    FLOOR (a1 x3 on this card): X5 spread 0.0000 A, X-drop spread 0.0000 A, 0/15 seed rollouts deviated from the modal coordinates
+      a5         X5 +0.0000 -> inside floor
+
+== cdk2_298   (None)
+    leg        ckc                                      X5 (A)     Xdrop    floor  inside   mean D
+    a1_p1      op_default(HiFi2,approx,no_acc)          3.3293         -   2.7900    True   2.7900
+               per-seed  4.7483 3.5472 2.2605 3.4676 2.6226   fused/stock None/None  hifi_calls None
+    a1_p2      op_default(HiFi2,approx,no_acc)          3.3293         -   2.7900    True   2.7900
+               per-seed  4.7483 3.5472 2.2605 3.4676 2.6226   fused/stock None/None  hifi_calls None
+    a1_p3      op_default(HiFi2,approx,no_acc)          3.3293         -   2.7900    True   2.7900
+               per-seed  4.7483 3.5472 2.2605 3.4676 2.6226   fused/stock None/None  hifi_calls None
+    a5         HiFi4,approx=False,fp32_dest_acc=True    3.4079         -   2.7289    True   2.7289
+               per-seed  4.2038 3.2008 3.5365 2.6022 3.4963   fused/stock None/None  hifi_calls None
+    a5_p2      HiFi4,approx=False,fp32_dest_acc=True    3.4079         -   2.7289    True   2.7289
+               per-seed  4.2038 3.2008 3.5365 2.6022 3.4963   fused/stock None/None  hifi_calls None
+    a9         HiFi4,approx=True,fp32_dest_acc=False    3.5028         -   2.5040    True   2.5040
+               per-seed  4.7709 2.7060 2.2705 4.2753 3.4912   fused/stock None/None  hifi_calls None
+    FLOOR (a1 x3 on this card): X5 spread 0.0000 A, X-drop spread 0.0000 A, 0/15 seed rollouts deviated from the modal coordinates
+      a5         X5 +0.0786 -> WORSE       
+      a5_p2      X5 +0.0786 -> WORSE       
+      a9         X5 +0.1735 -> WORSE       
+
+== 7ROA L117   (None)
+    leg        ckc                                      X5 (A)     Xdrop    floor  inside   mean D
+    a10        op_default(HiFi2,approx,no_acc) +per-site   0.2186    0.1728   0.3605    True   0.3135
+               per-seed  0.4019 0.1839 0.2504 0.1341 0.1228   fused/stock None/None  hifi_calls None
+    a1_p1      op_default(HiFi2,approx,no_acc)          0.1842    0.1946   0.3871    True   0.3871
+               per-seed  0.1428 0.2261 0.2854 0.1388 0.1281   fused/stock None/None  hifi_calls None
+    a1_p2      op_default(HiFi2,approx,no_acc)          0.1780    0.1868   0.3816    True   0.3816
+               per-seed  0.1428 0.2261 0.2543 0.1388 0.1281   fused/stock None/None  hifi_calls None
+    a1_p3      op_default(HiFi2,approx,no_acc)          0.1780    0.1868   0.3816    True   0.3816
+               per-seed  0.1428 0.2261 0.2543 0.1388 0.1281   fused/stock None/None  hifi_calls None
+    a5         HiFi4,approx=False,fp32_dest_acc=True    0.2151    0.1685   0.3605    True   0.3022
+               per-seed  0.4019 0.1665 0.2504 0.1341 0.1228   fused/stock None/None  hifi_calls None
+    a5_p2      HiFi4,approx=False,fp32_dest_acc=True    0.2186    0.1728   0.3605    True   0.3135
+               per-seed  0.4019 0.1839 0.2504 0.1341 0.1228   fused/stock None/None  hifi_calls None
+    a7         HiFi2,approx=True,fp32_dest_acc=True     0.1895    0.1982   0.4107    True   0.4107
+               per-seed  0.1548 0.2667 0.2376 0.1294 0.1592   fused/stock None/None  hifi_calls None
+    a9         HiFi4,approx=True,fp32_dest_acc=False    0.1573    0.1661   0.3768    True   0.3768
+               per-seed  0.1221 0.1653 0.2346 0.1400 0.1243   fused/stock None/None  hifi_calls None
+    FLOOR (a1 x3 on this card): X5 spread 0.0062 A, X-drop spread 0.0078 A, 1/15 seed rollouts deviated from the modal coordinates
+      a10        X5 +0.0385 -> WORSE         Xdrop -0.0166 -> better
+      a5         X5 +0.0351 -> WORSE         Xdrop -0.0210 -> better
+      a5_p2      X5 +0.0385 -> WORSE         Xdrop -0.0166 -> better
+      a7         X5 +0.0094 -> WORSE         Xdrop +0.0088 -> WORSE
+      a9         X5 -0.0228 -> better        Xdrop -0.0234 -> better
+
+== ubq L76   (None)
+    leg        ckc                                      X5 (A)     Xdrop    floor  inside   mean D
+    a1_p1      op_default(HiFi2,approx,no_acc)          0.2208    0.0920   0.4177    True   0.1869
+               per-seed  0.0919 0.0917 0.0972 0.0873 0.7357   fused/stock None/None  hifi_calls None
+    a1_p2      op_default(HiFi2,approx,no_acc)          0.2208    0.0920   0.4177    True   0.1869
+               per-seed  0.0919 0.0917 0.0972 0.0873 0.7357   fused/stock None/None  hifi_calls None
+    a1_p3      op_default(HiFi2,approx,no_acc)          0.2208    0.0920   0.4177    True   0.1869
+               per-seed  0.0919 0.0917 0.0972 0.0873 0.7357   fused/stock None/None  hifi_calls None
+    a5         HiFi4,approx=False,fp32_dest_acc=True    0.2117    0.0901   0.4177    True   0.2051
+               per-seed  0.0907 0.0891 0.0941 0.0863 0.6984   fused/stock None/None  hifi_calls None
+    a5_p2      HiFi4,approx=False,fp32_dest_acc=True    0.2002    0.0901   0.4177    True   0.2365
+               per-seed  0.0907 0.0891 0.0941 0.0863 0.6408   fused/stock None/None  hifi_calls None
+    a7         HiFi2,approx=True,fp32_dest_acc=True     0.2050    0.0923   0.4177    True   0.2309
+               per-seed  0.0937 0.0888 0.0962 0.0906 0.6555   fused/stock None/None  hifi_calls None
+    FLOOR (a1 x3 on this card): X5 spread 0.0000 A, X-drop spread 0.0000 A, 0/15 seed rollouts deviated from the modal coordinates
+      a5         X5 -0.0090 -> better        Xdrop -0.0020 -> better
+      a5_p2      X5 -0.0206 -> better        Xdrop -0.0020 -> better
+      a7         X5 -0.0158 -> better        Xdrop +0.0003 -> WORSE
