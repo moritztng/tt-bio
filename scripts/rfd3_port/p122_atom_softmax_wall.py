@@ -11,21 +11,24 @@ This wraps those three and nothing else, so the rest of the step runs at its nor
 the inflation is bounded by ~4 syncs per call rather than p49's per-op syncing.
 
 Acceptance, pre-committed in §4 of the state doc: **if `softmax_into` is not at least 25 ms/step
-on the atom shape, §2's inference is wrong and L5b is re-priced before it is built.**
+on the atom shape, §2's inference is wrong and L5b is re-priced before it is built.** Reported
+alongside it is the host-relative form of the same claim, the chain's SHARE of the step wall,
+which is the statistic that survives being measured on a different box.
 
-S2 (`perf/p123/pv_korder.json`) already timed the same three calls in ISOLATION: 4.7867 ms/call
-softmax + 0.7971 ms/call PV over 9 calls = 50.3 ms/step. Isolated timing oversyncs and inflates
-(`tt-bio-isolated-op-timing-oversync-inflates-cost`), so the in-fold number here is the honest
-denominator and is expected to come in AT OR BELOW 50.3, not above it.
+REPS runs the whole design N times in one process, one device open. The spread across reps is
+this instrument's run-to-run noise floor on this card, which the pc-card0 amendment requires be
+measured before any screen number is read (`pc-card0-512aa-fold-nondeterminism`).
 
-    ~/.coworker/scripts/benchlock.sh rfd3-fusion-programme-p1 -- env TT_VISIBLE_DEVICES=1 \
-      TT_BIO_LEASE_CARDS=1 TT_BIO_LEASE_HOLDER=worker:rfd3-fusion-programme-p1 PYTHONPATH=$PWD \
-      /home/ttuser/tt-bio-dev/env/bin/python3 -u scripts/rfd3_port/p122_atom_softmax_wall.py
+    ~/.coworker/scripts/benchlock.sh rfd3-fusion-programme-p1 -- env TT_VISIBLE_DEVICES=0 \
+      TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:rfd3-fusion-programme-p1 PYTHONPATH=$PWD \
+      P122_REPS=3 /home/moritz/tt-bio/env/bin/python3 -u scripts/rfd3_port/p122_atom_softmax_wall.py
 """
 import collections
 import json
 import os
 import pathlib
+import socket
+import statistics
 import sys
 import time
 
@@ -38,10 +41,24 @@ from tt_bio.rfd3 import model as M                                 # noqa: E402
 from tt_bio import softmax_generic                                 # noqa: E402
 
 FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")
-CKPT = "/home/ttuser/.boltz/rfd3/weights"
+
+
+def _ckpt():
+    """The weights live under a different home on every box in the fleet."""
+    env = os.environ.get("RFD3_CKPT")
+    if env:
+        return env
+    for c in ("/home/ttuser/.boltz/rfd3/weights", str(pathlib.Path.home() / ".boltz/rfd3/weights")):
+        if pathlib.Path(c).is_dir():
+            return c
+    raise SystemExit("p122: no rfd3 weights found; set RFD3_CKPT")
+
+
+CKPT = _ckpt()
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "perf/p122/atom_softmax_wall.json")
-STEPS = 8
-WARM_STEPS = 3
+STEPS = int(os.environ.get("P122_STEPS", 8))
+WARM_STEPS = int(os.environ.get("P122_WARM", 3))
+REPS = int(os.environ.get("P122_REPS", 1))
 ATOM_K = 6080          # the dense atom key axis; anything narrower is a DiT / local-attention call
 
 STEP = [0]
@@ -70,8 +87,8 @@ def _timed(call, bucket, fn):
         e[1] += 1
 
 
-def main():
-    # --- the three L5b touches, and nothing else -------------------------------------------
+def _install_probes():
+    """The three L5b touches, and nothing else."""
     _softmax_into = softmax_generic.softmax_into
 
     def softmax_into(device, x, out, *a, **k):
@@ -94,7 +111,6 @@ def main():
                       lambda: _pv(attn, v, ckc, dtype))
     M.attn_value_matmul = attn_value_matmul
 
-    # --- step counter + the unsynced step wall ----------------------------------------------
     dm_cls = M.RFD3DiffusionModule
     _call = dm_cls.__call__
 
@@ -109,14 +125,19 @@ def main():
             STEP[0] += 1
     dm_cls.__call__ = stepped
 
-    specs = json.loads(FIXTURE.read_text())
-    out_dir = "/tmp/rfd3_p122"
-    os.system("rm -rf %s" % out_dir)
 
+def _rep(specs, rep):
+    STEP[0] = 0
+    ACC.clear()
+    STEP_WALL.clear()
+    served0 = softmax_generic.SSTATS[0]
+
+    out_dir = "/tmp/rfd3_p122_r%d" % rep
+    os.system("rm -rf %s" % out_dir)
     t0 = time.perf_counter()
     rfd3_design.run_design(specs, out_dir, checkpoint_dir=CKPT, from_pdb=True,
                            num_timesteps=STEPS, seed=42, num_designs=1, batch_size=8,
-                           verbose=True)
+                           verbose=False)
     wall = time.perf_counter() - t0
     counted = STEP[0] - WARM_STEPS
 
@@ -126,27 +147,67 @@ def main():
                      "ms_per_step": round(1000 * tot / counted, 3),
                      "calls_per_step": round(n / counted, 1),
                      "ms_per_call": round(1000 * tot / n, 4)})
-
     atom = {r["call"]: r for r in rows if r["bucket"] == "atom_6080"}
     chain = round(sum(r["ms_per_step"] for r in atom.values()), 3)
     softmax_ms = atom.get("softmax_into", {}).get("ms_per_step", 0.0)
-    step_ms = round(1000 * sorted(STEP_WALL)[len(STEP_WALL) // 2], 1) if STEP_WALL else 0.0
+    step_ms = round(1000 * statistics.median(STEP_WALL), 1) if STEP_WALL else 0.0
+    return {"rep": rep, "total_wall_s": round(wall, 1), "counted_steps": counted,
+            "step_wall_ms": step_ms, "rows": rows,
+            "atom_chain_ms_per_step": chain,
+            "softmax_into_ms_per_step": softmax_ms,
+            "chain_share_of_step": round(chain / step_ms, 4) if step_ms else 0.0,
+            "softmax_served": softmax_generic.SSTATS[0] - served0}
+
+
+def _spread(vals):
+    """Run-to-run spread as a fraction of the median. This is the noise floor."""
+    if len(vals) < 2:
+        return None
+    med = statistics.median(vals)
+    return round((max(vals) - min(vals)) / med, 4) if med else None
+
+
+def main():
+    _install_probes()
+    specs = json.loads(FIXTURE.read_text())
+
+    reps = [_rep(specs, i) for i in range(REPS)]
+
+    med = lambda k: round(statistics.median([r[k] for r in reps]), 3)          # noqa: E731
+    chain = med("atom_chain_ms_per_step")
+    softmax_ms = med("softmax_into_ms_per_step")
+    step_ms = med("step_wall_ms")
+    share = med("chain_share_of_step")
 
     res = {"fixture": str(FIXTURE), "atoms": 6051, "tokens": 685, "batch": 1,
-           "num_timesteps": STEPS, "counted_steps": counted, "host": "qb2", "card": 1,
-           "ttnn": "0.68.0", "torch": torch.__version__, "total_wall_s": round(wall, 1),
-           "step_wall_ms": step_ms, "rows": rows,
+           "num_timesteps": STEPS, "reps": REPS,
+           "host": socket.gethostname(), "card": os.environ.get("TT_VISIBLE_DEVICES", "?"),
+           "torch": torch.__version__, "checkpoint": CKPT,
+           "step_wall_ms": step_ms,
            "atom_chain_ms_per_step": chain,
            "softmax_into_ms_per_step": softmax_ms,
-           "softmax_served": softmax_generic.SSTATS[0]}
+           "chain_share_of_step": share,
+           "per_rep": reps,
+           "noise_floor": {
+               "step_wall_ms": _spread([r["step_wall_ms"] for r in reps]),
+               "atom_chain_ms_per_step": _spread([r["atom_chain_ms_per_step"] for r in reps]),
+               "softmax_into_ms_per_step": _spread([r["softmax_into_ms_per_step"] for r in reps]),
+               "chain_share_of_step": _spread([r["chain_share_of_step"] for r in reps]),
+           }}
 
     print("\n%-22s %-12s %10s %11s %11s" % ("call", "bucket", "ms/step", "calls/step", "ms/call"))
-    for r in rows:
+    for r in reps[-1]["rows"]:
         print("%-22s %-12s %10.3f %11.1f %11.4f"
               % (r["call"], r["bucket"], r["ms_per_step"], r["calls_per_step"], r["ms_per_call"]))
+    print("\nper-rep (the unchanged-code control; the spread IS the noise floor):")
+    for r in reps:
+        print("  rep %d  step %8.1f ms   chain %7.1f ms/step   softmax %7.1f   share %.3f"
+              % (r["rep"], r["step_wall_ms"], r["atom_chain_ms_per_step"],
+                 r["softmax_into_ms_per_step"], r["chain_share_of_step"]))
+    print("  noise floor (max-min)/median: %s" % json.dumps(res["noise_floor"]))
 
     print("\natom-path L5b chain: %.1f ms/step of a %.1f ms step (%.1f %%)"
-          % (chain, step_ms, 100 * chain / step_ms if step_ms else 0))
+          % (chain, step_ms, 100 * share))
     print("softmax_into on the atom shape: %.1f ms/step" % softmax_ms)
 
     # The gate, stated before the run and evaluated here rather than in prose afterwards.
@@ -162,13 +223,13 @@ def main():
     # survives is the kernel's own score read and the PV arithmetic, which moves inside it.
     deletable = round(chain - softmax_ms * (1.509 / 4.06), 3)   # score read stays, at the roof split
     res["deletable_ms_per_step_estimate"] = deletable
-    res["prize_s_per_design_estimate"] = {
-        "at_110pct": round(-1.10 * deletable * 200 / 1000, 3),
-        "at_75pct": round(-0.75 * deletable * 200 / 1000, 3),
-        "at_41pct": round(-0.41 * deletable * 200 / 1000, 3),
+    res["prize_frac_of_step_estimate"] = {
+        "at_110pct": round(-1.10 * deletable / step_ms, 4) if step_ms else None,
+        "at_75pct": round(-0.75 * deletable / step_ms, 4) if step_ms else None,
+        "at_41pct": round(-0.41 * deletable / step_ms, 4) if step_ms else None,
     }
-    print("deletable %.1f ms/step -> %s s/design (COST-MODEL ESTIMATE, not a fold A/B)"
-          % (deletable, res["prize_s_per_design_estimate"]))
+    print("deletable %.1f ms/step -> %s of the step (COST-MODEL ESTIMATE, not a fold A/B)"
+          % (deletable, res["prize_frac_of_step_estimate"]))
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(res, indent=2) + "\n")
