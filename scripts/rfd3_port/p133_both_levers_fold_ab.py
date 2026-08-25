@@ -10,6 +10,8 @@ the DRAM bus, so whether -1.255 and -6.363 add is a measurement (§15.6 X3).
 Drives `scripts/rfd3_port/fold_ab.py` unchanged, so this file holds only the composition:
 
     p133_both_levers_fold_ab.py perf/p132/both_R3.json 200 off,off,on,off,on R3
+    p133_both_levers_fold_ab.py perf/p132/both_decline_R3.json 200 off,off,on,off,on R3 \
+        --l1-bytes=90000000        # the decline rung, where region 2 serves hidden=256 only
 
 `--only=pv|fc1` runs one lever through the same script, for a same-process comparison against
 the composed arm rather than against an older run's median.
@@ -36,7 +38,11 @@ from fold_ab import fold_ab                                               # noqa
 # added. -1.255 to -1.322 (region 1, perf/p126/ab_R3*.json) and -6.363 (region 2,
 # perf/p129/ab_R3.json, and -6.243 on its first run). Additivity is the hypothesis under test, so
 # this number is what the run is allowed to refute.
-PREDICTED = {"R3": -7.65}
+# Keyed on (rung, l1_bytes) because the composed prize is not one number: at the shipped budget
+# region 2 serves both hidden widths and X3 measured -7.634; at 90 MB hidden=512 declines on the
+# height guard and region 2 pays only its hidden=256 half, so the composed prediction is region 1's
+# -1.255..-1.322 plus X4's -3.411. `None` means "whatever `_PAIR_TRANSITION_L1_BYTES` ships as".
+PREDICTED = {("R3", None): -7.65, ("R3", 90_000_000): -4.70}
 
 FIXTURES = pathlib.Path("perf/dsfix/fixtures")
 
@@ -60,6 +66,17 @@ def main():
     names = [only] if only else list(LEVERS)
     assert all(n in LEVERS for n in names), "unknown lever: %s" % names
 
+    # `--l1-bytes=N` is p129's knob, verbatim: it shrinks `_PAIR_TRANSITION_L1_BYTES` for this run
+    # only and so moves region 2's height-parity predicate, NOT either lever. Without it this script
+    # silently ran the shipped 138 MB budget whatever the caller asked for, which would have
+    # relabelled X3's rung as the decline rung.
+    l1_bytes = None
+    for a in sys.argv[1:]:
+        if a.startswith("--l1-bytes="):
+            l1_bytes = int(a.split("=", 1)[1])
+            rfd3_model._PAIR_TRANSITION_L1_BYTES = l1_bytes
+            print("[p133] _PAIR_TRANSITION_L1_BYTES = %d (shipped %d) -- moves the parity "
+                  "predicate, NOT the levers" % (l1_bytes, 138_000_000))
     out = argv[0] if len(argv) > 0 else "perf/p132/both_R3.json"
     steps = int(argv[1]) if len(argv) > 1 else 200
     arms = (argv[2] if len(argv) > 2 else "off,off,on,off,on").split(",")
@@ -76,8 +93,9 @@ def main():
                   counter=SumCounter([LEVERS[n][1] for n in names]),
                   fixture=FIXTURES / ("rfd3_%s.json" % rung),
                   out=out, steps=steps, arms=arms, tag="p133_%s" % rung,
-                  predicted_delta_s=PREDICTED.get(rung) if not only else None,
-                  extra={"rung": rung, "levers": names, "provisional_on": "pc-card0"})
+                  predicted_delta_s=PREDICTED.get((rung, l1_bytes)) if not only else None,
+                  extra={"rung": rung, "levers": names, "provisional_on": "pc-card0",
+                         "l1_bytes": l1_bytes or rfd3_model._PAIR_TRANSITION_L1_BYTES})
 
     # Per-lever provenance, because a composed arm that served only one lever's calls is that
     # lever's A/B under a composed label.

@@ -155,7 +155,7 @@ def pv_l1_bytes(p, vv_ts=2048):
     return fixed + p["Wt"] * vv_ts
 
 
-def build(device, x, out, grid, ckc, numeric_stable=True, vv=None):
+def build(device, x, out, grid, ckc, numeric_stable=True, vv=None, extra_defines=()):
     """The ProgramDescriptor. `ckc` is `(math_fidelity, math_approx, fp32_dest_acc, dst_full_sync)`.
 
     `softmax_init_compute_kernel_config` defaults it to
@@ -211,6 +211,12 @@ def build(device, x, out, grid, ckc, numeric_stable=True, vv=None):
     dm_defines = [("NUMERIC_STABLE", "1")] if numeric_stable else []
     compute_defines = list(dm_defines) + [("EXP_APPROX", "1" if approx else "0"),
                                           ("ENABLE_FP32_DEST_ACC", "1" if fp32_dest_acc else "0")]
+    # `extra_defines` is a diagnostic knob, empty on every production path: it lets a probe compile
+    # a variant of the same kernel in the same process (p134 scores two `typecast_tile_init`
+    # placements that way). It is part of `softmax_into`'s cache key, because a compile-time define
+    # that is not in the key hands the second arm the first arm's program -- the same unkeyed-cache
+    # bug §16.5 fixed in `_tuned_key`.
+    compute_defines += [(str(k), str(v)) for k, v in extra_defines]
 
     # When the output dtype differs from the input's, the packer's own fp32 -> bf16 rounding is
     # NOT the rounding `ttnn.typecast` does (measured 0.00195 maxabs, one bf16 ULP, p74 S2), so the
@@ -298,7 +304,8 @@ def build(device, x, out, grid, ckc, numeric_stable=True, vv=None):
             "addrs": (src_a, out_a, vv_a), "pv": pv, "l1_bytes": _cb_bytes(cbs)}
 
 
-def softmax_into(device, x, out, grid=None, ckc=None, numeric_stable=True, vv=None):
+def softmax_into(device, x, out, grid=None, ckc=None, numeric_stable=True, vv=None,
+                 extra_defines=()):
     """Run the transcribed program, writing into `out` (any dtype). Returns `out`.
 
     With `vv`, `out` is `softmax(x) @ vv` and the attention is never written to DRAM (L5b).
@@ -308,12 +315,13 @@ def softmax_into(device, x, out, grid=None, ckc=None, numeric_stable=True, vv=No
         grid = (g.x, g.y)
     if ckc is None:
         ckc = (ttnn.MathFidelity.HiFi4, True, x.dtype == ttnn.float32, False)
+    extra_defines = tuple(sorted((str(k), str(v)) for k, v in extra_defines))
     key = (str(x.padded_shape), str(x.shape), str(x.dtype), str(out.dtype), grid,
            tuple(str(c) for c in ckc), numeric_stable,
-           None if vv is None else (str(vv.padded_shape), str(vv.dtype)))
+           None if vv is None else (str(vv.padded_shape), str(vv.dtype)), extra_defines)
     e = _CACHE.get(key)
     if e is None:
-        e = _CACHE[key] = build(device, x, out, grid, ckc, numeric_stable, vv)
+        e = _CACHE[key] = build(device, x, out, grid, ckc, numeric_stable, vv, extra_defines)
     addrs = (x.buffer_address(), out.buffer_address(),
              vv.buffer_address() if vv is not None else 0)
     if addrs != e["addrs"]:

@@ -27,6 +27,13 @@ from tt_bio.rfd3 import model as M                                       # noqa:
 TOKENS, HIDDENS = 514, (512, 256)
 HEIGHTS = (64, 63, 59, 53)
 
+# `--tokens=T1,T2,...` sweeps the token count at the shipped height instead of sweeping the height
+# at 514 tokens. §15.3 localised the divergence to h=64 and guessed the cause is the ragged tail:
+# 514 = 8*64 + 2, and a 2-row chunk is [1, 2, w_pad, hidden], which ttnn's matmul heuristic blocks
+# differently from a 64-row one. The sweep is what turns that into a count of affected production
+# sizes. Keep `w_pad` fixed inside a band or the matmul shape moves too: 513-544 tokens all pad to
+# 544 (tails 1-32 at 9 chunks), 545-575 all pad to 576 (tails 33-63 at 9 chunks).
+
 
 def budget_for(h, w_pad, hidden):
     """The L1 budget whose two-resident cap lands exactly on `h`."""
@@ -49,15 +56,13 @@ def make(hidden, dev):
     return t
 
 
-def main():
-    out = sys.argv[1] if len(sys.argv) > 1 else "perf/p131/chunk_height_exactness.json"
-    dev = M.get_device()
-    rec = {"tokens": TOKENS, "heights": list(HEIGHTS), "provisional_on": "pc-card0", "rows": []}
+def height_sweep(dev, rec, tokens):
+    """The original experiment: four chunk heights at one token count."""
     g = torch.Generator().manual_seed(11)
-    x = ttnn.from_torch(torch.randn(1, TOKENS, TOKENS, 128, generator=g) * 0.5,
+    x = ttnn.from_torch(torch.randn(1, tokens, tokens, 128, generator=g) * 0.5,
                         dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
     w_pad = int(x.padded_shape[2])
-    for hidden in HEIGHTS and HIDDENS:
+    for hidden in HIDDENS:
         t = make(hidden, dev)
         # The whole-tensor path, which `RFD3_PAIR_TRANSITION_L1=0` selects.
         whole = t._swiglu(x, None)
@@ -67,8 +72,8 @@ def main():
         for h in HEIGHTS:
             M._PAIR_TRANSITION_L1_BYTES = budget_for(h, w_pad, hidden)
             got = t(x)
-            got_h = M._pair_transition_chunk_h(w_pad, hidden, TOKENS)
-            row = {"hidden": hidden, "asked_h": h, "actual_h": got_h,
+            got_h = M._pair_transition_chunk_h(w_pad, hidden, tokens)
+            row = {"tokens": tokens, "hidden": hidden, "asked_h": h, "actual_h": got_h,
                    "l1_bytes": M._PAIR_TRANSITION_L1_BYTES,
                    "vs_whole": M._mm_maxabs(got, whole),
                    "vs_h64": None if ref is None else M._mm_maxabs(got, ref),
@@ -83,6 +88,51 @@ def main():
                      "n/a" if row["vs_h64"] is None else "%.6g" % row["vs_h64"], ctrl), flush=True)
         ttnn.deallocate(ref)
         ttnn.deallocate(whole)
+    ttnn.deallocate(x)
+
+
+def tail_sweep(dev, rec, token_list):
+    """The shipped height at many token counts: which ragged tails diverge from the whole tensor."""
+    for tokens in token_list:
+        g = torch.Generator().manual_seed(11)
+        x = ttnn.from_torch(torch.randn(1, tokens, tokens, 128, generator=g) * 0.5,
+                            dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+        w_pad = int(x.padded_shape[2])
+        for hidden in HIDDENS:
+            t = make(hidden, dev)
+            whole = t._swiglu(x, None)
+            ctrl = M._mm_maxabs(whole, t._swiglu(x, None))
+            M._PAIR_TRANSITION_L1_BYTES = 138_000_000
+            got = t(x)
+            h = M._pair_transition_chunk_h(w_pad, hidden, tokens)
+            row = {"tokens": tokens, "hidden": hidden, "actual_h": h, "w_pad": w_pad,
+                   "n_chunks": -(-tokens // h), "tail_rows": tokens - (tokens // h) * h or h,
+                   "l1_bytes": M._PAIR_TRANSITION_L1_BYTES,
+                   "vs_whole": M._mm_maxabs(got, whole), "vs_h64": None,
+                   "card_control_maxabs": ctrl}
+            rec["rows"].append(row)
+            print("tokens=%-4d w_pad=%-4d hidden=%-4d h=%-3d chunks=%-3d tail=%-3d  "
+                  "vs whole-tensor %.6g   control %.6g"
+                  % (tokens, w_pad, hidden, h, row["n_chunks"], row["tail_rows"],
+                     row["vs_whole"], ctrl), flush=True)
+            for tt_ in (got, whole):
+                ttnn.deallocate(tt_)
+        ttnn.deallocate(x)
+
+
+def main():
+    argv = [a for a in sys.argv[1:] if not a.startswith("--")]
+    tok = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--tokens=")), None)
+    out = argv[0] if argv else "perf/p131/chunk_height_exactness.json"
+    dev = M.get_device()
+    rec = {"tokens": TOKENS, "heights": list(HEIGHTS), "provisional_on": "pc-card0", "rows": [],
+           "mode": "tail_sweep" if tok else "height_sweep"}
+    if tok:
+        token_list = [int(v) for v in tok.split(",")]
+        rec["token_list"] = token_list
+        tail_sweep(dev, rec, token_list)
+    else:
+        height_sweep(dev, rec, TOKENS)
     M._PAIR_TRANSITION_L1_BYTES = 138_000_000
     pathlib.Path(out).parent.mkdir(parents=True, exist_ok=True)
     pathlib.Path(out).write_text(json.dumps(rec, indent=2) + "\n")

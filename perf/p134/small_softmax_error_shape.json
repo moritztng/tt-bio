@@ -1,0 +1,382 @@
+{
+  "rows": [
+    {
+      "shape": [
+        1,
+        16,
+        128,
+        128
+      ],
+      "seed": 42,
+      "Wt": 4,
+      "Ht": 64,
+      "block_size": 4,
+      "use_large": false,
+      "units": 64,
+      "target_cores": 64,
+      "per1": 1,
+      "ncht_per_core": 1,
+      "S1_fp32_equal": true,
+      "S1_maxabs": 0.0,
+      "S2_shipped_equal": false,
+      "S2_shipped_maxabs": 0.97265625,
+      "S2_hoisted_equal": false,
+      "S2_hoisted_maxabs": 0.97265625,
+      "hoisted_differs_from_shipped": false,
+      "arm_A_error_shape": {
+        "n_elements": 262144,
+        "n_exactly_equal": 4143,
+        "frac_exactly_equal": 0.015804,
+        "maxabs": 0.97265625,
+        "tile_grid": [
+          64,
+          4
+        ],
+        "n_tiles_with_any_error": 256,
+        "n_tiles": 256,
+        "per_tile_maxabs_unique": [
+          [
+            0.439453125,
+            1
+          ],
+          [
+            0.44921875,
+            1
+          ],
+          [
+            0.462890625,
+            1
+          ],
+          [
+            0.546875,
+            1
+          ],
+          [
+            0.55859375,
+            1
+          ],
+          [
+            0.5703125,
+            1
+          ],
+          [
+            0.58203125,
+            1
+          ],
+          [
+            0.62890625,
+            2
+          ],
+          [
+            0.6328125,
+            1
+          ],
+          [
+            0.640625,
+            1
+          ],
+          [
+            0.65625,
+            1
+          ],
+          [
+            0.6718654632568359,
+            1
+          ]
+        ],
+        "per_tile_maxabs_first_rows": [
+          [
+            0.7890624403953552,
+            0.95928955078125,
+            0.8828125,
+            0.9609375
+          ],
+          [
+            0.7226310968399048,
+            0.9013137817382812,
+            0.7578125,
+            0.90234375
+          ],
+          [
+            0.9609375,
+            0.9453114867210388,
+            0.9609375,
+            0.96875
+          ],
+          [
+            0.9531238675117493,
+            0.9529953002929688,
+            0.9609375,
+            0.9453125
+          ]
+        ],
+        "argmax": {
+          "flat_row": 1526,
+          "col": 99,
+          "tile_h": 47,
+          "tile_w": 3,
+          "face": 2,
+          "row_in_face": 6,
+          "col_in_face": 3,
+          "got": 0.0,
+          "ref": 0.97265625
+        },
+        "got_value_histogram_where_wrong": [
+          [
+            0.0,
+            147456
+          ],
+          [
+            7.987022399902344e-06,
+            101
+          ],
+          [
+            8.225440979003906e-06,
+            91
+          ],
+          [
+            1.5497207641601562e-05,
+            90
+          ],
+          [
+            7.748603820800781e-06,
+            89
+          ],
+          [
+            6.29425048828125e-05,
+            89
+          ],
+          [
+            3.266334533691406e-05,
+            88
+          ],
+          [
+            1.5616416931152344e-05,
+            86
+          ]
+        ],
+        "ref_value_histogram_where_wrong": [
+          [
+            7.987022399902344e-06,
+            211
+          ],
+          [
+            1.6570091247558594e-05,
+            198
+          ],
+          [
+            8.225440979003906e-06,
+            197
+          ],
+          [
+            6.29425048828125e-05,
+            195
+          ],
+          [
+            3.123283386230469e-05,
+            193
+          ],
+          [
+            7.808208465576172e-06,
+            191
+          ],
+          [
+            3.24249267578125e-05,
+            191
+          ],
+          [
+            3.504753112792969e-05,
+            189
+          ]
+        ],
+        "n_distinct_got_values_where_wrong": 4416,
+        "got_is_a_single_constant_where_wrong": false
+      },
+      "arm_B_hypotheses_maxabs": {
+        "H1_unnormalised_exp_x_minus_max": 1.0,
+        "H2a_fp32_high_half_as_bf16": 0.9725313186645508,
+        "H2b_fp32_low_half_as_bf16": NaN,
+        "H3_packer_truncate_not_rne": 0.9725313186645508,
+        "H4_tile_face_permuted_best": 0.97265625
+      },
+      "arm_B_H4_best_perm": "0132",
+      "arm_B_H4_all_perms": {
+        "0132": 0.97265625,
+        "0213": 0.97265625,
+        "0231": 0.97265625,
+        "0312": 0.97265625,
+        "0321": 0.97265625,
+        "1023": 0.97265625,
+        "1032": 0.97265625,
+        "1203": 0.97265625,
+        "1230": 0.97265625,
+        "1302": 0.97265625,
+        "1320": 0.97265625,
+        "2013": 0.97265625,
+        "2031": 0.97265625,
+        "2103": 0.97265625,
+        "2130": 0.97265625,
+        "2301": 0.97265625,
+        "2310": 0.97265625,
+        "3012": 0.97265625,
+        "3021": 0.97265625,
+        "3102": 0.97265625,
+        "3120": 0.97265625,
+        "3201": 0.97265625,
+        "3210": 0.97265625
+      },
+      "arm_B_any_hypothesis_reproduces_S2": true
+    },
+    {
+      "shape": [
+        1,
+        16,
+        128,
+        128
+      ],
+      "seed": 7,
+      "Wt": 4,
+      "Ht": 64,
+      "block_size": 4,
+      "use_large": false,
+      "units": 64,
+      "target_cores": 64,
+      "per1": 1,
+      "ncht_per_core": 1,
+      "S1_fp32_equal": true,
+      "S1_maxabs": 0.0,
+      "S2_shipped_equal": false,
+      "S2_shipped_maxabs": 0.97265625,
+      "S2_hoisted_equal": false,
+      "S2_hoisted_maxabs": 0.97265625,
+      "hoisted_differs_from_shipped": false
+    },
+    {
+      "shape": [
+        1,
+        16,
+        128,
+        128
+      ],
+      "seed": 11,
+      "Wt": 4,
+      "Ht": 64,
+      "block_size": 4,
+      "use_large": false,
+      "units": 64,
+      "target_cores": 64,
+      "per1": 1,
+      "ncht_per_core": 1,
+      "S1_fp32_equal": true,
+      "S1_maxabs": 0.0,
+      "S2_shipped_equal": false,
+      "S2_shipped_maxabs": 0.97265625,
+      "S2_hoisted_equal": false,
+      "S2_hoisted_maxabs": 0.97265625,
+      "hoisted_differs_from_shipped": false
+    },
+    {
+      "shape": [
+        1,
+        16,
+        128,
+        128
+      ],
+      "seed": 1234,
+      "Wt": 4,
+      "Ht": 64,
+      "block_size": 4,
+      "use_large": false,
+      "units": 64,
+      "target_cores": 64,
+      "per1": 1,
+      "ncht_per_core": 1,
+      "S1_fp32_equal": true,
+      "S1_maxabs": 0.0,
+      "S2_shipped_equal": false,
+      "S2_shipped_maxabs": 0.97265625,
+      "S2_hoisted_equal": false,
+      "S2_hoisted_maxabs": 0.97265625,
+      "hoisted_differs_from_shipped": false
+    },
+    {
+      "shape": [
+        1,
+        16,
+        512,
+        512
+      ],
+      "seed": 42,
+      "Wt": 16,
+      "Ht": 256,
+      "block_size": 4,
+      "use_large": false,
+      "units": 256,
+      "target_cores": 130,
+      "per1": 2,
+      "ncht_per_core": 2,
+      "S1_fp32_equal": true,
+      "S1_maxabs": 0.0,
+      "S2_shipped_equal": false,
+      "S2_shipped_maxabs": 0.97265625,
+      "S2_hoisted_equal": false,
+      "S2_hoisted_maxabs": 0.97265625,
+      "hoisted_differs_from_shipped": false
+    },
+    {
+      "shape": [
+        1,
+        16,
+        685,
+        704
+      ],
+      "seed": 42,
+      "Wt": 22,
+      "Ht": 352,
+      "block_size": 2,
+      "use_large": false,
+      "units": 352,
+      "target_cores": 130,
+      "per1": 3,
+      "ncht_per_core": 3,
+      "S1_fp32_equal": true,
+      "S1_maxabs": 0.0,
+      "S2_shipped_equal": false,
+      "S2_shipped_maxabs": 0.97265625,
+      "S2_hoisted_equal": false,
+      "S2_hoisted_maxabs": 0.97265625,
+      "hoisted_differs_from_shipped": false
+    },
+    {
+      "shape": [
+        1,
+        4,
+        4540,
+        4544
+      ],
+      "seed": 42,
+      "Wt": 142,
+      "Ht": 568,
+      "block_size": 2,
+      "use_large": true,
+      "units": 568,
+      "target_cores": 130,
+      "per1": 5,
+      "ncht_per_core": 5,
+      "S1_fp32_equal": true,
+      "S1_maxabs": 0.0,
+      "S2_shipped_equal": true,
+      "S2_shipped_maxabs": 0.0,
+      "S2_hoisted_equal": true,
+      "S2_hoisted_maxabs": 0.0,
+      "hoisted_differs_from_shipped": false
+    }
+  ],
+  "provisional_on": "pc-card0",
+  "card": 0,
+  "s1_all_equal": true,
+  "s2_shipped_all_equal": false,
+  "s2_hoisted_all_equal": false,
+  "s2_hoisted_fixes_small": false,
+  "s2_shipped_maxabs_constant_over_seeds": true
+}
