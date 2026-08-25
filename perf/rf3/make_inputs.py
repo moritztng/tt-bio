@@ -27,6 +27,13 @@ CDK2_298 = ("MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLL
 # (shipped k = 64 at padded 320), so it is the only rung a k_chunk probe has anything to vary.
 SIZES = (128, 256, 298, 512, 768, 1024)
 
+# Ceiling probe, deliberately RAGGED and deliberately just under the wall. Every rung above is a
+# multiple of 32, so the token bucket early-outs on all of them and cannot move their DRAM at all.
+# 1000 is the case that actually exercises it: it buckets to 1024, RF3's historical residency wall,
+# so folding it is the test of whether bucketing lowers the largest target that fits. It does not
+# (measured 2026-08-25, infer_s 112.58 s, no OOM).
+CEILING_PROBE = (1000,)
+
 
 def cdk2(n: int) -> str:
     """The fleet fixture's sequence at length n: tile the 298 aa domain, truncate."""
@@ -41,7 +48,7 @@ def spec(n: int) -> dict:
 def main() -> None:
     out = pathlib.Path(__file__).parent / "inputs"
     out.mkdir(parents=True, exist_ok=True)
-    for n in SIZES:
+    for n in SIZES + CEILING_PROBE:
         p = out / ("rf3_%d.json" % n)
         p.write_text(json.dumps(spec(n), indent=2) + "\n")
         print("%s  %d aa" % (p, n))
