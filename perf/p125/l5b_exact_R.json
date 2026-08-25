@@ -1,0 +1,105 @@
+{
+  "rungs": [
+    {
+      "rung": "R1",
+      "rows": 2624,
+      "key_width": 2624,
+      "classify": {
+        "ok": false,
+        "why": "softmax kernel does not engage at this shape"
+      },
+      "host_seconds_setup": 0.1,
+      "control_reps": 3,
+      "control_unanimous": true,
+      "declined": true,
+      "ok": true,
+      "note": "declined as classified",
+      "host_seconds": 1.1
+    },
+    {
+      "rung": "R2",
+      "rows": 3712,
+      "key_width": 3712,
+      "classify": {
+        "ok": false,
+        "why": "K-blockings differ",
+        "blk": 4,
+        "in0_block_w": 2
+      },
+      "host_seconds_setup": 0.2,
+      "control_reps": 3,
+      "control_unanimous": true,
+      "declined": true,
+      "ok": true,
+      "note": "declined as classified",
+      "host_seconds": 0.7
+    },
+    {
+      "rung": "R3",
+      "rows": 4576,
+      "key_width": 4576,
+      "classify": {
+        "ok": true,
+        "why": "",
+        "Wt": 143,
+        "blk": 1,
+        "in0_block_w": 1,
+        "l1_bytes": 989184,
+        "l1_budget": 1349222
+      },
+      "host_seconds_setup": 0.3,
+      "control_reps": 3,
+      "control_unanimous": true,
+      "declined": false,
+      "torch_equal": true,
+      "maxabs": 0.0,
+      "mismatched_elements": 0,
+      "elements": 585728,
+      "pcc": 1.0,
+      "scale_median": 1.0,
+      "ref_absmax": 3.21875,
+      "fused_absmax": 3.21875,
+      "ok": true,
+      "note": "bit-exact",
+      "host_seconds": 0.4
+    },
+    {
+      "rung": "R4",
+      "rows": 6051,
+      "key_width": 6080,
+      "classify": {
+        "ok": true,
+        "why": "",
+        "Wt": 190,
+        "blk": 2,
+        "in0_block_w": 2,
+        "l1_bytes": 1097728,
+        "l1_budget": 1349222
+      },
+      "host_seconds_setup": 0.6,
+      "control_reps": 3,
+      "control_unanimous": true,
+      "declined": false,
+      "torch_equal": true,
+      "maxabs": 0.0,
+      "mismatched_elements": 0,
+      "elements": 774528,
+      "pcc": 1.0,
+      "scale_median": 1.0,
+      "ref_absmax": 3.15625,
+      "fused_absmax": 3.15625,
+      "ok": true,
+      "note": "bit-exact",
+      "host_seconds": 0.7
+    }
+  ],
+  "all_ok": true,
+  "declines_seen": 2,
+  "exact_seen": 2,
+  "provisional_on": "pc-card0",
+  "env": {
+    "TT_VISIBLE_DEVICES": "0",
+    "TT_BIO_LEASE_CARDS": "0",
+    "RFD3_SOFTMAX_PV_FUSED": "1"
+  }
+}
