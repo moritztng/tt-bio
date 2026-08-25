@@ -1,0 +1,837 @@
+{
+ "model": "rf3",
+ "aa": 512,
+ "arms": [
+  "a1",
+  "a5",
+  "a7",
+  "a8",
+  "a9"
+ ],
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "recycling_steps": 10,
+ "sampling_steps": 50,
+ "aa_control_arm": "a1",
+ "aa_control_spread_pct": 0.848,
+ "folds": [
+  {
+   "i": 0,
+   "arm": "a1",
+   "cold": true,
+   "fold_s": 51.515,
+   "digest": "74d2a1a32a40cb42",
+   "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "op_default(HiFi2,approx,no_acc)"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.6002
+  },
+  {
+   "i": 1,
+   "arm": "a5",
+   "cold": true,
+   "fold_s": 47.93,
+   "digest": "bd4e001dcab6950e",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.4884
+  },
+  {
+   "i": 2,
+   "arm": "a7",
+   "cold": true,
+   "fold_s": 47.891,
+   "digest": "632684492876681f",
+   "route": "_tri_att_sdpa at HiFi2 + math_approx ON + fp32_dest_acc ON (fp32_dest_acc alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi2,approx=True,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.476
+  },
+  {
+   "i": 3,
+   "arm": "a8",
+   "cold": true,
+   "fold_s": 48.715,
+   "digest": "c97294e9548365e8",
+   "route": "_tri_att_sdpa at HiFi2 + math_approx OFF + no fp32_dest_acc (math_approx alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi2,approx=False,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.3649
+  },
+  {
+   "i": 4,
+   "arm": "a9",
+   "cold": true,
+   "fold_s": 49.369,
+   "digest": "d6eeabf4442925c1",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx ON + no fp32_dest_acc (fidelity alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=True,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.4542
+  },
+  {
+   "i": 5,
+   "arm": "a1",
+   "cold": false,
+   "fold_s": 48.002,
+   "digest": "74d2a1a32a40cb42",
+   "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "op_default(HiFi2,approx,no_acc)"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.6002
+  },
+  {
+   "i": 6,
+   "arm": "a5",
+   "cold": false,
+   "fold_s": 48.299,
+   "digest": "bd4e001dcab6950e",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.4884
+  },
+  {
+   "i": 7,
+   "arm": "a7",
+   "cold": false,
+   "fold_s": 48.481,
+   "digest": "632684492876681f",
+   "route": "_tri_att_sdpa at HiFi2 + math_approx ON + fp32_dest_acc ON (fp32_dest_acc alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi2,approx=True,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.476
+  },
+  {
+   "i": 8,
+   "arm": "a8",
+   "cold": false,
+   "fold_s": 48.395,
+   "digest": "c97294e9548365e8",
+   "route": "_tri_att_sdpa at HiFi2 + math_approx OFF + no fp32_dest_acc (math_approx alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi2,approx=False,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.3649
+  },
+  {
+   "i": 9,
+   "arm": "a9",
+   "cold": false,
+   "fold_s": 48.146,
+   "digest": "d6eeabf4442925c1",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx ON + no fp32_dest_acc (fidelity alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=True,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.4542
+  },
+  {
+   "i": 10,
+   "arm": "a1",
+   "cold": false,
+   "fold_s": 48.011,
+   "digest": "74d2a1a32a40cb42",
+   "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "op_default(HiFi2,approx,no_acc)"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.6002
+  },
+  {
+   "i": 11,
+   "arm": "a5",
+   "cold": false,
+   "fold_s": 48.358,
+   "digest": "bd4e001dcab6950e",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.4884
+  },
+  {
+   "i": 12,
+   "arm": "a7",
+   "cold": false,
+   "fold_s": 47.903,
+   "digest": "632684492876681f",
+   "route": "_tri_att_sdpa at HiFi2 + math_approx ON + fp32_dest_acc ON (fp32_dest_acc alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi2,approx=True,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.476
+  },
+  {
+   "i": 13,
+   "arm": "a8",
+   "cold": false,
+   "fold_s": 48.176,
+   "digest": "c97294e9548365e8",
+   "route": "_tri_att_sdpa at HiFi2 + math_approx OFF + no fp32_dest_acc (math_approx alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi2,approx=False,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.3649
+  },
+  {
+   "i": 14,
+   "arm": "a9",
+   "cold": false,
+   "fold_s": 48.567,
+   "digest": "d6eeabf4442925c1",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx ON + no fp32_dest_acc (fidelity alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=True,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.4542
+  },
+  {
+   "i": 15,
+   "arm": "a1",
+   "cold": false,
+   "fold_s": 48.409,
+   "digest": "74d2a1a32a40cb42",
+   "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "op_default(HiFi2,approx,no_acc)"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.6002
+  },
+  {
+   "i": 16,
+   "arm": "a5",
+   "cold": false,
+   "fold_s": 48.532,
+   "digest": "bd4e001dcab6950e",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.4884
+  },
+  {
+   "i": 17,
+   "arm": "a7",
+   "cold": false,
+   "fold_s": 49.118,
+   "digest": "632684492876681f",
+   "route": "_tri_att_sdpa at HiFi2 + math_approx ON + fp32_dest_acc ON (fp32_dest_acc alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi2,approx=True,fp32_dest_acc=True"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.476
+  },
+  {
+   "i": 18,
+   "arm": "a8",
+   "cold": false,
+   "fold_s": 48.523,
+   "digest": "c97294e9548365e8",
+   "route": "_tri_att_sdpa at HiFi2 + math_approx OFF + no fp32_dest_acc (math_approx alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi2,approx=False,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.3649
+  },
+  {
+   "i": 19,
+   "arm": "a9",
+   "cold": false,
+   "fold_s": 48.748,
+   "digest": "d6eeabf4442925c1",
+   "route": "_tri_att_sdpa at HiFi4 + math_approx ON + no fp32_dest_acc (fidelity alone)",
+   "counters": {
+    "pm_served": 968,
+    "pm_declined": 0,
+    "pm_rejects": {},
+    "pm_over_l1": [],
+    "pm_l1_errors": {},
+    "sdpa_route_counts": {
+     "fused": 968,
+     "stock": 0
+    },
+    "sdpa_chunk_picks": {
+     "512x512": [
+      512,
+      256,
+      "fused"
+     ]
+    },
+    "sdpa_hifi_calls": 0,
+    "ckc_resolved": "HiFi4,approx=True,fp32_dest_acc=False"
+   },
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     968
+    ]
+   },
+   "ragged_padded": 0,
+   "n_tokens": 512,
+   "plddt": 71.4542
+  }
+ ],
+ "per_arm": {
+  "a1": {
+   "n": 3,
+   "folds_s": [
+    48.002,
+    48.011,
+    48.409
+   ],
+   "median_s": 48.011,
+   "spread_pct": 0.848,
+   "digests": [
+    "74d2a1a32a40cb42"
+   ]
+  },
+  "a5": {
+   "n": 3,
+   "folds_s": [
+    48.299,
+    48.358,
+    48.532
+   ],
+   "median_s": 48.358,
+   "spread_pct": 0.482,
+   "digests": [
+    "bd4e001dcab6950e"
+   ]
+  },
+  "a7": {
+   "n": 3,
+   "folds_s": [
+    48.481,
+    47.903,
+    49.118
+   ],
+   "median_s": 48.481,
+   "spread_pct": 2.536,
+   "digests": [
+    "632684492876681f"
+   ]
+  },
+  "a8": {
+   "n": 3,
+   "folds_s": [
+    48.395,
+    48.176,
+    48.523
+   ],
+   "median_s": 48.395,
+   "spread_pct": 0.72,
+   "digests": [
+    "c97294e9548365e8"
+   ]
+  },
+  "a9": {
+   "n": 3,
+   "folds_s": [
+    48.146,
+    48.567,
+    48.748
+   ],
+   "median_s": 48.567,
+   "spread_pct": 1.25,
+   "digests": [
+    "d6eeabf4442925c1"
+   ]
+  }
+ },
+ "cost_vs_a1": {
+  "a1": 1.0,
+  "a5": 1.0072,
+  "a7": 1.0098,
+  "a8": 1.008,
+  "a9": 1.0116
+ }
+}
