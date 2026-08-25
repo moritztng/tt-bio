@@ -15,6 +15,18 @@ and only when asked. Skips are printed, never silent: a skipped model is recorde
 
     TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 -m pytest tests/test_token_axis_bucketing_hw.py
     TOKEN_AXIS_HW_MODELS=esmc-300m,saprot-35m ... -k census      # opt in to the fold-level check
+
+RUN THE FOLD-LEVEL CHECK UNDER `/home/ttuser/tt-bio-dev/env/bin/python3`, not the pytest venv.
+Each job is spawned with `sys.executable`, so the interpreter you invoke pytest with is the one
+that JIT-builds the fused kernels -- and they do not build against `~/.tenstorrent-venv`'s LLK
+headers. The failure looks nothing like a toolchain problem when it happens:
+
+    TT_THROW ... program.cpp:255 ... Failed to generate binaries for compute
+    trisc1 build failed
+
+which reads as a broken model or a bad JOBS entry. It is neither. Measured 2026-08-25:
+esmfold2-fast and opendde-abag both FAIL under the pytest venv and both PASS under tt-bio-dev's,
+same commit, same card, same input.
 """
 import json
 import os
