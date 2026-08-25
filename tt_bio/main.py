@@ -646,9 +646,9 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
                 fcntl.flock(lf, fcntl.LOCK_UN)
                 lf.close()
         for chain in record.chains:
-            if isinstance(chain.msa_id, str) and not Path(chain.msa_id).exists():
+            if isinstance(chain.msa_id, str) and not cached(chain.msa_id):
                 a3m = Path(chain.msa_id).with_suffix(".a3m")
-                if a3m.exists():
+                if cached(a3m):
                     chain.msa_id = str(a3m)
 
     # Parse MSAs in memory (deduplicated by path)

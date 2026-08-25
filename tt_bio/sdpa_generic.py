@@ -29,9 +29,10 @@ from pathlib import Path
 
 import ttnn
 
+from .mm_generic import tile_bytes, ttnn_cpp_root
+
 INVALID, VALID = 0, 1
 TILE = 32
-_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
 # What TensorAccessorArgs(nullptr) appends: ArgConfig::None (0) and a zero page size.
 NULL_ACCESSOR = [0, 0]
 
@@ -39,7 +40,6 @@ _CACHE: dict = {}
 
 
 def _kdir():
-    from .mm_generic import ttnn_cpp_root
     return ttnn_cpp_root() / "cpp/ttnn/operations/transformer/sdpa/device/kernels"
 
 
@@ -183,11 +183,11 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
 
-    q_ts = _TILE_BYTES[q.dtype]
-    k_ts = _TILE_BYTES[k.dtype]
-    v_ts = _TILE_BYTES[v.dtype]
-    mask_ts = _TILE_BYTES[mask.dtype]
-    out_ts = _TILE_BYTES[out.dtype]
+    q_ts = tile_bytes(q.dtype)
+    k_ts = tile_bytes(k.dtype)
+    v_ts = tile_bytes(v.dtype)
+    mask_ts = tile_bytes(mask.dtype)
+    out_ts = tile_bytes(out.dtype)
     im_df, stats_df, scalar_df = ttnn.bfloat16, ttnn.bfloat16, ttnn.bfloat16   # :651-653, always bf16
     im_ts = stats_ts = scalar_ts = 2048
 

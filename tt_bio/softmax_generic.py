@@ -32,9 +32,9 @@ from pathlib import Path
 import ttnn
 
 from .envflags import env_flag
+from .mm_generic import tile_bytes, ttnn_cpp_root
 
 TILE = 32
-_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
 
 # `device->l1_size_per_core()` is not exposed to Python. Blackhole is 1464 KB. The value only
 # feeds the factory's `use_large_kernel` trip at `0.9 * l1_size_per_core`, and both production
@@ -46,7 +46,6 @@ _CACHE: dict = {}
 
 
 def _kdir():
-    from .mm_generic import ttnn_cpp_root
     return (ttnn_cpp_root()
             / "cpp/ttnn/operations/normalization/softmax/device/kernels/attention")
 
@@ -77,7 +76,7 @@ def plan(x, out, grid, fp32_dest_acc, numeric_stable=True):
     H = vol // (padded[0] * padded[-1])
     Wt, Ht = W // TILE, H // TILE
     # The padded-last-dim path pulls in cb_mask_padded and a different first compute loop. Both
-    # RFD3 sites pass a key axis that is already `_align_tile`d, so it is asserted, not handled.
+    # RFD3 sites pass a key axis that is already `align_tile`d, so it is asserted, not handled.
     assert W == logical[-1], ("padded last dim %d != logical %d; the mask_padded_data path is "
                               "not transcribed" % (W, logical[-1]))
 
@@ -89,9 +88,9 @@ def plan(x, out, grid, fp32_dest_acc, numeric_stable=True):
     assert im0_t == Wt, (im0_t, Wt)
     cb_length = in0_t
 
-    in0_ts = _TILE_BYTES[x.dtype]
+    in0_ts = tile_bytes(x.dtype)
     im_fmt = ttnn.float32 if fp32_dest_acc else ttnn.bfloat16
-    im_ts = _TILE_BYTES[im_fmt]
+    im_ts = tile_bytes(im_fmt)
 
     # The factory sizes this estimate off the OUTPUT tile size. Using the input's keeps the fp32
     # and bf16 arms on the same kernel, which is the point: they must differ in exactly one field.
@@ -116,7 +115,7 @@ def plan(x, out, grid, fp32_dest_acc, numeric_stable=True):
 
     return dict(NC=NC, W=W, H=H, Wt=Wt, Ht=Ht, block_size=block_size, in0_t=in0_t, out0_t=out0_t,
                 im0_t=im0_t, im4_t=im4_t, cb_length=cb_length, use_large=use_large,
-                im_fmt=im_fmt, im_ts=im_ts, in0_ts=in0_ts, out0_ts=_TILE_BYTES[out.dtype],
+                im_fmt=im_fmt, im_ts=im_ts, in0_ts=in0_ts, out0_ts=tile_bytes(out.dtype),
                 numeric_stable=numeric_stable, fp32_dest_acc=fp32_dest_acc,
                 gx=gx, gy=gy, max_cores=max_cores, units=units, target=target,
                 per1=per1, per2=per2, rem=rem)

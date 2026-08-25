@@ -129,9 +129,9 @@ def eligible(xa, xb, wa, wb):
 
 def _cb(idx, core_grid, tiles):
     fmt = ttnn.CBFormatDescriptor(
-        buffer_index=idx, data_format=ttnn.bfloat16, page_size=MG._TILE_BYTES[ttnn.bfloat16])
+        buffer_index=idx, data_format=ttnn.bfloat16, page_size=MG.tile_bytes(ttnn.bfloat16))
     return ttnn.CBDescriptor(
-        total_size=tiles * MG._TILE_BYTES[ttnn.bfloat16], core_ranges=core_grid,
+        total_size=tiles * MG.tile_bytes(ttnn.bfloat16), core_ranges=core_grid,
         format_descriptors=[fmt])
 
 

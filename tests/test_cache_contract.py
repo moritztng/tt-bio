@@ -12,6 +12,7 @@ publish sites straight to their final names and kept the check green.
 """
 from __future__ import annotations
 
+import ast
 import hashlib
 import re
 from pathlib import Path
@@ -118,15 +119,104 @@ def _tt_bio_sources():
     return [f for f in sorted(root.rglob("*.py")) if "_vendor" not in f.parts]
 
 
+#: ``.a3m`` is an alignment wherever it sits, so the contract follows it everywhere.
+#: ``.csv`` is a cache entry only under the MSA directory -- BoltzGen's result merge reads
+#: plain ``aggregate_metrics_analyze.csv`` files out of run directories, and those are
+#: outputs a later run overwrites, not entries a later run skips work because of.
+_CACHE_SUFFIXES = (".a3m",)
+_MSA_ONLY_SUFFIXES = (".csv",)
+
+#: Attribute calls that bypass the contract, and what to use instead.
+_BYPASS = {"exists": "gate it with tt_bio.cache.cached()",
+           "write_text": "publish it with tt_bio.cache.publish_text()",
+           "write_bytes": "publish it with tt_bio.cache.publish_text()"}
+
+#: A nested scope owns its own names, so a `src` in one function is not the `src` in another.
+_SCOPE = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+
+
+def _basename(node: ast.AST) -> str | None:
+    """The literal tail of ``<dir> / "name.a3m"`` or ``<dir> / f"{x}.a3m"``, else None."""
+    if not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)):
+        return None
+    right = node.right
+    if isinstance(right, ast.Constant) and isinstance(right.value, str):
+        return right.value
+    if isinstance(right, ast.JoinedStr) and right.values:
+        last = right.values[-1]
+        return last.value if isinstance(last, ast.Constant) else ""
+    return None
+
+
+def _rooted_in_msa_dir(node: ast.AST) -> bool:
+    """True when the leftmost operand of the ``/`` chain names an MSA directory."""
+    while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        node = node.left
+    name = node.id if isinstance(node, ast.Name) else (
+        node.attr if isinstance(node, ast.Attribute) else "")
+    return "msa" in name.lower()
+
+
+def _is_cache_path(node: ast.AST) -> bool:
+    base = _basename(node)
+    if base is None:
+        return False
+    return (base.endswith(_CACHE_SUFFIXES)
+            or (base.endswith(_MSA_ONLY_SUFFIXES) and _rooted_in_msa_dir(node)))
+
+
+def _own_nodes(scope: ast.AST):
+    """Every node in `scope` that is not inside a nested function scope."""
+    stack = list(ast.iter_child_nodes(scope))
+    while stack:
+        node = stack.pop()
+        yield node
+        if not isinstance(node, _SCOPE):
+            stack.extend(ast.iter_child_nodes(node))
+
+
+def _scan_scope(scope: ast.AST, outer: frozenset, name: str, bad: list) -> None:
+    own = list(_own_nodes(scope))
+    names = set(outer)
+    for node in own:
+        if isinstance(node, ast.Assign) and _is_cache_path(node.value):
+            names |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+        elif isinstance(node, ast.NamedExpr) and _is_cache_path(node.value):
+            names.add(node.target.id)
+    for node in own:
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        fix = _BYPASS.get(node.func.attr)
+        if fix is None:
+            continue
+        recv = node.func.value
+        if _is_cache_path(recv) or (isinstance(recv, ast.Name) and recv.id in names):
+            bad.append(f"{name}:{node.lineno}: .{node.func.attr}() -- {fix}")
+    frozen = frozenset(names)
+    for node in own:
+        if isinstance(node, _SCOPE):
+            _scan_scope(node, frozen, name, bad)
+
+
 def test_no_module_gates_the_msa_cache_on_bare_exists():
-    """No MSA cache-hit gate reads bare ``Path.exists()``; they all go through ``cached``,
-    so a zero-byte a3m from a failed search is redone instead of accepted forever."""
+    """No MSA cache gate reads bare ``Path.exists()`` and no publish writes to the final
+    name, so a zero-byte a3m from a failed search is redone instead of accepted forever.
+
+    Parsed, not grepped, and resolved through one local binding. The literal version
+    matched ``.a3m").exists()`` on the line itself, so ``src = a3m_out / f"{name}.a3m"``
+    on one line and ``if src.exists():`` on the next was invisible to it -- which is how
+    ``main.py``'s colabfold publish shipped (b03dc65f) and how ``openfold3_data.py`` kept
+    a ``shutil.copyfile`` to a final name green.
+
+    One binding is the whole widening, and it is deliberately where this stops. A path
+    that reaches its ``.exists()`` through a helper, a comprehension variable or a
+    container is still invisible: ``openfold3_data.py``'s ``{i: p for i, p in
+    paths.items() if p.exists()}`` is exactly that shape and this does not see it. A
+    narrow guard that says what it misses beats a broad one carrying exemptions.
+    """
     bad = []
     for f in _tt_bio_sources():
-        for i, ln in enumerate(f.read_text().splitlines(), 1):
-            if ('.a3m").exists()' in ln or '.csv").exists()' in ln
-                    or '.a3m").write_text(' in ln or '.csv").write_text('  in ln):
-                bad.append(f"{f.name}:{i}: {ln.strip()}")
+        _scan_scope(ast.parse(f.read_text(), filename=str(f)), frozenset(), f.name, bad)
     assert not bad, "bypasses the MSA cache contract at:\n" + "\n".join(bad)
 
 

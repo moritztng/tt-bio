@@ -18,7 +18,7 @@ def _fixture(seed=0):
     """Scores in the shape the shipped chain leaves them: real values at K sorted neighbours per
     row, MASK everywhere else including the tile padding of the key axis."""
     torch.manual_seed(seed)
-    n_key = M._align_tile(L)
+    n_key = M.align_tile(L)
     idx = torch.stack([torch.randperm(L)[:K].sort().values for _ in range(L)]).unsqueeze(0)
     idx_h = idx.expand(1, H, L, K).contiguous()
     dense = torch.full((1, H, L, n_key), MASK, dtype=torch.float32)

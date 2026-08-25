@@ -27,6 +27,7 @@ import ttnn
 from .. import rfd3_bias, softmax_generic
 from ..envflags import env_flag
 from . import block_sparse as _BS
+from .tiles import TILE, align_tile, pad_axis
 from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
@@ -778,16 +779,16 @@ class PairformerAttention(Module):
         # ttnn.softmax masks its own tail) but it is the fused softmax going dark on every call
         # at every design length that is not a multiple of 32: censused 6 of 6. See
         # tt_bio/token_axis.py and PLAYBOOKS.md §MODEL 2b.
-        n_key = _align_tile(I)
-        k = _pad_key_axis(k, n_key, 2, 0.0)
-        v = _pad_key_axis(v, n_key, 2, 0.0)
+        n_key = align_tile(I)
+        k = pad_axis(k, n_key, 2, 0.0)
+        v = pad_axis(v, n_key, 2, 0.0)
         kt = ttnn.permute(k, (0, 1, 3, 2))                 # [1,16,24,n_key]
         sc = ttnn.matmul(q, kt, compute_kernel_config=ckc)  # [1,16,I,n_key]
         ttnn.deallocate(kt)
         sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
         sc = ttnn.multiply(sc, self.head_dim ** -0.5)
         bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
-        bias_f = _pad_key_axis(bias_f, n_key, 3, -1e4)
+        bias_f = pad_axis(bias_f, n_key, 3, -1e4)
         sc = ttnn.add(sc, bias_f)
         ttnn.deallocate(bias_f)
         # fp32 softmax reduction, packing bf16 straight out of DST -- one kernel, and the
@@ -1157,31 +1158,6 @@ class TokenInitializer(Module):
         return {"Q_L_init": Q_L_init, "C_L": C_L, "P_LL": P_LL, "S_I": S_init_I, "Z_II": Z_II}
 
 
-TILE = 32
-
-
-def _align_tile(n):
-    return -(-n // TILE) * TILE
-
-
-def _pad_key_axis(x, width, axis, value):
-    """Extend `axis` of a TILE tensor out to `width`, filling the new region with `value`.
-
-    Attention reduces over the key axis, and a ttnn reduction over a last dim that is not a
-    tile multiple reads the tile padding along with the data (p23: measured end to end -- the
-    same logical scores give two different softmax answers when the 18 pad columns differ).
-    Tile padding is not written by every op -- `ttnn.scatter` leaves whatever the freshly
-    allocated buffer held -- so the fix is to leave no tile padding on that axis: pad it out
-    logically, with -1e4 on the mask (weight exactly 0 after exp) and 0 on the values.
-    `ttnn.pad` writes the value, so the result is defined by construction rather than by luck.
-    """
-    if x.shape[axis] == width:
-        return x
-    pad = [(0, 0)] * len(x.shape)
-    pad[axis] = (0, width - x.shape[axis])
-    return ttnn.pad(x, pad, value)
-
-
 def _merge_heads(x, shape):
     """[..., n_head, rows, head_dim] -> `shape` (the heads folded back into channels).
 
@@ -1229,7 +1205,7 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
     replays a captured scatter against a single persistent template with two
     different index sets and gets results identical to a fresh template each time).
 
-    The key axis is padded out to a tile multiple (`_pad_key_axis`): the scatter that
+    The key axis is padded out to a tile multiple (`pad_axis`): the scatter that
     writes the pair bias into this template does not write the output's tile padding, so
     a non-tile-multiple key axis would leave the softmax reducing over undefined DRAM.
     Making the axis a tile multiple costs no device memory -- the buffer was tile-padded
@@ -1243,7 +1219,7 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
     entry = cache.get("mask")
     if entry is None or entry[0] != key:
         entry = (key, ttnn.full(
-            (batch, n_heads, length, _align_tile(length)), -1e4,
+            (batch, n_heads, length, align_tile(length)), -1e4,
             dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device))
         cache["mask"] = entry
     return entry[1]
@@ -1261,7 +1237,7 @@ def _zero_template(cache, device, dtype, batch, n_heads, length):
     entry = cache.get("zeros") if cache is not None else None
     if entry is None or entry[0] != key:
         entry = (key, ttnn.zeros(
-            (batch, n_heads, length, _align_tile(length)),
+            (batch, n_heads, length, align_tile(length)),
             dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device))
         if cache is not None:
             cache["zeros"] = entry
@@ -1330,7 +1306,7 @@ def _check_gather_bound(length):
     than the output of the op, and the first fold run on it would have produced a plausible
     number. Fail loudly instead.
     """
-    n_key_axis = _align_tile(length)
+    n_key_axis = align_tile(length)
     if n_key_axis > _TTNN_GATHER_MAX_KEY_AXIS:
         raise RuntimeError(
             "RFD3_GATHERED_SOFTMAX is unusable at this shape: the key axis is %d and ttnn.gather "
@@ -1422,7 +1398,7 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
         dense_bias = None
     elif mask_cache is None:
         dense_bias = ttnn.full(
-            (batch, n_heads, length, _align_tile(length)), -1e4,
+            (batch, n_heads, length, align_tile(length)), -1e4,
             dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)
     else:
         dense_bias = _mask_template(
@@ -1448,11 +1424,11 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
     # index, and the non-fused route's dense -1e4 template is the thing this arm exists to avoid.
     block = None
     if _BS.enabled() and fused_bias and not _GATHERED_SOFTMAX:
-        bplan = _BS.plan(indices, _align_tile(length))
+        bplan = _BS.plan(indices, align_tile(length))
         if bplan is not None:
             nb, q_block, u_width, gather, pos = bplan
             block = (nb, q_block, u_width,
-                     _BS.gather_index(gather, n_heads, _align_tile(length), device),
+                     _BS.gather_index(gather, n_heads, align_tile(length), device),
                      _sparse_attn_index_rm(pos.unsqueeze(0), device))
     out = (p_dev, n_keys, attn_idx_dev, dense_bias, gathered, block)
     if mask_cache is not None:
@@ -1738,9 +1714,9 @@ class RFD3AtomBlock(Module):
         # have written. So extend the key axis logically: zero keys (contributing a score
         # of 0, masked to -1e4) instead of 18 columns of whatever DRAM held. Free at these
         # shapes -- the buffers were tile-padded to the same size already.
-        n_key = _align_tile(length)
-        kk = _pad_key_axis(kk, n_key, 2, 0.0)
-        vv = _pad_key_axis(vv, n_key, 2, 0.0)
+        n_key = align_tile(length)
+        kk = pad_axis(kk, n_key, 2, 0.0)
+        vv = pad_axis(vv, n_key, 2, 0.0)
         # Block-sparse arm. Replaces the whole tail -- scores, bias, softmax and the value
         # matmul -- with a batched dense chain over the block's own key union, and hands back the
         # same [1,H,length,head_dim] the dense chain would. Off by default; see block_sparse.py.
@@ -1753,7 +1729,7 @@ class RFD3AtomBlock(Module):
             # The blocked scores have nb*q_block rows and the compact bias has `length`, so the
             # pad rows need a bias too. -1e4 makes them fully masked; they are sliced off the
             # output either way.
-            pb = _pad_key_axis(pb, nb * q_block, 2, -1e4)
+            pb = pad_axis(pb, nb * q_block, 2, -1e4)
             bs_out = _BS.attention(qq, kk, vv, pb, pos_rm, gather_dev, nb, q_block, u_width,
                                    self.head_dim**-0.5, dt, ckc)
         if bs_out is not None:
@@ -1773,8 +1749,7 @@ class RFD3AtomBlock(Module):
                     p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
                 )
             pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
-            bias = _pad_key_axis(
-                ttnn.add(pair_bias, additive_mask), n_key, 3, -1e4)
+            bias = pad_axis(ttnn.add(pair_bias, additive_mask), n_key, 3, -1e4)
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)),
                 compute_kernel_config=ckc,
@@ -2187,7 +2162,7 @@ class CompactStreamingDecoder(Module):
         n_heads = self.atom_blocks[0].n_head
         # tile-multiple key axis, see _mask_template
         dense_bias = ttnn.full(
-            (batch, n_heads, length, _align_tile(length)), -1e4,
+            (batch, n_heads, length, align_tile(length)), -1e4,
             dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
         sparse_qk = (n_keys, attn_p, dense_bias, None, None)
         for _ in range(2):
