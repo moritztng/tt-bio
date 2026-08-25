@@ -401,7 +401,7 @@ ckpt needed, same method as F2/F8):
   the reference source), so no single captured reference run's `ref_pos` is
   "the" bit-exact target — this port's OWN Protenix-v2 host featurizer
   already documents and relies on exactly this invariance
-  (``tt_bio/protenix_data.py:466``).
+  (``tt_bio/protenix_data.py::protein_atom_features``).
 - ``ref_atom_name_chars`` is overridden to encode the ELEMENT symbol, not the
   real atom name, for every ligand atom (the reference's
   ``use_element_for_atom_names_of_atomized_tokens=True`` default — verified: a
@@ -1406,8 +1406,9 @@ def _token_kind(tk: "_Token") -> str:
 # both draw an unseeded random value absent an explicit seed) — so no single
 # reference capture's `ref_pos` is "the" bit-exact target. This port's own
 # Protenix-v2 host featurizer already documents and relies on exactly this
-# invariance (tt_bio/protenix_data.py:466, "the reference uses a STOCHASTIC
-# RDKit conformer, so any valid one folds correctly"); the same principle is
+# invariance (tt_bio/protenix_data.py::protein_atom_features, "the reference
+# uses a STOCHASTIC RDKit conformer, so any valid one folds correctly"); the
+# same principle is
 # applied here rather than re-derived.
 def _ligand_template(ccd_code: str, mol_dir: str | None = None) -> dict:
     from ..data.mol import load_molecules

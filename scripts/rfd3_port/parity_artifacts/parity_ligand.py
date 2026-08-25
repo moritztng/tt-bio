@@ -24,8 +24,8 @@ capture's `ref_pos` is "the" bit-exact target. This port instead reuses
 tt_bio's own bundled CCD rdkit-mol library (~/.boltz/mols, the same one
 Boltz-2/Protenix-v2 already ship) for a chemically valid conformer of the
 same molecule -- exactly the precedent already documented at
-tt_bio/protenix_data.py:466 ("the reference uses a STOCHASTIC RDKit
-conformer, so any valid one folds correctly"). Reported separately, not
+tt_bio/protenix_data.py::protein_atom_features ("the reference uses a
+STOCHASTIC RDKit conformer, so any valid one folds correctly"). Reported separately, not
 counted in MISMATCHES.
 """
 import json
