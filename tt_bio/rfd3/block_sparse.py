@@ -53,10 +53,11 @@ import torch
 import ttnn
 
 from .. import rfd3_bias, softmax_generic
+from ..envflags import env_flag
 
 TILE = 32
 
-_ENABLED = os.environ.get("RFD3_BLOCK_SPARSE", "0") == "1"
+_ENABLED = env_flag("RFD3_BLOCK_SPARSE", False)
 #: Query rows per block. Must be a multiple of 32 and must divide the padded query axis, or the
 #: step falls back to dense. 1216 is the measured optimum at 6051 atoms (6080 padded): it beats
 #: 608 and 3040 once U is sized by the schedule rather than by one sampled step, because the
@@ -105,7 +106,7 @@ def stats_line():
     return "block-sparse atom attention: %d blocked, %d dense-fallback, %d shipped" % tuple(STATS)
 
 
-if os.environ.get("RFD3_BLOCK_SPARSE_STATS", "0") == "1":
+if env_flag("RFD3_BLOCK_SPARSE_STATS", False):
     # The release gate runs its fold in a subprocess, so the counters above are invisible to the
     # harness that set the flag: a run where RFD3_BLOCK_SPARSE never reached the child looks
     # exactly like a passing on-arm run. Print them at exit, the same idiom as
