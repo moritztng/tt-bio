@@ -35,6 +35,20 @@ ARMS = {
     # component and so costs the fold nothing.
     "a5": {"fp32_softmax": False, "sdpa_ckc": "HiFi4,0,1"},
     "a6": {"fp32_softmax": False, "sdpa_ckc": "HiFi4,1,1"},
+    # a7/a8/a9: the same three knobs a5 bundles, one at a time off the op default. The op default
+    # is (HiFi2, math_approx ON, no fp32_dest_acc) and a5 moves all three at once, so a5 alone
+    # cannot say which one paid for what -- an earlier pass conflated exactly this
+    # (`rf3-fused-sdpa-fidelity-conflation-and-tiny-fixture-blind-spot`). One-at-a-time plus the
+    # bundle is what makes the answer attributable, and a6 (bundle minus math_approx) is the one
+    # interaction term worth a row on its own.
+    "a7": {"fp32_softmax": False, "sdpa_ckc": "HiFi2,1,1"},   # fp32_dest_acc alone
+    "a8": {"fp32_softmax": False, "sdpa_ckc": "HiFi2,0,0"},   # math_approx off alone
+    "a9": {"fp32_softmax": False, "sdpa_ckc": "HiFi4,1,0"},   # HiFi4 alone
+    # a10 is a5 asked for the way it would SHIP: the per-site `tri_att_sdpa_hifi` selector rather
+    # than the process-global `_CKC_OVERRIDE`. Both end at the same `ckc` tuple in
+    # `triatt_sdpa.sdpa`, so a10 must be bit-identical to a5; if it is not, the wiring is wrong and
+    # no a5 number describes what a flip would do.
+    "a10": {"fp32_softmax": False, "sdpa_hifi_site": True},
 }
 
 ROUTE = {
@@ -50,6 +64,11 @@ ROUTE = {
     "a4": "_fp32_softmax_attention with ttnn.softmax instead of the 5-op reduction chain",
     "a5": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
     "a6": "_tri_att_sdpa at HiFi4 + math_approx ON + fp32_dest_acc ON (a5 minus the approx knob)",
+    "a7": "_tri_att_sdpa at HiFi2 + math_approx ON + fp32_dest_acc ON (fp32_dest_acc alone)",
+    "a8": "_tri_att_sdpa at HiFi2 + math_approx OFF + no fp32_dest_acc (math_approx alone)",
+    "a9": "_tri_att_sdpa at HiFi4 + math_approx ON + no fp32_dest_acc (fidelity alone)",
+    "a10": "_tri_att_sdpa at _TRIATT_FUSED_HIFI_CKC through the per-site `tri_att_sdpa_hifi` "
+           "selector; the same arithmetic as a5, reached the way a flip would reach it",
 }
 
 SCOPE = {
@@ -60,6 +79,11 @@ SCOPE = {
     "a4": "model-local (PAIRFORMER_FLAGS)",
     "a5": "model-local flag + PROCESS-GLOBAL triatt_sdpa._CKC_OVERRIDE (all six models' fused calls)",
     "a6": "model-local flag + PROCESS-GLOBAL triatt_sdpa._CKC_OVERRIDE (all six models' fused calls)",
+    "a7": "model-local flag + PROCESS-GLOBAL triatt_sdpa._CKC_OVERRIDE (all six models' fused calls)",
+    "a8": "model-local flag + PROCESS-GLOBAL triatt_sdpa._CKC_OVERRIDE (all six models' fused calls)",
+    "a9": "model-local flag + PROCESS-GLOBAL triatt_sdpa._CKC_OVERRIDE (all six models' fused calls)",
+    "a10": "model-local, RF3-scoped: PAIRFORMER_FLAGS['tri_att_sdpa_hifi'], which reaches RF3's "
+           "trunk Pairformer and confidence head and no other model",
 }
 
 
@@ -76,6 +100,11 @@ def apply_arm(name: str) -> dict:
         if k in spec:
             changed[k] = [PAIRFORMER_FLAGS[k], spec[k]]
             PAIRFORMER_FLAGS[k] = spec[k]
+    if spec.get("sdpa_hifi_site"):
+        # The per-site selector is read at CONSTRUCTION, so this must land in PAIRFORMER_FLAGS
+        # before the model is built -- same rule as fp32_softmax above.
+        changed["tri_att_sdpa_hifi"] = [PAIRFORMER_FLAGS.get("tri_att_sdpa_hifi"), True]
+        PAIRFORMER_FLAGS["tri_att_sdpa_hifi"] = True
     if "sdpa_ckc" in spec:
         from tt_bio import triatt_sdpa as pm
         changed["_CKC_OVERRIDE"] = [str(pm._CKC_OVERRIDE), spec["sdpa_ckc"]]
@@ -96,7 +125,60 @@ def apply_arm(name: str) -> dict:
                          "accurate_softmax": PAIRFORMER_FLAGS["accurate_softmax"],
                          "_TRIATT_FUSED_HIFI": bool(tts._TRIATT_FUSED_HIFI),
                          "_FP32_SOFTMAX": bool(tts._FP32_SOFTMAX),
+                         "tri_att_sdpa_hifi": bool(PAIRFORMER_FLAGS.get("tri_att_sdpa_hifi")),
                          "_CKC_OVERRIDE": _ckc_str()}}
+
+
+def route_counters() -> dict:
+    """What the fold ACTUALLY did with the fused kernel, counted rather than argued.
+
+    A compute-config arm only reaches the calls the persistent-mask kernel serves. Where the
+    kernel declines, `_tri_att_sdpa_at` falls back to `ttnn.transformer.scaled_dot_product_
+    attention`, which takes no compute config at all, so those calls run the op default whatever
+    the arm asked for. An arm served on 3 % of calls is dark, not neutral, and the two are
+    indistinguishable from the outside without these counts.
+
+    `chunk_picks` is here for a second reason: `fp32_dest_acc` doubles the DST a tile needs, so an
+    arm can be pushed off a wide q_chunk onto a narrow one and pay a ROUTE change (1.08-1.81x)
+    inside what reads as a fidelity change. If two arms report different picks, the reading bundles
+    two effects and has to be split before either is priced.
+    """
+    from tt_bio import tenstorrent as tts
+    from tt_bio import triatt_sdpa as pm
+    return {
+        "pm_served": pm.STATS[0], "pm_declined": pm.STATS[1],
+        "pm_rejects": {"%s %s" % (k[0], list(k[1])): v for k, v in pm.REJECTS.items()},
+        "pm_over_l1": [list(k) for k in pm._PM_OVER_L1],
+        "pm_l1_errors": {str(list(k)): v[:200] for k, v in pm.PM_L1_ERRORS.items()},
+        "sdpa_route_counts": dict(tts.SDPA_ROUTE_COUNTS),
+        "sdpa_chunk_picks": {"%dx%d" % k: v for k, v in tts.SDPA_CHUNK_PICKS.items()},
+        "sdpa_hifi_calls": tts.SDPA_HIFI_CALLS[0],
+        "ckc_resolved": _ckc_str(),
+    }
+
+
+def clear_l1_latches() -> None:
+    """Forget every "this config did not fit L1" memo, so an arm is not handed the previous arm's
+    retirements.
+
+    Measured on this branch (`perf/rf3/results/hifi_route_probe_768.json`): at 768 aa the op
+    default tries q_chunk 768, is refused, and retires it in `_PM_OVER_L1`. Any arm that runs
+    LATER in the same process inherits that retirement and is never even offered q768 -- so the
+    arm order, not the arm, decides which q_chunk each one gets. Clearing between arms costs one
+    refused compile per arm and makes the picks comparable.
+    """
+    from tt_bio import tenstorrent as tts
+    from tt_bio import triatt_sdpa as pm
+    pm._PM_OVER_L1.clear()
+    pm.PM_L1_ERRORS.clear()
+    pm.REJECTS.clear()
+    pm.STATS[0] = pm.STATS[1] = 0
+    tts._SDPA_Q_CHUNK_OVER_L1.clear()
+    tts._SDPA_QK_OVER_L1.clear()
+    tts._TRIATT_HIFI_OVER_L1.clear()
+    tts.SDPA_ROUTE_COUNTS["fused"] = tts.SDPA_ROUTE_COUNTS["stock"] = 0
+    tts.SDPA_CHUNK_PICKS.clear()
+    tts.SDPA_HIFI_CALLS[0] = 0
 
 
 def _ckc_str():

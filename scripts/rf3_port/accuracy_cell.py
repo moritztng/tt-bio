@@ -54,7 +54,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 from boltz2_affinity_parity import _kabsch_rmsd  # noqa: E402  the gate's own superposition
 from pharma_parity import noise_floor_verdict  # noqa: E402  the gate's own floor verdict
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from arms import ARMS, ROUTE, SCOPE, apply_arm  # noqa: E402
+from arms import ARMS, ROUTE, SCOPE, apply_arm, route_counters  # noqa: E402
 
 import tt_bio  # noqa: E402
 
@@ -548,6 +548,11 @@ def resolved_flags() -> dict:
         "sdpa_ragged_pad_global": bool(tts._SDPA_RAGGED_PAD),
         "sdpa_ragged_pad_stats": list(tts.SDPA_RAGGED_PAD_STATS),
         "sdpa_ragged_sites": {k: list(v) for k, v in tts.SDPA_RAGGED_SITES.items()},
+        # Which calls the fused kernel actually served, and at which chunks. A compute-config arm
+        # is dark on every call the kernel declines, because the stock fall-back takes no compute
+        # config; and `fp32_dest_acc` can push an arm off a wide q_chunk, which is a route change
+        # wearing a fidelity change's clothes. See `arms.route_counters`.
+        "route_counters": route_counters(),
         "env": {k: v for k, v in sorted(os.environ.items())
                 if k.startswith(("TT_BIO", "TT_METAL", "TT_VISIBLE"))},
     }

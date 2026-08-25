@@ -26,10 +26,15 @@ import pytest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "tt_bio"
 
-# Every construction site wired to the selector, with the file that wires it. Boltz-2's 64-block
-# trunk is the only one: the 8-block confidence head, the 2-block template stack and the affinity
-# stack are unscored, so they do not get a token until something scores them.
-SITES = {"boltz2.trunk": "tt_bio/boltz2.py"}
+# Every construction site wired to the selector, with the file that wires it. Both ship off and
+# neither is scored at fold level; the token exists so the question is A/B-able without a checkout.
+# Boltz-2's other stacks (8-block confidence head, 2-block template, affinity) get no token until
+# something scores them. `rf3.tri_att` is one token for the two sites that share RF3's
+# PAIRFORMER_FLAGS, the 48-block trunk Pairformer and the 4-layer confidence head, which is the
+# same scoping `sdpa_ragged_pad_site("rf3.tri_att")` already uses. RF3's MSA module and template
+# embedder build their own PairformerLayer at fp32_softmax=True, so they never reach the fused
+# route and are deliberately outside the token.
+SITES = {"boltz2.trunk": "tt_bio/boltz2.py", "rf3.tri_att": "tt_bio/rf3/remap.py"}
 
 # Empty on purpose. Fold level said FLAT.
 ON_BY_DEFAULT = set()

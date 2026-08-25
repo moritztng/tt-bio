@@ -24,7 +24,7 @@ from __future__ import annotations
 import torch
 
 from tt_bio.tenstorrent import (_TRANSPOSE_L1_RESERVE_PER_CORE, accurate_softmax_site,
-                                sdpa_ragged_pad_site)
+                                sdpa_ragged_pad_site, triatt_sdpa_hifi_site)
 
 #: RF3 block-relative name -> tt-bio block-relative name.
 #: Triangle multiplication is absent because its six weights already match.
@@ -194,9 +194,17 @@ PAIRFORMER_DIMS = (32, 4, 24, 16)
 #: non-bifurcating seeds, both further inside their reference noise floors than before.
 #: This also makes the HiFi4 arm reached through `_tri_att_sdpa_hifi` unreachable for RF3: that
 #: call sits inside the `fp32_softmax` branch, so it is the OTHER side of this switch, never an
-#: addition to it. Do not sum the two speedups. (`tri_att_sdpa_hifi` is a different, per-site
-#: config on the fused route itself, added in d7e616e4, and it IS reachable from here. Unmeasured
-#: on RF3, so it stays off.)
+#: addition to it. Do not sum the two speedups. `_TRIATT_FUSED_HIFI_MIN_S` lives on that same
+#: unreachable call, so RF3 never consults it and the length gate does not interact with anything
+#: below.
+#: `tri_att_sdpa_hifi` is the different, per-site config on the fused route ITSELF, added in
+#: d7e616e4. It replaces the kernel's op default `(HiFi2, math_approx on, no fp32_dest_acc)` with
+#: `(HiFi4, math_approx off, fp32_dest_acc on)`, which is the reduction width the GPU reference
+#: runs. Wired here so it is A/B-able through `TT_BIO_TRIATT_SDPA_HIFI_AB=rf3.tri_att` without a
+#: checkout, and DEFAULT OFF until it is scored on this model: it reaches the 48-block trunk
+#: Pairformer and the 4-layer confidence head, and nothing else (the MSA module and the template
+#: embedder build their own `PairformerLayer` at `fp32_softmax=True`, so they are on the
+#: materialised route).
 #: `tri_att_sdpa_ragged_pad=True` is the other half of the arm and ships WITH it, never without:
 #: the fused kernel is 71-76x wrong at a sequence length that is not a multiple of 32, and an
 #: unmasked ragged tail also reads whatever the previous op left in the physical tile tail, so the
@@ -231,6 +239,7 @@ PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=False, transpose_bias
                         gated_move=True, accurate_softmax=True,
                         tri_att_accurate_softmax=accurate_softmax_site("rf3.tri_att"),
                         tri_att_sdpa_ragged_pad=sdpa_ragged_pad_site("rf3.tri_att", True),
+                        tri_att_sdpa_hifi=triatt_sdpa_hifi_site("rf3.tri_att"),
                         transpose_l1_reserve=_TRANSPOSE_L1_RESERVE_PER_CORE)
 
 

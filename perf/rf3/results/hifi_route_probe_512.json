@@ -1,0 +1,160 @@
+{
+ "aa": 512,
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "recycling_steps": 1,
+ "sampling_steps": 2,
+ "pairformer_flags": {
+  "scale_pair_bias": "True",
+  "fp32_softmax": "False",
+  "transpose_bias": "False",
+  "gated_move": "True",
+  "accurate_softmax": "True",
+  "tri_att_accurate_softmax": "False",
+  "tri_att_sdpa_ragged_pad": "True",
+  "transpose_l1_reserve": "131072"
+ },
+ "rows": [
+  {
+   "ckc": "none",
+   "resolved_ckc": null,
+   "fold_s": 52.775,
+   "n_tokens": 512,
+   "pm_served": 104,
+   "pm_declined": 0,
+   "pm_rejects": {},
+   "pm_over_l1": [],
+   "pm_l1_errors": {},
+   "route_counts": {
+    "fused": 104,
+    "stock": 0
+   },
+   "chunk_picks": {
+    "512x512": [
+     512,
+     256,
+     "fused"
+    ]
+   },
+   "sdpa_hifi_calls": 0,
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     104
+    ]
+   },
+   "fp32_softmax_stats": {
+    "calls": 21,
+    "blocked": 12,
+    "blocks": 480,
+    "fused": 489,
+    "unfused": 0,
+    "l1": 21,
+    "l1_blocks": 468,
+    "l1_refused": 0,
+    "l1_cores": 108,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0,
+    "l1_padded_diverged": 0
+   }
+  },
+  {
+   "ckc": "HiFi4|0|1",
+   "resolved_ckc": [
+    "MathFidelity.HiFi4",
+    false,
+    true
+   ],
+   "fold_s": 23.011,
+   "n_tokens": 512,
+   "pm_served": 104,
+   "pm_declined": 0,
+   "pm_rejects": {},
+   "pm_over_l1": [],
+   "pm_l1_errors": {},
+   "route_counts": {
+    "fused": 104,
+    "stock": 0
+   },
+   "chunk_picks": {
+    "512x512": [
+     512,
+     256,
+     "fused"
+    ]
+   },
+   "sdpa_hifi_calls": 0,
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     104
+    ]
+   },
+   "fp32_softmax_stats": {
+    "calls": 42,
+    "blocked": 24,
+    "blocks": 960,
+    "fused": 978,
+    "unfused": 0,
+    "l1": 42,
+    "l1_blocks": 936,
+    "l1_refused": 0,
+    "l1_cores": 108,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0,
+    "l1_padded_diverged": 0
+   }
+  },
+  {
+   "ckc": "HiFi2|1|1",
+   "resolved_ckc": [
+    "MathFidelity.HiFi2",
+    true,
+    true
+   ],
+   "fold_s": 22.839,
+   "n_tokens": 512,
+   "pm_served": 104,
+   "pm_declined": 0,
+   "pm_rejects": {},
+   "pm_over_l1": [],
+   "pm_l1_errors": {},
+   "route_counts": {
+    "fused": 104,
+    "stock": 0
+   },
+   "chunk_picks": {
+    "512x512": [
+     512,
+     256,
+     "fused"
+    ]
+   },
+   "sdpa_hifi_calls": 0,
+   "ragged_sites": {
+    "tri_att": [
+     0,
+     104
+    ]
+   },
+   "fp32_softmax_stats": {
+    "calls": 63,
+    "blocked": 36,
+    "blocks": 1440,
+    "fused": 1467,
+    "unfused": 0,
+    "l1": 63,
+    "l1_blocks": 1404,
+    "l1_refused": 0,
+    "l1_cores": 108,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0,
+    "l1_padded_diverged": 0
+   }
+  }
+ ]
+}
