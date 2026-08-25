@@ -1,0 +1,179 @@
+{
+  "arm": "a5",
+  "arm_route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+  "arm_scope": "model-local flag + PROCESS-GLOBAL triatt_sdpa._CKC_OVERRIDE (all six models' fused calls)",
+  "ref_cache": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/accuracy_cdk2_256",
+  "fixture": "cdk2_256",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "recycles": 10,
+  "steps": 50,
+  "diffusion_samples": 1,
+  "ref_device": "cpu",
+  "reference": "tt_bio._vendor.rf3 (upstream foundry), cpu torch, bf16 autocast",
+  "kabsch_selftest_A": 9.265044010831228e-15,
+  "metric_convention": "pharma_parity.noise_floor_verdict; floor = max(mean R, mean D); pairwise self-superposition, no shared frame",
+  "work": "/home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/pc_cdk256_a5",
+  "ref_load_s": 4.6,
+  "arm_applied": {
+    "arm": "a5",
+    "route": "_tri_att_sdpa at HiFi4 + math_approx OFF + fp32_dest_acc ON (a1's route, a1's chunks)",
+    "scope": "model-local flag + PROCESS-GLOBAL triatt_sdpa._CKC_OVERRIDE (all six models' fused calls)",
+    "changed": {
+      "fp32_softmax": [
+        false,
+        false
+      ],
+      "_CKC_OVERRIDE": [
+        "None",
+        "HiFi4,0,1"
+      ]
+    },
+    "resolved": {
+      "fp32_softmax": false,
+      "accurate_softmax": true,
+      "_TRIATT_FUSED_HIFI": false,
+      "_FP32_SOFTMAX": false,
+      "tri_att_sdpa_hifi": false,
+      "_CKC_OVERRIDE": "HiFi4,approx=False,fp32_dest_acc=True"
+    }
+  },
+  "one_k_chunk": false,
+  "port_load_s": 3.4,
+  "timing_s": {
+    "0": [
+      15.3,
+      0.0,
+      0.0,
+      17.8
+    ],
+    "1": [
+      12.5,
+      0.0,
+      0.0,
+      12.8
+    ],
+    "2": [
+      12.1,
+      0.0,
+      0.0,
+      13.0
+    ],
+    "3": [
+      11.9,
+      0.0,
+      0.0,
+      12.1
+    ],
+    "4": [
+      12.5,
+      0.0,
+      0.1,
+      12.5
+    ]
+  },
+  "draws_sha": {
+    "0": "5e205e9b212fe87c",
+    "1": "3611dd3ea7d5d7fa",
+    "2": "ad6c35d3d1f912a1",
+    "3": "1d471fc8d0629f20",
+    "4": "b272b4a211e2e7a2"
+  },
+  "dev_sha": {
+    "0": "0b466fc9ba9c979e",
+    "1": "83ca69c5fffd186d",
+    "2": "1bb425e6c084e82f",
+    "3": "78dfbc8dd48747c3",
+    "4": "1f95b86107bd605a"
+  },
+  "triatt_fused_hifi_picks": {},
+  "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+  },
+  "triatt_instances_forced_one_k_chunk": 0,
+  "flags": {
+    "pairformer_flags": {
+      "scale_pair_bias": true,
+      "fp32_softmax": false,
+      "transpose_bias": false,
+      "gated_move": true,
+      "accurate_softmax": true,
+      "tri_att_accurate_softmax": false,
+      "tri_att_sdpa_ragged_pad": true,
+      "tri_att_sdpa_hifi": false,
+      "transpose_l1_reserve": 131072
+    },
+    "triatt_fused_hifi": false,
+    "boltz2_fp32_softmax": false,
+    "triatt_fused_hifi_stats": {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0
+    },
+    "fp32_softmax_stats": {
+      "calls": 2085,
+      "blocked": 600,
+      "blocks": 2400,
+      "fused": 3885,
+      "unfused": 0,
+      "l1": 2085,
+      "l1_blocks": 1800,
+      "l1_refused": 0,
+      "l1_cores": 104,
+      "l1_free_retired": 0,
+      "l1_free_walked": 0,
+      "l1_padded_diverged": 0
+    },
+    "sdpa_k_chunk_stats": [
+      0,
+      0
+    ],
+    "sdpa_ragged_pad_global": true,
+    "sdpa_ragged_pad_stats": [
+      0,
+      0
+    ],
+    "sdpa_ragged_sites": {
+      "tri_att": [
+        0,
+        4840
+      ]
+    },
+    "route_counters": {
+      "pm_served": 4840,
+      "pm_declined": 0,
+      "pm_rejects": {},
+      "pm_over_l1": [],
+      "pm_l1_errors": {},
+      "sdpa_route_counts": {
+        "fused": 4840,
+        "stock": 0
+      },
+      "sdpa_chunk_picks": {
+        "256x256": [
+          256,
+          256,
+          "fused"
+        ]
+      },
+      "sdpa_hifi_calls": 0,
+      "ckc_resolved": "HiFi4,approx=False,fp32_dest_acc=True"
+    },
+    "env": {
+      "TT_BIO_LEASE_CARDS": "0",
+      "TT_BIO_LEASE_HOLDER": "worker:rf3-fused-hifi-precision-arm",
+      "TT_METAL_CACHE": "/home/moritz/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+      "TT_METAL_LOGGER_LEVEL": "FATAL",
+      "TT_VISIBLE_DEVICES": "0"
+    }
+  },
+  "metrics": null,
+  "pending": "reference not yet in /home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/accuracy_cdk2_256; re-run with --rescore --work /home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/pc_cdk256_a5 --ref-cache /home/moritz/.coworker/wt/rf3-fused-hifi-precision-arm/perf/rf3/results/accuracy_cdk2_256"
+}
