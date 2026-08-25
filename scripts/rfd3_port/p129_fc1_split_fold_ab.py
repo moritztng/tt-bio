@@ -42,12 +42,19 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from tt_bio.rfd3 import model as rfd3_model                              # noqa: E402
 from fold_ab import fold_ab                                             # noqa: E402
 
-# Cost-model ESTIMATE, not a measurement. §13.9 measured -39.09 ms/step isolated at the census
-# fixture's keys; §13.3's realisation band for this model is 0.40 of a roof / 0.53 of an isolated
-# screen, so 0.53 x 39.09 = 20.7 ms/step -> -4.14 s/design over 200 steps. R3 is a narrower
-# fixture than the census one, so its share is smaller. The block-sparse 10x overestimate is why
-# this stays labelled an estimate until the A/B answers.
-PREDICTED = {"R2": 0.0, "R3": -3.1, "R4": -4.1}
+# Cost-model ESTIMATE, not a measurement, and derived per fixture from the call count the fold
+# actually makes rather than from a per-step figure. At R3 the census counts 12768 served body
+# chunks and p128 measured 0.390 ms saved per chunk at hidden=512 and 0.475 at hidden=256, so the
+# isolated prize is 11.04 s/design; §13.3's realisation band of 0.53 of an isolated screen puts the
+# fold at -5.9 s. The block-sparse 10x overestimate is why this stays labelled an estimate.
+#
+# The first run of this script predicted -3.1 s and measured -6.4, which was NOT the model beating
+# its own cost model: -3.1 came from scaling §13.9's per-step figure, and that figure assumes four
+# fc1 calls per step at each hidden width where the fold makes eight (199 steps x 8 + 4 from the
+# one-time initializer = the 1596 calls per hidden the census reports). Same trap as
+# `perf-page-matched-batch-protocol-recurrence`: the estimate and the measurement counted
+# different amounts of traffic.
+PREDICTED = {"R2": 0.0, "R3": -5.9, "R4": -8.9}
 
 FIXTURES = pathlib.Path("perf/dsfix/fixtures")
 
