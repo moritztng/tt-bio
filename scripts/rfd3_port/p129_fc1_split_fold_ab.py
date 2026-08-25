@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""p129 -- the split `fc1` at the fold: the digest gate, then the A/B, then the no-site rung.
+
+Region 2's lever, specified in `state/rfd3-fusion-programme.md` §13.11. `RFD3_FC1_SPLIT_SILU`
+takes the silu out of `ttnn.linear(activation="silu")` -- bit-identical at all eight live keys,
+p128 -- so `fc1` can take a pinned program config like its two siblings and its output can join
+`b` and `m` in L1.
+
+Drives `scripts/rfd3_port/fold_ab.py`, so this file holds only what is specific to the lever.
+Three invocations, in the order §13.11 pre-committed:
+
+    # 1. the digest gate -- 3 timesteps, off/on/off/on
+    p129_fc1_split_fold_ab.py perf/p129/digest_R3.json 3 off,on,off,on R3
+
+    # 2. the no-site rung -- 418 tokens, below the 512-token residency gate, so the chunked
+    #    branch never runs, the lever has no site and the digest must not move
+    p129_fc1_split_fold_ab.py perf/p129/nosite_R2.json 3 off,on,off,on R2 --expect-no-site
+
+    # 3. the A/B -- 200 timesteps, five folds, A/A control first
+    p129_fc1_split_fold_ab.py perf/p129/ab_R3.json 200 off,off,on,off,on R3
+
+The lever declines three ways and all three are in the census, because an `on` arm that declined
+every call is an A/A wearing an A/B's label: no bit-exact config (or a default under
+`_TUNE_MIN_MS`), the chunk-count guard keeping `fc1`'s output in DRAM, or no chunked site at all.
+
+`chunk_h` is reported per arm and per site, because the guard buys L1 residency by shrinking h,
+and h is the one thing that changes shape between arms -- a different chunk shape is a different
+program-config cache key, hence a candidate digest mover independent of the split itself. At R3 it
+does not move (64 at both hidden widths, three residents or two); at 685 tokens and hidden=512 it
+goes 64 -> 63 at constant chunk count, which pc cannot fold (§10.1, host RAM).
+
+On pc card 0 every number is PROVISIONAL-ON-PC-CARD0 and is never pooled with a qb1/qb2/H200
+denominator (`pc-card0-512aa-fold-nondeterminism`).
+"""
+import json
+import os
+import pathlib
+import sys
+
+sys.path.insert(0, os.getcwd())
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from tt_bio.rfd3 import model as rfd3_model                              # noqa: E402
+from fold_ab import fold_ab                                             # noqa: E402
+
+# Cost-model ESTIMATE, not a measurement. §13.9 measured -39.09 ms/step isolated at the census
+# fixture's keys; §13.3's realisation band for this model is 0.40 of a roof / 0.53 of an isolated
+# screen, so 0.53 x 39.09 = 20.7 ms/step -> -4.14 s/design over 200 steps. R3 is a narrower
+# fixture than the census one, so its share is smaller. The block-sparse 10x overestimate is why
+# this stays labelled an estimate until the A/B answers.
+PREDICTED = {"R2": 0.0, "R3": -3.1, "R4": -4.1}
+
+FIXTURES = pathlib.Path("perf/dsfix/fixtures")
+
+
+def chunk_plan(tokens, hidden):
+    """What `Transition.__call__` will decide at this size, from the shipped function."""
+    w_pad = -(-tokens // 32) * 32
+    h2 = rfd3_model._pair_transition_chunk_h(1, w_pad, hidden, tokens)
+    h3 = rfd3_model._pair_transition_chunk_h(1, w_pad, hidden, tokens, residents=3)
+    n2, n3 = -(-tokens // h2), -(-tokens // h3)
+    return {"tokens": tokens, "hidden": hidden, "w_pad": w_pad,
+            "chunked": w_pad >= rfd3_model._PAIR_TRANSITION_MIN_W,
+            "chunk_h_off": h2, "chunk_h_on": h3 if n3 == n2 else h2,
+            "n_chunks_off": n2, "n_chunks_on": n3 if n3 == n2 else n2,
+            "fc1_output_in_l1": n3 == n2, "chunk_h_moves": n3 == n2 and h3 != h2}
+
+
+def main():
+    argv = [a for a in sys.argv[1:] if not a.startswith("--")]
+    expect_no_site = "--expect-no-site" in sys.argv
+    out = argv[0] if len(argv) > 0 else "perf/p129/fc1_split_fold_ab.json"
+    steps = int(argv[1]) if len(argv) > 1 else 200
+    arms = (argv[2] if len(argv) > 2 else "off,off,on,off,on").split(",")
+    rung = argv[3] if len(argv) > 3 else "R3"
+
+    spec = json.loads((FIXTURES / ("rfd3_%s.json" % rung)).read_text())
+    tokens = sum(int(p.split("-")[-1]) if "-" in p else int(p)
+                 for p in list(spec.values())[0]["contig"].split(","))
+    plans = {h: chunk_plan(tokens, h) for h in (512, 256)}
+    print("[p129] %s: %d tokens, predicted site plan (arithmetic, not a measurement):" % (rung, tokens))
+    for h, p in plans.items():
+        print("   hidden=%-4d chunked=%-5s h %d -> %d, chunks %d -> %d, fc1 in L1 %s%s"
+              % (h, p["chunked"], p["chunk_h_off"], p["chunk_h_on"], p["n_chunks_off"],
+                 p["n_chunks_on"], p["fc1_output_in_l1"] and p["chunked"],
+                 "  (CHUNK SHAPE MOVES)" if p["chunk_h_moves"] else ""))
+
+    rec = fold_ab(flag="RFD3_FC1_SPLIT_SILU",
+                  set_enabled=rfd3_model.set_fc1_split_enabled,
+                  counter=rfd3_model.FC1STATS,
+                  fixture=FIXTURES / ("rfd3_%s.json" % rung),
+                  out=out, steps=steps, arms=arms, tag="p129_%s" % rung,
+                  predicted_delta_s=PREDICTED.get(rung),
+                  extra={"rung": rung, "tokens": tokens, "site_plan": plans,
+                         "provisional_on": "pc-card0", "expect_no_site": expect_no_site})
+
+    served, declines = dict(rfd3_model.FC1SERVED), dict(rfd3_model.FC1DECLINES)
+    print("\nfc1 census -- served (pinned config AND L1 output): %s" % (served or "{} (none)"))
+    print("fc1 census -- declined, with the reason: %s" % (declines or "{} (none)"))
+    print("tune_matmul active at this size: %s (floor %d atoms)"
+          % (rfd3_model._TUNE_MATMUL, rfd3_model._TUNE_MATMUL_MIN_ATOMS))
+    rec["fc1_served"] = served
+    rec["fc1_declines"] = declines
+    rec["tune_matmul"] = bool(rfd3_model._TUNE_MATMUL)
+    pathlib.Path(out).write_text(json.dumps(rec, indent=2) + "\n")
+
+    if expect_no_site:
+        # The verdict here is provenance plus an unchanged digest, not a delta: below the
+        # 512-token gate the chunked branch never runs, so the split must never be reached.
+        ok = rec["bit_exact"] and not served and not declines and rfd3_model.FC1STATS[0] == 0
+        print("no-site rung: %d split calls, digests %s  ->  %s"
+              % (rfd3_model.FC1STATS[0], "unchanged" if rec["bit_exact"] else "MOVED",
+                 "NO SITE, AS PREDICTED" if ok else "UNEXPECTED -- read the census"))
+        return 0 if ok else 2
+
+    if not rec["bit_exact"]:
+        print("\nDIGEST MOVED -- failed lever, not a tolerance question")
+        return 2
+    if not rec["arms_distinct"]:
+        print("\nARMS NOT DISTINCT -- the on arm never took the split, so this is an A/A")
+        return 3
+    if not served:
+        print("\nSPLIT RAN BUT NOTHING SERVED -- every call declined, so any delta is the split's "
+              "extra DRAM round trip and not the lever")
+        return 4
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

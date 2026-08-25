@@ -225,6 +225,38 @@ _PAIRBIAS_SLOT = 32
 _PAIR_TRANSITION_L1 = env_flag("RFD3_PAIR_TRANSITION_L1", True)
 
 
+# `fc1` is the one matmul in a pair Transition that never got calibrated, because its silu is
+# fused onto the call and ttnn wants a fused activation on the program config, which cannot be
+# pinned bit-exactly. Measured at all eight of `fc1`'s live keys
+# (scripts/rfd3_port/p128_fc1_config_census.py, perf/p128/fc1_config_census.json):
+#
+#   torch.equal( ttnn.silu(ttnn.linear(x, w)),  ttnn.linear(x, w, activation="silu") )  ->  True
+#
+# The shipped call is a matmul followed by a separate eltwise silu; it rounds twice. So taking the
+# silu out of the call is NOT a precision change, and once it is out, `fc1` can go through
+# `_tuned_linear` like its two siblings and its output can join `b` and `m` in L1.
+#
+# Isolated, per chunk: 2.02-3.86x at the four body/tail keys of the census fixture, every leg
+# bit-exact against the shipped activated output. 63.39 -> 24.30 ms/step, -39.09 ms/step. That is
+# an isolated per-op figure and `tt-bio-isolated-op-timing-oversync-inflates-cost` applies to both
+# arms of it, so the fold A/B is the number that counts.
+#
+# Almost all of it is the L1 residency, not the pinned config: with the output left in DRAM the
+# split is a mere 1.05x at hidden=512, because the extra DRAM round trip eats the config gain.
+# Hence the chunk-count guard in `Transition.__call__`.
+_FC1_SPLIT_SILU = env_flag("RFD3_FC1_SPLIT_SILU", False)
+FC1STATS = [0]                     # split calls, so an A/B arm cannot silently decline
+FC1SERVED = {}                     # shape -> count, for the calls that got both halves
+FC1DECLINES = {}                   # shape+reason -> count, the other half of the same census
+
+
+def set_fc1_split_enabled(on):
+    """Toggle the split `fc1` from a screen without going through the environment."""
+    global _FC1_SPLIT_SILU
+    prev, _FC1_SPLIT_SILU = _FC1_SPLIT_SILU, bool(on)
+    return prev
+
+
 # The atom attention's score tensor is [1, 4, 6051, 6080] fp32 = 588.6 MB at the page fixture, and
 # 128 columns of each row carry a real value: every other column is the -1e4 mask, whose exp
 # underflows to exactly 0.0. So 47.5x of the softmax's traffic contributes nothing to any row sum.
@@ -372,12 +404,35 @@ def _tunable(x, w):
     return all(d == 1 for d in ws[:-2])
 
 
+def _tuned_key(x, w, dtype, bias, core_grid):
+    """`_TUNED_MM_CACHE`'s key. Shared, so a caller can ask what calibration decided for a shape."""
+    return (tuple(list(x.padded_shape)), tuple(list(w.padded_shape)), x.dtype, dtype,
+            bias is not None, core_grid)
+
+
+def _tuned_pinned(x, w, dtype, core_grid=BATCH_INVARIANT_GRID):
+    """Did calibration pin a bit-exact program config for this shape? Read AFTER the call.
+
+    `_tuned_linear` declines two ways -- no bit-exact candidate, or a default call under
+    `_TUNE_MIN_MS` -- and both land as a `None` in the cache. A caller that wants to report
+    which of its calls the pinned path actually served reads this rather than inferring it from
+    the wall clock.
+    """
+    return _TUNED_MM_CACHE.get(_tuned_key(x, w, dtype, None, core_grid)) is not None
+
+
 def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID,
                   mem=None):
     """`ttnn.linear` with a calibrated, bit-exact program config where one helps.
 
-    No `activation=`: ttnn wants a fused activation on the program config instead, so the two
-    silu-gated linears keep the default path (they are the cheap half of a Transition anyway).
+    No `activation=`: ttnn wants a fused activation on the program config instead, and a fused
+    activation cannot be pinned bit-exactly -- it rounds once, on the fp32 accumulator before the
+    pack, where the shipped `activation="silu"` call rounds twice. Zero of nine
+    `fused_activation=SILU` candidates match the shipped output at any of `fc1`'s eight live keys,
+    against three of nine plain ones at every key (perf/p128/fc1_config_census.json). So the way
+    a silu-gated linear reaches this function is to take the silu OUT of the call, which is what
+    `Transition._swiglu`'s `fc1_split` does; it is not a precision change, because the shipped
+    call was already a matmul followed by a separate eltwise silu.
 
     `mem` asks for the output in L1. It is deliberately NOT part of the cache key and it is
     honoured ONLY once an explicit program config has been chosen, because that is the whole
@@ -395,8 +450,7 @@ def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVA
         kw["bias"] = bias
     if not _TUNE_MATMUL or not _tunable(x, w):
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
-    key = (tuple(list(x.padded_shape)), tuple(list(w.padded_shape)), x.dtype, dtype,
-           bias is not None, core_grid)
+    key = _tuned_key(x, w, dtype, bias, core_grid)
     if key not in _TUNED_MM_CACHE:
         _TUNED_MM_CACHE[key] = _calibrate_linear(x, w, kw, core_grid)
     pc = _TUNED_MM_CACHE[key]
@@ -610,7 +664,7 @@ def _tt_host(x, dtype=ttnn.bfloat16):
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=dtype)
 
 
-def _pair_transition_chunk_h(batch, w_pad, hidden, height):
+def _pair_transition_chunk_h(batch, w_pad, hidden, height, residents=2):
     """Rows of the pair tensor one L1-resident SwiGLU chunk may cover.
 
     Live per chunk is `b` + `m`, both [batch, h, w_pad, hidden] bf16, so the batch is part
@@ -620,8 +674,10 @@ def _pair_transition_chunk_h(batch, w_pad, hidden, height):
     is exactly the request the batched run died on. Dividing by the batch holds the
     live footprint at the measured-safe 138 MB whatever the batch is, and is a no-op at
     b=1, where the cap is 95 either way and h stays 64.
+
+    `residents=3` prices the same budget with `fc1`'s output in L1 as well (`_FC1_SPLIT_SILU`).
     """
-    cap = _PAIR_TRANSITION_L1_BYTES // (4 * max(1, batch) * w_pad * hidden)
+    cap = _PAIR_TRANSITION_L1_BYTES // (2 * residents * max(1, batch) * w_pad * hidden)
     return max(1, min(height, _PAIR_TRANSITION_H_CHUNK, cap))
 
 
@@ -676,39 +732,76 @@ class Transition(Module):
                 and x.shape[2] >= _PAIR_TRANSITION_MIN_W):
             return self._swiglu(x, None)
         H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
-        h = _pair_transition_chunk_h(x.shape[0], int(x.padded_shape[2]), hidden, H)
+        w_pad = int(x.padded_shape[2])
+        h = _pair_transition_chunk_h(x.shape[0], w_pad, hidden, H)
+        # Admit `fc1`'s output to L1 only where the third resident does not cost an extra chunk
+        # call. One L1 budget divided by three instead of two shrinks h, and past 693 tokens the
+        # chunk count rises with it (11 -> 12 at 694, 16 -> 24 at 1024). Chunking on its own is a
+        # measured LOSS of 1.3-1.5 ms/call, so buying L1 traffic with extra chunks is not
+        # obviously a win and this declines to a DRAM `fc1` output instead -- which is also where
+        # the split collapses to 1.05x at hidden=512, so the guard is the whole size story.
+        h3 = _pair_transition_chunk_h(x.shape[0], w_pad, hidden, H, residents=3)
+        fc1_mem = ttnn.L1_MEMORY_CONFIG if -(-H // h3) == -(-H // h) else None
+        if _FC1_SPLIT_SILU and fc1_mem is not None:
+            h = h3
         # Slice lazily rather than `ttnn.chunk`, which materialises a second full copy of the
         # pair tensor up front. The 685-row tail is ragged at every h and gets its own shape,
         # hence its own program-config cache entry, which is what keeps it exact.
         parts = []
         for s in range(0, H, h):
             c = x[:, s:min(s + h, H)]
-            parts.append(self._swiglu(c, ttnn.L1_MEMORY_CONFIG))
+            parts.append(self._swiglu(c, ttnn.L1_MEMORY_CONFIG,
+                                      fc1_split=_FC1_SPLIT_SILU, fc1_mem=fc1_mem))
             ttnn.deallocate(c)
         out = ttnn.concat(parts, dim=1)
         for p in parts:
             ttnn.deallocate(p)
         return out
 
-    def _swiglu(self, x, mem):
+    def _swiglu(self, x, mem, fc1_split=False, fc1_mem=None):
         """RMSNorm + silu-gated SwiGLU. `mem=None` keeps every intermediate in DRAM.
 
         With `mem` set, `fc2`'s output and the gated product stay in L1, so `b` and `m` are never
         written to DRAM and never read back: 1975 of the 3951 MB an H=512 call moves.
 
-        `x_norm` and `fc1`'s output stay in DRAM on purpose, and that is the whole reason this is
-        bit-exact. `fc1` is heuristic-blocked (its fused silu cannot ride on an explicit program
-        config, and no bit-exact config for it exists -- closed in `rfd3-close-the-page-gap`), so
-        it re-blocks K and re-rounds when either its input or its output moves to L1: measured
-        0.03125 at hidden=512 either way (perf/p66/audit_perop.json). `fc2` goes through
-        `_tuned_linear`, whose pinned config makes the blocking independent of L1 pressure, and
-        the multiply is elementwise. Hence L1 for those two and DRAM for the other two.
+        `x_norm` stays in DRAM on purpose, and that is part of why this is bit-exact: a
+        heuristic-blocked matmul re-blocks K -- and re-rounds its bf16 accumulation -- when its
+        operands or its output move to L1 (measured 0.03125 at hidden=512, perf/p66/audit_perop.json).
+        `fc2` and `fc3` are immune because `_tuned_linear` pins their blocking. `fc1` used to be
+        the exception: its silu was fused onto the call, ttnn wants a fused activation on the
+        program config, and no bit-exact config for a fused activation exists, so it stayed
+        heuristic-blocked with a DRAM output.
+
+        `fc1_split` retires that exception rather than working around it. The shipped
+        `activation="silu"` call is a matmul followed by a separate eltwise silu -- it rounds
+        twice, and `ttnn.silu(ttnn.linear(x, w))` is bit-identical to it at all eight live keys
+        (`_FC1_SPLIT_SILU`). With the silu out of the call `fc1` is an ordinary linear, takes a
+        pinned config like its siblings, and `fc1_mem` may put its output in L1 too.
         """
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6,
                             compute_kernel_config=self.compute_kernel_config)
-        a = ttnn.linear(xn, self.fc1_w, activation="silu",
-                         compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
+        if not fc1_split:
+            a = ttnn.linear(xn, self.fc1_w, activation="silu",
+                             compute_kernel_config=self.compute_kernel_config,
+                             dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
+        else:
+            a = _tuned_linear(xn, self.fc1_w, ckc=self.compute_kernel_config, dtype=self.dtype,
+                              core_grid=BATCH_INVARIANT_GRID, mem=fc1_mem)
+            a, pre = (ttnn.silu(a) if fc1_mem is None
+                      else ttnn.silu(a, memory_config=fc1_mem)), a
+            ttnn.deallocate(pre)
+            # Census, both halves. An `on` arm whose every call declined is an A/A wearing an
+            # A/B's label, and the decline path is reachable two ways here: `_tuned_linear` found
+            # no bit-exact config (or bailed under `_TUNE_MIN_MS`), or `__call__`'s chunk-count
+            # guard kept the output in DRAM. Only a call with both halves is worth the headline.
+            FC1STATS[0] += 1
+            served = _tuned_pinned(xn, self.fc1_w, self.dtype) and fc1_mem is not None
+            k = "rows=%d w=%d hidden=%d" % (int(xn.padded_shape[1]), int(xn.padded_shape[2]),
+                                            int(self.fc1_w.shape[-1]))
+            c = FC1SERVED if served else FC1DECLINES
+            if not served:
+                k += " no-pinned-config" if fc1_mem is not None else " dram-output"
+            c[k] = c.get(k, 0) + 1
         b = _tuned_linear(xn, self.fc2_w, ckc=self.compute_kernel_config,
                           dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID, mem=mem)
         ttnn.deallocate(xn)
