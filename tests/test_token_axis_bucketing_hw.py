@@ -54,10 +54,6 @@ _RFD3_TARGET = os.path.join(REPO, "perf", "wh-correctness", "results", "payloads
                             "des_rfd3_binder.json")
 
 
-def _device_available():
-    return bool(os.environ.get("TT_VISIBLE_DEVICES")) and os.path.exists("/dev/tenstorrent")
-
-
 # The softmax probe runs in a CHILD, like every other test in this file. pytest itself must never
 # open the card: an in-process `get_device()` here, even with `cleanup()` afterwards, left the chip
 # in a state that WEDGED the next subprocess to open it (0% CPU, futex_do_wait, needing tt-smi -r 0)
@@ -77,8 +73,7 @@ print("RESULT " + json.dumps(out))
 """
 
 
-@pytest.mark.skipif(not _device_available(),
-                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+@pytest.mark.device
 def test_ttnn_softmax_masks_its_ragged_tail():
     """The measured fact half the IMMUNE rows depend on, pinned to the installed ttnn.
 
@@ -141,8 +136,7 @@ def _census(model, argv, env_extra=None, seq=None, tap=None):
         return s
 
 
-@pytest.mark.skipif(not _device_available(),
-                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+@pytest.mark.device
 @pytest.mark.parametrize("model", sorted(JOBS))
 def test_no_bucketed_model_reaches_a_ragged_fused_sdpa(model):
     """A BUCKETED model runs a 98-aa (ragged) input without one ragged fused-SDPA key axis.
@@ -168,8 +162,7 @@ _ALIGNED_SEQ = ("NLYIQWLKDGGPSSGRPPPS" * 7)[:128]      # 128 tokens: already a t
 _BUCKET_OFF = {"TT_BIO_PROTENIX_TOKEN_BUCKET": "0"}
 
 
-@pytest.mark.skipif(not _device_available(),
-                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+@pytest.mark.device
 @pytest.mark.parametrize("model", ["protenix-v2", "opendde"])
 def test_protenix_ragged_sdpa_is_there_to_be_closed(model):
     """The negative control: with the bucket OFF these two DO present a ragged key axis.
@@ -189,8 +182,7 @@ def test_protenix_ragged_sdpa_is_there_to_be_closed(model):
         "either way the BUCKETED census above is no longer evidence of anything.")
 
 
-@pytest.mark.skipif(not _device_available(),
-                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+@pytest.mark.device
 def test_protenix_token_bucket_is_a_noop_at_an_aligned_length():
     """The A/A control: at N=128 the bucket has nothing to pad, so the trunk must not move.
 
@@ -216,8 +208,7 @@ def test_protenix_token_bucket_is_a_noop_at_an_aligned_length():
             f"  off {taps['off']}\n  on  {taps['on']}")
 
 
-@pytest.mark.skipif(not _device_available(),
-                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+@pytest.mark.device
 @pytest.mark.parametrize("name", ["esmc-300m", "saprot-35m"])
 def test_bucket_lives_at_the_op_boundary_not_in_the_caller(name):
     """A DIRECT `Model.forward` at a ragged L must give the bucketed answer, exactly.

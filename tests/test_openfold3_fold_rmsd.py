@@ -18,9 +18,12 @@ _CA_MASK = os.path.join(_REPO, "tests/fixtures/of3_ubiquitin_ca_mask.npy")
 _SEQ = "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"
 _MSA_DIR = os.path.expanduser(os.environ.get("OF3_MSA_DIR", "~/.boltz/msa"))
 _MSA = os.path.join(_MSA_DIR, hashlib.sha256(_SEQ.encode()).hexdigest()[:16] + ".a3m")
-pytestmark = pytest.mark.skipif(
-    not all(os.path.exists(p) for p in (_CKPT, _GOLD, _QUERY, _GT_PDB, _CA_MASK, _MSA)),
-    reason="OF3 checkpoint, golden, 1UBQ, or cached ubiquitin MSA missing")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(
+        not all(os.path.exists(p) for p in (_CKPT, _GOLD, _QUERY, _GT_PDB, _CA_MASK, _MSA)),
+        reason="OF3 checkpoint, golden, 1UBQ, or cached ubiquitin MSA missing"),
+]
 
 
 def test_of3_msa_confidence_selected_fold_rmsd():

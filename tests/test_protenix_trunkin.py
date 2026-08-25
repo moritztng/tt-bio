@@ -1,7 +1,10 @@
 """On-device parity for the Protenix-v2 trunk input (s_inputs -> s_init, z_init)."""
 import os, pickle, pytest, ttnn
 _GOLD = os.path.expanduser("~/protenix_trunkin_gold.pkl")
-pytestmark = pytest.mark.skipif(not os.path.exists(_GOLD), reason="run scripts/protenix_extract_trunkin.py")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not os.path.exists(_GOLD), reason="run scripts/protenix_extract_trunkin.py"),
+]
 
 
 def _pcc(a, b):

@@ -22,6 +22,8 @@ import pytest
 
 from conftest import boltzgen_checkpoint
 
+pytestmark = pytest.mark.device
+
 DESIGN_CKPT = boltzgen_checkpoint("boltzgen1_diverse.ckpt", "BOLTZGEN_DESIGN_CKPT")
 FOLD_CKPT = boltzgen_checkpoint("boltz2_conf_final.ckpt", "BOLTZGEN_FOLD_CKPT")
 

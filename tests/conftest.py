@@ -1,4 +1,5 @@
 """Shared test helpers."""
+import glob
 import os
 import subprocess
 from pathlib import Path
@@ -76,3 +77,101 @@ def _restore_device_env():
                 os.environ.pop(k, None)
             else:
                 os.environ[k] = v
+
+
+# --- tests that need a physical TT card ---------------------------------------------
+#
+# Mark them `@pytest.mark.device`, or `pytestmark = pytest.mark.device` for a whole file.
+#
+# The guard answers THREE questions, not two. "A card is present" and "this process may
+# open one" are different, and the helper this replaced conflated them: it required
+# TT_VISIBLE_DEVICES to be set and non-empty, so on a host that HAS a card but runs pytest
+# unpinned every device test skipped silently while the card sat right there. A quiet
+# no-run is worse than a loud failure, so that case is not a skip:
+#
+#   no card on this host                   -> skip.  Nothing to open.
+#   TT_VISIBLE_DEVICES set but empty       -> skip.  The caller declared a CPU-only run.
+#   card present, TT_VISIBLE_DEVICES pinned-> run.
+#   card present, TT_VISIBLE_DEVICES unset -> refuse the session, loudly.
+#
+# The last line is the point. ttnn brings up every chip it can SEE, not just the one it
+# computes on (tt_bio/device_lease.py), so an unpinned pytest on a QuietBox takes all four
+# cards out from under whoever else is using them -- which happened twice in two days on
+# the fleet. pytest will not guess which of those two the caller meant; it says what to type.
+RUN, SKIP, REFUSE = "run", "skip", "refuse"
+
+#: Present cards, not the driver directory: with the module loaded and no card seated,
+#: /dev/tenstorrent exists and is empty. Same expression device_lease.physical_cards uses.
+_CARD_NODES = "/dev/tenstorrent/[0-9]*"
+
+
+def device_verdict(env=None):
+    """``(verdict, reason)`` for a test that opens a TT card. See the note above."""
+    env = os.environ if env is None else env
+    pin = env.get("TT_VISIBLE_DEVICES")
+    if pin is not None and not pin.strip():
+        return SKIP, "TT_VISIBLE_DEVICES is set empty: a deliberate CPU-only run"
+    if not glob.glob(_CARD_NODES):
+        return SKIP, "no TT card on this host (/dev/tenstorrent/ has no card node)"
+    if pin is None:
+        return REFUSE, (
+            "this host has TT cards and TT_VISIBLE_DEVICES is unset, so pytest would open "
+            "EVERY card on the box -- ttnn brings up the whole visible set, not just the "
+            "chip it computes on. Say which you meant:\n"
+            "  TT_VISIBLE_DEVICES=<card> python3 -m pytest ...   run the device tests on that card\n"
+            "  TT_VISIBLE_DEVICES= python3 -m pytest ...         skip them and run the rest"
+        )
+    return RUN, None
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "device: needs a physical TT card; skipped or refused by device_verdict()")
+
+
+def pytest_collection_modifyitems(config, items):
+    verdict, reason = device_verdict()
+    if verdict == RUN:
+        return
+    marked = [i for i in items if i.get_closest_marker("device")]
+    if not marked:
+        return                      # nothing selected wants a card, so the pin is nobody's business
+    if verdict == REFUSE:
+        raise pytest.UsageError(reason)
+    skip = pytest.mark.skip(reason=reason)
+    for item in marked:
+        item.add_marker(skip)
+
+
+#: ttnn's abort when the cluster comes up with no chips. This is what a device test that
+#: nobody marked dies of on a card-free host.
+_NO_CHIPS = "num_chips > 0"
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Backstop: an UNMARKED device test reads as a skip on a card-free host, not a failure.
+
+    The marker is what makes a device test skip early, before it takes a card lease or forks
+    a child, so marking is still the job. But a test file is added to this repo most weeks and
+    a device test is not always obvious from its imports -- `tt_bio.tenstorrent.PairformerModule`
+    opens a card without the word `get_device` appearing anywhere. Left alone, one unmarked file
+    puts the whole suite back to unreadable, which is the thing this exists to stop.
+
+    Narrow on purpose: it fires only on ttnn's own no-chips abort, and only when the verdict
+    above already says there is no card to open. In that state a death inside the cluster
+    bring-up cannot be a defect in the code under test. On a card host the hook is inert, so a
+    real device failure stays a failure.
+    """
+    out = yield
+    rep = out.get_result()
+    if rep.when not in ("setup", "call") or not rep.failed:
+        return
+    if item.get_closest_marker("device") is not None:
+        return
+    if device_verdict()[0] != SKIP or _NO_CHIPS not in str(rep.longrepr):
+        return
+    rep.outcome = "skipped"
+    rep.longrepr = (str(item.path), (item.location[1] or 0) + 1,
+                    "Skipped: opened a TT card with none present -- mark it @pytest.mark.device "
+                    "so it skips before it takes a lease")

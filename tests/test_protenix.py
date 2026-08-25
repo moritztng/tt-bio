@@ -64,6 +64,8 @@ from tt_bio.tenstorrent import (  # noqa: E402
     get_device,
 )
 
+pytestmark = pytest.mark.device
+
 torch.set_grad_enabled(False)
 
 

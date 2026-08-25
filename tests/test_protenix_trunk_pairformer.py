@@ -6,8 +6,11 @@ import os, re, pickle, pytest, torch, ttnn
 
 _CKPT = "/home/ttuser/protenix_ckpt/protenix-v2.pt"
 _GOLD = os.path.expanduser("~/protenix_ref_out.pkl")
-pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
-                                reason="v2 ckpt or golden forward pkl missing")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
+                       reason="v2 ckpt or golden forward pkl missing"),
+]
 
 
 def _pcc(a, b):
