@@ -19,7 +19,7 @@ model, and the two answers are far apart (measured on ttnn 0.68.0, ``perf/bucket
     ``bias is None``, so a served ragged call is by construction a ragged axis under a
     caller-sized additive bias.
   * an op that leaves its output's tile padding UNWRITTEN feeding a reduce is the sibling case;
-    ``ttnn.scatter`` does, which is what RFD3 root-caused as p23 (``rfd3/model.py:1087``).
+    ``ttnn.scatter`` does, which is what RFD3 root-caused as p23 (``rfd3/model.py``).
 
 So "does the model pad" is the wrong question and "which reduce sites does it reach" is the right
 one. This table records the answer per model, and every row's counters come from a real job run
@@ -94,30 +94,31 @@ UNCENSUSED = "uncensused"  # a reduce site nobody has checked yet; `owner` is re
 TOKEN_AXIS = {
     "boltz2": (
         BUCKETED, TOKEN_BUCKET,
-        "tenstorrent.py:7155 PairformerModule, :7273 Fp32PairformerModule, :7449 DiffusionModule, "
+        "tenstorrent.py PairformerModule, Fp32PairformerModule, DiffusionModule, "
         ":7786 MSAModule, :8135 TrunkModule",
         "pad + pair-mask outer product + additive -1e9 attn mask + slice back; counters read "
         "tri_att 0 ragged / 560 aligned, attn_pair_bias 0 / 120",
     ),
     "boltzgen": (
         BUCKETED, TOKEN_BUCKET,
-        "the same tenstorrent.py wrappers via boltzgen/model/models/boltz.py:26-28,:462",
+        "the same tenstorrent.py wrappers, imported and built in boltzgen/model/models/boltz.py",
         "inherits Boltz-2's bucket; its only other attention is a HOST torch SDPA "
-        "(boltzgen/model/layers/attention.py:123), which never sees a tile layout. Censused: "
+        "(boltzgen/model/layers/attention.py, torch.nn.functional.scaled_dot_product_attention), "
+        "which never sees a tile layout. Censused: "
         "0 ragged / 15944 aligned on one examples/binder.yaml design -- and at the SAME four "
-        "shared sites (tenstorrent.py:1015, :4532, :4774, :6256) that openfold3 runs ragged",
+        "shared reduce sites in tenstorrent.py that openfold3 runs ragged",
     ),
     "esmfold2": (
         BUCKETED, TOKEN_BUCKET,
-        "esmfold2.py:105 PAD_MULTIPLE, applied at :207 FoldingTrunk.forward; LM axis esmc.py:1263 "
+        "esmfold2.py PAD_MULTIPLE, applied in FoldingTrunk.forward; LM axis esmc.bucket_token_axis "
         "at 64",
         "the trunk pads both sequence axes, masks the triangle contraction and slices back. The "
         "DIFFUSION head is not padded and runs the raw token axis, but its only softmax is "
-        "_attn_fp32's ttnn.softmax (esmfold2.py:84), which masks. Censused on a 20-aa target: "
+        "_attn_fp32's ttnn.softmax (esmfold2.py), which masks. Censused on a 20-aa target: "
         "816 ragged ttnn.softmax at w20, 411 SDPA calls all ALIGNED, 0 masked-ragged",
     ),
     "esmfold2-fast": (
-        BUCKETED, TOKEN_BUCKET, "same trunk as esmfold2 (esmfold2.py:105)",
+        BUCKETED, TOKEN_BUCKET, "same trunk as esmfold2 (esmfold2.py PAD_MULTIPLE)",
         "the --fast route changes recycling and precision, not the pad site",
     ),
     # These three share one bucket (protenix.TOKEN_PAD_MULTIPLE, gated on
@@ -135,8 +136,8 @@ TOKEN_AXIS = {
     ),
     "opendde": (
         BUCKETED, TOKEN_BUCKET,
-        "the protenix.py Trunk at c_z=384 (opendde.py:380) and the confidence head as above, plus "
-        "a 4-block structural-token refiner (opendde.py:456) on a SEPARATE axis -- Ns=181 for a "
+        "the protenix.py Trunk at c_z=384 (opendde.py) and the confidence head as above, plus "
+        "a 4-block structural-token refiner (opendde.py, the Ns reshape) on a SEPARATE axis -- Ns=181 for a "
         "98-residue input, Ns = 2*n_res - n_gly",
         "same bucketed_pairformer helper at all three sites, 1216 ragged calls -> 0. The "
         "refiner's extra_attn_bias pads with -1e9 and not 0: padding it with 0 puts the padded "
@@ -198,7 +199,7 @@ TOKEN_AXIS = {
     ),
     "rfd3": (
         BUCKETED, TOKEN_BUCKET,
-        "rfd3/model.py:1092 TILE via _align_tile/_pad_key_axis, applied at :712-714 "
+        "rfd3/model.py TILE via _align_tile/_pad_key_axis, applied in the attention block "
         "PairformerAttention, :1177, :1321, :1611-1624, :2022",
         "every TOKEN-axis reduce runs on a tile multiple: censused 0 ragged / 6 aligned at :726 "
         "and 0/45 at :1690 on both a 70-token and a 298-token design. The two sites still ragged "
@@ -222,8 +223,8 @@ TOKEN_AXIS = {
     ),
     "nesso1": (
         BUCKETED, TOKEN_BUCKET,
-        "nesso1.py:138-154 routes both trunk stacks through tenstorrent.PairformerModule / "
-        "Fp32PairformerModule, which pad to PAIRFORMER_PAD_MULTIPLE at tenstorrent.py:7945",
+        "nesso1.py routes both trunk stacks through tenstorrent.PairformerModule / "
+        "Fp32PairformerModule, which pad to PAIRFORMER_PAD_MULTIPLE in tenstorrent.PairformerModule",
         "the wrapper IS reached, censused rather than inferred: `tt-bio affinity` on "
         "perf/nesso1/inputs/ladder/aa128/cdk2_128.yaml runs 148 tokens, ragged against both 32 "
         "and 64, and reads 0 ragged / 416 aligned with 0 masked-ragged -- 192 fused triatt_sdpa, "
@@ -231,23 +232,23 @@ TOKEN_AXIS = {
         "counters are alive on the same run, which is the check a zero-reading census needs",
     ),
     "esmc-300m": (
-        BUCKETED, TOKEN_BUCKET, "esmc.py:78 BUCKET, applied at :1503 _batch_tokens and :1263",
+        BUCKETED, TOKEN_BUCKET, "esmc.py BUCKET, applied in _batch_tokens and bucket_token_axis",
         "pad to Lb + additive -inf on padded keys + key_valid zeroing + slice by lens; censused "
-        "0 ragged / 30 aligned at the esmc.py:241 SDPA on a 98-aa input. The bucket also sits at "
+        "0 ragged / 30 aligned at esmc.py's scaled_dot_product_attention on a 98-aa input. The bucket also sits at "
         "the OP BOUNDARY (esmc.bucket_token_axis, called from Model.forward), so a direct API "
         "call at a ragged L cannot bypass it -- a no-op on every CLI path, where _batch_tokens "
         "has already bucketed",
     ),
-    "esmc-600m": (BUCKETED, TOKEN_BUCKET, "esmc.py:78 BUCKET", "same path as esmc-300m"),
-    "esmc-6b": (BUCKETED, TOKEN_BUCKET, "esmc.py:78 BUCKET", "same path as esmc-300m"),
+    "esmc-600m": (BUCKETED, TOKEN_BUCKET, "esmc.py BUCKET", "same path as esmc-300m"),
+    "esmc-6b": (BUCKETED, TOKEN_BUCKET, "esmc.py BUCKET", "same path as esmc-300m"),
     "saprot-35m": (
-        BUCKETED, TOKEN_BUCKET, "saprot.py:48 imports esmc.BUCKET, applied at :481-494",
+        BUCKETED, TOKEN_BUCKET, "saprot.py imports esmc.BUCKET, applied in _batch_saprot",
         "same pad + additive mask + slice as esmc, and the same op-boundary bucket in "
-        "Saprot.forward; censused 0 ragged / 12 aligned at the saprot.py:203 SDPA on a 98-aa "
+        "Saprot.forward; censused 0 ragged / 12 aligned at saprot.py's scaled_dot_product_attention on a 98-aa "
         "input",
     ),
-    "saprot-650m": (BUCKETED, TOKEN_BUCKET, "saprot.py:48", "same path as saprot-35m"),
-    "saprot-1.3b": (BUCKETED, TOKEN_BUCKET, "saprot.py:48", "same path as saprot-35m"),
+    "saprot-650m": (BUCKETED, TOKEN_BUCKET, "saprot.py, sharing esmc.BUCKET", "same path as saprot-35m"),
+    "saprot-1.3b": (BUCKETED, TOKEN_BUCKET, "saprot.py, sharing esmc.BUCKET", "same path as saprot-35m"),
 }
 
 # The modules that re-export the fleet bucket under their own historical name. DERIVED from

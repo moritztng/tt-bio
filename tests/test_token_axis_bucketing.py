@@ -209,6 +209,41 @@ def check_every_bucketed_row_uses_the_shared_table():
                  + ("" if not bad else "; " + "; ".join(bad)))
 
 
+def check_the_table_cites_symbols_not_line_numbers():
+    """A ``file.py:NNN`` citation rots the moment anything above it moves, and it rots silently.
+
+    Audited 2026-08-25 and most of them had. ``esmc.py:1263`` and ``opendde.py:380`` pointed at
+    BLANK lines; ``tenstorrent.py:7155 PairformerModule`` was about 790 lines short of the class it
+    named; and the esmc / esmfold2 / saprot citations were all 3 off because THIS task added an
+    import above them. The table is the fleet's map of where the mechanism lives, so a citation
+    pointing at a blank line is worse than no citation. Symbols move with their code; numbers do
+    not.
+    """
+    import re
+    bad = []
+    for name, row in TA.TOKEN_AXIS.items():
+        for field in row[2:]:
+            for hit in re.findall(r"[\w/]+\.py:\d+", str(field or "")):
+                bad.append("%s -> %s" % (name, hit))
+    return _fail(not bad, "the table cites symbols, not line numbers"
+                 + ("" if not bad else "; line-number citations: " + ", ".join(sorted(bad))))
+
+
+def check_every_file_the_table_names_exists():
+    """The same rot one step on: a citation naming a file that has since been moved or renamed."""
+    import pathlib as _pl
+    import re
+    root = _pl.Path(TA.__file__).resolve().parents[1]
+    bad = []
+    for name, row in TA.TOKEN_AXIS.items():
+        for field in row[2:]:
+            for hit in set(re.findall(r"[\w][\w/]*\.py", str(field or ""))):
+                if not ((root / "tt_bio" / hit).exists() or (root / hit).exists()):
+                    bad.append("%s -> %s" % (name, hit))
+    return _fail(not bad, "every file the table names exists"
+                 + ("" if not bad else "; missing: " + ", ".join(sorted(set(bad)))))
+
+
 CHECKS = (
     check_every_shipped_model_declared,
     check_statuses_are_known,
@@ -220,6 +255,8 @@ CHECKS = (
     check_immune_is_not_terminal,
     check_every_bucketed_row_uses_the_shared_table,
     check_one_multiple_for_the_whole_fleet,
+    check_the_table_cites_symbols_not_line_numbers,
+    check_every_file_the_table_names_exists,
 )
 
 
