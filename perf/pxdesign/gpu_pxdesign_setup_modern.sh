@@ -111,7 +111,6 @@ $PY -m pip install --no-cache-dir "torch==2.7.1" \
   --index-url https://download.pytorch.org/whl/cu128 2>&1 | tail -20
 $PY -c "import torch; assert torch.__version__.startswith('2.7.1'), torch.__version__" \
   || FAIL "torch 2.7.1 did not take"
-$PY -m pip install -q --no-cache-dir "triton==3.4.0" || FAIL "triton 3.4.0"
 $PY -m pip install -q --no-cache-dir "numpy==1.26.3" || FAIL "numpy pin"
 
 # deepspeed only has to IMPORT: its Evoformer kernel is never called inside the measured stage.
@@ -124,6 +123,15 @@ if ! $PY -c "from deepspeed.ops.deepspeed4science import DS4Sci_EvoformerAttenti
   $PY -m pip install -q --no-cache-dir "deepspeed==$DS_WANT" || FAIL "deepspeed 0.17.5"
 fi
 echo "--- deepspeed resolved to $DS_WANT"
+
+# triton LAST, and asserted. torch 2.7.1 declares triton==3.3.1, so pip walks 3.4.0 back down again
+# on any later install that touches the resolver -- the first run of this script raised triton and
+# then installed numpy and deepspeed, and the recorded stack came out 3.3.1. That is the version
+# whose CUDA launcher hangs on sm_100, so on a B200 the silent downgrade is the whole bug. The
+# conflict line pip prints here is deliberate and is what pip_check_modern.txt records.
+$PY -m pip install -q --no-cache-dir "triton==3.4.0" || FAIL "triton 3.4.0"
+$PY -c "import importlib.metadata as im, sys; v=im.version('triton'); sys.exit(0 if v=='3.4.0' else 1)" \
+  || FAIL "triton is not 3.4.0 after the install; something walked it back to torch's pin"
 
 if [ "$WANT_JAX" = "1" ]; then
   # CPU only, deliberately: AF2-IG is not measured on this stack and a CUDA jaxlib fights torch's
