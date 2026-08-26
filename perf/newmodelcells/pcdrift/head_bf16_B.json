@@ -1,0 +1,204 @@
+{
+ "label": "head_bf16_B",
+ "model": "pxdesign",
+ "tree": "/home/moritz/.coworker/wt/pxdesign-perf-page-honest",
+ "git_head": "65c5a47a2f1c447e0dd0acd61a16b6531eaf1800",
+ "yaml": "/home/moritz/.coworker/wt/pxdesign-perf-page-honest/perf/newmodelcells/laczc_512_tt.yaml",
+ "yaml_sha256": "23587853d5ca8fde766adce2f6c71c0fc19b8ac8547ea01a39a4e06bd9b311a1",
+ "target_cif": "/home/moritz/.coworker/wt/pxdesign-perf-page-honest/perf/pxdesign/targets/laczc_512.cif",
+ "target_cif_sha256": "206d95b5f73d08bd323dd272bcff8d4fc4eaaafc2f9317e02f1bd738260f0a04",
+ "n_step": 400,
+ "n_sample_per_call": 1,
+ "rounds": 5,
+ "ttnn": "0.68.0",
+ "host": "pc",
+ "card": "0",
+ "started": "2026-08-26T09:31:21+0200",
+ "loadavg_start": [
+  "1.78",
+  "2.03",
+  "1.54"
+ ],
+ "designs": [
+  {
+   "round": 0,
+   "seed": 0,
+   "cold": true,
+   "t_feat_s": 0.042,
+   "t_design_s": 16.87,
+   "t_write_s": 0.007,
+   "round_s": 16.919,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "dbf3f493844a5af6",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 2.5859,
+   "cif_sha16": "1019aa8e173dbed9",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "1.64",
+    "2.00",
+    "1.53"
+   ]
+  },
+  {
+   "round": 1,
+   "seed": 1,
+   "cold": false,
+   "t_feat_s": 0.045,
+   "t_design_s": 14.912,
+   "t_write_s": 0.005,
+   "round_s": 14.961,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "4aae2af2c2a05808",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 2.5371,
+   "cif_sha16": "1876b5f914d00ecc",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "1.99",
+    "2.06",
+    "1.56"
+   ]
+  },
+  {
+   "round": 2,
+   "seed": 2,
+   "cold": false,
+   "t_feat_s": 0.043,
+   "t_design_s": 14.91,
+   "t_write_s": 0.005,
+   "round_s": 14.958,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "8269b1818b3840cf",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 3.78,
+   "cif_sha16": "f9a5bd6db4f1909a",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "1.91",
+    "2.04",
+    "1.56"
+   ]
+  },
+  {
+   "round": 3,
+   "seed": 3,
+   "cold": false,
+   "t_feat_s": 0.043,
+   "t_design_s": 14.859,
+   "t_write_s": 0.005,
+   "round_s": 14.907,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "a5a169e083845208",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 3.1771,
+   "cif_sha16": "d7c0542ef0c470b4",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.41",
+    "2.15",
+    "1.61"
+   ]
+  },
+  {
+   "round": 4,
+   "seed": 0,
+   "cold": false,
+   "t_feat_s": 0.042,
+   "t_design_s": 14.794,
+   "t_write_s": 0.005,
+   "round_s": 14.841,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "dbf3f493844a5af6",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 2.5859,
+   "cif_sha16": "1019aa8e173dbed9",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.34",
+    "2.15",
+    "1.61"
+   ]
+  }
+ ],
+ "model_init_s": 0.913,
+ "checkpoint": "/home/moritz/.boltz/pxdesign/pxdesign_v0.1.0.pt",
+ "checkpoint_bytes": 556554618,
+ "arch": "blackhole",
+ "grid": [
+  13,
+  10
+ ],
+ "diffusion_fp32": false,
+ "env_PROTENIX_DIFFUSION_FP32_DEVICE": "0",
+ "warm_n": 4,
+ "warm_median_s": 14.933,
+ "warm_min_s": 14.841,
+ "warm_max_s": 14.961,
+ "warm_spread_pct": 0.804,
+ "warm_median_feat_s": 0.043,
+ "warm_median_design_s": 14.884,
+ "warm_median_write_s": 0.005,
+ "warm_median_host_s": 0.048,
+ "split_residual_s": 0.001,
+ "loadavg_end": [
+  "2.54",
+  "2.20",
+  "1.64"
+ ]
+}

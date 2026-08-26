@@ -1,0 +1,85 @@
+{
+ "what": "pc card 0 (p150a, 13x10) PXDesign generator A/B: HEAD vs 283b64f3, and fp32 vs bf16.",
+ "harness": "perf/newmodelcells/pxd_pagecell.py --n_step 400 --rounds 5, 2 processes/arm, cold round dropped, benchlock held",
+ "not_a_published_cell": "the qb2 p300c 11x10 cell (23.24 s) stands; pc is 13x10 silicon and its card miscomputes fp32 matmuls",
+ "arms": {
+  "head_fp32": {
+   "pooled_median_s": 22.129,
+   "n": 8,
+   "spread_pct": 0.33,
+   "leg_medians_s": [
+    22.138,
+    22.1005
+   ],
+   "warm_s": [
+    22.13,
+    22.144,
+    22.154,
+    22.132,
+    22.081,
+    22.101,
+    22.128,
+    22.1
+   ]
+  },
+  "base_fp32": {
+   "pooled_median_s": 22.361,
+   "n": 8,
+   "spread_pct": 0.559,
+   "leg_medians_s": [
+    22.361,
+    22.362
+   ],
+   "warm_s": [
+    22.415,
+    22.349,
+    22.366,
+    22.356,
+    22.29,
+    22.339,
+    22.39,
+    22.385
+   ]
+  },
+  "head_bf16": {
+   "pooled_median_s": 14.8505,
+   "n": 8,
+   "spread_pct": 1.037,
+   "leg_medians_s": [
+    14.8355,
+    14.9325
+   ],
+   "warm_s": [
+    14.807,
+    14.834,
+    14.837,
+    14.86,
+    14.961,
+    14.958,
+    14.907,
+    14.841
+   ]
+  }
+ },
+ "drift_head_minus_283b64f3_s": -0.232,
+ "drift_pct": -1.038,
+ "drift_verdict": "INSIDE-SPREAD (HEAD faster; the published 23.24 s stays the conservative number)",
+ "precision_fp32_over_bf16_pct": 49.01,
+ "precision_bf16_s": 14.8505,
+ "digest_checks": {
+  "head_fp32": {
+   "reproduced": 0,
+   "total": 7
+  },
+  "base_fp32": {
+   "reproduced": 0,
+   "total": 7
+  },
+  "head_bf16": {
+   "reproduced": 7,
+   "total": 7
+  }
+ },
+ "digest_verdict": "fp32 0/14, bf16 7/7. The bf16 arm is the positive control: same harness, same seeds, same fixture, bit-identical across two processes. So the fp32 divergence is pc card 0's known matmul fault (memory pc-card0-512aa-fold-nondeterminism, fp32 the worse case), not the code. qb2 ran this same commit in fp32 and reproduced every digest.",
+ "artifact_check": "all 30 designs: 80 residues, 321 atoms, one chain A, coordinates finite"
+}

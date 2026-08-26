@@ -27,3 +27,16 @@ What the two runs do establish:
   1.889 s at 20 gives **54.4 ms per step over a 0.80 s fixed cost**, which puts the shipped
   400-step design at **22.6 s on this board**, host included, against the H200 reference's
   30.8129 s. That is the pre-registered prediction for the qb2 cell, not the cell.
+
+## `pxd_head_smoke_pc0.json` — the same smoke at HEAD, 2026-08-26
+
+`--n_step 4 --rounds 2` again, same fixture, same card, tree at `cf989bb7`. Between `87b7bb57` and
+here, `5fe35cab` gave PXDesign a token bucket at multiple 32, and 592 tokens is not a multiple of
+32, so `_bucket_token_axis` pads this fixture to 608 and its `structural_pair_attn_bias` assert is
+live. Both seeds return the digest the pre-bucket run returned: seed 0 `9e327af5b162825c`, seed 1
+`52c58674892f9b55`. The bucket fires and the design does not move, which is what multiple 32 buys —
+the padded tile geometry is the same geometry ttnn was already tiling to.
+
+Still not a measurement of anything the page publishes, for both reasons above. What it retires is
+the worry that the bucketing commit invalidated the qb2 cell's *output*; what it says nothing about
+is the qb2 cell's *seconds*, which needs the 400-step A/B.

@@ -221,16 +221,18 @@ for (const m of D.models.concat(catModels, embedModels)) {
  * this file exists to catch, so the published section sizes are pinned here. Changing a row count
  * is a deliberate act; update this table in the same commit and say why. */
 /* OpenBind-0 and Nesso-1 are restored: their h200, b200 and a100 cells exist now, so models goes
- * 7 -> 8 and affinity 0 -> 1. PXDesign is still held in perf/page_rows_pending.json, because its
- * b200 cell is blocked rather than measured. RFdiffusion3 is hidden by decision rather than held
- * pending: all four of its cells are measured, but the Galaxy reads 5.87x a DGX H200 against a 4x
- * bar, so design is 1 until that changes. A hidden row is still in the file, so the count here is
- * of visible rows and deleting the row would still go red. */
+ * 7 -> 8 and affinity 0 -> 1. PXDesign is restored too, so design goes 1 -> 2: its b200 cell is a
+ * number now, measured on torch 2.7.1 with CUDA 12.8 because CUDA 12.1 emits no sm_100 device code,
+ * with its h200 and a100 cells re-measured on that same stack so the row has no seam in it.
+ * RFdiffusion3 is hidden by decision rather than held pending: all four of its cells are measured,
+ * but the Galaxy reads 5.87x a DGX H200 against a 4x bar, so it does not count toward design. A
+ * hidden row is still in the file, so the count here is of visible rows and deleting the row would
+ * still go red. */
 /* embed is 0 by decision, 2026-08-24: the embedding benchmarks came off the page. All six rows
    keep their measured cells in the data file behind "hidden": true, so restoring them is dropping
    the flags and putting back the chart. It is the whole category or none, so a 1 here is as wrong
    as a 6. */
-const EXPECT_ROWS = { models: 8, design: 1, affinity: 1, embed: 0 };
+const EXPECT_ROWS = { models: 8, design: 2, affinity: 1, embed: 0 };
 for (const [key, n] of Object.entries(EXPECT_ROWS)) {
   const got = key === "models"
     ? predModels.length
