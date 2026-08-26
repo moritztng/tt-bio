@@ -618,6 +618,15 @@ def gen_artifacts(out_dir, expect):
     if len(recs) != expect:
         v["ok"] = False
         v["why"].append("expected %d generated cif, found %d" % (expect, len(recs)))
+    # At N_sample > 1 the backbones come out of one batched trajectory. They must all differ:
+    # a repeat means the sample dim is not carrying independent noise, and "N designs" would be
+    # a count of files rather than a count of designs.
+    per = [r["digest"] for r in recs]
+    v["designs_distinct"] = len(set(per)) == len(per)
+    if not v["designs_distinct"]:
+        v["ok"] = False
+        v["why"].append("%d of %d generated backbones share a coordinate digest"
+                        % (len(per) - len(set(per)), len(per)))
     for r in recs:
         if r["nonfinite"]:
             v["ok"] = False

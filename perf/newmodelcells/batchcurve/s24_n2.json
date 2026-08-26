@@ -1,0 +1,194 @@
+{
+ "label": "s24_n2",
+ "model": "pxdesign",
+ "tree": "/home/moritz/.coworker/wt/pxdesign-realistic-campaign-batch",
+ "git_head": "e069a528dc8533a002274ab100dfa3ab67d288ba",
+ "yaml": "/home/moritz/.coworker/wt/pxdesign-realistic-campaign-batch/perf/newmodelcells/laczc_512_tt.yaml",
+ "yaml_sha256": "23587853d5ca8fde766adce2f6c71c0fc19b8ac8547ea01a39a4e06bd9b311a1",
+ "target_cif": "/home/moritz/.coworker/wt/pxdesign-realistic-campaign-batch/perf/pxdesign/targets/laczc_512.cif",
+ "target_cif_sha256": "206d95b5f73d08bd323dd272bcff8d4fc4eaaafc2f9317e02f1bd738260f0a04",
+ "n_step": 24,
+ "n_sample_per_call": 2,
+ "max_parallel_samples": null,
+ "rounds": 3,
+ "ttnn": "0.68.0",
+ "host": "pc",
+ "card": "0",
+ "started": "2026-08-26T20:18:09+0200",
+ "loadavg_start": [
+  "1.98",
+  "2.23",
+  "1.56"
+ ],
+ "designs": [
+  {
+   "round": 0,
+   "seed": 0,
+   "cold": true,
+   "t_feat_s": 0.041,
+   "t_design_s": 5.424,
+   "t_write_s": 0.006,
+   "round_s": 5.47,
+   "s_per_design": 2.735,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 2,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "045f7590c38d93b9",
+   "coord_sha16_per_design": [
+    "11794504d5f21292",
+    "b65dae6006dcecae"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    23.129,
+    24.4976
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 23.129,
+   "cif_sha16": "027ff2d2c5ae26f6",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "1.98",
+    "2.23",
+    "1.56"
+   ]
+  },
+  {
+   "round": 1,
+   "seed": 1,
+   "cold": false,
+   "t_feat_s": 0.042,
+   "t_design_s": 3.103,
+   "t_write_s": 0.005,
+   "round_s": 3.15,
+   "s_per_design": 1.5751,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 2,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "4ca2d049399850d6",
+   "coord_sha16_per_design": [
+    "bde5e1447ef5a828",
+    "78ff4175d9eb3e59"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    21.4424,
+    21.6803
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 21.4424,
+   "cif_sha16": "cf96ea777db8cf86",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.30",
+    "2.30",
+    "1.58"
+   ]
+  },
+  {
+   "round": 2,
+   "seed": 2,
+   "cold": false,
+   "t_feat_s": 0.041,
+   "t_design_s": 3.109,
+   "t_write_s": 0.007,
+   "round_s": 3.157,
+   "s_per_design": 1.5786,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 2,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "72acb5c4544980be",
+   "coord_sha16_per_design": [
+    "724aa29ed122e69f",
+    "3861cee6e9ac40b9"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    18.9784,
+    23.9731
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 18.9784,
+   "cif_sha16": "742ed0c2de983969",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.20",
+    "2.27",
+    "1.58"
+   ]
+  }
+ ],
+ "model_init_s": 0.698,
+ "checkpoint": "/home/moritz/.boltz/pxdesign/pxdesign_v0.1.0.pt",
+ "checkpoint_bytes": 556554618,
+ "arch": "blackhole",
+ "grid": [
+  13,
+  10
+ ],
+ "diffusion_fp32": true,
+ "env_PROTENIX_DIFFUSION_FP32_DEVICE": null,
+ "warm_n": 2,
+ "warm_median_s": 3.154,
+ "warm_min_s": 3.15,
+ "warm_max_s": 3.157,
+ "warm_spread_pct": 0.222,
+ "warm_median_s_per_design": 1.5768,
+ "warm_spread_pct_per_design": 0.222,
+ "all_designs_distinct": true,
+ "warm_median_feat_s": 0.042,
+ "warm_median_design_s": 3.106,
+ "warm_median_write_s": 0.006,
+ "warm_median_host_s": 0.048,
+ "split_residual_s": 0.0,
+ "loadavg_end": [
+  "2.20",
+  "2.27",
+  "1.58"
+ ]
+}
