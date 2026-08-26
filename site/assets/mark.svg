@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" role="img" aria-label="TT-Bio">
+  <rect width="500" height="500" rx="110" fill="#15171a"/>
+  <g stroke="#fbfbfc" stroke-width="22.5" stroke-linecap="round" fill="none">
+    <path d="M250 150 L150 330 L350 330 Z"/>
+  </g>
+  <g fill="#fbfbfc">
+    <circle cx="250" cy="150" r="42.5"/><circle cx="150" cy="330" r="42.5"/><circle cx="350" cy="330" r="42.5"/>
+  </g>
+</svg>

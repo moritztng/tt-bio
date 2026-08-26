@@ -87,8 +87,14 @@ code,kbd,samp,pre{font-family:var(--mono)}
   clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
 
 nav{display:flex;align-items:center;gap:26px;padding:30px 0 0;flex-wrap:wrap;row-gap:12px}
-nav .brand{display:inline-flex;line-height:0}
-nav .brand img{height:24px;width:auto;display:block}
+/* Wordmark, not a logo file. "TT" sits back a step so "Bio" carries the name. */
+nav .brand{
+  display:inline-flex;align-items:baseline;line-height:1;text-decoration:none;
+  font-family:var(--display);font-weight:600;font-size:1.12rem;
+  letter-spacing:-.022em;color:var(--ink);
+}
+nav .brand .tt{color:var(--ink-3);font-weight:500}
+nav .brand:hover .tt{color:var(--ink-2)}
 nav .sp{margin-left:auto}
 nav a.lnk{
   font-size:.94rem;color:var(--ink-2);text-decoration:none;
@@ -112,6 +118,15 @@ footer{
 }
 footer a{color:var(--ink-2);text-decoration:none}
 footer a:hover{color:var(--ink)}
+
+/* The footer reserves its own bottom space; hand it back when the notice follows. */
+footer:has(+ .disclaim){padding-bottom:20px}
+
+/* Attribution. This page measures other people's hardware and says so. */
+.disclaim{
+  margin:0 0 60px;padding:0;max-width:78ch;
+  font-size:.79rem;line-height:1.65;color:var(--ink-4);
+}
 
 @media (max-width:640px){
   :root{--gutter:20px}

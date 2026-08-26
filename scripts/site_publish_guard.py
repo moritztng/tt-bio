@@ -101,10 +101,10 @@ def meta_for(doc: dict) -> str:
     live = [(cat, n) for cat, n in counts(doc) if n]
     total = sum(n for _, n in live)
     listed = join([f"{WORDS.get(n, n)} {SHORT[cat]}" for cat, n in live])
-    return (f"{WORDS.get(total, total).capitalize()} open biomolecular models measured on "
-            f"Tenstorrent: {listed}. Seconds per prediction and throughput per dollar against "
-            "NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on "
-            "the page.")
+    return (f"An independent benchmark of {WORDS.get(total, total)} open biomolecular models on "
+            f"Tenstorrent hardware: {listed}. Seconds per prediction and throughput per dollar "
+            "against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance "
+            "on the page.")
 
 
 def title_for(doc: dict) -> str:
@@ -116,7 +116,7 @@ def title_for(doc: dict) -> str:
     strings name what the page covers and every one of them is generated here.
     """
     live = [TOPIC[cat] for cat, n in counts(doc) if n]
-    return f"TT-Bio: biomolecular {join(live)} on Tenstorrent"
+    return f"TT-Bio benchmarks: biomolecular {join(live)} on Tenstorrent hardware"
 
 
 def retitle(doc: dict) -> list[str]:

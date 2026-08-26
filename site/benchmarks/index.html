@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
 <link rel="icon" href="/assets/favicon.ico" sizes="32x32" type="image/x-icon">
 <link rel="icon" href="/assets/icon-500.png" sizes="500x500" type="image/png">
-<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" sizes="500x500">
-<title>TT-Bio: biomolecular structure prediction, design and binding affinity on Tenstorrent</title>
-<meta name="description" content="Eleven open biomolecular models measured on Tenstorrent: eight folding, two binder design and one binding affinity. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" sizes="180x180">
+<title>TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware</title>
+<meta name="description" content="An independent benchmark of eleven open biomolecular models on Tenstorrent hardware: eight folding, two binder design and one binding affinity. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
 <link rel="preload" href="../assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/site.css">
 <style>
@@ -145,8 +146,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="https://tenstorrent.com" aria-label="Tenstorrent">
-      <img src="../assets/tt-logo-light.svg" alt="Tenstorrent"></a>
+    <a class="brand" href="../assets/" aria-label="TT-Bio, home"><span class="tt">TT</span>-Bio</a>
     <span class="sp"></span>
     <a class="lnk" href="../">Overview</a>
     <a class="lnk" aria-current="page" href="./">Benchmarks</a>
@@ -323,12 +323,15 @@ details.disclose > div{ padding-top:var(--s-4); }
 </div>
 
 <footer>
-  <span>TT-Bio, open source, on Tenstorrent</span>
+  <span>TT-Bio &mdash; an independent open-source project</span>
   <a href="https://github.com/moritztng/tt-bio">GitHub</a>
   <a href="../">Overview</a>
   <a href="https://japanfold.com">JapanFold</a>
-  <a href="https://tenstorrent.com">Tenstorrent</a>
 </footer>
+<p class="disclaim">Not affiliated with, sponsored by or endorsed by Tenstorrent or NVIDIA.
+  Tenstorrent, Blackhole and Galaxy are trademarks of Tenstorrent Inc. NVIDIA, DGX, H200, B200
+  and A100 are trademarks of NVIDIA Corporation. Hardware names are used to identify the systems
+  measured.</p>
 
 </main>
 </div>
