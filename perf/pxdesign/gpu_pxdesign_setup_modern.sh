@@ -26,11 +26,12 @@
 #                                         sm_100 (memory gpu-b200-cuequivariance-sm100-hang,
 #                                         CORRECTION 2026-08-18). PXDesign-d probably never enters
 #                                         a triton kernel; this is one line against a known hang.
-#   jax      0.4.29+cuda -> absent        jaxlib's CUDA build wants the 12.5 nvidia-* line and torch
+#   jax      0.4.29+cuda -> 0.4.29 CPU   jaxlib's CUDA build wants the 12.5 nvidia-* line and torch
 #                                         cu128 wants 12.8. AF2-IG is not in the measured stage and
-#                                         is not measured on this stack, so there is nothing to
-#                                         reconcile. Set WANT_JAX=1 for a CPU-only jax if some
-#                                         import in the pipeline demands the module.
+#                                         is not measured on this stack, so a GPU jaxlib buys
+#                                         nothing. It cannot be dropped outright: pxdesign's
+#                                         pipeline module imports colabdesign, which imports jax,
+#                                         before any preset is read.
 #
 # Everything else -- protenix 0.5.0+pxd, pxdesign 0.1.0, pxdbench 0.1.2, numpy 1.26.3, transformers
 # 4.51.3, the checkpoints, the CCD cache -- is byte for byte what the published cells ran.
@@ -52,7 +53,6 @@ FAIL() { echo "SETUP FAILED: $*"; echo "$*" > /work/SETUP_MODERN_FAIL; exit 1; }
 #
 # On a box where the pinned setup has not run, PY defaults to the system python and the guards are
 # all no-ops, so it still works standalone.
-WANT_JAX=${WANT_JAX:-0}
 export DEBIAN_FRONTEND=noninteractive
 # build-essential is not optional: triton JIT-compiles a driver shim with the system gcc on first
 # call, and a -runtime image has no C compiler. Installed here rather than after the first hang.
@@ -111,7 +111,6 @@ $PY -m pip install --no-cache-dir "torch==2.7.1" \
   --index-url https://download.pytorch.org/whl/cu128 2>&1 | tail -20
 $PY -c "import torch; assert torch.__version__.startswith('2.7.1'), torch.__version__" \
   || FAIL "torch 2.7.1 did not take"
-$PY -m pip install -q --no-cache-dir "numpy==1.26.3" || FAIL "numpy pin"
 
 # deepspeed only has to IMPORT: its Evoformer kernel is never called inside the measured stage.
 # 0.15.4 first, because it keeps the diff from the published stack to torch+CUDA+triton alone.
@@ -124,24 +123,38 @@ if ! $PY -c "from deepspeed.ops.deepspeed4science import DS4Sci_EvoformerAttenti
 fi
 echo "--- deepspeed resolved to $DS_WANT"
 
-# triton LAST, and asserted. torch 2.7.1 declares triton==3.3.1, so pip walks 3.4.0 back down again
-# on any later install that touches the resolver -- the first run of this script raised triton and
-# then installed numpy and deepspeed, and the recorded stack came out 3.3.1. That is the version
-# whose CUDA launcher hangs on sm_100, so on a B200 the silent downgrade is the whole bug. The
-# conflict line pip prints here is deliberate and is what pip_check_modern.txt records.
-$PY -m pip install -q --no-cache-dir "triton==3.4.0" || FAIL "triton 3.4.0"
-$PY -c "import importlib.metadata as im, sys; v=im.version('triton'); sys.exit(0 if v=='3.4.0' else 1)" \
-  || FAIL "triton is not 3.4.0 after the install; something walked it back to torch's pin"
 
-if [ "$WANT_JAX" = "1" ]; then
-  # CPU only, deliberately: AF2-IG is not measured on this stack and a CUDA jaxlib fights torch's
-  # nvidia-* wheels. If this is on, say so in the cell's ref.
-  $PY -m pip install -q --no-cache-dir "jax==0.4.29" "jaxlib==0.4.29" \
-    "dm-haiku==0.0.13" "optax==0.2.5" || FAIL "jax cpu"
-  $PY -m pip install -q --no-cache-dir git+https://github.com/sokrypton/ColabDesign.git --no-deps \
-    || FAIL "colabdesign"
-fi
+# jax and colabdesign are NOT optional, whatever the preset. pxdesign.runner.pipeline imports
+# pxdbench.run at module scope, which reaches pxdbench.tasks.binder and then
+# colabdesign.mpnn -- so the pipeline module will not import without them even for a run that never
+# touches ProteinMPNN or AF2-IG. Measured, not guessed: the first modern-stack run of the generator
+# cell died with ModuleNotFoundError: No module named 'colabdesign' before it reached a single
+# stage.
+#
+# CPU-only jax, deliberately. jaxlib's CUDA build wants the 12.5 nvidia-* line and torch cu128 wants
+# 12.8, and the only thing this stack asks of jax is that it imports. AF2-IG is not in the measured
+# stage and is not measured on this stack at all, so a GPU jaxlib would buy nothing and would fight
+# torch. The cell ref has to say this: on the modern stack jax is CPU-only and AF2-IG was not run.
+$PY -m pip install -q --no-cache-dir "jax==0.4.29" "jaxlib==0.4.29" \
+  "dm-haiku==0.0.13" "optax==0.2.5" || FAIL "jax cpu"
+$PY -m pip install -q --no-cache-dir git+https://github.com/sokrypton/ColabDesign.git --no-deps \
+  || FAIL "colabdesign"
+$PY -c "import colabdesign, jax; print('  jax', jax.__version__, 'platform', jax.devices()[0].platform)" \
+  || FAIL "colabdesign/jax import"
 
+# numpy and triton go LAST, after everything that can move them, and are then asserted. Both have
+# been silently walked back on this stack already: torch 2.7.1 declares triton==3.3.1 and pip
+# restored it during the numpy and deepspeed installs that used to follow the raise, and jax 0.4.29
+# pulls numpy up to 2.x. Neither failed anything at the time; both were caught by reading the
+# recorded versions afterwards. An install line is not evidence that a version took.
+$PY -m pip install -q --no-cache-dir "numpy==1.26.3" "triton==3.4.0" || FAIL "numpy/triton pins"
+$PY -c '
+import importlib.metadata as im, sys
+want = {"numpy": "1.26.3", "triton": "3.4.0"}
+bad = {p: im.version(p) for p in want if im.version(p) != want[p]}
+print("  PIN DRIFT:", bad, "wanted", want) if bad else None
+sys.exit(1 if bad else 0)
+' || FAIL "numpy or triton is not at its pin after the install"
 [ -d $CUTLASS_PATH ] || git clone -q -b v3.5.1 --depth 1 \
   https://github.com/NVIDIA/cutlass.git $CUTLASS_PATH || FAIL "cutlass"
 
