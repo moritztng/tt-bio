@@ -32,7 +32,7 @@ def stamp(check: bool) -> int:
         text = original = p.read_text()
         for name, d in want.items():
             # any href to this asset, with or without an existing ?v=
-            pat = re.compile(r'((?:\.\./|/)?assets/%s)(\?v=[0-9a-f]{8})?' % re.escape(name))
+            pat = re.compile(r'((?:\.\./|/tt-bio/|/)?assets/%s)(\?v=[0-9a-f]{8})?' % re.escape(name))
             text = pat.sub(lambda m: "%s?v=%s" % (m.group(1), d), text)
         if text != original:
             stale.append(page)
