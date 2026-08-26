@@ -1,0 +1,1193 @@
+{
+  "label": "b32_rep0",
+  "preset": "gen",
+  "pipeline_preset": "preview",
+  "n_sample": 32,
+  "n_step": 400,
+  "dtype": "bf16",
+  "seed": 42,
+  "rounds": [
+    {
+      "round": 0,
+      "seed": 0,
+      "cold": true,
+      "out_dir": "/work/out/b32_rep0/r0",
+      "rc": 1,
+      "t0": 1787772793.8433757,
+      "t1": 1787773302.7588224,
+      "round_wall_s": 508.9154,
+      "gen_feat_s": 2.8235,
+      "gen_device_s": 429.4282,
+      "gen_write_s": 2.4167,
+      "gen_cell_s": 434.6684,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 5.9597,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 17.9546,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 429.4282,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 2.4167,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 434.6684,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 39.6665,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 2.4299,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 42.1074,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0072,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 2.8235,
+          "calls": 0
+        }
+      },
+      "digest": "16962b318b312f1d",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 32,
+        "designs": [
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "351111bd645441a2"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "9b81aa7e70037bd4"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_10.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "0ede18ce6f001522"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_11.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "5af2a8ad820a4357"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_12.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "da6505ac6604ed03"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_13.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "1a6914be450e2eb2"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_14.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "b3f8a971f4d82689"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_15.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "209451d7f9a908ab"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_16.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "57d40fa82c68a318"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_17.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "f440cf145e04f244"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_18.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "7b2f42ffb544f93d"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_19.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "4b46373d68c823d4"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "80182c471fef091d"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_20.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "327bb044acd6b1f6"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_21.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "e09305c50dcb633d"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_22.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "aaf2bab6dd9bcdf2"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_23.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "bec683381168acc8"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_24.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "825ccfa1a4fc4fcd"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_25.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "be66a2ebb17c1519"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_26.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a83e6712f1589604"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_27.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "2376c7e353c42eed"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_28.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "c2390a468bceb228"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_29.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "e6f80b0288d3c807"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "550c882577ca1359"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_30.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "03a9ecbc2c9cd677"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_31.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "d5cf874688ddfecd"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_4.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a794696447868739"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_5.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "5e77dd6550e426db"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_6.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "56b09c5b9f074b9d"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_7.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "74b8767a5e113b16"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_8.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "d9aae4efa3b2bb55"
+          },
+          {
+            "path": "/work/out/b32_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_9.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "c69f256f18617d0d"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "16962b318b312f1d"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    },
+    {
+      "round": 1,
+      "seed": 1,
+      "cold": false,
+      "out_dir": "/work/out/b32_rep0/r1",
+      "rc": 1,
+      "t0": 1787773303.0475187,
+      "t1": 1787773805.5596998,
+      "round_wall_s": 502.5122,
+      "gen_feat_s": 2.5059,
+      "gen_device_s": 428.3189,
+      "gen_write_s": 2.3837,
+      "gen_cell_s": 433.2085,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.567,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 17.9403,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 428.3189,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 2.3837,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 433.2085,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 39.9505,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 2.2902,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 42.2493,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.007,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 2.5059,
+          "calls": 0
+        }
+      },
+      "digest": "934f8212d4079f09",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 32,
+        "designs": [
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "fc4923951e5fc677"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "0b7082d10b6a381c"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_10.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "138a81c7bc573799"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_11.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "5e8e1712f544566e"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_12.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "678060383763387b"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_13.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "9e89ea4f5a9d2da1"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_14.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "3db0477612e4a6c7"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_15.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "c2dc35c5f9840f21"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_16.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "158e3f6d5db6bcf7"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_17.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "4eaf9bb783ce9f04"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_18.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "d58c4b6587c3c176"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_19.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "9b0d691d97f8ff27"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "e635f24e23a31554"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_20.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "60dc19627aa28350"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_21.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "2e1df1d3b66ac590"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_22.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a62cc48c833c5aee"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_23.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "65cd1876dbc639ad"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_24.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a27d83bd0fd03732"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_25.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a606f457b00fccfe"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_26.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "8c2d839c79688324"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_27.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "adbe35818b2992c6"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_28.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "567e211766137b91"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_29.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "32579bb747c0c5ee"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "f23c7826eb4840ef"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_30.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "dd4817f38fa6245d"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_31.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "fb9cc15f68302f96"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_4.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "af7208d20b953547"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_5.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "b67ea77ce482bf7d"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_6.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "5cdb63ccfdebc6ff"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_7.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "2d0f9e9b09ecee15"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_8.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "1915e9e34b638142"
+          },
+          {
+            "path": "/work/out/b32_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_9.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "dac9c30de94d99f9"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "934f8212d4079f09"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    }
+  ],
+  "yaml": "/work/targets2/laczc_512_nomsa.yaml",
+  "yaml_sha256": "48a6b5c0c5d9ca9b36bccda5a9f2258a9b5b8569b4631754cc724e1985b8f713",
+  "ok": true,
+  "why": [
+    "round 0 raised AssertionError: ",
+    "round 1 raised AssertionError: "
+  ],
+  "compute_apps_before": [],
+  "jax_counters": {
+    "present": true,
+    "wrapped": [
+      "jax_jit",
+      "jax_device_put",
+      "jnp_add"
+    ],
+    "version": "0.4.29"
+  },
+  "patch_targets_found": {
+    "gen_device": true,
+    "gen_write": true,
+    "gen_total": true,
+    "sample_diffusion": true,
+    "prep_input": true,
+    "prep_cache": true,
+    "prep_bioassembly": true,
+    "prep_toolweights": true,
+    "model_init": true,
+    "tgt_template": true,
+    "rank_host": true,
+    "mpnn": true,
+    "eval_total": true,
+    "af2_complex": true,
+    "af2_monomer": true,
+    "metrics_secondary": true,
+    "metrics_diversity": true,
+    "protenix_predict": true
+  },
+  "counter_info": {
+    "ds4sci_present": true,
+    "fused_ln_present": false,
+    "deepspeed_evo_env": null,
+    "layernorm_type_env": null
+  },
+  "seeds": [
+    0,
+    1
+  ],
+  "argv": [
+    "--preset",
+    "preview",
+    "--dump_dir",
+    "/work/out/b32_rep0/r0",
+    "--input_json_path",
+    "/work/targets2/laczc_512_nomsa.yaml",
+    "--N_sample",
+    "32",
+    "--N_step",
+    "400",
+    "--dtype",
+    "bf16",
+    "--use_fast_ln",
+    "True",
+    "--use_deepspeed_evo_attention",
+    "True",
+    "--eta_type",
+    "const",
+    "--eta_min",
+    "2.5",
+    "--eta_max",
+    "2.5",
+    "--seeds",
+    "0",
+    "--N_max_runs",
+    "1",
+    "--eval.binder.eval_complex",
+    "false",
+    "--eval.binder.eval_binder_monomer",
+    "false",
+    "--eval.binder.eval_protenix",
+    "false",
+    "--eval.binder.eval_protenix_mini",
+    "false",
+    "--min_total_return",
+    "32",
+    "--max_success_return",
+    "32"
+  ],
+  "pipeline_rc": 1,
+  "total_s": 1012.12,
+  "t_start": 1787772793.84336,
+  "t_end": 1787773805.9634092,
+  "warm_n": 1,
+  "warm_median_cell_s": 433.2085,
+  "warm_min_cell_s": 433.2085,
+  "warm_max_cell_s": 433.2085,
+  "warm_spread_pct": 0.0,
+  "warm_median_gen_feat_s": 2.5059,
+  "warm_median_gen_device_s": 428.3189,
+  "warm_median_gen_write_s": 2.3837,
+  "digests": {
+    "0@r0": "16962b318b312f1d",
+    "1@r1": "934f8212d4079f09"
+  },
+  "stages": {
+    "prep_host": {
+      "s": 6.5267,
+      "calls": 8
+    },
+    "model_init": {
+      "s": 35.8949,
+      "calls": 2
+    },
+    "gen_device": {
+      "s": 857.7471,
+      "calls": 2
+    },
+    "gen_write": {
+      "s": 4.8004,
+      "calls": 2
+    },
+    "gen_total": {
+      "s": 867.8769,
+      "calls": 2,
+      "counts": {
+        "pxd_predict": 2
+      }
+    },
+    "mpnn": {
+      "s": 79.617,
+      "calls": 2,
+      "counts": {
+        "pxdbench_subprocesses": 2
+      }
+    },
+    "metrics_host": {
+      "s": 4.7201,
+      "calls": 4
+    },
+    "eval_total": {
+      "s": 84.3567,
+      "calls": 2,
+      "counts": {
+        "pxdbench_subprocesses": 2
+      }
+    },
+    "rank_host": {
+      "s": 0.0142,
+      "calls": 2
+    },
+    "gen_feat": {
+      "s": 5.3294,
+      "calls": 0
+    }
+  },
+  "windows": [
+    {
+      "stage": "prep_host",
+      "t0": 1787772794.0120158,
+      "t1": 1787772794.01299
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772794.0130465,
+      "t1": 1787772794.0131302
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772794.0131414,
+      "t1": 1787772794.0132113
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772794.020014,
+      "t1": 1787772799.9786072
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787772799.9789717,
+      "t1": 1787772817.933584
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787772820.3665466,
+      "t1": 1787773249.7947032
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787773250.070116,
+      "t1": 1787773252.48684
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787772817.9344697,
+      "t1": 1787773252.6028583
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787773260.6395016,
+      "t1": 1787773300.3060503
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787773300.3061113,
+      "t1": 1787773302.735984
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787773302.736011,
+      "t1": 1787773302.7360413
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787773260.639488,
+      "t1": 1787773302.7469342
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787773302.7475607,
+      "t1": 1787773302.7547383
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787773303.0527055,
+      "t1": 1787773303.0536044
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787773303.0536435,
+      "t1": 1787773303.0537248
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787773303.0537362,
+      "t1": 1787773303.053816
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787773303.060682,
+      "t1": 1787773303.6266105
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787773303.6268585,
+      "t1": 1787773321.5671287
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787773323.946342,
+      "t1": 1787773752.265238
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787773752.2653105,
+      "t1": 1787773754.6489785
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787773321.5678353,
+      "t1": 1787773754.7763712
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787773763.299187,
+      "t1": 1787773803.249675
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787773803.2497275,
+      "t1": 1787773805.5399063
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787773805.5399299,
+      "t1": 1787773805.5399399
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787773763.2991688,
+      "t1": 1787773805.5484664
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787773805.5487688,
+      "t1": 1787773805.555775
+    }
+  ],
+  "subprocesses": [
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 39.666,
+      "t0": 1787773260.6396253,
+      "t1": 1787773300.305897
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 39.95,
+      "t0": 1787773763.299344,
+      "t1": 1787773803.2495434
+    }
+  ],
+  "subprocess_overlaps_gen": [],
+  "jax_counter_selftest": "ok",
+  "jax_selftest_calls": 1,
+  "ds_counter_selftest": "ok",
+  "ds_selftest_calls": 1,
+  "counts": {
+    "pxd_predict": 2,
+    "pxdbench_subprocesses": 2,
+    "jnp_add": 1,
+    "ds4sci_evo_attention": 1
+  },
+  "module_census": {
+    "gen_device": {
+      "AtomAttentionEncoder": 2,
+      "OpenFoldLayerNorm": 169,
+      "AttentionPairBias": 27,
+      "AdaptiveLayerNorm": 65,
+      "Attention": 27,
+      "AtomAttentionDecoder": 1
+    }
+  },
+  "kernel_env_at_end": {
+    "DEEPSPEED_EVO": "true",
+    "LAYERNORM_TYPE": "fast_layernorm",
+    "CUTLASS_PATH": "/work/cutlass"
+  },
+  "peak_vram_alloc_B": 5249721856,
+  "peak_vram_reserved_B": 7740588032,
+  "compute_apps_after": [
+    "17503, 8030 MiB"
+  ],
+  "gpu_exclusive": true,
+  "env": {
+    "pxdesign": "0.1.0",
+    "protenix": "0.5.0+pxd",
+    "pxdbench": "0.1.2",
+    "torch": "2.7.1+cu128",
+    "jax": "0.4.29",
+    "jaxlib": "0.4.29",
+    "deepspeed": "0.15.4",
+    "numpy": "1.26.3",
+    "transformers": "4.51.3",
+    "dm-haiku": "0.0.13",
+    "optax": "0.2.5",
+    "biotite": "1.0.1",
+    "rdkit": "2026.3.5",
+    "colabdesign": "1.1.3",
+    "torch_version": "2.7.1+cu128",
+    "torch_cuda": "12.8",
+    "cudnn": 90701,
+    "gpu": "NVIDIA H200",
+    "gpu_capability": [
+      9,
+      0
+    ],
+    "jax_platform": "cpu",
+    "jax_devices": "[CpuDevice(id=0)]",
+    "env_DEEPSPEED_EVO": "true",
+    "env_LAYERNORM_TYPE": "fast_layernorm",
+    "env_CUTLASS_PATH": "/work/cutlass",
+    "env_TOOL_WEIGHTS_ROOT": "/work/tool_weights",
+    "env_PROTENIX_DATA_ROOT_DIR": "/work/release_data/ccd_cache",
+    "env_CUDA_VISIBLE_DEVICES": null,
+    "nvidia_smi": "NVIDIA H200, 610.57.04, 700.00 W, 143771 MiB"
+  },
+  "unattributed_s": 17.4702,
+  "split": {
+    "pxdesign_d_s": 857.7471,
+    "protenix_s": 0.0,
+    "af2ig_s": 0.0,
+    "proteinmpnn_s": 79.617,
+    "host_data_s": 74.7559
+  },
+  "split_pct": {
+    "pxdesign_d_pct": 84.75,
+    "protenix_pct": 0.0,
+    "af2ig_pct": 0.0,
+    "proteinmpnn_pct": 7.87,
+    "host_data_pct": 7.39
+  },
+  "s_per_design": 15.8144,
+  "validation": {
+    "ok": true,
+    "mode": "gen",
+    "why": [],
+    "rounds_checked": 2,
+    "gen_write_reached": true
+  }
+}

@@ -11,9 +11,16 @@ narrowing, the same three calls, with the checkpoint load hoisted out of the tim
 
 The region is featurise + generate + write, which is exactly `gen_feat_s + gen_device_s +
 gen_write_s = gen_total_s` on the H200 reference (`perf/pxdesign/gpu_reference.json`), and
-excludes `model_init_s` on both sides. Batch is one design per call: `n_sample` is the number
-of backbones out of ONE diffusion trajectory, so `--num_designs 4` is batch 4, not four
-designs at batch 1.
+excludes `model_init_s` on both sides.
+
+`--n_sample N` is the batch axis and defaults to 1, which is the published cell's protocol
+unchanged. `n_sample` is the number of backbones drawn from ONE batched diffusion trajectory,
+so N designs is one call, not N calls, and the featurisation and the CIF-write loop are shared
+across the batch the same way the GPU reference's `gen_feat` is. The headline at N>1 is
+`s_per_design = round_s / N`. The N backbones must all differ: they come from one RNG stream,
+so a repeat would mean the batch dim is not carrying independent noise, and the run asserts it.
+`--max_parallel_samples` caps the per-forward chunk independently of N, which is how you tell a
+batch ceiling (N itself refuses) from a chunk ceiling (N is fine once the forward is split).
 
 Round 0 is cold and is excluded from every statistic (first-use kernel compile). Seeds are
 [0, 1, 2, 3, 0] so the last warm round repeats the cold round's seed: its coordinate digest
@@ -36,6 +43,10 @@ def main():
     ap.add_argument("--tree", type=Path, required=True, help="source tree to import tt_bio from")
     ap.add_argument("--yaml", type=Path, required=True, help="PXDesign target YAML")
     ap.add_argument("--n_step", type=int, default=400)
+    ap.add_argument("--n_sample", type=int, default=1,
+                    help="designs per call (the batch axis). 1 is the published protocol.")
+    ap.add_argument("--max_parallel_samples", type=int, default=None,
+                    help="cap the per-forward chunk; default is the whole batch in one forward")
     ap.add_argument("--rounds", type=int, default=5)
     ap.add_argument("--label", default="px")
     ap.add_argument("--out", type=Path, required=True)
@@ -68,7 +79,8 @@ def main():
     res = {"label": a.label, "model": "pxdesign", "tree": str(tree), "git_head": head,
            "yaml": str(spec), "yaml_sha256": _sha(spec),
            "target_cif": str(cif), "target_cif_sha256": _sha(cif) if cif.exists() else None,
-           "n_step": a.n_step, "n_sample_per_call": 1, "rounds": a.rounds,
+           "n_step": a.n_step, "n_sample_per_call": a.n_sample,
+           "max_parallel_samples": a.max_parallel_samples, "rounds": a.rounds,
            "ttnn": im.version("ttnn"), "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -112,7 +124,8 @@ def main():
 
         n_token = int(feats["restype"].shape[0])
         t = time.monotonic()
-        coords = model.design(feats, n_step=a.n_step, n_sample=1, seed=seed)
+        coords = model.design(feats, n_step=a.n_step, n_sample=a.n_sample, seed=seed,
+                              max_parallel_samples=a.max_parallel_samples)
         t_design = time.monotonic() - t
 
         t = time.monotonic()
@@ -123,16 +136,28 @@ def main():
         _atoms = [l for l in Path(rows[0]["cif"]).read_text().splitlines()
                   if l.startswith("ATOM ")]
         binder_tok = int((feats["restype"].argmax(-1) == BINDER_RESTYPE).sum())
+        # One digest per backbone, not one over the stack: at N>1 the only thing that proves
+        # the batch dim carries independent noise is that the N digests differ from each other.
+        per = [hashlib.sha256(coords[k].contiguous().numpy().tobytes()).hexdigest()[:16]
+               for k in range(int(coords.shape[0]))]
+        assert len(rows) == int(coords.shape[0]), \
+            f"{len(rows)} cif written for {int(coords.shape[0])} backbones"
         rec = {"round": i, "seed": seed, "cold": i == 0,
                "t_feat_s": round(t_feat, 3), "t_design_s": round(t_design, 3),
                "t_write_s": round(t_write, 3),
                "round_s": round(t_feat + t_design + t_write, 3),
+               "s_per_design": round((t_feat + t_design + t_write) / int(coords.shape[0]), 4),
                "n_token": n_token, "binder_tokens": binder_tok,
                "target_tokens": n_token - binder_tok,
                "n_sample": int(coords.shape[0]), "n_atom": int(coords.shape[1]),
                "coords_finite": bool(torch.isfinite(coords).all()),
                "coord_sha16": hashlib.sha256(
                    coords.contiguous().numpy().tobytes()).hexdigest()[:16],
+               "coord_sha16_per_design": per,
+               "designs_distinct": len(set(per)) == len(per),
+               "fit_rmsd_all": [round(r["fit_rmsd"], 4) for r in rows],
+               "binder_residues_all": sorted({r["binder_residues"] for r in rows}),
+               "binder_atoms_all": sorted({r["binder_atoms"] for r in rows}),
                "binder_residues": rows[0]["binder_residues"],
                "binder_atoms": rows[0]["binder_atoms"],
                "conditioned_tokens": rows[0]["conditioned_tokens"],
@@ -146,9 +171,11 @@ def main():
                "cif_atoms": len(_atoms),
                "loadavg": la}
         res["designs"].append(rec)
-        print(f"[{a.label}] r{i} seed={seed} {rec['round_s']:.3f}s "
+        print(f"[{a.label}] r{i} seed={seed} n={rec['n_sample']} {rec['round_s']:.3f}s "
+              f"= {rec['s_per_design']:.3f}s/design "
               f"(feat {rec['t_feat_s']:.3f} design {rec['t_design_s']:.3f} "
               f"write {rec['t_write_s']:.3f}) rmsd={rec['fit_rmsd']} "
+              f"distinct={rec['designs_distinct']} "
               f"digest={rec['coord_sha16']}{' COLD' if i == 0 else ''}", flush=True)
         flush()
 
@@ -159,6 +186,11 @@ def main():
         res["warm_median_s"] = round(statistics.median(w), 3)
         res["warm_min_s"], res["warm_max_s"] = w[0], w[-1]
         res["warm_spread_pct"] = round((w[-1] - w[0]) / statistics.median(w) * 100, 3)
+        pd_ = sorted(d["s_per_design"] for d in warm)
+        res["warm_median_s_per_design"] = round(statistics.median(pd_), 4)
+        res["warm_spread_pct_per_design"] = round(
+            (pd_[-1] - pd_[0]) / statistics.median(pd_) * 100, 3)
+        res["all_designs_distinct"] = all(d["designs_distinct"] for d in res["designs"])
         for k, f in (("t_feat_s", "feat"), ("t_design_s", "design"), ("t_write_s", "write")):
             res[f"warm_median_{f}_s"] = round(statistics.median([d[k] for d in warm]), 3)
         res["warm_median_host_s"] = round(
@@ -168,9 +200,11 @@ def main():
         res["split_residual_s"] = round(
             res["warm_median_s"] - res["warm_median_feat_s"]
             - res["warm_median_design_s"] - res["warm_median_write_s"], 4)
-        print(f"[{a.label}] warm median {res['warm_median_s']:.3f}s over n={len(w)} "
-              f"spread {res['warm_spread_pct']:.2f}% "
-              f"host {res['warm_median_host_s']:.3f}s", flush=True)
+        print(f"[{a.label}] warm median {res['warm_median_s']:.3f}s over n={len(w)} rounds "
+              f"at batch {a.n_sample} = {res['warm_median_s_per_design']:.3f}s/design, "
+              f"spread {res['warm_spread_pct_per_design']:.2f}% "
+              f"host {res['warm_median_host_s']:.3f}s "
+              f"distinct={res['all_designs_distinct']}", flush=True)
     res["loadavg_end"] = _loadavg()
     flush()
     print("wrote", a.out, flush=True)

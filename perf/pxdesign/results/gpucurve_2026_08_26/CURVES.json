@@ -1,0 +1,398 @@
+{
+  "fixture": "beta-galactosidase (1DP0 chain A) cropped to 512 residues around one fixed epitope, 80-residue binder, 592 tokens",
+  "n_step": 400,
+  "published_cells_s_per_design": {
+    "p150a": 23.24,
+    "h200": 24.2246,
+    "b200": 24.4062,
+    "a100": 38.1585
+  },
+  "tt": {
+    "host": "pc",
+    "card": "p150a physical 0",
+    "label": "PROVISIONAL-ON-PC-CARD0",
+    "rungs": [
+      {
+        "batch": 1,
+        "fitted_s_per_design": 21.966,
+        "distinct": true,
+        "measured_s_per_design": 22.1217,
+        "measured_spread_pct": 0.62,
+        "measured_warm_n": 3,
+        "amortisation_x": 1.0,
+        "fit_error_pct": -0.704
+      },
+      {
+        "batch": 2,
+        "fitted_s_per_design": 19.0386,
+        "distinct": true,
+        "amortisation_x": 1.1619
+      },
+      {
+        "batch": 4,
+        "fitted_s_per_design": 18.1876,
+        "distinct": true,
+        "amortisation_x": 1.2163
+      },
+      {
+        "batch": 8,
+        "fitted_s_per_design": 17.8668,
+        "distinct": true,
+        "measured_s_per_design": 17.7507,
+        "measured_spread_pct": 0.03,
+        "measured_warm_n": 3,
+        "amortisation_x": 1.2462,
+        "fit_error_pct": 0.654
+      },
+      {
+        "batch": 16,
+        "fitted_s_per_design": 19.1495,
+        "distinct": true,
+        "measured_s_per_design": 19.1843,
+        "measured_spread_pct": 0.039,
+        "measured_warm_n": 3,
+        "amortisation_x": 1.1531,
+        "fit_error_pct": -0.181
+      },
+      {
+        "batch": 32,
+        "fitted_s_per_design": 18.7738,
+        "distinct": true,
+        "amortisation_x": 1.1783
+      },
+      {
+        "batch": 64,
+        "fitted_s_per_design": 19.3489,
+        "distinct": true,
+        "amortisation_x": 1.1433
+      }
+    ],
+    "best": 8,
+    "chunk_check": {
+      "n_sample": 32,
+      "max_parallel_samples": 8,
+      "F_s": 0.8688,
+      "P_s_per_step": 1.4106,
+      "fit_from_n_step": [
+        8,
+        24
+      ],
+      "s_per_design_at_400": 17.6596
+    }
+  },
+  "h200": {
+    "rungs": [
+      {
+        "batch": 1,
+        "s_per_design": 25.8809,
+        "cell_s": 25.8809,
+        "warm_n": 2,
+        "spread_pct": 2.129,
+        "device_s_per_design": 23.5553,
+        "feat_s": 2.2389,
+        "peak_vram_GiB": 2.078,
+        "util_pct": 20.4,
+        "power_W": 120.1,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "cf5fe1a04b549b09",
+          "1@r1": "48ffc413f2acf702",
+          "2@r2": "532083b869f0fe12"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 1.0
+      },
+      {
+        "batch": 2,
+        "s_per_design": 17.4602,
+        "cell_s": 34.9205,
+        "warm_n": 2,
+        "spread_pct": 0.125,
+        "device_s_per_design": 16.2033,
+        "feat_s": 2.3483,
+        "peak_vram_GiB": 2.078,
+        "util_pct": 48.1,
+        "power_W": 128.6,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "b124fe65a81f4476",
+          "1@r1": "aae14b7e418c1a73",
+          "2@r2": "efdd408897a69681"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 1.4823
+      },
+      {
+        "batch": 4,
+        "s_per_design": 14.8168,
+        "cell_s": 59.2673,
+        "warm_n": 2,
+        "spread_pct": 0.102,
+        "device_s_per_design": 14.1444,
+        "feat_s": 2.3765,
+        "peak_vram_GiB": 2.6,
+        "util_pct": 60.7,
+        "power_W": 446.1,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "359bbc0a4bb05f7c",
+          "1@r1": "42cd26be68cd2a60",
+          "2@r2": "c23e81102b00eec5"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 1.7467
+      },
+      {
+        "batch": 8,
+        "s_per_design": 13.5025,
+        "cell_s": 108.0202,
+        "warm_n": 2,
+        "spread_pct": 0.084,
+        "device_s_per_design": 13.1226,
+        "feat_s": 2.4238,
+        "peak_vram_GiB": 4.126,
+        "util_pct": 71.3,
+        "power_W": 467.7,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "8515b38f1bebc966",
+          "1@r1": "1c81d2e6c7cf06f2",
+          "2@r2": "014a00a5399db202"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 1.9167
+      },
+      {
+        "batch": 16,
+        "s_per_design": 13.5819,
+        "cell_s": 217.3111,
+        "warm_n": 2,
+        "spread_pct": 0.003,
+        "device_s_per_design": 13.3498,
+        "feat_s": 2.5013,
+        "peak_vram_GiB": 4.888,
+        "util_pct": 79.9,
+        "power_W": 482.3,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "b3214662cb6786fc",
+          "1@r1": "117e1da1298f0127",
+          "2@r2": "5eb614a6c5b7556f"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 1.9055
+      },
+      {
+        "batch": 32,
+        "s_per_design": 13.5378,
+        "cell_s": 433.2085,
+        "warm_n": 1,
+        "spread_pct": 0.0,
+        "device_s_per_design": 13.385,
+        "feat_s": 2.5059,
+        "peak_vram_GiB": 4.889,
+        "util_pct": 84.5,
+        "power_W": 487.9,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "16962b318b312f1d",
+          "1@r1": "934f8212d4079f09"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 2,
+        "amortisation_x": 1.9118
+      }
+    ],
+    "best": 8
+  },
+  "b200": {
+    "rungs": [
+      {
+        "batch": 1,
+        "s_per_design": 24.9242,
+        "cell_s": 24.9242,
+        "warm_n": 2,
+        "spread_pct": 0.267,
+        "device_s_per_design": 22.7637,
+        "feat_s": 2.077,
+        "peak_vram_GiB": 2.078,
+        "util_pct": 37.5,
+        "power_W": 376.3,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "05cc201080aec6a5",
+          "1@r1": "a1e773432f456d8a",
+          "2@r2": "a268d3b4209fb8c5"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 1.0
+      },
+      {
+        "batch": 2,
+        "s_per_design": 16.2241,
+        "cell_s": 32.4482,
+        "warm_n": 2,
+        "spread_pct": 0.078,
+        "device_s_per_design": 15.0726,
+        "feat_s": 2.1447,
+        "peak_vram_GiB": 2.078,
+        "util_pct": 54.9,
+        "power_W": 566.9,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "4ca459b08ef582c6",
+          "1@r1": "965b1a928695707a",
+          "2@r2": "c9ec219a269c41ff"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 1.5362
+      },
+      {
+        "batch": 4,
+        "s_per_design": 13.6538,
+        "cell_s": 54.615,
+        "warm_n": 2,
+        "spread_pct": 0.133,
+        "device_s_per_design": 13.0524,
+        "feat_s": 2.1023,
+        "peak_vram_GiB": 2.6,
+        "util_pct": 68.7,
+        "power_W": 594.8,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "57dba4d6494cb37e",
+          "1@r1": "96c4edb8bdb575e9",
+          "2@r2": "066064f4c98ba3fd"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 1.8254
+      },
+      {
+        "batch": 8,
+        "s_per_design": 12.5438,
+        "cell_s": 100.3507,
+        "warm_n": 2,
+        "spread_pct": 0.056,
+        "device_s_per_design": 12.208,
+        "feat_s": 2.0899,
+        "peak_vram_GiB": 4.126,
+        "util_pct": 79.8,
+        "power_W": 602.7,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "b18f56c7cc914dbb",
+          "1@r1": "96b6d3cbd87cda75",
+          "2@r2": "201dd95688524830"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 1.987
+      },
+      {
+        "batch": 16,
+        "s_per_design": 12.4391,
+        "cell_s": 199.0261,
+        "warm_n": 2,
+        "spread_pct": 0.04,
+        "device_s_per_design": 12.2337,
+        "feat_s": 2.1002,
+        "peak_vram_GiB": 4.888,
+        "util_pct": 87.8,
+        "power_W": 596.1,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "da4bf00cb5ddb2d4",
+          "1@r1": "c77ebe06024d137a",
+          "2@r2": "94981852d9a17dd1"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 3,
+        "amortisation_x": 2.0037
+      },
+      {
+        "batch": 32,
+        "s_per_design": 12.2909,
+        "cell_s": 393.3077,
+        "warm_n": 1,
+        "spread_pct": 0.0,
+        "device_s_per_design": 12.1525,
+        "feat_s": 2.1317,
+        "peak_vram_GiB": 4.889,
+        "util_pct": 91.7,
+        "power_W": 594.8,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "93bf64ed8ffb7475",
+          "1@r1": "b47f100d1ef2ff05"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 2,
+        "amortisation_x": 2.0279
+      },
+      {
+        "batch": 64,
+        "s_per_design": 12.1332,
+        "cell_s": 776.5228,
+        "warm_n": 1,
+        "spread_pct": 0.0,
+        "device_s_per_design": 12.0313,
+        "feat_s": 1.9986,
+        "peak_vram_GiB": 4.891,
+        "util_pct": 94.4,
+        "power_W": 594.5,
+        "gpu_exclusive": true,
+        "validation_ok": true,
+        "digests": {
+          "0@r0": "b1b07768a971914d",
+          "1@r1": "89b261c6f77dc776"
+        },
+        "sample_diffusion_calls": null,
+        "pxd_predict_calls": 2,
+        "amortisation_x": 2.0542
+      }
+    ],
+    "best": 64
+  },
+  "server": {
+    "cards_galaxy": 32,
+    "gpus_dgx": 8,
+    "tt_best_batch_s_per_design": 18.6487,
+    "tt_amortisation_x": 1.2462,
+    "h200": {
+      "amortisation_x": 1.9167,
+      "best_batch_s_per_design": 12.6387,
+      "per_accelerator_x_b1": 1.0424,
+      "per_accelerator_x_best_batch": 0.6777,
+      "per_server_x_b1": 4.1695,
+      "per_server_x_best_batch": 2.7109
+    },
+    "b200": {
+      "amortisation_x": 2.0542,
+      "best_batch_s_per_design": 11.8811,
+      "per_accelerator_x_b1": 1.0502,
+      "per_accelerator_x_best_batch": 0.6371,
+      "per_server_x_b1": 4.2007,
+      "per_server_x_best_batch": 2.5484
+    }
+  }
+}

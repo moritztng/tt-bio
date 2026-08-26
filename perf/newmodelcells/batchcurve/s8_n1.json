@@ -1,0 +1,188 @@
+{
+ "label": "smoke_n1",
+ "model": "pxdesign",
+ "tree": "/home/moritz/.coworker/wt/pxdesign-realistic-campaign-batch",
+ "git_head": "e069a528dc8533a002274ab100dfa3ab67d288ba",
+ "yaml": "/home/moritz/.coworker/wt/pxdesign-realistic-campaign-batch/perf/newmodelcells/laczc_512_tt.yaml",
+ "yaml_sha256": "23587853d5ca8fde766adce2f6c71c0fc19b8ac8547ea01a39a4e06bd9b311a1",
+ "target_cif": "/home/moritz/.coworker/wt/pxdesign-realistic-campaign-batch/perf/pxdesign/targets/laczc_512.cif",
+ "target_cif_sha256": "206d95b5f73d08bd323dd272bcff8d4fc4eaaafc2f9317e02f1bd738260f0a04",
+ "n_step": 8,
+ "n_sample_per_call": 1,
+ "max_parallel_samples": null,
+ "rounds": 3,
+ "ttnn": "0.68.0",
+ "host": "pc",
+ "card": "0",
+ "started": "2026-08-26T20:10:37+0200",
+ "loadavg_start": [
+  "2.09",
+  "1.09",
+  "0.80"
+ ],
+ "designs": [
+  {
+   "round": 0,
+   "seed": 0,
+   "cold": true,
+   "t_feat_s": 0.041,
+   "t_design_s": 4.34,
+   "t_write_s": 0.007,
+   "round_s": 4.388,
+   "s_per_design": 4.3883,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "4161db71ae49dec0",
+   "coord_sha16_per_design": [
+    "4161db71ae49dec0"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    7133.9223
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 7133.9223,
+   "cif_sha16": "754e505851e653ac",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.09",
+    "1.09",
+    "0.80"
+   ]
+  },
+  {
+   "round": 1,
+   "seed": 1,
+   "cold": false,
+   "t_feat_s": 0.045,
+   "t_design_s": 1.282,
+   "t_write_s": 0.006,
+   "round_s": 1.334,
+   "s_per_design": 1.3337,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "55d41e6882d762d0",
+   "coord_sha16_per_design": [
+    "55d41e6882d762d0"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    7238.1174
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 7238.1174,
+   "cif_sha16": "e5673f791cb70563",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.16",
+    "1.12",
+    "0.82"
+   ]
+  },
+  {
+   "round": 2,
+   "seed": 2,
+   "cold": false,
+   "t_feat_s": 0.045,
+   "t_design_s": 1.24,
+   "t_write_s": 0.006,
+   "round_s": 1.292,
+   "s_per_design": 1.2918,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "a4d23c44a39949f0",
+   "coord_sha16_per_design": [
+    "a4d23c44a39949f0"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    7176.945
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 7176.945,
+   "cif_sha16": "9ff09cc7eb19924f",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.16",
+    "1.12",
+    "0.82"
+   ]
+  }
+ ],
+ "model_init_s": 0.743,
+ "checkpoint": "/home/moritz/.boltz/pxdesign/pxdesign_v0.1.0.pt",
+ "checkpoint_bytes": 556554618,
+ "arch": "blackhole",
+ "grid": [
+  13,
+  10
+ ],
+ "diffusion_fp32": true,
+ "env_PROTENIX_DIFFUSION_FP32_DEVICE": null,
+ "warm_n": 2,
+ "warm_median_s": 1.313,
+ "warm_min_s": 1.292,
+ "warm_max_s": 1.334,
+ "warm_spread_pct": 3.199,
+ "warm_median_s_per_design": 1.3128,
+ "warm_spread_pct_per_design": 3.192,
+ "all_designs_distinct": true,
+ "warm_median_feat_s": 0.045,
+ "warm_median_design_s": 1.261,
+ "warm_median_write_s": 0.006,
+ "warm_median_host_s": 0.051,
+ "split_residual_s": 0.001,
+ "loadavg_end": [
+  "2.16",
+  "1.12",
+  "0.82"
+ ]
+}
