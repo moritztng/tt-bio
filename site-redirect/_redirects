@@ -1,0 +1,4 @@
+# tt-bio.com forwards to the canonical site on GitHub Pages.
+# 302, not 301: a permanent redirect is cached hard by browsers and would be
+# painful to walk back if the canonical location moves again.
+/*  https://moritztng.github.io/tt-bio/:splat  302
