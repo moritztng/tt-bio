@@ -101,7 +101,7 @@ def meta_for(doc: dict) -> str:
     live = [(cat, n) for cat, n in counts(doc) if n]
     total = sum(n for _, n in live)
     listed = join([f"{WORDS.get(n, n)} {SHORT[cat]}" for cat, n in live])
-    return (f"An independent benchmark of {WORDS.get(total, total)} open biomolecular models on "
+    return (f"{WORDS.get(total, total).capitalize()} open biomolecular models measured on "
             f"Tenstorrent hardware: {listed}. Seconds per prediction and throughput per dollar "
             "against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance "
             "on the page.")

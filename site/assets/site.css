@@ -90,8 +90,8 @@ nav{display:flex;align-items:center;gap:26px;padding:30px 0 0;flex-wrap:wrap;row
 /* Wordmark, not a logo file. "TT" sits back a step so "Bio" carries the name. */
 nav .brand{
   display:inline-flex;align-items:baseline;line-height:1;text-decoration:none;
-  font-family:var(--display);font-weight:600;font-size:1.12rem;
-  letter-spacing:-.022em;color:var(--ink);
+  font-family:var(--display);font-weight:600;font-size:1.62rem;
+  letter-spacing:-.032em;color:var(--ink);
 }
 nav .brand .tt{color:var(--ink-3);font-weight:500}
 nav .brand:hover .tt{color:var(--ink-2)}

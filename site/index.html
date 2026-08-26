@@ -8,26 +8,28 @@
 <link rel="icon" href="/assets/icon-500.png" sizes="500x500" type="image/png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" sizes="180x180">
 <title>TT-Bio</title>
-<meta name="description" content="An independent open-source project running folding, binder design and protein embeddings on Tenstorrent hardware. A Blackhole Galaxy matches an NVIDIA DGX B200 on throughput at a fifth of the purchase price, with accuracy matched to reference implementations.">
+<meta name="description" content="Open-source biomolecular AI: folding, binder design and protein embeddings on Tenstorrent hardware. A Blackhole Galaxy matches an NVIDIA DGX B200 on throughput at a fifth of the purchase price, with accuracy matched to reference implementations.">
 <link rel="preload" href="assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/site.css">
 <style>
 
 
-/* hero: the claim on the left, what backs it on the right, sharing a baseline.
-   There is no image here on purpose. The argument this page makes is the
-   measurements, and they begin one row down. */
-.hero{padding:70px 0 4px;display:grid;grid-template-columns:1.14fr .86fr;
-  gap:clamp(38px,5.5vw,84px);align-items:end}
-@media (max-width:900px){.hero{grid-template-columns:1fr;gap:28px;padding-top:44px;
-  align-items:start}}
+/* hero: one statement across the full measure, then what backs it. The two
+   lines are set to near-equal length on purpose, so the break reads as a
+   decision rather than as wrapping. No image: the argument this page makes
+   is the measurements, and they begin one row down. */
+.hero{padding:76px 0 6px}
+@media (max-width:900px){.hero{padding:48px 0 4px}}
 .kicker{font-size:.78rem;letter-spacing:.15em;text-transform:uppercase;
-  color:var(--ink-3);font-weight:600;margin:0 0 20px}
-h1{font-size:clamp(2.5rem,5.9vw,4.5rem);margin:0;max-width:12ch;line-height:1.02}
+  color:var(--ink-3);font-weight:600;margin:0 0 26px}
+h1{font-size:clamp(2.65rem,8.4vw,7.6rem);margin:0;max-width:none;
+  line-height:.97;letter-spacing:-.035em;text-wrap:initial}
 
 h1 em{font-style:normal;font-weight:600;color:var(--ink)}
-.hero-side{padding-bottom:.35rem}
-.lede{font-size:1.14rem;color:var(--ink-2);margin:0 0 30px;max-width:44ch;line-height:1.55}
+/* the break is only right once there is room for it */
+h1 .lb{display:none}
+@media (min-width:820px){h1 .lb{display:inline}}
+.lede{font-size:1.18rem;color:var(--ink-2);margin:36px 0 34px;max-width:58ch;line-height:1.55}
 
 .cta{display:flex;gap:14px;flex-wrap:wrap}
 
@@ -123,7 +125,7 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="index.html" aria-label="TT-Bio, home"><span class="tt">TT</span>-Bio</a>
+    <a class="brand" href="index.html" aria-label="TT-Bio, home"><span class="tt">TT-</span>Bio</a>
     <span class="sp"></span>
     <a class="lnk" aria-current="page" href="index.html">Overview</a>
     <a class="lnk" href="benchmarks/">Benchmarks</a>
@@ -132,18 +134,14 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
   </nav>
 
   <div class="hero">
-    <div class="hero-lead">
-      <p class="kicker">Open source</p>
-      <h1>Biomolecular AI at <em>a fifth</em> of the cost</h1>
-    </div>
-    <div class="hero-side">
-      <p class="lede">TT-Bio runs folding, binder design and protein embeddings on Tenstorrent
-        hardware. One Blackhole Galaxy matches an NVIDIA DGX B200 on throughput, for a fifth of
-        the price.</p>
-      <div class="cta">
-        <a class="btn solid" href="https://japanfold.com">Try it free</a>
-        <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
-      </div>
+    <p class="kicker">Open source</p>
+    <h1>Biomolecular AI at<br class="lb"> <em>a fifth</em> of the cost</h1>
+    <p class="lede">TT-Bio runs folding, binder design and protein embeddings on Tenstorrent
+      hardware. One Blackhole Galaxy matches an NVIDIA DGX B200 on throughput, for a fifth of
+      the price.</p>
+    <div class="cta">
+      <a class="btn solid" href="https://japanfold.com">Try it free</a>
+      <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
     </div>
   </div>
 
@@ -258,13 +256,12 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
   </div>
 
   <footer>
-    <span>TT-Bio &mdash; an independent open-source project</span>
+    <span>TT-Bio &mdash; open source</span>
     <a href="https://github.com/moritztng/tt-bio">GitHub</a>
     <a href="benchmarks/">Benchmarks</a>
     <a href="https://japanfold.com">JapanFold</a>
   </footer>
-  <p class="disclaim">Not affiliated with, sponsored by or endorsed by Tenstorrent or NVIDIA.
-    Tenstorrent, Blackhole and Galaxy are trademarks of Tenstorrent Inc. NVIDIA, DGX, H200, B200
+  <p class="disclaim">Tenstorrent, Blackhole and Galaxy are trademarks of Tenstorrent Inc. NVIDIA, DGX, H200, B200
     and A100 are trademarks of NVIDIA Corporation. Hardware names are used to identify the systems
     measured.</p>
 </div>
