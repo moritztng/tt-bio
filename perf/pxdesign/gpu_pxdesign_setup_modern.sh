@@ -1,11 +1,14 @@
 #!/bin/bash
 # Build PXDesign on a rented GPU box with the reference stack's pins EXCEPT torch, CUDA and triton.
-# Writes /work/SETUP_OK or /work/SETUP_FAIL last; poll for the marker.
+# Writes /work/SETUP_MODERN_OK or /work/SETUP_MODERN_FAIL last; poll for the marker.
 #
 #   image: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel   (any devel image with a >=525 driver works;
 #          the cu128 wheels bring their own CUDA runtime, so the image's CUDA is not the constraint)
-#   usage: scp this to /work/setup_modern.sh
-#          nohup setsid bash /work/setup_modern.sh >/dev/null 2>&1 </dev/null &
+#   usage: scp this to /work/setup_modern.sh, then, with a venv python so the pinned stack on the
+#          same box survives:
+#            python3 -m venv /work/venv_modern
+#            PY=/work/venv_modern/bin/python nohup setsid bash /work/setup_modern.sh \
+#              >/dev/null 2>&1 </dev/null &
 #
 # Why this file exists. The pinned reference stack is torch 2.3.1 on CUDA 12.1, and CUDA 12.1 emits
 # no sm_100 device code, so a B200 cannot run the thing the H200 cell measured. torch 2.7.0 is the
@@ -38,8 +41,17 @@
 set -u
 exec >>/work/setup_modern.log 2>&1
 echo "=== setup start $(date -u +%FT%TZ) ==="
-FAIL() { echo "SETUP FAILED: $*"; echo "$*" > /work/SETUP_FAIL; exit 1; }
+FAIL() { echo "SETUP FAILED: $*"; echo "$*" > /work/SETUP_MODERN_FAIL; exit 1; }
 
+# This stack shares a box with the pinned one (that is what makes the A/B one-variable), so every
+# path it writes is distinct and every shared artifact -- the checkpoints, the AF2 params, the CCD
+# cache, the PXDesign clone -- is reused rather than re-fetched. Run it against a venv python:
+#
+#   python3 -m venv /work/venv_modern
+#   PY=/work/venv_modern/bin/python nohup setsid bash /work/setup_modern.sh >/dev/null 2>&1 </dev/null &
+#
+# On a box where the pinned setup has not run, PY defaults to the system python and the guards are
+# all no-ops, so it still works standalone.
 WANT_JAX=${WANT_JAX:-0}
 export DEBIAN_FRONTEND=noninteractive
 # build-essential is not optional: triton JIT-compiles a driver shim with the system gcc on first
@@ -47,7 +59,8 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq && apt-get install -y -qq build-essential git wget curl aria2 || FAIL "apt"
 echo "--- gcc $(gcc --version | head -1)  nvidia-smi: $(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader)"
 
-PY=$(command -v python3)
+PY=${PY:-$(command -v python3)}
+echo "--- python: $PY ($($PY -V 2>&1))"
 $PY -m pip install -q --upgrade pip || FAIL "pip"
 
 export TOOL_WEIGHTS_ROOT=/work/tool_weights
@@ -58,22 +71,22 @@ mkdir -p $TOOL_WEIGHTS_ROOT/af2 $TOOL_WEIGHTS_ROOT/mpnn $PROTENIX_DATA_ROOT_DIR 
 # --- the big downloads, in parallel with the pip work -------------------------------------------
 # Kept in full even though the eval half is never timed on this stack: check_tool_weights is a prep
 # stage and refusing it costs more than the bandwidth does.
-( cd $TOOL_WEIGHTS_ROOT && aria2c -q -x8 -s8 --file-allocation=none \
+[ -s /work/.af2_ok ] || ( cd $TOOL_WEIGHTS_ROOT && aria2c -q -x8 -s8 --file-allocation=none \
     -o af2.tar https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar \
   && tar -xf af2.tar -C af2 && rm -f af2.tar && echo ok > /work/.af2_ok ) >/work/dl_af2.log 2>&1 &
-( cd $PROTENIX_DATA_ROOT_DIR
+[ -s /work/.ccd_ok ] || ( cd $PROTENIX_DATA_ROOT_DIR
   B=https://pxdesign.tos-cn-beijing.volces.com/release_data
   for f in components.v20240608.cif components.v20240608.cif.rdkit_mol.pkl \
            clusters-by-entity-40.txt; do
     aria2c -q -x16 -s16 -k1M --file-allocation=none -o $f "$B/$f" || exit 1
   done
   echo ok > /work/.ccd_ok ) >/work/dl_ccd.log 2>&1 &
-( git clone -q --depth 1 https://github.com/dauparas/ProteinMPNN.git /work/_mpnn
+[ -s /work/.mpnn_ok ] || ( git clone -q --depth 1 https://github.com/dauparas/ProteinMPNN.git /work/_mpnn
   for d in ca_model_weights soluble_model_weights vanilla_model_weights; do
     cp -r /work/_mpnn/$d $TOOL_WEIGHTS_ROOT/mpnn/$d
   done
   rm -rf /work/_mpnn && echo ok > /work/.mpnn_ok ) >/work/dl_mpnn.log 2>&1 &
-( CK=/work/PXDesign_ckpt; mkdir -p $CK
+[ -s /work/.ckpt_ok ] || ( CK=/work/PXDesign_ckpt; mkdir -p $CK
   B=https://pxdesign.tos-cn-beijing.volces.com/release_model
   for m in pxdesign_v0.1.0 protenix_base_default_v0.5.0 protenix_mini_default_v0.5.0 \
            protenix_mini_tmpl_v0.5.0; do
@@ -88,7 +101,8 @@ $PY -m pip install -q --no-cache-dir einops natsort dm-tree posix_ipc "transform
   immutabledict || FAIL "pxdbench deps"
 $PY -m pip install -q --no-cache-dir git+https://github.com/bytedance/PXDesignBench.git@v0.1.2 \
   --no-deps || FAIL "pxdbench"
-git clone -q --depth 1 https://github.com/bytedance/PXDesign.git /work/PXDesign || FAIL "clone"
+[ -d /work/PXDesign ] || git clone -q --depth 1 \
+  https://github.com/bytedance/PXDesign.git /work/PXDesign || FAIL "clone"
 cd /work/PXDesign && $PY -m pip install -q -e . || FAIL "pxdesign"   # setup.py has no deps
 
 # --- the three packages this file exists to change -----------------------------------------------
@@ -155,16 +169,17 @@ try:
 except OSError:
     stack["cgroup_cpu_max"] = None
 stack["nproc_visible"] = os.cpu_count()
-open("/work/STACK.json","w").write(json.dumps(stack, indent=1) + "\n")
-print("  all imports OK; stack written to /work/STACK.json")
+open("/work/STACK_modern.json","w").write(json.dumps(stack, indent=1) + "\n")
+print("  all imports OK; stack written to /work/STACK_modern.json")
 PYEOF
-$PY -m pip check 2>&1 | tee /work/pip_check.txt | tail -10
-$PY -m pip freeze > /work/pip_freeze.txt
+$PY -m pip check 2>&1 | tee /work/pip_check_modern.txt | tail -10
+$PY -m pip freeze > /work/pip_freeze_modern.txt
 
 wait
 for m in af2 ccd mpnn ckpt; do [ -s /work/.${m}_ok ] || FAIL "download $m"; done
 mkdir -p /work/PXDesign/release_data/checkpoint
-mv /work/PXDesign_ckpt/*.pt /work/PXDesign/release_data/checkpoint/
+# already in place if the pinned setup ran on this box first; that is the normal case here
+ls /work/PXDesign_ckpt/*.pt >/dev/null 2>&1 && mv /work/PXDesign_ckpt/*.pt /work/PXDesign/release_data/checkpoint/
 $PY - <<'PYEOF' || FAIL "checkpoint verify"
 import glob, torch
 for f in sorted(glob.glob("/work/PXDesign/release_data/checkpoint/*.pt")):
@@ -177,4 +192,4 @@ sha256sum /work/PXDesign/release_data/checkpoint/*.pt
 # to sit at exactly that path or the yaml bytes stop matching the sha the published cells recorded.
 mkdir -p /work/targets2
 echo "=== setup ok $(date -u +%FT%TZ) ==="
-echo ok > /work/SETUP_OK
+echo ok > /work/SETUP_MODERN_OK
