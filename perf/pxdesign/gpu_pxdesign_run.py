@@ -235,6 +235,41 @@ def jax_selftest(report):
     report["jax_selftest_calls"] = moved
 
 
+def ds_selftest(report):
+    """Fire the wrapped DeepSpeed Evoformer symbol and check the counter saw it.
+
+    The DeepSpeed half of H1 needs the same shape of proof the jax half gets. `counts_in_gen` being
+    empty in a generator-only run is a zero, and a zero only means something if the counter that
+    produced it can be shown to fire. The positive control was meant to come from an `extended` run,
+    where the Protenix filter calls the kernel for real -- but `extended` against a yaml with no
+    `msa` key sends the target-template stage into a search the reference cells skipped (measured:
+    20 min of CPU with the GPU idle, against 44.2 s for the reference cell that had an MSA). So the
+    control is taken here instead, in the exact process shape the published cell runs in.
+
+    This calls the wrapped attribute, not the kernel: what has to be established is that a call
+    through `prim.DS4Sci_EvoformerAttention` increments `ds4sci_evo_attention`. Whether the CUDA
+    kernel underneath would then succeed is a different question and not the one H1 asks. The
+    underlying call is expected to raise on the dummy tensors, and a raise still proves the counter
+    moved, which is the whole point.
+    """
+    try:
+        import protenix.openfold_local.model.primitives as prim
+    except Exception as e:
+        report["ds_counter_selftest"] = "absent: %s" % type(e).__name__
+        return
+    if not hasattr(prim, "DS4Sci_EvoformerAttention"):
+        report["ds_counter_selftest"] = "absent"
+        return
+    before = COUNTS.get("ds4sci_evo_attention", 0)
+    try:
+        prim.DS4Sci_EvoformerAttention(None, None, None, None)
+    except Exception:
+        pass
+    moved = COUNTS.get("ds4sci_evo_attention", 0) - before
+    report["ds_counter_selftest"] = "ok" if moved else "DEAD"
+    report["ds_selftest_calls"] = moved
+
+
 def subprocess_overlap(report, stages=("gen_feat", "gen_device", "gen_write")):
     """Did any pxdbench subprocess run while a published stage's clock was running?
 
@@ -777,6 +812,7 @@ def main():
     report["subprocesses"] = subprocs
     report["subprocess_overlaps_gen"] = subprocess_overlap(report)
     jax_selftest(report)
+    ds_selftest(report)
     report["counts"] = dict(COUNTS)
     report["module_census"] = CENSUS
     report["kernel_env_at_end"] = {k: os.environ.get(k) for k in
