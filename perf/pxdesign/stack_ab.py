@@ -19,7 +19,7 @@ publish through.
 Direct RMSD is primary: both designs sit in the same target frame, so a rigid fit would hide a real
 displacement. The Kabsch-fitted value is reported beside it.
 """
-import argparse, glob, itertools, json, os, statistics as st, sys
+import argparse, glob, itertools, json, math, os, statistics as st, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cif_rmsd import coords, kabsch_rmsd, rmsd  # noqa: E402
@@ -67,8 +67,19 @@ def stats(xs):
 
 
 def pair(a, b):
-    xa, xb = coords(a), coords(b)
-    return round(rmsd(xa, xb), 4), round(kabsch_rmsd(xa, xb), 4)
+    """(direct, fitted, max_atom_dev) between two design CIFs, or None if they are not comparable.
+
+    coords() returns (atom_key, xyz) pairs. The keys have to match element for element before any
+    RMSD means anything: two designs with different atom identity are not two versions of one
+    structure, and a number computed across them would be noise wearing a unit.
+    """
+    A, B = coords(a), coords(b)
+    ka, kb = [k for k, _ in A], [k for k, _ in B]
+    if not A or ka != kb:
+        return None
+    xa, xb = [v for _, v in A], [v for _, v in B]
+    return (round(rmsd(xa, xb), 4), round(kabsch_rmsd(xa, xb), 4),
+            round(max(math.dist(u, v) for u, v in zip(xa, xb)), 4))
 
 
 def main():
@@ -101,34 +112,46 @@ def main():
     for tag, seeds in (("pinned", sp), ("modern", sm)):
         for s, paths in seeds.items():
             for x, y in itertools.combinations(paths, 2):
-                d, f = pair(x, y)
-                same.append({"stack": tag, "seed": s, "direct": d, "fitted": f})
+                r = pair(x, y)
+                if r is None:
+                    same.append({"stack": tag, "seed": s, "incomparable": True})
+                    continue
+                same.append({"stack": tag, "seed": s, "direct": r[0], "fitted": r[1],
+                             "max_atom_dev": r[2]})
     o["same_stack_same_seed"] = same
-    o["determinism_ok"] = all(r["direct"] == 0.0 for r in same) if same else None
+    o["determinism_ok"] = (all(r.get("direct") == 0.0 for r in same) if same else None)
 
     # same stack, different seed: the fixture's own diversity
     inter = []
     for tag, seeds in (("pinned", sp), ("modern", sm)):
         ks = sorted(seeds)
         for s1, s2 in itertools.combinations(ks, 2):
-            d, f = pair(seeds[s1][0], seeds[s2][0])
-            inter.append({"stack": tag, "seeds": [s1, s2], "direct": d, "fitted": f})
+            r = pair(seeds[s1][0], seeds[s2][0])
+            if r is None:
+                continue
+            inter.append({"stack": tag, "seeds": [s1, s2], "direct": r[0], "fitted": r[1]})
     o["same_stack_diff_seed"] = inter
     o["inter_seed_mean_direct"] = round(st.mean([r["direct"] for r in inter]), 4) if inter else None
 
     # cross stack, same seed: what the stack change did
     cross = []
     for s in sorted(set(sp) & set(sm)):
-        d, f = pair(sp[s][0], sm[s][0])
-        cross.append({"seed": s, "direct": d, "fitted": f})
+        r = pair(sp[s][0], sm[s][0])
+        if r is None:
+            cross.append({"seed": s, "incomparable": True})
+            continue
+        cross.append({"seed": s, "direct": r[0], "fitted": r[1], "max_atom_dev": r[2]})
     o["cross_stack_same_seed"] = cross
-    o["cross_stack_mean_direct"] = round(st.mean([r["direct"] for r in cross]), 4) if cross else None
+    xd = [r["direct"] for r in cross if "direct" in r]
+    o["cross_stack_mean_direct"] = round(st.mean(xd), 4) if xd else None
+    o["cross_stack_bit_identical"] = (bool(xd) and all(v == 0.0 for v in xd))
 
     if o.get("inter_seed_mean_direct") and o.get("cross_stack_mean_direct") is not None:
         ratio = o["cross_stack_mean_direct"] / o["inter_seed_mean_direct"]
         o["cross_over_inter_ratio"] = round(ratio, 4)
         # 10 % pre-registered in state/pxdesign-perf-page-honest.md section 5, before the number existed
-        o["design_verdict"] = "SAME-DESIGN" if ratio < 0.10 else "DESIGN-MOVED"
+        o["design_verdict"] = ("BIT-IDENTICAL" if o["cross_stack_bit_identical"]
+                               else "SAME-DESIGN" if ratio < 0.10 else "DESIGN-MOVED")
     json.dump(o, open(a.out, "w"), indent=1)
     print(json.dumps(o, indent=1))
 
