@@ -1,0 +1,577 @@
+{
+  "label": "laczc512_prev_n1_A0_rep1",
+  "preset": "preview",
+  "pipeline_preset": "preview",
+  "n_sample": 1,
+  "n_step": 400,
+  "dtype": "bf16",
+  "seed": 42,
+  "rounds": [
+    {
+      "round": 0,
+      "seed": 42,
+      "cold": true,
+      "out_dir": "/work/out/laczc512_prev_n1_A0_rep1",
+      "rc": 0,
+      "t0": 1787730976.0233138,
+      "t1": 1787731103.8105404,
+      "round_wall_s": 127.7872,
+      "gen_feat_s": 3.7178,
+      "gen_device_s": 27.151,
+      "gen_write_s": 0.0813,
+      "gen_cell_s": 30.9501,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 5.8433,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 18.2804,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 27.151,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.0813,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 30.9501,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 10.3302,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "af2_complex": {
+          "s": 35.6996,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "af2_monomer": {
+          "s": 23.7554,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 0.0521,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 69.8476,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 3,
+            "af2_complex_calls": 1,
+            "af2_monomer_calls": 1
+          }
+        },
+        "rank_host": {
+          "s": 1.8331,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 3.7178,
+          "calls": 0
+        }
+      },
+      "digest": "1e0b55312779a388",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 1,
+        "designs": [
+          {
+            "path": "/work/out/laczc512_prev_n1_A0_rep1/global_run_0/laczc_512_nomsa/seed_77008/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "5b93edfb19553d79"
+          }
+        ],
+        "digest": "1e0b55312779a388"
+      }
+    }
+  ],
+  "yaml": "/work/targets2/laczc_512_nomsa.yaml",
+  "yaml_sha256": "48a6b5c0c5d9ca9b36bccda5a9f2258a9b5b8569b4631754cc724e1985b8f713",
+  "ok": true,
+  "why": [],
+  "compute_apps_before": [],
+  "jax_counters": {
+    "present": true,
+    "wrapped": [
+      "jax_jit",
+      "jax_device_put",
+      "jnp_add"
+    ],
+    "version": "0.4.29"
+  },
+  "patch_targets_found": {
+    "gen_device": true,
+    "gen_write": true,
+    "gen_total": true,
+    "sample_diffusion": true,
+    "prep_input": true,
+    "prep_cache": true,
+    "prep_bioassembly": true,
+    "prep_toolweights": true,
+    "model_init": true,
+    "tgt_template": true,
+    "rank_host": true,
+    "mpnn": true,
+    "eval_total": true,
+    "af2_complex": true,
+    "af2_monomer": true,
+    "metrics_secondary": true,
+    "metrics_diversity": true,
+    "protenix_predict": true
+  },
+  "counter_info": {
+    "ds4sci_present": true,
+    "fused_ln_present": false,
+    "deepspeed_evo_env": null,
+    "layernorm_type_env": null
+  },
+  "seeds": [
+    42
+  ],
+  "argv": [
+    "--preset",
+    "preview",
+    "--dump_dir",
+    "/work/out/laczc512_prev_n1_A0_rep1",
+    "--input_json_path",
+    "/work/targets2/laczc_512_nomsa.yaml",
+    "--N_sample",
+    "1",
+    "--N_step",
+    "400",
+    "--dtype",
+    "bf16",
+    "--use_fast_ln",
+    "True",
+    "--use_deepspeed_evo_attention",
+    "True",
+    "--eta_type",
+    "const",
+    "--eta_min",
+    "2.5",
+    "--eta_max",
+    "2.5",
+    "--seeds",
+    "42",
+    "--N_max_runs",
+    "1",
+    "--eval.binder.eval_complex",
+    "true",
+    "--eval.binder.eval_binder_monomer",
+    "true",
+    "--eval.binder.eval_protenix",
+    "false",
+    "--eval.binder.eval_protenix_mini",
+    "false",
+    "--min_total_return",
+    "1",
+    "--max_success_return",
+    "1"
+  ],
+  "pipeline_rc": 0,
+  "total_s": 127.808,
+  "t_start": 1787730976.023306,
+  "t_end": 1787731103.8313048,
+  "warm_n": 1,
+  "warm_median_cell_s": 30.9501,
+  "warm_min_cell_s": 30.9501,
+  "warm_max_cell_s": 30.9501,
+  "warm_spread_pct": 0.0,
+  "warm_median_gen_feat_s": 3.7178,
+  "warm_median_gen_device_s": 27.151,
+  "warm_median_gen_write_s": 0.0813,
+  "digests": {
+    "42@r0": "1e0b55312779a388"
+  },
+  "stages": {
+    "prep_host": {
+      "s": 5.8433,
+      "calls": 4
+    },
+    "model_init": {
+      "s": 18.2804,
+      "calls": 1
+    },
+    "gen_device": {
+      "s": 27.151,
+      "calls": 1
+    },
+    "gen_write": {
+      "s": 0.0813,
+      "calls": 1
+    },
+    "gen_total": {
+      "s": 30.9501,
+      "calls": 1,
+      "counts": {
+        "pxd_predict": 1
+      }
+    },
+    "mpnn": {
+      "s": 10.3302,
+      "calls": 1,
+      "counts": {
+        "pxdbench_subprocesses": 1
+      }
+    },
+    "af2_complex": {
+      "s": 35.6996,
+      "calls": 1,
+      "counts": {
+        "pxdbench_subprocesses": 1
+      }
+    },
+    "af2_monomer": {
+      "s": 23.7554,
+      "calls": 1,
+      "counts": {
+        "pxdbench_subprocesses": 1
+      }
+    },
+    "metrics_host": {
+      "s": 0.0521,
+      "calls": 2
+    },
+    "eval_total": {
+      "s": 69.8476,
+      "calls": 1,
+      "counts": {
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      }
+    },
+    "rank_host": {
+      "s": 1.8331,
+      "calls": 1
+    },
+    "gen_feat": {
+      "s": 3.7178,
+      "calls": 0
+    }
+  },
+  "windows": [
+    {
+      "stage": "prep_host",
+      "t0": 1787730976.1604247,
+      "t1": 1787730976.161336
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787730976.1613727,
+      "t1": 1787730976.1614547
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787730976.161466,
+      "t1": 1787730976.1615381
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787730976.1679454,
+      "t1": 1787730982.010135
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787730982.0104191,
+      "t1": 1787731000.2908258
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787731003.624446,
+      "t1": 1787731030.7754724
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787731031.0330844,
+      "t1": 1787731031.114418
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787731000.2918916,
+      "t1": 1787731031.2420256
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787731032.1246984,
+      "t1": 1787731042.4549413
+    },
+    {
+      "stage": "af2_complex",
+      "t0": 1787731042.4549878,
+      "t1": 1787731078.154588
+    },
+    {
+      "stage": "af2_monomer",
+      "t0": 1787731078.1546292,
+      "t1": 1787731101.910007
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787731101.910036,
+      "t1": 1787731101.962115
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787731101.9621365,
+      "t1": 1787731101.9621468
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787731032.1246855,
+      "t1": 1787731101.9722388
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787731101.9725358,
+      "t1": 1787731103.8056543
+    }
+  ],
+  "subprocesses": [
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 10.33,
+      "t0": 1787731032.124823,
+      "t1": 1787731042.454806
+    },
+    {
+      "script": "main_af2_complex.py",
+      "wall_s": 35.699,
+      "t0": 1787731042.4551766,
+      "t1": 1787731078.154416
+    },
+    {
+      "script": "main_af2_monomer.py",
+      "wall_s": 23.755,
+      "t0": 1787731078.1548526,
+      "t1": 1787731101.9098527
+    }
+  ],
+  "subprocess_overlaps_gen": [],
+  "jax_counter_selftest": "ok",
+  "jax_selftest_calls": 1,
+  "counts": {
+    "pxd_predict": 1,
+    "pxdbench_subprocesses": 3,
+    "af2_complex_calls": 1,
+    "af2_monomer_calls": 1,
+    "jnp_add": 1
+  },
+  "module_census": {
+    "gen_device": {
+      "AtomAttentionEncoder": 2,
+      "AttentionPairBias": 27,
+      "AdaptiveLayerNorm": 65,
+      "OpenFoldLayerNorm": 169,
+      "Attention": 27,
+      "AtomAttentionDecoder": 1
+    }
+  },
+  "kernel_env_at_end": {
+    "DEEPSPEED_EVO": "true",
+    "LAYERNORM_TYPE": "fast_layernorm",
+    "CUTLASS_PATH": "/work/cutlass"
+  },
+  "peak_vram_alloc_B": 2230989824,
+  "peak_vram_reserved_B": 2346713088,
+  "compute_apps_after": [
+    "3297967, 110276 MiB"
+  ],
+  "gpu_exclusive": true,
+  "env": {
+    "pxdesign": "0.1.0",
+    "protenix": "0.5.0+pxd",
+    "pxdbench": "0.1.2",
+    "torch": "2.3.1",
+    "jax": "0.4.29",
+    "jaxlib": "0.4.29",
+    "deepspeed": "0.15.4",
+    "numpy": "1.26.3",
+    "transformers": "4.51.3",
+    "dm-haiku": "0.0.13",
+    "optax": "0.2.5",
+    "biotite": "1.0.1",
+    "rdkit": "2026.3.5",
+    "colabdesign": "1.1.3",
+    "torch_version": "2.3.1",
+    "torch_cuda": "12.1",
+    "cudnn": 8902,
+    "gpu": "NVIDIA H200",
+    "gpu_capability": [
+      9,
+      0
+    ],
+    "jax_platform": "gpu",
+    "jax_devices": "[cuda(id=0)]",
+    "env_DEEPSPEED_EVO": "true",
+    "env_LAYERNORM_TYPE": "fast_layernorm",
+    "env_CUTLASS_PATH": "/work/cutlass",
+    "env_TOOL_WEIGHTS_ROOT": "/work/tool_weights",
+    "env_PROTENIX_DATA_ROOT_DIR": "/work/release_data/ccd_cache",
+    "env_CUDA_VISIBLE_DEVICES": null,
+    "nvidia_smi": "NVIDIA H200, 580.159.03, 700.00 W, 143771 MiB"
+  },
+  "unattributed_s": 1.0638,
+  "split": {
+    "pxdesign_d_s": 27.151,
+    "protenix_s": 0.0,
+    "af2ig_s": 59.455,
+    "proteinmpnn_s": 10.3302,
+    "host_data_s": 30.8718
+  },
+  "split_pct": {
+    "pxdesign_d_pct": 21.24,
+    "protenix_pct": 0.0,
+    "af2ig_pct": 46.52,
+    "proteinmpnn_pct": 8.08,
+    "host_data_pct": 24.15
+  },
+  "s_per_design": 127.808,
+  "validation": {
+    "ok": true,
+    "why": [],
+    "design_dir": "/work/out/laczc512_prev_n1_A0_rep1/design_outputs/laczc_512_nomsa",
+    "n_generated_cif": 1,
+    "n_atoms_per_design": [
+      4430
+    ],
+    "nonfinite_coord_tokens": 0,
+    "summary_csv": "/work/out/laczc512_prev_n1_A0_rep1/design_outputs/laczc_512_nomsa/summary.csv",
+    "summary_rows": 1,
+    "columns": [
+      "rank",
+      "task_name",
+      "sequence",
+      "AF2-IG-easy-success",
+      "AF2-IG-success",
+      "af2_plddt",
+      "af2_ptm",
+      "af2_iptm",
+      "af2_pAE",
+      "af2_ipAE",
+      "af2_monomer_plddt",
+      "af2_monomer_ptm",
+      "af2_monomer_pAE",
+      "af2_bound_unbound_RMSD",
+      "af2_binder_pred_design_rmsd",
+      "af2_complex_pred_design_rmsd",
+      "alpha",
+      "beta",
+      "loop",
+      "Rg",
+      "chosen_struct_type",
+      "chosen_struct_path"
+    ],
+    "metrics": {
+      "af2_plddt": {
+        "min": 0.93,
+        "median": 0.93,
+        "max": 0.93,
+        "n": 1
+      },
+      "af2_ptm": {
+        "min": 0.73,
+        "median": 0.73,
+        "max": 0.73,
+        "n": 1
+      },
+      "af2_iptm": {
+        "min": 0.18,
+        "median": 0.18,
+        "max": 0.18,
+        "n": 1
+      },
+      "af2_ipAE": {
+        "min": 27.31,
+        "median": 27.31,
+        "max": 27.31,
+        "n": 1
+      },
+      "af2_monomer_plddt": {
+        "min": 0.955,
+        "median": 0.955,
+        "max": 0.955,
+        "n": 1
+      },
+      "af2_bound_unbound_RMSD": {
+        "min": 0.51,
+        "median": 0.51,
+        "max": 0.51,
+        "n": 1
+      },
+      "af2_binder_pred_design_rmsd": {
+        "min": 0.77,
+        "median": 0.77,
+        "max": 0.77,
+        "n": 1
+      },
+      "af2_complex_pred_design_rmsd": {
+        "min": 19.08,
+        "median": 19.08,
+        "max": 19.08,
+        "n": 1
+      },
+      "alpha": {
+        "min": 0.925,
+        "median": 0.925,
+        "max": 0.925,
+        "n": 1
+      },
+      "beta": {
+        "min": 0.0,
+        "median": 0.0,
+        "max": 0.0,
+        "n": 1
+      },
+      "loop": {
+        "min": 0.075,
+        "median": 0.075,
+        "max": 0.075,
+        "n": 1
+      },
+      "Rg": {
+        "min": 13.57,
+        "median": 13.57,
+        "max": 13.57,
+        "n": 1
+      }
+    },
+    "filters": {
+      "AF2-IG-easy-success": 0,
+      "AF2-IG-success": 0
+    },
+    "sequences": [
+      "SPEREALIARLRELTAALLARAAELAAKASPEERARLERLVEYLRARVARLVAGVEAGDPEAIEAARRLVRRLEATLAAL"
+    ],
+    "seq_lengths": [
+      80
+    ],
+    "task_info": {
+      "mode": "Preview"
+    }
+  }
+}

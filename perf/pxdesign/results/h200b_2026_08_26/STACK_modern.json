@@ -1,0 +1,27 @@
+{
+ "torch": "2.7.1+cu128",
+ "triton": "3.4.0",
+ "protenix": "0.5.0+pxd",
+ "pxdbench": "0.1.2",
+ "pxdesign": "0.1.0",
+ "jax": null,
+ "jaxlib": null,
+ "deepspeed": "0.15.4",
+ "numpy": "1.26.3",
+ "transformers": "4.51.3",
+ "biotite": "1.0.1",
+ "rdkit": "2026.3.5",
+ "colabdesign": null,
+ "torch_version": "2.7.1+cu128",
+ "torch_cuda": "12.8",
+ "cudnn": 90701,
+ "gpu": "NVIDIA H200",
+ "gpu_capability": [
+  9,
+  0
+ ],
+ "cpu": "Model name:                              Intel(R) Xeon(R) Platinum 8480+",
+ "cgroup_cpu_max": "2687999 100000",
+ "nproc_visible": 224,
+ "triton_note": "raised to 3.4.0 after the setup run: pip walked it back to torch 2.7.1s own triton==3.3.1 pin during the numpy/deepspeed installs that followed it. 3.3.1 is the version whose CUDA launcher hangs on sm_100."
+}
