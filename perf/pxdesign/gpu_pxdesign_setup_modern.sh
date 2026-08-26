@@ -60,6 +60,14 @@ apt-get update -qq && apt-get install -y -qq build-essential git wget curl aria2
 echo "--- gcc $(gcc --version | head -1)  nvidia-smi: $(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader)"
 
 PY=${PY:-$(command -v python3)}
+# The image ships torchvision (and torchaudio) built against its own torch 2.3.1, and raising torch
+# leaves them ABI-broken. Nothing here uses them, but transformers imports torchvision opportunistically
+# and the breakage surfaces as a circular-import AttributeError six frames inside
+# transformers.models.esm.modeling_esmfold, which reads like a transformers problem and is not one.
+# Measured: the A100 and B200 boxes both died there; the H200 did not, because its modern stack is a
+# clean venv that never had torchvision. Remove them so every box's stack is the same one.
+$PY -m pip uninstall -y -q torchvision torchaudio 2>/dev/null || true
+
 echo "--- python: $PY ($($PY -V 2>&1))"
 $PY -m pip install -q --upgrade pip || FAIL "pip"
 
