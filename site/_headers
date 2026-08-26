@@ -1,5 +1,7 @@
-# Cloudflare Pages edge caching. Content-stable assets are cached hard; the
-# stylesheet and the pages themselves stay short so a deploy is visible.
+# Cloudflare Pages edge caching. Every asset the HTML references carries a ?v=
+# content stamp (scripts/stamp_assets.py), so a changed file is a changed URL and
+# these can be cached hard without a deploy ever being invisible. The pages
+# themselves carry no stamp, so they stay short.
 /assets/*.woff2
   Cache-Control: public, max-age=31536000, immutable
   Access-Control-Allow-Origin: *
@@ -8,13 +10,13 @@
 /assets/*.jpg
   Cache-Control: public, max-age=2592000
 /assets/*.ico
-  Cache-Control: public, max-age=2592000
+  Cache-Control: public, max-age=31536000, immutable
 /assets/*.png
-  Cache-Control: public, max-age=2592000
+  Cache-Control: public, max-age=31536000, immutable
 /assets/*.svg
-  Cache-Control: public, max-age=2592000
+  Cache-Control: public, max-age=31536000, immutable
 /assets/site.css
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=31536000, immutable
 /data/*
   Cache-Control: public, max-age=600
 /*

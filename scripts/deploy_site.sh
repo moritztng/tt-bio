@@ -14,6 +14,8 @@ set -a; . "$HOME/.coworker/cloudflare.env"; set +a
 
 # A model reaches tt-bio.com only when every processor column is measured. A half-measured row
 # still draws its bars, so this refuses the deploy rather than publishing a partial claim.
+echo "==> asset stamps"
+python3 "$(dirname "${BASH_SOURCE[0]}")/stamp_assets.py" --check
 echo "==> publish guard"
 python3 "$(dirname "${BASH_SOURCE[0]}")/site_publish_guard.py"
 
