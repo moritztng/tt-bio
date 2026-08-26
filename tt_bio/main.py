@@ -3564,9 +3564,12 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
               show_default=False, help="Weight cache directory (default: $BOLTZ_CACHE or ~/.boltz). "
                    "Both models auto-download their checkpoints here on first use.")
 @click.option("--num_designs", default=None, type=int,
-              help="Designs to generate. Default: 10000 in total (boltzgen) or 1 per spec "
+              help="Designs to generate. Default: 10000 in total (boltzgen), 1 per spec "
                    "(rfd3; each design gets noise seed --seed + design_idx, written as "
-                   "<spec_id>.cif when 1 else <spec_id>_<i>.cif).")
+                   "<spec_id>.cif when 1 else <spec_id>_<i>.cif), or 1 (pxdesign, where it is "
+                   "also the batch axis: every requested design comes from one batched "
+                   "diffusion trajectory, and 8 at a time runs about 1.25x faster per design "
+                   "than 1; past 8 it gets slower again).")
 @click.option("--devices", "--device_ids", "devices", default=None,
               help="Comma-separated physical TT card ids to fan the designs across, e.g. "
                    "'0,1,2,3' (data-parallel, the same pattern `tt-bio predict` uses). "
