@@ -7,7 +7,8 @@
 # on the QuietBoxes, hence curl. Same problem the GPU-reference task hit and solved with
 # aria2c -x16.
 #
-# Usage: fetch_release_data.sh <dest_dir> [name ...]     (default: all checkpoints)
+# Usage: [PYTHON=/path/to/python] fetch_release_data.sh <dest_dir> [name ...]
+#        (default: all checkpoints; PYTHON must import torch for the .pt integrity check)
 set -u
 DEST="${1:?usage: fetch_release_data.sh <dest_dir> [name ...]}"; shift || true
 BASE=https://pxdesign.tos-cn-beijing.volces.com
@@ -42,7 +43,15 @@ for name in "${NAMES[@]}"; do
   for ((i=0;i<N;i++)); do
     s=$(( i * chunk )); e=$(( s + chunk - 1 )); [ $e -ge $total ] && e=$(( total - 1 ))
     [ $s -gt $e ] && continue
-    curl -s --retry 20 --retry-delay 5 --retry-all-errors -C - -r "$s-$e" "$url" -o "$(printf "%s.part%03d" "$out" "$i")" &
+    part=$(printf "%s.part%03d" "$out" "$i")
+    want=$(( e - s + 1 ))
+    # Resume granularity is one whole part, deliberately. `curl -C -` OVERRIDES `-r`: given
+    # both, curl drops the range and refetches from the local size to EOF, so every one of the
+    # 16 "resumed" ranges pulls the entire object. Measured 2026-08-27 on this file: 16 parts of
+    # ~1.47 GB each, 29 GB written for a 1.47 GB download, and the reassembly is garbage. So no
+    # -C, and a part is either already exactly its range or fetched again from scratch.
+    [ -f "$part" ] && [ "$(stat -c%s "$part")" = "$want" ] && continue
+    curl -s --retry 20 --retry-delay 5 --retry-all-errors -r "$s-$e" "$url" -o "$part" &
     pids+=($!)
   done
   for p in "${pids[@]}"; do wait "$p"; done
@@ -79,7 +88,11 @@ assert ids == sorted(ids), "CCD block ids are out of order: parts reassembled wr
       what="CCD block order" ;;
     *) check='import sys'; what="nothing (unknown format)" ;;
   esac
-  if ! python3 -c "$check" "$out"; then
+  # $PYTHON, not a bare python3: the *.pt branch needs torch, and the box's system python3
+  # does not have it. A missing interpreter dep made a byte-perfect 1474265486-byte download
+  # report "[FAIL] ... corrupt reassembly" (2026-08-27), which is the most expensive possible
+  # way to be wrong -- it invites a re-download of a file that was already correct.
+  if ! "${PYTHON:-python3}" -c "$check" "$out"; then
     echo "[FAIL] $name is $got bytes but $what failed -- corrupt reassembly" >&2; exit 1
   fi
   echo "[done] $name $got bytes, $what ok"
