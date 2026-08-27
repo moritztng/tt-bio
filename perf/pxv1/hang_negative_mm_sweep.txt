@@ -1,0 +1,28 @@
+K=256 N=128 rc=0 iters=30/30 watcher_NSW_CRBW_lines=0
+0
+K=512 N=256 rc=0 iters=30/30 watcher_NSW_CRBW_lines=0
+0
+K=256 N=256 rc=0 iters=30/30 watcher_NSW_CRBW_lines=0
+0
+K=512 N=128 rc=0 iters=30/30 watcher_NSW_CRBW_lines=0
+0
+SWEEP DONE 2026-08-27T11:55:20+02:00
+
+NINTH NEGATIVE (2026-08-27 11:52-11:55). Bare ttnn.linear at the pair-cond shapes, in FLOAT32
+(the real dtype -- the earlier bare attempt's bf16 was a defect), on CORE_GRID_MAIN, WITH
+TT_METAL_WATCHER=10 armed, 30 iterations each, one process per shape:
+
+    K=256 N=128   protenix-v1's exact shape (K 8 tiles, out 4)    30/30 clean
+    K=512 N=256   protenix-v2's shape       (K 16 tiles, out 8)   30/30 clean
+    K=256 N=256   isolates the output width                       30/30 clean
+    K=512 N=128   isolates K                                      30/30 clean
+
+Zero NSW,CRBW waypoints in any watcher log. So the multicast deadlock does NOT reproduce from
+shape + dtype + grid alone, and the plan of extracting a self-contained upstream-fileable ttnn
+repro FAILS on this evidence. The deadlock needs the real fold's context.
+
+The specific remaining difference, and the next thing to test: in the real fold `zc` is a
+ttnn.layer_norm OUTPUT, whose memory config / layout may differ from a fresh from_torch upload,
+and ttnn selects its matmul program config from that. A different program config means a
+different multicast pattern, which is exactly what the watcher says is deadlocking. Capture the
+real zc's memory_config in the fold (env-gated print) and replicate it here.
