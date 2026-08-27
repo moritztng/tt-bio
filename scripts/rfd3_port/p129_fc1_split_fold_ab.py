@@ -35,6 +35,7 @@ denominator (`pc-card0-512aa-fold-nondeterminism`).
 import json
 import os
 import pathlib
+import socket
 import sys
 
 sys.path.insert(0, os.getcwd())
@@ -135,7 +136,10 @@ def main():
                   out=out, steps=steps, arms=arms, tag="p129_%s" % rung,
                   predicted_delta_s=PREDICTED.get(rung),
                   extra={"rung": rung, "tokens": tokens, "site_plan": plans,
-                         "provisional_on": "pc-card0", "expect_no_site": expect_no_site,
+                         "provisional_on": ("pc-card0" if socket.gethostname() == "pc" else None),
+                         "measured_on": "%s card%s" % (socket.gethostname(),
+                                                        os.environ.get("TT_VISIBLE_DEVICES", "?")),
+                         "expect_no_site": expect_no_site,
                          "l1_bytes": l1_bytes or rfd3_model._PAIR_TRANSITION_L1_BYTES})
 
     served, declines = dict(rfd3_model.FC1SERVED), dict(rfd3_model.FC1DECLINES)
