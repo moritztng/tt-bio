@@ -2098,7 +2098,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     one-size-fits-all mistake this whole arm exists to catch, in the arm itself.
     """
     levers, runtimes, census_jsons = {}, {}, {}
-    sigma, grid = None, None
+    sigma, grid, drift = None, None, []
     for rung in rungs:
         reps = reps_512 if rung == 512 else reps_other
         runs = []
@@ -2119,11 +2119,18 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                 continue          # cold: kernels for this shape compile on this fold
             grid = grid or r.get("grid")
             runs.append(r)
-        counts = [{f: (l["served"], l["declined"]) for f, l in r["levers"].items()}
-                  for r in runs]
-        if any(c != counts[0] for c in counts[1:]):
-            print(f"  [size-ladder] WARNING: {model}/{rung} census counts differ "
-                  f"across reps — counts were assumed deterministic", flush=True)
+        # Served/declined AND the reject-clause key set, because those are exactly the two
+        # things `_size_ladder_compare_levers` reads. A rep-to-rep difference in either means
+        # the census is measuring something that is not a property of the computation, and a
+        # baseline written from run 0 then makes that transient the release reference.
+        counts = [{f: (l["served"], l["declined"],
+                       tuple(sorted((l.get("rejects") or {}))))
+                   for f, l in r["levers"].items()} for r in runs]
+        for f in counts[0]:
+            if len({c.get(f) for c in counts}) > 1:
+                drift.append(f"{model}/{rung} {f}: " + " vs ".join(
+                    "{}/{} [{}]".format(c[f][0], c[f][1], ",".join(c[f][2]))
+                    for c in counts))
         levers[str(rung)] = runs[0]["levers"]
         census_jsons[str(rung)] = runs[0]["census_json"]
         ts = [r["runtime_s"] for r in runs]
@@ -2131,7 +2138,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         if rung == 512 and len(ts) > 1:
             sigma = statistics.stdev(ts) / statistics.mean(ts)
     return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
-            "census_jsons": census_jsons, "grid": grid}
+            "census_jsons": census_jsons, "grid": grid, "drift": drift}
 
 
 def _size_ladder_exponent_block(runtimes: dict, sigma):
@@ -2505,6 +2512,18 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             if meas.get("error"):
                 legs.append({"model": m, "gate": False, "error": meas["error"],
                              "findings": [meas["error"]]})
+                continue
+            if meas.get("drift"):
+                # REFUSE, do not record. This used to print a warning and record run 0 anyway,
+                # which is how a census that does not reproduce becomes a release reference:
+                # nesso1/256 recorded a `l1_dest_is_faster:288x288x128` reject clause that no
+                # later fold reproduced, and the check then failed against the baseline the
+                # record run had just written. A baseline the recording card cannot itself
+                # reproduce is not evidence, so the honest outcome is no entry at all.
+                err = ("census does not reproduce across reps, so no baseline was recorded: "
+                       + "; ".join(meas["drift"]))
+                print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
+                legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
                 continue
             block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
             todos += _size_ladder_fill_reasons(meas["levers"],
