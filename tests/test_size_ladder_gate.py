@@ -179,6 +179,33 @@ def test_same_grid_still_compares(rg):
     assert _check(rg, dict(BASE_RUNTIME), base=base, grid="13x10")["gate"] is True
 
 
+def test_a_new_lever_no_ladder_model_imports_is_not_a_finding(rg):
+    """Registering a model-scoped lever in the shared census is an instrument change, but an
+    instrument change with nothing to record: `collect()` emits a row for every entry in
+    `LEVERS`, so RFD3's two fusion levers appear at every rung of every ladder model reading
+    `not-imported`. Reporting that as drift would demand 32 census folds to write 64 rows that
+    all say the same nothing. The loop above already refuses to compare a not-imported lever the
+    baseline DOES know about; this is the same case from the other side."""
+    base = _baseline()
+    cur = {r: dict(base["levers"][str(r)],
+                   RFD3_SOFTMAX_PV_FUSED={"resolved": "not-imported", "served": None,
+                                          "declined": None, "frac": None, "how": "stats"})
+           for r in RUNGS}
+    for r in RUNGS:
+        assert rg._size_ladder_compare_levers(base["levers"][str(r)], cur[r], f"{r}aa") == []
+
+
+def test_a_new_lever_a_ladder_model_DOES_import_is_still_a_finding(rg):
+    """The other half of the same rule: a lever that resolved means it was measured, and a
+    measurement the baseline has never seen is exactly what re-recording is for."""
+    base = _baseline()
+    cur = dict(base["levers"][str(RUNGS[0])],
+               SOME_NEW_LEVER={"resolved": "True", "served": 10, "declined": 0, "frac": 1.0,
+                               "how": "stats"})
+    findings = rg._size_ladder_compare_levers(base["levers"][str(RUNGS[0])], cur, "256aa")
+    assert findings and any("new lever not in the baseline" in f for f in findings)
+
+
 def test_size_ladder_is_in_the_default_arm_set(rg):
     """The whole point: a release runs it without anyone remembering to."""
     src = (REPO_ROOT / "scripts" / "release_gate.py").read_text()
