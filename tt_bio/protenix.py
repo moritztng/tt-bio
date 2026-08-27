@@ -1782,6 +1782,27 @@ PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 *
 PAIRCOND_MM_NARROW_MAX_TILES = 4
 
 
+def paircond_mm_kw(compute_kernel_config, dtype, out_width):
+    """ttnn.linear kwargs for a diffusion pair-conditioning projection.
+
+    ONE place decides the ``core_grid`` policy for every projection in that branch, because the
+    deadlock is a property of the WIDTH plus a forced grid, not of one call site. The pair-cond
+    has four such projections -- relpe, the OpenDDE z_trunk compression (twice: plain and
+    blocked), and linear_no_bias_z (twice: plain and blocked) -- and all of them are 128 wide,
+    i.e. 4 tiles, on N*N rows. A fix applied to only the one that happened to be caught hanging
+    would leave the same projection behaving differently depending on which block-size branch it
+    took, which is how a point patch becomes the next bug.
+
+    ``out_width`` is the projection's output channel count (the weight's dim 0 before the
+    transpose that ttnn.linear wants).
+    """
+    kw = dict(compute_kernel_config=compute_kernel_config, dtype=dtype)
+    narrow = (int(out_width) // 32) <= PAIRCOND_MM_NARROW_MAX_TILES
+    if not narrow or env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
+        kw["core_grid"] = CORE_GRID_MAIN
+    return kw
+
+
 def _pz_cond_probe(pz, z_in_sha):
     """TT_PROTENIX_PZPROBE=<dir> (default off): attribute run-to-run pair_z divergence.
     Reads the just-written device pz back TWICE and records shas of the z_trunk input and
@@ -2035,9 +2056,10 @@ class Protenix:
                                        "pcdbg_markers.log"), "a") as _f:
                     _f.write(f"{tag} done\n")
 
-        relpe = ttnn.linear(T(relp), T(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
-                            compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
-                            core_grid=CORE_GRID_MAIN)
+        _w_relpe = self._w[C + "relpe.linear_no_bias.weight"]
+        relpe = ttnn.linear(T(relp), T(_w_relpe.t().contiguous()),
+                            **paircond_mm_kw(self.compute_kernel_config,
+                                             self.diffusion.dtype, _w_relpe.shape[0]))
         _sync("relpe linear")
         if self.diffusion._diffusion_fp32:
             z_trunk_tt = ttnn.typecast(z_trunk_tt, self.diffusion.dtype)
@@ -2057,17 +2079,19 @@ class Protenix:
                 if C + "linear_no_bias_z_trunk.weight" in self._w:
                     zn = ttnn.layer_norm(zt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                          epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-                    zt = ttnn.linear(zn, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
-                                     compute_kernel_config=self.compute_kernel_config,
-                                     dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+                    _w_zt = self._w[C + "linear_no_bias_z_trunk.weight"]
+                    zt = ttnn.linear(zn, T(_w_zt.t().contiguous()),
+                                     **paircond_mm_kw(self.compute_kernel_config,
+                                                      self.diffusion.dtype, _w_zt.shape[0]))
                     ttnn.deallocate(zn)
                 zc = ttnn.concat([zt, relpe[s:e]], dim=-1)
                 ttnn.deallocate(zt)
                 zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                                      compute_kernel_config=self.compute_kernel_config)
-                pb = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
-                                 compute_kernel_config=self.compute_kernel_config,
-                                 dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+                _w_zb = self._w[C + "linear_no_bias_z.weight"]
+                pb = ttnn.linear(zc, T(_w_zb.t().contiguous()),
+                                 **paircond_mm_kw(self.compute_kernel_config,
+                                                  self.diffusion.dtype, _w_zb.shape[0]))
                 ttnn.deallocate(zc)
                 blocks.append(torch.Tensor(ttnn.to_torch(pb)))
                 ttnn.deallocate(pb)
@@ -2083,9 +2107,10 @@ class Protenix:
         if C + "linear_no_bias_z_trunk.weight" in self._w:
             zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-            z_trunk_tt = ttnn.linear(zt, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
-                                     compute_kernel_config=self.compute_kernel_config,
-                                     dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+            _w_zt2 = self._w[C + "linear_no_bias_z_trunk.weight"]
+            z_trunk_tt = ttnn.linear(zt, T(_w_zt2.t().contiguous()),
+                                     **paircond_mm_kw(self.compute_kernel_config,
+                                                      self.diffusion.dtype, _w_zt2.shape[0]))
             _sync("z_trunk LN+proj")
         zc = ttnn.concat([z_trunk_tt, relpe], dim=-1)
         _sync("concat")
@@ -2097,12 +2122,9 @@ class Protenix:
         # A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old unconditional
         # behaviour, which is how the A/B arms were taken and how a regression would be bisected.
         _w_z = self._w[C + "linear_no_bias_z.weight"]
-        _narrow = (int(_w_z.shape[0]) // 32) <= PAIRCOND_MM_NARROW_MAX_TILES
-        _mm_kw = dict(compute_kernel_config=self.compute_kernel_config,
-                      dtype=self.diffusion.dtype)
-        if not _narrow or env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
-            _mm_kw["core_grid"] = CORE_GRID_MAIN
-        pz = ttnn.linear(zc, T(_w_z.t().contiguous()), **_mm_kw)
+        pz = ttnn.linear(zc, T(_w_z.t().contiguous()),
+                         **paircond_mm_kw(self.compute_kernel_config,
+                                          self.diffusion.dtype, _w_z.shape[0]))
         _sync("linear_z")
         # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
         # (the 3D path doesn't chunk pair tensors -> OOM at large N).

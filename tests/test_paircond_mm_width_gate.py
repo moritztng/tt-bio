@@ -14,12 +14,13 @@ Host-only: it asserts on the threshold, no device and no checkpoint load.
 """
 import pytest
 
-from tt_bio.protenix import PAIRCOND_MM_NARROW_MAX_TILES
+from tt_bio.protenix import PAIRCOND_MM_NARROW_MAX_TILES, paircond_mm_kw
 
 
 def _forces_grid(out_width: int) -> bool:
-    """Mirror of the branch in Protenix._diffusion_pair_cond."""
-    return (out_width // 32) > PAIRCOND_MM_NARROW_MAX_TILES
+    """Ask the real helper, not a copy of its logic: a test that reimplements the branch it is
+    guarding passes just as happily when the branch is deleted."""
+    return "core_grid" in paircond_mm_kw(None, None, out_width)
 
 
 # (checkpoint, linear_no_bias_z output width) read from the real weights, 2026-08-27:
@@ -49,3 +50,24 @@ def test_boundary_is_exclusive_at_the_threshold():
     the part a refactor is most likely to invert."""
     assert _forces_grid(4 * 32) is False
     assert _forces_grid(5 * 32) is True
+
+
+def test_every_paircond_projection_goes_through_the_helper():
+    """No forced core_grid may survive inside _diffusion_pair_cond.
+
+    The first version of this fix patched only `linear_no_bias_z` on the unblocked path and left
+    four other 128-wide projections in the same function forcing the grid -- including the SAME
+    projection on the blocked path, so one call hung and its twin did not. This asserts on the
+    source so that regression cannot come back quietly.
+    """
+    import inspect
+
+    from tt_bio.protenix import Protenix
+
+    src = inspect.getsource(Protenix._diffusion_pair_cond)
+    assert "core_grid=CORE_GRID_MAIN" not in src, (
+        "a pair-cond projection forces core_grid directly instead of going through "
+        "paircond_mm_kw(); the width gate must be one mechanism in one place")
+    # and every projection in there really does route through the helper
+    assert src.count("paircond_mm_kw(") >= 5, (
+        f"expected >=5 paircond_mm_kw call sites, found {src.count('paircond_mm_kw(')}")

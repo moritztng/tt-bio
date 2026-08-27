@@ -1,0 +1,20 @@
+UNIFIED FIX (all five pair-cond projections through one helper) -- verification 13:29-13:44.
+
+Which sites changed, per checkpoint, by output width:
+    protenix-v1   relpe 4t CHANGED   z_trunk absent    linear_z 4t CHANGED    2 sites
+    protenix-v2   relpe 8t kept      z_trunk absent    linear_z 8t kept       0 sites
+    opendde       relpe 4t CHANGED   z_trunk 4t CHANGED linear_z 4t CHANGED   3 sites
+
+protenix-v1:
+    hang    8/8 folds clean (8-copy worker reproducer)
+    parity  PASS  X=1.713 R=1.840 D=1.762 within=True [reproduces committed 1.714]
+    perf    19.535 s/fold  spread 0.18%   vs 19.542 point-fix, 19.555 pre-fix (-0.10%)
+
+opendde -- identical numbers across ALL THREE configurations:
+    release_gate leg   forced-grid 1.417/0.943 | point fix 1.417/0.943 | unified 1.417/0.943
+    parity leg         point fix X=6.067 R=1.499 D=4.882 | unified X=6.067 R=1.499 D=4.882
+                       both PASS, 'improves committed GAP-evidenced -- not a drift'
+
+protenix-v2: zero changed sites. Every one of its pair-cond projections is 8 tiles wide,
+so it keeps the forced grid everywhere and its device path is unchanged. That is now a
+statement about measured widths rather than about one branch condition.
