@@ -1,0 +1,130 @@
+{
+  "flag": "RFD3_FC1_SPLIT_SILU",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 96.74,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "sampler_s": 96.958,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 2,
+      "sampler_s": 93.883,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 8778,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "sampler_s": 97.795,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 4,
+      "sampler_s": 95.244,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 8778,
+      "steps": 200
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "arms": [
+    "off",
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 102.415,
+  "bit_exact": true,
+  "digests": {
+    "off": [
+      "5295e526ebd0b757"
+    ],
+    "on": [
+      "5295e526ebd0b757"
+    ]
+  },
+  "aa_control_s": [
+    96.74,
+    96.958
+  ],
+  "aa_spread_s": 0.21800000000000352,
+  "off_median_s": 96.958,
+  "off_min_s": 96.74,
+  "off_max_s": 97.795,
+  "on_median_s": 94.5635,
+  "on_min_s": 93.883,
+  "on_max_s": 95.244,
+  "delta_s": -2.394,
+  "ratio": 1.0253,
+  "delta_inside_aa_band": false,
+  "predicted_delta_s": -5.0,
+  "card": 1,
+  "torch": "2.12.0+cu130",
+  "rung": "R4",
+  "tokens": 685,
+  "site_plan": {
+    "512": {
+      "tokens": 685,
+      "hidden": 512,
+      "w_pad": 704,
+      "chunked": true,
+      "chunk_h_off": 64,
+      "chunk_h_on": 64,
+      "chunk_h_third_resident": 63,
+      "n_chunks_off": 11,
+      "n_chunks_on": 11,
+      "fc1_output_in_l1": false,
+      "chunk_count_kept": true
+    },
+    "256": {
+      "tokens": 685,
+      "hidden": 256,
+      "w_pad": 704,
+      "chunked": true,
+      "chunk_h_off": 64,
+      "chunk_h_on": 64,
+      "chunk_h_third_resident": 64,
+      "n_chunks_off": 11,
+      "n_chunks_on": 11,
+      "fc1_output_in_l1": true,
+      "chunk_count_kept": false
+    }
+  },
+  "provisional_on": null,
+  "measured_on": "tt-quietbox2 card1",
+  "expect_no_site": false,
+  "l1_bytes": 138000000,
+  "fc1_served": {
+    "rows=64 w=704 hidden=256": 15960,
+    "rows=45 w=704 hidden=256": 1596
+  },
+  "fc1_declines": {
+    "tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63": 1596
+  },
+  "tune_matmul": true
+}

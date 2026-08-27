@@ -1,0 +1,166 @@
+{
+  "host": "tt-quietbox2",
+  "card": "1",
+  "grid": [
+    11,
+    10
+  ],
+  "torch": "2.12.0+cu130",
+  "calls_per_step": 9,
+  "steps_per_design": 199,
+  "fold_measured_ms_per_step_R3": 6.3,
+  "cost_model_predicted_ms_per_step_R3": 16.6,
+  "shapes": [
+    {
+      "label": "R3",
+      "shape": [
+        1,
+        4,
+        4558,
+        4576,
+        32
+      ],
+      "pv_classify_ok": true,
+      "n_per_loop": 10,
+      "reps": 5,
+      "arms": {
+        "A_softmax_write_bf16": {
+          "ms": 2.7187,
+          "min": 2.7175,
+          "max": 2.7234,
+          "spread": 0.0022,
+          "mb_moved": 477.4,
+          "achieved_gb_s": 171.5
+        },
+        "B_softmax_write_fp32": {
+          "ms": 3.018,
+          "min": 3.0159,
+          "max": 3.022,
+          "spread": 0.002,
+          "mb_moved": 636.5,
+          "achieved_gb_s": 206.0
+        },
+        "C_fused_softmax_pv": {
+          "ms": 2.582,
+          "min": 2.5816,
+          "max": 2.5823,
+          "spread": 0.0003,
+          "mb_moved": 320.5,
+          "achieved_gb_s": 121.2
+        },
+        "D_attn_value_matmul": {
+          "ms": 0.5159,
+          "min": 0.5147,
+          "max": 0.5214,
+          "spread": 0.0131,
+          "mb_moved": 161.4,
+          "achieved_gb_s": 305.4
+        },
+        "E_roof_typecast": {
+          "ms": 1.1323,
+          "min": 1.1277,
+          "max": 1.136,
+          "spread": 0.0073,
+          "mb_moved": 477.4,
+          "achieved_gb_s": 411.7
+        },
+        "F_ttnn_empty": {
+          "ms": 0.0031,
+          "min": 0.003,
+          "max": 0.0038,
+          "spread": 0.2551,
+          "mb_moved": 0.0,
+          "achieved_gb_s": null
+        }
+      },
+      "shipped_chain_ms_per_call": 3.2377,
+      "fused_ms_per_call": 2.582,
+      "isolated_prize_ms_per_call": 0.6557,
+      "isolated_prize_ms_per_step": 5.901,
+      "isolated_prize_s_per_design": 1.174,
+      "write_price_ms": 0.2993,
+      "write_price_mb": 159.1,
+      "write_price_gb_s": 519.2,
+      "roof_gb_s": 411.7,
+      "implied_macfree_normalise_ms": 2.4194,
+      "mac_added_cost_ms": 0.1626,
+      "mac_added_cost_note": "C - (A - (B-A)); assumes the write's price is linear in bytes, which B-A measures at one point only"
+    },
+    {
+      "label": "R4",
+      "shape": [
+        1,
+        4,
+        6051,
+        6080,
+        32
+      ],
+      "pv_classify_ok": true,
+      "n_per_loop": 10,
+      "reps": 5,
+      "arms": {
+        "A_softmax_write_bf16": {
+          "ms": 4.7433,
+          "min": 4.7429,
+          "max": 4.748,
+          "spread": 0.0011,
+          "mb_moved": 842.1,
+          "achieved_gb_s": 173.4
+        },
+        "B_softmax_write_fp32": {
+          "ms": 5.2787,
+          "min": 5.2762,
+          "max": 5.2877,
+          "spread": 0.0022,
+          "mb_moved": 1122.7,
+          "achieved_gb_s": 207.7
+        },
+        "C_fused_softmax_pv": {
+          "ms": 4.4027,
+          "min": 4.3987,
+          "max": 4.4051,
+          "spread": 0.0014,
+          "mb_moved": 564.3,
+          "achieved_gb_s": 125.2
+        },
+        "D_attn_value_matmul": {
+          "ms": 0.773,
+          "min": 0.7717,
+          "max": 0.7806,
+          "spread": 0.0116,
+          "mb_moved": 283.6,
+          "achieved_gb_s": 358.3
+        },
+        "E_roof_typecast": {
+          "ms": 1.98,
+          "min": 1.9778,
+          "max": 1.9869,
+          "spread": 0.0046,
+          "mb_moved": 842.1,
+          "achieved_gb_s": 415.3
+        },
+        "F_ttnn_empty": {
+          "ms": 0.0027,
+          "min": 0.0024,
+          "max": 0.0086,
+          "spread": 2.3387,
+          "mb_moved": 0.0,
+          "achieved_gb_s": null
+        }
+      },
+      "shipped_chain_ms_per_call": 5.519,
+      "fused_ms_per_call": 4.4027,
+      "isolated_prize_ms_per_call": 1.1163,
+      "isolated_prize_ms_per_step": 10.047,
+      "isolated_prize_s_per_design": 1.999,
+      "write_price_ms": 0.5354,
+      "write_price_mb": 280.7,
+      "write_price_gb_s": 512.0,
+      "roof_gb_s": 415.3,
+      "implied_macfree_normalise_ms": 4.2079,
+      "mac_added_cost_ms": 0.1948,
+      "mac_added_cost_note": "C - (A - (B-A)); assumes the write's price is linear in bytes, which B-A measures at one point only"
+    }
+  ],
+  "verdict": "isolated screen at R3 pays 5.90 ms/step against the fold's 6.3 and the cost model's 16.6 -- the gap is in the COST MODEL, the screen and the fold agree"
+}
