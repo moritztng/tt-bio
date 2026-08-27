@@ -1836,9 +1836,17 @@ class Protenix:
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
         resolved_diffusion_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
                                    if diffusion_fp32 is None else diffusion_fp32)
-        # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8
-        # (s/z PCC 0.99), but bf8 in the coordinate-sensitive diffusion collapses the
-        # structure (Rg 4.7 vs 22). Capture the --fast intent, then build each stage at its
+        # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8, but bf8
+        # in the coordinate-sensitive diffusion collapses the structure (Rg 4.7 vs 22).
+        #
+        # "Tolerates" is per checkpoint, not per class -- the pair track is c_z wide and bf8
+        # costs more where it is narrower. Measured against the CPU reference on a 228-token
+        # 2-chain target: protenix-v2 (c_z 256) s/z PCC 0.99; protenix-v1 (c_z 128) s 0.99993
+        # but z_trunk 0.9892, i.e. marginally UNDER the 0.99 the v2 number states. End to end
+        # that ordering reverses, on a converged 117-aa MSA fold, --fast against default:
+        # protenix-v1 0.4378 A RMSD (pLDDT 0.7646 -> 0.8592), protenix-v2 2.6816 A
+        # (pLDDT 0.8810 -> 0.7525). So --fast is ~6x LESS disruptive on v1 than on the model
+        # that already ships it, and the trunk PCC alone would have said the opposite. Capture the --fast intent, then build each stage at its
         # own precision; fold() re-applies the per-stage flag (the trunk's triangle/transition
         # ops read _dtype() at RUNTIME, so the global flag must match the weights per stage).
         self._fast = _TT._FAST_MODE
@@ -2186,7 +2194,8 @@ class Protenix:
                              (nb, nq, nk, 16))
         # 3) trunk (bf8 under --fast: toggle the global flag ON so the trunk's triangle/
         #    transition runtime _dtype() matches its bf8 weights, then restore bf16 for the
-        #    coordinate-sensitive diffusion. Trunk tolerates bf8 (s/z PCC 0.99); diffusion does not.)
+        #    coordinate-sensitive diffusion. Trunk tolerates bf8; diffusion does not. The per-
+        #    checkpoint bf8 numbers are in __init__ -- z_trunk is 0.99 at c_z 256 and 0.9892 at 128.)
         import tt_bio.tenstorrent as _TT
         relp = feats["relp"] if "relp" in feats else self._generate_relp(feats)
         if self._fast:

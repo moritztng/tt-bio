@@ -92,12 +92,20 @@ def main():
     ap.add_argument("--ref", required=True)
     ap.add_argument("--ckpt", default=None)
     ap.add_argument("--threshold", type=float, default=0.99)
+    ap.add_argument("--fast", action="store_true",
+                    help="build the model under --fast (bf8 trunk), to score WHERE bf8 costs "
+                         "accuracy rather than only its end effect on the coordinates")
     args = ap.parse_args()
 
     torch.set_grad_enabled(False)
     from tt_bio import weights
     from tt_bio.protenix import Protenix
 
+    if args.fast:
+        # set BEFORE construction: __init__ captures _FAST_MODE and builds each stage at its
+        # own precision (bf8 trunk, bf16 elsewhere). Setting it afterwards changes nothing.
+        import tt_bio.tenstorrent as _TT
+        _TT.set_fast_mode(True)
     ckpt = args.ckpt or str(weights.fetch("protenix-v1"))
     feats = torch.load(args.feats, map_location="cpu", weights_only=False)["feats"]
     ref = torch.load(args.ref, map_location="cpu", weights_only=False)
@@ -106,6 +114,7 @@ def main():
     print("ref N=%d n_cycle=%d" % (N, ncyc))
 
     m = Protenix.load_from_checkpoint(ckpt)
+    print("FAST(bf8 trunk)=%s" % bool(args.fast))
     print("trunk c_z=%d n_cycles=%d tpl_blocks=%d msa=%d pf=%d"
           % (m.trunk.C_Z, m.trunk.N_CYCLES, len(m.trunk.TPL),
              len(getattr(m.trunk, "MSA", []) or []), len(m.trunk.PF.blocks)))
