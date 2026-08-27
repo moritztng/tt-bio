@@ -17,3 +17,13 @@ full cap and printed `trunk 3/4` with no `diffusion` line, rather than failing f
 
 Result: protenix-v2 4/4 clean, protenix-v1 1/4 clean. The hang follows the checkpoint, not
 the card. See state/protenix-v1-port.md sections 29-32.
+
+FOLLOW-UP 2026-08-27 10:18-10:35: the hang stopped reproducing. protenix-v1 folded 512 aa
+11 consecutive times cleanly (6 with no DRAM probe, 5 with TT_BIO_DRAM_PEAK set as an attempted
+reproducer), after 8 hangs in its first 16 folds the same morning, with no code change. So the
+per-fold rate is TIME-VARYING and the pooled rates above must not be quoted as a single
+probability. The v2-vs-v1 asymmetry still stands because it was measured interleaved inside one
+~8-minute window (v2 4/4 at 09:37-09:40 vs v1 1/4 at 09:42-09:45).
+
+No stack trace was captured: py-spy 0.4.2 was armed and waiting across 11 folds and none hung.
+Reproduction protocol for the next attempt is in state/protenix-v1-port.md section 44.
