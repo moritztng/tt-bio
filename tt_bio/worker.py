@@ -425,6 +425,33 @@ def _is_saprot_model(model_id: str) -> bool:
     return model_id in SAPROT_MODELS
 
 
+def _build_chain_specs(chains, msa_dir, cfg, protein_only: bool):
+    """(sequence, a3m text or None, mol_type) per chain, honouring --single_sequence.
+
+    ONE place, because this was two copies and both had the same hole. `--single_sequence` is
+    documented as "skip MSA entirely", and the MSA SEARCH above each call site already checks
+    the flag -- but `_resolve_a3m_text` has two other sources the search never touches: an a3m
+    the YAML pinned with `msa:`, and one already cached under msa_dir for this sequence hash.
+    Neither call site checked the flag here, so on any target with an MSA from either source
+    the flag was a silent no-op: the fold used the MSA and the only hint was `msa: true` in the
+    metrics row. Measured on a 117-aa target, protenix-v1 at 20 steps -- with the flag ignored,
+    pLDDT 0.764634; honoured, 0.501251. A user asking for a no-MSA baseline was getting the
+    MSA answer.
+
+    protein_only keeps each caller's existing per-chain-type behaviour: Protenix resolves an
+    a3m for protein chains only, OpenDDE for every chain. That difference is not what this
+    function is fixing, so it is a parameter rather than a silent unification.
+    """
+    from tt_bio.main import _resolve_a3m_text
+
+    single_seq = bool(cfg.get("single_sequence"))
+    return [(cseq,
+             (_resolve_a3m_text(spec, cseq, msa_dir)
+              if not single_seq and (mt == "protein" or not protein_only) else None),
+             mt)
+            for _cid, cseq, spec, mt in chains]
+
+
 def _protenix_family() -> tuple[str, ...]:
     """The --model ids the tt_bio.protenix implementation serves (v0.5.0 base and v2).
 
@@ -894,8 +921,7 @@ class _WorkerState:
                 cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
                 cfg.get("msa_server_password"), cfg.get("api_key_value"),
                 msa_endpoint=cfg.get("msa_endpoint"))
-        chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir), mt)
-                       for _cid, cseq, spec, mt in chains]
+        chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=False)
 
         # --msa_cache_only: the cache is the only source, so a miss is an error. Without this
         # _resolve_a3m_text returns None for an uncached chain and the fold quietly proceeds
@@ -1022,8 +1048,7 @@ class _WorkerState:
                 cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
                 cfg.get("msa_server_password"), cfg.get("api_key_value"),
                 msa_endpoint=cfg.get("msa_endpoint"))
-        chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir) if mt == "protein" else None, mt)
-                       for _cid, cseq, spec, mt in chains]
+        chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=True)
 
         report_progress("prep")
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
