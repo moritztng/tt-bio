@@ -78,3 +78,26 @@ needs more of the real fold's state than shape + grid + occupancy -- candidates 
 the real compute_kernel_config, the specific allocator layout left by the trunk, dispatch queue
 depth, or the fact that in the real fold zc is a layer_norm output rather than a fresh upload.
 This means the finding cannot currently be filed as a bare ttnn matmul bug.
+
+REPRO ATTEMPTS, ALL NEGATIVE (2026-08-27 ~11:00). Four proxies for the fold's device state,
+none of which reproduces the wedge. Recorded so nobody repeats them.
+
+  1. bare ttnn.linear, bf16, same 11x10 grid, 25 iters/shape           clean, ~2.5 ms
+  2. as 1 + REPRO_BALLAST_GIB=1.5 (6 x 256 MiB clean blocks), 30 iters clean, ~2.5-2.8 ms
+  3. the REAL _diffusion_pair_cond via repro_paircond_loop.py, with the real checkpoint
+     weights and the real z_trunk+relp captured from a fold, so dtype (FLOAT32, not the bf16
+     attempt 1 used), compute_kernel_config, core_grid and input values are all authentic;
+     20 iters                                                          clean, 0.12-0.15 s
+  4. as 3 + REPRO_CHURN_MB=1600 (mixed 8/16/32/64/128 MiB blocks, a random half freed, so the
+     arena is fragmented rather than merely occupied), 20 iters         clean, 0.12 s
+
+Output was bit-stable across every iteration of 3 and 4 (pz_absmax 151.5280 every time).
+
+WHAT THIS BOUNDS. The wedge is not explained by the op, its shapes, its dtype, its grid, its
+weights, its input values, DRAM occupancy, or DRAM fragmentation. It also does not need a deep
+async dispatch queue: in the pcdbg fold that wedged, _sync("layernorm_z") had just DRAINED the
+queue one op earlier, and linear_z still hung. The one ingredient no proxy here supplies is the
+trunk actually having executed in the same process immediately before.
+
+The pair-cond costs 0.12 s against a ~13-15 s fold, so it is ~1% of the work and the wedge is
+not a slow path being mistaken for a hang.
