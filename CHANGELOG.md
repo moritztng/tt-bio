@@ -5,7 +5,30 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- **Protenix-v1** — `tt-bio predict --model protenix-v1` folds proteins, DNA, RNA and ligands with
+  ByteDance's own Protenix v0.5.0 base checkpoint. It is the same implementation Protenix-v2 runs,
+  reading its own hyperparameters off the weights: half the pair width (128 against 256) and 4
+  trunk recycles against 10, with no template stack. So it is the cheaper of the two by a wide
+  margin at the same input, and MSAs are on by default as with the rest of the family. Apache-2.0,
+  weights included. `--single_sequence`, `--diffusion_samples`, `--seed`, `--write_pae`, covalent
+  `bond` constraints, `--fast`, `--trace` and multi-card fan-out all work as they do for
+  Protenix-v2.
+
 ### Changed
+
+- **`--single_sequence` now actually folds a single sequence for Protenix and OpenDDE.** If an MSA
+  was available it was quietly used anyway, so the flag changed nothing and you got the MSA answer.
+  It is honoured now, which means an invocation that passed `--single_sequence` with an MSA present
+  will return a different structure than before. That is the flag doing what it says; if you wanted
+  the MSA answer, drop the flag.
+
+- **A `cyclic: true` chain is now refused instead of folded as a linear chain.** Protenix and
+  OpenDDE have no cyclic-peptide support: the constraint was accepted, the chain was folded straight,
+  and the job returned `status=ok`, so the output looked like a successful cyclic prediction and was
+  not one. Such a job now fails loudly. A previously "successful" run of this shape was returning an
+  answer to a different question.
 
 - The fused attention's ragged-tail mask (`TT_BIO_SDPA_RAGGED_PAD`) now defaults **on**. An unmasked
   ragged tail makes the softmax denominator sum padded columns, which is wrong arithmetic rather
@@ -15,6 +38,22 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   restores the old behaviour for bisecting.
 
 ### Fixed
+
+- **Protenix-v1 folds of 512 residues and up hung intermittently, roughly one fold in three.** The
+  diffusion pair-conditioning pinned its projections to a fixed core grid, which selects ttnn's
+  multicast matmul; at a 128-wide output that program's multicast sender and its receivers can
+  deadlock, and the tt-metal watcher caught every core stopped with one waiting on a NOC semaphore
+  and the next on circular-buffer space. The grid is now pinned only where the output is wider than
+  four 32-wide tiles, so the affected projections let ttnn choose. Eight consecutive 512-residue
+  folds pass where the old path managed seven of twenty-four, and a 512-residue fold costs 19.535 s
+  against 19.555 s before, so the fix is free.
+
+  The gate is on the width and not on the model, because OpenDDE reaches the same 128-wide shape by
+  a different route and was equally exposed. OpenDDE never actually hung in testing, so for it
+  this removes an exposure rather than a reported failure.
+  Protenix-v2 is 256 wide throughout and keeps the old path byte for byte. OpenDDE's accuracy is
+  unchanged to the digit on both gate arms, and Protenix-v1's structure parity still reproduces its
+  recorded reference. `PROTENIX_PAIRCOND_MM_FORCE_GRID=1` restores the old behaviour for bisecting.
 
 - Models were padding the atom axis and not the token axis. At any token count that is not a
   multiple of the bucket, the ragged tail reached the triangle attention as real key columns rather
