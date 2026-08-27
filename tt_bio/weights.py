@@ -146,12 +146,21 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("boltz2-aff", ("boltz2",), "hf-file", "MIT",
              repo=BOLTZ2_REPO, filename="boltz2_aff.ckpt", approx_bytes=2062139170,
              note="affinity head; only read for ligand affinity"),
-    Artifact("mols", ("boltz2", "protenix-v2"), "hf-file", "MIT",
+    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2"), "hf-file", "MIT",
              repo=BOLTZ2_REPO, filename="mols.tar", approx_bytes=1855662080,
              derived=Derived("mols", "tar", min_entries=45227),
              note="CCD molecule library, extracted to <cache>/mols"),
 
-    # -- Protenix-v2 ------------------------------------------------------------
+    # -- Protenix ---------------------------------------------------------------
+    # v1 is upstream's own canonical v0.5.0 object, fetched from the URL
+    # `protenix/web_service/dependency_url.py` names at tag v0.5.0. The pxdesign bucket
+    # serves a byte-identical copy under another name (same ETag, same crc64), so there is
+    # nothing to mirror: point at the canonical source, as rf3 / rfd3 / pxdesign do.
+    Artifact("protenix-v1", ("protenix-v1",), "url", "Apache-2.0 (ByteDance)",
+             url="https://af3-dev.tos-cn-beijing.volces.com/release_model/model_v0.5.0.pt",
+             subdir="protenix", approx_bytes=1474265486,
+             legacy_env=("PROTENIX_V1_CKPT",),
+             note="ByteDance Protenix v0.5.0 base checkpoint"),
     Artifact("protenix-v2", ("protenix-v2",), "hf-file", "Apache-2.0",
              repo=PROTENIX_REPO, filename="protenix-v2.pt", approx_bytes=1859785497,
              legacy_env=("PROTENIX_CKPT",)),

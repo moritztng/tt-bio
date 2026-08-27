@@ -172,6 +172,7 @@ _MODEL_RESULTS_PREFIX = {
     "boltz2": "boltz2_results",
     "esmfold2": "esmfold2_results",
     "esmfold2-fast": "esmfold2_results",
+    "protenix-v1": "protenix_results",
     "protenix-v2": "protenix_results",
     "openfold3": "openfold3_results",
     "openbind": "openbind_results",
@@ -191,6 +192,14 @@ PREDICT_MODELS = tuple(_MODEL_RESULTS_PREFIX)
 # cannot be applied to preview2 without shifting the input distribution its
 # weights were trained on. Anything that means "either OF3 checkpoint" reads this.
 OF3_FAMILY = ("openfold3", "openbind")
+
+# Protenix: two ByteDance releases, one implementation. protenix-v1 is upstream's v0.5.0
+# base checkpoint (c_z 128, 4 MSA blocks, no template pairformer stack, N_cycle 4);
+# protenix-v2 is a later release at c_z 256 with a 2-block template stack and N_cycle 10.
+# tt_bio.protenix reads every one of those off the weights -- Trunk._derive_c_z, n_blocks,
+# trunk_recycles -- so the two ids share the whole model path and differ only in what the
+# checkpoint says. Anything that means "either Protenix checkpoint" reads this tuple.
+PROTENIX_FAMILY = ("protenix-v1", "protenix-v2")
 
 # Single source of truth for the other two model-choice CLI surfaces (`embed`,
 # `saprot`), for the same reason: anything that needs "every model we ship"
@@ -2126,7 +2135,7 @@ def _read_bio_chains(path):
                 for c in id_list:
                     chains.append((c.strip(), spec, None, "ligand"))
     else:
-        raise click.ClickException(f"Unsupported input for protenix-v2: {path.name}")
+        raise click.ClickException(f"Unsupported input for Protenix: {path.name}")
     return chains
 
 
@@ -2135,8 +2144,8 @@ def _read_bio_constraints(path):
 
     Returns ``[((chain, res, atom), (chain, res, atom)), ...]`` for every `bond`
     constraint (covalent inhibitor, glycan, crosslink). `pocket`/`contact` binding
-    constraints are rejected with clear guidance: Protenix-v2's checkpoint has no
-    constraint embedder, so the only constraint signal it can honour is the covalent
+    constraints are rejected with clear guidance: no Protenix checkpoint has a
+    constraint embedder, so the only constraint signal they can honour is the covalent
     bond graph (token_bonds) — pocket/contact need Boltz-2. Silently folding without
     them would return a confidently wrong structure, so we refuse instead."""
     if path.suffix.lower() not in (".yml", ".yaml"):
@@ -2163,7 +2172,7 @@ def _read_bio_constraints(path):
                 "constraints — use --model boltz2 for those. Covalent 'bond' "
                 "constraints are supported.")
         else:
-            raise click.ClickException(f"Unsupported constraint for protenix-v2: {c}")
+            raise click.ClickException(f"Unsupported constraint for Protenix: {c}")
     return bonds
 
 
@@ -2350,23 +2359,44 @@ def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
     return {k: res[i] for i, k in enumerate(keys)}
 
 
+#: Per-model default trunk-recycling count. A TABLE, not a set literal: the count is a
+#: property of the checkpoint, so a new port that is missing here must not silently inherit
+#: another model's number. Anything absent falls back to RECYCLING_STEPS_DEFAULT.
+#:
+#: protenix-v1 is 4, which is upstream v0.5.0's own `configs/configs_base.py::model.N_cycle`.
+#: `configs_inference.py` does not override it and `runner/inference.py::update_inference_configs`
+#: only touches `skip_amp`, so 4 is what that checkpoint ships with. protenix-v2 is a different
+#: release with its own 10. Giving v1 v2's 10 would run 2.5x the trunk the model was trained for.
+#: opendde/opendde-abag keep 10. esmfold2/esmfold2-fast use 10, the ESMFold2 paper's benchmark
+#: protocol (A.2.10: "For all benchmark results ... ESMFold2 uses 10 loops"). rf3 uses 10, its own
+#: inference default (rf3.featurize DEFAULTS n_recycles), and the count is not free-standing
+#: there: the featurizer draws one i.i.d. MSA sample per recycle, so it also sets how many MSA
+#: samples the trunk sees. boltz2 uses the Boltz-2/AF3 convention of 3, and openfold3 also uses 3 --
+#: its trunk runs recycles+1 = 4 cycles, the OF3 upstream default.
+#:
+#: protenix.Trunk derives the same default from the checkpoint when called outside the CLI
+#: (protenix.trunk_recycles), and the two must agree; tests/test_protenix_template_gate.py pins it.
+RECYCLING_STEPS = {
+    "protenix-v1": 4,
+    "protenix-v2": 10,
+    "opendde": 10,
+    "opendde-abag": 10,
+    "esmfold2": 10,
+    "esmfold2-fast": 10,
+    "rf3": 10,
+}
+RECYCLING_STEPS_DEFAULT = 3
+
+
 def _resolve_recycling_steps(recycling_steps, model):
     """Per-model default trunk-recycling count when --recycling_steps is unset (None).
 
-    protenix-v2 uses its spec of 10 (protenix.Trunk.N_CYCLES); opendde/opendde-abag keep 10;
-    esmfold2/esmfold2-fast use 10, the ESMFold2 paper's benchmark protocol (A.2.10: "For all
-    benchmark results ... ESMFold2 uses 10 loops"); boltz2 uses the Boltz-2/AF3 convention
-    of 3, and openfold3 also uses 3 — its trunk runs recycles+1 = 4 cycles, the OF3
-    upstream default. An explicit --recycling_steps is honored verbatim for every model.
-    Running protenix-v2 at 3 under-recycles its trunk. rf3 uses 10, its own inference
-    default (rf3.featurize DEFAULTS n_recycles), and the count is not free-standing
-    there: the featurizer draws one i.i.d. MSA sample per recycle, so it also sets how
-    many MSA samples the trunk sees.
+    Reads RECYCLING_STEPS. An explicit --recycling_steps is honored verbatim for every model.
+    Running protenix-v2 at 3 under-recycles its trunk; running protenix-v1 at 10 over-recycles it.
     """
     if recycling_steps is not None:
         return recycling_steps
-    return 10 if model in ("protenix-v2", "opendde", "opendde-abag", "esmfold2",
-                           "esmfold2-fast", "rf3") else 3
+    return RECYCLING_STEPS.get(model, RECYCLING_STEPS_DEFAULT)
 
 
 def _resolve_sampling_steps(sampling_steps, model):
@@ -2404,7 +2434,7 @@ def _resolve_sampling_steps(sampling_steps, model):
 # single-sequence with an OPTIONAL MSA and esmfold2-fast ships no MSA encoder at all.
 # scripts/release_gate.py reads this so the accuracy gate folds each model the way it is
 # actually used, instead of hand-listing the same set a second time.
-MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "openfold3", "openbind", "opendde", "opendde-abag",
+MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "openbind", "opendde", "opendde-abag",
                      "rf3")
 
 
@@ -2477,8 +2507,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--checkpoint", type=click.Path(exists=True), default=None)
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
-              help="Trunk recycling iterations. Default: protenix-v2/opendde/esmfold2 use 10; "
-                   "boltz2 and openfold3 use 3 (openfold3 runs recycles+1 = 4 trunk cycles).")
+              help="Trunk recycling iterations. Default: protenix-v2/opendde/esmfold2/rf3 use 10; "
+                   "protenix-v1 uses 4, its own upstream N_cycle; boltz2 and openfold3 use 3 "
+                   "(openfold3 runs recycles+1 = 4 trunk cycles).")
 @click.option("--sampling_steps", default=None, type=int,
               help="Requested diffusion sampling steps. Default: esmfold2/esmfold2-fast request "
                    "100 (executes 68 after the sigma_max=256 schedule clip); every other model "
@@ -2517,10 +2548,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "for reproducible benchmark runs, where an unnoticed search changes MSA depth.")
 @click.option("--use_envdb", is_flag=True, help="Also search ColabFold environmental database (requires envdb)")
 @click.option("--single_sequence", is_flag=True,
-              help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v2/openfold3/"
+              help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v1/protenix-v2/openfold3/"
                    "opendde (no local DB, no online server). Explicit opt-out for batch-screening "
                    "orphan sequences.")
-@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v2/openfold3/openbind/opendde.")
+@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v1/protenix-v2/openfold3/openbind/opendde.")
 @click.option("--msa_server_url", default="https://api.colabfold.com")
 @click.option("--msa_pairing_strategy", default="greedy")
 @click.option("--msa_server_username", default=None)
@@ -2573,7 +2604,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Structure model. boltz2: MSA + Pairformer (MSA-dependent; MSA on by default). "
                    "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
                    "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
-                   "protenix-v2: AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
+                   "protenix-v1: ByteDance Protenix v0.5.0, AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
+                   "protenix-v2: the later Protenix release on the same stack, wider pair track. "
                    "openfold3: OpenFold3 (AF3-family; MSA + template embedder + atom diffusion), "
                    "MSA on by default; polymer chains only, no template search; weights via OF3_CKPT. "
                    "openbind: OpenBind-0, the same stack on the upstream v0.5.0 checkpoint, "
@@ -2603,7 +2635,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     (single-sequence, protein-only) and writes the same output layout.
 
     \b
-    MSA: boltz2, protenix-v2, openfold3 and opendde are MSA-dependent and use an
+    MSA: boltz2, protenix-v1/v2, openfold3 and opendde are MSA-dependent and use an
     MSA by default — a local ColabFold DB (~/.boltz/msa_db) if present, else the
     online ColabFold server (input sequences leave the machine; a notice is
     printed). Pass --msa_db_path for a private offline DB, or --single_sequence
@@ -2641,8 +2673,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
 
-    # Per-model trunk-recycling default (see _resolve_recycling_steps): protenix-v2/opendde/
-    # esmfold2 -> 10, boltz2/openfold3 -> 3; an explicit --recycling_steps overrides either.
+    # Per-model trunk-recycling default (see RECYCLING_STEPS): protenix-v2/opendde/esmfold2/rf3
+    # -> 10, protenix-v1 -> 4, boltz2/openfold3 -> 3; --recycling_steps overrides any of them.
     recycling_steps = _resolve_recycling_steps(recycling_steps, model)
     # Per-model requested diffusion steps (see _resolve_sampling_steps): esmfold2 requests
     # 100 (68 executed after the sigma-clip), rf3 50 (upstream's shipped inference
@@ -2662,7 +2694,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    # MSA-dependent models (boltz2, protenix-v2, opendde, opendde-abag) must never
+    # MSA-dependent models (boltz2, protenix-v1/v2, opendde, opendde-abag) must never
     # silently fold single-sequence: resolve a source now (explicit flag > local DB >
     # online fallback) or honor an explicit --single_sequence opt-out. esmfold2 /
     # esmfold2-fast are single-sequence by design and pass through untouched.
@@ -2670,9 +2702,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only)
 
-    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "openfold3", "openbind", "opendde",
+    if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
                  "opendde-abag", "rf3"):
-        # ESMFold2, Protenix-v2, OpenFold3, OpenDDE and RF3 ride the SAME scheduler / worker /
+        # ESMFold2, Protenix, OpenFold3, OpenDDE and RF3 ride the SAME scheduler / worker /
         # progress path as Boltz-2: build a run config, then fan jobs across devices via
         # _local_workers + _dispatch_run (or submit to a remote --controller). Only the
         # per-model config differs.

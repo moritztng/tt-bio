@@ -99,9 +99,9 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     # overrides, verifies whatever is already cached, and re-fetches only what is
     # missing or corrupt, so a truncated file from a killed download can never be
     # loaded as if it were complete.
-    if cfg.get("model") == "protenix-v2":
+    if cfg.get("model") in _protenix_family():
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
-        cfg["protenix_ckpt"] = str(weights.fetch("protenix-v2"))
+        cfg["protenix_ckpt"] = str(weights.fetch(cfg["model"]))
         cfg["mol_dir"] = str(weights.fetch("mols"))    # CCD templates for nucleic acids / ligands
         return
     # OpenFold3 / OpenBind: neither checkpoint is downloaded (no parameter licence
@@ -245,7 +245,7 @@ def _validate_openfold3_constraints(path, model: str = "openfold3") -> None:
             f"--model {model} does not port covalent bonds yet "
             f"(got {len(bonds)} constraint(s) from {path.name}); the fold would "
             "silently ignore them. Remove the constraints block or use "
-            "--model protenix-v2 / opendde.")
+            "--model protenix-v1 / protenix-v2 / opendde.")
 
 
 def _validate_openfold3_cyclic(path, model: str = "openfold3") -> None:
@@ -425,6 +425,16 @@ def _is_saprot_model(model_id: str) -> bool:
     return model_id in SAPROT_MODELS
 
 
+def _protenix_family() -> tuple[str, ...]:
+    """The --model ids the tt_bio.protenix implementation serves (v0.5.0 base and v2).
+
+    Imported lazily for the same reason as _of3_family: tt_bio.main imports this module.
+    """
+    from tt_bio.main import PROTENIX_FAMILY
+
+    return PROTENIX_FAMILY
+
+
 def _of3_family() -> tuple[str, ...]:
     """The --model ids the OpenFold3 implementation serves (preview2 and OpenBind).
 
@@ -556,9 +566,11 @@ class _WorkerState:
             repo = "biohub/ESMFold2-Fast" if model_id == "esmfold2-fast" else "biohub/ESMFold2"
             self.model = load_ttnn_esmfold2(esmfold2_repo=repo, fast=cfg.get("fast", False))
             self.model._esmc.preload()
-        elif model_id == "protenix-v2":
+        elif model_id in _protenix_family():
             from tt_bio.protenix import Protenix
 
+            # Same class for both ids: c_z, the stack depths and the recycling count all come
+            # off the weights (Trunk._derive_c_z / n_blocks / trunk_recycles).
             self.model = Protenix.load_from_checkpoint(cfg["protenix_ckpt"])
         elif model_id in _of3_family():
             import ttnn
@@ -689,7 +701,7 @@ class _WorkerState:
     def predict_one(self, path: Path, cfg: dict[str, Any]):
         if cfg.get("model") in ("opendde", "opendde-abag"):
             return self._predict_opendde_one(path, cfg)
-        if cfg.get("model") == "protenix-v2":
+        if cfg.get("model") in _protenix_family():
             return self._predict_protenix_one(path, cfg)
         if cfg.get("model") in _of3_family():
             return self._predict_openfold3_one(path, cfg)
@@ -1111,11 +1123,12 @@ class _WorkerState:
         """Fold several targets in one batched diffusion trajectory. Returns one
         (metrics, best, feats) tuple per input path, in input order.
 
-        Only protenix-v2 has a batched path today; anything else folds serially through
+        Only Protenix has a batched path today; anything else folds serially through
         predict_one, so callers can always use this entry point. Targets must share their
         atom and token counts (bucket first) -- a mismatch raises.
         """
-        if cfg.get("model") != "protenix-v2" or len(paths) == 1 or int(cfg["diffusion_samples"]) != 1:
+        if (cfg.get("model") not in _protenix_family() or len(paths) == 1
+                or int(cfg["diffusion_samples"]) != 1):
             return [self.predict_one(p, cfg) for p in paths]
 
         from tt_bio.esmfold2 import report_progress
