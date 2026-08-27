@@ -1,0 +1,13 @@
+{
+  "prot": {
+    "plddt": 0.751477,
+    "complex_plddt": 0.751477,
+    "ptm": 0.76339,
+    "iptm": 0.0,
+    "confidence_score": 0.76339,
+    "n_tokens": 117,
+    "n_atoms": 900,
+    "samples": 5,
+    "msa": true
+  }
+}

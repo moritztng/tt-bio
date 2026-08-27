@@ -1,0 +1,30 @@
+{
+  "model": "protenix-v1",
+  "target": "prot",
+  "settings_tag": "msa-server_200step_5sample_4cycle_fp32cpu",
+  "date": "2026-08-27",
+  "reference_impl": "official ByteDance Protenix (torch, CPU, fp32)",
+  "reference_version": "protenix 0.5.0 base checkpoint (368.09 M params, 4092 tensors)",
+  "reference_commit": "bytedance/Protenix tag v0.5.0",
+  "command": "~/protenix05_ref_venv/bin/python scripts/protenix_v1_port/harvest_ref_fold.py --feats <feats> --seeds 0,1,2,3,4 --steps 200 --samples 5 --cycles 4 --out <raw>   then   PYTHONPATH=<wt> env/bin/python3 scripts/protenix_v1_port/harvest_ref_fold.py --write-cifs --raw <raw> --feats <feats> --fixture <this dir> --target-id prot",
+  "provenance": "Harvested on pc 2026-08-27 from upstream Protenix v0.5.0 on CPU in fp32, checkpoint /home/moritz/.coworker/protenix-ref-data/protenix_base_default_v0.5.0.pt (sha256 9ea20b0aba42f2256711da1d0cd081510a4b291e64375bff6b70ced70b87a5f1, byte-identical to upstream's canonical af3-dev release_model/model_v0.5.0.pt). The trunk is computed once and reused across seeds, which is what upstream's own runner/inference.py does. Coordinates and confidence logits are saved raw, then turned into CIFs through tt_bio's own _write_protenix_structure so reference and device structures carry identical atom naming and ordering and an RMSD between them is a real RMSD; the confidence logits are scored through the port's own ConfidenceHead._postprocess, the same one-function-two-inputs discipline tt_parity.py uses.",
+  "msa": "Copied VERBATIM from the protenix-v2 prot fixture beside this one (identical sha256), so the protenix-v1 and protenix-v2 prot legs fold the same target with the same alignment bytes and differ only in checkpoint. 332 lines / 166 a3m entries; the featurizer trims to N_msa=157 for the forward pass, the same 157 the protenix-v2 fixture's meta records. Sourced originally from protenix-server.com's MSA API, hence the settings tag.",
+  "settings": {
+    "use_msa": true,
+    "msa_source": "https://protenix-server.com/api/msa (via the protenix-v2 prot fixture)",
+    "recycling_cycles": 4,
+    "diffusion_steps": 200,
+    "diffusion_samples": 5,
+    "dtype": "fp32",
+    "selection": "AF-style ranking, the same expression worker._protenix_emit ranks with",
+    "target": "examples/prot.yaml (PDB 7ROA, 117 res, 900 atoms)",
+    "trimul_kernel": "torch",
+    "triatt_kernel": "torch"
+  },
+  "rationale": "4 recycles is protenix-v1's OWN N_cycle, read off the checkpoint, not a reduction for cost; the settings tag encodes it so the fixture cannot be mistaken for a 10-cycle reference. openfold3/.../msa-colabfold_200step_5sample_4cycle_fp32cpu is the precedent for a 4-cycle fp32 CPU reference in this tree.",
+  "seeds": [0, 1, 2, 3, 4],
+  "invalidation_rule": "Regenerate ONLY when the pinned reference_commit/version or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs.",
+  "envelope": {
+    "reference_impl": "legacy_rdx leg: tt_bio/protenix.py imports ttnn at module scope and has no torch path, so a 'CPU reference' fold of the PORT would be a device fold and the shared-draws envelope denominator would collapse to zero. Same reason the protenix-v2 and openfold3 legs carry legacy_rdx. This fixture IS the external reference and is scored as R/D/X."
+  }
+}
