@@ -120,34 +120,43 @@ def main():
         hook("trunk_atom_encoder")))
 
     import time
-    t0 = time.time()
-    s_inputs, s_trunk, z_trunk = model.get_pairformer_output(feats, N_cycle=n_cycle)
-    print(f"trunk done in {time.time()-t0:.1f}s", flush=True)
+    # The trunk is 265 s of CPU at N=228. Cache it beside the output so iterating on the
+    # diffusion / confidence half does not re-pay it. The cache is keyed on the feature file's
+    # content and the cycle count, so it can never be served for a different input.
+    import hashlib
+    key = hashlib.sha256(open(args.feats, "rb").read()).hexdigest()[:16] + f"-c{n_cycle}"
+    tcache = args.out + f".trunk-{key}.pt"
+    if os.path.exists(tcache):
+        tk = torch.load(tcache, map_location="cpu", weights_only=False)
+        s_inputs, s_trunk, z_trunk, cap_trunk = (tk["s_inputs"], tk["s_trunk"], tk["z_trunk"],
+                                                 tk["cap"])
+        cap.update(cap_trunk)
+        print(f"trunk read from cache {tcache}", flush=True)
+    else:
+        t0 = time.time()
+        s_inputs, s_trunk, z_trunk = model.get_pairformer_output(feats, N_cycle=n_cycle)
+        print(f"trunk done in {time.time()-t0:.1f}s", flush=True)
+        torch.save({"s_inputs": s_inputs, "s_trunk": s_trunk, "z_trunk": z_trunk,
+                    "cap": dict(cap)}, tcache)
 
     out = {"N": N, "n_cycle": n_cycle,
            "s_inputs": s_inputs, "s_trunk": s_trunk, "z_trunk": z_trunk}
 
     # ---- one denoise at a FIXED x_noisy / t_hat: identical inputs, so any difference is the net
-    # DiffusionModule.forward takes r_noisy = c_in * x_noisy already scaled, and a leading
-    # N_sample axis. Fix both draws so the two arms see byte-identical inputs.
+    # DiffusionModule.forward takes x_noisy and returns the DENOISED coordinates (it applies
+    # the EDM preconditioning itself), which is exactly the boundary tt_bio's
+    # DiffusionModule.denoise returns. f_forward is the inner raw network; do not call that one.
     g = torch.Generator().manual_seed(0)
     n_atom = feats["ref_pos"].shape[0]
     sigma = 40.0
-    sigma_data = model.diffusion_module.sigma_data
     x_noisy = torch.randn(1, n_atom, 3, generator=g) * sigma
     t_hat = torch.full((1,), sigma)
-    c_in = 1.0 / torch.sqrt(t_hat ** 2 + sigma_data ** 2)
-    r_noisy = x_noisy * c_in[..., None, None]
     cap.pop("diffusion_module", None)
-    r_update = model.diffusion_module(
-        r_noisy=r_noisy, t_hat_noise_level=t_hat, input_feature_dict=feats,
+    denoised = model.diffusion_module(
+        x_noisy=x_noisy, t_hat_noise_level=t_hat, input_feature_dict=feats,
         s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk, inplace_safe=False, chunk_size=None)
-    # EDM x0 reconstruction, as generator.sample_diffusion does it
-    c_skip = sigma_data ** 2 / (t_hat ** 2 + sigma_data ** 2)
-    c_out = t_hat * sigma_data / torch.sqrt(t_hat ** 2 + sigma_data ** 2)
-    denoised = c_skip[..., None, None] * x_noisy + c_out[..., None, None] * r_update
-    out.update(x_noisy=x_noisy, t_hat=t_hat, r_noisy=r_noisy, r_update=r_update,
-               denoised=denoised, sigma_data=sigma_data)
+    out.update(x_noisy=x_noisy, t_hat=t_hat, denoised=denoised,
+               sigma_data=model.diffusion_module.sigma_data)
     print("denoise done", flush=True)
 
     # ---- confidence head on the denoised coordinates
