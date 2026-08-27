@@ -1,0 +1,36 @@
+WIDTH-GATED FIX -- verification, 2026-08-27 12:46-12:53, pc card 0.
+
+Fix: force core_grid on the diffusion pair-cond projection ONLY when its output is wider
+than PAIRCOND_MM_NARROW_MAX_TILES (4). Gated on width, not model id, because two shipped
+checkpoints share the exposed width:
+    protenix-v1  linear_no_bias_z (128, 256)  out 4 tiles  EXPOSED
+    opendde      linear_no_bias_z (128, 256)  out 4 tiles  EXPOSED
+    protenix-v2  linear_no_bias_z (256, 512)  out 8 tiles  keeps the forced grid
+
+1) HANG -- fixed on the default path. 8-copy worker reproducer:
+12:47:52  [pc:tt0] ✓ t1 — 13.8s
+12:48:06  [pc:tt0] ✓ t2 — 10.6s
+12:48:17  [pc:tt0] ✓ t3 — 10.4s
+12:48:29  [pc:tt0] ✓ t4 — 10.0s
+12:48:42  [pc:tt0] ✓ t5 — 10.5s
+12:48:54  [pc:tt0] ✓ t6 — 9.9s
+12:49:07  [pc:tt0] ✓ t7 — 10.3s
+12:49:19  [pc:tt0] ✓ t8 — 10.1s
+Done: 8 ok, 0 failed — /tmp/pv1/fixout/protenix_results_multi8/results.json
+   against the shipped path's 7/24 folds across three interleaved rounds.
+
+2) PARITY -- 5-seed leg PASSES and reproduces the committed record:
+protenix-v1-prot-msa              structure  cached        PASS                  163s  prot: X=1.712 R=1.840 D=1.764 within=True [reproduces committed]
+   committed was X=1.714 R=1.840 D=1.758; now X=1.712 R=1.840 D=1.764, within floor,
+   and the gate's own drift check says 'reproduces committed'.
+
+3) protenix-v2 -- untouched BY CONSTRUCTION: its 8-tile output takes the same
+   forced-grid branch as before, so its device path is byte-identical. Still owed as a
+   measured check rather than an argument: its own parity legs.
+
+STILL OWED before this is a shipped fix:
+  * fold-level perf at 512 aa / 200 steps (the 19.555 s figure predates the fix)
+  * opendde parity + release gate -- opendde IS affected by this change
+  * protenix-v2 parity legs, to measure rather than argue the no-op
+  * opendde exposure is unproven either way: 4 folds at 512 aa were clean, which is far
+    too few given protenix-v1's own rate swings between ~1/3 and 0.

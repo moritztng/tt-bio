@@ -1767,6 +1767,20 @@ class ConfidenceHead:
 # are in the same tile-replan equivalence class as the chunked pair track.
 PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 ** 28))  # 2.5 GiB
 
+#: Output width, in 32-wide tiles, at or below which the diffusion pair-conditioning projection
+#: must NOT force ``core_grid``. Passing a core grid selects ttnn's MULTICAST matmul program,
+#: whose in0-sender / in1-receiver dataflow deadlocks intermittently when the output is this
+#: narrow and the pair tensor is >=512 tokens: the tt-metal watcher shows every core stopped with
+#: BRISC on a NOC semaphore wait and NCRISC on a circular-buffer reserve-back wait
+#: (perf/pxv1/hang_watcher_capture.txt). Interleaved A/B on protenix-v1 at 512 aa, 8 folds per
+#: arm per round, 3 rounds: 24/24 folds clean with the grid dropped against 7/24 with it forced.
+#:
+#: Gated on the WIDTH, not on the model id, because two shipped checkpoints share it:
+#: protenix-v1 and OpenDDE both project to 128 here (OpenDDE compresses c_z 384 -> 128 first),
+#: so both are exposed, while protenix-v2's 256 is 8 tiles and keeps the forced grid byte for
+#: byte. One mechanism in one place rather than a per-model branch.
+PAIRCOND_MM_NARROW_MAX_TILES = 4
+
 
 def _pz_cond_probe(pz, z_in_sha):
     """TT_PROTENIX_PZPROBE=<dir> (default off): attribute run-to-run pair_z divergence.
@@ -2078,21 +2092,17 @@ class Protenix:
         zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
         _sync("layernorm_z")
-        # TT_PROTENIX_PAIRCOND_MM_FALLBACK=1 (default OFF, zero effect unless set): drop the
-        # explicit core_grid for this one projection so ttnn selects its own program config
-        # instead of the multicast one CORE_GRID_MAIN forces. DIAGNOSTIC ONLY -- the tt-metal
-        # watcher pins protenix-v1's intermittent >=512-token hang to a deadlock inside this
-        # matmul's multicast dataflow (in0 mcast sender on a NOC semaphore wait, in1 receivers
-        # on a CB reserve-back wait; see perf/pxv1/hang_watcher_capture.txt), and the op does
-        # NOT deadlock standalone in 300 consecutive executions, so program-config selection is
-        # the last un-eliminated difference. This flag exists to test that, not to fix it: a
-        # real fix is shared behaviour for protenix-v2 and opendde too and needs the full
-        # release gate re-run for all three checkpoints before it ships.
+        # Force the core grid only when the output is wide enough for ttnn's multicast matmul
+        # to be safe -- see PAIRCOND_MM_NARROW_MAX_TILES for the deadlock this avoids and the
+        # A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old unconditional
+        # behaviour, which is how the A/B arms were taken and how a regression would be bisected.
+        _w_z = self._w[C + "linear_no_bias_z.weight"]
+        _narrow = (int(_w_z.shape[0]) // 32) <= PAIRCOND_MM_NARROW_MAX_TILES
         _mm_kw = dict(compute_kernel_config=self.compute_kernel_config,
                       dtype=self.diffusion.dtype)
-        if not os.environ.get("TT_PROTENIX_PAIRCOND_MM_FALLBACK"):
+        if not _narrow or env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
             _mm_kw["core_grid"] = CORE_GRID_MAIN
-        pz = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()), **_mm_kw)
+        pz = ttnn.linear(zc, T(_w_z.t().contiguous()), **_mm_kw)
         _sync("linear_z")
         # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
         # (the 3D path doesn't chunk pair tensors -> OOM at large N).
