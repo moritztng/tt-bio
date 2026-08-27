@@ -70,3 +70,20 @@ FULL 5-SEED PARITY LEG for protenix-v2, with the fix in place (2026-08-27 13:06-
 
 The committed protenix-v2.json records X = 2.63 +/- 0.42 against a 2.94 A floor, so 2.625 is the
 same number. protenix-v2 does not move on the strict arm either, which closes that owed item.
+
+FULL 5-SEED PARITY LEG for opendde, with the fix in place (2026-08-27 13:10-13:13):
+
+    opendde-prot-prod   PASS   X=6.067  R=1.499  D=4.882  within=True
+                        "improves committed GAP-evidenced -- not a drift"
+
+So all three checkpoints that traverse _diffusion_pair_cond are verified with the fix on the
+strict arm as well as the release-gate arm:
+
+                 release_gate leg          full_parity_gate 5-seed leg
+    protenix-v1  (its own row, PASS)       PASS  X=1.712, reproduces committed 1.714
+    protenix-v2  1.360 / 0.957  PASS       PASS  X=2.625 vs committed 2.63
+    opendde      1.417 / 0.943  PASS       PASS  X=6.067, improves committed
+                 (identical A/B both arms)
+
+That is the "gate that actually re-verifies v2/opendde" the brief's amendment item 3 required
+before a fix of this kind ships.
