@@ -32,14 +32,18 @@ from tt_bio.protenix import Protenix
 from tt_bio.protenix_data import build_complex_features
 
 
-def _work(target, iters):
+def _featurise(target):
     chains = _read_bio_chains(Path(target))
     bonds = _read_bio_constraints(Path(target))
     # single-sequence: matches the ladder config the wedge was characterised at
     specs = [(seq, None, mt) for _cid, seq, _spec, mt in chains]
     ids = [cid for cid, _s, _sp, _mt in chains]
-    feats = build_complex_features(specs, mol_dir=str(weights.fetch("mols")),
-                                   chain_ids=ids, bonds=bonds)
+    return build_complex_features(specs, mol_dir=str(weights.fetch("mols")),
+                                  chain_ids=ids, bonds=bonds)
+
+
+def _work(target, iters):
+    feats = _featurise(target)
     n_tok = feats["residue_index"].shape[-1]
     print(f"target={target} N_token={n_tok} N_atom={feats['ref_pos'].shape[0]}", flush=True)
 
@@ -77,7 +81,18 @@ def _work(target, iters):
         t0 = time.time()
         try:
             if full:
-                coords = model.fold(feats, n_step=6, n_sample=1, seed=0)
+                # REPRO_REFEAT=1: rebuild feats every iteration, as _predict_protenix_one does
+                # per job. The worker therefore uploads FRESHLY allocated host buffers each
+                # fold while this loop otherwise re-uploads one long-lived dict.
+                if _os.environ.get("REPRO_REFEAT") == "1":
+                    feats = _featurise(target)
+                # REPRO_PROGRESS=1: pass a progress_fn, so host-side callbacks run between
+                # device ops exactly as the worker's live-progress view causes them to.
+                _pfn = None
+                if _os.environ.get("REPRO_PROGRESS") == "1":
+                    def _pfn(phase, step=0, total=0):
+                        pass
+                coords = model.fold(feats, n_step=6, n_sample=1, seed=0, progress_fn=_pfn)
                 dt = time.time() - t0
                 fp = float(torch.as_tensor(coords).float().abs().max())
                 print(f"iter {i:3d}  {dt:7.2f}s  coords_absmax={fp:.4f}", flush=True)

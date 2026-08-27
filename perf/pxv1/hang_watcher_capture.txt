@@ -1,0 +1,39 @@
+WATCHER CAPTURE of the protenix-v1 512 aa wedge -- 2026-08-27 11:47, pc card 0.
+TT_METAL_WATCHER=10 TT_METAL_WATCHER_DUMP_ALL=1, release ttnn wheel (the watcher IS
+compiled in: libtt_metal.so carries 22 TT_METAL_WATCHER references, so no debug build
+was needed). Reproducer: 8 copies of cdk2x2_512.yaml through one worker.
+
+Dumps 1-6: cores idle/done, host program id advancing (h_id 0 -> 453 -> 479).
+Dump 7 (last, 80.8 s): EVERY worker core enters h_id 493 and freezes. The watcher then
+SIGABRTed the worker (exit -6), which is its hang detection firing.
+
+Waypoints, per core, BRISC/NCRISC/TRISC0/TRISC1/TRISC2:  NSW,CRBW,UPMD,MWDD,K
+  BRISC  NSW  = noc semaphore wait
+  NCRISC CRBW = circular-buffer reserve-back wait
+  TRISC2 K    = inside the kernel
+i.e. the multicast producer never satisfied the consumers and nothing can advance.
+
+Stuck kernels (k_ids 336|334|337|337|337 -> generated/watcher/kernel_names.txt):
+  334  ttnn/.../matmul/device/kernels/dataflow/reader_bmm_tile_layout_in0_sender_padding.cpp
+  336  ttnn/.../matmul/device/kernels/dataflow/reader_bmm_tile_layout_in1_receiver_writer_padding.cpp
+  337  ttnn/.../matmul/device/kernels/compute/bmm_large_block_zm_fused_bias_activation.cpp
+
+So the wedge is inside ttnn's MULTICAST MATMUL program, which corroborates the Python
+localisation (ttnn.linear at tt_bio/protenix.py:2081, the linear_no_bias_z projection)
+at the kernel level and independently of it.
+
+--- first 12 core lines of Dump #7 (the wedged dump) ---
+Dump #7 at 80.809s
+Device 0 worker core(x= 0,y= 0) virtual(x= 1,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:335|334|337|337|337
+Device 0 worker core(x= 1,y= 0) virtual(x= 2,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x= 2,y= 0) virtual(x= 3,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x= 3,y= 0) virtual(x= 4,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x= 4,y= 0) virtual(x= 5,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x= 5,y= 0) virtual(x= 6,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x= 6,y= 0) virtual(x= 7,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x= 7,y= 0) virtual(x=10,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x= 8,y= 0) virtual(x=11,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x= 9,y= 0) virtual(x=12,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x=10,y= 0) virtual(x=13,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x=11,y= 0) virtual(x=14,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
+Device 0 worker core(x=12,y= 0) virtual(x=15,y= 2):  NSW,CRBW,UPMD,MWDD,   K  rmsg:D0G|BNT h_id:493 smsg:GGGG k_ids:336|334|337|337|337
