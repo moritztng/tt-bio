@@ -122,9 +122,22 @@ TOKEN_AXIS = {
         BUCKETED, TOKEN_BUCKET, "same trunk as esmfold2 (esmfold2.py PAD_MULTIPLE)",
         "the --fast route changes recycling and precision, not the pad site",
     ),
-    # These three share one bucket (protenix.TOKEN_PAD_MULTIPLE, gated on
+    # These four share one bucket (protenix.TOKEN_PAD_MULTIPLE, gated on
     # TT_BIO_PROTENIX_TOKEN_BUCKET, default ON) across the three token axes the census found one
     # after another. Set the flag to 0 for the ragged path; nothing else turns it off.
+    "protenix-v1": (
+        BUCKETED, TOKEN_BUCKET,
+        "the same protenix.py Trunk.__call__ pad and protenix.bucketed_pairformer as protenix-v2; "
+        "TOKEN_PAD_MULTIPLE is module-level, so v1 inherits the bucket by construction",
+        "censused on its OWN fold, not copied from v2's row: examples/multimer.yaml, 228 tokens "
+        "(228 = 7*32 + 4, ragged on purpose), 2 chains, single-sequence, 5 sampling steps. With "
+        "TT_BIO_PROTENIX_TOKEN_BUCKET=0: 216 ragged ttnn.softmax at w228 and the fused SDPA's "
+        "ragged-pad guard firing on all 424 of its calls. With the bucket ON (shipped default): "
+        "0 guard firings, and 96 of the 216 softmax calls become aligned. The 120 that stay "
+        "ragged are AttentionPairBias's own ttnn.softmax, which masks its own tail -- 0 "
+        "masked-ragged and 0 ragged-but-unfused in both arms, so nothing unsafe and no fused "
+        "kernel going dark. Same fold: 103.6 s bucket-off, 29.3 s bucket-on",
+    ),
     "protenix-v2": (
         BUCKETED, TOKEN_BUCKET,
         "protenix.py Trunk.__call__ pads the trunk's own axis; protenix.bucketed_pairformer "
