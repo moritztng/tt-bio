@@ -2078,9 +2078,21 @@ class Protenix:
         zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
         _sync("layernorm_z")
-        pz = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
-                         compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
-                         core_grid=CORE_GRID_MAIN)
+        # TT_PROTENIX_PAIRCOND_MM_FALLBACK=1 (default OFF, zero effect unless set): drop the
+        # explicit core_grid for this one projection so ttnn selects its own program config
+        # instead of the multicast one CORE_GRID_MAIN forces. DIAGNOSTIC ONLY -- the tt-metal
+        # watcher pins protenix-v1's intermittent >=512-token hang to a deadlock inside this
+        # matmul's multicast dataflow (in0 mcast sender on a NOC semaphore wait, in1 receivers
+        # on a CB reserve-back wait; see perf/pxv1/hang_watcher_capture.txt), and the op does
+        # NOT deadlock standalone in 300 consecutive executions, so program-config selection is
+        # the last un-eliminated difference. This flag exists to test that, not to fix it: a
+        # real fix is shared behaviour for protenix-v2 and opendde too and needs the full
+        # release gate re-run for all three checkpoints before it ships.
+        _mm_kw = dict(compute_kernel_config=self.compute_kernel_config,
+                      dtype=self.diffusion.dtype)
+        if not os.environ.get("TT_PROTENIX_PAIRCOND_MM_FALLBACK"):
+            _mm_kw["core_grid"] = CORE_GRID_MAIN
+        pz = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()), **_mm_kw)
         _sync("linear_z")
         # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
         # (the 3D path doesn't chunk pair tensors -> OOM at large N).

@@ -1,0 +1,24 @@
+iter 297     0.23s  pz_absmax=151.5280
+iter 298     0.23s  pz_absmax=151.5280
+iter 299     0.23s  pz_absmax=151.5280
+LOOP COMPLETED  slow_iters(>20s)=0
+
+TENTH NEGATIVE (2026-08-27 12:01-12:03). The REAL _diffusion_pair_cond, real checkpoint weights,
+real captured z_trunk/relp, FLOAT32, with TT_METAL_WATCHER=10 armed: 300/300 clean, 0.23-0.24 s
+each, and the watcher's last dump COMPLETED normally (no SIGABRT).
+
+Why 300 settles more than the earlier 20: a real fold makes exactly ONE pair-cond call and hangs
+in roughly 1 of 3 folds. 300 calls with zero hangs therefore all but rules out "this op, with
+these inputs, deadlocks on its own".
+
+Instrument caveat learned here: counting "NSW,CRBW" lines in watcher.log is NOT a wedge detector.
+That waypoint is normal for a matmul caught mid-flight by a periodic dump -- this clean run has 10
+such lines. The wedge signature is ALL cores stuck in it AND the watcher aborting (exit -6). The
+shape sweep's line-count metric was weak for this reason; it happened to read 0 for all four
+shapes, so it produced no false positives there.
+
+Reconciling with the watcher's kernel-level finding: the stall IS inside a multicast matmul, and
+the pcdbg marker trace brackets the wedging work between _sync("layernorm_z") and
+_sync("linear_z") -- i.e. that single ttnn.linear. Yet that exact call, with those exact inputs,
+survives 300 consecutive executions. So what differs is device/program state around the call that
+ten proxies have failed to recreate, not the call itself.
