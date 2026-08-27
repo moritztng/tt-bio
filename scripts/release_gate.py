@@ -618,13 +618,14 @@ SIZE_LADDER_EXEMPT = {
 # "not in the baseline" error loses WHY the second the person reading it forgets the story,
 # so this attributes the gap: reason plus the follow-up slug that is supposed to close it.
 SIZE_LADDER_KNOWN_GAP = {
-    "protenix-v1": ("no card can currently record it — pc card 0 is barred from providing "
-                     "a release baseline (pc-card0-512aa-fold-nondeterminism) and qb1/qb2 "
-                     "were hardware-unreachable at merge time. Not a port defect: the "
-                     "512aa hang that WAS a real protenix-v1 bug (forced core_grid racing "
-                     "on 4-tile-wide matmuls) is fixed and re-verified, 8/8 clean folds, "
-                     "parity and perf unaffected — only the baseline recording is blocked",
-                     "protenix-v1-sizeladder-baseline"),
+    "protenix-v1": ("recorded on p300c (qb2, 2026-08-27) but not on p150a: pc card 0 is "
+                     "barred from providing a release baseline "
+                     "(pc-card0-512aa-fold-nondeterminism) and qb1 has been hard-down since "
+                     "2026-08-26, so no healthy p150a has been available to fold it. Not a "
+                     "port defect: the 512aa hang that WAS a real protenix-v1 bug (forced "
+                     "core_grid racing on 4-tile-wide matmuls) is fixed and re-verified, "
+                     "8/8 clean folds, parity and perf unaffected",
+                     "record its four rungs on the first healthy p150a host"),
 }
 # Not foldable by this arm at all: it drives `tt-bio predict` at four sequence lengths on a
 # shared cdk2x2 fixture (plus nesso1's own `tt-bio affinity` leg). A design or embed model
