@@ -182,12 +182,20 @@ def _write_cifs(args):
                                       b_factors=torch.as_tensor(
                                           post[k]["plddt_atom"]).float() * 100.0)
         best = rows[order[0]]
-        (dst / "results.json").write_text(json.dumps({args.target_id: {
+        # A LIST of records carrying "id"/"status", which is what the scorer's load_results
+        # does `{r["id"]: r for r in json.load(...)}` over -- and what both the protenix-v2
+        # fixture and tt_bio's own device-side results.json emit. A dict keyed by target id
+        # parses fine and then fails inside the scorer as `string indices must be integers`.
+        # plddt stays a 0-1 FRACTION because that is the device convention this is compared
+        # against; the older protenix-v2 fixture happens to carry it as a percentage.
+        (dst / "results.json").write_text(json.dumps([{
+            "id": args.target_id, "status": "ok",
             "plddt": round(best["plddt"], 6), "complex_plddt": round(best["plddt"], 6),
             "ptm": round(best["ptm"], 6), "iptm": round(best["iptm"], 6),
             "confidence_score": round(score(best), 6),
+            "n_residues": None, "n_chains": 1,
             "n_tokens": int(raw["n_token"]), "n_atoms": int(raw["n_atom"]),
-            "samples": n_sample, "msa": True}}, indent=2) + "\n")
+            "samples": n_sample, "msa": True}], indent=2) + "\n")
         (dst / "meta.json").write_text(json.dumps({
             "seed": raw["seed"], "n_cycle": raw["n_cycle"], "steps": raw["steps"],
             "samples": n_sample, "reference_seconds": round(raw["total_s"], 1),

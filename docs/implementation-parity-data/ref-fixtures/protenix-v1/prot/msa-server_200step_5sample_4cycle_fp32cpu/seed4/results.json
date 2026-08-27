@@ -1,13 +1,17 @@
-{
-  "prot": {
+[
+  {
+    "id": "prot",
+    "status": "ok",
     "plddt": 0.757046,
     "complex_plddt": 0.757046,
     "ptm": 0.766844,
     "iptm": 0.0,
     "confidence_score": 0.766844,
+    "n_residues": null,
+    "n_chains": 1,
     "n_tokens": 117,
     "n_atoms": 900,
     "samples": 5,
     "msa": true
   }
-}
+]
