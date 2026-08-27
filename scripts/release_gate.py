@@ -2087,6 +2087,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
 
     Returns {"levers": {rung: ...}, "runtime_s": {rung: median}, "sigma": relative
     runtime noise at 512 | None, "census_jsons": {rung: path}} or {"error": ...}.
+    "drift" lists any rep-to-rep difference the check's own comparator would call a finding.
 
     The discard is per rung, not one warm-up at the smallest rung, because the JIT
     kernel cache is keyed by SHAPE: folding 256 aa does not warm 512 aa. Measured on
@@ -2119,18 +2120,19 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                 continue          # cold: kernels for this shape compile on this fold
             grid = grid or r.get("grid")
             runs.append(r)
-        # Served/declined AND the reject-clause key set, because those are exactly the two
-        # things `_size_ladder_compare_levers` reads. A rep-to-rep difference in either means
-        # the census is measuring something that is not a property of the computation, and a
-        # baseline written from run 0 then makes that transient the release reference.
-        counts = [{f: (l["served"], l["declined"],
-                       tuple(sorted((l.get("rejects") or {}))))
-                   for f, l in r["levers"].items()} for r in runs]
-        for f in counts[0]:
-            if len({c.get(f) for c in counts}) > 1:
-                drift.append(f"{model}/{rung} {f}: " + " vs ".join(
-                    "{}/{} [{}]".format(c[f][0], c[f][1], ",".join(c[f][2]))
-                    for c in counts))
+        # Compare the reps with the CHECK's own comparator, so "reproduces" means exactly what
+        # the check will later demand of this baseline and nothing more. Comparing raw
+        # served/declined instead, which is what this did when it was written, refuses to
+        # record any model whose call COUNT jitters even though the check never reads a count:
+        # nesso1/256 on p300c folds 316/332/321/337 declines over four reps, every one of them
+        # 0 served on the same single reject clause, which is a pass under every rule the check
+        # has. A guard stricter than the thing it guards blocks the recording it exists to make
+        # honest.
+        for i, r in enumerate(runs[1:], 1):
+            for f in _size_ladder_compare_levers(runs[0]["levers"], r["levers"],
+                                                 f"{model}/{rung} rep0 vs rep{i}"):
+                if f not in drift:
+                    drift.append(f)
         levers[str(rung)] = runs[0]["levers"]
         census_jsons[str(rung)] = runs[0]["census_json"]
         ts = [r["runtime_s"] for r in runs]
@@ -2139,6 +2141,23 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
             sigma = statistics.stdev(ts) / statistics.mean(ts)
     return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
             "census_jsons": census_jsons, "grid": grid, "drift": drift}
+
+
+def _size_ladder_record_refusal(meas: dict) -> str | None:
+    """Why this measurement may not become a baseline, or None.
+
+    A census that does not reproduce on the recording card is not evidence. This used to
+    print a warning and record rep 0 anyway, which is how a transient becomes the release
+    reference: nesso1/256 recorded an `l1_dest_is_faster:288x288x128` reject clause that no
+    later fold reproduced, and the check then failed against the baseline the record run had
+    just written.
+    """
+    if meas.get("error"):
+        return meas["error"]
+    if meas.get("drift"):
+        return ("census does not reproduce across reps, so no baseline was recorded: "
+                + "; ".join(meas["drift"]))
+    return None
 
 
 def _size_ladder_exponent_block(runtimes: dict, sigma):
@@ -2509,23 +2528,32 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 continue
             meas = _size_ladder_measure_model(m, rungs, workdir,
                                               SIZE_LADDER_SIGMA_REPS, 1)
-            if meas.get("error"):
-                legs.append({"model": m, "gate": False, "error": meas["error"],
-                             "findings": [meas["error"]]})
-                continue
-            if meas.get("drift"):
-                # REFUSE, do not record. This used to print a warning and record run 0 anyway,
-                # which is how a census that does not reproduce becomes a release reference:
-                # nesso1/256 recorded a `l1_dest_is_faster:288x288x128` reject clause that no
-                # later fold reproduced, and the check then failed against the baseline the
-                # record run had just written. A baseline the recording card cannot itself
-                # reproduce is not evidence, so the honest outcome is no entry at all.
-                err = ("census does not reproduce across reps, so no baseline was recorded: "
-                       + "; ".join(meas["drift"]))
+            err = _size_ladder_record_refusal(meas)
+            block = skip = None
+            if err is None:
+                block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
+                # Re-measure at the rep count the CHECK will use. Only rung 512 was repeated
+                # above, so a model noisy enough to need a median went into the baseline
+                # single-shot at the other three rungs while the check reads a median of three
+                # there. openfold3 recorded 15.8 s at 256 that way and checked at 7.3 s on the
+                # same card and commit, failing its own 256->512 exponent by 0.96 with nothing
+                # changed but how many folds the number came from.
+                reps = (block or {}).get("reps", 1)
+                if reps > 1:
+                    again = [r for r in rungs if r != 512]
+                    print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
+                          f"{','.join(map(str, again))} at {reps} reps", flush=True)
+                    m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
+                    err = _size_ladder_record_refusal(m2)
+                    if err is None:
+                        for k in ("levers", "runtime_s", "census_jsons"):
+                            meas[k].update(m2[k])
+                        block, skip = _size_ladder_exponent_block(meas["runtime_s"],
+                                                                  meas["sigma"])
+            if err:
                 print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
                 legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
                 continue
-            block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
             todos += _size_ladder_fill_reasons(meas["levers"],
                                                old_models.get(m, {}).get("levers"))
             entry = {"grid": meas.get("grid"), **stamp,
