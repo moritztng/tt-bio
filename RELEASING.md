@@ -175,6 +175,26 @@ the reference's own crystal distance are reported alongside as evidence. One see
 rollout, about 5 minutes. It needs the RF3 checkpoint (`tt-bio weights fetch rf3`), which
 `--check` verifies card-free.
 
+The **rfd3-fusion** arm gates two size-conditioned RFD3 diffusion levers by their decline
+predicate rather than by a number. Both are bit-exact where they serve and both decline
+silently: the atom attention's fused softmax needs the kernel to engage at the gathered key
+width, and the pair Transition's split first projection needs its third L1 resident to leave
+the chunk height alone. Both ship OFF (`RFD3_SOFTMAX_PV_FUSED`, `RFD3_FC1_SPLIT_SILU`) and the
+arm turns them on for its own folds, because what rots here is the guard, not the default: the
+predicates decide where each lever is bit-exact and they are what the next fold A/B will be run
+against. A regression in one is silent either way, and no other leg can see it — the gate's own
+rfd3 spec is a 120-token binder where both levers correctly serve zero. So the arm censuses two
+designs at 4 timesteps and
+asserts opposite things about them: 685 tokens (`perf/dsfix/fixtures/rfd3_R4.json`, the size the
+perf page's RFD3 row quotes), where the expected serve and decline counts are exact integers
+from `_rfd3_fusion_expected(steps)` and each lever's decline clauses pin the site as well as the
+count, and the 40-token IAI motif scaffold, where both levers must serve zero. The small leg is
+the accuracy half: a lever that starts firing outside the shapes it was proven bit-exact on
+writes a wrong structure, not a slow one. It is also the fixture `scripts/perf_regression.py`
+folds for rfd3, so zero served there is the proof that `docs/perf_baselines.json`'s rfd3 rows
+still describe the code path they were recorded on. About 4 minutes; set
+`RELEASE_GATE_RFD3_FUSION_TIMEOUT` to change the per-design timeout.
+
 The **l1-budget** arm gates a part rather than a number. It and **batch-position** below
 run in `release_gate.py`, not in the full gate, so a release runs both commands.
 Every L1-edge budget in `tt_bio/tenstorrent.py` was fitted on a 130-core p150a, and `_apply_grid_thresholds`

@@ -1,0 +1,130 @@
+{
+  "flag": "pv+fc1",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 97.516,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "sampler_s": 98.788,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 2,
+      "sampler_s": 94.169,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 10569,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "sampler_s": 99.304,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 4,
+      "sampler_s": 91.614,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 10569,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 5,
+      "sampler_s": 97.459,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 6,
+      "sampler_s": 91.575,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 10569,
+      "steps": 200
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "arms": [
+    "off",
+    "off",
+    "on",
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 107.544,
+  "bit_exact": true,
+  "digests": {
+    "off": [
+      "5295e526ebd0b757"
+    ],
+    "on": [
+      "5295e526ebd0b757"
+    ]
+  },
+  "aa_control_s": [
+    97.516,
+    98.788
+  ],
+  "aa_spread_s": 1.2719999999999914,
+  "off_median_s": 98.152,
+  "off_min_s": 97.459,
+  "off_max_s": 99.304,
+  "on_median_s": 91.614,
+  "on_min_s": 91.575,
+  "on_max_s": 94.169,
+  "delta_s": -6.538,
+  "ratio": 1.0714,
+  "delta_inside_aa_band": false,
+  "predicted_delta_s": -4.0,
+  "card": 2,
+  "torch": "2.12.0+cu130",
+  "rung": "R4",
+  "levers": [
+    "pv",
+    "fc1"
+  ],
+  "provisional_on": null,
+  "measured_on": "tt-quietbox2 card2",
+  "l1_bytes": 138000000,
+  "served_per_lever": {
+    "pv": 5373,
+    "fc1": 26334
+  },
+  "pv_served_widths": {
+    "6080": 5373
+  },
+  "fc1_served": {
+    "rows=64 w=704 hidden=256": 23940,
+    "rows=45 w=704 hidden=256": 2394
+  },
+  "fc1_declines": {
+    "tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63": 2394
+  }
+}

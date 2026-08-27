@@ -826,6 +826,14 @@ RFD3_FUSION_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_RFD3_FUSION_TIMEOUT", "
 # a different site of the same fold" are otherwise indistinguishable. Region 2 must decline on
 # exactly one clause: at hidden=256 all eleven chunks take a pinned config, which is why its served
 # count is eleven times the serving count and not less.
+# Both levers ship OFF: the R4 re-fold of 2026-08-28 (perf/p132/both_ab_R4_refold.json) cleared
+# the 1.05x ratio line but not its conservative tie-break, so the pre-registered rule held the
+# default. The arm therefore turns both flags on for its own two folds rather than reading the
+# shipped default. What it gates is the decline predicate, which is what rots: the guards decide
+# where each lever is bit-exact, they are what a future fold A/B will be run against, and a
+# regression in one of them is silent either way. When the defaults do ship on, drop this and let
+# `resolved` gate the default as well.
+RFD3_FUSION_ENV = {"RFD3_SOFTMAX_PV_FUSED": "1", "RFD3_FC1_SPLIT_SILU": "1"}
 RFD3_FUSION_PV_DECLINE = "softmax kernel does not engage at this shape @ key 704"
 RFD3_FUSION_PV_SERVED_KEY = "@ key 6080"
 RFD3_FUSION_FC1_DECLINE = "tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63"
@@ -2056,8 +2064,9 @@ def _rfd3_fusion_findings(rows: dict, steps: int, serve: bool) -> list:
             out.append(f"{flag}: no census row -- the lever is not registered in "
                        f"lever_census.LEVERS, so nothing below was measured")
         elif r["resolved"] != "True":
-            out.append(f"{flag}: resolved '{r['resolved']}', not 'True' -- the shipped default "
-                       f"is not on, so the counts below measure the harness and not the guard")
+            out.append(f"{flag}: resolved '{r['resolved']}', not 'True' -- RFD3_FUSION_ENV asks "
+                       f"for the lever and the module did not take it, so the counts below "
+                       f"measure the plumbing and not the guard")
     if out:
         return out
 
@@ -2121,6 +2130,7 @@ def _rfd3_fusion_census_fold(spec: Path, label: str, workdir: Path) -> dict:
            + _rfd3_design_cmd(out_dir, 1, RFD3_FUSION_TIMESTEPS, spec=spec)[1:])
     with open(log, "w") as fp:
         rc, timed_out = _run_fold(cmd, RFD3_FUSION_TIMEOUT_S, cwd=REPO_ROOT,
+                                  env={**os.environ, **RFD3_FUSION_ENV},
                                   stdout=fp, stderr=subprocess.STDOUT)
     if timed_out:
         return {"error": f"{label}: design timed out after {RFD3_FUSION_TIMEOUT_S}s"}
@@ -2154,7 +2164,7 @@ def run_rfd3_fusion(keep: bool) -> dict:
     for label, spec, serve in (("R4", RFD3_FUSION_R4_SPEC, True),
                                ("iai", RFD3_FUSION_SMALL_SPEC, False)):
         print(f"\n{'='*70}\n[rfd3-fusion] censusing {spec.name} "
-              f"({RFD3_FUSION_TIMESTEPS} steps, levers must "
+              f"({RFD3_FUSION_TIMESTEPS} steps, both levers forced on, must "
               f"{'serve' if serve else 'decline'})\n{'='*70}", flush=True)
         r = _rfd3_fusion_census_fold(spec, label, workdir)
         if "error" in r:
