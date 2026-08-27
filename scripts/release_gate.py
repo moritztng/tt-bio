@@ -611,6 +611,21 @@ SIZE_LADDER_EXEMPT = {
                      "Its independent perf coverage is perf_regression.py's own SPECS cell, "
                      "added after a 60x regression shipped behind that same reasoning.",
 }
+# A model ON the ladder (SIZE_LADDER_MODELS, not SIZE_LADDER_EXEMPT) can still ship with no
+# recorded rungs on a given card because the hardware to record them was unavailable, not
+# because of a defect in the port. That is a transient gap, not a structural one — it must
+# NOT go in SIZE_LADDER_EXEMPT (transient-reason-in-structural-exemption-dict) — but a bare
+# "not in the baseline" error loses WHY the second the person reading it forgets the story,
+# so this attributes the gap: reason plus the follow-up slug that is supposed to close it.
+SIZE_LADDER_KNOWN_GAP = {
+    "protenix-v1": ("no card can currently record it — pc card 0 is barred from providing "
+                     "a release baseline (pc-card0-512aa-fold-nondeterminism) and qb1/qb2 "
+                     "were hardware-unreachable at merge time. Not a port defect: the "
+                     "512aa hang that WAS a real protenix-v1 bug (forced core_grid racing "
+                     "on 4-tile-wide matmuls) is fixed and re-verified, 8/8 clean folds, "
+                     "parity and perf unaffected — only the baseline recording is blocked",
+                     "protenix-v1-sizeladder-baseline"),
+}
 # Not foldable by this arm at all: it drives `tt-bio predict` at four sequence lengths on a
 # shared cdk2x2 fixture (plus nesso1's own `tt-bio affinity` leg). A design or embed model
 # has no such input and gets its own release-gate arm instead. Listed rather than filtered by
@@ -2534,8 +2549,14 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         for m in models:
             base_model = card_block.get("models", {}).get(m)
             if base_model is None:
-                err = f"model not in the {card} baseline (added to " \
-                      f"SIZE_LADDER_MODELS after recording? re-record)"
+                gap = SIZE_LADDER_KNOWN_GAP.get(m)
+                if gap:
+                    reason, followup = gap
+                    err = f"{m} not in the {card} baseline: {reason} " \
+                          f"(follow-up: {followup})"
+                else:
+                    err = f"{m} not in the {card} baseline (added to " \
+                          f"SIZE_LADDER_MODELS after recording? re-record)"
                 legs.append({"model": m, "gate": False, "error": err,
                              "findings": [err]})
                 continue
