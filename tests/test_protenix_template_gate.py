@@ -21,7 +21,7 @@ from tt_bio import weights
 from tt_bio.main import RECYCLING_STEPS
 
 # model id -> the template pairformer depth its checkpoint must ship for the gate to be inert
-TEMPLATE_STACK_MUST_BE_NONEMPTY = ("protenix-v2", "opendde")
+TEMPLATE_STACK_MUST_BE_NONEMPTY = ("protenix-v2", "opendde", "opendde-abag")
 TEMPLATE_STACK_MUST_BE_EMPTY = ("protenix-v1",)
 
 
@@ -29,14 +29,19 @@ def _depth(model_id):
     """Template pairformer depth, censused off whatever copy of the checkpoint is on this box.
 
     Never downloads: a checkpoint that is not cached SKIPs, so this stays a CI-cheap shape check
-    and never turns into a 1.5 GB fetch."""
+    and never turns into a 2.6 GB fetch.
+
+    Resolves through `weights.cached_path`, NOT `Artifact.dest()`. dest() is documented as
+    meaningless for an hf-repo row, and opendde is one: this test SKIPped opendde on a box that
+    had the checkpoint the whole time, so the arm that pins the gate's inertness for OpenDDE
+    silently never ran."""
     import torch
 
     from tt_bio.protenix import n_blocks
 
-    path = weights.ARTIFACTS[model_id].dest()
-    if not path.exists():
-        raise FileNotFoundError(f"{model_id} not cached at {path}")
+    path = weights.cached_path(model_id)
+    if path is None:
+        raise FileNotFoundError(f"{model_id} not cached on this box")
     sd = torch.load(path, map_location="cpu", weights_only=True)
     sd = sd.get("model", sd)
     sd = {k[len("module."):] if k.startswith("module.") else k: v for k, v in sd.items()}

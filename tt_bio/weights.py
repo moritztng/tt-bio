@@ -833,6 +833,36 @@ def artifact_paths(key: str, root: str | Path | None = None) -> list[Path]:
     return [p for p in out if p.exists()]
 
 
+def cached_path(key: str, root: str | Path | None = None) -> Path | None:
+    """Where this artifact already IS on disk, or None. Never downloads.
+
+    ``artifact_paths`` answers the disk-audit question and returns [] for an ``hf-repo`` row,
+    whose file lives in the hub's snapshot tree rather than the flat cache. That is correct for
+    an audit and wrong for "do I have this?", and a test that reached for ``Artifact.dest()``
+    instead -- documented as meaningless for hf-repo -- silently SKIPped every hf-repo model it
+    was supposed to check. A guard that does not run looks exactly like a guard that passed, so
+    the predicate belongs here once rather than in each caller.
+    """
+    art = ARTIFACTS[key]
+    if (p := _override(art)) is not None:
+        return p if p.exists() else None
+    if art.derived:
+        d = art.derived_dest(root)
+        return d if d and d.exists() else None
+    if art.source == "hf-repo":
+        if not art.filename:
+            return None
+        try:
+            from huggingface_hub import try_to_load_from_cache
+        except ImportError:
+            return None
+        configure_hf_cache()
+        hit = try_to_load_from_cache(art.repo, art.filename)
+        return Path(hit) if isinstance(hit, str) else None
+    p = art.dest(root)
+    return p if p.exists() else None
+
+
 def superseded_revisions() -> tuple[list[str], int]:
     """HF hub revisions with no ref, in repos that still have a live one, and the bytes
     they free. Reclaimable size comes from ``delete_revisions``, which refcounts blobs:
