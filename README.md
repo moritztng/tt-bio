@@ -10,7 +10,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), [OpenBind-0](#structure-prediction), [OpenDDE](#structure-prediction), and [RoseTTAFold3](#structure-prediction) structure prediction, [BoltzGen](#design), [RFdiffusion3](#design) and [PXDesign](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot), and [Nesso-1 structure-free binding affinity](#binding-affinity-without-a-structure-nesso-1) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v1 and Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), [OpenBind-0](#structure-prediction), [OpenDDE](#structure-prediction), and [RoseTTAFold3](#structure-prediction) structure prediction, [BoltzGen](#design), [RFdiffusion3](#design) and [PXDesign](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot), and [Nesso-1 structure-free binding affinity](#binding-affinity-without-a-structure-nesso-1) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 **Benchmarks: [tt-bio.com](https://tt-bio.com)** has throughput and cost for every model against
 NVIDIA DGX H200, B200 and A100. The [full benchmark page](https://tt-bio.com/benchmarks/) has the
@@ -121,7 +121,7 @@ its status, size and path; `--download` prefetches, `--prune` reclaims disk. Set
 `TT_BIO_CACHE` to move all of it (both `~/.boltz` and the Hugging Face cache, about
 65 GiB) somewhere with room. See [docs/weights.md](docs/weights.md).
 
-Boltz-2, Protenix-v2, OpenFold3, OpenDDE, and RF3 are MSA-dependent and use an MSA **by default**, a local
+Boltz-2, Protenix-v1, Protenix-v2, OpenFold3, OpenDDE, and RF3 are MSA-dependent and use an MSA **by default**, a local
 ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-msa-optional)),
 otherwise the online ColabFold server. Sending sequences to the online server (`api.colabfold.com`)
 leaves your machine; a one-line notice is printed when that fallback is used. Pass
@@ -377,7 +377,7 @@ when comparing numbers against another implementation.
 
 ### Input Format
 
-ESMFold2 accepts protein inputs only. Protenix-v2 accepts proteins, DNA, RNA,
+ESMFold2 accepts protein inputs only. Protenix-v1 and Protenix-v2 accept proteins, DNA, RNA,
 ligands, and covalent `bond` constraints. OpenFold3 accepts proteins, DNA and RNA
 plus per-chain templates, and rejects ligands and constraints with a named error.
 OpenDDE accepts proteins and ligands
