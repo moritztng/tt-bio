@@ -32,6 +32,7 @@ denominator (`pc-card0-512aa-fold-nondeterminism`).
 """
 import os
 import pathlib
+import socket
 import sys
 
 sys.path.insert(0, os.getcwd())
@@ -43,7 +44,16 @@ from fold_ab import fold_ab                                              # noqa:
 # padded axis of 4576, and the lineage's central exchange rate is 75 %, so 16.6 ms/step over 200
 # steps. The block-sparse 10x overestimate (§"Traps") is why this stays labelled an estimate until
 # the A/B answers.
-PREDICTED = {"R2": -0.05, "R3": -3.32, "R4": -3.45}
+#
+# R4 no longer carries the cost model's number. The cost model over-predicted R3 by 2.6x (-3.32
+# against a measured -1.255 to -1.322) and section 20.3 found why: the normalise that carries the
+# deletable bytes runs at 0.42x the machine roof the model charged them at (20.9 item 1). R4's entry
+# is 20.6's screen-ratio prediction instead. The isolated screen reads 1.180 s/design at R3
+# (5.901 ms/step x 200) against that fold, i.e. 0.89-0.94 of it, and R4's screen by the same
+# construction is 2.009 s/design (10.047 ms/step x 200), so the pre-registered band is -2.14 to
+# -2.25 and the midpoint is what gets printed. 19.9 item 2: a prose withdrawal does not reach the
+# code that prints the number, so the withdrawn -3.45 is deleted rather than left in place.
+PREDICTED = {"R2": -0.05, "R3": -3.32, "R4": -2.19}
 
 FIXTURES = pathlib.Path("perf/dsfix/fixtures")
 
@@ -62,7 +72,10 @@ def main():
                   fixture=FIXTURES / ("rfd3_%s.json" % rung),
                   out=out, steps=steps, arms=arms, tag="p126_%s" % rung,
                   predicted_delta_s=PREDICTED.get(rung),
-                  extra={"rung": rung, "provisional_on": "pc-card0",
+                  extra={"rung": rung,
+                         "provisional_on": ("pc-card0" if socket.gethostname() == "pc" else None),
+                         "measured_on": "%s card%s" % (socket.gethostname(),
+                                                       os.environ.get("TT_VISIBLE_DEVICES", "?")),
                          "expect_decline": expect_decline})
 
     # BOTH halves of the census, keyed by padded key width, because a decline count alone cannot

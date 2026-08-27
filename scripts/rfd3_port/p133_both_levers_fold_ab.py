@@ -26,6 +26,7 @@ denominator (`pc-card0-512aa-fold-nondeterminism`).
 import json
 import os
 import pathlib
+import socket
 import sys
 
 sys.path.insert(0, os.getcwd())
@@ -42,7 +43,13 @@ from fold_ab import fold_ab                                               # noqa
 # region 2 serves both hidden widths and X3 measured -7.634; at 90 MB hidden=512 declines on the
 # height guard and region 2 pays only its hidden=256 half, so the composed prediction is region 1's
 # -1.255..-1.322 plus X4's -3.411. `None` means "whatever `_PAIR_TRANSITION_L1_BYTES` ships as".
-PREDICTED = {("R3", None): -7.65, ("R3", 90_000_000): -4.70}
+# R4 takes no `--l1-bytes`: at 685 tokens the shipped 138 MB budget already declines hidden=512 on
+# `chunk-height-would-move 64->63`, so the census fixture IS the half-serving rung (20.4). Its entry
+# is region 1's screen-ratio band (-2.14 to -2.25, 20.6) plus region 2's measured -2.394, scaled by
+# the 0.871 composed-to-parts ratio 17.1 measured at the other half-serving rung (-4.093 against
+# -4.70). Band -3.95 to -4.64; the printed value is the scaled midpoint. Additivity is what this run
+# may refute, at an operating point where it has already failed once (17.7 item 5).
+PREDICTED = {("R3", None): -7.65, ("R3", 90_000_000): -4.70, ("R4", None): -4.0}
 
 FIXTURES = pathlib.Path("perf/dsfix/fixtures")
 
@@ -94,7 +101,10 @@ def main():
                   fixture=FIXTURES / ("rfd3_%s.json" % rung),
                   out=out, steps=steps, arms=arms, tag="p133_%s" % rung,
                   predicted_delta_s=PREDICTED.get((rung, l1_bytes)) if not only else None,
-                  extra={"rung": rung, "levers": names, "provisional_on": "pc-card0",
+                  extra={"rung": rung, "levers": names,
+                         "provisional_on": ("pc-card0" if socket.gethostname() == "pc" else None),
+                         "measured_on": "%s card%s" % (socket.gethostname(),
+                                                       os.environ.get("TT_VISIBLE_DEVICES", "?")),
                          "l1_bytes": l1_bytes or rfd3_model._PAIR_TRANSITION_L1_BYTES})
 
     # Per-lever provenance, because a composed arm that served only one lever's calls is that
