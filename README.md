@@ -75,7 +75,7 @@ Every command names its model with `--model`:
 
 - **`boltz2`**: folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
 - **`esmfold2`** / **`esmfold2-fast`**: fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint).
-- **`protenix-v2`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emits a PAE/PDE matrix with `--write_pae`.
+- **`protenix-v1`** / **`protenix-v2`**: fold complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emit a PAE/PDE matrix with `--write_pae`. `protenix-v1` is upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against `protenix-v2`'s 10, so it is the cheaper of the two. Cyclic chains are not supported by either (they raise a clear error); covalent `bond` constraints are.
 - **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only, ligands, covalent bonds and cyclic chains are not supported yet (raise a clear error). Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
 - **`openbind`**: OpenBind-0, the same OpenFold3 stack on upstream's v0.5.0 checkpoint, tuned for protein-ligand co-folding. Takes ligands by SMILES or CCD code alongside protein, RNA and DNA chains; MSA-dependent (uses an MSA by default), with optional per-chain templates. Covalent bonds and cyclic chains are not supported yet (raise a clear error). Weights are a separate file from `openfold3` and are not downloaded; point `TT_BIO_OPENBIND` at them (see [`docs/weights.md`](docs/weights.md)).
 - **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
@@ -86,6 +86,7 @@ Every command names its model with `--model`:
 ```bash
 tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
 tt-bio predict examples/prot.yaml --model protenix-v2   # MSA on by default; NA/ligand chains are single-sequence
+tt-bio predict examples/prot.yaml --model protenix-v1   # upstream's v0.5.0 base checkpoint, 4 recycles
 tt-bio predict examples/prot.fasta --model openfold3    # MSA on by default; set OF3_CKPT to the weights file
 tt-bio predict examples/affinity.yaml --model openbind  # protein + ligand co-fold; set TT_BIO_OPENBIND
 tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen co-fold, MSA on by default
@@ -95,14 +96,14 @@ tt-bio predict examples/prot.yaml --model rf3 \
 tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the rollout on hopeless targets
 ```
 
-| Feature | Boltz-2 | ESMFold2 | Protenix-v2 | OpenFold3 | OpenBind-0 | OpenDDE | RF3 |
-|---|---|---|---|---|---|---|---|
-| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein/DNA/RNA/ligand complex | protein complex (antibody-antigen) | protein/DNA/RNA/ligand complex |
-| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
-| Affinity / potentials / templates | yes | no | no | templates only | templates only | no | no |
-| Pocket / contact constraints | yes | no | no | no | no | no | no |
-| Covalent `bond` constraints | yes | no | yes | no | no | yes | from the input structure |
-| PAE/PDE output (`--write_pae`) | no | no | yes | no | no | no | in `_summary_confidences.json` |
+| Feature | Boltz-2 | ESMFold2 | Protenix-v1 | Protenix-v2 | OpenFold3 | OpenBind-0 | OpenDDE | RF3 |
+|---|---|---|---|---|---|---|---|---|
+| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein/DNA/RNA/ligand complex | protein complex (antibody-antigen) | protein/DNA/RNA/ligand complex |
+| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
+| Affinity / potentials / templates | yes | no | no | no | templates only | templates only | no | no |
+| Pocket / contact constraints | yes | no | no | no | no | no | no | no |
+| Covalent `bond` constraints | yes | no | yes | yes | no | no | yes | from the input structure |
+| PAE/PDE output (`--write_pae`) | no | no | yes | yes | no | no | no | in `_summary_confidences.json` |
 
 Targets up to at least 1095 residues fold on a single 12 GiB Wormhole card, on every structure
 model including OpenDDE, whose structural-token expander makes it the strictest case. The pair
@@ -318,7 +319,7 @@ tt-bio msa-server --listen 0.0.0.0:8765
 tt-bio predict examples/prot.yaml --model protenix-v2 --msa_endpoint http://HOST:8765
 ```
 
-The server runs the same offline `colabfold_search` and serves unpaired `{hash}.a3m`, with a shared cache and a search-concurrency cap (`--max_concurrent`). Add `--token` to require `Authorization: Bearer <token>`. `--msa_endpoint` applies to `--model esmfold2`, `protenix-v2`, `openfold3`, `opendde`, and `rf3`.
+The server runs the same offline `colabfold_search` and serves unpaired `{hash}.a3m`, with a shared cache and a search-concurrency cap (`--max_concurrent`). Add `--token` to require `Authorization: Bearer <token>`. `--msa_endpoint` applies to `--model esmfold2`, `protenix-v1`, `protenix-v2`, `openfold3`, `opendde`, and `rf3`.
 
 ### Binding Affinity Prediction (Boltz-2)
 
@@ -587,12 +588,12 @@ Model-specific options are labelled below.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates, `OF3_CKPT` weights), `openbind` (OpenBind-0; the OpenFold3 stack on upstream v0.5.0 weights, protein-ligand co-folding, `TT_BIO_OPENBIND` weights), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), or `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes, non-canonical residues, cyclic chains) |
+| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v1` / `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes; `protenix-v1` is upstream's v0.5.0 base checkpoint at 4 trunk recycles, `protenix-v2` the wider one at 10), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates, `OF3_CKPT` weights), `openbind` (OpenBind-0; the OpenFold3 stack on upstream v0.5.0 weights, protein-ligand co-folding, `TT_BIO_OPENBIND` weights), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), or `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes, non-canonical residues, cyclic chains) |
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | Weight cache directory. Whole-repo models (ESMFold2, ESMC, SaProt, OpenDDE) use the Hugging Face cache; `TT_BIO_CACHE` moves both, see [docs/weights.md](docs/weights.md) |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
-| `--recycling_steps` | model-specific | 3 for Boltz-2 and OpenFold3 (OpenFold3 runs recycles+1 = 4 trunk cycles, its upstream default); 10 for Protenix-v2/OpenDDE/ESMFold2 (the ESMFold2 paper's benchmark setting) |
-| `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v2/OpenFold3/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |
+| `--recycling_steps` | model-specific | 3 for Boltz-2 and OpenFold3 (OpenFold3 runs recycles+1 = 4 trunk cycles, its upstream default); 4 for Protenix-v1 (its checkpoint's own `N_cycle`); 10 for Protenix-v2/OpenDDE/ESMFold2/RF3 (the ESMFold2 paper's benchmark setting) |
+| `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |
 | `--diffusion_samples` | `1` | Number of structure samples |
 | `--partial_t` | `0` | rf3 only. Schedule index the diffusion rollout starts at, so it refines `--partial_structure` instead of folding from scratch. Higher stays closer to that structure |
 | `--partial_structure` | — | rf3 only. The `.cif`/`.pdb`/`.json` structure `--partial_t` refines. It supplies the sequences too, so no MSA is attached |
@@ -600,15 +601,15 @@ Model-specific options are labelled below.
 | `--max_parallel_samples` | `5` | Diffusion samples denoised in one batched forward. Higher is faster but costs device memory linearly; lower it if a large target runs out of memory |
 | `--output_format` | `cif` | `cif` or `pdb` |
 | `--seed` | `0` | Random seed for the diffusion sampler |
-| `--trace` | `False` | **(Protenix-v2/OpenDDE)** Replay a captured trace of the per-step diffusion device stream. Lossless, and removes the per-step host dispatch; reserves 1 GiB of device memory |
+| `--trace` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Replay a captured trace of the per-step diffusion device stream. Lossless, and removes the per-step host dispatch; reserves 1 GiB of device memory |
 | `--diffusion_trace` | `False` | **(Boltz-2)** The same for Boltz-2's diffusion DiT stream |
-| `--write_pde` | `False` | **(Protenix-v2/OpenDDE)** Write the PDE matrix per target |
-| `--write_embeddings` | `False` | **(Protenix-v2/OpenDDE)** Write the `s`/`z` embeddings per target |
+| `--write_pde` | `False` | **(Boltz-2)** Write the PDE matrix to its own `<name>_pde.npz`. The Protenix family and OpenDDE put PDE next to PAE in one file under `--write_pae` instead |
+| `--write_embeddings` | `False` | **(Boltz-2)** Write the `s`/`z` embeddings per target |
 | `--override` | `False` | Re-run from scratch |
-| `--use_msa_server` | auto | Use the online ColabFold API; auto-enabled for Boltz-2/Protenix-v2/OpenFold3/OpenDDE when no local DB is found |
-| `--single_sequence` | `False` | **(Boltz-2/Protenix-v2/OpenFold3/OpenDDE)** Skip all MSA requests; lower accuracy |
+| `--use_msa_server` | auto | Use the online ColabFold API; auto-enabled for Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenBind-0/OpenDDE/RF3 when no local DB is found |
+| `--single_sequence` | `False` | **(Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE)** Skip all MSA requests; lower accuracy |
 | `--msa_endpoint` | — | Fetch unpaired MSAs from a `tt-bio msa-server`; OpenDDE pairing still uses `--msa_server_url` |
-| `--write_pae` | `False` | **(Protenix-v2/OpenDDE)** Write the token-token PAE/PDE matrices to `<name>_pae.npz` |
+| `--write_pae` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Write the token-token PAE/PDE matrices to `<name>_pae.npz` |
 | `--use_potentials` | `False` | **(Boltz-2)** Apply physical constraints |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
@@ -627,7 +628,7 @@ Model-specific options are labelled below.
 | `--sampling_steps_affinity` | `200` | Sampling steps for affinity |
 | `--diffusion_samples_affinity` | `5` | Number of affinity samples |
 
-**MSA Options** (Boltz-2, Protenix-v2, OpenFold3, and OpenDDE use an MSA by default; ESMFold2 only when requested):
+**MSA Options** (Boltz-2, Protenix-v1, Protenix-v2, OpenFold3, OpenBind-0, OpenDDE and RF3 use an MSA by default; ESMFold2 only when requested):
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -636,7 +637,7 @@ Model-specific options are labelled below.
 | `--msa_cache_only` | `False` | Treat `--msa_dir` as the only MSA source: never search, and fail rather than quietly fold a chain single-sequence |
 | `--use_envdb` | `False` | Also search environmental database |
 | `--use_msa_server` | auto | Use ColabFold API for MSA (auto-enabled when no local DB is found) |
-| `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v2/OpenFold3/OpenDDE) |
+| `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE) |
 | `--msa_server_url` | `https://api.colabfold.com` | MSA server URL |
 | `--msa_pairing_strategy` | `greedy` | `greedy` or `complete` |
 | `--max_msa_seqs` | `8192` | Maximum MSA sequences |

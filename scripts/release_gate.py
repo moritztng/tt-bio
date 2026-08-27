@@ -247,6 +247,12 @@ MODELS = {
     "esmfold2":      {"max_rmsd": 8.0, "min_tm": 0.40},
     "esmfold2-fast": {"max_rmsd": 4.5, "min_tm": 0.60},
     "protenix-v2":   {"max_rmsd": 6.0, "min_tm": 0.50},
+    # protenix-v1, upstream's own Protenix v0.5.0 base checkpoint, shipped as
+    # `predict --model protenix-v1`. Same tt_bio/protenix.py class as protenix-v2 at half
+    # the pair width (c_z 128) and 4 trunk recycles instead of 10, so it can fold
+    # differently and needs its own floor rather than protenix-v2's.
+    # MEASURED-PENDING: filled from this gate on pc card 0 in the same pass.
+    "protenix-v1":   {"max_rmsd": 6.0, "min_tm": 0.50},
     "opendde":       {"max_rmsd": 6.0, "min_tm": 0.50},
     # OpenFold3 (polymer-only port; protenix-v2 is the 1:1 architectural analogue).
     # Measured on this gate 2026-08-07 (qb2 p150a, MSA on): RMSD 1.775 A / TM 0.890.
@@ -581,8 +587,41 @@ CAPACITY_LEGS = [
 # pin the grid either, because harvesting means one board type presents several.
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
-SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde",
-                      "rf3", "nesso1", "openbind")
+SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v1", "protenix-v2", "openfold3",
+                      "opendde", "rf3", "nesso1", "openbind")
+# Every foldable model is either on the ladder above or carries a written reason here.
+# The tuple used to be hand-typed with nothing checking it, so a newly registered model
+# was silently absent from the arm that exists to catch size-specific tuning -- the same
+# defect shape as perf_regression.py's SPECS coverage assert, which is why this mirrors it.
+# A reason is not a pass: it records what the arm does NOT cover, so the gap is readable.
+SIZE_LADDER_EXEMPT = {
+    "esmfold2-fast": "The lighter ESMFold2 checkpoint. esmfold2 is on the ladder and the "
+                     "two share every size-dependent path; adding a second rung set costs "
+                     "~4 more folds per release for a checkpoint that differs in width, "
+                     "not in which lever fires. Widening the arm is a release-owner call.",
+    "opendde-abag":  "The antibody-antigen OpenDDE checkpoint. opendde is on the ladder "
+                     "and opendde-abag differs only in load_opendde_checkpoint's abag flag. "
+                     "Its independent perf coverage is perf_regression.py's own SPECS cell, "
+                     "added after a 60x regression shipped behind that same reasoning.",
+}
+# Not foldable by this arm at all: it drives `tt-bio predict` at four sequence lengths on a
+# shared cdk2x2 fixture (plus nesso1's own `tt-bio affinity` leg). A design or embed model
+# has no such input and gets its own release-gate arm instead. Listed rather than filtered by
+# verb so a new tuple on a new verb still fails the coverage check loudly.
+_LADDER_NOT_A_FOLD = "not a predict/affinity model — %s; covered by its own release-gate arm"
+SIZE_LADDER_EXEMPT.update({
+    m: _LADDER_NOT_A_FOLD % what for m, what in (
+        ("boltzgen",    "binder design, gated by the designability leg"),
+        ("rfd3",        "backbone design, gated by the rfd3 leg"),
+        ("pxdesign",    "sequence design, gated by the pxdesign leg"),
+        ("esmc-300m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
+        ("esmc-600m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
+        ("esmc-6b",     "protein-LM embeddings, opt-in embed leg"),
+        ("saprot-35m",  "structure-aware embeddings, no fold path"),
+        ("saprot-650m", "structure-aware embeddings, no fold path"),
+        ("saprot-1.3b", "structure-aware embeddings, no fold path"),
+    )
+})
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
@@ -2325,6 +2364,24 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
             "legs": legs}
 
 
+def _size_ladder_coverage_gap() -> list[str]:
+    """Foldable models that are neither on the ladder nor in SIZE_LADDER_EXEMPT.
+
+    Discovers the model list from tt_bio.main's own ``*_MODELS`` tuples rather than a
+    second hand-copied list, the same way perf_regression._assert_full_model_coverage
+    does. SIZE_LADDER_MODELS was hand-typed with nothing checking it, so a newly
+    registered port was silently missing from the one arm whose whole purpose is
+    catching a lever tuned at one sequence length.
+    """
+    from tt_bio import main as _main
+
+    shipped = set()
+    for name in dir(_main):
+        if name.endswith("_MODELS") and isinstance(getattr(_main, name), tuple):
+            shipped |= set(getattr(_main, name))
+    return sorted(shipped - set(SIZE_LADDER_MODELS) - set(SIZE_LADDER_EXEMPT))
+
+
 def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     models=None) -> dict:
     """The size-generality arm (see the SIZE_LADDER comment block and the module
@@ -2337,10 +2394,20 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     forward; dark levers with no carried reason are written as TODO and the
     check mode refuses to pass until each carries a real one-line reason.
     """
+    subset = models is not None
     models = list(models or SIZE_LADDER_MODELS)
     rungs = SIZE_LADDER_RUNGS
     card = _size_ladder_card_type()
     workdir = SIZE_LADDER_WORKDIR
+    # Only on a full run: --size-ladder-models is for a debug or single-model record and
+    # must not be blocked by a gap it is not trying to close.
+    gap = [] if subset else _size_ladder_coverage_gap()
+    if gap:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"not on the ladder and not in SIZE_LADDER_EXEMPT: "
+                         f"{', '.join(gap)} — add the model to SIZE_LADDER_MODELS and "
+                         f"record its rungs, or write why the arm does not cover it",
+                "legs": []}
     baseline = {}
     if baseline_path.exists():
         try:
