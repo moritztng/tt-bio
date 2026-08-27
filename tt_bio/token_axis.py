@@ -213,7 +213,7 @@ TOKEN_AXIS = {
     ),
     "rfd3": (
         BUCKETED, TOKEN_BUCKET,
-        "tt_bio/rfd3/model.py::TILE, reached through tt_bio/rfd3/model.py::_align_tile and "
+        "tt_bio/rfd3/tiles.py::TILE, reached through tt_bio/rfd3/model.py::_align_tile and "
         "tt_bio/rfd3/model.py::_pad_key_axis. Applied on the TOKEN axis in "
         "tt_bio/rfd3/model.py::PairformerAttention.__call__, and on the ATOM axis in "
         "tt_bio/rfd3/model.py::RFD3AtomBlock.__call__ and "
