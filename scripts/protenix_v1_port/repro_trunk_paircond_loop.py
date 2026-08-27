@@ -49,10 +49,26 @@ def main(target, iters):
     print(f"loaded in {time.time() - t0:.1f}s  diffusion dtype={model.diffusion.dtype} "
           f"c_z={model.trunk.C_Z} n_cycles={model.trunk.N_CYCLES}", flush=True)
 
+    # MODE=full loops the whole fold() instead of just _trunk_cond, which adds the
+    # diffusion/confidence phase. That is the one difference between this in-process loop
+    # (12/12 clean) and the worker path (hangs on fold 3 of a 6-copy directory) that is NOT
+    # the worker/spawn context, so running both modes separates "diffusion leaves state
+    # behind" from "something about the worker process".
+    import os
+    full = os.environ.get("REPRO_MODE", "trunk") == "full"
+    print(f"mode={'full fold()' if full else 'trunk_cond only'}", flush=True)
+
     hung = None
     for i in range(iters):
         t0 = time.time()
         try:
+            if full:
+                coords = model.fold(feats, n_step=6, n_sample=1, seed=0)
+                dt = time.time() - t0
+                fp = float(torch.as_tensor(coords).float().abs().max())
+                print(f"iter {i:3d}  {dt:7.2f}s  coords_absmax={fp:.4f}", flush=True)
+                del coords
+                continue
             cond, aux = model._trunk_cond(feats)
         except Exception as e:                      # noqa: BLE001 - report, keep looping
             print(f"iter {i:3d}  RAISED {type(e).__name__}: {e}", flush=True)

@@ -1,0 +1,22 @@
+mode=full fold()
+iter   0    18.18s  coords_absmax=200.1760
+iter   1     9.13s  coords_absmax=200.1760
+iter   2     9.16s  coords_absmax=200.1760
+iter   3     9.10s  coords_absmax=200.1760
+iter   4     9.08s  coords_absmax=200.1760
+iter   5     9.08s  coords_absmax=200.1760
+iter   6     9.17s  coords_absmax=200.1760
+iter   7     9.15s  coords_absmax=197.8101
+iter   8     9.10s  coords_absmax=200.1760
+iter   9     9.11s  coords_absmax=200.1760
+TRUNK+PAIRCOND LOOP COMPLETED  iters=10  hung=None
+
+SIXTH NEGATIVE (2026-08-27 11:33): full fold() looped in-process, diffusion/confidence/emit
+included (REPRO_MODE=full), 10/10 clean. Kills the "preceding fold's diffusion leaves state
+behind" hypothesis. By elimination the remaining difference from the worker path (which wedges
+on fold 3 of a 6-copy directory) is the worker context: multiprocessing.spawn child, the 8 s
+_heartbeat_loop thread, and progress_fn callbacks between device ops.
+
+Separately: at fixed seed=0, iter 7 gave coords_absmax=197.8101 vs 200.1760 on the other nine.
+A 512 aa protenix-v1 fold is not bit-reproducible run-to-run in one process (1 in 10 here).
+Same shape as protenix-v2-blackhole-nondeterminism-256aa; a DIFFERENT defect from the wedge.
