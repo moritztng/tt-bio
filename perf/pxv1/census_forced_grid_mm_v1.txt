@@ -1,0 +1,95 @@
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+model=protenix-v1 target=perf/size512/fixtures/cdk2x2_512.yaml c_z=128
+
+distinct matmul shapes issued: 83   total calls: 27015
+forced-core_grid shapes: 63
+
+EXPOSED (core_grid forced, out <= 4 tiles, M >= 4096): 29
+  linear  M=    8192 K=  512 N=  128 (out 4 tiles)  BFLOAT16  x6656
+  linear  M=    4117 K=  128 N=  128 (out 4 tiles)  FLOAT32   x216
+  linear  M=    8192 K=  256 N=  128 (out 4 tiles)  FLOAT32   x64
+  linear  M=    4117 K=  128 N=  128 (out 4 tiles)  inherit   x39
+  linear  M=    4117 K=  256 N=  128 (out 4 tiles)  FLOAT32   x36
+  linear  M=  262144 K=  128 N=   16 (out 0 tiles)  inherit   x24
+  linear  M=    4117 K=  128 N=  128 (out 4 tiles)  BFLOAT16  x18
+  linear  M=  262144 K= 1024 N=  128 (out 4 tiles)  inherit   x16
+  linear  M=    4117 K=    3 N=  128 (out 4 tiles)  FLOAT32   x7
+  matmul  M=    4117 K=  512 N=  128 (out 4 tiles)  inherit   x7
+  linear  M=  528384 K=   16 N=    4 (out 0 tiles)  FLOAT32   x6
+  linear  M=    4117 K=  128 N=    3 (out 0 tiles)  FLOAT32   x6
+  linear  M=  262144 K=  128 N=  128 (out 4 tiles)  BFLOAT16  x4
+  linear  M=    4117 K=  256 N=  128 (out 4 tiles)  BFLOAT16  x3
+  linear  M=  528384 K=   16 N=   16 (out 0 tiles)  FLOAT32   x3
+  linear  M=  528384 K=    1 N=   16 (out 0 tiles)  BFLOAT16  x2
+  linear  M=  528384 K=    1 N=   16 (out 0 tiles)  FLOAT32   x2
+  linear  M=    4117 K=    3 N=  128 (out 4 tiles)  BFLOAT16  x1
+  linear  M=    4117 K=    1 N=  128 (out 4 tiles)  BFLOAT16  x1
+  linear  M=    4117 K=  385 N=  128 (out 4 tiles)  BFLOAT16  x1
+  linear  M=  528384 K=    3 N=   16 (out 0 tiles)  BFLOAT16  x1
+  linear  M=    4128 K=  128 N=   16 (out 0 tiles)  BFLOAT16  x1
+  linear  M=    4117 K=    1 N=  128 (out 4 tiles)  FLOAT32   x1
+  linear  M=    4117 K=  385 N=  128 (out 4 tiles)  FLOAT32   x1
+  linear  M=  528384 K=    3 N=   16 (out 0 tiles)  FLOAT32   x1
+  linear  M=  262144 K=  139 N=  128 (out 4 tiles)  BFLOAT16  x1
+  linear  M=  262144 K=    1 N=  128 (out 4 tiles)  BFLOAT16  x1
+  linear  M=    4128 K=  128 N=   16 (out 0 tiles)  FLOAT32   x1
+  linear  M=   16512 K=  128 N=   16 (out 0 tiles)  FLOAT32   x1
+
+  ...of which FLOAT32 (the failing op's arithmetic): 13
+    linear  M=    4117 K=  128 N=  128 (out 4 tiles)  x216
+    linear  M=    8192 K=  256 N=  128 (out 4 tiles)  x64
+    linear  M=    4117 K=  256 N=  128 (out 4 tiles)  x36
+    linear  M=    4117 K=    3 N=  128 (out 4 tiles)  x7
+    linear  M=  528384 K=   16 N=    4 (out 0 tiles)  x6
+    linear  M=    4117 K=  128 N=    3 (out 0 tiles)  x6
+    linear  M=  528384 K=   16 N=   16 (out 0 tiles)  x3
+    linear  M=  528384 K=    1 N=   16 (out 0 tiles)  x2
+    linear  M=    4117 K=    1 N=  128 (out 4 tiles)  x1
+    linear  M=    4117 K=  385 N=  128 (out 4 tiles)  x1
+    linear  M=  528384 K=    3 N=   16 (out 0 tiles)  x1
+    linear  M=    4128 K=  128 N=   16 (out 0 tiles)  x1
+    linear  M=   16512 K=  128 N=   16 (out 0 tiles)  x1
+
+all forced-core_grid shapes, for reference:
+  linear  M=    8192 K=  128 N=  512 (out 16t ) BFLOAT16  x13312
+  linear  M=    8192 K=  512 N=  128 (out 4t  ) BFLOAT16  x6656
+  linear  M=     512 K=  384 N=  384 (out 12t ) inherit   x384
+  linear  M=     512 K=  384 N= 1536 (out 48t ) BFLOAT16  x384
+  linear  M=     512 K=  768 N=  768 (out 24t ) inherit   x288
+  linear  M=     512 K=  384 N=  768 (out 24t ) inherit   x288
+  linear  M=     512 K=  768 N= 1536 (out 48t ) inherit   x288
+
+READING THIS (2026-08-27 13:56, protenix-v1 512 aa fold, POST-FIX tree).
+
+Question: having fixed five call sites in _diffusion_pair_cond, is the same exposure left
+elsewhere? tt_bio forces core_grid=CORE_GRID_MAIN at 82 places, 61 of them in tenstorrent.py
+which every model shares, and most are inside generic helpers whose widths come from the caller
+-- so grep cannot answer it. This wraps ttnn.linear/ttnn.matmul before tt_bio is imported and
+records every shape a real fold actually issues.
+
+The op that deadlocked was: M=262144, K=256, N=128, FLOAT32, core_grid forced.
+
+RESULT: that exact combination -- forced grid, <=4-tile output, M=262144, FLOAT32 -- is now
+ABSENT. It existed only in the pair-conditioning, and the fix removed all of it. What remains at
+M=262144 with a forced grid and a narrow output is BFLOAT16 or dtype-inherited:
+
+    M=262144 K=128  N= 16 (0 tiles) inherit   x24
+    M=262144 K=1024 N=128 (4 tiles) inherit   x16
+    M=262144 K=128  N=128 (4 tiles) BFLOAT16  x4
+    M=262144 K=139  N=128 (4 tiles) BFLOAT16  x1
+    M=262144 K=1    N=128 (4 tiles) BFLOAT16  x1
+
+Those, and the ~24 other shapes flagged at M=4117 / 8192 / 528384, are a WATCH LIST and not a
+known bug: they are shared code that protenix-v2, OpenDDE, Boltz-2 and ESMFold2 have been running
+in production for a long time without this hang being reported, and none of them matches the
+failing op's dtype. It does NOT prove they are safe -- the failure is a rare race, and this whole
+investigation is a lesson in how weakly a clean run generalises -- but it does mean no
+known-identical exposure was left behind.
+
+TWO INSTRUMENT BUGS IN THIS SCRIPT, both found and fixed while writing it:
+  * M was read as shape[-2]. For a (1, N, N, c) pair tensor the real row count is N*N, so the
+    pair track was understated 512x and its calls landed in the wrong bucket -- the first run
+    reported 9 exposed shapes and never showed M=262144 at all.
+  * dtype was not recorded, so the first corrected run reported 20 "exposed" shapes with no way
+    to say which shared the failing op's arithmetic. It is the column that turns an alarming
+    list into a specific answer.
