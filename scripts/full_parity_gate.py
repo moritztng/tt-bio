@@ -329,6 +329,19 @@ LEGS = [
         note="505-token AbAg complex in the former [385,506] crash band; per-chain MSAs reused "
              "from the AbAg-XM campaign cache (multimer staged fixture: fixture/msa/*.a3m)"),
 
+    # --- Protenix-v1 structure leg (cached fixture, device-only per release) ---
+    # Upstream's own Protenix v0.5.0 base checkpoint on the same tt_bio/protenix.py class as
+    # protenix-v2, at half the pair width (c_z 128) and 4 trunk recycles instead of 10. Same
+    # target and the same msa.a3m BYTES as its protenix-v2 sibling above (157 rows after the
+    # reference's own trim), so the two legs differ in checkpoint and nothing else -- the
+    # discipline the openfold3 and openbind rows use to stay comparable.
+    # legacy_rdx for the reason the protenix-v2 legs carry it: no torch path in the port.
+    Leg("protenix-v1-prot-msa", "protenix-v1", "structure", "examples/prot.yaml",
+        fixture="protenix-v1/prot/msa-server_200step_5sample_4cycle_fp32cpu",
+        committed_json="protenix-v1.json", target_id="prot",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="staged", legacy_rdx=True),
+
     # --- OpenFold3 structure legs (cached fixture, device-only per release) ---
     # OF3 is ttnn-only (no tt-bio torch path), so these are external-reference
     # R/D/X legs like Protenix's: official aqlaboratory openfold3 on CPU, fp32.

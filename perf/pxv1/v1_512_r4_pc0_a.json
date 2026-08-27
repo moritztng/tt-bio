@@ -1,0 +1,105 @@
+{
+  "model": "protenix-v1",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "pc",
+  "visible_devices": "0",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "d410ac0c85ef056d0df51ebf41ec816d8395d5d0",
+  "ttnn_version": "0.68.0",
+  "input": "cdk2x2_512.yaml (512 aa v1 4cyc, single protein, MSA on)",
+  "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+  "n_msa": 35,
+  "n_tokens": 512,
+  "n_residues": 512,
+  "msa_cache": [
+    "425f6b0c8f93f94f.a3m",
+    "4e5c2b391bde62d4.a3m",
+    "fe22d91e18cd544a.a3m"
+  ],
+  "recycling_steps": 4,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 1.55,
+  "cold_s": 23.47,
+  "warm_times_s": [
+    19.542,
+    19.587,
+    19.555
+  ],
+  "warm_min_s": 19.542,
+  "warm_median_s": 19.555,
+  "warm_max_s": 19.587,
+  "cold_metrics": {
+    "complex_plddt": 0.66137,
+    "plddt": 0.66137,
+    "ptm": 0.501942,
+    "iptm": 0.0,
+    "confidence_score": 0.501942,
+    "n_residues": 512,
+    "n_chains": 1,
+    "n_tokens": 512,
+    "msa": true,
+    "n_atoms": 4117,
+    "samples": 1
+  },
+  "warm_folds": [
+    {
+      "s": 23.473,
+      "plddt": 0.66137,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "af3193c65dcb2162"
+      },
+      "loadavg": [
+        "1.56",
+        "1.47",
+        "1.39"
+      ],
+      "arm_fold": "cold"
+    },
+    {
+      "s": 19.542,
+      "plddt": 0.661201,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "0f45d5fb3600a810"
+      },
+      "loadavg": [
+        "1.47",
+        "1.46",
+        "1.38"
+      ]
+    },
+    {
+      "s": 19.587,
+      "plddt": 0.661289,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "aba440f0bb68e0ec"
+      },
+      "loadavg": [
+        "1.72",
+        "1.51",
+        "1.40"
+      ]
+    },
+    {
+      "s": 19.555,
+      "plddt": 0.661633,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "1b75e408ae89c8ff"
+      },
+      "loadavg": [
+        "1.67",
+        "1.51",
+        "1.40"
+      ]
+    }
+  ],
+  "ab": null,
+  "runtime_root": "<unset>",
+  "kernel_cache": "/home/moritz/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+  "uptime": "07:44:40 up 3 days, 20:02,  1 user,  load average: 1.67, 1.51, 1.40",
+  "date": "2026-08-27"
+}
