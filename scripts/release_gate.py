@@ -832,7 +832,9 @@ RFD3_FUSION_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_RFD3_FUSION_TIMEOUT", "
 # shipped default. What it gates is the decline predicate, which is what rots: the guards decide
 # where each lever is bit-exact, they are what a future fold A/B will be run against, and a
 # regression in one of them is silent either way. When the defaults do ship on, drop this and let
-# `resolved` gate the default as well.
+# `resolved` gate the default as well. A flag already set in the environment WINS over this, so
+# `RFD3_SOFTMAX_PV_FUSED=0 release_gate.py --model rfd3-fusion` is the arm's own negative control
+# and must fail (`negative-control-must-break-what-check-reads`).
 RFD3_FUSION_ENV = {"RFD3_SOFTMAX_PV_FUSED": "1", "RFD3_FC1_SPLIT_SILU": "1"}
 RFD3_FUSION_PV_DECLINE = "softmax kernel does not engage at this shape @ key 704"
 RFD3_FUSION_PV_SERVED_KEY = "@ key 6080"
@@ -2033,17 +2035,21 @@ def _size_ladder_clause_finding(b: dict, c: dict, flag: str, where: str):
 def _rfd3_fusion_expected(steps: int) -> dict:
     """The R4 lever census expected at `steps` timesteps, closed-form.
 
-    Measured at two points and interpolated by nothing: the fold census at 3 timesteps (state doc
-    §21.2) and at 200 (§22.2) both satisfy these four expressions exactly. `serving` is the pair
-    Transition's hidden=256 half, the half that can take the split at 685 tokens; the hidden=512
-    half declines on the chunk-height guard at the shipped L1 budget, which is why declined equals
-    `serving` rather than zero.
+    Measured at three step counts, not fitted at one: the fold census at 3 timesteps (state doc
+    §21.2), at 200 (§22.2) and at 4 (this arm's own first run, §24) all satisfy these three
+    expressions exactly. `serving` is the pair Transition's hidden=256 half, the half that can
+    take the split at 685 tokens; the hidden=512 half declines on the chunk-height guard at the
+    shipped L1 budget, which is why declined equals `serving` rather than zero.
 
-    A formula rather than four constants so the arm still holds if the step count moves.
+    Region 1's DECLINE count is deliberately not here. Nothing counted it before `PVSTATS` grew
+    its second slot, so it has exactly one measurement (108 at 4 timesteps, where the closed form
+    §23.3 predicted from prose gave 216) and one point cannot pin a formula. What region 1 needs
+    gated is which SITE it serves, and the two clause assertions below do that directly.
+
+    A formula rather than constants so the arm still holds if the step count moves.
     """
     serving = 4 * (steps - 1) + 2
     return {"pv_served": 9 * (steps - 1),
-            "pv_declined": 72 * (steps - 1),
             "fc1_served": 11 * serving,
             "fc1_declined": serving}
 
@@ -2064,9 +2070,8 @@ def _rfd3_fusion_findings(rows: dict, steps: int, serve: bool) -> list:
             out.append(f"{flag}: no census row -- the lever is not registered in "
                        f"lever_census.LEVERS, so nothing below was measured")
         elif r["resolved"] != "True":
-            out.append(f"{flag}: resolved '{r['resolved']}', not 'True' -- RFD3_FUSION_ENV asks "
-                       f"for the lever and the module did not take it, so the counts below "
-                       f"measure the plumbing and not the guard")
+            out.append(f"{flag}: resolved '{r['resolved']}', not 'True' -- the lever is off for "
+                       f"this fold, so the counts below measure the plumbing and not the guard")
     if out:
         return out
 
@@ -2081,16 +2086,18 @@ def _rfd3_fusion_findings(rows: dict, steps: int, serve: bool) -> list:
         return out
 
     exp = _rfd3_fusion_expected(steps)
-    for flag, r, want in (("RFD3_SOFTMAX_PV_FUSED", pv,
-                           (exp["pv_served"], exp["pv_declined"])),
-                          ("RFD3_FC1_SPLIT_SILU", fc1,
-                           (exp["fc1_served"], exp["fc1_declined"]))):
-        got = (r["served"], r["declined"])
-        if got != want:
-            what = ("served nothing at all, so the lever is dark" if not got[0]
-                    else "serve rate moved")
-            out.append(f"{flag}: {what} -- R4 census served/declined {got}, expected {want} "
-                       f"at {steps} timesteps")
+    if pv["served"] != exp["pv_served"]:
+        what = ("served nothing at all, so the lever is dark" if not pv["served"]
+                else "serve count moved")
+        out.append(f"RFD3_SOFTMAX_PV_FUSED: {what} -- R4 census served {pv['served']}, "
+                   f"expected {exp['pv_served']} at {steps} timesteps")
+    got = (fc1["served"], fc1["declined"])
+    want = (exp["fc1_served"], exp["fc1_declined"])
+    if got != want:
+        what = ("served nothing at all, so the lever is dark" if not got[0]
+                else "serve rate moved")
+        out.append(f"RFD3_FC1_SPLIT_SILU: {what} -- R4 census served/declined {got}, "
+                   f"expected {want} at {steps} timesteps")
 
     prej = pv["rejects"] or {}
     if RFD3_FUSION_PV_DECLINE not in prej:
@@ -2103,12 +2110,19 @@ def _rfd3_fusion_findings(rows: dict, steps: int, serve: bool) -> list:
                    f"never decline at R4")
 
     frej = fc1["rejects"] or {}
-    if sorted(frej) != [RFD3_FUSION_FC1_DECLINE]:
-        out.append(f"RFD3_FC1_SPLIT_SILU: R4 rejects are {sorted(frej)}, expected exactly "
-                   f"['{RFD3_FUSION_FC1_DECLINE}']")
-    elif frej[RFD3_FUSION_FC1_DECLINE] != exp["fc1_declined"]:
+    if frej.get(RFD3_FUSION_FC1_DECLINE) != exp["fc1_declined"]:
         out.append(f"RFD3_FC1_SPLIT_SILU: the chunk-height clause fired "
-                   f"{frej[RFD3_FUSION_FC1_DECLINE]} times, expected {exp['fc1_declined']}")
+                   f"{frej.get(RFD3_FUSION_FC1_DECLINE)} times, expected {exp['fc1_declined']} "
+                   f"-- R4 rejects are {sorted(frej)}")
+    # `no-pinned-config` at hidden=256 is the ONE call per chunk shape that paid to find out
+    # whether calibration has anything to pin. It still took the split -- which is why `served`
+    # above is unaffected by it -- and it is amortised to nothing in a production fold, so it is
+    # a per-shape constant and not a rate. Any OTHER clause is region 2 declining somewhere it
+    # was not declining before.
+    other = [k for k in frej
+             if k != RFD3_FUSION_FC1_DECLINE and not k.endswith("no-pinned-config")]
+    if other:
+        out.append(f"RFD3_FC1_SPLIT_SILU: unexpected R4 decline clause(s) {sorted(other)}")
     return out
 
 
@@ -2130,7 +2144,7 @@ def _rfd3_fusion_census_fold(spec: Path, label: str, workdir: Path) -> dict:
            + _rfd3_design_cmd(out_dir, 1, RFD3_FUSION_TIMESTEPS, spec=spec)[1:])
     with open(log, "w") as fp:
         rc, timed_out = _run_fold(cmd, RFD3_FUSION_TIMEOUT_S, cwd=REPO_ROOT,
-                                  env={**os.environ, **RFD3_FUSION_ENV},
+                                  env={**RFD3_FUSION_ENV, **os.environ},
                                   stdout=fp, stderr=subprocess.STDOUT)
     if timed_out:
         return {"error": f"{label}: design timed out after {RFD3_FUSION_TIMEOUT_S}s"}
@@ -2186,7 +2200,7 @@ def run_rfd3_fusion(keep: bool) -> dict:
     row["seconds"] = time.monotonic() - t0
     exp = _rfd3_fusion_expected(RFD3_FUSION_TIMESTEPS)
     print(f"[rfd3-fusion] expected at {RFD3_FUSION_TIMESTEPS} timesteps: "
-          f"pv {exp['pv_served']}/{exp['pv_declined']}, "
+          f"pv served {exp['pv_served']}, "
           f"fc1 {exp['fc1_served']}/{exp['fc1_declined']} (served/declined)", flush=True)
     row["gate"] = not row["findings"]
     if not keep:

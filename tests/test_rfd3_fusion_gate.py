@@ -29,6 +29,9 @@ def gate():
     return mod
 
 
+PV_DECLINED_AT_4 = 108   # measured, not predicted -- see _rfd3_fusion_expected's docstring
+
+
 def _rows(pv_served, pv_declined, fc1_served, fc1_declined,
           pv_rejects=None, fc1_rejects=None, resolved="True"):
     return {
@@ -43,9 +46,11 @@ def _rows(pv_served, pv_declined, fc1_served, fc1_declined,
 
 def _healthy_r4(gate, steps=4):
     e = gate._rfd3_fusion_expected(steps)
-    return _rows(e["pv_served"], e["pv_declined"], e["fc1_served"], e["fc1_declined"],
-                 pv_rejects={gate.RFD3_FUSION_PV_DECLINE: e["pv_declined"]},
-                 fc1_rejects={gate.RFD3_FUSION_FC1_DECLINE: e["fc1_declined"]})
+    return _rows(e["pv_served"], PV_DECLINED_AT_4, e["fc1_served"], e["fc1_declined"],
+                 pv_rejects={gate.RFD3_FUSION_PV_DECLINE: PV_DECLINED_AT_4},
+                 fc1_rejects={gate.RFD3_FUSION_FC1_DECLINE: e["fc1_declined"],
+                              "rows=64 w=704 hidden=256 no-pinned-config": 1,
+                              "rows=45 w=704 hidden=256 no-pinned-config": 1})
 
 
 def test_arm_is_in_the_default_set(gate):
@@ -69,10 +74,12 @@ def test_both_levers_are_registered_in_the_census(gate):
         assert flag in flags
 
 
-def test_expected_census_matches_the_two_folds_that_measured_it(gate):
-    """The formula, checked against the 3-step and 200-step folds it was fitted on."""
-    assert gate._rfd3_fusion_expected(3) == {"pv_served": 18, "pv_declined": 144,
-                                             "fc1_served": 110, "fc1_declined": 10}
+def test_expected_census_matches_the_three_folds_that_measured_it(gate):
+    """The formula, against the 3-step, 4-step and 200-step folds that measured it."""
+    assert gate._rfd3_fusion_expected(3) == {"pv_served": 18, "fc1_served": 110,
+                                             "fc1_declined": 10}
+    assert gate._rfd3_fusion_expected(4) == {"pv_served": 27, "fc1_served": 154,
+                                             "fc1_declined": 14}
     e = gate._rfd3_fusion_expected(200)
     assert (e["pv_served"], e["fc1_served"], e["fc1_declined"]) == (1791, 8778, 798)
 
@@ -89,7 +96,7 @@ def test_a_dark_lever_at_r4_fails_the_arm(gate):
     """
     rows = _healthy_r4(gate)
     rows["RFD3_SOFTMAX_PV_FUSED"]["served"] = 0
-    rows["RFD3_SOFTMAX_PV_FUSED"]["declined"] = 243
+    rows["RFD3_SOFTMAX_PV_FUSED"]["declined"] = 135
     findings = gate._rfd3_fusion_findings(rows, 4, serve=True)
     assert findings and any("dark" in f for f in findings)
 
@@ -112,10 +119,23 @@ def test_declining_at_the_gathered_key_width_fails(gate):
 
 
 def test_a_new_region_2_decline_clause_fails(gate):
-    """Region 2 declines on exactly one clause at R4; a second one is a changed guard."""
+    """A clause that is not the gated one and not a first-call row is a changed guard."""
     rows = _healthy_r4(gate)
-    rows["RFD3_FC1_SPLIT_SILU"]["rejects"] = {
-        gate.RFD3_FUSION_FC1_DECLINE: 14, "rows=45 w=704 hidden=256 no-pinned-config": 2}
+    rows["RFD3_FC1_SPLIT_SILU"]["rejects"] = dict(
+        rows["RFD3_FC1_SPLIT_SILU"]["rejects"], **{"w=704 no-chunked-site": 2})
+    findings = gate._rfd3_fusion_findings(rows, 4, serve=True)
+    assert findings and any("unexpected R4 decline clause" in f for f in findings)
+
+
+def test_the_first_call_rows_alone_do_not_fail(gate):
+    """`no-pinned-config` is one call per chunk shape that still took the split."""
+    assert gate._rfd3_fusion_findings(_healthy_r4(gate), 4, serve=True) == []
+
+
+def test_losing_the_chunk_height_clause_fails(gate):
+    """Region 2's gated clause going missing means the guard stopped being reached."""
+    rows = _healthy_r4(gate)
+    del rows["RFD3_FC1_SPLIT_SILU"]["rejects"][gate.RFD3_FUSION_FC1_DECLINE]
     assert gate._rfd3_fusion_findings(rows, 4, serve=True)
 
 
