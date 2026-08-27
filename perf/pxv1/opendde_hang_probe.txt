@@ -1,0 +1,29 @@
+DOES OPENDDE HANG? Tested 2026-08-27 13:17-13:25, pc card 0, 512 aa, ladder config
+(6 steps, 1 sample, single-sequence), 6 copies through one worker.
+
+arm PRE-FIX  (PROTENIX_PAIRCOND_MM_FORCE_GRID=1, the forced multicast grid):
+    13:19:27  [pc:tt0] ✓ f1 — 71.1s
+    13:20:35  [pc:tt0] ✓ f2 — 67.7s
+    13:21:43  [pc:tt0] ✓ f3 — 67.9s
+    13:22:50  [pc:tt0] ✓ f4 — 67.5s
+    13:23:57  [pc:tt0] ✓ f5 — 66.9s
+    13:25:04  [pc:tt0] ✓ f6 — 67.0s
+    6/6 clean
+
+arm FIXED (default, grid dropped at 4-tile output), earlier the same session:
+    4/4 clean (o1 142.2s incl. load, then 68.5 / 67.9 / 67.6 s)
+
+VERDICT: opendde is ARCHITECTURALLY EXPOSED -- its linear_no_bias_z is (128, 256), the
+same 4-tile output as protenix-v1, and pre-fix it took the same forced multicast grid --
+but it does NOT manifest the hang: 6 pre-fix folds and 4 post-fix folds all clean.
+
+So this fix is NOT demonstrably closing a live production defect. Stated plainly because
+the opposite would have been the more flattering claim.
+
+Six folds is too few to CLEAR opendde either, given protenix-v1's own rate swings between
+~1/3 and 0 over a single day. The honest position is 'exposed, not observed to fail'.
+
+Why it might differ despite the identical matmul: opendde runs 10 trunk recycles against
+protenix-v1's 4 and carries c_z 384 rather than 128, so the device and allocator state
+entering the pair-cond is different. The deadlock is a race, and every result in this
+investigation says the surrounding state decides whether it fires.

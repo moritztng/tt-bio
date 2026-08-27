@@ -1,0 +1,39 @@
+target=perf/size512/fixtures/cdk2x2_512.yaml N_token=512 N_atom=4117
+loaded in 1.9s  diffusion dtype=DataType.FLOAT32 c_z=128 n_cycles=4
+mode=full fold()
+heartbeat thread started (8.0 s cadence, mirroring worker.py)
+iter   0    13.21s  coords_absmax=200.1760
+iter   1     9.90s  coords_absmax=200.1760
+iter   2     9.96s  coords_absmax=200.1760
+iter   3    10.02s  coords_absmax=200.1760
+iter   4     9.90s  coords_absmax=200.1760
+iter   5    10.05s  coords_absmax=200.1760
+iter   6     9.92s  coords_absmax=200.1760
+iter   7     9.89s  coords_absmax=200.1760
+iter   8    10.05s  coords_absmax=200.1760
+iter   9     9.94s  coords_absmax=200.1760
+iter  10    10.00s  coords_absmax=200.1760
+iter  11     9.92s  coords_absmax=200.1760
+TRUNK+PAIRCOND LOOP COMPLETED  iters=12  hung=None
+child exit=0
+
+EIGHTH NEGATIVE (2026-08-27 11:43-11:45). The in-process loop with EVERY named worker feature
+turned on at once:
+
+    REPRO_MODE=full        full fold(), diffusion + confidence + emit path
+    REPRO_SPAWN=1          runs in a multiprocessing.spawn child
+    REPRO_HEARTBEAT=1      background thread on worker.py's 8.0 s cadence
+    REPRO_REFEAT=1         rebuilds feats every iteration, as _predict_protenix_one does per job
+    REPRO_PROGRESS=1       passes a progress_fn so host callbacks run between device ops
+
+    12/12 clean, 9.89-10.05 s each, child exit=0
+
+So the loop now carries every difference from the worker path that I could name, and still does
+not wedge, while the 6-copy directory through the real worker wedges on fold 3. The
+"add worker features until it breaks" direction is EXHAUSTED -- do not resume it.
+
+That is eight proxies excluded in total:
+  1 op alone (bf16)                        5 + the real trunk in-process
+  2 + clean DRAM occupancy                 6 + full fold() with diffusion
+  3 real method, real weights/inputs/fp32  7 + spawn child + heartbeat thread
+  4 + DRAM fragmentation                   8 + per-job refeaturise + progress_fn

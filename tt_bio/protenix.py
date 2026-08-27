@@ -1621,9 +1621,9 @@ class ConfidenceHead:
         z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
         z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
         # ---- confidence Pairformer (device, z stays resident) ----
-        so, zo = bucketed_pairformer(self.pf, rc["s_t"], z, self.dev)        # (1,N,384),(1,N,N,256)
+        so, zo = bucketed_pairformer(self.pf, rc["s_t"], z, self.dev)        # (1,N,384),(1,N,N,c_z)
         # ---- heads on device ----
-        zof = ttnn.reshape(zo, (1, N, N, 256))
+        zof = ttnn.reshape(zo, (1, N, N, zo.shape[-1]))                      # c_z: 256 v2, 128 v1
         pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
                                  bias=(self._wtt("pae_ln.bias", False) if "pae_ln.bias" in self._w else None),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
@@ -1767,6 +1767,41 @@ class ConfidenceHead:
 # are in the same tile-replan equivalence class as the chunked pair track.
 PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 ** 28))  # 2.5 GiB
 
+#: Output width, in 32-wide tiles, at or below which the diffusion pair-conditioning projection
+#: must NOT force ``core_grid``. Passing a core grid selects ttnn's MULTICAST matmul program,
+#: whose in0-sender / in1-receiver dataflow deadlocks intermittently when the output is this
+#: narrow and the pair tensor is >=512 tokens: the tt-metal watcher shows every core stopped with
+#: BRISC on a NOC semaphore wait and NCRISC on a circular-buffer reserve-back wait
+#: (perf/pxv1/hang_watcher_capture.txt). Interleaved A/B on protenix-v1 at 512 aa, 8 folds per
+#: arm per round, 3 rounds: 24/24 folds clean with the grid dropped against 7/24 with it forced.
+#:
+#: Gated on the WIDTH, not on the model id, because two shipped checkpoints share it:
+#: protenix-v1 and OpenDDE both project to 128 here (OpenDDE compresses c_z 384 -> 128 first),
+#: so both are exposed, while protenix-v2's 256 is 8 tiles and keeps the forced grid byte for
+#: byte. One mechanism in one place rather than a per-model branch.
+PAIRCOND_MM_NARROW_MAX_TILES = 4
+
+
+def paircond_mm_kw(compute_kernel_config, dtype, out_width):
+    """ttnn.linear kwargs for a diffusion pair-conditioning projection.
+
+    ONE place decides the ``core_grid`` policy for every projection in that branch, because the
+    deadlock is a property of the WIDTH plus a forced grid, not of one call site. The pair-cond
+    has four such projections -- relpe, the OpenDDE z_trunk compression (twice: plain and
+    blocked), and linear_no_bias_z (twice: plain and blocked) -- and all of them are 128 wide,
+    i.e. 4 tiles, on N*N rows. A fix applied to only the one that happened to be caught hanging
+    would leave the same projection behaving differently depending on which block-size branch it
+    took, which is how a point patch becomes the next bug.
+
+    ``out_width`` is the projection's output channel count (the weight's dim 0 before the
+    transpose that ttnn.linear wants).
+    """
+    kw = dict(compute_kernel_config=compute_kernel_config, dtype=dtype)
+    narrow = (int(out_width) // 32) <= PAIRCOND_MM_NARROW_MAX_TILES
+    if not narrow or env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
+        kw["core_grid"] = CORE_GRID_MAIN
+    return kw
+
 
 def _pz_cond_probe(pz, z_in_sha):
     """TT_PROTENIX_PZPROBE=<dir> (default off): attribute run-to-run pair_z divergence.
@@ -1836,9 +1871,17 @@ class Protenix:
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
         resolved_diffusion_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
                                    if diffusion_fp32 is None else diffusion_fp32)
-        # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8
-        # (s/z PCC 0.99), but bf8 in the coordinate-sensitive diffusion collapses the
-        # structure (Rg 4.7 vs 22). Capture the --fast intent, then build each stage at its
+        # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8, but bf8
+        # in the coordinate-sensitive diffusion collapses the structure (Rg 4.7 vs 22).
+        #
+        # "Tolerates" is per checkpoint, not per class -- the pair track is c_z wide and bf8
+        # costs more where it is narrower. Measured against the CPU reference on a 228-token
+        # 2-chain target: protenix-v2 (c_z 256) s/z PCC 0.99; protenix-v1 (c_z 128) s 0.99993
+        # but z_trunk 0.9892, i.e. marginally UNDER the 0.99 the v2 number states. End to end
+        # that ordering reverses, on a converged 117-aa MSA fold, --fast against default:
+        # protenix-v1 0.4378 A RMSD (pLDDT 0.7646 -> 0.8592), protenix-v2 2.6816 A
+        # (pLDDT 0.8810 -> 0.7525). So --fast is ~6x LESS disruptive on v1 than on the model
+        # that already ships it, and the trunk PCC alone would have said the opposite. Capture the --fast intent, then build each stage at its
         # own precision; fold() re-applies the per-stage flag (the trunk's triangle/transition
         # ops read _dtype() at RUNTIME, so the global flag must match the weights per stage).
         self._fast = _TT._FAST_MODE
@@ -2013,9 +2056,10 @@ class Protenix:
                                        "pcdbg_markers.log"), "a") as _f:
                     _f.write(f"{tag} done\n")
 
-        relpe = ttnn.linear(T(relp), T(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
-                            compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
-                            core_grid=CORE_GRID_MAIN)
+        _w_relpe = self._w[C + "relpe.linear_no_bias.weight"]
+        relpe = ttnn.linear(T(relp), T(_w_relpe.t().contiguous()),
+                            **paircond_mm_kw(self.compute_kernel_config,
+                                             self.diffusion.dtype, _w_relpe.shape[0]))
         _sync("relpe linear")
         if self.diffusion._diffusion_fp32:
             z_trunk_tt = ttnn.typecast(z_trunk_tt, self.diffusion.dtype)
@@ -2035,17 +2079,19 @@ class Protenix:
                 if C + "linear_no_bias_z_trunk.weight" in self._w:
                     zn = ttnn.layer_norm(zt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                          epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-                    zt = ttnn.linear(zn, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
-                                     compute_kernel_config=self.compute_kernel_config,
-                                     dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+                    _w_zt = self._w[C + "linear_no_bias_z_trunk.weight"]
+                    zt = ttnn.linear(zn, T(_w_zt.t().contiguous()),
+                                     **paircond_mm_kw(self.compute_kernel_config,
+                                                      self.diffusion.dtype, _w_zt.shape[0]))
                     ttnn.deallocate(zn)
                 zc = ttnn.concat([zt, relpe[s:e]], dim=-1)
                 ttnn.deallocate(zt)
                 zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                                      compute_kernel_config=self.compute_kernel_config)
-                pb = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
-                                 compute_kernel_config=self.compute_kernel_config,
-                                 dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+                _w_zb = self._w[C + "linear_no_bias_z.weight"]
+                pb = ttnn.linear(zc, T(_w_zb.t().contiguous()),
+                                 **paircond_mm_kw(self.compute_kernel_config,
+                                                  self.diffusion.dtype, _w_zb.shape[0]))
                 ttnn.deallocate(zc)
                 blocks.append(torch.Tensor(ttnn.to_torch(pb)))
                 ttnn.deallocate(pb)
@@ -2061,18 +2107,24 @@ class Protenix:
         if C + "linear_no_bias_z_trunk.weight" in self._w:
             zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-            z_trunk_tt = ttnn.linear(zt, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
-                                     compute_kernel_config=self.compute_kernel_config,
-                                     dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+            _w_zt2 = self._w[C + "linear_no_bias_z_trunk.weight"]
+            z_trunk_tt = ttnn.linear(zt, T(_w_zt2.t().contiguous()),
+                                     **paircond_mm_kw(self.compute_kernel_config,
+                                                      self.diffusion.dtype, _w_zt2.shape[0]))
             _sync("z_trunk LN+proj")
         zc = ttnn.concat([z_trunk_tt, relpe], dim=-1)
         _sync("concat")
         zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
         _sync("layernorm_z")
-        pz = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
-                         compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
-                         core_grid=CORE_GRID_MAIN)
+        # Force the core grid only when the output is wide enough for ttnn's multicast matmul
+        # to be safe -- see PAIRCOND_MM_NARROW_MAX_TILES for the deadlock this avoids and the
+        # A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old unconditional
+        # behaviour, which is how the A/B arms were taken and how a regression would be bisected.
+        _w_z = self._w[C + "linear_no_bias_z.weight"]
+        pz = ttnn.linear(zc, T(_w_z.t().contiguous()),
+                         **paircond_mm_kw(self.compute_kernel_config,
+                                          self.diffusion.dtype, _w_z.shape[0]))
         _sync("linear_z")
         # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
         # (the 3D path doesn't chunk pair tensors -> OOM at large N).
@@ -2186,7 +2238,8 @@ class Protenix:
                              (nb, nq, nk, 16))
         # 3) trunk (bf8 under --fast: toggle the global flag ON so the trunk's triangle/
         #    transition runtime _dtype() matches its bf8 weights, then restore bf16 for the
-        #    coordinate-sensitive diffusion. Trunk tolerates bf8 (s/z PCC 0.99); diffusion does not.)
+        #    coordinate-sensitive diffusion. Trunk tolerates bf8; diffusion does not. The per-
+        #    checkpoint bf8 numbers are in __init__ -- z_trunk is 0.99 at c_z 256 and 0.9892 at 128.)
         import tt_bio.tenstorrent as _TT
         relp = feats["relp"] if "relp" in feats else self._generate_relp(feats)
         if self._fast:
@@ -2322,6 +2375,21 @@ class Protenix:
         return coords
 
 
+def trunk_recycles(state_dict):
+    """Recycling count this checkpoint was trained for, read off the checkpoint.
+
+    The v0.5.0 release (protenix-v1 and its distilled minis) ships `model.N_cycle: 4` and a
+    template embedder with an EMPTY pairformer stack. protenix-v2 and OpenDDE ship 10 and a
+    2-block stack. So the template depth separates the two lineages, and it is the same signal
+    `Trunk.__call__` gates the template contribution on -- one fact read once, not a second
+    hardcoded copy of a per-model number.
+
+    The CLI resolves the same default from `main.RECYCLING_STEPS`, keyed by model id, because it
+    has to answer before any weights are loaded. The two must agree.
+    """
+    return 4 if n_blocks(state_dict, "template_embedder.pairformer_stack") == 0 else 10
+
+
 class Trunk(_KeyedWeights):
     """Protenix-v2 trunk: s_inputs -> (s_trunk, z_trunk) over 10 recycling cycles.
 
@@ -2333,7 +2401,7 @@ class Trunk(_KeyedWeights):
     (PCC s 0.991 / z 0.990; scripts/protenix_trunk_assembly.py). Reference:
     protenix/model/protenix.py get_pairformer_output."""
 
-    N_CYCLES = 10
+    N_CYCLES = 10      # class fallback; __init__ derives the real one (see trunk_recycles)
     C_Z = 256          # Protenix-v2 default; instances override via __init__(c_z=...)
     TRI_HEAD_DIM = 32  # constant across c_z variants (Protenix-v2 256/8 heads, OpenDDE 384/12)
 
@@ -2376,6 +2444,7 @@ class Trunk(_KeyedWeights):
         # pairformer stack, so 0 is a real answer and _template's `for pl in self.TPL` loop
         # correctly degenerates to the projections alone.
         nb_tpl = n_blocks(self._w, "template_embedder.pairformer_stack")
+        self.N_CYCLES = trunk_recycles(self._w)
         self.TPL = [PairformerLayer(32, 2, None, None, False,
                     PW.remap_msa_pair_stack({k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v
                                              for k, v in self._w.items()
@@ -2627,7 +2696,8 @@ class Trunk(_KeyedWeights):
     def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None):
         """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
         tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
-        number of recycling iterations (default N_CYCLES=10, protenix-v2's spec). Returns
+        number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
+        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). Returns
         (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
         import torch
         import torch.nn.functional as F
@@ -2732,7 +2802,16 @@ class Trunk(_KeyedWeights):
             z3 = ttnn.add(ttnn.reshape(z_init, (1, N, N, self.C_Z)), zc)
             if nse_d is not None:
                 z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
-            if nt > 0:
+            # Gate on BOTH the feature's template slots and the checkpoint's own template
+            # pairformer depth. `nt` counts slots and protenix_data.dummy_template_features
+            # always emits 4, so `nt > 0` alone is not a statement about the model. Upstream
+            # v0.5.0 pairformer.py:1000 returns literal 0 from TemplateEmbedder.forward when
+            # n_blocks < 1, and the v0.5.0 base checkpoint ships 0 blocks: its five template
+            # projections are dead weight. Without `self.TPL` the port would add
+            # linear_u(relu(mean(LN(tpl_a + linear_z(LN(z)))))) to z on every recycling cycle
+            # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
+            # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
+            if nt > 0 and self.TPL:
                 z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt))
             z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")

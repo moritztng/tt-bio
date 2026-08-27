@@ -146,12 +146,21 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("boltz2-aff", ("boltz2",), "hf-file", "MIT",
              repo=BOLTZ2_REPO, filename="boltz2_aff.ckpt", approx_bytes=2062139170,
              note="affinity head; only read for ligand affinity"),
-    Artifact("mols", ("boltz2", "protenix-v2"), "hf-file", "MIT",
+    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2"), "hf-file", "MIT",
              repo=BOLTZ2_REPO, filename="mols.tar", approx_bytes=1855662080,
              derived=Derived("mols", "tar", min_entries=45227),
              note="CCD molecule library, extracted to <cache>/mols"),
 
-    # -- Protenix-v2 ------------------------------------------------------------
+    # -- Protenix ---------------------------------------------------------------
+    # v1 is upstream's own canonical v0.5.0 object, fetched from the URL
+    # `protenix/web_service/dependency_url.py` names at tag v0.5.0. The pxdesign bucket
+    # serves a byte-identical copy under another name (same ETag, same crc64), so there is
+    # nothing to mirror: point at the canonical source, as rf3 / rfd3 / pxdesign do.
+    Artifact("protenix-v1", ("protenix-v1",), "url", "Apache-2.0 (ByteDance)",
+             url="https://af3-dev.tos-cn-beijing.volces.com/release_model/model_v0.5.0.pt",
+             subdir="protenix", approx_bytes=1474265486,
+             legacy_env=("PROTENIX_V1_CKPT",),
+             note="ByteDance Protenix v0.5.0 base checkpoint"),
     Artifact("protenix-v2", ("protenix-v2",), "hf-file", "Apache-2.0",
              repo=PROTENIX_REPO, filename="protenix-v2.pt", approx_bytes=1859785497,
              legacy_env=("PROTENIX_CKPT",)),
@@ -822,6 +831,36 @@ def artifact_paths(key: str, root: str | Path | None = None) -> list[Path]:
         d = art.derived_dest(root)
         out += [d, _marker(d)]
     return [p for p in out if p.exists()]
+
+
+def cached_path(key: str, root: str | Path | None = None) -> Path | None:
+    """Where this artifact already IS on disk, or None. Never downloads.
+
+    ``artifact_paths`` answers the disk-audit question and returns [] for an ``hf-repo`` row,
+    whose file lives in the hub's snapshot tree rather than the flat cache. That is correct for
+    an audit and wrong for "do I have this?", and a test that reached for ``Artifact.dest()``
+    instead -- documented as meaningless for hf-repo -- silently SKIPped every hf-repo model it
+    was supposed to check. A guard that does not run looks exactly like a guard that passed, so
+    the predicate belongs here once rather than in each caller.
+    """
+    art = ARTIFACTS[key]
+    if (p := _override(art)) is not None:
+        return p if p.exists() else None
+    if art.derived:
+        d = art.derived_dest(root)
+        return d if d and d.exists() else None
+    if art.source == "hf-repo":
+        if not art.filename:
+            return None
+        try:
+            from huggingface_hub import try_to_load_from_cache
+        except ImportError:
+            return None
+        configure_hf_cache()
+        hit = try_to_load_from_cache(art.repo, art.filename)
+        return Path(hit) if isinstance(hit, str) else None
+    p = art.dest(root)
+    return p if p.exists() else None
 
 
 def superseded_revisions() -> tuple[list[str], int]:

@@ -1,0 +1,29 @@
+protenix-v2 trial1 OK 53s
+protenix-v2 trial2 OK 53s
+protenix-v2 trial3 OK 54s
+protenix-v2 trial4 OK 55s
+protenix-v1 trial1 OK 24s
+protenix-v1 trial2 HANG/FAIL rc=137 80s
+protenix-v1 trial3 HANG/FAIL rc=137 80s
+protenix-v1 trial4 HANG/FAIL rc=137 80s
+HANGRATE DONE 2026-08-27T09:49:13+02:00
+
+Protocol: perf/size512/fixtures/cdk2x2_512.yaml, --single_sequence --sampling_steps 6
+--diffusion_samples 1 --seed 0, pc card 0 (p150a). Before EVERY fold: orphan reap by
+/proc/*/fd tenstorrent scan, lease file cleared, tt-smi -r 0, 5 s settle -- so no fold
+inherits the previous fold's card state. Caps: protenix-v2 130 s (typical fold 53-55 s),
+protenix-v1 80 s (typical fold 13-24 s). A cap hit is a hang: all three v1 failures ran the
+full cap and printed `trunk 3/4` with no `diffusion` line, rather than failing fast at open.
+
+Result: protenix-v2 4/4 clean, protenix-v1 1/4 clean. The hang follows the checkpoint, not
+the card. See state/protenix-v1-port.md sections 29-32.
+
+FOLLOW-UP 2026-08-27 10:18-10:35: the hang stopped reproducing. protenix-v1 folded 512 aa
+11 consecutive times cleanly (6 with no DRAM probe, 5 with TT_BIO_DRAM_PEAK set as an attempted
+reproducer), after 8 hangs in its first 16 folds the same morning, with no code change. So the
+per-fold rate is TIME-VARYING and the pooled rates above must not be quoted as a single
+probability. The v2-vs-v1 asymmetry still stands because it was measured interleaved inside one
+~8-minute window (v2 4/4 at 09:37-09:40 vs v1 1/4 at 09:42-09:45).
+
+No stack trace was captured: py-spy 0.4.2 was armed and waiting across 11 folds and none hung.
+Reproduction protocol for the next attempt is in state/protenix-v1-port.md section 44.

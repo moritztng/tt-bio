@@ -1,0 +1,89 @@
+WIDTH-GATED FIX -- verification, 2026-08-27 12:46-12:53, pc card 0.
+
+Fix: force core_grid on the diffusion pair-cond projection ONLY when its output is wider
+than PAIRCOND_MM_NARROW_MAX_TILES (4). Gated on width, not model id, because two shipped
+checkpoints share the exposed width:
+    protenix-v1  linear_no_bias_z (128, 256)  out 4 tiles  EXPOSED
+    opendde      linear_no_bias_z (128, 256)  out 4 tiles  EXPOSED
+    protenix-v2  linear_no_bias_z (256, 512)  out 8 tiles  keeps the forced grid
+
+1) HANG -- fixed on the default path. 8-copy worker reproducer:
+12:47:52  [pc:tt0] ✓ t1 — 13.8s
+12:48:06  [pc:tt0] ✓ t2 — 10.6s
+12:48:17  [pc:tt0] ✓ t3 — 10.4s
+12:48:29  [pc:tt0] ✓ t4 — 10.0s
+12:48:42  [pc:tt0] ✓ t5 — 10.5s
+12:48:54  [pc:tt0] ✓ t6 — 9.9s
+12:49:07  [pc:tt0] ✓ t7 — 10.3s
+12:49:19  [pc:tt0] ✓ t8 — 10.1s
+Done: 8 ok, 0 failed — /tmp/pv1/fixout/protenix_results_multi8/results.json
+   against the shipped path's 7/24 folds across three interleaved rounds.
+
+2) PARITY -- 5-seed leg PASSES and reproduces the committed record:
+protenix-v1-prot-msa              structure  cached        PASS                  163s  prot: X=1.712 R=1.840 D=1.764 within=True [reproduces committed]
+   committed was X=1.714 R=1.840 D=1.758; now X=1.712 R=1.840 D=1.764, within floor,
+   and the gate's own drift check says 'reproduces committed'.
+
+3) protenix-v2 -- untouched BY CONSTRUCTION: its 8-tile output takes the same
+   forced-grid branch as before, so its device path is byte-identical. Still owed as a
+   measured check rather than an argument: its own parity legs.
+
+STILL OWED before this is a shipped fix:
+  * fold-level perf at 512 aa / 200 steps (the 19.555 s figure predates the fix)
+  * opendde parity + release gate -- opendde IS affected by this change
+  * protenix-v2 parity legs, to measure rather than argue the no-op
+  * opendde exposure is unproven either way: 4 folds at 512 aa were clean, which is far
+    too few given protenix-v1's own rate swings between ~1/3 and 0.
+
+"PROVE THE OTHERS DIDN'T MOVE" -- MEASURED, 2026-08-27 12:57-13:04, pc card 0.
+release_gate structure leg (7ROA, 117 aa, MSA on, 200 steps / 5 samples):
+
+    protenix-v2   RMSD 1.360  TM 0.957   PASS   (unchanged branch: 8-tile output keeps the grid)
+    opendde       RMSD 1.417  TM 0.943   PASS   (affected branch: 4-tile output, grid dropped)
+
+and the true A/B for opendde, using the PROTENIX_PAIRCOND_MM_FORCE_GRID escape hatch to get the
+pre-fix arm on the same host in the same window:
+
+    opendde, grid FORCED (pre-fix behaviour)   RMSD 1.417  TM 0.943  PASS
+    opendde, grid dropped (the fix)            RMSD 1.417  TM 0.943  PASS
+
+IDENTICAL to the printed digits. So opendde's gate metrics do not move under this change -- that
+is measured, not argued from the diff.
+
+protenix-v2 needs no A/B: its 8-tile output takes the same forced-grid branch as before, so the
+device path is byte-identical by construction. tests/test_paircond_mm_width_gate.py pins that
+decision (5 tests) so a refactor cannot silently invert the comparison and re-expose it.
+
+protenix-v1 summary, all three fix conditions:
+    hang    8/8 folds on the default path vs 7/24 with the grid forced
+    parity  5-seed leg PASS, X=1.712 (committed 1.714), "reproduces committed"
+    perf    19.542 s/fold vs 19.555 s pre-fix, -0.07 %, inside the 0.32 % spread
+
+STILL OWED: the full 5-seed full_parity_gate legs for protenix-v2 and opendde (the runs above are
+the release_gate structure legs, which is a different arm), and a real verdict on whether opendde
+ever hangs at 512 aa -- 4 clean folds is far too few.
+
+FULL 5-SEED PARITY LEG for protenix-v2, with the fix in place (2026-08-27 13:06-13:09):
+
+    protenix-prot-msa   PASS   X=2.625  R=2.763  D=1.331  within=True
+                        "improves committed GAP-evidenced -- not a drift"
+
+The committed protenix-v2.json records X = 2.63 +/- 0.42 against a 2.94 A floor, so 2.625 is the
+same number. protenix-v2 does not move on the strict arm either, which closes that owed item.
+
+FULL 5-SEED PARITY LEG for opendde, with the fix in place (2026-08-27 13:10-13:13):
+
+    opendde-prot-prod   PASS   X=6.067  R=1.499  D=4.882  within=True
+                        "improves committed GAP-evidenced -- not a drift"
+
+So all three checkpoints that traverse _diffusion_pair_cond are verified with the fix on the
+strict arm as well as the release-gate arm:
+
+                 release_gate leg          full_parity_gate 5-seed leg
+    protenix-v1  (its own row, PASS)       PASS  X=1.712, reproduces committed 1.714
+    protenix-v2  1.360 / 0.957  PASS       PASS  X=2.625 vs committed 2.63
+    opendde      1.417 / 0.943  PASS       PASS  X=6.067, improves committed
+                 (identical A/B both arms)
+
+That is the "gate that actually re-verifies v2/opendde" the brief's amendment item 3 required
+before a fix of this kind ships.

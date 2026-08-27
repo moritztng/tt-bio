@@ -99,9 +99,9 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     # overrides, verifies whatever is already cached, and re-fetches only what is
     # missing or corrupt, so a truncated file from a killed download can never be
     # loaded as if it were complete.
-    if cfg.get("model") == "protenix-v2":
+    if cfg.get("model") in _protenix_family():
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
-        cfg["protenix_ckpt"] = str(weights.fetch("protenix-v2"))
+        cfg["protenix_ckpt"] = str(weights.fetch(cfg["model"]))
         cfg["mol_dir"] = str(weights.fetch("mols"))    # CCD templates for nucleic acids / ligands
         return
     # OpenFold3 / OpenBind: neither checkpoint is downloaded (no parameter licence
@@ -245,19 +245,28 @@ def _validate_openfold3_constraints(path, model: str = "openfold3") -> None:
             f"--model {model} does not port covalent bonds yet "
             f"(got {len(bonds)} constraint(s) from {path.name}); the fold would "
             "silently ignore them. Remove the constraints block or use "
-            "--model protenix-v2 / opendde.")
+            "--model protenix-v1 / protenix-v2 / opendde.")
 
 
-def _validate_openfold3_cyclic(path, model: str = "openfold3") -> None:
-    """Reject a yaml `cyclic: true` chain for OF3/OpenBind instead of folding it linear.
+def _validate_cyclic_unsupported(path, model: str) -> None:
+    """Reject a yaml `cyclic: true` chain for a model that cannot honour it, instead of
+    folding it linear.
 
-    Upstream's query format carries `Chain.cyclic` and its structure featurizer sets a
-    `cyclic_mask` feature from it; tt-bio's vendored copy has neither (both were dropped
-    when the tree was vendored, consistently). So a cyclic chain reached the model as an
-    ordinary linear one and the fold returned status=ok — a wrong structure with no
-    warning, the silent-garbage class. Cyclisation changes the STRUCTURE, which is why
-    this is a hard error like `constraints:` and not a warning like `properties:
-    affinity`, which only omits an extra output.
+    OpenFold3/OpenBind: upstream's query format carries `Chain.cyclic` and its structure
+    featurizer sets a `cyclic_mask` feature from it; tt-bio's vendored copy has neither (both
+    were dropped when the tree was vendored, consistently).
+
+    Protenix (v1/v2) and OpenDDE: there is no cyclic input path to drop. `_read_bio_chains`
+    returns (chain_id, sequence, msa_spec, mol_type) and never reads the flag, and upstream
+    Protenix v0.5.0 has no cyclic chain flag either -- its only "cyclic" is the
+    `cyclic-pseudo-peptide` LIGAND entity label (protenix/data/constants.py), not a polymer
+    input. So the flag was dropped silently and the fold returned status=ok on a linear
+    structure. Caught by folding examples/cyclic_prot.yaml with --model protenix-v1 during the
+    v1 bring-up sweep: it succeeded, which is the bug.
+
+    Cyclisation changes the STRUCTURE, which is why this is a hard error like `constraints:`
+    and not a warning like `properties: affinity`, which only omits an extra output. boltz2 and
+    rf3 do honour the flag and must never be passed to this.
     """
     if Path(path).suffix.lower() not in (".yml", ".yaml"):
         return
@@ -277,8 +286,9 @@ def _validate_openfold3_cyclic(path, model: str = "openfold3") -> None:
         raise RuntimeError(
             f"--model {model} does not port cyclic chains (chain(s) "
             f"{', '.join(cyclic)} in {Path(path).name} set `cyclic: true`); the fold "
-            "would silently return a linear structure. Remove the flag or use "
-            "--model rf3 / boltz2, which honor it.")
+            "would silently return a linear structure. Remove the flag, express the "
+            "cyclisation as a covalent `bond` constraint, or use --model rf3 / boltz2, "
+            "which honor it.")
 
 
 def _warn_openfold3_affinity_ignored(path, model: str) -> None:
@@ -425,6 +435,43 @@ def _is_saprot_model(model_id: str) -> bool:
     return model_id in SAPROT_MODELS
 
 
+def _build_chain_specs(chains, msa_dir, cfg, protein_only: bool):
+    """(sequence, a3m text or None, mol_type) per chain, honouring --single_sequence.
+
+    ONE place, because this was two copies and both had the same hole. `--single_sequence` is
+    documented as "skip MSA entirely", and the MSA SEARCH above each call site already checks
+    the flag -- but `_resolve_a3m_text` has two other sources the search never touches: an a3m
+    the YAML pinned with `msa:`, and one already cached under msa_dir for this sequence hash.
+    Neither call site checked the flag here, so on any target with an MSA from either source
+    the flag was a silent no-op: the fold used the MSA and the only hint was `msa: true` in the
+    metrics row. Measured on a 117-aa target, protenix-v1 at 20 steps -- with the flag ignored,
+    pLDDT 0.764634; honoured, 0.501251. A user asking for a no-MSA baseline was getting the
+    MSA answer.
+
+    protein_only keeps each caller's existing per-chain-type behaviour: Protenix resolves an
+    a3m for protein chains only, OpenDDE for every chain. That difference is not what this
+    function is fixing, so it is a parameter rather than a silent unification.
+    """
+    from tt_bio.main import _resolve_a3m_text
+
+    single_seq = bool(cfg.get("single_sequence"))
+    return [(cseq,
+             (_resolve_a3m_text(spec, cseq, msa_dir)
+              if not single_seq and (mt == "protein" or not protein_only) else None),
+             mt)
+            for _cid, cseq, spec, mt in chains]
+
+
+def _protenix_family() -> tuple[str, ...]:
+    """The --model ids the tt_bio.protenix implementation serves (v0.5.0 base and v2).
+
+    Imported lazily for the same reason as _of3_family: tt_bio.main imports this module.
+    """
+    from tt_bio.main import PROTENIX_FAMILY
+
+    return PROTENIX_FAMILY
+
+
 def _of3_family() -> tuple[str, ...]:
     """The --model ids the OpenFold3 implementation serves (preview2 and OpenBind).
 
@@ -556,9 +603,11 @@ class _WorkerState:
             repo = "biohub/ESMFold2-Fast" if model_id == "esmfold2-fast" else "biohub/ESMFold2"
             self.model = load_ttnn_esmfold2(esmfold2_repo=repo, fast=cfg.get("fast", False))
             self.model._esmc.preload()
-        elif model_id == "protenix-v2":
+        elif model_id in _protenix_family():
             from tt_bio.protenix import Protenix
 
+            # Same class for both ids: c_z, the stack depths and the recycling count all come
+            # off the weights (Trunk._derive_c_z / n_blocks / trunk_recycles).
             self.model = Protenix.load_from_checkpoint(cfg["protenix_ckpt"])
         elif model_id in _of3_family():
             import ttnn
@@ -689,7 +738,7 @@ class _WorkerState:
     def predict_one(self, path: Path, cfg: dict[str, Any]):
         if cfg.get("model") in ("opendde", "opendde-abag"):
             return self._predict_opendde_one(path, cfg)
-        if cfg.get("model") == "protenix-v2":
+        if cfg.get("model") in _protenix_family():
             return self._predict_protenix_one(path, cfg)
         if cfg.get("model") in _of3_family():
             return self._predict_openfold3_one(path, cfg)
@@ -860,6 +909,7 @@ class _WorkerState:
                 f"{unsupported} are nucleic-acid); nucleic-acid structural tokens are not "
                 "ported yet. Ligand covalent bonds are honored.")
         bonds = _read_bio_constraints(path)
+        _validate_cyclic_unsupported(path, cfg.get("model", "opendde"))
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -882,8 +932,7 @@ class _WorkerState:
                 cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
                 cfg.get("msa_server_password"), cfg.get("api_key_value"),
                 msa_endpoint=cfg.get("msa_endpoint"))
-        chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir), mt)
-                       for _cid, cseq, spec, mt in chains]
+        chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=False)
 
         # --msa_cache_only: the cache is the only source, so a miss is an error. Without this
         # _resolve_a3m_text returns None for an uncached chain and the fold quietly proceeds
@@ -991,6 +1040,7 @@ class _WorkerState:
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
         bonds = _read_bio_constraints(path)   # covalent bonds; rejects pocket/contact
+        _validate_cyclic_unsupported(path, cfg.get("model", "protenix-v2"))
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -1010,8 +1060,7 @@ class _WorkerState:
                 cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
                 cfg.get("msa_server_password"), cfg.get("api_key_value"),
                 msa_endpoint=cfg.get("msa_endpoint"))
-        chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir) if mt == "protein" else None, mt)
-                       for _cid, cseq, spec, mt in chains]
+        chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=True)
 
         report_progress("prep")
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
@@ -1111,11 +1160,12 @@ class _WorkerState:
         """Fold several targets in one batched diffusion trajectory. Returns one
         (metrics, best, feats) tuple per input path, in input order.
 
-        Only protenix-v2 has a batched path today; anything else folds serially through
+        Only Protenix has a batched path today; anything else folds serially through
         predict_one, so callers can always use this entry point. Targets must share their
         atom and token counts (bucket first) -- a mismatch raises.
         """
-        if cfg.get("model") != "protenix-v2" or len(paths) == 1 or int(cfg["diffusion_samples"]) != 1:
+        if (cfg.get("model") not in _protenix_family() or len(paths) == 1
+                or int(cfg["diffusion_samples"]) != 1):
             return [self.predict_one(p, cfg) for p in paths]
 
         from tt_bio.esmfold2 import report_progress
@@ -1331,7 +1381,7 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         _validate_openfold3_chains(chains, model)
         _validate_openfold3_constraints(path, model)
-        _validate_openfold3_cyclic(path, model)
+        _validate_cyclic_unsupported(path, model)
         _warn_openfold3_affinity_ignored(path, model)
         tmpl_map = _openfold3_template_map(path)
         unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt in chains})

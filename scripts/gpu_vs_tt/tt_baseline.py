@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""TT baseline leg of the GPU-vs-Tenstorrent Protenix-v2 / OpenDDE head-to-head.
+"""TT baseline leg of the GPU-vs-Tenstorrent Protenix-family head-to-head.
 
 Measures per-fold latency on one Blackhole card, in-process, at production
-config: a single-chain target YAML (MSA on), 10 recycling steps / 200 diffusion
-sampling steps / 1 sample / seed 0. The model is loaded once; one cold fold
+config: a target YAML (MSA on), 200 diffusion sampling steps / 1 sample / seed 0,
+and the checkpoint's own recycle count (protenix-v2 and OpenDDE 10, protenix-v1 4;
+--recycling_steps forces a matched arm). The model is loaded once; one cold fold
 absorbs first-kernel compile (reported separately, never in the warm numbers);
 then N warm folds give min/median/max. The committed alignment is seeded into
 the MSA cache as {seq_hash}.a3m before any fold, so MSA search never runs at all
@@ -39,11 +40,29 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
+# Appended, never prepended: a driver may run this script out of one tree while
+# PYTHONPATH points tt_bio at another, and prepending would silently win that fight.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+from tt_bio.main import PROTENIX_FAMILY, _resolve_recycling_steps  # noqa: E402
+
 # Production config, identical to what the GPU leg must run (fairness contract).
-RECYCLING_STEPS = 10
+# The recycle count is NOT one of these: it is a per-checkpoint property, so it comes
+# from tt_bio.main.RECYCLING_STEPS, the single table the CLI reads. A module constant
+# here would fold protenix-v1 at protenix-v2's 10 and label the result a default-settings
+# number -- v1's own config ships 4. --recycling_steps overrides it for a matched-settings
+# arm, and the resolved value is written into the result JSON, because a perf record that
+# does not state its own recycle count cannot be compared to anything.
 SAMPLING_STEPS = 200
 DIFFUSION_SAMPLES = 1
 SEED = 0
+
+# Models this harness can fold. Narrower than tt_bio.main.PREDICT_MODELS on purpose:
+# build_fold seeds a single protein alignment into the MSA cache and drives the shared
+# Protenix-class predict_one, so it covers the Protenix family and the OpenDDE
+# checkpoints that ride the same path. Derived rather than hand-typed -- a hardcoded
+# list here is what kept protenix-v1 unmeasurable after it was registered everywhere else.
+BASELINE_MODELS = tuple(PROTENIX_FAMILY) + ("opendde", "opendde-abag")
 
 
 def _git_sha() -> str:
@@ -294,7 +313,8 @@ class Instrument:
 
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
-               instrument: bool = False, fast: bool = False, trace: bool = False):
+               instrument: bool = False, fast: bool = False, trace: bool = False,
+               recycling_steps: int | None = None):
     """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
 
     Split out of ``measure`` so the multi-card fan-out driver (``tt_concurrency.py``)
@@ -341,9 +361,11 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     struct_dir.mkdir(parents=True, exist_ok=True)
     msa_dir.mkdir(parents=True, exist_ok=True)
 
+    recycles = _resolve_recycling_steps(recycling_steps, model)
+
     cfg = dict(
         model=model, fast=fast, output_format="cif",
-        recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
+        recycling_steps=recycles, sampling_steps=SAMPLING_STEPS,
         diffusion_samples=samples, seed=SEED, trace=trace,
         msa_dir=str(msa_dir), struct_dir=str(struct_dir),
         use_msa_server=True, msa_db_path=None, use_envdb=False, msa_endpoint=None,
@@ -398,7 +420,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                 _coords, conf = state.model.fold(
                     dict(feats_h), n_step=SAMPLING_STEPS, n_sample=samples, seed=SEED,
                     progress_fn=_noop, return_confidence=True,
-                    n_cycles=RECYCLING_STEPS,
+                    n_cycles=recycles,
                     max_parallel_samples=cfg.get("max_parallel_samples"), trace=False)
             confs = conf if isinstance(conf, list) else [conf]
             metrics = {"plddt": confs[0]["plddt"], "msa": True,
@@ -422,7 +444,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
             phase_times.append(inst.row(total))
         return total, metrics
 
-    return one_fold, dict(hardware=hw, grid=_grid(),
+    return one_fold, dict(hardware=hw, grid=_grid(), recycling_steps=recycles,
                           load_s=round(load_s, 2), n_msa=n_msa,
                           msa_dir=str(msa_dir), diffusion_samples=samples,
                           job_cfg=job_cfg, struct_dir=str(struct_dir),
@@ -436,8 +458,10 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
             target: Path, a3m: Path, label: str, fast: bool = False,
             keep_cif: Path | None = None, trace: bool = False,
-            ab_env: str | None = None, ab_values: tuple[str, str] = ("1", "0")) -> dict:
-    one_fold, meta, state = build_fold(model, msa_dir, target, a3m, fast=fast, trace=trace)
+            ab_env: str | None = None, ab_values: tuple[str, str] = ("1", "0"),
+            recycling_steps: int | None = None) -> dict:
+    one_fold, meta, state = build_fold(model, msa_dir, target, a3m, fast=fast, trace=trace,
+                                       recycling_steps=recycling_steps)
     from tt_bio.tenstorrent import cleanup
     hw, load_s, n_msa = meta["hardware"], meta["load_s"], meta["n_msa"]
 
@@ -530,7 +554,7 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
         target=str(target), n_msa=n_msa,
         n_tokens=cold_metrics.get("n_tokens"), n_residues=cold_metrics.get("n_residues"),
         msa_cache=msa_hits,
-        recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
+        recycling_steps=meta["recycling_steps"], sampling_steps=SAMPLING_STEPS,
         diffusion_samples=DIFFUSION_SAMPLES, seed=SEED,
         load_s=round(load_s, 2), cold_s=round(cold_s, 2),
         warm_times_s=[round(t, 3) for t in times],
@@ -555,7 +579,11 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", required=True, choices=["protenix-v2", "opendde"])
+    ap.add_argument("--model", required=True, choices=list(BASELINE_MODELS))
+    ap.add_argument("--recycling_steps", type=int, default=None,
+                    help="override the per-model default from tt_bio.main.RECYCLING_STEPS "
+                         "(protenix-v1 4, protenix-v2/opendde 10); use it to express a "
+                         "matched-settings arm across checkpoints")
     ap.add_argument("--repeat", type=int, default=3, help="timed warm folds (default 3)")
     ap.add_argument("--msa-dir", type=Path,
                     default=Path("~/.cache/tt-bio-gpu-vs-tt/msa").expanduser())
@@ -582,7 +610,8 @@ def main() -> int:
     assert len(av) == 2, "--ab-values takes exactly two comma-separated values"
     measure(args.model, args.repeat, args.msa_dir, args.out,
             args.target, args.msa_a3m, args.label, fast=args.fast, keep_cif=args.keep_cif,
-            trace=args.trace, ab_env=args.ab_env, ab_values=av)
+            trace=args.trace, ab_env=args.ab_env, ab_values=av,
+            recycling_steps=args.recycling_steps)
     return 0
 
 

@@ -79,7 +79,13 @@ def _site():
         if i >= 0 and f != _PROBE:
             # `<locals>` and `<listcomp>` are frames, not definitions; a citation that
             # keeps them resolves against nothing.
-            qual = ".".join(part for part in fr.f_code.co_qualname.split(".")
+            # co_qualname is 3.11+. On 3.10 (pc's tt-bio env) reading it raises inside the
+            # patched op, the exception escapes as `'code' object has no attribute
+            # 'co_qualname'`, and the whole fold fails while the census reports 0/0 -- a
+            # census that counts nothing looks exactly like a model that is already clean.
+            # Fall back to the bare function name, which test_citations.py still resolves.
+            qual = ".".join(part for part in
+                            getattr(fr.f_code, "co_qualname", fr.f_code.co_name).split(".")
                             if not part.startswith("<"))
             return f[i + 1:] + "::" + qual
         fr = fr.f_back

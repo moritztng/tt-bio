@@ -1,0 +1,54 @@
+{
+  "note": "Registered BEFORE any protenix-v1 512 aa fold. Commit this file, then measure.",
+  "host": "pc",
+  "card": "0",
+  "board": "Blackhole p150a",
+  "provisional": "PROVISIONAL-ON-PC-CARD0 -- ratio-first; the card miscomputes some matmuls, which corrupts data and not timing, so a ratio is sound and an absolute second wants re-measurement on a quiet box.",
+  "target": "perf/size512/fixtures/cdk2x2_512 (512 tokens, MSA seeded)",
+  "settings": {
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "seed": 0
+  },
+  "anchor_protenix_v2": {
+    "r10_median_s": 50.25,
+    "r10_min_s": 50.22,
+    "r10_max_s": 50.35,
+    "r2_median_s": 20.39,
+    "r2_min_s": 20.37,
+    "r2_max_s": 20.47,
+    "published_qb2_r10_s": 50.543
+  },
+  "decomposition": {
+    "C256_s_per_cycle": 3.7325,
+    "F_s": 12.925,
+    "trunk_share_of_v2_fold": 0.7428,
+    "basis": "F + cycles*C solved from the 10-cycle and 2-cycle arms above"
+  },
+  "k_cz_factor": {
+    "central": 0.55,
+    "band": [
+      0.48,
+      0.75
+    ],
+    "meaning": "cost of one trunk cycle at c_z 128 relative to c_z 256; op COUNT is identical between the checkpoints, only tensor width halves"
+  },
+  "predicted_protenix_v1": {
+    "at_4_cycles_own_default": {
+      "k0.48": 20.09,
+      "k0.55": 21.14,
+      "k0.75": 24.12
+    },
+    "at_10_cycles_matched": {
+      "k0.48": 30.84,
+      "k0.55": 33.45,
+      "k0.75": 40.92
+    },
+    "headline_s": 21.14,
+    "band_s": [
+      20.09,
+      24.12
+    ]
+  },
+  "verdict_rule": "k_measured = (v1@10cyc - v1@4cyc) / (6*C256). In [0.48,0.75] -> AS-EXPECTED. Above 0.75 -> SHORT, census the levers before touching a knob. F_v1_implied = v1@4cyc - 4*k_measured*C256 must land near F; far off means the two-term model is wrong and gets redone, not fitted."
+}

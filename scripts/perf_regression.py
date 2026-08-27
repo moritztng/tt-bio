@@ -237,6 +237,15 @@ SPECS: dict[str, dict] = {
     "esmfold2":       dict(kind="fold", unit="structures/s", direction="higher"),
     "esmfold2-fast":  dict(kind="fold", unit="structures/s", direction="higher"),
     "protenix-v2":    dict(kind="fold", unit="structures/s", direction="higher"),
+    # protenix-v1 is upstream's own v0.5.0 base checkpoint, loaded by the SAME
+    # tt_bio/protenix.py class as protenix-v2 but at half the pair width (c_z 128 vs
+    # 256) and 4 trunk recycles instead of 10. That is exactly why it gets its own
+    # cell rather than a SPECS_EXEMPT "shares code with protenix-v2": the shared code
+    # is parameterised by those two numbers, so a c_z-sensitive regression can move
+    # one checkpoint and not the other. Same light TRPCAGE single-seq protocol as
+    # every other fold model (1 recycle / 10 steps / 1 sample), so its structures/s
+    # is on the same scale as protenix-v2's.
+    "protenix-v1":    dict(kind="fold", unit="structures/s", direction="higher"),
     "opendde":        dict(kind="fold", unit="structures/s", direction="higher"),
     # OpenFold3 (AF3-family, polymer-only port): the same light TRPCAGE single-seq
     # protocol as every other fold model (1 recycle / 10 steps / 1 sample), so its

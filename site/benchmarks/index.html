@@ -168,6 +168,7 @@ details.disclose > div{ padding-top:var(--s-4); }
       <thead><tr><th>--model</th><th>Folds</th><th>Affinity</th><th>MSA</th></tr></thead>
       <tbody>
         <tr><td>boltz2</td><td>protein, DNA, RNA, ligand</td><td>yes</td><td>on by default</td></tr>
+        <tr><td>protenix-v1</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
         <tr><td>protenix-v2</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
         <tr><td>openfold3</td><td>protein, RNA, DNA</td><td>no</td><td>on by default</td></tr>
         <tr><td>openbind</td><td>protein, RNA, DNA, ligand by SMILES or CCD</td><td>no</td><td>on by default</td></tr>
@@ -177,7 +178,9 @@ details.disclose > div{ padding-top:var(--s-4); }
         <tr><td>nesso1</td><td>nothing, it returns scalars</td><td>yes</td><td>not needed</td></tr>
       </tbody>
     </table></div>
-    <p class="mnote">Protenix-v2 and OpenFold3 are AlphaFold3-family. OpenDDE runs the Protenix-v2 stack
+    <p class="mnote">Protenix-v1, Protenix-v2 and OpenFold3 are AlphaFold3-family. Protenix-v1 is
+    upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against
+    Protenix-v2's 10. OpenDDE runs the Protenix-v2 stack
     plus a structural-token expander. OpenBind-0 is the same OpenFold3 stack on upstream's v0.5.0
     checkpoint, tuned for protein-ligand co-folding. Nesso-1 runs under <code>tt-bio affinity</code>
     rather than <code>predict</code>: no coordinates, no PAE, just an affinity value and ten other
