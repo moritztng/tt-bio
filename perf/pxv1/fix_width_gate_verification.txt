@@ -62,3 +62,11 @@ protenix-v1 summary, all three fix conditions:
 STILL OWED: the full 5-seed full_parity_gate legs for protenix-v2 and opendde (the runs above are
 the release_gate structure legs, which is a different arm), and a real verdict on whether opendde
 ever hangs at 512 aa -- 4 clean folds is far too few.
+
+FULL 5-SEED PARITY LEG for protenix-v2, with the fix in place (2026-08-27 13:06-13:09):
+
+    protenix-prot-msa   PASS   X=2.625  R=2.763  D=1.331  within=True
+                        "improves committed GAP-evidenced -- not a drift"
+
+The committed protenix-v2.json records X = 2.63 +/- 0.42 against a 2.94 A floor, so 2.625 is the
+same number. protenix-v2 does not move on the strict arm either, which closes that owed item.
