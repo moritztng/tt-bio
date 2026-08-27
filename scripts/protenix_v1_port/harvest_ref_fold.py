@@ -111,8 +111,12 @@ def _ref_side(args):
                 z_trunk=z_trunk, pair_mask=None, x_pred_coords=x.unsqueeze(0),
                 use_memory_efficient_kernel=False, use_deepspeed_evo_attention=False,
                 use_lma=False, inplace_safe=False, chunk_size=None)
-            confs.append({kk: (vv.detach().clone() if torch.is_tensor(vv) else vv)
-                          for kk, vv in c.items()})
+            # v0.5.0's ConfidenceHead returns a TUPLE of logit tensors (plddt, pae, pde),
+            # not the dict later releases return. Normalise to a tuple here and let
+            # _write_cifs below index it positionally, which is what it already did.
+            if isinstance(c, dict):
+                c = tuple(c.get("out", (c.get("plddt"), c.get("pae"), c.get("pde"))))
+            confs.append(tuple(v.detach().clone() if torch.is_tensor(v) else v for v in c))
         torch.save({"coords": coords, "confidence": confs, "seed": seed,
                     "n_cycle": n_cycle, "steps": args.steps, "samples": args.samples,
                     "n_token": n_token, "n_atom": n_atom,
@@ -147,7 +151,7 @@ def _write_cifs(args):
         n_sample = len(confs)
         post = []
         for c in confs:
-            rc = c.get("out", c)
+            rc = c.get("out", c) if isinstance(c, dict) else c
             pl, pae_l, pde_l = (rc[0].squeeze(0), rc[1].squeeze(0), rc[2].squeeze(0))
             post.append(post_fn._postprocess(pae_l.float(), pde_l.float(), pl.float(), feats))
         rows = []
