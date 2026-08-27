@@ -1,0 +1,101 @@
+{
+  "flag": "RFD3_SOFTMAX_PV_FUSED",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 94.618,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "sampler_s": 94.512,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 2,
+      "sampler_s": 92.683,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 1791,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "sampler_s": 94.643,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 4,
+      "sampler_s": 92.361,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "served_calls": 1791,
+      "steps": 200
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "arms": [
+    "off",
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 98.242,
+  "bit_exact": true,
+  "digests": {
+    "off": [
+      "5295e526ebd0b757"
+    ],
+    "on": [
+      "5295e526ebd0b757"
+    ]
+  },
+  "aa_control_s": [
+    94.618,
+    94.512
+  ],
+  "aa_spread_s": 0.10599999999999454,
+  "off_median_s": 94.618,
+  "off_min_s": 94.512,
+  "off_max_s": 94.643,
+  "on_median_s": 92.522,
+  "on_min_s": 92.361,
+  "on_max_s": 92.683,
+  "delta_s": -2.096,
+  "ratio": 1.0227,
+  "delta_inside_aa_band": false,
+  "predicted_delta_s": -2.19,
+  "card": 1,
+  "torch": "2.12.0+cu130",
+  "rung": "R4",
+  "provisional_on": null,
+  "measured_on": "tt-quietbox2 card1",
+  "expect_decline": false,
+  "decline_reasons": {
+    "softmax kernel does not engage at this shape @ key 704": 14328
+  },
+  "served_widths": {
+    "6080": 3582
+  },
+  "atom_key": 6080,
+  "served_at_atom": 3582,
+  "declined_at_atom": 0
+}
