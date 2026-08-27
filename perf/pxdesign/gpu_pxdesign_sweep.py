@@ -81,7 +81,7 @@ def run_rep(a, cell, rep):
     cmd = [a.python, "-u", a.runner, "--yaml", yaml_path, "--out-dir", out_dir,
            "--report", str(report), "--preset", preset, "--n-sample", str(n_sample),
            "--n-step", str(a.n_step), "--dtype", a.dtype, "--seed", str(a.seed),
-           "--label", tag]
+           "--rounds", str(a.rounds), "--label", tag]
     if a.extra:
         cmd += ["--extra", a.extra]
 
@@ -121,6 +121,15 @@ def run_rep(a, cell, rep):
            "peak_vram_alloc_GiB": round((r.get("peak_vram_alloc_B") or 0) / 2 ** 30, 3),
            "peak_vram_reserved_GiB": round((r.get("peak_vram_reserved_B") or 0) / 2 ** 30, 3),
            "validation": r.get("validation"), "sanity_ok": r.get("ok"), "why": r.get("why"),
+           "rounds": r.get("rounds"), "warm_n": r.get("warm_n"),
+           "warm_median_cell_s": r.get("warm_median_cell_s"),
+           "warm_spread_pct": r.get("warm_spread_pct"),
+           "warm_median_gen_device_s": r.get("warm_median_gen_device_s"),
+           "warm_median_gen_feat_s": r.get("warm_median_gen_feat_s"),
+           "warm_median_gen_write_s": r.get("warm_median_gen_write_s"),
+           "digests": r.get("digests"), "digest_repeat_ok": r.get("digest_repeat_ok"),
+           "jax_counter_selftest": r.get("jax_counter_selftest"),
+           "subprocess_overlaps_gen": r.get("subprocess_overlaps_gen"),
            "gpu_exclusive": r.get("gpu_exclusive"),
            "compute_apps_before": r.get("compute_apps_before"),
            "compute_apps_after": r.get("compute_apps_after"),
@@ -149,7 +158,12 @@ def main():
     ap.add_argument("--out-root", default="/work/out")
     ap.add_argument("--cells", default="anchor",
                     help="'anchor', or label:yaml:preset:n_sample entries separated by commas")
-    ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--reps", type=int, default=3,
+                    help="subprocesses per cell, rep 0 discarded as cold")
+    ap.add_argument("--rounds", type=int, default=1,
+                    help="pipeline invocations INSIDE each subprocess, round 0 discarded as cold. "
+                         "--reps 2 --rounds 5 is the perf-page protocol: two independent processes, "
+                         "four warm rounds each, eight warm samples")
     ap.add_argument("--n-step", type=int, default=400)
     ap.add_argument("--dtype", default="bf16")
     ap.add_argument("--seed", type=int, default=42)

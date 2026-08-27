@@ -1,0 +1,7 @@
+{
+  "seed": 3,
+  "n_cycle": 4,
+  "steps": 200,
+  "samples": 5,
+  "reference_seconds": 203.8
+}

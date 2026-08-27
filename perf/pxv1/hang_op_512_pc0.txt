@@ -1,0 +1,103 @@
+attempt5 HUNG at 200s  <-- caught
+--- pcdbg markers (sequential, append-only) ---
+relpe linear done
+typecast done
+reshape-3d done
+concat done
+layernorm_z done
+--- did the z_trunk readback complete? ---
+0
+-rw-r--r-- 1 moritz moritz 212862949 Aug 27 10:49 /tmp/pv1/pcdbg_dir/paircond_inputs.pt
+--- stack ---
+Process 1853071: /home/moritz/tt-bio/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=7, pipe_handle=9) --multiprocessing-fork
+Python v3.10.19 (/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/bin/python3.10)
+
+Thread 0x7F554EC6A740 (active+gil): "MainThread"
+    _sync (tt_bio/protenix.py:2019)
+    _diffusion_pair_cond (tt_bio/protenix.py:2084)
+    _trunk_cond (tt_bio/protenix.py:2210)
+    fold (tt_bio/protenix.py:2248)
+    _predict_protenix_one (tt_bio/worker.py:1144)
+    predict_one (tt_bio/worker.py:742)
+    _execute_job (tt_bio/worker.py:1969)
+    run_worker_loop (tt_bio/worker.py:1915)
+    run (multiprocessing/process.py:108)
+    _bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:129)
+    spawn_main (multiprocessing/spawn.py:116)
+    <module> (<string>:1)
+Thread 0x7F54C0FFC6C0 (idle): "Thread-1 (_heartbeat_loop)"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    _heartbeat_loop (tt_bio/worker.py:1792)
+    run (threading.py:953)
+PCDBG DONE 2026-08-27T10:53:30+02:00
+
+CAPTURED 2026-08-27 10:49, attempt 5 of 12, protenix-v1 512 aa, ladder config, with
+TT_PROTENIX_PAIRCOND_DEBUG=1 (adds ttnn.synchronize_device + an appended marker after each
+pair-cond op, and reads z_trunk back to host before the pair-cond for its input dump).
+
+THE DISCRIMINATOR:
+  * paircond_inputs.pt EXISTS (212,862,949 bytes) -> the z_trunk device->host readback
+    COMPLETED, so the TRUNK IS NOT WEDGED. This rules out everything upstream.
+  * markers stop after "layernorm_z done" (5 of the 9 a healthy fold writes).
+  * py-spy stack: _sync (protenix.py:2019) <- _diffusion_pair_cond (protenix.py:2084).
+
+protenix.py:2084 is _sync("linear_z"), so the op that wedges is the one above it at :2081:
+
+    pz = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
+                     compute_kernel_config=self.compute_kernel_config,
+                     dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+
+Shapes at N=512 tokens, from the v0.5.0 checkpoint (linear_no_bias_z.weight = (128, 256)):
+
+    protenix-v1   zc (N*N, 256) x W (256, 128)   = (262144, 256) x (256, 128)
+    protenix-v2   zc (N*N, 512) x W (512, 256)   = (262144, 512) x (512, 256)
+
+protenix-v2 runs the SAME LINE with double both inner widths and did not hang in 7 folds. So
+the hang is not size and not that line being wrong -- it is this op at v1's narrower widths
+(output 128 = 4 tiles of 32, K 256 = 8 tiles) on CORE_GRID_MAIN. Note TRIMUL_TAIL_F1 also
+refuses v1 with the reason "k_tiles=4" (state doc section 20): 4-tile widths are a recurring
+regime in this stack.
+
+Row count explains the 448/512 threshold: N*N rows is 200,704 at 448 aa and 262,144 at 512.
+
+STANDALONE REPRO: DOES NOT REPRODUCE. Two negative results, both worth not repeating.
+
+scripts/protenix_v1_port/repro_paircond_linear.py drives just that ttnn.linear in a loop on
+CORE_GRID_MAIN (grid 11x10), bare ttnn, no tt_bio model:
+
+  * 25 iterations at the v1 shape (262144,256)x(256,128) and 25 at the v2 shape: all ~2.5 ms,
+    no hang.
+  * repeated with REPRO_BALLAST_GIB=1.5 (6 x 256 MiB resident, so the allocator sees occupancy
+    comparable to the real fold's ~1.2-1.7 GiB of live trunk tensors), 30 iterations each:
+    all ~2.5-2.8 ms, no hang.
+
+So the op does NOT wedge in isolation, and DRAM occupancy alone does not induce it. The wedge
+needs more of the real fold's state than shape + grid + occupancy -- candidates not yet tested:
+the real compute_kernel_config, the specific allocator layout left by the trunk, dispatch queue
+depth, or the fact that in the real fold zc is a layer_norm output rather than a fresh upload.
+This means the finding cannot currently be filed as a bare ttnn matmul bug.
+
+REPRO ATTEMPTS, ALL NEGATIVE (2026-08-27 ~11:00). Four proxies for the fold's device state,
+none of which reproduces the wedge. Recorded so nobody repeats them.
+
+  1. bare ttnn.linear, bf16, same 11x10 grid, 25 iters/shape           clean, ~2.5 ms
+  2. as 1 + REPRO_BALLAST_GIB=1.5 (6 x 256 MiB clean blocks), 30 iters clean, ~2.5-2.8 ms
+  3. the REAL _diffusion_pair_cond via repro_paircond_loop.py, with the real checkpoint
+     weights and the real z_trunk+relp captured from a fold, so dtype (FLOAT32, not the bf16
+     attempt 1 used), compute_kernel_config, core_grid and input values are all authentic;
+     20 iters                                                          clean, 0.12-0.15 s
+  4. as 3 + REPRO_CHURN_MB=1600 (mixed 8/16/32/64/128 MiB blocks, a random half freed, so the
+     arena is fragmented rather than merely occupied), 20 iters         clean, 0.12 s
+
+Output was bit-stable across every iteration of 3 and 4 (pz_absmax 151.5280 every time).
+
+WHAT THIS BOUNDS. The wedge is not explained by the op, its shapes, its dtype, its grid, its
+weights, its input values, DRAM occupancy, or DRAM fragmentation. It also does not need a deep
+async dispatch queue: in the pcdbg fold that wedged, _sync("layernorm_z") had just DRAINED the
+queue one op earlier, and linear_z still hung. The one ingredient no proxy here supplies is the
+trunk actually having executed in the same process immediately before.
+
+The pair-cond costs 0.12 s against a ~13-15 s fold, so it is ~1% of the work and the wedge is
+not a slow path being mistaken for a hang.

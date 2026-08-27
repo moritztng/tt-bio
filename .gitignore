@@ -74,7 +74,7 @@ oom_inputs/
 .perf-runs/
 perf/p2/
 
-# planning/status/coordination notes belong in the coworker system, not the repo
+# local planning notes, not repo content
 /notes/
 
 # RFD3 port local scratch (goldens, foundry clone, ckpt) - not repo content

@@ -1,0 +1,230 @@
+{
+ "pinned": {
+  "label": "laczc512_gen_pinned",
+  "seconds": {
+   "median_s": 30.1928,
+   "n": 8,
+   "min_s": 29.5091,
+   "max_s": 31.4987,
+   "spread_pct": 6.59
+  },
+  "n_reports": 2,
+  "stack": null
+ },
+ "modern": {
+  "label": "laczc512_gen_modern",
+  "seconds": {
+   "median_s": 24.2246,
+   "n": 8,
+   "min_s": 23.7495,
+   "max_s": 24.9914,
+   "spread_pct": 5.127
+  },
+  "n_reports": 2,
+  "stack": null
+ },
+ "seconds_delta_s": -5.9682,
+ "seconds_delta_pct": -19.767,
+ "seconds_band_pct": 6.59,
+ "seconds_verdict": "OUTSIDE-BAND",
+ "same_stack_same_seed": [
+  {
+   "stack": "pinned",
+   "seed": 1,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "stack": "pinned",
+   "seed": 2,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "stack": "pinned",
+   "seed": 3,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "stack": "pinned",
+   "seed": 0,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "stack": "modern",
+   "seed": 1,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "stack": "modern",
+   "seed": 2,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "stack": "modern",
+   "seed": 3,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "stack": "modern",
+   "seed": 0,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  }
+ ],
+ "determinism_ok": true,
+ "same_stack_diff_seed": [
+  {
+   "stack": "pinned",
+   "seeds": [
+    0,
+    1
+   ],
+   "direct": 41.6693,
+   "fitted": 8.4539
+  },
+  {
+   "stack": "pinned",
+   "seeds": [
+    0,
+    2
+   ],
+   "direct": 41.0422,
+   "fitted": 6.6732
+  },
+  {
+   "stack": "pinned",
+   "seeds": [
+    0,
+    3
+   ],
+   "direct": 47.1715,
+   "fitted": 5.6194
+  },
+  {
+   "stack": "pinned",
+   "seeds": [
+    1,
+    2
+   ],
+   "direct": 50.134,
+   "fitted": 6.6695
+  },
+  {
+   "stack": "pinned",
+   "seeds": [
+    1,
+    3
+   ],
+   "direct": 45.285,
+   "fitted": 6.0974
+  },
+  {
+   "stack": "pinned",
+   "seeds": [
+    2,
+    3
+   ],
+   "direct": 52.6314,
+   "fitted": 6.4115
+  },
+  {
+   "stack": "modern",
+   "seeds": [
+    0,
+    1
+   ],
+   "direct": 41.6693,
+   "fitted": 8.4539
+  },
+  {
+   "stack": "modern",
+   "seeds": [
+    0,
+    2
+   ],
+   "direct": 41.0422,
+   "fitted": 6.6732
+  },
+  {
+   "stack": "modern",
+   "seeds": [
+    0,
+    3
+   ],
+   "direct": 47.1715,
+   "fitted": 5.6194
+  },
+  {
+   "stack": "modern",
+   "seeds": [
+    1,
+    2
+   ],
+   "direct": 50.134,
+   "fitted": 6.6695
+  },
+  {
+   "stack": "modern",
+   "seeds": [
+    1,
+    3
+   ],
+   "direct": 45.285,
+   "fitted": 6.0974
+  },
+  {
+   "stack": "modern",
+   "seeds": [
+    2,
+    3
+   ],
+   "direct": 52.6314,
+   "fitted": 6.4115
+  }
+ ],
+ "inter_seed_mean_direct": 46.3222,
+ "cross_stack_same_seed": [
+  {
+   "seed": 0,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "seed": 1,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "seed": 2,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  },
+  {
+   "seed": 3,
+   "direct": 0.0,
+   "fitted": 0.0,
+   "max_atom_dev": 0.0
+  }
+ ],
+ "cross_stack_mean_direct": 0.0,
+ "cross_stack_bit_identical": true,
+ "cross_over_inter_ratio": 0.0,
+ "design_verdict": "BIT-IDENTICAL"
+}

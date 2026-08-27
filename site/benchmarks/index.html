@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="/assets/favicon.ico" sizes="32x32" type="image/x-icon">
-<link rel="icon" href="/assets/icon-500.png" sizes="500x500" type="image/png">
-<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" sizes="500x500">
-<title>TT-Bio: biomolecular structure prediction, design and binding affinity on Tenstorrent</title>
-<meta name="description" content="Ten open biomolecular models measured on Tenstorrent: eight folding, one binder design and one binding affinity. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
+<link rel="icon" href="../assets/mark.svg?v=549aac16" type="image/svg+xml">
+<link rel="icon" href="../assets/favicon.ico?v=efa39745" sizes="32x32" type="image/x-icon">
+<link rel="icon" href="../assets/icon-500.png?v=c70df9a5" sizes="500x500" type="image/png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=b63e0473" sizes="180x180">
+<title>TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware</title>
+<meta name="description" content="Eleven open biomolecular models measured on Tenstorrent hardware: eight folding, two binder design and one binding affinity. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
 <link rel="preload" href="../assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/site.css?v=80720702">
 <style>
 /* Platform ramp. Ours in near-black, the three GPUs stepping lighter, so the
    Tenstorrent bar reads first in every chart without introducing a hue.
@@ -145,8 +146,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="https://tenstorrent.com" aria-label="Tenstorrent">
-      <img src="../assets/tt-logo-light.svg" alt="Tenstorrent"></a>
+    <a class="brand" href="../assets/" aria-label="TT-Bio, home"><span class="tt">TT-</span>Bio</a>
     <span class="sp"></span>
     <a class="lnk" href="../">Overview</a>
     <a class="lnk" aria-current="page" href="./">Benchmarks</a>
@@ -168,6 +168,7 @@ details.disclose > div{ padding-top:var(--s-4); }
       <thead><tr><th>--model</th><th>Folds</th><th>Affinity</th><th>MSA</th></tr></thead>
       <tbody>
         <tr><td>boltz2</td><td>protein, DNA, RNA, ligand</td><td>yes</td><td>on by default</td></tr>
+        <tr><td>protenix-v1</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
         <tr><td>protenix-v2</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
         <tr><td>openfold3</td><td>protein, RNA, DNA</td><td>no</td><td>on by default</td></tr>
         <tr><td>openbind</td><td>protein, RNA, DNA, ligand by SMILES or CCD</td><td>no</td><td>on by default</td></tr>
@@ -177,7 +178,9 @@ details.disclose > div{ padding-top:var(--s-4); }
         <tr><td>nesso1</td><td>nothing, it returns scalars</td><td>yes</td><td>not needed</td></tr>
       </tbody>
     </table></div>
-    <p class="mnote">Protenix-v2 and OpenFold3 are AlphaFold3-family. OpenDDE runs the Protenix-v2 stack
+    <p class="mnote">Protenix-v1, Protenix-v2 and OpenFold3 are AlphaFold3-family. Protenix-v1 is
+    upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against
+    Protenix-v2's 10. OpenDDE runs the Protenix-v2 stack
     plus a structural-token expander. OpenBind-0 is the same OpenFold3 stack on upstream's v0.5.0
     checkpoint, tuned for protein-ligand co-folding. Nesso-1 runs under <code>tt-bio affinity</code>
     rather than <code>predict</code>: no coordinates, no PAE, just an affinity value and ten other
@@ -323,12 +326,14 @@ details.disclose > div{ padding-top:var(--s-4); }
 </div>
 
 <footer>
-  <span>TT-Bio, open source, on Tenstorrent</span>
+  <span>TT-Bio &mdash; open source</span>
   <a href="https://github.com/moritztng/tt-bio">GitHub</a>
   <a href="../">Overview</a>
   <a href="https://japanfold.com">JapanFold</a>
-  <a href="https://tenstorrent.com">Tenstorrent</a>
 </footer>
+<p class="disclaim">Tenstorrent, Blackhole and Galaxy are trademarks of Tenstorrent Inc. NVIDIA, DGX, H200, B200
+  and A100 are trademarks of NVIDIA Corporation. Hardware names are used to identify the systems
+  measured.</p>
 
 </main>
 </div>

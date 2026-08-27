@@ -1,0 +1,204 @@
+{
+ "label": "base_fp32_B",
+ "model": "pxdesign",
+ "tree": "/tmp/pxd_tree_283b64f3",
+ "git_head": "",
+ "yaml": "/home/moritz/.coworker/wt/pxdesign-perf-page-honest/perf/newmodelcells/laczc_512_tt.yaml",
+ "yaml_sha256": "23587853d5ca8fde766adce2f6c71c0fc19b8ac8547ea01a39a4e06bd9b311a1",
+ "target_cif": "/home/moritz/.coworker/wt/pxdesign-perf-page-honest/perf/pxdesign/targets/laczc_512.cif",
+ "target_cif_sha256": "206d95b5f73d08bd323dd272bcff8d4fc4eaaafc2f9317e02f1bd738260f0a04",
+ "n_step": 400,
+ "n_sample_per_call": 1,
+ "rounds": 5,
+ "ttnn": "0.68.0",
+ "host": "pc",
+ "card": "0",
+ "started": "2026-08-26T09:28:52+0200",
+ "loadavg_start": [
+  "1.76",
+  "1.95",
+  "1.42"
+ ],
+ "designs": [
+  {
+   "round": 0,
+   "seed": 0,
+   "cold": true,
+   "t_feat_s": 0.046,
+   "t_design_s": 24.598,
+   "t_write_s": 0.005,
+   "round_s": 24.65,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "fe271ec3e86594c9",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 2.3365,
+   "cif_sha16": "71b2b7294b46e05e",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "1.76",
+    "1.95",
+    "1.42"
+   ]
+  },
+  {
+   "round": 1,
+   "seed": 1,
+   "cold": false,
+   "t_feat_s": 0.043,
+   "t_design_s": 22.241,
+   "t_write_s": 0.005,
+   "round_s": 22.29,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "f6489d757ef9be59",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 2.8175,
+   "cif_sha16": "f38fee9c7f334d2f",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.09",
+    "2.01",
+    "1.46"
+   ]
+  },
+  {
+   "round": 2,
+   "seed": 2,
+   "cold": false,
+   "t_feat_s": 0.045,
+   "t_design_s": 22.287,
+   "t_write_s": 0.006,
+   "round_s": 22.339,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "66308888fbc67665",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 4.5697,
+   "cif_sha16": "e8de6235e29ed547",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.07",
+    "2.01",
+    "1.47"
+   ]
+  },
+  {
+   "round": 3,
+   "seed": 3,
+   "cold": false,
+   "t_feat_s": 0.047,
+   "t_design_s": 22.339,
+   "t_write_s": 0.005,
+   "round_s": 22.39,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "44b1b6ca4ebdd191",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 3.3287,
+   "cif_sha16": "487f327ee1063f42",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.39",
+    "2.09",
+    "1.51"
+   ]
+  },
+  {
+   "round": 4,
+   "seed": 0,
+   "cold": false,
+   "t_feat_s": 0.046,
+   "t_design_s": 22.333,
+   "t_write_s": 0.006,
+   "round_s": 22.385,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "f8fb6645218fd575",
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 2.3342,
+   "cif_sha16": "1b35ce625879a70a",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "2.39",
+    "2.11",
+    "1.53"
+   ]
+  }
+ ],
+ "model_init_s": 0.772,
+ "checkpoint": "/home/moritz/.boltz/pxdesign/pxdesign_v0.1.0.pt",
+ "checkpoint_bytes": 556554618,
+ "arch": "blackhole",
+ "grid": [
+  13,
+  10
+ ],
+ "diffusion_fp32": true,
+ "env_PROTENIX_DIFFUSION_FP32_DEVICE": null,
+ "warm_n": 4,
+ "warm_median_s": 22.362,
+ "warm_min_s": 22.29,
+ "warm_max_s": 22.39,
+ "warm_spread_pct": 0.447,
+ "warm_median_feat_s": 0.045,
+ "warm_median_design_s": 22.31,
+ "warm_median_write_s": 0.005,
+ "warm_median_host_s": 0.05,
+ "split_residual_s": 0.002,
+ "loadavg_end": [
+  "2.73",
+  "2.22",
+  "1.58"
+ ]
+}

@@ -1,0 +1,824 @@
+{
+  "label": "b4_rep0",
+  "preset": "gen",
+  "pipeline_preset": "preview",
+  "n_sample": 4,
+  "n_step": 400,
+  "dtype": "bf16",
+  "seed": 42,
+  "rounds": [
+    {
+      "round": 0,
+      "seed": 0,
+      "cold": true,
+      "out_dir": "/work/out/b4_rep0/r0",
+      "rc": 1,
+      "t0": 1787771243.4967103,
+      "t1": 1787771341.4104357,
+      "round_wall_s": 97.9137,
+      "gen_feat_s": 2.7456,
+      "gen_device_s": 57.2237,
+      "gen_write_s": 0.3111,
+      "gen_cell_s": 60.2804,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 5.9636,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 17.9724,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 57.2237,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.3111,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 60.2804,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 12.2713,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 0.1951,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 12.476,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0062,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 2.7456,
+          "calls": 0
+        }
+      },
+      "digest": "359bbc0a4bb05f7c",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 4,
+        "designs": [
+          {
+            "path": "/work/out/b4_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "b1f4d114b7a9250c"
+          },
+          {
+            "path": "/work/out/b4_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "08cb803c0fd2c304"
+          },
+          {
+            "path": "/work/out/b4_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "8226aba5c7bb89a8"
+          },
+          {
+            "path": "/work/out/b4_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "1303168376a977ca"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "359bbc0a4bb05f7c"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    },
+    {
+      "round": 1,
+      "seed": 1,
+      "cold": false,
+      "out_dir": "/work/out/b4_rep0/r1",
+      "rc": 1,
+      "t0": 1787771341.4502578,
+      "t1": 1787771432.6535325,
+      "round_wall_s": 91.2033,
+      "gen_feat_s": 2.3669,
+      "gen_device_s": 56.554,
+      "gen_write_s": 0.3161,
+      "gen_cell_s": 59.237,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.5706,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 17.2794,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 56.554,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.3161,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 59.237,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 12.3449,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 0.1893,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 12.5418,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.006,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 2.3669,
+          "calls": 0
+        }
+      },
+      "digest": "42cd26be68cd2a60",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 4,
+        "designs": [
+          {
+            "path": "/work/out/b4_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "6fb20c46906322aa"
+          },
+          {
+            "path": "/work/out/b4_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "6a54cd470307270e"
+          },
+          {
+            "path": "/work/out/b4_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "c33b4c4732178717"
+          },
+          {
+            "path": "/work/out/b4_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "2293264060373407"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "42cd26be68cd2a60"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    },
+    {
+      "round": 2,
+      "seed": 2,
+      "cold": false,
+      "out_dir": "/work/out/b4_rep0/r2",
+      "rc": 1,
+      "t0": 1787771432.6962342,
+      "t1": 1787771521.9300165,
+      "round_wall_s": 89.2338,
+      "gen_feat_s": 2.3862,
+      "gen_device_s": 56.6014,
+      "gen_write_s": 0.3099,
+      "gen_cell_s": 59.2975,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.568,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 15.4197,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 56.6014,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.3099,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 59.2975,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 12.223,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 0.185,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 12.4156,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0059,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 2.3862,
+          "calls": 0
+        }
+      },
+      "digest": "c23e81102b00eec5",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 4,
+        "designs": [
+          {
+            "path": "/work/out/b4_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a3533ddf1b2287de"
+          },
+          {
+            "path": "/work/out/b4_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "f864b3f7f779aeab"
+          },
+          {
+            "path": "/work/out/b4_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "3b0a236630a6d129"
+          },
+          {
+            "path": "/work/out/b4_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "66ecf2892f15a9e1"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "c23e81102b00eec5"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    }
+  ],
+  "yaml": "/work/targets2/laczc_512_nomsa.yaml",
+  "yaml_sha256": "48a6b5c0c5d9ca9b36bccda5a9f2258a9b5b8569b4631754cc724e1985b8f713",
+  "ok": true,
+  "why": [
+    "round 0 raised AssertionError: ",
+    "round 1 raised AssertionError: ",
+    "round 2 raised AssertionError: "
+  ],
+  "compute_apps_before": [],
+  "jax_counters": {
+    "present": true,
+    "wrapped": [
+      "jax_jit",
+      "jax_device_put",
+      "jnp_add"
+    ],
+    "version": "0.4.29"
+  },
+  "patch_targets_found": {
+    "gen_device": true,
+    "gen_write": true,
+    "gen_total": true,
+    "sample_diffusion": true,
+    "prep_input": true,
+    "prep_cache": true,
+    "prep_bioassembly": true,
+    "prep_toolweights": true,
+    "model_init": true,
+    "tgt_template": true,
+    "rank_host": true,
+    "mpnn": true,
+    "eval_total": true,
+    "af2_complex": true,
+    "af2_monomer": true,
+    "metrics_secondary": true,
+    "metrics_diversity": true,
+    "protenix_predict": true
+  },
+  "counter_info": {
+    "ds4sci_present": true,
+    "fused_ln_present": false,
+    "deepspeed_evo_env": null,
+    "layernorm_type_env": null
+  },
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "argv": [
+    "--preset",
+    "preview",
+    "--dump_dir",
+    "/work/out/b4_rep0/r0",
+    "--input_json_path",
+    "/work/targets2/laczc_512_nomsa.yaml",
+    "--N_sample",
+    "4",
+    "--N_step",
+    "400",
+    "--dtype",
+    "bf16",
+    "--use_fast_ln",
+    "True",
+    "--use_deepspeed_evo_attention",
+    "True",
+    "--eta_type",
+    "const",
+    "--eta_min",
+    "2.5",
+    "--eta_max",
+    "2.5",
+    "--seeds",
+    "0",
+    "--N_max_runs",
+    "1",
+    "--eval.binder.eval_complex",
+    "false",
+    "--eval.binder.eval_binder_monomer",
+    "false",
+    "--eval.binder.eval_protenix",
+    "false",
+    "--eval.binder.eval_protenix_mini",
+    "false",
+    "--min_total_return",
+    "4",
+    "--max_success_return",
+    "4"
+  ],
+  "pipeline_rc": 1,
+  "total_s": 278.4751,
+  "t_start": 1787771243.4966965,
+  "t_end": 1787771521.9717712,
+  "warm_n": 2,
+  "warm_median_cell_s": 59.2673,
+  "warm_min_cell_s": 59.237,
+  "warm_max_cell_s": 59.2975,
+  "warm_spread_pct": 0.102,
+  "warm_median_gen_feat_s": 2.3765,
+  "warm_median_gen_device_s": 56.5777,
+  "warm_median_gen_write_s": 0.313,
+  "digests": {
+    "0@r0": "359bbc0a4bb05f7c",
+    "1@r1": "42cd26be68cd2a60",
+    "2@r2": "c23e81102b00eec5"
+  },
+  "stages": {
+    "prep_host": {
+      "s": 7.1023,
+      "calls": 12
+    },
+    "model_init": {
+      "s": 50.6716,
+      "calls": 3
+    },
+    "gen_device": {
+      "s": 170.3791,
+      "calls": 3
+    },
+    "gen_write": {
+      "s": 0.9371,
+      "calls": 3
+    },
+    "gen_total": {
+      "s": 178.8149,
+      "calls": 3,
+      "counts": {
+        "pxd_predict": 3
+      }
+    },
+    "mpnn": {
+      "s": 36.8392,
+      "calls": 3,
+      "counts": {
+        "pxdbench_subprocesses": 3
+      }
+    },
+    "metrics_host": {
+      "s": 0.5695,
+      "calls": 6
+    },
+    "eval_total": {
+      "s": 37.4334,
+      "calls": 3,
+      "counts": {
+        "pxdbench_subprocesses": 3
+      }
+    },
+    "rank_host": {
+      "s": 0.018,
+      "calls": 3
+    },
+    "gen_feat": {
+      "s": 7.4987,
+      "calls": 0
+    }
+  },
+  "windows": [
+    {
+      "stage": "prep_host",
+      "t0": 1787771243.6673744,
+      "t1": 1787771243.6683466
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771243.668385,
+      "t1": 1787771243.668468
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771243.6684794,
+      "t1": 1787771243.6685443
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771243.6751237,
+      "t1": 1787771249.6376488
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787771249.6379905,
+      "t1": 1787771267.6104016
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787771269.9746854,
+      "t1": 1787771327.1984007
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787771327.4661832,
+      "t1": 1787771327.777259
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787771267.611334,
+      "t1": 1787771327.8916898
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787771328.924663,
+      "t1": 1787771341.1959524
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787771341.195996,
+      "t1": 1787771341.3911161
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787771341.3911438,
+      "t1": 1787771341.3911562
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787771328.9246497,
+      "t1": 1787771341.4006214
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787771341.4009144,
+      "t1": 1787771341.4070876
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771341.4552212,
+      "t1": 1787771341.4561393
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771341.4561787,
+      "t1": 1787771341.4562614
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771341.456273,
+      "t1": 1787771341.456342
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771341.4629452,
+      "t1": 1787771342.0325239
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787771342.032758,
+      "t1": 1787771359.3121943
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787771361.561038,
+      "t1": 1787771418.1150124
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787771418.115097,
+      "t1": 1787771418.4312289
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787771359.3130102,
+      "t1": 1787771418.5500524
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787771420.1017003,
+      "t1": 1787771432.4465933
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787771432.4466324,
+      "t1": 1787771432.6359491
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787771432.6359718,
+      "t1": 1787771432.6359813
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787771420.1016858,
+      "t1": 1787771432.6435094
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787771432.64379,
+      "t1": 1787771432.6497838
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771432.7013268,
+      "t1": 1787771432.7022226
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771432.7022583,
+      "t1": 1787771432.7023435
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771432.7023551,
+      "t1": 1787771432.7024362
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771432.7092607,
+      "t1": 1787771433.2762365
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787771433.2764862,
+      "t1": 1787771448.6962168
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787771450.958519,
+      "t1": 1787771507.559893
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787771507.5599465,
+      "t1": 1787771507.8698304
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787771448.6968133,
+      "t1": 1787771507.9942744
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787771509.5049512,
+      "t1": 1787771521.7279391
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787771521.7279866,
+      "t1": 1787771521.9129977
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787771521.9130342,
+      "t1": 1787771521.9130454
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787771509.504938,
+      "t1": 1787771521.920502
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787771521.9207907,
+      "t1": 1787771521.9266725
+    }
+  ],
+  "subprocesses": [
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 12.271,
+      "t0": 1787771328.9247897,
+      "t1": 1787771341.1958184
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 12.345,
+      "t0": 1787771420.101848,
+      "t1": 1787771432.4464645
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 12.223,
+      "t0": 1787771509.5050979,
+      "t1": 1787771521.7277138
+    }
+  ],
+  "subprocess_overlaps_gen": [],
+  "jax_counter_selftest": "ok",
+  "jax_selftest_calls": 1,
+  "ds_counter_selftest": "ok",
+  "ds_selftest_calls": 1,
+  "counts": {
+    "pxd_predict": 3,
+    "pxdbench_subprocesses": 3,
+    "jnp_add": 1,
+    "ds4sci_evo_attention": 1
+  },
+  "module_census": {
+    "gen_device": {
+      "AtomAttentionEncoder": 2,
+      "OpenFoldLayerNorm": 169,
+      "AttentionPairBias": 27,
+      "AdaptiveLayerNorm": 65,
+      "Attention": 27,
+      "AtomAttentionDecoder": 1
+    }
+  },
+  "kernel_env_at_end": {
+    "DEEPSPEED_EVO": "true",
+    "LAYERNORM_TYPE": "fast_layernorm",
+    "CUTLASS_PATH": "/work/cutlass"
+  },
+  "peak_vram_alloc_B": 2792008704,
+  "peak_vram_reserved_B": 3793747968,
+  "compute_apps_after": [
+    "9799, 4258 MiB"
+  ],
+  "gpu_exclusive": true,
+  "env": {
+    "pxdesign": "0.1.0",
+    "protenix": "0.5.0+pxd",
+    "pxdbench": "0.1.2",
+    "torch": "2.7.1+cu128",
+    "jax": "0.4.29",
+    "jaxlib": "0.4.29",
+    "deepspeed": "0.15.4",
+    "numpy": "1.26.3",
+    "transformers": "4.51.3",
+    "dm-haiku": "0.0.13",
+    "optax": "0.2.5",
+    "biotite": "1.0.1",
+    "rdkit": "2026.3.5",
+    "colabdesign": "1.1.3",
+    "torch_version": "2.7.1+cu128",
+    "torch_cuda": "12.8",
+    "cudnn": 90701,
+    "gpu": "NVIDIA H200",
+    "gpu_capability": [
+      9,
+      0
+    ],
+    "jax_platform": "cpu",
+    "jax_devices": "[CpuDevice(id=0)]",
+    "env_DEEPSPEED_EVO": "true",
+    "env_LAYERNORM_TYPE": "fast_layernorm",
+    "env_CUTLASS_PATH": "/work/cutlass",
+    "env_TOOL_WEIGHTS_ROOT": "/work/tool_weights",
+    "env_PROTENIX_DATA_ROOT_DIR": "/work/release_data/ccd_cache",
+    "env_CUDA_VISIBLE_DEVICES": null,
+    "nvidia_smi": "NVIDIA H200, 610.57.04, 700.00 W, 143771 MiB"
+  },
+  "unattributed_s": 4.4596,
+  "split": {
+    "pxdesign_d_s": 170.3791,
+    "protenix_s": 0.0,
+    "af2ig_s": 0.0,
+    "proteinmpnn_s": 36.8392,
+    "host_data_s": 71.2568
+  },
+  "split_pct": {
+    "pxdesign_d_pct": 61.18,
+    "protenix_pct": 0.0,
+    "af2ig_pct": 0.0,
+    "proteinmpnn_pct": 13.23,
+    "host_data_pct": 25.59
+  },
+  "s_per_design": 23.2063,
+  "validation": {
+    "ok": true,
+    "mode": "gen",
+    "why": [],
+    "rounds_checked": 3,
+    "gen_write_reached": true
+  }
+}

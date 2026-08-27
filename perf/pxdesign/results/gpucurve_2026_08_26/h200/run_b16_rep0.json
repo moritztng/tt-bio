@@ -1,0 +1,1184 @@
+{
+  "label": "b16_rep0",
+  "preset": "gen",
+  "pipeline_preset": "preview",
+  "n_sample": 16,
+  "n_step": 400,
+  "dtype": "bf16",
+  "seed": 42,
+  "rounds": [
+    {
+      "round": 0,
+      "seed": 0,
+      "cold": true,
+      "out_dir": "/work/out/b16_rep0/r0",
+      "rc": 1,
+      "t0": 1787771982.7868567,
+      "t1": 1787772254.0027745,
+      "round_wall_s": 271.2159,
+      "gen_feat_s": 2.8176,
+      "gen_device_s": 214.2701,
+      "gen_write_s": 1.2128,
+      "gen_cell_s": 218.3005,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 5.9585,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 18.0881,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 214.2701,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 1.2128,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 218.3005,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 23.5145,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 1.1654,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 24.6899,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0066,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 2.8176,
+          "calls": 0
+        }
+      },
+      "digest": "b3214662cb6786fc",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 16,
+        "designs": [
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "351111bd645441a2"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "9b81aa7e70037bd4"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_10.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "4c0b53e9dc36e3de"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_11.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "f3de4c4cafd009fd"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_12.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "3f879a8526d7e205"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_13.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "aa3bc362f64f87c3"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_14.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a8619ad53ec5d4df"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_15.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "0be969156341c34d"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "80182c471fef091d"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "550c882577ca1359"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_4.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a794696447868739"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_5.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "5e77dd6550e426db"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_6.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "56b09c5b9f074b9d"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_7.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "74b8767a5e113b16"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_8.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "d9aae4efa3b2bb55"
+          },
+          {
+            "path": "/work/out/b16_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_9.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "c69f256f18617d0d"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "b3214662cb6786fc"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    },
+    {
+      "round": 1,
+      "seed": 1,
+      "cold": false,
+      "out_dir": "/work/out/b16_rep0/r1",
+      "rc": 1,
+      "t0": 1787772254.1501374,
+      "t1": 1787772519.0516179,
+      "round_wall_s": 264.9015,
+      "gen_feat_s": 2.4835,
+      "gen_device_s": 213.61,
+      "gen_write_s": 1.2212,
+      "gen_cell_s": 217.3147,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.5573,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 18.2067,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 213.61,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 1.2212,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 217.3147,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 23.6891,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 1.1387,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 24.8359,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0064,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 2.4835,
+          "calls": 0
+        }
+      },
+      "digest": "117e1da1298f0127",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 16,
+        "designs": [
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "fc4923951e5fc677"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "0b7082d10b6a381c"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_10.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "d8a5a87b789b32d6"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_11.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "aa71a1bd77e740a4"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_12.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "e4ded522de4d6d70"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_13.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "ce90b0f663487708"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_14.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "1a8f78243eecc026"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_15.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "1ec7d0817b5c1d1d"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "e635f24e23a31554"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "f23c7826eb4840ef"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_4.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "af7208d20b953547"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_5.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "b67ea77ce482bf7d"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_6.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "5cdb63ccfdebc6ff"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_7.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "2d0f9e9b09ecee15"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_8.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "1915e9e34b638142"
+          },
+          {
+            "path": "/work/out/b16_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_9.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "dac9c30de94d99f9"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "117e1da1298f0127"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    },
+    {
+      "round": 2,
+      "seed": 2,
+      "cold": false,
+      "out_dir": "/work/out/b16_rep0/r2",
+      "rc": 1,
+      "t0": 1787772519.2130988,
+      "t1": 1787772783.549129,
+      "round_wall_s": 264.336,
+      "gen_feat_s": 2.5191,
+      "gen_device_s": 213.5819,
+      "gen_write_s": 1.2066,
+      "gen_cell_s": 217.3076,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.5636,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 17.1129,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 213.5819,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 1.2066,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 217.3076,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 24.0971,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 1.1665,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 25.2717,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0065,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 2.5191,
+          "calls": 0
+        }
+      },
+      "digest": "5eb614a6c5b7556f",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 16,
+        "designs": [
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "cd613d0b1f5ec191"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "acd1e511bcf5d62b"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_10.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "61f7f1d22e469631"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_11.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "09821240894a650a"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_12.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "4f6841ba3f28fc48"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_13.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "10462284f15dfb48"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_14.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "58e7930a7fefd79a"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_15.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "16c02681fa8ae209"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a5b6a05c377f2517"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "b2a7f87bf75de120"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_4.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "416db1e1288fab2d"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_5.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "e4016d1ff4a87b5f"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_6.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "369d00847b737304"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_7.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "4d8b010b972e355c"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_8.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "fc9ed5d25c343e6e"
+          },
+          {
+            "path": "/work/out/b16_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_9.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "af15cc3a6a7e85ad"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "5eb614a6c5b7556f"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    }
+  ],
+  "yaml": "/work/targets2/laczc_512_nomsa.yaml",
+  "yaml_sha256": "48a6b5c0c5d9ca9b36bccda5a9f2258a9b5b8569b4631754cc724e1985b8f713",
+  "ok": true,
+  "why": [
+    "round 0 raised AssertionError: ",
+    "round 1 raised AssertionError: ",
+    "round 2 raised AssertionError: "
+  ],
+  "compute_apps_before": [],
+  "jax_counters": {
+    "present": true,
+    "wrapped": [
+      "jax_jit",
+      "jax_device_put",
+      "jnp_add"
+    ],
+    "version": "0.4.29"
+  },
+  "patch_targets_found": {
+    "gen_device": true,
+    "gen_write": true,
+    "gen_total": true,
+    "sample_diffusion": true,
+    "prep_input": true,
+    "prep_cache": true,
+    "prep_bioassembly": true,
+    "prep_toolweights": true,
+    "model_init": true,
+    "tgt_template": true,
+    "rank_host": true,
+    "mpnn": true,
+    "eval_total": true,
+    "af2_complex": true,
+    "af2_monomer": true,
+    "metrics_secondary": true,
+    "metrics_diversity": true,
+    "protenix_predict": true
+  },
+  "counter_info": {
+    "ds4sci_present": true,
+    "fused_ln_present": false,
+    "deepspeed_evo_env": null,
+    "layernorm_type_env": null
+  },
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "argv": [
+    "--preset",
+    "preview",
+    "--dump_dir",
+    "/work/out/b16_rep0/r0",
+    "--input_json_path",
+    "/work/targets2/laczc_512_nomsa.yaml",
+    "--N_sample",
+    "16",
+    "--N_step",
+    "400",
+    "--dtype",
+    "bf16",
+    "--use_fast_ln",
+    "True",
+    "--use_deepspeed_evo_attention",
+    "True",
+    "--eta_type",
+    "const",
+    "--eta_min",
+    "2.5",
+    "--eta_max",
+    "2.5",
+    "--seeds",
+    "0",
+    "--N_max_runs",
+    "1",
+    "--eval.binder.eval_complex",
+    "false",
+    "--eval.binder.eval_binder_monomer",
+    "false",
+    "--eval.binder.eval_protenix",
+    "false",
+    "--eval.binder.eval_protenix_mini",
+    "false",
+    "--min_total_return",
+    "16",
+    "--max_success_return",
+    "16"
+  ],
+  "pipeline_rc": 1,
+  "total_s": 800.922,
+  "t_start": 1787771982.7868435,
+  "t_end": 1787772783.7088003,
+  "warm_n": 2,
+  "warm_median_cell_s": 217.3111,
+  "warm_min_cell_s": 217.3076,
+  "warm_max_cell_s": 217.3147,
+  "warm_spread_pct": 0.003,
+  "warm_median_gen_feat_s": 2.5013,
+  "warm_median_gen_device_s": 213.596,
+  "warm_median_gen_write_s": 1.2139,
+  "digests": {
+    "0@r0": "b3214662cb6786fc",
+    "1@r1": "117e1da1298f0127",
+    "2@r2": "5eb614a6c5b7556f"
+  },
+  "stages": {
+    "prep_host": {
+      "s": 7.0795,
+      "calls": 12
+    },
+    "model_init": {
+      "s": 53.4077,
+      "calls": 3
+    },
+    "gen_device": {
+      "s": 641.4619,
+      "calls": 3
+    },
+    "gen_write": {
+      "s": 3.6406,
+      "calls": 3
+    },
+    "gen_total": {
+      "s": 652.9228,
+      "calls": 3,
+      "counts": {
+        "pxd_predict": 3
+      }
+    },
+    "mpnn": {
+      "s": 71.3007,
+      "calls": 3,
+      "counts": {
+        "pxdbench_subprocesses": 3
+      }
+    },
+    "metrics_host": {
+      "s": 3.4707,
+      "calls": 6
+    },
+    "eval_total": {
+      "s": 74.7975,
+      "calls": 3,
+      "counts": {
+        "pxdbench_subprocesses": 3
+      }
+    },
+    "rank_host": {
+      "s": 0.0195,
+      "calls": 3
+    },
+    "gen_feat": {
+      "s": 7.8203,
+      "calls": 0
+    }
+  },
+  "windows": [
+    {
+      "stage": "prep_host",
+      "t0": 1787771982.9592423,
+      "t1": 1787771982.960277
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771982.960316,
+      "t1": 1787771982.9603965
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771982.9604082,
+      "t1": 1787771982.9604754
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771982.9673867,
+      "t1": 1787771988.9246974
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787771988.9250848,
+      "t1": 1787772007.0131605
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787772009.4426994,
+      "t1": 1787772223.712754
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787772223.9884799,
+      "t1": 1787772225.201257
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787772007.0140111,
+      "t1": 1787772225.3145003
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787772229.3027928,
+      "t1": 1787772252.8172708
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787772252.8173156,
+      "t1": 1787772253.9827547
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787772253.9827795,
+      "t1": 1787772253.9827902
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787772229.3027802,
+      "t1": 1787772253.992685
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787772253.9929674,
+      "t1": 1787772253.9995801
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772254.1554184,
+      "t1": 1787772254.1562948
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772254.156332,
+      "t1": 1787772254.156414
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772254.156426,
+      "t1": 1787772254.1564999
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772254.1634548,
+      "t1": 1787772254.7197676
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787772254.7199824,
+      "t1": 1787772272.9267218
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787772275.2787688,
+      "t1": 1787772488.8887944
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787772488.8888574,
+      "t1": 1787772490.1100667
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787772272.927315,
+      "t1": 1787772490.2420506
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787772494.2056649,
+      "t1": 1787772517.8947706
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787772517.8948238,
+      "t1": 1787772519.0335264
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787772519.0335553,
+      "t1": 1787772519.0335658
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787772494.2056518,
+      "t1": 1787772519.0415256
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787772519.0418146,
+      "t1": 1787772519.0482128
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772519.2182045,
+      "t1": 1787772519.2192755
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772519.219318,
+      "t1": 1787772519.2194228
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772519.2194364,
+      "t1": 1787772519.2195296
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787772519.2264605,
+      "t1": 1787772519.7888138
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787772519.7890828,
+      "t1": 1787772536.9019942
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787772539.2933125,
+      "t1": 1787772752.8751636
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787772752.875227,
+      "t1": 1787772754.0817916
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787772536.9025712,
+      "t1": 1787772754.21018
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787772758.2665908,
+      "t1": 1787772782.3636775
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787772782.3637269,
+      "t1": 1787772783.5302477
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787772783.530276,
+      "t1": 1787772783.5302868
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787772758.2665772,
+      "t1": 1787772783.5382488
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787772783.538541,
+      "t1": 1787772783.5450747
+    }
+  ],
+  "subprocesses": [
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 23.514,
+      "t0": 1787772229.3029187,
+      "t1": 1787772252.817129
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 23.689,
+      "t0": 1787772494.2058012,
+      "t1": 1787772517.8946216
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 24.097,
+      "t0": 1787772758.2667298,
+      "t1": 1787772782.3635368
+    }
+  ],
+  "subprocess_overlaps_gen": [],
+  "jax_counter_selftest": "ok",
+  "jax_selftest_calls": 1,
+  "ds_counter_selftest": "ok",
+  "ds_selftest_calls": 1,
+  "counts": {
+    "pxd_predict": 3,
+    "pxdbench_subprocesses": 3,
+    "jnp_add": 1,
+    "ds4sci_evo_attention": 1
+  },
+  "module_census": {
+    "gen_device": {
+      "AtomAttentionEncoder": 2,
+      "OpenFoldLayerNorm": 169,
+      "AttentionPairBias": 27,
+      "AdaptiveLayerNorm": 65,
+      "Attention": 27,
+      "AtomAttentionDecoder": 1
+    }
+  },
+  "kernel_env_at_end": {
+    "DEEPSPEED_EVO": "true",
+    "LAYERNORM_TYPE": "fast_layernorm",
+    "CUTLASS_PATH": "/work/cutlass"
+  },
+  "peak_vram_alloc_B": 5248657920,
+  "peak_vram_reserved_B": 7740588032,
+  "compute_apps_after": [
+    "14891, 8026 MiB"
+  ],
+  "gpu_exclusive": true,
+  "env": {
+    "pxdesign": "0.1.0",
+    "protenix": "0.5.0+pxd",
+    "pxdbench": "0.1.2",
+    "torch": "2.7.1+cu128",
+    "jax": "0.4.29",
+    "jaxlib": "0.4.29",
+    "deepspeed": "0.15.4",
+    "numpy": "1.26.3",
+    "transformers": "4.51.3",
+    "dm-haiku": "0.0.13",
+    "optax": "0.2.5",
+    "biotite": "1.0.1",
+    "rdkit": "2026.3.5",
+    "colabdesign": "1.1.3",
+    "torch_version": "2.7.1+cu128",
+    "torch_cuda": "12.8",
+    "cudnn": 90701,
+    "gpu": "NVIDIA H200",
+    "gpu_capability": [
+      9,
+      0
+    ],
+    "jax_platform": "cpu",
+    "jax_devices": "[CpuDevice(id=0)]",
+    "env_DEEPSPEED_EVO": "true",
+    "env_LAYERNORM_TYPE": "fast_layernorm",
+    "env_CUTLASS_PATH": "/work/cutlass",
+    "env_TOOL_WEIGHTS_ROOT": "/work/tool_weights",
+    "env_PROTENIX_DATA_ROOT_DIR": "/work/release_data/ccd_cache",
+    "env_CUDA_VISIBLE_DEVICES": null,
+    "nvidia_smi": "NVIDIA H200, 610.57.04, 700.00 W, 143771 MiB"
+  },
+  "unattributed_s": 12.7211,
+  "split": {
+    "pxdesign_d_s": 641.4619,
+    "protenix_s": 0.0,
+    "af2ig_s": 0.0,
+    "proteinmpnn_s": 71.3007,
+    "host_data_s": 88.1594
+  },
+  "split_pct": {
+    "pxdesign_d_pct": 80.09,
+    "protenix_pct": 0.0,
+    "af2ig_pct": 0.0,
+    "proteinmpnn_pct": 8.9,
+    "host_data_pct": 11.01
+  },
+  "s_per_design": 16.6859,
+  "validation": {
+    "ok": true,
+    "mode": "gen",
+    "why": [],
+    "rounds_checked": 3,
+    "gen_write_reached": true
+  }
+}

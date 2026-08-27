@@ -1,0 +1,21 @@
+320aa trial1 OK
+320aa trial2 OK
+384aa trial1 OK
+384aa trial2 OK
+448aa trial1 OK
+448aa trial2 OK
+BISECT DONE 2026-08-27T10:03:42+02:00
+
+protenix-v1, ladder config (6 steps, 1 sample, seed 0, single-sequence), pc card 0.
+2 trials per size, board reset + orphan reap before every fold, 90 s cap.
+Combined with the 512 aa series in hang_ab_512_pc0.txt:
+
+    256 aa   clean (2 folds, from the size-ladder attempts)
+    320 aa   clean 2/2
+    384 aa   clean 2/2
+    448 aa   clean 2/2
+    512 aa   HANGS 8 of 12
+
+Sharp boundary between 448 and 512. Not raw tensor size: protenix-v2 at 512 aa carries a
+LARGER pair tensor (c_z 256 vs 128) and is 7/7 clean. Suspect a guard whose condition is
+expressed in tokens and whose selected path is only valid at c_z 256.

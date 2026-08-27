@@ -3,36 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="/assets/favicon.ico" sizes="32x32" type="image/x-icon">
-<link rel="icon" href="/assets/icon-500.png" sizes="500x500" type="image/png">
-<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" sizes="500x500">
+<link rel="icon" href="assets/mark.svg?v=549aac16" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.ico?v=efa39745" sizes="32x32" type="image/x-icon">
+<link rel="icon" href="assets/icon-500.png?v=c70df9a5" sizes="500x500" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=b63e0473" sizes="180x180">
 <title>TT-Bio</title>
-<meta name="description" content="Open-source biomolecular AI on Tenstorrent. A Blackhole Galaxy matches an NVIDIA DGX B200 on throughput at a fifth of the purchase price, with accuracy matched to reference implementations.">
+<meta name="description" content="Open-source biomolecular AI: folding, binder design and protein embeddings on Tenstorrent hardware. A Blackhole Galaxy matches an NVIDIA DGX B200 on throughput at a fifth of the purchase price, with accuracy matched to reference implementations.">
 <link rel="preload" href="assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" as="image" type="image/webp" fetchpriority="high"
-      imagesrcset="assets/galaxy-520.webp 520w, assets/galaxy-1040.webp 1040w"
-      imagesizes="(max-width:900px) min(90vw,440px), 520px">
-<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/site.css?v=80720702">
 <style>
 
 
-/* hero: one composed unit, type and motion side by side */
-.hero{padding:70px 0 8px;display:grid;grid-template-columns:1.08fr .92fr;gap:64px;align-items:center}
-@media (max-width:900px){.hero{grid-template-columns:1fr;gap:34px;padding-top:44px}}
+/* hero: one statement across the full measure, then what backs it. The two
+   lines are set to near-equal length on purpose, so the break reads as a
+   decision rather than as wrapping. No image: the argument this page makes
+   is the measurements, and they begin one row down. */
+.hero{padding:76px 0 6px}
+@media (max-width:900px){.hero{padding:48px 0 4px}}
 .kicker{font-size:.78rem;letter-spacing:.15em;text-transform:uppercase;
-  color:var(--ink-3);font-weight:600;margin:0 0 20px}
-h1{font-size:clamp(2.5rem,5.4vw,4.05rem);margin:0 0 22px;max-width:13ch}
+  color:var(--ink-3);font-weight:600;margin:0 0 26px}
+h1{font-size:clamp(2.35rem,5.1vw,4.2rem);margin:0;max-width:none;
+  line-height:1.03;letter-spacing:-.025em;text-wrap:initial}
 
 h1 em{font-style:normal;font-weight:600;color:var(--ink)}
-.lede{font-size:1.14rem;color:var(--ink-2);margin:0 0 32px;max-width:46ch;line-height:1.55}
+/* the break is only right once there is room for it */
+h1 .lb{display:none}
+@media (min-width:820px){h1 .lb{display:inline}}
+.lede{font-size:1.18rem;color:var(--ink-2);margin:36px 0 34px;max-width:58ch;line-height:1.55}
 
 .cta{display:flex;gap:14px;flex-wrap:wrap}
-
-.stage{margin:0;justify-self:center;width:100%;max-width:520px}
-.stage picture{display:block}
-.stage img{width:100%;height:auto;display:block;border-radius:3px;
-  box-shadow:0 1px 2px rgba(20,24,28,.06),0 12px 34px -10px rgba(20,24,28,.22)}
-@media (max-width:900px){.stage{max-width:440px;justify-self:start}}
 
 /* the three facts, as type not boxes */
 .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:0;
@@ -126,8 +125,7 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="https://tenstorrent.com" aria-label="Tenstorrent">
-      <img src="assets/tt-logo-light.svg" alt="Tenstorrent"></a>
+    <a class="brand" href="index.html" aria-label="TT-Bio, home"><span class="tt">TT-</span>Bio</a>
     <span class="sp"></span>
     <a class="lnk" aria-current="page" href="index.html">Overview</a>
     <a class="lnk" href="benchmarks/">Benchmarks</a>
@@ -136,24 +134,14 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
   </nav>
 
   <div class="hero">
-    <div>
     <p class="kicker">Open source</p>
-    <h1>Biomolecular AI at <em>a fifth</em> of the cost</h1>
-    <p class="lede">TT-Bio runs folding, binder design and protein embeddings on Tenstorrent.
-      One Blackhole Galaxy matches an NVIDIA DGX B200 on throughput, for a fifth of the price.</p>
+    <h1>Biomolecular AI at<br class="lb"> <em>a fifth</em> of the cost</h1>
+    <p class="lede">TT-Bio runs folding, binder design and protein embeddings on Tenstorrent
+      hardware. One Blackhole Galaxy matches an NVIDIA DGX B200 on throughput, for a fifth of
+      the price.</p>
     <div class="cta">
       <a class="btn solid" href="https://japanfold.com">Try it free</a>
       <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
-    </div>
-    </div>
-    <div class="stage">
-      <picture>
-        <source type="image/webp"
-                srcset="assets/galaxy-520.webp 520w, assets/galaxy-1040.webp 1040w"
-                sizes="(max-width:900px) min(90vw,440px), 520px">
-        <img src="assets/galaxy-1040.jpg" alt="A Tenstorrent Galaxy unit being installed into a rack"
-             width="1040" height="693" fetchpriority="high" decoding="async">
-      </picture>
     </div>
   </div>
 
@@ -201,6 +189,7 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
         <p class="ctitle">Structure prediction</p>
         <div class="ientry"><span class="nm">Boltz-2</span><span class="ds">Structure and binding affinity</span></div>
         <div class="ientry"><span class="nm">OpenFold3</span><span class="ds">AlphaFold3-family all-atom</span></div>
+        <div class="ientry"><span class="nm">Protenix-v1</span><span class="ds">Lighter all-atom complex prediction</span></div>
         <div class="ientry"><span class="nm">Protenix-v2</span><span class="ds">All-atom complex prediction</span></div>
         <div class="ientry"><span class="nm">ESMFold2</span><span class="ds">Rapid single-sequence folding</span></div>
         <div class="ientry"><span class="nm">OpenDDE</span><span class="ds">Multi-chain protein complexes</span></div>
@@ -268,12 +257,14 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
   </div>
 
   <footer>
-    <span>TT-Bio, open source, on Tenstorrent</span>
+    <span>TT-Bio &mdash; open source</span>
     <a href="https://github.com/moritztng/tt-bio">GitHub</a>
     <a href="benchmarks/">Benchmarks</a>
     <a href="https://japanfold.com">JapanFold</a>
-    <a href="https://tenstorrent.com">Tenstorrent</a>
   </footer>
+  <p class="disclaim">Tenstorrent, Blackhole and Galaxy are trademarks of Tenstorrent Inc. NVIDIA, DGX, H200, B200
+    and A100 are trademarks of NVIDIA Corporation. Hardware names are used to identify the systems
+    measured.</p>
 </div>
 <script>
 /* Every figure below is derived from data/perf-512aa.json at load time. This page used to carry

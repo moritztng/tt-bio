@@ -1,0 +1,32 @@
+off1 rc=137 folds_completed=1/8
+on1 rc=0 folds_completed=8/8
+off2 rc=137 folds_completed=4/8
+on2 rc=0 folds_completed=8/8
+off3 rc=137 folds_completed=2/8
+on3 rc=0 folds_completed=8/8
+
+INTERLEAVED A/B of TT_PROTENIX_PAIRCOND_MM_FALLBACK on the 8-copy worker reproducer,
+2026-08-27 12:05-12:28, pc card 0. Alternated off/on/off/on/off/on inside one window so the
+failure's time-varying rate cannot account for the difference.
+
+    shipped (core_grid=CORE_GRID_MAIN)   1/8, 4/8, 2/8 folds  -> WEDGED in all 3 rounds (7/24)
+    fallback (ttnn picks the config)     8/8, 8/8, 8/8 folds  -> clean in all 3 rounds (24/24)
+
+The shipped arm wedged at a different fold each round (2, 5, 3), which is the intermittency
+behaving as characterised. So the TRIGGER is forcing core_grid=CORE_GRID_MAIN on that one
+projection: it selects the multicast matmul program whose in0-sender/in1-receiver dataflow
+deadlocks at protenix-v1's tile widths.
+
+This also explains why 10 standalone repros found nothing: they all passed
+core_grid=CORE_GRID_MAIN too, but a bare matmul on an otherwise-quiet device apparently never
+loses the semaphore race, while the same program inside a real fold does.
+
+NUMERICS -- THE FALLBACK IS NOT BIT-EXACT. Same inputs, same weights, 5 iterations each:
+
+    shipped   pz_absmax = 151.5280   (stable across 300 iterations)
+    fallback  pz_absmax = 151.5825   (stable across 5 iterations)
+
+A 0.0545 difference in absmax, ~0.036 % relative -- a different program config accumulates in a
+different order. So parity must be re-verified before any fix ships; this is not a free swap.
+Per-call time is 0.13 s against the shipped 0.12 s, but FOLD-level perf is unmeasured and the
+19.555 s/fold figure in the state doc was taken WITH the forced grid.

@@ -1,0 +1,747 @@
+{
+  "label": "b4_rep0",
+  "preset": "gen",
+  "pipeline_preset": "preview",
+  "n_sample": 4,
+  "n_step": 400,
+  "dtype": "bf16",
+  "seed": 42,
+  "rounds": [
+    {
+      "round": 0,
+      "seed": 0,
+      "cold": true,
+      "out_dir": "/work/out/b4_rep0/r0",
+      "rc": 1,
+      "t0": 1787771094.5762022,
+      "t1": 1787771175.4498756,
+      "round_wall_s": 80.8737,
+      "gen_feat_s": 2.505,
+      "gen_device_s": 53.1001,
+      "gen_write_s": 0.3003,
+      "gen_cell_s": 55.9054,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 5.8385,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 17.8708,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 53.1001,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.3003,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 55.9054,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 0.022,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "eval_total": {
+          "s": 0.022,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "gen_feat": {
+          "s": 2.505,
+          "calls": 0
+        }
+      },
+      "digest": "57dba4d6494cb37e",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 4,
+        "designs": [
+          {
+            "path": "/work/out/b4_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "9512ebb68345e52d"
+          },
+          {
+            "path": "/work/out/b4_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "d14230728cb8713b"
+          },
+          {
+            "path": "/work/out/b4_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "6d475771ab65668b"
+          },
+          {
+            "path": "/work/out/b4_rep0/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "c492f95bccc37dfd"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "57dba4d6494cb37e"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 405, in main\n    all_eval_results, orig_seqs, use_target_template = runner.infer_and_eval(\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 185, in infer_and_eval\n    results = [\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 186, in <listcomp>\n    run_task(\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/run.py\", line 57, in run_task\n    return task.run()\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tasks/binder.py\", line 134, in run\n    results = self.design_sequence()\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tasks/binder.py\", line 112, in design_sequence\n    results = mpnn_predictor.design_binder(\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tools/protmpnn/mpnn_predictor.py\", line 58, in design_binder\n    output = self.run(input_data)\n  File \"/work/gpu_pxdesign_run.py\", line 361, in subrun\n    return sub_fn(self, input_data)\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tools/base.py\", line 113, in run\n    return json.load(f)\n  File \"/opt/conda/lib/python3.10/json/__init__.py\", line 293, in load\n    return loads(fp.read(),\n  File \"/opt/conda/lib/python3.10/json/__init__.py\", line 346, in loads\n    return _default_decoder.decode(s)\n  File \"/opt/conda/lib/python3.10/json/decoder.py\", line 337, in decode\n    obj, end = self.raw_decode(s, idx=_w(s, 0).end())\n  File \"/opt/conda/lib/python3.10/json/decoder.py\", line 355, in raw_decode\n    raise JSONDecodeError(\"Expecting value\", s, err.value) from None\njson.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)\n"
+    },
+    {
+      "round": 1,
+      "seed": 1,
+      "cold": false,
+      "out_dir": "/work/out/b4_rep0/r1",
+      "rc": 1,
+      "t0": 1787771175.494286,
+      "t1": 1787771249.4996657,
+      "round_wall_s": 74.0054,
+      "gen_feat_s": 2.0852,
+      "gen_device_s": 52.2605,
+      "gen_write_s": 0.3057,
+      "gen_cell_s": 54.6514,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.5334,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 17.3931,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 52.2605,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.3057,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 54.6514,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 0.0219,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "eval_total": {
+          "s": 0.0219,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "gen_feat": {
+          "s": 2.0852,
+          "calls": 0
+        }
+      },
+      "digest": "96c4edb8bdb575e9",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 4,
+        "designs": [
+          {
+            "path": "/work/out/b4_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "9c21d4dfd5197464"
+          },
+          {
+            "path": "/work/out/b4_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "22af777c905c97a4"
+          },
+          {
+            "path": "/work/out/b4_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "bbb16f65feb909a9"
+          },
+          {
+            "path": "/work/out/b4_rep0/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "82a5db71cbe01769"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "96c4edb8bdb575e9"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 405, in main\n    all_eval_results, orig_seqs, use_target_template = runner.infer_and_eval(\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 185, in infer_and_eval\n    results = [\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 186, in <listcomp>\n    run_task(\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/run.py\", line 57, in run_task\n    return task.run()\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tasks/binder.py\", line 134, in run\n    results = self.design_sequence()\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tasks/binder.py\", line 112, in design_sequence\n    results = mpnn_predictor.design_binder(\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tools/protmpnn/mpnn_predictor.py\", line 58, in design_binder\n    output = self.run(input_data)\n  File \"/work/gpu_pxdesign_run.py\", line 361, in subrun\n    return sub_fn(self, input_data)\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tools/base.py\", line 113, in run\n    return json.load(f)\n  File \"/opt/conda/lib/python3.10/json/__init__.py\", line 293, in load\n    return loads(fp.read(),\n  File \"/opt/conda/lib/python3.10/json/__init__.py\", line 346, in loads\n    return _default_decoder.decode(s)\n  File \"/opt/conda/lib/python3.10/json/decoder.py\", line 337, in decode\n    obj, end = self.raw_decode(s, idx=_w(s, 0).end())\n  File \"/opt/conda/lib/python3.10/json/decoder.py\", line 355, in raw_decode\n    raise JSONDecodeError(\"Expecting value\", s, err.value) from None\njson.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)\n"
+    },
+    {
+      "round": 2,
+      "seed": 2,
+      "cold": false,
+      "out_dir": "/work/out/b4_rep0/r2",
+      "rc": 1,
+      "t0": 1787771249.5400093,
+      "t1": 1787771320.1429293,
+      "round_wall_s": 70.6029,
+      "gen_feat_s": 2.1195,
+      "gen_device_s": 52.1586,
+      "gen_write_s": 0.3006,
+      "gen_cell_s": 54.5787,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.5341,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 14.4757,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 52.1586,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.3006,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 54.5787,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 0.0222,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "eval_total": {
+          "s": 0.0222,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "gen_feat": {
+          "s": 2.1195,
+          "calls": 0
+        }
+      },
+      "digest": "066064f4c98ba3fd",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 4,
+        "designs": [
+          {
+            "path": "/work/out/b4_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "8981c614157e5074"
+          },
+          {
+            "path": "/work/out/b4_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_1.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "0a509d395aee0729"
+          },
+          {
+            "path": "/work/out/b4_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_2.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "2cac3b0e454a8117"
+          },
+          {
+            "path": "/work/out/b4_rep0/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_3.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "2b123fbaa4c5a23f"
+          }
+        ],
+        "designs_distinct": true,
+        "digest": "066064f4c98ba3fd"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 760, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 405, in main\n    all_eval_results, orig_seqs, use_target_template = runner.infer_and_eval(\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 185, in infer_and_eval\n    results = [\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 186, in <listcomp>\n    run_task(\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/run.py\", line 57, in run_task\n    return task.run()\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tasks/binder.py\", line 134, in run\n    results = self.design_sequence()\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tasks/binder.py\", line 112, in design_sequence\n    results = mpnn_predictor.design_binder(\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tools/protmpnn/mpnn_predictor.py\", line 58, in design_binder\n    output = self.run(input_data)\n  File \"/work/gpu_pxdesign_run.py\", line 361, in subrun\n    return sub_fn(self, input_data)\n  File \"/work/venv_modern/lib/python3.10/site-packages/pxdbench/tools/base.py\", line 113, in run\n    return json.load(f)\n  File \"/opt/conda/lib/python3.10/json/__init__.py\", line 293, in load\n    return loads(fp.read(),\n  File \"/opt/conda/lib/python3.10/json/__init__.py\", line 346, in loads\n    return _default_decoder.decode(s)\n  File \"/opt/conda/lib/python3.10/json/decoder.py\", line 337, in decode\n    obj, end = self.raw_decode(s, idx=_w(s, 0).end())\n  File \"/opt/conda/lib/python3.10/json/decoder.py\", line 355, in raw_decode\n    raise JSONDecodeError(\"Expecting value\", s, err.value) from None\njson.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)\n"
+    }
+  ],
+  "yaml": "/work/targets2/laczc_512_nomsa.yaml",
+  "yaml_sha256": "48a6b5c0c5d9ca9b36bccda5a9f2258a9b5b8569b4631754cc724e1985b8f713",
+  "ok": true,
+  "why": [
+    "round 0 raised JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+    "round 1 raised JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+    "round 2 raised JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+  ],
+  "compute_apps_before": [],
+  "jax_counters": {
+    "present": true,
+    "wrapped": [
+      "jax_jit",
+      "jax_device_put",
+      "jnp_add"
+    ],
+    "version": "0.4.29"
+  },
+  "patch_targets_found": {
+    "gen_device": true,
+    "gen_write": true,
+    "gen_total": true,
+    "sample_diffusion": true,
+    "prep_input": true,
+    "prep_cache": true,
+    "prep_bioassembly": true,
+    "prep_toolweights": true,
+    "model_init": true,
+    "tgt_template": true,
+    "rank_host": true,
+    "mpnn": true,
+    "eval_total": true,
+    "af2_complex": true,
+    "af2_monomer": true,
+    "metrics_secondary": true,
+    "metrics_diversity": true,
+    "protenix_predict": true
+  },
+  "counter_info": {
+    "ds4sci_present": true,
+    "fused_ln_present": false,
+    "deepspeed_evo_env": null,
+    "layernorm_type_env": null
+  },
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "argv": [
+    "--preset",
+    "preview",
+    "--dump_dir",
+    "/work/out/b4_rep0/r0",
+    "--input_json_path",
+    "/work/targets2/laczc_512_nomsa.yaml",
+    "--N_sample",
+    "4",
+    "--N_step",
+    "400",
+    "--dtype",
+    "bf16",
+    "--use_fast_ln",
+    "True",
+    "--use_deepspeed_evo_attention",
+    "True",
+    "--eta_type",
+    "const",
+    "--eta_min",
+    "2.5",
+    "--eta_max",
+    "2.5",
+    "--seeds",
+    "0",
+    "--N_max_runs",
+    "1",
+    "--eval.binder.eval_complex",
+    "false",
+    "--eval.binder.eval_binder_monomer",
+    "false",
+    "--eval.binder.eval_protenix",
+    "false",
+    "--eval.binder.eval_protenix_mini",
+    "false",
+    "--min_total_return",
+    "4",
+    "--max_success_return",
+    "4"
+  ],
+  "pipeline_rc": 1,
+  "total_s": 225.6081,
+  "t_start": 1787771094.5761857,
+  "t_end": 1787771320.184337,
+  "warm_n": 2,
+  "warm_median_cell_s": 54.615,
+  "warm_min_cell_s": 54.5787,
+  "warm_max_cell_s": 54.6514,
+  "warm_spread_pct": 0.133,
+  "warm_median_gen_feat_s": 2.1023,
+  "warm_median_gen_device_s": 52.2096,
+  "warm_median_gen_write_s": 0.3032,
+  "digests": {
+    "0@r0": "57dba4d6494cb37e",
+    "1@r1": "96c4edb8bdb575e9",
+    "2@r2": "066064f4c98ba3fd"
+  },
+  "stages": {
+    "prep_host": {
+      "s": 6.906,
+      "calls": 12
+    },
+    "model_init": {
+      "s": 49.7395,
+      "calls": 3
+    },
+    "gen_device": {
+      "s": 157.5192,
+      "calls": 3
+    },
+    "gen_write": {
+      "s": 0.9065,
+      "calls": 3
+    },
+    "gen_total": {
+      "s": 165.1355,
+      "calls": 3,
+      "counts": {
+        "pxd_predict": 3
+      }
+    },
+    "mpnn": {
+      "s": 0.066,
+      "calls": 3,
+      "counts": {
+        "pxdbench_subprocesses": 3
+      }
+    },
+    "eval_total": {
+      "s": 0.0661,
+      "calls": 3,
+      "counts": {
+        "pxdbench_subprocesses": 3
+      }
+    },
+    "gen_feat": {
+      "s": 6.7098,
+      "calls": 0
+    }
+  },
+  "windows": [
+    {
+      "stage": "prep_host",
+      "t0": 1787771094.8164976,
+      "t1": 1787771094.8176095
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771094.817658,
+      "t1": 1787771094.817749
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771094.8177605,
+      "t1": 1787771094.817856
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771094.8245292,
+      "t1": 1787771100.6617706
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787771100.6620564,
+      "t1": 1787771118.5328453
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787771120.7098813,
+      "t1": 1787771173.810012
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787771174.0429587,
+      "t1": 1787771174.3432248
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787771118.5337305,
+      "t1": 1787771174.4391396
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787771175.4242039,
+      "t1": 1787771175.4461806
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787771175.42419,
+      "t1": 1787771175.4462023
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771175.5000026,
+      "t1": 1787771175.500847
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771175.500883,
+      "t1": 1787771175.5009592
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771175.500972,
+      "t1": 1787771175.5010657
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771175.5076737,
+      "t1": 1787771176.0400574
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787771176.0402727,
+      "t1": 1787771193.4333344
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787771195.4216585,
+      "t1": 1787771247.682113
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787771247.682178,
+      "t1": 1787771247.9878912
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787771193.4338748,
+      "t1": 1787771248.085234
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787771249.4721403,
+      "t1": 1787771249.4940047
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787771249.4721262,
+      "t1": 1787771249.4940329
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771249.5445638,
+      "t1": 1787771249.5453923
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771249.5454268,
+      "t1": 1787771249.545504
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771249.545516,
+      "t1": 1787771249.5455897
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787771249.5520136,
+      "t1": 1787771250.085087
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787771250.085296,
+      "t1": 1787771264.5609732
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787771266.5681562,
+      "t1": 1787771318.7267878
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787771318.7268553,
+      "t1": 1787771319.027411
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787771264.5614934,
+      "t1": 1787771319.1402302
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787771320.115103,
+      "t1": 1787771320.137258
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787771320.1150897,
+      "t1": 1787771320.1372774
+    }
+  ],
+  "subprocesses": [
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 0.022,
+      "t0": 1787771175.424326,
+      "t1": 1787771175.445997
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 0.022,
+      "t0": 1787771249.4722633,
+      "t1": 1787771249.4939399
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 0.022,
+      "t0": 1787771320.1152508,
+      "t1": 1787771320.137188
+    }
+  ],
+  "subprocess_overlaps_gen": [],
+  "jax_counter_selftest": "ok",
+  "jax_selftest_calls": 1,
+  "ds_counter_selftest": "ok",
+  "ds_selftest_calls": 1,
+  "counts": {
+    "pxd_predict": 3,
+    "pxdbench_subprocesses": 3,
+    "jnp_add": 1,
+    "ds4sci_evo_attention": 1
+  },
+  "module_census": {
+    "gen_device": {
+      "AtomAttentionEncoder": 2,
+      "OpenFoldLayerNorm": 169,
+      "AttentionPairBias": 27,
+      "AdaptiveLayerNorm": 65,
+      "Attention": 27,
+      "AtomAttentionDecoder": 1
+    }
+  },
+  "kernel_env_at_end": {
+    "DEEPSPEED_EVO": "true",
+    "LAYERNORM_TYPE": "fast_layernorm",
+    "CUTLASS_PATH": "/work/cutlass"
+  },
+  "peak_vram_alloc_B": 2791324672,
+  "peak_vram_reserved_B": 3793747968,
+  "compute_apps_after": [
+    "4755, 4362 MiB"
+  ],
+  "gpu_exclusive": true,
+  "env": {
+    "pxdesign": "0.1.0",
+    "protenix": "0.5.0+pxd",
+    "pxdbench": "0.1.2",
+    "torch": "2.7.1+cu128",
+    "jax": "0.4.29",
+    "jaxlib": "0.4.29",
+    "deepspeed": "0.15.4",
+    "numpy": "1.26.3",
+    "transformers": "4.51.3",
+    "dm-haiku": "0.0.13",
+    "optax": "0.2.5",
+    "biotite": "1.0.1",
+    "rdkit": "2026.3.5",
+    "colabdesign": "1.1.3",
+    "torch_version": "2.7.1+cu128",
+    "torch_cuda": "12.8",
+    "cudnn": 90701,
+    "gpu": "NVIDIA B200",
+    "gpu_capability": [
+      10,
+      0
+    ],
+    "jax_platform": "cpu",
+    "jax_devices": "[CpuDevice(id=0)]",
+    "env_DEEPSPEED_EVO": "true",
+    "env_LAYERNORM_TYPE": "fast_layernorm",
+    "env_CUTLASS_PATH": "/work/cutlass",
+    "env_TOOL_WEIGHTS_ROOT": "/work/tool_weights",
+    "env_PROTENIX_DATA_ROOT_DIR": "/work/release_data/ccd_cache",
+    "env_CUDA_VISIBLE_DEVICES": null,
+    "nvidia_smi": "NVIDIA B200, 595.71.05, 1000.00 W, 183359 MiB"
+  },
+  "unattributed_s": 3.7611,
+  "split": {
+    "pxdesign_d_s": 157.5192,
+    "protenix_s": 0.0,
+    "af2ig_s": 0.0,
+    "proteinmpnn_s": 0.066,
+    "host_data_s": 68.0229
+  },
+  "split_pct": {
+    "pxdesign_d_pct": 69.82,
+    "protenix_pct": 0.0,
+    "af2ig_pct": 0.0,
+    "proteinmpnn_pct": 0.03,
+    "host_data_pct": 30.15
+  },
+  "s_per_design": 18.8007,
+  "validation": {
+    "ok": true,
+    "mode": "gen",
+    "why": [],
+    "rounds_checked": 3,
+    "gen_write_reached": true
+  }
+}

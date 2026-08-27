@@ -247,6 +247,19 @@ MODELS = {
     "esmfold2":      {"max_rmsd": 8.0, "min_tm": 0.40},
     "esmfold2-fast": {"max_rmsd": 4.5, "min_tm": 0.60},
     "protenix-v2":   {"max_rmsd": 6.0, "min_tm": 0.50},
+    # protenix-v1, upstream's own Protenix v0.5.0 base checkpoint, shipped as
+    # `predict --model protenix-v1`. Same tt_bio/protenix.py class as protenix-v2 at half
+    # the pair width (c_z 128) and 4 trunk recycles instead of 10, so it can fold
+    # differently and needs its own floor rather than protenix-v2's.
+    # Measured on this gate 2026-08-27 on pc card 0 (p150a, MSA on, 200 steps / 5 samples):
+    # RMSD 2.607 A / TM 0.781 best-confidence, 83 s. The five samples spread 1.627-2.607 A /
+    # 0.781-0.921 and the best-confidence sample is the WORST of the five, with the oracle
+    # best at 1.627 A / 0.921 -- the same confidence-head under-ranking that
+    # docs/implementation-parity-data/protenix-v2.json already records for this checkpoint
+    # family on both the device and the reference side. So this floor covers sample spread,
+    # not a run-to-run wobble. Floor = ~2x measured, same discipline as boltz2 (1.55 -> 3.0),
+    # protenix-v2 (3.87 -> 6.0) and openfold3 (1.775 -> 3.5).
+    "protenix-v1":   {"max_rmsd": 5.0, "min_tm": 0.60},
     "opendde":       {"max_rmsd": 6.0, "min_tm": 0.50},
     # OpenFold3 (polymer-only port; protenix-v2 is the 1:1 architectural analogue).
     # Measured on this gate 2026-08-07 (qb2 p150a, MSA on): RMSD 1.775 A / TM 0.890.
@@ -581,8 +594,56 @@ CAPACITY_LEGS = [
 # pin the grid either, because harvesting means one board type presents several.
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
-SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde",
-                      "rf3", "nesso1", "openbind")
+SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v1", "protenix-v2", "openfold3",
+                      "opendde", "rf3", "nesso1", "openbind")
+# Every foldable model is either on the ladder above or carries a written reason here.
+# The tuple used to be hand-typed with nothing checking it, so a newly registered model
+# was silently absent from the arm that exists to catch size-specific tuning -- the same
+# defect shape as perf_regression.py's SPECS coverage assert, which is why this mirrors it.
+# A reason is not a pass: it records what the arm does NOT cover, so the gap is readable.
+SIZE_LADDER_EXEMPT = {
+    "esmfold2-fast": "The lighter ESMFold2 checkpoint. esmfold2 is on the ladder and the "
+                     "two share every size-dependent path; adding a second rung set costs "
+                     "~4 more folds per release for a checkpoint that differs in width, "
+                     "not in which lever fires. Widening the arm is a release-owner call.",
+    "opendde-abag":  "The antibody-antigen OpenDDE checkpoint. opendde is on the ladder "
+                     "and opendde-abag differs only in load_opendde_checkpoint's abag flag. "
+                     "Its independent perf coverage is perf_regression.py's own SPECS cell, "
+                     "added after a 60x regression shipped behind that same reasoning.",
+}
+# A model ON the ladder (SIZE_LADDER_MODELS, not SIZE_LADDER_EXEMPT) can still ship with no
+# recorded rungs on a given card because the hardware to record them was unavailable, not
+# because of a defect in the port. That is a transient gap, not a structural one — it must
+# NOT go in SIZE_LADDER_EXEMPT (transient-reason-in-structural-exemption-dict) — but a bare
+# "not in the baseline" error loses WHY the second the person reading it forgets the story,
+# so this attributes the gap: reason plus the follow-up slug that is supposed to close it.
+SIZE_LADDER_KNOWN_GAP = {
+    "protenix-v1": ("no card can currently record it — pc card 0 is barred from providing "
+                     "a release baseline (pc-card0-512aa-fold-nondeterminism) and qb1/qb2 "
+                     "were hardware-unreachable at merge time. Not a port defect: the "
+                     "512aa hang that WAS a real protenix-v1 bug (forced core_grid racing "
+                     "on 4-tile-wide matmuls) is fixed and re-verified, 8/8 clean folds, "
+                     "parity and perf unaffected — only the baseline recording is blocked",
+                     "protenix-v1-sizeladder-baseline"),
+}
+# Not foldable by this arm at all: it drives `tt-bio predict` at four sequence lengths on a
+# shared cdk2x2 fixture (plus nesso1's own `tt-bio affinity` leg). A design or embed model
+# has no such input and gets its own release-gate arm instead. Listed rather than filtered by
+# verb so a new tuple on a new verb still fails the coverage check loudly.
+_LADDER_NOT_A_FOLD = "not a predict/affinity model — %s; covered by its own release-gate arm"
+SIZE_LADDER_EXEMPT.update({
+    m: _LADDER_NOT_A_FOLD % what for m, what in (
+        ("boltzgen",    "binder design, gated by the designability leg"),
+        ("rfd3",        "backbone design, gated by the rfd3 leg"),
+        ("pxdesign",    "sequence design, gated by the pxdesign leg"),
+        ("esmc-300m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
+        ("esmc-600m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
+        ("esmc-6b",     "protein-LM embeddings, opt-in embed leg"),
+        ("saprot-35m",  "structure-aware embeddings, no fold path"),
+        ("saprot-650m", "structure-aware embeddings, no fold path"),
+        ("saprot-1.3b", "structure-aware embeddings, no fold path"),
+    )
+})
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
@@ -2566,6 +2627,24 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
             "legs": legs}
 
 
+def _size_ladder_coverage_gap() -> list[str]:
+    """Foldable models that are neither on the ladder nor in SIZE_LADDER_EXEMPT.
+
+    Discovers the model list from tt_bio.main's own ``*_MODELS`` tuples rather than a
+    second hand-copied list, the same way perf_regression._assert_full_model_coverage
+    does. SIZE_LADDER_MODELS was hand-typed with nothing checking it, so a newly
+    registered port was silently missing from the one arm whose whole purpose is
+    catching a lever tuned at one sequence length.
+    """
+    from tt_bio import main as _main
+
+    shipped = set()
+    for name in dir(_main):
+        if name.endswith("_MODELS") and isinstance(getattr(_main, name), tuple):
+            shipped |= set(getattr(_main, name))
+    return sorted(shipped - set(SIZE_LADDER_MODELS) - set(SIZE_LADDER_EXEMPT))
+
+
 def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     models=None) -> dict:
     """The size-generality arm (see the SIZE_LADDER comment block and the module
@@ -2578,10 +2657,20 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     forward; dark levers with no carried reason are written as TODO and the
     check mode refuses to pass until each carries a real one-line reason.
     """
+    subset = models is not None
     models = list(models or SIZE_LADDER_MODELS)
     rungs = SIZE_LADDER_RUNGS
     card = _size_ladder_card_type()
     workdir = SIZE_LADDER_WORKDIR
+    # Only on a full run: --size-ladder-models is for a debug or single-model record and
+    # must not be blocked by a gap it is not trying to close.
+    gap = [] if subset else _size_ladder_coverage_gap()
+    if gap:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"not on the ladder and not in SIZE_LADDER_EXEMPT: "
+                         f"{', '.join(gap)} — add the model to SIZE_LADDER_MODELS and "
+                         f"record its rungs, or write why the arm does not cover it",
+                "legs": []}
     baseline = {}
     if baseline_path.exists():
         try:
@@ -2701,8 +2790,14 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         for m in models:
             base_model = card_block.get("models", {}).get(m)
             if base_model is None:
-                err = f"model not in the {card} baseline (added to " \
-                      f"SIZE_LADDER_MODELS after recording? re-record)"
+                gap = SIZE_LADDER_KNOWN_GAP.get(m)
+                if gap:
+                    reason, followup = gap
+                    err = f"{m} not in the {card} baseline: {reason} " \
+                          f"(follow-up: {followup})"
+                else:
+                    err = f"{m} not in the {card} baseline (added to " \
+                          f"SIZE_LADDER_MODELS after recording? re-record)"
                 legs.append({"model": m, "gate": False, "error": err,
                              "findings": [err]})
                 continue

@@ -9,6 +9,13 @@ nothing owned that string.
 
 Each test runs the real script against a copy of the real page, so it exercises the CLI and
 the file writes rather than a reimplementation of them.
+
+The held row every test needs is built here rather than read from the page. Three of these
+used to take `perf/page_rows_pending.json`'s first row and assert it was PXDesign, which tied
+them to whether anything happened to be held that day: publishing the PXDesign row emptied the
+file and they failed on an IndexError, having tested nothing about the guard. `make_held`
+blanks one cell of a row the page already publishes and lets `--strip` move it, so the held
+state is reproduced from any starting page and the round trip itself is under test.
 """
 from __future__ import annotations
 
@@ -65,16 +72,35 @@ def meta(root: Path) -> str:
     return META.search((root / "site/benchmarks/index.html").read_text())[1]
 
 
+BLOCKED = {"status": "blocked", "reason": "synthetic, to give this test a row to hold"}
+
+
+def make_held(root: Path, cat: str = "design", row_id: str = "pxdesign",
+              cell: str = "b200") -> dict:
+    """Blank one cell of a published row and let `--strip` hold it. Returns the cell it replaced,
+    so a test that wants the row to become restorable can put it back."""
+    doc_path = root / "site/data/perf-512aa.json"
+    doc = json.loads(doc_path.read_text())
+    block = doc[cat]
+    rows = block if isinstance(block, list) else block["models"]
+    row = next(r for r in rows if r["id"] == row_id)
+    good = row["cells"][cell]
+    row["cells"][cell] = dict(BLOCKED)
+    doc_path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+    assert "held %s/%s" % (cat, row_id) in guard(root, "--strip").stdout
+    return good
+
+
 def test_the_repo_itself_passes(sandbox: Path):
     assert guard(sandbox).returncode == 0
 
 
 def test_a_complete_held_row_is_published_and_both_counts_follow(sandbox: Path):
+    good = make_held(sandbox)
     f = sandbox / "perf/page_rows_pending.json"
     pending = json.loads(f.read_text())
-    row = pending["rows"][0]
-    assert row["row"]["id"] == "pxdesign", "this test assumes PXDesign is the held row"
-    row["row"]["cells"]["b200"] = {"status": "measured", "s_per_design": 99.0, "ref": "synthetic"}
+    assert [h["row"]["id"] for h in pending["rows"]] == ["pxdesign"]
+    pending["rows"][0]["row"]["cells"]["b200"] = good      # the cell arriving is what unblocks it
     f.write_text(json.dumps(pending, indent=2) + "\n")
 
     assert "restored design/pxdesign" in guard(sandbox, "--restore").stdout
@@ -91,6 +117,7 @@ def test_a_complete_held_row_is_published_and_both_counts_follow(sandbox: Path):
 
 
 def test_an_incomplete_held_row_stays_held(sandbox: Path):
+    make_held(sandbox)
     assert guard(sandbox, "--restore").stdout.strip() == "nothing to move"
     assert [h["row"]["id"] for h in held(sandbox)] == ["pxdesign"]
     assert "pxdesign" not in ids(sandbox, "design")
@@ -99,15 +126,11 @@ def test_an_incomplete_held_row_stays_held(sandbox: Path):
 def test_strip_never_holds_the_same_row_twice(sandbox: Path):
     """The failure that put six rows in a three-row pending file: strip, revert, strip."""
     doc_path = sandbox / "site/data/perf-512aa.json"
-    pending_path = sandbox / "perf/page_rows_pending.json"
+    make_held(sandbox)                                     # the first strip
     doc = data(sandbox)
-    doc["design"]["models"].append(json.loads(pending_path.read_text())["rows"][0]["row"])
+    doc["design"]["models"].append(held(sandbox)[0]["row"])  # the revert that did the damage
     doc_path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
-    before = doc_path.read_text()
-    pending_path.write_text(json.dumps({"rows": []}) + "\n")
 
-    assert "held design/pxdesign" in guard(sandbox, "--strip").stdout
-    doc_path.write_text(before)  # the revert that did the damage
     assert "already held pending" in guard(sandbox, "--strip").stdout
 
     assert [h["row"]["id"] for h in held(sandbox)] == ["pxdesign"]

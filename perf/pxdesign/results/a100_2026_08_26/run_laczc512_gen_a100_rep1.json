@@ -1,0 +1,1056 @@
+{
+  "label": "laczc512_gen_a100_rep1",
+  "preset": "gen",
+  "pipeline_preset": "preview",
+  "n_sample": 1,
+  "n_step": 400,
+  "dtype": "bf16",
+  "seed": 42,
+  "rounds": [
+    {
+      "round": 0,
+      "seed": 0,
+      "cold": true,
+      "out_dir": "/work/out/laczc512_gen_a100_rep1/r0",
+      "rc": 1,
+      "t0": 1787733633.5561898,
+      "t1": 1787733716.3123243,
+      "round_wall_s": 82.7561,
+      "gen_feat_s": 3.4796,
+      "gen_device_s": 35.5859,
+      "gen_write_s": 0.0988,
+      "gen_cell_s": 39.1643,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 7.2587,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 23.9802,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 35.5859,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.0988,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 39.1643,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 11.2525,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 0.0596,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 11.322,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0066,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 3.4796,
+          "calls": 0
+        }
+      },
+      "digest": "0e87eaa7ee517c85",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 1,
+        "designs": [
+          {
+            "path": "/work/out/laczc512_gen_a100_rep1/r0/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a82cb6f1c5c5ec7c"
+          }
+        ],
+        "digest": "0e87eaa7ee517c85"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 751, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    },
+    {
+      "round": 1,
+      "seed": 1,
+      "cold": false,
+      "out_dir": "/work/out/laczc512_gen_a100_rep1/r1",
+      "rc": 1,
+      "t0": 1787733716.3310354,
+      "t1": 1787733790.4826078,
+      "round_wall_s": 74.1516,
+      "gen_feat_s": 3.0975,
+      "gen_device_s": 34.9359,
+      "gen_write_s": 0.1056,
+      "gen_cell_s": 38.139,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.6998,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 23.4993,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 34.9359,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.1056,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 38.139,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 11.1974,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 0.0606,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 11.2668,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0068,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 3.0975,
+          "calls": 0
+        }
+      },
+      "digest": "38b3c5b659c39b9c",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 1,
+        "designs": [
+          {
+            "path": "/work/out/laczc512_gen_a100_rep1/r1/global_run_0/laczc_512_nomsa/seed_305964/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "55b64c05bada2489"
+          }
+        ],
+        "digest": "38b3c5b659c39b9c"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 751, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    },
+    {
+      "round": 2,
+      "seed": 2,
+      "cold": false,
+      "out_dir": "/work/out/laczc512_gen_a100_rep1/r2",
+      "rc": 1,
+      "t0": 1787733790.5016353,
+      "t1": 1787733861.1126084,
+      "round_wall_s": 70.611,
+      "gen_feat_s": 3.0766,
+      "gen_device_s": 34.9625,
+      "gen_write_s": 0.104,
+      "gen_cell_s": 38.1431,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.6989,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 20.1113,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 34.9625,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.104,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 38.1431,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 11.0663,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 0.0602,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 11.1354,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0067,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 3.0766,
+          "calls": 0
+        }
+      },
+      "digest": "7b7420da22e26da4",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 1,
+        "designs": [
+          {
+            "path": "/work/out/laczc512_gen_a100_rep1/r2/global_run_0/laczc_512_nomsa/seed_894422/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "cbbfd0e3f74b2624"
+          }
+        ],
+        "digest": "7b7420da22e26da4"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 751, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    },
+    {
+      "round": 3,
+      "seed": 3,
+      "cold": false,
+      "out_dir": "/work/out/laczc512_gen_a100_rep1/r3",
+      "rc": 1,
+      "t0": 1787733861.152917,
+      "t1": 1787733934.1716206,
+      "round_wall_s": 73.0187,
+      "gen_feat_s": 3.6715,
+      "gen_device_s": 34.9555,
+      "gen_write_s": 0.1046,
+      "gen_cell_s": 38.7316,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.6982,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 21.4136,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 34.9555,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.1046,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 38.7316,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 11.1069,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 0.0576,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 11.1727,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0065,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 3.6715,
+          "calls": 0
+        }
+      },
+      "digest": "de129b6028b4582f",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 1,
+        "designs": [
+          {
+            "path": "/work/out/laczc512_gen_a100_rep1/r3/global_run_0/laczc_512_nomsa/seed_805742/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "32043d612b9202e8"
+          }
+        ],
+        "digest": "de129b6028b4582f"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 751, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    },
+    {
+      "round": 4,
+      "seed": 0,
+      "cold": false,
+      "out_dir": "/work/out/laczc512_gen_a100_rep1/r4",
+      "rc": 1,
+      "t0": 1787733934.2131152,
+      "t1": 1787734006.3901675,
+      "round_wall_s": 72.1771,
+      "gen_feat_s": 3.1943,
+      "gen_device_s": 34.9331,
+      "gen_write_s": 0.1037,
+      "gen_cell_s": 38.2311,
+      "counts_in_gen": {},
+      "stages": {
+        "prep_host": {
+          "s": 0.6968,
+          "calls": 4
+        },
+        "model_init": {
+          "s": 21.4754,
+          "calls": 1
+        },
+        "gen_device": {
+          "s": 34.9331,
+          "calls": 1
+        },
+        "gen_write": {
+          "s": 0.1037,
+          "calls": 1
+        },
+        "gen_total": {
+          "s": 38.2311,
+          "calls": 1,
+          "counts": {
+            "pxd_predict": 1
+          }
+        },
+        "mpnn": {
+          "s": 11.163,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "metrics_host": {
+          "s": 0.0604,
+          "calls": 2
+        },
+        "eval_total": {
+          "s": 11.232,
+          "calls": 1,
+          "counts": {
+            "pxdbench_subprocesses": 1
+          }
+        },
+        "rank_host": {
+          "s": 0.0067,
+          "calls": 1
+        },
+        "gen_feat": {
+          "s": 3.1943,
+          "calls": 0
+        }
+      },
+      "digest": "0e87eaa7ee517c85",
+      "artifact": {
+        "ok": true,
+        "why": [],
+        "n_cif": 1,
+        "designs": [
+          {
+            "path": "/work/out/laczc512_gen_a100_rep1/r4/global_run_0/laczc_512_nomsa/seed_878906/predictions/laczc_512_nomsa_sample_0.cif",
+            "n_atom": 4430,
+            "nonfinite": 0,
+            "chains": {
+              "A0": 512,
+              "B0": 80
+            },
+            "digest": "a82cb6f1c5c5ec7c"
+          }
+        ],
+        "digest": "0e87eaa7ee517c85"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gpu_pxdesign_run.py\", line 751, in main\n    PXD_PIPE.main(argv)\n  File \"/work/PXDesign/pxdesign/runner/pipeline.py\", line 464, in main\n    save_top_designs(\n  File \"/work/gpu_pxdesign_run.py\", line 131, in inner\n    r = fn(*a, **kw)\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 595, in save_top_designs\n    pre_filtered = pre_filter_preview(\n  File \"/work/PXDesign/pxdesign/runner/helpers.py\", line 58, in pre_filter_preview\n    assert c in df.columns\nAssertionError\n"
+    }
+  ],
+  "yaml": "/work/targets2/laczc_512_nomsa.yaml",
+  "yaml_sha256": "48a6b5c0c5d9ca9b36bccda5a9f2258a9b5b8569b4631754cc724e1985b8f713",
+  "ok": true,
+  "why": [
+    "round 0 raised AssertionError: ",
+    "round 1 raised AssertionError: ",
+    "round 2 raised AssertionError: ",
+    "round 3 raised AssertionError: ",
+    "round 4 raised AssertionError: "
+  ],
+  "compute_apps_before": [],
+  "jax_counters": {
+    "present": true,
+    "wrapped": [
+      "jax_jit",
+      "jax_device_put",
+      "jnp_add"
+    ],
+    "version": "0.4.29"
+  },
+  "patch_targets_found": {
+    "gen_device": true,
+    "gen_write": true,
+    "gen_total": true,
+    "sample_diffusion": true,
+    "prep_input": true,
+    "prep_cache": true,
+    "prep_bioassembly": true,
+    "prep_toolweights": true,
+    "model_init": true,
+    "tgt_template": true,
+    "rank_host": true,
+    "mpnn": true,
+    "eval_total": true,
+    "af2_complex": true,
+    "af2_monomer": true,
+    "metrics_secondary": true,
+    "metrics_diversity": true,
+    "protenix_predict": true
+  },
+  "counter_info": {
+    "ds4sci_present": true,
+    "fused_ln_present": false,
+    "deepspeed_evo_env": null,
+    "layernorm_type_env": null
+  },
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    0
+  ],
+  "argv": [
+    "--preset",
+    "preview",
+    "--dump_dir",
+    "/work/out/laczc512_gen_a100_rep1/r0",
+    "--input_json_path",
+    "/work/targets2/laczc_512_nomsa.yaml",
+    "--N_sample",
+    "1",
+    "--N_step",
+    "400",
+    "--dtype",
+    "bf16",
+    "--use_fast_ln",
+    "True",
+    "--use_deepspeed_evo_attention",
+    "True",
+    "--eta_type",
+    "const",
+    "--eta_min",
+    "2.5",
+    "--eta_max",
+    "2.5",
+    "--seeds",
+    "0",
+    "--N_max_runs",
+    "1",
+    "--eval.binder.eval_complex",
+    "false",
+    "--eval.binder.eval_binder_monomer",
+    "false",
+    "--eval.binder.eval_protenix",
+    "false",
+    "--eval.binder.eval_protenix_mini",
+    "false",
+    "--min_total_return",
+    "1",
+    "--max_success_return",
+    "1"
+  ],
+  "pipeline_rc": 1,
+  "total_s": 372.8681,
+  "t_start": 1787733633.5561726,
+  "t_end": 1787734006.424269,
+  "warm_n": 4,
+  "warm_median_cell_s": 38.1871,
+  "warm_min_cell_s": 38.139,
+  "warm_max_cell_s": 38.7316,
+  "warm_spread_pct": 1.552,
+  "warm_median_gen_feat_s": 3.1459,
+  "warm_median_gen_device_s": 34.9457,
+  "warm_median_gen_write_s": 0.1043,
+  "digest_repeat_ok": true,
+  "digest_repeat": [
+    "0e87eaa7ee517c85",
+    "0e87eaa7ee517c85"
+  ],
+  "digests": {
+    "0@r0": "0e87eaa7ee517c85",
+    "1@r1": "38b3c5b659c39b9c",
+    "2@r2": "7b7420da22e26da4",
+    "3@r3": "de129b6028b4582f",
+    "0@r4": "0e87eaa7ee517c85"
+  },
+  "stages": {
+    "prep_host": {
+      "s": 10.0524,
+      "calls": 20
+    },
+    "model_init": {
+      "s": 110.4797,
+      "calls": 5
+    },
+    "gen_device": {
+      "s": 175.3729,
+      "calls": 5
+    },
+    "gen_write": {
+      "s": 0.5167,
+      "calls": 5
+    },
+    "gen_total": {
+      "s": 192.409,
+      "calls": 5,
+      "counts": {
+        "pxd_predict": 5
+      }
+    },
+    "mpnn": {
+      "s": 55.786,
+      "calls": 5,
+      "counts": {
+        "pxdbench_subprocesses": 5
+      }
+    },
+    "metrics_host": {
+      "s": 0.2984,
+      "calls": 10
+    },
+    "eval_total": {
+      "s": 56.129,
+      "calls": 5,
+      "counts": {
+        "pxdbench_subprocesses": 5
+      }
+    },
+    "rank_host": {
+      "s": 0.0333,
+      "calls": 5
+    },
+    "gen_feat": {
+      "s": 16.5194,
+      "calls": 0
+    }
+  },
+  "windows": [
+    {
+      "stage": "prep_host",
+      "t0": 1787733633.7426527,
+      "t1": 1787733633.7440996
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733633.7441638,
+      "t1": 1787733633.7442815
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733633.7442975,
+      "t1": 1787733633.7444205
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733633.7534218,
+      "t1": 1787733641.0104356
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787733641.0107,
+      "t1": 1787733664.990879
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787733667.9465609,
+      "t1": 1787733703.5324805
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787733703.8769157,
+      "t1": 1787733703.9756842
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787733664.9918137,
+      "t1": 1787733704.1560729
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787733704.979733,
+      "t1": 1787733716.2322166
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787733716.2322555,
+      "t1": 1787733716.2918842
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787733716.2919068,
+      "t1": 1787733716.2919183
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787733704.9797165,
+      "t1": 1787733716.3016984
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787733716.3020618,
+      "t1": 1787733716.308671
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733716.3368008,
+      "t1": 1787733716.3378086
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733716.3378437,
+      "t1": 1787733716.3379476
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733716.3379629,
+      "t1": 1787733716.3380406
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733716.3469777,
+      "t1": 1787733717.0455458
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787733717.045796,
+      "t1": 1787733740.5450613
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787733743.4376013,
+      "t1": 1787733778.3735328
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787733778.3735962,
+      "t1": 1787733778.4792109
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787733740.5456204,
+      "t1": 1787733778.6846104
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787733779.2048233,
+      "t1": 1787733790.4022102
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787733790.4022539,
+      "t1": 1787733790.4628346
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787733790.4628623,
+      "t1": 1787733790.4628744
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787733779.2048066,
+      "t1": 1787733790.4715822
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787733790.4719644,
+      "t1": 1787733790.4787495
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733790.5075078,
+      "t1": 1787733790.508543
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733790.5085762,
+      "t1": 1787733790.5086825
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733790.5086966,
+      "t1": 1787733790.5087838
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733790.5175288,
+      "t1": 1787733791.2152433
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787733791.2155042,
+      "t1": 1787733811.3268282
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787733814.1946516,
+      "t1": 1787733849.157195
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787733849.157262,
+      "t1": 1787733849.2612207
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787733811.3275154,
+      "t1": 1787733849.470578
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787733849.9660506,
+      "t1": 1787733861.0323195
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787733861.0323682,
+      "t1": 1787733861.092574
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787733861.092601,
+      "t1": 1787733861.0926132
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787733849.966035,
+      "t1": 1787733861.1014671
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787733861.1018355,
+      "t1": 1787733861.108532
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733861.1589608,
+      "t1": 1787733861.1600347
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733861.1600807,
+      "t1": 1787733861.1601899
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733861.1602056,
+      "t1": 1787733861.1602943
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733861.169028,
+      "t1": 1787733861.8659134
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787733861.866195,
+      "t1": 1787733883.279774
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787733886.7600396,
+      "t1": 1787733921.715495
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787733921.715566,
+      "t1": 1787733921.8201823
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787733883.2804508,
+      "t1": 1787733922.0120246
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787733922.98854,
+      "t1": 1787733934.0954816
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787733934.0955226,
+      "t1": 1787733934.153126
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787733934.1531515,
+      "t1": 1787733934.1531637
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787733922.9885218,
+      "t1": 1787733934.1612651
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787733934.1616175,
+      "t1": 1787733934.168099
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733934.218921,
+      "t1": 1787733934.219938
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733934.219973,
+      "t1": 1787733934.2200873
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733934.2201025,
+      "t1": 1787733934.22019
+    },
+    {
+      "stage": "prep_host",
+      "t0": 1787733934.2285798,
+      "t1": 1787733934.9241645
+    },
+    {
+      "stage": "model_init",
+      "t0": 1787733934.9244227,
+      "t1": 1787733956.3997805
+    },
+    {
+      "stage": "gen_device",
+      "t0": 1787733959.3709671,
+      "t1": 1787733994.3040314
+    },
+    {
+      "stage": "gen_write",
+      "t0": 1787733994.3041053,
+      "t1": 1787733994.4078088
+    },
+    {
+      "stage": "gen_total",
+      "t0": 1787733956.4004226,
+      "t1": 1787733994.6315544
+    },
+    {
+      "stage": "mpnn",
+      "t0": 1787733995.1471193,
+      "t1": 1787734006.310081
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787734006.3101287,
+      "t1": 1787734006.3704975
+    },
+    {
+      "stage": "metrics_host",
+      "t0": 1787734006.3705227,
+      "t1": 1787734006.3705344
+    },
+    {
+      "stage": "eval_total",
+      "t0": 1787733995.1471019,
+      "t1": 1787734006.3791435
+    },
+    {
+      "stage": "rank_host",
+      "t0": 1787734006.3795166,
+      "t1": 1787734006.3862295
+    }
+  ],
+  "subprocesses": [
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 11.252,
+      "t0": 1787733704.9798582,
+      "t1": 1787733716.2320995
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 11.197,
+      "t0": 1787733779.204994,
+      "t1": 1787733790.4020884
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 11.066,
+      "t0": 1787733849.966237,
+      "t1": 1787733861.0321946
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 11.107,
+      "t0": 1787733922.988683,
+      "t1": 1787733934.0953627
+    },
+    {
+      "script": "main_mpnn.py",
+      "wall_s": 11.163,
+      "t0": 1787733995.1472917,
+      "t1": 1787734006.3099492
+    }
+  ],
+  "subprocess_overlaps_gen": [],
+  "jax_counter_selftest": "ok",
+  "jax_selftest_calls": 1,
+  "ds_counter_selftest": "ok",
+  "ds_selftest_calls": 1,
+  "counts": {
+    "pxd_predict": 5,
+    "pxdbench_subprocesses": 5,
+    "jnp_add": 1,
+    "ds4sci_evo_attention": 1
+  },
+  "module_census": {
+    "gen_device": {
+      "AtomAttentionEncoder": 2,
+      "OpenFoldLayerNorm": 169,
+      "AttentionPairBias": 27,
+      "AdaptiveLayerNorm": 65,
+      "Attention": 27,
+      "AtomAttentionDecoder": 1
+    }
+  },
+  "kernel_env_at_end": {
+    "DEEPSPEED_EVO": "true",
+    "LAYERNORM_TYPE": "fast_layernorm",
+    "CUTLASS_PATH": "/work/cutlass"
+  },
+  "peak_vram_alloc_B": 2230989824,
+  "peak_vram_reserved_B": 2355101696,
+  "compute_apps_after": [
+    "1250727, 2766 MiB"
+  ],
+  "gpu_exclusive": true,
+  "env": {
+    "pxdesign": "0.1.0",
+    "protenix": "0.5.0+pxd",
+    "pxdbench": "0.1.2",
+    "torch": "2.7.1+cu128",
+    "jax": "0.4.29",
+    "jaxlib": "0.4.29",
+    "deepspeed": "0.15.4",
+    "numpy": "1.26.3",
+    "transformers": "4.51.3",
+    "dm-haiku": "0.0.13",
+    "optax": "0.2.5",
+    "biotite": "1.0.1",
+    "rdkit": "2026.3.5",
+    "colabdesign": "1.1.3",
+    "torch_version": "2.7.1+cu128",
+    "torch_cuda": "12.8",
+    "cudnn": 90701,
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "gpu_capability": [
+      8,
+      0
+    ],
+    "jax_platform": "cpu",
+    "jax_devices": "[CpuDevice(id=0)]",
+    "env_DEEPSPEED_EVO": "true",
+    "env_LAYERNORM_TYPE": "fast_layernorm",
+    "env_CUTLASS_PATH": "/work/cutlass",
+    "env_TOOL_WEIGHTS_ROOT": "/work/tool_weights",
+    "env_PROTENIX_DATA_ROOT_DIR": "/work/release_data/ccd_cache",
+    "env_CUDA_VISIBLE_DEVICES": null,
+    "nvidia_smi": "NVIDIA A100-SXM4-40GB, 550.107.02, 350.00 W, 40960 MiB"
+  },
+  "unattributed_s": 3.8093,
+  "split": {
+    "pxdesign_d_s": 175.3729,
+    "protenix_s": 0.0,
+    "af2ig_s": 0.0,
+    "proteinmpnn_s": 55.786,
+    "host_data_s": 141.7092
+  },
+  "split_pct": {
+    "pxdesign_d_pct": 47.03,
+    "protenix_pct": 0.0,
+    "af2ig_pct": 0.0,
+    "proteinmpnn_pct": 14.96,
+    "host_data_pct": 38.01
+  },
+  "s_per_design": 74.5736,
+  "validation": {
+    "ok": true,
+    "mode": "gen",
+    "why": [],
+    "rounds_checked": 5,
+    "gen_write_reached": true
+  }
+}

@@ -1,0 +1,29 @@
+11:26:45  [pc:tt0] ✓ t1 — 13.9s
+11:26:57  [pc:tt0] ✓ t2 — 10.3s
+
+WORKING REPRODUCER (2026-08-27 11:26-11:29). Six copies of the 512 aa fixture in one directory,
+folded by ONE worker process (predict accepts a directory):
+
+    for i in 1 2 3 4 5 6; do cp perf/size512/fixtures/cdk2x2_512.yaml /tmp/multi/t$i.yaml; done
+    TT_VISIBLE_DEVICES=0 ... python3 -m tt_bio.main predict /tmp/multi \
+      --model protenix-v1 --single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0
+
+    t1  OK 13.9 s
+    t2  OK 10.3 s
+    t3  WEDGED at "trunk 3/4", never reached diffusion
+
+py-spy on the wedged worker, identical to every previous capture:
+  to_torch <- _to_host (protenix.py:1899) <- _pz_cond_probe (:1779)
+           <- _diffusion_pair_cond (:2096) <- _trunk_cond (:2210) <- fold (:2248)
+
+WHY THIS MATTERS: ~40 s of folding to reproduce, inside one process, against ~1 hang per 12-17
+fresh single-fold processes at ~25 s each. Use this, not repeated single folds.
+
+WHAT IT NARROWS: an in-process loop of _trunk_cond alone (trunk + pair-cond, NO diffusion) ran
+12/12 clean in the same period, and an interleaved control shows that is a real arm difference
+rather than a quiet window: in one window, 6 loop iterations were clean while 2 of 6 real folds
+hung. The worker path runs the FULL fold (diffusion + confidence + structure emit) and the loop
+does not, and the wedge here landed on the fold AFTER two full folds completed. Leading
+hypothesis: state left behind by a preceding fold's diffusion/confidence/emit phase. It is not
+NECESSARY -- a fresh process folding a single target also wedges -- so it raises the rate rather
+than being the sole cause.

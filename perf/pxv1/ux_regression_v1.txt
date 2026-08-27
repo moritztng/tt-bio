@@ -1,0 +1,19 @@
+UX GATE — summary (fold fixtures: trpcage.yaml / 1ahw_abag.yaml (opendde-abag), recyc=2, steps=4, samples=1, seed=0)
+##############################################################################
+protenix-v1           44s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+
+UX REGRESSION LEG for protenix-v1, run 2026-08-27 14:03 on pc card 0. This was flagged in the
+plan (§10b B4) as coverage that arrives for free the moment a model is registered in
+PREDICT_MODELS, and as never having been run. It has now run.
+
+    scripts/ux_regression.py --model protenix-v1     PASS, 44 s
+      progress=True parse=True results=True
+      leg 3 (CLI behaves): predict / embed / saprot / affinity / design / deprecated gen --help
+      all exit 0 and list all 20 shipped --model choices, protenix-v1 among them.
+
+So the port's user-facing surface -- live progress output, output parsing, results.json shape,
+and its presence in every --model list the CLI prints -- is verified, not assumed.

@@ -74,9 +74,11 @@ nothing is re-measured to bring it back. Both flags regenerate the subtitle and 
 from the surviving rows, so the prose cannot drift from the table.
 
 `blocked` is not `measured`. A cell that says the model cannot run on that platform is an honest
-cell but it is not a number, so a row carrying one stays held. PXDesign is the standing case: its
-reference stack is torch 2.3.1 on CUDA 12.1, which ships no sm_100 kernels, so there is no B200
-figure comparable to the H200 one beside it.
+cell but it is not a number, so a row carrying one stays held. What that rule is for is visible in
+what it took to clear the last one: PXDesign was held because its reference stack was torch 2.3.1 on
+CUDA 12.1, which ships no sm_100 kernels, and the fix was not to write a caveat into the B200 cell
+but to move the whole row to a stack that runs on all three cards and re-measure the H200 and A100
+cells on it, so the row still compares like with like.
 
 ## Adding a section
 

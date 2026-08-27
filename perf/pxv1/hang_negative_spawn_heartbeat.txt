@@ -1,0 +1,31 @@
+mode=full fold()
+heartbeat thread started (8.0 s cadence, mirroring worker.py)
+iter   0    12.98s  coords_absmax=200.1760
+iter   1     9.16s  coords_absmax=200.1760
+iter   2     9.07s  coords_absmax=200.1760
+iter   3     9.07s  coords_absmax=200.1760
+iter   4     9.07s  coords_absmax=200.1760
+iter   5     9.12s  coords_absmax=200.1760
+iter   6     9.14s  coords_absmax=200.1760
+iter   7     9.08s  coords_absmax=200.1760
+iter   8     9.07s  coords_absmax=200.1760
+iter   9     9.08s  coords_absmax=200.1760
+iter  10     9.14s  coords_absmax=200.1760
+iter  11     9.15s  coords_absmax=200.1760
+TRUNK+PAIRCOND LOOP COMPLETED  iters=12  hung=None
+child exit=0
+
+SEVENTH NEGATIVE (2026-08-27 11:36-11:38): the full fold() loop run inside a
+multiprocessing.spawn CHILD, with a heartbeat thread on worker.py's 8.0 s cadence
+(REPRO_MODE=full REPRO_SPAWN=1 REPRO_HEARTBEAT=1). 12/12 clean, 9.07-9.16 s each.
+
+Two variables were combined deliberately: both stayed clean, so both are excluded at once. If
+it had wedged they would have needed splitting.
+
+So the spawn child and the heartbeat thread are BOTH ruled out. Of the three worker-context
+candidates named in state doc section 57, only progress_fn remains -- plus the rest of the
+worker's per-job wrapper that this loop does not exercise:
+  * _predict_protenix_one builds FRESH feats per job (this loop reuses one feats dict and
+    re-uploads it), so the host tensors and their uploads differ run to run in the worker;
+  * _protenix_emit writes structures and results.json between folds;
+  * the job queue / lease / orphan-guard plumbing around each job.
