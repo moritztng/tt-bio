@@ -251,8 +251,15 @@ MODELS = {
     # `predict --model protenix-v1`. Same tt_bio/protenix.py class as protenix-v2 at half
     # the pair width (c_z 128) and 4 trunk recycles instead of 10, so it can fold
     # differently and needs its own floor rather than protenix-v2's.
-    # MEASURED-PENDING: filled from this gate on pc card 0 in the same pass.
-    "protenix-v1":   {"max_rmsd": 6.0, "min_tm": 0.50},
+    # Measured on this gate 2026-08-27 on pc card 0 (p150a, MSA on, 200 steps / 5 samples):
+    # RMSD 2.607 A / TM 0.781 best-confidence, 83 s. The five samples spread 1.627-2.607 A /
+    # 0.781-0.921 and the best-confidence sample is the WORST of the five, with the oracle
+    # best at 1.627 A / 0.921 -- the same confidence-head under-ranking that
+    # docs/implementation-parity-data/protenix-v2.json already records for this checkpoint
+    # family on both the device and the reference side. So this floor covers sample spread,
+    # not a run-to-run wobble. Floor = ~2x measured, same discipline as boltz2 (1.55 -> 3.0),
+    # protenix-v2 (3.87 -> 6.0) and openfold3 (1.775 -> 3.5).
+    "protenix-v1":   {"max_rmsd": 5.0, "min_tm": 0.60},
     "opendde":       {"max_rmsd": 6.0, "min_tm": 0.50},
     # OpenFold3 (polymer-only port; protenix-v2 is the 1:1 architectural analogue).
     # Measured on this gate 2026-08-07 (qb2 p150a, MSA on): RMSD 1.775 A / TM 0.890.
