@@ -54,7 +54,19 @@ from fold_ab import fold_ab                                             # noqa: 
 # one-time initializer = the 1596 calls per hidden the census reports). Same trap as
 # `perf-page-matched-batch-protocol-recurrence`: the estimate and the measurement counted
 # different amounts of traffic.
-PREDICTED = {"R2": 0.0, "R3": -5.9, "R4": -8.9}
+#
+# R4's -8.9 was withdrawn by X1 (state doc 16.4) and is not a scaling of R3's number. Under the
+# height guard 685 tokens is outside hidden=512's addressable set (h would move 64->63), so the
+# R4 fold serves the hidden=256 half only, exactly like the 90 MB decline rung X4 priced at R3.
+# The prediction is that measurement scaled by chunk count and chunk width, both read off runs:
+# X4 served 12768 chunks per rep at R3 for -3.411 s, i.e. 0.267 ms realised per chunk; R4 chunks
+# 685 rows at h=64 against R3's 514, and its chunk is 704/544 = 1.294x wider. If the saving is
+# traffic-bound it scales with the width and if it is not it does not, so the honest prediction is
+# a band: -4.3 s (no width scaling, ~15960 served chunks x 0.267 ms) to -5.5 s (full width
+# scaling). Central value below. Read the SERVED COUNT off this run's own census before scoring
+# the prediction -- 12768 = 1596 x 8 of R3's 9 chunks, so the ragged tail chunk declines, and R4's
+# 45-row tail need not behave like R3's 2-row one (17.3).
+PREDICTED = {"R2": 0.0, "R3": -5.9, "R4": -5.0}
 
 FIXTURES = pathlib.Path("perf/dsfix/fixtures")
 
