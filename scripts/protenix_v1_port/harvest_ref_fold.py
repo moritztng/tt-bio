@@ -128,7 +128,6 @@ def _ref_side(args):
 
 def _write_cifs(args):
     """Stage 3: coordinates -> fixture CIFs + results.json, through tt_bio's own writer."""
-    import numpy as np
     import torch
 
     from tt_bio.main import _write_protenix_structure
@@ -146,6 +145,12 @@ def _write_cifs(args):
     raw_root = Path(args.raw)
 
     for seed_dir in sorted(raw_root.glob("seed*")):
+        # The ref stage mkdirs a seed dir before it saves raw.pt, so a seed still being
+        # harvested presents as an empty dir. Skip it instead of dying: this stage is meant
+        # to be runnable against an in-progress harvest and re-runnable as seeds land.
+        if not (seed_dir / "raw.pt").exists():
+            print(f"{seed_dir.name}: no raw.pt yet, skipping", flush=True)
+            continue
         raw = torch.load(seed_dir / "raw.pt", map_location="cpu", weights_only=False)
         coords, confs = raw["coords"], raw["confidence"]
         n_sample = len(confs)
@@ -171,9 +176,11 @@ def _write_cifs(args):
             x = coords[..., k, :, :] if coords.dim() == 4 else coords[k]
             name = (f"{args.target_id}.cif" if rank == 0
                     else f"{args.target_id}_model_{rank}.cif")
+            # b_factors must be a TORCH tensor: _write_protenix_structure calls .numpy() on it.
             _write_protenix_structure(x.squeeze(0).float(), feats, None,
                                       dst / "structures" / name, "cif",
-                                      b_factors=np.asarray(post[k]["plddt_atom"]) * 100.0)
+                                      b_factors=torch.as_tensor(
+                                          post[k]["plddt_atom"]).float() * 100.0)
         best = rows[order[0]]
         (dst / "results.json").write_text(json.dumps({args.target_id: {
             "plddt": round(best["plddt"], 6), "complex_plddt": round(best["plddt"], 6),
