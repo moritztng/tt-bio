@@ -797,7 +797,38 @@ RF3_1024AA_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_RF3_1024AA_TIMEOUT", "18
 
 DEFAULT_ARMS = ("boltzgen", "rfd3", "opendde-abag", "capacity",
                 "l1-budget", "batch-position", "nesso1", "pxdesign",
-                "rf3-1024aa")
+                "rf3-1024aa", "rfd3-fusion")
+
+# --- rfd3-fusion: the two size-conditioned RFD3 diffusion fusion levers -----------------------
+# Both ship ON and both are bit-exact where they serve, and both decline SILENTLY on a documented
+# predicate: region 1 needs the fused softmax kernel to engage at the gathered key width, region 2
+# needs the pair Transition's third L1 resident to leave the chunk height alone. A regression that
+# quietly stops one from firing costs seconds and raises nothing, which is what this arm is for.
+#
+# Two fixtures, asserting OPPOSITE things, because the gate's own rfd3 spec is a 120-token binder
+# where both levers correctly serve zero -- "census the shipped fold" would fail on correct code.
+#   positive leg  perf/dsfix/fixtures/rfd3_R4.json, 685 tokens / 6051 atoms. The size the perf
+#                 page's RFD3 row quotes and every R4 number in the fusion programme was measured
+#                 on, and the size at which both levers serve.
+#   negative leg  the IAI motif scaffold, 40 tokens / 419 atoms. The fixture
+#                 scripts/perf_regression.py's rfd3 leg folds, so zero served there is both the
+#                 negative control and the proof that docs/perf_baselines.json's three rfd3 rows
+#                 describe an unchanged code path. A lever that starts firing outside the shapes
+#                 it was proven bit-exact on is a wrong structure, not a slow one.
+RFD3_FUSION_R4_SPEC = REPO_ROOT / "perf" / "dsfix" / "fixtures" / "rfd3_R4.json"
+RFD3_FUSION_SMALL_SPEC = (REPO_ROOT / "scripts" / "rfd3_port" / "parity_artifacts"
+                          / "iai_protein" / "iai_inputs.yaml")
+RFD3_FUSION_FLAGS = ("RFD3_SOFTMAX_PV_FUSED", "RFD3_FC1_SPLIT_SILU")
+RFD3_FUSION_TIMESTEPS = 4        # the design CLI default; docs/rfd3-design.md calls 4 a smoke run
+RFD3_FUSION_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_RFD3_FUSION_TIMEOUT", "1200"))
+# The two clauses that pin the SITE and not just the count. Region 1 must decline at the ungathered
+# key width and must NEVER decline at the gathered one -- "it declined at this size" and "it served
+# a different site of the same fold" are otherwise indistinguishable. Region 2 must decline on
+# exactly one clause: at hidden=256 all eleven chunks take a pinned config, which is why its served
+# count is eleven times the serving count and not less.
+RFD3_FUSION_PV_DECLINE = "softmax kernel does not engage at this shape @ key 704"
+RFD3_FUSION_PV_SERVED_KEY = "@ key 6080"
+RFD3_FUSION_FC1_DECLINE = "tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63"
 
 L1_BUDGET_STEPS = 200
 # The width measured to fit at the issue-#11 call shape on a 110-core grid: the
@@ -1189,8 +1220,8 @@ def _rfd3_score_cif(cif: Path, designed: set, geom) -> dict:
             "top_aa_frac": round(max(seq.count(c) for c in set(seq)) / len(seq), 3)}
 
 
-def _rfd3_design_cmd(out: Path, num_designs: int, steps: int) -> list:
-    return [sys.executable, "-m", "tt_bio.main", "design", str(RFD3_SPEC),
+def _rfd3_design_cmd(out: Path, num_designs: int, steps: int, spec: Path = None) -> list:
+    return [sys.executable, "-m", "tt_bio.main", "design", str(spec or RFD3_SPEC),
             "--model", "rfd3", "--from_pdb", "--out_dir", str(out),
             "--num_designs", str(num_designs), "--num_timesteps", str(steps),
             "--seed", str(RFD3_SEED)]
@@ -1828,6 +1859,19 @@ def lever_census_flags() -> tuple:
     return tuple(f for f, *_rest in mod.LEVERS)
 
 
+def _census_pythonpath_args() -> list:
+    """`--pythonpath` for censusing an UNMERGED worktree.
+
+    `lever_census.py` sets the child's PYTHONPATH to the hook dir alone on purpose, so a release
+    run censuses the installed artifact and not somebody's checkout
+    (`parity-gate-scores-installed-package-not-checkout`). That also means a pre-merge run of an
+    arm scores the wrong code, and `--pythonpath` exists for exactly that. One env var, read in
+    one place, unset in a release run.
+    """
+    p = os.environ.get("RELEASE_GATE_CENSUS_PYTHONPATH")
+    return ["--pythonpath", p] if p else []
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                      need_runtime: bool = True) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
@@ -1851,8 +1895,9 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     log = workdir / f"{label}.log"
     shutil.rmtree(out_dir, ignore_errors=True)
     workdir.mkdir(parents=True, exist_ok=True)
-    census = [sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
-              "--tt-bio", sys.executable, "--label", label, "--out", str(census_json), "--"]
+    census = ([sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
+               "--tt-bio", sys.executable, "--label", label, "--out", str(census_json)]
+              + _census_pythonpath_args() + ["--"])
     if model == "nesso1":
         # `tt-bio affinity`, not `predict` — see the SIZE_LADDER_NESSO_* block. The census hook
         # runs in every process the CLI starts, launcher included, and this model folds in the
@@ -1977,6 +2022,168 @@ def _size_ladder_clause_finding(b: dict, c: dict, flag: str, where: str):
     return None if bs == cs else f"{where} {flag}: decline clause {bs} -> {cs}"
 
 
+def _rfd3_fusion_expected(steps: int) -> dict:
+    """The R4 lever census expected at `steps` timesteps, closed-form.
+
+    Measured at two points and interpolated by nothing: the fold census at 3 timesteps (state doc
+    §21.2) and at 200 (§22.2) both satisfy these four expressions exactly. `serving` is the pair
+    Transition's hidden=256 half, the half that can take the split at 685 tokens; the hidden=512
+    half declines on the chunk-height guard at the shipped L1 budget, which is why declined equals
+    `serving` rather than zero.
+
+    A formula rather than four constants so the arm still holds if the step count moves.
+    """
+    serving = 4 * (steps - 1) + 2
+    return {"pv_served": 9 * (steps - 1),
+            "pv_declined": 72 * (steps - 1),
+            "fc1_served": 11 * serving,
+            "fc1_declined": serving}
+
+
+def _rfd3_fusion_findings(rows: dict, steps: int, serve: bool) -> list:
+    """Findings for one leg's census rows. `serve` picks which side of the predicate is correct.
+
+    `serve=True` is the R4 leg: exact counts from the formula, plus the two clauses that pin the
+    SITE rather than the count. `serve=False` is the small leg, where every call must decline.
+
+    Exact counts, not a `served > 0` band: a lever serving one call of twenty-seven passes
+    `served > 0` and is precisely the regression the arm exists to catch.
+    """
+    out = []
+    for flag in RFD3_FUSION_FLAGS:
+        r = rows.get(flag)
+        if r is None:
+            out.append(f"{flag}: no census row -- the lever is not registered in "
+                       f"lever_census.LEVERS, so nothing below was measured")
+        elif r["resolved"] != "True":
+            out.append(f"{flag}: resolved '{r['resolved']}', not 'True' -- the shipped default "
+                       f"is not on, so the counts below measure the harness and not the guard")
+    if out:
+        return out
+
+    pv, fc1 = rows["RFD3_SOFTMAX_PV_FUSED"], rows["RFD3_FC1_SPLIT_SILU"]
+    if not serve:
+        for flag, r in (("RFD3_SOFTMAX_PV_FUSED", pv), ("RFD3_FC1_SPLIT_SILU", fc1)):
+            if (r["served"] or 0) != 0:
+                out.append(f"{flag}: served {r['served']} calls at 40 tokens / 419 atoms, where "
+                           f"the guard must decline every one -- a lever firing outside the "
+                           f"shapes it was proven bit-exact on is a wrong structure, not a slow "
+                           f"one")
+        return out
+
+    exp = _rfd3_fusion_expected(steps)
+    for flag, r, want in (("RFD3_SOFTMAX_PV_FUSED", pv,
+                           (exp["pv_served"], exp["pv_declined"])),
+                          ("RFD3_FC1_SPLIT_SILU", fc1,
+                           (exp["fc1_served"], exp["fc1_declined"]))):
+        got = (r["served"], r["declined"])
+        if got != want:
+            what = ("served nothing at all, so the lever is dark" if not got[0]
+                    else "serve rate moved")
+            out.append(f"{flag}: {what} -- R4 census served/declined {got}, expected {want} "
+                       f"at {steps} timesteps")
+
+    prej = pv["rejects"] or {}
+    if RFD3_FUSION_PV_DECLINE not in prej:
+        out.append(f"RFD3_SOFTMAX_PV_FUSED: no '{RFD3_FUSION_PV_DECLINE}' clause in the R4 "
+                   f"rejects {sorted(prej)} -- the expected decline site stopped being reached")
+    served_key = [k for k in prej if RFD3_FUSION_PV_SERVED_KEY in k]
+    if served_key:
+        out.append(f"RFD3_SOFTMAX_PV_FUSED: declined at the gathered key width "
+                   f"({', '.join(sorted(served_key))}) -- that site is the whole win and must "
+                   f"never decline at R4")
+
+    frej = fc1["rejects"] or {}
+    if sorted(frej) != [RFD3_FUSION_FC1_DECLINE]:
+        out.append(f"RFD3_FC1_SPLIT_SILU: R4 rejects are {sorted(frej)}, expected exactly "
+                   f"['{RFD3_FUSION_FC1_DECLINE}']")
+    elif frej[RFD3_FUSION_FC1_DECLINE] != exp["fc1_declined"]:
+        out.append(f"RFD3_FC1_SPLIT_SILU: the chunk-height clause fired "
+                   f"{frej[RFD3_FUSION_FC1_DECLINE]} times, expected {exp['fc1_declined']}")
+    return out
+
+
+def _rfd3_fusion_census_fold(spec: Path, label: str, workdir: Path) -> dict:
+    """One lever-census-wrapped RFD3 design of `spec`. {"rows": {flag: row}} or {"error": ...}.
+
+    Through the CLI, not in process: `tt-bio design` folds in a spawned worker, so counters read
+    in the launcher are always zero and only lever_census.py's generated `sitecustomize.py`
+    reaches the process that does the work.
+    """
+    out_dir = workdir / f"out_{label}"
+    census_json = workdir / f"census_{label}.json"
+    log = workdir / f"{label}.log"
+    shutil.rmtree(out_dir, ignore_errors=True)
+    workdir.mkdir(parents=True, exist_ok=True)
+    cmd = ([sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
+            "--tt-bio", sys.executable, "--label", label, "--out", str(census_json)]
+           + _census_pythonpath_args() + ["--"]
+           + _rfd3_design_cmd(out_dir, 1, RFD3_FUSION_TIMESTEPS, spec=spec)[1:])
+    with open(log, "w") as fp:
+        rc, timed_out = _run_fold(cmd, RFD3_FUSION_TIMEOUT_S, cwd=REPO_ROOT,
+                                  stdout=fp, stderr=subprocess.STDOUT)
+    if timed_out:
+        return {"error": f"{label}: design timed out after {RFD3_FUSION_TIMEOUT_S}s"}
+    if rc != 0:
+        return {"error": f"{label}: design exited {rc}: "
+                         f"{_fold_error(log.read_text(errors='replace'))}"}
+    # A design that wrote no structure censuses zero for reasons that have nothing to do with
+    # either lever, so assert the fold happened before reading a single counter.
+    if not sorted(out_dir.rglob("*.cif")):
+        return {"error": f"{label}: design wrote no CIF, so its census means nothing"}
+    try:
+        census = json.loads(census_json.read_text())
+    except Exception as e:
+        return {"error": f"{label}: census artifact unreadable: {e}"}
+    return {"rows": {r["flag"]: r for r in census["rows"]}}
+
+
+def run_rfd3_fusion(keep: bool) -> dict:
+    """Census both fusion fixtures and assert the opposite verdict on each. Returns a result row."""
+    workdir = REPO_ROOT / "rfd3_fusion_gate"
+    if workdir.exists() and not keep:
+        shutil.rmtree(workdir)
+    row = {"model": "rfd3-fusion", "seconds": None, "gate": False, "error": None,
+           "findings": [], "legs": {}}
+    for spec in (RFD3_FUSION_R4_SPEC, RFD3_FUSION_SMALL_SPEC):
+        if not spec.exists():
+            row["error"] = f"missing rfd3-fusion fixture {spec}"
+            return row
+
+    t0 = time.monotonic()
+    for label, spec, serve in (("R4", RFD3_FUSION_R4_SPEC, True),
+                               ("iai", RFD3_FUSION_SMALL_SPEC, False)):
+        print(f"\n{'='*70}\n[rfd3-fusion] censusing {spec.name} "
+              f"({RFD3_FUSION_TIMESTEPS} steps, levers must "
+              f"{'serve' if serve else 'decline'})\n{'='*70}", flush=True)
+        r = _rfd3_fusion_census_fold(spec, label, workdir)
+        if "error" in r:
+            row["error"] = r["error"]
+            row["seconds"] = time.monotonic() - t0
+            return row
+        leg = {}
+        for flag in RFD3_FUSION_FLAGS:
+            c = r["rows"].get(flag, {})
+            leg[flag] = {"resolved": c.get("resolved"), "served": c.get("served"),
+                         "declined": c.get("declined"), "rejects": c.get("rejects")}
+            print(f"[rfd3-fusion] {label} {flag}: resolved {c.get('resolved')}, "
+                  f"served {c.get('served')}, declined {c.get('declined')}, "
+                  f"clauses {sorted(c.get('rejects') or {})}", flush=True)
+        row["legs"][label] = leg
+        row["findings"] += [f"{label}: {f}"
+                            for f in _rfd3_fusion_findings(r["rows"],
+                                                           RFD3_FUSION_TIMESTEPS, serve)]
+    row["seconds"] = time.monotonic() - t0
+    exp = _rfd3_fusion_expected(RFD3_FUSION_TIMESTEPS)
+    print(f"[rfd3-fusion] expected at {RFD3_FUSION_TIMESTEPS} timesteps: "
+          f"pv {exp['pv_served']}/{exp['pv_declined']}, "
+          f"fc1 {exp['fc1_served']}/{exp['fc1_declined']} (served/declined)", flush=True)
+    row["gate"] = not row["findings"]
+    if not keep:
+        shutil.rmtree(workdir, ignore_errors=True)
+    return row
+
+
 def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
     """Findings comparing one rung's lever census against the baseline. The rules
     are the five in the SIZE_LADDER comment block above."""
@@ -2014,6 +2221,16 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
                             f"{SIZE_LADDER_FRAC_TOL} band (partial darkness)")
     for flag in cur:
         if flag not in base:
+            if cur[flag].get("resolved") == "not-imported":
+                # `collect()` emits a row for every entry in LEVERS, imported or not, so
+                # registering a model-scoped lever would otherwise report a finding at every
+                # rung of every ladder model until the baseline is re-recorded -- to write rows
+                # that all read `not-imported`. This is the same rule the loop above already
+                # applies to a not-imported lever the baseline DOES know about (`fb is None or
+                # fc is None: continue`): nothing was measured, so nothing can be stale, and a
+                # lever no ladder model imports cannot be dark either. If a ladder model ever
+                # starts importing it, `resolved` reads True/False and the finding fires again.
+                continue
             findings.append(f"{where} {flag}: new lever not in the baseline "
                             f"(re-record with --size-ladder-record)")
     return findings
@@ -2921,6 +3138,7 @@ def main() -> int:
     want_batch_position = "batch-position" in models
     want_nesso1 = "nesso1" in models
     want_rf3_1024aa = "rf3-1024aa" in models
+    want_rfd3_fusion = "rfd3-fusion" in models
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
     _preflight_msa_cache(models)
@@ -2974,6 +3192,25 @@ def main() -> int:
         print(f"{'#'*78}")
         print("GATE PASS — rf3 at 997 aa cleared the crystal floor" if rr["gate"]
               else "GATE FAIL — rf3 at 997 aa missed the crystal floor (see above)")
+
+    if want_rfd3_fusion:
+        fr = run_rfd3_fusion(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — rfd3 fusion levers, "
+              f"{RFD3_FUSION_TIMESTEPS} steps on {RFD3_FUSION_R4_SPEC.name} (must serve) and "
+              f"{RFD3_FUSION_SMALL_SPEC.name} (must decline)\n{'#'*78}")
+        for label, leg in fr["legs"].items():
+            for flag, c in leg.items():
+                print(f"{label:<5}{flag:<26}resolved {str(c['resolved']):<6}"
+                      f"served {str(c['served']):>6}  declined {str(c['declined']):>6}")
+        wall = f"{fr['seconds']:.0f}s" if fr["seconds"] is not None else "-"
+        for f in fr["findings"]:
+            print(f"  FINDING {f}")
+        all_pass &= fr["gate"]
+        print(f"{'#'*78}")
+        print(f"GATE PASS — both fusion levers serve their expected rate at R4 and decline "
+              f"every call at 40 tokens ({wall})" if fr["gate"]
+              else f"GATE FAIL — rfd3 fusion census "
+                   f"{fr['error'] or 'disagrees with the expected serve rate (see above)'}")
 
     if want_boltzgen:
         bg = _load_designability_harness()

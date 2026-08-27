@@ -252,7 +252,8 @@ _PAIR_TRANSITION_L1 = env_flag("RFD3_PAIR_TRANSITION_L1", True)
 # takes the split only where `fc1`'s output can join `b` and `m` in L1 without costing an extra
 # chunk call, which is every size at hidden=256 and up to 693 tokens at hidden=512.
 _FC1_SPLIT_SILU = env_flag("RFD3_FC1_SPLIT_SILU", False)
-FC1STATS = [0]                     # split calls, so an A/B arm cannot silently decline
+FC1STATS = [0, 0]                  # [served, declined], the shape `lever_census.LEVERS`
+                                   # reads, so an A/B arm cannot silently decline
 FC1SERVED = {}                     # shape -> count, for the calls that got both halves
 FC1DECLINES = {}                   # shape+reason -> count, the other half of the same census
 
@@ -811,6 +812,7 @@ class Transition(Module):
                 # (`negative-control-must-break-what-check-reads`).
                 k = "w=%d no-chunked-site" % int(x.padded_shape[2])
                 FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
+                FC1STATS[1] += 1
             return self._swiglu(x, None)
         H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
         w_pad = int(x.padded_shape[2])
@@ -837,6 +839,7 @@ class Transition(Module):
             k = ("tensor_rows=%d w=%d hidden=%d chunk-height-would-move %d->%d"
                  % (H, w_pad, hidden, h, h3))
             FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
+            FC1STATS[1] += 1
         # Slice lazily rather than `ttnn.chunk`, which materialises a second full copy of the
         # pair tensor up front. The 685-row tail is ragged at every h and gets its own shape,
         # hence its own program-config cache entry, which is what keeps it exact.
@@ -889,6 +892,7 @@ class Transition(Module):
                 # R3 ragged tail is the live example: 0.036-0.073 ms, under `_TUNE_MIN_MS`.
                 k = rows + " no-pinned-config"
                 FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
+                FC1STATS[1] += 1
                 fc1_mem = None
         if fc1_mem is None:
             a = ttnn.linear(xn, self.fc1_w, activation="silu",

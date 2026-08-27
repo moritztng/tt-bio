@@ -408,7 +408,8 @@ def softmax_bf16(x, dtype):
 
 # --- L5b, the model-facing entry point --------------------------------------------------------
 
-PVSTATS = [0]                      # calls served fused, so an A/B arm cannot silently decline
+PVSTATS = [0, 0]                   # [served, declined], the shape `lever_census.LEVERS`
+                                   # reads, so an A/B arm cannot silently decline
 PVDECLINES = {}                    # reason -> count, so a decline is readable rather than silent
 PVSERVED = {}                      # key width -> count, the other half of the same census
 
@@ -520,6 +521,7 @@ def softmax_pv_fused(x, vv, dtype, ckc):
         # serves, and a bare reason count cannot tell them apart.
         k = "%s @ key %d" % (v["why"], int(x.padded_shape[-1]))
         PVDECLINES[k] = PVDECLINES.get(k, 0) + 1
+        PVSTATS[1] += 1
         return None
     # Record the width served, not just the count. A decline census alone cannot say WHICH site a
     # fold served, so "the lever declined at this design size" and "it served a different site of
