@@ -248,16 +248,25 @@ def _validate_openfold3_constraints(path, model: str = "openfold3") -> None:
             "--model protenix-v1 / protenix-v2 / opendde.")
 
 
-def _validate_openfold3_cyclic(path, model: str = "openfold3") -> None:
-    """Reject a yaml `cyclic: true` chain for OF3/OpenBind instead of folding it linear.
+def _validate_cyclic_unsupported(path, model: str) -> None:
+    """Reject a yaml `cyclic: true` chain for a model that cannot honour it, instead of
+    folding it linear.
 
-    Upstream's query format carries `Chain.cyclic` and its structure featurizer sets a
-    `cyclic_mask` feature from it; tt-bio's vendored copy has neither (both were dropped
-    when the tree was vendored, consistently). So a cyclic chain reached the model as an
-    ordinary linear one and the fold returned status=ok — a wrong structure with no
-    warning, the silent-garbage class. Cyclisation changes the STRUCTURE, which is why
-    this is a hard error like `constraints:` and not a warning like `properties:
-    affinity`, which only omits an extra output.
+    OpenFold3/OpenBind: upstream's query format carries `Chain.cyclic` and its structure
+    featurizer sets a `cyclic_mask` feature from it; tt-bio's vendored copy has neither (both
+    were dropped when the tree was vendored, consistently).
+
+    Protenix (v1/v2) and OpenDDE: there is no cyclic input path to drop. `_read_bio_chains`
+    returns (chain_id, sequence, msa_spec, mol_type) and never reads the flag, and upstream
+    Protenix v0.5.0 has no cyclic chain flag either -- its only "cyclic" is the
+    `cyclic-pseudo-peptide` LIGAND entity label (protenix/data/constants.py), not a polymer
+    input. So the flag was dropped silently and the fold returned status=ok on a linear
+    structure. Caught by folding examples/cyclic_prot.yaml with --model protenix-v1 during the
+    v1 bring-up sweep: it succeeded, which is the bug.
+
+    Cyclisation changes the STRUCTURE, which is why this is a hard error like `constraints:`
+    and not a warning like `properties: affinity`, which only omits an extra output. boltz2 and
+    rf3 do honour the flag and must never be passed to this.
     """
     if Path(path).suffix.lower() not in (".yml", ".yaml"):
         return
@@ -277,8 +286,9 @@ def _validate_openfold3_cyclic(path, model: str = "openfold3") -> None:
         raise RuntimeError(
             f"--model {model} does not port cyclic chains (chain(s) "
             f"{', '.join(cyclic)} in {Path(path).name} set `cyclic: true`); the fold "
-            "would silently return a linear structure. Remove the flag or use "
-            "--model rf3 / boltz2, which honor it.")
+            "would silently return a linear structure. Remove the flag, express the "
+            "cyclisation as a covalent `bond` constraint, or use --model rf3 / boltz2, "
+            "which honor it.")
 
 
 def _warn_openfold3_affinity_ignored(path, model: str) -> None:
@@ -899,6 +909,7 @@ class _WorkerState:
                 f"{unsupported} are nucleic-acid); nucleic-acid structural tokens are not "
                 "ported yet. Ligand covalent bonds are honored.")
         bonds = _read_bio_constraints(path)
+        _validate_cyclic_unsupported(path, cfg.get("model", "opendde"))
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -1029,6 +1040,7 @@ class _WorkerState:
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
         bonds = _read_bio_constraints(path)   # covalent bonds; rejects pocket/contact
+        _validate_cyclic_unsupported(path, cfg.get("model", "protenix-v2"))
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -1369,7 +1381,7 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         _validate_openfold3_chains(chains, model)
         _validate_openfold3_constraints(path, model)
-        _validate_openfold3_cyclic(path, model)
+        _validate_cyclic_unsupported(path, model)
         _warn_openfold3_affinity_ignored(path, model)
         tmpl_map = _openfold3_template_map(path)
         unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt in chains})
