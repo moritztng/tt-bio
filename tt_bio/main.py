@@ -2565,9 +2565,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--no_kernels", is_flag=True)
 @click.option("--trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion device "
-                   "stream (lossless; collapses per-step host dispatch). protenix-v2 "
-                   "and opendde only. Opt-in — reserves a 1 GiB trace region on the "
-                   "device.")
+                   "stream (lossless; collapses per-step host dispatch). protenix-v1, "
+                   "protenix-v2 and opendde. Opt-in — reserves a 1 GiB trace region on "
+                   "the device.")
 @click.option("--diffusion_trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
@@ -2770,8 +2770,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # shared msa_dir cache, and folds. MSA is optional here (single-sequence
         # folding when no source is given), so unlike Boltz-2 it never errors out.
         # --trace: reserve a ttnn trace region on each worker before its first
-        # get_device() open (workers inherit the parent env). Protenix-v2/OpenDDE
-        # fold(trace=True) read it back via trace_region_size(); the device must be
+        # get_device() open (workers inherit the parent env). Protenix (v1 and v2) and
+        # OpenDDE fold(trace=True) read it back via trace_region_size(); the device must be
         # opened with the region up front (a later reopen is unstable on TT).
         if trace:
             os.environ.setdefault("TT_BIO_TRACE_REGION_SIZE", str(1 << 30))
