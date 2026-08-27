@@ -32,7 +32,7 @@ from tt_bio.protenix import Protenix
 from tt_bio.protenix_data import build_complex_features
 
 
-def main(target, iters):
+def _work(target, iters):
     chains = _read_bio_chains(Path(target))
     bonds = _read_bio_constraints(Path(target))
     # single-sequence: matches the ladder config the wedge was characterised at
@@ -58,6 +58,20 @@ def main(target, iters):
     full = os.environ.get("REPRO_MODE", "trunk") == "full"
     print(f"mode={'full fold()' if full else 'trunk_cond only'}", flush=True)
 
+    import os as _os
+    import threading as _th
+    if _os.environ.get("REPRO_HEARTBEAT") == "1":
+        _stop = _th.Event()
+
+        def _beat():
+            # worker.py:1792 waits on an Event with an 8.0 s timeout and then does host work.
+            n = 0
+            while not _stop.wait(8.0):
+                n += 1
+                _os.getppid()
+        _th.Thread(target=_beat, daemon=True).start()
+        print("heartbeat thread started (8.0 s cadence, mirroring worker.py)", flush=True)
+
     hung = None
     for i in range(iters):
         t0 = time.time()
@@ -80,6 +94,28 @@ def main(target, iters):
         del cond, aux
     print(f"TRUNK+PAIRCOND LOOP COMPLETED  iters={iters}  hung={hung}", flush=True)
     return 0
+
+
+def main(target, iters):
+    """REPRO_SPAWN=1 runs the loop in a multiprocessing SPAWN child instead of this process.
+
+    Six proxies for the fold's device state have been excluded while the same fold wedges
+    through the worker, so by elimination the difference is the worker CONTEXT. Its three
+    candidate parts are the spawn child, the 8 s heartbeat thread and progress_fn; this flag
+    tests the first, REPRO_HEARTBEAT=1 the second.
+    """
+    import os
+    if os.environ.get("REPRO_SPAWN") == "1":
+        import multiprocessing as mp
+        ctx = mp.get_context("spawn")
+        os.environ["REPRO_SPAWN"] = "0"          # child runs the work, not another spawn
+        pr = ctx.Process(target=_work, args=(target, iters))
+        pr.start()
+        print(f"spawned child pid={pr.pid}", flush=True)
+        pr.join()
+        print(f"child exit={pr.exitcode}", flush=True)
+        return 0 if pr.exitcode == 0 else 1
+    return _work(target, iters)
 
 
 if __name__ == "__main__":
