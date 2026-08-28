@@ -504,7 +504,6 @@ class OpenDDE:
         """
         import torch
         from .opendde_data import build_structural_token_features
-        from .tenstorrent import get_device
         from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, edm_sample
 
         if trace:

@@ -39,19 +39,15 @@ from tt_bio.tenstorrent import (
     WeightScope,
     _dtype,
     _sdpa_program_config_for_lengths,
-    get_device,
 )
 from tt_bio.esmc import (
     rope_tables,
     _rope,
-    _batch_tokens,
     BUCKET,
     bucket_token_axis,
     _shard_by_length,
     _reassemble,
     _thread_cap_env,
-    _shm_dir,
-    _read_log_tail,
     _await_shard,
 )
 

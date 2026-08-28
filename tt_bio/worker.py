@@ -895,7 +895,7 @@ class _WorkerState:
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m,
                                  _generate_opendde_paired_a3m, _read_bio_chains,
-                                 _read_bio_constraints, _resolve_a3m_text,
+                                 _read_bio_constraints,
                                  _write_protenix_structure)
         from tt_bio.protenix_data import build_complex_features
 
@@ -1033,7 +1033,7 @@ class _WorkerState:
         Shared by the single and batched protenix entry points."""
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
-                                 _read_bio_constraints, _resolve_a3m_text)
+                                 _read_bio_constraints)
         from tt_bio.protenix_data import build_complex_features
 
         chains = _read_bio_chains(path)
@@ -1195,8 +1195,6 @@ class _WorkerState:
         import json as _json
         import tempfile
         import types
-
-        import numpy as np
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
@@ -1375,7 +1373,7 @@ class _WorkerState:
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import _read_bio_chains, _read_bio_constraints
+        from tt_bio.main import _read_bio_chains
 
         model = cfg.get("model", "openfold3")
         chains = _read_bio_chains(path)

@@ -485,7 +485,7 @@ import numpy as np
 import torch
 
 from .input import (
-    InputSpecification, parse_contig, ChainBreak, Indexed, Designed, DesignedRange,
+    InputSpecification, ChainBreak, Indexed, Designed, DesignedRange,
     AtomSelection, _parse_atom_spec,
 )
 

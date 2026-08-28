@@ -2174,8 +2174,6 @@ def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     explicit a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in
     ``msa_dir`` (written by the same MSA generation ESMFold2/Boltz-2 use). Mirrors
     resolve_msa's candidate order."""
-    import hashlib
-
     candidates = []
     if msa_spec:
         candidates.append(Path(msa_spec).expanduser())
