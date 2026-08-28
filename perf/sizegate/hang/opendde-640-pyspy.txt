@@ -1,0 +1,44 @@
+Fri Aug 28 01:12:48 AM UTC 2026
+opendde 640 aa warmup fold, check run pid 423759, worker pid 468198
+last log line 00:58:33 trunk 7/10; dumped 01:12 and 01:14, same frame both times
+
+Process 468198: /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=8, pipe_handle=10) --multiprocessing-fork
+Python v3.10.19 (/home/ttuser/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/bin/python3.10)
+
+Thread 0x7F80153E6740 (active+gil): "MainThread"
+    __call__ (ttnn/decorators.py:473)
+    _pair_transpose_impl (tt_bio/tenstorrent.py:2506)
+    _pair_transpose_impl (lever_census.py:226)
+    _pair_transpose (tt_bio/tenstorrent.py:2490)
+    __call__ (tt_bio/tenstorrent.py:4906)
+    __call__ (tt_bio/tenstorrent.py:5960)
+    _msa (tt_bio/protenix.py:2682)
+    __call__ (tt_bio/protenix.py:2817)
+    fold (tt_bio/opendde.py:538)
+    _predict_opendde_one (tt_bio/worker.py:983)
+    predict_one (tt_bio/worker.py:740)
+    _execute_job (tt_bio/worker.py:1969)
+    run_worker_loop (tt_bio/worker.py:1915)
+    run (multiprocessing/process.py:108)
+    _bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:129)
+    spawn_main (multiprocessing/spawn.py:116)
+    <module> (<string>:1)
+Thread 0x7F80146FF6C0 (active): "Thread-1 (tick)"
+    tick (lever_census.py:380)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 0x7F772AFFD6C0 (idle): "Thread-2 (_heartbeat_loop)"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    _heartbeat_loop (tt_bio/worker.py:1792)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 0x7F772A5FC6C0 (idle): "tqdm_monitor"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    run (tqdm/_monitor.py:69)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
