@@ -7,9 +7,10 @@ Settles the +56% gap the size-ladder baseline flagged at the 256 rung: recorded 
     quiet.log     loadavg 0-2.6, 8 reps      4.4 s median, 2.3% spread   the recorded number
     loaded.log    loadavg 8-10, 5 warm reps  7.1 s median                the checked number
     loadctl.log   loadavg 16, 5 reps         9.9 s median                positive control
-    b2load.log    boltz2 under the same load 15.5 s vs a recorded 5.1 s
+    b2quiet.json  boltz2, loadavg 1.5-2.5    5.1 s median                its recorded 5.1 s
+    b2load.json   boltz2, loadavg 16-22     15.4 s median                3.0x, vs 2.25x here
 
-`loaded.log` rep 0 (78.4 s) and `b2load.log` rep 0 (40.4 s) are cold-kernel-cache first folds.
+`loaded.log` rep 0 (78.4 s) and `b2load.json` rep 0 (40.4 s) are cold-kernel-cache first folds.
 `runtime_s` excludes model load but not first-touch JIT compile.
 
 `repro_driver.py` drives `release_gate._run_census_fold` directly, so the fold config is the arm's
