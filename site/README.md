@@ -49,6 +49,10 @@ available are not the same claim: `"blocked"` with a `reason` renders as "does n
 model cannot run there, while `"not measured"` with a `detail` renders as "not measured" and means
 nobody has paid for the run. Do not fill either with an estimate.
 
+The GPU cells were measured on rented boxes and the raw per-cell reports are in
+`perf/gpucatchup/`, one directory per GPU type. Every box also ran an OpenFold3 control
+arm it had to reproduce before its other rows counted.
+
 `cost_model` holds the amortisation window, the electricity rate and the platform both charts are
 indexed to. The window is 4 years and the rate is the US industrial average, and they move the total
 cost of ownership chart only. The purchase-price chart is predictions per hour divided by the price

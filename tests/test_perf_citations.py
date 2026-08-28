@@ -5,6 +5,10 @@ is hand-ported onto main from a worker branch, the comment comes across and the
 artifact it names does not, leaving a pointer to nothing. Three directories had
 gone that way (``perf/esm3p4``, ``perf/odde4x``, ``perf/odde512``) before this
 test existed.
+
+``site/`` is read too: a published cell that names the raw reports behind it is
+making the same promise a tuning comment does, and the periodic tidy deletes by
+citation.
 """
 
 import re
@@ -45,7 +49,7 @@ def _perf_files():
 
 
 def _citations():
-    for name in _tracked("tt_bio", "docs"):
+    for name in _tracked("tt_bio", "docs", "site"):
         path = REPO / name
         if path.suffix in {".json", ".cif", ".pdb", ".a3m", ".sto", ".npz", ".txt"}:
             continue

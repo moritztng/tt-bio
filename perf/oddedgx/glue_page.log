@@ -1,9 +1,0 @@
-=== glue ON, 512 aa, card 2 2026-08-15T20:17:23+00:00 ===
-benchlock: opendde-beat-dgx-h200 acquired after 0s, loadavg 0.49 1.07 1.19
-2026-08-15 20:17:23.724 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
-Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
-2026-08-15 20:18:34.181 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
-2026-08-15 20:18:34.186 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
-[opendde] warm median 82.39s (min 82.37 / max 82.42), cold 84.6s, load 2s
-benchlock: opendde-beat-dgx-h200 released, rc=0, loadavg 1.29 1.29 1.25
-RC=0 2026-08-15T20:22:59+00:00

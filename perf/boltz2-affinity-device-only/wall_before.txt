@@ -1,8 +1,0 @@
-before structure rep1 rc=0 wall=28.600857403
-before structure rep2 rc=0 wall=28.061444563
-before structure rep3 rc=0 wall=29.070083213
-before structure rep4 rc=0 wall=28.062329703
-before affinity rep1 rc=0 wall=155.037666839
-before affinity rep2 rc=0 wall=153.638788108
-before affinity rep3 rc=0 wall=169.862503656
-before affinity rep4 rc=0 wall=160.158765029
