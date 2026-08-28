@@ -117,10 +117,9 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 556,
+      "declined": 316,
       "rejects": {
-        "l1_dest_is_faster:288x288x128": 76,
-        "l1_dest_is_faster:256x256x128": 480
+        "l1_dest_is_faster:256x256x128": 316
       }
     },
     {
@@ -129,9 +128,9 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 556,
+      "declined": 316,
       "rejects": {
-        "k_tiles=4:(4,1)": 556
+        "k_tiles=4:(4,1)": 316
       }
     },
     {
@@ -150,7 +149,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 1112,
+      "served": 632,
       "declined": 0,
       "rejects": null
     },
@@ -289,7 +288,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "1.25",
-      "served": 556,
+      "served": 316,
       "declined": 0,
       "rejects": null
     },

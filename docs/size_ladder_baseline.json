@@ -7954,9 +7954,9 @@
       }
     },
     "p300c": {
-      "recorded": "2026-08-27",
+      "recorded": "2026-08-28",
       "host": "tt-quietbox2",
-      "commit": "4b6bf0db",
+      "commit": "6adf7e04",
       "models": {
         "protenix-v1": {
           "grid": "11x10",
@@ -11837,14 +11837,14 @@
         },
         "openfold3": {
           "grid": "11x10",
-          "recorded": "2026-08-27",
+          "recorded": "2026-08-28",
           "host": "tt-quietbox2",
-          "commit": "4b6bf0db",
+          "commit": "6adf7e04",
           "runtime_s": {
-            "256": 15.8,
-            "512": 31.2,
-            "640": 49.8,
-            "768": 81.3
+            "256": 6.6,
+            "512": 27.8,
+            "640": 46.8,
+            "768": 77.7
           },
           "levers": {
             "256": {
@@ -11939,7 +11939,7 @@
                   "l1_dest_is_faster:256x256x64": 16,
                   "l1_dest_is_faster:256x256x128": 424
                 },
-                "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 440 calls on l1_dest_is_faster:256x256x128 x424, l1_dest_is_faster:256x256x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -11951,7 +11951,7 @@
                   "k_tiles=2:(2,1)": 16,
                   "k_tiles=4:(4,1)": 424
                 },
-                "reason": "declines all 440 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
+                "reason": "declines all 440 calls on k_tiles=4:(4,1) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -12185,7 +12185,7 @@
                   "l1_dest_is_faster:512x512x64": 16,
                   "l1_dest_is_faster:512x512x128": 424
                 },
-                "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 440 calls on l1_dest_is_faster:512x512x128 x424, l1_dest_is_faster:512x512x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -12197,7 +12197,7 @@
                   "k_tiles=2:(2,1)": 16,
                   "k_tiles=4:(4,1)": 424
                 },
-                "reason": "declines all 440 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
+                "reason": "declines all 440 calls on k_tiles=4:(4,1) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -12426,7 +12426,7 @@
                   "l1_dest_is_faster:640x640x64": 16,
                   "l1_dest_is_faster:640x640x128": 424
                 },
-                "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 440 calls on l1_dest_is_faster:640x640x128 x424, l1_dest_is_faster:640x640x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -12439,7 +12439,7 @@
                   "k_tiles=4:(4,4)": 842,
                   "k_tiles=4:(4,1)": 424
                 },
-                "reason": "declines all 1287 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
+                "reason": "declines all 1282 calls on k_tiles=4:(4,4) x842, k_tiles=4:(4,1) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -12822,29 +12822,29 @@
               }
             }
           },
-          "reps": 3,
-          "sigma_runtime_512": 0.1509,
+          "reps": 1,
+          "sigma_runtime_512": 0.0041,
           "exponents": {
             "256->512": {
-              "k": 0.982,
-              "tol": 0.533
+              "k": 2.075,
+              "tol": 0.5
             },
             "512->768": {
-              "k": 2.362,
-              "tol": 0.912
+              "k": 2.535,
+              "tol": 0.5
             }
           }
         },
         "nesso1": {
           "grid": "11x10",
-          "recorded": "2026-08-27",
+          "recorded": "2026-08-28",
           "host": "tt-quietbox2",
-          "commit": "4b6bf0db",
+          "commit": "6adf7e04",
           "runtime_s": {
-            "256": 4.72,
-            "512": 8.22,
-            "640": 10.44,
-            "768": 13.76
+            "256": 4.64,
+            "512": 8.07,
+            "640": 10.22,
+            "768": 13.64
           },
           "levers": {
             "256": {
@@ -12927,25 +12927,24 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 556,
+                "declined": 316,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:288x288x128": 76,
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 316
                 },
-                "reason": "declines all 556 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:288x288x128 x76: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
+                "reason": "declines all 316 calls on l1_dest_is_faster:256x256x128 x316: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 556,
+                "declined": 316,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,1)": 556
+                  "k_tiles=4:(4,1)": 316
                 },
-                "reason": "declines all 556 calls on k_tiles=4:(4,1) x556: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 316 calls on k_tiles=4:(4,1) x316: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -12960,7 +12959,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1112,
+                "served": 632,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -13076,7 +13075,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 556,
+                "served": 316,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -13648,9 +13647,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
+                "served": 80,
                 "declined": 480,
-                "frac": 0.16666666666666666,
+                "frac": 0.14285714285714285,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 480
@@ -13659,14 +13658,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 768,
+                "declined": 720,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,4)": 192,
-                  "k_tiles=4:(4,1)": 576
+                  "k_tiles=4:(4,4)": 160,
+                  "k_tiles=4:(4,1)": 560
                 },
-                "reason": "declines all 768 calls on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x192: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 720 calls on k_tiles=4:(4,1) x560, k_tiles=4:(4,4) x160: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -13681,7 +13680,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 1120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -13797,8 +13796,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 480,
-                "declined": 96,
-                "frac": 0.8333333333333334,
+                "declined": 80,
+                "frac": 0.8571428571428571,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -13814,11 +13813,11 @@
           "sigma_runtime_512": 0.0023,
           "exponents": {
             "256->512": {
-              "k": 0.8,
+              "k": 0.798,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.271,
+              "k": 1.294,
               "tol": 0.5
             }
           }

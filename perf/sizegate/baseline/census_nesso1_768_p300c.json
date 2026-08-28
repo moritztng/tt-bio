@@ -116,7 +116,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 96,
+      "served": 80,
       "declined": 480,
       "rejects": {
         "l1_dest_is_faster:256x256x128": 480
@@ -128,10 +128,10 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 768,
+      "declined": 720,
       "rejects": {
-        "k_tiles=4:(4,4)": 192,
-        "k_tiles=4:(4,1)": 576
+        "k_tiles=4:(4,4)": 160,
+        "k_tiles=4:(4,1)": 560
       }
     },
     {
@@ -150,7 +150,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 1152,
+      "served": 1120,
       "declined": 0,
       "rejects": null
     },
@@ -290,7 +290,7 @@
       "counter": null,
       "resolved": "1.25",
       "served": 480,
-      "declined": 96,
+      "declined": 80,
       "rejects": null
     },
     {
