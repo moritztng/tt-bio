@@ -179,10 +179,10 @@ The **rfd3-fusion** arm gates two size-conditioned RFD3 diffusion levers by thei
 predicate rather than by a number. Both are bit-exact where they serve and both decline
 silently: the atom attention's fused softmax needs the kernel to engage at the gathered key
 width, and the pair Transition's split first projection needs its third L1 resident to leave
-the chunk height alone. Both ship OFF (`RFD3_SOFTMAX_PV_FUSED`, `RFD3_FC1_SPLIT_SILU`) and the
-arm turns them on for its own folds, because what rots here is the guard, not the default: the
-predicates decide where each lever is bit-exact and they are what the next fold A/B will be run
-against. A regression in one is silent either way, and no other leg can see it — the gate's own
+the chunk height alone. Both ship ON (`RFD3_SOFTMAX_PV_FUSED`, `RFD3_FC1_SPLIT_SILU`) since the
+composed fold A/B measured 1.0671x at 685 tokens, and the arm forces them on for its own folds
+anyway, because what rots here is the guard and not the default: the predicates decide where each
+lever is bit-exact, and forcing keeps the arm reading the same thing if the default ever moves. A regression in one is silent either way, and no other leg can see it — the gate's own
 rfd3 spec is a 120-token binder where both levers correctly serve zero. So the arm censuses two
 designs at 4 timesteps and
 asserts opposite things about them: 685 tokens (`perf/dsfix/fixtures/rfd3_R4.json`, the size the

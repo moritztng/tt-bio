@@ -413,7 +413,7 @@ PVSTATS = [0, 0]                   # [served, declined], the shape `lever_census
 PVDECLINES = {}                    # reason -> count, so a decline is readable rather than silent
 PVSERVED = {}                      # key width -> count, the other half of the same census
 
-_PV_ENABLED = env_flag("RFD3_SOFTMAX_PV_FUSED", False)
+_PV_ENABLED = env_flag("RFD3_SOFTMAX_PV_FUSED", True)
 
 
 def set_pv_enabled(on: bool) -> bool:

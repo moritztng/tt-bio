@@ -5,7 +5,11 @@ p68, p73, p75, p85 and p91 each carry their own transcription of this loop, diff
 which flag they flip and which fixture they load. This module is that loop, parameterised. The
 protocol it enforces is the one those passes converged on and it is not optional:
 
-* one process, one lease, one `benchlock` hold, one **discarded** warmup fold;
+* one process, one lease, one `benchlock` hold, and one discarded warmup fold **per arm**. A
+  warmup warms the configuration it runs in, so a single `off` warmup leaves the `on` arm paying
+  first contact inside a measured rep. Both runs of the RFD3 composed fold showed it: the first
+  `on` rep was the slowest `on` rep, by 0.667 s and by 2.55 s, and neither `off` arm had any
+  first-rep ordering at all;
 * arms **interleaved**, because a fold gets faster as the card warms and an uninterleaved
   `off,off,on,on` reads that drift as the lever;
 * the **A/A control reported first** -- the two consecutive `off` reps -- so a delta inside the
@@ -68,10 +72,18 @@ def fold_ab(*, flag, set_enabled, counter, fixture, out, steps, arms, tag,
         print("[%s] cost-model prediction (an ESTIMATE, not a measurement): %+.3f s/design"
               % (tag, predicted_delta_s * (steps / 200.0)), flush=True)
 
-    set_enabled(False)
-    s, dig, _n = _fold(specs, "/tmp/%s_warm" % tag, steps, seed, weights)
-    print("[%s] warmup fold %.3f s (%s), discarded" % (tag, s, dig[:20]), flush=True)
-    warm = round(s, 3)
+    # One warmup per DISTINCT arm, in first-appearance order, all discarded. An all-`off` arm list
+    # runs exactly one, so every artifact written before this ran is unchanged in protocol.
+    warmups = []
+    for arm in dict.fromkeys(arms):
+        set_enabled(arm == "on")
+        before = counter[0]
+        s, dig, _n = _fold(specs, "/tmp/%s_warm_%s" % (tag, arm), steps, seed, weights)
+        warmups.append({"arm": arm, "sampler_s": round(s, 3), "cif_sha256_16": dig,
+                        "served_calls": counter[0] - before})
+        print("[%s] warmup %-3s %9.3f s  %s  served %d, discarded"
+              % (tag, arm, s, dig[:20], warmups[-1]["served_calls"]), flush=True)
+    warm = warmups[0]["sampler_s"]
 
     rows = []
     for i, arm in enumerate(arms):
@@ -102,6 +114,10 @@ def fold_ab(*, flag, set_enabled, counter, fixture, out, steps, arms, tag,
     aa_spread = abs(aa[1] - aa[0]) if len(aa) > 1 else None
     digs = {a: sorted({r["cif_sha256_16"] for r in rows if r["arm"] == a}) for a in set(arms)}
     exact = len({d for v in digs.values() for d in v}) == 1
+    # The warmups are gated separately: `bit_exact` keeps counting measured reps only, so the 13
+    # drivers on this harness report the same field they always did.
+    warm_match = len({w["cif_sha256_16"] for w in warmups}
+                     | {d for v in digs.values() for d in v}) == 1
 
     # The A/A control prints BEFORE either arm's median, because it is what decides whether the
     # medians mean anything.
@@ -120,10 +136,12 @@ def fold_ab(*, flag, set_enabled, counter, fixture, out, steps, arms, tag,
               % (d, off_med / on_med,
                  "INSIDE the A/A band, NOT a result" if inside else "outside the A/A band"))
     print("digests %s  ->  %s" % (digs, "BIT-EXACT" if exact else "DIVERGES"))
+    print("warmup digests match the measured reps: %s" % warm_match)
 
     rec = {"flag": flag, "rows": rows, "num_timesteps": steps, "seed": seed, "arms": arms,
            "fixture": str(fixture), "arms_distinct": arms_real,
-           "discarded_warmup_s": warm, "bit_exact": exact, "digests": digs,
+           "discarded_warmup_s": warm, "warmups": warmups,
+           "warmup_digests_match": warm_match, "bit_exact": exact, "digests": digs,
            "aa_control_s": aa, "aa_spread_s": aa_spread,
            "off_median_s": off_med, "off_min_s": off_lo, "off_max_s": off_hi,
            "on_median_s": on_med, "on_min_s": on_lo, "on_max_s": on_hi,
