@@ -2,6 +2,7 @@
 import glob
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -64,6 +65,24 @@ def boltzgen_checkpoint(filename: str, env_var: str | None = None) -> Path:
 # keeps a new test from reintroducing it.
 _DEVICE_ENV = ("TT_VISIBLE_DEVICES", "TT_BIO_LEASE_CARDS", "TT_BIO_LEASE_HOLDER",
                "TT_BIO_LOGICAL_DEVICE_ID")
+
+
+# get_device() caches a module-global handle and holds an EXCLUSIVE flock on the card for the
+# life of the process that opened it. A test file that folds in-process therefore makes the
+# pytest parent the lease holder, and every later test that shells out to run a device fold
+# blocks on that lease until it times out -- test_protenix_confidence opening the device in
+# process is enough to take the four protenix fold legs after it down with it, each one
+# reported as a failure a long way from the file that caused it.
+#
+# cleanup() closes the chip, releases the lease, and bumps device_generation(), which every
+# module-level device-tensor cache is already required to key on. So the next module that wants
+# a card opens a fresh one and pays only the open.
+@pytest.fixture(scope="module", autouse=True)
+def _release_device_after_module():
+    yield
+    tt = sys.modules.get("tt_bio.tenstorrent")
+    if tt is not None and getattr(tt, "_device", None) is not None:
+        tt.cleanup()
 
 
 @pytest.fixture(autouse=True)
