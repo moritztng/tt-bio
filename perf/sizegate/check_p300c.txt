@@ -1,5 +1,4 @@
 [release-gate] granted card(s) [0]
-scripts/release_gate.py: WARNING: tt-smi not found on PATH or in ~/.local/bin; card detection falling back to sysfs and may report 'unknown' (NO BASELINE). Add tt-smi to PATH (e.g. export PATH=$HOME/.local/bin:$PATH) and re-run.
 
 ======================================================================
 [size-ladder] checking for card p300c: boltz2, esmfold2, protenix-v1, protenix-v2, openfold3, opendde, rf3, nesso1, openbind at rungs 256,512,640,768
@@ -10,16 +9,14 @@ scripts/release_gate.py: WARNING: tt-smi not found on PATH or in ~/.local/bin; c
 RELEASE GATE — size-ladder (rungs 256,512,640,768, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
 ##############################################################################
 model              256aa    512aa    640aa    768aa  k256->512  k512->768     wall  result
-boltz2              5.2s    18.0s    27.5s    39.4s       1.79       1.93    5452s  PASS
-esmfold2           15.9s    40.1s    66.9s   110.1s       1.33       2.49    5452s  PASS
-protenix-v1         6.9s    14.8s    23.1s    30.2s       1.10       1.76    5452s  PASS
-protenix-v2        15.5s    45.9s    76.1s   107.0s       1.57       2.09    5452s  PASS
-openfold3           7.3s    28.0s    47.6s    79.3s       1.94       2.57    5452s  FAIL (openfold3 256->512: exponent 0.98 -> 1.94 outside ±0.53)
-    FAIL openfold3 256->512: exponent 0.98 -> 1.94 outside ±0.53
-opendde            21.7s    86.6s   125.4s   182.0s       2.00       1.83    5452s  PASS
-rf3                23.5s    55.1s    84.0s   100.8s       1.23       1.49    5452s  PASS
-nesso1              4.7s     8.1s    10.3s    13.7s       0.79       1.29    5452s  FAIL (nesso1/256 PAIR_TRANSPOSE_VIA_ROW_MAJOR: decline clause ['l1_dest_is_faster:256x256x128', 'l1_dest_is_faster:288x288x128'] -> ['l1_dest_is_faster:256x256x128'])
-    FAIL nesso1/256 PAIR_TRANSPOSE_VIA_ROW_MAJOR: decline clause ['l1_dest_is_faster:256x256x128', 'l1_dest_is_faster:288x288x128'] -> ['l1_dest_is_faster:256x256x128']
-openbind            6.7s    27.7s    45.4s    77.6s       2.05       2.54    5452s  PASS
+boltz2              5.2s    17.9s    27.6s    39.4s       1.78       1.95    4375s  PASS
+esmfold2           16.3s    53.7s    67.0s   112.1s       1.72       1.81    4375s  PASS
+protenix-v1         7.0s    14.7s    20.6s    30.2s       1.07       1.78    4375s  PASS
+protenix-v2        15.5s    45.5s    76.3s   111.5s       1.55       2.21    4375s  PASS
+openfold3           6.8s    28.0s    47.1s    80.1s       2.04       2.59    4375s  PASS
+opendde            24.9s    73.8s   127.3s   181.6s       1.57       2.22    4375s  PASS
+rf3                22.3s    48.9s    72.9s   101.2s       1.13       1.79    4375s  PASS
+nesso1              4.7s     8.1s    10.2s    13.7s       0.79       1.30    4375s  PASS
+openbind            6.6s    27.7s    45.4s    77.9s       2.07       2.55    4375s  PASS
 ##############################################################################
-GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record
+GATE PASS — lever census and scaling exponents match the recorded baseline at every rung
