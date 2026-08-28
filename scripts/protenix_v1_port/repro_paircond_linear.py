@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Standalone repro attempt for the protenix-v1 512 aa wedge: bare ttnn, no tt_bio model.
 
-The wedging op is tt_bio/protenix.py:2081, a ttnn.linear on CORE_GRID_MAIN. At 512 tokens
+The wedging op is tt_bio/protenix.py::_diffusion_pair_cond, a ttnn.linear on CORE_GRID_MAIN. At 512 tokens
 protenix-v1 runs (N*N, 256) x (256, 128) and hangs intermittently; protenix-v2 runs
 (N*N, 512) x (512, 256) on the same line and does not. This drives just that matmul in a loop
 at both shapes so the failure can be attributed to ttnn without tt-bio in the picture.
