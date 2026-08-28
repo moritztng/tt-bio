@@ -1,0 +1,36 @@
+{
+  "all_not_imported": true,
+  "card": "2 (p300c, tt-quietbox2)",
+  "findings": [],
+  "rfd3_rows": {
+    "RFD3_FC1_SPLIT_SILU": {
+      "declined": null,
+      "frac": null,
+      "how": "stats",
+      "resolved": "not-imported",
+      "served": null
+    },
+    "RFD3_FUSED_SCORES": {
+      "declined": null,
+      "frac": null,
+      "how": "stats",
+      "resolved": "not-imported",
+      "served": null
+    },
+    "RFD3_SOFTMAX_PV_FUSED": {
+      "declined": null,
+      "frac": null,
+      "how": "stats",
+      "resolved": "not-imported",
+      "served": null
+    },
+    "RFD3_SPARSE_BIAS": {
+      "declined": null,
+      "frac": null,
+      "how": "stats",
+      "resolved": "not-imported",
+      "served": null
+    }
+  },
+  "runtime_s": 10.7
+}
