@@ -1,5 +1,7 @@
 """tri_att_end's real localized error share in OpenDDE's 48-block Pairformer.
 
+Measured tables: `perf/opendde_trimul_mask/trimul_mask_axis.txt`.
+
 Pass 1 of `opendde-pairformer-z-parity-drop` localized the port's own 13% term to
 TriangleAttention starting-node and had to exclude the ending-node column: the device's
 ending variant transposes its update back to the original frame before the tap reads it
