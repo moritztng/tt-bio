@@ -77,6 +77,10 @@ def test_all_blocked_run_is_inconclusive_not_pass(tmp_path, monkeypatch, capsys)
     ckpt = tmp_path / "of3-p2-155k.pt"
     ckpt.write_bytes(b"x")  # preflight only checks existence
     monkeypatch.setenv("OF3_CKPT", str(ckpt))
+    # Hold the card --workers asks for. The preflight refuses a pool wider than the grant, and
+    # the grant is read from TT_VISIBLE_DEVICES, so a card-pinned worker running this suite saw
+    # that refusal instead of the verdict logic under test.
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "0")
     monkeypatch.setattr(mod, "_incomplete_fixture_seeds",
                         lambda leg, seeds: [f"seed{s}" for s in seeds])
     monkeypatch.setattr(sys, "argv", ["full_parity_gate.py",
@@ -99,6 +103,7 @@ def test_scored_leg_plus_blocked_leg_still_passes(tmp_path, monkeypatch, capsys)
     ckpt = tmp_path / "of3-p2-155k.pt"
     ckpt.write_bytes(b"x")
     monkeypatch.setenv("OF3_CKPT", str(ckpt))
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "0")  # see the sibling test above
     monkeypatch.setattr(mod, "_incomplete_fixture_seeds",
                         lambda leg, seeds: ["seed0"] if leg.id == "openfold3-8hel-nomsa" else [])
     monkeypatch.setattr(sys, "argv", ["full_parity_gate.py",
