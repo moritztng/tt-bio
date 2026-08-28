@@ -1,0 +1,9 @@
+{"rep": 0, "loadavg_before": 0.0, "runtime_s": 4.4, "wall": 15.59, "error": null}
+{"rep": 1, "loadavg_before": 0.15, "runtime_s": 4.5, "wall": 14.29, "error": null}
+{"rep": 2, "loadavg_before": 0.26, "runtime_s": 4.4, "wall": 13.88, "error": null}
+{"rep": 3, "loadavg_before": 1.63, "runtime_s": 4.4, "wall": 14.34, "error": null}
+{"rep": 4, "loadavg_before": 2.6, "runtime_s": 4.4, "wall": 14.54, "error": null}
+{"rep": 5, "loadavg_before": 2.47, "runtime_s": 4.4, "wall": 14.59, "error": null}
+{"rep": 6, "loadavg_before": 2.06, "runtime_s": 4.4, "wall": 14.69, "error": null}
+{"rep": 7, "loadavg_before": 1.99, "runtime_s": 4.5, "wall": 14.84, "error": null}
+{"n": 8, "min": 4.4, "median": 4.4, "max": 4.5, "spread_pct": 2.3}

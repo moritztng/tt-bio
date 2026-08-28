@@ -1,0 +1,6 @@
+{"rep": 0, "loadavg_before": 3.6, "runtime_s": 9.5, "wall": 28.41, "error": null}
+{"rep": 1, "loadavg_before": 10.33, "runtime_s": 9.6, "wall": 28.87, "error": null}
+{"rep": 2, "loadavg_before": 13.45, "runtime_s": 9.9, "wall": 28.84, "error": null}
+{"rep": 3, "loadavg_before": 15.42, "runtime_s": 10.0, "wall": 29.35, "error": null}
+{"rep": 4, "loadavg_before": 16.44, "runtime_s": 9.9, "wall": 28.26, "error": null}
+{"n": 5, "min": 9.5, "median": 9.9, "max": 10.0, "spread_pct": 5.3}
