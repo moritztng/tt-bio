@@ -26,7 +26,7 @@ reimplemented, so the only thing under test is the loop and the denoiser.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import torch
 

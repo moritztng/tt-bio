@@ -25,7 +25,6 @@ golden and replayed on device -- identical isolation to the encoder leg. Padded 
 positions (n_atom -> NP = nb*N_QUERY) are zeroed via ``atom_mask_col`` so the additive
 broadcast and the per-row layer_norm do not leak into real atoms.
 """
-import torch
 import ttnn
 
 from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, pad_dim

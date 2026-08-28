@@ -86,17 +86,6 @@ def set_enabled(on):
     return was
 
 
-def set_config(q_block=None, buckets=None):
-    """Override the block size and the bucket set, for a sweep. Returns the previous pair."""
-    global _Q_BLOCK, _BUCKETS
-    was = (_Q_BLOCK, _BUCKETS)
-    if q_block is not None:
-        _Q_BLOCK = int(q_block)
-    if buckets is not None:
-        _BUCKETS = tuple(sorted(int(b) for b in buckets))
-    return was
-
-
 def config():
     return _Q_BLOCK, _BUCKETS
 

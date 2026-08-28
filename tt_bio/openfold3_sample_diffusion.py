@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import CORE_GRID_MAIN, _dtype, pad_dim
+from .tenstorrent import _dtype, pad_dim
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub

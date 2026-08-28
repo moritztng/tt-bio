@@ -682,7 +682,7 @@ def foldseek_3di(pdb_path: str, foldseek_bin: str | None = None, chains: list | 
     chain, exactly what SaProt's fused tokenizer needs. ``struc`` uses the 20
     Foldseek 3Di states (lower-cased) plus ``#`` for masked/unknown residues.
     """
-    import subprocess, tempfile, re
+    import subprocess, tempfile
     bin_ = foldseek_bin or find_foldseek()
     if not os.path.isfile(pdb_path):
         raise ValueError(f"structure file not found: {pdb_path}")

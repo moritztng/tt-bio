@@ -17,7 +17,7 @@ import torch
 import ttnn
 
 from tt_bio.rf3.remap_encoder import ADALN, ATTENTION
-from tt_bio.tenstorrent import CORE_GRID_MAIN, DiffusionTransformer, Module, _dtype
+from tt_bio.tenstorrent import DiffusionTransformer, Module, _dtype
 
 N_HEADS = 16
 C_TOKEN = 768

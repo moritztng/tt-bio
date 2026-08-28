@@ -24,7 +24,7 @@ import ttnn
 from tt_bio.envflags import env_flag
 from tt_bio.rf3.remap import (PAIRFORMER_DIMS, PAIRFORMER_FLAGS,
                               remap_pairformer_stack)
-from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer, _dtype
+from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer
 
 EPS = 1e-5
 

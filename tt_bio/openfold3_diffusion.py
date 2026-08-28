@@ -30,10 +30,9 @@ c_fourier_emb=256, relpos=139) match but the topology is OF3's.
 """
 from __future__ import annotations
 
-import torch
 import ttnn
 
-from .tenstorrent import Module, CORE_GRID_MAIN
+from .tenstorrent import Module
 
 
 class _SwiGLUTransition(Module):

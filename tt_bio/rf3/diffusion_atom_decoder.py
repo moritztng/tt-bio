@@ -15,7 +15,6 @@ for a real target is the difference between one matmul per token and one per ato
 
 from __future__ import annotations
 
-import torch
 import ttnn
 
 from tt_bio.rf3.atom_encoder import ATOM_WINDOW, C_ATOM, N_HEADS, windowed_bias

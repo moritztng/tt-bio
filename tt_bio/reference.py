@@ -8,7 +8,6 @@ from math import sqrt
 from typing import List, Optional, Sequence, Tuple
 
 import torch
-import torch.nn.functional as F
 from torch import nn, Tensor
 from torch.nn import Module
 

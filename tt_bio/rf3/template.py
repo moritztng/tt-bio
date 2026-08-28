@@ -24,7 +24,6 @@ level). The checkpoint is the source of truth.
 
 from __future__ import annotations
 
-import math
 
 import torch
 import ttnn
