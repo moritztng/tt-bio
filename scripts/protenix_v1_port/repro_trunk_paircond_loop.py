@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Highest-fidelity cheap reproducer for the protenix-v1 >=512 aa wedge.
 
-The wedge is `_diffusion_pair_cond`'s `linear_no_bias_z` matmul (tt_bio/protenix.py:2081).
+The wedge is `linear_no_bias_z` in tt_bio/protenix.py::_diffusion_pair_cond.
 Driving that method alone -- with the real weights, the real captured z_trunk/relp, the real
 FLOAT32 dtype and compute_kernel_config, and with DRAM both occupied and fragmented -- does NOT
 reproduce it (see perf/pxv1/hang_op_512_pc0.txt, four negative attempts). The one ingredient

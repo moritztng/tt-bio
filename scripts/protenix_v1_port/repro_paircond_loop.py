@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tight-loop repro for the protenix-v1 512 aa wedge, driving the REAL pair-cond code path.
 
-The wedge is `_diffusion_pair_cond`'s `linear_no_bias_z` matmul (tt_bio/protenix.py:2081).
+The wedge is `linear_no_bias_z` in tt_bio/protenix.py::_diffusion_pair_cond.
 An earlier bare-ttnn repro of that matmul alone did NOT reproduce it -- but it used bfloat16,
 and the real op runs in FLOAT32 (the diffusion pair branch is fp32 by default:
 PROTENIX_DIFFUSION_FP32_DEVICE, protenix.py:885). Rather than guess which of dtype /
