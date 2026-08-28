@@ -207,6 +207,13 @@ class Leg:
     kind: str
     yaml: str
     fixture: str = ""
+    msa_fixture: str = ""        # staged-MSA legs only: source the a3m from ANOTHER fixture.
+                                 # Two legs that fold the same target through different
+                                 # checkpoints must fold it through the same alignment bytes to
+                                 # stay comparable. Naming the source here makes that structural,
+                                 # where a copied file only promises it in prose and has to be
+                                 # published twice (protenix-v1's copy never was, so its leg
+                                 # could not run from a clean checkout).
     seeds: tuple = (0, 1, 2, 3, 4)
     device_args: tuple = ()
     msa: str = "none"
@@ -332,12 +339,13 @@ LEGS = [
     # --- Protenix-v1 structure leg (cached fixture, device-only per release) ---
     # Upstream's own Protenix v0.5.0 base checkpoint on the same tt_bio/protenix.py class as
     # protenix-v2, at half the pair width (c_z 128) and 4 trunk recycles instead of 10. Same
-    # target and the same msa.a3m BYTES as its protenix-v2 sibling above (157 rows after the
-    # reference's own trim), so the two legs differ in checkpoint and nothing else -- the
-    # discipline the openfold3 and openbind rows use to stay comparable.
+    # target, and msa_fixture points at the protenix-v2 sibling's a3m so the two legs read the
+    # same alignment bytes (157 rows after the reference's own trim) and differ in checkpoint and
+    # nothing else -- the discipline the openfold3 and openbind rows use to stay comparable.
     # legacy_rdx for the reason the protenix-v2 legs carry it: no torch path in the port.
     Leg("protenix-v1-prot-msa", "protenix-v1", "structure", "examples/prot.yaml",
         fixture="protenix-v1/prot/msa-server_200step_5sample_4cycle_fp32cpu",
+        msa_fixture="protenix-v2/prot/msa-server_200step_5sample_10cycle_bf16",
         committed_json="protenix-v1.json", target_id="prot",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
         msa="staged", legacy_rdx=True),
@@ -736,8 +744,8 @@ def preflight_check(legs: list) -> list:
                         f"{leg.id}: target_id '{leg.target_id}' not in fixture ids {sorted(have)} "
                         f"— device fold and reference will not match (pharma_parity id intersection)")
         if leg.msa == "staged":
-            src = _fixture_dir(leg.fixture) / "msa.a3m"
-            multi = _fixture_dir(leg.fixture) / "msa"
+            src = _msa_fixture_dir(leg) / "msa.a3m"
+            multi = _msa_fixture_dir(leg) / "msa"
             if not src.exists() and not (multi.is_dir() and any(multi.glob("*.a3m"))):
                 problems.append(f"{leg.id}: staged-MSA leg missing {src} (or a {multi}/ dir of "
                                 f"per-chain a3ms) — {_FIXTURE_FETCH_HINT}")
@@ -795,6 +803,15 @@ def _yaml_protein_seq(yaml_path: Path) -> str | None:
 from tt_bio.cache import seq_hash as _seq_hash  # noqa: E402  (after the repo-root path insert)
 
 
+def _msa_fixture(leg: Leg) -> str:
+    """The fixture a staged-MSA leg takes its a3m from: its own unless it names another."""
+    return leg.msa_fixture or leg.fixture
+
+
+def _msa_fixture_dir(leg: Leg) -> Path:
+    return _fixture_dir(_msa_fixture(leg))
+
+
 def stage_msa(leg: Leg, workdir: Path) -> tuple[Path | None, list[str]]:
     """Stage the fixture's MSA for the device fold; return (msa_dir, extra_args).
 
@@ -808,10 +825,10 @@ def stage_msa(leg: Leg, workdir: Path) -> tuple[Path | None, list[str]]:
     """
     if leg.msa != "staged":
         return None, []
-    fdir = _fixture_dir(leg.fixture)
+    fdir = _msa_fixture_dir(leg)
     multi = fdir / "msa"
     if multi.is_dir():
-        msa_dir = workdir / "msa" / leg.fixture.replace("/", "__")
+        msa_dir = workdir / "msa" / _msa_fixture(leg).replace("/", "__")
         msa_dir.mkdir(parents=True, exist_ok=True)
         for src in sorted(multi.glob("*.a3m")):
             dst = msa_dir / src.name
@@ -829,7 +846,7 @@ def stage_msa(leg: Leg, workdir: Path) -> tuple[Path | None, list[str]]:
     # examples/ubq.yaml but pin different reference a3m bytes, and the copy below is
     # first-writer-wins -- so one flat msa/<seqhash>.a3m silently fed the first leg's
     # reference MSA to the second, comparing it against a reference built from other bytes.
-    msa_dir = workdir / "msa" / leg.fixture.replace("/", "__")
+    msa_dir = workdir / "msa" / _msa_fixture(leg).replace("/", "__")
     msa_dir.mkdir(parents=True, exist_ok=True)
     dst = msa_dir / f"{_seq_hash(seq)}.a3m"
     if not dst.exists():

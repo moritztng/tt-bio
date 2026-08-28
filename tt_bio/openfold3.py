@@ -20,7 +20,6 @@ golden in ``~/of3_ref_out.pkl`` exactly as the Pairformer / MSA legs were in P3-
 
 from __future__ import annotations
 
-import torch
 import ttnn
 
 from tt_bio.tenstorrent import Module

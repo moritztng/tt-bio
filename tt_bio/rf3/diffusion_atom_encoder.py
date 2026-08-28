@@ -23,7 +23,7 @@ import torch
 import ttnn
 
 from tt_bio.rf3.atom_encoder import (ATOM_KEYS, ATOM_WINDOW, AtomAttentionEncoder)
-from tt_bio.tenstorrent import CORE_GRID_MAIN, _dtype, batched_matmul
+from tt_bio.tenstorrent import CORE_GRID_MAIN, batched_matmul
 
 C_TOKEN_DIFFUSION = 768
 

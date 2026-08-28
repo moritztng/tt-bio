@@ -24,7 +24,6 @@ with ``a != s``. See ``scripts/of3_atom_transformer_golden.py`` for the golden a
 """
 from __future__ import annotations
 
-import torch
 import ttnn
 
 from . import tenstorrent as _T

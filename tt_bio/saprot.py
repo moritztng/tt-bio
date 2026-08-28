@@ -39,19 +39,15 @@ from tt_bio.tenstorrent import (
     WeightScope,
     _dtype,
     _sdpa_program_config_for_lengths,
-    get_device,
 )
 from tt_bio.esmc import (
     rope_tables,
     _rope,
-    _batch_tokens,
     BUCKET,
     bucket_token_axis,
     _shard_by_length,
     _reassemble,
     _thread_cap_env,
-    _shm_dir,
-    _read_log_tail,
     _await_shard,
 )
 
@@ -682,7 +678,7 @@ def foldseek_3di(pdb_path: str, foldseek_bin: str | None = None, chains: list | 
     chain, exactly what SaProt's fused tokenizer needs. ``struc`` uses the 20
     Foldseek 3Di states (lower-cased) plus ``#`` for masked/unknown residues.
     """
-    import subprocess, tempfile, re
+    import subprocess, tempfile
     bin_ = foldseek_bin or find_foldseek()
     if not os.path.isfile(pdb_path):
         raise ValueError(f"structure file not found: {pdb_path}")

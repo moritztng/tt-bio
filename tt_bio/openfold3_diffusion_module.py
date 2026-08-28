@@ -36,7 +36,6 @@ zeroed at padded query positions by ``zij_mask``.
 """
 import math
 
-import torch
 import ttnn
 
 from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _cached, pad_dim

@@ -33,7 +33,6 @@ from tt_bio.boltzgen.data.data import (
     Structure,
     StructureInfo,
     Target,
-    Token,
     Tokenized,
 )
 from tt_bio.boltzgen.data.parse.pdb_parser import parse_pdb

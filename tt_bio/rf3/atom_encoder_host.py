@@ -84,31 +84,6 @@ def atom_to_token_mean(f: dict, n_atom: int, n_token: int) -> torch.Tensor:
     return m / m.sum(-1, keepdim=True).clamp(min=1.0)
 
 
-def pad_to_window(x: torch.Tensor, n_atom: int, dims: tuple[int, ...],
-                  value: float = 0.0) -> torch.Tensor:
-    """Pad the named atom dims up to a multiple of ATOM_WINDOW."""
-    n_pad = (-n_atom) % ATOM_WINDOW
-    if not n_pad:
-        return x
-    for d in dims:
-        pad = [0, 0] * (x.dim() - 1 - d) + [0, n_pad]
-        x = torch.nn.functional.pad(x, pad, value=value)
-    return x
-
-
-def key_window_slices(n_atom_padded: int) -> list[tuple[int, int]]:
-    """Per query block, the [start, stop) key span in the LEFT-PADDED bias tensor.
-
-    RF3 centres a 128-key window on each 32-query block: block k covers atoms
-    [32k, 32k+32) and attends to [32k-48, 32k+80). Shifting the whole bias right by
-    48 makes every such window a contiguous slice [32k, 32k+128), so the gather is a
-    slice rather than an index op -- and the shifted-in columns are exactly the
-    out-of-range slots, which get the -1e9 fill.
-    """
-    k = n_atom_padded // ATOM_WINDOW
-    return [(i * ATOM_WINDOW, i * ATOM_WINDOW + ATOM_KEYS) for i in range(k)]
-
-
 PAD_LEFT = 48   # (ATOM_KEYS - ATOM_WINDOW) // 2
 PAD_RIGHT = ATOM_KEYS - ATOM_WINDOW - PAD_LEFT
 

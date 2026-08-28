@@ -1574,7 +1574,7 @@ class ConfidenceHead:
         it on device regresses the pairformer input at small N), then upload as
         bf16 ONCE. Returned as a resident (1,N,N,256) device tensor; reuse across
         samples so the (N,N,256) upload is paid once per fold, not per sample."""
-        import torch, torch.nn.functional as F, ttnn
+        import torch.nn.functional as F, ttnn
         z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
                   + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0)).unsqueeze(0).contiguous()
         return ttnn.from_torch(z_base.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)

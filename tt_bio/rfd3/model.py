@@ -2635,12 +2635,6 @@ def _scaled_distogram_bins(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_
     return torch.bucketize(D_LL, bins).to(torch.int32)
 
 
-def _bucketize_scaled_distogram(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_bins=65):
-    """One-hot [B, N, N, n_bins] form, kept as the host reference for the device path."""
-    bin_idxs = _scaled_distogram_bins(R_L, min_dist, max_dist, sigma_data, n_bins)
-    return torch.nn.functional.one_hot(bin_idxs.long(), num_classes=n_bins).float()
-
-
 class DiffusionTokenEncoder(Module):
     """RFD3 DiffusionTokenEncoder: self-conditioning distogram + noise distogram -> 2-block
     no-triangle Pairformer. Reuses the verified PairformerBlock (c_s=384, c_z=128, n_head=16)."""
@@ -3205,12 +3199,6 @@ def _pack_atoms_dev_core(q, idx_dev, valid):
         packed = ttnn.typecast(packed, orig_dt)
     packed = ttnn.reshape(packed, (batch, valid.shape[0], valid.shape[1], channels))
     return ttnn.to_layout(packed, ttnn.TILE_LAYOUT)
-
-
-def _pack_atoms_dev(dev, q, pack_indices, valid):
-    idx = ttnn.from_torch(pack_indices.to(torch.int32).reshape(1, -1), layout=ttnn.ROW_MAJOR_LAYOUT,
-                          device=dev, dtype=ttnn.uint32)
-    return _pack_atoms_dev_core(q, idx, valid)
 
 
 def _scatter_mean(emb, tok_idx, I):

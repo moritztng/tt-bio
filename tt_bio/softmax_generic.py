@@ -363,12 +363,6 @@ def set_enabled(on: bool) -> bool:
 _SMALL_OK = env_flag("RFD3_SOFTMAX_BF16_SMALL", False)
 
 
-def set_small_enabled(on: bool) -> bool:
-    global _SMALL_OK
-    prev, _SMALL_OK = _SMALL_OK, bool(on)
-    return prev
-
-
 def eligible(x, dtype) -> bool:
     """Only the shape family this module transcribes: rank-4, fp32 in, bf16 out, tile-aligned W."""
     if not _ENABLED:

@@ -157,7 +157,6 @@ from tt_bio.worker import SHARED_OUTPUT_PREFIX, run_worker_loop
 # Design / UW) ship no HF repo; the registry points at the same files.ipd.uw.edu
 # URLs RosettaCommons' `foundry install` reads from its checkpoint_registry.py, so
 # users never need `rc-foundry` installed.
-from tt_bio.weights import BOLTZ2_REPO, PROTENIX_REPO
 
 # Single source of truth for the predict output-folder prefix. Each supported
 # --model maps to a model-named results folder; a model not listed falls back to
@@ -238,12 +237,6 @@ def ensure_rfd3_weights(cache: Path) -> Path:
     extracted weights are ever read again. See tt_bio.weights for why the extraction
     is staged before the checkpoint is deleted."""
     return weights.fetch("rfd3", root=cache)
-
-
-def ensure_rf3_weights(cache: Path) -> Path:
-    """The RF3 checkpoint. Unlike RFD3 the whole file is loaded (RF3 reads the full
-    `shadow.` EMA tree), so there is nothing to extract and discard."""
-    return weights.fetch("rf3", root=cache)
 
 
 def download_mols(cache: Path) -> Path:
@@ -2181,8 +2174,6 @@ def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     explicit a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in
     ``msa_dir`` (written by the same MSA generation ESMFold2/Boltz-2 use). Mirrors
     resolve_msa's candidate order."""
-    import hashlib
-
     candidates = []
     if msa_spec:
         candidates.append(Path(msa_spec).expanduser())
