@@ -243,7 +243,9 @@ _PAIR_TRANSITION_L1 = env_flag("RFD3_PAIR_TRANSITION_L1", True)
 # Isolated, per chunk: 2.02-3.86x at the four body/tail keys of the census fixture, every leg
 # bit-exact against the shipped activated output. 63.39 -> 24.30 ms/step, -39.09 ms/step. That is
 # an isolated per-op figure and `tt-bio-isolated-op-timing-oversync-inflates-cost` applies to both
-# arms of it, so the fold A/B is the number that counts.
+# arms of it, so the fold A/B is the number that counts. That fold has run: with L5b on in the same
+# fold, -6.206 s/design and 1.0671x at 685 tokens, bit-exact over seven reps
+# (`perf/p132/both_ab_R4_warmfix.json`). Default ON since.
 #
 # Almost all of it is the L1 residency, not the pinned config. With the output left in DRAM the
 # split is 1.11x at 704 tokens and 0.91x -- a LOSS -- at 1024, where calibration finds nothing to
@@ -251,7 +253,7 @@ _PAIR_TRANSITION_L1 = env_flag("RFD3_PAIR_TRANSITION_L1", True)
 # (perf/p130/fc1_above_free_window.json). So the lever is all-or-nothing: `Transition.__call__`
 # takes the split only where `fc1`'s output can join `b` and `m` in L1 without costing an extra
 # chunk call, which is every size at hidden=256 and up to 693 tokens at hidden=512.
-_FC1_SPLIT_SILU = env_flag("RFD3_FC1_SPLIT_SILU", False)
+_FC1_SPLIT_SILU = env_flag("RFD3_FC1_SPLIT_SILU", True)
 FC1STATS = [0, 0]                  # [served, declined], the shape `lever_census.LEVERS`
                                    # reads, so an A/B arm cannot silently decline
 FC1SERVED = {}                     # shape -> count, for the calls that got both halves
@@ -2026,8 +2028,9 @@ class RFD3AtomBlock(Module):
                 # normalised row to DRAM, so neither the 294.3 MB attention write nor the PV
                 # matmul's read of it happens. It declines -- returning None -- on every shape
                 # where it cannot reproduce `attn_value_matmul`'s accumulation grouping bit for
-                # bit; see `softmax_generic.pv_classify`. Default OFF behind
-                # `RFD3_SOFTMAX_PV_FUSED` until a fold A/B has run.
+                # bit; see `softmax_generic.pv_classify`. Default ON, behind
+                # `RFD3_SOFTMAX_PV_FUSED`: composed with the split `fc1` it is -6.206 s/design and
+                # 1.0671x at 685 tokens (`perf/p132/both_ab_R4_warmfix.json`).
                 fused_pv = softmax_generic.softmax_pv_fused(scores, vv, dt, ckc)
                 if fused_pv is not None:
                     ttnn.deallocate(scores)
