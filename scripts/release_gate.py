@@ -2198,13 +2198,18 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
                 continue
             old = ((old_levers or {}).get(rung, {}).get(flag, {})).get("reason", "")
             if old and not old.startswith("TODO"):
-                e["reason"] = old
+                # Carry the EXPLANATION forward, re-measure the evidence. A reason opens with
+                # the counts and clause it was written against, and carrying that verbatim
+                # onto a fresh entry states numbers the entry beside it contradicts: nesso1/256
+                # kept "declines all 556 calls on ... l1_dest_is_faster:288x288x128 x76" on an
+                # entry that reads 325 declines and has no 288 clause at all. The judgement is
+                # the human part and survives a re-record; the numbers are a measurement and
+                # must not.
+                head, sep, why = old.partition(": ")
+                e["reason"] = (_size_ladder_reason_evidence(e) + ": " + why
+                               if sep and head.startswith("declines all ") else old)
             else:
-                clause = ", ".join(f"{k} x{v}" for k, v in
-                                   sorted((e.get("rejects") or {}).items(),
-                                          key=lambda kv: -kv[1])[:3])
-                e["reason"] = ("TODO: say why this is legitimate at this size"
-                               + (f" (declines on {clause})" if clause else ""))
+                e["reason"] = _size_ladder_lever_todo(e)
                 todo += 1
     return todo
 
@@ -2260,11 +2265,23 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
                                       ("recorded", "host", "commit") if base_model.get(k))}
 
 
+def _size_ladder_clause_str(entry: dict, top: int = 0) -> str:
+    """The clause a lever declined on, biggest first: `flag:shape xN, ...`."""
+    items = sorted((entry.get("rejects") or {}).items(), key=lambda kv: -kv[1])
+    return ", ".join(f"{k} x{v}" for k, v in (items[:top] if top else items))
+
+
+def _size_ladder_reason_evidence(entry: dict) -> str:
+    """The measured half of an exemption reason, regenerated from the entry it annotates."""
+    clause = _size_ladder_clause_str(entry)
+    return (f"declines all {entry.get('declined') or 0} calls"
+            + (f" on {clause}" if clause else ""))
+
+
 def _size_ladder_lever_todo(entry: dict) -> str:
     """The TODO a dark lever gets when it has no exemption reason yet, carrying the clause it
     declined on so filling it in is confirming a measurement rather than writing a story."""
-    clause = ", ".join(f"{k} x{v}" for k, v in
-                       sorted((entry.get("rejects") or {}).items(), key=lambda kv: -kv[1])[:3])
+    clause = _size_ladder_clause_str(entry, top=3)
     return ("TODO: say why this is legitimate at this size"
             + (f" (declines on {clause})" if clause else ""))
 
