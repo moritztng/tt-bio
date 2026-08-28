@@ -1,0 +1,117 @@
+{
+  "flag": "RFD3_FC1_SPLIT_SILU",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 2.056,
+      "cif_sha256_16": "73112401e98737c0",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 2.027,
+      "cif_sha256_16": "73112401e98737c0",
+      "n_cifs": 1,
+      "served_calls": 80,
+      "steps": 3
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 2.11,
+      "cif_sha256_16": "73112401e98737c0",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "sampler_s": 2.005,
+      "cif_sha256_16": "73112401e98737c0",
+      "n_cifs": 1,
+      "served_calls": 80,
+      "steps": 3
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R3.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 10.003,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "73112401e98737c0"
+    ],
+    "off": [
+      "73112401e98737c0"
+    ]
+  },
+  "aa_control_s": [
+    2.056,
+    2.11
+  ],
+  "aa_spread_s": 0.053999999999999826,
+  "off_median_s": 2.083,
+  "off_min_s": 2.056,
+  "off_max_s": 2.11,
+  "on_median_s": 2.016,
+  "on_min_s": 2.005,
+  "on_max_s": 2.027,
+  "delta_s": -0.067,
+  "ratio": 1.0332,
+  "delta_inside_aa_band": false,
+  "predicted_delta_s": -0.0885,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R3",
+  "tokens": 514,
+  "site_plan": {
+    "512": {
+      "tokens": 514,
+      "hidden": 512,
+      "w_pad": 544,
+      "chunked": true,
+      "chunk_h_off": 53,
+      "chunk_h_on": 53,
+      "n_chunks_off": 10,
+      "n_chunks_on": 10,
+      "fc1_output_in_l1": false,
+      "chunk_h_moves": false
+    },
+    "256": {
+      "tokens": 514,
+      "hidden": 256,
+      "w_pad": 544,
+      "chunked": true,
+      "chunk_h_off": 64,
+      "chunk_h_on": 64,
+      "n_chunks_off": 9,
+      "n_chunks_on": 9,
+      "fc1_output_in_l1": true,
+      "chunk_h_moves": false
+    }
+  },
+  "provisional_on": "pc-card0",
+  "expect_no_site": false,
+  "l1_bytes": 60000000,
+  "fc1_served": {
+    "rows=64 w=544 hidden=256": 160
+  },
+  "fc1_declines": {
+    "tensor_rows=514 w=544 hidden=512 chunk-count-would-rise 10->15": 20,
+    "rows=2 w=544 hidden=256 no-pinned-config": 20
+  },
+  "tune_matmul": true
+}

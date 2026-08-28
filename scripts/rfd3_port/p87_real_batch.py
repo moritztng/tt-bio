@@ -91,7 +91,7 @@ def main():
           % (clamp(2, rfd3_design._BATCH_SPEED_CAP), clamp(8, rfd3_design._BATCH_SPEED_CAP)),
           flush=True)
     print("[p87] chunk_h: b=1 %d, b=2 %d, b=4 %d, b=8 %d"
-          % tuple(M._pair_transition_chunk_h(b, 704, 512, 685) for b in (1, 2, 4, 8)), flush=True)
+          % tuple(M._pair_transition_chunk_h(704, 512, 685) for _ in (1, 2, 4, 8)), flush=True)
 
     # arm = (label, num_designs, batch_size, speed_cap, expected_batches)
     ARMS = [

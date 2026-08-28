@@ -1,0 +1,109 @@
+{
+  "flag": "pv+fc1",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 67.568,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "sampler_s": 66.958,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 2,
+      "sampler_s": 59.547,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 14559,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "sampler_s": 67.111,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 4,
+      "sampler_s": 59.407,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 14559,
+      "steps": 200
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "arms": [
+    "off",
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R3.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 69.463,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "9378b0412036428b"
+    ],
+    "off": [
+      "9378b0412036428b"
+    ]
+  },
+  "aa_control_s": [
+    67.568,
+    66.958
+  ],
+  "aa_spread_s": 0.6099999999999994,
+  "off_median_s": 67.111,
+  "off_min_s": 66.958,
+  "off_max_s": 67.568,
+  "on_median_s": 59.477,
+  "on_min_s": 59.407,
+  "on_max_s": 59.547,
+  "delta_s": -7.634,
+  "ratio": 1.1284,
+  "delta_inside_aa_band": false,
+  "predicted_delta_s": -7.65,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R3",
+  "levers": [
+    "pv",
+    "fc1"
+  ],
+  "provisional_on": "pc-card0",
+  "served_per_lever": {
+    "pv": 3582,
+    "fc1": 25536
+  },
+  "pv_served_widths": {
+    "4576": 3582
+  },
+  "fc1_served": {
+    "rows=64 w=544 hidden=512": 12768,
+    "rows=64 w=544 hidden=256": 12768
+  },
+  "fc1_declines": {
+    "rows=2 w=544 hidden=512 no-pinned-config": 1596,
+    "rows=2 w=544 hidden=256 no-pinned-config": 1596
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "flag": "pv+fc1",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 2.048,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 2.813,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 178,
+      "steps": 3
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 2.035,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "sampler_s": 2.012,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 178,
+      "steps": 3
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R3.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 4.401,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "6f24e62c705514e1"
+    ],
+    "off": [
+      "6f24e62c705514e1"
+    ]
+  },
+  "aa_control_s": [
+    2.048,
+    2.035
+  ],
+  "aa_spread_s": 0.0129999999999999,
+  "off_median_s": 2.0415,
+  "off_min_s": 2.035,
+  "off_max_s": 2.048,
+  "on_median_s": 2.4125,
+  "on_min_s": 2.012,
+  "on_max_s": 2.813,
+  "delta_s": 0.371,
+  "ratio": 0.8462,
+  "delta_inside_aa_band": false,
+  "predicted_delta_s": -0.11475,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R3",
+  "levers": [
+    "pv",
+    "fc1"
+  ],
+  "provisional_on": "pc-card0",
+  "served_per_lever": {
+    "pv": 36,
+    "fc1": 320
+  },
+  "pv_served_widths": {
+    "4576": 36
+  },
+  "fc1_served": {
+    "rows=64 w=544 hidden=512": 160,
+    "rows=64 w=544 hidden=256": 160
+  },
+  "fc1_declines": {
+    "rows=2 w=544 hidden=512 no-pinned-config": 20,
+    "rows=2 w=544 hidden=256 no-pinned-config": 20
+  }
+}

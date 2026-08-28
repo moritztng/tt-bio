@@ -18,6 +18,10 @@
 #include "api/compute/eltwise_unary/sfpu_int_sum.h"
 #include "api/compute/eltwise_unary/fill.h"
 #include "api/compute/compute_kernel_api.h"
+#ifdef PV_FUSED
+#include "api/compute/matmul.h"
+#include "api/compute/pack.h"
+#endif
 
 #include "api/debug/assert.h"
 #include "experimental/circular_buffer.h"
@@ -72,6 +76,19 @@ void reduce_cb(
     bool use_prev_reduce,
     uint32_t cb_length_t);
 void apply_recip(uint32_t cb_in, uint32_t cb_recip, uint32_t cb_out, uint32_t cb_length_t, uint32_t blk);
+#ifdef PV_FUSED
+void apply_recip_mac(
+    uint32_t cb_in,
+    uint32_t cb_recip,
+    uint32_t cb_norm,
+    uint32_t cb_vv,
+    uint32_t cb_acc,
+    uint32_t cb_out,
+    uint32_t cb_length_t,
+    uint32_t blk,
+    uint32_t k_base,
+    uint32_t num_blocks);
+#endif
 
 // for scale+mask+softmax:
 // bcast HW (mul by 1 tile)  example: (  [2,1,1024,64] * [1,1,32,32]  )
@@ -341,6 +358,135 @@ void apply_recip(uint32_t cb_in, uint32_t cb_recip, uint32_t cb_out, uint32_t cb
     }
 }
 
+#ifdef PV_FUSED
+// L5b: the normalise pass MACs against the value tiles instead of writing the row out.
+//
+// The normalise half is `apply_recip` unchanged -- same `mul_tiles_bcast_cols`, same
+// `PACK_BF16_TYPECAST`, same `pack_tile` -- only the destination moves, from `cb_out0` (which the
+// writer drains to DRAM) to `cb_norm`, a local L1 CB. No matmul entry point takes a DST tile as an
+// operand (`api/compute/matmul.h`: every one of them unpacks both operands through
+// `llk_unpack_AB_matmul`), so the pack has to happen; what L5b deletes is the DRAM write and the
+// PV matmul's DRAM read of it, not the pack.
+//
+// The MAC half is a transcription of `bmm_large_block_zm_fused_bias_activation.cpp` -- the kernel
+// `MatmulMultiCoreReuseProgramConfig` actually runs, through
+// `MatmulMultiCoreReuseOptimizedProgramFactory` -- at `out_subblock_h = out_subblock_w = 1`, with
+// `PACKER_L1_ACC` and `FP32_DEST_ACC_EN` on, which is what that factory selects for this call
+// (`packer_l1_acc && num_blocks > 2`, and `interm0` is Float32 whenever `fp32_dest_acc_en`).
+// The partial is therefore NOT rounded between blocks; the packer accumulates it in fp32:
+//
+//     block 0            DST = sum of in0_block_w products      -> pack, l1_acc off  (overwrite)
+//     block 1 .. n-3     DST = sum of in0_block_w products      -> pack, l1_acc on   (add)
+//     block n-2          same, and the partial is left in the CB for the reload
+//     block n-1          DST = reload(partial) + this block     -> pack to cb_out, l1_acc off
+//
+// The grouping is `in0_block_w` because the packer's fp32 add happens once per block and fp32
+// addition is not associative. That is the whole reason the host asserts `blk == in0_block_w`.
+void apply_recip_mac(
+    uint32_t cb_in,
+    uint32_t cb_recip,
+    uint32_t cb_norm,
+    uint32_t cb_vv,
+    uint32_t cb_acc,
+    uint32_t cb_out,
+    uint32_t cb_length_t,
+    uint32_t blk,
+    uint32_t k_base,
+    uint32_t num_blocks) {
+    experimental::CircularBuffer cb_in_obj(cb_in);
+    experimental::CircularBuffer cb_recip_obj(cb_recip);
+    experimental::CircularBuffer cb_norm_obj(cb_norm);
+    experimental::CircularBuffer cb_acc_obj(cb_acc);
+    experimental::CircularBuffer cb_out_obj(cb_out);
+    cb_recip_obj.wait_front(1);
+
+    for (uint32_t cur_blk = 0; cur_blk < cb_length_t; cur_blk += blk) {
+        const uint32_t k = k_base + cur_blk;
+        const uint32_t block = k / blk;
+        const bool last = block == num_blocks - 1;
+
+        // --- normalise, byte for byte what apply_recip does, into cb_norm ---
+        pack_reconfig_l1_acc(0);
+        reconfig_data_format(cb_in, cb_recip);
+        pack_reconfig_data_format(cb_norm);
+#ifdef PACK_BF16_TYPECAST
+        typecast_tile_init<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>();
+#endif
+        mul_bcast_cols_init_short(cb_in, cb_recip);
+        cb_in_obj.wait_front(blk);
+        tile_regs_acquire();
+        for (uint32_t cur_dst = 0; cur_dst < blk; cur_dst++) {
+            mul_tiles_bcast_cols(cb_in, cb_recip, cur_dst, 0, cur_dst);
+        }
+#ifdef PACK_BF16_TYPECAST
+        for (uint32_t cur_dst = 0; cur_dst < blk; cur_dst++) {
+            typecast_tile<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>(cur_dst);
+        }
+#endif
+        tile_regs_commit();
+        tile_regs_wait();
+        cb_norm_obj.reserve_back(blk);
+        for (uint32_t cur_dst = 0; cur_dst < blk; cur_dst++) {
+            pack_tile(cur_dst, cb_norm);
+        }
+        cb_in_obj.pop_front(blk);
+        cb_norm_obj.push_back(blk);
+        tile_regs_release();
+
+        // --- MAC one K block into the running fp32 partial ---
+        //
+        // ONLY the `_short` inits, and this is load-bearing rather than an optimisation. The full
+        // `mm_init` runs `llk_math_pack_sync_init`, which resets the MATH<->PACK dest-register
+        // semaphore; calling it mid-stream, after `binary_op_init_common` has already established
+        // that sync and the normalise half has been using it, hangs the core with unpack at UABD,
+        // math at MWDD and the writer parked in `cb_wait_front`. The reference matmul kernel
+        // full-inits once before its loop and uses `mm_block_init_short` inside for the same
+        // reason. In matmul the operands land the other way round from eltwise -- srcA takes in1
+        // and srcB takes in0 (`mm_init`: `llk_unpack_hw_configure(in1, in0)`) -- so the reconfig
+        // is (cb_vv, cb_norm), not (cb_norm, cb_vv).
+        cb_norm_obj.wait_front(blk);
+        reconfig_data_format(cb_vv, cb_norm);
+        mm_init_short(cb_norm, cb_vv);
+        tile_regs_acquire();
+        if (last) {
+            copy_tile_to_dst_init_short_with_dt(cb_vv, cb_acc);
+            cb_acc_obj.wait_front(1);
+            copy_block_matmul_partials(cb_acc, 0, 0, 1);
+            cb_acc_obj.pop_front(1);
+            mm_init_short_with_dt(cb_norm, cb_vv, cb_acc);
+        }
+        for (uint32_t i = 0; i < blk; i++) {
+            matmul_tiles(cb_norm, cb_vv, i, k + i, 0);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        if (last) {
+            pack_reconfig_data_format(cb_out);
+            pack_reconfig_l1_acc(0);
+            cb_out_obj.reserve_back(1);
+            pack_tile(0, cb_out);
+            cb_out_obj.push_back(1);
+        } else {
+            pack_reconfig_data_format(cb_acc);
+            pack_reconfig_l1_acc(block == 0 ? 0 : 1);
+            cb_acc_obj.reserve_back(1);
+            pack_tile(0, cb_acc);
+            cb_acc_obj.push_back(1);
+        }
+        cb_norm_obj.pop_front(blk);
+        tile_regs_release();
+
+        // The partial CB is one tile deep, so this returns the read and write pointers to the same
+        // L1 address on every block, which is what makes the packer's accumulate land on the
+        // running partial. The block before last leaves its tile in place for the reload above.
+        if (block + 2 < num_blocks) {
+            cb_acc_obj.wait_front(1);
+            cb_acc_obj.pop_front(1);
+        }
+    }
+}
+#endif
+
 void kernel_main() {
     const uint32_t NCHt = get_arg_val<uint32_t>(0);
     const uint32_t Ht = get_arg_val<uint32_t>(1);
@@ -368,6 +514,13 @@ void kernel_main() {
     // TODO: need to add this cb
     auto cb_recip = tt::CBIndex::c_16;
     auto cb_prev_max = tt::CBIndex::c_15;
+#ifdef PV_FUSED
+    // c_1, c_13 and c_14 are the three indices this program leaves free.
+    constexpr auto cb_vv = tt::CBIndex::c_1;      // Wt value tiles, resident for one head
+    constexpr auto cb_norm = tt::CBIndex::c_13;   // the normalised row, in L1 instead of DRAM
+    constexpr auto cb_acc = tt::CBIndex::c_14;    // bmm_large_block_zm.cpp's cb_intermed0
+    experimental::CircularBuffer cb_vv_obj(cb_vv);
+#endif
     constexpr auto cb_mask_padded = tt::CBIndex::c_5;
     experimental::CircularBuffer cb_scaler_obj(cb_scaler);
     experimental::CircularBuffer cb_fused_scale_obj(cb_fused_scale);
@@ -388,7 +541,26 @@ void kernel_main() {
     uint32_t dst0 = 0;
     uint32_t cb_processed_input;
 
+#ifdef PV_FUSED
+    // The value tiles belong to a head, and a core's rows are consecutive, so at most one head
+    // boundary falls inside a core's work. The reader loads Wt tiles on every boundary and this
+    // side releases the previous head's before waiting, which is also what stops the reader's
+    // reserve_back(Wt) from deadlocking on a CB sized at exactly Wt tiles.
+    // Per-head, not per-`Ht`: `Ht` spans every head because `plan` folds them into the row axis.
+    const uint32_t pv_row = get_arg_val<uint32_t>(7);
+    const uint32_t pv_mt = get_arg_val<uint32_t>(8);
+    uint32_t ht_pv = pv_row % pv_mt;
+#endif
+
     for (uint32_t ncht = 0; ncht < NCHt; ncht++) {
+#ifdef PV_FUSED
+        if (ncht == 0 || ht_pv == 0) {
+            if (ncht != 0) {
+                cb_vv_obj.pop_front(Wt);
+            }
+            cb_vv_obj.wait_front(Wt);
+        }
+#endif
         // This and all inner loops are for parsing the length of Wt in terms of chunks of the width that can fit in the
         // cb This specific loop is for generaating the sum
         // reads through and finds the max value
@@ -511,6 +683,9 @@ void kernel_main() {
          */
         length_left_t = Wt;
         cur_cb_length_t = cb_length_t;
+#ifdef PV_FUSED
+        uint32_t k_base = 0;
+#endif
         for (uint32_t cur_pass = 0; cur_pass < num_cb_passes; cur_pass++) {
             bool do_mask = mask_padded_data && (cur_pass == num_cb_passes - 1);
 #if FUSED_SCALE_MASK
@@ -529,7 +704,14 @@ void kernel_main() {
 #endif
             exp_cb(cb_processed_input, cb_exps, cb_max, cur_cb_length_t, blk);
 
+#ifdef PV_FUSED
+            apply_recip_mac(
+                cb_exps, cb_recip, cb_norm, cb_vv, cb_acc, cb_out0, cur_cb_length_t, blk, k_base,
+                Wt / blk);
+            k_base += cur_cb_length_t;
+#else
             apply_recip(cb_exps, cb_recip, cb_out0, cur_cb_length_t, blk);
+#endif
             length_left_t -= cur_cb_length_t;
             cur_cb_length_t = std::min(cur_cb_length_t, length_left_t);
         }
@@ -537,6 +719,15 @@ void kernel_main() {
 #ifdef NUMERIC_STABLE
         experimental::CircularBuffer(cb_max).pop_front(1);
 #endif
+#ifdef PV_FUSED
+        ht_pv++;
+        if (ht_pv == pv_mt) {
+            ht_pv = 0;
+        }
+#endif
     }
+#ifdef PV_FUSED
+    cb_vv_obj.pop_front(Wt);
+#endif
     cb_mask_padded_obj.pop_front(1);
 }  // MAIN

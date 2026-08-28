@@ -1,0 +1,98 @@
+{
+  "rung": "R3",
+  "steps": 200,
+  "batch": 2,
+  "designs": 2,
+  "lifted_speed_cap": true,
+  "host": "tt-quietbox2",
+  "card": "1",
+  "speed_cap_above_atoms_shipped": 2952,
+  "fc1_split_silu": false,
+  "arm_b1": {
+    "tag": "p136_R3_b1",
+    "batch_arg": 1,
+    "designs": 2,
+    "wall_s": 156.6,
+    "digests": {
+      "R3_b100_0.cif": "9378b0412036428b",
+      "R3_b100_1.cif": "89dca1f5b5398dbb"
+    },
+    "n_cifs": 2,
+    "sampler_batches": [
+      1
+    ],
+    "chunk_heights": {
+      "544/256/514/r2": 64,
+      "544/256/514/r3": 64,
+      "544/512/514/r2": 64,
+      "544/512/514/r3": 64
+    },
+    "slice_tiling": {
+      "1/514/64": {
+        "n_slices": 9,
+        "expected": 9,
+        "b_values": [
+          0
+        ],
+        "row_extents": [
+          2,
+          64
+        ]
+      }
+    }
+  },
+  "arm_bN": {
+    "tag": "p136_R3_b2",
+    "batch_arg": 2,
+    "designs": 2,
+    "wall_s": 134.9,
+    "digests": {
+      "R3_b100_0.cif": "9378b0412036428b",
+      "R3_b100_1.cif": "89dca1f5b5398dbb"
+    },
+    "n_cifs": 2,
+    "sampler_batches": [
+      2
+    ],
+    "chunk_heights": {
+      "544/256/514/r2": 64,
+      "544/256/514/r3": 64,
+      "544/512/514/r2": 64,
+      "544/512/514/r3": 64
+    },
+    "slice_tiling": {
+      "1/514/64": {
+        "n_slices": 9,
+        "expected": 9,
+        "b_values": [
+          0
+        ],
+        "row_extents": [
+          2,
+          64
+        ]
+      },
+      "2/514/64": {
+        "n_slices": 18,
+        "expected": 18,
+        "b_values": [
+          0,
+          1
+        ],
+        "row_extents": [
+          2,
+          64
+        ]
+      }
+    }
+  },
+  "per_design_digest_equal": {
+    "R3_b100_0.cif": true,
+    "R3_b100_1.cif": true
+  },
+  "batched_actually_batched": true,
+  "slices_tile_exactly_once": true,
+  "heights_match_b1": true,
+  "n_cifs_match": true,
+  "verdict": "b=2 reproduces b=1 per design, the chunk height did not read the batch, and the slices tiled the tensor exactly once"
+}

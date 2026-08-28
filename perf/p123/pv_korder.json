@@ -1,0 +1,37 @@
+{
+  "shape": [
+    1,
+    4,
+    6051,
+    6080,
+    32
+  ],
+  "m_tiles": 190,
+  "k_tiles": 190,
+  "n_tiles": 1,
+  "calls_per_step": 9,
+  "reps": 6,
+  "contract": {
+    "in0_block_w": 2,
+    "per_core_M": 10,
+    "per_core_N": 1,
+    "out_subblock_h": 2,
+    "out_subblock_w": 1
+  },
+  "mirror_equal": true,
+  "mirror_maxabs": 0.0,
+  "pv_ms": 0.7971,
+  "pv_ms_min": 0.7911,
+  "pv_ms_max": 0.8049,
+  "softmax_eligible": true,
+  "softmax_ms": 4.7867,
+  "deleted_mb_per_call": 294.3,
+  "roof_ms_per_call": 2.55,
+  "prize_estimate_s_per_design": {
+    "floor_110pct": -5.05,
+    "central_75pct": -3.443,
+    "pessimistic_41pct": -1.882
+  },
+  "measured_chain_ms_per_step": 50.254,
+  "verdict": "GO to build: contract pinned at in0_block_w=2, mirror holds"
+}

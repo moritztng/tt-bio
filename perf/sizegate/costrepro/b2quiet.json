@@ -1,0 +1,30 @@
+[
+  {
+    "rep": 0,
+    "loadavg_before": 1.84,
+    "runtime_s": 5.0,
+    "wall": 13.8,
+    "error": null
+  },
+  {
+    "rep": 1,
+    "loadavg_before": 1.65,
+    "runtime_s": 5.1,
+    "wall": 14.3,
+    "error": null
+  },
+  {
+    "rep": 2,
+    "loadavg_before": 1.51,
+    "runtime_s": 5.1,
+    "wall": 14.3,
+    "error": null
+  },
+  {
+    "rep": 3,
+    "loadavg_before": 2.49,
+    "runtime_s": 5.0,
+    "wall": 14.29,
+    "error": null
+  }
+]

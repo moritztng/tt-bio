@@ -1,0 +1,44 @@
+{
+  "pass": "p138 (rfd3-fusion-land, pass 19)",
+  "tree": "wk/rfd3-fusion-land at 9ee0007c, merge-base origin/main daa67027 (0 behind, 47 ahead)",
+  "host": "tt-quietbox2",
+  "note": "closes the four items owed by state section 24.6. Verdict on the default flip is unchanged: HOLD (section 24).",
+  "legs": {
+    "release_gate --model rfd3": {
+      "card": 1, "verdict": "PASS", "wall_s": 50,
+      "clean": 0.75, "in_band": 0.9855, "breaks": 1, "clash": "3(0.0042)", "distinct_aa": 11,
+      "determinism_digest": "9702983e19b6d945",
+      "note": "same digest as pass 18 on card 3 and as section 24"
+    },
+    "perf_regression --model rfd3": {
+      "card": 1, "verdict": "PASS", "baseline_designs_s": 0.2653, "current_designs_s": 0.2882,
+      "delta_pct": 8.6, "threshold_pct": 15, "reps_s": [3, 3, 4], "loadavg_1min": 3.82,
+      "note": "supersedes pass 18s -48% reading, which was taken under three-way co-tenancy and was never a verdict"
+    },
+    "pytest host files touched by this branch": {
+      "verdict": "PASS", "detail": "289 passed 25 skipped across test_rfd3_fusion_gate, test_size_ladder_gate, test_rfd3_fc1_split_guard, test_rfd3_tuned_key_ckc, test_full_parity_gate, test_citations"
+    },
+    "pytest tests/ device files, isolated on card 1": {
+      "verdict": "6 failed 19 passed", "wall_s": 892,
+      "attribution": "none on this branch",
+      "pre_existing_on_main": ["test_token_axis_bucketing_hw::test_every_bucketed_model_has_a_job_or_a_written_reason (protenix-v1 has no JOBS entry; absent from JOBS on origin/main too)", "test_token_axis_bucketing_hw::test_protenix_ragged_sdpa_is_there_to_be_closed[protenix-v2,opendde] (bucket-OFF negative control finds ragged calls but 0 masked_ragged)"],
+      "self_inflicted_device_contention": ["test_of3_trunk_bucket_padding_is_inert[openfold3,openbind]", "test_protenix_seqfold::test_protenix_sequence_to_structure"]
+    }
+  },
+  "size_ladder_item": {
+    "asked": "section 24.6 item 1: one-model size-ladder check, boltz2, accepting on no finding naming an RFD3 flag",
+    "arm_result": "CANNOT RUN ON QB2 — every card here is p300c and docs/size_ladder_baseline.json holds only p150a, so the arm fails at the baseline lookup before folding anything",
+    "answered_instead": "perf/p137/boltz2_rfd3_rows.py drove the arms own _run_census_fold on boltz2 256aa, card 2",
+    "result": {"rfd3_rows_resolved": "not-imported (all four)", "levers_censused": 32,
+               "findings_against_a_baseline_that_predates_them": [], "verdict": "PASS",
+               "fold_runtime_s": 10.7}
+  },
+  "merge_preflight": {
+    "ran": "scripts/merge_preflight.sh /home/ttuser/tt-bio-dev origin/wk/rfd3-fusion-land",
+    "commits_behind_mainline": 0, "commits_ahead": 47,
+    "files_touched_by_both_branch_and_mainline": "none",
+    "rc": 1,
+    "rc_reason": "shared checkout /home/ttuser/tt-bio-dev reads DIRTY on one untracked dir, tt_bio/_vendor/esm/utils/msa/__pycache__/. That checkout sits at 18b315ac, 746 commits behind origin/main, and its .gitignore predates the rule main already carries for exactly this (.gitignore:124 tt_bio/_vendor/**/__pycache__/). Stale shared checkout, not a property of this branch. Fix is a pull in the shared checkout, which this worker does not touch."
+  },
+  "merge": "NOT PERFORMED — the orchestrator merges verified branches. See the conclusion note on recurrence 5 of workstream-brief-must-not-instruct-worker-to-merge."
+}

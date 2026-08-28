@@ -76,8 +76,8 @@ def main():
     specs = json.loads(FIXTURE.read_text())
     print("[p86] steps=%d card=%d batches=%s reps=%d  chunk_h at b=1/2: %d/%d"
           % (STEPS, CARD, BATCHES, REPS,
-             M._pair_transition_chunk_h(1, 704, 512, 685),
-             M._pair_transition_chunk_h(2, 704, 512, 685)), flush=True)
+             M._pair_transition_chunk_h(704, 512, 685),
+             M._pair_transition_chunk_h(704, 512, 685)), flush=True)
     print("[p86] baseline of record on this card %.3f s/design" % BASELINE, flush=True)
 
     rows, per = [], {}

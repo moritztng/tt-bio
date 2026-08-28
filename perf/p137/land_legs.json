@@ -1,0 +1,40 @@
+{
+  "pass": "p137 (rfd3-fusion-land, pass 18)",
+  "tree": "wk/rfd3-fusion-land merged with origin/main daa67027 at 7b0b76d5, plus 056ff291",
+  "host": "tt-quietbox2",
+  "interpreter": "/home/ttuser/tt-bio-dev/env/bin/python3 with PYTHONPATH=<worktree>",
+  "note": "every leg here re-run on the MERGED tree; the p17 results in state section 24 were on the unmerged branch",
+  "legs": {
+    "release_gate --model rfd3-fusion": {
+      "card": 3, "verdict": "PASS", "wall_s": 472,
+      "R4": {"RFD3_SOFTMAX_PV_FUSED": {"resolved": true, "served": 27, "declined": 108,
+               "clauses": ["softmax kernel does not engage at this shape @ key 704"]},
+              "RFD3_FC1_SPLIT_SILU": {"resolved": true, "served": 154, "declined": 14,
+               "clauses": ["rows=45 w=704 hidden=256 no-pinned-config",
+                            "rows=64 w=704 hidden=256 no-pinned-config",
+                            "tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63"]}},
+      "iai": {"RFD3_SOFTMAX_PV_FUSED": {"resolved": true, "served": 0, "declined": 135},
+               "RFD3_FC1_SPLIT_SILU": {"resolved": true, "served": 0, "declined": 28}},
+      "identical_to_section_24_4": true
+    },
+    "release_gate --model rfd3": {
+      "card": 3, "verdict": "PASS", "wall_s": 79,
+      "clean": 0.75, "in_band": 0.9855, "breaks": 1, "clash": "3(0.0042)", "distinct_aa": 11,
+      "determinism_digest": "9702983e19b6d945"
+    },
+    "full_parity_gate --leg rfd3-featurizer": {
+      "card": null, "verdict": "PASS", "detail": "43/43 keys bit-exact [reproduces committed]"
+    },
+    "perf_regression --model rfd3": {
+      "card": 3, "verdict": "FAIL -48.0%", "baseline_designs_s": 0.2653, "current_designs_s": 0.138,
+      "reps_s": [7, 7, 8],
+      "status": "NOT A VERDICT — measured under three-way co-tenancy (another worker's size-ladder campaign on card 0, this worker's full pytest suite on card 1). Needs a quiet re-run before it means anything."
+    }
+  },
+  "owed": [
+    "full pytest tests/ with PYTHONPATH set (the first run imported tt_bio from the stale /home/ttuser/tt-bio-release-v0.3.3 install and its failures were an artifact)",
+    "quiet re-run of perf_regression --model rfd3",
+    "one boltz2 lever census confirming both new RFD3 rows read not-imported (killed mid-run to free the device-open flock)",
+    "merge to tt-bio main"
+  ]
+}

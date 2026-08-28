@@ -1,0 +1,100 @@
+{
+  "flag": "RFD3_SOFTMAX_PV_FUSED",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 67.097,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "sampler_s": 67.048,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 2,
+      "sampler_s": 65.933,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 1791,
+      "steps": 200
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "sampler_s": 67.82,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 200
+    },
+    {
+      "arm": "on",
+      "rep": 4,
+      "sampler_s": 65.75,
+      "cif_sha256_16": "9378b0412036428b",
+      "n_cifs": 1,
+      "served_calls": 1791,
+      "steps": 200
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "arms": [
+    "off",
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R3.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 69.053,
+  "bit_exact": true,
+  "digests": {
+    "off": [
+      "9378b0412036428b"
+    ],
+    "on": [
+      "9378b0412036428b"
+    ]
+  },
+  "aa_control_s": [
+    67.097,
+    67.048
+  ],
+  "aa_spread_s": 0.04899999999999238,
+  "off_median_s": 67.097,
+  "off_min_s": 67.048,
+  "off_max_s": 67.82,
+  "on_median_s": 65.8415,
+  "on_min_s": 65.75,
+  "on_max_s": 65.933,
+  "delta_s": -1.255,
+  "ratio": 1.0191,
+  "delta_inside_aa_band": false,
+  "predicted_delta_s": -3.32,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R3",
+  "provisional_on": "pc-card0",
+  "expect_decline": false,
+  "decline_reasons": {
+    "softmax kernel does not engage at this shape @ key 544": 14328
+  },
+  "served_widths": {
+    "4576": 3582
+  },
+  "atom_key": 4576,
+  "served_at_atom": 3582,
+  "declined_at_atom": 0
+}

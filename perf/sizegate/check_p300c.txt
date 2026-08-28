@@ -1,0 +1,22 @@
+[release-gate] granted card(s) [0]
+
+======================================================================
+[size-ladder] checking for card p300c: boltz2, esmfold2, protenix-v1, protenix-v2, openfold3, opendde, rf3, nesso1, openbind at rungs 256,512,640,768
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence; nesso1: tt-bio affinity, bf16 trunk, 5 recycles, 256-token crop
+======================================================================
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa  k256->512  k512->768     wall  result
+boltz2              5.2s    17.9s    27.6s    39.4s       1.78       1.95    4375s  PASS
+esmfold2           16.3s    53.7s    67.0s   112.1s       1.72       1.81    4375s  PASS
+protenix-v1         7.0s    14.7s    20.6s    30.2s       1.07       1.78    4375s  PASS
+protenix-v2        15.5s    45.5s    76.3s   111.5s       1.55       2.21    4375s  PASS
+openfold3           6.8s    28.0s    47.1s    80.1s       2.04       2.59    4375s  PASS
+opendde            24.9s    73.8s   127.3s   181.6s       1.57       2.22    4375s  PASS
+rf3                22.3s    48.9s    72.9s   101.2s       1.13       1.79    4375s  PASS
+nesso1              4.7s     8.1s    10.2s    13.7s       0.79       1.30    4375s  PASS
+openbind            6.6s    27.7s    45.4s    77.9s       2.07       2.55    4375s  PASS
+##############################################################################
+GATE PASS — lever census and scaling exponents match the recorded baseline at every rung

@@ -1,0 +1,7 @@
+{"rep": 0, "loadavg_before": 2.79, "runtime_s": 78.4, "wall": 96.12, "error": null}
+{"rep": 1, "loadavg_before": 7.91, "runtime_s": 6.8, "wall": 21.24, "error": null}
+{"rep": 2, "loadavg_before": 8.79, "runtime_s": 7.0, "wall": 21.2, "error": null}
+{"rep": 3, "loadavg_before": 8.82, "runtime_s": 7.1, "wall": 21.01, "error": null}
+{"rep": 4, "loadavg_before": 9.51, "runtime_s": 8.2, "wall": 25.07, "error": null}
+{"rep": 5, "loadavg_before": 10.25, "runtime_s": 7.9, "wall": 22.12, "error": null}
+{"n": 6, "min": 6.8, "median": 7.9, "max": 78.4, "spread_pct": 1052.9}

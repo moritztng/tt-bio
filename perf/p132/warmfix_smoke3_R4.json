@@ -1,0 +1,94 @@
+{
+  "flag": "pv+fc1",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 3.635,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 3.651,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1,
+      "served_calls": 128,
+      "steps": 3
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 62.66,
+  "warmups": [
+    {
+      "arm": "off",
+      "sampler_s": 62.66,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "served_calls": 0
+    },
+    {
+      "arm": "on",
+      "sampler_s": 4.248,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "served_calls": 128
+    }
+  ],
+  "warmup_digests_match": true,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "8f77ad6bd4e3f846"
+    ],
+    "off": [
+      "8f77ad6bd4e3f846"
+    ]
+  },
+  "aa_control_s": [
+    3.635
+  ],
+  "aa_spread_s": null,
+  "off_median_s": 3.635,
+  "off_min_s": 3.635,
+  "off_max_s": 3.635,
+  "on_median_s": 3.651,
+  "on_min_s": 3.651,
+  "on_max_s": 3.651,
+  "delta_s": 0.016,
+  "ratio": 0.9956,
+  "delta_inside_aa_band": null,
+  "predicted_delta_s": -0.06,
+  "card": 1,
+  "torch": "2.12.0+cu130",
+  "rung": "R4",
+  "levers": [
+    "pv",
+    "fc1"
+  ],
+  "provisional_on": null,
+  "measured_on": "tt-quietbox2 card1",
+  "l1_bytes": 138000000,
+  "served_per_lever": {
+    "pv": 36,
+    "fc1": 220
+  },
+  "pv_served_widths": {
+    "6080": 36
+  },
+  "fc1_served": {
+    "rows=64 w=704 hidden=256": 200,
+    "rows=45 w=704 hidden=256": 20
+  },
+  "fc1_declines": {
+    "tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63": 20
+  }
+}

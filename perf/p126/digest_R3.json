@@ -1,0 +1,80 @@
+{
+  "flag": "RFD3_SOFTMAX_PV_FUSED",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 2.094,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 0
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 2.02,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 18
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 2.054,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 0
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "sampler_s": 2.094,
+      "cif_sha256_16": "6f24e62c705514e1",
+      "n_cifs": 1,
+      "served_calls": 18
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R3.json",
+  "arms_distinct": true,
+  "discarded_warmup_s": 6.651,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "6f24e62c705514e1"
+    ],
+    "off": [
+      "6f24e62c705514e1"
+    ]
+  },
+  "aa_control_s": [
+    2.094,
+    2.054
+  ],
+  "aa_spread_s": 0.040000000000000036,
+  "off_median_s": 2.074,
+  "off_min_s": 2.054,
+  "off_max_s": 2.094,
+  "on_median_s": 2.057,
+  "on_min_s": 2.02,
+  "on_max_s": 2.094,
+  "delta_s": -0.017,
+  "ratio": 1.0083,
+  "delta_inside_aa_band": true,
+  "predicted_delta_s": -0.0498,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R3",
+  "provisional_on": "pc-card0",
+  "expect_decline": false,
+  "decline_reasons": {
+    "softmax kernel does not engage at this shape": 144
+  }
+}

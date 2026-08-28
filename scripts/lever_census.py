@@ -92,6 +92,15 @@ LEVERS = [
     ("TRANSPOSE_L1_RESIDENT", "tt_bio.tenstorrent", "_TRANSPOSE_L1_HEADROOM", None, "wrap"),
     ("SDPA_Q_CHUNK_FITS", "tt_bio.tenstorrent", "_SDPA_WIDE_Q",
      "tt_bio.tenstorrent._SDPA_Q_CHUNK_OVER_L1", "setlen"),
+    # RFD3 diffusion fusion, both size-conditioned and both bit-exact where they serve. Each
+    # declines silently on a documented predicate -- the atom softmax needs the kernel to engage
+    # at the gathered key width, the pair Transition needs the third L1 resident to leave the
+    # chunk height alone -- so an unregistered lever that stops firing costs seconds and says
+    # nothing. The `rfd3-fusion` gate arm reads these two rows.
+    ("RFD3_SOFTMAX_PV_FUSED", "tt_bio.softmax_generic", "_PV_ENABLED",
+     "tt_bio.softmax_generic.PVSTATS", "stats"),
+    ("RFD3_FC1_SPLIT_SILU", "tt_bio.rfd3.model", "_FC1_SPLIT_SILU",
+     "tt_bio.rfd3.model.FC1STATS", "stats"),
 ]
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
@@ -117,6 +126,13 @@ REJECTS_ATTR = {
     "TRIATT_HEAD_MAJOR_TAIL": "tt_bio.triatt_qkv.TAIL_REJECTS",
     "RFD3_SPARSE_BIAS": "tt_bio.rfd3_bias.REJECTS",
     "RFD3_FUSED_SCORES": "tt_bio.rfd3_bias.REJECTS",
+    # These two key by reason INCLUDING the shape, where the six above drop it. Deliberate: the
+    # `rfd3-fusion` arm folds one fixed fixture, and the clause it turns on is itself
+    # shape-specific -- `chunk-height-would-move 64->63` is only a correct decline at
+    # `w=704 hidden=512`, and "the softmax kernel does not engage" means one thing at key 704 and
+    # the opposite at key 6080. Dropping the shape would make the two indistinguishable.
+    "RFD3_SOFTMAX_PV_FUSED": "tt_bio.softmax_generic.PVDECLINES",
+    "RFD3_FC1_SPLIT_SILU": "tt_bio.rfd3.model.FC1DECLINES",
 }
 
 

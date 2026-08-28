@@ -1,0 +1,84 @@
+{
+  "tokens": 514,
+  "heights": [
+    64,
+    63,
+    59,
+    53
+  ],
+  "provisional_on": "pc-card0",
+  "rows": [
+    {
+      "hidden": 512,
+      "asked_h": 64,
+      "actual_h": 64,
+      "l1_bytes": 138000000,
+      "vs_whole": 0.000244140625,
+      "vs_h64": null,
+      "card_control_maxabs": 0.0
+    },
+    {
+      "hidden": 512,
+      "asked_h": 63,
+      "actual_h": 63,
+      "l1_bytes": 70189056,
+      "vs_whole": 0.0,
+      "vs_h64": 0.000244140625,
+      "card_control_maxabs": 0.0
+    },
+    {
+      "hidden": 512,
+      "asked_h": 59,
+      "actual_h": 59,
+      "l1_bytes": 65732608,
+      "vs_whole": 0.0,
+      "vs_h64": 0.000244140625,
+      "card_control_maxabs": 0.0
+    },
+    {
+      "hidden": 512,
+      "asked_h": 53,
+      "actual_h": 53,
+      "l1_bytes": 59047936,
+      "vs_whole": 0.0,
+      "vs_h64": 0.000244140625,
+      "card_control_maxabs": 0.0
+    },
+    {
+      "hidden": 256,
+      "asked_h": 64,
+      "actual_h": 64,
+      "l1_bytes": 138000000,
+      "vs_whole": 0.000244140625,
+      "vs_h64": null,
+      "card_control_maxabs": 0.0
+    },
+    {
+      "hidden": 256,
+      "asked_h": 63,
+      "actual_h": 63,
+      "l1_bytes": 35094528,
+      "vs_whole": 0.0,
+      "vs_h64": 0.000244140625,
+      "card_control_maxabs": 0.0
+    },
+    {
+      "hidden": 256,
+      "asked_h": 59,
+      "actual_h": 59,
+      "l1_bytes": 32866304,
+      "vs_whole": 0.0,
+      "vs_h64": 0.000244140625,
+      "card_control_maxabs": 0.0
+    },
+    {
+      "hidden": 256,
+      "asked_h": 53,
+      "actual_h": 53,
+      "l1_bytes": 29523968,
+      "vs_whole": 0.0,
+      "vs_h64": 0.000244140625,
+      "card_control_maxabs": 0.0
+    }
+  ]
+}

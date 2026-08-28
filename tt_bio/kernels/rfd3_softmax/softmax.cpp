@@ -317,6 +317,13 @@ void kernel_main() {
         pack_reconfig_data_format(cb_out0);
         // now cb_sumexps has exp tiles, need to multiply by our DST[2]
         // by now we already did a cumulative wait for Wt tiles in cb_exps
+#if defined(PACK_BF16_TYPECAST) && defined(TYPECAST_INIT_HOISTED)
+        // candidate 3 (p134): the large kernel's `apply_recip` issues `typecast_tile_init` ONCE,
+        // here, before the mul init and outside every `tile_regs_acquire()` block -- and it is
+        // bit-exact. Both earlier attempts issued it inside the acquire block, where it reprograms
+        // the math/SFPU config while `mul_tiles_bcast` results are still in flight in DST.
+        typecast_tile_init<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>();
+#endif
         mul_bcast_cols_init_short(cb_exps, cb_recipsumexps);
         for (uint32_t wt = 0; wt < Wt; wt += ndst) {
             tile_regs_acquire();
@@ -328,13 +335,19 @@ void kernel_main() {
                 mul_tiles_bcast<BroadcastType::COL>(
                     cb_exps, cb_recipsumexps, wt + wt8, 0, wt8);  // tile *= 1/(sum(exp(x)))
             }
-#ifdef PACK_BF16_TYPECAST
+#if defined(PACK_BF16_TYPECAST) && !defined(P134_TYPECAST_SKIP)
+            // `P134_TYPECAST_SKIP` is p134b's negative control and is never set on a production
+            // path: dropping the SFPU conversion must put the output back on the packer's own
+            // rounding, i.e. back on `perf/p74/softmax_generic.json`'s 0.0009765625. A define that
+            // does not move the output would mean `extra_defines` never reached the compiler.
             // `ttnn.typecast` is an SFPU op (eltwise_typecast.cpp: copy_tile then TYPECAST_LLK
             // then pack), and its rounding is not the packer s. Doing the same SFPU conversion
             // here and packing an already-bf16-valued DST reproduces it exactly.
             for (uint32_t wt8 = 0; wt8 < ndst; wt8++) {
+#ifndef TYPECAST_INIT_HOISTED
                 typecast_tile_init<(uint32_t)DataFormat::Float32,
                                    (uint32_t)DataFormat::Float16_b>();
+#endif
                 typecast_tile<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>(wt8);
             }
 #endif
