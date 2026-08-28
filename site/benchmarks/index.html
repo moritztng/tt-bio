@@ -205,10 +205,10 @@ details.disclose > div{ padding-top:var(--s-4); }
   <div class="mgroup">
     <h3>Protein embeddings</h3>
     <div class="tablewrap"><table class="mtable">
-      <thead><tr><th>--model</th><th>Embeddings</th><th>Output</th><th>Sizes</th></tr></thead>
+      <thead><tr><th>--model</th><th>Embeddings</th><th>Output</th><th>Sizes, as --model</th></tr></thead>
       <tbody>
-        <tr><td>esmc</td><td>sequence, ESMC language model</td><td>per-residue, pooled</td><td>300M, 600M, 6B</td></tr>
-        <tr><td>saprot</td><td>structure-aware, ESM-2 over a fused amino-acid and Foldseek-3Di vocabulary</td><td>per-residue, pooled</td><td>35M, 650M, 1.3B</td></tr>
+        <tr><td>esmc</td><td>sequence, ESMC language model</td><td>per-residue, pooled</td><td>esmc-300m, esmc-600m, esmc-6b</td></tr>
+        <tr><td>saprot</td><td>structure-aware, ESM-2 over a fused amino-acid and Foldseek-3Di vocabulary</td><td>per-residue, pooled</td><td>saprot-35m, saprot-650m, saprot-1.3b</td></tr>
       </tbody>
     </table></div>
     <p class="mnote">SaProt's structure input is optional; sequence-only costs accuracy below 1.3B.</p>
