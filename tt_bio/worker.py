@@ -2250,6 +2250,7 @@ def _execute_pxdesign_job_inprocess(
                     "fit_rmsd": rows[0].get("fit_rmsd"),
                     "binder_residues": rows[0].get("binder_residues"),
                     "binder_atoms": rows[0].get("binder_atoms"),
+                    "conditioned_tokens": rows[0].get("conditioned_tokens"),
                     "runtime_s": round(time.time() - t0, 1)})
     except Exception as exc:
         traceback.print_exc()

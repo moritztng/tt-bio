@@ -56,7 +56,35 @@ def run_design(inputs: Path, out_dir, cache, num_designs: int, n_step: int, seed
               f"({n_token} tokens, {n_step} steps) → {out_dir}", flush=True)
     model = ProtenixDesign.load_from_checkpoint(str(ckpt))
     coords = model.design(feats, n_step=n_step, n_sample=num_designs, seed=seed)
-    return write_design_cifs(coords, feats, out_dir, stem=stem or inputs.stem)
+    rows = write_design_cifs(coords, feats, out_dir, stem=stem or inputs.stem)
+    _write_metrics(out_dir, rows)
+    return rows
+
+
+def _write_metrics(out_dir, rows: list[dict]) -> None:
+    """Drop the per-design numbers beside the CIFs as `designs.json`.
+
+    A binder backbone CIF carries no sequence, no B-factor and no confidence, so
+    everything worth showing about a design lives in these rows — `fit_rmsd` above all.
+    Without a file they exist only on stdout, which anything reading the output
+    directory (the platform's results view, a user's script) cannot use.
+    """
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    prior = []
+    path = out / "designs.json"
+    if path.exists():                       # fleet shards land one at a time
+        try:
+            prior = [r for r in json.loads(path.read_text()) if isinstance(r, dict)]
+        except Exception:
+            prior = []
+    keep = ("fit_rmsd", "binder_residues", "binder_atoms", "conditioned_tokens")
+    fresh = [{"id": Path(str(r["cif"])).stem, **{k: r[k] for k in keep if k in r}}
+             for r in rows]
+    have = {r["id"] for r in fresh}
+    merged = [r for r in prior if r.get("id") not in have] + fresh
+    merged.sort(key=lambda r: str(r.get("id")))
+    path.write_text(json.dumps(merged, indent=2))
 
 
 def run_design_via_controller(
@@ -152,7 +180,8 @@ def run_design_via_controller(
                     if p.exists():
                         rows.append({"cif": str(p), "fit_rmsd": row.get("fit_rmsd"),
                                      "binder_residues": row.get("binder_residues"),
-                                     "binder_atoms": row.get("binder_atoms")})
+                                     "binder_atoms": row.get("binder_atoms"),
+                                     "conditioned_tokens": row.get("conditioned_tokens")})
                     if verbose:
                         print(f"[design:{name}] done ({row.get('runtime_s', '?')}s)", flush=True)
                 else:
@@ -172,4 +201,5 @@ def run_design_via_controller(
         raise RuntimeError(
             "Every design shard failed — no designs were produced. First error:\n"
             + next(iter(failures.values()), "unknown (see worker logs)"))
+    _write_metrics(out_dir, rows)
     return rows
