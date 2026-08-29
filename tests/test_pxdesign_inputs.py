@@ -108,6 +108,36 @@ def test_pdb_and_cif_agree(tmp_path):
     assert torch.allclose(a["coord"], b["coord"], atol=1e-3)
 
 
+def test_coordinates_only_pdb_keeps_the_author_numbering(tmp_path):
+    """The test above writes its PDB through gemmi, which emits SEQRES, so label_seq
+    could still be assigned by aligning the observed residues against it. A user pastes
+    ATOM records and nothing else: there is then no sequence to align to, gemmi leaves
+    every label_seq None, and this used to die on `int(None)` deep in the featurizer.
+
+    The author numbering is the fallback, because on such a file it is the only residue
+    number the user can see -- and therefore the only one their hotspots and crop can
+    mean. 6m0j says that plainly: its RBD is label_seq 15-208 and auth 333-526, so the
+    same 194 residues at the same coordinates come back under the numbering that file
+    actually shows."""
+    import gemmi
+    st = gemmi.read_structure(os.path.join(FIX, "6m0j.cif.gz"))
+    st.setup_entities()
+    full = str(tmp_path / "with_seqres.pdb")
+    st.write_pdb(full)
+    bare = tmp_path / "atoms_only.pdb"
+    bare.write_text("".join(ln + "\n" for ln in open(full).read().splitlines()
+                            if ln.startswith(("ATOM", "HETATM", "TER", "END"))))
+    assert "SEQRES" not in bare.read_text()
+    assert all(r.label_seq is None
+               for ch in gemmi.read_structure(str(bare))[0] for r in ch)
+
+    a = structure_token_coords(os.path.join(FIX, "6m0j.cif.gz"), ["B"], "15-208")["B"]
+    b = structure_token_coords(str(bare), ["E"], "333-526")["E"]
+    assert b["label_seq"][0] == 333 and b["label_seq"][-1] == 526
+    assert a["sequence"] == b["sequence"]
+    assert torch.allclose(a["coord"], b["coord"], atol=1e-3)
+
+
 def test_yaml_reader():
     spec = read_design_yaml(PDL1)
     assert spec["chains"] == ["A"] and spec["binder_length"] == 80
