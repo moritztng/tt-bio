@@ -756,7 +756,8 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
     polymer subchain. A PDB carries no label_asym_id, so an id that matches no subchain
     falls back to the auth chain name, which is the only chain key a PDB has. `crop` is a
     label_seq spec (see `parse_crop_spec`), either one spec for every chain or a
-    `{chain_id: spec}` dict.
+    `{chain_id: spec}` dict; residues of a PDB with no SEQRES have no label_seq either,
+    and fall back to the author numbering the same way.
 
     Returns `{chain_id: {coord, res_name, mol_type, is_resolved, label_seq, has_oxt, ca,
     ca_mask, sequence}}`, each in label_seq order; `coord` is the (N_res, 3) distogram
@@ -776,7 +777,10 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
     st.remove_alternative_conformations()
     st.remove_hydrogens()
     st.remove_waters()
-    st.assign_label_seq_id()               # a PDB input gets the numbering a CIF already has
+    # Aligns the observed residues against the entity's SEQRES. A coordinates-only PDB
+    # has no SEQRES, so there is nothing to align against and every label_seq stays None;
+    # the per-residue fallback below covers that case.
+    st.assign_label_seq_id()
 
     polymers = []                          # (label_asym_id, auth_chain_name, subchain, entity)
     for chain in st[0]:
@@ -808,7 +812,13 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
         coord, res_name, resolved, label_seq, oxt = [], [], [], [], []
         ca, ca_mask = [], []
         for res in sub:
-            if keep is not None and res.label_seq not in keep:
+            # A PDB with no SEQRES comes back with no label_seq at all (gemmi cannot
+            # assign one without a sequence to align to), and the author numbering is
+            # then the only residue number that file shows -- so it is the only one a
+            # user's crop or hotspot can possibly mean. Forcing a 1..N label_seq instead
+            # would silently move every hotspot on any PDB not numbered from 1.
+            seq = res.label_seq if res.label_seq is not None else res.seqid.num
+            if keep is not None and seq not in keep:
                 continue
             if not len(res):           # every atom filtered out: upstream drops the residue
                 continue
@@ -821,7 +831,7 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
             coord.append([at.pos.x, at.pos.y, at.pos.z] if at else [0.0, 0.0, 0.0])
             res_name.append(res.name)
             resolved.append(at is not None)
-            label_seq.append(int(res.label_seq))
+            label_seq.append(int(seq))
             oxt.append(any(a.name == "OXT" for a in res))
         if not coord:
             raise ValueError(f"structure_token_coords: chain {cid} has no residues "
