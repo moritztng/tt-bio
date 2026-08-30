@@ -1870,11 +1870,11 @@ def run_worker_loop(
             # deadlocked). Free the predict model first (memory) but keep the chip.
             if cfg.get("kind") == "design":
                 state.free_model()
+                shard = {"rfd3": _execute_rfd3_job_inprocess,
+                         "pxdesign": _execute_pxdesign_job_inprocess}.get(
+                             cfg.get("engine"), _execute_design_job_inprocess)
                 for job in jobs:
-                    if cfg.get("engine") == "rfd3":
-                        _execute_rfd3_job_inprocess(client, run_id, worker_id, worker_info, meta, job, cfg)
-                    else:
-                        _execute_design_job_inprocess(client, run_id, worker_id, worker_info, meta, job, cfg)
+                    shard(client, run_id, worker_id, worker_info, meta, job, cfg)
                 continue
 
             _ensure_local_artifacts(cfg)
@@ -2212,6 +2212,109 @@ def _execute_rfd3_job_inprocess(
             run_id, worker_id, row,
             {**meta, "event": "done", "name": job_id, "status": row["status"],
              "time": round(time.time() - t0, 1), "error": row.get("error", ""), "row": row},
+            outputs=outputs or None,
+        )
+    except Exception:
+        traceback.print_exc()
+
+
+
+def _execute_pxdesign_job_inprocess(
+    client: ControllerClient,
+    run_id: str,
+    worker_id: str,
+    worker_info: dict[str, Any],
+    meta: dict[str, Any],
+    job: dict[str, Any],
+    cfg: dict[str, Any],
+) -> None:
+    """Run one PXDesign shard IN-PROCESS on this worker's persistent device.
+
+    Same reuse pattern as the RFD3 shard path: pxdesign.design.run_design loads its
+    model on get_device(), which returns this worker's already-open chip, so no shard
+    cold-opens a device. Unlike RFD3 a shard is ONE design, not a whole spec — the
+    payload is {stem, seed} and the target YAML plus its structure ride in cfg, so
+    workers need no shared filesystem.
+    """
+    import threading
+    job_id = job["id"]
+    t0 = time.time()
+
+    def emit(event: str, **kw):
+        try:
+            client.event(run_id, worker_id, {"event": event, **meta, **kw})
+        except Exception:
+            pass
+
+    workdir = Path(tempfile.mkdtemp(prefix=f"tt-bio-pxdesign-{job_id}-"))
+    out_dir = workdir / "out"
+    row: dict[str, Any] = {"id": job_id, "status": "failed"}
+    outputs: dict[str, str] = {}
+    emit("start", name=job.get("name") or job_id)
+
+    # The sampler has no step hook, so relay a periodic liveness event while the shard
+    # runs silently — keeps the orchestrator's stall watchdog fed.
+    stop = threading.Event()
+
+    def _beat():
+        while not stop.wait(15.0):
+            emit("progress", name=job.get("name") or job_id,
+                 elapsed_s=round(time.time() - t0, 1))
+
+    beat = threading.Thread(target=_beat, daemon=True)
+    beat.start()
+    try:
+        data = json.loads(base64.b64decode(job.get("input_b64", "")).decode("utf-8"))
+        stem = str(data.get("stem") or job_id)
+        seed = int(data.get("seed") or 0)
+        row["name"] = stem          # the CIF this shard writes; the client collects by it
+
+        for s in cfg.get("structures", []):
+            (workdir / Path(str(s["name"])).name).write_text(str(s["content"]))
+        target = cfg.get("target") or {}
+        if not target.get("content"):
+            raise RuntimeError("design run shipped no target YAML")
+        # Rewrite target.file to the copy just landed here: the submitting host's path
+        # means nothing on this worker.
+        import yaml
+        doc = yaml.safe_load(str(target["content"])) or {}
+        named = Path(str((doc.get("target") or {}).get("file") or "")).name
+        if not named:
+            raise RuntimeError("target YAML has no target.file")
+        doc["target"]["file"] = str(workdir / named)
+        target_path = workdir / (Path(str(target.get("name") or "target.yaml")).name)
+        target_path.write_text(yaml.safe_dump(doc, sort_keys=False))
+
+        from tt_bio.pxdesign.design import run_design
+        cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
+        rows = run_design(target_path, out_dir, cache, 1,
+                          int(cfg.get("n_step") or 400), seed, stem=stem, verbose=False)
+        if not rows:
+            raise RuntimeError("no designs were produced")
+        outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
+        # fit_rmsd is the end-to-end correctness signal and the platform shows it per
+        # design, so it rides back on the row rather than being recomputed from the CIF
+        # (which no longer holds the target it was fitted against).
+        row.update({"status": "ok", "num_designs": len(rows),
+                    "fit_rmsd": rows[0].get("fit_rmsd"),
+                    "binder_residues": rows[0].get("binder_residues"),
+                    "binder_atoms": rows[0].get("binder_atoms"),
+                    "conditioned_tokens": rows[0].get("conditioned_tokens"),
+                    "runtime_s": round(time.time() - t0, 1)})
+    except Exception as exc:
+        traceback.print_exc()
+        row["error"] = _err_text(exc)
+    finally:
+        stop.set()
+        shutil.rmtree(workdir, ignore_errors=True)
+        gc.collect()  # drop the design model's host refs; the chip stays open
+
+    try:
+        client.complete(
+            run_id, worker_id, row,
+            {**meta, "event": "done", "name": row.get("name") or job_id,
+             "status": row["status"], "time": round(time.time() - t0, 1),
+             "error": row.get("error", ""), "row": row},
             outputs=outputs or None,
         )
     except Exception:

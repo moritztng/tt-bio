@@ -3536,32 +3536,14 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
     committed captures and reads its target out of a capture directory; the shipped path builds
     everything from the user's own structure file.
     """
-    from tt_bio.pxdesign.inputs import design_inputs_from_yaml
-    from tt_bio.pxdesign.model import ProtenixDesign
-    from tt_bio.pxdesign.write import write_design_cifs
+    from tt_bio.pxdesign.design import run_design
 
     out_dir = out_dir or "./designs"
     num_designs = num_designs if num_designs is not None else 1
-    torch.set_grad_enabled(False)
-
     try:
-        feats = design_inputs_from_yaml(inputs)
+        rows = run_design(inputs, out_dir, cache, num_designs, n_step, seed)
     except (ValueError, FileNotFoundError) as e:
         raise click.ClickException(str(e))
-    # The model's parameters are float32 and the featurizer builds integer bins and masks; the
-    # harness converts once before the forward and so does this.
-    feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
-             for k, v in feats.items()}
-
-    ckpt = ensure_pxdesign_weights(Path(cache).expanduser())
-    ensure_p300_mesh_descriptor()
-
-    n_token = int(feats["restype"].shape[0])
-    click.echo(f"Designing {num_designs} binder(s) against {inputs.name} "
-               f"({n_token} tokens, {n_step} steps) → {out_dir}")
-    model = ProtenixDesign.load_from_checkpoint(str(ckpt))
-    coords = model.design(feats, n_step=n_step, n_sample=num_designs, seed=seed)
-    rows = write_design_cifs(coords, feats, out_dir, stem=inputs.stem)
 
     click.echo(f"Done — {len(rows)} design(s) → {out_dir}")
     for r in rows:
@@ -3785,6 +3767,22 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--devices", "devices")):
             if _explicit(name):
                 click.secho(f"Note: --model pxdesign does not use {flag}; ignoring.", fg="yellow")
+        if controller:
+            # Fleet path. Without this the flag was accepted and silently dropped, and
+            # the run cold-opened a device of its own — which on a serving box means
+            # colliding with the resident workers that already hold every chip.
+            from tt_bio.pxdesign.design import run_design_via_controller
+            rows = run_design_via_controller(
+                Path(inputs), out_dir or "./designs", controller_url=controller,
+                num_designs=num_designs if num_designs is not None else 1,
+                n_step=n_step, seed=seed, run_id=run_id, owner=owner)
+            click.echo(f"Done — {len(rows)} design(s) → {out_dir or './designs'}")
+            for r in rows:
+                fit = r.get("fit_rmsd")
+                click.echo(f"  {Path(r['cif']).name}: {r.get('binder_residues')} residues, "
+                           f"{r.get('binder_atoms')} atoms"
+                           + (f"; target fit {fit:.2f} A" if isinstance(fit, (int, float)) else ""))
+            return
         _run_pxdesign_cli(Path(inputs), out_dir, cache, num_designs, n_step, seed)
         return
 
