@@ -1264,7 +1264,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
         return row
     g = row["geom"]
     print(f"[{model}] geometry ({len(cifs)} sample(s), worst): in band {g['in_band']}, "
-          f"gaps > {geom.CA_CA_BREAK} A {g['breaks']}, clashes {g['clashes']}/{g['heavy']} "
+          f"backbone gaps {g['breaks']}, clashes {g['clashes']}/{g['heavy']} "
           f"({g['clash_frac']:.4f}, worst contact {g['worst_contact']} A)", flush=True)
     for line in g["fails"]:
         print(f"[{model}]   GEOMETRY FAIL {line}", flush=True)
@@ -3466,9 +3466,11 @@ def main() -> int:
             print(f"{r['model']:<15}{rmsd:>10}{tm:>8}{floor:>16}{ib:>9}{gaps:>6}"
                   f"{cl:>13}{wall:>8}  {verdict}")
         print(f"{'#'*78}")
-        print(f"floors: in band >= {_geom_const('CA_CA_FAIL_FRAC')}, gaps > "
-              f"{_geom_const('CA_CA_BREAK')} A must be 0, clashes <= "
-              f"max({_geom_const('CLASH_MAX_ABS')}, {PREDICT_MAX_CLASH_FRAC} x heavy atoms)")
+        print(f"geometry floors, check_structure.py's own bands: in band >= "
+              f"{_geom_const('CA_CA_FAIL_FRAC')} (protein) / {_geom_const('PP_FAIL_FRAC')} "
+              f"(nucleic), zero backbone gaps beyond {_geom_const('CA_CA_BREAK')} / "
+              f"{_geom_const('PP_BREAK')} A, clashes <= max("
+              f"{_geom_const('CLASH_MAX_ABS')}, {PREDICT_MAX_CLASH_FRAC} x heavy atoms)")
         print("GATE PASS — all models cleared parse + ground-truth floor + geometry"
               if all_pass else
               "GATE FAIL — a model missed parse, the ground-truth floor or geometry (see above)")
