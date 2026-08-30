@@ -17,25 +17,34 @@ cd "$WT" || exit 1
 mapfile -t FP < perf/bisect512r/fp_list.txt
 LO=0        # index into FP of the last known GOOD ( -1 means deb9b307 itself )
 HI=$((${#FP[@]}-1))   # index of a known BAD (626be0b5, last element)
-LO=-1
+: "${THRESH:=0.72513}"
+LO=${LO:--1}
+HI_OVERRIDE=${HI:-}
 declare -A SEEN
+[ -n "$HI_OVERRIDE" ] && HI=$HI_OVERRIDE
+_read_plddt() {   # $1 = arm json path -> echoes the single plDDT, or empty
+  "$PY" -c "
+import json,sys
+try:
+    d=json.load(open(sys.argv[1]))
+    vs={f['plddt'] for f in d.get('warm_folds',[]) if f.get('plddt') is not None}
+    print(repr(vs.pop()) if len(vs)==1 else '')
+except Exception:
+    print('')
+" "$1" 2>/dev/null
+}
 measure() {   # $1 = index -> echoes plddt or empty
   local i=$1
   local c=${FP[$i]}
   local s=${c:0:8}
   if [ -n "${SEEN[$s]:-}" ]; then echo "${SEEN[$s]}"; return; fi
+  local cached
+  cached=$(_read_plddt "$OUT/S_$s.json")
+  if [ -n "$cached" ]; then SEEN[$s]=$cached; echo "    (cached) idx=$i $s plddt=$cached" >> "$LOG"; echo "$cached"; return; fi
   echo "--- $(date -u +%FT%TZ) step idx=$i $s $(git log -1 --format=%s $c | cut -c1-70)" >> "$LOG"
   REPEAT=1 "$WT/perf/bisect512r/fold_at.sh" "S_$s" "$c" >> "$OUT/S_$s.log" 2>&1
   local v
-  v=$("$PY" -c "
-import json
-try:
-    d=json.load(open('$OUT/S_$s.json'))
-    vs={f['plddt'] for f in d.get('warm_folds',[]) if f.get('plddt') is not None}
-    print(repr(vs.pop()) if len(vs)==1 else '')
-except Exception:
-    print('')
-" 2>/dev/null)
+  v=$(_read_plddt "$OUT/S_$s.json")
   SEEN[$s]=$v
   echo "    -> plddt='$v'" >> "$LOG"
   echo "$v"
@@ -52,7 +61,7 @@ while [ $((HI-LO)) -gt 1 ]; do
     V=$(measure $MID)
     [ -z "$V" ] && { echo "SKIP-EXHAUSTED window $LO..$HI (two in a row)" >> "$LOG"; break; }
   fi
-  if "$PY" -c "import sys; sys.exit(0 if float('$V') < 0.72513 else 1)"; then
+  if "$PY" -c "import sys; sys.exit(0 if float('$V') < $THRESH else 1)"; then
     HI=$MID; echo "BAD  idx=$MID ${FP[$MID]:0:8} plddt=$V" >> "$LOG"
   else
     LO=$MID; echo "GOOD idx=$MID ${FP[$MID]:0:8} plddt=$V" >> "$LOG"
