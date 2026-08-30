@@ -4,16 +4,24 @@
 For every shipped fold architecture (Boltz-2, ESMFold2, ESMFold2-fast,
 Protenix-v2, OpenFold3, OpenDDE, RF3) this
 folds one easy, foldable target end-to-end on the real device with production
-sampling and then applies two independent gates to the result:
+sampling and then applies three independent gates to the result:
 
-  1. PARSE   — the written mmCIF must load under a strict ``Bio.PDB.MMCIFParser``.
-               Biopython is stricter about required ``_atom_site`` columns than the
-               geometry parser below, so it is the right tool to catch writer/format
-               regressions (e.g. the missing-occupancy bug fixed in 17aeab9e).
-  2. RMSD/TM — the confidence-selected structure (best-of-N, exactly what a user
-               receives) must land within a per-model ground-truth CA-RMSD / TM-score
-               floor of the experimental structure. Reuses the Kabsch + TM + best-of-N
-               harness in ``tests/test_structure.py`` (do not re-derive it here).
+  1. PARSE    — the written mmCIF must load under a strict ``Bio.PDB.MMCIFParser``.
+                Biopython is stricter about required ``_atom_site`` columns than the
+                geometry parser below, so it is the right tool to catch writer/format
+                regressions (e.g. the missing-occupancy bug fixed in 17aeab9e).
+  2. RMSD/TM  — the confidence-selected structure (best-of-N, exactly what a user
+                receives) must land within a per-model ground-truth CA-RMSD / TM-score
+                floor of the experimental structure. Reuses the Kabsch + TM + best-of-N
+                harness in ``tests/test_structure.py`` (do not re-derive it here).
+  3. GEOMETRY — every delivered sample must be chemically sane: backbone steps in the
+                measured band, no gap over the break distance, heavy-atom clashes inside
+                a predict-calibrated budget. RMSD/TM is a global fit and reads none of
+                that, so a fold can clear a gross-failure floor with a broken chain —
+                which is exactly what OpenDDE shipped for nine days behind a green gate
+                (see PREDICT_MAX_CLASH_FRAC). Reuses the same
+                ``perf/wh-correctness/check_structure.py`` bands and clash search the
+                RFD3 design leg below already scores its CIFs with.
 
 Self-consistency (seed-vs-reference RMSD) is NOT sufficient — it passes even when the
 fold is wrong. A tag must clear a real
@@ -290,6 +298,50 @@ MODELS = {
     # carries -- same discipline as boltz2 (1.55 -> 3.0) and protenix-v2 (3.87 -> 6.0).
     "openbind":      {"max_rmsd": 3.5, "min_tm": 0.70},
 }
+
+# --- predict geometry arm ----------------------------------------------------
+# The RMSD/TM pair above is a GLOBAL fit against one 117 aa reference, and it is blind to
+# local chemistry: a fold can superimpose on the ground truth well enough to clear a
+# gross-failure floor while its backbone is broken and its atoms sit on top of each other.
+# That is not hypothetical. `1ea1e6f3` (2026-08-17) fixed an OpenDDE pair-init reshape that
+# had corrupted every fold since `6c3f5ecaf` (08-08); the corrupted 512 aa output carries 19
+# backbone gaps over 5 A and 391 clashing heavy atoms (9.50%), with a HIGHER plDDT than the
+# fixed code, and this gate stayed green for the whole nine days
+# (state/opendde-512aa-numerics-drift-bisect.md 4e/5). Nothing here read a chain break or a
+# clash on a predict leg — only the RFD3 design leg did.
+#
+# So every predict leg now scores its delivered CIFs with the SAME harness the design leg
+# uses, perf/wh-correctness/check_structure.py, via the same `_load_geometry_harness()`
+# import: `chain_geometry` for the backbone (in-band step fraction, gaps > CA_CA_BREAK, Rg,
+# N-Ca and Ca-C bond medians) and `clashes` for heavy-atom overlap. Additive: the RMSD/TM
+# floor is unchanged and a model must now clear both.
+#
+# Only ONE constant is redefined for predict, the clash allowance. check_structure's own
+# CLASH_MAX_FRAC (0.001) is calibrated on EXPERIMENTAL structures (1ahw 1 pair / 4915 atoms,
+# 9dsg 2 / 5062) and correct predictions do not meet it: main-tip OpenDDE at 512 aa measures
+# 23 clashes / 4115 heavy atoms = 0.56%, five times that fraction, on output whose backbone
+# is perfect (100% in band, 0 gaps). Gating predict at 0.001 would fail correct code on
+# arrival, which is how an arm gets disabled. 0.02 sits ~3.5x above the worst correct fold
+# measured and ~5x below the corruption this arm exists to catch (9.50% at 512 aa, 25.3% at
+# 128 aa on the same defect), so it separates the two classes with room on both sides.
+# The absolute floor and the budget formula are check_structure's own
+# (`max(CLASH_MAX_ABS, frac * heavy)`), so a handful of marginal contacts in a small
+# structure is not a failure.
+#
+# Everything else is the harness's own measured band, unchanged, because those bands were
+# calibrated on shipped tt-bio PREDICTIONS rather than on crystal structures: the in-band
+# failure bar CA_CA_FAIL_FRAC = 0.90 is set against measured 0.970 (opendde on 1ahw), 0.981
+# and 1.000 (boltz2), and CA_CA_BREAK = 5.0 A is a physical bound on a peptide step, not a
+# quality target. A break floor of zero is therefore right here and NOT the call RFD3 makes
+# with its clean-rate: an RFdiffusion-family design legitimately produces the occasional
+# broken backbone and is filtered downstream, while a predict model handed a real sequence
+# has no such excuse — one gap over 5 A in a folded monomer is a defect.
+#
+# Scored over EVERY delivered sample, worst-of, not just the confidence-selected one: all
+# five are written to the user's results dir, and the corruption signature that motivated
+# this arm inflates confidence while wrecking geometry, so ranking by confidence is the one
+# ordering that cannot be trusted to surface it.
+PREDICT_MAX_CLASH_FRAC = 0.02
 
 # BoltzGen designability leg — see module docstring. Small n and the target the
 # README already documents for `tt-bio design --model boltzgen`; kept fast enough for a
@@ -1112,6 +1164,46 @@ def _parse_gate(cifs: list[Path], name: str = NAME) -> None:
                 raise ValueError(f"{cif.name}: parsed but contains 0 atoms")
 
 
+def _geom_const(name: str):
+    """One measured band constant from the geometry harness, for the summary line."""
+    return getattr(_load_geometry_harness(), name)
+
+
+def _predict_geometry(cifs: list, geom) -> dict:
+    """Structural sanity of every delivered predict sample, scored by the geometry harness.
+
+    Reuses ``perf/wh-correctness/check_structure.py`` exactly as the RFD3 design leg does:
+    ``geom.chain_geometry`` for the per-chain backbone verdict and ``geom.clashes`` for
+    heavy-atom overlap, both with the harness's own measured bands. The only thing decided
+    here is the clash allowance (PREDICT_MAX_CLASH_FRAC, see the comment on it) and the
+    worst-of-samples reduction. Nothing about protein geometry is re-derived.
+
+    Returns the worst sample's numbers plus every failure line, sample-tagged.
+    """
+    import gemmi
+
+    fails, in_band, breaks, clashes, heavy, frac, contact = [], None, 0, 0, 0, 0.0, 0.0
+    for cif in cifs:
+        st = gemmi.read_structure(str(cif))
+        st.remove_alternative_conformations()
+        st.setup_entities()
+        chains, chain_fails, _ = geom.chain_geometry(st)
+        n_clash, n_heavy, worst = geom.clashes(st)
+        f = n_clash / n_heavy if n_heavy else 0.0
+        budget = max(geom.CLASH_MAX_ABS, PREDICT_MAX_CLASH_FRAC * n_heavy)
+        if n_heavy and n_clash > budget:
+            chain_fails.append(f"{n_clash} heavy-atom clashes < {geom.CLASH_DIST} A "
+                               f"({f:.2%} of atoms, worst {worst} A, budget {budget:.1f})")
+        fails += [f"{cif.name}: {m}" for m in chain_fails]
+        for c in chains:
+            in_band = c["in_band_frac"] if in_band is None else min(in_band, c["in_band_frac"])
+            breaks = max(breaks, c["breaks"])
+        if f >= frac:
+            clashes, heavy, frac, contact = n_clash, n_heavy, f, worst
+    return {"in_band": in_band, "breaks": breaks, "clashes": clashes, "heavy": heavy,
+            "clash_frac": round(frac, 6), "worst_contact": contact, "fails": fails}
+
+
 def run_model(model: str, harness, keep: bool) -> dict:
     """Fold, parse, and ground-truth-score one model. Returns a result row."""
     from tt_bio.main import predict_results_dir_name
@@ -1134,7 +1226,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
           flush=True)
 
     row = {"model": model, "seconds": None, "rmsd": None, "tm": None,
-           "parse": False, "gate": False, "error": None}
+           "parse": False, "geom": None, "gate": False, "error": None}
     t0 = time.monotonic()
     rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT)
     row["seconds"] = time.monotonic() - t0
@@ -1163,8 +1255,24 @@ def run_model(model: str, harness, keep: bool) -> dict:
         return row
     row["rmsd"], row["tm"] = rmsd, tm
 
+    # Local chemistry, which RMSD/TM cannot see. Same harness, same bands as the design leg.
+    try:
+        geom = _load_geometry_harness()
+        row["geom"] = _predict_geometry(cifs, geom)
+    except Exception as e:
+        row["error"] = f"geometry scoring failed: {e}"
+        return row
+    g = row["geom"]
+    print(f"[{model}] geometry ({len(cifs)} sample(s), worst): in band {g['in_band']}, "
+          f"backbone gaps {g['breaks']}, clashes {g['clashes']}/{g['heavy']} "
+          f"({g['clash_frac']:.4f}, worst contact {g['worst_contact']} A)", flush=True)
+    for line in g["fails"]:
+        print(f"[{model}]   GEOMETRY FAIL {line}", flush=True)
+
     th = MODELS[model]
-    row["gate"] = (rmsd <= th["max_rmsd"]) and (tm >= th["min_tm"])
+    row["gate"] = (rmsd <= th["max_rmsd"]) and (tm >= th["min_tm"]) and not g["fails"]
+    if not row["gate"] and g["fails"]:
+        row["error"] = "; ".join(g["fails"])[:300]
 
     if not keep:
         shutil.rmtree(out, ignore_errors=True)
@@ -3341,19 +3449,31 @@ def main() -> int:
         print(f"\n{'#'*78}\nRELEASE GATE — {DATA.name} ({NAME}), "
               f"{_steps_label(fold_models)} steps / {DIFFUSION_SAMPLES} samples, "
               f"seed {SEED}\n{'#'*78}")
-        print(f"{'model':<15}{'RMSD (A)':>10}{'TM':>8}{'floor':>16}{'wall':>9}  result")
+        print(f"{'model':<15}{'RMSD (A)':>10}{'TM':>8}{'floor':>16}"
+              f"{'in band':>9}{'gaps':>6}{'clash':>13}{'wall':>8}  result")
         for r in rows:
             th = MODELS[r["model"]]
             floor = f"<={th['max_rmsd']}/>={th['min_tm']}"
             rmsd = f"{r['rmsd']:.3f}" if r["rmsd"] is not None else "  -  "
             tm = f"{r['tm']:.3f}" if r["tm"] is not None else "  -  "
+            g = r["geom"] or {}
+            ib = f"{g['in_band']:.4f}" if g.get("in_band") is not None else "  -  "
+            gaps = str(g["breaks"]) if g.get("breaks") is not None else " - "
+            cl = (f"{g['clashes']}({g['clash_frac']:.4f})" if g.get("heavy") else "  -  ")
             wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
             verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
             all_pass &= r["gate"]
-            print(f"{r['model']:<15}{rmsd:>10}{tm:>8}{floor:>16}{wall:>9}  {verdict}")
+            print(f"{r['model']:<15}{rmsd:>10}{tm:>8}{floor:>16}{ib:>9}{gaps:>6}"
+                  f"{cl:>13}{wall:>8}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — all models cleared parse + ground-truth floor" if all_pass
-              else "GATE FAIL — a model missed parse or the ground-truth floor (see above)")
+        print(f"geometry floors, check_structure.py's own bands: in band >= "
+              f"{_geom_const('CA_CA_FAIL_FRAC')} (protein) / {_geom_const('PP_FAIL_FRAC')} "
+              f"(nucleic), zero backbone gaps beyond {_geom_const('CA_CA_BREAK')} / "
+              f"{_geom_const('PP_BREAK')} A, clashes <= max("
+              f"{_geom_const('CLASH_MAX_ABS')}, {PREDICT_MAX_CLASH_FRAC} x heavy atoms)")
+        print("GATE PASS — all models cleared parse + ground-truth floor + geometry"
+              if all_pass else
+              "GATE FAIL — a model missed parse, the ground-truth floor or geometry (see above)")
 
     if want_rf3_1024aa:
         rr = run_rf3_1024aa(args.keep)
