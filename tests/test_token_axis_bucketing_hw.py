@@ -56,6 +56,9 @@ JOBS = {
     "saprot-35m": ["saprot", "{fasta}", "--model", "saprot-35m"],
     "saprot-650m": ["saprot", "{fasta}", "--model", "saprot-650m"],
     "esmfold2": _PREDICT + ["esmfold2"],
+    # protenix-v1 inherits protenix.TOKEN_PAD_MULTIPLE by construction and takes the same fasta
+    # through the same verb, so it is censused on the shared input like any other row.
+    "protenix-v1": _PREDICT + ["protenix-v1"],
     # Declared EXPOSED today, so these skip on status -- and start running the moment Phase 2
     # flips one of them to BUCKETED. That is the point: the claim gets checked, not the intent.
     "protenix-v2": _PREDICT + ["protenix-v2"],
@@ -223,6 +226,14 @@ _ALIGNED_SEQ = ("NLYIQWLKDGGPSSGRPPPS" * 7)[:128]      # 128 tokens: already a t
 # turning an A/B into an ON-vs-ON tautology that can never fail.
 _BUCKET_OFF = {"TT_BIO_TOKEN_BUCKET": "0"}
 _BUCKET_ON = {"TT_BIO_TOKEN_BUCKET": "1"}
+# The negative control below needs BOTH switches, not just the bucket. `_SDPA_RAGGED_PAD`
+# (tt_bio/tenstorrent.py) went default-ON on 2026-08-24, the same day the bucket unified at 32,
+# and it pads and masks a ragged key axis at the op. So with the bucket alone turned off the axes
+# still arrive aligned and `masked_ragged` stays 0 -- the off arm stopped being an off arm without
+# anyone touching it. Same shape as the `{}`-spelled arm this file already warns about, one layer
+# down. Kept separate from `_BUCKET_OFF` because the A/A test above runs at an aligned N where
+# `_sdpa_pad_ragged` returns early anyway, and its off arm must not move.
+_RAGGED_ARM = dict(_BUCKET_OFF, TT_BIO_SDPA_RAGGED_PAD="0")
 
 
 @pytest.mark.device
@@ -232,13 +243,14 @@ def test_protenix_ragged_sdpa_is_there_to_be_closed(model):
 
     Both are declared BUCKETED and default ON, so the census test above already proves the fix
     holds. What that test cannot prove is that the counter it reads is alive: a probe that missed
-    the model process, or a census that stopped classifying, passes it just as cleanly. Turning the
-    only thing that closes those axes back off has to bring the ragged calls back, or the guard is
-    measuring nothing. Three axes had to be closed to reach zero and the census found each one
-    AFTER the previous was fixed: the trunk (1208 calls at N=98), the confidence head's Pairformer
-    at the real N (8), and -- OpenDDE only -- the structural-token refiner at Ns=181 (8 more).
+    the model process, or a census that stopped classifying, passes it just as cleanly. Turning
+    everything that closes those axes back off has to bring the ragged calls back, or the guard is
+    measuring nothing. That is TWO switches now, not one -- see `_RAGGED_ARM`. Three axes had to
+    be closed to reach zero and the census found each one AFTER the previous was fixed: the trunk
+    (1208 calls at N=98), the confidence head's Pairformer at the real N (8), and -- OpenDDE only
+    -- the structural-token refiner at Ns=181 (8 more).
     """
-    s = _census(model, JOBS[model], env_extra=_BUCKET_OFF)
+    s = _census(model, JOBS[model], env_extra=_RAGGED_ARM)
     assert any(r["masked_ragged"] for r in s["rows"]), (
         f"{model} with the token bucket OFF presented NO ragged key axis at all. Either the "
         "census no longer sees this model's calls or the ragged axes closed somewhere else -- "
