@@ -379,11 +379,23 @@ these regression limits:
 | Boltz-2 | 3.0 Å | 0.75 |
 | ESMFold2 | 8.0 Å | 0.40 |
 | ESMFold2-fast | 4.5 Å | 0.60 |
+| Protenix-v1 | 5.0 Å | 0.60 |
 | Protenix-v2 | 6.0 Å | 0.50 |
 | OpenFold3 | 3.5 Å | 0.70 |
 | OpenDDE | 6.0 Å | 0.50 |
 | RF3 | 3.0 Å | 0.75 |
 | OpenBind | 3.5 Å | 0.70 |
+
+Every predict leg is also scored on geometry, not just on that global fit. RMSD/TM
+cannot see a broken backbone or overlapping atoms: OpenDDE shipped folds with 19
+chain breaks and 9.5% of heavy atoms clashing for nine days in August 2026 while
+this gate stayed green. So each delivered sample now goes through the same
+`perf/wh-correctness/check_structure.py` bands the RFD3 leg uses, and a model fails
+if any sample has a backbone gap over 5 Å, drops below 90% of CA-CA steps in the
+3.60-4.10 Å band, or clashes on more than 2% of its heavy atoms. That clash budget
+is deliberately looser than the 0.1% the checker applies to crystal structures:
+correct predictions measure up to 0.56%, and the corruption this catches measures
+9.5-25%.
 
 ESMFold2's floor is loose because it is anchored to the **default single-sequence**
 fold (measured 5.80 Å / TM 0.508 on Blackhole), not the MSA-on fold the old 4.0 Å /
