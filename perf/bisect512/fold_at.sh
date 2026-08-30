@@ -13,7 +13,7 @@ if [ -n "$COMMIT" ]; then
 fi
 SHA=$(git rev-parse HEAD)
 echo "=== $(date -u +%FT%TZ) START $LABEL @ $SHA ==="
-env TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 \
+timeout -k 30 900 env TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 \
     TT_BIO_LEASE_HOLDER=worker:opendde-512aa-numerics-drift-bisect \
     PYTHONPATH=$WT "$PY" "$WT/scripts/gpu_vs_tt/tt_baseline.py" \
     --model opendde --repeat "${REPEAT:-1}" \
@@ -21,6 +21,7 @@ env TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 \
     --msa-a3m perf/size512/fixtures/cdk2x2_512.a3m \
     --label "512 aa" --keep-cif "$OUT/cif_$LABEL" --out "$OUT/$LABEL.json"
 rc=$?
+[ $rc -eq 124 ] && echo "TIMEOUT $LABEL @ $SHA (900s) -- likely the pre-08-27 pair-cond 512aa deadlock"
 echo "=== $(date -u +%FT%TZ) END $LABEL rc=$rc ==="
 "$PY" - "$OUT/$LABEL.json" "$SHA" "$LABEL" <<'PY' 2>/dev/null
 import json,sys

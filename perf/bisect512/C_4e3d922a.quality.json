@@ -1,0 +1,53 @@
+{
+ "struct": ".bisect-out/cif_C_4e3d922a/cdk2x2_512.cif",
+ "checks": {
+  "n_atoms": 4117,
+  "bbox_diagonal": 116.06,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 512,
+    "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFR",
+    "step_median": 3.837,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 25.45,
+    "rg_expected": 23.55,
+    "rg_ratio": 1.081,
+    "n_ca_bond_median": 1.466,
+    "ca_c_bond_median": 1.527
+   }
+  ],
+  "clashes": {
+   "n": 22,
+   "heavy_atoms": 4117,
+   "worst_dist": 1.15,
+   "threshold": 2.0,
+   "budget": 4.117
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 4117,
+   "min": 0.3277,
+   "max": 0.9579,
+   "mean": 0.7252,
+   "std": 0.147,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [
+  "22 heavy-atom clashes < 2.0 A (0.53% of atoms, worst 1.15 A)"
+ ],
+ "warn": [],
+ "verdict": "FAIL"
+}
