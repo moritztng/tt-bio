@@ -14,6 +14,11 @@ OUT=$WT/.bisect-out
 LOG=$OUT/search.log
 mkdir -p "$OUT"
 cd "$WT" || exit 1
+# The driver runs from .bisect-out, NOT from the tracked tree: `git checkout --detach <old>`
+# deletes perf/bisect512r/ at any commit that predates it, and the search then skips every
+# arm with "No such file or directory" and reads it as a device hang.
+cp -f perf/bisect512r/fold_at.sh "$OUT/fold_at.sh"
+chmod +x "$OUT/fold_at.sh"
 mapfile -t FP < perf/bisect512r/fp_list.txt
 LO=0        # index into FP of the last known GOOD ( -1 means deb9b307 itself )
 HI=$((${#FP[@]}-1))   # index of a known BAD (626be0b5, last element)
@@ -42,7 +47,7 @@ measure() {   # $1 = index -> echoes plddt or empty
   cached=$(_read_plddt "$OUT/S_$s.json")
   if [ -n "$cached" ]; then SEEN[$s]=$cached; echo "    (cached) idx=$i $s plddt=$cached" >> "$LOG"; echo "$cached"; return; fi
   echo "--- $(date -u +%FT%TZ) step idx=$i $s $(git log -1 --format=%s $c | cut -c1-70)" >> "$LOG"
-  REPEAT=1 "$WT/perf/bisect512r/fold_at.sh" "S_$s" "$c" >> "$OUT/S_$s.log" 2>&1
+  REPEAT=1 "$OUT/fold_at.sh" "S_$s" "$c" >> "$OUT/S_$s.log" 2>&1
   local v
   v=$(_read_plddt "$OUT/S_$s.json")
   SEEN[$s]=$v
