@@ -167,7 +167,12 @@ def _census(model, argv, env_extra=None, seq=None, tap=None):
         if tap:
             env["TT_BIO_TRUNK_TAP"] = tap
         cmd = [sys.executable, "-m", "tt_bio.main"] + [
-            a.format(fasta=fasta, spec=spec) for a in argv] + ["--out_dir", os.path.join(d, "out")]
+            a.format(fasta=fasta, spec=spec) for a in argv]
+        # Only default the out dir when the caller did not name one. Appending it unconditionally
+        # made argparse take THIS one, so a caller that needs the structures to outlive this
+        # function (the poison test digests them) got an empty directory and no way to tell.
+        if "--out_dir" not in cmd:
+            cmd += ["--out_dir", os.path.join(d, "out")]
         r = subprocess.run(cmd, cwd=REPO, env=env, capture_output=True, text=True, timeout=3600)
         assert r.returncode == 0, f"{model} job failed:\n{r.stdout[-4000:]}\n{r.stderr[-4000:]}"
         s = P.merge(cdir)
