@@ -202,7 +202,7 @@
               "machine_id": "tt-quietbox2",
               "tt_bio_version": "0.7.2",
               "date": "2026-09-01",
-              "note": "reseeded 2026-09-01 on the REPLACEMENT qb2 (different physical box since 2026-09-01, same hostname), p300c card 0, tree 0bd9f986. 8 fresh-process benchlocked draws on card 0 of an idle box read a median of 281.443 seq/s, band 279.343-284.444, 1.8 % end to end; a 3-draw card 3 control read 281.829, agreeing with card 0 to 0.14 %, so this is a whole-box number and not a per-card offset. The superseded 229.5064 cell (2026-07-23, tt-bio 0.3.4) read 22.3 % low, and that is code drift, not the hardware swap: the v0.7.2 gate measured 278.1197 seq/s on the PREVIOUS physical qb2 at the same protocol on 2026-08-28, which this box reproduces to +1.2 %. See state/qb2-new-hardware-baseline-crosscheck.md."
+              "note": "reseeded 2026-09-01 on the REPLACEMENT qb2 (different physical box since 2026-09-01, same hostname), p300c card 0, tree 0bd9f986. 8 fresh-process benchlocked draws on card 0 of an idle box read a median of 281.443 seq/s, band 279.343-284.444, 1.8 % end to end; a 3-draw card 3 control read 281.829, agreeing with card 0 to 0.14 %, so this is a whole-box number and not a per-card offset. The superseded 229.5064 cell (2026-07-23, tt-bio 0.3.4) read 22.6 % low, and that is code drift, not the hardware swap: the v0.7.2 gate measured 278.1197 seq/s on the PREVIOUS physical qb2 at the same protocol on 2026-08-28, which this box reproduces to +1.2 %. See state/qb2-new-hardware-baseline-crosscheck.md."
             },
             "opendde-abag": {
               "unit": "structures/s",
