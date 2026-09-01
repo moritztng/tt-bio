@@ -1182,7 +1182,8 @@ def _predict_geometry(cifs: list, geom) -> dict:
     """
     import gemmi
 
-    fails, in_band, breaks, clashes, heavy, frac, contact = [], None, 0, 0, 0, 0.0, 0.0
+    fails, in_band, in_band_chain, margin = [], None, None, None
+    breaks, clashes, heavy, frac, contact = 0, 0, 0, 0.0, 0.0
     for cif in cifs:
         st = gemmi.read_structure(str(cif))
         st.remove_alternative_conformations()
@@ -1196,12 +1197,21 @@ def _predict_geometry(cifs: list, geom) -> dict:
                                f"({f:.2%} of atoms, worst {worst} A, budget {budget:.1f})")
         fails += [f"{cif.name}: {m}" for m in chain_fails]
         for c in chains:
-            in_band = c["in_band_frac"] if in_band is None else min(in_band, c["in_band_frac"])
+            # Worst by margin to the chain's OWN floor, not by raw fraction. The two floors
+            # differ (0.90 protein, 0.85 nucleic), so the smallest fraction is not always the
+            # chain in trouble: a protein chain at 0.88 is failing while a nucleic chain at
+            # 0.86 is fine, and a plain min() would report the 0.86 and hide the failure.
+            floor = (geom.CA_CA_FAIL_FRAC if c["kind"] == "protein" else geom.PP_FAIL_FRAC)
+            m = c["in_band_frac"] - floor
+            if margin is None or m < margin:
+                in_band, margin = c["in_band_frac"], m
+                in_band_chain = f"{c['chain']}/{c['kind']}"
             breaks = max(breaks, c["breaks"])
         if f >= frac:
             clashes, heavy, frac, contact = n_clash, n_heavy, f, worst
-    return {"in_band": in_band, "breaks": breaks, "clashes": clashes, "heavy": heavy,
-            "clash_frac": round(frac, 6), "worst_contact": contact, "fails": fails}
+    return {"in_band": in_band, "in_band_chain": in_band_chain, "breaks": breaks,
+            "clashes": clashes, "heavy": heavy, "clash_frac": round(frac, 6),
+            "worst_contact": contact, "fails": fails}
 
 
 def run_model(model: str, harness, keep: bool) -> dict:
@@ -1263,8 +1273,9 @@ def run_model(model: str, harness, keep: bool) -> dict:
         row["error"] = f"geometry scoring failed: {e}"
         return row
     g = row["geom"]
-    print(f"[{model}] geometry ({len(cifs)} sample(s), worst): in band {g['in_band']}, "
-          f"backbone gaps {g['breaks']}, clashes {g['clashes']}/{g['heavy']} "
+    print(f"[{model}] geometry ({len(cifs)} sample(s), worst): in band {g['in_band']} "
+          f"({g['in_band_chain']}), backbone gaps {g['breaks']}, "
+          f"clashes {g['clashes']}/{g['heavy']} "
           f"({g['clash_frac']:.4f}, worst contact {g['worst_contact']} A)", flush=True)
     for line in g["fails"]:
         print(f"[{model}]   GEOMETRY FAIL {line}", flush=True)
