@@ -1,0 +1,185 @@
+{
+  "model": "protenix-v1",
+  "card_type": "p300c",
+  "machine_id": "tt-quietbox2",
+  "card_index": 0,
+  "tree": "480ae2df",
+  "tt_bio_version": "0.7.2",
+  "date": "2026-09-01",
+  "harness": "scripts/perf_regression.py --measure protenix-v1 (unchanged), each draw a fresh process; series held under ~/.coworker/scripts/benchlock.sh",
+  "protocol": "trpcage 20 aa single-seq, 1 recycle / 10 steps / 1 sample, 2 warmup + 5 timed, median of 5",
+  "draws": [
+    {
+      "draw": 1,
+      "benchlock": false,
+      "throughput": 3.275629,
+      "median_s": 0.3053,
+      "times_s": [
+        0.3027,
+        0.3045,
+        0.3053,
+        0.3055,
+        0.3073
+      ]
+    },
+    {
+      "draw": 2,
+      "benchlock": true,
+      "throughput": 3.327767,
+      "median_s": 0.3005,
+      "times_s": [
+        0.2993,
+        0.2999,
+        0.3005,
+        0.301,
+        0.3012
+      ]
+    },
+    {
+      "draw": 3,
+      "benchlock": true,
+      "throughput": 3.328305,
+      "median_s": 0.3005,
+      "times_s": [
+        0.3,
+        0.3003,
+        0.3005,
+        0.3006,
+        0.3008
+      ]
+    },
+    {
+      "draw": 4,
+      "benchlock": true,
+      "throughput": 3.346521,
+      "median_s": 0.2988,
+      "times_s": [
+        0.2986,
+        0.2988,
+        0.2988,
+        0.2989,
+        0.2994
+      ]
+    },
+    {
+      "draw": 5,
+      "benchlock": true,
+      "throughput": 3.328052,
+      "median_s": 0.3005,
+      "times_s": [
+        0.2998,
+        0.2999,
+        0.3005,
+        0.3019,
+        0.306
+      ]
+    },
+    {
+      "draw": 6,
+      "benchlock": true,
+      "throughput": 3.307987,
+      "median_s": 0.3023,
+      "times_s": [
+        0.3009,
+        0.3009,
+        0.3023,
+        0.3087,
+        0.3098
+      ]
+    },
+    {
+      "draw": 7,
+      "benchlock": true,
+      "throughput": 3.256117,
+      "median_s": 0.3071,
+      "times_s": [
+        0.3047,
+        0.3055,
+        0.3071,
+        0.3074,
+        0.3077
+      ]
+    },
+    {
+      "draw": 8,
+      "benchlock": true,
+      "throughput": 3.35277,
+      "median_s": 0.2983,
+      "times_s": [
+        0.2978,
+        0.298,
+        0.2983,
+        0.2986,
+        0.3069
+      ]
+    },
+    {
+      "draw": 9,
+      "benchlock": true,
+      "throughput": 3.312081,
+      "median_s": 0.3019,
+      "times_s": [
+        0.3016,
+        0.3016,
+        0.3019,
+        0.302,
+        0.3038
+      ]
+    },
+    {
+      "draw": 10,
+      "benchlock": true,
+      "throughput": 3.298099,
+      "median_s": 0.3032,
+      "times_s": [
+        0.301,
+        0.3022,
+        0.3032,
+        0.3056,
+        0.3062
+      ]
+    },
+    {
+      "draw": 11,
+      "benchlock": true,
+      "throughput": 3.328436,
+      "median_s": 0.3004,
+      "times_s": [
+        0.2997,
+        0.3004,
+        0.3004,
+        0.3005,
+        0.3026
+      ]
+    }
+  ],
+  "seeded": {
+    "value": 3.327857,
+    "source": "perf_regression.py --model protenix-v1 --update-baseline"
+  },
+  "verification": [
+    {
+      "value": 3.301021,
+      "delta_pct": -0.8,
+      "verdict": "PASS"
+    },
+    {
+      "value": 3.330873,
+      "delta_pct": 0.1,
+      "verdict": "PASS"
+    }
+  ],
+  "same_session_control": {
+    "note": "existing tt-quietbox2 cells re-measured on the replacement box, same tree",
+    "protenix_v2": {
+      "cell": 2.634255,
+      "old_box_at_v0_7_2": 3.024,
+      "new_box": 3.117782
+    },
+    "opendde": {
+      "cell": 2.296697,
+      "old_box_at_v0_7_2": 2.895,
+      "new_box": 2.843148
+    }
+  }
+}

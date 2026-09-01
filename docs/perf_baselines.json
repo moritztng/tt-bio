@@ -324,6 +324,27 @@
               "tt_bio_version": "0.7.0",
               "date": "2026-08-24",
               "note": "token-bucket pad on by default: the trunk token axis is padded to a multiple of 64, masked, and sliced back on exit, because both the stock and the fused SDPA read padded key columns at a bias of zero. This input is trpcage at 20 aa, which the pad takes to 64, so it carries the most extreme relative pad in the gate as a fixed per-call cost. At 298 aa the same flip is +4.8 to +6.0 %, at 512 aa it is byte-identical. See state/protenix-opendde-token-bucket-flip-measure.md."
+            },
+            "protenix-v1": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 3.327857,
+              "latency_ms": 300.49,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "n_step": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p300c",
+              "machine_id": "tt-quietbox2",
+              "tt_bio_version": "0.7.2",
+              "date": "2026-09-01",
+              "note": "first protenix-v1 perf cell, p300c / tt-quietbox2 card 0, tt-bio 0.7.2 tree (480ae2df). v0.7.2 declined to seed this cell because two draws read 3.20726 and 3.292402 structures/s, 2.65% apart, over that pass pre-registered 2% bar. Characterised here with 11 fresh-process draws (10 of them back-to-back under benchlock on an idle box): median 3.3279, band 3.256117-3.352770, i.e. 2.97% between the extremes, with 9 of 10 benchlocked draws inside a 1.66% band. Two noise components are separable in the raw folds. An occasional slow tail fold inside a process (1-2 of the 5 land up to 3% high, e.g. draw 8 at 0.2978/0.2980/0.2983/0.2986/0.3069 s) is absorbed by the median of 5. A whole-process offset is not: draw 7's FASTEST fold (0.3047 s) is slower than draw 4's SLOWEST (0.2994 s), two processes 40 s apart on the same idle box with non-overlapping fold distributions. That second component is what makes a two-draw agreement test a coin flip, and it is fixed by more draws, not by more warmup; the 15% gate still has ~5x headroom over the worst observed draw-to-draw excursion, so the cell is meaningful. Cross-check on the same box and session: protenix-v2 3.118 and opendde 2.843 against 3.024 and 2.895 measured on the previous physical qb2 at the same tag, i.e. the replacement hardware reproduces the old box to within 3%, so this cell is comparable to the numbers v0.7.2 recorded."
             }
           },
           "date": "2026-08-07",
