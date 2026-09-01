@@ -3,6 +3,12 @@
 20260901T210735Z	model=boltz2	card0	draw=3	value=1.781858	gate=boltz2 structures/s 1.498 1.782 +19.0% PASS	log=boltz2-card0-20260901T210735Z.log
 20260901T210802Z	model=boltz2	card0	draw=4	value=1.78023	gate=boltz2 structures/s 1.498 1.78 +18.9% PASS	log=boltz2-card0-20260901T210802Z.log
 20260901T210814Z	model=boltz2	card0	draw=5	value=1.772869	gate=boltz2 structures/s 1.498 1.773 +18.4% PASS	log=boltz2-card0-20260901T210814Z.log
+20260901T212339Z	model=boltz2-affinity	card0	draw=1	value=0.023954	gate=boltz2-affinity affinities/s 0.01432 0.02395 +67.3% PASS	log=boltz2-affinity-card0-20260901T212339Z.log
+20260901T212547Z	model=boltz2-affinity	card0	draw=2	value=0.024044	gate=boltz2-affinity affinities/s 0.01432 0.02404 +67.9% PASS	log=boltz2-affinity-card0-20260901T212547Z.log
+20260901T212754Z	model=boltz2-affinity	card0	draw=3	value=0.023845	gate=boltz2-affinity affinities/s 0.01432 0.02385 +66.5% PASS	log=boltz2-affinity-card0-20260901T212754Z.log
+20260901T213017Z	model=boltz2-affinity	card0	draw=4	value=0.023899	gate=boltz2-affinity affinities/s 0.01432 0.0239 +66.9% PASS	log=boltz2-affinity-card0-20260901T213017Z.log
+20260901T213224Z	model=boltz2-affinity	card0	draw=5	value=0.024011	gate=boltz2-affinity affinities/s 0.01432 0.02401 +67.7% PASS	log=boltz2-affinity-card0-20260901T213224Z.log
+20260901T213501Z	model=boltzgen	card0	draw=1	value=NA	gate=NO-GATE-LINE	log=boltzgen-card0-20260901T213501Z.log
 20260901T211315Z	model=esmc-300m	card0	draw=1	value=147.536261	gate=esmc-300m seq/s 33.17 147.5 +344.8% PASS	log=esmc-300m-card0-20260901T211315Z.log
 20260901T211321Z	model=esmc-300m	card0	draw=2	value=145.985644	gate=esmc-300m seq/s 33.17 146 +340.1% PASS	log=esmc-300m-card0-20260901T211321Z.log
 20260901T211327Z	model=esmc-300m	card0	draw=3	value=147.199459	gate=esmc-300m seq/s 33.17 147.2 +343.8% PASS	log=esmc-300m-card0-20260901T211327Z.log
@@ -19,7 +25,7 @@
 20260901T212134Z	model=esmc-6b	card0	draw=4	value=10.42318	gate=esmc-6b seq/s 4.749 10.42 +119.5% PASS	log=esmc-6b-card0-20260901T212134Z.log
 20260901T212154Z	model=esmc-6b	card0	draw=5	value=10.540444	gate=esmc-6b seq/s 4.749 10.54 +121.9% PASS	log=esmc-6b-card0-20260901T212154Z.log
 20260901T212229Z	model=esmc-6b	card0	draw=6	value=10.476518	gate=esmc-6b seq/s 4.749 10.48 +120.6% PASS	log=esmc-6b-card0-20260901T212229Z.log
-20260901T212304Z	model=esmc-6b	card0	draw=7	value=NA	gate=NO-GATE-LINE	log=esmc-6b-card0-20260901T212304Z.log
+20260901T212304Z	model=esmc-6b	card0	draw=7	value=10.459419	gate=esmc-6b seq/s 4.749 10.46 +120.2% PASS	log=esmc-6b-card0-20260901T212304Z.log
 20260901T210826Z	model=esmfold2	card0	draw=1	value=3.25065	gate=esmfold2 structures/s 2.414 3.251 +34.7% PASS	log=esmfold2-card0-20260901T210826Z.log
 20260901T210905Z	model=esmfold2	card0	draw=2	value=3.279424	gate=esmfold2 structures/s 2.414 3.279 +35.9% PASS	log=esmfold2-card0-20260901T210905Z.log
 20260901T210928Z	model=esmfold2	card0	draw=3	value=3.210693	gate=esmfold2 structures/s 2.414 3.211 +33.0% PASS	log=esmfold2-card0-20260901T210928Z.log
