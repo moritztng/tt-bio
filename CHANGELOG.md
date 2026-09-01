@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.7.2] - 2026-09-01
 
 ### Added
 
@@ -17,6 +17,22 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   Protenix-v2.
 
 ### Changed
+
+- **RFdiffusion3's two fused attention levers now ship on.** `RFD3_SOFTMAX_PV_FUSED` multiplies the
+  atom attention's softmax into the value tiles inside the kernel instead of writing a 294.3 MB
+  score tensor out to DRAM and reading it back; `RFD3_FC1_SPLIT_SILU` lifts the pair Transition's
+  silu out of the fc1 matmul so the result stays in L1. Together they are worth **1.0671x**, or
+  **6.206 s off a 685-token design**, on a median of three warm designs against the four off-arm
+  reps of the same interleaved run. Bit-exact: all seven reps of both arms write the same CIF
+  digest, so this is throughput at no numerical cost. Measured on a Blackhole AI Processor of a
+  p300c board under a run lock, and reproduced across two cards whose off arms agree to 0.16 %.
+  Set either flag to `0` for an A/B.
+
+- The benchmarks page's RFdiffusion3 cell now reads **92.472 s per design**, where it previously
+  read 91.443. That is not a regression. The 91.443 was taken in a different window on a different
+  card, and this run's own off arm reads 98.677 s, 7.9 % above it, so the old number is not
+  comparable with either arm here and is no longer quoted as a baseline. Against the arm the levers
+  actually replace they are worth 1.0671x.
 
 - **`--single_sequence` now actually folds a single sequence for Protenix and OpenDDE.** If an MSA
   was available it was quietly used anyway, so the flag changed nothing and you got the MSA answer.
@@ -86,6 +102,79 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   fold is dispatch-bound. Nothing runs 20 aa in production, so the 76 aa reading decides it. The
   narrower pad is not automatically the faster one, because the two widths do not select the same
   kernel. `docs/size-generality.md` has the size-by-size reading.
+
+- **The benchmarks page.** RoseTTAFold3 is back on it with all four processor columns measured
+  (46.903 s/fold on Blackhole). PXDesign is published for the first time, at 23.24 s a design against
+  24.22 on an H200, 24.41 on a B200 and 38.16 on an A100. The six embedding benchmarks come off every
+  surface, and the run-conditions text is back to two sentences. RFdiffusion3 stays hidden: it was
+  hidden because there was no batch number worth standing behind while the fusion work was in flight,
+  and that work has now landed, so the row can come back as soon as a batch-8 number is measured.
+  Separately, and not a page change: boltz-2 exception to the GPU-fleet multiple is retracted, the
+  -32 % it rested on turned out to be run order.
+
+- **The release-gate size-ladder leg runs again**, for the first time since 0.6.8, now that
+  `docs/size_ladder_baseline.json` carries a p300c block. It covers nine models at four sequence
+  lengths each (256, 512, 640 and 768 aa): Boltz-2, ESMFold2, Nesso-1, OpenBind, OpenDDE, OpenFold3,
+  Protenix-v1, Protenix-v2 and RoseTTAFold3. The leg checks the per-model lever census and the
+  runtime scaling exponent at every rung, so a perf lever that starts firing outside the shapes it
+  was proven on is caught rather than inferred. Protenix-v1 is in the baseline from the start, which
+  is what closed its arm. It passes at every rung on this tag's tree.
+
+### Gates
+
+Scored on `cd096429`, this tag's tree apart from the version bump, on a Blackhole p300c QuietBox
+with ttnn 0.68.0 and Python 3.12.3.
+
+- Packaging: 62 of 62 expected data files ship in the wheel and the sdist and land on disk after a
+  clean install; 43 of 43 declared runtime dependencies are in the wheel metadata.
+- Full implementation parity: 42 legs in 142.9 min: 35 pass, 3 gaps that reproduce the committed
+  envelope, 2 blocked on reference fixtures that were never published, 1 pass with a caveat, and 1
+  fail (af2ig-trunk-device, off a floor recorded on a differently shaped board; AF2-IG has no CLI
+  path in this release).
+- Accuracy floors and lever arms: 20 arms across 13 gate blocks, all pass. Every fold sits inside
+  its accuracy floor, the two RFdiffusion3 fusion levers serve at the 685-token design and decline
+  every one of their 163 calls at the 40-token scaffold the throughput gate folds, and pxdesign
+  designs to the same coordinate digest as the previous run of the same fixture.
+- Size ladder: nine models at 256, 512, 640 and 768 aa: every rung matches the recorded p300c lever
+  census and runtime scaling exponent, 69 min of folds, no drift to report.
+- Throughput: 14 models timed warm under a run lock on an otherwise idle box: every one clears its
+  p300c floor and none regressed. RFdiffusion3 reads -0.0% against a cell recorded before the fusion
+  levers shipped on, which is the evidence that the 40-token scaffold the throughput gate folds is a
+  shape where both levers decline every call.
+- CLI and UX: every shipped surface clears progress, parse and result shape, with every shipped
+  model in the coverage assert.
+- Host suite: 1544 passed, 75 skipped, 1 xfailed, 0 failed in 9 min 53 s, plus the two device-heavy
+  files run pinned and alone: the Protenix sequence-fold test passes, and the token-axis hardware
+  guard is 25 of 25 across its subprocess and in-process arms.
+- Benchmarks page: publish guard, render check and page tests all green, no row pending publication.
+
+Not covered by any of the above, stated so nobody reads the gate as wider than it is:
+
+- **Three shipped models have no throughput floor on this board.** `rf3`, `nesso1` and
+  `esmc-300m-single` have no p300c cell on either the card or the machine layer, so
+  `perf_regression.py` has nothing to compare them against. Their accuracy is gated: all three clear
+  the release floor in the parity and ground-truth legs. Seeding their cells inside the release they
+  are meant to gate would make them green by construction, so it is filed as its own task instead.
+- **`esmc-6b` has a p300c cell but was not timed.** One fold costs more than the rest of the perf
+  leg put together. Its accuracy is gated.
+- **Protenix-v1 has no throughput floor on any board.** It is new this release. Accuracy, its nine
+  size-ladder rungs and the UX surfaces are gated; throughput is not. A first cell was going to be
+  seeded here, and was not: two back-to-back draws on a quiet box under the run lock read 3.207 and
+  3.292 structures/s, 2.7 % apart, and a cell that noisy would sit under a 15 % gate with too little
+  headroom over its own protocol to mean anything. Seeding it is filed as its own task.
+- **Protenix-v1 and Protenix 9ncy have no multi-seed reference parity.** Both fixtures are missing
+  their reference structures, which live outside git and were never published, so the full parity
+  gate reports them as blocked rather than passing them falsely. Re-earning the coverage means
+  re-running the upstream model on CPU.
+- **AF2-IG is not reachable from the CLI** (`tt-bio design` offers BoltzGen, RFdiffusion3 and
+  PXDesign), so its parity legs gate a library path only.
+- **RFdiffusion3 block-sparse atom attention (`RFD3_BLOCK_SPARSE=1`) stays opt-in and ungated.** It
+  declines on the gate fixture, so the gate cannot score it.
+- **RFdiffusion3 stays hidden on the benchmarks page.** It was hidden because there was no batch
+  number worth standing behind while the fusion work was in flight. That work has now landed, so
+  the row can come back whenever a b=8 number is measured.
+- **The Protenix-v1 checkpoint is fetched from ByteDance's own release host**, not from a mirror we
+  control. If that host is down, `tt-bio weights fetch protenix-v1` fails and we cannot fix it.
 
 ## [0.7.1] - 2026-08-25
 
