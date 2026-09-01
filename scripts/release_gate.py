@@ -1189,6 +1189,15 @@ def _predict_geometry(cifs: list, geom) -> dict:
         st.remove_alternative_conformations()
         st.setup_entities()
         chains, chain_fails, _ = geom.chain_geometry(st)
+        # An arm that scores nothing must not report clean. chain_geometry returns no chain
+        # for a structure with no polymer carrying two backbone anchors, and every number
+        # below then stays at its initial value: in_band None, breaks 0, fails empty, so the
+        # leg passes having read no backbone at all. That is the OpenDDE shape one level in --
+        # there the gate never called the code, here it calls it and cannot tell a null result
+        # from a clean one. A predict leg always delivers a folded polymer, so no chain is a
+        # broken sample, not a pass.
+        if not chains:
+            chain_fails.append("no scoreable polymer chain, geometry scored nothing")
         n_clash, n_heavy, worst = geom.clashes(st)
         f = n_clash / n_heavy if n_heavy else 0.0
         budget = max(geom.CLASH_MAX_ABS, PREDICT_MAX_CLASH_FRAC * n_heavy)

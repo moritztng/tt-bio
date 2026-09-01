@@ -127,3 +127,44 @@ def test_a_clashing_structure_fails_the_arm(geom):
 
     assert any("heavy-atom clashes" in f for f in g["fails"]), (
         f"{over} clashes in {n_heavy} atoms must fail the arm, got {g['fails']}")
+
+
+def _one_residue_per_chain(src, dest):
+    """Parses, has atoms, but no chain carries the two backbone anchors scoring needs."""
+    st = gemmi.read_structure(str(src))
+    st.setup_entities()
+    out = gemmi.Structure()
+    out.name, out.spacegroup_hm = "stub", "P 1"
+    model = gemmi.Model("1")
+    for ch in st[0]:
+        new = gemmi.Chain(ch.name)
+        new.add_residue(ch[0])
+        model.add_chain(new)
+    out.add_model(model)
+    out.setup_entities()
+    out.make_mmcif_document().write_file(str(dest))
+    return dest
+
+
+def test_scoring_no_chain_at_all_is_a_failure_not_a_pass(geom, tmp_path):
+    """The OpenDDE shape one level in.
+
+    There the gate never called the geometry code. Here it calls it, gets nothing back, and
+    every number keeps its initial value: in_band None, breaks 0, fails empty. Without a
+    guard the leg passes having read no backbone at all, which is the one outcome an arm
+    added to catch wrecked geometry must never produce.
+    """
+    stub = _one_residue_per_chain(FIXTURE, tmp_path / "no_polymer.cif")
+    assert sum(1 for _ in gemmi.read_structure(str(stub))[0].all()) > 0, "must still have atoms"
+
+    g = _predict_geometry([stub], geom)
+    assert g["in_band"] is None, "nothing was scoreable, so there is no in-band number"
+    assert any("scored nothing" in f for f in g["fails"]), (
+        f"a structure with no scoreable chain must fail the arm, got {g['fails']}")
+
+
+def test_the_guard_does_not_fire_on_a_real_structure(geom):
+    """The other half: it must not turn a good fold into a failure."""
+    g = _predict_geometry([FIXTURE], geom)
+    assert g["in_band"] is not None
+    assert g["fails"] == []
