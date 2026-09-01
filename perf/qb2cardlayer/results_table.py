@@ -44,3 +44,18 @@ for m in OLD:
           f"| {med:.6f} | {cell:g} | {pct(med, OLD[m])} "
           f"| {ctl if ctl else 'none (UNCONTROLLED)'} | {pct(med, ctl) if ctl else '—'} "
           f"| {'RESEEDED' if reseeded else 'NOT RESEEDED'} |")
+
+# Step 4 of the brief: does the parent task's own reading still hold today? Its numbers are a prior
+# data point, not a floor — if a leg had failed to reproduce, the honest verdict was
+# CONFIRMED-STALE-NOT-REPRODUCING and no reseed. These are the parent's live medians from
+# state/qb2-new-hardware-baseline-crosscheck.md, "The other half".
+PARENT = {"boltz2": 1.743458, "esmfold2": 3.249686, "esmfold2-fast": 3.9505,
+          "esmc-300m": 146.990257, "esmc-600m": 109.928138, "esmc-6b": 10.469379,
+          "boltzgen": 0.021287, "boltz2-affinity": 0.023563}
+print()
+print("| leg | parent task median (2026-09-01) | this task median | Δ | reproduces? |")
+print("|---|---|---|---|---|")
+for m, p in PARENT.items():
+    med = statistics.median(draws[m])
+    d = (med / p - 1) * 100
+    print(f"| {m} | {p:g} | {med:.6f} | {d:+.1f} % | {'yes' if abs(d) < 6 else 'NO'} |")

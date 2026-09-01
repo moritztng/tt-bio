@@ -11,7 +11,8 @@
 20260901T213501Z	model=boltzgen	card0	draw=1	value=0.022351	gate=boltzgen designs/s 0.01706 0.02235 +31.0% PASS	log=boltzgen-card0-20260901T213501Z.log
 20260901T214435Z	model=boltzgen	card0	draw=2	value=0.022442	gate=boltzgen designs/s 0.01706 0.02244 +31.6% PASS	log=boltzgen-card0-20260901T214435Z.log
 20260901T215427Z	model=boltzgen	card0	draw=3	value=0.021803	gate=boltzgen designs/s 0.01706 0.0218 +27.8% PASS	log=boltzgen-card0-20260901T215427Z.log
-20260901T220746Z	model=boltzgen	card0	draw=4	value=NA	gate=NO-GATE-LINE	log=boltzgen-card0-20260901T220746Z.log
+20260901T220746Z	model=boltzgen	card0	draw=4	value=0.02188	gate=boltzgen designs/s 0.01706 0.02188 +28.3% PASS	log=boltzgen-card0-20260901T220746Z.log
+20260901T221649Z	model=boltzgen	card0	draw=5	value=0.022434	gate=boltzgen designs/s 0.01706 0.02243 +31.5% PASS	log=boltzgen-card0-20260901T221649Z.log
 20260901T211315Z	model=esmc-300m	card0	draw=1	value=147.536261	gate=esmc-300m seq/s 33.17 147.5 +344.8% PASS	log=esmc-300m-card0-20260901T211315Z.log
 20260901T211321Z	model=esmc-300m	card0	draw=2	value=145.985644	gate=esmc-300m seq/s 33.17 146 +340.1% PASS	log=esmc-300m-card0-20260901T211321Z.log
 20260901T211327Z	model=esmc-300m	card0	draw=3	value=147.199459	gate=esmc-300m seq/s 33.17 147.2 +343.8% PASS	log=esmc-300m-card0-20260901T211327Z.log
