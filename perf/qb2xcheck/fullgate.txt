@@ -1,0 +1,67 @@
+benchlock: qb2xcheck-fullgate acquired after 0s, loadavg 0.02 0.40 0.72
+[boltz2] 1.743458 structures/s  (574 ms/call, load 3s)
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/1594 [00:00<?, ?it/s]Loading weights: 100%|██████████| 1594/1594 [00:00<00:00, 39246.50it/s]
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 4603.34it/s]
+[esmfold2] 3.249686 structures/s  (308 ms/call, load 12s)
+Loading CCD dictionary from /home/ttuser/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/8fc3ff471022fdce52c77030685eb775de0c00a3/ccd.pkl
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/1032 [00:00<?, ?it/s]Loading weights: 100%|██████████| 1032/1032 [00:00<00:00, 38441.58it/s]
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 4781.00it/s]
+[esmfold2-fast] 3.9505 structures/s  (253 ms/call, load 12s)
+Loading CCD dictionary from /home/ttuser/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/8fc3ff471022fdce52c77030685eb775de0c00a3/ccd.pkl
+[protenix-v2] 3.114545 structures/s  (321 ms/call, load 1s)
+[protenix-v1] 3.34867 structures/s  (299 ms/call, load 1s)
+Fetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]Fetching 21 files: 100%|██████████| 21/21 [00:00<00:00, 5260.10it/s]
+[opendde] 2.844233 structures/s  (352 ms/call, load 2s)
+[openfold3] 2.232164 structures/s  (448 ms/call, load 1s)
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+Fetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]Fetching 21 files: 100%|██████████| 21/21 [00:00<00:00, 5042.67it/s]
+[opendde-abag] 2.906249 structures/s  (344 ms/call, load 2s)
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 4 files:  25%|██▌       | 1/4 [00:00<00:00,  6.34it/s]Fetching 4 files: 100%|██████████| 4/4 [00:24<00:00,  6.52s/it]Fetching 4 files: 100%|██████████| 4/4 [00:24<00:00,  6.04s/it]
+[esmc-300m] 146.990257 seq/s  (54 ms/call, load 26s)
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files:  25%|██▌       | 1/4 [00:00<00:00,  6.88it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 4 files: 100%|██████████| 4/4 [00:37<00:00, 10.17s/it]Fetching 4 files: 100%|██████████| 4/4 [00:37<00:00,  9.42s/it]
+[esmc-600m] 109.928138 seq/s  (73 ms/call, load 40s)
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 5150.00it/s]
+[esmc-6b] 10.469379 seq/s  (764 ms/call, load 10s)
+Fetching 8 files:   0%|          | 0/8 [00:00<?, ?it/s]Fetching 8 files: 100%|██████████| 8/8 [00:00<00:00, 4320.13it/s]
+[saprot-650m] 281.264421 seq/s  (28 ms/call, load 3s)
+[boltzgen] 0.021287 designs/s  (46976 ms/design, median wall 188s, reps ['179', '188', '402']s)
+[boltz2-affinity] 0.023563 affinities/s  (42439 ms/call, median wall 42s, reps ['42', '42', '80']s)
+[rfd3] 0.280202 designs/s  (3569 ms/design, median wall 4s, reps ['4', '4', '4']s)
+[pxdesign] 0.075836 designs/s  (13186 ms/design, median wall 13s, reps ['13', '13', '13']s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — boltz2, esmfold2, esmfold2-fast, protenix-v2, protenix-v1, opendde, openfold3, opendde-abag, esmc-300m, esmc-600m, esmc-6b, saprot-650m, boltzgen, boltz2-affinity, rfd3, pxdesign  | threshold ±15%  | per-model protocol
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+boltz2          structures/s          1.498      1.743    +16.4%      PASS
+esmfold2        structures/s          2.414       3.25    +34.6%      PASS
+esmfold2-fast   structures/s          3.126       3.95    +26.4%      PASS
+protenix-v2     structures/s          2.634      3.115    +18.2%      PASS
+protenix-v1     structures/s          3.328      3.349     +0.6%      PASS
+opendde         structures/s          2.297      2.844    +23.8%      PASS
+openfold3       structures/s          2.259      2.232     -1.2%      PASS
+opendde-abag    structures/s          2.903      2.906     +0.1%      PASS
+esmc-300m       seq/s                 33.17        147   +343.2%      PASS
+esmc-600m       seq/s                  22.1      109.9   +397.5%      PASS
+esmc-6b         seq/s                 4.749      10.47   +120.5%      PASS
+saprot-650m     seq/s                 282.3      281.3     -0.4%      PASS
+boltzgen        designs/s           0.01706    0.02129    +24.8%      PASS
+boltz2-affinity affinities/s        0.01432    0.02356    +64.6%      PASS
+rfd3            designs/s            0.2842     0.2802     -1.4%      PASS
+pxdesign        designs/s           0.07702    0.07584     -1.5%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.7.2  |  input: per-model (7 distinct)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: qb2xcheck-fullgate released, rc=0, loadavg 2.55 2.63 1.96

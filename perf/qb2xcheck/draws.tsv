@@ -34,3 +34,16 @@
 20260901T200408Z	model=pxdesign	card=3	draw=1	rc=0	value=0.075835	gate=pxdesign designs/s 0.06694 0.07583 +13.3% PASS
 20260901T200449Z	model=pxdesign	card=3	draw=2	rc=0	value=0.077303	gate=pxdesign designs/s 0.06694 0.0773 +15.5% PASS
 20260901T200530Z	model=pxdesign	card=3	draw=3	rc=0	value=0.077011	gate=pxdesign designs/s 0.06694 0.07701 +15.0% PASS
+20260901T204126Z	model=saprot-650m	card=0	draw=1	rc=0	value=284.272971	gate=saprot-650m seq/s 282.3 284.3 +0.7% PASS
+20260901T204133Z	model=saprot-650m	card=0	draw=2	rc=0	value=281.60445	gate=saprot-650m seq/s 282.3 281.6 -0.3% PASS
+20260901T204140Z	model=saprot-650m	card=0	draw=3	rc=0	value=281.281599	gate=saprot-650m seq/s 282.3 281.3 -0.4% PASS
+20260901T204147Z	model=saprot-650m	card=0	draw=4	rc=0	value=284.231481	gate=saprot-650m seq/s 282.3 284.2 +0.7% PASS
+20260901T204206Z	model=saprot-650m	card=3	draw=1	rc=0	value=281.828902	gate=saprot-650m seq/s 282.3 281.8 -0.2% PASS
+20260901T204213Z	model=saprot-650m	card=3	draw=2	rc=0	value=281.679231	gate=saprot-650m seq/s 282.3 281.7 -0.2% PASS
+20260901T204220Z	model=saprot-650m	card=3	draw=3	rc=0	value=284.277931	gate=saprot-650m seq/s 282.3 284.3 +0.7% PASS
+20260901T204227Z	model=openfold3	card=3	draw=1	rc=0	value=2.253315	gate=openfold3 structures/s 2.259 2.253 -0.3% PASS
+20260901T204237Z	model=openfold3	card=3	draw=2	rc=0	value=2.263025	gate=openfold3 structures/s 2.259 2.263 +0.2% PASS
+20260901T204248Z	model=openfold3	card=3	draw=3	rc=0	value=2.251852	gate=openfold3 structures/s 2.259 2.252 -0.3% PASS
+20260901T204258Z	model=opendde-abag	card=3	draw=1	rc=0	value=2.907386	gate=opendde-abag structures/s 2.903 2.907 +0.1% PASS
+20260901T204309Z	model=opendde-abag	card=3	draw=2	rc=0	value=2.907437	gate=opendde-abag structures/s 2.903 2.907 +0.1% PASS
+20260901T204320Z	model=opendde-abag	card=3	draw=3	rc=0	value=2.926316	gate=opendde-abag structures/s 2.903 2.926 +0.8% PASS

@@ -1,0 +1,31 @@
+benchlock: qb2xcheck-postedit acquired after 0s, loadavg 0.16 0.94 1.38
+Fetching 8 files:   0%|          | 0/8 [00:00<?, ?it/s]Fetching 8 files: 100%|██████████| 8/8 [00:00<00:00, 4224.40it/s]
+[saprot-650m] 279.894969 seq/s  (29 ms/call, load 2s)
+[openfold3] 2.268281 structures/s  (441 ms/call, load 1s)
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+Fetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]Fetching 21 files: 100%|██████████| 21/21 [00:00<00:00, 5541.04it/s]
+[opendde-abag] 2.89553 structures/s  (345 ms/call, load 2s)
+[rfd3] 0.284021 designs/s  (3521 ms/design, median wall 4s, reps ['4', '4', '4']s)
+[pxdesign] 0.076417 designs/s  (13086 ms/design, median wall 13s, reps ['13', '13', '14']s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — saprot-650m, openfold3, opendde-abag, rfd3, pxdesign  | threshold ±15%  | per-model protocol
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+saprot-650m     seq/s                 282.3      279.9     -0.9%      PASS
+openfold3       structures/s          2.259      2.268     +0.4%      PASS
+opendde-abag    structures/s          2.903      2.896     -0.3%      PASS
+rfd3            designs/s            0.2842      0.284     -0.1%      PASS
+pxdesign        designs/s           0.07702    0.07642     -0.8%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.7.2  |  input: per-model (4 distinct)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: qb2xcheck-postedit released, rc=0, loadavg 1.59 1.20 1.44
