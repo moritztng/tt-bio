@@ -29,6 +29,15 @@ stage that never reads them, so the confidence pair track started with under 2 G
 are freed at the diffusion boundary now, which drops the confidence entry from 10.04 to
 5.72 GiB.
 
+**A cell that folds does not license the sizes below it.** These four targets fold, and OpenDDE
+still throws at 576 residues on the same pool. The throw is an L1 static circular-buffer clash:
+the layout follows the padded tile shape and the core-grid split, neither of which is monotonic
+in residue count, so OpenDDE folds 544, throws at 576, and folds 608 again. The clashing address
+also depends on the process's own allocator history, so one passing fold never establishes a size
+as safe. What tt-bio enforces is therefore the largest size below each model's *first* measured
+failure, not the largest that has been seen to work; the table of those limits is in the README
+and the measured rows are in `tt_bio/size_limits.py`.
+
 Per-cell fold times and peak DRAM are in the release notes of the version that landed this.
 Normal-size targets never enter the blocked path: it is gated on a token-count threshold that
 a 300-residue target does not reach, and the before/after timings on the standard 117/298-residue
