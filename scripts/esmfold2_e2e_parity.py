@@ -372,7 +372,8 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
 
 
 def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
-                  trunk_probe=False, z_sens=False, x_swap_pdb=None):
+                  trunk_probe=False, z_sens=False, x_swap_pdb=None,
+                  inputs_swap=False, ref_z=False):
     """Paired A/B on the confidence head's 4-block pair trunk, device path only.
 
     Runs one device fold, capturing the confidence head's inputs (s_inputs, z, x_pred
@@ -426,7 +427,143 @@ def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
     if x_swap_pdb:
         legs["x_swap"] = x_coord_swap(inner, cap,
                                       [q for q in x_swap_pdb.split(",") if q])
+    if inputs_swap:
+        legs["inputs_swap"] = embedder_input_swap(ref_model, inner, cap, feats)
+    if ref_z:
+        legs["ref_z_swap"] = reference_z_swap(ref_model, inner, cap, feats, lm_hs,
+                                              loops=loops, steps=steps, seed=seed)
     return legs
+
+
+def reference_z_swap(ref_model, inner, cap, feats, lm_hs, *, loops, steps, seed) -> dict:
+    """The reference's own trunk pair state, substituted into the device fold's head.
+
+    `z` is the one confidence-head input that cannot be reproduced without running the
+    reference trunk, and probing it with random directions only bounds the head's sensitivity
+    to random error, not to the port's own error direction. This runs the reference forward
+    with its diffusion sampler stubbed out to return the device's coordinates, so the cost is
+    the trunk recurrence and not the sampler: the reference's `z` arrives without paying for a
+    full reference fold.
+
+    The reference head's output on (reference z, device coordinates) is reported too, which is
+    the same comparison run on the reference's own code path rather than the port's.
+    """
+    orig_sample = ref_model.structure_head.sample
+    x_dev = cap["k"]["x_pred"]
+    ref_cap = {}
+
+    def _stub_sample(*a, **k):
+        return {"sample_atom_coords": x_dev}
+
+    inner_ref = ref_model.confidence_head.forward
+
+    def _cap_ref(*a, **k):
+        ref_cap["a"], ref_cap["k"] = a, k
+        return inner_ref(*a, **k)
+
+    ref_model.structure_head.sample = _stub_sample
+    ref_model.confidence_head.forward = _cap_ref
+    try:
+        run_ref = run_forward(ref_model, feats, lm_hs, loops=loops, steps=steps,
+                              samples=1, seed=seed)
+    finally:
+        ref_model.structure_head.sample = orig_sample
+        ref_model.confidence_head.forward = inner_ref
+    if "k" not in ref_cap:
+        raise SystemExit("reference confidence head was never called")
+
+    z_ref = ref_cap["k"]["z"]
+    z_dev = cap["k"]["z"]
+    out = {"baseline": {"plddt": float(inner(*cap["a"], **cap["k"])["plddt"].float().mean())},
+           "reference_head_on_reference_z": {
+               "plddt": float(run_ref["plddt"].float().mean()),
+               "ptm": float(run_ref["ptm"].float().mean())},
+           "z_rel_l2_device_vs_reference": rel_l2(z_dev, z_ref),
+           "z_ref_stats": _pair_stats(z_ref), "z_dev_stats": _pair_stats(z_dev)}
+    res = inner(*cap["a"], **dict(cap["k"], z=z_ref.to(z_dev.dtype)))
+    out["device_head_on_reference_z"] = {
+        "plddt": float(res["plddt"].float().mean()),
+        "ptm": float(res["ptm"].float().mean())}
+    return out
+
+
+def reference_embedder_inputs(ref_model, feats):
+    """`x_inputs`, the relpos encoding and the token-bonds encoding, from the reference on CPU.
+
+    These three depend only on the shared featurization, not on the trunk and not on the
+    sampler, so the reference's versions cost one small forward. That is what makes them
+    swappable without the ~47 min a full CPU reference fold costs at L512. The preamble mirrors
+    `ESMFold2Model.forward` exactly, including the MSA branch for `profile`, because a different
+    `profile` would make the comparison meaningless rather than merely noisy.
+    """
+    import torch.nn.functional as F
+    from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import (
+        CHAR_VOCAB_SIZE, MAX_ATOMIC_NUMBER, NUM_RES_TYPES)
+
+    f = feats
+    tok_mask, atm_mask, res_type = (
+        f["token_attention_mask"], f["atom_attention_mask"], f["res_type"])
+    if res_type.dim() == 2:
+        res_type_oh = F.one_hot(res_type.long(), num_classes=NUM_RES_TYPES).float()
+        res_type_oh = res_type_oh * tok_mask.unsqueeze(-1).float()
+    else:
+        res_type_oh = res_type.float()
+
+    msa, msa_mask = f.get("msa"), f.get("msa_attention_mask")
+    if msa is not None:
+        oh = F.one_hot(msa.long(), num_classes=NUM_RES_TYPES).float()
+        if msa_mask is not None:
+            oh = oh * msa_mask.float().unsqueeze(-1)
+            profile = oh.sum(dim=1) / msa_mask.float().sum(dim=1).clamp(min=1).unsqueeze(-1)
+        else:
+            profile = oh.mean(dim=1)
+    else:
+        profile = res_type_oh
+
+    deletion_mean = f.get("deletion_mean")
+    if deletion_mean is None:
+        deletion_mean = torch.zeros(res_type.shape[0], res_type.shape[1])
+
+    atm_mask_f = atm_mask.float()
+    element_oh = F.one_hot(f["ref_element"].long(),
+                           num_classes=MAX_ATOMIC_NUMBER).float() * atm_mask_f.unsqueeze(-1)
+    names_oh = F.one_hot(f["ref_atom_name_chars"].long(), num_classes=CHAR_VOCAB_SIZE).float()
+    names_oh = names_oh * atm_mask_f.unsqueeze(-1).unsqueeze(-1)
+
+    x_inputs = ref_model.inputs_embedder(
+        aatype=res_type_oh, profile=profile.float(), deletion_mean=deletion_mean.float(),
+        ref_pos=f["ref_pos"], atom_attention_mask=atm_mask,
+        ref_space_uid=f["ref_space_uid"], ref_charge=f["ref_charge"],
+        ref_element=element_oh, ref_atom_name_chars=names_oh,
+        atom_to_token=f["atom_to_token"] * atm_mask.long())
+    relpos = ref_model.rel_pos(
+        residue_index=f["residue_index"], asym_id=f["asym_id"], sym_id=f["sym_id"],
+        entity_id=f["entity_id"], token_index=f["token_index"])
+    bonds = ref_model.token_bonds(f["token_bonds"].float())
+    return x_inputs, relpos, bonds
+
+
+def embedder_input_swap(ref_model, inner, cap, feats) -> dict:
+    """Re-score the confidence head with the reference's embedder inputs substituted in.
+
+    After `z` and `x_pred` are both cleared, `s_inputs`, the relpos encoding and the
+    token-bonds encoding are the only device-produced inputs the head has left.
+    """
+    x_inputs, relpos, bonds = reference_embedder_inputs(ref_model, feats)
+    have = {"s_inputs": x_inputs, "relative_position_encoding": relpos,
+            "token_bonds_encoding": bonds}
+    out = {"baseline": {"plddt": float(inner(*cap["a"], **cap["k"])["plddt"].float().mean())},
+           "rel_l2_device_vs_reference": {
+               k: rel_l2(cap["k"][k], v.to(cap["k"][k].dtype)) for k, v in have.items()}}
+    for name, keys in (("s_inputs", ["s_inputs"]),
+                       ("relpos", ["relative_position_encoding"]),
+                       ("token_bonds", ["token_bonds_encoding"]),
+                       ("all_three", list(have))):
+        k = dict(cap["k"], **{q: have[q].to(cap["k"][q].dtype) for q in keys})
+        res = inner(*cap["a"], **k)
+        out[name] = {"plddt": float(res["plddt"].float().mean()),
+                     "ptm": float(res["ptm"].float().mean())}
+    return out
 
 
 def read_pdb_rep(path):
@@ -665,6 +802,13 @@ def main():
                          "(unreleased weights); provenance in the output still records it")
     ap.add_argument("--esmc_repo", default="biohub/ESMC-6B")
     ap.add_argument("--out", default="/tmp/ef2_parity/summary.json")
+    ap.add_argument("--ref_z", action="store_true",
+                    help="with --conf_ab, run the reference trunk (sampler stubbed to the "
+                         "device's coordinates) and substitute the reference's pair state "
+                         "into the device fold's confidence head")
+    ap.add_argument("--inputs_swap", action="store_true",
+                    help="with --conf_ab, substitute the reference's s_inputs / relpos / "
+                         "token-bonds encodings into the device fold's confidence head")
     ap.add_argument("--x_swap_pdb", default=None,
                     help="with --conf_ab, comma-separated PDBs whose CA coordinates replace the "
                          "device fold's in the confidence head, swapping the whole coordinate "
@@ -748,7 +892,8 @@ def main():
             ab = conf_trunk_ab(tt_model, ref_model, feats, lm_hs, loops=args.loops,
                                steps=args.steps, seed=seeds[0],
                                trunk_probe=args.trunk_probe, z_sens=args.z_sens,
-                               x_swap_pdb=args.x_swap_pdb)
+                               x_swap_pdb=args.x_swap_pdb,
+                               inputs_swap=args.inputs_swap, ref_z=args.ref_z)
             ab = dict(protein=name, L=len(seq), seed=seeds[0], checkpoint=args.checkpoint,
                       trunk_blocks=ckpt["trunk_blocks"], **ab)
             results.append(ab)
