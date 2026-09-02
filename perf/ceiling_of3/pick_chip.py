@@ -28,6 +28,7 @@ import fcntl
 import glob
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -37,20 +38,65 @@ from tt_bio.device_lease import lease_dir, lease_host          # noqa: E402
 from tt_bio.runtime import umd_index_to_dev_node               # noqa: E402
 
 
-def pool_cards() -> set[int]:
+#: Last pool grant this picker ever saw, so a momentarily invisible pool cannot widen the
+#: candidate set. Beside the leases, which is already the fleet's device-state directory.
+POOL_MEMO = os.path.join(os.path.dirname(lease_dir()), "of3ceiling-pool-grant.json")
+
+#: A ``tt-bio worker`` command line and its card grant. Anchored on the subcommand and the
+#: flag as REAL TOKENS: a substring test also matches this script's own diagnostics, and the
+#: first version crashed on ``grep -- "--device_ids"`` in an unrelated shell line.
+WORKER_RE = re.compile(r"(?:^|/)tt-bio\s+worker\s.*?--device_ids[=\s]+([0-9,]+)")
+
+
+def scan_pool_cards() -> set[int] | None:
     """Cards the production pool granted itself, from the live ``tt-bio worker`` argv.
 
-    Nothing to yield to when no pool is running, so an empty set is the right answer for a
-    quiet box rather than a reason to refuse.
+    ``None`` when no worker line is visible at all, which is NOT the same as an empty grant.
     """
     out = subprocess.run(["ps", "-eo", "args"], capture_output=True, text=True).stdout
     cards: set[int] = set()
+    seen = False
     for line in out.splitlines():
-        if "tt-bio" not in line or " worker " not in line or "--device_ids" not in line:
+        m = WORKER_RE.search(line)
+        if not m:
             continue
-        toks = line.split()
-        ids = toks[toks.index("--device_ids") + 1]
-        cards |= {int(t) for t in ids.split(",") if t.strip().isdigit()}
+        seen = True
+        cards |= {int(t) for t in m.group(1).split(",") if t.strip().isdigit()}
+    return cards if seen else None
+
+
+def pool_cards() -> set[int]:
+    """Cards this measurement must never take, remembered across pool restarts.
+
+    The pool's worker respawns, and during that window no ``tt-bio worker`` line exists. A
+    live-only reading then returns an empty grant and every production chip looks takeable --
+    which is exactly what happened at 23:33:28Z, when this offered card 24 while the pool was
+    mid-restart. The device lease refused the open, so nothing ran on it, but the lease is the
+    last line of defence and should not be the first.
+
+    So the answer is the UNION of what is visible now and every grant seen before, persisted.
+    A restart can only ever shrink the candidate set, never widen it. If nothing is visible and
+    nothing was remembered, this refuses to answer rather than declaring the box quiet: on a
+    host known to run a pool, invisible is not absent.
+    """
+    live = scan_pool_cards()
+    try:
+        with open(POOL_MEMO) as f:
+            memo = set(json.load(f))
+    except Exception:
+        memo = set()
+    if live is None and not memo:
+        raise SystemExit(
+            "no `tt-bio worker --device_ids` line and no remembered grant: refusing to pick a "
+            "chip, because a pool that is invisible for a moment is not a pool that is absent."
+        )
+    cards = memo | (live or set())
+    if cards != memo:
+        os.makedirs(os.path.dirname(POOL_MEMO), exist_ok=True)
+        tmp = POOL_MEMO + f".{os.getpid()}"
+        with open(tmp, "w") as f:
+            json.dump(sorted(cards), f)
+        os.replace(tmp, POOL_MEMO)
     return cards
 
 
