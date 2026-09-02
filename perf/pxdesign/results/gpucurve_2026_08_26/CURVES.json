@@ -8,76 +8,115 @@
     "a100": 38.1585
   },
   "tt": {
-    "host": "pc",
-    "card": "p150a physical 0",
-    "label": "PROVISIONAL-ON-PC-CARD0",
+    "host": "tt-quietbox2",
+    "board": "p300c",
+    "card": "p300c physical 0",
+    "provenance": "on a p300c board in tt-quietbox2, physical card 0",
+    "ttnn": "0.68.0",
+    "git_head": "eaedfcc603a01cb4416f509afec4c8d47984db91",
+    "grid": [
+      11,
+      10
+    ],
+    "diffusion_fp32": true,
     "rungs": [
       {
         "batch": 1,
-        "fitted_s_per_design": 21.966,
+        "fitted_s_per_design": 85.5793,
         "distinct": true,
-        "measured_s_per_design": 22.1217,
-        "measured_spread_pct": 0.62,
+        "measured_s_per_design": 22.4764,
+        "measured_spread_pct": 0.844,
         "measured_warm_n": 3,
+        "measured_from": "c400_n1.json",
         "amortisation_x": 1.0,
-        "fit_error_pct": -0.704
+        "fit_error_pct": 280.752
       },
       {
         "batch": 2,
-        "fitted_s_per_design": 19.0386,
+        "fitted_s_per_design": 39.1451,
         "distinct": true,
-        "amortisation_x": 1.1619
+        "measured_s_per_design": 22.2146,
+        "measured_spread_pct": 2.543,
+        "measured_warm_n": 3,
+        "measured_from": "c400_n2.json",
+        "amortisation_x": 1.0118,
+        "fit_error_pct": 76.213
       },
       {
         "batch": 4,
-        "fitted_s_per_design": 18.1876,
+        "fitted_s_per_design": 32.0343,
         "distinct": true,
-        "amortisation_x": 1.2163
+        "measured_s_per_design": 20.0177,
+        "measured_spread_pct": 1.065,
+        "measured_warm_n": 3,
+        "measured_from": "c400_n4.json",
+        "amortisation_x": 1.1228,
+        "fit_error_pct": 60.03
       },
       {
         "batch": 8,
-        "fitted_s_per_design": 17.8668,
+        "fitted_s_per_design": 24.0523,
         "distinct": true,
-        "measured_s_per_design": 17.7507,
-        "measured_spread_pct": 0.03,
-        "measured_warm_n": 3,
-        "amortisation_x": 1.2462,
-        "fit_error_pct": 0.654
+        "measured_s_per_design": 18.6722,
+        "measured_spread_pct": 7.562,
+        "measured_warm_n": 4,
+        "measured_from": "d400_n8r5.json",
+        "amortisation_x": 1.2037,
+        "fit_error_pct": 28.813
       },
       {
         "batch": 16,
-        "fitted_s_per_design": 19.1495,
+        "fitted_s_per_design": 21.4537,
         "distinct": true,
-        "measured_s_per_design": 19.1843,
-        "measured_spread_pct": 0.039,
+        "measured_s_per_design": 19.4964,
+        "measured_spread_pct": 0.7,
         "measured_warm_n": 3,
-        "amortisation_x": 1.1531,
-        "fit_error_pct": -0.181
+        "measured_from": "c400_n16.json",
+        "amortisation_x": 1.1528,
+        "fit_error_pct": 10.039
       },
       {
         "batch": 32,
-        "fitted_s_per_design": 18.7738,
+        "fitted_s_per_design": 19.5866,
         "distinct": true,
-        "amortisation_x": 1.1783
+        "amortisation_x": 1.1475
       },
       {
         "batch": 64,
-        "fitted_s_per_design": 19.3489,
+        "fitted_s_per_design": 20.2201,
         "distinct": true,
-        "amortisation_x": 1.1433
+        "amortisation_x": 1.1116
       }
     ],
     "best": 8,
+    "unmeasured_rungs": [
+      32,
+      64
+    ],
+    "seed_check": {
+      "pairs": [
+        {
+          "file": "d400_n8r5.json",
+          "batch": 8,
+          "n_step": 400,
+          "seed": 0,
+          "digests": [
+            "20fe6233d01c5f0c",
+            "20fe6233d01c5f0c"
+          ],
+          "reproduced": true
+        }
+      ],
+      "reproduced": 1,
+      "total": 1
+    },
     "chunk_check": {
       "n_sample": 32,
       "max_parallel_samples": 8,
-      "F_s": 0.8688,
-      "P_s_per_step": 1.4106,
-      "fit_from_n_step": [
-        8,
-        24
-      ],
-      "s_per_design_at_400": 17.6596
+      "measured_at_n_step": 400,
+      "warm_n": 2,
+      "spread_pct": 0.033,
+      "s_per_design_at_400": 18.5577
     }
   },
   "h200": {
@@ -91,8 +130,8 @@
         "device_s_per_design": 23.5553,
         "feat_s": 2.2389,
         "peak_vram_GiB": 2.078,
-        "util_pct": 20.4,
-        "power_W": 120.1,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -113,8 +152,8 @@
         "device_s_per_design": 16.2033,
         "feat_s": 2.3483,
         "peak_vram_GiB": 2.078,
-        "util_pct": 48.1,
-        "power_W": 128.6,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -135,8 +174,8 @@
         "device_s_per_design": 14.1444,
         "feat_s": 2.3765,
         "peak_vram_GiB": 2.6,
-        "util_pct": 60.7,
-        "power_W": 446.1,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -157,8 +196,8 @@
         "device_s_per_design": 13.1226,
         "feat_s": 2.4238,
         "peak_vram_GiB": 4.126,
-        "util_pct": 71.3,
-        "power_W": 467.7,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -179,8 +218,8 @@
         "device_s_per_design": 13.3498,
         "feat_s": 2.5013,
         "peak_vram_GiB": 4.888,
-        "util_pct": 79.9,
-        "power_W": 482.3,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -201,8 +240,8 @@
         "device_s_per_design": 13.385,
         "feat_s": 2.5059,
         "peak_vram_GiB": 4.889,
-        "util_pct": 84.5,
-        "power_W": 487.9,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -227,8 +266,8 @@
         "device_s_per_design": 22.7637,
         "feat_s": 2.077,
         "peak_vram_GiB": 2.078,
-        "util_pct": 37.5,
-        "power_W": 376.3,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -249,8 +288,8 @@
         "device_s_per_design": 15.0726,
         "feat_s": 2.1447,
         "peak_vram_GiB": 2.078,
-        "util_pct": 54.9,
-        "power_W": 566.9,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -271,8 +310,8 @@
         "device_s_per_design": 13.0524,
         "feat_s": 2.1023,
         "peak_vram_GiB": 2.6,
-        "util_pct": 68.7,
-        "power_W": 594.8,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -293,8 +332,8 @@
         "device_s_per_design": 12.208,
         "feat_s": 2.0899,
         "peak_vram_GiB": 4.126,
-        "util_pct": 79.8,
-        "power_W": 602.7,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -315,8 +354,8 @@
         "device_s_per_design": 12.2337,
         "feat_s": 2.1002,
         "peak_vram_GiB": 4.888,
-        "util_pct": 87.8,
-        "power_W": 596.1,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -337,8 +376,8 @@
         "device_s_per_design": 12.1525,
         "feat_s": 2.1317,
         "peak_vram_GiB": 4.889,
-        "util_pct": 91.7,
-        "power_W": 594.8,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -358,8 +397,8 @@
         "device_s_per_design": 12.0313,
         "feat_s": 1.9986,
         "peak_vram_GiB": 4.891,
-        "util_pct": 94.4,
-        "power_W": 594.5,
+        "util_pct": null,
+        "power_W": null,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -376,23 +415,23 @@
   "server": {
     "cards_galaxy": 32,
     "gpus_dgx": 8,
-    "tt_best_batch_s_per_design": 18.6487,
-    "tt_amortisation_x": 1.2462,
+    "tt_best_batch_s_per_design": 19.3071,
+    "tt_amortisation_x": 1.2037,
     "h200": {
       "amortisation_x": 1.9167,
       "best_batch_s_per_design": 12.6387,
       "per_accelerator_x_b1": 1.0424,
-      "per_accelerator_x_best_batch": 0.6777,
+      "per_accelerator_x_best_batch": 0.6546,
       "per_server_x_b1": 4.1695,
-      "per_server_x_best_batch": 2.7109
+      "per_server_x_best_batch": 2.6185
     },
     "b200": {
       "amortisation_x": 2.0542,
       "best_batch_s_per_design": 11.8811,
       "per_accelerator_x_b1": 1.0502,
-      "per_accelerator_x_best_batch": 0.6371,
+      "per_accelerator_x_best_batch": 0.6154,
       "per_server_x_b1": 4.2007,
-      "per_server_x_best_batch": 2.5484
+      "per_server_x_best_batch": 2.4615
     }
   }
 }

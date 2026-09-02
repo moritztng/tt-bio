@@ -19,6 +19,13 @@ def fmt(x, n=2):
 
 def main():
     c = json.load(open(os.path.join(HERE, "CURVES.json")))
+    # Every TT rung the note talks about has to have been measured at 400 real steps. The fitted
+    # ladder overshoots by up to 280 % on qb2, so letting one through would put a fabricated second
+    # on a public page.
+    unmeasured = c["tt"].get("unmeasured_rungs")
+    if unmeasured:
+        sys.exit("apply_page_note: TT rungs %s are still fitted, not measured; run them first"
+                 % unmeasured)
     srv, tt, h2, b2 = c["server"], c["tt"], c["h200"], c["b200"]
     tt_best, h_best, b_best = tt["best"], h2["best"], b2["best"]
     tt_a = srv["tt_amortisation_x"]

@@ -53,25 +53,48 @@ def gpu_curve(box):
     return rungs
 
 
+# Rungs whose first 400-step run was timed against a co-tenant, and the quiet-regime re-measurement
+# that supersedes each. On 2026-09-02 another worker ran a CPU parity reference on card 1 from 00:38
+# to 02:15, outside the benchlock, burning 7.5 of the box's 16 cores; b=2, b=4 and b=16 were timed at
+# loadavg 8-9 and every other rung on a quiet box. Co-tenant noise here is 1-10 % and the b=8 vs b=16
+# gap this curve exists to read is 4.4 %, so the two regimes cannot be mixed.
+#
+# ctl400_n1 and ctl400_n8 also exist and are deliberately NOT listed. Those two rungs were already
+# quiet and have at least as many warm rounds; their repeats are an A/A pair that sets this box's
+# noise bar, and an A/A pair does not replace an arm.
+TT_SUPERSEDED = {2: "ctl400_n2", 4: "ctl400_n4", 16: "ctl400_n16"}
+
+
 def tt_curve(prefix):
     fit = json.load(open(os.path.join(NMC, prefix + "batchcurve", "FIT_400.json")))
     rungs = {r["batch"]: {"batch": r["batch"], "fitted_s_per_design": r["s_per_design"],
                           "distinct": r["distinct"]} for r in fit["rungs"]}
     prov = {}
+    d400 = os.path.join(NMC, prefix + "batchcurve400")
+    superseded = {b: lab for b, lab in TT_SUPERSEDED.items()
+                  if os.path.exists(os.path.join(d400, lab + ".json"))
+                  and json.load(open(os.path.join(d400, lab + ".json"))).get("warm_n")}
     # Any 400-step run of the rung, whatever its label: the b=8 anchor is a rounds-5 run because
     # its last warm round repeats the cold round's seed, which is the reproduction check. Where two
-    # files describe one rung, the one with more warm rounds wins.
-    for f in sorted(glob.glob(os.path.join(NMC, prefix + "batchcurve400", "*400_n*.json"))):
+    # files describe one rung, the one with more warm rounds wins -- except where TT_SUPERSEDED
+    # names the file, in which case regime beats round count and only that file is read.
+    for f in sorted(glob.glob(os.path.join(d400, "*400_n*.json"))):
         d = json.load(open(f))
         if not d.get("warm_n"):
             continue
+        lab = os.path.basename(f)[:-len(".json")]
+        want = superseded.get(d["n_sample_per_call"])
+        if want and lab != want:
+            continue
         r = rungs.setdefault(d["n_sample_per_call"], {"batch": d["n_sample_per_call"]})
-        if r.get("measured_warm_n", 0) > d["warm_n"]:
+        if not want and r.get("measured_warm_n", 0) > d["warm_n"]:
             continue
         r["measured_s_per_design"] = d["warm_median_s_per_design"]
         r["measured_spread_pct"] = d["warm_spread_pct_per_design"]
         r["measured_warm_n"] = d["warm_n"]
         r["measured_from"] = os.path.basename(f)
+        if want:
+            r["superseded_reason"] = "first run was co-tenanted; re-measured on a quiet box"
         r["distinct"] = d["all_designs_distinct"]
         prov = {"host": d["host"], "card": d["card"], "ttnn": d["ttnn"], "git_head": d["git_head"],
                 "grid": d.get("grid"), "diffusion_fp32": d.get("diffusion_fp32")}
@@ -154,6 +177,16 @@ def main():
     def best(rungs, key):
         return max(rungs, key=lambda r: r["amortisation_x"])
 
+    # The TT ladder carries a fitted s/design for every rung and a measured one only where a
+    # 400-step run exists, and on this box the fit overshoots by up to 280 % (state doc section 3).
+    # So the TT best batch may only be chosen among measured rungs, and a rung that is still fitted
+    # is reported as such rather than quietly competing for the headline.
+    def tt_best(rungs):
+        m = [r for r in rungs if "measured_s_per_design" in r]
+        if not m:
+            sys.exit("curves.py: no measured 400-step TT rung; nothing here may be published")
+        return max(m, key=lambda r: r["amortisation_x"])
+
     out = {"fixture": px["target"], "n_step": px["sampling_steps"],
            "published_cells_s_per_design": cells,
            "tt": {"host": prov.get("host"), "board": a.board,
@@ -162,13 +195,14 @@ def main():
                                 % (a.board, prov.get("host"), prov.get("card")),
                   "ttnn": prov.get("ttnn"), "git_head": prov.get("git_head"),
                   "grid": prov.get("grid"), "diffusion_fp32": prov.get("diffusion_fp32"),
-                  "rungs": tt, "best": best(tt, "amortisation_x")["batch"],
+                  "rungs": tt, "best": tt_best(tt)["batch"],
+                  "unmeasured_rungs": [r["batch"] for r in tt if "measured_s_per_design" not in r],
                   "seed_check": seed_check(a.tt_prefix),
                   "chunk_check": chunk_check(a.tt_prefix)},
            "h200": {"rungs": h200, "best": best(h200, "amortisation_x")["batch"] if h200 else None},
            "b200": {"rungs": b200, "best": best(b200, "amortisation_x")["batch"] if b200 else None}}
 
-    tt_a = best(tt, "amortisation_x")["amortisation_x"]
+    tt_a = tt_best(tt)["amortisation_x"]
     tt_s = cells["p150a"] / tt_a
     srv = {"cards_galaxy": 32, "gpus_dgx": 8,
            "tt_best_batch_s_per_design": round(tt_s, 4), "tt_amortisation_x": tt_a}
