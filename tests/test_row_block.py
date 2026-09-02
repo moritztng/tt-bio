@@ -1,4 +1,4 @@
-"""The atom-pair row block must bound the peak and must leave small designs unblocked.
+"""`row_block` sizes every row-blocked section, so its two call sites are pinned here.
 
 No device: `row_block` is arithmetic, and what it decides -- how many blocks a design is
 cut into -- is exactly what has to be pinned. A budget that quietly starts blocking a
@@ -8,7 +8,7 @@ import pytest
 
 from tt_bio.rfd3.model import _ATOM_PAIR_LIVE_ROWS
 from tt_bio.rfd3.tiles import TILE, align_tile
-from tt_bio.tenstorrent import row_block
+from tt_bio.tenstorrent import OPM_CHUNK_SIZE, OPM_Z_BUDGET_BYTES, row_block
 
 WORMHOLE_BUDGET = (12 * 2 ** 30) // 4          # atom_pair_budget_bytes() with no device open
 
@@ -48,3 +48,23 @@ def test_a_block_is_tile_aligned_and_never_empty():
 def test_a_bigger_part_blocks_later():
     p150a = (31875 * 2 ** 20) // 4
     assert _rows(4558, p150a) > _rows(4558, WORMHOLE_BUDGET)
+
+
+# --- OuterProductMean --------------------------------------------------------------------
+# The shared helper replaced an inline formula at this site, and this site is on the trunk of
+# every model with an MSA. "Same arithmetic" is cheap to assert and cheap to check, so it is
+# checked: the helper has to agree with the expression it replaced on every shape the site
+# can present, not just on the one that motivated the refactor.
+
+
+def _opm_inline(C, D, J):
+    """The expression OuterProductMean carried before it called `row_block`."""
+    per_row = C * D * J * 2
+    return max(32, min(OPM_CHUNK_SIZE, (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
+
+
+@pytest.mark.parametrize("C", [8, 16, 32, 64, 128])
+@pytest.mark.parametrize("D", [8, 16, 32, 64, 128])
+@pytest.mark.parametrize("J", [64, 128, 285, 512, 992, 1536, 4096])
+def test_opm_row_block_matches_the_formula_it_replaced(C, D, J):
+    assert row_block(C * D * J * 2, OPM_Z_BUDGET_BYTES, cap=OPM_CHUNK_SIZE) == _opm_inline(C, D, J)
