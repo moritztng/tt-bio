@@ -1,0 +1,13 @@
+[
+  {
+    "id": "cdk2x2_512",
+    "status": "ok",
+    "plddt": 0.8986,
+    "ptm": 0.7679,
+    "n_residues": 512,
+    "n_chains": 1,
+    "msa": false,
+    "samples": 1,
+    "runtime_s": 30.0
+  }
+]

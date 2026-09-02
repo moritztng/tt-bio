@@ -1,0 +1,60 @@
+{
+  "model": "esmfold2",
+  "repo": "biohub/ESMFold2",
+  "trunk_blocks": 48,
+  "target": "cdk2x2_512",
+  "L": 512,
+  "recycling_steps": 10,
+  "requested_sampling_steps": 100,
+  "host": "tt-quietbox2",
+  "card": "2",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "per_seed": [
+    {
+      "seed": 0,
+      "plddt": 0.9255715012550354,
+      "ptm": 0.8015932440757751,
+      "coords_sha256": "0c032d0c5e56bdb9",
+      "seconds": 61.177
+    },
+    {
+      "seed": 1,
+      "plddt": 0.9244956374168396,
+      "ptm": 0.800697922706604,
+      "coords_sha256": "ec6c713da0e2db9f",
+      "seconds": 34.378
+    },
+    {
+      "seed": 2,
+      "plddt": 0.9214740991592407,
+      "ptm": 0.7627946734428406,
+      "coords_sha256": "1dce27610d210b8f",
+      "seconds": 34.433
+    },
+    {
+      "seed": 3,
+      "plddt": 0.922633707523346,
+      "ptm": 0.7839214205741882,
+      "coords_sha256": "973ca8208e33776d",
+      "seconds": 33.958
+    },
+    {
+      "seed": 4,
+      "plddt": 0.9222443103790283,
+      "ptm": 0.7733893990516663,
+      "coords_sha256": "9d9cf891f27e044d",
+      "seconds": 34.666
+    }
+  ],
+  "plddt_min": 0.9214740991592407,
+  "plddt_max": 0.9255715012550354,
+  "plddt_spread": 0.004097402095794678,
+  "plddt_mean": 0.923283851146698,
+  "distinct_structures": 5
+}

@@ -31,8 +31,16 @@ Reported per protein:
 Usage:
   PYTHONPATH=<worktree> TT_VISIBLE_DEVICES=1 \
     /home/ttuser/tt-bio-dev/env/bin/python scripts/esmfold2_e2e_parity.py \
-      [--fast] [--proteins trpcage,gb1] [--steps 20] [--loops 3] \
-      [--seeds 0,1,2] [--out /tmp/x.json] [--fixture_dir <dir>]
+      [--checkpoint esmfold2|esmfold2-fast] [--fast] [--proteins trpcage,gb1] \
+      [--steps 20] [--loops 3] [--seeds 0,1,2] [--out /tmp/x.json] [--fixture_dir <dir>]
+
+``--checkpoint`` names the tt-bio model id, the same vocabulary ``tt-bio predict --model``
+uses, and the HF repo comes from the ``tt_bio.weights`` registry. It selects which released
+checkpoint is folded: ``esmfold2`` (48-block trunk, MSA encoder) or ``esmfold2-fast``
+(24-block, no MSA encoder). It is a different axis from ``--fast``, which is bf8 device
+precision and leaves the checkpoint alone. Trunk depth is never hardcoded here: both the
+reference and the ttnn port read it from the checkpoint config (``_spec()`` in
+tt_bio/esmfold2_runtime.py), so one harness covers both depths.
 
 With ``--fixture_dir`` (requires exactly one --proteins entry) the run also dumps a
 committed reference-fixture tree (opendde schema): ``meta.json`` +
@@ -46,6 +54,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import os
 
 import torch
 
@@ -62,6 +71,30 @@ PROTEINS = {
     "lysozyme": ("KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDG"
                  "RTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL"),        # 129
 }
+
+# A --proteins entry that is not in PROTEINS is looked up here: the fold fixtures the perf
+# page's own cells are measured on. That lets the published target go through THIS harness
+# instead of a second one, which is the only way a page number and a parity number can be
+# compared without an unstated protocol difference between them.
+PERF_FIXTURES = "perf/size512/fixtures"
+
+
+def protein_sequence(name: str) -> str:
+    """Sequence for a harness target: a PROTEINS key, or a perf fold fixture by name."""
+    if name in PROTEINS:
+        return PROTEINS[name]
+    import yaml
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        PERF_FIXTURES, f"{name}.yaml")
+    if not os.path.exists(path):
+        raise SystemExit(f"unknown protein {name!r}: not in {sorted(PROTEINS)} and no {path}")
+    with open(path) as f:
+        doc = yaml.safe_load(f)
+    seqs = [e["protein"]["sequence"] for e in doc["sequences"] if "protein" in e]
+    if len(seqs) != 1:
+        raise SystemExit(f"{path}: expected one protein chain, got {len(seqs)}")
+    return seqs[0]
+
 
 # forward() kwargs that prepare_input supplies (extras are dropped by name).
 _FORWARD_KEYS = {
@@ -87,6 +120,50 @@ def rel_l2(a, b) -> float:
 # noise (0.053 measured on the trpcage leg); a re-symmetrizing head lands at ~0.9.
 # 0.25 sits far from both.
 DISTOGRAM_REL_L2_MAX = 0.25
+
+
+# tt-bio model id -> released checkpoint. The HF repo is read from the weights registry
+# rather than written out again here, so `--checkpoint esmfold2-fast` and
+# `tt-bio predict --model esmfold2-fast` cannot drift apart.
+CHECKPOINTS = ("esmfold2", "esmfold2-fast")
+
+
+def checkpoint_repo(checkpoint: str) -> str:
+    from tt_bio.weights import ARTIFACTS
+    return ARTIFACTS[checkpoint].repo
+
+
+def checkpoint_identity(repo: str, config) -> dict:
+    """What was actually loaded: repo, weight sha256, trunk depth, MSA encoder.
+
+    The sha256 is the hub's own blob name for model.safetensors, read off the resolved cache
+    entry, so it names the bytes this run folded instead of a literal that goes stale when the
+    repo is re-uploaded. Depth and MSA-encoder presence come from the checkpoint config."""
+    sha = None
+    try:
+        from huggingface_hub import try_to_load_from_cache
+        hit = try_to_load_from_cache(repo, "model.safetensors")
+        if isinstance(hit, str):
+            sha = os.path.basename(os.path.realpath(hit))
+    except Exception:
+        pass
+    blocks = config.folding_trunk.n_layers
+    return {"repo": repo, "sha256": sha, "trunk_blocks": blocks,
+            "msa_encoder": bool(getattr(config.msa_encoder, "enabled", True)),
+            "version": f"{repo} sha256:{sha} ({blocks}-block release trunk)"}
+
+
+def plddt_seed_block(ref_means, tt_means, seeds) -> dict:
+    """Mean plDDT per seed on both backends, with the two numbers a cross-backend plDDT
+    difference has to be read against: the reference's own seed-to-seed spread, and the
+    same-seed backend difference. A single-seed plDDT gap between two backends is
+    uninterpretable without the first, because the two samplers draw independent noise and
+    part of any gap is which diffusion basin each landed in rather than arithmetic."""
+    span = lambda v: max(v) - min(v)
+    deltas = [abs(a - b) for a, b in zip(tt_means, ref_means)]
+    return {"seeds": list(seeds), "ref": ref_means, "tt": tt_means,
+            "ref_seed_spread": span(ref_means), "tt_seed_spread": span(tt_means),
+            "same_seed_abs_delta": deltas, "mean_abs_delta": sum(deltas) / len(deltas)}
 
 
 def dist_matrix(x):  # x: [n,3] -> [n,n]
@@ -192,9 +269,8 @@ def _seed_result(name, seq, run, atom_mask):
 
 
 def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, tt_runs,
-                 atom_mask, seeds, args, parity, n_steps_code, n_steps_device):
+                 atom_mask, seeds, args, parity, n_steps_code, n_steps_device, ckpt):
     """Dump the opendde-schema fixture tree: meta.json + ref_fp32/ + seed<N>/ device legs."""
-    import os
     from pathlib import Path
     import numpy as np
     root = Path(fixture_dir)
@@ -241,28 +317,29 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
         }, indent=2))
 
     cmd = ("TT_VISIBLE_DEVICES=1 TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 PYTHONPATH=$PWD "
-           f"python3 scripts/esmfold2_e2e_parity.py --proteins {name} --loops {args.loops} "
+           f"python3 scripts/esmfold2_e2e_parity.py --checkpoint {args.checkpoint} "
+           f"--proteins {name} --loops {args.loops} "
            f"--steps {args.steps} --seeds {','.join(map(str, seeds))} "
            f"--fixture_dir {fixture_dir} --out <summary.json>")
     meta = {
         "command": cmd,
         "date": "2026-07-29",
-        "model": "esmfold2",
+        "model": args.checkpoint,
         "msa": "none (single-sequence; ESMFold2 is single-sequence by design, its MSA is optional)",
         "envelope": {
             "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
             "reference_impl": "tt-bio vendored torch reference (CPU fp32)",
-            "reference_version": "biohub/ESMFold2 sha256:138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e (48-block release trunk), dtype fp32",
+            "reference_version": f"{ckpt['version']}, dtype fp32",
             "seeds": seeds,
             "settings": {
                 "device_args": ["--single_sequence", "--recycling_steps", str(args.loops),
                                 "--sampling_steps", str(args.steps), "--diffusion_samples", "1"],
-                "model": "esmfold2", "msa": "none", "target_id": name,
+                "model": args.checkpoint, "msa": "none", "target_id": name,
             },
         },
         "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
         "reference_impl": "tt-bio vendored torch reference (Biohub/transformers fork f9a5a37, CPU fp32)",
-        "reference_version": "biohub/ESMFold2 sha256:138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e (48-block release trunk)",
+        "reference_version": ckpt["version"],
         "seeds": seeds,
         "settings": {
             "recycling_cycles": args.loops,
@@ -273,8 +350,8 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
             "seeds": seeds,
             "single_sequence": True,
             "dtype": "fp32",
-            "checkpoint": "biohub/ESMFold2 sha256:138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e",
-            "target": f"{name} (PDB 1UBQ, {len(seq)} res)",
+            "checkpoint": ckpt["version"],
+            "target": f"{name} ({len(seq)} res)",
             "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 (global CPU torch stream seeded per seed on both paths)",
             "lm_hidden_states": "shared: one ttnn ESMC-6B (biohub/ESMC-6B rev 45b0fa5d) forward injected into both paths",
             "rationale": "sample=1 isolates convergence (loops/steps) from best-of-N selection",
@@ -297,12 +374,21 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true")
-    ap.add_argument("--proteins", default="trpcage,gb1,ubiquitin")
+    ap.add_argument("--proteins", default="trpcage,gb1,ubiquitin",
+                    help="comma-separated targets: PROTEINS keys, or a perf fold fixture "
+                         "name such as cdk2x2_512")
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--loops", type=int, default=3)
     ap.add_argument("--seeds", default="0,1,2", help="comma-separated sampler seeds, run on both backends")
     ap.add_argument("--feature_seed", type=int, default=7, help="seed for featurization (not the sampler)")
-    ap.add_argument("--esmfold2_repo", default="biohub/ESMFold2")
+    ap.add_argument("--checkpoint", default="esmfold2", choices=CHECKPOINTS,
+                    help="which released checkpoint to fold: esmfold2 (48-block trunk) or "
+                         "esmfold2-fast (24-block, no MSA encoder). Resolved to an HF repo "
+                         "through tt_bio.weights. Not to be confused with --fast, which is "
+                         "device precision and leaves the checkpoint alone.")
+    ap.add_argument("--esmfold2_repo", default=None,
+                    help="fold this HF repo instead of the one --checkpoint resolves to "
+                         "(unreleased weights); provenance in the output still records it")
     ap.add_argument("--esmc_repo", default="biohub/ESMC-6B")
     ap.add_argument("--out", default="/tmp/ef2_parity/summary.json")
     ap.add_argument("--fixture_dir", default=None,
@@ -341,8 +427,11 @@ def main():
 
     # Torch reference model (unpatched). Real ESMFold2 weights, no CPU ESMC (we
     # inject shared LM states instead).
-    print("loading torch reference model ...", flush=True)
-    ref_model = ESMFold2Model.from_pretrained(args.esmfold2_repo, load_esmc=False).eval()
+    repo = args.esmfold2_repo or checkpoint_repo(args.checkpoint)
+    print(f"loading torch reference model ({args.checkpoint} -> {repo}) ...", flush=True)
+    ref_model = ESMFold2Model.from_pretrained(repo, load_esmc=False).eval()
+    ckpt = checkpoint_identity(repo, ref_model.config)
+    print(f"checkpoint: {ckpt['version']}, msa_encoder={ckpt['msa_encoder']}", flush=True)
 
     n_steps_code = executed_step_count(ref_model, args.steps)
     print(f"requested steps={args.steps} -> executed={n_steps_code} (sigma_max=256 clip)",
@@ -350,13 +439,13 @@ def main():
 
     # ttnn model: same weights, every submodule swapped to ttnn.
     print(f"loading ttnn model (fast={args.fast}) ...", flush=True)
-    tt_model = ESMFold2Model.from_pretrained(args.esmfold2_repo, load_esmc=False).eval()
+    tt_model = ESMFold2Model.from_pretrained(repo, load_esmc=False).eval()
     patch_esmfold2(tt_model, esmc_repo=args.esmc_repo)
     tt_model._esmc = esmc  # reuse the already-loaded ESMC (LM states are passed in anyway)
 
     results = []
     for name in names:
-        seq = PROTEINS[name]
+        seq = protein_sequence(name)
         print(f"\n=== {name} (L={len(seq)}), seeds={seeds} ===", flush=True)
         feats, chain_infos, builder = build_features(seq, args.feature_seed, ref_model.device)
         lm_hs = compute_lm_hidden_states(
@@ -376,8 +465,13 @@ def main():
         base_ref, base_tt = ref_runs[seeds[0]], tt_runs[seeds[0]]
         verdicts = compare_multiseed(ref_runs, tt_runs, atom_mask, seeds)
         dg_rel = rel_l2(base_tt["distogram_logits"], base_ref["distogram_logits"])
+        plddt_means = plddt_seed_block(
+            [float(ref_runs[s]["plddt"].float().mean()) for s in seeds],
+            [float(tt_runs[s]["plddt"].float().mean()) for s in seeds], seeds)
         m = dict(
             protein=name, L=len(seq), n_seeds=len(seeds),
+            checkpoint=args.checkpoint, trunk_blocks=ckpt["trunk_blocks"],
+            plddt_mean=plddt_means,
             plddt_pcc=pcc(base_tt["plddt"], base_ref["plddt"]),
             plddt_mae=(base_tt["plddt"].float() - base_ref["plddt"].float()).abs().mean().item(),
             distogram_pcc=pcc(base_tt["distogram_logits"], base_ref["distogram_logits"]),
@@ -400,9 +494,8 @@ def main():
                 assert n_steps_code == 68, f"requested 100 must execute 68, got {n_steps_code}"
             dump_fixture(args.fixture_dir, name, seq, feats, chain_infos, builder,
                          ref_runs, tt_runs, atom_mask, seeds, args, m,
-                         n_steps_code, n_steps_device)
+                         n_steps_code, n_steps_device, ckpt)
 
-    import os
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, "w") as f:
         json.dump(results, f, indent=2)

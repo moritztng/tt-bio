@@ -275,6 +275,12 @@ LEGS = [
         note="in-process vendored torch ref + device fold"),
     # GB1 / ubiquitin / lysozyme share the esmfold2 harness; the doc folds them via
     # --proteins subset. Kept as one esmfold2 leg covering the doc's four targets.
+    # The 24-block checkpoint is the SAME harness on another checkpoint (leg.model is passed
+    # through as --checkpoint), not a second script: esmfold2 and esmfold2-fast are one
+    # architecture at two trunk depths, and both are shipped by `predict --model`.
+    Leg("esmfold2-fast-trpcage", "esmfold2-fast", "esmfold2", "examples/trpcage.yaml",
+        committed_json="esmfold2-fast.json", seeds=(0, 1, 2, 3, 4),
+        note="24-block trunk, no MSA encoder; same four targets as the esmfold2 leg"),
 
     # --- Boltz-2 structure legs (cached fixture, device-only per release) ---
     Leg("boltz2-trpcage-nomsa", "boltz2", "structure", "examples/trpcage_no_msa.yaml",
@@ -1518,6 +1524,7 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
                "--out", str(out_json)]
     elif leg.kind == "esmfold2":
         cmd = [sys.executable, "scripts/esmfold2_e2e_parity.py",
+               "--checkpoint", leg.model,
                "--proteins", "trpcage,gb1,ubiquitin,lysozyme", "--seeds", "0,1,2,3,4",
                "--out", str(out_json)]
         # Mirror production (main.py): esmfold2 auto-runs --fast on Wormhole because the
