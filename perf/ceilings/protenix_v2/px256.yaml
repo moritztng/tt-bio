@@ -1,0 +1,10 @@
+# Small-size control for the OPM row-block byte gate. Same construction as the ceiling ladder:
+# only abag_xm chains whose MSAs are already cached, so it folds --msa_cache_only. These widths
+# are below the gate, so both arms must produce byte-identical structures.
+sequences:
+  - protein:
+      id: A
+      sequence: MKQFCKISVWLQQHDPDLLEIINNLCMLGNLSAAKYKHGVTFIYPKQAKIRDEIKKHAYSNDPSQAIKTLESLILPFYIPTPAEFTGEIGSYTGVKLEVEKTEANKVILKNGEAVLVPAADFKPFPDRRLAVWIMESGSMPLEGPPYKR
+  - protein:
+      id: B
+      sequence: DIQMTQSPSTLSASVGDRVTITCRASQFISRWLAWYQQKPGKAPKLLIYKASSLESGVPSRFSGSGSETHFTLTISSLQPDDVATYYCQEYTSYGRTFGQGTKVEIK
