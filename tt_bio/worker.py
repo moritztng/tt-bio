@@ -140,6 +140,13 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     # no Boltz-2 checkpoints/molecule library/MSA dir needed.
     if _is_embed_model(cfg.get("model", "boltz2")):
         return
+    # Nesso-1 scores a protein-ligand pair without folding it: no MSA, no molecule
+    # library. Fetch both rows here so a worker on a host that has never run one does
+    # not start a 3 GB download inside a leased job.
+    if _is_affinity_model(cfg.get("model", "boltz2")):
+        weights.fetch("nesso1")
+        weights.fetch("nesso1-ccd")
+        return
     cfg["conf_ckpt"] = str(weights.fetch("boltz2-conf"))
     cfg["aff_ckpt"] = str(weights.fetch("boltz2-aff"))
     cfg["mol_dir"] = str(weights.fetch("mols"))
@@ -483,6 +490,15 @@ def _of3_family() -> tuple[str, ...]:
     return OF3_FAMILY
 
 
+def _is_affinity_model(model_id: str) -> bool:
+    """True for a model served through the affinity path — one that returns a scalar
+    and no structure. Discovered from main's own tuple rather than spelled out here,
+    the same way the embed predicates are (`hardcoded-model-list-misses-new-port`)."""
+    from tt_bio.main import AFFINITY_MODELS
+
+    return model_id in AFFINITY_MODELS
+
+
 def _is_embed_model(model_id: str) -> bool:
     """True for any model this worker serves through the embed path.
 
@@ -663,6 +679,18 @@ class _WorkerState:
 
             # No trace region: SaProt has no traced forward at any batch size.
             self.model = load_saprot(model_id, fast=cfg.get("fast", False))
+        elif _is_affinity_model(model_id):
+            from tt_bio import nesso1
+
+            # Resident across leases, like the embedders: the cold load is the whole
+            # cost at these sizes (12.2 s cold against a 1.3 s warm forward), so a
+            # per-job load would make the fleet path slower than the local one.
+            self.model = nesso1.load(
+                use_tenstorrent=self.accelerator == "tenstorrent",
+                trunk_fp32=cfg.get("trunk") == "fp32",
+                recycling_steps=cfg.get("recycling_steps", 5),
+                tokens_budget=cfg.get("tokens_budget", 256),
+            )
         else:
             from tt_bio.boltz2 import Boltz2
             from tt_bio.data.featurizer import Boltz2Featurizer
@@ -748,6 +776,8 @@ class _WorkerState:
             return self._predict_esmfold2_one(path, cfg)
         if _is_embed_model(cfg.get("model", "boltz2")):
             return self._predict_embed_one(path, cfg)
+        if _is_affinity_model(cfg.get("model", "boltz2")):
+            return self._predict_affinity_one(path, cfg)
 
         from tt_bio.main import to_batch, write_result
 
@@ -1648,6 +1678,31 @@ class _WorkerState:
             "write_s": round(write_s, 4),
         }
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
+
+    def _predict_affinity_one(self, path: Path, cfg: dict[str, Any]):
+        """Score one protein-ligand YAML with the resident Nesso-1 and return its scalars.
+
+        There is no structure to write, so nothing goes to ``struct_dir`` beyond the
+        per-input ``<id>_affinity.json`` that ``nesso1.score`` writes itself — the same
+        file the local CLI path produces, so a fleet run and a local run leave the same
+        output behind.
+        """
+        import types
+
+        from tt_bio import nesso1
+
+        struct_dir = Path(cfg["struct_dir"])
+        rows = nesso1.score(
+            self.model, path, struct_dir,
+            num_workers=cfg.get("num_workers", 0),
+            seed=cfg.get("seed", nesso1.DEFAULT_SEED),
+        )
+        if not rows:
+            raise RuntimeError(f"nesso1 produced no row for {path.name}")
+        row = rows[0]
+        if row.get("error"):
+            raise RuntimeError(row["error"])
+        return row, None, {"record": types.SimpleNamespace(affinity=True)}
 
     def predict_affinity(self, path: Path, pred_structure, cfg: dict[str, Any]) -> dict[str, float]:
         from tt_bio.boltz2 import Boltz2

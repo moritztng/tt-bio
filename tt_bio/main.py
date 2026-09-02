@@ -3306,6 +3306,64 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
                f"→ {out} (see manifest.json)")
 
 
+def _write_affinity_csv(rows: list[dict], out: Path) -> None:
+    """One row per input, for a screen. Both the local and the --controller paths end
+    here, so a fleet run and a local run leave the same files behind."""
+    from tt_bio.nesso1 import REPORTED_SCALARS
+
+    csv_path = out / "affinity.csv"
+    cols = ["id", "n_tokens", "seconds", *REPORTED_SCALARS]
+    with csv_path.open("w") as fh:
+        fh.write(",".join([*cols, "error"]) + "\n")
+        for r in rows:
+            fh.write(",".join([str(r.get(c, "")) for c in cols] + [r.get("error", "")]) + "\n")
+    ok = [r for r in rows if not r.get("error") and r.get("status", "ok") == "ok"]
+    click.echo(f"Done — {len(ok)}/{len(rows)} scored → {csv_path}")
+    if len(ok) != len(rows):
+        raise SystemExit(1)
+
+
+def _dispatch_affinity_to_controller(controller_url: str, inputs: list[Path], *, model: str,
+                                    out: Path, trunk: str, recycling_steps: int,
+                                    tokens_budget: int, seed: int | None,
+                                    owner: str | None) -> list[dict]:
+    """Score ``inputs`` on whatever workers are already connected to ``controller_url``.
+
+    Same run/lease/stream machinery as predict/design/embed. One job per input rather
+    than per shard: nesso1 is batch-1 by construction, so a shard would be a list the
+    worker walks serially anyway, and one job each is what lets the controller spread a
+    screen across the fleet.
+
+    A worker keeps the model resident across leases (``worker._WorkerState``), which is
+    the whole reason to go through the controller: the cold load is 12.2 s against a
+    1.3 s warm forward, so a per-call subprocess would spend nine tenths of its time
+    loading weights.
+    """
+    client = ControllerClient(controller_url)
+    try:
+        online = int(client.cluster().get("online_workers") or 0)
+    except Exception as exc:
+        raise click.ClickException(f"Cannot reach controller at {controller_url}: {exc}")
+    if online < 1:
+        raise click.ClickException(
+            f"No workers connected to {controller_url}. Start a pool with `tt-bio controller` "
+            f"or join one with `tt-bio worker --connect {controller_url}`.")
+
+    jobs = [{"id": path.stem, "name": path.name,
+             "input_b64": base64.b64encode(path.read_bytes()).decode()}
+            for path in inputs]
+    worker_cfg = {"model": model, "trunk": trunk, "recycling_steps": recycling_steps,
+                  "tokens_budget": tokens_budget, "seed": seed}
+    results_path = out / "results.json"
+    run_payload = {"data": f"{len(jobs)} input(s)", "out_dir": str(out), "result_dir": str(out),
+                   "jobs": jobs, "config": worker_cfg, "owner": owner}
+    click.echo(f"Dispatching {len(jobs)} input(s) to {online} worker(s) at {controller_url}")
+    _dispatch_to_controller(controller_url, run_payload, total=len(jobs),
+                            results_path=results_path, struct_dir=out, model=model,
+                            debug=False, log=False)
+    return _load_results_resilient(results_path)
+
+
 @cli.command("affinity")
 @click.argument("data", type=click.Path(exists=True, path_type=Path))
 @click.option("--model", type=click.Choice(list(AFFINITY_MODELS)), default="nesso1",
@@ -3339,9 +3397,18 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
 @click.option("--cache", default=None, type=click.Path(path_type=Path),
               help="HuggingFace cache dir for the checkpoint and the ESM-2 encoder.")
 @click.option("--devices", default=None,
-              help="Physical TT card id to pin, e.g. '2'. Default: this machine's first card.")
+              help="Physical TT card id to pin, e.g. '2'. Default: this machine's first card. "
+                   "Ignored with --controller.")
+@click.option("--controller", default=None,
+              help="Submit to a running `tt-bio controller` (or a fleet joined via `tt-bio "
+                   "worker --connect`) instead of scoring in this process. Workers keep the "
+                   "model resident across calls, so a screen dispatched to a warm fleet skips "
+                   "the weight load that otherwise dominates its wall-clock.")
+@click.option("--owner", default=None,
+              help="Opaque fairness key the controller uses to fair-share workers across users. "
+                   "Requires --controller.")
 def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, tokens_budget,
-                 num_workers, seed, ccd, cache, devices):
+                 num_workers, seed, ccd, cache, devices, controller, owner):
     """Predict protein-ligand binding affinity without folding a structure.
 
     DATA is a YAML file or a directory of them. Each needs ``version: 1``, at least one
@@ -3355,6 +3422,27 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         affinity.csv        # one row per input, for a screen
         processed/          # parsed structures, conformers and ESM-2 embeddings
     """
+    if controller:
+        from tt_bio.nesso1 import DEFAULT_SEED
+
+        if devices:
+            click.secho("Note: --devices is ignored with --controller (device topology comes "
+                        "from connected workers).", fg="yellow")
+        out = Path(out_dir).expanduser()
+        out.mkdir(parents=True, exist_ok=True)
+        src = Path(data).expanduser()
+        inputs = sorted(p for p in (src.iterdir() if src.is_dir() else [src])
+                        if p.suffix.lower() in (".yaml", ".yml"))
+        if not inputs:
+            raise click.ClickException(f"No .yaml inputs under {src}")
+        rows = _dispatch_affinity_to_controller(
+            controller, inputs, model=model, out=out, trunk=trunk,
+            recycling_steps=recycling_steps, tokens_budget=tokens_budget,
+            seed=None if seed == -1 else (DEFAULT_SEED if seed is None else seed),
+            owner=owner)
+        _write_affinity_csv(rows, out)
+        return
+
     if devices and "TT_VISIBLE_DEVICES" not in os.environ:
         ids = [x for x in str(devices).split(",") if x.strip()]
         if len(ids) > 1:
@@ -3389,16 +3477,7 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
     except (FileNotFoundError, ValueError) as e:
         raise click.ClickException(str(e))
 
-    csv_path = out / "affinity.csv"
-    cols = ["id", "n_tokens", "seconds", *REPORTED_SCALARS]
-    with csv_path.open("w") as fh:
-        fh.write(",".join([*cols, "error"]) + "\n")
-        for r in rows:
-            fh.write(",".join([str(r.get(c, "")) for c in cols] + [r.get("error", "")]) + "\n")
-    ok = [r for r in rows if "error" not in r]
-    click.echo(f"Done — {len(ok)}/{len(rows)} scored → {csv_path}")
-    if len(ok) != len(rows):
-        raise SystemExit(1)
+    _write_affinity_csv(rows, out)
 
 
 @cli.command("saprot")

@@ -778,9 +778,7 @@ REPORTED_SCALARS = (
 DEFAULT_SEED = 20260820
 
 
-def screen(
-    data: "Path | str",
-    out_dir: "Path | str",
+def load(
     weights: str = _weights.NESSO_REPO,
     *,
     use_tenstorrent: bool = True,
@@ -788,33 +786,17 @@ def screen(
     affinity_fp32: bool = True,
     recycling_steps: int = 5,
     tokens_budget: int = 256,
-    num_workers: int = 0,
-    ccd_pkl: "Path | None" = None,
     cache: "Path | None" = None,
-    seed: int | None = DEFAULT_SEED,
-    progress=None,
-) -> list[dict]:
-    """Score every YAML under ``data``, one record at a time, and return the rows.
+) -> "Nesso1":
+    """The scoring model, configured, with no input bound to it yet.
 
-    The model loads once and stays resident, which is the whole point for a screen:
-    one target against many ligands pays the weight load and the kernel compile once.
-
-    ``seed`` pins the featurization draw. It is not cosmetic: the featurizer applies a
-    random roto-translation to each conformer off the global torch RNG, so upstream is
-    not reproducible run to run (the reference differed on 64/64 affinity values, max
-    0.058). Seeding makes a tt-bio screen repeatable. Pass None for upstream behaviour.
+    Split out of :func:`screen` so a long-lived process can hold one model across
+    many separate calls: a fleet worker leases one input at a time and would
+    otherwise pay the 12.2 s weight load on every single job instead of the 1.3 s
+    warm forward.
     """
-    from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
+    from tt_bio.nesso1_input import CLI_PREDICT_ARGS
 
-    out = Path(out_dir).expanduser()
-    out.mkdir(parents=True, exist_ok=True)
-    dataset, manifest, failed = prepare(
-        Path(data).expanduser(),
-        out,
-        ccd_pkl=ccd_pkl,
-        num_workers=num_workers,
-        esm_cache=cache,
-    )
     model = Nesso1.from_pretrained(
         weights,
         use_tenstorrent=use_tenstorrent,
@@ -831,6 +813,32 @@ def screen(
     model.predict_args.update(CLI_PREDICT_ARGS)
     model.predict_args["recycling_steps"] = recycling_steps
     model.predict_args["refine_protein_tokens_budget"] = tokens_budget
+    return model
+
+
+def score(
+    model: "Nesso1",
+    data: "Path | str",
+    out_dir: "Path | str",
+    *,
+    num_workers: int = 0,
+    ccd_pkl: "Path | None" = None,
+    cache: "Path | None" = None,
+    seed: int | None = DEFAULT_SEED,
+    progress=None,
+) -> list[dict]:
+    """Score every YAML under ``data`` with an already-loaded ``model``."""
+    from tt_bio.nesso1_input import collate, prepare
+
+    out = Path(out_dir).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
+    dataset, manifest, failed = prepare(
+        Path(data).expanduser(),
+        out,
+        ccd_pkl=ccd_pkl,
+        num_workers=num_workers,
+        esm_cache=cache,
+    )
 
     rows: list[dict] = []
     for idx, record in enumerate(manifest.records):
@@ -859,3 +867,36 @@ def screen(
     for stem in failed:
         rows.append({"id": stem, "error": "could not be parsed"})
     return rows
+
+
+def screen(
+    data: "Path | str",
+    out_dir: "Path | str",
+    weights: str = _weights.NESSO_REPO,
+    *,
+    use_tenstorrent: bool = True,
+    trunk_fp32: bool = False,
+    affinity_fp32: bool = True,
+    recycling_steps: int = 5,
+    tokens_budget: int = 256,
+    num_workers: int = 0,
+    ccd_pkl: "Path | None" = None,
+    cache: "Path | None" = None,
+    seed: int | None = DEFAULT_SEED,
+    progress=None,
+) -> list[dict]:
+    """Score every YAML under ``data``, one record at a time, and return the rows.
+
+    The model loads once and stays resident, which is the whole point for a screen:
+    one target against many ligands pays the weight load and the kernel compile once.
+
+    ``seed`` pins the featurization draw. It is not cosmetic: the featurizer applies a
+    random roto-translation to each conformer off the global torch RNG, so upstream is
+    not reproducible run to run (the reference differed on 64/64 affinity values, max
+    0.058). Seeding makes a tt-bio screen repeatable. Pass None for upstream behaviour.
+    """
+    model = load(weights, use_tenstorrent=use_tenstorrent, trunk_fp32=trunk_fp32,
+                 affinity_fp32=affinity_fp32, recycling_steps=recycling_steps,
+                 tokens_budget=tokens_budget, cache=cache)
+    return score(model, data, out_dir, num_workers=num_workers, ccd_pkl=ccd_pkl,
+                 cache=cache, seed=seed, progress=progress)

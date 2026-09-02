@@ -68,3 +68,57 @@ def test_multiple_cards_are_refused(tmp_path, monkeypatch):
     out = CliRunner().invoke(affinity_cmd, [str(yaml_path), "--devices", "0,1"])
     assert out.exit_code != 0
     assert "batch-1" in out.output
+
+
+class TestTheFleetPath:
+    """`tt-bio affinity` had no --controller, so the one dispatch route a served
+    platform has could not reach it: production runs every job kind through the shared
+    controller because the persistent workers already hold the local devices, and a
+    second local process cannot open them. Without this the model is CLI-only."""
+
+    def test_the_option_exists_and_carries_owner(self):
+        from tt_bio.main import affinity_cmd
+
+        names = {p.name for p in affinity_cmd.params}
+        assert {"controller", "owner"} <= names
+
+    def test_the_worker_serves_it_through_the_affinity_path(self):
+        """Discovered from AFFINITY_MODELS, not spelled out again in worker.py."""
+        from tt_bio.main import AFFINITY_MODELS
+        from tt_bio.worker import _is_affinity_model, _is_embed_model
+
+        for model in AFFINITY_MODELS:
+            assert _is_affinity_model(model)
+            assert not _is_embed_model(model)
+        assert not _is_affinity_model("boltz2")
+
+    def test_the_model_is_resident_across_leases(self):
+        """The cold load is 12.2 s against a 1.3 s warm forward, so loading per job
+        would make the fleet path slower than the local one it replaces."""
+        import inspect
+
+        from tt_bio.worker import _WorkerState
+
+        assert "_is_affinity_model" in inspect.getsource(_WorkerState.load_model)
+        assert "nesso1.load" in inspect.getsource(_WorkerState.load_model)
+
+    def test_both_paths_write_the_same_files(self):
+        """A fleet run and a local run have to leave the same output behind, or the
+        platform reads one shape and a CLI user the other."""
+        import inspect
+
+        from tt_bio.main import affinity_cmd
+
+        src = inspect.getsource(affinity_cmd.callback)
+        assert src.count("_write_affinity_csv") == 2
+
+    def test_dispatch_refuses_an_empty_controller(self, tmp_path):
+        from click.testing import CliRunner
+
+        (tmp_path / "in").mkdir()
+        out = CliRunner().invoke(
+            __import__("tt_bio.main", fromlist=["affinity_cmd"]).affinity_cmd,
+            [str(tmp_path / "in"), "--controller", "http://127.0.0.1:1", "--out_dir",
+             str(tmp_path / "out")])
+        assert out.exit_code != 0
+        assert "No .yaml inputs" in out.output
