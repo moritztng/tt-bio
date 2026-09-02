@@ -248,6 +248,54 @@ def _validate_openfold3_constraints(path, model: str = "openfold3") -> None:
             "--model protenix-v1 / protenix-v2 / opendde.")
 
 
+def _validate_rf3_yaml_unsupported(path) -> None:
+    """Refuse a yaml/fasta block `--model rf3` would drop.
+
+    RF3 the model reads its own JSON/CIF spec and does carry covalent bonds, modified
+    residues and cyclic chains — `rf3/feature_init.py` has the cyclic branch, and
+    `featurize(src)` reads a spec straight off disk. The YAML front door does not: the
+    only RF3 spec builder is `_predict_rf3_one`, and it constructs every component from
+    `_read_bio_chains`, which returns (chain_id, sequence, msa_spec, mol_type) and
+    nothing else. So a `constraints:`, `modifications:` or `cyclic:` block was accepted,
+    dropped, and never mentioned — the silent-garbage class, and the worse half of it,
+    because a dropped covalent bond changes the answer rather than omitting an output.
+
+    Refusing rather than warning, for the same reason `_validate_openfold3_constraints`
+    refuses: the structure that comes back would be confidently wrong.
+    """
+    import yaml as _yaml
+
+    from tt_bio.main import _read_bio_constraints
+
+    bonds = _read_bio_constraints(path)
+    if bonds:
+        raise RuntimeError(
+            f"--model rf3 does not read the yaml `constraints:` block "
+            f"(got {len(bonds)} constraint(s) from {Path(path).name}); the fold would "
+            "silently ignore them. Use --model boltz2 / protenix-v2 / opendde, or give "
+            "RF3 its own JSON spec, which does carry a bond graph.")
+    if Path(path).suffix.lower() not in (".yml", ".yaml"):
+        return
+    try:
+        doc = _yaml.safe_load(Path(path).read_text()) or {}
+    except Exception:
+        return
+    modified = []
+    for entry in (doc.get("sequences") or []):
+        if not isinstance(entry, dict):
+            continue
+        for sub in entry.values():
+            if isinstance(sub, dict) and sub.get("modifications"):
+                ids = sub.get("id")
+                modified += ([str(x) for x in ids] if isinstance(ids, (list, tuple))
+                             else [str(ids)])
+    if modified:
+        raise RuntimeError(
+            f"--model rf3 does not read yaml `modifications:` (chain(s) "
+            f"{', '.join(modified)} in {Path(path).name}); the fold would return the "
+            "unmodified residue. Use --model boltz2, or give RF3 its own JSON spec.")
+
+
 def _validate_cyclic_unsupported(path, model: str) -> None:
     """Reject a yaml `cyclic: true` chain for a model that cannot honour it, instead of
     folding it linear.
@@ -264,9 +312,14 @@ def _validate_cyclic_unsupported(path, model: str) -> None:
     structure. Caught by folding examples/cyclic_prot.yaml with --model protenix-v1 during the
     v1 bring-up sweep: it succeeded, which is the bug.
 
+    RF3: the model has the cyclic branch (`rf3/feature_init.py` builds a wrapped relative
+    position from `cyclic_asym_ids`), but its spec builder here reads only what
+    `_read_bio_chains` returns, which does not include the flag — so the YAML door drops it
+    exactly like the others and rf3 IS passed to this. Boltz-2 honours it end to end and must
+    never be.
+
     Cyclisation changes the STRUCTURE, which is why this is a hard error like `constraints:`
-    and not a warning like `properties: affinity`, which only omits an extra output. boltz2 and
-    rf3 do honour the flag and must never be passed to this.
+    and not a warning like `properties: affinity`, which only omits an extra output.
     """
     if Path(path).suffix.lower() not in (".yml", ".yaml"):
         return
@@ -1202,6 +1255,8 @@ class _WorkerState:
         from tt_bio.rf3 import confidence as rf3_confidence
         from tt_bio.rf3.featurize import featurize
 
+        _validate_rf3_yaml_unsupported(path)
+        _validate_cyclic_unsupported(path, "rf3")
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no sequences")
