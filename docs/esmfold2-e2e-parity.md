@@ -80,3 +80,87 @@ Mean-plDDT agreement between the two backends on the same seed is 0.0045 (L20), 
 The alignment-free distance-matrix metric leaves the floor on ubiquitin, the same
 target and the same way it does on the 48-block leg, which is why the leg's verdict
 reads the Kabsch floor and reports the distance-matrix count rather than gating on it.
+
+## Result — ESMFold2-Fast at L=512, the size the perf page publishes
+
+The L20-L129 leg above passes, so the leg was re-run at the fixture the public perf page
+measures its ESMFold2-Fast cell on. Same harness, same checkpoint, same protocol the page's
+own cell uses: 10 recycles, 100 requested sampler steps (68 executed after the sigma_max=256
+clip), qb2 card 1, non-fast path.
+
+```
+  python scripts/esmfold2_e2e_parity.py --checkpoint esmfold2-fast \
+    --proteins cdk2x2_512 --loops 10 --steps 100 --seeds 0,1
+```
+
+The length ladder below is the same line with `--proteins cdk2x2_128` and `cdk2x2_256`.
+Records: `docs/implementation-parity-data/esmfold2-fast-{512aa,cdk2x2_256,cdk2x2_128}.json`.
+
+| metric | value | floor / band | verdict |
+|---|---|---|---|
+| `kabsch_rmsd` | 0.92 Å | 1.19 Å (device) | inside |
+| `coord_dm_pcc` (1-pcc) | 0.00080 | 0.00108 (device) | inside |
+| `distogram_pcc` | 0.9942 | — | — |
+| `distogram_rel_l2` | 0.125 | 0.25 (gate bound) | inside |
+| `plddt_pcc` | 0.9900 | — | — |
+| `plddt_mae` | 0.0234 | — | — |
+| mean plDDT, same seed | 0.8987 device / 0.9197 reference | 0.0043 (reference seed spread) | **outside, 4.9x** |
+
+Geometry passes, confidence does not. The two backends place the same atoms: Kabsch and the
+alignment-free distance-matrix metric both sit inside the device's own seed-to-seed floor, and
+`distogram_rel_l2` is half the gate bound. But the device reads mean plDDT 0.8987 where the
+reference reads 0.9197 on the same seed, a 0.0210 gap against a reference seed spread of 0.0043
+and a device seed spread of 0.0003. That is 4.9x the wider of the two noise floors, so it is not
+sampler variance. `ptm` moves the same way, 0.7679 device against 0.7980 reference.
+
+**Floor, not a pass.** The 24-block port loses confidence, not structure, and only at length.
+
+### What this settles about the perf page's 0.017
+
+The page's ESMFold2-Fast cell carried an open note: its plDDT 0.8987 sat 0.017 below the three
+NVIDIA folds' 0.9148-0.9155, where the ESMFold2 row's two sides agree to 0.0005. Two readings
+were open, a difference in the NVIDIA stack (those cells ran `esm` 3.4.0 where the ESMFold2
+row's ran 3.3.0) or a real port gap on the 24-block trunk.
+
+It is the port. The vendored CPU fp32 torch reference, run here on the same fixture with the
+same featurization and the same shared ttnn ESMC-6B hidden states, reads 0.9197. It lands 0.004
+above the NVIDIA band where the device lands 0.016 below it, so an independent implementation on
+our own box, with no `esm` release anywhere in the path, agrees with NVIDIA to within a quarter
+of the disputed gap. Two independent references agreeing rules out the NVIDIA stack; the device
+side is the odd one out.
+
+The gap turns on with length, and the onset sits between L=256 and L=512. The L20-L129 leg
+above uses four different monomers, so on its own it confounds length with target. The perf
+page's own `cdk2x2_N` fixtures remove that: they are one CDK2 tandem construct truncated to a
+length ladder, so N moves and the sequence family does not. Run at the same protocol on the
+same box:
+
+| `cdk2x2_N` | L=128 | L=256 | L=512 |
+|---|---|---|---|
+| same-seed mean-plDDT gap | target unusable | 0.0033 | **0.0210** |
+| reference seed spread | 6.94 Å Kabsch | 0.0024 | 0.0043 |
+| `plddt_pcc` | — | 0.9939 | 0.9900 |
+| `distogram_rel_l2` | 0.365 | 0.045 | 0.125 |
+| `ptm`, device vs reference | — | 0.9673 / 0.9683 | 0.7679 / 0.7980 |
+
+L=128 is excluded on the reference's own evidence, not the device's: truncating CDK2 to 128
+residues cuts the domain in half, and the reference folds it to a different structure on every
+seed, 6.94 Å Kabsch between its own two seeds. Nothing can be measured against a reference that
+does not converge. These fixtures were built to time folds at a given length, where sequence
+content does not matter, so the short rungs are not automatically valid accuracy targets.
+
+L=256 is a real target and the port tracks it: plDDT gap 0.0033 against a 0.0024 reference seed
+spread, `ptm` agreeing to 0.001, `distogram_rel_l2` 0.045. Between there and L=512 the plDDT gap
+grows 6x to 0.0210 and `ptm` opens from 0.001 to 0.030, while the coordinates stay inside the
+noise floor.
+
+The 48-block ESMFold2 row is the control that confines this to one checkpoint: on the same
+512aa fixture, the same box and the same shared stack (ttnn ESMC-6B, featurization, diffusion
+sampler), it reads 0.9285 against NVIDIA's 0.929, agreeing to 0.0005. So the shared
+infrastructure is not what loses 0.021, and depth-wise error accumulation is not the mechanism
+either: the checkpoint that diverges is the one with half as many trunk blocks.
+
+`site/data/perf-512aa.json` therefore keeps `parity_pending: true` on the ESMFold2-Fast row.
+The structural claim the row makes is sound and now measured; the confidence number it prints
+is 0.021 low against this repo's own reference, and that is a real open defect, not a
+measurement artefact.

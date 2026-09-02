@@ -1,0 +1,115 @@
+{
+  "protein": "cdk2x2_128",
+  "L": 128,
+  "n_seeds": 2,
+  "checkpoint": "esmfold2-fast",
+  "trunk_blocks": 24,
+  "plddt_mean": {
+    "seeds": [
+      0,
+      1
+    ],
+    "ref": [
+      0.5234614014625549,
+      0.5303524136543274
+    ],
+    "tt": [
+      0.5891163945198059,
+      0.5880570411682129
+    ],
+    "ref_seed_spread": 0.006891012191772461,
+    "tt_seed_spread": 0.0010593533515930176,
+    "same_seed_abs_delta": [
+      0.06565499305725098,
+      0.0577046275138855
+    ],
+    "mean_abs_delta": 0.06167981028556824
+  },
+  "plddt_pcc": 0.9386166334152222,
+  "plddt_mae": 0.0666501373052597,
+  "distogram_pcc": 0.9228475689888,
+  "distogram_rel_l2": 0.3644563555717468,
+  "ptm_tt": 0.4991927742958069,
+  "ptm_ref": 0.41491031646728516,
+  "kabsch_rmsd": {
+    "metric": "kabsch_rmsd",
+    "cross": {
+      "n": 4,
+      "mean": 9.551871061325073,
+      "std": 1.9738120381103261,
+      "min": 7.559352874755859,
+      "max": 11.578391075134277
+    },
+    "ref_floor": {
+      "n": 1,
+      "mean": 6.942452430725098,
+      "std": 0.0,
+      "min": 6.942452430725098,
+      "max": 6.942452430725098
+    },
+    "dev_floor": {
+      "n": 1,
+      "mean": 1.712018370628357,
+      "std": 0.0,
+      "min": 1.712018370628357,
+      "max": 1.712018370628357
+    },
+    "floor_mean": 6.942452430725098,
+    "cross_over_floor": 1.3758640994141371,
+    "dev_over_ref_floor": 0.24660138297116813,
+    "dev_floor_instability_check_applied": true,
+    "floor_inflated_by_dev": false,
+    "within_noise_floor": false,
+    "same_seed_cross": {
+      "n": 2,
+      "mean": 9.534870147705078,
+      "std": 1.9372978210449219,
+      "min": 7.597572326660156,
+      "max": 11.47216796875
+    },
+    "same_seed_over_all_cross": 0.9982201483342011
+  },
+  "coord_dm_1mpcc": {
+    "metric": "1-coord_dm_pcc",
+    "cross": {
+      "n": 4,
+      "mean": 0.3676103353500366,
+      "std": 0.12938202012766212,
+      "min": 0.2354656457901001,
+      "max": 0.5044063925743103
+    },
+    "ref_floor": {
+      "n": 1,
+      "mean": 0.19643020629882812,
+      "std": 0.0,
+      "min": 0.19643020629882812,
+      "max": 0.19643020629882812
+    },
+    "dev_floor": {
+      "n": 1,
+      "mean": 0.006994903087615967,
+      "std": 0.0,
+      "min": 0.006994903087615967,
+      "max": 0.006994903087615967
+    },
+    "floor_mean": 0.19643020629882812,
+    "cross_over_floor": 1.871455222069019,
+    "dev_over_ref_floor": 0.03561011933660886,
+    "dev_floor_instability_check_applied": true,
+    "floor_inflated_by_dev": false,
+    "within_noise_floor": false,
+    "same_seed_cross": {
+      "n": 2,
+      "mean": 0.36528465151786804,
+      "std": 0.1240415871143341,
+      "min": 0.24124306440353394,
+      "max": 0.48932623863220215
+    },
+    "same_seed_over_all_cross": 0.9936735080368345
+  },
+  "gate": {
+    "verdict": "FAIL",
+    "reason": "distogram_rel_l2 0.3645 >= 0.25",
+    "target_validity": "reference does not converge on this target: 6.94 A Kabsch between its own two seeds; CDK2 truncated to 128 aa is half a domain. Excluded as a parity target on reference evidence, not device evidence."
+  }
+}
