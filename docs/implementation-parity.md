@@ -19,7 +19,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | ESMFold2 | lysozyme, L129 | PASS | CA-RMSD 0.136 Å inside the 0.139 Å floor (X/floor 0.98); seed-wiring fix applied ([per-leg evidence](implementation-parity-details.md#per-leg-evidence)) |
 | ESMFold2-Fast | trp-cage, L20 | PASS | 24-block checkpoint through the same harness; CA-RMSD 0.66 Å inside the 0.76 Å floor |
 | ESMFold2-Fast | GB1, L56 | PASS | CA-RMSD 0.44 Å inside the 0.46 Å floor |
-| ESMFold2-Fast | ubiquitin, L76 | PASS | CA-RMSD 1.46 Å inside the 1.25 Å floor's noise band; plddt_pcc 0.9976, distogram_pcc 0.9995 |
+| ESMFold2-Fast | ubiquitin, L76 | PASS | CA-RMSD 1.46 Å against a 1.25 Å reference floor, inside that floor's 1.76 Å +1sd band; plddt_pcc 0.9976, distogram_pcc 0.9995 |
 | ESMFold2-Fast | lysozyme, L129 | PASS | CA-RMSD 0.27 Å inside the 0.31 Å floor (X/floor 0.86); plddt_pcc 0.9997 |
 | Protenix-v1 | 7ROA, L117, MSA | PASS | external CPU reference (upstream Protenix v0.5.0, fp32, the checkpoint's own 4 recycles); all-atom Kabsch RMSD X 1.714 Å inside the 1.840 Å reference noise floor (X/floor 0.93). Same target and the same MSA bytes as the Protenix-v2 row below, so the two differ only in checkpoint |
 | Protenix-v2 | 7ROA, L117, MSA | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | CA-RMSD 2.63 Å inside the 2.94 Å floor; confidence-head under-ranking shared with reference (model property). The envelope test GAPs this leg since v0.6.2 (numerator 1.168 Å vs a collapsed 0.042 Å envelope): the in-range AttentionPairBias unfusing shifts device trajectories at bf16 scale; root-caused below |

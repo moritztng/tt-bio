@@ -54,16 +54,25 @@ TT_VISIBLE_DEVICES=1 MKL_THREADING_LAYER=GNU PYTHONPATH=$PWD \
     --out docs/implementation-parity-data/esmfold2-fast.json
 ```
 
-| target | `plddt_pcc` | `plddt_mae` | `distogram_pcc` | `distogram_rel_l2` | `kabsch_rmsd` | ref self-var | within floor |
+| target | `plddt_pcc` | `plddt_mae` | `distogram_pcc` | `distogram_rel_l2` | `kabsch_rmsd` | noise floor | ratio |
 |---|---|---|---|---|---|---|---|
-| trp-cage, L20 | 0.9989 | 0.0061 | 0.9997 | 0.041 | 0.66 Å | 0.76 Å | yes (0.88) |
-| GB1, L56 | 0.9995 | 0.0017 | 0.9997 | 0.044 | 0.44 Å | 0.46 Å | yes (0.96) |
-| ubiquitin, L76 | 0.9976 | 0.0034 | 0.9995 | 0.048 | 1.46 Å | 1.25 Å | yes (1.17) |
-| lysozyme, L129 | 0.9997 | 0.0008 | 0.9997 | 0.039 | 0.27 Å | 0.31 Å | yes (0.86) |
+| trp-cage, L20 | 0.9989 | 0.0061 | 0.9997 | 0.041 | 0.66 Å | 0.76 Å (device) | 0.88 |
+| GB1, L56 | 0.9995 | 0.0017 | 0.9997 | 0.044 | 0.44 Å | 0.46 Å (device) | 0.96 |
+| ubiquitin, L76 | 0.9976 | 0.0034 | 0.9995 | 0.048 | 1.46 Å | 1.25 Å (reference) | 1.17 |
+| lysozyme, L129 | 0.9997 | 0.0008 | 0.9997 | 0.039 | 0.27 Å | 0.31 Å (device) | 0.86 |
 
-Five sampler seeds per target on both backends; `kabsch_rmsd` is the mean over the
-25 device-vs-reference pairs and "ref self-var" is the reference's own mean
-seed-to-seed spread, the floor it has to sit inside.
+Five sampler seeds per target on both backends. `kabsch_rmsd` is the mean over the 25
+device-vs-reference pairs. The noise floor is the larger of the two self-consistency
+means, and the bracket says which side set it: on three of four targets the device
+samples spread wider than the reference's, so the floor is the device's own. The pass
+band is that floor plus one standard deviation of the wider side, the same
+`noise_floor_verdict` criterion every parity leg in this repo uses
+(`scripts/pharma_parity.py`). Ubiquitin is the one ratio above 1.0, and it sits well
+inside its band: 1.46 Å against 1.76 Å, because the reference's own seed-to-seed spread
+on this target has a standard deviation of 0.51 Å.
+
+Mean-plDDT agreement between the two backends on the same seed is 0.0045 (L20), 0.0024
+(L56), 0.0029 (L76) and 0.0005 (L129). It does not grow with length over this range.
 
 **Pass.** Every metric is at or better than the 48-block leg measured the same way
 (`docs/implementation-parity-data/esmfold2.json`: `plddt_pcc` 0.995-0.999,
