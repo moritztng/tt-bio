@@ -75,7 +75,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import warnings
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -221,6 +220,40 @@ CKPT_POLICY: dict[str, tuple[str, str]] = {
 # the exact reasoning that let opendde-abag ship with zero perf coverage.
 LEGS_EXEMPT: dict[str, str] = {}
 
+# Nothing ever revisits an entry that carries a reason, so a transient one ("the box was
+# down in September") makes the gap permanent. An entry is structural or it is not an
+# entry: a model the gate drives through another verb, a checkpoint size one command
+# already covers. A model whose leg is red for a reason that will pass belongs on the
+# gated list, red, where the model name and the reason are a tracking mechanism.
+_TRANSIENT_REASON = re.compile(
+    r"\b(20\d\d|january|february|march|april|june|july|august|september|october|"
+    r"november|december|for now|temporar\w*|currently|at the moment|pending|until|"
+    r"was down|is down|wedged|flaky|TODO|this release)\b", re.I)
+# The reasoning that let opendde-abag ship with zero perf coverage.
+_SHARED_PATH_REASON = re.compile(r"shares? (a|the|its) (code )?path|same code path", re.I)
+
+
+def _exemption_reason_problems(exempt: dict[str, str]) -> list[str]:
+    """Problems with LEGS_EXEMPT's written reasons; empty means every entry is structural."""
+    problems = []
+    for model, reason in exempt.items():
+        text = (reason or "").strip()
+        if len(text) < 20:
+            problems.append(f"LEGS_EXEMPT[{model!r}] carries no real reason ({reason!r}). "
+                            f"An exemption without one is an erasure, not a record.")
+            continue
+        hit = _TRANSIENT_REASON.search(text)
+        if hit:
+            problems.append(f"LEGS_EXEMPT[{model!r}] gives a transient reason "
+                            f"({hit.group(0)!r}). Nothing revisits an exemption, so a "
+                            f"reason that will expire makes the gap permanent — leave "
+                            f"{model} gated and let its leg go red instead.")
+        if _SHARED_PATH_REASON.search(text):
+            problems.append(f"LEGS_EXEMPT[{model!r}] exempts on a shared code path, the "
+                            f"reasoning that let opendde-abag ship with zero coverage. "
+                            f"A shared path is not a gated surface.")
+    return problems
+
 # esmc/saprot embed input: trpcage's 20-mer as a one-sequence FASTA, written into
 # the per-run tmp dir so the gate is self-contained (no examples/FASTA dependency).
 EMBED_SEQ = "NLYIQWLKDGGPSSGRPPPS"
@@ -316,6 +349,12 @@ def _check_progress(events: list[dict]) -> list[str]:
 
     if not diffusion:
         problems.append("diffusion phase MISSING — no 'diffusion' stage event")
+    elif not any((d[2] or 0) > 0 for d in diffusion):
+        # Same defect as a flat trunk bar, one phase along: a total of 0 leaves the bar
+        # with nothing to fill. Every diffusion emitter in the tree (boltz2, protenix,
+        # rf3, openfold3, esmfold2) passes a positive total, so a zero is a regression.
+        problems.append(f"diffusion phase present but total=0 on every tick — the bar "
+                        f"has nothing to fill: {diffusion}")
 
     if trunk and diffusion:
         ti = stage_names.index("trunk")
@@ -343,16 +382,23 @@ def _check_progress(events: list[dict]) -> list[str]:
 # ── leg 2: output files parse ──────────────────────────────────────────────
 
 def _check_cif(cif: Path) -> list[str]:
-    """Strict Bio.PDB.MMCIFParser parse — catches writer/format regressions."""
+    """Bio.PDB.MMCIFParser parse of a written structure — catches writer/format regressions.
+
+    Parse failures, not construction warnings. This wrapped the parse in
+    ``simplefilter("error", PDBConstructionWarning)`` and that had never once fired:
+    ``MMCIFParser(QUIET=True)`` installs an ignore filter for exactly that category inside
+    its own ``catch_warnings``, and the inner filter wins. Switching it on is not the fix
+    either — 2 of the 15 deposited structures under examples/ warn "Chain X is
+    discontinuous", so warnings-as-errors would fail the Ab-Ag leg on correct output. The
+    malformed-output class this exists for (the missing ``_atom_site.occupancy`` of
+    17aeab9e) raises KeyError, which is caught below.
+    """
     try:
         from Bio.PDB import MMCIFParser
-        from Bio.PDB.PDBExceptions import PDBConstructionWarning
     except ImportError:
         return ["biopython not installed (Bio.PDB.MMCIFParser unavailable)"]
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", PDBConstructionWarning)
-            structure = MMCIFParser(QUIET=True).get_structure(NAME, str(cif))
+        structure = MMCIFParser(QUIET=True).get_structure(NAME, str(cif))
         n_atoms = sum(1 for _ in structure.get_atoms())
         if n_atoms == 0:
             return [f"{cif.name}: parsed but contains 0 atoms"]
@@ -584,19 +630,24 @@ def _assert_full_model_coverage() -> None:
     absent from a hand-maintained list can stay uncovered forever and nothing goes
     red. This turns that silence into a startup failure that names the model.
     """
+    reason_problems = _exemption_reason_problems(LEGS_EXEMPT)
+    if reason_problems:
+        raise SystemExit("ux_regression.py: " + " ".join(reason_problems))
     tuples = _shipped_models()
     shipped = set().union(*tuples.values())
-    covered = (set(FOLD_MODELS) | set(EMBED_MODELS) | {GEN_MODEL}
-               | set(DESIGN_LEGS) | set(SCALAR_AFFINITY_MODELS))
-    uncovered = shipped - covered - set(LEGS_EXEMPT)
+    # Covered means a runner runs it. This read a second expression naming the same leg
+    # lists RUNNERS names, so a model added to a leg list and to nothing else counted as
+    # covered and never ran — the silence this check exists to break. ALL_LEGS is built
+    # from RUNNERS, so the two cannot drift apart.
+    uncovered = shipped - set(ALL_LEGS) - set(LEGS_EXEMPT)
     if uncovered:
         raise SystemExit(
             f"ux_regression.py: no UX leg and no LEGS_EXEMPT reason for "
             f"{sorted(uncovered)} — every model in tt_bio.main's "
             f"{', '.join(sorted(tuples))} must have a leg or an explicit reason. "
             f"A fold-shaped model needs nothing (FOLD_MODELS is derived); a design "
-            f"model needs a DESIGN_LEGS entry or its own runner; a new CLI verb needs "
-            f"a runner and its shape added to `covered` here.")
+            f"model needs a DESIGN_LEGS entry; a new CLI verb needs a runner and a row "
+            f"in RUNNERS.")
 
 
 # ── per-model runners ──────────────────────────────────────────────────────
@@ -721,12 +772,11 @@ def run_embed(model: str, base: Path) -> dict:
         return row
 
     # Leg 1 (embed): the user-facing load → embed → done stdout lines, in order.
-    lines = [l for l in (proc.stdout or "").splitlines() if l.strip()]
-    lower = [l.lower() for l in lines]
+    lower = [l.strip().lower() for l in (proc.stdout or "").splitlines() if l.strip()]
     prog_problems = []
     li = next((i for i, l in enumerate(lower) if "loading" in l), None)
     ei = next((i for i, l in enumerate(lower) if "embedding" in l), None)
-    di = next((i for i, l in enumerate(lower) if l.startswith("done") or " — " in l and "done" in l), None)
+    di = next((i for i, l in enumerate(lower) if l.startswith("done")), None)
     if li is None or ei is None or di is None:
         prog_problems.append(f"missing load→embed→done stdout lines "
                              f"(loading@{li}, embedding@{ei}, done@{di})")
