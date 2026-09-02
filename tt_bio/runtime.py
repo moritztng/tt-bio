@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import glob
 import os
+import re
 import socket
 from dataclasses import dataclass
 from pathlib import Path
@@ -121,13 +122,59 @@ def discover_jobs(data: Path, structure_dir: Path, output_format: str, override:
     return [PredictionJob(id=p.stem, path=p) for p in files]
 
 
-def tt_bdf_to_index() -> dict[str, int]:
-    """PCI BDF -> UMD index for every Tenstorrent card, from the sysfs class."""
-    out: dict[str, int] = {}
+def tt_dev_node_bdfs() -> dict[int, str]:
+    """``/dev/tenstorrent/N`` -> that card's PCI BDF, from the tenstorrent sysfs class.
+
+    The node number is the kernel driver's PROBE order. It is not the UMD device index
+    and on a multi-root-complex box it is not even PCI order.
+    """
+    out: dict[int, str] = {}
     for entry in glob.glob("/sys/class/tenstorrent/tenstorrent!*/device"):
-        idx = int(os.path.basename(os.path.dirname(entry)).rsplit("!", 1)[-1])
-        out[os.path.basename(os.path.realpath(entry)).lower()] = idx
+        node = int(os.path.basename(os.path.dirname(entry)).rsplit("!", 1)[-1])
+        out[node] = os.path.basename(os.path.realpath(entry)).lower()
     return out
+
+
+def _bdf_sort_key(bdf: str) -> tuple[int, ...]:
+    """Numeric sort key for a PCI BDF, so ``0000:c1:00.0`` orders after ``0000:81:00.0``."""
+    return tuple(int(part, 16) for part in re.split(r"[:.]", bdf) if part)
+
+
+def tt_bdf_to_index() -> dict[str, int]:
+    """PCI BDF -> UMD device index for every Tenstorrent card.
+
+    UMD numbers chips by PCI enumeration order. That is NOT the ``/dev/tenstorrent/N``
+    node number, which the kernel driver assigns in probe order, and the two differ on
+    any box whose root complexes are probed out of PCI order.
+
+    Measured on the Galaxy ``UF-EV-A13-GWH02`` (32 chips on four root complexes,
+    2026-09-02): its nodes 0-7 are buses c1-c8, nodes 8-15 are 81-88, nodes 16-23 are
+    01-08 and nodes 24-31 are 41-48. Cross-checking all 32 device-lease files (keyed on
+    the UMD index the process pinned with ``TT_VISIBLE_DEVICES``) against ``lsof`` on
+    every node gave UMD index k -> node f(k) with f a permutation that has NO fixed
+    point: UMD 0 is node 16, UMD 7 is node 23, UMD 16 is node 8, UMD 24 is node 0. The
+    permutation is exactly BDF-ascending rank, from two independent process families
+    (the JapanFold pool and a sibling worker). Reading the node number as the UMD index,
+    as this function used to, therefore named a different chip for all 32 cards.
+    """
+    return {bdf: i for i, bdf in enumerate(sorted(tt_dev_node_bdfs().values(),
+                                                  key=_bdf_sort_key))}
+
+
+def umd_index_to_dev_node() -> dict[int, int]:
+    """UMD device index -> ``/dev/tenstorrent/N`` node number.
+
+    The bridge every occupancy check needs: a lease and a ``TT_VISIBLE_DEVICES`` pin
+    name a UMD index, while ``lsof`` and the fd-level collision live on the node. Check
+    one and act on the other and you test the freeness of a chip you never open.
+    """
+    by_bdf = tt_bdf_to_index()
+    return {by_bdf[bdf]: node for node, bdf in tt_dev_node_bdfs().items() if bdf in by_bdf}
+
+
+def dev_node_to_umd_index() -> dict[int, int]:
+    """``/dev/tenstorrent/N`` node number -> UMD device index."""
+    return {node: idx for idx, node in umd_index_to_dev_node().items()}
 
 
 def visible_device_indices(visible: str) -> list[int]:
