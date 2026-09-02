@@ -372,7 +372,7 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
 
 
 def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
-                  trunk_probe=False):
+                  trunk_probe=False, z_sens=False):
     """Paired A/B on the confidence head's 4-block pair trunk, device path only.
 
     Runs one device fold, capturing the confidence head's inputs (s_inputs, z, x_pred
@@ -420,7 +420,38 @@ def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
     legs["z_in"] = _pair_stats(z)
     if trunk_probe:
         legs["trunk_probe"] = trunk_bf16_probe(tt_model, ref_model, z)
+    if z_sens:
+        legs["z_sensitivity"] = z_plddt_sensitivity(head, inner, cap, dev_trunk)
     return legs
+
+
+def z_plddt_sensitivity(head, inner, cap, dev_trunk, rels=(0.01, 0.03, 0.125)) -> dict:
+    """d(mean plDDT) / d(relative error in the trunk pair state), same head, same x_pred.
+
+    Perturbs the captured `z` multiplicatively (`z * (1 + r*u)`, `u ~ N(0,1)`), which is the
+    shape bf16 arithmetic error actually has: relative, not additive. Everything else the head
+    consumes is held fixed, so this reads the z -> plDDT channel on its own and answers whether
+    a checkpoint's confidence readout amplifies pair-state error or absorbs it.
+
+    The perturbation is a random direction, not the port's own error direction, so read the
+    slope as a magnitude, not a prediction of the sign of any single run.
+    """
+    z0 = cap["k"]["z"]
+    out = {}
+    head.folding_trunk = dev_trunk
+    try:
+        for r in rels:
+            g = torch.Generator().manual_seed(0)
+            u = torch.randn(z0.shape, generator=g, dtype=torch.float32)
+            zp = (z0.float() * (1.0 + r * u)).to(z0.dtype)
+            k = dict(cap["k"], z=zp)
+            res = inner(*cap["a"], **k)
+            out[f"rel_{r}"] = {"z_rel_l2": rel_l2(zp, z0),
+                               "plddt": float(res["plddt"].float().mean()),
+                               "ptm": float(res["ptm"].float().mean())}
+    finally:
+        head.folding_trunk = dev_trunk
+    return out
 
 
 def _pair_stats(z) -> dict:
@@ -495,6 +526,9 @@ def main():
                          "(unreleased weights); provenance in the output still records it")
     ap.add_argument("--esmc_repo", default="biohub/ESMC-6B")
     ap.add_argument("--out", default="/tmp/ef2_parity/summary.json")
+    ap.add_argument("--z_sens", action="store_true",
+                    help="with --conf_ab, measure how far mean plDDT moves per unit of "
+                         "relative error in the trunk pair state, holding x_pred fixed")
     ap.add_argument("--trunk_probe", action="store_true",
                     help="with --conf_ab, also price bf16 pair storage: one trunk pass over "
                          "the captured pair tensor on device, on host fp32, and on host fp32 "
@@ -570,7 +604,7 @@ def main():
         if args.conf_ab:
             ab = conf_trunk_ab(tt_model, ref_model, feats, lm_hs, loops=args.loops,
                                steps=args.steps, seed=seeds[0],
-                               trunk_probe=args.trunk_probe)
+                               trunk_probe=args.trunk_probe, z_sens=args.z_sens)
             ab = dict(protein=name, L=len(seq), seed=seeds[0], checkpoint=args.checkpoint,
                       trunk_blocks=ckpt["trunk_blocks"], **ab)
             results.append(ab)
