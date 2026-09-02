@@ -1,0 +1,348 @@
+{
+ "label": "d400_n8r5",
+ "model": "pxdesign",
+ "tree": "/home/ttuser/.coworker/wt/pxdesign-batchcurve-qb2-reverify",
+ "git_head": "eaedfcc603a01cb4416f509afec4c8d47984db91",
+ "yaml": "/home/ttuser/.coworker/wt/pxdesign-batchcurve-qb2-reverify/perf/newmodelcells/laczc_512_tt.yaml",
+ "yaml_sha256": "23587853d5ca8fde766adce2f6c71c0fc19b8ac8547ea01a39a4e06bd9b311a1",
+ "target_cif": "/home/ttuser/.coworker/wt/pxdesign-batchcurve-qb2-reverify/perf/pxdesign/targets/laczc_512.cif",
+ "target_cif_sha256": "206d95b5f73d08bd323dd272bcff8d4fc4eaaafc2f9317e02f1bd738260f0a04",
+ "n_step": 400,
+ "n_sample_per_call": 8,
+ "max_parallel_samples": null,
+ "rounds": 5,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "started": "2026-09-02T00:23:59+0000",
+ "loadavg_start": [
+  "1.50",
+  "0.70",
+  "0.40"
+ ],
+ "designs": [
+  {
+   "round": 0,
+   "seed": 0,
+   "cold": true,
+   "t_feat_s": 0.048,
+   "t_design_s": 159.076,
+   "t_write_s": 0.007,
+   "round_s": 159.131,
+   "s_per_design": 19.8913,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 8,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "20fe6233d01c5f0c",
+   "coord_sha16_per_design": [
+    "d7ff62e7ec4c16cf",
+    "3e8d793feed091b5",
+    "c9ffdefb63c4a453",
+    "cd4aba01b2322f5c",
+    "597fd2f90461ebd5",
+    "049ea03e1e7ebfeb",
+    "2c90d7dc00674f2b",
+    "c9d09d8a079cbc54"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    1.277,
+    2.3786,
+    1.664,
+    1.625,
+    1.8195,
+    1.466,
+    3.2614,
+    1.4648
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 1.277,
+   "cif_sha16": "615b866b97b5437f",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "1.38",
+    "0.68",
+    "0.39"
+   ]
+  },
+  {
+   "round": 1,
+   "seed": 1,
+   "cold": false,
+   "t_feat_s": 0.049,
+   "t_design_s": 151.778,
+   "t_write_s": 0.01,
+   "round_s": 151.837,
+   "s_per_design": 18.9796,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 8,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "6e67f9c16a1ef954",
+   "coord_sha16_per_design": [
+    "27a22d8cbf382ba1",
+    "16dc38279616b62e",
+    "4a21d76cd9b5a0e2",
+    "7eba8572dd71cb03",
+    "b54caa9ac81cca07",
+    "a28805cb0a27ac09",
+    "6ea8e3dc13eb626c",
+    "9fd4323d54c18cec"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    0.8539,
+    1.7351,
+    3.8852,
+    4.2498,
+    2.035,
+    2.539,
+    0.9513,
+    1.4315
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 0.8539,
+   "cif_sha16": "17a5e6dd2cd6998f",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "1.63",
+    "1.22",
+    "0.66"
+   ]
+  },
+  {
+   "round": 2,
+   "seed": 2,
+   "cold": false,
+   "t_feat_s": 0.06,
+   "t_design_s": 156.318,
+   "t_write_s": 0.01,
+   "round_s": 156.388,
+   "s_per_design": 19.5485,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 8,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "053f87c773b0e71c",
+   "coord_sha16_per_design": [
+    "130594e687cc2b17",
+    "a4efbe0e6856178a",
+    "40be02356ec6bb31",
+    "4e8d34ff9e2326a1",
+    "5d23268587165f5d",
+    "c56159a97ae1d080",
+    "e60518f641e62276",
+    "a7a772c0bb447506"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    1.3809,
+    2.0833,
+    2.0297,
+    3.6034,
+    3.7073,
+    2.1963,
+    4.0929,
+    3.362
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 1.3809,
+   "cif_sha16": "ecd06ffcd1ed8f75",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "8.50",
+    "4.08",
+    "1.80"
+   ]
+  },
+  {
+   "round": 3,
+   "seed": 3,
+   "cold": false,
+   "t_feat_s": 0.068,
+   "t_design_s": 146.842,
+   "t_write_s": 0.007,
+   "round_s": 146.917,
+   "s_per_design": 18.3647,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 8,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "6d53484d71f1ab25",
+   "coord_sha16_per_design": [
+    "b6507e22f162c421",
+    "2c890689f9d168bf",
+    "fe7ee7d97dd78eca",
+    "36df1d9dd862a6bf",
+    "ebbac35109bbe91e",
+    "56c6c0530ece9c85",
+    "7bd548ac3c362990",
+    "b79c8bfe62430bd7"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    3.0596,
+    2.125,
+    1.8176,
+    2.6411,
+    1.3832,
+    3.409,
+    2.3509,
+    1.7787
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 3.0596,
+   "cif_sha16": "3a49da9fdaea21a6",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "9.84",
+    "6.58",
+    "3.12"
+   ]
+  },
+  {
+   "round": 4,
+   "seed": 0,
+   "cold": false,
+   "t_feat_s": 0.062,
+   "t_design_s": 145.024,
+   "t_write_s": 0.007,
+   "round_s": 145.092,
+   "s_per_design": 18.1365,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 8,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "20fe6233d01c5f0c",
+   "coord_sha16_per_design": [
+    "d7ff62e7ec4c16cf",
+    "3e8d793feed091b5",
+    "c9ffdefb63c4a453",
+    "cd4aba01b2322f5c",
+    "597fd2f90461ebd5",
+    "049ea03e1e7ebfeb",
+    "2c90d7dc00674f2b",
+    "c9d09d8a079cbc54"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    1.277,
+    2.3786,
+    1.664,
+    1.625,
+    1.8195,
+    1.466,
+    3.2614,
+    1.4648
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 1.277,
+   "cif_sha16": "615b866b97b5437f",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "3.68",
+    "5.80",
+    "3.38"
+   ]
+  }
+ ],
+ "model_init_s": 0.632,
+ "checkpoint": "/home/ttuser/.boltz/pxdesign/pxdesign_v0.1.0.pt",
+ "checkpoint_bytes": 556554618,
+ "arch": "blackhole",
+ "grid": [
+  11,
+  10
+ ],
+ "diffusion_fp32": true,
+ "env_PROTENIX_DIFFUSION_FP32_DEVICE": null,
+ "warm_n": 4,
+ "warm_median_s": 149.377,
+ "warm_min_s": 145.092,
+ "warm_max_s": 156.388,
+ "warm_spread_pct": 7.562,
+ "warm_median_s_per_design": 18.6722,
+ "warm_spread_pct_per_design": 7.562,
+ "all_designs_distinct": true,
+ "warm_median_feat_s": 0.061,
+ "warm_median_design_s": 149.31,
+ "warm_median_write_s": 0.009,
+ "warm_median_host_s": 0.07,
+ "split_residual_s": -0.003,
+ "loadavg_end": [
+  "1.24",
+  "3.95",
+  "3.03"
+ ]
+}

@@ -1,0 +1,188 @@
+{
+ "label": "s24_n1",
+ "model": "pxdesign",
+ "tree": "/home/ttuser/.coworker/wt/pxdesign-batchcurve-qb2-reverify",
+ "git_head": "8e8c8c20cac3c1704737b94dd85e3a4be9552e88",
+ "yaml": "/home/ttuser/.coworker/wt/pxdesign-batchcurve-qb2-reverify/perf/newmodelcells/laczc_512_tt.yaml",
+ "yaml_sha256": "23587853d5ca8fde766adce2f6c71c0fc19b8ac8547ea01a39a4e06bd9b311a1",
+ "target_cif": "/home/ttuser/.coworker/wt/pxdesign-batchcurve-qb2-reverify/perf/pxdesign/targets/laczc_512.cif",
+ "target_cif_sha256": "206d95b5f73d08bd323dd272bcff8d4fc4eaaafc2f9317e02f1bd738260f0a04",
+ "n_step": 24,
+ "n_sample_per_call": 1,
+ "max_parallel_samples": null,
+ "rounds": 3,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "started": "2026-09-02T01:34:04+0000",
+ "loadavg_start": [
+  "8.03",
+  "8.13",
+  "8.15"
+ ],
+ "designs": [
+  {
+   "round": 0,
+   "seed": 0,
+   "cold": true,
+   "t_feat_s": 0.056,
+   "t_design_s": 6.274,
+   "t_write_s": 0.007,
+   "round_s": 6.336,
+   "s_per_design": 6.3358,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "93cee66fba631b3d",
+   "coord_sha16_per_design": [
+    "93cee66fba631b3d"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    21.8697
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 21.8697,
+   "cif_sha16": "8b5cfaebf80d4043",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "8.03",
+    "8.13",
+    "8.15"
+   ]
+  },
+  {
+   "round": 1,
+   "seed": 1,
+   "cold": false,
+   "t_feat_s": 0.062,
+   "t_design_s": 3.158,
+   "t_write_s": 0.007,
+   "round_s": 3.227,
+   "s_per_design": 3.2267,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "539d286366123f88",
+   "coord_sha16_per_design": [
+    "539d286366123f88"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    31.7067
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 31.7067,
+   "cif_sha16": "79ddca909de47388",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "8.18",
+    "8.16",
+    "8.16"
+   ]
+  },
+  {
+   "round": 2,
+   "seed": 2,
+   "cold": false,
+   "t_feat_s": 0.099,
+   "t_design_s": 4.265,
+   "t_write_s": 0.008,
+   "round_s": 4.372,
+   "s_per_design": 4.3716,
+   "n_token": 592,
+   "binder_tokens": 80,
+   "target_tokens": 512,
+   "n_sample": 1,
+   "n_atom": 4429,
+   "coords_finite": true,
+   "coord_sha16": "321a5c940f0cf685",
+   "coord_sha16_per_design": [
+    "321a5c940f0cf685"
+   ],
+   "designs_distinct": true,
+   "fit_rmsd_all": [
+    21.5995
+   ],
+   "binder_residues_all": [
+    80
+   ],
+   "binder_atoms_all": [
+    321
+   ],
+   "binder_residues": 80,
+   "binder_atoms": 321,
+   "conditioned_tokens": 512,
+   "fit_rmsd": 21.5995,
+   "cif_sha16": "dfb0f84d7047ecfc",
+   "cif_residues": 80,
+   "cif_chains": [
+    "A"
+   ],
+   "cif_atoms": 321,
+   "loadavg": [
+    "8.18",
+    "8.16",
+    "8.16"
+   ]
+  }
+ ],
+ "model_init_s": 1.347,
+ "checkpoint": "/home/ttuser/.boltz/pxdesign/pxdesign_v0.1.0.pt",
+ "checkpoint_bytes": 556554618,
+ "arch": "blackhole",
+ "grid": [
+  11,
+  10
+ ],
+ "diffusion_fp32": true,
+ "env_PROTENIX_DIFFUSION_FP32_DEVICE": null,
+ "warm_n": 2,
+ "warm_median_s": 3.8,
+ "warm_min_s": 3.227,
+ "warm_max_s": 4.372,
+ "warm_spread_pct": 30.136,
+ "warm_median_s_per_design": 3.7992,
+ "warm_spread_pct_per_design": 30.136,
+ "all_designs_distinct": true,
+ "warm_median_feat_s": 0.081,
+ "warm_median_design_s": 3.712,
+ "warm_median_write_s": 0.007,
+ "warm_median_host_s": 0.088,
+ "split_residual_s": -0.0,
+ "loadavg_end": [
+  "8.24",
+  "8.17",
+  "8.16"
+ ]
+}

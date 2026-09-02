@@ -19,6 +19,20 @@ def fmt(x, n=2):
 
 def main():
     c = json.load(open(os.path.join(HERE, "CURVES.json")))
+    # Every TT rung the note talks about has to have been measured at 400 real steps. The fitted
+    # ladder overshoots by up to 280 % on qb2, so letting one through would put a fabricated second
+    # on a public page.
+    unmeasured = c["tt"].get("unmeasured_rungs")
+    if unmeasured:
+        sys.exit("apply_page_note: TT rungs %s are still fitted, not measured; run them first"
+                 % unmeasured)
+    # The co-tenant cost this workload 9.6 % at b=2 and 2.6 % at b=16, and the gap between adjacent
+    # rungs here is a few percent, so a curve that mixes regimes cannot be read. Every published rung
+    # has to come from a quiet box.
+    loaded = c["tt"].get("loaded_rungs")
+    if loaded:
+        sys.exit("apply_page_note: TT rungs %s were timed against a co-tenant; re-measure them quiet"
+                 % loaded)
     srv, tt, h2, b2 = c["server"], c["tt"], c["h200"], c["b200"]
     tt_best, h_best, b_best = tt["best"], h2["best"], b2["best"]
     tt_a = srv["tt_amortisation_x"]
@@ -32,21 +46,30 @@ def main():
     b_top = max(br)
     vram = max(r["peak_vram_GiB"] for r in b2["rungs"])
 
+    prov = tt.get("provenance") or "on an unnamed card"
+    chunk = tt.get("chunk_check")
+    chunk_s = ("Capping the model's internal chunk at %d makes a batch of %d read %s s a design "
+               "against the batch-of-%d rate of %s s, so a request four times the ceiling holds "
+               "that rate, though the CLI has no chunk flag today. "
+               % (chunk["max_parallel_samples"], chunk["n_sample"],
+                  fmt(chunk["s_per_design_at_400"]), tt_best,
+                  fmt(ttr[tt_best].get("measured_s_per_design")
+                      or ttr[tt_best]["fitted_s_per_design"]))) if chunk else ""
+
     row = (
         "%s, and it does not move the two sides equally. A batch of %d is worth %sx on the "
-        "Blackhole AI Processor, measured at 400 steps on a p150a in pc, a different board from the "
-        "one this cell was measured on, so it is a relative result and no second here comes from "
-        "that card. Batches of %s all run and all read slower per design than %d, so the ceiling is "
-        "arithmetic and not capacity. Capping the model's internal chunk at %d holds the batch-of-%d "
-        "rate for a request of any size, though the CLI has no chunk flag today. The same lever is worth %sx at %d on the H200 and %sx at %d "
-        "on the B200, which runs one design at %s %% utilisation and %d at %s %%; the H200 goes from "
-        "%s %% to %s %%. Peak allocation never passes %s GB of the B200's 183, so nothing here runs "
-        "out of memory. At each side's best batch a design costs %s s on a Blackhole AI Processor "
-        "against %s s on a B200, so the %sx per-accelerator lead becomes %sx and the per-server "
-        "reading falls from %sx to %sx. Upstream recommends collecting 10000+ designs per target and "
-        "calls --N_sample 10 a debugging run, so the batched reading is the campaign-relevant one "
-        "and the seconds above are latency."
-        % (MARK_ROW, tt_best, fmt(tt_a, 3), tt_worse, tt_best, tt_best, tt_best,
+        "Blackhole AI Processor, confirmed at 400 steps %s. The first reading of this lever came "
+        "off a p150a in pc whose matmuls are occasionally wrong, so it was a relative result only; "
+        "this one is not. Batches of %s all run and all read slower per design than %d, so the "
+        "ceiling is arithmetic and not capacity. %sThe same lever is worth %sx at %d on the H200 "
+        "and %sx at %d on the B200, which runs one design at %s %% utilisation and %d at %s %%; the "
+        "H200 goes from %s %% to %s %%. Peak allocation never passes %s GB of the B200's 183, so "
+        "nothing here runs out of memory. At each side's best batch a design costs %s s on a "
+        "Blackhole AI Processor against %s s on a B200, so the %sx per-accelerator lead becomes %sx "
+        "and the per-server reading falls from %sx to %sx. Upstream recommends collecting 10000+ "
+        "designs per target and calls --N_sample 10 a debugging run, so the batched reading is the "
+        "campaign-relevant one and the seconds above are latency."
+        % (MARK_ROW, tt_best, fmt(tt_a, 3), prov, tt_worse, tt_best, chunk_s,
            fmt(hr[h_best]["amortisation_x"]), h_best, fmt(br[b_best]["amortisation_x"]), b_best,
            fmt(br[1]["util_pct"], 1), b_top, fmt(br[b_top]["util_pct"], 1),
            fmt(hr[1]["util_pct"], 1), fmt(hr[max(hr)]["util_pct"], 1), fmt(vram, 1),
