@@ -162,9 +162,7 @@ def test_sizer_and_row_agree_on_the_denominator():
     error, so the two are held against each other here.
     """
     for model, arch, c in _rows():
-        if not c.measured:
-            continue
-        counts, _ = sl.sizer_for(model)
+        counts, _, _ = sl.sizer_for(model)
         assert counts == c.counts, (
             f"{model}/{arch}: the row's cap is in {c.counts!r} but its sizer produces {counts!r}")
 
@@ -242,3 +240,86 @@ def test_a_bare_sequence_is_sized_too():
     with pytest.raises(sl.SizeTooLargeError):
         sl.check_input("A" * 2000, "esmc-6b", arch="wormhole_b0")
     sl.check_input("A" * 1000, "esmc-6b", arch="wormhole_b0")
+
+
+def test_embed_sizes_the_longest_sequence_not_their_sum():
+    """The bug this denominator exists for: a false refusal is worse than no guard.
+
+    embed and saprot run the trunk over each sequence separately, so what has to fit on the chip is
+    the longest one. Summing turned away a 50-record FASTA of 100 aa each -- 5000 against esmc-6b's
+    1968 -- though every sequence in it embeds comfortably.
+    """
+    many = "".join(f">seq{i}\n{'A' * 100}\n" for i in range(50))
+    assert sl.scan_longest_sequence(many) == 100
+    sl.check_input(many, "esmc-6b", arch="wormhole_b0")      # must NOT refuse
+    # ...while a single genuinely oversized record still is refused.
+    one_big = ">big\n" + "A" * 2000 + "\n"
+    assert sl.scan_longest_sequence(one_big) == 2000
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check("esmc-6b", sl.scan_longest_sequence(one_big), arch="wormhole_b0")
+
+
+def test_embed_reads_the_flat_id_sequence_mapping():
+    """`tt-bio embed` documents a flat {id: sequence} YAML, which the residue scanner scored as 0."""
+    flat = "a: " + "A" * 2500 + "\nb: ACDEF\n"
+    assert sl.scan_longest_sequence(flat) == 2500
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check("esmc-6b", sl.scan_longest_sequence(flat), arch="wormhole_b0")
+    # A flat mapping cannot distinguish a config value from a sequence, so short words are counted
+    # too (`pool: mean` scores 4). That is an over-count and it is harmless: this returns a MAXIMUM,
+    # so a stray word can only lose to a real sequence. What must hold is that it never refuses.
+    sl.check_input("model: esmc-6b\npool: mean\n", "esmc-6b", arch="wormhole_b0")
+    assert sl.scan_longest_sequence("model: esmc-6b\npool: mean\n") < 1968
+
+
+def test_predict_still_sums_the_chains_of_one_complex():
+    """The opposite case, asserted so the embed fix cannot quietly change predict.
+
+    One predict file is ONE complex whose chains fold together, so the sum is what occupies the chip.
+    """
+    two_chains = ("sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * 300 +
+                  "\n  - protein:\n      id: B\n      sequence: " + "A" * 300 + "\n")
+    assert sl.scan_residues(two_chains) == 600
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check("opendde", sl.scan_residues(two_chains), arch="wormhole_b0")
+
+
+def test_check_input_takes_a_path_or_a_bare_sequence_not_a_document(tmp_path):
+    """check_input's argument is the CLI's DATA argument: a path, or a pasted bare sequence.
+
+    Asserted because writing a whole YAML document into it looks like it should work and silently
+    does nothing -- the string is not a path and not a bare sequence, so it matches neither branch.
+    A test that made that mistake would pass while checking nothing.
+    """
+    doc = "sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * 600 + "\n"
+    sl.check_input(doc, "opendde", arch="wormhole_b0")          # a document: no-op, by design
+    f = tmp_path / "t.yaml"
+    f.write_text(doc)
+    with pytest.raises(sl.SizeTooLargeError):                    # the same content as a FILE: refused
+        sl.check_input(f, "opendde", arch="wormhole_b0")
+
+
+def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
+    """A model whose sizer skips its own input files refuses nothing, silently and permissively.
+
+    This is the failure that shipped for one commit: the suffix list was derived from the
+    denominator as a proxy for "is a design model", so adding a third denominator handed every embed
+    model the design suffixes and .fasta inputs were skipped entirely. The oversized case is the one
+    that catches it -- a file that is skipped looks exactly like a file that passed.
+    """
+    cases = [
+        ("esmc-6b", "big.fasta", ">big\n" + "A" * 2500 + "\n"),
+        ("esmc-6b", "big.yaml", "a: " + "A" * 2500 + "\n"),
+        ("opendde", "big.yaml",
+         "sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * 600 + "\n"),
+        ("opendde", "big.fasta", ">t|protein\n" + "A" * 600 + "\n"),
+        ("rfd3", "spec.json", '{"a": {"input": "t.pdb", "contig": "A1-2,4000"}}'),
+        ("rfd3", "spec.yaml", 'a:\n  input: t.pdb\n  contig: A1-2,4000\n'),
+        ("pxdesign", "t.yaml",
+         'target:\n  file: t.cif\n  chains:\n    A:\n      crop: ["1-900"]\n'),
+    ]
+    for model, name, text in cases:
+        f = tmp_path / name
+        f.write_text(text)
+        with pytest.raises(sl.SizeTooLargeError):
+            sl.check_input(f, model, arch="wormhole_b0")

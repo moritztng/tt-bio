@@ -101,7 +101,8 @@ MECHANISMS = (L1_CLASH, DRAM, DRAM_MSA, FRAGMENTATION, NO_FAILURE, UNKNOWN)
 RESIDUES = "residues"              # polymer residues in the input, summed over chains and copies
 DESIGN_TOTAL = "design_total"      # motif + designed, i.e. everything the model tokenises
 DESIGN_TARGET = "design_target"    # the conditioned target only; the binder is extra
-COUNTS = (RESIDUES, DESIGN_TOTAL, DESIGN_TARGET)
+MAX_SEQUENCE = "max_sequence"      # residues in the LONGEST single sequence, not their sum
+COUNTS = (RESIDUES, DESIGN_TOTAL, DESIGN_TARGET, MAX_SEQUENCE)
 
 # How each denominator reads in a refusal. A message that just said "residues" for all three would
 # leave a design user unable to tell which number of theirs is too big.
@@ -109,6 +110,7 @@ _COUNT_NAMES = {
     RESIDUES: "residues",
     DESIGN_TOTAL: "residues (motif + designed)",
     DESIGN_TARGET: "target residues",
+    MAX_SEQUENCE: "residues in its longest sequence",
 }
 
 
@@ -143,8 +145,8 @@ class Ceiling:
         return self.binds != UNMEASURED
 
 
-def _unmeasured(evidence: str) -> Ceiling:
-    return Ceiling(None, None, None, UNMEASURED, UNKNOWN, evidence)
+def _unmeasured(evidence: str, counts: str = RESIDUES) -> Ceiling:
+    return Ceiling(None, None, None, UNMEASURED, UNKNOWN, evidence, counts=counts)
 
 
 # Shared by every model that carries no ceiling of its own. Spelled once because the reason is one
@@ -252,6 +254,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "esmc-6b": {
         "wormhole_b0": Ceiling(
             residues=1968, pass_at=1968, fail_at=1984, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
             evidence="catalog.py, measured 2026-08-11 (tree 7b6ab185, live pool): 1968 aa embeds in "
                      "32 s, 1984 aa OOMs on DRAM. The 6B weights nearly fill the chip, so past the "
                      "ceiling the activation allocation has nowhere to go. This is an embed model: "
@@ -280,11 +283,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "composition, so converting that to residues would be a guess. Refusing on it needs an "
             "atom-denominated dimension this table does not yet carry"),
     },
-    "esmc-300m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
-    "esmc-600m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
-    "saprot-35m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
-    "saprot-650m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
-    "saprot-1.3b": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
+    "esmc-300m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
+    "esmc-600m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
+    "saprot-35m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
+    "saprot-650m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
+    "saprot-1.3b": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
 }
 
 _NO_ROW = _unmeasured("no row for this architecture: nothing has been measured on it")
@@ -507,22 +510,85 @@ def scan_pxdesign_target(text: str) -> int:
     return total
 
 
-# model -> (what its sizer counts, the sizer). The denominator is carried HERE as well as on the
-# row so the guard test can hold the two against each other; that assertion is what makes the
-# rfd3-total / pxdesign-target difference safe rather than a comment somebody has to remember.
-_SIZERS: dict[str, tuple] = {
-    "rfd3": (DESIGN_TOTAL, scan_rfd3_total),
-    "pxdesign": (DESIGN_TARGET, scan_pxdesign_target),
-}
-_DEFAULT_SIZER = (RESIDUES, scan_residues)
+def scan_longest_sequence(text: str) -> int:
+    """Residues in the LONGEST single sequence of an embed/saprot input (MAX_SEQUENCE).
 
-# What a design spec is allowed to be called. `design` takes JSON as well as the YAML/FASTA the
-# predict path accepts, so the shared suffix list would miss an RFD3 spec written as .json.
+    The MAX and not the sum, which is the whole point. `tt-bio embed` and `tt-bio saprot` take
+    INDEPENDENT sequences and run the trunk over each one separately, so what has to fit is the
+    longest of them; the ceiling has nothing to say about how many there are. Summing instead
+    refuses correct work -- a 50-record FASTA of 100 aa each scores 5000 against esmc-6b's 1968 and
+    gets turned away, though every sequence in it embeds comfortably. That is worse than having no
+    guard at all, and it is exactly what the first version of this file did.
+
+    Predict is the opposite case and keeps ``scan_residues``: there one file is ONE complex whose
+    chains are folded together, so the sum is what occupies the chip.
+
+    Three input shapes, because ``embed`` documents all three: FASTA, a flat ``{id: sequence}``
+    mapping, and the ``sequences:`` list the predict path uses.
+    """
+    t = text.lstrip()
+    if t.startswith(">"):
+        best = cur = 0
+        for ln in text.splitlines():
+            if ln.startswith(">"):
+                best, cur = max(best, cur), 0
+            elif ln.strip():
+                cur += len(_NON_LETTER.sub("", ln.strip()))
+        return max(best, cur)
+    try:
+        import yaml
+        data = yaml.safe_load(text)
+    except Exception:
+        return 0
+    if not isinstance(data, dict):
+        return 0
+    entries = data.get("sequences") or data.get("entities")
+    if isinstance(entries, list):
+        best = 0
+        for e in entries:
+            if not isinstance(e, dict):
+                continue
+            for key, body in e.items():
+                if isinstance(body, dict) and str(key).lower() in _POLYMER_KEYS:
+                    best = max(best, _seq_residues(body.get("sequence")))
+        return best
+    # The flat `{id: sequence}` mapping. Every plain letter string counts, and that OVER-counts:
+    # a `pool: mean` config line scores 4, because nothing in a flat mapping distinguishes a value
+    # from a sequence, and `mean` happens to be four valid amino-acid letters, so no alphabet
+    # filter separates them either. Harmless by construction rather than by luck -- this returns a
+    # MAXIMUM, so a stray short word can only lose to a real sequence, and it could only cause a
+    # wrong refusal if a config value ran to thousands of letters.
+    return max((len(v.strip()) for v in data.values()
+                if isinstance(v, str) and _BARE_SEQUENCE.match(v.strip())), default=0)
+
+
+# What a design spec is allowed to be called. `design` takes JSON as well as the YAML the predict
+# path accepts, so the shared suffix list would miss an RFD3 spec written as .json.
 _DESIGN_SUFFIXES = (".json", ".yml", ".yaml")
+
+# model -> (what its sizer counts, the sizer, the file suffixes it applies to).
+#
+# The suffixes are carried EXPLICITLY per model and not derived from the denominator. Deriving them
+# was a real bug: the first version keyed them on `counts != RESIDUES` as a proxy for "is a design
+# model", and adding a third denominator silently gave every embed model the design suffix list, so
+# `.fasta` inputs were skipped and an oversized sequence was admitted. A proxy that happens to hold
+# for two cases is not a rule, and it fails silently in the permissive direction.
+_SIZERS: dict[str, tuple] = {
+    "rfd3": (DESIGN_TOTAL, scan_rfd3_total, _DESIGN_SUFFIXES),
+    "pxdesign": (DESIGN_TARGET, scan_pxdesign_target, _DESIGN_SUFFIXES),
+    # Every embed / saprot model: independent sequences, so the longest one binds, not their sum.
+    # FASTA is the common input here, so these keep the predict path's suffix list.
+    **{m: (MAX_SEQUENCE, scan_longest_sequence, None) for m in
+       ("esmc-300m", "esmc-600m", "esmc-6b", "saprot-35m", "saprot-650m", "saprot-1.3b")},
+}
+_DEFAULT_SIZER = (RESIDUES, scan_residues, None)
 
 
 def sizer_for(model: str):
-    """``(denominator, callable)`` for one model. Unknown models size as plain residues."""
+    """``(denominator, callable, suffixes)`` for one model. Unknown models size as plain residues.
+
+    ``suffixes`` of None means the predict path's ``runtime.INPUT_SUFFIXES``.
+    """
     return _SIZERS.get(model, _DEFAULT_SIZER)
 
 
@@ -545,8 +611,8 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
     raising here would replace a good error with a worse one.
     """
     from .runtime import INPUT_SUFFIXES
-    counts, sizer = sizer_for(model)
-    suffixes = _DESIGN_SUFFIXES if counts != RESIDUES else INPUT_SUFFIXES
+    _, sizer, suffixes = sizer_for(model)
+    suffixes = suffixes or INPUT_SUFFIXES
     text = str(data).strip()
     p = Path(text).expanduser()
     try:
