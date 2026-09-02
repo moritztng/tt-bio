@@ -422,7 +422,28 @@ def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
         legs["trunk_probe"] = trunk_bf16_probe(tt_model, ref_model, z)
     if z_sens:
         legs["z_sensitivity"] = z_plddt_sensitivity(head, inner, cap, dev_trunk)
+        legs["x_pred_sensitivity"] = x_plddt_sensitivity(inner, cap)
     return legs
+
+
+def x_plddt_sensitivity(inner, cap, rms_a=(0.25, 0.5, 1.0, 2.0)) -> dict:
+    """d(mean plDDT) / d(coordinate displacement), pair state and s_inputs held fixed.
+
+    `x_pred` reaches the confidence head only through 1.25 A-wide binned representative-atom
+    distances, so this reads how much confidence a given amount of structural difference costs.
+    Displacements are isotropic Gaussian per atom, quoted as RMS Angstrom, which is the same
+    unit the harness's Kabsch numbers are in.
+    """
+    x0 = cap["k"]["x_pred"]
+    out = {}
+    for r in rms_a:
+        g = torch.Generator().manual_seed(0)
+        d = torch.randn(x0.shape, generator=g, dtype=torch.float32) * (r / 3.0 ** 0.5)
+        k = dict(cap["k"], x_pred=(x0.float() + d).to(x0.dtype))
+        res = inner(*cap["a"], **k)
+        out[f"rms_{r}A"] = {"plddt": float(res["plddt"].float().mean()),
+                            "ptm": float(res["ptm"].float().mean())}
+    return out
 
 
 def z_plddt_sensitivity(head, inner, cap, dev_trunk, rels=(0.01, 0.03, 0.125)) -> dict:
