@@ -72,6 +72,30 @@ PROTEINS = {
                  "RTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL"),        # 129
 }
 
+# A --proteins entry that is not in PROTEINS is looked up here: the fold fixtures the perf
+# page's own cells are measured on. That lets the published target go through THIS harness
+# instead of a second one, which is the only way a page number and a parity number can be
+# compared without an unstated protocol difference between them.
+PERF_FIXTURES = "perf/size512/fixtures"
+
+
+def protein_sequence(name: str) -> str:
+    """Sequence for a harness target: a PROTEINS key, or a perf fold fixture by name."""
+    if name in PROTEINS:
+        return PROTEINS[name]
+    import yaml
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        PERF_FIXTURES, f"{name}.yaml")
+    if not os.path.exists(path):
+        raise SystemExit(f"unknown protein {name!r}: not in {sorted(PROTEINS)} and no {path}")
+    with open(path) as f:
+        doc = yaml.safe_load(f)
+    seqs = [e["protein"]["sequence"] for e in doc["sequences"] if "protein" in e]
+    if len(seqs) != 1:
+        raise SystemExit(f"{path}: expected one protein chain, got {len(seqs)}")
+    return seqs[0]
+
+
 # forward() kwargs that prepare_input supplies (extras are dropped by name).
 _FORWARD_KEYS = {
     "token_index", "residue_index", "asym_id", "sym_id", "entity_id", "mol_type",
@@ -350,7 +374,9 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true")
-    ap.add_argument("--proteins", default="trpcage,gb1,ubiquitin")
+    ap.add_argument("--proteins", default="trpcage,gb1,ubiquitin",
+                    help="comma-separated targets: PROTEINS keys, or a perf fold fixture "
+                         "name such as cdk2x2_512")
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--loops", type=int, default=3)
     ap.add_argument("--seeds", default="0,1,2", help="comma-separated sampler seeds, run on both backends")
@@ -419,7 +445,7 @@ def main():
 
     results = []
     for name in names:
-        seq = PROTEINS[name]
+        seq = protein_sequence(name)
         print(f"\n=== {name} (L={len(seq)}), seeds={seeds} ===", flush=True)
         feats, chain_infos, builder = build_features(seq, args.feature_seed, ref_model.device)
         lm_hs = compute_lm_hidden_states(

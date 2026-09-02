@@ -1,0 +1,60 @@
+{
+  "model": "esmfold2-fast",
+  "repo": "biohub/ESMFold2-Fast",
+  "trunk_blocks": 24,
+  "target": "cdk2x2_512",
+  "L": 512,
+  "recycling_steps": 10,
+  "requested_sampling_steps": 100,
+  "host": "tt-quietbox2",
+  "card": "2",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "per_seed": [
+    {
+      "seed": 0,
+      "plddt": 0.898601770401001,
+      "ptm": 0.7678736448287964,
+      "coords_sha256": "43afbf187a727c42",
+      "seconds": 51.601
+    },
+    {
+      "seed": 1,
+      "plddt": 0.8988884687423706,
+      "ptm": 0.747887909412384,
+      "coords_sha256": "17f50d53411bd1ea",
+      "seconds": 18.682
+    },
+    {
+      "seed": 2,
+      "plddt": 0.8950421214103699,
+      "ptm": 0.7420589923858643,
+      "coords_sha256": "cfa32abd3cff8ed0",
+      "seconds": 20.405
+    },
+    {
+      "seed": 3,
+      "plddt": 0.8977698087692261,
+      "ptm": 0.7479199171066284,
+      "coords_sha256": "18e0a8ee7d424316",
+      "seconds": 20.625
+    },
+    {
+      "seed": 4,
+      "plddt": 0.892144501209259,
+      "ptm": 0.734473466873169,
+      "coords_sha256": "cbe621456fd93413",
+      "seconds": 20.872
+    }
+  ],
+  "plddt_min": 0.892144501209259,
+  "plddt_max": 0.8988884687423706,
+  "plddt_spread": 0.006743967533111572,
+  "plddt_mean": 0.8964893341064453,
+  "distinct_structures": 5
+}
