@@ -16,7 +16,8 @@ node — UMD enumerates by PCI BDF, giving `u < 16 -> node u+16`, `16 <= u < 24 
 Results land in `results.jsonl` beside the script, one line per rung.
 
 Measured 2026-09-02 on tree 46613cec: 980, 1024 and 1056 all OOM in the trunk. 980 and 1024 ask
-for the same 2 147 483 648 B buffer, because the failing allocation pads its token axis to a
-multiple of 64 and both round to 1024. The throw is fragmentation, not exhaustion: 331 MB free per
+for the same 2 147 483 648 B buffer: `protenix.py` sets `TOKEN_PAD_MULTIPLE` to 64, so every input
+from 961 to 1024 residues shares a padded token axis of 1024, and an allocation sized off that axis
+costs the same at both ends of the span. The throw is fragmentation, not exhaustion: 331 MB free per
 bank against a 179 MB request, largest free block 136 MB. See
 `~/.coworker/state/ceiling-protenix-v2.md`.
