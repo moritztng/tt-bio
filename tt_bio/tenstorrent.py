@@ -1695,6 +1695,44 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
 # refuse (16 GiB at 1024). So 128 / 256 / 512 / 768 keep the single-shot path and pay nothing, and
 # only 1024 blocks -- into two blocks of 512 rows.
 _FP32_SOFTMAX_BLOCK_BYTES = 8 << 30
+#: Shape classes whose fp32 score copy DRAM refused, and the row block that replaced it.
+#:
+#: The budget above is an absolute number of bytes and DRAM occupancy is not, so the two can
+#: disagree and the budget loses. Measured 2026-09-02 on GWH02: OpenFold3 at 736 aa against a
+#: 14190-row alignment wants one unblocked fp32 copy of 6 379 012 096 B, comfortably under the
+#: 8 GiB budget, so no blocking is applied -- while the MSA track already holds enough that only
+#: 358 MB per bank is free. The fold dies on a tensor the budget was happy with. This is not a
+#: 736-specific accident: the budget was tuned against what allocates on an EMPTY device, and
+#: every model on this path (boltz2, protenix, opendde, openfold3, rf3) meets it with whatever
+#: its own trunk already holds.
+#:
+#: So the device gets a vote. A refusal narrows the block for that shape class and the call is
+#: retried, which needs no allocator instrument on the happy path: reading free DRAM behaves like
+#: a pipeline drain and would cost more than it saves on the calls that fit. Blocking the leading
+#: dim is a partition and not a reordering, documented bit-exact at 512 and 768
+#: (perf/of3sizes/screen_triatt_fp32_qb1c0.json: torch_equal true, max_abs 0.0), so this changes
+#: which sizes finish and cannot change what they compute.
+_FP32_SOFTMAX_DRAM_ROW_CAP: dict = {}
+
+
+def _fp32_softmax_dram_oom(exc: BaseException) -> bool:
+    """Is this an allocator refusal, as opposed to any other RuntimeError?
+
+    Matched on the allocator's own wording so a compile error, a bad shape or a hang never gets
+    silently retried at half the block size and reported as a smaller-is-fine success.
+    """
+    return "Out of Memory" in str(exc)
+
+
+def _fp32_softmax_dram_narrow(l1_key, blk: int) -> int:
+    """Halve the row block for this shape class after a refusal, floored at one tile row."""
+    nxt = max(32, (int(blk) // 2) // 32 * 32)
+    if nxt >= int(blk):
+        nxt = 32
+    prev = _FP32_SOFTMAX_DRAM_ROW_CAP.get(l1_key)
+    _FP32_SOFTMAX_DRAM_ROW_CAP[l1_key] = nxt if prev is None else min(prev, nxt)
+    FP32_SOFTMAX_STATS["dram_narrowed"] += 1
+    return nxt
 _FP32_SOFTMAX_FUSED_ADD = True
 # ttnn.softmax normalises through a reciprocal whose range reduction loses up to 2.9e-2 when
 # the exp-sum sits at or just above a power of two, which a confident softmax always does.
@@ -1729,7 +1767,7 @@ _FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than
 FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
                       "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0,
                       "l1_free_retired": 0, "l1_free_walked": 0,
-                      "l1_padded_diverged": 0}
+                      "l1_padded_diverged": 0, "dram_narrowed": 0}
 
 # Refusals seen per shape class, so a FLOATING-core plan can be retired instead of walked. The
 # tuned rectangle narrows a row at a time and that is right for it: its block stays a legal shape.
@@ -2266,6 +2304,11 @@ def _fp32_softmax_attention(
         blk = min(blk, l1_rows)
         FP32_SOFTMAX_STATS["l1"] += 1
         FP32_SOFTMAX_STATS["l1_cores"] = l1_cores
+    # What this shape class was refused before. Remembered per class rather than re-derived, so
+    # the price of a refusal is paid once per class and not once per call.
+    dram_cap = _FP32_SOFTMAX_DRAM_ROW_CAP.get(l1_key)
+    if dram_cap is not None:
+        blk = min(blk, dram_cap)
 
     def shard_for(n):
         # A refusal inside this call narrows the plan mid-loop, and `blk` is already fixed, so the
@@ -2276,34 +2319,57 @@ def _fp32_softmax_attention(
             return None
         return _fp32_softmax_shard(n, height_per_row, k_len, l1_cores)
 
-    if rows <= 1 or blk >= rows:
-        sh = shard_for(rows)
-        FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
-        return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
-                                             out_dtype, bias_scale_inv, sh, l1_key, free=free,
-                                             accurate_softmax=accurate_softmax)
-    FP32_SOFTMAX_STATS["blocked"] += 1
-    parts = []
-    # the bias is the same tensor in every block, so its fp32 copy is made once per call
-    bias_f = _fp32_softmax_bias(bias, scale_inv, bias_scale_inv) if FP32_SOFTMAX_BIAS_HOIST else None
-    for s in range(0, rows, blk):
-        e = min(s + blk, rows)
-        qs, ks, vs = q[s:e], k[s:e], v[s:e]
-        sh = shard_for(e - s)
-        FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
-        parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
-                                                   compute_kernel_config, out_dtype,
-                                                   bias_scale_inv, sh, l1_key, bias_f, free=free,
-                                                   accurate_softmax=accurate_softmax))
-        for t in (qs, ks, vs):
-            ttnn.deallocate(t)
-    FP32_SOFTMAX_STATS["blocks"] += len(parts)
-    if bias_f is not None:
-        ttnn.deallocate(bias_f)
-    o = ttnn.concat(parts, dim=0)
-    for part in parts:
-        ttnn.deallocate(part)
-    return o
+    def run(blk):
+        if rows <= 1 or blk >= rows:
+            sh = shard_for(rows)
+            FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
+            return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
+                                                 out_dtype, bias_scale_inv, sh, l1_key, free=free,
+                                                 accurate_softmax=accurate_softmax)
+        FP32_SOFTMAX_STATS["blocked"] += 1
+        parts = []
+        # the bias is the same tensor in every block, so its fp32 copy is made once per call
+        bias_f = (_fp32_softmax_bias(bias, scale_inv, bias_scale_inv)
+                  if FP32_SOFTMAX_BIAS_HOIST else None)
+        try:
+            for s in range(0, rows, blk):
+                e = min(s + blk, rows)
+                qs, ks, vs = q[s:e], k[s:e], v[s:e]
+                sh = shard_for(e - s)
+                FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
+                parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
+                                                           compute_kernel_config, out_dtype,
+                                                           bias_scale_inv, sh, l1_key, bias_f,
+                                                           free=free,
+                                                           accurate_softmax=accurate_softmax))
+                for t in (qs, ks, vs):
+                    ttnn.deallocate(t)
+        except Exception:
+            # A retry re-runs every block from zero, so the ones already done have to go back or
+            # the second attempt starts against a device the first attempt filled.
+            for part in parts:
+                ttnn.deallocate(part)
+            raise
+        finally:
+            if bias_f is not None:
+                ttnn.deallocate(bias_f)
+        FP32_SOFTMAX_STATS["blocks"] += len(parts)
+        o = ttnn.concat(parts, dim=0)
+        for part in parts:
+            ttnn.deallocate(part)
+        return o
+
+    # Let the device have the last word on the block. The byte budget is a constant and DRAM
+    # occupancy is not, so on a full device the budget can decline to block a tensor the
+    # allocator then refuses -- which used to end the fold. Halve and retry instead; the
+    # partition is bit-exact, so this can only change whether the call finishes.
+    while True:
+        try:
+            return run(blk)
+        except RuntimeError as exc:
+            if blk <= 32 or not _fp32_softmax_dram_oom(exc):
+                raise
+            blk = _fp32_softmax_dram_narrow(l1_key, blk)
 
 
 def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
