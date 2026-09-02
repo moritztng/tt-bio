@@ -1,0 +1,24 @@
+{
+  "file": "runs/rg512/esmfold2_results_cdk2x2_512/structures/cdk2x2_512.cif",
+  "n_ca": 512,
+  "checks": {
+    "all_finite": true,
+    "residue_count_ok": true,
+    "ca_ca_median_in_band": true,
+    "chain_breaks_ok": true,
+    "rg_in_band": true
+  },
+  "fail": [],
+  "ca_ca_median_A": 3.8358,
+  "chain_break_frac": 0.0,
+  "radius_of_gyration_A": 27.37,
+  "rg_band_A": [
+    11.8,
+    58.9
+  ],
+  "plddt_scale": "0-100",
+  "plddt_mean": 0.898602,
+  "plddt_expected": 0.915273,
+  "plddt_delta": -0.016671,
+  "pass": true
+}
