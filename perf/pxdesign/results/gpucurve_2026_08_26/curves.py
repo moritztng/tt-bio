@@ -17,6 +17,20 @@ PAGE = os.path.join(ROOT, "site", "data", "perf-512aa.json")
 
 def gpu_curve(box):
     rungs, util = [], {}
+    # Utilisation and power come from batch.jsonl, which is committed. The ladder.log the first pass
+    # parsed lived on the rented boxes and went with them when they were destroyed, so re-running
+    # this script could no longer produce the utilisation figures already on the page. The two
+    # sources agree exactly where both existed: gpu_whole_run.util_pct_mean reproduces the published
+    # 37.5 and 94.4 % on the B200 and 20.4 and 84.5 % on the H200.
+    jl = os.path.join(HERE, box, "batch.jsonl")
+    if os.path.exists(jl):
+        for line in open(jl):
+            d = json.loads(line)
+            m = re.fullmatch(r"b(\d+)", d.get("label") or "")
+            g = d.get("gpu_whole_run") or {}
+            if m and g.get("util_pct_mean") is not None:
+                util[int(m.group(1))] = (g["util_pct_mean"], g.get("power_W_median"),
+                                         (d.get("peak_vram_alloc_B") or 0) / 2 ** 30)
     log = os.path.join(HERE, box, "ladder.log")
     if os.path.exists(log):
         for line in open(log):

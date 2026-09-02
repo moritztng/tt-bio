@@ -124,14 +124,21 @@
         "batch": 32,
         "fitted_s_per_design": 19.5866,
         "distinct": true,
-        "measured_s_per_design": 19.3335,
-        "measured_spread_pct": 0.147,
+        "measured_s_per_design": 19.1377,
+        "measured_spread_pct": 0.001,
         "measured_warm_n": 2,
-        "measured_from": "c400_n32.json",
-        "peak_warm_loadavg": 8.77,
-        "regime": "loaded",
-        "amortisation_x": 1.166,
-        "fit_error_pct": 1.309
+        "measured_from": "ctl400_n32.json",
+        "peak_warm_loadavg": 1.04,
+        "regime": "quiet",
+        "not_published": [
+          {
+            "file": "c400_n32.json",
+            "s_per_design": 19.3335,
+            "peak_warm_loadavg": 8.77
+          }
+        ],
+        "amortisation_x": 1.1779,
+        "fit_error_pct": 2.346
       },
       {
         "batch": 64,
@@ -149,9 +156,7 @@
     ],
     "best": 8,
     "unmeasured_rungs": [],
-    "loaded_rungs": [
-      32
-    ],
+    "loaded_rungs": [],
     "seed_check": {
       "pairs": [
         {
@@ -189,8 +194,8 @@
         "device_s_per_design": 23.5553,
         "feat_s": 2.2389,
         "peak_vram_GiB": 2.078,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 20.4,
+        "power_W": 120.1,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -211,8 +216,8 @@
         "device_s_per_design": 16.2033,
         "feat_s": 2.3483,
         "peak_vram_GiB": 2.078,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 48.1,
+        "power_W": 128.6,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -233,8 +238,8 @@
         "device_s_per_design": 14.1444,
         "feat_s": 2.3765,
         "peak_vram_GiB": 2.6,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 60.7,
+        "power_W": 446.1,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -255,8 +260,8 @@
         "device_s_per_design": 13.1226,
         "feat_s": 2.4238,
         "peak_vram_GiB": 4.126,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 71.3,
+        "power_W": 467.7,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -277,8 +282,8 @@
         "device_s_per_design": 13.3498,
         "feat_s": 2.5013,
         "peak_vram_GiB": 4.888,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 79.9,
+        "power_W": 482.3,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -299,8 +304,8 @@
         "device_s_per_design": 13.385,
         "feat_s": 2.5059,
         "peak_vram_GiB": 4.889,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 84.5,
+        "power_W": 487.9,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -325,8 +330,8 @@
         "device_s_per_design": 22.7637,
         "feat_s": 2.077,
         "peak_vram_GiB": 2.078,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 37.5,
+        "power_W": 376.3,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -347,8 +352,8 @@
         "device_s_per_design": 15.0726,
         "feat_s": 2.1447,
         "peak_vram_GiB": 2.078,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 54.9,
+        "power_W": 566.9,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -369,8 +374,8 @@
         "device_s_per_design": 13.0524,
         "feat_s": 2.1023,
         "peak_vram_GiB": 2.6,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 68.7,
+        "power_W": 594.8,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -391,8 +396,8 @@
         "device_s_per_design": 12.208,
         "feat_s": 2.0899,
         "peak_vram_GiB": 4.126,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 79.8,
+        "power_W": 602.7,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -413,8 +418,8 @@
         "device_s_per_design": 12.2337,
         "feat_s": 2.1002,
         "peak_vram_GiB": 4.888,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 87.8,
+        "power_W": 596.1,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -435,8 +440,8 @@
         "device_s_per_design": 12.1525,
         "feat_s": 2.1317,
         "peak_vram_GiB": 4.889,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 91.7,
+        "power_W": 594.8,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {
@@ -456,8 +461,8 @@
         "device_s_per_design": 12.0313,
         "feat_s": 1.9986,
         "peak_vram_GiB": 4.891,
-        "util_pct": null,
-        "power_W": null,
+        "util_pct": 94.4,
+        "power_W": 594.5,
         "gpu_exclusive": true,
         "validation_ok": true,
         "digests": {

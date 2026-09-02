@@ -49,8 +49,8 @@ def main():
     prov = tt.get("provenance") or "on an unnamed card"
     chunk = tt.get("chunk_check")
     chunk_s = ("Capping the model's internal chunk at %d makes a batch of %d read %s s a design "
-               "against the batch-of-%d rate of %s s, so a request of any size can hold that rate, "
-               "though the CLI has no chunk flag today. "
+               "against the batch-of-%d rate of %s s, so a request four times the ceiling holds "
+               "that rate, though the CLI has no chunk flag today. "
                % (chunk["max_parallel_samples"], chunk["n_sample"],
                   fmt(chunk["s_per_design_at_400"]), tt_best,
                   fmt(ttr[tt_best].get("measured_s_per_design")
