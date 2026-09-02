@@ -40,3 +40,34 @@ rather than element-wise. No accuracy regression from the ttnn port.
 Diffusion is not bit-identical across the torch and ttnn samplers by design;
 that is why the coordinate comparison is variance-relative, mirroring the
 Boltz-2 `--fast` parity methodology (`docs/boltz2-fast-parity.md`).
+
+## Result — ESMFold2-Fast (L=20 to L=129), Blackhole (qb2 card 1), non-fast path
+
+Same harness, same targets, same metrics, on the 24-block `biohub/ESMFold2-Fast`
+checkpoint (sha256 `60ca19f2…`, no MSA encoder). Trunk depth is read from the
+checkpoint config on both sides, so one script covers both released depths:
+
+```bash
+TT_VISIBLE_DEVICES=1 MKL_THREADING_LAYER=GNU PYTHONPATH=$PWD \
+  python scripts/esmfold2_e2e_parity.py --checkpoint esmfold2-fast \
+    --proteins trpcage,gb1,ubiquitin,lysozyme --seeds 0,1,2,3,4 \
+    --out docs/implementation-parity-data/esmfold2-fast.json
+```
+
+| target | `plddt_pcc` | `plddt_mae` | `distogram_pcc` | `distogram_rel_l2` | `kabsch_rmsd` | ref self-var | within floor |
+|---|---|---|---|---|---|---|---|
+| trp-cage, L20 | 0.9989 | 0.0061 | 0.9997 | 0.041 | 0.66 Å | 0.76 Å | yes (0.88) |
+| GB1, L56 | 0.9995 | 0.0017 | 0.9997 | 0.044 | 0.44 Å | 0.46 Å | yes (0.96) |
+| ubiquitin, L76 | 0.9976 | 0.0034 | 0.9995 | 0.048 | 1.46 Å | 1.25 Å | yes (1.17) |
+| lysozyme, L129 | 0.9997 | 0.0008 | 0.9997 | 0.039 | 0.27 Å | 0.31 Å | yes (0.86) |
+
+Five sampler seeds per target on both backends; `kabsch_rmsd` is the mean over the
+25 device-vs-reference pairs and "ref self-var" is the reference's own mean
+seed-to-seed spread, the floor it has to sit inside.
+
+**Pass.** Every metric is at or better than the 48-block leg measured the same way
+(`docs/implementation-parity-data/esmfold2.json`: `plddt_pcc` 0.995-0.999,
+`distogram_pcc` 0.999, Kabsch inside the floor on 3 of 4 targets against 4 of 4 here).
+The alignment-free distance-matrix metric leaves the floor on ubiquitin, the same
+target and the same way it does on the 48-block leg, which is why the leg's verdict
+reads the Kabsch floor and reports the distance-matrix count rather than gating on it.
