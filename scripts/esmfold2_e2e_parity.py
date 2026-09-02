@@ -429,11 +429,30 @@ def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
     return legs
 
 
-def read_pdb_ca(path):
-    """Representative-atom (CA) coordinates in residue order, as [1, n_res, 3]."""
-    xyz = [(float(l[30:38]), float(l[38:46]), float(l[46:54]))
-           for l in open(path)
-           if l.startswith("ATOM") and l[12:16].strip() == "CA"]
+def read_pdb_rep(path):
+    """Representative-atom coordinates in residue order, as [1, n_res, 3].
+
+    ESMFold2's representative atom is CB, with CA only as the glycine fallback
+    (`compute_representative_atoms` in the vendored featurization). Reading CA for every
+    residue instead gives a chain whose consecutive spacing is 3.84 A where the model's is
+    5.45 A, and the confidence head then scores a CA-CA distance map against weights trained
+    on CB-CB: mean plDDT reads ~0.65 on a structure that is actually fine.
+    """
+    per_res = {}
+    for l in open(path):
+        if not l.startswith("ATOM"):
+            continue
+        name = l[12:16].strip()
+        if name not in ("CA", "CB"):
+            continue
+        key = (l[21], int(l[22:26]), l[26])
+        xyz = (float(l[30:38]), float(l[38:46]), float(l[46:54]))
+        d = per_res.setdefault(key, {})
+        d[name] = xyz
+    order = sorted(per_res, key=lambda k: (k[0], k[1], k[2]))
+    xyz = [per_res[k].get("CB", per_res[k].get("CA")) for k in order]
+    if any(v is None for v in xyz):
+        raise SystemExit(f"{path}: a residue has neither CB nor CA")
     return torch.tensor(xyz, dtype=torch.float32).unsqueeze(0)
 
 
@@ -452,18 +471,77 @@ def x_coord_swap(inner, cap, pdbs) -> dict:
     """
     x0 = cap["k"]["x_pred"]
     rep = cap["k"]["distogram_atom_idx"].long()
-    out = {"baseline": {"plddt": float(inner(*cap["a"], **cap["k"])["plddt"].float().mean())}}
-    for path in pdbs:
-        ca = read_pdb_ca(path)
-        if ca.shape[1] != rep.shape[1]:
-            raise SystemExit(f"{path}: {ca.shape[1]} CA atoms but {rep.shape[1]} tokens")
+
+    def _score_with(ca):
         xs = x0.float().clone()
         flat = xs.reshape(-1, xs.shape[-2], 3) if xs.ndim == 4 else xs
         flat[0].index_copy_(0, rep[0], ca[0].to(flat.dtype))
         res = inner(*cap["a"], **dict(cap["k"], x_pred=xs.to(x0.dtype)))
-        out[path.split("/")[-1]] = {"plddt": float(res["plddt"].float().mean()),
-                                    "ptm": float(res["ptm"].float().mean())}
+        return {"plddt": float(res["plddt"].float().mean()),
+                "ptm": float(res["ptm"].float().mean())}
+
+    # The device fold's own representative-atom coordinates, gathered exactly as the head
+    # gathers them. Everything else is measured against these.
+    dev_ca = torch.gather(
+        x0.float().reshape(-1, x0.shape[-2], 3) if x0.ndim == 4 else x0.float(),
+        1, rep.unsqueeze(-1).expand(-1, -1, 3))
+
+    out = {"baseline": {"plddt": float(inner(*cap["a"], **cap["k"])["plddt"].float().mean())},
+           "device_rep_chain": _ca_chain_stats(dev_ca)}
+
+    # Negative controls on the substitution path itself. `identity` writes the device's own
+    # gathered coordinates back through index_copy_; `rigid` writes them back rotated and
+    # translated. Both must reproduce the baseline, the first because it is a no-op and the
+    # second because the head reaches x_pred only through cdist. If either moves, the mapping
+    # from PDB residue order to token order is what is being measured, not the coordinates.
+    out["identity"] = _score_with(dev_ca)
+    q, _ = torch.linalg.qr(torch.randn(3, 3, generator=torch.Generator().manual_seed(1)))
+    if torch.det(q) < 0:
+        q[:, 0] = -q[:, 0]
+    out["rigid"] = _score_with(dev_ca @ q + torch.tensor([13.0, -7.0, 41.0]))
+
+    # Coherent isotropic rescale about the centroid. The device fold is measured 0.17 % tighter
+    # than the reference in CA-CA spacing, and a uniform scale is the cheapest test of whether a
+    # systematic offset of that size costs confidence, which random displacement cannot price.
+    cen = dev_ca[0].mean(0)
+    out["scale"] = {f"{f:.4f}": _score_with((dev_ca - cen) * f + cen)
+                    for f in (0.995, 0.998, 1.0, 1.0017, 1.002, 1.005)}
+
+    dev_spacing = out["device_rep_chain"]["consecutive_median"]
+    for path in pdbs:
+        ca = read_pdb_rep(path)
+        if ca.shape[1] != rep.shape[1]:
+            raise SystemExit(f"{path}: {ca.shape[1]} residues but {rep.shape[1]} tokens")
+        got = _ca_chain_stats(ca)["consecutive_median"]
+        if abs(got - dev_spacing) > 0.5:
+            raise SystemExit(
+                f"{path}: substituted chain has {got:.2f} A consecutive spacing against the "
+                f"device's {dev_spacing:.2f} A. That is a different atom, not a different "
+                "structure, and the head would score a distance map it was not trained on.")
+        leg = _score_with(ca)
+        leg["rep_chain"] = _ca_chain_stats(ca)
+        leg["rep_kabsch_rmsd_vs_device"] = _ca_kabsch(ca, dev_ca)
+        out[path.split("/")[-1]] = leg
     return out
+
+
+def _ca_chain_stats(ca) -> dict:
+    """Consecutive representative-atom spacing: ~3.8 A means these are a protein backbone in
+    residue order, which is what makes a token-order substitution meaningful."""
+    d = (ca[0, 1:] - ca[0, :-1]).norm(dim=-1)
+    return {"consecutive_mean": float(d.mean()), "consecutive_median": float(d.median()),
+            "radius_of_gyration": float((ca[0] - ca[0].mean(0)).norm(dim=-1).pow(2).mean().sqrt())}
+
+
+def _ca_kabsch(a, b) -> float:
+    """RMSD of a onto b after rigid superposition, representative atoms only."""
+    a, b = a[0].float(), b[0].float()
+    ac, bc = a - a.mean(0), b - b.mean(0)
+    u, _, vt = torch.linalg.svd(ac.T @ bc)
+    d = torch.sign(torch.det(u @ vt))
+    su = torch.diag(torch.tensor([1.0, 1.0, d]))
+    r = u @ su @ vt
+    return float((ac @ r - bc).pow(2).sum(-1).mean().sqrt())
 
 
 def x_plddt_sensitivity(inner, cap, rms_a=(0.25, 0.5, 1.0, 2.0)) -> dict:
