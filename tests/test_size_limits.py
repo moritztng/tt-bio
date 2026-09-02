@@ -323,3 +323,24 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
         f.write_text(text)
         with pytest.raises(sl.SizeTooLargeError):
             sl.check_input(f, model, arch="wormhole_b0")
+
+
+def test_the_escape_hatch_downgrades_a_refusal_to_a_warning(monkeypatch):
+    """A limit you cannot get past is a bug report; one that tells you how to override it is a rail.
+
+    The case that motivates it is on the record: OpenFold3's 576 was measured with an MSA, and the
+    same model folds 768 single-sequence in 301 s. Refusing that is a false refusal, and unlike a
+    crash the user cannot retry past it.
+    """
+    monkeypatch.setenv("TT_BIO_SIZE_LIMIT", "0")
+    with pytest.warns(UserWarning, match="TT_BIO_SIZE_LIMIT"):
+        sl.check("openfold3", 768, arch="wormhole_b0")       # warns, does not raise
+
+
+def test_the_hatch_is_off_by_default_and_named_in_the_message(monkeypatch):
+    monkeypatch.delenv("TT_BIO_SIZE_LIMIT", raising=False)
+    with pytest.raises(sl.SizeTooLargeError) as e:
+        sl.check("openfold3", 768, arch="wormhole_b0")
+    # The message must carry the way out, or the hatch may as well not exist.
+    assert "TT_BIO_SIZE_LIMIT=0" in str(e.value)
+    assert "single-sequence" in str(e.value)

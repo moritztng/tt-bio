@@ -127,6 +127,11 @@ the limit and any model that does take the input. `boltz2`, `esmfold2`, `boltzge
 have no measured limit and are never refused. These numbers are Wormhole only; nothing is enforced
 on Blackhole, which has more memory per chip and where nobody has walked a ladder to a failure.
 
+The limits were measured with an MSA, which is the default for the models that take one. Folding
+single-sequence is roomier (OpenFold3 caps at 576 with an alignment and folds 768 without one), so
+if you know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the
+refusal into a warning and runs it anyway.
+
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
 Perf levers are gated at several sequence lengths, not just one; the release gate re-checks the

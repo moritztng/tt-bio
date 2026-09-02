@@ -50,6 +50,20 @@ things:
                            down. The cap is real; the control is an evidence gap, and naming it here
                            keeps it visible instead of laundering it into one of the other two.
 
+A CEILING IS ONLY VALID IN THE CONFIGURATION IT WAS MEASURED IN
+---------------------------------------------------------------
+Every number below was walked with the flags the serving platform sends, and for the MSA-dependent
+models that means **the MSA on**. Single-sequence folding is measurably roomier: OpenFold3 caps at
+576 with a real alignment and folds **768 single-sequence in 301 s** (catalog.py). The same is
+likely true of the other ``dram_msa`` rows and is NOT true of the ``l1_clash`` rows, where the
+throw comes from a static circular-buffer layout in the structural refiner and has nothing to do
+with alignment depth.
+
+Rather than guess a second set of numbers, the table keeps the measured (MSA-on) ceiling and
+``TT_BIO_SIZE_LIMIT=0`` turns any refusal into a warning -- see ``enforced()``. A single-sequence
+ladder for the MSA-dependent models would let these become two rows instead of one, and until
+somebody walks it, guessing which configuration a user is in would be inventing a ceiling.
+
 THE UNITS ARE RESIDUES, AND THAT IS A CHOICE
 --------------------------------------------
 Every ceiling below was measured by walking residue counts, so residues is what this table can
@@ -302,6 +316,24 @@ class SizeTooLargeError(ValueError):
 # ---------------------------------------------------------------------------------------------
 
 
+def enforced(default: bool = True) -> bool:
+    """The one escape hatch, ``TT_BIO_SIZE_LIMIT=0``: refusals become warnings.
+
+    It exists because every ceiling here was measured in ONE configuration, and a user can be in a
+    roomier one. The clearest case is on the record: OpenFold3's 576 was measured with the MSA on,
+    and the same model folds 768 single-sequence in 301 s. Refusing that would be a false refusal,
+    which is the worst thing a guard can do -- it stops work the machine can actually finish, and
+    unlike a crash the user cannot even retry past it.
+
+    So the default protects and the hatch is named IN the refusal message, which is what makes it
+    usable: a limit you can not get past is a bug report, a limit that tells you how to override it
+    is a safety rail. An env var rather than a flag because the guard sits on five commands and this
+    is an escape hatch, not an operating knob.
+    """
+    from .envflags import env_flag
+    return env_flag("TT_BIO_SIZE_LIMIT", default)
+
+
 def current_arch() -> str | None:
     """``ttnn.get_arch_name()``, or None if ttnn is not importable or names no card.
 
@@ -357,6 +389,13 @@ def check(model: str, residues: int, *, arch: str | None = None, where: str = "T
     c = ceiling(model, arch)
     if not c.measured or c.residues is None or residues <= c.residues:
         return
+    if not enforced():
+        import warnings
+        warnings.warn(
+            f"{where} has {residues} {_COUNT_NAMES[c.counts]}, above {model}'s measured limit of "
+            f"{c.residues} on {arch}. TT_BIO_SIZE_LIMIT=0 is set, so this runs anyway and may "
+            f"fail on the device.", stacklevel=2)
+        return
     alts = models_accepting(residues, arch, exclude=model)
     hint = (f" Models with a measured ceiling above {residues} on this hardware: "
             f"{', '.join(alts)}." if alts else
@@ -369,6 +408,9 @@ def check(model: str, residues: int, *, arch: str | None = None, where: str = "T
     raise SizeTooLargeError(
         f"{where} has {residues} {_COUNT_NAMES[c.counts]}, and {model} is measured to handle at "
         f"most {c.residues} on {arch}{depth} -- {top}.{hint}"
+        f" If you have reason to think this input is roomier than the ladder that set the limit "
+        f"(a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it "
+        f"anyway."
     )
 
 
