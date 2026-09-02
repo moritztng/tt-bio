@@ -109,7 +109,21 @@ def seed_check(prefix):
 
 
 def chunk_check(prefix):
-    """max_parallel_samples 8 with n_sample 32: is the chunk ceiling the batch ceiling?"""
+    """max_parallel_samples 8 with n_sample 32: is the chunk ceiling the batch ceiling?
+
+    A real 400-step run wins outright where one exists. The two-point fit from n_step 8 and 24 is
+    only a fallback, because on qb2 that fit overshoots the measured 400-step rung by 29 % at b=8
+    (state doc section 3): short runs on this box sit in a noise floor the extrapolation inherits.
+    """
+    real = os.path.join(NMC, prefix + "batchchunk", "mps8_c400_n32.json")
+    if os.path.exists(real):
+        d = json.load(open(real))
+        if d.get("warm_n"):
+            return {"n_sample": d["n_sample_per_call"],
+                    "max_parallel_samples": d["max_parallel_samples"],
+                    "measured_at_n_step": d["n_step"], "warm_n": d["warm_n"],
+                    "spread_pct": d["warm_spread_pct_per_design"],
+                    "s_per_design_at_400": d["warm_median_s_per_design"]}
     pts = {}
     for f in glob.glob(os.path.join(NMC, prefix + "batchchunk", "mps8_s*_n32.json")):
         d = json.load(open(f))
