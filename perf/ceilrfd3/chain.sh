@@ -20,6 +20,8 @@ BINDER=${BINDER:-100}
 CANDS=${CANDS:-"25 26 27 28 29 30 31"}
 DEADLINE=${DEADLINE:-$(( $(date +%s) + 10800 ))}
 EXTRA_ENV=${EXTRA_ENV:-}
+CMD=${CMD:-perf/ceilrfd3/rfd3_cap.py}
+STOP_ON_FAIL=${STOP_ON_FAIL:-1}
 OUT=$SRC/perf/ceilrfd3/results/$TAG.jsonl
 LOG=$SRC/perf/ceilrfd3/results/$TAG.log
 mkdir -p "$SRC/perf/ceilrfd3/results"
@@ -33,7 +35,7 @@ run_rung() {   # $1 = total residues; echoes PASS / FAIL / NOCHIP
       out=$(cd "$SRC" && env RFD3_CAP_LEN=$len RFD3_CAP_BINDER=$BINDER RFD3_CAP_OUT=$OUT \
             RFD3_CAP_TAG=$TAG TT_VISIBLE_DEVICES=$c TT_BIO_LEASE_CARDS=$c \
             TT_BIO_LEASE_HOLDER=worker:ceiling-rfd3 TT_BIO_LEASE_TIMEOUT=10 \
-            $EXTRA_ENV "$PY" perf/ceilrfd3/rfd3_cap.py 2>&1 | tail -60)
+            RFD3_DIGEST_OUT=$OUT $EXTRA_ENV "$PY" "$CMD" 2>&1 | tail -60)
       printf '%s\n' "$out" >> "$LOG"
       case "$out" in
         *DeviceInUseError*|*"is outside this job's card grant"*) continue ;;
@@ -54,10 +56,23 @@ for total in "$@"; do
   echo "[chain] $(date -Is) total=$total -> $r" >> "$LOG"
   case "$r" in
     PASS)   last_pass=$total ;;
-    FAIL)   first_fail=$total; break ;;
+    FAIL)   first_fail=$total; [ "$STOP_ON_FAIL" = 1 ] && break ;;
     NOCHIP) echo "[chain] $(date -Is) out of time at total=$total" >> "$LOG"; break ;;
   esac
 done
+
+# Bisect the 32-residue grid between the last pass and the first failure. A ladder in steps
+# of 64 that stops at a failure gives a ceiling good to 64; the token axis buckets to 32, so
+# the published ceiling and its negative control have to be one bucket apart, not two.
+if [ -n "$last_pass" ] && [ -n "$first_fail" ]; then
+  while [ $(( first_fail - last_pass )) -gt 32 ]; do
+    mid=$(( (last_pass + first_fail) / 2 / 32 * 32 ))
+    [ "$mid" -le "$last_pass" ] && break
+    r=$(run_rung "$mid")
+    echo "[chain] $(date -Is) bisect total=$mid -> $r" >> "$LOG"
+    case "$r" in PASS) last_pass=$mid ;; FAIL) first_fail=$mid ;; *) break ;; esac
+  done
+fi
 
 for total in $first_fail $last_pass; do
   r=$(run_rung "$total")

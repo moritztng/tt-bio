@@ -21,10 +21,12 @@ from tt_bio.rfd3.design import build_token_initializer                          
 from tt_bio.rfd3.input import InputSpecification                                 # noqa: E402
 from tt_bio.rfd3.featurize import featurize                                      # noqa: E402
 from tt_bio.tenstorrent import get_device                                        # noqa: E402
+from tt_bio.rfd3.model import ATOM_PAIR_BLOCK_STATS                              # noqa: E402
+import tt_bio                                                                    # noqa: E402
 
 LEN = int(os.environ["RFD3_CAP_LEN"])
 BINDER = os.environ.get("RFD3_CAP_BINDER", "100")
-TARGET = os.environ.get("RFD3_CAP_TARGET", "perf/dsfix/targets/R3_9ma0_A.pdb")
+TARGET = os.environ.get("RFD3_CAP_TARGET", "perf/ceilrfd3/targets/laczc_1008.cif")
 CKPT = pathlib.Path(os.environ.get("RFD3_CKPT", "/home/cust-team/.boltz/rfd3/weights"))
 OUT = pathlib.Path(os.environ.get("RFD3_DIGEST_OUT", "perf/ceilrfd3/results/init_digest.jsonl"))
 TAG = os.environ.get("RFD3_CAP_TAG", "")
@@ -39,7 +41,11 @@ f = featurize(spec.input, spec)
 with torch.no_grad():
     init = ti({k: (v.clone() if torch.is_tensor(v) else v) for k, v in f.items()})
 
-rec = {"target_res": LEN, "binder": int(BINDER), "target": TARGET, "tag": TAG,
+rec = {"target_res": LEN, "binder": int(BINDER), "total_res": LEN + int(BINDER),
+       "target": TARGET, "tag": TAG,
+       "atom_pair_budget_env": os.environ.get("TT_BIO_ATOM_PAIR_BUDGET_BYTES"),
+       "atom_pair_rows": ATOM_PAIR_BLOCK_STATS[0], "atom_pair_blocks": ATOM_PAIR_BLOCK_STATS[1],
+       "tt_bio": tt_bio.__file__,
        "card": os.environ.get("TT_VISIBLE_DEVICES"), "wall_s": round(time.time() - t0, 1),
        "atoms": int(init["Q_L_init"].shape[0])}
 for k in sorted(init):
@@ -52,3 +58,5 @@ OUT.parent.mkdir(parents=True, exist_ok=True)
 with OUT.open("a") as fh:
     fh.write(json.dumps(rec) + "\n")
 print(json.dumps(rec), flush=True)
+# Same success line the cap harness prints, so one ladder driver can run either.
+print("[cap] res=%d atoms=%d stage=done ok=True" % (LEN, rec["atoms"]), flush=True)
