@@ -18,6 +18,12 @@ export TT_BIO_LEASE_CARDS="$CARD"
 export TT_BIO_LEASE_HOLDER=worker:p300c-baseline-coverage-gap
 cd "$WT"
 for i in $(seq 1 "$N"); do
+  # Reset the board before every draw, not just after a wedge. This chip hangs in
+  # ttnn.open_device on its 4th open in a reset window (reproduced twice, 2026-09-02; see
+  # reset_card2.sh), so an unreset run of 5 draws cannot complete. Resetting every time also
+  # makes every draw start from identical device state instead of the 3-good-then-wedge
+  # gradient, and it sits outside the timed region, so it costs wall clock and nothing else.
+  bash "$OUT/reset_card2.sh" || { echo "draw $i/$N $MODEL: board busy, not measuring"; break; }
   ts=$(date -u +%Y%m%dT%H%M%SZ)
   log="$OUT/logs/${MODEL}-card${CARD}-${ts}.log"
   bash /home/ttuser/.coworker/scripts/benchlock.sh "p300cgap-${MODEL}-c${CARD}-d${i}" -- \
