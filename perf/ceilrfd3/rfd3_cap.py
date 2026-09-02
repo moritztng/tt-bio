@@ -26,12 +26,13 @@ from tt_bio.rfd3.design import build_token_initializer, build_diffusion_module  
 from tt_bio.rfd3.sampler import RFD3Sampler                                      # noqa: E402
 from tt_bio.rfd3.input import InputSpecification                                 # noqa: E402
 from tt_bio.rfd3.featurize import featurize                                      # noqa: E402
-from tt_bio.rfd3.model import set_tune_matmul_for_atoms                          # noqa: E402
+from tt_bio.rfd3.model import set_tune_matmul_for_atoms, ATOM_PAIR_BLOCK_STATS   # noqa: E402
 from tt_bio.tenstorrent import get_device                                        # noqa: E402
+import tt_bio                                                                    # noqa: E402
 
 LEN = int(os.environ["RFD3_CAP_LEN"])
 BINDER = os.environ.get("RFD3_CAP_BINDER", "100")
-TARGET = os.environ.get("RFD3_CAP_TARGET", "perf/dsfix/targets/R3_9ma0_A.pdb")
+TARGET = os.environ.get("RFD3_CAP_TARGET", "perf/ceilrfd3/targets/laczc_1008.cif")
 STEPS = int(os.environ.get("RFD3_CAP_STEPS", "2"))
 CKPT = pathlib.Path(os.environ.get("RFD3_CKPT", "/home/cust-team/.boltz/rfd3/weights"))
 OUT = pathlib.Path(os.environ.get("RFD3_CAP_OUT", "perf/ceilrfd3/results/rfd3_cap.jsonl"))
@@ -39,7 +40,9 @@ HOST = os.environ.get("RFD3_HOST", "UF-EV-A13-GWH02")
 TAG = os.environ.get("RFD3_CAP_TAG", "")
 
 rec = {"target": TARGET, "target_res": LEN, "binder": int(BINDER), "steps": STEPS,
+       "total_res": LEN + int(BINDER),
        "host": HOST, "card": os.environ.get("TT_VISIBLE_DEVICES"), "tag": TAG,
+       "atom_pair_budget_env": os.environ.get("TT_BIO_ATOM_PAIR_BUDGET_BYTES"),
        "atoms": None, "stage": "start", "ok": False, "error": None, "dram": {}}
 
 
@@ -90,6 +93,12 @@ def census(dev, where):
         rec["dram"][where] = {"unavailable": type(e).__name__}
 
 
+# Which tree is actually under test. The galaxy venv has tt_bio installed editable against
+# the production checkout, so a run launched from the wrong cwd measures that tree and says
+# nothing about the branch. Recorded in every row, not checked once at the top of a campaign.
+rec["tt_bio"] = tt_bio.__file__
+rec["host_rss_peak_kB"] = None
+
 t0 = time.time()
 try:
     dev = get_device()
@@ -110,6 +119,7 @@ try:
     L = int(init["Q_L_init"].shape[0])
     rec["atoms"] = L
     rec["tune_matmul"] = set_tune_matmul_for_atoms(L)
+    rec["atom_pair_rows"], rec["atom_pair_blocks"] = ATOM_PAIR_BLOCK_STATS
     is_motif = f["is_motif_atom_with_fixed_coord"]
     coord0 = f["motif_pos"].float().unsqueeze(0) if "motif_pos" in f else torch.zeros(1, L, 3)
     rec["stage"] = "sample"
@@ -126,6 +136,13 @@ except Exception as e:                                    # noqa: BLE001
     msg = str(e)
     rec["error"] = {"type": type(e).__name__, "msg": msg[:600], "oom": oom_numbers(msg)}
 rec["wall_s"] = round(time.time() - t0, 1)
+try:
+    # Host RAM has been this model's binding resource before, so the peak is measured
+    # beside the DRAM census rather than argued about.
+    rec["host_rss_peak_kB"] = int([l.split()[1] for l in open("/proc/self/status")
+                                   if l.startswith("VmHWM")][0])
+except Exception:                                         # noqa: BLE001
+    pass
 OUT.parent.mkdir(parents=True, exist_ok=True)
 with OUT.open("a") as fh:
     fh.write(json.dumps(rec) + "\n")

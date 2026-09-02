@@ -631,6 +631,10 @@ def _sinusoidal_embed(pos_rows, pos, valid_mask, n_freqs=32):
 # up by one so a future add does not silently overrun the budget.
 _ATOM_PAIR_LIVE_ROWS = 6
 
+#: [rows, blocks] of the last atom-pair section that ran, so a run can report whether the
+#: budget actually cut anything instead of asserting it. One block means the unblocked path.
+ATOM_PAIR_BLOCK_STATS = [0, 0]
+
 
 def _pair_add(a, b, free_b=True):
     """``a + b`` for two atom-pair tensors, freeing the operands.
@@ -1353,6 +1357,7 @@ class TokenInitializer(Module):
         z_dev = ttnn.rms_norm(Z_init_II_dev, weight=self.proc_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         pz = ttnn.linear(z_dev, self.proc_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)  # [1,I,I,16]
         pz_h = ttnn.to_torch(pz).float().squeeze(0)          # [I,I,16]
+        ttnn.deallocate(pz); ttnn.deallocate(z_dev)
 
         # ---- P_LL [L, L, C_ATOMPAIR=16], one row block of atoms at a time ----
         # Every tensor here is [L, L, <=32 after tile padding] and L is ATOMS, ~11 per
@@ -1368,6 +1373,7 @@ class TokenInitializer(Module):
         uid = f["ref_space_uid"]
         rows = row_block(_ATOM_PAIR_LIVE_ROWS * align_tile(L) * TILE * 2,
                          atom_pair_budget_bytes())
+        ATOM_PAIR_BLOCK_STATS[:] = [rows, -(-L // rows)]
         p_blocks, pll_blocks = [], []
         for a0 in range(0, L, rows):
             a1 = min(a0 + rows, L)

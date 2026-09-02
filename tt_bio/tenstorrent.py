@@ -3650,6 +3650,13 @@ def atom_pair_budget_bytes() -> int:
     the Wormhole figure when no device is open, so a caller that sizes a block before the
     open gets the tighter of the two answers rather than an unbounded one.
     """
+    override = os.environ.get("TT_BIO_ATOM_PAIR_BUDGET_BYTES")
+    if override:
+        n = int(override)
+        # 0 means no budget, i.e. one block covering every row: the unblocked section the
+        # model shipped with, byte for byte. That is what the A/B baseline runs, and it is
+        # the way back if the blocked path ever has to be taken out at a release gate.
+        return n if n > 0 else 1 << 62
     total = _dram_total_bytes()
     return (total // ATOM_PAIR_BUDGET_FRACTION if total
             else (12 * 2 ** 30) // ATOM_PAIR_BUDGET_FRACTION)
