@@ -16,7 +16,10 @@ WT=/home/cust-team/mthuening/ceilof3
 PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
 OUT=$WT/rundir/out
 LOG=$OUT/ladder.log
-CHIPS="1 2 3 4 5 6 7 10"
+# Descending. Sibling ceiling tasks scan ascending, and picking the same first-free chip
+# lost the device race three times on chip 6 at ~2 min a loss (the lease waits 120 s before
+# refusing). Scanning from the other end costs nothing and stops the collision.
+CHIPS="10 7 6 5 4 3 2 1"
 MAX_CONTENTION=12
 cd "$WT/rundir" || exit 1
 mkdir -p "$OUT"
