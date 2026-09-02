@@ -34,6 +34,36 @@
       "target_residues": 768,
       "cif": "laczc_768.cif",
       "hotspots_local": "384, 385, 386"
+    },
+    "laczc_832": {
+      "yaml": "laczc_832.yaml",
+      "target_residues": 832,
+      "cif": "laczc_832.cif",
+      "hotspots_local": "416, 417, 418"
+    },
+    "laczc_896": {
+      "yaml": "laczc_896.yaml",
+      "target_residues": 896,
+      "cif": "laczc_896.cif",
+      "hotspots_local": "448, 449, 450"
+    },
+    "laczc_960": {
+      "yaml": "laczc_960.yaml",
+      "target_residues": 960,
+      "cif": "laczc_960.cif",
+      "hotspots_local": "480, 481, 482"
+    },
+    "laczc_1008": {
+      "yaml": "laczc_1008.yaml",
+      "target_residues": 1008,
+      "cif": "laczc_1008.cif",
+      "hotspots_local": "511, 512, 513"
     }
-  }
+  },
+  "chain_residue_range": [
+    13,
+    1023
+  ],
+  "recipe": "perf/pxdesign/make_cropped_cif.py --cif 1DP0.CIF --chain A --hotspots 526,527,528 --sizes <N,...> --binder-length 80, then perf/pxdesign/patch_cif.py on each CIF. Re-running it on 768 reproduces the committed laczc_768.cif byte for byte.",
+  "max_rung": "1011. Chain A is contiguous over label ids 13..1023, so 1008 is the largest clean rung and no rung above 1011 can be cut from this source."
 }
