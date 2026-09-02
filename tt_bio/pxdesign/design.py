@@ -106,7 +106,7 @@ def run_design_via_controller(
     worker's already-open chip (no cold device open) and gets seed ``seed + k``, which
     is the same per-design seeding the local non-batched path uses.
     """
-    from tt_bio.distributed import ControllerClient
+    from tt_bio.distributed import connect_controller
     from tt_bio.main import _write_job_outputs
     from tt_bio.pxdesign.inputs import read_design_yaml
 
@@ -119,15 +119,7 @@ def run_design_via_controller(
     spec = read_design_yaml(inputs)          # raises on a missing target.file
     src = Path(str(spec["structure"]))
 
-    client = ControllerClient(controller_url)
-    try:
-        online = int(client.cluster().get("online_workers") or 0)
-    except Exception as exc:
-        raise RuntimeError(f"Cannot reach controller at {controller_url}: {exc}") from exc
-    if online < 1:
-        raise RuntimeError(
-            f"No workers connected to {controller_url}. Start the master's pool "
-            f"and/or `tt-bio worker --connect {controller_url}` on other machines.")
+    client, online = connect_controller(controller_url)
 
     config = {
         "kind": "design",

@@ -550,10 +550,28 @@ class ControllerServer:
         self.httpd.server_close()
 
 
+class ControllerUnreachable(RuntimeError):
+    """The controller is down, or it is up with no worker able to compute.
+
+    Its own class so the CLI can print it as an error instead of a traceback
+    (``main._Cli.invoke``), the way ``DeviceInUseError`` already works. Nothing ran, so
+    there is no result to report and no point continuing.
+    """
+
+
 class ControllerClient:
-    def __init__(self, base_url: str, timeout: float = 120.0):
+    def __init__(self, base_url: str, timeout: float = 120.0, read_attempts: int | None = None):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.read_attempts = self.READ_ATTEMPTS if read_attempts is None else read_attempts
+
+    #: Attempts for a transient failure of an idempotent read, and the backoff between them.
+    #: A co-tenant filling the shared disk makes the store raise, the handler answers 503
+    #: (``do_GET`` below), and an unretried poll kills the run: that burst killed 58 folds on
+    #: 2026-08-03. `predict` grew its own 5x backoff around ``events`` in response; the three
+    #: fleet design paths (boltzgen, rfd3, pxdesign) never did, so they still died on it. The
+    #: retry belongs here, on the one call every reader goes through, not at each loop.
+    READ_ATTEMPTS = 5
 
     def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         data = None if payload is None else json.dumps(payload).encode("utf-8")
@@ -563,12 +581,25 @@ class ControllerClient:
             method=method,
             headers={"Content-Type": "application/json"},
         )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"controller error {exc.code}: {body}") from exc
+        # GET only. Every GET here is a read, so replaying one is free; POST covers
+        # /lease, /complete and /events, where a replay would double-serve a job or
+        # duplicate a result. And only on a transient signal: a 4xx is the controller's
+        # settled answer, so retrying a missing run would just spend the backoff before
+        # giving the same reply.
+        attempts = self.read_attempts if method == "GET" else 1
+        for attempt in range(attempts):
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace")
+                if exc.code < 500 or attempt == attempts - 1:
+                    raise RuntimeError(f"controller error {exc.code}: {body}") from exc
+            except urllib.error.URLError:
+                if attempt == attempts - 1:
+                    raise
+            time.sleep(2 ** attempt)
+        raise AssertionError("unreachable")  # the loop either returns or raises
 
     def create_run(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._request("POST", "/runs", payload)
@@ -618,6 +649,35 @@ class ControllerClient:
 
     def job_outputs(self, run_id: str, job_id: str) -> dict[str, str]:
         return self._request("GET", f"/runs/{run_id}/jobs/{job_id}/outputs").get("outputs", {})
+
+
+def connect_controller(url: str) -> tuple[ControllerClient, int]:
+    """Open a client on ``url`` and refuse a controller that has no workers.
+
+    Returns ``(client, online_workers)``. The four gating entrypoints share it: `embed
+    --controller` and the boltzgen, rfd3 and pxdesign design paths. Each carried its own
+    copy, which is how one condition ended up with two wordings and two exception types.
+
+    Zero workers is a refusal, not a warning. A run created against an empty controller
+    sits queued forever and the caller polls it forever.
+
+    `predict --controller` (``_stream_via_controller``) deliberately does NOT gate here.
+    It reads the same count for its progress display and stays lenient, because the
+    platform submits through it and does its own admission control.
+    """
+    # One attempt for the probe. Nothing has started yet, so a wrong URL should say so
+    # now rather than after the read backoff; the retry is for a run already committed.
+    client = ControllerClient(url, read_attempts=1)
+    try:
+        online = int(client.cluster().get("online_workers") or 0)
+    except Exception as exc:
+        raise ControllerUnreachable(f"Cannot reach controller at {url}: {exc}") from exc
+    if online < 1:
+        raise ControllerUnreachable(
+            f"No workers connected to {url}. Start a pool with `tt-bio controller`, "
+            f"or join one with `tt-bio worker --connect {url}`.")
+    client.read_attempts = ControllerClient.READ_ATTEMPTS
+    return client, online
 
 
 class HttpProgressQueue:

@@ -136,6 +136,7 @@ from tt_bio.data.write import to_mmcif, to_pdb
 from tt_bio.distributed import (
     ControllerClient,
     ControllerServer,
+    connect_controller,
     job_payloads,
     worker_payload,
 )
@@ -1282,21 +1283,10 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
         struct_dir.mkdir(parents=True, exist_ok=True)
     try:
         while True:
-            # A transient controller error (e.g. a store hiccup on a full shared
-            # disk) must not kill a hours-long run: retry the poll with bounded
-            # backoff and only give up when every attempt failed.
-            snapshot = None
-            for attempt in range(5):
-                try:
-                    snapshot = client.events(run_id, after)
-                    break
-                except Exception as exc:
-                    if attempt == 4:
-                        raise
-                    wait = 2 ** attempt
-                    click.echo(f"controller poll failed ({exc}); retrying in {wait}s "
-                               f"[{attempt + 1}/5]", err=True)
-                    time.sleep(wait)
+            # A transient controller error (e.g. a store hiccup on a full shared disk) must
+            # not kill an hours-long run. The retry lives in ControllerClient._request now,
+            # so every reader has it rather than only this loop.
+            snapshot = client.events(run_id, after)
             for ev in snapshot.get("events", []):
                 after = max(after, int(ev.get("seq", after)))
                 if ev.get("event") in ("run", "run_done"):
@@ -1566,22 +1556,31 @@ def _persist_run_results(client: ControllerClient, run_id: str, results_path: Pa
 
 
 class _Cli(click.Group):
-    """The CLI group, with one job beyond click's: give device contention its own exit code.
+    """The CLI group, with two jobs beyond click's.
 
-    A co-tenant holding the card is not a result. Every command here can die of
-    :class:`DeviceInUseError` after waiting out ``TT_BIO_LEASE_TIMEOUT``, and on a bare exit 1 a
-    caller cannot tell that from the model being wrong -- the v0.7.0 release gate scored eleven
-    such legs as accuracy failures across two passes. One reserved code, checked in one place.
+    Device contention gets its own exit code. A co-tenant holding the card is not a result.
+    Every command here can die of :class:`DeviceInUseError` after waiting out
+    ``TT_BIO_LEASE_TIMEOUT``, and on a bare exit 1 a caller cannot tell that from the model
+    being wrong -- the v0.7.0 release gate scored eleven such legs as accuracy failures
+    across two passes. One reserved code, checked in one place.
+
+    An unreachable or empty controller prints as an error, not a traceback. `embed
+    --controller` already did this by raising ClickException itself; the three design paths
+    raised a bare RuntimeError and showed the user a stack. Both now raise
+    :class:`ControllerUnreachable` and land here.
     """
 
     def invoke(self, ctx):
         from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
+        from tt_bio.distributed import ControllerUnreachable
 
         try:
             return super().invoke(ctx)
         except DeviceInUseError as exc:
             click.echo(f"device contention, nothing ran: {exc}", err=True)
             ctx.exit(CONTENDED_EXIT_CODE)
+        except ControllerUnreachable as exc:
+            raise click.ClickException(str(exc)) from exc
 
 
 @click.group(cls=_Cli)
@@ -3134,15 +3133,7 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
 
     from tt_bio import esmc
 
-    client = ControllerClient(controller_url)
-    try:
-        online = int(client.cluster().get("online_workers") or 0)
-    except Exception as exc:
-        raise click.ClickException(f"Cannot reach controller at {controller_url}: {exc}")
-    if online < 1:
-        raise click.ClickException(
-            f"No workers connected to {controller_url}. Start a pool with `tt-bio controller` "
-            f"or join one with `tt-bio worker --connect {controller_url}`.")
+    client, online = connect_controller(controller_url)
 
     items = list(sequences.items())
     # SaProt's payload is an (aa, 3di) pair, ESMC's a bare string. Sort on the AA
@@ -3772,10 +3763,15 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             # the run cold-opened a device of its own — which on a serving box means
             # colliding with the resident workers that already hold every chip.
             from tt_bio.pxdesign.design import run_design_via_controller
-            rows = run_design_via_controller(
-                Path(inputs), out_dir or "./designs", controller_url=controller,
-                num_designs=num_designs if num_designs is not None else 1,
-                n_step=n_step, seed=seed, run_id=run_id, owner=owner)
+            # Same input errors as the local path below, so a bad target YAML reads the
+            # same either way. Without this the fleet path showed the user a traceback.
+            try:
+                rows = run_design_via_controller(
+                    Path(inputs), out_dir or "./designs", controller_url=controller,
+                    num_designs=num_designs if num_designs is not None else 1,
+                    n_step=n_step, seed=seed, run_id=run_id, owner=owner)
+            except (ValueError, FileNotFoundError) as e:
+                raise click.ClickException(str(e))
             click.echo(f"Done — {len(rows)} design(s) → {out_dir or './designs'}")
             for r in rows:
                 fit = r.get("fit_rmsd")

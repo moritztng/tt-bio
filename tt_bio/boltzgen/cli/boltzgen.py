@@ -863,19 +863,11 @@ def _run_via_controller(args: argparse.Namespace, controller_url: str) -> None:
     import base64
     import json as _json
 
-    from tt_bio.distributed import ControllerClient
+    from tt_bio.distributed import connect_controller
     from tt_bio.main import _write_job_outputs
 
     debug = getattr(args, "debug", False)
-    client = ControllerClient(controller_url)
-    try:
-        online = int(client.cluster().get("online_workers") or 0)
-    except Exception as exc:
-        raise RuntimeError(f"Cannot reach controller at {controller_url}: {exc}") from exc
-    if online < 1:
-        raise RuntimeError(
-            f"No workers connected to {controller_url}. Start the master's pool "
-            f"and/or `tt-bio worker --connect {controller_url}` on other machines.")
+    client, online = connect_controller(controller_url)
 
     # Spread across the fleet, but keep shards from getting pathologically thin:
     # each shard reloads the models once (overhead) and a too-small shard is

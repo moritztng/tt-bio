@@ -18,6 +18,7 @@ import yaml
 
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
+from tt_bio.data.yaml_input import load_mapping, require_mapping
 from tt_bio.boltzgen.data.parse.mmcif import parse_mmcif
 from tt_bio.boltzgen.data.data import (
     Atom,
@@ -1327,7 +1328,7 @@ def parse_redesign_yaml(
     """parse a design mask override yaml file"""
     with path.open("r") as file:
         if path.suffix == ".yaml":
-            data = yaml.safe_load(file)
+            data = load_mapping(path, file=file)
         else:
             raise ValueError(f"Unsupported file type: {str(path)}")
     target = parse_redesign_schema(data, tokenized)
@@ -1363,6 +1364,7 @@ class YamlDesignParser:
                 data = parse_pdb(file)
             else:
                 raise ValueError(f"Unsupported file type: {str(path)}")
+            data = require_mapping(data, path)
 
         name = path.stem
         target = self.parse_boltzgen_schema(
@@ -1932,7 +1934,7 @@ class YamlDesignParser:
 
             resolved_path = (base_file_path / path).resolve()
             with resolved_path.open("r") as f:
-                file = yaml.safe_load(f)
+                file = load_mapping(resolved_path, file=f)
                 base_file_path = resolved_path.parent
 
         # Extract values of file
