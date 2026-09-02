@@ -372,7 +372,7 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
 
 
 def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
-                  trunk_probe=False, z_sens=False):
+                  trunk_probe=False, z_sens=False, x_swap_pdb=None):
     """Paired A/B on the confidence head's 4-block pair trunk, device path only.
 
     Runs one device fold, capturing the confidence head's inputs (s_inputs, z, x_pred
@@ -423,7 +423,47 @@ def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
     if z_sens:
         legs["z_sensitivity"] = z_plddt_sensitivity(head, inner, cap, dev_trunk)
         legs["x_pred_sensitivity"] = x_plddt_sensitivity(inner, cap)
+    if x_swap_pdb:
+        legs["x_swap"] = x_coord_swap(inner, cap,
+                                      [q for q in x_swap_pdb.split(",") if q])
     return legs
+
+
+def read_pdb_ca(path):
+    """Representative-atom (CA) coordinates in residue order, as [1, n_res, 3]."""
+    xyz = [(float(l[30:38]), float(l[38:46]), float(l[46:54]))
+           for l in open(path)
+           if l.startswith("ATOM") and l[12:16].strip() == "CA"]
+    return torch.tensor(xyz, dtype=torch.float32).unsqueeze(0)
+
+
+def x_coord_swap(inner, cap, pdbs) -> dict:
+    """Re-score the confidence head with another backend's coordinates substituted in.
+
+    `x_pred` reaches the head only through `gather_rep_atom_coords` -> `cdist` -> 1.25 A
+    distance bins, so writing foreign coordinates into the representative-atom slots swaps the
+    entire coordinate channel and touches nothing else. `cdist` is invariant to rigid motion,
+    so no superposition is needed and none is done: the substituted structure is compared to
+    itself, exactly as the head would compare a native one.
+
+    This is the experiment that replaces the extrapolation from a random-displacement slope. A
+    reference fold would cost ~47 min per seed on CPU; a published reference structure costs
+    nothing.
+    """
+    x0 = cap["k"]["x_pred"]
+    rep = cap["k"]["distogram_atom_idx"].long()
+    out = {"baseline": {"plddt": float(inner(*cap["a"], **cap["k"])["plddt"].float().mean())}}
+    for path in pdbs:
+        ca = read_pdb_ca(path)
+        if ca.shape[1] != rep.shape[1]:
+            raise SystemExit(f"{path}: {ca.shape[1]} CA atoms but {rep.shape[1]} tokens")
+        xs = x0.float().clone()
+        flat = xs.reshape(-1, xs.shape[-2], 3) if xs.ndim == 4 else xs
+        flat[0].index_copy_(0, rep[0], ca[0].to(flat.dtype))
+        res = inner(*cap["a"], **dict(cap["k"], x_pred=xs.to(x0.dtype)))
+        out[path.split("/")[-1]] = {"plddt": float(res["plddt"].float().mean()),
+                                    "ptm": float(res["ptm"].float().mean())}
+    return out
 
 
 def x_plddt_sensitivity(inner, cap, rms_a=(0.25, 0.5, 1.0, 2.0)) -> dict:
@@ -547,6 +587,10 @@ def main():
                          "(unreleased weights); provenance in the output still records it")
     ap.add_argument("--esmc_repo", default="biohub/ESMC-6B")
     ap.add_argument("--out", default="/tmp/ef2_parity/summary.json")
+    ap.add_argument("--x_swap_pdb", default=None,
+                    help="with --conf_ab, comma-separated PDBs whose CA coordinates replace the "
+                         "device fold's in the confidence head, swapping the whole coordinate "
+                         "channel against a published reference structure")
     ap.add_argument("--z_sens", action="store_true",
                     help="with --conf_ab, measure how far mean plDDT moves per unit of "
                          "relative error in the trunk pair state, holding x_pred fixed")
@@ -625,7 +669,8 @@ def main():
         if args.conf_ab:
             ab = conf_trunk_ab(tt_model, ref_model, feats, lm_hs, loops=args.loops,
                                steps=args.steps, seed=seeds[0],
-                               trunk_probe=args.trunk_probe, z_sens=args.z_sens)
+                               trunk_probe=args.trunk_probe, z_sens=args.z_sens,
+                               x_swap_pdb=args.x_swap_pdb)
             ab = dict(protein=name, L=len(seq), seed=seeds[0], checkpoint=args.checkpoint,
                       trunk_blocks=ckpt["trunk_blocks"], **ab)
             results.append(ab)
