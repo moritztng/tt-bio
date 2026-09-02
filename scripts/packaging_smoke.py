@@ -16,6 +16,13 @@ committed under ``tt_bio/`` is automatically required to ship, no allowlist to
 forget. Exit 0 iff every expected file is present in the wheel AND the sdist AND
 on disk after a clean ``pip install --no-deps --target`` of the wheel; 1 otherwise.
 
+Dependencies get the same treatment from both ends: every name in
+``[project.dependencies]`` must survive into the wheel's ``Requires-Dist``, and
+every third-party module the source imports at module level must be declared in
+the first place (or listed in ``_UNDECLARED_OK`` with the reason). The second half
+is what a metadata-only comparison cannot see — an undeclared import agrees with
+itself in pyproject and the wheel, and only crashes on someone else's machine.
+
 Optional ``--fold`` mode goes deeper: installs the wheel WITH deps into the
 scratch venv and runs one protenix-v2 fold, one opendde covalent-bond fold, and
 one ``tt-bio design --model boltzgen`` design, asserting each gets past the
@@ -152,22 +159,121 @@ def _check_dependencies(whl: Path) -> list[str]:
     return failures
 
 
+# Import names spelled differently from the distribution that provides them.
+_IMPORT_ALIAS = {
+    "bio": "biopython",
+    "sklearn": "scikit-learn",
+    "yaml": "pyyaml",
+}
+
+# Module-level imports [project.dependencies] deliberately does not declare, and why.
+# Anything else the tree imports at module level and nobody declared fails the gate, so
+# a new third-party import cannot reach a tag undeclared. That is how rf3 shipped needing
+# zstandard / beartype / jaxtyping / pyarrow with none of them declared: each was found by
+# a fold crashing in featurization, one package at a time, not by a gate.
+# Grandfathered 2026-09-02, checked one at a time; reachability by import of tt_bio.main
+# and tt_bio.rf3 measured, not assumed.
+_UNDECLARED_OK = {
+    "ttnn": "installed out-of-band from Tenstorrent's index, never a PyPI dependency",
+    "pygments": "provided by rich; reached only through atomworks' error formatter",
+    "msgpack": "provided by msgpack-numpy; vendored esm serialization only",
+    "openbabel": "atomworks symmetry/rf2aa path, not reached by importing tt_bio.main or tt_bio.rf3",
+    "py3Dmol": "atomworks notebook visualiser, not reached by importing tt_bio.main or tt_bio.rf3",
+    "sympy": "atomworks conditions path, not reached by importing tt_bio.main or tt_bio.rf3",
+    "redis": "tt_bio/boltzgen/data/parse/a3m.py is unreferenced; tt_bio/data/parse.py is the live a3m parser",
+}
+
+
+def _source_imports() -> dict[str, str]:
+    """Third-party module names the package imports at module level, each mapped to
+    the first file that imports it.
+
+    Only statements at the top level of a file count. An import nested in a ``try``,
+    an ``if``, a function or a class is optional or lazy by construction, so its
+    absence is not the import-time crash this guards against.
+    """
+    import ast
+    pkg = REPO_ROOT / PKG
+    # A name that resolves to a module of this package is not a third-party import.
+    intree = {PKG, "__future__"}
+    for p in pkg.iterdir():
+        if p.is_dir() and (p / "__init__.py").exists():
+            intree.add(p.name)
+        elif p.suffix == ".py":
+            intree.add(p.stem)
+    found: dict[str, str] = {}
+    for f in sorted(pkg.rglob("*.py")):
+        try:
+            tree = ast.parse(f.read_text(errors="replace"))
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            if isinstance(node, ast.Import):
+                names = [a.name.split(".")[0] for a in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names = [node.module.split(".")[0]]
+            else:
+                continue
+            for n in names:
+                if n in sys.stdlib_module_names or n in intree:
+                    continue
+                found.setdefault(n, f.relative_to(REPO_ROOT).as_posix())
+    return found
+
+
+def _check_undeclared_imports() -> list[str]:
+    """Assert every third-party module imported at module level is a declared
+    dependency. Returns failures.
+
+    This is the half ``_check_dependencies`` cannot see. That one compares pyproject
+    against the wheel's own metadata, so a dependency the code imports but nobody ever
+    declared agrees in both places and passes: the wheel is a faithful copy of an
+    incomplete declaration. Reading the source instead catches it before the build.
+    """
+    declared = _pyproject_requires()
+    failures = []
+    for name, where in sorted(_source_imports().items()):
+        if name in _UNDECLARED_OK:
+            continue
+        dist = _IMPORT_ALIAS.get(name.lower(), name.lower().replace("_", "-"))
+        if dist not in declared:
+            failures.append(f"undeclared dependency: `import {name}` at module level in "
+                            f"{where}, and {dist} is not in [project.dependencies]")
+    return failures
+
+
 def _sdist_names(sdist: Path) -> set[str]:
     import tarfile
     with tarfile.open(sdist) as t:
         return {m.name for m in t.getmembers() if m.isfile()}
 
 
+def _sdist_root(names: set[str]) -> str | None:
+    """The single top-level directory an sdist packs its tree under, or None.
+
+    setuptools writes every member under one ``tt_bio-<version>/`` directory, and
+    the membership test below anchors on it. Matching any member that merely ENDS
+    with the file would let a copy somewhere else in the tarball
+    (``tt_bio-0.7.2/docs/tt_bio/data/x.json``) stand in for the real one.
+    """
+    roots = {n.split("/", 1)[0] for n in names if "/" in n}
+    return roots.pop() if len(roots) == 1 else None
+
+
 def _check_artifacts(whl: Path, sdist: Path, expected: list[str]) -> list[str]:
     """Assert every expected data file ships in both artifacts. Returns failures."""
     whl_names = _wheel_names(whl)
     sdist_names = _sdist_names(sdist)
+    root = _sdist_root(sdist_names)
     failures = []
+    if root is None:
+        failures.append("sdist has no single root directory; cannot locate its package tree")
     for rel in expected:
         # wheel stores files under tt_bio/... directly
         whl_hit = rel in whl_names
         # sdist stores files under tt_bio-<ver>/tt_bio/...
-        sdist_hit = any(n.endswith("/" + rel) for n in sdist_names)
+        sdist_hit = (f"{root}/{rel}" in sdist_names if root is not None
+                     else any(n.endswith("/" + rel) for n in sdist_names))
         if not whl_hit:
             failures.append(f"wheel missing: {rel}")
         if not sdist_hit:
@@ -210,6 +316,25 @@ def _make_venv(venv_dir: Path) -> Path:
     return venv_dir / "bin" / "python"
 
 
+# Path fragments that identify a data file missing from the INSTALLED package. They are
+# matched against the ``FileNotFoundError:`` line only, which is where CPython puts the
+# path that was not found. Matching the whole output instead reads traceback frames too,
+# and every frame of a packaged run sits under .../site-packages/tt_bio/..., so any
+# FileNotFoundError at all -- a user's missing input file -- would look like this bug.
+_MISSING_DATA_MARKERS = (
+    "tt_bio/data/",                # protein_ref_conformers.json (protenix-v2, opendde)
+    "tt_bio/boltzgen/resources/",  # config/design.yaml, splits (boltzgen)
+    "/tt_bio/",                    # any other file the installed package loads by path
+)
+
+
+def _is_missing_data_error(out: str) -> bool:
+    """True when a fold's output shows the 0.3.3 failure mode: a file the installed
+    package loads by path is not on disk."""
+    return any(any(m in line for m in _MISSING_DATA_MARKERS)
+               for line in out.splitlines() if "FileNotFoundError" in line)
+
+
 def _fold_check(whl: Path) -> int:
     """Install the wheel into a deps-inheriting venv and run one protenix-v2 +
     one opendde + one boltzgen call.
@@ -221,14 +346,21 @@ def _fold_check(whl: Path) -> int:
     """
     examples = REPO_ROOT / "examples"
     cases = [
-        ("protenix-v2", ["predict", str(examples / "trpcage_no_msa.yaml"),
-                         "--model", "protenix-v2", "--single_sequence"]),
-        ("opendde", ["predict", str(examples / "opendde_covalent_bond.yaml"),
-                     "--model", "opendde", "--single_sequence"]),
-        ("boltzgen",
-         ["design", str(examples / "binder.yaml"),
-          "--model", "boltzgen", "--num_designs", "1", "--fast"]),
+        ("protenix-v2", examples / "trpcage_no_msa.yaml",
+         ["predict", "--model", "protenix-v2", "--single_sequence"]),
+        ("opendde", examples / "opendde_covalent_bond.yaml",
+         ["predict", "--model", "opendde", "--single_sequence"]),
+        ("boltzgen", examples / "binder.yaml",
+         ["design", "--model", "boltzgen", "--num_designs", "1", "--fast"]),
     ]
+    # A renamed example would make every fold die on a FileNotFoundError for the YAML,
+    # which is not the marker shape below, so each one would print PASS having tested
+    # nothing. Check the inputs first and say so.
+    absent = [str(inp) for _, inp, _ in cases if not inp.exists()]
+    if absent:
+        print("FAIL: fold input(s) missing, the folds below would prove nothing:\n  "
+              + "\n  ".join(absent), file=sys.stderr)
+        return len(absent)
     with tempfile.TemporaryDirectory(prefix="tt-bio-pkg-fold-") as tmp:
         venv_dir = Path(tmp) / "venv"
         py = _make_venv(venv_dir)
@@ -247,7 +379,8 @@ def _fold_check(whl: Path) -> int:
                   f"check [project.scripts] in pyproject.toml", file=sys.stderr)
             return 1
         failures = 0
-        for name, args in cases:
+        for name, inp, flags in cases:
+            args = [flags[0], str(inp), *flags[1:]]
             print(f"\n{'='*70}\n[fold] {name}: tt-bio {' '.join(args)}\n{'='*70}", flush=True)
             work = Path(tmp) / name
             work.mkdir()
@@ -261,10 +394,7 @@ def _fold_check(whl: Path) -> int:
                 failures += 1
                 continue
             out = proc.stdout + proc.stderr
-            if "FileNotFoundError" in out and ("protein_ref_conformers.json" in out
-                                               or "resources/config/" in out
-                                               or "resources/splits/" in out
-                                               or "/data/" in out):
+            if _is_missing_data_error(out):
                 print(f"FAIL [{name}]: still hits a missing-data-file error:\n"
                       f"{out[-800:]}", file=sys.stderr)
                 failures += 1
@@ -293,12 +423,11 @@ def main() -> int:
     failures = _check_artifacts(whl, sdist, expected)
     failures += _check_install(whl, expected)
     dep_failures = _check_dependencies(whl)
+    import_failures = _check_undeclared_imports()
 
     print(f"\n{'#'*70}\nPACKAGING SMOKE — artifact + install contents + deps\n{'#'*70}")
-    if failures or dep_failures:
-        for f in failures:
-            print(f"  FAIL {f}")
-        for f in dep_failures:
+    if failures or dep_failures or import_failures:
+        for f in failures + dep_failures + import_failures:
             print(f"  FAIL {f}")
         if failures:
             print(f"\nGATE FAIL — {len(failures)} data file(s) missing from the built "
@@ -308,11 +437,18 @@ def main() -> int:
             print(f"GATE FAIL — {len(dep_failures)} declared dependency(ies) dropped "
                   f"from the wheel METADATA. A clean `pip install` won't pull them. "
                   f"Fix [project.dependencies] before tagging.")
+        if import_failures:
+            print(f"GATE FAIL — {len(import_failures)} module-level import(s) nobody "
+                  f"declares. A clean `pip install` won't pull them and the import "
+                  f"crashes. Add them to [project.dependencies], or to _UNDECLARED_OK "
+                  f"with the reason if they genuinely need no declaration.")
         return 1
     print(f"  PASS all {len(expected)} expected data files ship in wheel + sdist "
           f"and land on disk after a clean install.")
     print(f"  PASS all {len(_pyproject_requires())} declared runtime dependencies "
           f"ship in the wheel METADATA.")
+    print(f"  PASS all {len(_source_imports())} third-party module-level imports are "
+          f"declared, or listed as deliberately undeclared with a reason.")
     print("GATE PASS — no dropped data files or dependencies.")
 
     if args.fold:

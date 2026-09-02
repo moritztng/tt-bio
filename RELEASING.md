@@ -108,7 +108,14 @@ from the current tree and asserts every non-`.py` data file under `tt_bio/`
 ships in both artifacts and lands on disk after a clean `pip install --no-deps
 --target` of the wheel. The expected file set is derived from the repo, so a
 newly committed data file is automatically required to ship — no allowlist to
-forget. Pass `--fold` to also install the wheel into a deps-inheriting venv and
+forget. It checks dependencies from both ends too: every name in
+`[project.dependencies]` must survive into the wheel's `Requires-Dist`, and every
+third-party module `tt_bio/` imports at module level must be declared in the
+first place. An import nobody declared is consistent between pyproject and the
+wheel and only crashes on someone else's machine, so it is read off the source.
+A new import fails the gate until it is either declared or listed in the script's
+`_UNDECLARED_OK` with the reason it needs no declaration. Pass `--fold` to also
+install the wheel into a deps-inheriting venv and
 run one protenix-v2 + one opendde + one boltzgen fold on a card, asserting each
 gets past the missing-data-file gate. The card-free default is the required
 pre-tag step; `--fold` is the deeper on-device confirmation.

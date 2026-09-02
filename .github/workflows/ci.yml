@@ -27,3 +27,13 @@ jobs:
         run: |
           python -m pip install --no-deps dist/*.whl
           python -c "import tt_bio; print('tt_bio', tt_bio.__version__)"
+      # The packaging gate's own tests. Card-free, no model deps, ~3s. Its live legs are
+      # the ones that matter here: a third-party import nobody declared, or a data path
+      # that moved out from under the --fold leg's markers, fails on the PR that adds it
+      # instead of at the next tag.
+      - name: Packaging gate tests
+        run: |
+          # tomli is the <3.11 fallback packaging_smoke.py reads pyproject with, and this
+          # job pins 3.10.
+          python -m pip install pytest tomli
+          python -m pytest tests/test_packaging_smoke.py -q

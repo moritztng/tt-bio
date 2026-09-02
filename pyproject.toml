@@ -17,6 +17,9 @@ dependencies = [
     "einops",
     "mashumaro",
     "modelcif",
+    "ihm",       # tt_bio/data/write.py imports it directly; modelcif happens to pull it
+                 # in today, so a clean install has never broken on it. Declared because
+                 # it is a direct import, not because anything is missing.
     "click",
     "pyyaml",
     "omegaconf",  # only needed to unpickle DictConfig objects baked into upstream ckpts
