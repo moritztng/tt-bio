@@ -7118,7 +7118,18 @@ class PairWeightedAveraging(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
-            o_out = o if o_out is None else ttnn.add(o_out, o)
+            if o_out is None:
+                o_out = o
+            else:
+                # Accumulate IN PLACE. `o` and `o_out` are both the full MSA tensor
+                # [depth, tokens, c_m], and an out-of-place add holds three of them at once --
+                # the old accumulator, this head's `o`, and the new accumulator -- so the peak
+                # carried one whole redundant copy per head. At 768 tokens x 14191 rows that copy
+                # is 1 395 032 064 B, and it is exactly the allocation OpenFold3 was refused on a
+                # 12 GiB Wormhole part (state/ceiling-openfold3.md). Same elementwise add, same
+                # operands, same order, written to the accumulator instead of to a new buffer.
+                ttnn.add_(o_out, o)
+                ttnn.deallocate(o)
         o_out = ttnn.reshape(o_out, (1, *o_out.shape))
         return o_out
 
