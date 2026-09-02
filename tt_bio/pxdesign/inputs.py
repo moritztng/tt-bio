@@ -45,10 +45,10 @@ def read_design_yaml(path) -> dict:
     mapped to null, `all` or `full` means the whole chain. `msa` is accepted and ignored:
     PXDesign-d has no trunk, so generation reads no alignment.
     """
-    import yaml
+    from ..data.yaml_input import load_mapping
 
     path = Path(path)
-    cfg = yaml.safe_load(path.read_text())
+    cfg = load_mapping(path)
     target = cfg.get("target")
     if not target or not target.get("file"):
         raise ValueError(f"{path}: missing target.file")

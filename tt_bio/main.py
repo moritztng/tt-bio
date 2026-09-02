@@ -3763,10 +3763,15 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             # the run cold-opened a device of its own — which on a serving box means
             # colliding with the resident workers that already hold every chip.
             from tt_bio.pxdesign.design import run_design_via_controller
-            rows = run_design_via_controller(
-                Path(inputs), out_dir or "./designs", controller_url=controller,
-                num_designs=num_designs if num_designs is not None else 1,
-                n_step=n_step, seed=seed, run_id=run_id, owner=owner)
+            # Same input errors as the local path below, so a bad target YAML reads the
+            # same either way. Without this the fleet path showed the user a traceback.
+            try:
+                rows = run_design_via_controller(
+                    Path(inputs), out_dir or "./designs", controller_url=controller,
+                    num_designs=num_designs if num_designs is not None else 1,
+                    n_step=n_step, seed=seed, run_id=run_id, owner=owner)
+            except (ValueError, FileNotFoundError) as e:
+                raise click.ClickException(str(e))
             click.echo(f"Done — {len(rows)} design(s) → {out_dir or './designs'}")
             for r in rows:
                 fit = r.get("fit_rmsd")

@@ -8,6 +8,7 @@ from typing import Optional, TextIO
 import numpy as np
 from tt_bio.data import const
 from tt_bio.data.types import MSA, MSADeletion, MSAResidue, MSASequence
+from tt_bio.data.yaml_input import load_mapping
 import pandas as pd
 from collections.abc import Mapping
 from Bio import SeqIO
@@ -508,7 +509,7 @@ def parse_yaml(
 
     """
     with path.open("r") as file:
-        data = yaml.safe_load(file)
+        data = load_mapping(path, file=file)
 
     name = path.stem
     return parse_boltz_schema(name, data, ccd, mol_dir, boltz2)
