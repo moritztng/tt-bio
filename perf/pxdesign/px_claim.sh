@@ -2,6 +2,8 @@
 # Claim a free Galaxy chip, prove it dispatches, then run one PXDesign rung on it.
 # usage: px_claim.sh <yaml> <label> <out_root> <deadline_epoch>
 yaml=$1; label=$2; root=$3; deadline=$4
+NDESIGNS=${NDESIGNS:---num_designs 4}
+NSTEP=${NSTEP:---n_step 200}
 WT=/home/cust-team/mthuening/ceilpxd/tree
 cd "$WT" || exit 2
 export TT_METAL_LOGGER_LEVEL=FATAL HF_HUB_CACHE=/home/cust-team/models
@@ -31,7 +33,7 @@ ttnn.synchronize_device(d); print('PROBE_OK')" > "$out/probe.log" 2>&1; then
     fi
     t0=$(date +%s.%N)
     timeout 2400 ./env/bin/python -u -m tt_bio.main design "$yaml" --model pxdesign \
-      --cache /home/cust-team/.boltz --num_designs 4 --n_step 200 --seed 42 \
+      --cache /home/cust-team/.boltz $NDESIGNS $NSTEP --seed 42 \
       --out_dir "$out/designs" > "$out/run.log" 2>&1
     rc=$?; t1=$(date +%s.%N)
     n=$(find "$out/designs" -name "*.cif" 2>/dev/null | wc -l)
@@ -40,6 +42,6 @@ ttnn.synchronize_device(d); print('PROBE_OK')" > "$out/probe.log" 2>&1; then
       "$label" "$c" "$rc" "$(echo "$t1 - $t0" | bc)" "$n" "${err:-none}"
     rmdir "$root/.claim.$c"; exit 0
   done
-  sleep 20
+  sleep 4
 done
 echo "RESULT label=$label chip=none rc=timeout wall_s=0 cifs=0 err=no_free_chip_before_deadline"
