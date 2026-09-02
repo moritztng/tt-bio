@@ -1,0 +1,186 @@
+[
+  {
+    "label": "p128",
+    "target_residues": 128,
+    "binder_length": 80,
+    "tokens": 208,
+    "chip": 8,
+    "designs": 1,
+    "fit_rmsd": [
+      0.1892
+    ],
+    "outcome": "PASS",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": null
+  },
+  {
+    "label": "p256",
+    "target_residues": 256,
+    "binder_length": 80,
+    "tokens": 336,
+    "chip": 12,
+    "designs": 1,
+    "fit_rmsd": [
+      0.1206
+    ],
+    "outcome": "PASS",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": null
+  },
+  {
+    "label": "p512",
+    "target_residues": 512,
+    "binder_length": 80,
+    "tokens": 592,
+    "chip": 5,
+    "designs": 1,
+    "fit_rmsd": [
+      2.9924
+    ],
+    "outcome": "PASS",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": null
+  },
+  {
+    "label": "p768",
+    "target_residues": 768,
+    "binder_length": 80,
+    "tokens": 848,
+    "chip": null,
+    "designs": 1,
+    "fit_rmsd": [
+      0.179
+    ],
+    "outcome": "PASS",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": null
+  },
+  {
+    "label": "r1008",
+    "target_residues": 1008,
+    "binder_length": 80,
+    "tokens": 1088,
+    "chip": 8,
+    "designs": 4,
+    "fit_rmsd": [
+      0.1256,
+      0.1145,
+      0.1141,
+      0.1239
+    ],
+    "outcome": "PASS",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": null
+  },
+  {
+    "label": "r1008b",
+    "target_residues": 1008,
+    "binder_length": 80,
+    "tokens": 1088,
+    "chip": 11,
+    "designs": 4,
+    "fit_rmsd": [
+      0.1256,
+      0.1145,
+      0.1141,
+      0.1239
+    ],
+    "outcome": "PASS",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": null
+  },
+  {
+    "label": "r1216_b208",
+    "target_residues": 1008,
+    "binder_length": 208,
+    "tokens": 1216,
+    "chip": 13,
+    "designs": 0,
+    "fit_rmsd": [],
+    "outcome": "no_run",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": "device contention, nothing ran"
+  },
+  {
+    "label": "r1408_b400",
+    "target_residues": 1008,
+    "binder_length": 400,
+    "tokens": 1408,
+    "chip": 9,
+    "designs": 4,
+    "fit_rmsd": [
+      0.1246,
+      0.1395,
+      0.1335,
+      0.1243
+    ],
+    "outcome": "PASS",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": null
+  },
+  {
+    "label": "r1408b",
+    "target_residues": 1008,
+    "binder_length": 400,
+    "tokens": 1408,
+    "chip": 0,
+    "designs": 4,
+    "fit_rmsd": [
+      0.1246,
+      0.1395,
+      0.1335,
+      0.1243
+    ],
+    "outcome": "PASS",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": null
+  },
+  {
+    "label": "r1664",
+    "target_residues": 1008,
+    "binder_length": 656,
+    "tokens": 1664,
+    "chip": 9,
+    "designs": 0,
+    "fit_rmsd": [],
+    "outcome": "OOM",
+    "oom_request_B": 1417674752,
+    "largest_free_block_B": 42995712,
+    "note": null
+  },
+  {
+    "label": "r2048",
+    "target_residues": 1008,
+    "binder_length": 1040,
+    "tokens": 2048,
+    "chip": 0,
+    "designs": 0,
+    "fit_rmsd": [],
+    "outcome": "OOM",
+    "oom_request_B": 4294967296,
+    "largest_free_block_B": 64244896,
+    "note": null
+  },
+  {
+    "label": "r960",
+    "target_residues": 960,
+    "binder_length": 80,
+    "tokens": 1040,
+    "chip": 12,
+    "designs": 0,
+    "fit_rmsd": [],
+    "outcome": "no_run",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": "device contention, nothing ran"
+  }
+]
