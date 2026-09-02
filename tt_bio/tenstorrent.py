@@ -30,9 +30,11 @@ OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 # dies on. So the row block has to be derived from the token width instead of being a constant.
 # Numerically inert: the I axis indexes independent token rows (the matmul contracts depth, not I,
 # and each block gets its own full depth accumulation), so regrouping rows cannot change a value.
-# The blocked path this guards is entered at I > SEQ_LEN_MORE_CHUNKING, which reads as 1536 here but
-# is retuned to ~640 on a small grid (_apply_grid_thresholds), so on Wormhole it is live from ~640
-# tokens up -- don't conclude from the 1536 baseline that a 992-token target never reaches it.
+# The blocked path this guards is entered on either of two gates (see OPM_ROWBLOCK_BYTES). The
+# token-count one reads 1536 here, is scaled to ~608 on a small grid and then re-fitted against
+# DRAM to 1088 on a 12 GiB Galaxy part, so it does NOT reach a 992- or 1024-token target; the byte
+# gate is what carries those. Don't read the 1536 baseline, or the ~640 small-grid value, as the
+# width at which this becomes live.
 # Verified on a Wormhole Galaxy: 9i3p's 520093696 B refusal is gone with this in place and still
 # present without it, and 9d72 reproduces all 15 structure md5s bit-for-bit despite going from 3
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
@@ -88,6 +90,31 @@ PAIR_ROW_BLOCK = 128
 # refusal this exists for.
 TRIMUL_IN_NORM_ROWBLOCK_BYTES = int(os.environ.get(
     "TT_BIO_TRIMUL_IN_NORM_ROWBLOCK_BYTES", 3 * 2 ** 30))  # 3 GiB
+# Byte gate for row-blocking OuterProductMean, and it exists for the same reason as the one above:
+# the site was sharing SEQ_LEN_MORE_CHUNKING with the pair-tensor paths, and its tensor is not a
+# pair tensor. OPM's unblocked result is (I, C*D, J) -- C*D = 1024 against a pair tensor's c_z, so
+# it is 8x the pair tensor at protenix-v2's channel and is refused long before any pair tensor is.
+#
+# Sharing the token-count gate made this dark. `_apply_grid_thresholds` re-fitted
+# SEQ_LEN_MORE_CHUNKING against DRAM on a Boltz-2 measurement (`fffe6443`, re-landed `6e1f9e77`,
+# 2026-08-16), which moved it from 608 to 1088 on a 12 GiB Galaxy part. Boltz-2 gained 15 % of wall
+# from that and nothing else was re-measured, but protenix-v2 reads the same constant, so every
+# padded token count from 640 to 1088 stopped row-blocking its outer product. Measured on the
+# Galaxy 2026-09-02: at 1024 padded tokens the unblocked path asks for 1024*1024*1024*2 =
+# 2 147 483 648 B and is refused with 331 MB free per bank and a 136 MB largest block, and at 1088
+# it asks 2 424 307 712 B. Both match this shape to the byte.
+#
+# The threshold sits inside a measured bracket: 640 padded tokens is 838 860 800 B and folds (the
+# release gate's ladder is green there), 1024 is 2 147 483 648 B and is refused. 1.5 GiB is the
+# same line `concat_host_bytes()` already draws for this part -- the size above which a single
+# request is refused on an address space the trunk has churned -- so this reuses a number that was
+# measured rather than inventing one, and leaves every padded width up to 864 byte-identical.
+#
+# NOT gated on OPM_Z_BUDGET_BYTES (0.25 GiB), which is what the blocked path sizes its blocks by:
+# that would row-block everything above ~384 padded tokens, i.e. every size the release gate and
+# the perf page are anchored at, and no measurement supports moving those.
+OPM_ROWBLOCK_BYTES = int(os.environ.get(
+    "TT_BIO_OPM_ROWBLOCK_BYTES", 3 * 2 ** 29))  # 1.5 GiB
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
 TRANSITION_W_CHUNKING_THRESHOLD = 1024
 # Per-chunk element budget for the 4D Transition row loop on a small grid, in place of the
@@ -3663,6 +3690,26 @@ def concat_host_bytes() -> int:
         _CONCAT_HOST_BYTES = (int(env) if env
                               else _concat_host_budget(_dram_total_bytes()))
     return _CONCAT_HOST_BYTES
+
+
+def opm_row_block(I: int, C: int, D: int, J: int) -> int | None:
+    """Rows per OuterProductMean block, or None to run the whole token axis in one matmul.
+
+    Two gates, because there are two resources. ``SEQ_LEN_MORE_CHUNKING`` bounds how many full
+    PAIR tensors are live at once. ``OPM_ROWBLOCK_BYTES`` asks a different question -- whether
+    this site's own result, ``(I, C*D, J)``, can be allocated at all -- and that is the one that
+    binds here, because C*D is 1024 against a pair tensor's c_z. The two must not share a
+    threshold: a lever that moves the pair-tensor one for another model would otherwise switch
+    this off, which is what `6e1f9e77` did.
+
+    The block is then sized so the per-block matmul result stays under ``OPM_Z_BUDGET_BYTES``.
+    That result is ``(rows*C, D*J)``, so at a fixed row count it grows with J -- the constant 256
+    is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
+    """
+    per_row = C * D * J * 2
+    if I <= SEQ_LEN_MORE_CHUNKING and I * per_row <= OPM_ROWBLOCK_BYTES:
+        return None
+    return max(32, min(OPM_CHUNK_SIZE, (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
 
 
 def _host_concat(x: ttnn.Tensor) -> bool:
@@ -7401,13 +7448,8 @@ class OuterProductMean(Module):
             ttnn.deallocate(z)
             return out
 
-        if I > SEQ_LEN_MORE_CHUNKING:
-            # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
-            # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
-            # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
-            per_row = C * D * J * 2
-            rows_blk = max(32, min(OPM_CHUNK_SIZE,
-                                   (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
+        rows_blk = opm_row_block(I, C, D, J)
+        if rows_blk is not None:
             z_acc = None
             for i in range(0, I, rows_blk):
                 part = outer_product_mean(i, min(i + rows_blk, I))
