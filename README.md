@@ -105,10 +105,35 @@ tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the roll
 | Covalent `bond` constraints | yes | no | yes | yes | no | no | yes | from the input structure |
 | PAE/PDE output (`--write_pae`) | no | no | yes | yes | no | no | no | in `_summary_confidences.json` |
 
-Targets up to at least 1095 residues fold on a single 12 GiB Wormhole card, on every structure
-model including OpenDDE, whose structural-token expander makes it the strictest case. The pair
-track switches to row-blocked execution at a size threshold smaller targets never reach, so
-their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
+Targets of 850-1095 residues have folded on a single 12 GiB Wormhole card on every structure
+model, but that is not the same as a ceiling: a few models fail at sizes *below* one they handle,
+because the failure is an L1 layout clash that follows the padded tile shape rather than the
+residue count. OpenDDE folds 544, throws at 576, and folds 608 again. So the size a model is
+safe up to is the largest one below its first measured failure, which for several models on
+Wormhole is under 1024:
+
+| model | Wormhole limit | first measured failure |
+|---|---:|---:|
+| `opendde`, `opendde-abag` | 544 | 576 |
+| `openfold3`, `openbind` | 576 | 614 |
+| `rf3` | 627 | 630 |
+| `pxdesign` | 768 (target residues) | none found; top of the ladder |
+| `protenix-v2` | 980 | 1095 |
+| `rfd3` | 490 (motif + designed) | above 490 |
+| `esmc-6b` (embed) | 1968 | 1984 |
+
+Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the model,
+the limit and any model that does take the input. `boltz2`, `esmfold2`, `boltzgen` and `nesso1`
+have no measured limit and are never refused. These numbers are Wormhole only; nothing is enforced
+on Blackhole, which has more memory per chip and where nobody has walked a ladder to a failure.
+
+The limits were measured with an MSA, which is the default for the models that take one. Folding
+single-sequence is roomier (OpenFold3 caps at 576 with an alignment and folds 768 without one), so
+if you know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the
+refusal into a warning and runs it anyway.
+
+The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
+so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
 Perf levers are gated at several sequence lengths, not just one; the release gate re-checks the
 ladder against a recorded baseline. See [docs/size-generality.md](docs/size-generality.md).
 
