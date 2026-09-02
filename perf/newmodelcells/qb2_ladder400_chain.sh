@@ -30,6 +30,17 @@ run () {  # run <label> <outdir> <args...>
   echo "=== $lab rc=$? $(date -u +%FT%TZ)"
 }
 
+# Why the fit failed here, narrowed before the long rungs run. The first ladder paid a kernel
+# compile in every cold round, and the box sat at loadavg 8-9 on its own cc1plus while those short
+# runs were timed, so "short runs are slow" has two candidate causes: a card clock that ramps under
+# sustained load, or the compile load the short runs themselves created. The cache is fully warm
+# now, so repeating the two rungs that have 400-step ground truth separates them. Two minutes.
+for S in 8 24; do
+  for B in 1 8; do
+    run "s${S}_n${B}" qb2_batchcurve_warm --n_step "$S" --n_sample "$B" --rounds 3
+  done
+done
+
 run c400_n2  qb2_batchcurve400 --n_step 400 --n_sample 2  --rounds 4
 run c400_n4  qb2_batchcurve400 --n_step 400 --n_sample 4  --rounds 4
 # The chunk ceiling against the batch ceiling, at full length so it compares to the 400-step rungs.
