@@ -13,7 +13,7 @@
     "card": "p300c physical 0",
     "provenance": "on a p300c board in tt-quietbox2, physical card 0",
     "ttnn": "0.68.0",
-    "git_head": "eaedfcc603a01cb4416f509afec4c8d47984db91",
+    "git_head": "f64e8b3ce8f18a689b31d49f3ce8aebd4d171834",
     "grid": [
       11,
       10
@@ -24,74 +24,133 @@
         "batch": 1,
         "fitted_s_per_design": 85.5793,
         "distinct": true,
-        "measured_s_per_design": 22.4764,
-        "measured_spread_pct": 0.844,
+        "measured_s_per_design": 22.5428,
+        "measured_spread_pct": 0.113,
         "measured_warm_n": 3,
-        "measured_from": "c400_n1.json",
+        "measured_from": "ctl400_n1.json",
+        "peak_warm_loadavg": 1.5,
+        "regime": "quiet",
+        "not_published": [
+          {
+            "file": "c400_n1.json",
+            "s_per_design": 22.4764,
+            "peak_warm_loadavg": 1.66
+          }
+        ],
         "amortisation_x": 1.0,
-        "fit_error_pct": 280.752
+        "fit_error_pct": 279.63
       },
       {
         "batch": 2,
         "fitted_s_per_design": 39.1451,
         "distinct": true,
-        "measured_s_per_design": 22.2146,
-        "measured_spread_pct": 2.543,
+        "measured_s_per_design": 20.2699,
+        "measured_spread_pct": 0.1,
         "measured_warm_n": 3,
-        "measured_from": "c400_n2.json",
-        "amortisation_x": 1.0118,
-        "fit_error_pct": 76.213
+        "measured_from": "ctl400_n2.json",
+        "peak_warm_loadavg": 1.28,
+        "regime": "quiet",
+        "not_published": [
+          {
+            "file": "c400_n2.json",
+            "s_per_design": 22.2146,
+            "peak_warm_loadavg": 10.82
+          }
+        ],
+        "amortisation_x": 1.1121,
+        "fit_error_pct": 93.119
       },
       {
         "batch": 4,
         "fitted_s_per_design": 32.0343,
         "distinct": true,
-        "measured_s_per_design": 20.0177,
-        "measured_spread_pct": 1.065,
+        "measured_s_per_design": 18.924,
+        "measured_spread_pct": 0.018,
         "measured_warm_n": 3,
-        "measured_from": "c400_n4.json",
-        "amortisation_x": 1.1228,
-        "fit_error_pct": 60.03
+        "measured_from": "ctl400_n4.json",
+        "peak_warm_loadavg": 1.3,
+        "regime": "quiet",
+        "not_published": [
+          {
+            "file": "c400_n4.json",
+            "s_per_design": 20.0177,
+            "peak_warm_loadavg": 9.72
+          }
+        ],
+        "amortisation_x": 1.1912,
+        "fit_error_pct": 69.279
       },
       {
         "batch": 8,
         "fitted_s_per_design": 24.0523,
         "distinct": true,
-        "measured_s_per_design": 18.6722,
-        "measured_spread_pct": 7.562,
-        "measured_warm_n": 4,
-        "measured_from": "d400_n8r5.json",
-        "amortisation_x": 1.2037,
-        "fit_error_pct": 28.813
+        "measured_s_per_design": 18.1284,
+        "measured_spread_pct": 0.007,
+        "measured_warm_n": 3,
+        "measured_from": "ctl400_n8.json",
+        "peak_warm_loadavg": 1.09,
+        "regime": "quiet",
+        "not_published": [
+          {
+            "file": "d400_n8r5.json",
+            "s_per_design": 18.6722,
+            "peak_warm_loadavg": 9.84
+          }
+        ],
+        "amortisation_x": 1.2435,
+        "fit_error_pct": 32.677
       },
       {
         "batch": 16,
         "fitted_s_per_design": 21.4537,
         "distinct": true,
-        "measured_s_per_design": 19.4964,
-        "measured_spread_pct": 0.7,
-        "measured_warm_n": 3,
-        "measured_from": "c400_n16.json",
-        "amortisation_x": 1.1528,
-        "fit_error_pct": 10.039
+        "measured_s_per_design": 19.0027,
+        "measured_spread_pct": 0.009,
+        "measured_warm_n": 2,
+        "measured_from": "ctl400_n16.json",
+        "peak_warm_loadavg": 1.05,
+        "regime": "quiet",
+        "not_published": [
+          {
+            "file": "c400_n16.json",
+            "s_per_design": 19.4964,
+            "peak_warm_loadavg": 9.1
+          }
+        ],
+        "amortisation_x": 1.1863,
+        "fit_error_pct": 12.898
       },
       {
         "batch": 32,
         "fitted_s_per_design": 19.5866,
         "distinct": true,
-        "amortisation_x": 1.1475
+        "measured_s_per_design": 19.3335,
+        "measured_spread_pct": 0.147,
+        "measured_warm_n": 2,
+        "measured_from": "c400_n32.json",
+        "peak_warm_loadavg": 8.77,
+        "regime": "loaded",
+        "amortisation_x": 1.166,
+        "fit_error_pct": 1.309
       },
       {
         "batch": 64,
         "fitted_s_per_design": 20.2201,
         "distinct": true,
-        "amortisation_x": 1.1116
+        "measured_s_per_design": 19.9063,
+        "measured_spread_pct": 0.038,
+        "measured_warm_n": 2,
+        "measured_from": "c400_n64.json",
+        "peak_warm_loadavg": 1.08,
+        "regime": "quiet",
+        "amortisation_x": 1.1324,
+        "fit_error_pct": 1.576
       }
     ],
     "best": 8,
-    "unmeasured_rungs": [
-      32,
-      64
+    "unmeasured_rungs": [],
+    "loaded_rungs": [
+      32
     ],
     "seed_check": {
       "pairs": [
@@ -415,23 +474,23 @@
   "server": {
     "cards_galaxy": 32,
     "gpus_dgx": 8,
-    "tt_best_batch_s_per_design": 19.3071,
-    "tt_amortisation_x": 1.2037,
+    "tt_best_batch_s_per_design": 18.6892,
+    "tt_amortisation_x": 1.2435,
     "h200": {
       "amortisation_x": 1.9167,
       "best_batch_s_per_design": 12.6387,
       "per_accelerator_x_b1": 1.0424,
-      "per_accelerator_x_best_batch": 0.6546,
+      "per_accelerator_x_best_batch": 0.6763,
       "per_server_x_b1": 4.1695,
-      "per_server_x_best_batch": 2.6185
+      "per_server_x_best_batch": 2.705
     },
     "b200": {
       "amortisation_x": 2.0542,
       "best_batch_s_per_design": 11.8811,
       "per_accelerator_x_b1": 1.0502,
-      "per_accelerator_x_best_batch": 0.6154,
+      "per_accelerator_x_best_batch": 0.6357,
       "per_server_x_b1": 4.2007,
-      "per_server_x_best_batch": 2.4615
+      "per_server_x_best_batch": 2.5429
     }
   }
 }

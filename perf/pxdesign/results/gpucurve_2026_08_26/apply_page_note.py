@@ -26,6 +26,13 @@ def main():
     if unmeasured:
         sys.exit("apply_page_note: TT rungs %s are still fitted, not measured; run them first"
                  % unmeasured)
+    # The co-tenant cost this workload 9.6 % at b=2 and 2.6 % at b=16, and the gap between adjacent
+    # rungs here is a few percent, so a curve that mixes regimes cannot be read. Every published rung
+    # has to come from a quiet box.
+    loaded = c["tt"].get("loaded_rungs")
+    if loaded:
+        sys.exit("apply_page_note: TT rungs %s were timed against a co-tenant; re-measure them quiet"
+                 % loaded)
     srv, tt, h2, b2 = c["server"], c["tt"], c["h200"], c["b200"]
     tt_best, h_best, b_best = tt["best"], h2["best"], b2["best"]
     tt_a = srv["tt_amortisation_x"]

@@ -53,16 +53,25 @@ def gpu_curve(box):
     return rungs
 
 
-# Rungs whose first 400-step run was timed against a co-tenant, and the quiet-regime re-measurement
-# that supersedes each. On 2026-09-02 another worker ran a CPU parity reference on card 1 from 00:38
-# to 02:15, outside the benchlock, burning 7.5 of the box's 16 cores; b=2, b=4 and b=16 were timed at
-# loadavg 8-9 and every other rung on a quiet box. Co-tenant noise here is 1-10 % and the b=8 vs b=16
-# gap this curve exists to read is 4.4 %, so the two regimes cannot be mixed.
+# Which run publishes a rung. On 2026-09-02 another worker ran a CPU parity reference on card 1 from
+# 00:38 to 02:15, outside the benchlock, burning 7.5 of the box"s 16 cores. Its measured cost here is
+# batch-dependent -- 9.6 % at b=2, 5.8 % at b=4, 2.6 % at b=16 -- so it cannot be corrected for, only
+# avoided: a rung publishes a run whose WARM rounds were all timed on a quiet box.
 #
-# ctl400_n1 and ctl400_n8 also exist and are deliberately NOT listed. Those two rungs were already
-# quiet and have at least as many warm rounds; their repeats are an A/A pair that sets this box's
-# noise bar, and an A/A pair does not replace an arm.
-TT_SUPERSEDED = {2: "ctl400_n2", 4: "ctl400_n4", 16: "ctl400_n16"}
+# The per-round loadavg in each JSON decides that, not the wall-clock window the run fell in. The
+# window got it wrong in both directions. d400_n8r5 started at 00:23 and was booked as quiet, but its
+# rounds 2 and 3 ran at loadavg 8.50 and 9.84; c400_n64 was booked as loaded, but only its discarded
+# cold round ran at 8.96 and both warm rounds ran at 1.00 and 1.08.
+QUIET_LOADAVG = 2.0
+
+
+def _warm(d):
+    return [r for r in d["designs"] if not r.get("cold")]
+
+
+def _peak_loadavg(d):
+    la = [float(r["loadavg"][0]) for r in _warm(d) if r.get("loadavg")]
+    return max(la) if la else float("inf")
 
 
 def tt_curve(prefix):
@@ -71,31 +80,36 @@ def tt_curve(prefix):
                           "distinct": r["distinct"]} for r in fit["rungs"]}
     prov = {}
     d400 = os.path.join(NMC, prefix + "batchcurve400")
-    superseded = {b: lab for b, lab in TT_SUPERSEDED.items()
-                  if os.path.exists(os.path.join(d400, lab + ".json"))
-                  and json.load(open(os.path.join(d400, lab + ".json"))).get("warm_n")}
-    # Any 400-step run of the rung, whatever its label: the b=8 anchor is a rounds-5 run because
-    # its last warm round repeats the cold round's seed, which is the reproduction check. Where two
-    # files describe one rung, the one with more warm rounds wins -- except where TT_SUPERSEDED
-    # names the file, in which case regime beats round count and only that file is read.
+    cand = {}
     for f in sorted(glob.glob(os.path.join(d400, "*400_n*.json"))):
         d = json.load(open(f))
         if not d.get("warm_n"):
-            continue
-        lab = os.path.basename(f)[:-len(".json")]
-        want = superseded.get(d["n_sample_per_call"])
-        if want and lab != want:
-            continue
-        r = rungs.setdefault(d["n_sample_per_call"], {"batch": d["n_sample_per_call"]})
-        if not want and r.get("measured_warm_n", 0) > d["warm_n"]:
-            continue
+            continue                       # rung still running when this was pulled
+        cand.setdefault(d["n_sample_per_call"], []).append((f, d))
+
+    # A quiet arm beats a loaded one however many rounds the loaded one has. Among equally quiet arms
+    # more warm rounds win, and a tie there goes to the tighter spread, which is the arm that settled.
+    # d400_n8r5 never did: it ramps 159.1 -> 145.1 s across five rounds and only its last round meets
+    # ctl400_n8"s three consecutive 145.0 s.
+    def rank(fd):
+        d = fd[1]
+        return (_peak_loadavg(d) <= QUIET_LOADAVG, d["warm_n"], -d["warm_spread_pct_per_design"])
+
+    for b in sorted(cand):
+        f, d = max(cand[b], key=rank)
+        r = rungs.setdefault(b, {"batch": b})
         r["measured_s_per_design"] = d["warm_median_s_per_design"]
         r["measured_spread_pct"] = d["warm_spread_pct_per_design"]
         r["measured_warm_n"] = d["warm_n"]
         r["measured_from"] = os.path.basename(f)
-        if want:
-            r["superseded_reason"] = "first run was co-tenanted; re-measured on a quiet box"
+        r["peak_warm_loadavg"] = _peak_loadavg(d)
+        r["regime"] = "quiet" if r["peak_warm_loadavg"] <= QUIET_LOADAVG else "loaded"
         r["distinct"] = d["all_designs_distinct"]
+        others = [(os.path.basename(g), e["warm_median_s_per_design"], _peak_loadavg(e))
+                  for g, e in cand[b] if g != f]
+        if others:
+            r["not_published"] = [{"file": g, "s_per_design": s, "peak_warm_loadavg": l}
+                                  for g, s, l in others]
         prov = {"host": d["host"], "card": d["card"], "ttnn": d["ttnn"], "git_head": d["git_head"],
                 "grid": d.get("grid"), "diffusion_fp32": d.get("diffusion_fp32")}
     out = [rungs[k] for k in sorted(rungs)]
@@ -197,6 +211,7 @@ def main():
                   "grid": prov.get("grid"), "diffusion_fp32": prov.get("diffusion_fp32"),
                   "rungs": tt, "best": tt_best(tt)["batch"],
                   "unmeasured_rungs": [r["batch"] for r in tt if "measured_s_per_design" not in r],
+                  "loaded_rungs": [r["batch"] for r in tt if r.get("regime") == "loaded"],
                   "seed_check": seed_check(a.tt_prefix),
                   "chunk_check": chunk_check(a.tt_prefix)},
            "h200": {"rungs": h200, "best": best(h200, "amortisation_x")["batch"] if h200 else None},
