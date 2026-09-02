@@ -81,3 +81,64 @@ class TestNeutralityWhenNothingIsRefused:
         """
         assert tt._FP32_SOFTMAX_DRAM_ROW_CAP == {}
         assert tt.FP32_SOFTMAX_STATS["dram_narrowed"] == 0
+
+
+class TestRetryControlFlow:
+    """The retry itself, with the block runner stubbed: no device, no ttnn tensors.
+
+    The blocking loop in `_fp32_softmax_attention` needs real tensors, so before this the only
+    coverage of what happens after a refusal was a fold on a Galaxy chip.
+    """
+
+    def test_a_call_that_fits_runs_once_and_narrows_nothing(self):
+        seen = []
+        out = tt._fp32_softmax_with_narrowing(lambda b: seen.append(b) or "o", 736, ("k",))
+        assert out == "o" and seen == [736]
+        assert tt.FP32_SOFTMAX_STATS["dram_narrowed"] == 0
+        assert tt._FP32_SOFTMAX_DRAM_ROW_CAP == {}
+
+    def test_one_refusal_halves_the_block_and_the_call_succeeds(self):
+        seen = []
+
+        def run(b):
+            seen.append(b)
+            if b == 736:
+                raise RuntimeError("Out of Memory: Not enough space to allocate 6379012096 B")
+            return "o"
+
+        assert tt._fp32_softmax_with_narrowing(run, 736, ("k",)) == "o"
+        assert seen == [736, 352]
+        assert tt._FP32_SOFTMAX_DRAM_ROW_CAP[("k",)] == 352
+
+    def test_it_keeps_halving_while_dram_keeps_refusing(self):
+        seen = []
+
+        def run(b):
+            seen.append(b)
+            if b > 64:
+                raise RuntimeError("Out of Memory: Not enough space to allocate 1 B")
+            return "o"
+
+        assert tt._fp32_softmax_with_narrowing(run, 736, ("k",)) == "o"
+        assert seen == [736, 352, 160, 64]
+
+    def test_an_unshrinkable_block_re_raises_instead_of_spinning(self):
+        calls = []
+
+        def run(b):
+            calls.append(b)
+            raise RuntimeError("Out of Memory: Not enough space to allocate 1 B")
+
+        with pytest.raises(RuntimeError, match="Out of Memory"):
+            tt._fp32_softmax_with_narrowing(run, 736, ("k",))
+        assert calls[-1] == 32 and len(calls) < 12, calls
+
+    def test_a_non_allocator_error_propagates_untouched(self):
+        """Retrying a compile error at half the block would report it as smaller-is-fine."""
+        def run(b):
+            raise RuntimeError("Kernel compilation failed")
+
+        with pytest.raises(RuntimeError, match="compilation"):
+            tt._fp32_softmax_with_narrowing(run, 736, ("k",))
+        assert tt.FP32_SOFTMAX_STATS["dram_narrowed"] == 0
+        assert tt._FP32_SOFTMAX_DRAM_ROW_CAP == {}

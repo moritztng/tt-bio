@@ -1724,6 +1724,26 @@ def _fp32_softmax_dram_oom(exc: BaseException) -> bool:
     return "Out of Memory" in str(exc)
 
 
+def _fp32_softmax_with_narrowing(run, blk: int, l1_key):
+    """Run ``run(blk)``, halving the block and retrying while DRAM refuses it.
+
+    Let the device have the last word on the block. The byte budget is a constant and DRAM
+    occupancy is not, so on a full device the budget can decline to block a tensor the
+    allocator then refuses, which used to end the fold. The partition is bit-exact, so a
+    retry at half the height can only change whether the call finishes.
+
+    Stops at one tile row: below that there is nothing left to give back, and re-raising is
+    the honest answer rather than spinning on a block that cannot shrink.
+    """
+    while True:
+        try:
+            return run(blk)
+        except RuntimeError as exc:
+            if blk <= 32 or not _fp32_softmax_dram_oom(exc):
+                raise
+            blk = _fp32_softmax_dram_narrow(l1_key, blk)
+
+
 def _fp32_softmax_dram_narrow(l1_key, blk: int) -> int:
     """Halve the row block for this shape class after a refusal, floored at one tile row."""
     nxt = max(32, (int(blk) // 2) // 32 * 32)
@@ -2359,17 +2379,7 @@ def _fp32_softmax_attention(
             ttnn.deallocate(part)
         return o
 
-    # Let the device have the last word on the block. The byte budget is a constant and DRAM
-    # occupancy is not, so on a full device the budget can decline to block a tensor the
-    # allocator then refuses -- which used to end the fold. Halve and retry instead; the
-    # partition is bit-exact, so this can only change whether the call finishes.
-    while True:
-        try:
-            return run(blk)
-        except RuntimeError as exc:
-            if blk <= 32 or not _fp32_softmax_dram_oom(exc):
-                raise
-            blk = _fp32_softmax_dram_narrow(l1_key, blk)
+    return _fp32_softmax_with_narrowing(run, blk, l1_key)
 
 
 def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
