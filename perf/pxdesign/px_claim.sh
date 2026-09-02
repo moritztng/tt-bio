@@ -24,7 +24,7 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
     # pre-flight: a raced or dirty bring-up shows up here in ~40 s, not 4 min into a rung
     if ! timeout 300 ./env/bin/python -c "
 import tt_bio.tenstorrent as t, torch, ttnn
-d = t.open_device(); x = ttnn.from_torch(torch.zeros((32,32), dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=d)
+d = t.get_device(); x = ttnn.from_torch(torch.zeros((32,32), dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=d)
 ttnn.synchronize_device(d); print('PROBE_OK')" > "$out/probe.log" 2>&1; then
       echo "PROBE_FAIL chip=$c $(grep -oE 'run_mailbox|remote-only|Timeout|Error' "$out/probe.log" | head -1)"
       rmdir "$root/.claim.$c"; continue
