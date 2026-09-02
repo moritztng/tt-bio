@@ -28,16 +28,40 @@ def _column_prefix(row, n):
     return "".join(out)
 
 
-def cut(n, out_dir):
+def deepen(rows, depth):
+    """Tile the alignment's non-query rows up to `depth` rows in total.
+
+    A ceiling is a shape, and the MSA track's shape is (depth x columns), so a tiled alignment
+    prices depth exactly as a real one does. It is NOT a biological MSA and nothing about the
+    structure it folds to means anything -- use it to find where the engine stops, never to
+    judge an output.
+    """
+    head, body = rows[:2], rows[2:]
+    if depth <= 1 or not body:
+        return head
+    pairs = [body[i:i + 2] for i in range(0, len(body), 2)]
+    out = list(head)
+    i = 0
+    while len(out) // 2 < depth:
+        name, seq = pairs[i % len(pairs)]
+        out += [f"{name}\tcopy{i // len(pairs)}" if i >= len(pairs) else name, seq]
+        i += 1
+    return out
+
+
+def cut(n, out_dir, depth=None):
     rows = (SRC / "cdk2x2_1024.a3m").read_text().splitlines()
+    if depth:
+        rows = deepen(rows, depth)
     if n > len(_column_prefix(rows[1], 10**9)):
         raise SystemExit(f"{n} columns is past the 1024 fixture")
     a3m = "".join(f"{rows[i]}\n{_column_prefix(rows[i + 1], n)}\n" for i in range(0, len(rows), 2))
     seq = _column_prefix(rows[1], n)
     out_dir = Path(out_dir)
-    (out_dir / f"cdk2x2_{n}.a3m").write_text(a3m)
-    (out_dir / f"cdk2x2_{n}.yaml").write_text(
-        HDR.format(n=n, seq=seq, msa=out_dir / f"cdk2x2_{n}.a3m"))
+    tag = f"cdk2x2_{n}" if not depth else f"cdk2x2_{n}_d{depth}"
+    (out_dir / f"{tag}.a3m").write_text(a3m)
+    (out_dir / f"{tag}.yaml").write_text(
+        HDR.format(n=n, seq=seq, msa=out_dir / f"{tag}.a3m"))
     return seq
 
 
@@ -58,6 +82,11 @@ if __name__ == "__main__":
                       f"seq {'OK' if got == want_seq else 'MISMATCH'}")
         sys.exit(1 if bad else 0)
     out = sys.argv[1]
-    for n in map(int, sys.argv[2:]):
-        cut(n, out)
-        print(f"wrote cdk2x2_{n} ({n} aa) in {out}")
+    depth = None
+    rest = sys.argv[2:]
+    if rest and rest[0].startswith("--depth="):
+        depth = int(rest.pop(0).split("=")[1])
+    for n in map(int, rest):
+        cut(n, out, depth)
+        print(f"wrote cdk2x2_{n}{f'_d{depth}' if depth else ''} ({n} aa, "
+              f"depth {depth or 35}) in {out}")
