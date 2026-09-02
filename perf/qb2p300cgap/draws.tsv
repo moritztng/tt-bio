@@ -1,0 +1,15 @@
+20260902T045400Z	model=esmc-300m-single	card2	draw=1	value=59.712048	gate=esmc-300m-singleseq/s (none) 59.71 n/aNO BASELINE	log=esmc-300m-single-card2-20260902T045400Z.log
+20260902T051113Z	model=esmc-300m-single	card2	draw=2	value=58.776349	gate=esmc-300m-singleseq/s (none) 58.78 n/aNO BASELINE	log=esmc-300m-single-card2-20260902T051113Z.log
+20260902T051201Z	model=esmc-300m-single	card2	draw=3	value=58.850514	gate=esmc-300m-singleseq/s (none) 58.85 n/aNO BASELINE	log=esmc-300m-single-card2-20260902T051201Z.log
+20260902T051249Z	model=esmc-300m-single	card2	draw=4	value=59.079315	gate=esmc-300m-singleseq/s (none) 59.08 n/aNO BASELINE	log=esmc-300m-single-card2-20260902T051249Z.log
+20260902T051337Z	model=esmc-300m-single	card2	draw=5	value=59.220344	gate=esmc-300m-singleseq/s (none) 59.22 n/aNO BASELINE	log=esmc-300m-single-card2-20260902T051337Z.log
+20260902T051432Z	model=nesso1	card2	draw=1	value=0.070469	gate=nesso1 affinities/s (none) 0.07047 n/aNO BASELINE	log=nesso1-card2-20260902T051432Z.log
+20260902T051642Z	model=nesso1	card2	draw=2	value=0.071477	gate=nesso1 affinities/s (none) 0.07148 n/aNO BASELINE	log=nesso1-card2-20260902T051642Z.log
+20260902T051807Z	model=nesso1	card2	draw=3	value=0.071222	gate=nesso1 affinities/s (none) 0.07122 n/aNO BASELINE	log=nesso1-card2-20260902T051807Z.log
+20260902T051933Z	model=nesso1	card2	draw=4	value=0.071472	gate=nesso1 affinities/s (none) 0.07147 n/aNO BASELINE	log=nesso1-card2-20260902T051933Z.log
+20260902T052058Z	model=nesso1	card2	draw=5	value=0.070727	gate=nesso1 affinities/s (none) 0.07073 n/aNO BASELINE	log=nesso1-card2-20260902T052058Z.log
+20260902T052323Z	model=rf3	card2	draw=1	value=0.189468	gate=rf3 structures/s (none) 0.1895 n/aNO BASELINE	log=rf3-card2-20260902T052323Z.log
+20260902T052522Z	model=rf3	card2	draw=2	value=0.185054	gate=rf3 structures/s (none) 0.1851 n/aNO BASELINE	log=rf3-card2-20260902T052522Z.log
+20260902T052651Z	model=rf3	card2	draw=3	value=0.19705	gate=rf3 structures/s (none) 0.1971 n/aNO BASELINE	log=rf3-card2-20260902T052651Z.log
+20260902T052817Z	model=rf3	card2	draw=4	value=0.191145	gate=rf3 structures/s (none) 0.1911 n/aNO BASELINE	log=rf3-card2-20260902T052817Z.log
+20260902T052944Z	model=rf3	card2	draw=5	value=0.192773	gate=rf3 structures/s (none) 0.1928 n/aNO BASELINE	log=rf3-card2-20260902T052944Z.log

@@ -1,0 +1,28 @@
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — boltz2, esmfold2, esmfold2-fast, protenix-v2, protenix-v1, opendde, openfold3, opendde-abag, rf3, esmc-300m, esmc-300m-single, esmc-600m, esmc-6b, saprot-650m, boltzgen, boltz2-affinity, rfd3, pxdesign, nesso1  | threshold ±15%  | per-model protocol
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+boltz2          structures/s           1.76      1.764     +0.2%      PASS
+esmfold2        structures/s          3.299      3.219     -2.4%      PASS
+esmfold2-fast   structures/s          3.922      3.838     -2.1%      PASS
+protenix-v2     structures/s          2.634      3.107    +18.0%      PASS
+protenix-v1     structures/s          3.328      3.285     -1.3%      PASS
+opendde         structures/s          2.297      2.931    +27.6%      PASS
+openfold3       structures/s          2.259      2.276     +0.7%      PASS
+opendde-abag    structures/s          2.903      2.923     +0.7%      PASS
+rf3             structures/s         0.1976      0.202     +2.2%      PASS
+esmc-300m       seq/s                 153.4      146.3     -4.6%      PASS
+esmc-300m-singleseq/s                 58.97      59.15     +0.3%      PASS
+esmc-600m       seq/s                 110.5      109.7     -0.7%      PASS
+esmc-6b         seq/s                 10.48      10.48     -0.1%      PASS
+saprot-650m     seq/s                 282.3      283.3     +0.3%      PASS
+boltzgen        designs/s           0.02248     0.0213     -5.3%      PASS
+boltz2-affinity affinities/s        0.02413    0.02376     -1.5%      PASS
+rfd3            designs/s            0.2842     0.2725     -4.1%      PASS
+pxdesign        designs/s           0.07702    0.07792     +1.2%      PASS
+nesso1          affinities/s        0.06949    0.06996     +0.7%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.7.2  |  input: per-model (8 distinct)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: p300cgap-fullgate released, rc=0, loadavg 1.19 1.73 1.37
