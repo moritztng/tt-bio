@@ -371,6 +371,110 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
     print(f"wrote fixture tree to {root}", flush=True)
 
 
+def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
+                  trunk_probe=False):
+    """Paired A/B on the confidence head's 4-block pair trunk, device path only.
+
+    Runs one device fold, capturing the confidence head's inputs (s_inputs, z, x_pred
+    and the index tensors), then re-scores those SAME inputs twice: once with the ttnn
+    pair trunk the port installs, once with the reference fp32 pair trunk from
+    `ref_model`. Every other part of the head is already host fp32 on both legs, so the
+    difference between the two mean plDDTs is exactly what the device pair trunk
+    contributes, with zero fold-level sampler noise between the legs.
+
+    No reference fold is needed, which is what makes this affordable at L512: a CPU
+    fp32 reference fold of cdk2x2_512 takes ~47 min per seed.
+    """
+    head = tt_model.confidence_head
+    dev_trunk, inner = head.folding_trunk, head.forward
+    cap = {}
+
+    def _capture(*a, **k):
+        cap["a"], cap["k"] = a, k
+        return inner(*a, **k)
+
+    head.forward = _capture
+    try:
+        run = run_forward(tt_model, feats, lm_hs, loops=loops, steps=steps,
+                          samples=1, seed=seed)
+    finally:
+        head.forward = inner
+    if "k" not in cap:
+        raise SystemExit("confidence head was never called: nothing to A/B")
+
+    def _score(out):
+        return {"plddt": float(out["plddt"].float().mean()),
+                "ptm": float(out["ptm"].float().mean())}
+
+    legs = {"fold": _score(run)}
+    for tag, trunk in (("device_trunk", dev_trunk),
+                       ("host_fp32_trunk", ref_model.confidence_head.folding_trunk)):
+        head.folding_trunk = trunk
+        try:
+            legs[tag] = _score(inner(*cap["a"], **cap["k"]))
+        finally:
+            head.folding_trunk = dev_trunk
+    legs["delta_plddt"] = legs["host_fp32_trunk"]["plddt"] - legs["device_trunk"]["plddt"]
+    legs["delta_ptm"] = legs["host_fp32_trunk"]["ptm"] - legs["device_trunk"]["ptm"]
+    z = cap["k"]["z"].float()
+    legs["z_in"] = _pair_stats(z)
+    if trunk_probe:
+        legs["trunk_probe"] = trunk_bf16_probe(tt_model, ref_model, z)
+    return legs
+
+
+def _pair_stats(z) -> dict:
+    """Magnitude profile of a pair tensor, and what bf16 storage costs at that scale.
+
+    `ulp_at_absmax` is the bf16 spacing at the largest entry: a residual update smaller
+    than half of it is lost outright when the pair state is stored in bf16.
+    """
+    import math
+    a = z.float().abs().flatten()
+    absmax = float(a.max())
+    # torch.quantile caps at ~16M elements; a [1,512,512,256] pair is 67M, so read the
+    # quantiles off a deterministic stride-4 subsample (absmax below is exact).
+    sub = a[::4] if a.numel() > 16_000_000 else a
+    q = [float(v) for v in sub.quantile(torch.tensor([0.5, 0.99, 0.9999]))]
+    ulp = 2.0 ** (math.floor(math.log2(absmax)) - 7) if absmax > 0 else 0.0
+    return {"rms": float(z.float().pow(2).mean().sqrt()), "absmax": absmax,
+            "p50": q[0], "p99": q[1], "p9999": q[2],
+            "frac_above_256": float((a > 256).float().mean()),
+            "bf16_ulp_at_absmax": ulp}
+
+
+def trunk_bf16_probe(tt_model, ref_model, z) -> dict:
+    """One trunk pass over the same pair tensor, three ways, to price bf16 pair storage.
+
+    * `device`: the ttnn trunk, whose pair state lives in bf16 between blocks.
+    * `host_fp32`: the reference trunk, fp32 throughout (the parity target).
+    * `host_bf16_state`: the reference trunk in fp32 arithmetic, but with the pair state
+      rounded to bf16 after every block, i.e. the device's storage precision and nothing
+      else.
+
+    If `host_bf16_state` reproduces `device`'s error against `host_fp32`, the port's pair
+    divergence is bf16 pair storage rather than any op's arithmetic.
+    """
+    ftw = tt_model.folding_trunk.m          # _Adapter.m -> E.FoldingTrunk (torch in/out)
+    ref_trunk = ref_model.folding_trunk     # torch fp32 FoldingTrunk, same weights
+    z = z.float()
+
+    out_dev = ftw(z).float()
+    out_ref = ref_trunk(z.clone()).float()
+
+    cur = z.clone()
+    for block in ref_trunk.blocks:
+        cur = block(cur).float().to(torch.bfloat16).float()
+    out_bf16 = cur
+
+    return {"n_blocks": len(ref_trunk.blocks),
+            "device_vs_host_fp32_rel_l2": rel_l2(out_dev, out_ref),
+            "host_bf16_state_vs_host_fp32_rel_l2": rel_l2(out_bf16, out_ref),
+            "device_vs_host_bf16_state_rel_l2": rel_l2(out_dev, out_bf16),
+            "out_host_fp32": _pair_stats(out_ref),
+            "out_device": _pair_stats(out_dev)}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true")
@@ -391,6 +495,14 @@ def main():
                          "(unreleased weights); provenance in the output still records it")
     ap.add_argument("--esmc_repo", default="biohub/ESMC-6B")
     ap.add_argument("--out", default="/tmp/ef2_parity/summary.json")
+    ap.add_argument("--trunk_probe", action="store_true",
+                    help="with --conf_ab, also price bf16 pair storage: one trunk pass over "
+                         "the captured pair tensor on device, on host fp32, and on host fp32 "
+                         "with the pair state rounded to bf16 between blocks")
+    ap.add_argument("--conf_ab", action="store_true",
+                    help="device-only paired A/B of the confidence head's pair trunk "
+                         "(ttnn vs reference fp32) on identical captured inputs; skips "
+                         "the reference fold, so no parity verdict is produced")
     ap.add_argument("--fixture_dir", default=None,
                     help="dump a committed fixture tree here (requires exactly one protein)")
     args = ap.parse_args()
@@ -454,6 +566,16 @@ def main():
         atom_mask = feats["atom_attention_mask"].float()
         if atom_mask.dim() == 1:
             atom_mask = atom_mask.unsqueeze(0)
+
+        if args.conf_ab:
+            ab = conf_trunk_ab(tt_model, ref_model, feats, lm_hs, loops=args.loops,
+                               steps=args.steps, seed=seeds[0],
+                               trunk_probe=args.trunk_probe)
+            ab = dict(protein=name, L=len(seq), seed=seeds[0], checkpoint=args.checkpoint,
+                      trunk_blocks=ckpt["trunk_blocks"], **ab)
+            results.append(ab)
+            print(json.dumps(ab, indent=2), flush=True)
+            continue
 
         ref_runs, tt_runs = {}, {}
         for s in seeds:
