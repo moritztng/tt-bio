@@ -66,6 +66,14 @@ OPM_SMALL_DEPTH_STATS = [0, 0]
 # through the function, never this base.
 CONCAT_HOST_BYTES_BASE = 1536 * 2 ** 20      # 1.5 GiB
 _CONCAT_HOST_BYTES = None                    # resolved once, on first use after the open
+# Peak DRAM one row-blocked atom-pair section may hold. RFD3's token initializer builds
+# eight [L, L, <=32] atom-pair tensors -- L is ATOMS, ~11 per residue -- and holds all of
+# them to the end of the function, so its peak is ~8 x L x pad32(L) x 64 B and it died at
+# 4558 atoms with 9.5 of 12 GiB standing. A quarter of the part is the largest block that
+# still leaves the rest of the initializer, the weights and the sampler their room; on a
+# 12 GiB Wormhole chip that is 3.0 GiB, which keeps every design up to ~310 residues in a
+# single block and therefore byte-identical to the unblocked path.
+ATOM_PAIR_BUDGET_FRACTION = 4
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
 # Row-block height for the trimul's row-local projections. One number so the input and output
@@ -3632,6 +3640,37 @@ def _dram_total_bytes(device=None) -> int:
         return int(mv.total_bytes_per_bank) * int(mv.num_banks)
     except Exception:
         return 0
+
+
+def atom_pair_budget_bytes() -> int:
+    """DRAM a row-blocked atom-pair section may hold at once on the part now open.
+
+    A fraction of the part rather than a constant, for the same reason concat_host_bytes()
+    is: 3.0 GiB on a 12 GiB Wormhole chip, 7.97 GiB on a 31.875 GiB p150a. Falls back to
+    the Wormhole figure when no device is open, so a caller that sizes a block before the
+    open gets the tighter of the two answers rather than an unbounded one.
+    """
+    total = _dram_total_bytes()
+    return (total // ATOM_PAIR_BUDGET_FRACTION if total
+            else (12 * 2 ** 30) // ATOM_PAIR_BUDGET_FRACTION)
+
+
+def row_block(per_row_bytes: int, budget_bytes: int, cap: int = 0) -> int:
+    """Rows per block so one block of a row-independent op stays under `budget_bytes`.
+
+    `per_row_bytes` is what ONE row of the block costs on device summed over the tensors
+    that are live at the same moment, not the size of the output: the thing a budget has
+    to bound is the peak, and every site that got this wrong bounded one tensor and then
+    kept five more alive beside it.
+
+    32-aligned and never below one tile row. Regrouping rows of a row-independent op
+    cannot change a value, so a caller is free to pass any block size; the alignment is
+    only there so a block never pays for tile padding it does not use.
+    """
+    rows = (int(budget_bytes) // max(int(per_row_bytes), 1)) // 32 * 32
+    if cap:
+        rows = min(rows, cap)
+    return max(32, rows)
 
 
 def _concat_host_budget(dram_total: int) -> int:
@@ -7405,9 +7444,7 @@ class OuterProductMean(Module):
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
-            per_row = C * D * J * 2
-            rows_blk = max(32, min(OPM_CHUNK_SIZE,
-                                   (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
+            rows_blk = row_block(C * D * J * 2, OPM_Z_BUDGET_BYTES, cap=OPM_CHUNK_SIZE)
             z_acc = None
             for i in range(0, I, rows_blk):
                 part = outer_product_mean(i, min(i + rows_blk, I))

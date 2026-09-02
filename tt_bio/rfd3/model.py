@@ -28,7 +28,8 @@ from .. import rfd3_bias, softmax_generic
 from ..envflags import env_flag
 from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
-from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
+from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul,
+                           atom_pair_budget_bytes, row_block)
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
@@ -608,14 +609,40 @@ def _build_relpos_onehot(f, r_max, s_max):
     return torch.cat([A_relpos, A_reltoken, b_same_entity.unsqueeze(-1), A_relchain], dim=-1).to(torch.float32)
 
 
-def _sinusoidal_embed(pos, valid_mask, n_freqs=32):
-    """Host: SinusoidalDistEmbed inputs -> (sincos [L,L,2*n_freqs], V_LL [L,L,1])."""
-    D = pos.unsqueeze(-2) - pos.unsqueeze(-3)
+def _sinusoidal_embed(pos_rows, pos, valid_mask, n_freqs=32):
+    """Host: SinusoidalDistEmbed inputs -> (sincos [R,L,2*n_freqs], V_LL [R,L,1]).
+
+    `pos_rows` is a row block of `pos`; pass `pos` for both to get the whole thing. The
+    row block matters on host as much as on device -- `sincos` is fp32 and 64 wide, so at
+    RFD3's 4558-atom Wormhole cap the unblocked form is a 5.3 GB host allocation.
+    """
+    D = pos_rows.unsqueeze(-2) - pos.unsqueeze(-3)
     dist = torch.linalg.norm(D, dim=-1)
     freq = torch.exp(-math.log(10000.0) * torch.arange(0, n_freqs, dtype=torch.float32) / n_freqs)
     angles = dist.unsqueeze(-1) * freq
     sincos = torch.cat([torch.sin(angles), torch.cos(angles)], dim=-1).to(torch.float32)
     return sincos, valid_mask.to(torch.float32)
+
+
+# Atom-pair tensors alive at once at the widest point of one row block of the token
+# initializer's P_LL section: the sincos embedding counts twice (64 channels, so two
+# 32-wide tile rows) and the rest are 1 or 16 channels, each of which the tile grid
+# rounds up to 32. Counted off the code below with its deallocates in place, then rounded
+# up by one so a future add does not silently overrun the budget.
+_ATOM_PAIR_LIVE_ROWS = 6
+
+
+def _pair_add(a, b, free_b=True):
+    """``a + b`` for two atom-pair tensors, freeing the operands.
+
+    An atom-pair add whose operands outlive it holds three copies of a tensor that is
+    1.33 GB at RFD3's old Wormhole cap, and the section does eight of them.
+    """
+    out = ttnn.add(a, b)
+    ttnn.deallocate(a)
+    if free_b:
+        ttnn.deallocate(b)
+    return out
 
 
 def _build_valid_mask(tok_idx):
@@ -1307,54 +1334,94 @@ class TokenInitializer(Module):
         c_l_h = s_tr_h[tok_idx]                                # [L, C_ATOM] (gather)
         c_l = ttnn.add(ql_init, _tt(c_l_h.unsqueeze(0), dev, dt))  # C_L [1,L,C_ATOM]
 
-        # ---- P_LL [L, L, C_ATOMPAIR=16] ----
-        # motif_pos_embedder (SinusoidalDistEmbed): host sincos -> device output_proj + valid_mask linears
-        mp = f["motif_pos"].float()
-        vm_mp = (f["is_motif_atom_with_fixed_coord"].unsqueeze(-1) & f["is_motif_atom_with_fixed_coord"].unsqueeze(-2)).unsqueeze(-1).float()
-        sc, vsc = _sinusoidal_embed(mp, vm_mp)                  # [L,L,64], [L,L,1]
-        sc = _tt(sc.unsqueeze(0), dev, dt); vsc = _tt(vsc.unsqueeze(0), dev, dt)
-        p = ttnn.multiply(ttnn.linear(sc, self.motif_pos_proj, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN), vsc)
-        p = ttnn.add(p, ttnn.multiply(ttnn.linear(vsc, self.motif_pos_vm, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN), vsc))
-        # ref_pos_embedder (no-frame): host inv_dist -> device linears
-        rp = f["ref_pos"].float()
-        same_tok = (f["ref_space_uid"].unsqueeze(-1) == f["ref_space_uid"].unsqueeze(-2)).unsqueeze(-1).float()
-        has_seq = (f["is_motif_atom_with_fixed_seq"].unsqueeze(-1) & f["is_motif_atom_with_fixed_seq"].unsqueeze(-2)).unsqueeze(-1).float()
-        vm_rp = same_tok * has_seq
-        D = rp.unsqueeze(-2) - rp.unsqueeze(-3)
-        invd = 1.0 / (1.0 + D.pow(2).sum(-1, keepdim=True).clamp(min=1e-6))
-        invd = _tt(invd.unsqueeze(0), dev, dt); vm_rp = _tt(vm_rp.unsqueeze(0), dev, dt)
-        p = ttnn.add(p, ttnn.multiply(ttnn.linear(invd, self.refpos_invd, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN), vm_rp))
-        p = ttnn.add(p, ttnn.multiply(ttnn.linear(vm_rp, self.refpos_vm, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN), vm_rp))
         # process_single_l/m (ReLU + linear on C_L) -- c_l_h uploaded once,
-        # reused for both sl/sm (was 2x, p23 perf; identical bf16 cast either way)
+        # reused for both sl/sm (was 2x, p23 perf; identical bf16 cast either way).
+        # Both are [1,L,16] and the pair loop below needs a row slice of one and all of
+        # the other, so they are built once, before it.
         c_l_h = ttnn.to_torch(c_l).float().squeeze(0)        # [L, C_ATOM]
         c_l_dev = _tt(c_l_h.unsqueeze(0), dev, dt)
         sl = ttnn.relu(c_l_dev)
         sl = ttnn.linear(sl, self.proc_single_l_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)  # [1,L,16]
         sm = ttnn.relu(c_l_dev)
         sm = ttnn.linear(sm, self.proc_single_m_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        p = ttnn.add(p, ttnn.unsqueeze(sl, -2))             # [1,L,1,16] + [1,L,L,16] -> [1,L,L,16]
-        p = ttnn.add(p, ttnn.unsqueeze(sm, -3))
-        # process_z(Z_init_II): RMSNorm + linear -> [I,I,16]; gather to atoms [L,L,16]
-        # (Z_init_II_dev kept around unmodified -- ttnn ops return new tensors,
-        # not in-place -- and reused below for the zupd add instead of a 2nd
-        # upload of the same host tensor; p23 perf, bit-identical.)
+        sm_cols = ttnn.unsqueeze(sm, -3)                     # [1,1,L,16], broadcast over rows
+        # process_z(Z_init_II): RMSNorm + linear -> [I,I,16]; gathered to atom rows in the loop.
+        # (Z_init_II_dev kept around unmodified -- ttnn ops return new tensors, not in-place --
+        # and reused below for the zupd add instead of a 2nd upload of the same host tensor;
+        # p23 perf, bit-identical.)
         Z_init_II_dev = _tt(Z_init_II.unsqueeze(0), dev, dt)
         z_dev = ttnn.rms_norm(Z_init_II_dev, weight=self.proc_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         pz = ttnn.linear(z_dev, self.proc_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)  # [1,I,I,16]
         pz_h = ttnn.to_torch(pz).float().squeeze(0)          # [I,I,16]
-        pz_h = pz_h[tok_idx][:, tok_idx, :]                   # [L,L,16] (gather both axes)
-        p = ttnn.add(p, _tt(pz_h.unsqueeze(0), dev, dt))
-        # pair_mlp (ReLU + linear x3) residual
-        m = p
-        for w in self.pair_mlp_w:
-            m = ttnn.relu(m)
-            m = ttnn.linear(m, w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        p = ttnn.add(p, m)
-        p_h = ttnn.to_torch(p).float().squeeze(0)            # [L,L,16]
-        # pooled = scatter_mean_pool(process_pll(P_LL)) -> project_pll -> add to Z
-        pll = ttnn.linear(p, self.proc_pll_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        pll_h = ttnn.to_torch(pll).float().squeeze(0)       # [L,L,16]
+
+        # ---- P_LL [L, L, C_ATOMPAIR=16], one row block of atoms at a time ----
+        # Every tensor here is [L, L, <=32 after tile padding] and L is ATOMS, ~11 per
+        # residue: one of them is 1.33 GB at the 4558 atoms RFD3 used to stop at, and the
+        # unblocked form held eight of them to the end of the function. The atom row axis
+        # is independent in all of it -- elementwise products, broadcasts, and linears that
+        # contract the channel axis -- so a row block computes exactly the rows it covers
+        # and `rows == L` is the unblocked path, byte for byte.
+        mp = f["motif_pos"].float()
+        rp = f["ref_pos"].float()
+        coord_ok = f["is_motif_atom_with_fixed_coord"]
+        seq_ok = f["is_motif_atom_with_fixed_seq"]
+        uid = f["ref_space_uid"]
+        rows = row_block(_ATOM_PAIR_LIVE_ROWS * align_tile(L) * TILE * 2,
+                         atom_pair_budget_bytes())
+        p_blocks, pll_blocks = [], []
+        for a0 in range(0, L, rows):
+            a1 = min(a0 + rows, L)
+            # motif_pos_embedder (SinusoidalDistEmbed): host sincos -> device output_proj + valid_mask linears
+            vm_mp = (coord_ok[a0:a1].unsqueeze(-1) & coord_ok.unsqueeze(-2)).unsqueeze(-1).float()
+            sc, vsc = _sinusoidal_embed(mp[a0:a1], mp, vm_mp)     # [R,L,64], [R,L,1]
+            sc = _tt(sc.unsqueeze(0), dev, dt); vsc = _tt(vsc.unsqueeze(0), dev, dt)
+            proj = ttnn.linear(sc, self.motif_pos_proj, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+            ttnn.deallocate(sc)
+            p = ttnn.multiply(proj, vsc)
+            ttnn.deallocate(proj)
+            p = _pair_add(p, ttnn.multiply(
+                ttnn.linear(vsc, self.motif_pos_vm, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN), vsc))
+            ttnn.deallocate(vsc)
+            # ref_pos_embedder (no-frame): host inv_dist -> device linears
+            same_tok = (uid[a0:a1].unsqueeze(-1) == uid.unsqueeze(-2)).unsqueeze(-1).float()
+            has_seq = (seq_ok[a0:a1].unsqueeze(-1) & seq_ok.unsqueeze(-2)).unsqueeze(-1).float()
+            vm_rp = same_tok * has_seq
+            D = rp[a0:a1].unsqueeze(-2) - rp.unsqueeze(-3)
+            invd = 1.0 / (1.0 + D.pow(2).sum(-1, keepdim=True).clamp(min=1e-6))
+            invd = _tt(invd.unsqueeze(0), dev, dt); vm_rp = _tt(vm_rp.unsqueeze(0), dev, dt)
+            p = _pair_add(p, ttnn.multiply(
+                ttnn.linear(invd, self.refpos_invd, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN), vm_rp))
+            ttnn.deallocate(invd)
+            p = _pair_add(p, ttnn.multiply(
+                ttnn.linear(vm_rp, self.refpos_vm, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN), vm_rp))
+            ttnn.deallocate(vm_rp)
+            # A single block slices nothing: `sl` itself is the block, so the unblocked
+            # path stays the op sequence it always was.
+            sl_rows = sl if rows >= L else ttnn.slice(sl, (0, a0, 0), (1, a1, self.C_ATOMPAIR))
+            p = _pair_add(p, ttnn.unsqueeze(sl_rows, -2), free_b=False)  # [1,R,1,16] over cols
+            p = _pair_add(p, sm_cols, free_b=False)                      # [1,1,L,16] over rows
+            # process_z gathered to this block's atom rows, both axes
+            p = _pair_add(p, _tt(pz_h[tok_idx[a0:a1]][:, tok_idx, :].unsqueeze(0), dev, dt))
+            # pair_mlp (ReLU + linear x3) residual
+            m = p
+            for w in self.pair_mlp_w:
+                r = ttnn.relu(m)
+                if m is not p:
+                    ttnn.deallocate(m)
+                m = ttnn.linear(r, w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+                ttnn.deallocate(r)
+            p = _pair_add(p, m)
+            p_blocks.append(ttnn.to_torch(p).float().squeeze(0))            # [R,L,16]
+            pll = ttnn.linear(p, self.proc_pll_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+            ttnn.deallocate(p)
+            pll_blocks.append(ttnn.to_torch(pll).float().squeeze(0))        # [R,L,16]
+            ttnn.deallocate(pll)
+        p_h = p_blocks[0] if len(p_blocks) == 1 else torch.cat(p_blocks, dim=0)
+        pll_h = pll_blocks[0] if len(pll_blocks) == 1 else torch.cat(pll_blocks, dim=0)
+        del p_blocks, pll_blocks
+        # pooled = scatter_mean_pool(process_pll(P_LL)) -> project_pll -> add to Z.
+        # Not blocked: the pool reduces over the atom row axis, and summing per block and
+        # adding the parts is a different order of additions from summing once.
         pooled = _scatter_mean_pool(pll_h, tok_idx, I)        # [I,I,16]
         pooled = _tt(pooled.unsqueeze(0), dev, dt)
         zupd = ttnn.linear(pooled, self.project_pll_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)  # [1,I,I,128]
