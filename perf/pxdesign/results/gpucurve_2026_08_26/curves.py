@@ -2,11 +2,12 @@
 """Batch curves for the PXDesign generator on both sides, and what they do to the published row.
 
 GPU rungs come from the per-rung reports written by gpu_pxdesign_run.py on the two rented boxes;
-Tenstorrent rungs from perf/newmodelcells/batchcurve* on pc's p150a. Writes CURVES.json next to
-this file. The GPU s/design is warm_median_cell_s / n_sample, the same quantity the published
+Tenstorrent rungs from perf/newmodelcells/<prefix>batchcurve*, where --tt_prefix picks the box:
+the default qb2_ is the qb2 p300c re-measurement, --tt_prefix '' reproduces the original pc p150a
+run, whose seconds were never publishable. Writes CURVES.json next to this file. The GPU s/design is warm_median_cell_s / n_sample, the same quantity the published
 b=1 cells publish.
 """
-import glob, json, os, re, statistics, sys
+import argparse, glob, json, os, re, statistics, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
@@ -52,33 +53,65 @@ def gpu_curve(box):
     return rungs
 
 
-def tt_curve():
-    fit = json.load(open(os.path.join(NMC, "batchcurve", "FIT_400.json")))
+def tt_curve(prefix):
+    fit = json.load(open(os.path.join(NMC, prefix + "batchcurve", "FIT_400.json")))
     rungs = {r["batch"]: {"batch": r["batch"], "fitted_s_per_design": r["s_per_design"],
                           "distinct": r["distinct"]} for r in fit["rungs"]}
-    for f in glob.glob(os.path.join(NMC, "batchcurve400", "c400_n*.json")):
+    prov = {}
+    # Any 400-step run of the rung, whatever its label: the b=8 anchor is a rounds-5 run because
+    # its last warm round repeats the cold round's seed, which is the reproduction check. Where two
+    # files describe one rung, the one with more warm rounds wins.
+    for f in sorted(glob.glob(os.path.join(NMC, prefix + "batchcurve400", "*400_n*.json"))):
         d = json.load(open(f))
+        if not d.get("warm_n"):
+            continue
         r = rungs.setdefault(d["n_sample_per_call"], {"batch": d["n_sample_per_call"]})
+        if r.get("measured_warm_n", 0) > d["warm_n"]:
+            continue
         r["measured_s_per_design"] = d["warm_median_s_per_design"]
         r["measured_spread_pct"] = d["warm_spread_pct_per_design"]
         r["measured_warm_n"] = d["warm_n"]
+        r["measured_from"] = os.path.basename(f)
         r["distinct"] = d["all_designs_distinct"]
+        prov = {"host": d["host"], "card": d["card"], "ttnn": d["ttnn"], "git_head": d["git_head"],
+                "grid": d.get("grid"), "diffusion_fp32": d.get("diffusion_fp32")}
     out = [rungs[k] for k in sorted(rungs)]
-    b1 = out[0]
-    base = b1.get("measured_s_per_design") or b1["fitted_s_per_design"]
+    base = out[0].get("measured_s_per_design") or out[0]["fitted_s_per_design"]
     for r in out:
-        s = r.get("measured_s_per_design") or r["fitted_s_per_design"]
-        r["amortisation_x"] = round(base / s, 4)
+        sd = r.get("measured_s_per_design") or r["fitted_s_per_design"]
+        r["amortisation_x"] = round(base / sd, 4)
         if "measured_s_per_design" in r:
             r["fit_error_pct"] = round(100 * (r["fitted_s_per_design"] - r["measured_s_per_design"])
                                        / r["measured_s_per_design"], 3)
-    return out
+    return out, prov
 
 
-def chunk_check():
+def seed_check(prefix):
+    """Round 4 repeats round 0's seed, so its coordinate digest must repeat. pc's fp32 rate on this
+    shape was 0/14, so a clean rate here is a finding in its own right."""
+    hits = []
+    for f in sorted(glob.glob(os.path.join(NMC, prefix + "batchcurve400", "*.json"))) + \
+            sorted(glob.glob(os.path.join(NMC, prefix + "batchcurve", "*.json"))):
+        d = json.load(open(f))
+        if "designs" not in d:
+            continue
+        by_seed = {}
+        for r in d["designs"]:
+            by_seed.setdefault(r["seed"], []).append(r["coord_sha16"])
+        for seed, digs in sorted(by_seed.items()):
+            if len(digs) > 1:
+                hits.append({"file": os.path.basename(f), "batch": d["n_sample_per_call"],
+                             "n_step": d["n_step"], "seed": seed, "digests": digs,
+                             "reproduced": len(set(digs)) == 1})
+    if not hits:
+        return None
+    return {"pairs": hits, "reproduced": sum(h["reproduced"] for h in hits), "total": len(hits)}
+
+
+def chunk_check(prefix):
     """max_parallel_samples 8 with n_sample 32: is the chunk ceiling the batch ceiling?"""
     pts = {}
-    for f in glob.glob(os.path.join(NMC, "batchchunk", "mps8_s*_n32.json")):
+    for f in glob.glob(os.path.join(NMC, prefix + "batchchunk", "mps8_s*_n32.json")):
         d = json.load(open(f))
         warm = [x["s_per_design"] for x in d["designs"] if not x.get("cold")]
         pts[d["n_step"]] = statistics.median(warm) * d["n_sample_per_call"]
@@ -93,19 +126,31 @@ def chunk_check():
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tt_prefix", default="qb2_",
+                    help="perf/newmodelcells/<prefix>batchcurve* to read the TT rungs from")
+    ap.add_argument("--board", default="p300c", help="board type of the card that ran them")
+    a = ap.parse_args()
     page = json.load(open(PAGE))
     px = next(m for m in page["design"]["models"] if m["id"] == "pxdesign")
     cells = {k: v["s_per_design"] for k, v in px["cells"].items()}
-    tt, h200, b200 = tt_curve(), gpu_curve("h200"), gpu_curve("b200")
+    tt, prov = tt_curve(a.tt_prefix)
+    h200, b200 = gpu_curve("h200"), gpu_curve("b200")
 
     def best(rungs, key):
         return max(rungs, key=lambda r: r["amortisation_x"])
 
     out = {"fixture": px["target"], "n_step": px["sampling_steps"],
            "published_cells_s_per_design": cells,
-           "tt": {"host": "pc", "card": "p150a physical 0", "label": "PROVISIONAL-ON-PC-CARD0",
+           "tt": {"host": prov.get("host"), "board": a.board,
+                  "card": "%s physical %s" % (a.board, prov.get("card")),
+                  "provenance": "on a %s board in %s, physical card %s"
+                                % (a.board, prov.get("host"), prov.get("card")),
+                  "ttnn": prov.get("ttnn"), "git_head": prov.get("git_head"),
+                  "grid": prov.get("grid"), "diffusion_fp32": prov.get("diffusion_fp32"),
                   "rungs": tt, "best": best(tt, "amortisation_x")["batch"],
-                  "chunk_check": chunk_check()},
+                  "seed_check": seed_check(a.tt_prefix),
+                  "chunk_check": chunk_check(a.tt_prefix)},
            "h200": {"rungs": h200, "best": best(h200, "amortisation_x")["batch"] if h200 else None},
            "b200": {"rungs": b200, "best": best(b200, "amortisation_x")["batch"] if b200 else None}}
 
@@ -132,6 +177,12 @@ def main():
             print("  ", {k: v for k, v in r.items() if k != "digests"})
     if out["tt"]["chunk_check"]:
         print("\nchunk", out["tt"]["chunk_check"])
+    if out["tt"]["seed_check"]:
+        sc = out["tt"]["seed_check"]
+        print("\nseed  %d/%d repeated-seed pairs reproduced their digest" %
+              (sc["reproduced"], sc["total"]))
+        for h in sc["pairs"]:
+            print("  ", h)
 
 
 main()
