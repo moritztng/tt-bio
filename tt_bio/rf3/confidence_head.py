@@ -28,14 +28,20 @@ from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer
 
 EPS = 1e-5
 
-#: Fold the global layer norm's flatten into rows instead of one long row. OFF by default:
-#: it is NOT bit-exact with the shipped one-row flatten above 128 tokens (measured, up to
-#: 6.8e-3 relative), because the reduction blocking changes. ON is what makes 1024 aa run
-#: at all -- see `global_layer_norm`. Both arms sit inside bf16 output noise of the torch
+#: Fold the global layer norm's flatten into rows instead of one long row. ON by default
+#: since the 2026-09-03 ceiling pass: the one-row flatten asks TILE_LAYOUT to pad a single row
+#: up to 32, so it requests 32x the pair tensor, and that is the second of RF3's two Wormhole
+#: size walls. Measured: the 640 aa fold died in the confidence head asking for 3355443200 B,
+#: which is exactly 32 x (640 x 640 x 128 x 2), and the docstring's 8.590 GB at 1024 aa is the
+#: same arithmetic. The row fold pads nothing.
+#:
+#: It is NOT bit-exact with the one-row flatten above 128 tokens (measured, up to 6.8e-3
+#: relative), because the reduction blocking changes -- same mean of the same equal-size
+#: groups, taken in a different order. Both arms sit inside bf16 output noise of the torch
 #: reference, and on the largest tensor the row fold is 228x closer to it (7.670e-03 ->
-#: 3.363e-05 rel_rms at 768 tokens), but "more accurate" is still "different", so this is
-#: release-gated and stays opt-in until the head is re-scored against its capture.
-_GLN_ROW_FOLD = env_flag("TT_BIO_RF3_GLN_ROW_FOLD", False)
+#: 3.363e-05 rel_rms at 768 tokens). Release-gated for that reason, not because it is doubtful.
+#: Set TT_BIO_RF3_GLN_ROW_FOLD=0 for the one-row flatten.
+_GLN_ROW_FOLD = env_flag("TT_BIO_RF3_GLN_ROW_FOLD", True)
 
 
 
@@ -47,10 +53,10 @@ def global_layer_norm(x: ttnn.Tensor, compute_kernel_config) -> ttnn.Tensor:
     Flattening to a single row, `(1, 1, 1, n)`, costs 32x the tensor: TILE_LAYOUT pads
     that one row up to a full 32-row tile. At 1024 aa the pair rep is 0.268 GB and the
     allocator was asked for 8.590 GB to normalise it, which is where the fold died --
-    not a memory requirement of the model, a shape choice. `_GLN_ROW_FOLD` keeps the
-    last axis and folds the rest into rows, which pads nothing, and reduces over the two
-    axes in turn: the same mean of the same equal-size groups, in a different order, so
-    it is not bit-exact and is opt-in.
+    not a memory requirement of the model, a shape choice. `_GLN_ROW_FOLD`, on by
+    default, keeps the last axis and folds the rest into rows, which pads nothing, and
+    reduces over the two axes in turn: the same mean of the same equal-size groups, in a
+    different order, so it is not bit-exact with the one-row flatten.
     """
     shape = tuple(x.shape)
     n = 1

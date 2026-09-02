@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import ttnn
 
+from tt_bio.envflags import env_flag
 from tt_bio.tenstorrent import (
     Module,
     OuterProductMean,
@@ -36,12 +37,34 @@ from tt_bio.tenstorrent import (
     PairWeightedAveraging,
     Transition,
     Weights,
+    sdpa_ragged_pad_site,
 )
 
 #: MSA-module channel dims, from configs/model/components/rf3_net.yaml.
 C_M = 64
 PWA_HEAD_DIM, PWA_N_HEADS = 32, 8
 TRI_ATT_HEAD_DIM, TRI_ATT_N_HEADS = 32, 4
+
+#: Route this block's triangle attention through the fused SDPA, as the trunk stack, the
+#: confidence head and the template embedder already do via `remap.PAIRFORMER_FLAGS`.
+#:
+#: This was the one RF3 triangle-attention site left on the materialised fp32-softmax chain,
+#: and it is what sets the Wormhole size ceiling. That chain writes the whole score tensor,
+#: [tokens, heads, S, S], and `_FP32_SOFTMAX_BLOCK_BYTES` is 8 GiB, so on a 12 GiB part it
+#: never blocks: at 650 tokens the bf16 half alone is 650 x 4 x 672 x 672 x 2 = 2.348 GB and
+#: the fp32 copy is 4.70 GB. That is the exact request the 650 aa fold died on at trunk 0/10
+#: (measured 2026-09-02, 9mnb: "Not enough space to allocate 2348236800 B DRAM buffer"), and
+#: 656 aa died on 2369912832 B, the same tensor six tokens wider. The fused kernel never
+#: materialises it.
+#:
+#: `sdpa_ragged_pad` ships with it and never without: this block runs on the RAW token axis
+#: (the trunk buckets to a multiple of 32 only around the 48-block stack downstream), so the
+#: key tail is ragged on every input that is not a multiple of 32, and the fused kernel is
+#: 71-76x wrong there unmasked -- `remap.PAIRFORMER_FLAGS` records the same pairing for the
+#: trunk site.
+#:
+#: Set TT_BIO_RF3_MSA_FUSED_SDPA=0 for the old materialised route.
+_MSA_FUSED_SDPA = env_flag("TT_BIO_RF3_MSA_FUSED_SDPA", True)
 
 
 class MSASubsampleEmbedder(Module):
@@ -100,8 +123,12 @@ class MSAModule(Module):
             compute_kernel_config,
             scale_pair_bias=False,
             transpose_bias=False,
-            # See template.py: the reference's softmax stays fp32 under autocast.
-            fp32_softmax=True,
+            # fp32_softmax=True was "the reference's softmax stays fp32 under autocast"
+            # (template.py). The fused route reached the same accuracy once the ragged key
+            # tail was masked, which is why the trunk switched; see _MSA_FUSED_SDPA.
+            fp32_softmax=not _MSA_FUSED_SDPA,
+            tri_att_sdpa_ragged_pad=(
+                _MSA_FUSED_SDPA and sdpa_ragged_pad_site("rf3.tri_att", True)),
         )
 
     def __call__(
