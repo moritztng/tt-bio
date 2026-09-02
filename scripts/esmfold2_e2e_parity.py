@@ -373,7 +373,7 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
 
 def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
                   trunk_probe=False, z_sens=False, x_swap_pdb=None,
-                  inputs_swap=False, ref_z=False):
+                  inputs_swap=False, ref_z=False, z_ref_out=None):
     """Paired A/B on the confidence head's 4-block pair trunk, device path only.
 
     Runs one device fold, capturing the confidence head's inputs (s_inputs, z, x_pred
@@ -431,11 +431,13 @@ def conf_trunk_ab(tt_model, ref_model, feats, lm_hs, *, loops, steps, seed,
         legs["inputs_swap"] = embedder_input_swap(ref_model, inner, cap, feats)
     if ref_z:
         legs["ref_z_swap"] = reference_z_swap(ref_model, inner, cap, feats, lm_hs,
-                                              loops=loops, steps=steps, seed=seed)
+                                              loops=loops, steps=steps, seed=seed,
+                                              z_ref_out=z_ref_out)
     return legs
 
 
-def reference_z_swap(ref_model, inner, cap, feats, lm_hs, *, loops, steps, seed) -> dict:
+def reference_z_swap(ref_model, inner, cap, feats, lm_hs, *, loops, steps, seed,
+                     z_ref_out=None) -> dict:
     """The reference's own trunk pair state, substituted into the device fold's head.
 
     `z` is the one confidence-head input that cannot be reproduced without running the
@@ -484,6 +486,15 @@ def reference_z_swap(ref_model, inner, cap, feats, lm_hs, *, loops, steps, seed)
     out["device_head_on_reference_z"] = {
         "plddt": float(res["plddt"].float().mean()),
         "ptm": float(res["ptm"].float().mean())}
+
+    # The reference trunk pass is the one expensive thing here, so keep its output. A later
+    # pass that wants another combination of inputs reloads this instead of recomputing it.
+    if z_ref_out:
+        import numpy as np
+        np.savez(z_ref_out, z_ref=z_ref.float().cpu().numpy(),
+                 z_dev=z_dev.float().cpu().numpy(),
+                 x_dev=x_dev.float().cpu().numpy())
+        out["z_ref_saved"] = z_ref_out
     return out
 
 
@@ -802,6 +813,9 @@ def main():
                          "(unreleased weights); provenance in the output still records it")
     ap.add_argument("--esmc_repo", default="biohub/ESMC-6B")
     ap.add_argument("--out", default="/tmp/ef2_parity/summary.json")
+    ap.add_argument("--z_ref_out", default=None,
+                    help="with --ref_z, save the reference pair state to this .npz so a later "
+                         "pass can reuse it instead of re-running the reference trunk")
     ap.add_argument("--ref_z", action="store_true",
                     help="with --conf_ab, run the reference trunk (sampler stubbed to the "
                          "device's coordinates) and substitute the reference's pair state "
@@ -893,7 +907,8 @@ def main():
                                steps=args.steps, seed=seeds[0],
                                trunk_probe=args.trunk_probe, z_sens=args.z_sens,
                                x_swap_pdb=args.x_swap_pdb,
-                               inputs_swap=args.inputs_swap, ref_z=args.ref_z)
+                               inputs_swap=args.inputs_swap, ref_z=args.ref_z,
+                               z_ref_out=args.z_ref_out)
             ab = dict(protein=name, L=len(seq), seed=seeds[0], checkpoint=args.checkpoint,
                       trunk_blocks=ckpt["trunk_blocks"], **ab)
             results.append(ab)

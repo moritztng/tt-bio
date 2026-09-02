@@ -164,3 +164,62 @@ either: the checkpoint that diverges is the one with half as many trunk blocks.
 The structural claim the row makes is sound and now measured; the confidence number it prints
 is 0.021 low against this repo's own reference, and that is a real open defect, not a
 measurement artefact.
+
+### Where the 0.021 comes from
+
+The gap is the folding trunk's pair state. Not the confidence head, not the sampled structure,
+not the featurization.
+
+The confidence head is host fp32 in the port except its own 4-block pair trunk, so the gap has
+to enter through one of the head's inputs. Each input can be substituted with the reference's
+value, and `scripts/esmfold2_e2e_parity.py` does exactly that on one device fold at cdk2x2_512,
+seed 0 (`--conf_ab` plus `--trunk_probe`, `--z_sens`, `--x_swap_pdb`, `--inputs_swap`,
+`--ref_z`). Device baseline 0.897708 on qb2 card 0:
+
+| substituted input | probe | mean plDDT | move |
+|---|---|---|---|
+| nothing (baseline) | — | 0.897708 | — |
+| the head's own pair trunk | ttnn -> reference fp32 | 0.897731 | +2.2e-5 |
+| `s_inputs` + relpos + token bonds | reference values | 0.897647 | -6.1e-5 |
+| `x_pred` | NVIDIA reference structure, 0.65 Å away | 0.897070 | -6.4e-4 |
+| `z` | **reference trunk's own pair state** | **0.914742** | **+0.017034** |
+
+Substituting `z` alone recovers 0.017 of the 0.024 gap and lands the device pipeline inside the
+0.9148-0.9171 the three NVIDIA folds report. `ptm` moves 0.7560 -> 0.7822 against the
+reference's 0.7980. The head itself is exact: on identical inputs the device's head and the
+reference's head agree to 8e-6 (0.9147418 against 0.9147503).
+
+The pair state differs by 12.1 % relative L2, and that is what ordinary bf16 arithmetic
+accumulates to: one 24-block trunk pass on device sits 3.4 % from the same pass in host fp32,
+and the recurrence runs four of them (`total_steps = num_loops + 1`), so the error adds
+coherently rather than in quadrature. Trunk matmuls already run HiFi4 with
+`fp32_dest_acc_en=True`, so the L-length triangle contraction is fp32-accumulated; what is left
+is bf16 operand precision inside each block.
+
+Two things make this specific to this checkpoint rather than to bf16 in general.
+
+**The direction of the error matters far more than its size.** Perturbing `z` by the same 12.1 %
+in a random direction costs 3.3e-4, 1/52 of what the port's own error costs. The port's error is
+structured, not noise: the device's pair state is also uniformly ~5 % smaller than the
+reference's across its whole distribution (rms 29.00 against 30.37, median 10.75 against 11.42,
+p99 91.0 against 95.6).
+
+**The 48-block checkpoint carries more pair error and does not lose confidence.** Its trunk sits
+5.6 % from host fp32 per pass against the 24-block's 3.4 %, at both L=256 and L=512, yet its
+plDDT agrees with its reference to 0.0005. Pair-state precision alone therefore cannot predict
+the deficit; the two checkpoints' confidence heads read the same pair error differently. Their
+coordinate sensitivities differ the same way: 0.5 Å of displacement costs the 24-block head
+0.127 of plDDT and the 48-block head 0.024.
+
+So there is no wrong formula here to correct. Closing the gap means running the 24-block trunk's
+pair state at higher precision than bf16, which is a performance and memory change, not a bug
+fix, and the 48-block checkpoint does not need it. `site/data/perf-512aa.json` keeps
+`parity_pending: true` on the ESMFold2-Fast row.
+
+Two measurement notes for anyone repeating this. ESMFold2's representative atom is CB, with CA
+only as the glycine fallback (`compute_representative_atoms`); substituting CA for every residue
+feeds the head a CA-CA distance map where it expects CB-CB and reads mean plDDT 0.65 on
+reference structures that are fine. And a plDDT-versus-displacement slope measured on random
+noise overstates the coordinate channel by more than an order of magnitude: it reads -0.127 at
+0.5 Å, while a coherent alternative fold 2.8 Å away costs 0.018, because noise destroys local
+geometry that a genuine refold preserves.
