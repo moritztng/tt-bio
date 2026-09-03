@@ -132,6 +132,7 @@ from tt_bio.data.msa import run_mmseqs2
 from tt_bio.cache import cached, publish_file, publish_text, seq_hash
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.types import Coords, Input, Interface
+from tt_bio.data.yaml_input import chain_ids
 from tt_bio.data.write import to_mmcif, to_pdb
 from tt_bio.distributed import (
     ControllerClient,
@@ -2048,12 +2049,8 @@ def _read_protein_chains(path):
                     mods = [dict(mod) for mod in mods]
                 else:
                     mods = None
-                # `id` may be a YAML list ([A, C]) or a comma-separated string.
-                ids = prot.get("id", "A")
-                id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
-                           else str(ids).split(","))
-                for c in id_list:
-                    chains.append((c.strip(), prot["sequence"], m, mods))
+                for c in chain_ids(prot.get("id")):
+                    chains.append((c, prot["sequence"], m, mods))
     else:
         raise click.ClickException(f"Unsupported input for esmfold2: {path.name}")
     return chains
@@ -2113,19 +2110,13 @@ def _read_bio_chains(path):
                     continue
                 m = sub.get("msa") if mt == "protein" else None
                 m = str(m) if m and str(m).lower() not in ("", "empty") else None
-                ids = sub.get("id", "A")
-                id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
-                           else str(ids).split(","))
-                for c in id_list:
-                    chains.append((c.strip(), sub["sequence"], m, mt))
+                for c in chain_ids(sub.get("id")):
+                    chains.append((c, sub["sequence"], m, mt))
             lig = entry.get("ligand")                       # {ccd: CODE} or {smiles: STR}
             if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles")):
                 spec = ("CCD_" + str(lig["ccd"]).upper()) if lig.get("ccd") else str(lig["smiles"])
-                ids = lig.get("id", "L")
-                id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
-                           else str(ids).split(","))
-                for c in id_list:
-                    chains.append((c.strip(), spec, None, "ligand"))
+                for c in chain_ids(lig.get("id"), "L"):
+                    chains.append((c, spec, None, "ligand"))
     else:
         raise click.ClickException(f"Unsupported input for Protenix: {path.name}")
     return chains

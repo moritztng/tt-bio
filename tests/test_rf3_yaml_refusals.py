@@ -4,8 +4,8 @@
 `_read_bio_chains`, which returns (chain_id, sequence, msa_spec, mol_type). A
 `constraints:`, `modifications:` or `cyclic:` block therefore never reaches the
 featurizer. It used to be accepted, dropped and never mentioned — and a dropped
-covalent bond changes the answer rather than omitting an output, so this refuses the
-way `_validate_openfold3_constraints` does rather than warning.
+covalent bond changes the answer rather than omitting an output, so these refuse
+rather than warn.
 
 RF3 the model does carry all three; they reach it through its own JSON/CIF spec, which
 `featurize(src)` reads straight off disk. That path is not what tt-bio's YAML builds.

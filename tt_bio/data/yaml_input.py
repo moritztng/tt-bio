@@ -41,3 +41,19 @@ def load_mapping(path: Path | str, *, file=None) -> dict:
     path = Path(path)
     doc = yaml.safe_load(file) if file is not None else yaml.safe_load(path.read_text())
     return require_mapping(doc, path)
+
+
+def chain_ids(spec: Any, default: str = "A") -> list[str]:
+    """The chain ids a ``sequences:`` entry's ``id:`` field names.
+
+    YAML allows both spellings and inputs in the wild use both: a list (``id: [A, C]``) or a
+    comma-separated scalar (``id: A,C``). Six readers and guards expanded that by hand with the
+    same two-branch expression, and two of them handled only the list form -- so a
+    ``cyclic: true`` chain written ``id: A,B`` was refused as one chain called "A,B". Missing
+    ``id`` falls back to ``default``, which is the reader's convention for an unnamed chain
+    ("A" for a polymer, "L" for a ligand).
+    """
+    ids = default if spec is None else spec
+    if isinstance(ids, (list, tuple)):
+        return [str(x).strip() for x in ids]
+    return [c.strip() for c in str(ids).split(",")]

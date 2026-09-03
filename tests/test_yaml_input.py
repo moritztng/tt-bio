@@ -19,7 +19,11 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tt_bio.data.yaml_input import load_mapping, require_mapping  # noqa: E402
+from tt_bio.data.yaml_input import (  # noqa: E402
+    chain_ids,
+    load_mapping,
+    require_mapping,
+)
 
 ROOT = Path(__file__).resolve().parents[1] / "tt_bio"
 
@@ -129,6 +133,37 @@ def test_every_shipped_yaml_reader_guards_its_result():
     assert not offenders, (
         "these dereference yaml.safe_load's result without checking it is a mapping; "
         "an empty or comment-only file makes it None:\n  " + "\n  ".join(offenders))
+
+
+def test_nothing_hand_rolls_the_chain_id_expansion():
+    """`chain_ids` is the only expander of a `sequences:` entry's `id:` field.
+
+    It was written six times instead -- three readers in main.py, three guards in worker.py --
+    with the same two-branch expression, and two of the copies handled only the list form. So
+    `id: A,B` on a `cyclic: true` chain was refused as one chain literally called "A,B". The
+    duplication was the bug's hiding place: fixing the guard that reported it would have left
+    the other copy wrong. Scanned as source text because that is what a reviewer would grep for.
+    """
+    offenders = []
+    for path in sorted(ROOT.rglob("*.py")):
+        if "_vendor" in path.parts or path.name == "yaml_input.py":
+            continue
+        for lineno, line in enumerate(path.read_text().splitlines(), 1):
+            if "isinstance(ids, (list, tuple))" in line:
+                offenders.append(f"{path.relative_to(ROOT.parent)}:{lineno}: {line.strip()}")
+    assert not offenders, (
+        "these expand a yaml `id:` field by hand instead of calling "
+        "tt_bio.data.yaml_input.chain_ids:\n  " + "\n  ".join(offenders))
+
+
+def test_chain_ids_accepts_both_spellings_and_a_missing_id():
+    assert chain_ids(["A", "C"]) == ["A", "C"]
+    assert chain_ids("A,C") == ["A", "C"]
+    assert chain_ids(" A , C ") == ["A", "C"]      # whitespace is the user's, not a chain id
+    assert chain_ids("A") == ["A"]
+    assert chain_ids(None) == ["A"]                # a polymer chain nobody named
+    assert chain_ids(None, "L") == ["L"]           # a ligand chain nobody named
+    assert chain_ids([1, 2]) == ["1", "2"]         # yaml reads bare A/B ids as strings, 1/2 as ints
 
 
 def test_the_scanner_would_catch_the_bug_it_was_written_for(tmp_path):

@@ -43,6 +43,13 @@ sequences:
       id: C
       sequence: QLEDSEVEAVAKG
 """
+CYCLIC_COMMA_IDS = """version: 1
+sequences:
+  - protein:
+      id: A,B
+      sequence: QLEDSEVEAVAKG
+      cyclic: true
+"""
 CYCLIC_FALSE = """version: 1
 sequences:
   - protein:
@@ -85,6 +92,18 @@ def test_every_cyclic_chain_id_is_named(tmp_path):
     assert "A" in msg and "B" in msg
     # C is linear and must not be blamed.
     assert "C" not in msg.split("in q.yaml")[0]
+
+
+def test_a_comma_separated_id_names_both_chains(tmp_path):
+    """`id: A,B` is the other spelling the chain readers accept, and this guard used to blame
+    a single chain called "A,B" -- it only expanded the list form. Both forms go through
+    `yaml_input.chain_ids` now, so a user with a comma-separated id gets told which chains to
+    fix."""
+    with pytest.raises(RuntimeError) as e:
+        _validate_cyclic_unsupported(_yaml(tmp_path, CYCLIC_COMMA_IDS), "openbind")
+    msg = str(e.value)
+    assert "A, B" in msg, f"expected both chains named separately, got {msg!r}"
+    assert "A,B" not in msg
 
 
 def test_a_non_yaml_input_is_skipped_not_crashed(tmp_path):

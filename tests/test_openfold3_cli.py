@@ -131,7 +131,7 @@ def test_template_map_ignores_fasta_and_template_free_yaml(tmp_path):
 def test_of3_constraints_reject_covalent_bonds(tmp_path):
     import yaml
 
-    from tt_bio.worker import _validate_openfold3_constraints
+    from tt_bio.worker import _refuse_dropped_bonds
 
     p = tmp_path / "covalent.yaml"
     p.write_text(yaml.safe_dump({
@@ -140,7 +140,7 @@ def test_of3_constraints_reject_covalent_bonds(tmp_path):
         "constraints": [{"bond": {"atom1": ["A", 1, "SG"], "atom2": ["A", 4, "SG"]}}],
     }))
     try:
-        _validate_openfold3_constraints(p)
+        _refuse_dropped_bonds(p)
     except RuntimeError as e:
         assert "covalent bonds" in str(e)
     else:
@@ -151,7 +151,7 @@ def test_of3_constraints_reject_covalent_bonds(tmp_path):
         "version": 1,
         "sequences": [{"protein": {"id": "A", "sequence": "GACGAC"}}],
     }))
-    _validate_openfold3_constraints(p2)  # no constraints: passes
+    _refuse_dropped_bonds(p2)  # no constraints: passes
 
 
 def test_of3_chains_reject_ligands_blank_and_empty():

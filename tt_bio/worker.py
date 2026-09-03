@@ -29,6 +29,7 @@ from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_p
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 from tt_bio.envflags import env_flag
 from tt_bio.cache import cached, seq_hash, staged
+from tt_bio.data.yaml_input import chain_ids
 
 
 _REAL_STDERR_FD: int | None = None
@@ -221,31 +222,98 @@ def _openfold3_template_map(path: Path) -> dict[str, str]:
             if not tp.exists():
                 raise RuntimeError(
                     f"--model openfold3: template file {tp} does not exist.")
-            ids = sub.get("id", "A")
-            id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
-                       else str(ids).split(","))
-            for c in id_list:
-                out[c.strip()] = str(tp)
+            for c in chain_ids(sub.get("id")):
+                out[c] = str(tp)
     return out
 
 
-def _validate_openfold3_constraints(path, model: str = "openfold3") -> None:
-    """Reject yaml `constraints:` blocks for OF3 instead of folding without them.
+def _yaml_chains_setting(path, key: str) -> list[str]:
+    """Chain ids whose ``sequences:`` entry sets ``key``. Empty for anything that is not a
+    YAML document with such a chain in it.
 
-    The OF3 query is built with `covalent_bonds: None` (the bond graph is not
-    ported), so a constraints block would otherwise be silently dropped — the
-    silent-garbage class. Raises naming the constraint count and the models that
-    do honor covalent bonds.
+    The one walk behind every "this model drops that block" refusal below; `cyclic` and
+    `modifications` each had their own copy of it. Deliberately forgiving: a non-YAML input, an
+    unparseable document and a malformed entry all yield nothing rather than raising. These
+    guards run BEFORE the real reader, so a genuine parse error has to surface there, named and
+    with the file in the message, instead of arriving here as a refusal about a block the user
+    never wrote. That is also why this uses ``or {}`` and not ``load_mapping``, which refuses an
+    empty document -- refusing it is the reader's job, not the guard's.
+    """
+    if Path(path).suffix.lower() not in (".yml", ".yaml"):
+        return []
+    import yaml
+
+    try:
+        doc = yaml.safe_load(Path(path).read_text()) or {}
+    except Exception:
+        return []
+    found: list[str] = []
+    for entry in doc.get("sequences") or []:
+        if not isinstance(entry, dict):
+            continue
+        for sub in entry.values():
+            if isinstance(sub, dict) and sub.get(key):
+                found += chain_ids(sub.get("id"))
+    return found
+
+
+# A per-chain ``sequences:`` block whose silent drop changes the ANSWER rather than omitting an
+# output, so it is refused and not warned about. What the drop does and where to go instead is
+# the only per-key part; the walk and the raise are shared. A newly-found dropped block is a row
+# here, not another validator.
+_DROPPED_CHAIN_BLOCKS = {
+    "cyclic": ("silently return a linear structure",
+               "Remove the flag, express the cyclisation as a covalent `bond` constraint, or "
+               "use --model rf3 / boltz2, which honor it"),
+    "modifications": ("return the unmodified residue",
+                      "Remove the block, use --model boltz2, or give the model its own JSON "
+                      "spec, which does carry them"),
+}
+
+
+def _refuse_dropped_chain_block(path, model: str, key: str) -> None:
+    """Refuse ``key`` on any chain of ``path``, naming the chains that carried it."""
+    chains = _yaml_chains_setting(path, key)
+    if not chains:
+        return
+    consequence, remedy = _DROPPED_CHAIN_BLOCKS[key]
+    raise RuntimeError(
+        f"--model {model} does not port yaml `{key}` (chain(s) {', '.join(chains)} in "
+        f"{Path(path).name}); the fold would {consequence}. {remedy}.")
+
+# The models that carry a yaml `constraints: bond:` block all the way to the featurizer
+# (README's capability matrix). OF3's own message used to omit boltz2, which honours it end to
+# end, so a user with a covalent inhibitor was sent past the one model most likely to fold it.
+_BOND_ALTERNATIVES = "--model boltz2 / protenix-v1 / protenix-v2 / opendde"
+
+# A model whose OWN spec format carries bonds even though tt-bio's yaml door does not build
+# them, so it has a second way out that is not "switch models".
+_BOND_OWN_SPEC = {"rf3": "give RF3 its own JSON spec, which does carry a bond graph"}
+
+
+def _refuse_dropped_bonds(path, model: str = "openfold3") -> None:
+    """Reject a yaml `constraints:` block whose bonds `model` would drop, instead of folding
+    without them.
+
+    OF3/OpenBind: the query is built with `covalent_bonds: None` (the bond graph is not
+    ported). RF3: the model does read a bond graph, but only from its own JSON/CIF spec --
+    `_predict_rf3_one` builds everything from `_read_bio_chains`, which returns
+    (chain_id, sequence, msa_spec, mol_type) and no bonds. Either way the block is accepted,
+    dropped and never mentioned, and a dropped covalent bond changes the ANSWER rather than
+    omitting an output, which is why this refuses where `_warn_openfold3_affinity_ignored`
+    warns.
     """
     from tt_bio.main import _read_bio_constraints
 
     bonds = _read_bio_constraints(path)
-    if bonds:
-        raise RuntimeError(
-            f"--model {model} does not port covalent bonds yet "
-            f"(got {len(bonds)} constraint(s) from {path.name}); the fold would "
-            "silently ignore them. Remove the constraints block or use "
-            "--model protenix-v1 / protenix-v2 / opendde.")
+    if not bonds:
+        return
+    own = _BOND_OWN_SPEC.get(model)
+    raise RuntimeError(
+        f"--model {model} does not port the covalent bonds in the yaml `constraints:` block "
+        f"(got {len(bonds)} constraint(s) from {Path(path).name}); the fold would silently "
+        f"ignore them. Remove the block, use {_BOND_ALTERNATIVES}"
+        + (f", or {own}." if own else "."))
 
 
 def _validate_rf3_yaml_unsupported(path) -> None:
@@ -260,40 +328,11 @@ def _validate_rf3_yaml_unsupported(path) -> None:
     dropped, and never mentioned — the silent-garbage class, and the worse half of it,
     because a dropped covalent bond changes the answer rather than omitting an output.
 
-    Refusing rather than warning, for the same reason `_validate_openfold3_constraints`
+    Refusing rather than warning, for the same reason `_refuse_dropped_bonds`
     refuses: the structure that comes back would be confidently wrong.
     """
-    import yaml as _yaml
-
-    from tt_bio.main import _read_bio_constraints
-
-    bonds = _read_bio_constraints(path)
-    if bonds:
-        raise RuntimeError(
-            f"--model rf3 does not read the yaml `constraints:` block "
-            f"(got {len(bonds)} constraint(s) from {Path(path).name}); the fold would "
-            "silently ignore them. Use --model boltz2 / protenix-v2 / opendde, or give "
-            "RF3 its own JSON spec, which does carry a bond graph.")
-    if Path(path).suffix.lower() not in (".yml", ".yaml"):
-        return
-    try:
-        doc = _yaml.safe_load(Path(path).read_text()) or {}
-    except Exception:
-        return
-    modified = []
-    for entry in (doc.get("sequences") or []):
-        if not isinstance(entry, dict):
-            continue
-        for sub in entry.values():
-            if isinstance(sub, dict) and sub.get("modifications"):
-                ids = sub.get("id")
-                modified += ([str(x) for x in ids] if isinstance(ids, (list, tuple))
-                             else [str(ids)])
-    if modified:
-        raise RuntimeError(
-            f"--model rf3 does not read yaml `modifications:` (chain(s) "
-            f"{', '.join(modified)} in {Path(path).name}); the fold would return the "
-            "unmodified residue. Use --model boltz2, or give RF3 its own JSON spec.")
+    _refuse_dropped_bonds(path, "rf3")
+    _refuse_dropped_chain_block(path, "rf3", "modifications")
 
 
 def _validate_cyclic_unsupported(path, model: str) -> None:
@@ -321,27 +360,7 @@ def _validate_cyclic_unsupported(path, model: str) -> None:
     Cyclisation changes the STRUCTURE, which is why this is a hard error like `constraints:`
     and not a warning like `properties: affinity`, which only omits an extra output.
     """
-    if Path(path).suffix.lower() not in (".yml", ".yaml"):
-        return
-    import yaml
-
-    doc = yaml.safe_load(Path(path).read_text()) or {}
-    cyclic = []
-    for entry in doc.get("sequences") or []:
-        if not isinstance(entry, dict):
-            continue
-        for mt, sub in entry.items():
-            if isinstance(sub, dict) and sub.get("cyclic"):
-                ids = sub.get("id", "?")
-                cyclic += ([str(x) for x in ids] if isinstance(ids, (list, tuple))
-                           else [str(ids)])
-    if cyclic:
-        raise RuntimeError(
-            f"--model {model} does not port cyclic chains (chain(s) "
-            f"{', '.join(cyclic)} in {Path(path).name} set `cyclic: true`); the fold "
-            "would silently return a linear structure. Remove the flag, express the "
-            "cyclisation as a covalent `bond` constraint, or use --model rf3 / boltz2, "
-            "which honor it.")
+    _refuse_dropped_chain_block(path, model, "cyclic")
 
 
 def _warn_openfold3_affinity_ignored(path, model: str) -> None:
@@ -351,7 +370,7 @@ def _warn_openfold3_affinity_ignored(path, model: str) -> None:
     be refused by the ligand gate, so the request could not be silently dropped. Now the
     fold succeeds and the affinity block simply produces nothing. Unlike a dropped
     `constraints:` block -- which changes the structure and is therefore a hard error in
-    _validate_openfold3_constraints -- this only omits an extra output, so a loud warning
+    _refuse_dropped_bonds -- this only omits an extra output, so a loud warning
     is the proportionate response rather than refusing a fold the user can still use.
     """
     if path.suffix.lower() not in (".yml", ".yaml"):
@@ -1433,7 +1452,7 @@ class _WorkerState:
         model = cfg.get("model", "openfold3")
         chains = _read_bio_chains(path)
         _validate_openfold3_chains(chains, model)
-        _validate_openfold3_constraints(path, model)
+        _refuse_dropped_bonds(path, model)
         _validate_cyclic_unsupported(path, model)
         _warn_openfold3_affinity_ignored(path, model)
         tmpl_map = _openfold3_template_map(path)
