@@ -9,6 +9,19 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# A non-login shell (cron, a fleet worker, an agent turn) does not source the profile that
+# puts gh and npx on PATH, and this script died twice mid-deploy that way: Pages triggered,
+# the Cloudflare redirect not re-asserted. Resolve both before the first step runs.
+command -v gh >/dev/null 2>&1 || PATH="$HOME/.local/bin:$PATH"
+if ! command -v npx >/dev/null 2>&1; then
+  nodebin="$(ls -d "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1)"
+  if [ -n "$nodebin" ]; then PATH="$nodebin:$PATH"; fi
+fi
+export PATH
+for t in gh npx; do
+  command -v "$t" >/dev/null 2>&1 || { echo "$t not found on PATH; deploy would half-run" >&2; exit 1; }
+done
+
 echo "==> asset stamps"
 python3 "$root/scripts/stamp_assets.py" --check
 
