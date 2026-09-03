@@ -18,6 +18,9 @@ PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
 LOG=$OUT/ladder.log
 # A lost race costs this much wall clock and produces nothing, so keep it short. The 120 s
 # default is sized for waiting out a real co-tenant; here there is always another chip.
+# TT_BIO_SIZE_LIMIT=0 below: tt_bio.size_limits refuses OpenFold3 above its last MEASURED cap,
+# and a ladder whose whole job is to find the next cap cannot be bounded by the previous one.
+# This is the one place that hatch is the right tool rather than a way around a guard.
 LEASE_TIMEOUT=${LEASE_TIMEOUT:-20}
 WAIT_LOOPS=${WAIT_LOOPS:-240}
 cd "$RUN" || exit 1
@@ -69,7 +72,7 @@ for r in "$@"; do
     # 2026-09-03T00:02:31Z, `RUNG cut_608 rc=0 status=ok wall=3s`, from a duplicate runner.
     TT_VISIBLE_DEVICES="$dev" TT_BIO_LEASE_CARDS="$dev" \
       TT_BIO_LEASE_HOLDER=worker:ceiling-openfold3 TT_BIO_LEASE_TIMEOUT="$LEASE_TIMEOUT" \
-      TT_METAL_LOGGER_LEVEL=FATAL PYTHONPATH="$TREE" \
+      TT_METAL_LOGGER_LEVEL=FATAL PYTHONPATH="$TREE" TT_BIO_SIZE_LIMIT=0 \
       "$PY" -m tt_bio.main predict "msafix_tile/$r.yaml" \
       --model openfold3 --accelerator tenstorrent --out_dir "$OUT/$r" --override \
       --msa_dir msacache_deep --msa_cache_only --debug > "$OUT/$r.log" 2>&1
