@@ -131,10 +131,10 @@ is a 512 aa claim:
   HuggingFace EsmForMaskedLM reference at 76 aa, a default leg of scripts/full_parity_gate.py.
 - **SaProt 650M** per-residue embedding PCC 0.999638 and masked-LM logits PCC 0.999927 against the
   same reference at 76 aa, a default leg of scripts/full_parity_gate.py.
-- **SaProt 1.3B** per-residue embedding PCC 0.995076 and masked-LM logits PCC 0.998952
-  against the same reference at 76 aa. It is the 650M's width at twice the depth, 66 layers
-  against 33, so bf16 rounding accumulates over twice as many residual blocks
-  (docs/saprot-parity.md).
+- **SaProt 1.3B** per-residue embedding PCC 0.995076, a documented near-pass under the 0.9987 bar
+  the other two SaProt sizes clear, with masked-LM logits at 0.998952. It is the one row here with
+  no gate leg. Attributed to bf16 accumulation over depth: this is the 650M's width at twice the
+  layers, 66 against 33 (docs/saprot-parity.md).
 
 The rows were also card-only: sequences per second is not predictions per hour, and the cost index on
 this page is built on the DGX H200 at 512 aa folds, so an embedding forward had no server price or

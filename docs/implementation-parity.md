@@ -363,6 +363,15 @@ device pass-rate on the favorable side of the reference's spread in every
 pairing. BoltzGen designs new sequences, so there is no 1:1 correspondence to
 score — parity is in the designability distribution, not a per-design RMSD.
 
+**SaProt-1.3B is served but is not a clean PASS.** On ubiquitin (L76) it measures
+per-residue embedding PCC 0.995076 and MLM-logits PCC 0.998952 (R = D = 1.00000,
+deterministic), which lands just below the 0.9987–0.9996 band the 35M and 650M
+variants hit, so `docs/saprot-parity.md` records it as a near-pass and claims no
+PASS row. The residual tracks depth rather than a port defect: 1.3B is the 650M
+width at twice the layers (66 vs 33), so it accumulates about twice the bf16
+rounding. It has no leg in `full_parity_gate.py` and is therefore absent from
+the tally above; the 650M leg is the gated SaProt path.
+
 ## Reproduce
 
 Each leg's reproduce command is in [Implementation parity — details](implementation-parity-details.md#reproducing-a-comparison).

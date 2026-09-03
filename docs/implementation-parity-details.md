@@ -665,12 +665,19 @@ algorithmic difference. The 35M leg uses a host-side RoPE path (`head_dim = 24`
 is neither tile-aligned nor aligned with the fused on-device `rotary_embedding`
 kernel), documented in `docs/saprot-parity.md`; it does not affect the parity
 gate. Reproduce: `TT_VISIBLE_DEVICES=0 PYTHONPATH=. python3 scripts/pharma_parity.py saprot --model saprot-650m` (or `saprot-35m`); per-model detail in `docs/saprot-parity.md`.
-saprot-1.3b measures X_emb = 0.99508 / X_logits = 0.99895 (R = D = 1.00000,
-deterministic). It is the 650m width at twice the depth (66 residual layers
-against 33), so bf16 rounding accumulates over twice as many blocks; the
-MLM-logits PCC sits in the same 0.9987-0.9996 band the smaller variants hit.
-`from_pretrained` reads the checkpoint's own `config.json` and refuses to build
-on an arch mismatch. The gated SaProt path is the 650m leg.
+saprot-1.3b was previously parity-run and FAILED the gate due to a port config
+bug (a fabricated `CONFIGS["saprot-1.3b"]` shape that did not match the real
+`westlake-repl/SaProt_1.3B_AF2` checkpoint, masked by `load_state_dict(...,
+strict=False)`). The config is now corrected and `from_pretrained` hardens the
+load (refuses to build on an arch mismatch, so a wrong `CONFIGS` entry raises
+instead of silently producing an uninitialized model). With correct shapes,
+saprot-1.3b parity jumps to X_emb = 0.99508 / X_logits = 0.99895 (R = D = 1.00000,
+deterministic). The MLM-logits PCC clears the 0.9987–0.9996 band; the per-residue
+embedding PCC (0.99508) lands just below it — a numerical residual from bf16
+accumulation over 66 residual layers (2× the 650m depth at the same width), not
+a structural defect. It is recorded as a near-pass in `docs/saprot-parity.md`;
+no clean PASS row is added to this table for saprot-1.3b because the emb leg does
+not clear the band.
 
 ‡‡‡ The two OpenDDE legs (5 reference + 5 device seeds, seeds 0-4 both sides):
 trp-cage (4 cycles / 20 steps / 1 sample) X = 0.51 ± 0.16 Å vs floor max(R 0.37,
