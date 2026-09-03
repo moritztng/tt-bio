@@ -66,7 +66,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | AF2-IG (PXDesign filter) | same fixture, torch trunk, complex stage (templates on) | PASS | 94/94 activation taps and all 6 filter scalars inside their bars vs the captured JAX taps; card-free, needs `params_model_1_ptm.npz` |
 | AF2-IG (PXDesign filter) | same fixture, torch trunk, monomer stage (`model_3_ptm`) | PASS-caveated | 90 taps, 0 failed, 32 adjudicated inside the reference own float32-vs-bfloat16 envelope: on those taps the reference sits closer to our bfloat16 arm than our float32 arm does |
 | AF2-IG (PXDesign filter) | same fixture, ttnn trunk on card, complex stage | GAP-evidenced | 9 of 94 taps and 3 of 6 scalars miss (worst envelope ratio 12.3; pLDDT 0.0028, pTM 0.0020, pAE 0.0021). A bfloat16 realisation floor in the trunk residual chain, amplified about 3x by the structure module; three trunk-precision levers were measured dead against it. The leg gates that floor instead of a PASS bar (`scripts/af2_port/device_floor.py`): GAP only while the failing taps, their envelope ratios and the scalar deltas all reproduce the committed record within 1.10x, and both `tap_gate.py --mutate` controls break every one of those conditions. Bit-identical on qb1 cards 3 and 0 |
-The three Boltz-2 affinity
+Net: 37 PASS, 7 PASS-caveated, 2 GAP-evidenced (boltz2-9ncy-nomsa, root-caused below; af2ig-trunk-device, a measured bfloat16 floor the leg gates as such). The three Boltz-2 affinity
 legs were re-run with MSA (Boltz-2's production default — a pharma user folds a
 target whose homologs are known, so the MSA is fed); the earlier single-sequence
 rows are retained and relabeled `non-default`. The MSA legs score 9 PASS / 3 GAP
