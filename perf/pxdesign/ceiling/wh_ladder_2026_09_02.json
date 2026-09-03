@@ -182,5 +182,33 @@
     "oom_request_B": null,
     "largest_free_block_B": null,
     "note": "device contention, nothing ran"
+  },
+  {
+    "label": "p512_rep",
+    "target_residues": 512,
+    "binder_length": 80,
+    "tokens": 592,
+    "chip": 4,
+    "designs": 1,
+    "fit_rmsd": [
+      2.9924
+    ],
+    "outcome": "PASS",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": "repeat of p512 on a different chip; fit_rmsd bit-identical to it (2.9923918752013274), so the disagreement with catalog.py's recorded 2.44 A is deterministic, not noise"
+  },
+  {
+    "label": "r1664_hostconcat",
+    "target_residues": 1008,
+    "binder_length": 656,
+    "tokens": 1664,
+    "chip": 6,
+    "designs": 0,
+    "fit_rmsd": [],
+    "outcome": "no_oom_then_stall",
+    "oom_request_B": null,
+    "largest_free_block_B": null,
+    "note": "same rung as r1664 with TT_BIO_CONCAT_HOST_BYTES=1000000000, below the 1417674752 B request. No allocator message in 12 min against 53.4 s to OOM without it, so the concat threshold is the mechanism -- but 5 s of CPU in 12 min and no design, so relocating the buffer to the host trades the OOM for a stall"
   }
 ]
