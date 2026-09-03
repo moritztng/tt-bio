@@ -123,9 +123,13 @@ Wormhole is under 1024:
 | `esmc-6b` (embed) | 1968 | 1984 |
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the model,
-the limit and any model that does take the input. `boltz2`, `esmfold2`, `boltzgen` and `nesso1`
-have no measured limit and are never refused. These numbers are Wormhole only; nothing is enforced
-on Blackhole, which has more memory per chip and where nobody has walked a ladder to a failure.
+the limit and any model that does take the input. The other eleven are never refused at any
+size, and absence of a limit is not a limit: `boltz2`, `esmfold2`, `esmfold2-fast`,
+`protenix-v1`, `nesso1`, `esmc-300m`, `esmc-600m`, `saprot-35m`, `saprot-650m`, `saprot-1.3b`
+and `boltzgen`. No ladder was walked to a failure on any of them except `boltzgen`, whose
+measured wall is atom-denominated and so cannot be a row in this table. These numbers are
+Wormhole only; nothing is enforced on Blackhole, which has more memory per chip and where
+nobody walked a ladder either.
 
 The limits were measured with an MSA, which is the default for the models that take one. Folding
 single-sequence is roomier (OpenFold3 caps at 576 with an alignment and folds 768 without one), so
