@@ -27,6 +27,6 @@ dev=$("$PY" "$HERE/pick_chip.py") || { echo "$tag: no free chip"; exit 3; }
 TT_VISIBLE_DEVICES="$dev" TT_BIO_LEASE_CARDS="$dev" TT_BIO_LEASE_HOLDER=worker:ceiling-openfold3 \
   TT_BIO_LEASE_TIMEOUT=20 TT_METAL_LOGGER_LEVEL=FATAL PYTHONPATH="$tree" \
   "$PY" -m tt_bio.main predict "msafix_tile/$rung.yaml" --model openfold3 \
-  --accelerator tenstorrent --out_dir "$OUT" --msa_dir msacache_deep --msa_cache_only \
+  --accelerator tenstorrent --out_dir "$OUT" --override --msa_dir msacache_deep --msa_cache_only \
   --seed "$seed" > "$OUT.log" 2>&1
 echo "$tag rc=$? card=$dev tree=$(git -C "$tree" rev-parse --short HEAD) $(date -u +%FT%TZ)"

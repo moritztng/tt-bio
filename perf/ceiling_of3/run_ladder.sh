@@ -23,6 +23,17 @@ WAIT_LOOPS=${WAIT_LOOPS:-240}
 cd "$RUN" || exit 1
 mkdir -p "$OUT"
 
+# Which tt_bio will actually be imported. An earlier pass ran a stale copy of THIS script that
+# hardcoded its own tree and ignored TREE and OUT, so a run labelled as the fix arm executed
+# main's engine and wrote into main's log. The label is not the evidence; the resolved module
+# path is, and it goes in the log beside every rung.
+engine=$(PYTHONPATH="$TREE" "$PY" -c 'import tt_bio, os; print(os.path.dirname(tt_bio.__file__))')
+case "$engine" in
+  "$TREE"/*) ;;
+  *) echo "REFUSING: TREE=$TREE but tt_bio resolves to $engine" >> "$LOG"; exit 4 ;;
+esac
+echo "=== ladder start tree=$TREE engine=$engine out=$OUT $(date -u +%FT%TZ)" >> "$LOG"
+
 wait_for_chip() {
   waited=0
   while : ; do
@@ -51,12 +62,16 @@ for r in "$@"; do
     }
     node=$("$PY" "$TREE/perf/ceiling_of3/pick_chip.py" --map | tr ' ' '\n' | grep "^$dev->" )
     s=$(date +%s)
-    echo "=== $r attempt $attempt start card=$dev ($node) tree=$(git -C "$TREE" rev-parse --short HEAD) $(date -u +%FT%TZ)" >> "$LOG"
+    echo "=== $r attempt $attempt start card=$dev ($node) tree=$(git -C "$TREE" rev-parse --short HEAD) engine=$engine $(date -u +%FT%TZ)" >> "$LOG"
+    # --override, always. Without it `predict` applies resume semantics: a rung re-run into an
+    # out_dir that already holds a result folds NOTHING, exits in 3 s and reports the PREVIOUS
+    # verdict as this run's. That is how a stale pass gets recorded as a fresh one -- seen
+    # 2026-09-03T00:02:31Z, `RUNG cut_608 rc=0 status=ok wall=3s`, from a duplicate runner.
     TT_VISIBLE_DEVICES="$dev" TT_BIO_LEASE_CARDS="$dev" \
       TT_BIO_LEASE_HOLDER=worker:ceiling-openfold3 TT_BIO_LEASE_TIMEOUT="$LEASE_TIMEOUT" \
       TT_METAL_LOGGER_LEVEL=FATAL PYTHONPATH="$TREE" \
       "$PY" -m tt_bio.main predict "msafix_tile/$r.yaml" \
-      --model openfold3 --accelerator tenstorrent --out_dir "$OUT/$r" \
+      --model openfold3 --accelerator tenstorrent --out_dir "$OUT/$r" --override \
       --msa_dir msacache_deep --msa_cache_only --debug > "$OUT/$r.log" 2>&1
     rc=$?
     e=$(date +%s)
