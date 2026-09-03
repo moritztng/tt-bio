@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from math import sqrt
-from typing import List, Optional, Sequence, Tuple
+from typing import Optional, Tuple
 
 import torch
 from torch import nn, Tensor
@@ -13,17 +13,13 @@ from torch.nn import Module
 
 from tt_bio.data import const
 
-# Import from the fused boltz2.py
+# Import from the fused boltz2.py. Only what this module's own classes use: nothing imports a
+# name FROM here except the four Module classes below, so this is not a re-export surface.
 from tt_bio.boltz2 import (
-    exists, default, log, LinearNoBias, init,
-    Linear, LayerNorm, AttentionPairBias, get_dropout_mask,
-    add, permute_final_dims, softmax_no_cast, _attention,
-    kernel_triangular_attn, kernel_triangular_mult,
-    chunk_layer, get_indexing_matrix, single_to_keys,
-    FourierEmbedding, RelativePositionEncoder, SingleConditioning, PairwiseConditioning,
-    DiffusionTransformer, AtomAttentionEncoder, AtomAttentionDecoder,
-    flatten_final_dims, tree_map, _fetch_dims, _flat_idx_to_idx, _get_minimal_slice_set, _chunk_slice,
-    dict_map, tensor_tree_map, Transition,
+    AtomAttentionDecoder, AtomAttentionEncoder, AttentionPairBias, DiffusionTransformer,
+    LayerNorm, Linear, LinearNoBias, SingleConditioning, Transition,
+    _attention, chunk_layer, flatten_final_dims, get_dropout_mask, init,
+    kernel_triangular_attn, kernel_triangular_mult, permute_final_dims,
 )
 
 # Compatibility alias
