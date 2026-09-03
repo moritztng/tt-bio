@@ -25,11 +25,19 @@ def coords(d: str) -> list[tuple]:
     return out
 
 
+#: Result fields that are not model outputs. Dropping them is not leniency: the A/A control
+#: (main folded twice, same seed) came back coordinate-identical on all 2059 atoms and still
+#: compared unequal, purely because `runtime_s` was 103.0 s on one run and 59.5 s on the other.
+#: A comparator that calls a bit-identical fold a mismatch because the box was busier the
+#: second time cannot tell anyone anything about a code change.
+NOT_A_MODEL_OUTPUT = ("path", "out_dir", "runtime_s")
+
+
 def scores(d: str) -> list:
     out = []
     for path in sorted(glob.glob(os.path.join(d, "**", "results.json"), recursive=True)):
         for rec in json.load(open(path)):
-            out.append({k: v for k, v in sorted(rec.items()) if k not in ("path", "out_dir")})
+            out.append({k: v for k, v in sorted(rec.items()) if k not in NOT_A_MODEL_OUTPUT})
     return out
 
 
