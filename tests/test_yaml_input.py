@@ -166,6 +166,20 @@ def test_chain_ids_accepts_both_spellings_and_a_missing_id():
     assert chain_ids([1, 2]) == ["1", "2"]         # yaml reads bare A/B ids as strings, 1/2 as ints
 
 
+def test_an_id_key_with_no_value_falls_back_to_the_default():
+    """`id:` with nothing after it, or `id: null`, is the one input whose handling the
+    unification altered, so it is recorded here rather than left to be rediscovered.
+
+    yaml loads both as None. The hand-rolled expanders ran `str(ids).split(",")` over it and
+    produced a chain literally named "None", which travelled into the featurizer and out into
+    the written structure as a chain id. It falls back to the same default as a missing `id:`
+    key now. An explicitly empty string is left alone: `id: ''` is a value the user typed, not
+    an absent key, and the readers already treat a blank id as a chain to auto-label.
+    """
+    assert chain_ids(None) == ["A"]
+    assert chain_ids("") == [""]
+
+
 def test_the_scanner_would_catch_the_bug_it_was_written_for(tmp_path):
     """A guard nobody has seen fail is not a guard. The shape below is verbatim what
     `data/parse.py` and `pxdesign/inputs.py` shipped before this change."""
