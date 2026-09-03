@@ -136,10 +136,10 @@ single-sequence is roomier (OpenFold3 caps at 576 with an alignment and folds 76
 if you know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the
 refusal into a warning and runs it anyway.
 
-The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
-so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
-Perf levers are gated at several sequence lengths, not just one; the release gate re-checks the
-ladder against a recorded baseline. See [docs/size-generality.md](docs/size-generality.md).
+Folding a large target changes neither the speed nor the numerics of a small one, and speed is
+validated across the whole size ladder rather than at a single length. Why, and what the fleet
+measured: [docs/large-targets.md](docs/large-targets.md),
+[docs/size-generality.md](docs/size-generality.md).
 
 All structure models support the sampling, output-format, and scheduling options.
 MSA, affinity, constraint, and auxiliary-output options apply only where listed

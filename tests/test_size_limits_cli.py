@@ -147,16 +147,48 @@ def test_embed_refuses_an_oversized_bare_sequence(tmp_path, wormhole, no_device)
     assert not no_device
 
 
-def test_every_wired_command_actually_calls_the_guard(monkeypatch, tmp_path):
-    """The coverage assertion: every command that takes user input calls the guard.
+def _guarded_commands():
+    """Every CLI command that takes an input argument and folds/embeds it for a named model.
 
-    A ceiling table nothing calls refuses nothing, and that failure looks exactly like a green
-    suite. The commands are named rather than discovered on purpose -- the point is to fail when a
-    NEW input-taking command is added and nobody wires it, and a discovered list would just grow to
-    match, asserting nothing.
+    DISCOVERED, not listed. The predicate is the property that makes a command need the guard --
+    it accepts a positional input and has a `--model` option, so it will open a device for a
+    model with a ceiling -- and it selects exactly `predict`, `design`, `embed`, `saprot` and
+    `affinity` today. `weights` and `gen` take an argument but no `--model`; `controller`,
+    `worker`, `msa`, `msa-server`, `warmup` and `install-deps` take no input at all.
 
-    check_input is replaced with a raise, which does double duty: it records that the call happened
-    AND stops each command right there, so no invocation runs off into weights, an MSA or a device.
+    This used to be a hand-written list of those five, on the reasoning that a discovered list
+    "would just grow to match, asserting nothing". That is the wrong way round: a hand-written
+    list is the one that asserts nothing about a command nobody remembered to add, which is the
+    only case that matters (hardcoded-model-list-misses-new-port). A discovered list fails the
+    moment a new input-taking command lands unwired. If one ever legitimately needs no ceiling,
+    it goes in EXEMPT below with the reason, and that is a line a reviewer sees.
+    """
+    import click
+
+    from tt_bio import main as m
+
+    EXEMPT: dict[str, str] = {}
+    out = []
+    for name, cmd in sorted(m.cli.commands.items()):
+        if name in EXEMPT:
+            continue
+        takes_input = any(isinstance(prm, click.Argument) for prm in cmd.params)
+        has_model = any("--model" in getattr(prm, "opts", []) for prm in cmd.params)
+        if takes_input and has_model:
+            out.append(name)
+    assert out, "discovery found no input-taking commands, so this proves nothing"
+    return out
+
+
+@pytest.mark.parametrize("command", _guarded_commands())
+def test_every_wired_command_actually_calls_the_guard(monkeypatch, tmp_path, command):
+    """A ceiling table nothing calls refuses nothing, and that failure looks exactly like a
+    green suite.
+
+    check_input is replaced with a raise, which does double duty: it records that the call
+    happened AND stops the command right there, so no invocation runs off into weights, an MSA
+    or a device. Each command runs on its own `--model` default, so this stays correct when a
+    default changes.
     """
     seen = []
 
@@ -167,13 +199,8 @@ def test_every_wired_command_actually_calls_the_guard(monkeypatch, tmp_path):
     monkeypatch.setattr(main.size_limits, "check_input", stop)
     f = tmp_path / "in.yaml"
     f.write_text(_yaml_of(10))
-    for argv in (["predict", str(f), "--model", "opendde"],
-                 ["design", str(f), "--model", "rfd3"],
-                 ["embed", str(f), "--model", "esmc-6b"],
-                 ["saprot", str(f), "--model", "saprot-35m"],
-                 ["affinity", str(f), "--model", "nesso1"]):
-        seen.clear()
-        res = CliRunner().invoke(main.cli, argv + ["--out_dir", str(tmp_path / "out")])
-        assert seen, (f"`tt-bio {argv[0]}` never called size_limits.check_input, so no ceiling "
-                      f"can refuse anything on that command")
-        assert isinstance(res.exception, _PastTheGuard)
+    res = CliRunner().invoke(
+        main.cli, [command, str(f), "--out_dir", str(tmp_path / "out")])
+    assert seen, (f"`tt-bio {command}` never called size_limits.check_input, so no ceiling can "
+                  f"refuse anything on that command")
+    assert isinstance(res.exception, _PastTheGuard)
