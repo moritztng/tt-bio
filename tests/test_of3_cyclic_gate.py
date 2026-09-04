@@ -129,25 +129,22 @@ def test_the_committed_cyclic_example_is_refused():
         _validate_cyclic_unsupported(p, "openbind")
 
 
-def test_every_caller_of_the_reader_that_drops_the_flag_runs_the_guard():
-    """A validator nothing calls is not a guard, and only rf3 had a test saying so.
+def test_every_caller_of_a_reader_that_drops_the_flag_runs_the_guard():
+    """A validator nothing calls is not a guard, and the missing esmfold2 call sat unnoticed
+    for exactly that reason.
 
-    The parametrized cases above prove the FUNCTION refuses; they say nothing about whether the
+    The parametrized cases above prove the FUNCTION refuses; they say nothing about whether a
     fold path calls it. The invariant that covers all of them at once comes from why the guard
-    exists: `_read_bio_chains` returns (chain_id, sequence, msa_spec, mol_type) and no cyclic
-    field (pinned by `test_the_protenix_reader_really_drops_the_flag`), so ANY function that
-    builds a spec from it drops `cyclic: true` on the floor and has to refuse first. Discovered
-    from the source rather than listed, so a new model whose spec builder uses that reader is
-    covered the day it lands instead of the day someone remembers this file.
+    exists: neither chain reader carries the flag -- `_read_bio_chains` returns (chain_id,
+    sequence, msa_spec, mol_type) and `_read_protein_chains` returns (chain_id, sequence,
+    msa_spec, modifications), both pinned by the two `_really_drops_the_flag` tests below. So
+    ANY function that builds a spec from either one drops `cyclic: true` on the floor and has
+    to refuse first. Discovered from the source rather than listed, so a new model whose spec
+    builder uses one of those readers is covered the day it lands instead of the day someone
+    remembers this file.
 
     Reachability is one hop, which is enough today: `_predict_protenix_one` gets the guard
-    through `_protenix_inputs`, and the other three call it directly.
-
-    NOT covered here, on purpose: `_predict_esmfold2_one` reads chains with
-    `_read_protein_chains`, which also ignores `cyclic` -- so esmfold2 silently folds a cyclic
-    input linear too. Extending the guard there is a new refusal rather than a refactor, so it
-    is left as a finding and not smuggled in; this test would not notice, which is why the gap
-    is written down here.
+    through `_protenix_inputs`, and the other four call it directly.
     """
     import ast
     import inspect
@@ -173,11 +170,14 @@ def test_every_caller_of_the_reader_that_drops_the_flag_runs_the_guard():
         return depth > 0 and any(reaches_guard(c, depth - 1)
                                  for c in direct if c in fns)
 
-    readers = [n for n, fn in fns.items() if "_read_bio_chains" in called(fn)]
-    assert readers, "nothing calls _read_bio_chains any more; this invariant needs rewriting"
-    unguarded = [n for n in readers if not reaches_guard(n)]
+    readers = {"_read_bio_chains", "_read_protein_chains"}
+    builders = [n for n, fn in fns.items() if called(fn) & readers]
+    assert len(builders) >= 5, (
+        f"expected every model spec builder to be found, got {sorted(builders)}; if a reader "
+        f"was renamed this invariant needs rewriting")
+    unguarded = [n for n in builders if not reaches_guard(n)]
     assert not unguarded, (
-        f"these build a spec from _read_bio_chains, which drops `cyclic`, without refusing it "
+        f"these build a spec from a chain reader that drops `cyclic`, without refusing it "
         f"first: {sorted(unguarded)}. A cyclic input would fold linear and return status=ok.")
 
 
@@ -246,20 +246,3 @@ def test_the_esmfold2_reader_really_drops_the_flag():
     src = inspect.getsource(_read_protein_chains)
     assert "cyclic" not in src, \
         "_read_protein_chains now reads `cyclic` -- revisit _validate_cyclic_unsupported"
-
-
-def test_every_model_that_cannot_honour_it_calls_the_validator():
-    """A validator a path does not call is not a guard, and the missing esmfold2 call sat
-    unnoticed for exactly that reason. Enumerating the predict methods here means the next
-    model added to one of them fails this test instead of folding cyclic input straight."""
-    import inspect
-
-    from tt_bio.worker import _WorkerState
-
-    for method in ("_predict_esmfold2_one", "_predict_opendde_one", "_protenix_inputs",
-                   "_predict_rf3_one", "_predict_openfold3_one"):
-        src = inspect.getsource(getattr(_WorkerState, method))
-        assert "_validate_cyclic_unsupported(" in src, \
-            f"{method} does not call _validate_cyclic_unsupported"
-    # protenix-v1/v2 reach it one level down, through the shared input builder.
-    assert "self._protenix_inputs(" in inspect.getsource(_WorkerState._predict_protenix_one)
