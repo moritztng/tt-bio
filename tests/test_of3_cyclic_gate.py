@@ -10,6 +10,10 @@ reads the flag, and upstream Protenix v0.5.0 has no cyclic chain flag either -- 
 examples/cyclic_prot.yaml with --model protenix-v1 SUCCEEDED and returned a linear 13-token
 structure, which is how this was found during the v1 bring-up sweep.
 
+ESMFold2 / ESMFold2-Fast: same shape. `_read_protein_chains` returns (chain_id, sequence,
+msa_spec, modifications) and never reads the flag either, so examples/cyclic_prot.yaml folded
+to status=ok on a straight chain. This was the last predict path missing the guard.
+
 Cyclisation changes the structure, so this is a hard error, the same treatment `constraints:`
 gets and unlike `properties: affinity`, which only omits an extra output. boltz2 and rf3 do
 honour the flag and must never be routed here. Card-free: yaml reading and a raise.
@@ -66,7 +70,7 @@ def _yaml(tmp_path, text, name="q.yaml"):
 
 
 @pytest.mark.parametrize("model", ["openfold3", "openbind", "protenix-v1", "protenix-v2",
-                                   "opendde", "opendde-abag"])
+                                   "opendde", "opendde-abag", "esmfold2", "esmfold2-fast"])
 def test_cyclic_chain_is_refused_for_every_model_that_cannot_honour_it(tmp_path, model):
     with pytest.raises(RuntimeError) as e:
         _validate_cyclic_unsupported(_yaml(tmp_path, CYCLIC), model)
@@ -201,3 +205,61 @@ def test_the_protenix_reader_really_drops_the_flag(model):
     src = inspect.getsource(_read_bio_chains)
     assert "cyclic" not in src, \
         "_read_bio_chains now reads `cyclic` -- revisit _validate_cyclic_unsupported"
+
+
+@pytest.mark.parametrize("model", ["esmfold2", "esmfold2-fast"])
+def test_the_esmfold2_dispatch_path_really_refuses_it(tmp_path, model):
+    """The parametrized test above proves the validator refuses the name; this proves the
+    ESMFold2 path reaches the validator at all, through the same `predict_one` dispatch a real
+    job takes. Card-free: the guard raises before any model or device work, so a bare instance
+    with no loaded model is enough. Against the pre-fix worker this walked past the guard and
+    died on the missing `msa_dir` config key instead."""
+    from tt_bio.worker import _WorkerState
+
+    state = object.__new__(_WorkerState)
+    with pytest.raises(RuntimeError) as e:
+        state.predict_one(_yaml(tmp_path, CYCLIC), {"model": model})
+    msg = str(e.value)
+    assert model in msg and "cyclic" in msg
+
+
+def test_a_linear_esmfold2_job_still_gets_past_the_guard(tmp_path):
+    """The control for the test above: a guard that refused everything would pass it. A linear
+    chain must reach the work and fail on the missing config, not on cyclic."""
+    from tt_bio.worker import _WorkerState
+
+    state = object.__new__(_WorkerState)
+    with pytest.raises(KeyError) as e:
+        state.predict_one(_yaml(tmp_path, LINEAR), {"model": "esmfold2"})
+    assert "msa_dir" in str(e.value)
+
+
+def test_the_esmfold2_reader_really_drops_the_flag():
+    """The reason the ESMFold2 arm of this gate exists. `_read_protein_chains` returns
+    (chain_id, sequence, msa_spec, modifications) and carries no cyclic field, so the flag
+    cannot reach the folder. If that ever changes, this fails and the gate should be
+    reconsidered rather than left refusing something ESMFold2 now supports."""
+    import inspect
+
+    from tt_bio.main import _read_protein_chains
+
+    src = inspect.getsource(_read_protein_chains)
+    assert "cyclic" not in src, \
+        "_read_protein_chains now reads `cyclic` -- revisit _validate_cyclic_unsupported"
+
+
+def test_every_model_that_cannot_honour_it_calls_the_validator():
+    """A validator a path does not call is not a guard, and the missing esmfold2 call sat
+    unnoticed for exactly that reason. Enumerating the predict methods here means the next
+    model added to one of them fails this test instead of folding cyclic input straight."""
+    import inspect
+
+    from tt_bio.worker import _WorkerState
+
+    for method in ("_predict_esmfold2_one", "_predict_opendde_one", "_protenix_inputs",
+                   "_predict_rf3_one", "_predict_openfold3_one"):
+        src = inspect.getsource(getattr(_WorkerState, method))
+        assert "_validate_cyclic_unsupported(" in src, \
+            f"{method} does not call _validate_cyclic_unsupported"
+    # protenix-v1/v2 reach it one level down, through the shared input builder.
+    assert "self._protenix_inputs(" in inspect.getsource(_WorkerState._predict_protenix_one)

@@ -351,6 +351,10 @@ def _validate_cyclic_unsupported(path, model: str) -> None:
     structure. Caught by folding examples/cyclic_prot.yaml with --model protenix-v1 during the
     v1 bring-up sweep: it succeeded, which is the bug.
 
+    ESMFold2 / ESMFold2-Fast: the same, one door further along. `_read_protein_chains` returns
+    (chain_id, sequence, msa_spec, modifications) and never reads the flag, so the fold ran on a
+    straight chain and returned status=ok. This was the last predict path missing the call.
+
     RF3: the model has the cyclic branch (`rf3/feature_init.py` builds a wrapped relative
     position from `cyclic_asym_ids`), but its spec builder here reads only what
     `_read_bio_chains` returns, which does not include the flag — so the YAML door drops it
@@ -875,6 +879,7 @@ class _WorkerState:
         chains = _read_protein_chains(path)
         if not chains:
             raise RuntimeError("no protein sequences")
+        _validate_cyclic_unsupported(path, cfg.get("model", "esmfold2"))
         msa_dir = Path(cfg["msa_dir"])
         max_msa = cfg.get("max_msa_seqs") or 16384
         # Only the checkpoints that ship an MSA encoder can use an MSA. ESMFold2

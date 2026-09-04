@@ -3,6 +3,218 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Changed
+
+- **A `cyclic: true` chain is now refused by `esmfold2` and `esmfold2-fast` too.** Every other
+  model that cannot cyclise already refused it. ESMFold2 was the one path left that took the flag,
+  dropped it and folded the chain straight, returning `status=ok`: `examples/cyclic_prot.yaml` came
+  back with 21.8 A between the two ends it was asked to join. Such a job now fails with an error
+  instead. For a cyclic peptide use `--model boltz2` or `--model rf3`, which honour the flag.
+
+## [0.7.3] - 2026-09-04
+
+### Added
+
+- **tt-bio refuses a target it is measured not to fold, instead of crashing on it.** The per-model
+  ceilings only ever existed in the serving platform, as a record of where a worker had been seen to
+  die, so a CLI user who asked OpenDDE for 1024 residues got the crash itself: an L1 throw, an OOM,
+  or a chip left wedged for the next job. They live in `tt_bio/size_limits.py` now and refuse before
+  any device opens, naming the model, the limit, and any model that does take the input.
+
+  Nothing here was measured by this change; every row is copied from the ladder that walked it. The
+  table is Wormhole-only because nobody has walked a Blackhole ladder, and **on Blackhole this
+  refuses nothing.** On Wormhole: `opendde` and `opendde-abag` 544, `openfold3` and `openbind` 576,
+  `rf3` 627, `pxdesign` 768 target residues, `protenix-v2` 980, `rfd3` 490 motif plus designed,
+  `esmc-6b` 1968. `boltz2`, `esmfold2`, `boltzgen` and `nesso1` carry no measured ceiling and are
+  never refused, because absence of a limit is not a limit.
+
+  A size that folds licenses nothing below it. OpenDDE folds 544, throws at 576, and folds 608
+  again: the failure is an L1 static-CB clash that follows the padded tile shape and the core-grid
+  split, and neither is monotonic in residue count. So each limit is the largest size below that
+  model's **first** measured failure, and every row carries the size above it that was witnessed to
+  fail. A ladder top with nothing above it says so rather than passing itself off as a wall.
+
+  The limits were walked with an MSA, which is the default for the models that take one, and
+  single-sequence is measurably roomier: OpenFold3 caps at 576 with an alignment and folds 768
+  without one. So **`TT_BIO_SIZE_LIMIT=0` turns any refusal into a warning**, and the refusal message
+  names it. The guard costs 202-323 microseconds at 128-512 residues, paid once per invocation.
+
+- **`tt-bio design --model pxdesign --controller <url>` fans a design run across a fleet**, one shard
+  per design. The flag used to be accepted and then dropped, so a fleet invocation cold-opened a
+  device of its own and collided with the workers already holding every chip. Each shard gets
+  `seed+k`, the same per-design seeding the local path already used. Measured on the Galaxy at 592
+  tokens: 0.1186 s per diffusion step and 10.8 s of fixed per-process cost, so four designs at
+  `n_step 200` batched into one shard take 96.2 s against about 35 s fanned out one per card. The CLI
+  and each worker shard now run one `run_design` code path instead of two copies of it.
+
+- **`designs.json` beside the design CIFs**, carrying each design's target fit RMSD, binder residue
+  and atom counts and conditioned-token count, merged across fleet shards as each arrives. A binder
+  backbone CIF has no sequence, no B-factor and no confidence score, so everything worth reading
+  about a design used to reach stdout and nothing else.
+
+### Fixed
+
+- **`tt-bio embed` refused 50 sequences of 100 residues because it added them up.** Embed and SaProt
+  run the trunk over each sequence separately, so what has to fit on the chip is the longest one, not
+  the sum. A 50-record FASTA of 100 aa scored 5000 against esmc-6b's 1968 and was turned away though
+  every sequence in it embeds in seconds. Those commands size on the longest sequence now, and the
+  flat `{id: sequence}` YAML they document is read as well: the residue scanner looked for a
+  `sequences:` key, found none, returned 0, and never refused a genuinely oversized 2500 aa sequence
+  in that form. `predict` keeps summing, because one predict file is one complex whose chains fold
+  together.
+
+- **An empty or comment-only input YAML is a user error now, not an `AttributeError` from inside a
+  parser.** `yaml.safe_load` returns `None` for such a file and five readers then reached straight
+  for a key, so `tt-bio predict` on a commented-out YAML died naming nothing the user had typed. One
+  of the five was the shared input path for boltz2, protenix-v1, protenix-v2, openfold3, openbind and
+  opendde. There is one loader now, so a reader cannot forget the check by reaching for
+  `yaml.safe_load` directly.
+
+- **RF3 accepted `constraints:`, `modifications:` and `cyclic:` blocks in a YAML input and silently
+  dropped them.** The YAML door builds an RF3 spec from chains alone, so none of the three ever
+  reached the featurizer: they were accepted, dropped, and never mentioned. A dropped covalent bond
+  changes the answer rather than omitting an output, so they are refused now. The model carries all
+  three through its own JSON/CIF spec, which `featurize` reads directly; the README claimed the
+  model's capability as the CLI's and now draws that line.
+
+- **A pasted coordinates-only PDB no longer kills a PXDesign run in featurization.** A PDB with no
+  SEQRES leaves every `label_seq` unset, so `int(res.label_seq)` died on `None` in three seconds. The
+  featurizer falls back to the author numbering, which on such a file is the only residue number the
+  user can see. Forcing 1..N was rejected because it would silently move every hotspot and crop on
+  any PDB not numbered from 1. mmCIF inputs featurise bit-identically.
+
+- **A transient controller read no longer kills a fleet design run.** A co-tenant's disk-full burst
+  once killed 58 folds through transient sqlite `CANTOPEN`, and the fix wrapped `predict`'s poll in a
+  private backoff. BoltzGen, RFdiffusion3 and PXDesign poll the same endpoint in the same shape and
+  never got it, so the same burst still killed a fleet design run. The retry moved onto the client
+  every reader goes through. GET only, where a replay is free; `/lease`, `/complete` and `/events`
+  are POST and would double-serve a job. A 4xx is the controller's settled answer and fails
+  immediately. The four fleet entrypoints also had four copies of the same "refuse zero workers"
+  preflight in two wordings and two exception types; they are one function now.
+
+### Changed
+
+- **`ihm` is now a declared dependency.** `tt_bio/data/write.py` imports it directly and has only
+  ever reached it through `modelcif`. Nothing to do on an existing install; a clean one no longer
+  depends on luck.
+
+### The release gate itself
+
+`scripts/packaging_smoke.py` and `scripts/ux_regression.py` each got their first test suite, and
+writing them turned up six real defects in the gates. The sdist membership test matched any tarball
+member whose path merely ended with the file, so a copy anywhere in the tree satisfied it. The
+`--fold` leg passed its YAMLs by path and read any failure that was not missing data as a pass, so
+renaming an example would have printed three PASSes having run no model. That same leg paired
+`FileNotFoundError` anywhere in the output with `/data/` anywhere in it, and every traceback frame of
+a packaged run sits under `site-packages/tt_bio/`, so a user's own missing input file read as a
+dropped package data file. The dependency check compared `pyproject.toml` against the wheel's own
+metadata, which by construction cannot see a dependency nobody declared; it reads module-level
+imports out of the source now, and that is how the missing `ihm` was found. The model-coverage check
+built its covered set from a second expression over the same leg lists, so a model added to a leg
+list and nowhere else counted as covered and never ran. And `_check_cif`'s warnings-as-errors wrapper
+had never once fired, because `MMCIFParser(QUIET=True)` installs an ignore filter for that category
+inside its own `catch_warnings` and the inner filter wins. `LEGS_EXEMPT` reasons are linted now as
+well, so a dated or circumstantial exemption stops the gate instead of quietly excusing a leg. CI
+runs the packaging gate on every PR, so an undeclared import fails on the PR that adds it instead of
+at the next tag.
+
+**Every `predict` leg is scored on backbone geometry and heavy-atom clashes**, not only on RMSD and
+TM. A sample now fails on a backbone gap over 5 Å, on a chain keeping under 90 % of its CA-CA steps
+inside the 3.60-4.10 Å band (85 % for a nucleic chain), or on more heavy-atom contacts under 2 Å than
+the larger of two atoms and 2 % of its heavy atoms. OpenDDE shipped folds with 19 chain breaks and
+9.5 % of heavy atoms clashing for nine days in August behind a green gate, because a global fit reads
+none of that.
+
+**P300c baseline coverage is closed.** `rf3`, `esmc-300m-single` and `nesso1` gained P300c throughput
+baselines and two dead shadowed card-layer cells were removed. A bare
+`perf_regression.py` on a P300c QuietBox now covers all 19 models with nothing missing a baseline:
+19 of 19 resolved and 19 of 19 passed on the tagged tree, the three new cells reading -4.2 %,
++1.4 % and +1.4 %, and the two largest movers, OpenDDE and Protenix-v2, running 26.1 % and 17.5 %
+faster than their recorded cells.
+
+**ESMFold2-Fast has its own reference-parity leg**, four targets and five seeds through the same
+harness ESMFold2 uses. Its structure agrees with the reference; its confidence does not, and the
+cause is measured rather than guessed. The trunk's pair state differs from the reference by 12.1 %
+relative L2, which is 3.4 % per trunk pass of ordinary bf16 arithmetic compounded over the four
+passes of the recurrence. Substituting the reference's pair state into the device's confidence head,
+everything else left as the device produced it, moves mean plDDT from 0.8977 to 0.9147, which is
+71 % of the 0.0241 gap and lands inside the 0.9148-0.9171 three reference folds of this target
+report. The head itself is exact, device and reference agreeing to 8e-6 on identical inputs, so there
+is no formula to fix. Closing the rest means running the pair state above bf16, which is a
+performance change and release-gated. The benchmarks page keeps flagging that row's confidence as
+pending.
+
+**PXDesign batching is confirmed on healthy hardware.** The batch-of-8 lever reads 1.2435x on a P300c
+board, against 1.2463x from the first reading on a p150a whose matmuls are occasionally wrong.
+Batches of 16, 32 and 64 all run and all read slower per design than 8.
+
+### What this release does not cover
+
+**Two parity legs were deliberately not run.** `protenix-hsa-msa` (585 residues) and the `capacity`
+leg (1095 residues) both took the gate host hard-down during this cut, the first with no intervention
+at all, and both are Protenix-v2 above roughly 500 tokens. The gate of record for this release is
+therefore 41 of the 43 default legs. Protenix-v2 reference parity is covered here at 76 and 117
+residues, which both passed; it is not covered above that. The Protenix-v2 code is untouched in this
+window, so this is a gap in what was re-verified, not a change in what ships. Tracked separately.
+
+**`af2ig-trunk-device` fails** against a floor recorded on a 13x10 board with the template on host,
+from a gate host that is 11x10 with it on card: 13 of 94 taps, `pcc_min` 0.9960, envelope ratio
+13.79. The numbers reproduce digit for digit on replacement hardware, which is what the standing
+diagnosis predicts, and AF2-IG has no CLI path, so the floor stays as recorded rather than being
+rewritten to turn the gate green.
+
+**Two parity legs ship BLOCKED-REF-REGEN-NEEDED**, `protenix-9ncy-msa` and `protenix-v1-prot-msa`:
+their reference CIFs were externalized, never published to the fixture release asset, and are gone
+with the authoring worktrees. Protenix-v1's coverage this release is its accuracy floor, nine
+size-ladder rungs, a UX leg and a perf cell, not its multi-seed reference parity.
+
+**The three AF2-IG parity legs only run if you point `AF2IG_PARAMS` at the checkpoint by hand.** The
+gate resolves that path itself instead of asking the weight registry, so the file
+`tt-bio weights --download af2ig` fetches is not where the gate looks, and without the export those
+legs report a missing checkpoint, which reads the same as not covered. The same defect was fixed for
+RF3 and never generalised.
+
+**The size-limit refusals are not exercised on hardware by this gate.** The table is Wormhole-only
+and the gate host is Blackhole, where nothing is enforced, so the 54 tests that ship with the module
+are the whole of its coverage here. The release gate's size ladder runs OpenDDE and OpenFold3 at 640
+and 768, above both Wormhole caps, and is untouched for the same reason.
+
+**The new `--controller` path and the `designs.json` write have no gate leg of their own.**
+`ux_regression.py` scores `tt-bio design --model pxdesign` locally and that is the only coverage.
+
+**The size ladder is red on nesso1's lever census, and only there.** Run three times alone on a quiet
+host, nesso1's runtimes land on `docs/size_ladder_baseline.json` (4.6 / 8.0 / 10.2 / 13.6 s against a
+recorded 4.64 / 8.07 / 10.22 / 13.64) and its 256-to-512 scaling exponent reads 0.79 to 0.80 against
+a recorded 0.80. What does not match is the reject-clause census: two levers each pick up a second
+decline reason. Both serve zero calls in the baseline and in all three runs, so no lever changed
+state, and `tt_bio/tenstorrent.py`, the only file that defines either of them, has not changed since
+the baseline was recorded. That baseline is a single fold whose own call counts jitter run to run, so
+it holds whichever clause set that one fold happened to hit. Re-anchoring it on the replacement
+QuietBox is a follow-up; a baseline does not get re-recorded inside a release cut to turn its own
+gate green.
+
+**The host suite passes 1741, fails 3 and skips 118.** All three failures are in the token-axis
+bucketing file and none of them is a code defect. The OpenFold3 and OpenBind folds could not open the
+card because the test ahead of them holds it inside the pytest process; run one at a time, both pass.
+The third asserts that esmc-300m's logits are bit-identical between `Model.forward` and `_dispatch` at
+a length already a multiple of 32, where the bucketing helper returns its arguments untouched and
+`forward` is a passthrough into that same call. That control cannot hold on this path: six consecutive
+`_dispatch` calls on identical input, `forward` out of the picture entirely, differ from one another
+by up to 25 in logits and 1.1 in the embedding, on two different cards. The eager ESMC path is not
+bit-reproducible run to run on Blackhole, so the test reads hardware jitter as a code change.
+`tt_bio/esmc.py`, `tt_bio/token_axis.py` and the test itself have no commits in this release window,
+and the ESMC parity leg, which compares against the reference within a tolerance, passes at 0.9996
+per-residue PCC. Every skip prints its reason.
+Twenty-five are upstream files this repo does not vendor and always skip. The rest are golden pickles
+and port checkpoints for Protenix, OpenFold3, OpenBind and PXDesign that live in scratch paths
+outside the weight cache and did not survive the 2026-09-01 QuietBox replacement, so those
+component-level comparisons did not run here. Reference parity for the same models is covered by the
+parity gate, which uses fixtures that are versioned.
+
+**RFD3 block-sparse atom attention (`RFD3_BLOCK_SPARSE=1`) still ships ungated** and stays opt-in.
+
 ## [0.7.2] - 2026-09-01
 
 ### Added
