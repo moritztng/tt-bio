@@ -32,25 +32,71 @@ from tt_bio.cache import cached, seq_hash, staged
 
 
 _REAL_STDERR_FD: int | None = None
+_CAPTURE_PATH: Path | None = None
+
+
+def worker_capture_path(pid: int) -> Path:
+    """Path a silenced worker's native stderr (fd 2) is captured to.
+
+    Keyed by pid so the launcher, which knows each child's ``proc.pid``, can read
+    it back after the worker dies (see ``read_worker_capture``).
+    """
+    return Path(tempfile.gettempdir()) / f"tt-bio-worker-{pid}.stderr"
+
+
+def read_worker_capture(pid: int, max_bytes: int = 4000, *, consume: bool = False) -> str:
+    """Return the tail of a dead worker's captured native stderr, or "".
+
+    ``consume`` unlinks the file after reading, so the launcher does not leave
+    one behind for every crashed worker.
+    """
+    path = worker_capture_path(pid)
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return ""
+    if consume:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+    return data[-max_bytes:].decode("utf-8", "replace").strip()
 
 
 def _silence_subprocess_output() -> None:
-    """Send stdout/stderr to /dev/null so kernel/library noise stays hidden.
+    """Hide library noise while keeping a worker fatal recoverable.
 
-    Keeps one dup of the real stderr. A worker that dies before it has a run to
-    attach an event to has no other way to say why, and writing that fatal to
-    /dev/null is what left a device-open failure invisible for hours: the CLI
-    hung, the log was 0 bytes, and the traceback had already been discarded.
+    stdout is genuine per-op noise and goes to /dev/null. Native stderr (fd 2)
+    goes to a per-worker capture *file*, not /dev/null, so a fatal that never
+    reaches Python -- a C-level abort such as an MPI_Init failure, which writes
+    to fd 2 and exits without unwinding -- survives for the launcher to read on
+    worker death. A plain /dev/null here is exactly what left an MPI_Init abort
+    invisible: no Python traceback reached ``_report_fatal`` and the C stderr
+    went to the void. A dup of the real stderr is still kept so ``_report_fatal``
+    can surface Python fatals to the terminal immediately.
     """
-    global _REAL_STDERR_FD
+    global _REAL_STDERR_FD, _CAPTURE_PATH
     _REAL_STDERR_FD = os.dup(2)
-    devnull = open(os.devnull, "w")
-    sys.stdout = devnull
-    sys.stderr = devnull
     dn_fd = os.open(os.devnull, os.O_WRONLY)
     os.dup2(dn_fd, 1)
-    os.dup2(dn_fd, 2)
     os.close(dn_fd)
+    _CAPTURE_PATH = worker_capture_path(os.getpid())
+    cap_fd = os.open(str(_CAPTURE_PATH), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.dup2(cap_fd, 2)
+    os.close(cap_fd)
+    sys.stdout = open(os.devnull, "w")
+    sys.stderr = os.fdopen(2, "w", buffering=1, closefd=False)
+
+
+def _cleanup_worker_capture() -> None:
+    """Remove this worker's capture file on a clean or Python-level exit. A
+    native abort skips this (it never unwinds), so its file is left for the
+    launcher, which consumes it in ``read_worker_capture``."""
+    if _CAPTURE_PATH is not None:
+        try:
+            os.remove(_CAPTURE_PATH)
+        except OSError:
+            pass
 
 
 def _report_fatal(message: str) -> None:
@@ -1982,6 +2028,7 @@ def run_worker_loop(
         raise
     finally:
         state.reset()
+        _cleanup_worker_capture()
 
 
 def _execute_job(

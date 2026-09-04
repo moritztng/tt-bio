@@ -147,7 +147,7 @@ from tt_bio.runtime import (
     detect_tenstorrent_devices,
     discover_jobs,
 )
-from tt_bio.worker import SHARED_OUTPUT_PREFIX, run_worker_loop
+from tt_bio.worker import SHARED_OUTPUT_PREFIX, read_worker_capture, run_worker_loop
 
 # Every weight and data artifact tt-bio downloads is one row in tt_bio.weights.
 # ARTIFACTS: source, repo/URL, destination, licence and env override in one place,
@@ -1335,9 +1335,22 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                         raise DeviceInUseError(
                             f"every local worker exited at device open ({codes}); the card "
                             "is leased by another process, so nothing ran")
+                    # Surface each dead worker's captured native stderr. A
+                    # C-level abort (e.g. an MPI_Init failure) exits without
+                    # unwinding Python, so it never reaches the worker's fatal
+                    # handler; without this its cause is invisible unless the run
+                    # is repeated with --debug.
+                    tails = []
+                    for proc in local_procs:
+                        cap = read_worker_capture(proc.pid, consume=True)
+                        if cap:
+                            tails.append(
+                                f"--- {proc.name} (exit {proc.exitcode}) stderr tail ---\n{cap}")
+                    detail = ("\n\n".join(tails) if tails else
+                              "no worker stderr was captured; re-run with --debug to see it")
                     raise RuntimeError(
                         f"every local worker exited before the run finished ({codes}); "
-                        "no job can be served. The worker's own traceback above says why.")
+                        f"no job can be served.\n{detail}")
                 all_dead_seen = True
             else:
                 all_dead_seen = False
