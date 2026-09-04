@@ -3,6 +3,16 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Changed
+
+- **A `cyclic: true` chain is now refused by `esmfold2` and `esmfold2-fast` too.** Every other
+  model that cannot cyclise already refused it. ESMFold2 was the one path left that took the flag,
+  dropped it and folded the chain straight, returning `status=ok`: `examples/cyclic_prot.yaml` came
+  back with 21.8 A between the two ends it was asked to join. Such a job now fails with an error
+  instead. For a cyclic peptide use `--model boltz2` or `--model rf3`, which honour the flag.
+
 ## [0.7.2] - 2026-09-01
 
 ### Added
