@@ -878,7 +878,6 @@ class DiffusionModule(_KeyedWeights):
     def __init__(self, diffusion_state_dict, device, compute_kernel_config, diffusion_fp32=None):
         """diffusion_state_dict: {key: tensor} for diffusion_module.* (prefix stripped).
         diffusion_fp32: explicit override; None falls back to PROTENIX_DIFFUSION_FP32_DEVICE."""
-        import torch.nn.functional as F  # noqa: F401  (used in DiT)
         self._w = dict(diffusion_state_dict)
         self.dev = device
         self.compute_kernel_config = compute_kernel_config
@@ -1002,7 +1001,6 @@ class DiffusionModule(_KeyedWeights):
         tensors s_trunk (NT,c_s), s_inputs (NT,449), pair_z (NT,NT,c_z), c_l (N,128),
         p_lm (nb,nq,nk,16), S (N,NT) atom->token onehot, mask_trunked (nb,nq,nk).
         Returns denoised coords (1,N,3) at M=1, (M,N,3) at M>1 host tensor."""
-        import torch.nn.functional as F
         _M = x_noisy.shape[0]
         if _M > 1 and getattr(self, "supports_multiplicity", False):
             return self._denoise_multiplicity(x_noisy, t_hat, cond)
@@ -1325,7 +1323,6 @@ class DiffusionModule(_KeyedWeights):
         atom<->token pooling matrices are the exception -- ttnn matmul has no batch
         broadcast -- so those are replicated (see Smean_m / S_m below).
         Returns denoised coords (M,N,3) host."""
-        import torch.nn.functional as F
         self._atom_cond(cond)
         M = x_noisy.shape[0]
         s_inputs = cond["s_inputs"]

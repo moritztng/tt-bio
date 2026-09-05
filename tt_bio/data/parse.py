@@ -14,7 +14,6 @@ from collections.abc import Mapping
 from Bio import SeqIO
 from rdkit.Chem.rdchem import Mol
 from tt_bio.data.types import Target
-import yaml
 import contextlib
 import os
 from collections import defaultdict
