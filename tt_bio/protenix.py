@@ -603,18 +603,6 @@ class AtomTransformer(_KeyedWeights, Module):
                  for b in range(self.n_blocks)]
         return (z_pre, self._make_pad_bias(mask_trunked))
 
-    def __call__(self, a, s, p, mask_trunked, bias_cache=None):
-        """a,s: (1,N,c_atom); p: (nb,nq,nk,c_atompair); mask_trunked: (nb,nq,nk) host
-        tensor of per-window key validity. bias_cache = optional (per-block z_pre, pad_bias)
-        from precompute_biases() (when p/mask are fixed across calls). Returns (1,N,c_atom)."""
-        N = a.shape[1]
-        NP = ((N + self.N_QUERIES - 1) // self.N_QUERIES) * self.N_QUERIES
-        z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
-        x = a
-        for b in range(self.n_blocks):
-            x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None))
-        return x
-
     # --- M-aware (multiplicity-batched) path --------------------------------------
     # Mirrors the M=1 _block/_attention but carries M as the leading batch dim. The
     # sample-invariant s (c_la) is replicated (AdaLN needs it elementwise); the
@@ -691,7 +679,7 @@ class AtomTransformer(_KeyedWeights, Module):
         from precompute_biases() (shared across samples). multiplicity (M): when >1 and
         supports_multiplicity is on, run the M-aware batched path (one batched forward per
         block); else the M=1 per-sample path. Returns (1,N,c_atom) at M=1, (M,N,c_atom) at M>1."""
-        N = a.shape[1] if multiplicity == 1 else a.shape[1]
+        N = a.shape[1]
         NP = ((N + self.N_QUERIES - 1) // self.N_QUERIES) * self.N_QUERIES
         if multiplicity == 1:
             z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
