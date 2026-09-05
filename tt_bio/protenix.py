@@ -1247,41 +1247,15 @@ class DiffusionModule(_KeyedWeights):
                 else apb.compute_bias(z_dev) for (_, apb, _, _, _) in self._dit]
 
     def _token_dit_device(self, a_t, s_t, biases, NT):
-        """On-device 24-block token DiT (ttnn). a_t (1,NT,768), s_t (1,NT,384); biases = list
+        """On-device 24-block token DiT (ttnn). a_t (M,NT,768), s_t (M,NT,384); biases = list
         of per-block precomputed (1,n_heads,NT,NT) pair biases (from _dit_block_biases, fixed
-        across steps). Mirrors host _token_dit; reuses AdaLN + AttentionPairBias. When
-        PROTENIX_DIFFUSION_FP32_DEVICE=1 the full diffusion stack, including this DiT,
-        runs in ttnn fp32."""
+        across steps, broadcast over M in the QK-scale add). M is 1 on the per-sample path and
+        the sample count under _denoise_multiplicity; the body needs no separate M variant
+        because AdaLN and AttentionPairBias both carry a leading batch dim. Mirrors host
+        _token_dit. When PROTENIX_DIFFUSION_FP32_DEVICE=1 the full diffusion stack, including
+        this DiT, runs in ttnn fp32."""
         ckc = self._dit_ckc
         if self._dit_fp32:   # inputs are already fp32; typecast is trace-safe and idempotent
-            a_t = ttnn.typecast(a_t, self._dit_dtype)
-            s_t = ttnn.typecast(s_t, self._dit_dtype)
-        wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
-
-        def linb(x, wk, bk=None, act=None):
-            return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
-                               compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
-        for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
-            b = adaln_a(a_t, s_t)
-            attn = apb(b, bias, bias_precomputed=True)
-            dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
-            sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
-            ao = ttnn.add(ttnn.multiply(attn, sg), a_t)
-            an2 = ctb_adaln(ao, s_t)
-            bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
-                               linb(an2, Cc + "linear_nobias_a2.weight"))
-            cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
-            a_t = ttnn.add(ttnn.multiply(cs, linb(bb, Cc + "linear_nobias_b.weight")), ao)
-        return a_t
-
-
-    def _token_dit_device_m(self, a_t, s_t, biases, NT):
-        """M-aware on-device 24-block token DiT. a_t (M,NT,768), s_t (M,NT,384); biases = list
-        of (1,n_heads,NT,NT) precomputed pair biases (broadcast over M in the QK-scale add).
-        Mirrors _token_dit_device; AdaLN + AttentionPairBias handle a leading batch dim when
-        s_t is replicated to (M,NT,384). Used only by _denoise_multiplicity (gated)."""
-        ckc = self._dit_ckc
-        if self._dit_fp32:
             a_t = ttnn.typecast(a_t, self._dit_dtype)
             s_t = ttnn.typecast(s_t, self._dit_dtype)
         wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
@@ -1371,8 +1345,8 @@ class DiffusionModule(_KeyedWeights):
             # broadcast over M in the QK-scale add. Replicating it (M copies of 24 x
             # (n_heads,NT,NT)) was the multiplicity path's dominant allocation: 1.9 GB per
             # copy at NT=1095 in fp32, i.e. ~9.6 GB at M=5.
-            a_t = self._token_dit_device_m(ttnn.reshape(a_tok, (M, NT, 768)), rep(s_single),
-                                           cond["dit_block_biases"], NT)
+            a_t = self._token_dit_device(ttnn.reshape(a_tok, (M, NT, 768)), rep(s_single),
+                                         cond["dit_block_biases"], NT)
             a_t = (self._ln_dit if self._dit_fp32 else self._ln)(a_t, "layernorm_a.weight")
         else:
             biases = cond.get("dit_biases") or self._dit_pair_biases(
