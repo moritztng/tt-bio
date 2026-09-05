@@ -679,9 +679,10 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
 def shipped_models() -> set:
     """Every name reachable from a CLI ``--model`` choice, discovered from main.py's own tuples.
 
-    Discovered and not named, for the reason token_axis.shipped_models() records: a hand-typed list
-    is exactly how a model gets added to the CLI without getting a row here.
+    One implementation, in token_axis, which carries the incident that produced the discovery
+    rule. This module had a byte-identical copy whose docstring already deferred to that one --
+    and a guard against "a model reached the CLI without a row here" is worth less in two
+    copies, because fixing the rule in one leaves the other still wrong.
     """
-    from tt_bio import main as _main
-    tuples = {n: getattr(_main, n) for n in dir(_main) if n.endswith("_MODELS")}
-    return set().union(*tuples.values())
+    from tt_bio.token_axis import shipped_models as _shipped
+    return _shipped()
