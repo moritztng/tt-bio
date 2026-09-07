@@ -5,6 +5,17 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+
+- **Triangle attention on the fused kernel now pre-bakes the pair bias.** The fused kernel adds the
+  bias before applying its scale, so it wants a bias already multiplied by `sqrt(head_dim)`. The
+  fp32-softmax route did that; the fused route did not. Every model that ships
+  `scale_pair_bias=True` had the multiply folded into its weights at load, so nothing shipped was
+  affected -- the bug only bites a caller that passes `False`, and until RoseTTAFold3's template
+  embedder and MSA module moved to the fused route in this release, no such caller existed. There
+  it was worth 13.3x: 7ROA L117 scored 0.10683 A against its torch reference on the old route and
+  1.41825 A on the fused one, back to 0.15238 A with the bias corrected.
+
 ### Changed
 
 - **RoseTTAFold3 folds 1095 residues on a 12 GiB Wormhole card, up from 627.** Neither wall was
