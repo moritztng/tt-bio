@@ -20,15 +20,24 @@ def z_bytes(tokens):
 
 
 def blocked(tokens, dram):
-    return z_bytes(tokens) > T._concat_host_budget(dram)
+    return z_bytes(tokens) > T._opm_z_single_shot_budget(dram)
 
 
-def test_budget_is_one_eighth_of_dram_and_never_below_the_measured_base():
-    assert T._concat_host_budget(WH_DRAM) == T.OPM_Z_SINGLE_SHOT_BYTES_BASE == 1536 * 2 ** 20
-    assert T._concat_host_budget(BH_DRAM) > T._concat_host_budget(WH_DRAM)
+def test_budget_is_the_measured_figure_on_the_part_it_was_measured_on():
+    # 1 207 959 552 B is the 768-token single-shot z, the largest measured to allocate.
+    assert T.OPM_Z_SINGLE_SHOT_BYTES_BASE == z_bytes(768) == 1207959552
+    assert T._opm_z_single_shot_budget(WH_DRAM) == T.OPM_Z_SINGLE_SHOT_BYTES_BASE
+    assert T._opm_z_single_shot_budget(BH_DRAM) > T._opm_z_single_shot_budget(WH_DRAM)
     # A part that reports nothing falls back to the measured figure rather than to zero, which
     # would block every size.
-    assert T._concat_host_budget(0) == T.OPM_Z_SINGLE_SHOT_BYTES_BASE
+    assert T._opm_z_single_shot_budget(0) == T.OPM_Z_SINGLE_SHOT_BYTES_BASE
+
+
+def test_the_refusals_that_set_the_budget_are_the_negative_control():
+    # 800 and 832 were refused on this exact allocation, by 832 B and 256 B per bank, with ~300 MB
+    # per bank nominally free. So the budget has no margin to spend above 768's figure.
+    assert z_bytes(800) == 1310720000 and z_bytes(832) == 1417674752
+    assert blocked(800, WH_DRAM) and blocked(832, WH_DRAM)
 
 
 def test_wormhole_1024_is_the_refused_allocation_and_now_blocks():
@@ -44,12 +53,12 @@ def test_wormhole_keeps_every_size_that_folds_today_on_the_single_shot_path():
         assert not blocked(tokens, WH_DRAM), tokens
 
 
-def test_blackhole_is_neutral_by_construction_up_to_1440_tokens():
+def test_blackhole_is_neutral_by_construction_across_the_advertised_range():
     # Blackhole has 2.65x the DRAM and therefore 2.65x the budget, so no advertised size changes
     # path there -- the arch needs no flag of its own.
-    for tokens in (512, 768, 896, 1024, 1088, 1440):
+    for tokens in (512, 768, 896, 1024, 1088, 1216):
         assert not blocked(tokens, BH_DRAM), tokens
-    assert blocked(1472, BH_DRAM)
+    assert blocked(1280, BH_DRAM)
 
 
 def test_the_gate_is_not_the_token_count_it_replaced():

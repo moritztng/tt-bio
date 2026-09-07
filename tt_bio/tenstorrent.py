@@ -48,13 +48,29 @@ OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 # fold is refused on, at the `to_layout` that needs a second copy of it beside the first
 # (measured on Galaxy card 0, 178 978 816 B per bank against a 132 632 576 B largest free block).
 # So the gate is the tensor's own byte count, the same resource the projection stage beside it
-# already reads through OPM_ROW_CHUNK_BUDGET_BYTES, and the same fraction of DRAM
-# CONCAT_HOST_BYTES_BASE was fitted at -- for the same reason, since that budget was fitted
-# against this part refusing ~180 MiB/bank with GiBs nominally free, which is exactly the
-# refusal above. Read it through opm_z_single_shot_bytes(), never this base: a 12 GiB Wormhole
-# keeps 1.5 GiB and a 31.875 GiB p150a gets 3.98 GiB, so every Blackhole size up to 1440 tokens
-# stays on today's single-shot path byte for byte.
-OPM_Z_SINGLE_SHOT_BYTES_BASE = 1536 * 2 ** 20   # 1.5 GiB
+# already reads through OPM_ROW_CHUNK_BUDGET_BYTES.
+#
+# The budget is the largest single-shot z MEASURED to allocate on a 12 GiB Galaxy chip, with the
+# smallest one measured to REFUSE as its negative control -- the same construction as
+# _FP32_SOFTMAX_BLOCK_BYTES, and not a chosen safety margin. On the OpenFold3 deep-MSA ladder
+# (1024-token fixtures at 14191 alignment rows, Galaxy card 0):
+#
+#     tokens   single-shot z            outcome
+#        768   1 207 959 552 B (1.125 GiB)   allocates; the fold runs on
+#        800   1 310 720 000 B (1.221 GiB)   REFUSED -- 109 228 032 B/bank needed against a
+#                                            109 227 200 B largest free block, short by 832 B
+#        832   1 417 674 752 B (1.320 GiB)   REFUSED -- short by 256 B/bank
+#
+# Both refusals miss by bytes with ~300 MB/bank nominally free, so this is a fragmentation wall
+# and there is no margin to spend above 768's figure. A first pass set the budget at CONCAT_HOST's
+# 1.5 GiB, and 800 and 832 are what measured that as too loose.
+#
+# Read it through opm_z_single_shot_bytes(), never this base. 1 207 959 552 B is 3/32 of what this
+# part reports, so the function is that fraction of whatever DRAM a part has, floored at the
+# measured figure: a 12 GiB Wormhole keeps 1.125 GiB and a 34.2 GB p150a gets 2.99 GiB, which
+# leaves every Blackhole size up to 1248 tokens on today's single-shot path byte for byte.
+OPM_Z_SINGLE_SHOT_BYTES_BASE = 1207959552       # 1.125 GiB; 768 tokens, measured to allocate
+OPM_Z_SINGLE_SHOT_DRAM_NUM, OPM_Z_SINGLE_SHOT_DRAM_DEN = 3, 32
 _OPM_Z_SINGLE_SHOT_BYTES = None                 # resolved once, on first use after the open
 
 # Fold `proj_o` into the outer product's own projection instead of materialising the
@@ -3736,19 +3752,28 @@ def _concat_host_budget(dram_total: int) -> int:
     return max(CONCAT_HOST_BYTES_BASE, int(dram_total) // 8)
 
 
+def _opm_z_single_shot_budget(dram_total: int) -> int:
+    """The budget for a part with ``dram_total`` bytes of DRAM.
+
+    ``max()`` pins every part at or above the figure measured on a 12 GiB Galaxy chip, so a part
+    that reports nothing falls back to it rather than to zero -- which would block every size --
+    and the budget can only widen with DRAM, never tighten.
+    """
+    return max(OPM_Z_SINGLE_SHOT_BYTES_BASE,
+               dram_total * OPM_Z_SINGLE_SHOT_DRAM_NUM // OPM_Z_SINGLE_SHOT_DRAM_DEN)
+
+
 def opm_z_single_shot_bytes() -> int:
     """Byte size above which OuterProductMean row-blocks its z matmul instead of running it whole.
 
-    Same fraction of this part's DRAM as :func:`concat_host_bytes`, and lazy for the same reason:
-    a from-imported int would freeze at the pre-device-open value. ``max()`` in
-    :func:`_concat_host_budget` pins every part at or above the measured figure, so the budget can
-    only widen with DRAM and never tighten.
+    A function and not a module constant, and lazy, for the same reason as
+    :func:`concat_host_bytes`: a from-imported int would freeze at the pre-device-open value.
     """
     global _OPM_Z_SINGLE_SHOT_BYTES
     if _OPM_Z_SINGLE_SHOT_BYTES is None:
         env = os.environ.get("TT_BIO_OPM_Z_SINGLE_SHOT_BYTES")
         _OPM_Z_SINGLE_SHOT_BYTES = (int(env) if env
-                                    else _concat_host_budget(_dram_total_bytes()))
+                                    else _opm_z_single_shot_budget(_dram_total_bytes()))
     return _OPM_Z_SINGLE_SHOT_BYTES
 
 
