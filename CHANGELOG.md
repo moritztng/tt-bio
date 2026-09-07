@@ -23,10 +23,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   3 355 443 200 B after 179 s. `tt_bio/size_limits.py` publishes 1095 as a LADDER TOP, not a wall:
   nothing above it has been run.
 
-  Faster as well as larger, because the route being deleted costs O(N.S^2): 1.75x at 128 residues,
-  1.43x at 256, 2.46x at 384. None of the three changes is bit-exact with what it replaced, so each
-  keeps a switch back -- `TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0`, `TT_BIO_RF3_MSA_FUSED_SDPA=0`,
-  `TT_BIO_RF3_GLN_ROW_FOLD=0` -- and those restore the old routes and the old ceiling with them.
+  Faster above 256 residues, because the route being deleted costs O(N.S^2), and slower below it:
+  warm matched pairs on one card read 0.89x at 128, 0.93x at 256, 1.16x at 384 and 1.12x at 512.
+  None of the three changes is bit-exact with what it replaced, so each keeps a switch back --
+  `TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0`, `TT_BIO_RF3_MSA_FUSED_SDPA=0`, `TT_BIO_RF3_GLN_ROW_FOLD=0`
+  -- and those restore the old routes and the old ceiling with them.
 
 - **A `cyclic: true` chain is now refused by `esmfold2` and `esmfold2-fast` too.** Every other
   model that cannot cyclise already refused it. ESMFold2 was the one path left that took the flag,
