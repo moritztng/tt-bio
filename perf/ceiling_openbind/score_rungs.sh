@@ -1,6 +1,9 @@
 # Score every rung the ladder recorded as ok. "It returned" is not a PASS.
 #
-#   sh perf/ceiling_openbind/score_rungs.sh <tree> <out-dir>
+#   sh perf/ceiling_openbind/score_rungs.sh <tree> <out-dir> [rungs-dir]
+#
+# The rungs dir is separate from the tree because the scorer may run from a harness checkout that
+# is not the tree the ladder walked in.
 #
 # A 1024 fold that completes and hands back a torn structure is worse than the OOM, because it
 # looks like success -- this happened on this trunk once already (a TILE reshape across a row
@@ -11,6 +14,7 @@
 # structures rather than picked.
 set -u
 TREE=$1; OUT=$2
+RUNGS=${3:-$TREE/rundir/rungs}
 PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
 for r in $(sed -n 's/^RUNG \([a-z0-9_]*\) rc=0 status=ok .*/\1/p' "$OUT/ladder.log"); do
   cif=$(ls "$OUT/$r"/*/predictions/*/*.cif 2>/dev/null | head -1)
@@ -18,6 +22,6 @@ for r in $(sed -n 's/^RUNG \([a-z0-9_]*\) rc=0 status=ok .*/\1/p' "$OUT/ladder.l
   res=$(ls "$OUT/$r"/*/results.json 2>/dev/null | head -1)
   echo "--- $r  $cif"
   ( cd "$TREE" && "$PY" perf/wh-correctness/check_structure.py "$cif" \
-      --input "$TREE/rundir/rungs/$r.yaml" ${res:+--conf "$res"} \
+      --input "$RUNGS/$r.yaml" ${res:+--conf "$res"} \
       --json "$OUT/$r.signal.json" ) 2>&1 | tail -25
 done

@@ -24,7 +24,7 @@ while ! grep -q "^LADDER DONE" "$OUT/ladder.log" 2>/dev/null; do
   sleep 30
 done
 echo "=== ladder done, scoring $(date -u +%FT%TZ)" >> "$LOG"
-sh "$H/perf/ceiling_openbind/score_rungs.sh" "$H" "$OUT" >> "$LOG" 2>&1
+sh "$H/perf/ceiling_openbind/score_rungs.sh" "$H" "$OUT" "$FIX/rundir/rungs" >> "$LOG" 2>&1
 echo "=== parity $(date -u +%FT%TZ)" >> "$LOG"
 MODEL=openbind RUNGS=rungs PAR=ob_apo_par CARD=1 HOLDER=worker:ceiling-openbind-1024 \
   RUN="$FIX/rundir" sh "$H/perf/ceiling_of3/parity_run.sh" "$BASE" "$FIX" >> "$LOG" 2>&1
