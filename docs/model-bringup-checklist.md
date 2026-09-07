@@ -28,7 +28,8 @@ last one.
       ceiling table the gate was measured against. That is what `--record` above does, and it is
       the step that makes the verdict evidence instead of a sentence in a review comment: the run
       logs live in scratch that gets cleaned up, and the baseline is the only committed record.
-      `tests/test_capacity_gate.py` fails while a runnable model has no cell.
+      `tests/test_capacity_gate.py` fails while a runnable model has no cell, and while a cell
+      it does have was measured against a ceiling table this tree no longer ships.
 
 The capacity gate answers "does it allocate and complete". It cannot answer "is the output right",
 and it is meant to run on cards that miscompute. It does not substitute for the parity gate, and
