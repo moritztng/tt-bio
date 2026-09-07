@@ -122,3 +122,4 @@ node_modules/
 # directories, so any worktree that has imported the vendored ESM carries an untracked dir and
 # merge_preflight.sh reads DIRTY on it. Re-ignore the bytecode; the sources stay included.
 tt_bio/_vendor/**/__pycache__/
+perf/capacity/work/
