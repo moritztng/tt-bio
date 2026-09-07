@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module, Pairformer, accurate_softmax_site, msa_depth_chunks
+from .tenstorrent import Module, Pairformer, accurate_softmax_site
 from .openfold3_weights import remap_pairformer_stack, is_openbind, _sub
 from .openfold3_template import TemplateEmbedder
 from .openfold3_msa_embedder import MSAModuleEmbedder, MSAModule
@@ -181,10 +181,6 @@ class OF3Trunk(Module):
         # tile-padded to 64, so at 1024 tokens x 14191 alignment rows it is 1 860 042 752 B held
         # for the whole trunk for nothing. The trunk CONSUMES it; `fold` must not free it again.
         ttnn.deallocate(msa_feat)
-        # Above the measured budget `m` is split into depth chunks here, once, and never held
-        # contiguously again -- the heap is at its cleanest right after the embedder, so this is
-        # the cheapest point in the trunk to pay for the split. Returns `m` unchanged below it.
-        m = msa_depth_chunks(m)
         # the template feature half is a function of template_feat alone, so it is the
         # same tensor in every cycle -- compute it once, exactly like m above.
         a_tmpl = self.template.features(template_feat)

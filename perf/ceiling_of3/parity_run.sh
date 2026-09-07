@@ -3,6 +3,9 @@
 #
 #   sh parity_run.sh <main-tree> <fix-tree>
 #
+# MODEL/RUN/RUNGS/CARD/HOLDER pass straight through to parity_ab.sh, so one runner scores any
+# model on this trunk. OpenBind-0 uses MODEL=openbind RUNGS=rungs CARD=1 and its own rundir.
+#
 # Legs, in this order:
 #   aa_256   main, seed 42     -- the A/A control's first half
 #   aa2_256  main, seed 42     -- and its second. These two MUST match, or nothing below means
@@ -16,7 +19,10 @@
 set -u
 MAIN=$1; FIX=$2
 HERE=$(dirname "$0")
-RUN=/home/cust-team/mthuening/ceilof3/rundir
+RUN=${RUN:-/home/cust-team/mthuening/ceilof3/rundir}
+# The rung files are named <PAR>_<size>. OpenFold3's are par_256; OpenBind-0's ladder names
+# every rung for its arm, so its parity rungs are ob_apo_par_256.
+PAR=${PAR:-par}
 PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
 LOG=$RUN/parity/parity.log
 mkdir -p "$RUN/parity"
@@ -26,10 +32,10 @@ leg() {  # tag rung tree
   sh "$HERE/parity_ab.sh" "$1" "$2" "$3" 42 >> "$LOG" 2>&1
 }
 
-leg aa_256  par_256 "$MAIN"
-leg aa2_256 par_256 "$MAIN"
-for n in 128 256 512; do leg "a_$n" "par_$n" "$MAIN"; done
-for n in 128 256 512; do leg "b_$n" "par_$n" "$FIX"; done
+leg aa_256  "${PAR}_256" "$MAIN"
+leg aa2_256 "${PAR}_256" "$MAIN"
+for n in 128 256 512; do leg "a_$n" "${PAR}_$n" "$MAIN"; done
+for n in 128 256 512; do leg "b_$n" "${PAR}_$n" "$FIX"; done
 
 {
   echo "=== A/A control (same tree, same seed, twice) -- must be identical ==="

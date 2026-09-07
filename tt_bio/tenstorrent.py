@@ -24,6 +24,43 @@ MSA_CHUNK_SIZE = 512
 # Same threshold and the same bit-exactness argument as protenix's MSA row chunking, so a
 # target small enough to fit keeps the exact unchunked path. See OuterProductMean.__call__.
 OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
+# PairWeightedAveraging holds a SECOND full-depth [depth, tokens, c_m] tensor beside `m`: its
+# `norm_m` is out of place, and it feeds sixteen 8-channel projections each tile-padded from 8 to
+# 32 channels. At 1088 tokens x 14189 rows the two c_m copies are 1.98 GiB each, and PWA is where
+# an OpenBind fold at 1024 residues plus a ligand is refused: 988 008 448 B = 14189 x 1088 x 32 x 2,
+# one head's padded `v`, asked for with DRAM 89 % committed and a 38 MB largest free block.
+#
+# Unlike OPM's z this one gets a BYTE budget rather than only a refusal handler, because the base
+# is measured on both sides. On the OpenFold3 deep-MSA ladder (1024-token fixtures at 14191
+# alignment rows, Galaxy card 0):
+#
+#     tokens   [depth, tokens, c_m]        outcome
+#        768   1 395 032 064 B (1.299 GiB)   allocates; the fold runs on
+#        800   1 453 158 400 B (1.353 GiB)   REFUSED, 121 098 240 B/bank needed against a
+#                                            60 549 120 B largest free block
+#        896   1 627 537 408 B              REFUSED
+#        960   1 743 790 080 B              REFUSED
+#       1024   1 860 042 752 B (1.732 GiB)   REFUSED
+#
+# So the base is the largest one measured to ALLOCATE, bracketed above by the smallest measured
+# to REFUSE, not a chosen safety margin. It scales with the part (see SINGLE_SHOT_DRAM_NUM), so a
+# 34 GB p150a never blocks across the whole advertised range and Blackhole stays byte-identical
+# by construction rather than by an arch flag. Read it through pwa_single_shot_bytes().
+#
+# Bit-exact, and for a stronger reason than the OPM chunk: every op on the depth axis here is per
+# MSA ROW (layer_norm over channels, the four projections over channels, the sigmoid gate
+# elementwise) and the token weights are a function of `z` alone, so a depth block is a partition
+# of independent rows with no reassociated sum anywhere. Each element sees the same eight head
+# contributions added in the same order.
+PWA_SINGLE_SHOT_BYTES_BASE = 1395032064   # 1.299 GiB; 768 tokens, measured to allocate
+_PWA_SINGLE_SHOT_BYTES = None
+# Cap on ONE depth block's share of that tensor once it is blocked. Both the block and the head
+# accumulator are [rows, tokens, c_m], so the pair is bounded at twice this whatever the token
+# count. A refusal narrows it further, the same way the fp32-softmax and OPM blocks are narrowed.
+PWA_DEPTH_BUDGET_BYTES = 1 << 28     # 0.25 GiB, as OPM_Z_BUDGET_BYTES
+_PWA_DEPTH_ROW_CAP: dict[tuple[int, int], int] = {}
+#: Path census, read like OPM_ROW_STATS: whole-tensor calls, chunked calls, refusals absorbed.
+PWA_DEPTH_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0}
 # Cap on OPM's per-I-block matmul result, which is (rows*c_a, c_b*tokens) in bf16 and therefore
 # grows with the SQUARE of the token count at fixed `rows`. At OPM_CHUNK_SIZE=256 and 992 padded
 # tokens that single tensor is 520093696 B -- which is exactly, to the byte, the allocation 9i3p
@@ -38,86 +75,40 @@ OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
-# Whether the row block above is used AT ALL used to be a token-count test,
-# `I > SEQ_LEN_MORE_CHUNKING`, and that constant was later re-expressed against DRAM and moved
-# 608 -> 1088 on a 12 GiB Galaxy part on the strength of a pair-tensor measurement (see
-# _apply_grid_thresholds). Nothing re-checked this consumer when it moved, so OPM's row blocking
-# went dark for every token count in 640-1088 -- and the comment above, which says the blocked
-# path "is live from ~640 tokens up", stopped being true. Unblocked, z is (I*C, D*J) bf16:
-# 2 147 483 648 B at 1024 tokens, which is byte for byte the DRAM buffer an OpenFold3 1024-token
-# fold is refused on, at the `to_layout` that needs a second copy of it beside the first
-# (measured on Galaxy card 0, 178 978 816 B per bank against a 132 632 576 B largest free block).
-# So the gate is the tensor's own byte count, the same resource the projection stage beside it
-# already reads through OPM_ROW_CHUNK_BUDGET_BYTES.
+# `I > SEQ_LEN_MORE_CHUNKING` decides whether that budget is consulted at all, and that constant
+# answers a DIFFERENT question: it bounds how many full PAIR tensors are live at once, which is
+# why _apply_grid_thresholds re-expressed it against DRAM and moved it 608 -> 1088 on a 12 GiB
+# Galaxy part, on a measurement of BOLTZ-2's trunk. OPM's z is not a pair tensor -- it is
+# (I*C, D*J) bf16, O(tokens^2 * 1024), the single largest buffer the MSA track asks for, and its
+# footprint curve is 1024x steeper than the pair track's. So that retune, correct for the
+# consumer it was measured on, silently switched this row block off for every token count in
+# 640-1088. A shared threshold needs a census of its consumers before it moves.
 #
-# The budget is the largest single-shot z MEASURED to allocate on a 12 GiB Galaxy chip, with the
-# smallest one measured to REFUSE as its negative control -- the same construction as
-# _FP32_SOFTMAX_BLOCK_BYTES, and not a chosen safety margin. On the OpenFold3 deep-MSA ladder
-# (1024-token fixtures at 14191 alignment rows, Galaxy card 0):
+# It is deliberately NOT retuned here, and that is the finding. MEASURED: OpenBind-0 at 864
+# padded tokens and OpenFold3 at 800 and 1024 die on exactly this tensor (1 310 720 000 B =
+# 800*800*1024*2 and 2 147 483 648 B = 1024*1024*1024*2, the latter at the `to_layout` that needs
+# a second copy beside the first), while Boltz-2 folds 1024 today with the byte-identical
+# 2 147 483 648 B buffer, because its trunk holds ~3.5 GiB at that moment and OpenFold3's holds a
+# 14191-row MSA. Same tensor, same size, different occupancy -- so no byte constant separates the
+# size that must block from the size that must not, and a predictive free-DRAM gate is a known
+# dead end in this repo (protenix.py:_msa_take_whole_path: a 3x-free-DRAM test passed, took the
+# whole path and killed a target the fixed threshold had been folding in 882 s).
 #
-#     tokens   single-shot z            outcome
-#        768   1 207 959 552 B (1.125 GiB)   allocates; the fold runs on
-#        800   1 310 720 000 B (1.221 GiB)   REFUSED -- 109 228 032 B/bank needed against a
-#                                            109 227 200 B largest free block, short by 832 B
-#        832   1 417 674 752 B (1.320 GiB)   REFUSED -- short by 256 B/bank
-#
-# Both refusals miss by bytes with ~300 MB/bank nominally free, so this is a fragmentation wall
-# and there is no margin to spend above 768's figure. A first pass set the budget at CONCAT_HOST's
-# 1.5 GiB, and 800 and 832 are what measured that as too loose.
-#
-# Read it through opm_z_single_shot_bytes(), never this base. 1 207 959 552 B is 3/32 of what this
-# part reports, so the function is that fraction of whatever DRAM a part has, floored at the
-# measured figure: a 12 GiB Wormhole keeps 1.125 GiB and a 34.2 GB p150a gets 2.99 GiB, which
-# leaves every Blackhole size up to 1248 tokens on today's single-shot path byte for byte.
-OPM_Z_SINGLE_SHOT_BYTES_BASE = 1207959552       # 1.125 GiB; 768 tokens, measured to allocate
-_OPM_Z_SINGLE_SHOT_BYTES = None                 # resolved once, on first use after the open
-
-# PairWeightedAveraging asks for a buffer of the same kind and answers to the same rule: it
-# projects each head's gated output to the full [depth, tokens, c_m] width, and allocates a fresh
-# one per head beside an accumulator of that shape. On the same ladder, same fixtures, same card:
-#
-#     tokens   [depth, tokens, c_m]        outcome
-#        768   1 395 032 064 B (1.299 GiB)   allocates; the fold runs on
-#        800   1 453 158 400 B (1.353 GiB)   REFUSED, 121 098 240 B/bank needed against a
-#                                            60 549 120 B largest free block
-#        896   1 627 537 408 B              REFUSED
-#        960   1 743 790 080 B              REFUSED
-#       1024   1 860 042 752 B (1.732 GiB)   REFUSED
-#
-# So the base is 768's figure, bracketed above by 800's refusal, exactly as the OPM base is
-# bracketed by 800's OPM refusal. Above it the op blocks its MSA-DEPTH axis instead.
-PWA_SINGLE_SHOT_BYTES_BASE = 1395032064         # 1.299 GiB; 768 tokens, measured to allocate
-_PWA_SINGLE_SHOT_BYTES = None
-
-# Above this the MSA representation is not held contiguously AT ALL: the trunk splits it into
-# depth chunks once, after the embedder, and every consumer in the MSA module takes the list.
-#
-# Blocking each op's own output is not enough on its own, because each still ASSEMBLES a
-# full-width result and the assembly needs its whole width in one run. Measured on the ladder:
-# 896 assembles its 1 627 537 408 B result and folds, 960 is refused 1 743 790 080 B with
-# **3.79 GB free per the allocator's own count and 1.256 GB as the largest run**. Capacity was
-# never the problem at 960; contiguity was, in a heap the trunk has churned. So the base is
-# 896's figure, measured to assemble, with 960's refusal as its negative control -- the same
-# construction as the two budgets above.
-#
-# The list is a strictly weaker demand on the allocator, not a smaller one: the same bytes, in
-# pieces no bigger than one depth block. It is also the only one of the three that can move a
-# number, because OuterProductMean's chunk-list input reassociates its bf16 depth reduction
-# (its own comment says so, and its reduction IS over depth -- unlike everything in
-# PairWeightedAveraging and Transition, which are per-depth-row and stay bit-exact). Sizes at or
-# below 896 therefore keep the contiguous path they were measured bit-exact on, and only sizes
-# that do not fold at all today take this one.
-MSA_LIST_BYTES_BASE = 1627537408                # 1.516 GiB; 896 tokens, measured to assemble
-_MSA_LIST_BYTES = None
-#: [chunked, whole], so a census can tell a dark gate from a correctly declining one.
-MSA_LIST_STATS = [0, 0]
-# Cap on one depth block's share of that tensor. Both the block and the head accumulator are
-# [rows, tokens, c_m], so the pair is bounded at twice this whatever the token count.
-PWA_DEPTH_BUDGET_BYTES = 1 << 28                # 0.25 GiB, as OPM_Z_BUDGET_BYTES
+# So the device gets the last word instead: a refusal narrows the block for that shape class and
+# the call is retried. A fold that is never refused keeps an empty cap and a byte-identical path,
+# which OPM_ROW_STATS reports rather than asserts -- Boltz-2 is never refused at 1024, so it
+# never narrows and cannot move.
+_OPM_DRAM_ROW_CAP: dict[tuple[int, int, int, int], int] = {}
+# MSA shapes whose full-depth a/b join DRAM refused. Remembered so the next call at the same
+# shape goes straight to the un-joined depth parts instead of re-paying a projection pass to
+# collect the same refusal.
+_OPM_JOIN_REFUSED: dict[tuple[int, ...], bool] = {}
+#: Path census: whole-tensor calls, row-blocked calls, and refusals the retry absorbed.
+OPM_ROW_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0, "join_split": 0}
 # Every "largest single buffer of this shape this part has been measured to place" budget scales
 # by the same fraction of DRAM, so a part with more memory widens all of them together and no
 # single lever can drift away from the others. 3/32 is 1 207 959 552 B on the 12 GiB Galaxy chip
-# every base above was measured on.
+# PWA_SINGLE_SHOT_BYTES_BASE was measured on.
 SINGLE_SHOT_DRAM_NUM, SINGLE_SHOT_DRAM_DEN = 3, 32
 
 # Fold `proj_o` into the outer product's own projection instead of materialising the
@@ -1796,7 +1787,7 @@ _FP32_SOFTMAX_BLOCK_BYTES = 8 << 30
 _FP32_SOFTMAX_DRAM_ROW_CAP: dict = {}
 
 
-def _fp32_softmax_dram_oom(exc: BaseException) -> bool:
+def _dram_oom(exc: BaseException) -> bool:
     """Is this an allocator refusal, as opposed to any other RuntimeError?
 
     Matched on the allocator's own wording so a compile error, a bad shape or a hang never gets
@@ -1805,35 +1796,47 @@ def _fp32_softmax_dram_oom(exc: BaseException) -> bool:
     return "Out of Memory" in str(exc)
 
 
-def _fp32_softmax_with_narrowing(run, blk: int, l1_key):
-    """Run ``run(blk)``, halving the block and retrying while DRAM refuses it.
+def _with_dram_narrowing(run, blk: int, narrow):
+    """Run ``run(blk)``, narrowing the row block and retrying while DRAM refuses it.
 
-    Let the device have the last word on the block. The byte budget is a constant and DRAM
-    occupancy is not, so on a full device the budget can decline to block a tensor the
-    allocator then refuses, which used to end the fold. The partition is bit-exact, so a
-    retry at half the height can only change whether the call finishes.
+    Let the device have the last word on the block. Every byte budget in this file is a
+    constant and DRAM occupancy is not, so on a full device a budget can decline to block a
+    tensor the allocator then refuses, which used to end the fold. Both callers partition a
+    row axis bit-exactly, so a retry at half the height can only change whether the call
+    finishes.
 
     Stops at one tile row: below that there is nothing left to give back, and re-raising is
     the honest answer rather than spinning on a block that cannot shrink.
+
+    ``narrow(blk)`` returns the next block to try and is what remembers the refusal, so the
+    next call at the same shape starts where this one ended instead of re-paying it.
     """
     while True:
         try:
             return run(blk)
         except RuntimeError as exc:
-            if blk <= 32 or not _fp32_softmax_dram_oom(exc):
+            if blk <= 32 or not _dram_oom(exc):
                 raise
-            blk = _fp32_softmax_dram_narrow(l1_key, blk)
+            blk = narrow(blk)
 
 
-def _fp32_softmax_dram_narrow(l1_key, blk: int) -> int:
-    """Halve the row block for this shape class after a refusal, floored at one tile row."""
+def _dram_narrow(cap: dict, key, blk: int, stats: dict) -> int:
+    """Halve a row block for this shape class after a refusal, floored at one tile row.
+
+    Three sites narrow a row block on a refusal -- the fp32-softmax tail, OuterProductMean's
+    token rows and PairWeightedAveraging's MSA depth -- and the arithmetic is the same at all
+    three, so it lives once. ``cap`` only ever tightens: a later, looser figure never wins,
+    or a call that happened to be narrowed less would undo a cap paid for by a real refusal.
+    """
     nxt = max(32, (int(blk) // 2) // 32 * 32)
     if nxt >= int(blk):
         nxt = 32
-    prev = _FP32_SOFTMAX_DRAM_ROW_CAP.get(l1_key)
-    _FP32_SOFTMAX_DRAM_ROW_CAP[l1_key] = nxt if prev is None else min(prev, nxt)
-    FP32_SOFTMAX_STATS["dram_narrowed"] += 1
+    prev = cap.get(key)
+    cap[key] = nxt if prev is None else min(prev, nxt)
+    stats["dram_narrowed"] += 1
     return nxt
+
+
 _FP32_SOFTMAX_FUSED_ADD = True
 # ttnn.softmax normalises through a reciprocal whose range reduction loses up to 2.9e-2 when
 # the exp-sum sits at or just above a power of two, which a confident softmax always does.
@@ -1869,6 +1872,25 @@ FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfuse
                       "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0,
                       "l1_free_retired": 0, "l1_free_walked": 0,
                       "l1_padded_diverged": 0, "dram_narrowed": 0}
+
+# `TT_BIO_CAPACITY_CENSUS=<dir>` dumps the four capacity counters at exit. A ceiling ladder's
+# claim that the sizes folding today keep their exact path rests on all of `dram_narrowed` and
+# `join_split` reading 0 on those rungs -- an argument until someone reads them. Counting is
+# already unconditional, so this adds an instrument and no arithmetic.
+if os.environ.get("TT_BIO_CAPACITY_CENSUS"):
+    import atexit as _atexit_cap
+
+    def _capacity_census_dump():
+        import json as _json
+        d = os.environ["TT_BIO_CAPACITY_CENSUS"]
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, f"capacity_{os.getpid()}.json"), "w") as fh:
+            _json.dump({"opm_row": OPM_ROW_STATS, "pwa_depth": PWA_DEPTH_STATS,
+                        "fp32_softmax": FP32_SOFTMAX_STATS,
+                        "opm_small_depth": OPM_SMALL_DEPTH_STATS}, fh)
+
+    _atexit_cap.register(_capacity_census_dump)
+
 
 # Refusals seen per shape class, so a FLOATING-core plan can be retired instead of walked. The
 # tuned rectangle narrows a row at a time and that is right for it: its block stays a legal shape.
@@ -2460,7 +2482,9 @@ def _fp32_softmax_attention(
             ttnn.deallocate(part)
         return o
 
-    return _fp32_softmax_with_narrowing(run, blk, l1_key)
+    return _with_dram_narrowing(
+        run, blk,
+        lambda b: _dram_narrow(_FP32_SOFTMAX_DRAM_ROW_CAP, l1_key, b, FP32_SOFTMAX_STATS))
 
 
 def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
@@ -3809,26 +3833,8 @@ def _single_shot_budget(base: int, dram_total: int) -> int:
     return max(base, dram_total * SINGLE_SHOT_DRAM_NUM // SINGLE_SHOT_DRAM_DEN)
 
 
-def _opm_z_single_shot_budget(dram_total: int) -> int:
-    return _single_shot_budget(OPM_Z_SINGLE_SHOT_BYTES_BASE, dram_total)
-
-
 def _pwa_single_shot_budget(dram_total: int) -> int:
     return _single_shot_budget(PWA_SINGLE_SHOT_BYTES_BASE, dram_total)
-
-
-def opm_z_single_shot_bytes() -> int:
-    """Byte size above which OuterProductMean row-blocks its z matmul instead of running it whole.
-
-    A function and not a module constant, and lazy, for the same reason as
-    :func:`concat_host_bytes`: a from-imported int would freeze at the pre-device-open value.
-    """
-    global _OPM_Z_SINGLE_SHOT_BYTES
-    if _OPM_Z_SINGLE_SHOT_BYTES is None:
-        env = os.environ.get("TT_BIO_OPM_Z_SINGLE_SHOT_BYTES")
-        _OPM_Z_SINGLE_SHOT_BYTES = (int(env) if env
-                                    else _opm_z_single_shot_budget(_dram_total_bytes()))
-    return _OPM_Z_SINGLE_SHOT_BYTES
 
 
 def pwa_single_shot_bytes() -> int:
@@ -3839,42 +3845,6 @@ def pwa_single_shot_bytes() -> int:
         _PWA_SINGLE_SHOT_BYTES = (int(env) if env
                                   else _pwa_single_shot_budget(_dram_total_bytes()))
     return _PWA_SINGLE_SHOT_BYTES
-
-
-def _msa_list_budget(dram_total: int) -> int:
-    return _single_shot_budget(MSA_LIST_BYTES_BASE, dram_total)
-
-
-def msa_list_bytes() -> int:
-    """Byte size above which the MSA representation is kept as depth chunks, never contiguous."""
-    global _MSA_LIST_BYTES
-    if _MSA_LIST_BYTES is None:
-        env = os.environ.get("TT_BIO_MSA_LIST_BYTES")
-        _MSA_LIST_BYTES = (int(env) if env else _msa_list_budget(_dram_total_bytes()))
-    return _MSA_LIST_BYTES
-
-
-def msa_depth_chunks(m: ttnn.Tensor, budget: int | None = None) -> list | ttnn.Tensor:
-    """``m`` as a list of [1, rows, tokens, c_m] depth chunks, or ``m`` itself when it fits.
-
-    Called once, right after the MSA embedder, where the heap is still clean: the split holds the
-    contiguous tensor and the chunks together for a moment and then frees the contiguous one,
-    which is the cheapest point in the trunk to pay it. Returning ``m`` unchanged is the whole of
-    the no-change path -- every consumer branches on ``isinstance(m, list)``.
-
-    Splitting the depth axis cannot move a number by itself: it is dim -3 of a TILE tensor, so no
-    tile is split, and it is a pure partition. What the LIST changes downstream is
-    OuterProductMean's depth reduction, which its chunk-list input reassociates.
-    """
-    rows, tokens, c_m = (int(m.shape[-3]), int(m.shape[-2]), int(m.shape[-1]))
-    if rows * tokens * c_m * 2 <= (msa_list_bytes() if budget is None else budget):
-        MSA_LIST_STATS[1] += 1
-        return m
-    MSA_LIST_STATS[0] += 1
-    blk = pwa_depth_block(rows, tokens, c_m)
-    out = [m[:, s:min(s + blk, rows)] for s in range(0, rows, blk)]
-    ttnn.deallocate(m)
-    return out
 
 
 def pwa_depth_block(depth: int, tokens: int, c_m: int, budget: int | None = None) -> int:
@@ -7325,15 +7295,22 @@ class PairWeightedAveraging(Module):
         self.z_weight = self.torch_to_tt("proj_z.weight")
         self.o_weight = self.torch_to_tt("proj_o.weight")
 
-    def __call__(self, m, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None):
-        # `m` may arrive as a LIST of depth chunks (msa_depth_chunks). Then there is nothing to
-        # slice and nothing to join: one output chunk per input chunk, and the full-width tensor
-        # never exists. Returns a list in that case and a tensor otherwise.
-        chunks = m if isinstance(m, list) else None
-        if chunks is None:
-            m = ttnn.reshape(m, tuple(m.shape)[1:])
+    def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        m = ttnn.reshape(m, tuple(m.shape)[1:])
         z = ttnn.reshape(z, tuple(z.shape)[1:])
-        # One layer_norm, `n_heads` projections of it: every head reads the whole normed pair
+        # `norm_m` is per MSA row, so a depth block recomputes it from the (alive, unmutated)
+        # `m` rather than slicing a full-depth normed copy -- which is the copy that does not
+        # fit. Bit-identical either way: layer_norm reduces over channels only.
+        def m_norm(s0=None, s1=None):
+            return ttnn.layer_norm(
+                m if s0 is None else m[s0:s1],
+                weight=self.m_norm_weight,
+                bias=self.m_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+
+        # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
         # tensor to write one tile of width, so all eight are source-bound and one L1-resident
         # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
         z, z_in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
@@ -7344,12 +7321,9 @@ class PairWeightedAveraging(Module):
                       (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                        epsilon=1e-5,
                                        compute_kernel_config=self.compute_kernel_config), False))
-        # The per-head pair weights come from `z` alone -- there is no MSA-depth axis in them -- so
-        # they are built once here rather than inside the depth loop below. Each is
-        # [1, tokens, tokens]: 2 MiB at 1024 tokens, against the [depth, tokens, *] tensors the
-        # loop is sized for, so hoisting all `n_heads` of them is free.
-        ws = []
-        for i in range(self.n_heads):
+        def token_weight(i):
+            """Head ``i``'s softmax over the token axis. A function of ``z`` alone, so it does
+            not depend on the MSA depth and a chunked path computes it once for every block."""
             zw = self.z_weight[:, i : i + 1]
             b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype, l1_out=z_in_l1)
             if b is None:
@@ -7362,62 +7336,17 @@ class PairWeightedAveraging(Module):
             b = ttnn.permute(b, (2, 0, 1))
             if attn_mask is not None:
                 b = ttnn.add_(b, ttnn.reshape(attn_mask, (1, 1, attn_mask.shape[-1])))
-            ws.append(ttnn.softmax(
+            return ttnn.softmax(
                 b,
                 dim=-1,
                 compute_kernel_config=self.compute_kernel_config,
                 numeric_stable=True,
-            ))
-        if chunks is not None:
-            out = []
-            for c in chunks:
-                part = self._depth_block(ttnn.reshape(c, tuple(c.shape)[1:]), ws)
-                out.append(ttnn.reshape(part, (1, *part.shape)))
-            for w in ws:
-                ttnn.deallocate(w)
-            return out
-        # Block the MSA-DEPTH axis when the whole [depth, tokens, c_m] result is above the measured
-        # budget. Every step of `_depth_block` reads and writes one depth row at a time -- the
-        # layer_norm reduces over c_m, the matmul contracts the TOKEN axis, and nothing anywhere
-        # reduces over depth -- so a block is a partition and each output row is computed by the
-        # same ops from the same inputs. `depth` back means today's single pass, byte for byte.
-        depth, tokens, c_m = (int(m.shape[0]), int(m.shape[1]), int(m.shape[2]))
-        blk = pwa_depth_block(depth, tokens, c_m)
-        starts = range(0, depth, blk)
-        # Assemble the blocks on the host when the full result is large enough that the concat's
-        # own full-size allocation would risk a fragmented-DRAM refusal (concat_host_bytes()) --
-        # the same call the trimul and tri-att row-blocked paths make, for the same reason. The
-        # loop then holds ONE block on device instead of the whole output twice over, and the
-        # upload lands when the accumulator holds nothing. torch.cat is pure data movement, so
-        # the bytes are the device concat's bytes.
-        host_acc = len(starts) > 1 and _host_concat(m)
-        parts = []
-        for st in starts:
-            en = min(st + blk, depth)
-            # A ttnn slice copies, so do not take one when it would copy the whole tensor.
-            mc = m if (st == 0 and en == depth) else m[st:en]
-            part = self._depth_block(mc, ws)
-            if mc is not m:
-                ttnn.deallocate(mc)
-            _acc_append(parts, part, host_acc)
-        for w in ws:
-            ttnn.deallocate(w)
-        o_out = _acc_concat(parts, 0, host_acc)
-        return ttnn.reshape(o_out, (1, *o_out.shape))
+            )
 
-    def _depth_block(self, m: ttnn.Tensor, ws: list) -> ttnn.Tensor:
-        """All heads, for the MSA-depth rows in ``m``. Returns [rows, tokens, c_m]."""
-        m = ttnn.layer_norm(
-            m,
-            weight=self.m_norm_weight,
-            bias=self.m_norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
-        o_out = None
-        for i, w in enumerate(ws):
+        def head_out(mc, i, w):
+            """Head ``i``'s contribution for the normed MSA rows ``mc``. Every op is per row."""
             v = ttnn.linear(
-                m,
+                mc,
                 self.m_weight[:, i * self.head_dim : (i + 1) * self.head_dim],
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
@@ -7433,37 +7362,95 @@ class PairWeightedAveraging(Module):
             ttnn.deallocate(v)
             o = ttnn.permute(o, (0, 2, 1))
             g = ttnn.linear(
-                m,
+                mc,
                 self.g_weight[:, i * self.head_dim : (i + 1) * self.head_dim],
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
-            # In place, like every other sigmoid gate on this path (`:5114`, `:6206`, `:6329`,
-            # `:6474`, af2.py:199). `o` and `g` are both [rows, tokens, head_dim] with head_dim=8
-            # tile-padded to 32, so each is 930 021 376 B at 1024 tokens x 14191 rows unblocked,
-            # and an out-of-place product holds a THIRD one. Same operands, same order, written
-            # back into `o`.
-            o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+            o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g)
-            o = ttnn.linear(
+            return ttnn.linear(
                 o,
                 self.o_weight[i * self.head_dim : (i + 1) * self.head_dim, :],
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
-            if o_out is None:
-                o_out = o
-            else:
-                # Accumulate IN PLACE. `o` and `o_out` are both [rows, tokens, c_m], and an
-                # out-of-place add holds three of them at once -- the old accumulator, this head's
-                # `o`, and the new accumulator -- so the peak carried one whole redundant copy per
-                # head. At 768 tokens x 14191 rows unblocked that copy is 1 395 032 064 B, and it
-                # is exactly the allocation OpenFold3 was refused on a 12 GiB Wormhole part. Same
-                # elementwise add, same operands, same order, written to the accumulator instead
-                # of to a new buffer.
-                ttnn.add_(o_out, o)
-                ttnn.deallocate(o)
-        ttnn.deallocate(m)
+
+        def heads_over(mc):
+            """All eight heads, accumulated in place, for one set of normed MSA rows.
+
+            IN PLACE because `o` and the accumulator are both the full [rows, tokens, c_m]
+            tensor, and an out-of-place add holds three of them at once -- the old accumulator,
+            this head's `o`, and the new accumulator -- so the peak carried one whole redundant
+            copy per head. At 768 tokens x 14191 rows unchunked that copy is 1 395 032 064 B,
+            and it is exactly the allocation OpenFold3 was refused on a 12 GiB Wormhole part
+            (state/ceiling-openfold3.md). Same elementwise add, same operands, same order,
+            written to the accumulator instead of to a new buffer.
+            """
+            acc = None
+            for i in range(self.n_heads):
+                w = ws[i] if ws else token_weight(i)
+                o = head_out(mc, i, w)
+                if not ws:
+                    ttnn.deallocate(w)
+                if acc is None:
+                    acc = o
+                else:
+                    ttnn.add_(acc, o)
+                    ttnn.deallocate(o)
+            return acc
+
+        # `depth` back means today's single pass, single allocation, no concat, byte for byte:
+        # pwa_depth_block only blocks once the whole [depth, tokens, c_m] tensor is past the
+        # figure this part was MEASURED to place. That keeps every size that folds today, and
+        # every size on a 34 GB Blackhole part, on the untouched path. A refusal narrows it
+        # further from there.
+        depth, tokens, c_m = int(m.shape[0]), int(m.shape[1]), int(m.shape[2])
+        blk = pwa_depth_block(depth, tokens, c_m)
+        cap = _PWA_DEPTH_ROW_CAP.get((depth, tokens))
+        if cap is not None:
+            blk = min(blk, cap)
+
+        ws = []
+
+        def run(blk):
+            if blk >= depth:
+                PWA_DEPTH_STATS["whole"] += 1
+                return heads_over(m_norm())
+            PWA_DEPTH_STATS["blocked"] += 1
+            if not ws:
+                # Depth-independent, so eight [1, tokens, tokens] weights (2.4 MB each at 1088
+                # tokens) are computed once and reused by every block, not once per block.
+                ws.extend(token_weight(i) for i in range(self.n_heads))
+            host = _host_concat(m)
+            parts = []
+            acc = None
+            try:
+                for s0 in range(0, depth, blk):
+                    mc = m_norm(s0, min(s0 + blk, depth))
+                    acc = heads_over(mc)
+                    ttnn.deallocate(mc)
+                    _acc_append(parts, acc, host)
+                    acc = None
+            except BaseException:
+                # Hand back whatever this attempt put on the device, or the retry runs against
+                # a device this one filled and is refused at every block down to the floor.
+                if acc is not None:
+                    ttnn.deallocate(acc)
+                if not host:
+                    for part in parts:
+                        ttnn.deallocate(part)
+                raise
+            return _acc_concat(parts, 0, host)
+
+        try:
+            o_out = _with_dram_narrowing(
+                run, blk,
+                lambda b: _dram_narrow(_PWA_DEPTH_ROW_CAP, (depth, tokens), b, PWA_DEPTH_STATS))
+        finally:
+            for w in ws:
+                ttnn.deallocate(w)
+        o_out = ttnn.reshape(o_out, (1, *o_out.shape))
         return o_out
 
 
@@ -7609,35 +7596,30 @@ class OuterProductMean(Module):
         # For a chunk-list input the matmul's contraction along S (the depth axis) is accumulated
         # per chunk instead; every other path below keeps the single full-depth matmul. See
         # `depth_parts` and `z_rows`.
-        depth_parts = None
-        if x_chunks is not None:
-            if msa_mask is not None:
-                raise NotImplementedError(
-                    "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
-                    "trunk that uses the list path passes mask=None.")
-            # Never materialise contiguous a/b at all.
-            #
-            # Joining them cannot be made to fit, and not for want of a better free order:
-            # project_ab derives ac AND bc from one layer_norm, so both part lists are already
-            # complete before any join could run. The FIRST concat therefore needs
-            # a_parts + b_parts + a live at once -- ~1.96 GiB at 768 tokens x depth 14208, which
-            # is the 698351616 B allocation 9lof dies on -- with nothing yet freeable. Freeing
-            # per-side (tried, bit-exact, kept below for the non-list branch) relieves only the
-            # SECOND concat, which was never the binding one. Two passes over project_ab do not
-            # help either: the second still needs a + b_parts + b, and pays layer_norm twice.
-            #
-            # So the join is removed. `sum_c (a_c @ b_c^T)` is the same sum over the same depth
-            # rows, and peak drops to a_parts + b_parts plus one z accumulator.
-            #
-            # This is NOT bit-exact, deliberately: it reassociates a bf16 accumulation that used
-            # to be one matmul over full depth. The same question was settled for Transition --
-            # scripts/abag_xm/probe_transition_vs_torch.py measured chunked and whole equally
-            # close to an fp32 reference, one mantissa step apart -- but it does move the last
-            # bit, so the acceptance test here is DockQ against the reference fold, NOT an md5.
-            depth_parts = []
-            S = 0
-            for c in x_chunks:
-                ac, bc = project_ab(ttnn.reshape(c, tuple(c.shape)[1:]), None)
+        def project_depth_parts(chunks):
+            """The a/b projections kept per depth chunk, laid out for `z_rows`, never joined.
+
+            Joining them cannot be made to fit, and not for want of a better free order:
+            project_ab derives ac AND bc from one layer_norm, so both part lists are already
+            complete before any join could run. The FIRST concat therefore needs
+            a_parts + b_parts + a live at once -- ~1.96 GiB at 768 tokens x depth 14208, which
+            is the 698351616 B allocation 9lof dies on -- with nothing yet freeable. Freeing
+            per-side relieves only the SECOND concat, which was never the binding one. Two
+            passes over project_ab do not help either: the second still needs a + b_parts + b,
+            and pays layer_norm twice.
+
+            So the join is removed. `sum_c (a_c @ b_c^T)` is the same sum over the same depth
+            rows, and peak drops to a_parts + b_parts plus one z accumulator.
+
+            This is NOT bit-exact, deliberately: it reassociates a bf16 accumulation that used
+            to be one matmul over full depth. The same question was settled for Transition --
+            scripts/abag_xm/probe_transition_vs_torch.py measured chunked and whole equally
+            close to an fp32 reference, one mantissa step apart -- but it does move the last
+            bit, so the acceptance test here is DockQ against the reference fold, NOT an md5.
+            """
+            parts, S = [], 0
+            for c, maskc in chunks:
+                ac, bc = project_ab(c, maskc)
                 Sc, I, C = ac.shape
                 _, J, D = bc.shape
                 S += Sc
@@ -7648,46 +7630,112 @@ class OuterProductMean(Module):
                 bcp = ttnn.to_layout(bcp, ttnn.ROW_MAJOR_LAYOUT)
                 bcp = ttnn.reshape(bcp, (-1, Sc))           # (D*J, Sc)
                 bcp = ttnn.to_layout(bcp, ttnn.TILE_LAYOUT)
-                depth_parts.append((acp, bcp, Sc))
-            a = b = None
-        elif x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
-            a, b = project_ab(x, msa_mask)
-        else:
-            a_parts, b_parts = [], []
+                parts.append((acp, bcp, Sc))
+            return parts, S, I, C, D, J
+
+        def depth_slices():
+            """`x` and its mask cut along the depth axis, one slice at a time so the whole cut
+            is never live."""
             for s in range(0, x.shape[0], MSA_CHUNK_SIZE):
                 e = min(s + MSA_CHUNK_SIZE, x.shape[0])
-                ac, bc = project_ab(x[s:e], None if msa_mask is None else msa_mask[s:e])
-                a_parts.append(ac)
-                b_parts.append(bc)
-            # Same per-side free as the chunk-list branch above, for the same reason.
-            a = ttnn.concat(a_parts, dim=0)
-            for p in a_parts:
-                ttnn.deallocate(p)
-            b = ttnn.concat(b_parts, dim=0)
-            for p in b_parts:
-                ttnn.deallocate(p)
-        if depth_parts is None and _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
+                yield x[s:e], None if msa_mask is None else msa_mask[s:e]
+
+        def contiguous_ab():
+            """`a` and `b` built whole and laid out for `z_rows`.
+
+            Every allocation that needs one contiguous full-depth buffer is in here, so a
+            single refusal can decline the lot. There are two of them, not one: the join, and
+            the permute right after it, which builds a third full copy of `a` beside `a` and
+            `b`. At 1024 tokens against a 14189-row alignment they ask for 929 890 304 B and
+            931 135 488 B against largest free blocks of 44 520 544 B and 65 499 136 B -- more
+            free per bank than either needs, and nowhere to put it. Fixing only the first just
+            moves the fold 25 s further down and dies on the second.
+
+            Returns ``(a, b, dims)``, or ``(a, b, None)`` when `_small_depth` will consume the
+            projections unpermuted and the layout stage never runs.
+            """
+            a_parts, b_parts, a, b = [], [], None, None
+            try:
+                if x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
+                    a, b = project_ab(x, msa_mask)
+                else:
+                    for c, maskc in depth_slices():
+                        ac, bc = project_ab(c, maskc)
+                        a_parts.append(ac)
+                        b_parts.append(bc)
+                    # Free per side: only the SECOND concat has room to gain from it.
+                    a = ttnn.concat(a_parts, dim=0)
+                    for p in a_parts:
+                        ttnn.deallocate(p)
+                    a_parts = []
+                    b = ttnn.concat(b_parts, dim=0)
+                    for p in b_parts:
+                        ttnn.deallocate(p)
+                    b_parts = []
+                if _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
+                    return a, b, None
+                S, I, C = a.shape
+                _, J, D = b.shape
+                a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
+                b = ttnn.permute(b, (2, 1, 0))
+                b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
+                b = ttnn.reshape(b, (-1, S))
+                b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
+                if I > SEQ_LEN_MORE_CHUNKING:
+                    # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
+                    a = ttnn.reallocate(a)
+                    b = ttnn.reallocate(b)
+                return a, b, (S, I, C, D, J)
+            except BaseException:
+                # Hand the device back everything this attempt holds, or the un-joined path
+                # runs against a device this one filled and is refused in its turn. Each free
+                # is guarded because the failing op may be `reallocate`, which has already
+                # freed its input -- and a second free raising there would replace the
+                # allocator refusal with a bookkeeping error and lose the fix's own trigger.
+                for t in a_parts + b_parts + [t for t in (a, b) if t is not None]:
+                    try:
+                        ttnn.deallocate(t)
+                    except BaseException:
+                        pass
+                raise
+
+        depth_parts = dims = None
+        if x_chunks is not None:
+            if msa_mask is not None:
+                raise NotImplementedError(
+                    "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
+                    "trunk that uses the list path passes mask=None.")
+            depth_parts, S, I, C, D, J = project_depth_parts(
+                (ttnn.reshape(c, tuple(c.shape)[1:]), None) for c in x_chunks)
+            a = b = None
+        elif _OPM_JOIN_REFUSED.get(tuple(x.shape)):
+            # This shape class already refused the contiguous form once in this process.
+            # Paying for it again only to collect the same refusal costs a projection pass.
+            OPM_ROW_STATS["join_split"] += 1
+            depth_parts, S, I, C, D, J = project_depth_parts(depth_slices())
+            a = b = None
+        else:
+            try:
+                a, b, dims = contiguous_ab()
+            except RuntimeError as exc:
+                # Let the device decide whether the contiguous form is affordable. The
+                # un-joined `depth_parts` contracts the same depth rows without ever building
+                # `a` or `b`, at the cost of reassociating a bf16 sum -- so it engages on a
+                # refusal and never on a prediction. A fold that is never refused never reaches
+                # this line and keeps its exact numbers, which OPM_ROW_STATS["join_split"]
+                # reports rather than asserts. The memo pays the extra pass once per shape.
+                if not _dram_oom(exc):
+                    raise
+                _OPM_JOIN_REFUSED[tuple(x.shape)] = True
+                OPM_ROW_STATS["join_split"] += 1
+                depth_parts, S, I, C, D, J = project_depth_parts(depth_slices())
+                a = b = None
+        if depth_parts is None and dims is None:
             OPM_SMALL_DEPTH_STATS[0] += 1
             return self._small_depth(a, b, n_msa)
         if depth_parts is None:
             OPM_SMALL_DEPTH_STATS[1] += 1
-            S, I, C = a.shape
-            _, J, D = b.shape
-            a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
-            b = ttnn.permute(b, (2, 1, 0))
-            b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
-            b = ttnn.reshape(b, (-1, S))
-            b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
-        # One predicate for the whole op: the bytes the z matmul would produce in a single shot.
-        # `per_row` is the (rows*C, D*J) result per token row, so it grows with the token width and
-        # `I * per_row` is the whole tensor. Both the row blocking below and the compaction that
-        # feeds it read this, so the op cannot end up blocking a matmul it never defragmented for.
-        per_row = C * D * J * 2
-        blocked = I * per_row > opm_z_single_shot_bytes()
-        if depth_parts is None and blocked:
-            # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
-            a = ttnn.reallocate(a)
-            b = ttnn.reallocate(b)
+            S, I, C, D, J = dims
 
         def z_rows(i0, i1):
             """`z = a b^T` contracted over the full depth, for token rows [i0, i1).
@@ -7751,25 +7799,46 @@ class OuterProductMean(Module):
             ttnn.deallocate(z)
             return out
 
-        if blocked:
+        if I > SEQ_LEN_MORE_CHUNKING:
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
             rows_blk = max(32, min(OPM_CHUNK_SIZE,
-                                   (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
-            z_acc = None
-            for i in range(0, I, rows_blk):
-                part = outer_product_mean(i, min(i + rows_blk, I))
-                if z_acc is None:
-                    z_acc = part
-                else:
-                    z_old = z_acc
-                    z_acc = ttnn.concat([z_old, part], dim=0)
-                    ttnn.deallocate(z_old)
-                    ttnn.deallocate(part)
-            z = z_acc
+                                   (OPM_Z_BUDGET_BYTES // max(C * D * J * 2, 1)) // 32 * 32))
         else:
-            z = outer_product_mean(0, I)
+            rows_blk = I
+        # A block this shape class was already refused at never gets asked for a second time.
+        z_cap = _OPM_DRAM_ROW_CAP.get((I, C, D, J))
+        if z_cap is not None:
+            rows_blk = min(rows_blk, z_cap)
+
+        def run(rows_blk):
+            if rows_blk >= I:
+                OPM_ROW_STATS["whole"] += 1
+                return outer_product_mean(0, I)
+            OPM_ROW_STATS["blocked"] += 1
+            z_acc = None
+            try:
+                for i in range(0, I, rows_blk):
+                    part = outer_product_mean(i, min(i + rows_blk, I))
+                    if z_acc is None:
+                        z_acc = part
+                    else:
+                        z_old = z_acc
+                        z_acc = ttnn.concat([z_old, part], dim=0)
+                        ttnn.deallocate(z_old)
+                        ttnn.deallocate(part)
+            except BaseException:
+                # Give the partial accumulator back first, or the retry runs against a device
+                # this attempt filled and is refused at every height down to the floor.
+                if z_acc is not None:
+                    ttnn.deallocate(z_acc)
+                raise
+            return z_acc
+
+        z = _with_dram_narrowing(
+            run, rows_blk,
+            lambda b: _dram_narrow(_OPM_DRAM_ROW_CAP, (I, C, D, J), b, OPM_ROW_STATS))
         if depth_parts is None:
             ttnn.deallocate(a)
             ttnn.deallocate(b)

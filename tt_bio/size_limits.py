@@ -213,10 +213,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "this replaces was measured 2026-08-17 against an engine whose "
                      "OuterProductMean materialised its whole z matmul and whose MSA track held "
                      "four redundant full-width copies of the representation; 614 dying at 2.01 GB "
-                     "was that engine, and 614 buckets to 640, which folds. 960 and 1024 need the "
-                     "chunk-list MSA representation, which reassociates OuterProductMean's bf16 "
-                     "depth reduction; 128-896 keep the contiguous path and are measured bit-exact "
-                     "against main. Single-sequence is roomier still and is not the default",
+                     "was that engine, and 614 buckets to 640, which folds. The wall clocks above "
+                     "are the ws:ceiling-openfold3-1024 arm; the shipped engine takes the "
+                     "refusal-narrowed route instead and is re-measured at the top of the ladder "
+                     "in state/ceiling-1024-integration-and-gate.md. Every size that folds on the "
+                     "previous engine is bit-exact against it; only a size that was refused "
+                     "outright reaches OuterProductMean's un-joined form, which reassociates a "
+                     "bf16 depth sum. Single-sequence is roomier still and is not the default",
         ),
     },
     "openbind": {
