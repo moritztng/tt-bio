@@ -1854,6 +1854,25 @@ FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfuse
                       "l1_free_retired": 0, "l1_free_walked": 0,
                       "l1_padded_diverged": 0, "dram_narrowed": 0}
 
+# `TT_BIO_CAPACITY_CENSUS=<dir>` dumps the four capacity counters at exit. A ceiling ladder's
+# claim that the sizes folding today keep their exact path rests on all of `dram_narrowed` and
+# `join_split` reading 0 on those rungs -- an argument until someone reads them. Counting is
+# already unconditional, so this adds an instrument and no arithmetic.
+if os.environ.get("TT_BIO_CAPACITY_CENSUS"):
+    import atexit as _atexit_cap
+
+    def _capacity_census_dump():
+        import json as _json
+        d = os.environ["TT_BIO_CAPACITY_CENSUS"]
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, f"capacity_{os.getpid()}.json"), "w") as fh:
+            _json.dump({"opm_row": OPM_ROW_STATS, "pwa_depth": PWA_DEPTH_STATS,
+                        "fp32_softmax": FP32_SOFTMAX_STATS,
+                        "opm_small_depth": OPM_SMALL_DEPTH_STATS}, fh)
+
+    _atexit_cap.register(_capacity_census_dump)
+
+
 # Refusals seen per shape class, so a FLOATING-core plan can be retired instead of walked. The
 # tuned rectangle narrows a row at a time and that is right for it: its block stays a legal shape.
 # A floating plan that gets narrowed re-searches the core count, and the state it walks into is the
