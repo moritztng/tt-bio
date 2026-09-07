@@ -388,6 +388,12 @@ def main() -> int:
         rep["warn"].append(f"{n_clash} marginal contacts < {CLASH_DIST} A (worst {worst} A)")
 
     conf_json = json.loads(a.conf.read_text()) if a.conf and a.conf.exists() else None
+    # tt-bio's own results.json is a LIST of per-prediction records; the platform's job API
+    # hands back a single object. Passing the list through made every openbind rung die on
+    # `'list' object has no attribute 'get'` inside the confidence check -- a scorer that
+    # crashes on the file the model actually writes cannot certify anything.
+    if isinstance(conf_json, list):
+        conf_json = conf_json[0] if conf_json else None
     cinfo, cf, cw = confidence(st, conf_json, required=(a.kind == "predict"))
     rep["checks"]["confidence"] = cinfo
     rep["fail"] += cf
