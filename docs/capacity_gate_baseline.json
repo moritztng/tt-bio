@@ -1,7 +1,7 @@
 {
  "bar_tokens": 1536,
- "recorded": "2026-09-07T19:05:45Z",
- "tree": "4fd8a277254810efd68eff34e1191dc17c16c7d6",
+ "recorded": "2026-09-07T20:20:26Z",
+ "tree": "2565e79e3340f516e27ddf47691f81a1262db69d",
  "dirty_tree": false,
  "geometry": {
   "arch": "blackhole",
@@ -22,7 +22,6 @@
   "host": "pc",
   "card": 0
  },
- "ceilings_fingerprint": "9c8bfb5d0bc79492",
  "reductions": [
   "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
   "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
@@ -207,6 +206,24 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null
+  },
+  "boltz2": {
+   "verdict": "PASS",
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_effective": 8832,
+   "dram_peak_bytes": 6203490304,
+   "dram_total_bytes": 34225520128,
+   "wall_s": 277.4,
+   "mechanism": null,
+   "decided_by": "residency",
+   "ceiling_tokens": null,
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "2565e79e3340f516e27ddf47691f81a1262db69d"
   }
  },
  "note": "CAPACITY ONLY: allocates and completes. Not a correctness record."
