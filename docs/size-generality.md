@@ -17,7 +17,8 @@ the reader to assume it was checked.
 
 `scripts/release_gate.py --model size-ladder` enforces the size half of this, and it is in the
 default arm set, so a release runs it whether or not anyone remembers to. It folds each structure
-model at 256, 512, 640, 768, 896 and 1024 aa, counts which perf levers actually fire at each rung
+model at 256, 512, 640, 768, 896 and 1024 aa, plus any top rung a model reaches on its own
+(rf3 folds 1095 aa, so it also gets 1088), counts which perf levers actually fire at each rung
 by effect, and fails when the fired set, the clause a guard declines on, or the runtime scaling
 exponent moved away from `docs/size_ladder_baseline.json` and the fragments beside it. A model
 whose guard refuses a rung records that refusal, and a later run that folds the rung the baseline
@@ -59,6 +60,12 @@ as a refusal instead of holding everyone else's ladder down. That refusal is inf
 carries, not a reason to leave the rung out. Every rung is a multiple of 32, the token-axis
 bucketing the fused kernels are served on.
 
+A model whose guard reaches past 1024 gets its own top rung in `SIZE_LADDER_EXTRA_RUNGS` rather
+than widening the shared set. rf3 folds 1095 aa, so it measures 1088 too; widening the shared
+ladder instead would put an 1088 refusal cell on eight models and make check mode demand a
+baseline row nobody has recorded. `--size-ladder-rungs` filters each model's own ladder, so a
+resume pass naming 1088 measures rf3 there and is a no-op for everyone else.
+
 ## Where the baseline lives
 
 `docs/size_ladder_baseline.json` plus `docs/size_ladder_baseline.d/<model>.json`, read as one. Pass
@@ -82,6 +89,18 @@ at padded 448, 576, 640, 704, 832, 896 and 960 while 256/512/768/1024 were serve
 only from multiples of 256 holds "padded length divides the chunk size" constant at every rung and
 cannot see that class of defect at all. 640 is the off-lattice control, and it is the rung the arm's
 own red-condition proof fires at.
+
+The Wormhole ladder then caught the real thing at 896 and 1088. `TRIATT_PERSISTENT_MASK` serves
+all 1088 of rf3's calls at 768 and at 1024 and none at all at 896 or 1088. The controlling
+quantity is not the size: once L1 refuses every chunk wider than the production pick of 256, the
+fused path survives only if 256 divides the padded length, and 1024 refuses more configs than 896
+while still serving. Thirteen of the fifteen tile-aligned lengths from 640 to 1088 have a
+non-dividing fallback, on a path shared by rf3, boltz-2, protenix-v2, openfold3 and opendde.
+
+`TT_BIO_TRIATT_NARROW_Q_FALLBACK` offers a dividing chunk below the production pick before one
+that pads. It is off, and it stays off on measured grounds: at 896 aa it does restore the fused
+kernel to all 1088 calls and the fold goes from 267 s to 297 s, and at 1088 aa it does not restore
+it at all. Recovering the lever is not the same as recovering the time.
 
 640 is a lever rung only, not a timing rung. Run-to-run noise is measured per model when the
 baseline is recorded, and it ranges from 0.7 % to 7.1 % across the five models. At a 6.5 % floor a 3-sigma exponent band
