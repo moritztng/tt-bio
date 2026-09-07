@@ -92,10 +92,21 @@ class MSAModuleBlock:
         # token can only reach a padded pair through it. PairWeightedAveraging is not -- its
         # softmax runs over the token axis, so a padded key would take real weight without the
         # additive -1e9 (protenix.py Trunk.update_msa passes the same tensor for the same reason).
-        z = ttnn.add(z, self.opm(m, None, None))
+        # Each residual writes its sum into the UPDATE's buffer, not into a third one. `m` is
+        # [depth, tokens, c_m] -- 1 860 042 752 B at 1024 tokens x 14191 MSA rows -- and
+        # `ttnn.add(m, upd)` holds the old `m`, the update and the result live at once, so every
+        # residual here carried one whole redundant copy of the MSA representation. The operands
+        # and their order are unchanged and elementwise addition is commutative, so the sum is the
+        # same bits; only which buffer receives it moves. `m` itself is never written in place:
+        # the trunk re-feeds the embedder's `m` on every recycle, so mutating it would corrupt the
+        # next cycle. Same lever as PairWeightedAveraging's in-place head accumulate.
+        upd = self.opm(m, None, None)
+        z = ttnn.add_(upd, z)
         if self.has_msa_update:
-            m = ttnn.add(m, ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape)))
-            m = ttnn.add(m, ttnn.reshape(self.msa_transition(m), tuple(m.shape)))
+            upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
+            m = ttnn.add_(upd, m)
+            upd = ttnn.reshape(self.msa_transition(m), tuple(m.shape))
+            m = ttnn.add_(upd, m)
         z = self.pair_stack(None, z, pair_mask, attn_mask, attn_mask)[1]
         return m, z
 
