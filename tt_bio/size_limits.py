@@ -114,7 +114,7 @@ UNKNOWN = "unknown"                # not diagnosed
 MECHANISMS = (L1_CLASH, L1_BUDGET, DRAM, DRAM_MSA, FRAGMENTATION, NO_FAILURE, UNKNOWN)
 
 # WHAT THE NUMBER COUNTS. Not decoration: the two design models were measured in DIFFERENT
-# denominators, and holding one against the other would be a silent unit substitution. RFD3's 490 is
+# denominators, and holding one against the other would be a silent unit substitution. RFD3's 704 is
 # motif PLUS designed residues, while PXDesign's 768 is TARGET residues only, with its 80-residue
 # binder on top and outside the number. A guard that compared a total against a target-only cap
 # would refuse correct work on one model and pass oversized work on the other. Each row names its
@@ -301,45 +301,52 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "rfd3": {
         "wormhole_b0": Ceiling(
-            residues=490, pass_at=490, fail_at=992, binds=MEMORY, mechanism=L1_BUDGET,
+            residues=704, pass_at=704, fail_at=768, binds=MEMORY, mechanism=L1_BUDGET,
             counts=DESIGN_TOTAL,
-            evidence="wh-design-models-l1-budget-and-size-caps for the cap, measured through the "
-                     "live API on this Galaxy: 390 TARGET residues, 490 total including the "
-                     "designed regions, 4373 atoms. The negative control is new and is the reason "
-                     "this row still says 490: state/ceiling-rfd3.md walked a ladder to 992 and "
-                     "992 FAILS at the platform's default 100 diffusion steps, on card UMD 26 "
-                     "(node 2) of GWH02, 2026-09-07. It reaches the sampler -- 8538 atoms, the "
-                     "atom-pair row block engaged at 9 blocks of 960 rows -- and then throws a "
-                     "65011712 B L1 buffer over 72 banks needing 903168 B per bank against 492256 "
-                     "B free, short by 410912 B per bank, 45 %. Not fragmentation: `free` and "
-                     "`largest free block` are the same 492256 B, so there is no block to "
-                     "coalesce, and L1 reads fully free at open, weights and token_init. The site "
-                     "is the SwiGLU gated product of the pair transition in the conditioning "
-                     "Pairformer (model.py:885 -> :954, z_transition at model.py:1061), and the "
-                     "frames above it are what makes this row a correction rather than a "
-                     "measurement: model.py:3636 _forward_with_recycle -> :3646 _process_ with "
-                     "D_II_self, the SELF-CONDITIONING path. THAT PATH DOES NOT RUN AT A LOW STEP "
-                     "COUNT. An earlier ladder in the same file recorded 992 folding five times "
-                     "out of five and published it, and every one of those rows carries "
-                     "\"steps\": 2 -- rfd3_cap.py defaults RFD3_CAP_STEPS to 2. At 2 steps the "
-                     "same site asks 33554432 B and misses by 5408 B per bank, 1.2 %, which reads "
-                     "like a boundary one lever would close; at 100 steps it asks 1.94x that and "
-                     "misses by 45 %. So a 2-step ladder is not a ceiling ladder for this model, "
-                     "the 992 it produced is withdrawn, and the real production ceiling is "
-                     "somewhere in (490, 992) with the 100-step ladder still walking. 1024 also "
-                     "fails 6/6, but at 2 steps, so it is not quoted as this row's control. What "
-                     "IS carried forward from that work is the atom-pair row block, which is a "
-                     "genuine and separate fix: the unblocked token initializer dies at 640 total "
-                     "residues on a 2114887680 B DRAM request, row-blocking it against "
-                     "atom_pair_budget_bytes() clears that wall and is faster (512 residues: 71.2 "
-                     "s against 124.5 s, 8.2 GB host RSS against 16.1 GB), and it is bit-exact "
-                     "against the unblocked path at 128/256/480/512 on all five tensors the "
-                     "initializer hands the sampler. 128 and 256 stay in a single block, so the "
-                     "sizes users run are the shipped path byte for byte. That fix is why 992 now "
-                     "reaches the sampler at all instead of dying in setup, and it is what will "
-                     "let the 100-step ladder raise this number once a rung passes with a rung "
-                     "above it failing. TT_BIO_ATOM_PAIR_BUDGET_BYTES=0 restores the unblocked "
-                     "path and its 640 wall",
+            evidence="state/ceiling-rfd3.md, its own ladder measured 2026-09-07 on GWH02 card UMD "
+                     "26 (node 2), ws:ceiling-rfd3. 704 total residues = 604 target + a "
+                     "100-residue binder, 6261 atoms. ONE target cut to every rung "
+                     "(laczc_1008, 1DP0 chain A) so no two rungs differ in anything but size. "
+                     "Walked AT THE PLATFORM'S 100 DIFFUSION STEPS, which is the whole point of "
+                     "this row: 640 folds in 162.2 s, 704 in 169.6 s, and 768 FAILS. The failure "
+                     "is clean and lands in the sampler with the input already built -- 6776 "
+                     "atoms, atom-pair row block engaged at 6 blocks -- on a 50331648 B L1 buffer "
+                     "over 72 banks needing 700416 B per bank against 695008 B free. It is short "
+                     "by 5408 B per bank. That is 0.39 % of the 1395424 B bank, and the shape of "
+                     "the miss is exact rather than approximate: the site wants TWO of these "
+                     "live at once, 2 x 700416 = 1400832, and the bank holds 1395424. Not "
+                     "fragmentation -- `free` and `largest free block` are the same 695008 B, so "
+                     "there is nothing to coalesce -- and L1 reads fully free at open, weights "
+                     "and token_init, so nothing is carried out of setup. The site is the SwiGLU "
+                     "gated product of the pair transition in the conditioning Pairformer "
+                     "(model.py:885 -> :954, z_transition at model.py:1061), reached through "
+                     "model.py:3636 _forward_with_recycle -> :3646 _process_ with D_II_self, the "
+                     "SELF-CONDITIONING path. THAT PATH ONLY RUNS ON A RECYCLE, which is why the "
+                     "step count is part of this measurement and not a way to make it cheaper: an "
+                     "earlier ladder ran at rfd3_cap.py's old default of 2 steps, never entered "
+                     "the path, and published a ceiling of 992 that this model does not have. At "
+                     "2 steps the same SwiGLU asks 33554432 B; at 100 it asks 1.94x that at the "
+                     "same input, and 992 misses by 45 %. The 992 is withdrawn and 1024's 6/6 "
+                     "failure is not quoted, because both were measured at 2 steps. Pass/fail is "
+                     "not assumed monotonic for this class, so 704 is the largest size below the "
+                     "FIRST failure and not merely the largest that folds. The cap DEPENDS on the "
+                     "atom-pair row block: unblocked, the token initializer dies at 640 total "
+                     "residues on a 2114887680 B DRAM request, and TT_BIO_ATOM_PAIR_BUDGET_BYTES=0 "
+                     "restores that wall. The block is bit-exact against the unblocked path at "
+                     "128/256/480/512 on all five tensors the initializer hands the sampler, with "
+                     "the block count recorded beside each digest so a pass proves the lever "
+                     "engaged rather than the size having stayed under the budget; 128 and 256 "
+                     "stay in one block, so the sizes users run are the shipped path byte for "
+                     "byte. It is also faster and lighter (512 residues: 71.2 s against 124.5 s, "
+                     "8.2 GB host RSS against 16.1 GB). Owed and NOT claimed: a structural score "
+                     "at 704 (only finite coordinates and atoms-out == atoms-in are measured), "
+                     "reference parity at the top size, and Blackhole, where "
+                     "atom_pair_budget_bytes() reads the part's own DRAM and so blocks later. 768 "
+                     "missing by 0.39 % of a bank makes declining that one L1 residency to DRAM "
+                     "the obvious next lever -- the gated product is elementwise, so its "
+                     "destination cannot change its arithmetic -- but it touches "
+                     "Transition._swiglu, which every model with a pair transition uses, so it is "
+                     "a release-gated change and is not in this row",
         ),
     },
     "pxdesign": {

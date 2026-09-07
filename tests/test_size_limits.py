@@ -156,7 +156,7 @@ def test_every_row_names_what_it_counts():
 def test_sizer_and_row_agree_on_the_denominator():
     """The assertion that makes rfd3-total vs pxdesign-target safe.
 
-    RFD3's 490 counts motif + designed; PXDesign's 768 counts target residues with the binder
+    RFD3's 704 counts motif + designed; PXDesign's 768 counts target residues with the binder
     outside the number. Sizing an input in one denominator and comparing it against a cap measured
     in the other is a units substitution that produces a plausible wrong answer rather than an
     error, so the two are held against each other here.
