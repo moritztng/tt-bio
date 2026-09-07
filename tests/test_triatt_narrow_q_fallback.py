@@ -91,6 +91,25 @@ def test_the_896_case_this_was_root_caused_on():
     assert _ladder(896, narrow_fallback=True) == (896, 448, 224, 128, 64, 32, 256)
 
 
+def test_the_env_var_is_named_to_the_TT_BIO_convention():
+    """The gate name is the A/B's only handle on it, and getting it wrong measures nothing.
+
+    `env_flag` reads the string it is handed VERBATIM -- it prepends no prefix -- and envflags.py
+    calls itself "one reader for the TT_BIO_* boolean gates". This lever was first written as
+    `env_flag("TRIATT_NARROW_Q_FALLBACK", ...)` while the harness exported
+    `TT_BIO_TRIATT_NARROW_Q_FALLBACK`, so both arms of the A/B would have run the default and the
+    run would have reported a clean no-difference. Nothing else in the suite reads the name, so
+    it is pinned here.
+    """
+    tree = ast.parse(SRC.read_text())
+    for node in tree.body:
+        if (isinstance(node, ast.Assign)
+                and getattr(node.targets[0], "id", None) == "_SDPA_NARROW_Q_FALLBACK"):
+            assert node.value.args[0].value == "TT_BIO_TRIATT_NARROW_Q_FALLBACK"
+            return
+    pytest.fail("_SDPA_NARROW_Q_FALLBACK is not assigned at module level in tenstorrent.py")
+
+
 def test_the_lever_is_off_by_default_in_the_source():
     """A shared-path lever does not land on by default off one sequence length's evidence."""
     tree = ast.parse(SRC.read_text())

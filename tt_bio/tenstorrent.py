@@ -945,7 +945,7 @@ _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 # it before falling back to one that pads. See the block in `_tri_att_q_chunks` for the 896 aa
 # measurement that motivates it. Off until a fold A/B says otherwise; release-gated because the
 # path is shared across five models.
-_SDPA_NARROW_Q_FALLBACK = env_flag("TRIATT_NARROW_Q_FALLBACK", False)
+_SDPA_NARROW_Q_FALLBACK = env_flag("TT_BIO_TRIATT_NARROW_Q_FALLBACK", False)
 
 
 @lru_cache(maxsize=None)
