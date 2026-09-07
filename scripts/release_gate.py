@@ -2849,6 +2849,15 @@ def _size_ladder_read_baseline(baseline_path: Path) -> dict:
                     dst.setdefault("models", {}).update(val)
                 else:
                     dst.setdefault(key, val)
+    # Every entry carries its own provenance. Entries recorded before that was true have
+    # only the card-level stamp, so it is pushed down here rather than by rewriting the
+    # file: a subset record must not restamp the models it did not measure, and the
+    # cheapest way to guarantee that is to never write them.
+    for block in data.get("cards", {}).values():
+        for entry in block.get("models", {}).values():
+            for key in ("recorded", "host", "commit"):
+                if block.get(key) is not None:
+                    entry.setdefault(key, block[key])
     return data
 
 
@@ -3029,8 +3038,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             for rung, cj in meas["census_jsons"].items():
                 shutil.copy(cj, prov / f"census_{m}_{rung}_{card}.json")
             # After every model, so a run that dies at model 4 keeps models 1-3.
+            frag = _flush_baseline(m)
             print(f"  [size-ladder] {m}: recorded to "
-                  f"{_flush_baseline(m).relative_to(REPO_ROOT)}", flush=True)
+                  f"{os.path.relpath(frag, REPO_ROOT)}", flush=True)
         if todos:
             print(f"[size-ladder] {todos} dark lever(s) need a one-line exemption "
                   f"reason — search TODO in {baseline_path} and fill them in; the "

@@ -235,14 +235,60 @@ def test_subset_record_keeps_the_other_models_own_provenance(rg, tmp_path, monke
     row = rg.run_size_ladder(keep=False, record=True, baseline_path=baseline, models=["rf3"])
     assert row["gate"], row
 
-    card = json.loads(baseline.read_text())["cards"]["p150a"]
+    # The strongest form of "not restamped": the file holding boltz2 is not written at all.
+    # rf3 lands in its own fragment, and the resolved baseline is the merge of the two.
+    assert json.loads(baseline.read_text())["cards"]["p150a"]["commit"] == "9bc86a5a"
+    card = rg._size_ladder_read_baseline(baseline)["cards"]["p150a"]
     assert card["models"]["boltz2"]["host"] == "pc"
     assert card["models"]["boltz2"]["recorded"] == "2026-08-22"
     assert card["models"]["boltz2"]["commit"] == "9bc86a5a"
     assert card["models"]["rf3"]["host"] == socket.gethostname()
     assert card["models"]["rf3"]["commit"] == "cafe1234"
-    # and the card-level stamp still describes the last pass, so nothing is lost
-    assert card["commit"] == "cafe1234"
+
+
+def test_parallel_per_model_records_do_not_collide(rg, tmp_path, monkeypatch):
+    """Six models recorded on six branches all create the same new card key, so a single
+    baseline JSON is a merge conflict by construction. Each record writes its own fragment
+    and reads resolve to the union — this is the property that makes the split worth having,
+    so it is asserted rather than assumed."""
+    baseline = tmp_path / "size_ladder_baseline.json"
+    baseline.write_text(json.dumps({"cards": {"p150a": {
+        "recorded": "2026-08-22", "host": "pc", "commit": "9bc86a5a",
+        "models": {"boltz2": _baseline(), "rf3": _baseline()}}}}))
+    meas = {"levers": {str(r): {"K2": dict(FIRING)} for r in RUNGS},
+            "runtime_s": dict(BASE_RUNTIME), "sigma": 0.05, "census_jsons": {},
+            "grid": "8x9"}
+    monkeypatch.setattr(rg, "_size_ladder_measure_model", lambda *a, **k: meas)
+    monkeypatch.setattr(rg, "_size_ladder_card_type", lambda: "tt-galaxy-wh l")
+    monkeypatch.setattr(rg, "_repo_commit", lambda: "cafe1234")
+
+    before = baseline.read_text()
+    for m in ("boltz2", "rf3"):
+        assert rg.run_size_ladder(keep=False, record=True, baseline_path=baseline,
+                                  models=[m])["gate"]
+        # Neither pass touches the shared file, which is the whole point.
+        assert baseline.read_text() == before
+
+    frags = sorted(p.name for p in (tmp_path / "size_ladder_baseline.d").glob("*.json"))
+    assert frags == ["boltz2.json", "rf3.json"], frags
+    resolved = rg._size_ladder_read_baseline(baseline)["cards"]
+    assert set(resolved) == {"p150a", "tt-galaxy-wh l"}
+    assert set(resolved["tt-galaxy-wh l"]["models"]) == {"boltz2", "rf3"}
+    # and the Blackhole rows are still the ones the monolith recorded
+    assert resolved["p150a"]["models"]["boltz2"]["commit"] == "9bc86a5a"
+
+
+def test_the_top_of_the_ladder_is_per_model(rg, monkeypatch):
+    """A model that cannot fold 1024 must not hold every other model's ladder at 768 —
+    that is how boltz-2 ended up serving 1024-residue jobs with nothing watching its
+    scaling above 768."""
+    monkeypatch.delenv("RELEASE_GATE_SIZE_RUNGS", raising=False)
+    assert rg._size_ladder_model_rungs("boltz2")[-1] == 1024
+    assert rg._size_ladder_model_rungs("openfold3") == rg.SIZE_LADDER_RUNGS
+    for m, rungs in rg.SIZE_LADDER_MODEL_RUNGS.items():
+        assert m in rg.SIZE_LADDER_MODELS, m
+        assert all(r % 32 == 0 for r in rungs), (m, rungs)
+        assert list(rungs) == sorted(rungs), (m, rungs)
 
 
 def test_rf3_is_in_the_size_ladder(rg):
