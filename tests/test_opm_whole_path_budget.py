@@ -37,6 +37,20 @@ def wormhole(monkeypatch):
     """A Wormhole Galaxy after `_apply_grid_thresholds`: 1088 tokens, 1.5 GiB of budget."""
     monkeypatch.setattr(T, "SEQ_LEN_MORE_CHUNKING", 1088)
     monkeypatch.setattr(T, "_CONCAT_HOST_BYTES", T._concat_host_budget(WH_DRAM))
+    monkeypatch.delenv("TT_BIO_OPM_WHOLE_PATH_BYTES", raising=False)
+
+
+def test_the_screen_hook_can_leave_only_the_token_arm(wormhole, monkeypatch):
+    """The gate has to be removable without editing it, or it cannot be priced.
+
+    main's `_with_dram_narrowing` recovers this op's refusal reactively and folded 992 on its
+    own, so whether gating up front earns its cost is measurable only if a run can turn the
+    byte arm off. With it off the token arm alone decides, which is exactly main's behaviour.
+    """
+    assert T._opm_needs_row_blocks(992, per_row(992))          # byte arm binds by default
+    monkeypatch.setenv("TT_BIO_OPM_WHOLE_PATH_BYTES", str(1 << 62))
+    assert not T._opm_needs_row_blocks(992, per_row(992))      # only the token arm is left
+    assert T._opm_needs_row_blocks(1089, per_row(1089))        # and it still binds above 1088
 
 
 def test_the_refused_shape_is_the_one_the_token_test_let_through(wormhole):

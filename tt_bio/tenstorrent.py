@@ -3926,6 +3926,20 @@ def concat_host_bytes() -> int:
     return _CONCAT_HOST_BYTES
 
 
+def _opm_whole_path_budget() -> int:
+    """Bytes the OuterProductMean whole-token path may materialise before it row-blocks.
+
+    `concat_host_bytes()` by default, which is where the number was measured. A screen hook so
+    the byte arm below can be priced without editing it, for the same reason
+    `TT_BIO_SEQ_LEN_MORE_CHUNKING` exists: main's `_with_dram_narrowing` catches this op's
+    refusal reactively and was measured to recover 992 on its own (1209 s, one refused
+    allocation), so whether gating up front earns its cost is an open question and not a
+    constant to bake in. Set it huge to leave only the token arm. Unset in production.
+    """
+    env = os.environ.get("TT_BIO_OPM_WHOLE_PATH_BYTES")
+    return int(env) if env else concat_host_bytes()
+
+
 def _opm_needs_row_blocks(tokens: int, per_row_bytes: int) -> bool:
     """Whether OuterProductMean splits its token axis into row blocks.
 
@@ -3959,7 +3973,7 @@ def _opm_needs_row_blocks(tokens: int, per_row_bytes: int) -> bool:
     band this gate newly blocks may move the answer by a bf16 re-association, and does at 960 --
     which is the price of the sizes it makes foldable at all, not a claim to have avoided.
     """
-    return tokens > SEQ_LEN_MORE_CHUNKING or tokens * per_row_bytes > concat_host_bytes()
+    return tokens > SEQ_LEN_MORE_CHUNKING or tokens * per_row_bytes > _opm_whole_path_budget()
 
 
 def _host_concat(x: ttnn.Tensor) -> bool:
