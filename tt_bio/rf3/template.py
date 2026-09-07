@@ -29,8 +29,8 @@ import torch
 import ttnn
 
 from tt_bio.envflags import env_flag
-from tt_bio.tenstorrent import (Module, PairformerLayer, Weights,
-                                sdpa_ragged_pad_site)
+from tt_bio.rf3.remap import tri_att_fused_flags
+from tt_bio.tenstorrent import Module, PairformerLayer, Weights
 
 C = 64            # template channel width
 C_Z = 128
@@ -107,9 +107,7 @@ class TemplateEmbedder(Module):
                 # `remap.PAIRFORMER_FLAGS` re-ran and reversed for the trunk. Masked, the
                 # fused route is the accurate one and it does not write the score tensor.
                 # See `_TEMPLATE_FUSED_SDPA`.
-                fp32_softmax=not _TEMPLATE_FUSED_SDPA,
-                tri_att_sdpa_ragged_pad=(
-                    _TEMPLATE_FUSED_SDPA and sdpa_ragged_pad_site("rf3.tri_att", True)),
+                **tri_att_fused_flags(_TEMPLATE_FUSED_SDPA),
             )
             for i in range(N_BLOCK)
         ]

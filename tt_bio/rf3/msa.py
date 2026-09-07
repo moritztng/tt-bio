@@ -30,6 +30,7 @@ from __future__ import annotations
 import ttnn
 
 from tt_bio.envflags import env_flag
+from tt_bio.rf3.remap import tri_att_fused_flags
 from tt_bio.tenstorrent import (
     Module,
     OuterProductMean,
@@ -37,7 +38,6 @@ from tt_bio.tenstorrent import (
     PairWeightedAveraging,
     Transition,
     Weights,
-    sdpa_ragged_pad_site,
 )
 
 #: MSA-module channel dims, from configs/model/components/rf3_net.yaml.
@@ -126,9 +126,7 @@ class MSAModule(Module):
             # fp32_softmax=True was "the reference's softmax stays fp32 under autocast"
             # (template.py). The fused route reached the same accuracy once the ragged key
             # tail was masked, which is why the trunk switched; see _MSA_FUSED_SDPA.
-            fp32_softmax=not _MSA_FUSED_SDPA,
-            tri_att_sdpa_ragged_pad=(
-                _MSA_FUSED_SDPA and sdpa_ragged_pad_site("rf3.tri_att", True)),
+            **tri_att_fused_flags(_MSA_FUSED_SDPA),
         )
 
     def __call__(
