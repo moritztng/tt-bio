@@ -38,6 +38,21 @@ OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
+# `I > SEQ_LEN_MORE_CHUNKING` decides whether that budget is consulted at all, and that constant
+# answers a different question: it bounds how many full PAIR tensors are live at once, which is why
+# _apply_grid_thresholds raises it to 1088 on a 12 GiB Galaxy Wormhole against a measurement of
+# Boltz-2's trunk. OPM's z is not a pair tensor -- it is (rows*c_a, c_b*tokens), O(tokens^2 * 1024),
+# the single largest buffer the MSA track asks for -- so from 640 to 1088 tokens the row block was
+# switched off for every model on this path. MEASURED: OpenBind-0 at 864 padded tokens and OpenFold3
+# at 800 and 1024 die on exactly that tensor (1 310 720 000 B = 800*800*1024*2 and 2 147 483 648 B
+# = 1024*1024*1024*2), while Boltz-2 folds 1024 because its trunk holds ~3.5 GiB at that moment and
+# OF3's holds a 14191-row MSA. Same tensor, same size, different occupancy -- so no byte constant
+# separates them and the gate cannot be retuned into correctness. A refusal narrows the block for
+# that shape class and the call is retried, which is what makes the deep-MSA sizes fold without
+# moving a single number, or a single block boundary, at any size that folds today.
+_OPM_DRAM_ROW_CAP: dict[tuple[int, int, int, int], int] = {}
+#: Path census: whole-tensor calls, row-blocked calls, and refusals the retry absorbed.
+OPM_ROW_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0}
 
 # Fold `proj_o` into the outer product's own projection instead of materialising the
 # [I, J, C, D] product in order to project it. Same algebra --
@@ -1715,7 +1730,7 @@ _FP32_SOFTMAX_BLOCK_BYTES = 8 << 30
 _FP32_SOFTMAX_DRAM_ROW_CAP: dict = {}
 
 
-def _fp32_softmax_dram_oom(exc: BaseException) -> bool:
+def _dram_oom(exc: BaseException) -> bool:
     """Is this an allocator refusal, as opposed to any other RuntimeError?
 
     Matched on the allocator's own wording so a compile error, a bad shape or a hang never gets
@@ -1724,24 +1739,28 @@ def _fp32_softmax_dram_oom(exc: BaseException) -> bool:
     return "Out of Memory" in str(exc)
 
 
-def _fp32_softmax_with_narrowing(run, blk: int, l1_key):
-    """Run ``run(blk)``, halving the block and retrying while DRAM refuses it.
+def _with_dram_narrowing(run, blk: int, narrow):
+    """Run ``run(blk)``, narrowing the row block and retrying while DRAM refuses it.
 
-    Let the device have the last word on the block. The byte budget is a constant and DRAM
-    occupancy is not, so on a full device the budget can decline to block a tensor the
-    allocator then refuses, which used to end the fold. The partition is bit-exact, so a
-    retry at half the height can only change whether the call finishes.
+    Let the device have the last word on the block. Every byte budget in this file is a
+    constant and DRAM occupancy is not, so on a full device a budget can decline to block a
+    tensor the allocator then refuses, which used to end the fold. Both callers partition a
+    row axis bit-exactly, so a retry at half the height can only change whether the call
+    finishes.
 
     Stops at one tile row: below that there is nothing left to give back, and re-raising is
     the honest answer rather than spinning on a block that cannot shrink.
+
+    ``narrow(blk)`` returns the next block to try and is what remembers the refusal, so the
+    next call at the same shape starts where this one ended instead of re-paying it.
     """
     while True:
         try:
             return run(blk)
         except RuntimeError as exc:
-            if blk <= 32 or not _fp32_softmax_dram_oom(exc):
+            if blk <= 32 or not _dram_oom(exc):
                 raise
-            blk = _fp32_softmax_dram_narrow(l1_key, blk)
+            blk = narrow(blk)
 
 
 def _fp32_softmax_dram_narrow(l1_key, blk: int) -> int:
@@ -1752,6 +1771,17 @@ def _fp32_softmax_dram_narrow(l1_key, blk: int) -> int:
     prev = _FP32_SOFTMAX_DRAM_ROW_CAP.get(l1_key)
     _FP32_SOFTMAX_DRAM_ROW_CAP[l1_key] = nxt if prev is None else min(prev, nxt)
     FP32_SOFTMAX_STATS["dram_narrowed"] += 1
+    return nxt
+
+
+def _opm_dram_narrow(key, blk: int) -> int:
+    """Halve OuterProductMean's token-row block after a refusal, floored at one tile row."""
+    nxt = max(32, (int(blk) // 2) // 32 * 32)
+    if nxt >= int(blk):
+        nxt = 32
+    prev = _OPM_DRAM_ROW_CAP.get(key)
+    _OPM_DRAM_ROW_CAP[key] = nxt if prev is None else min(prev, nxt)
+    OPM_ROW_STATS["dram_narrowed"] += 1
     return nxt
 _FP32_SOFTMAX_FUSED_ADD = True
 # ttnn.softmax normalises through a reciprocal whose range reduction loses up to 2.9e-2 when
@@ -2379,7 +2409,7 @@ def _fp32_softmax_attention(
             ttnn.deallocate(part)
         return o
 
-    return _fp32_softmax_with_narrowing(run, blk, l1_key)
+    return _with_dram_narrowing(run, blk, lambda b: _fp32_softmax_dram_narrow(l1_key, b))
 
 
 def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
@@ -7492,22 +7522,40 @@ class OuterProductMean(Module):
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
-            per_row = C * D * J * 2
             rows_blk = max(32, min(OPM_CHUNK_SIZE,
-                                   (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
-            z_acc = None
-            for i in range(0, I, rows_blk):
-                part = outer_product_mean(i, min(i + rows_blk, I))
-                if z_acc is None:
-                    z_acc = part
-                else:
-                    z_old = z_acc
-                    z_acc = ttnn.concat([z_old, part], dim=0)
-                    ttnn.deallocate(z_old)
-                    ttnn.deallocate(part)
-            z = z_acc
+                                   (OPM_Z_BUDGET_BYTES // max(C * D * J * 2, 1)) // 32 * 32))
         else:
-            z = outer_product_mean(0, I)
+            rows_blk = I
+        # A block this shape class was already refused at never gets asked for a second time.
+        z_cap = _OPM_DRAM_ROW_CAP.get((I, C, D, J))
+        if z_cap is not None:
+            rows_blk = min(rows_blk, z_cap)
+
+        def run(rows_blk):
+            if rows_blk >= I:
+                OPM_ROW_STATS["whole"] += 1
+                return outer_product_mean(0, I)
+            OPM_ROW_STATS["blocked"] += 1
+            z_acc = None
+            try:
+                for i in range(0, I, rows_blk):
+                    part = outer_product_mean(i, min(i + rows_blk, I))
+                    if z_acc is None:
+                        z_acc = part
+                    else:
+                        z_old = z_acc
+                        z_acc = ttnn.concat([z_old, part], dim=0)
+                        ttnn.deallocate(z_old)
+                        ttnn.deallocate(part)
+            except BaseException:
+                # Give the partial accumulator back first, or the retry runs against a device
+                # this attempt filled and is refused at every height down to the floor.
+                if z_acc is not None:
+                    ttnn.deallocate(z_acc)
+                raise
+            return z_acc
+
+        z = _with_dram_narrowing(run, rows_blk, lambda b: _opm_dram_narrow((I, C, D, J), b))
         if depth_parts is None:
             ttnn.deallocate(a)
             ttnn.deallocate(b)

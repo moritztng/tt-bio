@@ -27,14 +27,14 @@ def clean():
 
 class TestRefusalDetection:
     def test_allocator_refusal_is_recognised(self):
-        assert tt._fp32_softmax_dram_oom(RuntimeError(
+        assert tt._dram_oom(RuntimeError(
             "TT_FATAL: Out of Memory: Not enough space to allocate 6379012096 B DRAM buffer "
             "across 12 banks"))
 
     def test_any_other_runtime_error_is_not(self):
         """A compile error retried at half the block would be reported as a smaller-is-fine pass."""
         for msg in ("Kernel compilation failed", "shape mismatch", "watcher detected a hang"):
-            assert not tt._fp32_softmax_dram_oom(RuntimeError(msg))
+            assert not tt._dram_oom(RuntimeError(msg))
 
 
 class TestNarrowing:
@@ -90,9 +90,14 @@ class TestRetryControlFlow:
     coverage of what happens after a refusal was a fold on a Galaxy chip.
     """
 
+    @staticmethod
+    def _narrowing(run, blk=736):
+        """`_with_dram_narrowing` wired to the fp32-softmax narrow, which is what ships."""
+        return tt._with_dram_narrowing(run, blk, lambda b: tt._fp32_softmax_dram_narrow(("k",), b))
+
     def test_a_call_that_fits_runs_once_and_narrows_nothing(self):
         seen = []
-        out = tt._fp32_softmax_with_narrowing(lambda b: seen.append(b) or "o", 736, ("k",))
+        out = self._narrowing(lambda b: seen.append(b) or "o")
         assert out == "o" and seen == [736]
         assert tt.FP32_SOFTMAX_STATS["dram_narrowed"] == 0
         assert tt._FP32_SOFTMAX_DRAM_ROW_CAP == {}
@@ -106,7 +111,7 @@ class TestRetryControlFlow:
                 raise RuntimeError("Out of Memory: Not enough space to allocate 6379012096 B")
             return "o"
 
-        assert tt._fp32_softmax_with_narrowing(run, 736, ("k",)) == "o"
+        assert self._narrowing(run) == "o"
         assert seen == [736, 352]
         assert tt._FP32_SOFTMAX_DRAM_ROW_CAP[("k",)] == 352
 
@@ -119,7 +124,7 @@ class TestRetryControlFlow:
                 raise RuntimeError("Out of Memory: Not enough space to allocate 1 B")
             return "o"
 
-        assert tt._fp32_softmax_with_narrowing(run, 736, ("k",)) == "o"
+        assert self._narrowing(run) == "o"
         assert seen == [736, 352, 160, 64]
 
     def test_an_unshrinkable_block_re_raises_instead_of_spinning(self):
@@ -130,7 +135,7 @@ class TestRetryControlFlow:
             raise RuntimeError("Out of Memory: Not enough space to allocate 1 B")
 
         with pytest.raises(RuntimeError, match="Out of Memory"):
-            tt._fp32_softmax_with_narrowing(run, 736, ("k",))
+            self._narrowing(run)
         assert calls[-1] == 32 and len(calls) < 12, calls
 
     def test_a_non_allocator_error_propagates_untouched(self):
@@ -139,6 +144,6 @@ class TestRetryControlFlow:
             raise RuntimeError("Kernel compilation failed")
 
         with pytest.raises(RuntimeError, match="compilation"):
-            tt._fp32_softmax_with_narrowing(run, 736, ("k",))
+            self._narrowing(run)
         assert tt.FP32_SOFTMAX_STATS["dram_narrowed"] == 0
         assert tt._FP32_SOFTMAX_DRAM_ROW_CAP == {}
