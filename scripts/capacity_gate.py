@@ -88,8 +88,17 @@ BISECT_RUNGS = (1280, 1024, 896, 768, 640, 512)
 
 #: No forward progress for this long is a FAIL, not a wait. OpenFold3's diffusion-side L1 refusal
 #: is retried rather than raised and sat for 2289 s at diffusion step 0; a gate that waits for an
-#: exception scores that green. Progress is measured as growth in the run's own log.
+#: exception scores that green.
+#:
+#: Progress is the CLI's own structured event stream (TT_BIO_PROGRESS_CAPTURE, the same stream the
+#: UX-regression guard reads), with log growth as a fallback. It is deliberately not CPU time: the
+#: OF3 stall is a RETRY loop, so it burns CPU while going nowhere.
 STALL_S = 900
+#: Before the first progress event, though, silence is normal and long. The JIT kernel cache is
+#: keyed by shape, so the first run at a new token count compiles every kernel from scratch with
+#: no output at all: measured on esmfold2 at 1504 tokens, 7.5 minutes of CPU and zero log bytes.
+#: Applying the post-first-event threshold from t=0 would score that cold compile as a hang.
+WARMUP_S = 2700
 #: Total wall-clock ceiling per run. A 1504-token deep-MSA fold is minutes, not an hour.
 RUN_TIMEOUT_S = 5400
 #: Host RAM headroom below which a death is recorded as HOST_OOM and not as a device wall. A
@@ -97,7 +106,7 @@ RUN_TIMEOUT_S = 5400
 #: reported as a capacity ceiling.
 HOST_RAM_FLOOR_MB = 700
 
-VERDICTS = ("PASS", "FAIL", "STALL", "HOST_OOM", "NO_WEIGHTS", "ERROR", "SKIPPED")
+VERDICTS = ("PASS", "FAIL", "STALL", "HOST_OOM", "NO_WEIGHTS", "CONTENDED", "ERROR", "SKIPPED")
 
 # ---------------------------------------------------------------------------------------------
 # THE MODEL LIST -- DERIVED, NEVER HARDCODED
@@ -277,6 +286,11 @@ MECHANISM_PATTERNS = (
     ("fragmentation", re.compile(r"largest free block", re.I)),
     ("dram",          re.compile(r"Statically allocated circular buffers.*exceed", re.I)),
     ("oom",           re.compile(r"Out of Memory|bad_alloc|std::bad_alloc", re.I)),
+    # Not a capacity result at all: another process holds the card. Scoring this as FAIL would
+    # publish a ceiling that was never measured -- and it is easy to hit, because a killed leg
+    # whose spawned fold worker outlived the kill keeps the lease.
+    ("contention",    re.compile(r"DeviceInUseError|device contention, nothing ran"
+                                 r"|is in use by", re.I)),
 )
 
 
@@ -316,7 +330,11 @@ class Worker:
         e = {
             "TT_VISIBLE_DEVICES": str(self.card),
             "TT_BIO_LEASE_CARDS": str(self.card),
-            "TT_BIO_LEASE_HOLDER": f"capacity_gate:{os.getpid()}",
+            # Inherit the fleet's holder identity when there is one: it is what the dispatcher's
+            # running-task check reads, and overwriting it with a bare gate pid makes a live task
+            # look idle. Only name ourselves when nothing else has.
+            "TT_BIO_LEASE_HOLDER": os.environ.get("TT_BIO_LEASE_HOLDER")
+                                   or f"capacity_gate:{os.getpid()}",
             # The env has tt_bio installed EDITABLE against the shared checkout, and running a
             # script puts scripts/ on sys.path[0] with cwd absent -- so `import tt_bio` silently
             # loads the stale shared tree. Every leg of this gate must score THIS worktree.
@@ -449,24 +467,37 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
     L1 refusal is RETRIED rather than raised, so the process stays alive and busy and produces no
     output. Watching for an exception scores that as a pass; watching for forward progress does not.
     """
+    events = log.with_suffix(".events.jsonl")
+    events.unlink(missing_ok=True)
     env = {"TT_BIO_CAPACITY_HOOK": mode,
            "TT_BIO_CAPACITY_HOOK_OUT": str(hook_out),
+           "TT_BIO_PROGRESS_CAPTURE": str(events),
+           "PYTHONUNBUFFERED": "1",
            "PYTHONPATH": f"{hookdir}:{REPO_ROOT}"}
     ram_floor = host_ram_free_mb()
     t0 = time.monotonic()
     with open(log, "w") as fp:
         proc = subprocess.Popen(worker.cmd(argv, env), stdout=fp, stderr=subprocess.STDOUT,
                                 cwd=REPO_ROOT, start_new_session=True)
-    last_size, last_move, stalled = -1, time.monotonic(), False
+
+    def progress() -> tuple[int, bool]:
+        """(a monotonically growing progress counter, whether any event has landed yet)."""
+        n = events.stat().st_size if events.exists() else 0
+        return (n + (log.stat().st_size if log.exists() else 0)), n > 0
+
+    last, last_move, stalled, warm = -1, time.monotonic(), False, False
     try:
         while proc.poll() is None:
             time.sleep(5)
             ram_floor = min(ram_floor, host_ram_free_mb())
-            size = log.stat().st_size if log.exists() else 0
-            if size != last_size:
-                last_size, last_move = size, time.monotonic()
+            n, seen = progress()
+            if n != last:
+                last, last_move = n, time.monotonic()
+            if seen and not warm:
+                # First real progress event: the cold compile is behind us, so tighten up.
+                warm, last_move = True, time.monotonic()
             now = time.monotonic()
-            if now - last_move > stall_s:
+            if now - last_move > (stall_s if warm else max(stall_s, WARMUP_S)):
                 stalled = True
                 break
             if now - t0 > timeout:
@@ -493,10 +524,36 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
     wall = time.monotonic() - t0
     text = log.read_text(errors="replace") if log.exists() else ""
     return {"rc": proc.returncode, "wall_s": round(wall, 1), "stalled": stalled,
-            "quiet_s": round(time.monotonic() - last_move, 1),
+            "warmed": warm, "quiet_s": round(time.monotonic() - last_move, 1),
+            "progress_events": events.stat().st_size if events.exists() else 0,
             "host_ram_floor_mb": ram_floor, "mechanism": classify(text),
             "hook": hook_findings(hook_out),
             "tail": "\n".join(text.splitlines()[-25:])}
+
+
+_LEASE_PROBE = ("import ttnn,sys\n"
+                "d=ttnn.open_device(device_id=0); ttnn.close_device(d); print('CARD_FREE')")
+
+
+def wait_for_card(worker: Worker, *, timeout=420) -> bool:
+    """Block until the card can actually be opened.
+
+    A killed leg is not a freed card. `predict` folds in a SPAWNED worker, so the leg's own
+    process group kill has to reach it -- and even when it does, zero processes is not proof of a
+    clean chip. The next leg opening the device is the only real check, and without it one killed
+    leg turns every leg after it into a spurious FAIL on DeviceInUseError.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            _, out, _ = worker.run([sys.executable, "-c", _LEASE_PROBE], timeout=300)
+            if "CARD_FREE" in (out or ""):
+                return True
+        except subprocess.TimeoutExpired:
+            pass
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(15)
 
 
 def _screen(worker, cell, fixture, work, hookdir) -> dict:
@@ -524,6 +581,9 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
         r["verdict"] = "INCONCLUSIVE"
         r["note"] = f"screen made no progress for {STALL_S}s; deferring to the residency run"
         return r
+    if r["mechanism"] == "contention":
+        r["verdict"] = "CONTENDED"
+        return r
     if r["host_ram_floor_mb"] < HOST_RAM_FLOOR_MB and not r["mechanism"]:
         r["verdict"] = "HOST_OOM"
         return r
@@ -542,7 +602,9 @@ def _residency(worker, cell, fixture, work, hookdir, tokens) -> dict:
     r["dram_total_bytes"] = h.get("dram_total_bytes")
     r["dram_largest_free_at_peak"] = h.get("dram_largest_free_at_peak")
     r["blocks_instrumented"] = len(h.get("instrumented") or [])
-    if r["stalled"]:
+    if r["mechanism"] == "contention":
+        r["verdict"] = "CONTENDED"
+    elif r["stalled"]:
         r["verdict"] = "STALL"
     elif r["host_ram_floor_mb"] < HOST_RAM_FLOOR_MB and not r["mechanism"]:
         r["verdict"] = "HOST_OOM"
@@ -602,6 +664,13 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
 
     scr = _screen(worker, cell, f, work, hookdir)
     rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR))
+    if scr["verdict"] == "CONTENDED" and wait_for_card(worker):
+        scr = _screen(worker, cell, f, work, hookdir)
+        rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR, retry=True))
+    if scr["verdict"] == "CONTENDED":
+        rec.update(verdict="CONTENDED", decided_by="screen", wall_s=scr["wall_s"],
+                   reason="another process held the card; nothing was measured")
+        return rec
     if scr["verdict"] in ("FAIL", "HOST_OOM"):
         # Definitive: a shape that cannot allocate once cannot allocate ever.
         rec.update(verdict=scr["verdict"], decided_by="screen",
@@ -614,6 +683,9 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
 
     res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
     rec["legs"].append(dict(res, tier="residency", tokens=TOKEN_BAR))
+    if res["verdict"] == "CONTENDED" and wait_for_card(worker):
+        res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
+        rec["legs"].append(dict(res, tier="residency", tokens=TOKEN_BAR, retry=True))
     rec.update(verdict=res["verdict"], decided_by="residency", mechanism=res["mechanism"],
                wall_s=res["wall_s"], dram_peak_bytes=res["dram_peak_bytes"],
                dram_total_bytes=res["dram_total_bytes"],
@@ -848,6 +920,7 @@ def _finish(report: dict) -> None:
     report["counts"] = {
         "PASS": v.count("PASS"),
         "fail_like": sum(v.count(x) for x in ("FAIL", "STALL", "HOST_OOM", "ERROR")),
+        "CONTENDED": v.count("CONTENDED"),
         "SKIPPED": v.count("SKIPPED"),
         "NO_WEIGHTS": v.count("NO_WEIGHTS"),
         "INCONCLUSIVE": v.count("INCONCLUSIVE"),
