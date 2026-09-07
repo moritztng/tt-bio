@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -578,11 +579,19 @@ def test_the_fanout_vets_every_card_not_just_the_first():
     unhealthy card 3 as a capacity failure. That is the exact lie the card-0 probe exists to stop,
     so the check has to iterate."""
     import inspect
-    src = inspect.getsource(cg.main)
-    assert "card_healthy(workers[0])" not in src, (
-        "only the first card is vetted; cells on an unhealthy sibling would be scored as failed "
-        "bars")
-    assert "for w in workers if not card_healthy(w)" in src
+    # Code only: the comment above the check names the workers[0] bug it replaced. And scoped to
+    # the health check -- `geometry(workers[0])` is a different, correct use of the first card.
+    src = "\n".join(l for l in inspect.getsource(cg.main).splitlines()
+                    if not l.strip().startswith("#"))
+    probes = [l for l in src.splitlines() if "probe_card" in l or "card_healthy" in l]
+    assert probes, "main no longer vets the cards at all"
+    for line in probes:
+        assert "workers[0]" not in line, (
+            f"only the first card is vetted ({line.strip()}); cells landing on an unhealthy "
+            f"sibling would be scored as failed bars")
+    sick = next(l for l in src.splitlines() if l.strip().startswith("sick ="))
+    assert "for w in workers" in sick and "probe_card(w)" in sick, (
+        f"the pre-flight card check does not probe every worker: {sick.strip()}")
 
 
 def test_concurrent_cells_do_not_race_on_the_shared_fixture():
@@ -925,3 +934,107 @@ def test_nesso1_is_exempt_for_a_reason_that_names_the_ligand():
     assert "ligand" in cg.EXEMPT["nesso1"].lower()
     assert "nesso1" not in cg.runnable()
     assert "nesso1" not in cg.coverage_gaps(), "exempt in writing, so not a coverage gap"
+
+
+# --- the card probe's two phases ---------------------------------------------------------------
+#
+# Detecting a wedged chip used to cost up to 600 s, because one timeout covered python starting,
+# torch and ttnn importing, the device opening AND the dispatch. A bisect provokes an allocator
+# refusal on every rung and the gate re-probes after each one, so that timeout was paid over and
+# over. These pin the split: the child says CARD_OPEN when the host-side half is done, and only the
+# dispatch is held to the short budget.
+#
+# Every one of these runs a real child process through the real Worker.popen path -- no device, and
+# no mock of the thing under test.
+
+def _probe_with(body, **kw):
+    """Run probe_card against a local Worker whose probe script is `body`."""
+    import capacity_gate
+    real = capacity_gate._CARD_PROBE
+    capacity_gate._CARD_PROBE = body
+    try:
+        return capacity_gate.probe_card(cg.Worker(cg.local_host(), 0, True), **kw)
+    finally:
+        capacity_gate._CARD_PROBE = real
+
+
+def test_a_healthy_probe_reports_done_and_its_dispatch_cost():
+    p = _probe_with("print('CARD_OPEN', flush=True)\nprint('CARD_HEALTHY', flush=True)\n")
+    assert p and p.phase == "done", p
+    assert p.seconds < 30, "a probe that dispatched immediately should not report a long wall"
+    assert "dispatches" in p.why()
+
+
+def test_a_chip_that_opens_and_never_dispatches_is_caught_by_the_short_budget():
+    """THE case this split exists for: a chip left dirty by a TT_FATAL accepts the open and then
+    hangs, so the old single timeout charged the full 300-420 s to notice."""
+    t0 = time.monotonic()
+    p = _probe_with("import time\nprint('CARD_OPEN', flush=True)\ntime.sleep(600)\n",
+                    timeout=300, dispatch_budget=1)
+    took = time.monotonic() - t0
+    assert not p and p.phase == "dispatch", p
+    assert took < 60, (
+        f"the dispatch budget did not apply: took {took:.0f}s under a 300 s open timeout, which "
+        f"is the 600 s-to-notice behaviour this replaced")
+    assert "dirty-chip" in p.why()
+
+
+def test_a_probe_that_never_opens_is_a_different_finding_from_one_that_never_dispatches():
+    """'Never opened' is a busy card, a held lease or a missing driver; 'opened and would not
+    dispatch' is the wedge. Reporting them as one verdict sent every one of them to tt-smi -r."""
+    p = _probe_with("import time\ntime.sleep(600)\n", timeout=1, dispatch_budget=1)
+    assert not p and p.phase == "open", p
+    assert "never opened" in p.why()
+
+
+def test_a_probe_that_exits_without_dispatching_is_not_read_as_a_timeout():
+    p = _probe_with("print('CARD_OPEN', flush=True)\nraise SystemExit(1)\n")
+    assert not p and p.phase == "exit", p
+
+
+def test_a_probe_that_dispatches_and_exits_in_the_same_breath_is_not_a_wedge():
+    """The race the phase loop has to survive: the child prints CARD_HEALTHY and exits before the
+    reader thread has drained the pipe. Reading process-exit first scores a healthy card wedged,
+    and a wedged card gets tt-smi -r, which on a p300c takes the board pair down."""
+    for _ in range(12):
+        p = _probe_with("print('CARD_OPEN')\nprint('CARD_HEALTHY')\n")
+        assert p and p.phase == "done", f"a healthy probe read as {p.phase}"
+
+
+def test_a_chatty_probe_does_not_deadlock_on_its_own_stderr():
+    """A ttnn process writes ~50 lines of driver log per device open, on stderr. A pipe nobody
+    drains fills and blocks the child, so the probe would hang inside the very phase it times."""
+    body = ("import sys\n"
+            "for i in range(20000): print('driver log line %d' % i, file=sys.stderr)\n"
+            "print('CARD_OPEN', flush=True)\n"
+            "print('CARD_HEALTHY', flush=True)\n")
+    t0 = time.monotonic()
+    p = _probe_with(body, timeout=90, dispatch_budget=60)
+    assert p and p.phase == "done", f"{p.phase}: a chatty child blocked on its own output"
+    assert time.monotonic() - t0 < 60
+
+
+def test_the_dispatch_budget_is_justified_by_a_measured_healthy_cost():
+    """It cannot just be tightened to taste: a false 'cannot dispatch' triggers tt-smi -r, which
+    on a p300c resets the board pair and can kill a sibling leg's card. The number is safe because
+    the phase split puts every host-side cost before it, and the comment has to say so."""
+    import inspect
+    src = inspect.getsource(cg)
+    doc = src.split("_DISPATCH_BUDGET_S")[0].rsplit("#:", 1)[-1] + src.split(
+        "_DISPATCH_BUDGET_S = ")[0].split("#: Seconds allowed")[-1]
+    assert cg._DISPATCH_BUDGET_S >= 30, "too tight to absorb any variance at all"
+    assert "0.726" in doc and "p150a" in doc, (
+        "the dispatch budget must cite the measured healthy probe cost it is derived from")
+    assert "tt-smi -r" in doc, "the cost of a false negative must be written next to the number"
+
+
+def test_the_probe_prints_its_open_marker_before_it_dispatches():
+    """The marker has to sit between open_device and the first dispatch, or the split measures
+    nothing: after the dispatch it never prints on a wedged chip, before the open it charges the
+    import to the dispatch budget."""
+    lines = [l for l in cg._CARD_PROBE.splitlines() if l.strip()]
+    opened = next(i for i, l in enumerate(lines) if "open_device" in l)
+    marker = next(i for i, l in enumerate(lines) if "CARD_OPEN" in l)
+    dispatch = next(i for i, l in enumerate(lines) if "ttnn.add" in l)
+    assert opened < marker < dispatch, cg._CARD_PROBE
+    assert "flush=True" in lines[marker], "an unflushed marker arrives after the hang it precedes"

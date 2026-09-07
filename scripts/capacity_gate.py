@@ -66,6 +66,7 @@ import subprocess
 import sys
 import threading
 import time
+import typing
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -479,6 +480,16 @@ class Worker:
                            cwd=REPO_ROOT, timeout=timeout)
         return p.returncode, p.stdout, p.stderr
 
+    def popen(self, argv, extra_env=None):
+        """Same command, but streaming, so a caller can time what the child reaches and when.
+
+        stderr is merged into stdout rather than captured separately: a ttnn process writes ~50
+        lines of driver log per device open, and a pipe nobody drains fills up and blocks the very
+        child whose progress is being timed.
+        """
+        return subprocess.Popen(self.cmd(argv, extra_env), stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True, cwd=REPO_ROOT)
+
 
 HOST_ALIASES = {"qb1": "tt-quietbox", "qb2": "tt-quietbox2"}
 
@@ -705,30 +716,111 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
 #: fold opens fine and then hangs on the first program dispatch -- measured here: a SIGKILLed
 #: large fold left card 0 in a state where the next run sat forever inside tt-bio's own
 #: dispatch probe, all threads idle, with no error. So this probe dispatches and synchronizes.
+#: CARD_OPEN separates the two phases. Everything before it is python starting, torch and ttnn
+#: importing and the device opening -- host-side work whose cost moves with host load. Everything
+#: after it is the dispatch, which is the part a wedged chip never completes.
 _CARD_PROBE = (
     "import torch, ttnn\n"
     "d = ttnn.open_device(device_id=0)\n"
+    "print('CARD_OPEN', flush=True)\n"
     "t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),\n"
     "                    layout=ttnn.TILE_LAYOUT, device=d)\n"
     "ttnn.add(t, t)\n"
     "ttnn.synchronize_device(d)\n"
     "ttnn.close_device(d)\n"
-    "print('CARD_HEALTHY')\n")
+    "print('CARD_HEALTHY', flush=True)\n")
+
+#: Seconds allowed for the DISPATCH phase alone, once the child has said CARD_OPEN.
+#:
+#: Measured on pc's p150a from three healthy probes this campaign logged, timed from ttnn's first
+#: log line to "Closing user mode device drivers": 0.726 s, 0.663 s, 0.696 s. That whole window is
+#: open + dispatch + synchronize + close, so the dispatch alone is well under a second, and this
+#: budget is ~85x it.
+#:
+#: The budget cannot simply be tightened to the measured cost. A false "cannot dispatch" triggers
+#: `tt-smi -r`, which on a p300c takes the BOARD PAIR down and can kill a sibling leg's card, so
+#: the old single 300-420 s timeout was deliberately conservative. Splitting the phases is what
+#: makes a short number safe: by the time it applies the child has already imported torch and ttnn
+#: and opened the device, so none of the host-side variance the long timeout was covering is still
+#: ahead of it. Wedge detection drops from up to 600 s to ~60 s, and the gate can tell "never
+#: opened" (busy, contended, driver gone) from "opened and will not dispatch" (the dirty chip).
+_DISPATCH_BUDGET_S = 60
 
 
-def card_healthy(worker: Worker, *, timeout=420) -> bool:
-    """Can this card open AND dispatch a program?
+class Probe(typing.NamedTuple):
+    healthy: bool
+    #: Where it got to: "done", "open" (never opened in time), "dispatch" (opened, then hung),
+    #: "exit" (the process died without dispatching).
+    phase: str
+    seconds: float
+    tail: str
+
+    def __bool__(self) -> bool:
+        return self.healthy
+
+    def why(self) -> str:
+        if self.healthy:
+            return f"dispatches ({self.seconds:.1f}s)"
+        return {
+            "open": f"never opened the device within {self.seconds:.0f}s",
+            "dispatch": (f"opened the device and then did not dispatch within "
+                         f"{self.seconds:.0f}s, which is the dirty-chip signature"),
+            "exit": f"the probe process exited without dispatching after {self.seconds:.1f}s",
+        }.get(self.phase, self.phase)
+
+
+def probe_card(worker: Worker, *, timeout=420, dispatch_budget=_DISPATCH_BUDGET_S) -> Probe:
+    """Can this card open AND dispatch a program, and if not, which half failed?
 
     Zero processes is not proof of a clean chip. A killed leg leaves both possibilities: the lease
     still held by a spawned fold worker that outlived the kill, and a chip that accepts an open and
     then never dispatches. Both turn every leg after them into a spurious FAIL, which would publish
     a ceiling nobody walked -- so the gate checks before it believes a failure.
     """
+    proc = worker.popen([sys.executable, "-u", "-c", _CARD_PROBE])
+    seen: dict[str, float] = {}
+    tail: list[str] = []
+
+    def drain():
+        for line in proc.stdout:                       # ends when the pipe closes
+            tail.append(line.rstrip())
+            del tail[:-25]
+            for mark in ("CARD_OPEN", "CARD_HEALTHY"):
+                if mark in line:
+                    seen.setdefault(mark, time.monotonic())
+
+    reader = threading.Thread(target=drain, daemon=True)
+    reader.start()
+    t0 = time.monotonic()
     try:
-        _, out, _ = worker.run([sys.executable, "-c", _CARD_PROBE], timeout=timeout)
-        return "CARD_HEALTHY" in (out or "")
-    except subprocess.TimeoutExpired:
-        return False
+        while True:
+            now = time.monotonic()
+            if "CARD_HEALTHY" in seen:
+                return Probe(True, "done", seen["CARD_HEALTHY"] - t0, "\n".join(tail))
+            # Both conditions, and in this order: the reader has to have drained the pipe before
+            # an exited process means the marker never came, or a probe that printed CARD_HEALTHY
+            # and exited in the same breath races its own output and reads as a wedge.
+            if proc.poll() is not None and not reader.is_alive():
+                if "CARD_HEALTHY" in seen:
+                    return Probe(True, "done", seen["CARD_HEALTHY"] - t0, "\n".join(tail))
+                return Probe(False, "exit", now - t0, "\n".join(tail))
+            if "CARD_OPEN" in seen:
+                if now - seen["CARD_OPEN"] > dispatch_budget:
+                    return Probe(False, "dispatch", now - seen["CARD_OPEN"], "\n".join(tail))
+            elif now - t0 > timeout:
+                return Probe(False, "open", now - t0, "\n".join(tail))
+            time.sleep(0.2)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                pass
+
+
+def card_healthy(worker: Worker, *, timeout=420) -> bool:
+    return bool(probe_card(worker, timeout=timeout))
 
 
 def wait_for_card(worker: Worker, *, timeout=600) -> bool:
@@ -759,19 +851,21 @@ def recover_card(worker: Worker, workers: list[Worker]) -> tuple[bool, str]:
     it reads as a failure too, so a one-line real result would arrive wrapped in a cascade of
     invented ones. Polling cannot fix a wedge; only a reset can.
     """
-    if card_healthy(worker, timeout=300):
+    before = probe_card(worker, timeout=300)
+    if before:
         return True, "still dispatching"
     if not _may_reset(worker, workers):
-        return False, ("card stopped dispatching and this run does not own the host exclusively, "
-                       "so it must not reset (a reset takes the board pair down with it)")
+        return False, (f"card {before.why()} and this run does not own the host exclusively, "
+                       f"so it must not reset (a reset takes the board pair down with it)")
     smi = os.path.expanduser("~/.local/bin/tt-smi")
     try:
         subprocess.run([smi, "-r", str(worker.card)], capture_output=True, text=True, timeout=300)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, f"reset failed to run: {type(exc).__name__}"
-    if card_healthy(worker, timeout=420):
-        return True, f"recovered by tt-smi -r {worker.card}"
-    return False, f"tt-smi -r {worker.card} did not restore dispatch"
+    after = probe_card(worker, timeout=420)
+    if after:
+        return True, f"{before.why()}; recovered by tt-smi -r {worker.card}"
+    return False, f"{before.why()}; tt-smi -r {worker.card} did not restore dispatch: {after.why()}"
 
 
 def _screen(worker, cell, fixture, work, hookdir) -> dict:
@@ -1352,9 +1446,9 @@ def main(argv=None) -> int:
     # EVERY card, not just the first. A gate that vets workers[0] and fans out over four would
     # record every cell that landed on an unhealthy card 3 as a capacity failure -- the exact lie
     # the card 0 check exists to prevent, reintroduced by the fan-out.
-    sick = [repr(w) for w in workers if not card_healthy(w)]
+    sick = [f"{w!r} {p.why()}" for w, p in ((w, probe_card(w)) for w in workers) if not p]
     if sick:
-        print(f"{', '.join(sick)} cannot dispatch a trivial program. Every leg landing there "
+        print(f"{'; '.join(sick)}. Every leg landing there "
               f"would fail or hang and the gate would record capacity failures nobody walked. "
               f"Reset (tt-smi -r) and re-run.", file=sys.stderr)
         return 3
