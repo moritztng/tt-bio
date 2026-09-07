@@ -253,6 +253,98 @@ def test_the_residency_hook_leaves_the_depth_alone(tmp_path, monkeypatch):
     assert not h._state["truncated"]
 
 
+def _filtering_loader_module(h, name="tt_bio._captest_sig"):
+    """A module shaped like the real loaders: a class whose classmethod constructor reads its own
+    `__init__` signature to decide which checkpoint hyperparameters to pass on. This is boltz2's
+    and boltzgen's actual contract, reproduced in miniature."""
+    import types
+    mod = types.ModuleType(name)
+
+    class Model:
+        def __init__(self, atom_s, atom_z, token_s, token_z, num_bins, extra=1):
+            self.hp = (atom_s, atom_z, token_s, token_z, num_bins, extra)
+            self.blocks = [object() for _ in range(48)]
+
+        @classmethod
+        def from_pretrained(cls, hparams):
+            import inspect
+            valid = set(inspect.signature(cls.__init__).parameters) - {"self"}
+            return cls(**{k: v for k, v in hparams.items() if k in valid})
+
+    Model.__module__ = name
+    mod.Model = Model
+    h._patch_module(mod)
+    return mod
+
+
+CKPT_HPARAMS = {"atom_s": 1, "atom_z": 2, "token_s": 3, "token_z": 4, "num_bins": 5,
+                "not_a_parameter": 9}
+
+
+def test_the_hook_does_not_change_what_a_class_looks_like(tmp_path, monkeypatch):
+    """Defect 12: the instrument was not signature-transparent, and it broke the model it measured.
+
+    A bare `(self, *a, **kw)` wrapper over `__init__` makes `inspect.signature(cls.__init__)`
+    report the WRAPPER's parameters. A loader that filters checkpoint hyperparameters against that
+    set therefore drops all of them and constructs the class with nothing. That is what killed
+    boltz2 8 s into Tier 1 -- `Boltz2.__init__() missing 5 required positional arguments` --
+    against 172 s of healthy unhooked construction, and the gate recorded the invented failure as
+    a capacity FAIL at 1536.
+
+    Negative control: drop the `functools.wraps` in `_wrap_init` and this fails with that exact
+    TypeError, which is the whole point of the test existing.
+    """
+    h = _fresh_hook("screen", tmp_path, monkeypatch)
+    mod = _filtering_loader_module(h)
+    import inspect
+    params = list(inspect.signature(mod.Model.__init__).parameters)
+    assert params == ["self", "atom_s", "atom_z", "token_s", "token_z", "num_bins", "extra"], (
+        f"the hook changed the class's signature to {params}; a loader that filters on it will "
+        f"pass nothing")
+    m = mod.Model.from_pretrained(CKPT_HPARAMS)
+    assert m.hp == (1, 2, 3, 4, 5, 1), "the hyperparameters did not survive the wrapper"
+    assert len(m.blocks) == 1, "signature transparency must not cost the truncation"
+    assert h._state["truncated"], "the screen silently stopped applying"
+
+
+def test_the_hook_reaches_the_same_construction_hooked_and_unhooked(tmp_path, monkeypatch):
+    """The shape of the check the brief asks for: construct through the loader with the hook armed
+    and with it disarmed, and require the same model out. A verdict is only about the model if the
+    instrument is a no-op on everything except depth."""
+    off = _fresh_hook("", tmp_path, monkeypatch)
+    plain = _filtering_loader_module(off, "tt_bio._captest_sig_off").Model.from_pretrained(
+        CKPT_HPARAMS)
+    on = _fresh_hook("screen", tmp_path, monkeypatch)
+    hooked = _filtering_loader_module(on, "tt_bio._captest_sig_on").Model.from_pretrained(
+        CKPT_HPARAMS)
+    assert hooked.hp == plain.hp, (
+        f"hooked construction produced {hooked.hp}, unhooked {plain.hp}; the instrument is "
+        f"altering construction semantics, not observing them")
+    assert len(plain.blocks) == 48 and len(hooked.blocks) == 1, "depth is the only allowed change"
+
+
+def test_no_loader_introspects_in_a_way_the_hook_cannot_survive():
+    """Keeps the test above honest against the real tree. `functools.wraps` sets `__wrapped__`,
+    which `inspect.signature` follows and `inspect.getfullargspec` does NOT. So the transparency
+    holds for every loader that uses `signature`, and would silently break for one that reached
+    for `getfullargspec` instead. That is a claim about tt_bio's source, so it is checked there
+    rather than asserted in a docstring."""
+    import subprocess
+    hits = subprocess.run(
+        ["grep", "-rn", "-e", "getfullargspec", "-e", "getargspec", "--include=*.py", "tt_bio"],
+        cwd=ROOT, capture_output=True, text=True).stdout.splitlines()
+    live = [h for h in hits if "/_vendor/" not in h and "/reference" not in h]
+    assert not live, (
+        f"these read a signature in a form functools.wraps does not make transparent, so the "
+        f"capacity hook can break them the way it broke boltz2: {live}")
+    sigs = subprocess.run(
+        ["grep", "-rn", "inspect.signature", "--include=*.py", "tt_bio"],
+        cwd=ROOT, capture_output=True, text=True).stdout.splitlines()
+    assert [s for s in sigs if "__init__" in s], (
+        "no loader filters on an __init__ signature any more; if that is real, the guards above "
+        "are modelling a contract the tree no longer has and should be re-grounded")
+
+
 def test_the_hook_is_inert_without_its_env_var(tmp_path, monkeypatch):
     """The generated sitecustomize can outlive a run on a stale PYTHONPATH; it must do nothing."""
     import importlib

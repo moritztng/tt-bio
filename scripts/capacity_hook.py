@@ -38,6 +38,7 @@ applied" or "peak unmeasured" rather than inventing either.
 from __future__ import annotations
 
 import atexit
+import functools
 import json
 import os
 import sys
@@ -133,6 +134,52 @@ def _sample_dram() -> None:
         _record(f"dram sample: {type(exc).__name__}: {exc}")
 
 
+def _wrap_observed(fn):
+    """Wrap a call method so it samples after returning, keeping the wrapped function's own
+    identity. See `_wrap_init` for why that matters."""
+    @functools.wraps(fn)
+    def wrapper(*a, **kw):
+        r = fn(*a, **kw)
+        _sample_dram()
+        return r
+
+    wrapper._capacity_wrapped = True
+    return wrapper
+
+
+def _wrap_init(init):
+    """Wrap `__init__` so the post-init walk runs, WITHOUT changing what the class looks like.
+
+    A `(self, *a, **kw)` wrapper is not signature-transparent, and tt_bio's own loaders read the
+    signature to decide what to pass. `Boltz2.from_pretrained` does
+
+        valid = set(inspect.signature(cls.__init__).parameters) - {"self"}
+        cls(**{k: v for k, v in hparams.items() if k in valid})
+
+    so against a bare wrapper `valid` collapses to the wrapper's own parameter names, every real
+    hyperparameter is filtered out, and the class is constructed with nothing:
+    `Boltz2.__init__() missing 5 required positional arguments`. The gate then recorded a
+    capacity FAIL for a model its own instrument had broken (boltz2, 8 s in, against 172 s of
+    healthy unhooked construction). `tt_bio/boltzgen/adapter.py` filters the same way, so this
+    was never boltz2-specific.
+
+    `functools.wraps` sets `__wrapped__`, which `inspect.signature` follows by default, so the
+    filter sees the real parameters again. The original is held in a closure rather than a
+    keyword default, so it does not show up as a parameter either, and a hyperparameter that
+    happened to be named like the default could not shadow it.
+    """
+    @functools.wraps(init)
+    def wrapped_init(self, *a, **kw):
+        init(self, *a, **kw)
+        try:
+            _visit(self)
+        except Exception as exc:
+            _record(f"visit {type(self).__qualname__}: {type(exc).__name__}: {exc}")
+
+    wrapped_init._capacity_wrapped = True
+    return wrapped_init
+
+
 def _instrument_class(cls) -> None:
     """Sample DRAM after each call of `cls`. Only a method the class defines ITSELF is wrapped:
     reaching an inherited `nn.Module.__call__` would instrument every torch module in the
@@ -141,13 +188,7 @@ def _instrument_class(cls) -> None:
         fn = cls.__dict__.get(name)
         if fn is None or getattr(fn, "_capacity_wrapped", False):
             continue
-
-        def wrapper(*a, __fn=fn, **kw):
-            r = __fn(*a, **kw)
-            _sample_dram()
-            return r
-
-        wrapper._capacity_wrapped = True
+        wrapper = _wrap_observed(fn)
         try:
             setattr(cls, name, wrapper)
         except (AttributeError, TypeError) as exc:
@@ -208,16 +249,8 @@ def _patch_module(mod) -> None:
         if init is None or getattr(init, "_capacity_wrapped", False):
             continue
 
-        def wrapped_init(self, *a, __init=init, **kw):
-            __init(self, *a, **kw)
-            try:
-                _visit(self)
-            except Exception as exc:
-                _record(f"visit {type(self).__qualname__}: {type(exc).__name__}: {exc}")
-
-        wrapped_init._capacity_wrapped = True
         try:
-            cls.__init__ = wrapped_init
+            cls.__init__ = _wrap_init(init)
         except (AttributeError, TypeError):
             pass
 
