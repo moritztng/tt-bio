@@ -94,20 +94,23 @@ class MSAModuleBlock:
         # additive -1e9 (protenix.py Trunk.update_msa passes the same tensor for the same reason).
         z = ttnn.add(z, self.opm(m, None, None))
         if self.has_msa_update:
-            # Both residuals accumulate IN PLACE where the block owns `m`. Out of place, each add
-            # holds three copies of the full [depth, tokens, c_m] MSA tensor at the peak -- the
-            # input, the update, and the new sum -- and at 1024 tokens against a 14189-row
-            # alignment that third copy is 1 859 780 608 B, which is exactly the buffer an
-            # OpenBind-0 fold is refused on a 12 GiB Wormhole part. Same elementwise add, same
-            # operands, same order, written to the accumulator.
+            # Every residual here accumulates IN PLACE. Out of place, an add holds three copies
+            # of the full [depth, tokens, c_m] MSA tensor at the peak -- the input, the update
+            # and the new sum -- and that third copy is 1 859 780 608 B at 1024 tokens against a
+            # 14189-row alignment, 1 976 016 896 B at the 1088 tokens a ligand pushes OpenBind-0
+            # to. Both are buffers a fold is refused on a 12 GiB Wormhole part.
             #
-            # `own_m` is False for the first block that updates `m`, because the trunk keeps the
+            # `own_m` is False for the first block that updates `m`: the trunk keeps the
             # embedder's `m` and hands the SAME tensor back on every recycle
-            # (openfold3_trunk.py). That first add is what makes a copy this module owns, and
-            # every add after it is in place.
+            # (openfold3_trunk.py), so writing into it would corrupt the next cycle. The sum
+            # lands in the UPDATE's buffer instead, which nothing else holds. bf16 addition is
+            # commutative, so this is the same number as `add(m, upd)` bit for bit.
             upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
-            m = ttnn.add_(m, upd) if own_m else ttnn.add(m, upd)
-            ttnn.deallocate(upd)
+            if own_m:
+                ttnn.add_(m, upd)
+                ttnn.deallocate(upd)
+            else:
+                m = ttnn.add_(upd, m)
             upd = ttnn.reshape(self.msa_transition(m), tuple(m.shape))
             ttnn.add_(m, upd)
             ttnn.deallocate(upd)
