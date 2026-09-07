@@ -16,4 +16,7 @@ echo "=== $LABEL card=$CARD rung=$RUNG model=$MODEL WTHR=${WTHR:-shipped} start 
     $WT/perf/size512/fixtures/cdk2x2_${RUNG}.yaml \
     --model $MODEL --single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0 \
     --out_dir $WT/perf/wchunk/out_$LABEL
-echo "=== $LABEL rc=$? end $(date -u +%FT%TZ)"
+rc=$?
+# Structure digests, so two arms can be compared bit-exact without a second pass.
+find $WT/perf/wchunk/out_$LABEL -name "*.cif" -o -name "*.pdb" | sort | xargs -r md5sum
+echo "=== $LABEL rc=$rc end $(date -u +%FT%TZ)"
