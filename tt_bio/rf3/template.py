@@ -28,7 +28,9 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from tt_bio.tenstorrent import Module, PairformerLayer, Weights
+from tt_bio.envflags import env_flag
+from tt_bio.tenstorrent import (Module, PairformerLayer, Weights,
+                                sdpa_ragged_pad_site)
 
 C = 64            # template channel width
 C_Z = 128
@@ -68,6 +70,22 @@ def template_features(f: dict) -> torch.Tensor:
     return feats * has_dc.unsqueeze(-1)
 
 
+#: Route the template embedder's triangle attention through the fused SDPA, as the trunk
+#: stack and the confidence head already do. This is the site that sets RF3's Wormhole
+#: ceiling: it runs one block per token over the raw token axis, so the materialised
+#: fp32-softmax chain writes [tokens, heads, S_pad, S_pad]. At 656 tokens that is
+#: 656 x 4 x 672 x 672 x 2 = 2369912832 B, which is the exact request the 656 aa fold died
+#: on one second into `trunk 0/10` (measured 2026-09-02 on GWH02, and again on
+#: wk/ceiling-rf3 after the MSA module alone had been moved). 650 aa asks 2348236800 B,
+#: the same tensor six tokens narrower.
+#:
+#: `sdpa_ragged_pad` ships with it and never without: this block sees the raw token axis,
+#: so the key tail is ragged whenever the input is not a multiple of 32.
+#:
+#: Set TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0 for the old materialised route.
+_TEMPLATE_FUSED_SDPA = env_flag("TT_BIO_RF3_TEMPLATE_FUSED_SDPA", True)
+
+
 class TemplateEmbedder(Module):
     def __init__(self, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
@@ -83,10 +101,15 @@ class TemplateEmbedder(Module):
                 TRI_ATT_HEAD_DIM, TRI_ATT_N_HEADS, None, None, False,
                 self.scope(f"pairformer.{i}"), compute_kernel_config,
                 scale_pair_bias=False, transpose_bias=False,
-                # The reference runs its triangle-attention softmax in fp32:
-                # torch.autocast casts matmuls to bf16 but leaves softmax alone.
-                # Without this the attention output is 60-85% relative RMS off.
-                fp32_softmax=True,
+                # fp32_softmax=True was "the reference runs its triangle-attention softmax
+                # in fp32", and it was worth 60-85% relative RMS -- against the fused route
+                # with an UNMASKED ragged key tail, which is the comparison
+                # `remap.PAIRFORMER_FLAGS` re-ran and reversed for the trunk. Masked, the
+                # fused route is the accurate one and it does not write the score tensor.
+                # See `_TEMPLATE_FUSED_SDPA`.
+                fp32_softmax=not _TEMPLATE_FUSED_SDPA,
+                tri_att_sdpa_ragged_pad=(
+                    _TEMPLATE_FUSED_SDPA and sdpa_ragged_pad_site("rf3.tri_att", True)),
             )
             for i in range(N_BLOCK)
         ]
