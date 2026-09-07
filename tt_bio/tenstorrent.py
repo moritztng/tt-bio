@@ -71,8 +71,12 @@ OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 # that shape class and the call is retried, which is what makes the deep-MSA sizes fold without
 # moving a single number, or a single block boundary, at any size that folds today.
 _OPM_DRAM_ROW_CAP: dict[tuple[int, int, int, int], int] = {}
+# MSA shapes whose full-depth a/b join DRAM refused. Remembered so the next call at the same
+# shape goes straight to the un-joined depth parts instead of re-paying a projection pass to
+# collect the same refusal.
+_OPM_JOIN_REFUSED: dict[tuple[int, ...], bool] = {}
 #: Path census: whole-tensor calls, row-blocked calls, and refusals the retry absorbed.
-OPM_ROW_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0}
+OPM_ROW_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0, "join_split": 0}
 
 # Fold `proj_o` into the outer product's own projection instead of materialising the
 # [I, J, C, D] product in order to project it. Same algebra --
@@ -7478,35 +7482,30 @@ class OuterProductMean(Module):
         # For a chunk-list input the matmul's contraction along S (the depth axis) is accumulated
         # per chunk instead; every other path below keeps the single full-depth matmul. See
         # `depth_parts` and `z_rows`.
-        depth_parts = None
-        if x_chunks is not None:
-            if msa_mask is not None:
-                raise NotImplementedError(
-                    "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
-                    "trunk that uses the list path passes mask=None.")
-            # Never materialise contiguous a/b at all.
-            #
-            # Joining them cannot be made to fit, and not for want of a better free order:
-            # project_ab derives ac AND bc from one layer_norm, so both part lists are already
-            # complete before any join could run. The FIRST concat therefore needs
-            # a_parts + b_parts + a live at once -- ~1.96 GiB at 768 tokens x depth 14208, which
-            # is the 698351616 B allocation 9lof dies on -- with nothing yet freeable. Freeing
-            # per-side (tried, bit-exact, kept below for the non-list branch) relieves only the
-            # SECOND concat, which was never the binding one. Two passes over project_ab do not
-            # help either: the second still needs a + b_parts + b, and pays layer_norm twice.
-            #
-            # So the join is removed. `sum_c (a_c @ b_c^T)` is the same sum over the same depth
-            # rows, and peak drops to a_parts + b_parts plus one z accumulator.
-            #
-            # This is NOT bit-exact, deliberately: it reassociates a bf16 accumulation that used
-            # to be one matmul over full depth. The same question was settled for Transition --
-            # scripts/abag_xm/probe_transition_vs_torch.py measured chunked and whole equally
-            # close to an fp32 reference, one mantissa step apart -- but it does move the last
-            # bit, so the acceptance test here is DockQ against the reference fold, NOT an md5.
-            depth_parts = []
-            S = 0
-            for c in x_chunks:
-                ac, bc = project_ab(ttnn.reshape(c, tuple(c.shape)[1:]), None)
+        def project_depth_parts(chunks):
+            """The a/b projections kept per depth chunk, laid out for `z_rows`, never joined.
+
+            Joining them cannot be made to fit, and not for want of a better free order:
+            project_ab derives ac AND bc from one layer_norm, so both part lists are already
+            complete before any join could run. The FIRST concat therefore needs
+            a_parts + b_parts + a live at once -- ~1.96 GiB at 768 tokens x depth 14208, which
+            is the 698351616 B allocation 9lof dies on -- with nothing yet freeable. Freeing
+            per-side relieves only the SECOND concat, which was never the binding one. Two
+            passes over project_ab do not help either: the second still needs a + b_parts + b,
+            and pays layer_norm twice.
+
+            So the join is removed. `sum_c (a_c @ b_c^T)` is the same sum over the same depth
+            rows, and peak drops to a_parts + b_parts plus one z accumulator.
+
+            This is NOT bit-exact, deliberately: it reassociates a bf16 accumulation that used
+            to be one matmul over full depth. The same question was settled for Transition --
+            scripts/abag_xm/probe_transition_vs_torch.py measured chunked and whole equally
+            close to an fp32 reference, one mantissa step apart -- but it does move the last
+            bit, so the acceptance test here is DockQ against the reference fold, NOT an md5.
+            """
+            parts, S = [], 0
+            for c, maskc in chunks:
+                ac, bc = project_ab(c, maskc)
                 Sc, I, C = ac.shape
                 _, J, D = bc.shape
                 S += Sc
@@ -7517,24 +7516,67 @@ class OuterProductMean(Module):
                 bcp = ttnn.to_layout(bcp, ttnn.ROW_MAJOR_LAYOUT)
                 bcp = ttnn.reshape(bcp, (-1, Sc))           # (D*J, Sc)
                 bcp = ttnn.to_layout(bcp, ttnn.TILE_LAYOUT)
-                depth_parts.append((acp, bcp, Sc))
+                parts.append((acp, bcp, Sc))
+            return parts, S, I, C, D, J
+
+        def depth_slices():
+            """`x` and its mask cut along the depth axis, one slice at a time so the whole cut
+            is never live."""
+            for s in range(0, x.shape[0], MSA_CHUNK_SIZE):
+                e = min(s + MSA_CHUNK_SIZE, x.shape[0])
+                yield x[s:e], None if msa_mask is None else msa_mask[s:e]
+
+        depth_parts = None
+        if x_chunks is not None:
+            if msa_mask is not None:
+                raise NotImplementedError(
+                    "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
+                    "trunk that uses the list path passes mask=None.")
+            depth_parts, S, I, C, D, J = project_depth_parts(
+                (ttnn.reshape(c, tuple(c.shape)[1:]), None) for c in x_chunks)
             a = b = None
         elif x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
             a, b = project_ab(x, msa_mask)
+        elif _OPM_JOIN_REFUSED.get(tuple(x.shape)):
+            # This shape class already refused the join once in this process. Paying for it
+            # again only to catch the same refusal costs a whole extra projection pass.
+            OPM_ROW_STATS["join_split"] += 1
+            depth_parts, S, I, C, D, J = project_depth_parts(depth_slices())
+            a = b = None
         else:
             a_parts, b_parts = [], []
-            for s in range(0, x.shape[0], MSA_CHUNK_SIZE):
-                e = min(s + MSA_CHUNK_SIZE, x.shape[0])
-                ac, bc = project_ab(x[s:e], None if msa_mask is None else msa_mask[s:e])
-                a_parts.append(ac)
-                b_parts.append(bc)
-            # Same per-side free as the chunk-list branch above, for the same reason.
-            a = ttnn.concat(a_parts, dim=0)
-            for p in a_parts:
-                ttnn.deallocate(p)
-            b = ttnn.concat(b_parts, dim=0)
-            for p in b_parts:
-                ttnn.deallocate(p)
+            a = b = None
+            try:
+                for c, maskc in depth_slices():
+                    ac, bc = project_ab(c, maskc)
+                    a_parts.append(ac)
+                    b_parts.append(bc)
+                # Same per-side free as the chunk-list branch above, for the same reason.
+                a = ttnn.concat(a_parts, dim=0)
+                for p in a_parts:
+                    ttnn.deallocate(p)
+                a_parts = []
+                b = ttnn.concat(b_parts, dim=0)
+                for p in b_parts:
+                    ttnn.deallocate(p)
+                b_parts = []
+            except RuntimeError as exc:
+                # The join is the only thing here that asks for one contiguous full-depth
+                # tensor, so it is the only thing that can be refused with room to spare
+                # everywhere else -- 929 890 304 B (14189 x 1024 x 32 bf16) against a
+                # 44 520 544 B largest free block, at 1024 tokens on a 12 GiB Wormhole.
+                # Let the device decide whether to pay for it: `depth_parts` computes the same
+                # contraction without ever joining, and a fold that is never refused never
+                # reaches this line, so every size that folds today keeps its exact numbers.
+                # Costs one extra projection pass over `x`; the memo pays it once per shape.
+                if not _dram_oom(exc):
+                    raise
+                for p in a_parts + b_parts + [t for t in (a, b) if t is not None]:
+                    ttnn.deallocate(p)
+                _OPM_JOIN_REFUSED[tuple(x.shape)] = True
+                OPM_ROW_STATS["join_split"] += 1
+                depth_parts, S, I, C, D, J = project_depth_parts(depth_slices())
+                a = b = None
         if depth_parts is None and _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
             OPM_SMALL_DEPTH_STATS[0] += 1
             return self._small_depth(a, b, n_msa)

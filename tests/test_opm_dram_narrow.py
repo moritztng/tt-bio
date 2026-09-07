@@ -15,8 +15,9 @@ import tt_bio.tenstorrent as tt
 def _clean():
     def reset():
         tt._OPM_DRAM_ROW_CAP.clear()
+        tt._OPM_JOIN_REFUSED.clear()
         tt._PWA_DEPTH_ROW_CAP.clear()
-        tt.OPM_ROW_STATS.update(whole=0, blocked=0, dram_narrowed=0)
+        tt.OPM_ROW_STATS.update(whole=0, blocked=0, dram_narrowed=0, join_split=0)
         tt.PWA_DEPTH_STATS.update(whole=0, blocked=0, dram_narrowed=0)
 
     reset()
@@ -112,3 +113,48 @@ class TestPwaBlockArithmetic:
 
     def test_the_refused_v_at_1088_is_named_by_its_byte_count(self):
         assert 14189 * 1088 * 32 * 2 == 988008448
+
+
+class TestJoinRefusal:
+    """OuterProductMean's full-depth a/b join, and when it is allowed to stop happening.
+
+    The join is the only allocation in the projection stage that asks for one contiguous
+    full-depth tensor. At 1024 tokens on a 12 GiB Wormhole with a 14189-row alignment it asks
+    for 929 890 304 B against a 44 520 544 B largest free block, with 183 323 232 B/bank
+    nominally free -- so it is refused with room to spare everywhere else. The un-joined
+    `depth_parts` form contracts the same depth rows without it, at the cost of reassociating
+    a bf16 sum, which is why it engages on a refusal and never on a prediction.
+    """
+
+    REFUSAL = (
+        "TT_FATAL @ bank_manager.cpp:439: false\ninfo:\n"
+        "Out of Memory: Not enough space to allocate 929890304 B DRAM buffer across 12 banks, "
+        "where each bank needs to store 77492224 B, but bank size is 1073741792 B "
+        "(allocated: 890418560 B, free: 183323232 B, largest free block: 44520544 B)"
+    )
+
+    def test_the_measured_refusal_is_the_joined_projection(self):
+        # depth x tokens x c=32, bf16 -- a, and b, each.
+        assert 14189 * 1024 * 32 * 2 == 929890304
+
+    def test_the_allocator_wording_is_recognised(self):
+        assert tt._dram_oom(RuntimeError(self.REFUSAL))
+
+    def test_a_compile_error_is_not(self):
+        """A non-allocator failure must reach the caller, not silently take a path that
+        moves the last bit of every number in the MSA track."""
+        assert not tt._dram_oom(RuntimeError("Statically allocated circular buffers in "
+                                             "program 188 clash with L1 buffers"))
+
+    def test_the_memo_is_per_shape(self):
+        tt._OPM_JOIN_REFUSED[(14189, 1024, 64)] = True
+        assert tt._OPM_JOIN_REFUSED.get((14189, 768, 64)) is None
+
+    def test_nothing_is_remembered_until_something_refuses(self):
+        assert tt._OPM_JOIN_REFUSED == {}
+        assert tt.OPM_ROW_STATS["join_split"] == 0
+
+    def test_the_join_is_still_what_a_fitting_shape_pays_for(self):
+        """The whole claim that sizes folding today keep their exact numbers rests on the
+        counter: a fold that never refuses never increments it."""
+        assert "join_split" in tt.OPM_ROW_STATS
