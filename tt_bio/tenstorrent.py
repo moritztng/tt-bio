@@ -6213,9 +6213,9 @@ class Transition(Module):
         # Scoped to 256 < c <= 384 on purpose. c=128 is already unshrunk and its shipped h=16
         # measured fastest with no clash at any height; c=256 measures 1.0738x at W=512 but is
         # protenix-v2's channel and the cap above is its crash fix, so it is left exactly alone.
-        # The W/H guard keeps this to the regime where every arm was torch.equal: above the
-        # 608-token thresholds the loop also W-chunks and the ragged tail re-rounds with the row
-        # height (max abs diff 0.015625, bf16).
+        # The W/H guard keeps this to the regime where every arm was torch.equal. It reads the
+        # 608-token threshold as a plain bound on that regime, NOT as the chunking decision, which
+        # is now derived from the budget a few lines up. Widening it would need its own arms.
         _c = int(x.shape[-1])
         if (_IS_SMALL_GRID and SMALL_GRID_TRANSITION_ELEMS
                 and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
