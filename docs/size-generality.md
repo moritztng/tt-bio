@@ -198,6 +198,24 @@ model — four of those five have no affinity module to exercise. K2, which is 1
 read as fully served at every rung. A ladder covers the sizes you list; it covers only the code the
 fixture reaches, and that is a separate thing to check.
 
+## First Wormhole baseline: boltz-2 to 1024
+
+`docs/size_ladder_baseline.d/boltz2.json` (2026-09-07, `tt-galaxy-wh l`, 8x9 grid) is the first
+size-ladder baseline recorded on Wormhole, and the first for boltz-2 above 768: 256/512/640/768/
+896/1024, median of 3 after a discarded warm-up. 640→768→896→1024 reads a clean k = 1.99/2.03/2.18
+— a quadratic in tokens with no lever going dark anywhere in the band the platform's 1024 ceiling
+opens up but no ladder had ever measured.
+
+One open anomaly, recorded rather than silently smoothed over: the 512 rung sits ~23% above what
+its own 640-1024 curve predicts (55.5 s measured vs 45.1 s extrapolated), inside the same rung
+whose measured run-to-run sigma is 12%. The leading mechanistic suspect — `TRANSPOSE_L1_HEADROOM`
+(1.25), the only lever whose census differs at 512 vs the rest of the ladder — was A/B screened by
+forcing the tensor off its L1 route (`TT_BIO_TRANSPOSE_L1_HEADROOM=8.0`) and **refuted**: the
+forced/DRAM arm was 10.9% slower, not faster, at the median. The screen's own within-arm spread
+(14.3% across three identical folds) is close to the size of the anomaly, so it reads as host
+contention on a shared measurement box rather than a real regression. Not re-recorded on a quiet
+host yet; that is the one follow-up this baseline leaves open.
+
 ## Running it
 
 ```
