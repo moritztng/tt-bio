@@ -17,6 +17,7 @@ import pathlib
 import re
 import sys
 import time
+import traceback
 
 import torch
 
@@ -51,9 +52,14 @@ def oom_numbers(msg):
 
     ttnn has phrased this message at least two ways across versions, so match on the labels
     that carry the numbers rather than on one full sentence.  A parse that silently returns
-    None turns the one measurement that decides the mechanism into a bare exception type.
+    None turns the one measurement that decides the mechanism into a bare exception type --
+    which is exactly what happened to the 1024-residue rows of 2026-09-03: the throw reads
+    "Out of Memory: Not enough space to allocate", the guard was case-sensitive, and every
+    allocator number in the row that decides the ceiling came out null. Guard and patterns
+    are both case-insensitive now; the unit letters in the patterns are why the patterns
+    cannot simply be matched against a lowercased copy.
     """
-    if "not enough space to allocate" not in msg:
+    if "not enough space to allocate" not in msg.lower():
         return None
     d = {}
     for key, pat in (("request_B", r"allocate (\d+) B"),
@@ -63,7 +69,7 @@ def oom_numbers(msg):
                      ("allocated_B", r"allocated:? (\d+)"),
                      ("free_B", r"free:? (\d+)"),
                      ("largest_free_B", r"largest free block:? (\d+)")):
-        m = re.search(pat, msg)
+        m = re.search(pat, msg, re.I)
         if m:
             d[key] = int(m.group(1))
     if "per_bank_B" in d and d["per_bank_B"]:
@@ -135,6 +141,12 @@ try:
 except Exception as e:                                    # noqa: BLE001
     msg = str(e)
     rec["error"] = {"type": type(e).__name__, "msg": msg[:600], "oom": oom_numbers(msg)}
+    # The C++ backtrace in the throw names allocator frames, not the op that asked. Without
+    # the Python frames a failing rung says "sample stage, 32 MiB L1" and no lever can be
+    # aimed at it, so the innermost tt_bio frames are recorded beside the numbers.
+    rec["error"]["py"] = [
+        "%s:%d %s" % (pathlib.Path(fs.filename).name, fs.lineno, (fs.line or "").strip())
+        for fs in traceback.extract_tb(e.__traceback__)][-12:]
 rec["wall_s"] = round(time.time() - t0, 1)
 try:
     # Host RAM has been this model's binding resource before, so the peak is measured
