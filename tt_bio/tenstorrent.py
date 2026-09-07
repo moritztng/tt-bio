@@ -231,9 +231,18 @@ def _trimul_inproj_group(seq_len: int, chunk: int, batch: int, n_pairs: int) -> 
     partition of an independent-channel sum and everything below the four-way unpack is elementwise,
     an index move or a per-channel matmul (`torch.equal` at G=2/4/8, perf/trimul_root/).
     Bytes are priced at bf16 even when `_dtype()` is bfloat8_b, so the budget is a bound.
+
+    The byte budget is a footprint CAP, not a fit test -- it was measured with 6 GiB of foreign
+    DRAM held, not against whatever a given fold has live -- so at the top of the size range it
+    can name a width DRAM will refuse. `_TRIMUL_INPROJ_GROUP_CAP` carries the widths this shape
+    has already had refused, and the search starts below them. Deciding from free DRAM instead
+    is the dead end `protenix._msa_take_whole_path` documents: the check point and the
+    allocation point are far apart, and the gate made a working target fail.
     """
+    refused = _TRIMUL_INPROJ_GROUP_CAP.get(_trimul_chunk_key(seq_len, chunk * n_pairs, batch))
+    hi = min(n_pairs, _TRIMUL_INPROJ_GROUP, refused - 1 if refused else n_pairs)
     fused = 4 * chunk * seq_len * seq_len * batch * 2
-    for g in range(min(n_pairs, _TRIMUL_INPROJ_GROUP), 1, -1):
+    for g in range(hi, 1, -1):
         if n_pairs % g == 0 and g * fused <= _TRIMUL_INPROJ_FUSED_BYTES:
             return g
     return 1
@@ -402,6 +411,19 @@ def _record_trimul_clash(seq_len: int, hidden: int, batch: int, width: int) -> N
     prev = _TRIMUL_CHUNK_CLASH.get(key)
     if prev is None or width < prev:
         _TRIMUL_CHUNK_CLASH[key] = width
+
+
+# Narrowest in-projection group width DRAM has refused at a shape, so that one refused
+# allocation is all a shape ever pays: `_trimul_inproj_group` searches below it, and the 48
+# pairformer blocks after the first do not each rediscover the same refusal.
+_TRIMUL_INPROJ_GROUP_CAP: dict = {}
+
+
+def _record_trimul_inproj_oom(seq_len: int, hidden: int, batch: int, group: int) -> None:
+    key = _trimul_chunk_key(seq_len, hidden, batch)
+    prev = _TRIMUL_INPROJ_GROUP_CAP.get(key)
+    if prev is None or group < prev:
+        _TRIMUL_INPROJ_GROUP_CAP[key] = group
 
 # Wormhole 8x9 re-fit of the two trimul constants above. `_apply_grid_thresholds` derives its
 # small-grid values by scaling the Blackhole ones -- the residency threshold by per-core L1 (which
@@ -4430,16 +4452,40 @@ class TriangleMultiplication(Module):
                         x_chunks.append(moved)
                 break
             except RuntimeError as e:
-                if large_seq or "clash with L1 buffers" not in str(e):
+                msg = str(e)
+                # Two refusals, one retry loop. The L1 clash is a program-validation throw on
+                # the L1 path. A DRAM "Out of Memory" on the large path is this module's own
+                # peak: the fused in-projection plus the four-way split it feeds is ~2x the
+                # fused size, and `_TRIMUL_INPROJ_FUSED_BYTES` is a footprint cap measured
+                # against held foreign DRAM, not a fit test against what this fold has live.
+                # Narrowing the group is the answer, and it is bit-exact at every width, so
+                # only a size that produces no structure at all today ever sees a different
+                # partition -- and only after its own throw.
+                oom = large_seq and group > 1 and "Out of Memory" in msg
+                if not oom and (large_seq or "clash with L1 buffers" not in msg):
                     raise
                 for _t in x_chunks:
-                    ttnn.deallocate(_t)
+                    # Host-assembled chunks are torch tensors (`_acc_append`), and the large
+                    # path is where host assembly happens, so the accumulator cannot be
+                    # assumed to hold device tensors here.
+                    if isinstance(_t, ttnn.Tensor):
+                        ttnn.deallocate(_t)
                 x_chunks = []
                 # Drop the interrupted iteration's intermediates: whatever was live
                 # at the throw still holds L1, and the retry must allocate against a
                 # clean slate, not against the corpse of the failed attempt.
                 gp_in_fused = g_in_a = g_in_b = p_in_a = p_in_b = None
                 a_chunk = b_chunk = x_chunk = None
+                if oom:
+                    refused = group
+                    _record_trimul_inproj_oom(H, self._hidden, batch, refused)
+                    group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
+                    gp_in_chunks = self._gp_in_chunks(chunk_size, group)
+                    print(f"[tt-bio] trimul DRAM refused the fused in-projection at group "
+                          f"{refused} (seq {H}, chunk {chunk_size}): retrying at group "
+                          f"{group}. The tt-metal 'Out of Memory' line above is expected and "
+                          f"handled; the result is unchanged.", file=sys.stderr, flush=True)
+                    continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a
                 # fatal error to anyone watching the fold. Say what actually happened.
