@@ -113,3 +113,60 @@ class TestP300MeshDescriptor:
         assignments = tt_main._build_worker_device_assignments([0, 1])
         assert assignments[0]["mesh_graph_descriptor"] == MGD
         assert assignments[1]["mesh_graph_descriptor"] == MGD
+
+
+class TestDeviceNumbering:
+    """UMD device index vs ``/dev/tenstorrent/N`` node number, on a box where they differ.
+
+    The Galaxy ``UF-EV-A13-GWH02`` has 32 chips on four root complexes and the kernel
+    driver probes them out of PCI order: nodes 0-7 are buses c1-c8, 8-15 are 81-88,
+    16-23 are 01-08, 24-31 are 41-48. Measured 2026-09-02 by cross-checking all 32
+    device-lease files against ``lsof`` on every node. The old ``tt_bdf_to_index`` read
+    the node number as the UMD index, which is wrong for every one of the 32 cards, so
+    an occupancy check on a node acted on a chip it never tested.
+    """
+
+    GALAXY_NODES = {
+        **{n: f"0000:c{n + 1:x}:00.0" for n in range(8)},          # nodes 0-7   -> bus c1-c8
+        **{n: f"0000:8{n - 7:x}:00.0" for n in range(8, 16)},      # nodes 8-15  -> bus 81-88
+        **{n: f"0000:0{n - 15:x}:00.0" for n in range(16, 24)},    # nodes 16-23 -> bus 01-08
+        **{n: f"0000:4{n - 23:x}:00.0" for n in range(24, 32)},    # nodes 24-31 -> bus 41-48
+    }
+
+    @pytest.fixture
+    def galaxy(self, monkeypatch):
+        monkeypatch.setattr(runtime, "tt_dev_node_bdfs", lambda: dict(self.GALAXY_NODES))
+
+    def test_umd_index_is_bdf_rank_not_node_number(self, galaxy):
+        by_bdf = runtime.tt_bdf_to_index()
+        assert by_bdf["0000:01:00.0"] == 0     # node 16
+        assert by_bdf["0000:08:00.0"] == 7     # node 23
+        assert by_bdf["0000:41:00.0"] == 8     # node 24
+        assert by_bdf["0000:81:00.0"] == 16    # node 8
+        assert by_bdf["0000:c1:00.0"] == 24    # node 0
+
+    def test_bdf_sort_is_numeric_not_lexicographic_on_the_bus(self, galaxy):
+        """``c1`` must rank above ``81``: a naive int() on a hex bus would invert these."""
+        by_bdf = runtime.tt_bdf_to_index()
+        assert by_bdf["0000:c8:00.0"] == 31
+        assert by_bdf["0000:88:00.0"] == 23
+
+    def test_node_map_is_a_permutation_with_no_fixed_point(self, galaxy):
+        to_node = runtime.umd_index_to_dev_node()
+        assert sorted(to_node) == list(range(32))
+        assert sorted(to_node.values()) == list(range(32))
+        # The whole point: not one card's UMD index equals its node number here, so
+        # reading one as the other is never even accidentally right.
+        assert not [k for k, n in to_node.items() if k == n]
+        assert to_node[0] == 16 and to_node[7] == 23 and to_node[16] == 8 and to_node[24] == 0
+
+    def test_node_map_round_trips(self, galaxy):
+        to_node = runtime.umd_index_to_dev_node()
+        to_umd = runtime.dev_node_to_umd_index()
+        assert all(to_umd[node] == idx for idx, node in to_node.items())
+
+    def test_identity_box_still_maps_identically(self, monkeypatch):
+        """A box probed in PCI order is unchanged, so single-root hosts keep their numbering."""
+        monkeypatch.setattr(runtime, "tt_dev_node_bdfs",
+                            lambda: {n: f"0000:0{n + 1:x}:00.0" for n in range(4)})
+        assert runtime.umd_index_to_dev_node() == {0: 0, 1: 1, 2: 2, 3: 3}
