@@ -106,7 +106,8 @@ RUN_TIMEOUT_S = 5400
 #: reported as a capacity ceiling.
 HOST_RAM_FLOOR_MB = 700
 
-VERDICTS = ("PASS", "FAIL", "STALL", "HOST_OOM", "NO_WEIGHTS", "CONTENDED", "ERROR", "SKIPPED")
+VERDICTS = ("PASS", "FAIL", "STALL", "HOST_OOM", "NO_WEIGHTS", "CONTENDED", "CARD_DIRTY",
+            "ERROR", "SKIPPED")
 
 # ---------------------------------------------------------------------------------------------
 # THE MODEL LIST -- DERIVED, NEVER HARDCODED
@@ -531,26 +532,42 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
             "tail": "\n".join(text.splitlines()[-25:])}
 
 
-_LEASE_PROBE = ("import ttnn,sys\n"
-                "d=ttnn.open_device(device_id=0); ttnn.close_device(d); print('CARD_FREE')")
+#: Opening the device is NOT enough to prove the card is usable. A chip left dirty by a killed
+#: fold opens fine and then hangs on the first program dispatch -- measured here: a SIGKILLed
+#: 1504-token fold left card 0 in a state where the next run sat forever inside tt-bio's own
+#: dispatch probe, all threads idle, with no error. So this probe dispatches and synchronizes.
+_CARD_PROBE = (
+    "import torch, ttnn\n"
+    "d = ttnn.open_device(device_id=0)\n"
+    "t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),\n"
+    "                    layout=ttnn.TILE_LAYOUT, device=d)\n"
+    "ttnn.add(t, t)\n"
+    "ttnn.synchronize_device(d)\n"
+    "ttnn.close_device(d)\n"
+    "print('CARD_HEALTHY')\n")
 
 
-def wait_for_card(worker: Worker, *, timeout=420) -> bool:
-    """Block until the card can actually be opened.
+def card_healthy(worker: Worker, *, timeout=420) -> bool:
+    """Can this card open AND dispatch a program?
 
-    A killed leg is not a freed card. `predict` folds in a SPAWNED worker, so the leg's own
-    process group kill has to reach it -- and even when it does, zero processes is not proof of a
-    clean chip. The next leg opening the device is the only real check, and without it one killed
-    leg turns every leg after it into a spurious FAIL on DeviceInUseError.
+    Zero processes is not proof of a clean chip. A killed leg leaves both possibilities: the lease
+    still held by a spawned fold worker that outlived the kill, and a chip that accepts an open and
+    then never dispatches. Both turn every leg after them into a spurious FAIL, which would publish
+    a ceiling nobody walked -- so the gate checks before it believes a failure.
     """
+    try:
+        _, out, _ = worker.run([sys.executable, "-c", _CARD_PROBE], timeout=timeout)
+        return "CARD_HEALTHY" in (out or "")
+    except subprocess.TimeoutExpired:
+        return False
+
+
+def wait_for_card(worker: Worker, *, timeout=600) -> bool:
+    """Block until the card is free and dispatching again."""
     deadline = time.monotonic() + timeout
     while True:
-        try:
-            _, out, _ = worker.run([sys.executable, "-c", _LEASE_PROBE], timeout=300)
-            if "CARD_FREE" in (out or ""):
-                return True
-        except subprocess.TimeoutExpired:
-            pass
+        if card_healthy(worker, timeout=300):
+            return True
         if time.monotonic() > deadline:
             return False
         time.sleep(15)
@@ -683,7 +700,21 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
 
     res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
     rec["legs"].append(dict(res, tier="residency", tokens=TOKEN_BAR))
-    if res["verdict"] == "CONTENDED" and wait_for_card(worker):
+    # A STALL is only the MODEL's stall if the chip is still dispatching. A card left dirty by an
+    # earlier killed fold accepts an open and then hangs, with all threads idle and no error --
+    # indistinguishable from a model hang from the outside, and attributing it to the model would
+    # publish a ceiling that is really a housekeeping bug.
+    if res["verdict"] in ("CONTENDED", "STALL") and not card_healthy(worker):
+        rec["legs"][-1]["card_unhealthy_after"] = True
+        if wait_for_card(worker):
+            res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
+            rec["legs"].append(dict(res, tier="residency", tokens=TOKEN_BAR, retry=True))
+        else:
+            rec.update(verdict="CARD_DIRTY", decided_by="residency", wall_s=res["wall_s"],
+                       reason="the card stopped dispatching and did not recover; nothing was "
+                              "measured. Reset it (tt-smi -r) and re-run this cell.")
+            return rec
+    elif res["verdict"] == "CONTENDED" and wait_for_card(worker):
         res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
         rec["legs"].append(dict(res, tier="residency", tokens=TOKEN_BAR, retry=True))
     rec.update(verdict=res["verdict"], decided_by="residency", mechanism=res["mechanism"],
@@ -859,6 +890,12 @@ def main(argv=None) -> int:
     hookdir = hook_dir(work)
     workers = parse_workers(a.workers) if a.workers else [Worker(local_host(), 0, True)]
 
+    if not card_healthy(workers[0]):
+        print(f"{workers[0]} cannot dispatch a trivial program. Every leg would fail or hang and "
+              f"the gate would record capacity failures nobody walked. Reset it "
+              f"(tt-smi -r {workers[0].card}) and re-run.", file=sys.stderr)
+        return 3
+
     report = {
         "bar_tokens": TOKEN_BAR, "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "tree": subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT,
@@ -979,7 +1016,7 @@ def _finish(report: dict) -> None:
     report["counts"] = {
         "PASS": v.count("PASS"),
         "fail_like": sum(v.count(x) for x in ("FAIL", "STALL", "HOST_OOM", "ERROR")),
-        "CONTENDED": v.count("CONTENDED"),
+        "CONTENDED": v.count("CONTENDED") + v.count("CARD_DIRTY"),
         "SKIPPED": v.count("SKIPPED"),
         "NO_WEIGHTS": v.count("NO_WEIGHTS"),
         "INCONCLUSIVE": v.count("INCONCLUSIVE"),
