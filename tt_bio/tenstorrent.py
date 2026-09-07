@@ -38,6 +38,24 @@ OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
+# Whether the row block above is used AT ALL used to be a token-count test,
+# `I > SEQ_LEN_MORE_CHUNKING`, and that constant was later re-expressed against DRAM and moved
+# 608 -> 1088 on a 12 GiB Galaxy part on the strength of a pair-tensor measurement (see
+# _apply_grid_thresholds). Nothing re-checked this consumer when it moved, so OPM's row blocking
+# went dark for every token count in 640-1088 -- and the comment above, which says the blocked
+# path "is live from ~640 tokens up", stopped being true. Unblocked, z is (I*C, D*J) bf16:
+# 2 147 483 648 B at 1024 tokens, which is byte for byte the DRAM buffer an OpenFold3 1024-token
+# fold is refused on, at the `to_layout` that needs a second copy of it beside the first
+# (measured on Galaxy card 0, 178 978 816 B per bank against a 132 632 576 B largest free block).
+# So the gate is the tensor's own byte count, the same resource the projection stage beside it
+# already reads through OPM_ROW_CHUNK_BUDGET_BYTES, and the same fraction of DRAM
+# CONCAT_HOST_BYTES_BASE was fitted at -- for the same reason, since that budget was fitted
+# against this part refusing ~180 MiB/bank with GiBs nominally free, which is exactly the
+# refusal above. Read it through opm_z_single_shot_bytes(), never this base: a 12 GiB Wormhole
+# keeps 1.5 GiB and a 31.875 GiB p150a gets 3.98 GiB, so every Blackhole size up to 1440 tokens
+# stays on today's single-shot path byte for byte.
+OPM_Z_SINGLE_SHOT_BYTES_BASE = 1536 * 2 ** 20   # 1.5 GiB
+_OPM_Z_SINGLE_SHOT_BYTES = None                 # resolved once, on first use after the open
 
 # Fold `proj_o` into the outer product's own projection instead of materialising the
 # [I, J, C, D] product in order to project it. Same algebra --
@@ -3716,6 +3734,22 @@ def _concat_host_budget(dram_total: int) -> int:
     Pure arithmetic so the release gate can assert every part class host-only, on any part.
     """
     return max(CONCAT_HOST_BYTES_BASE, int(dram_total) // 8)
+
+
+def opm_z_single_shot_bytes() -> int:
+    """Byte size above which OuterProductMean row-blocks its z matmul instead of running it whole.
+
+    Same fraction of this part's DRAM as :func:`concat_host_bytes`, and lazy for the same reason:
+    a from-imported int would freeze at the pre-device-open value. ``max()`` in
+    :func:`_concat_host_budget` pins every part at or above the measured figure, so the budget can
+    only widen with DRAM and never tighten.
+    """
+    global _OPM_Z_SINGLE_SHOT_BYTES
+    if _OPM_Z_SINGLE_SHOT_BYTES is None:
+        env = os.environ.get("TT_BIO_OPM_Z_SINGLE_SHOT_BYTES")
+        _OPM_Z_SINGLE_SHOT_BYTES = (int(env) if env
+                                    else _concat_host_budget(_dram_total_bytes()))
+    return _OPM_Z_SINGLE_SHOT_BYTES
 
 
 def concat_host_bytes() -> int:
@@ -7421,10 +7455,16 @@ class OuterProductMean(Module):
             b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
             b = ttnn.reshape(b, (-1, S))
             b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
-            if I > SEQ_LEN_MORE_CHUNKING:
-                # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
-                a = ttnn.reallocate(a)
-                b = ttnn.reallocate(b)
+        # One predicate for the whole op: the bytes the z matmul would produce in a single shot.
+        # `per_row` is the (rows*C, D*J) result per token row, so it grows with the token width and
+        # `I * per_row` is the whole tensor. Both the row blocking below and the compaction that
+        # feeds it read this, so the op cannot end up blocking a matmul it never defragmented for.
+        per_row = C * D * J * 2
+        blocked = I * per_row > opm_z_single_shot_bytes()
+        if depth_parts is None and blocked:
+            # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
+            a = ttnn.reallocate(a)
+            b = ttnn.reallocate(b)
 
         def z_rows(i0, i1):
             """`z = a b^T` contracted over the full depth, for token rows [i0, i1).
@@ -7488,11 +7528,10 @@ class OuterProductMean(Module):
             ttnn.deallocate(z)
             return out
 
-        if I > SEQ_LEN_MORE_CHUNKING:
+        if blocked:
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
-            per_row = C * D * J * 2
             rows_blk = max(32, min(OPM_CHUNK_SIZE,
                                    (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
             z_acc = None
