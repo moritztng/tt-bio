@@ -16,9 +16,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   it was worth 13.3x: 7ROA L117 scored 0.10683 A against its torch reference on the old route and
   1.41825 A on the fused one, back to 0.15238 A with the bias corrected.
 
-- **`--debug` now reaches the spawned worker.** The flag was read in the parent process only, so a
-  traceback raised inside the worker was still swallowed by the log filter and the run reported a
-  bare failure. The setting is forwarded now, and `--debug` shows the actual exception.
+- **`--debug` now reaches the spawned worker.** The stderr filter is skipped when `--debug` is in
+  `sys.argv`, but a multiprocessing spawn re-execs python and the child's argv does not carry the
+  flag, so the filter reinstalled itself in exactly the process whose stderr you asked to see. A
+  worker traceback was swallowed and the CLI printed "the worker's own traceback above says why"
+  with nothing above it. The decision is made once at import and passed down as
+  `TT_BIO_DEBUG_STDERR`, which a spawn does inherit; set it directly to get the same effect
+  without the flag.
 
 ### Changed
 
