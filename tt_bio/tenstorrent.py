@@ -941,6 +941,13 @@ _B2_TOKEN_DIT_SDPA = env_flag("BOLTZ2_TOKEN_DIT_SDPA", False)
 _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 
 
+# When the production q_chunk does not divide the padded length, offer the dividing chunks below
+# it before falling back to one that pads. See the block in `_tri_att_q_chunks` for the 896 aa
+# measurement that motivates it. Off until a fold A/B says otherwise; release-gated because the
+# path is shared across five models.
+_SDPA_NARROW_Q_FALLBACK = env_flag("TRIATT_NARROW_Q_FALLBACK", False)
+
+
 @lru_cache(maxsize=None)
 def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
     """q_chunk sizes to try for the tri-attention SDPA, widest first, production pick last.
@@ -974,10 +981,35 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
     if not _SDPA_WIDE_Q:
         return (prod,)
     padded = _padded_sdpa_len(q_len)
-    wider = [padded // n for n in range(1, padded // SDPA_CHUNK_TILE + 1)
-             if padded % n == 0 and (padded // n) % SDPA_CHUNK_TILE == 0
-             and padded // n > prod]
-    return tuple(sorted(wider, reverse=True)) + (prod,)
+    dividing = [padded // n for n in range(1, padded // SDPA_CHUNK_TILE + 1)
+                if padded % n == 0 and (padded // n) % SDPA_CHUNK_TILE == 0]
+    wider = sorted((q for q in dividing if q > prod), reverse=True)
+    if not _SDPA_NARROW_Q_FALLBACK or padded % prod == 0:
+        return tuple(wider) + (prod,)
+    # `prod` does not divide this padded length, so if L1 refuses every entry in `wider` the
+    # caller lands on a q_chunk that pads -- and a padding q_chunk sets `use_padded_mask`, which
+    # is one of the hoisted-fill preconditions in `triatt_sdpa.sdpa`. That does not merely cost
+    # the padding: it declines the FUSED path outright and falls back to the stock op.
+    #
+    # MEASURED on rf3 at 896 aa on a Galaxy Wormhole (8x9), where the ladder is exactly
+    # (896, 448, 256): L1 refuses both wide entries (`pm_over_l1` 1087) and 256 does not divide
+    # 896, so TRIATT_PERSISTENT_MASK serves 0 of 1088 calls, all rejected on
+    # `fill_preconditions`. It serves all 1088 at 768 and at 1024 -- both multiples of 256 -- and
+    # refuses MORE configs at 1024 (`pm_over_l1` 2174) while still serving, so the controlling
+    # quantity is divisibility of the padded length, not its magnitude. 13 of the 15 tile-aligned
+    # lengths from 640 to 1088 have a non-dividing fallback.
+    #
+    # So offer the dividing chunks BELOW prod before falling back to it. At 896 those are 224,
+    # 128 and 64, every one of which divides and fits the grid. Ordered widest-first for the same
+    # reason the wide list is: the kernel re-reads K and V once per q chunk.
+    #
+    # Off by default. This changes which kernel config a path shared by rf3, boltz-2,
+    # protenix-v2, openfold3 and opendde picks at ~13 sizes, and one sequence length is not
+    # evidence for a default (`one-size-tuning-is-a-standing-defect-class`). A length whose
+    # fallback already divides -- 768, 1024, every multiple of 256 -- returns the identical tuple
+    # with the flag either way, so the arm is a no-op there by construction and not by measurement.
+    narrower = sorted((q for q in dividing if q < prod), reverse=True)
+    return tuple(wider) + tuple(narrower) + (prod,)
 
 
 # A sequence length that is not a multiple of the 32-row tile is served WRONG by the fused SDPA
