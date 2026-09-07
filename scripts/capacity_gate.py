@@ -57,13 +57,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import queue
 import re
 import shlex
 import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
+import typing
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -71,6 +74,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import capacity_fixture                                                    # noqa: E402
+from tt_bio import device_lease                                             # noqa: E402
 
 # ---------------------------------------------------------------------------------------------
 # THE BAR
@@ -120,6 +124,53 @@ _HOOK_BROKE = re.compile(
     r"__init__\(\) missing \d+ required positional argument"
     r"|__init__\(\) takes \d+ positional argument", re.I)
 
+#: The SECOND way the instrument broke a model, found by fixing the first. The depth cut leaves a
+#: strict `load_state_dict` staring at the removed blocks' weights, and `_no_weights` below reads
+#: "Unexpected key(s) in state_dict" as an unusable CHECKPOINT -- so a cut the gate made itself
+#: came back as a fact about the artifact. `capacity_hook` now drops exactly the indices it
+#: removed, but that repair needs an `nn.Module` container to hang off, so the misattribution is
+#: also cut off here: an unexpected key naming a block index THIS RUN removed is the gate's bug.
+_UNEXPECTED_KEY = re.compile(r"Unexpected key\(s\) in state_dict", re.I)
+
+
+def screen_reduction_is_unsafe(leg: dict) -> bool:
+    """True when a screen FAIL cannot be attributed to the bar, because the screen's own depth cut
+    is a candidate cause.
+
+    Tier 1's founding claim was that truncation "can only reduce what runs, so a screen can miss a
+    Class B failure but cannot invent one". That is false, and boltz2 disproved it three separate
+    ways: the wrapper defeated a signature-filtering loader, the cut left a strict state_dict load
+    with orphaned weights, and -- once both were fixed -- `Module.__call__` in tt_bio/tenstorrent.py
+    slices a per-layer bias tensor as `z.shape[1] // len(self.layers)`, so cutting 3 layers to 1
+    turned a 4-head slice into a 12-head one: "The size of tensor a (4) must match the size of
+    tensor b (12)". A block stack's LENGTH can be load-bearing for tensors outside the stack.
+
+    The discriminator is the mechanism. A real capacity failure names one: rf3's is an allocator
+    refusal for a single 18530435072 B DRAM buffer. A shape mismatch names none. So a FAIL with no
+    capacity mechanism, on a leg where the cut was actually applied, is not scored -- the cell
+    falls through to the un-truncated residency run, which reduces nothing and is always a valid
+    measurement. It costs one slow run for the model whose fast path does not work, and nothing at
+    all for every model whose does.
+    """
+    return bool(leg.get("verdict") == "FAIL" and not leg.get("mechanism")
+                and leg.get("stacks_truncated"))
+
+
+def _hook_cut_these_weights(tail: str, truncated: list) -> bool:
+    """True when the unexpected keys name a block index the screen's own truncation removed.
+
+    Deliberately narrow: it wants the recorded attribute AND an index inside the recorded depth,
+    both from this run's own hook record. A checkpoint that is genuinely wrong for the module
+    still reports NO_WEIGHTS, because its unexpected keys do not sit under a stack the gate cut.
+    """
+    if not tail or not truncated or not _UNEXPECTED_KEY.search(tail):
+        return False
+    for _qualname, attr, n in truncated:
+        for i in range(1, min(int(n), 4096)):
+            if f".{attr}.{i}." in tail:
+                return True
+    return False
+
 # ---------------------------------------------------------------------------------------------
 # THE MODEL LIST -- DERIVED, NEVER HARDCODED
 # ---------------------------------------------------------------------------------------------
@@ -156,6 +207,13 @@ EXEMPT = {
     "pxdesign": "design, not a fold: sized on DESIGN_TARGET from a target STRUCTURE, so it needs a "
                 "1536-residue PDB rather than a sequence. The shipped ladder's own fixture source "
                 "(1DP0 chain A, 1011 residues) cannot reach the bar either.",
+    "nesso1":   "affinity, and the roster's only such model: it is handed a protein AND a ligand, "
+                "and this gate's fixture is polymer-only by construction, so its batch builder "
+                "refuses the input outright with 'No protein or ligand tokens found in the batch'. "
+                "Measured, not assumed: the weights load (539 tensors) and the un-truncated "
+                "residency leg still gets no valid input, so no size was tested at any bar. Needs "
+                "a ligand-bearing cell, which is a fixture change. p1 recorded NO_WEIGHTS here "
+                "and blamed the checkpoint; that was the gate's own depth cut, not the artifact.",
     "saprot-1.3b": "structure-aware embeddings, and the checkpoint is not in the local weights "
                    "cache on this host. saprot-35m and saprot-650m carry the same code path at "
                    "the bar; this one is a weights gap, not a code gap.",
@@ -173,6 +231,32 @@ def coverage_gaps() -> list[str]:
     return sorted(m for m in roster()
                   if m not in EXEMPT and verbs.get(m) not in ("predict", "embed", "saprot",
                                                               "affinity"))
+
+
+def runnable() -> list[str]:
+    """The models this gate is expected to hold a measured cell for: the roster, less the written
+    exemptions, less anything it has no verb to run."""
+    gaps = set(coverage_gaps())
+    return [m for m in roster() if m not in EXEMPT and m not in gaps]
+
+
+def baseline_gaps() -> list[str]:
+    """Runnable models with no recorded cell in `docs/capacity_gate_baseline.json`.
+
+    The roster guard next door asks whether a model is COVERED by the gate. This asks whether the
+    coverage actually left a record behind, which is a different question and was the one nobody
+    was asking: the baseline sat at 8 of 16 cells through two passes and every test stayed green.
+    boltz2's PASS at 1536 was measured, written up in prose, and never recorded -- and its report
+    lived in gitignored scratch inside a worktree fleet hygiene later removed, so the claim
+    outlived its evidence. A verdict not folded into the baseline when it is measured is lost.
+    """
+    if not BASELINE.exists():
+        return runnable()
+    try:
+        cells = json.loads(BASELINE.read_text()).get("cells", {})
+    except ValueError:
+        return runnable()
+    return [m for m in runnable() if m not in cells]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -296,7 +380,11 @@ MECHANISM_PATTERNS = (
     ("dram",          re.compile(r"Out of Memory: Not enough space to allocate.*DRAM", re.I)),
     ("l1",            re.compile(r"Out of Memory: Not enough space to allocate.*L1", re.I)),
     ("fragmentation", re.compile(r"largest free block", re.I)),
-    ("dram",          re.compile(r"Statically allocated circular buffers.*exceed", re.I)),
+    # Statically allocated circular buffers live in L1, not DRAM, and tt-metal words this
+    # "grow to N B which is BEYOND max L1 size of M B" -- so the old pattern (".*exceed",
+    # labelled "dram") could never match the message it was written for, and would have named the
+    # wrong memory if it had. Quoted from a real nesso1 leg on a p150a.
+    ("l1",            re.compile(r"circular buffers.*(?:beyond|exceed).*L1 size", re.I)),
     ("oom",           re.compile(r"Out of Memory|bad_alloc|std::bad_alloc", re.I)),
     # Not a capacity result at all: another process holds the card. Scoring this as FAIL would
     # publish a ceiling that was never measured -- and it is easy to hit, because a killed leg
@@ -392,6 +480,16 @@ class Worker:
         p = subprocess.run(self.cmd(argv, extra_env), capture_output=True, text=True,
                            cwd=REPO_ROOT, timeout=timeout)
         return p.returncode, p.stdout, p.stderr
+
+    def popen(self, argv, extra_env=None):
+        """Same command, but streaming, so a caller can time what the child reaches and when.
+
+        stderr is merged into stdout rather than captured separately: a ttnn process writes ~50
+        lines of driver log per device open, and a pipe nobody drains fills up and blocks the very
+        child whose progress is being timed.
+        """
+        return subprocess.Popen(self.cmd(argv, extra_env), stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True, cwd=REPO_ROOT)
 
 
 HOST_ALIASES = {"qb1": "tt-quietbox", "qb2": "tt-quietbox2"}
@@ -558,8 +656,17 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
     last, last_move, stalled, warm = -1, time.monotonic(), False, False
     cpu_at_quiet, cpu_now = tree_cpu_s(proc.pid), tree_cpu_s(proc.pid)
     try:
-        while proc.poll() is None:
-            time.sleep(5)
+        while True:
+            # Wait ON the process rather than sleeping and then asking: a plain sleep(5) means a
+            # leg that exits early in a tick is not noticed for up to 5 s, and `wall` is taken
+            # after the loop, so every leg was over-reported by 0-5 s. That is why the recorded
+            # Tier 1 walls were all multiples of 5. The gate's own ~60 s/model budget verdict is
+            # decided on this number, so a mean +2.5 s bias is not cosmetic.
+            try:
+                proc.wait(timeout=5)
+                break
+            except subprocess.TimeoutExpired:
+                pass
             ram_floor = min(ram_floor, host_ram_free_mb())
             cpu_now = tree_cpu_s(proc.pid)
             n, seen = progress()
@@ -610,30 +717,111 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
 #: fold opens fine and then hangs on the first program dispatch -- measured here: a SIGKILLed
 #: large fold left card 0 in a state where the next run sat forever inside tt-bio's own
 #: dispatch probe, all threads idle, with no error. So this probe dispatches and synchronizes.
+#: CARD_OPEN separates the two phases. Everything before it is python starting, torch and ttnn
+#: importing and the device opening -- host-side work whose cost moves with host load. Everything
+#: after it is the dispatch, which is the part a wedged chip never completes.
 _CARD_PROBE = (
     "import torch, ttnn\n"
     "d = ttnn.open_device(device_id=0)\n"
+    "print('CARD_OPEN', flush=True)\n"
     "t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),\n"
     "                    layout=ttnn.TILE_LAYOUT, device=d)\n"
     "ttnn.add(t, t)\n"
     "ttnn.synchronize_device(d)\n"
     "ttnn.close_device(d)\n"
-    "print('CARD_HEALTHY')\n")
+    "print('CARD_HEALTHY', flush=True)\n")
+
+#: Seconds allowed for the DISPATCH phase alone, once the child has said CARD_OPEN.
+#:
+#: Measured on pc's p150a from three healthy probes this campaign logged, timed from ttnn's first
+#: log line to "Closing user mode device drivers": 0.726 s, 0.663 s, 0.696 s. That whole window is
+#: open + dispatch + synchronize + close, so the dispatch alone is well under a second, and this
+#: budget is ~85x it.
+#:
+#: The budget cannot simply be tightened to the measured cost. A false "cannot dispatch" triggers
+#: `tt-smi -r`, which on a p300c takes the BOARD PAIR down and can kill a sibling leg's card, so
+#: the old single 300-420 s timeout was deliberately conservative. Splitting the phases is what
+#: makes a short number safe: by the time it applies the child has already imported torch and ttnn
+#: and opened the device, so none of the host-side variance the long timeout was covering is still
+#: ahead of it. Wedge detection drops from up to 600 s to ~60 s, and the gate can tell "never
+#: opened" (busy, contended, driver gone) from "opened and will not dispatch" (the dirty chip).
+_DISPATCH_BUDGET_S = 60
 
 
-def card_healthy(worker: Worker, *, timeout=420) -> bool:
-    """Can this card open AND dispatch a program?
+class Probe(typing.NamedTuple):
+    healthy: bool
+    #: Where it got to: "done", "open" (never opened in time), "dispatch" (opened, then hung),
+    #: "exit" (the process died without dispatching).
+    phase: str
+    seconds: float
+    tail: str
+
+    def __bool__(self) -> bool:
+        return self.healthy
+
+    def why(self) -> str:
+        if self.healthy:
+            return f"dispatches ({self.seconds:.1f}s)"
+        return {
+            "open": f"never opened the device within {self.seconds:.0f}s",
+            "dispatch": (f"opened the device and then did not dispatch within "
+                         f"{self.seconds:.0f}s, which is the dirty-chip signature"),
+            "exit": f"the probe process exited without dispatching after {self.seconds:.1f}s",
+        }.get(self.phase, self.phase)
+
+
+def probe_card(worker: Worker, *, timeout=420, dispatch_budget=_DISPATCH_BUDGET_S) -> Probe:
+    """Can this card open AND dispatch a program, and if not, which half failed?
 
     Zero processes is not proof of a clean chip. A killed leg leaves both possibilities: the lease
     still held by a spawned fold worker that outlived the kill, and a chip that accepts an open and
     then never dispatches. Both turn every leg after them into a spurious FAIL, which would publish
     a ceiling nobody walked -- so the gate checks before it believes a failure.
     """
+    proc = worker.popen([sys.executable, "-u", "-c", _CARD_PROBE])
+    seen: dict[str, float] = {}
+    tail: list[str] = []
+
+    def drain():
+        for line in proc.stdout:                       # ends when the pipe closes
+            tail.append(line.rstrip())
+            del tail[:-25]
+            for mark in ("CARD_OPEN", "CARD_HEALTHY"):
+                if mark in line:
+                    seen.setdefault(mark, time.monotonic())
+
+    reader = threading.Thread(target=drain, daemon=True)
+    reader.start()
+    t0 = time.monotonic()
     try:
-        _, out, _ = worker.run([sys.executable, "-c", _CARD_PROBE], timeout=timeout)
-        return "CARD_HEALTHY" in (out or "")
-    except subprocess.TimeoutExpired:
-        return False
+        while True:
+            now = time.monotonic()
+            if "CARD_HEALTHY" in seen:
+                return Probe(True, "done", seen["CARD_HEALTHY"] - t0, "\n".join(tail))
+            # Both conditions, and in this order: the reader has to have drained the pipe before
+            # an exited process means the marker never came, or a probe that printed CARD_HEALTHY
+            # and exited in the same breath races its own output and reads as a wedge.
+            if proc.poll() is not None and not reader.is_alive():
+                if "CARD_HEALTHY" in seen:
+                    return Probe(True, "done", seen["CARD_HEALTHY"] - t0, "\n".join(tail))
+                return Probe(False, "exit", now - t0, "\n".join(tail))
+            if "CARD_OPEN" in seen:
+                if now - seen["CARD_OPEN"] > dispatch_budget:
+                    return Probe(False, "dispatch", now - seen["CARD_OPEN"], "\n".join(tail))
+            elif now - t0 > timeout:
+                return Probe(False, "open", now - t0, "\n".join(tail))
+            time.sleep(0.2)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                pass
+
+
+def card_healthy(worker: Worker, *, timeout=420) -> bool:
+    return bool(probe_card(worker, timeout=timeout))
 
 
 def wait_for_card(worker: Worker, *, timeout=600) -> bool:
@@ -655,6 +843,39 @@ def _may_reset(worker: Worker, workers: list[Worker]) -> bool:
     return worker.is_local and sum(1 for w in workers if w.host == worker.host) == 1
 
 
+def co_tenant(worker: Worker) -> str | None:
+    """Another live process holding this card's device lease, or None.
+
+    THE reason this exists. "This run owns the host" was read off the gate's own --workers list,
+    which says nothing about who else on the box is using the card. The fleet dispatcher can grant
+    card 0 on pc to two workers at once, and it did, mid-campaign: tt-bio's own lease refused this
+    gate's residency leg with "physical card 0 on pc is in use by worker:ceiling-rfd3 (pid ...)".
+    That is handled -- it is a CONTENDED verdict and nothing is scored. What was NOT handled is
+    what comes next: a contended card fails the health probe, a failed probe reads as a wedge, and
+    a wedge gets `tt-smi -r`. The gate would have reset the chip out from under another worker's
+    running job, which is the one action here that destroys somebody else's measurement.
+
+    The lease file is authoritative and free to read, so it is consulted before the probe rather
+    than inferred from it. A lease held by OUR OWN holder label is not a co-tenant: that is this
+    gate's own leg, and a straggler of ours on a wedged chip is exactly the case a reset is for.
+    """
+    path = Path(device_lease.lease_dir()) / f"{worker.host}-card{worker.card}.json"
+    try:
+        meta = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    if meta.get("released") is not None:
+        return None
+    pid, holder = meta.get("pid"), meta.get("holder")
+    if holder == os.environ.get("TT_BIO_LEASE_HOLDER"):
+        return None
+    try:
+        os.kill(int(pid), 0)                 # signal 0: liveness, delivers nothing
+    except (OSError, TypeError, ValueError):
+        return None                          # holder is gone; a stale lease is not a co-tenant
+    return f"{holder} (pid {pid})"
+
+
 def recover_card(worker: Worker, workers: list[Worker]) -> tuple[bool, str]:
     """Bring a wedged card back, or say why not.
 
@@ -664,19 +885,29 @@ def recover_card(worker: Worker, workers: list[Worker]) -> tuple[bool, str]:
     it reads as a failure too, so a one-line real result would arrive wrapped in a cascade of
     invented ones. Polling cannot fix a wedge; only a reset can.
     """
-    if card_healthy(worker, timeout=300):
+    # Before the probe, not after: a co-tenant's card fails the probe for a reason that has
+    # nothing to do with the chip, and the 300 s spent finding that out is 300 s in which the
+    # answer was already sitting in the lease file.
+    other = co_tenant(worker)
+    if other:
+        return False, (f"card {worker.card} is leased by {other}, so this gate must not reset it "
+                       f"-- that would take the chip down under another job's running work. "
+                       f"Nothing was measured here; re-run this cell when the card is free.")
+    before = probe_card(worker, timeout=300)
+    if before:
         return True, "still dispatching"
     if not _may_reset(worker, workers):
-        return False, ("card stopped dispatching and this run does not own the host exclusively, "
-                       "so it must not reset (a reset takes the board pair down with it)")
+        return False, (f"card {before.why()} and this run does not own the host exclusively, "
+                       f"so it must not reset (a reset takes the board pair down with it)")
     smi = os.path.expanduser("~/.local/bin/tt-smi")
     try:
         subprocess.run([smi, "-r", str(worker.card)], capture_output=True, text=True, timeout=300)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, f"reset failed to run: {type(exc).__name__}"
-    if card_healthy(worker, timeout=420):
-        return True, f"recovered by tt-smi -r {worker.card}"
-    return False, f"tt-smi -r {worker.card} did not restore dispatch"
+    after = probe_card(worker, timeout=420)
+    if after:
+        return True, f"{before.why()}; recovered by tt-smi -r {worker.card}"
+    return False, f"{before.why()}; tt-smi -r {worker.card} did not restore dispatch: {after.why()}"
 
 
 def _screen(worker, cell, fixture, work, hookdir) -> dict:
@@ -688,8 +919,13 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
     and nothing else -- including the case where the hook matched no block list at all and the
     "screen" quietly ran full depth, which the hook records and the report prints.
     """
-    log = work / f"screen_{cell.model}.log"
-    hook_out = work / f"hook_screen_{cell.model}"
+    # Keyed by SIZE, not just by model. A bisect screens seven rungs, and one shared path meant
+    # each rung overwrote the last -- so the only surviving evidence for a reported ceiling was
+    # its final rung, and every refusal that established the wall was gone. The residency leg was
+    # already per-size; this makes the screen match it.
+    tok = fixture["tokens_requested"]
+    log = work / f"screen_{cell.model}_{tok}.log"
+    hook_out = work / f"hook_screen_{cell.model}_{tok}"
     argv = build_argv(cell, fixture, work / f"out_screen_{cell.model}", tier="screen")
     r = execute(worker, argv, log, mode="screen", hook_out=hook_out, hookdir=hookdir,
                 timeout=RUN_TIMEOUT_S, stall_s=STALL_S)
@@ -718,7 +954,8 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
     if r["mechanism"] == "contention":
         r["verdict"] = "CONTENDED"
         return r
-    if _HOOK_BROKE.search(r["tail"] or "") and r["hook_installed"]:
+    if r["hook_installed"] and (_HOOK_BROKE.search(r["tail"] or "")
+                                or _hook_cut_these_weights(r["tail"], trunc)):
         r["verdict"] = "GATE_BUG"
         r["reason"] = ("the Tier 1 block-truncation hook broke this model's construction, so "
                        "nothing was measured. This is the gate's bug, not a failed bar.")
@@ -758,9 +995,18 @@ def _residency(worker, cell, fixture, work, hookdir, tokens) -> dict:
         r["host_oom_evidence"] = _oom_killer_fired(r.get("model", ""))
     elif r["rc"] == 0:
         r["verdict"] = "PASS"
+    elif _input_rejected(r["tail"]):
+        r["verdict"] = "BAD_FIXTURE"
     else:
         r["verdict"] = "FAIL"
     return r
+
+
+#: fixture_for writes work/fixtures and work/msa under paths keyed by residue count and sequence
+#: hash, and models sharing a residue count share the path -- so under the per-card fan-out two
+#: threads would write one file while a third read it. Building is seconds against runs of
+#: minutes, so it is simply serialised rather than made clever.
+_FIXTURE_LOCK = threading.Lock()
 
 
 def fixture_for(cell: Cell, tokens: int, work: Path, depth) -> dict:
@@ -771,17 +1017,18 @@ def fixture_for(cell: Cell, tokens: int, work: Path, depth) -> dict:
     every run.
     """
     res = cell.residues(tokens)
-    f = capacity_fixture.build(res, work / "fixtures", depth=depth)
-    if cell.msa:
-        from tt_bio.cache import seq_hash
-        seq = [l for l in f["yaml"].read_text().splitlines() if "sequence:" in l][0]
-        seq = seq.split("sequence:")[1].strip()
-        msa_dir = work / "msa"
-        msa_dir.mkdir(parents=True, exist_ok=True)
-        target = msa_dir / f"{seq_hash(seq)}.a3m"
-        target.write_text(f["a3m"].read_text())
-        f["msa_dir"] = msa_dir
-        f["msa_file"] = target
+    with _FIXTURE_LOCK:
+        f = capacity_fixture.build(res, work / "fixtures", depth=depth)
+        if cell.msa:
+            from tt_bio.cache import seq_hash
+            seq = [l for l in f["yaml"].read_text().splitlines() if "sequence:" in l][0]
+            seq = seq.split("sequence:")[1].strip()
+            msa_dir = work / "msa"
+            msa_dir.mkdir(parents=True, exist_ok=True)
+            target = msa_dir / f"{seq_hash(seq)}.a3m"
+            target.write_text(f["a3m"].read_text())
+            f["msa_dir"] = msa_dir
+            f["msa_file"] = target
     f["tokens_requested"] = tokens
     f["tokens_padded"] = cell.padded(tokens)
     f["residues"] = res
@@ -789,7 +1036,7 @@ def fixture_for(cell: Cell, tokens: int, work: Path, depth) -> dict:
 
 
 def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
-             bisect: bool) -> dict:
+             bisect: bool, recover=None) -> dict:
     """Screen at the bar, then the residency run, then bisect DOWN only if it failed.
 
     Target-first is the single biggest efficiency win here and it is the opposite of a ladder: a
@@ -819,16 +1066,23 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
         rec.update(verdict="CONTENDED", decided_by="screen", wall_s=scr["wall_s"],
                    reason="another process held the card; nothing was measured")
         return rec
-    if scr["verdict"] in ("FAIL", "HOST_OOM"):
+    if scr["verdict"] in ("FAIL", "HOST_OOM") and not screen_reduction_is_unsafe(scr):
         # Definitive: a shape that cannot allocate once cannot allocate ever.
         rec.update(verdict=scr["verdict"], decided_by="screen",
                    mechanism=scr["mechanism"], wall_s=scr["wall_s"])
         if _no_weights(scr["tail"]):
             rec["verdict"] = "NO_WEIGHTS"
         elif bisect:
-            rec["ceiling_tokens"] = _bisect(worker, cell, work, hookdir, depth, rec)
+            rec["ceiling_tokens"] = _bisect(worker, cell, work, hookdir, depth, rec,
+                                            recover=recover)
         return rec
 
+    if screen_reduction_is_unsafe(scr):
+        rec["screen_unsafe"] = True
+        rec["note"] = ("the screen's depth cut is a candidate cause of its own FAIL "
+                       f"({scr['stacks_truncated']} stacks cut, no capacity mechanism in the "
+                       f"error), so it was not scored; this verdict comes from the un-truncated "
+                       f"run. Tier 1 has no fast path for this model.")
     res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
     rec["legs"].append(dict(res, tier="residency", tokens=TOKEN_BAR))
     # A STALL is only the MODEL's stall if the chip is still dispatching. A card left dirty by an
@@ -857,7 +1111,8 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
     if res["verdict"] != "PASS" and _no_weights(res["tail"]):
         rec["verdict"] = "NO_WEIGHTS"
     elif res["verdict"] in ("FAIL", "STALL") and bisect:
-        rec["ceiling_tokens"] = _bisect(worker, cell, work, hookdir, depth, rec)
+        rec["ceiling_tokens"] = _bisect(worker, cell, work, hookdir, depth, rec,
+                                            recover=recover)
     return rec
 
 
@@ -891,6 +1146,22 @@ def _host_killed(rc: int, tail: str) -> bool:
     return rc in (-9, 137) or bool(_SIGKILLED.search(tail or ""))
 
 
+#: The model refusing the INPUT is not the card refusing the SIZE, and only one of those is a
+#: capacity result. nesso1 is the roster's only `affinity` model and this gate's fixture is
+#: polymer-only by construction, so its batch builder rejects the ligand-free input outright:
+#: "No protein or ligand tokens found in the batch". Scored FAIL, that publishes a failed 1536
+#: bar for a model that never received a valid input at ANY size -- the same lie as p1's defects
+#: 7 and 8, where a host kill and an unusable checkpoint were read as a walked ceiling.
+_BAD_INPUT = re.compile(
+    r"No protein or ligand tokens found"
+    r"|[Nn]o tokens found in the batch"
+    r"|No sequences (?:found|provided)", re.I)
+
+
+def _input_rejected(tail: str) -> bool:
+    return bool(_BAD_INPUT.search(tail or ""))
+
+
 def _oom_killer_fired(model: str) -> str | None:
     """The kernel's own record of the kill, so HOST_OOM is evidence and not an inference."""
     # kernel.dmesg_restrict=1 on this host, so the plain call fails with "Operation not
@@ -911,9 +1182,42 @@ def _oom_killer_fired(model: str) -> str | None:
     return hits[-1].strip()[-200:] if hits else None
 
 
-def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
-    """After a failure only: walk DOWN to report the real ceiling. Screen-first at each rung, so a
-    rung that cannot even allocate costs seconds."""
+def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None:
+    """After a failure only: walk DOWN to the real ceiling, then refine it to the bucket.
+
+    Two phases, because the two questions cost different amounts. The rung walk answers "what
+    size actually COMPLETES", which needs a residency run and takes minutes. The refinement
+    answers "where exactly is the wall", and for a Class A failure a SCREEN answers that
+    definitively in seconds -- a shape that cannot allocate once cannot allocate ever. So the
+    coarse rungs never get finer than they need to be, and the ceiling still comes back
+    bucket-exact instead of "somewhere between 1280 and 1408".
+
+    Both numbers are reported, never conflated: `ceiling_tokens` completed a full residency run,
+    `alloc_ceiling_tokens` is the largest bucket-aligned size whose SHAPES allocate. The second
+    is an upper bound on the first, because a clean screen cannot rule out a Class B failure.
+    """
+    def settle(leg: dict) -> None:
+        """Re-probe the card after a fail-like rung, BEFORE the next one runs.
+
+        p1's defect 6: rf3's allocator refusal is a TT_FATAL that leaves card 0 accepting a device
+        open and then never dispatching, so the cell after it sits at 100% CPU inside tt_bio's own
+        dispatch probe with no log line. p1 put the recovery after each CELL -- but a bisect
+        provokes that refusal once per rung INSIDE one cell, which is the densest sequence of
+        refusals this gate ever produces and had no recovery in it at all. Every rung below the
+        first failing one was running on a card the rung above may have wedged, so the ceiling
+        those rungs report is exactly the kind of number that gets published without being walked.
+        """
+        if recover is None or leg.get("verdict") not in ("FAIL", "HOST_OOM", "STALL", "ERROR"):
+            return
+        ok, how = recover(worker)
+        leg["card_after"] = how
+        if not ok:
+            leg["card_dirty_after"] = True
+
+    lo = None                       # largest size that completed a residency run
+    alloc_lo = None                 # largest size whose SHAPES allocate (a clean screen)
+    alloc_hi = TOKEN_BAR            # smallest size whose shapes do NOT allocate
+    walked = []                     # every rung actually screened, for the no-ceiling case
     for rung in BISECT_RUNGS:
         try:
             f = fixture_for(cell, rung, work, depth)
@@ -921,13 +1225,69 @@ def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
             continue
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=rung))
+        walked.append(rung)
         if scr["verdict"] in ("FAIL", "HOST_OOM"):
+            alloc_hi = rung
+            settle(rec["legs"][-1])
             continue
+        # The screen is clean, so the shapes allocate at this size. That is true regardless of
+        # what the residency run below then does, and the two bounds are NOT the same bound: a
+        # residency failure here must not lower the ALLOCATION ceiling, because the allocation
+        # plainly succeeded. Conflating them discarded a measured screen result.
+        alloc_lo = rung if alloc_lo is None else max(alloc_lo, rung)
         res = _residency(worker, cell, f, work, hookdir, rung)
         rec["legs"].append(dict(res, tier="residency", tokens=rung))
         if res["verdict"] == "PASS":
-            return rung
-    return None
+            lo = rung
+            break
+        settle(rec["legs"][-1])
+
+    if alloc_lo is None:
+        # Nothing allocated at any rung walked. That IS the finding, and returning early without
+        # recording it threw away the whole walk: seven rungs of card time came back as an empty
+        # cell that reads as if the bisect had never run.
+        rec["alloc_ceiling_tokens"] = None
+        rec["alloc_ceiling_note"] = (
+            f"shapes do not allocate at any size walked: {', '.join(str(r) for r in walked)}. "
+            f"The ceiling is below {min(walked)} tokens if there is one at all."
+            if walked else "no rung could be built, so nothing was walked.")
+        return None
+
+    # Refine on screens. Every candidate is bucket-aligned, because the token axis buckets to a
+    # multiple of 32 and a size that is not is a size the hardware never saw.
+    while alloc_hi - alloc_lo > TOKEN_BUCKET:
+        mid = ((alloc_lo + alloc_hi) // 2 // TOKEN_BUCKET) * TOKEN_BUCKET
+        if mid <= alloc_lo or mid >= alloc_hi:
+            break
+        try:
+            f = fixture_for(cell, mid, work, depth)
+        except Exception:
+            break
+        scr = _screen(worker, cell, f, work, hookdir)
+        rec["legs"].append(dict(scr, tier="screen", tokens=mid, phase="refine"))
+        if scr["verdict"] in ("FAIL", "HOST_OOM"):
+            alloc_hi = mid
+            settle(rec["legs"][-1])
+        else:
+            alloc_lo = mid
+    rec["alloc_ceiling_tokens"] = alloc_lo
+    rec["alloc_ceiling_note"] = (
+        f"{alloc_lo} is the largest bucket-aligned size whose shapes ALLOCATE (screen); "
+        f"{alloc_hi} is the smallest that does not. A clean screen cannot rule out a Class B "
+        f"failure, so this is an upper bound on the completing ceiling, not a pass.")
+
+    # One residency run to try to promote the refined number to a completing ceiling. `lo` is
+    # None when no rung completed, and that is exactly the case worth spending the run on.
+    if lo is None or alloc_lo > lo:
+        try:
+            f = fixture_for(cell, alloc_lo, work, depth)
+            res = _residency(worker, cell, f, work, hookdir, alloc_lo)
+            rec["legs"].append(dict(res, tier="residency", tokens=alloc_lo, phase="refine"))
+            if res["verdict"] == "PASS":
+                lo = alloc_lo
+        except Exception:
+            pass
+    return lo
 
 
 # ---------------------------------------------------------------------------------------------
@@ -961,6 +1321,52 @@ def reductions(depth, recycling, models) -> list[str]:
         out.append(f"Not driven by this gate at all: {', '.join(skipped)} (see EXEMPT for each "
                    f"reason). Reported SKIPPED, never PASS.")
     return out
+
+
+def sweep(all_cells: list, workers: list, run_one, publish, retire=None) -> list:
+    """ONE THREAD PER CARD, PULLING FROM A SHARED QUEUE. Returns the (index, cell) nobody ran.
+
+    `--workers` used to round-robin the ASSIGNMENT and then run the cell inline, so four cards
+    cost exactly what one card costs: `workers[i % len(workers)]` picked a different card each
+    iteration and the loop still waited for it. The 19.9 min sweep would have stayed 19.9 min.
+    Measured cell costs run 10 s to 175 s, so a static round-robin would also leave one card
+    holding openfold3 + protenix-v2 while another finished saprot-35m and idled; a shared queue is
+    both simpler and better balanced.
+
+    A card `retire` cannot recover retires its own thread, and the cells still queued are taken by
+    the live ones. Only what is left when every thread has gone comes back as unrun, which is the
+    honest verdict for it: nothing was measured there.
+
+    Module level with its collaborators injected, because the alternative is a closure inside
+    main() that no test can reach without four cards and half an hour.
+    """
+    cellq: queue.Queue = queue.Queue()
+    for item in enumerate(all_cells):
+        cellq.put(item)
+
+    def drain(w) -> None:
+        while True:
+            try:
+                i, cell = cellq.get_nowait()
+            except queue.Empty:
+                return
+            rec = run_one(w, cell)
+            publish(i, rec)
+            if retire is not None and retire(w, rec):
+                return
+
+    threads = [threading.Thread(target=drain, args=(w,), name=repr(w)) for w in workers]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    unrun = []
+    while True:
+        try:
+            unrun.append(cellq.get_nowait())
+        except queue.Empty:
+            return unrun
 
 
 def render(report: dict) -> str:
@@ -1007,6 +1413,10 @@ def render(report: dict) -> str:
     if n["INCONCLUSIVE"]:
         L.append("  INCONCLUSIVE is a Tier 1 result and is NOT a pass: one block per stack cannot "
                  "see the cumulative-residency class. Run without --tier screen for a verdict.")
+    if n.get("BAD_FIXTURE"):
+        L.append("  BAD_FIXTURE: the MODEL rejected the input, so nothing about the size was "
+                 "measured. Not a failed bar -- this gate's fixture is polymer-only, and a model "
+                 "needing a ligand never got a valid input at any size.")
     return "\n".join(L)
 
 
@@ -1039,7 +1449,15 @@ def main(argv=None) -> int:
                     help="write docs/capacity_gate_baseline.json, pinning the ceiling table this "
                          "run measured against. tests/test_capacity_gate.py fails until this is "
                          "re-recorded after any ceiling change.")
+    ap.add_argument("--record-from", metavar="REPORT.JSON",
+                    help="fold an ALREADY-COMPLETED run's report into the baseline and exit, "
+                         "without opening a device. A full sweep at this bar takes hours and has "
+                         "to run in stages, so without this the only way to record a finished "
+                         "stage is to run it again.")
     a = ap.parse_args(argv)
+
+    if a.record_from:
+        return _record_from(Path(a.record_from))
 
     STALL_S = a.stall_s
     if a.tokens % TOKEN_BUCKET:
@@ -1067,10 +1485,22 @@ def main(argv=None) -> int:
     hookdir = hook_dir(work)
     workers = parse_workers(a.workers) if a.workers else [Worker(local_host(), 0, True)]
 
-    if not card_healthy(workers[0]):
-        print(f"{workers[0]} cannot dispatch a trivial program. Every leg would fail or hang and "
-              f"the gate would record capacity failures nobody walked. Reset it "
-              f"(tt-smi -r {workers[0].card}) and re-run.", file=sys.stderr)
+    # EVERY card, not just the first. A gate that vets workers[0] and fans out over four would
+    # record every cell that landed on an unhealthy card 3 as a capacity failure -- the exact lie
+    # the card 0 check exists to prevent, reintroduced by the fan-out.
+    # A co-tenant is named before the probe runs. Its card cannot dispatch FOR US, but the chip is
+    # fine and the operator's next move is to wait, not to reset -- and "cannot dispatch a trivial
+    # program. Reset (tt-smi -r) and re-run" is a direct instruction to break the other job.
+    busy = [f"{w!r} is leased by {t}" for w, t in ((w, co_tenant(w)) for w in workers) if t]
+    if busy:
+        print(f"{'; '.join(busy)}. Nothing was measured. Wait for the card, or point --workers "
+              f"at a free one; do NOT reset it.", file=sys.stderr)
+        return 4
+    sick = [f"{w!r} {p.why()}" for w, p in ((w, probe_card(w)) for w in workers) if not p]
+    if sick:
+        print(f"{'; '.join(sick)}. Every leg landing there "
+              f"would fail or hang and the gate would record capacity failures nobody walked. "
+              f"Reset (tt-smi -r) and re-run.", file=sys.stderr)
         return 3
 
     report = {
@@ -1091,7 +1521,8 @@ def main(argv=None) -> int:
     # the buffer for the whole campaign and the board geometry it carries is what a reader needs
     # FIRST to know the numbers are comparable.
     print(render(dict(report, results=[], counts=dict.fromkeys(
-        ("PASS", "fail_like", "SKIPPED", "NO_WEIGHTS", "INCONCLUSIVE", "CONTENDED"), 0))),
+        ("PASS", "fail_like", "SKIPPED", "NO_WEIGHTS", "INCONCLUSIVE", "CONTENDED",
+         "BAD_FIXTURE"), 0))),
         flush=True)
 
     #: Cards this run has given up on: a wedge that a reset could not clear. Every cell still
@@ -1099,43 +1530,64 @@ def main(argv=None) -> int:
     dead: dict[str, str] = {}
     all_cells = list(cells(models, depth=a.depth, recycling=a.recycling))
 
-    for i, cell in enumerate(all_cells):
-        w = workers[i % len(workers)]
-        if repr(w) in dead:
-            r = {"model": cell.model, "verdict": "CARD_DIRTY", "worker": repr(w), "wall_s": 0.0,
-                 "reason": f"not run: {dead[repr(w)]}"}
-            report["results"].append(r)
-            print(f"  -> {r['model']:<14} {r['verdict']:<10} 0s  {r['reason'][:80]}", flush=True)
+    # ONE THREAD PER CARD, PULLING FROM A SHARED QUEUE.
+    #
+    # --workers used to round-robin the ASSIGNMENT and then run the cell inline, so four cards
+    # cost exactly what one card costs: `w = workers[i % len(workers)]` picked a different card
+    # each iteration and the loop still waited for it. The 19.9 min sweep would have stayed
+    # 19.9 min. Measured cell costs run 10 s to 175 s, so a static round-robin would also leave
+    # one card holding openfold3 + protenix-v2 while another finished saprot-35m and idled --
+    # a shared queue is both simpler and better balanced.
+    #
+    # A card that cannot be recovered RETIRES its own thread and the remaining cells are taken by
+    # the live ones. Only cells still queued when every thread has retired are CARD_DIRTY, which
+    # is the honest verdict: nothing was measured on them.
+    done: dict[int, dict] = {}
+    lock = threading.Lock()
+
+    def publish(i: int, r: dict) -> None:
+        with lock:
+            done[i] = r
+            report["results"] = [done[k] for k in sorted(done)]
             _finish(report)
             (a.report or work / "report.json").write_text(
                 json.dumps(report, indent=1, default=str))
-            continue
+            print(f"  -> {r['model']:<14} {r['verdict']:<10} {r.get('wall_s')}s "
+                  f"{r.get('mechanism') or ''} {str(r.get('reason', ''))[:80]}", flush=True)
+
+    def run_one(w: Worker, cell: Cell) -> dict:
         t0 = time.monotonic()
         try:
-            r = run_cell(w, cell, work, hookdir, depth=a.depth, bisect=not a.no_bisect) \
+            r = run_cell(w, cell, work, hookdir, depth=a.depth, bisect=not a.no_bisect,
+                         recover=None if a.no_card_reset
+                         else lambda ww: recover_card(ww, workers)) \
                 if a.tier == "both" else _screen_only(w, cell, work, hookdir, a.depth)
         except Exception as exc:
-            r = {"model": cell.model, "verdict": "ERROR",
+            r = {"model": cell.model, "verdict": "ERROR", "worker": repr(w),
                  "reason": f"{type(exc).__name__}: {exc}"}
         r.setdefault("wall_s", round(time.monotonic() - t0, 1))
-        report["results"].append(r)
-        print(f"  -> {r['model']:<14} {r['verdict']:<10} {r.get('wall_s')}s "
-              f"{r.get('mechanism') or ''} {str(r.get('reason', ''))[:80]}", flush=True)
+        return r
 
+    def retire(w: Worker, r: dict) -> bool:
         # A device-side fatal can leave the chip open-able but not dispatching, so the NEXT cell
         # would hang in tt-bio's dispatch probe and be recorded as this gate's own kind of
         # failure. Checked only after a failure, so a clean run pays nothing for it.
-        if r["verdict"] in ("FAIL", "STALL", "ERROR", "CARD_DIRTY") and not a.no_card_reset:
-            ok, how = recover_card(w, workers)
-            r["card_after"] = how
-            if not ok:
+        if r["verdict"] not in ("FAIL", "STALL", "ERROR", "CARD_DIRTY") or a.no_card_reset:
+            return False
+        ok, how = recover_card(w, workers)
+        r["card_after"] = how
+        if not ok:
+            with lock:
                 dead[repr(w)] = how
-                print(f"     {w}: {how}", flush=True)
-            elif how != "still dispatching":
-                print(f"     {w}: {how}", flush=True)
+            print(f"     {w}: {how} -- retiring this card", flush=True)
+            return True
+        if how != "still dispatching":
+            print(f"     {w}: {how}", flush=True)
+        return False
 
-        _finish(report)
-        (a.report or work / "report.json").write_text(json.dumps(report, indent=1, default=str))
+    for i, cell in sweep(all_cells, workers, run_one, publish, retire):
+        publish(i, {"model": cell.model, "verdict": "CARD_DIRTY", "wall_s": 0.0,
+                    "reason": f"not run: every card retired ({'; '.join(dead.values())})"})
 
     _finish(report)
     print(flush=True)
@@ -1145,8 +1597,15 @@ def main(argv=None) -> int:
     print(f"\nreport: {out}")
     if a.record:
         print(record_baseline(report, partial=bool(a.models)))
+    # Said after recording, because that is the moment it is actionable: whatever is still listed
+    # here has a verdict in somebody's prose and not in the committed baseline, and the run logs
+    # that would back it up live in scratch. Not part of the exit code -- the gate's rc is about
+    # capacity verdicts, and tests/test_capacity_gate.py is what fails on a gap.
+    if (gaps := baseline_gaps()):
+        print(f"\nBASELINE GAP: runnable models with no recorded cell: {gaps}"
+              f"\n  Run the gate for them and --record, or --record-from a finished report.")
     ok = (report["counts"]["fail_like"] == 0 and not report["counts"]["GATE_BUG"]
-          and not report["coverage_gaps"])
+          and not report["counts"]["BAD_FIXTURE"] and not report["coverage_gaps"])
     return 0 if ok else 1
 
 
@@ -1171,6 +1630,27 @@ def ceilings_fingerprint() -> str:
     return hashlib.sha256(json.dumps(rows, default=str).encode()).hexdigest()[:16]
 
 
+# Verdicts that mean THIS RUN DECIDED NOTHING. INCONCLUSIVE is a clean Tier 1 screen, which by
+# design is never a pass; CONTENDED and CARD_DIRTY are cells where the card was unavailable and
+# no model code ran at all. Each is a legitimate thing to report, and none of them is evidence
+# about the bar.
+UNDECIDED = frozenset(("INCONCLUSIVE", "CONTENDED", "CARD_DIRTY"))
+
+
+def _would_lose_evidence(new: dict, old: dict | None) -> bool:
+    """True when recording `new` over `old` replaces a measurement with the absence of one.
+
+    The screen is cheap and the residency run is minutes to hours, so the cheap one is the one
+    that gets re-run -- and a screen cell overwriting a Tier 2 PASS is a silent downgrade of the
+    most expensive result in the file. The campaign shell knew this and worked around it by never
+    passing --record to the warm sweep, which is a rule enforced by discipline rather than by the
+    tool: one `--tier screen --record` erases every PASS in the baseline and prints success.
+    """
+    if not old or old.get("tokens_requested") not in (None, TOKEN_BAR):
+        return False       # nothing to lose, or prior cell is another bar's and drops anyway
+    return new.get("verdict") in UNDECIDED and old.get("verdict") not in UNDECIDED
+
+
 def record_baseline(report: dict, *, partial: bool) -> str:
     """Merge this run's cells into docs/capacity_gate_baseline.json.
 
@@ -1190,11 +1670,26 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     # Pair tensors scale roughly quadratically, so a 1504 result is not a 1536 result.
     cells = {m: c for m, c in cells.items()
              if (c or {}).get("tokens_requested") in (None, TOKEN_BAR)}
+    # A full-roster record replaces the file, so the prior cells have to be read from `prior`
+    # rather than from `cells`, which is empty in that case. A screen sweep over the whole roster
+    # is exactly the run that would wipe every PASS.
+    before = (prior.get("cells") or {})
+    kept = []
     for r in report["results"]:
+        if _would_lose_evidence(r, before.get(r["model"])):
+            kept.append(f"{r['model']} ({before[r['model']]['verdict']} kept over "
+                        f"{r['verdict']})")
+            cells[r["model"]] = before[r["model"]]
+            continue
         cells[r["model"]] = {k: r.get(k) for k in
                              ("verdict", "tokens_requested", "tokens_padded", "residues",
                               "msa_rows_effective", "dram_peak_bytes", "dram_total_bytes",
-                              "wall_s", "mechanism", "decided_by", "ceiling_tokens", "reason")}
+                              "wall_s", "mechanism", "decided_by", "ceiling_tokens",
+                              # Both ceiling numbers, because for a model that never completes a
+                              # residency run at any rung, ceiling_tokens is None and the
+                              # alloc ceiling is the ONLY number the bisect produced. Persisting
+                              # just the first silently discards the bisect's whole result.
+                              "alloc_ceiling_tokens", "alloc_ceiling_note", "reason")}
     BASELINE.write_text(json.dumps({
         "bar_tokens": report["bar_tokens"],
         "recorded": report["started"],
@@ -1206,7 +1701,45 @@ def record_baseline(report: dict, *, partial: bool) -> str:
         "cells": cells,
         "note": "CAPACITY ONLY: allocates and completes. Not a correctness record.",
     }, indent=1, default=str) + "\n")
-    return f"recorded {BASELINE} ({len(cells)} cells, ceilings {ceilings_fingerprint()})"
+    msg = f"recorded {BASELINE} ({len(cells)} cells, ceilings {ceilings_fingerprint()})"
+    # Said out loud. A cell that silently did not update is indistinguishable from one that did,
+    # and the whole point of keeping it is that the stronger result cost card time.
+    if kept:
+        msg += ("\n  this run decided nothing for these, so the recorded result stands: "
+                + "; ".join(kept))
+    return msg
+
+
+def _record_from(path: Path) -> int:
+    """Fold a completed run's report into the baseline without opening a device.
+
+    A full sweep at this bar is hours and a bisect alone can be hours, so the campaign runs in
+    stages; re-running a stage just to reach `--record` would double the card time it cost.
+
+    The bar guard is the point. `record_baseline` stamps the file with the report's OWN
+    `bar_tokens` while keeping prior cells measured at `TOKEN_BAR`, so folding in a 1408 report
+    would restamp a baseline full of 1536 cells as 1408 -- p1's defect 9 exactly, arriving
+    through a new door. A bisect report is the likely input here and every rung below the bar is
+    a different bar, so this is the one place that mistake is easy to make.
+    """
+    try:
+        report = json.loads(path.read_text())
+    except (OSError, ValueError) as e:
+        print(f"--record-from {path}: cannot read a report out of it ({e})", file=sys.stderr)
+        return 2
+    if report.get("bar_tokens") != TOKEN_BAR:
+        print(f"--record-from {path}: measured at bar {report.get('bar_tokens')}, and this tree's "
+              f"bar is {TOKEN_BAR}. Recording it would stamp a baseline of {TOKEN_BAR} cells with "
+              f"another bar's number. Re-run at {TOKEN_BAR} instead.", file=sys.stderr)
+        return 2
+    if not report.get("results"):
+        print(f"--record-from {path}: no results in it, nothing to record.", file=sys.stderr)
+        return 2
+    measured = {r["model"] for r in report["results"]}
+    # Partial unless this run actually covered the whole derived roster: a partial record leaves
+    # the other cells standing, a full one replaces them.
+    print(record_baseline(report, partial=measured != set(roster())))
+    return 0
 
 
 def _screen_only(worker, cell, work, hookdir, depth) -> dict:
@@ -1230,6 +1763,13 @@ def _screen_only(worker, cell, work, hookdir, depth) -> dict:
     # nonzero, so guarding this on "not already a FAIL" would skip every case it is for.
     if scr["verdict"] in ("FAIL", "HOST_OOM") and _no_weights(scr["tail"]):
         rec["verdict"] = "NO_WEIGHTS"
+    elif screen_reduction_is_unsafe(scr):
+        # --tier screen has no un-truncated leg to fall through to, so it must not report the
+        # FAIL. Say which tier can decide it instead of scoring a bar nobody walked.
+        rec.update(verdict="INCONCLUSIVE", screen_unsafe=True,
+                   note="the screen's own depth cut is a candidate cause of this FAIL and there "
+                        "is no capacity mechanism in the error, so Tier 1 cannot decide this "
+                        "model. Run it with --tier both.")
     return rec
 
 
@@ -1243,6 +1783,7 @@ def _finish(report: dict) -> None:
         "NO_WEIGHTS": v.count("NO_WEIGHTS"),
         "INCONCLUSIVE": v.count("INCONCLUSIVE"),
         "GATE_BUG": v.count("GATE_BUG"),
+        "BAD_FIXTURE": v.count("BAD_FIXTURE"),
     }
 
 

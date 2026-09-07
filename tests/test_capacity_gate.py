@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -276,6 +277,179 @@ def test_the_residency_hook_leaves_the_depth_alone(tmp_path, monkeypatch):
     assert not h._state["truncated"]
 
 
+def _filtering_loader_module(h, name="tt_bio._captest_sig"):
+    """A module shaped like the real loaders: a class whose classmethod constructor reads its own
+    `__init__` signature to decide which checkpoint hyperparameters to pass on. This is boltz2's
+    and boltzgen's actual contract, reproduced in miniature."""
+    import types
+    mod = types.ModuleType(name)
+
+    class Model:
+        def __init__(self, atom_s, atom_z, token_s, token_z, num_bins, extra=1):
+            self.hp = (atom_s, atom_z, token_s, token_z, num_bins, extra)
+            self.blocks = [object() for _ in range(48)]
+
+        @classmethod
+        def from_pretrained(cls, hparams):
+            import inspect
+            valid = set(inspect.signature(cls.__init__).parameters) - {"self"}
+            return cls(**{k: v for k, v in hparams.items() if k in valid})
+
+    Model.__module__ = name
+    mod.Model = Model
+    h._patch_module(mod)
+    return mod
+
+
+CKPT_HPARAMS = {"atom_s": 1, "atom_z": 2, "token_s": 3, "token_z": 4, "num_bins": 5,
+                "not_a_parameter": 9}
+
+
+def test_the_hook_does_not_change_what_a_class_looks_like(tmp_path, monkeypatch):
+    """Defect 12: the instrument was not signature-transparent, and it broke the model it measured.
+
+    A bare `(self, *a, **kw)` wrapper over `__init__` makes `inspect.signature(cls.__init__)`
+    report the WRAPPER's parameters. A loader that filters checkpoint hyperparameters against that
+    set therefore drops all of them and constructs the class with nothing. That is what killed
+    boltz2 8 s into Tier 1 -- `Boltz2.__init__() missing 5 required positional arguments` --
+    against 172 s of healthy unhooked construction, and the gate recorded the invented failure as
+    a capacity FAIL at 1536.
+
+    Negative control: drop the `functools.wraps` in `_wrap_init` and this fails with that exact
+    TypeError, which is the whole point of the test existing.
+    """
+    h = _fresh_hook("screen", tmp_path, monkeypatch)
+    mod = _filtering_loader_module(h)
+    import inspect
+    params = list(inspect.signature(mod.Model.__init__).parameters)
+    assert params == ["self", "atom_s", "atom_z", "token_s", "token_z", "num_bins", "extra"], (
+        f"the hook changed the class's signature to {params}; a loader that filters on it will "
+        f"pass nothing")
+    m = mod.Model.from_pretrained(CKPT_HPARAMS)
+    assert m.hp == (1, 2, 3, 4, 5, 1), "the hyperparameters did not survive the wrapper"
+    assert len(m.blocks) == 1, "signature transparency must not cost the truncation"
+    assert h._state["truncated"], "the screen silently stopped applying"
+
+
+def test_the_hook_reaches_the_same_construction_hooked_and_unhooked(tmp_path, monkeypatch):
+    """The shape of the check the brief asks for: construct through the loader with the hook armed
+    and with it disarmed, and require the same model out. A verdict is only about the model if the
+    instrument is a no-op on everything except depth."""
+    off = _fresh_hook("", tmp_path, monkeypatch)
+    plain = _filtering_loader_module(off, "tt_bio._captest_sig_off").Model.from_pretrained(
+        CKPT_HPARAMS)
+    on = _fresh_hook("screen", tmp_path, monkeypatch)
+    hooked = _filtering_loader_module(on, "tt_bio._captest_sig_on").Model.from_pretrained(
+        CKPT_HPARAMS)
+    assert hooked.hp == plain.hp, (
+        f"hooked construction produced {hooked.hp}, unhooked {plain.hp}; the instrument is "
+        f"altering construction semantics, not observing them")
+    assert len(plain.blocks) == 48 and len(hooked.blocks) == 1, "depth is the only allowed change"
+
+
+def test_a_strict_state_dict_load_survives_the_screens_depth_cut(tmp_path, monkeypatch):
+    """Defect 13. Cutting `layers` to one element leaves the checkpoint's `layers.1.*` with
+    nowhere to go, and `load_state_dict(strict=True)` raises "Unexpected key(s) in state_dict".
+    Measured on boltz2, whose atom-encoder DiffusionTransformer holds 3 layers.
+
+    The block that still runs must keep its REAL weights: a screen against re-initialised weights
+    would allocate the right shapes for the wrong reasons and could not be trusted about anything
+    else either.
+    """
+    torch = pytest.importorskip("torch")
+    import types
+    nn = torch.nn
+    h = _fresh_hook("screen", tmp_path, monkeypatch)
+
+    class Inner(nn.Module):
+        def __init__(self, n):
+            super().__init__()
+            self.layers = nn.ModuleList([nn.Linear(4, 4) for _ in range(n)])
+
+    class Top(nn.Module):
+        def __init__(self, n):
+            super().__init__()
+            self.enc = Inner(n)
+
+    unhooked = Top(3)                     # built before the hook sees the module: the checkpoint
+    ckpt = unhooked.state_dict()
+    Inner.__module__ = Top.__module__ = "tt_bio._captest_sd"
+    mod = types.ModuleType("tt_bio._captest_sd")
+    mod.Inner, mod.Top = Inner, Top
+    h._patch_module(mod)
+
+    hooked = mod.Top(3)
+    assert len(hooked.enc.layers) == 1, "the cut did not apply, so this proves nothing"
+    hooked.load_state_dict(ckpt, strict=True)          # the whole test
+    assert torch.equal(hooked.enc.layers[0].weight, unhooked.enc.layers[0].weight), (
+        "the block that runs did not get the checkpoint's weights")
+
+
+def test_the_gate_does_not_read_its_own_depth_cut_as_a_bad_checkpoint():
+    """The misattribution defect 13 caused: the no-weights classifier matches "Unexpected key(s)
+    in state_dict", so a cut the GATE made came back as a fact about the ARTIFACT -- boltz2 scored
+    NO_WEIGHTS, which reads as "not our problem". A genuinely wrong checkpoint must still read
+    NO_WEIGHTS, so the discriminator is the recorded cut, not the message."""
+    cut = [["tt_bio.boltz2.DiffusionTransformer", "layers", 3]]
+    ours = ('Unexpected key(s) in state_dict: '
+            '"input_embedder.atom_attention_encoder.atom_encoder.diffusion_transformer.layers.1'
+            '.adaln.s_norm.weight"')
+    assert cg._hook_cut_these_weights(ours, cut), "the gate still blames the checkpoint"
+    assert cg._no_weights(ours), "and the classifier it has to win against still matches"
+
+    theirs = 'Unexpected key(s) in state_dict: "atom_encoder.extra_head.weight"'
+    assert not cg._hook_cut_these_weights(theirs, cut), (
+        "a checkpoint that is genuinely wrong for the module must still report NO_WEIGHTS")
+    assert not cg._hook_cut_these_weights(ours, []), "with no cut recorded there is nothing to own"
+
+
+def test_a_mechanismless_screen_fail_under_truncation_is_not_scored():
+    """Defect 14, and the one that breaks Tier 1's founding claim. `Module.__call__` in
+    tt_bio/tenstorrent.py slices a per-layer bias tensor as `z.shape[1] // len(self.layers)`, so
+    the cut from 3 layers to 1 turned a 4-head slice into a 12-head one. A block stack's LENGTH is
+    load-bearing for tensors outside the stack, so truncation CAN invent a failure.
+
+    A real capacity failure names a mechanism -- rf3's is an allocator refusal for a single
+    18530435072 B DRAM buffer. A shape mismatch names none, so it is not scored."""
+    invented = {"verdict": "FAIL", "mechanism": None, "stacks_truncated": 8,
+                "tail": "The size of tensor a (4) must match the size of tensor b (12)"}
+    assert cg.screen_reduction_is_unsafe(invented), (
+        "a shape mismatch under the gate's own depth cut would be published as a 1536 ceiling")
+
+    real = {"verdict": "FAIL", "mechanism": "dram", "stacks_truncated": 8,
+            "tail": "Out of Memory: Not enough space to allocate 18530435072 B DRAM buffer"}
+    assert not cg.screen_reduction_is_unsafe(real), (
+        "rf3's measured FAIL must stay definitive; re-running it full-depth costs 20 min and "
+        "cannot change a shape verdict")
+
+    untruncated = dict(invented, stacks_truncated=0)
+    assert not cg.screen_reduction_is_unsafe(untruncated), (
+        "with no cut applied the screen cannot be the cause, so the leg is the model's own")
+    assert not cg.screen_reduction_is_unsafe(dict(invented, verdict="INCONCLUSIVE"))
+
+
+def test_no_loader_introspects_in_a_way_the_hook_cannot_survive():
+    """Keeps the test above honest against the real tree. `functools.wraps` sets `__wrapped__`,
+    which `inspect.signature` follows and `inspect.getfullargspec` does NOT. So the transparency
+    holds for every loader that uses `signature`, and would silently break for one that reached
+    for `getfullargspec` instead. That is a claim about tt_bio's source, so it is checked there
+    rather than asserted in a docstring."""
+    import subprocess
+    hits = subprocess.run(
+        ["grep", "-rn", "-e", "getfullargspec", "-e", "getargspec", "--include=*.py", "tt_bio"],
+        cwd=ROOT, capture_output=True, text=True).stdout.splitlines()
+    live = [h for h in hits if "/_vendor/" not in h and "/reference" not in h]
+    assert not live, (
+        f"these read a signature in a form functools.wraps does not make transparent, so the "
+        f"capacity hook can break them the way it broke boltz2: {live}")
+    sigs = subprocess.run(
+        ["grep", "-rn", "inspect.signature", "--include=*.py", "tt_bio"],
+        cwd=ROOT, capture_output=True, text=True).stdout.splitlines()
+    assert [s for s in sigs if "__init__" in s], (
+        "no loader filters on an __init__ signature any more; if that is real, the guards above "
+        "are modelling a contract the tree no longer has and should be re-grounded")
+
+
 def test_the_hook_is_inert_without_its_env_var(tmp_path, monkeypatch):
     """The generated sitecustomize can outlive a run on a stale PYTHONPATH; it must do nothing."""
     import importlib
@@ -332,6 +506,127 @@ def test_the_hook_reaches_a_spawned_child(tmp_path):
         f"the hook did not arm in the spawned child: {r.stdout!r} {r.stderr[-400:]!r}")
 
 
+# ---------------------------------------------------------------------------------------------
+# The --workers fan-out. p1 wired it and never validated it, because qb1 and qb2 were unpowered.
+# Validating it is what showed it did not fan out at all: the loop round-robined the ASSIGNMENT
+# and then ran the cell inline, so four cards cost exactly what one card cost. These run on one
+# host with no device, which is the only way the claim gets checked while the other boxes are down.
+# ---------------------------------------------------------------------------------------------
+
+
+def _sweep_probe(n_workers, n_cells, hold=0.15, retire=None):
+    """Run cg.sweep with fake workers and a cell that just sleeps, and record who ran what when."""
+    import threading
+    import time as _t
+    seen, lock = [], threading.Lock()
+    workers = [f"w{k}" for k in range(n_workers)]
+
+    def run_one(w, cell):
+        t0 = _t.monotonic()
+        _t.sleep(hold)
+        return {"model": cell, "verdict": "PASS", "worker": w, "t0": t0,
+                "t1": _t.monotonic()}
+
+    published = {}
+
+    def publish(i, rec):
+        with lock:
+            published[i] = rec
+            seen.append((rec["worker"], rec["model"]))
+
+    t0 = _t.monotonic()
+    unrun = cg.sweep(list(range(n_cells)), workers, run_one, publish, retire)
+    return published, unrun, _t.monotonic() - t0, seen
+
+
+def test_the_worker_fanout_actually_runs_cells_concurrently():
+    """The defect: `workers[i % len(workers)]` chose a different card per iteration and the loop
+    still waited for it, so --workers changed WHICH card ran a cell and never how many ran at
+    once. Four cards would have left the 19.9 min sweep at 19.9 min.
+
+    Wall-clock is the only honest check here, so it is the one used: 8 cells holding 0.15 s each
+    is 1.2 s serial and ~0.3 s on four cards. The bound is deliberately loose (0.75 s) so a busy
+    host does not fail it, and it is still far below serial.
+    """
+    published, unrun, wall, _seen = _sweep_probe(4, 8)
+    assert not unrun and len(published) == 8, "cells were lost"
+    assert wall < 0.75, (
+        f"8 cells x 0.15 s took {wall:.2f}s on 4 workers; serial is 1.2s, so the fan-out is "
+        f"still running one cell at a time")
+    overlap = max(sum(1 for o in published.values() if o["t0"] <= r["t0"] < o["t1"])
+                  for r in published.values())
+    assert overlap > 1, "no two cells were ever in flight together"
+    assert len({r["worker"] for r in published.values()}) == 4, "not every card was used"
+
+
+def test_the_fanout_balances_by_pulling_rather_than_by_index():
+    """Cell cost spans 10 s to 175 s here, so a static round-robin hands one card openfold3 and
+    protenix-v2 while another finishes saprot-35m and idles. A shared queue lets the card that is
+    free take the next cell, which is why more cells than cards is not a problem."""
+    published, unrun, _wall, _seen = _sweep_probe(2, 7, hold=0.05)
+    assert not unrun and len(published) == 7
+    per = {}
+    for r in published.values():
+        per[r["worker"]] = per.get(r["worker"], 0) + 1
+    assert sum(per.values()) == 7 and len(per) == 2
+    assert all(v >= 1 for v in per.values()), f"a card sat idle through the whole sweep: {per}"
+
+
+def test_a_retired_card_hands_its_remaining_cells_to_a_live_one():
+    """A wedge a reset cannot clear must cost that card, not the run. p1's recovery already does
+    this serially; under the fan-out the retiring thread has to leave the queue for the others."""
+    def retire(w, rec):
+        return w == "w0"                       # w0 dies on its very first cell
+    published, unrun, _wall, _seen = _sweep_probe(2, 6, hold=0.02, retire=retire)
+    assert not unrun, f"cells were dropped when a card retired: {unrun}"
+    assert len(published) == 6
+    by = {}
+    for r in published.values():
+        by[r["worker"]] = by.get(r["worker"], 0) + 1
+    assert by.get("w0", 0) == 1, f"w0 kept taking work after retiring: {by}"
+    assert by.get("w1", 0) == 5, f"w1 did not pick up the rest: {by}"
+
+
+def test_every_cell_is_reported_when_all_cards_retire():
+    """With no card left, the cells still queued were never measured. They come back as unrun so
+    main() can record CARD_DIRTY, rather than vanishing from the report."""
+    published, unrun, _wall, _seen = _sweep_probe(2, 6, hold=0.02, retire=lambda w, r: True)
+    assert len(published) == 2, "each card should have managed exactly one cell"
+    assert len(unrun) == 4, f"4 cells were owed and {len(unrun)} came back"
+    assert sorted([i for i, _c in unrun] + list(published)) == list(range(6)), (
+        "the reported and unrun cells do not add up to the sweep")
+
+
+def test_the_fanout_vets_every_card_not_just_the_first():
+    """A gate that probes workers[0] and fans out over four records every cell that landed on an
+    unhealthy card 3 as a capacity failure. That is the exact lie the card-0 probe exists to stop,
+    so the check has to iterate."""
+    import inspect
+    # Code only: the comment above the check names the workers[0] bug it replaced. And scoped to
+    # the health check -- `geometry(workers[0])` is a different, correct use of the first card.
+    src = "\n".join(l for l in inspect.getsource(cg.main).splitlines()
+                    if not l.strip().startswith("#"))
+    probes = [l for l in src.splitlines() if "probe_card" in l or "card_healthy" in l]
+    assert probes, "main no longer vets the cards at all"
+    for line in probes:
+        assert "workers[0]" not in line, (
+            f"only the first card is vetted ({line.strip()}); cells landing on an unhealthy "
+            f"sibling would be scored as failed bars")
+    sick = next(l for l in src.splitlines() if l.strip().startswith("sick ="))
+    assert "for w in workers" in sick and "probe_card(w)" in sick, (
+        f"the pre-flight card check does not probe every worker: {sick.strip()}")
+
+
+def test_concurrent_cells_do_not_race_on_the_shared_fixture():
+    """Models sharing a residue count share the fixture path, and the MSA target is keyed by
+    sequence hash, so two threads write one file while a third reads it. Serialised in
+    fixture_for, which is seconds against runs of minutes."""
+    import inspect
+    src = inspect.getsource(cg.fixture_for)
+    assert "_FIXTURE_LOCK" in src, "fixture construction is not serialised under the fan-out"
+    assert "capacity_fixture.build" in src.split("_FIXTURE_LOCK")[1]
+
+
 def test_a_failing_model_does_not_wedge_the_rest_of_the_run():
     """Measured: rf3's 1504-token OOM (a TT_FATAL from the allocator) left card 0 accepting an
     open and then never dispatching, and the next cell sat 10 minutes at 100% CPU inside
@@ -340,8 +635,10 @@ def test_a_failing_model_does_not_wedge_the_rest_of_the_run():
     Provoking that refusal is THE JOB of this gate, so recovery is part of the gate. Without it
     the first model that legitimately fails the bar turns every model after it into an invented
     failure -- a real one-line result wrapped in a cascade of noise."""
-    src = (ROOT / "scripts" / "capacity_gate.py").read_text()
-    loop = src[src.index("    for i, cell in enumerate(all_cells):"):src.index("    _finish(report)\n    print(flush=True)")]
+    import inspect
+    # The recovery moved into main()'s `retire` collaborator when the fan-out was made real; the
+    # policy it encodes is unchanged, so this reads where it lives now rather than being deleted.
+    loop = inspect.getsource(cg.main)
     assert "recover_card(w, workers)" in loop, (
         "the loop must re-check the card after a fail-like verdict; polling a wedged chip cannot "
         "fix it, only a reset can")
@@ -350,6 +647,38 @@ def test_a_failing_model_does_not_wedge_the_rest_of_the_run():
     assert 'dead[repr(w)]' in loop and '"CARD_DIRTY"' in loop, (
         "a card the gate gave up on must report its owed cells CARD_DIRTY -- nothing was "
         "measured on them, so recording FAIL would publish a ceiling nobody walked")
+    assert "retire" in inspect.signature(cg.sweep).parameters, (
+        "the scheduler must be able to retire a card, or one wedge poisons every cell after it")
+
+
+def test_every_bisect_rung_keeps_its_own_evidence():
+    """A bisect screens up to seven rungs and the ceiling it reports rests on which rung refused.
+    All of them wrote `screen_<model>.log`, so each rung overwrote the last and the only surviving
+    proof was the final one. A ceiling nobody can re-read is a ceiling nobody can check."""
+    import inspect
+    src = inspect.getsource(cg._screen)
+    assert 'f"screen_{cell.model}.log"' not in src, "every rung still writes one shared log"
+    assert 'tokens_requested' in src and '{tok}.log' in src, (
+        "the screen log must be keyed by size, the way the residency log already is")
+
+
+def test_the_bisect_re_probes_the_card_between_rungs():
+    """Defect 15. p1's recovery runs after each CELL, but a bisect provokes rf3's TT_FATAL
+    allocator refusal once per RUNG inside one cell -- the densest run of refusals this gate ever
+    produces, and it had no recovery in it. Every rung below the first failing one was running on
+    a card the rung above may have left accepting an open and never dispatching, so the ceiling
+    those rungs report is exactly the kind of number that gets published without being walked."""
+    import inspect
+    src = inspect.getsource(cg._bisect)
+    assert "recover" in inspect.signature(cg._bisect).parameters
+    assert src.count("settle(") >= 3, (
+        "the coarse walk, its residency leg and the refinement must each re-probe the card")
+    for v in ('"FAIL"', '"HOST_OOM"', '"STALL"'):
+        assert v in src, f"recovery must trigger on {v} between rungs"
+    # and main() must actually supply it, or the parameter is decoration
+    m = inspect.getsource(cg.main)
+    assert "recover_card(ww, workers)" in m and "no_card_reset" in m, (
+        "run_cell is called without a recovery, so the bisect still runs on a card nobody checked")
 
 
 def test_a_reset_is_refused_when_the_run_does_not_own_the_host():
@@ -422,3 +751,460 @@ def test_the_host_oom_corroboration_can_actually_read_the_kernel_log():
     body = src[src.index("def _oom_killer_fired("):src.index("def _bisect(")]
     assert '["sudo", "-n", "dmesg"]' in body
     assert "returncode == 0" in body, "a failed dmesg must not read as 'no kill found'"
+
+
+# ---------------------------------------------------------------------------------------------
+# Recording. A sweep at this bar is hours and a bisect alone can be hours, so it runs in stages,
+# and the two defects below both lose a measurement that cost card time to get.
+# ---------------------------------------------------------------------------------------------
+
+
+def _bisect_report(bar=None, model="rf3"):
+    """A report shaped like the one a bisect writes: no completing ceiling at any rung, so the
+    alloc ceiling is the only number it produced."""
+    return {
+        "bar_tokens": cg.TOKEN_BAR if bar is None else bar,
+        "started": "2026-09-07T00:00:00Z", "tree": "deadbeef", "dirty": False,
+        "geometry": {"dram_banks": 8}, "reductions": {},
+        "results": [{"model": model, "verdict": "FAIL", "tokens_requested": cg.TOKEN_BAR,
+                     "ceiling_tokens": None, "alloc_ceiling_tokens": 1344,
+                     "alloc_ceiling_note": "1344 allocates, 1376 does not",
+                     "mechanism": "TT_FATAL bank_manager.cpp:439", "wall_s": 64.7}],
+    }
+
+
+def test_the_baseline_keeps_the_only_ceiling_number_a_bisect_produced(tmp_path, monkeypatch):
+    """`ceiling_tokens` is None for a model that never completes a residency run at any rung, and
+    rf3 is exactly that model. Recording only the completing ceiling threw away the entire result
+    of a multi-hour bisect and left the cell reading as if nothing had been measured."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_bisect_report(), partial=True)
+    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]
+    assert cell["alloc_ceiling_tokens"] == 1344, (
+        "the baseline dropped alloc_ceiling_tokens, which for a model with no completing rung is "
+        "the only ceiling the bisect measured")
+    assert cell["alloc_ceiling_note"], "the number is recorded without what it means"
+
+
+def test_a_finished_run_can_be_recorded_without_rerunning_it(tmp_path, monkeypatch):
+    """The stages of one campaign are separate processes, so a stage that finished before anyone
+    thought about `--record` could otherwise only be recorded by spending its card time twice."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    p = tmp_path / "report.json"
+    p.write_text(json.dumps(_bisect_report()))
+    assert cg._record_from(p) == 0
+    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]["verdict"] == "FAIL"
+
+
+def test_recording_another_bars_report_is_refused(tmp_path, monkeypatch):
+    """p1's defect 9 through a new door, and the easiest mistake to make here: a bisect's rungs
+    are all BELOW the bar, so its per-rung reports are other-bar reports. Folding one in keeps the
+    1536 cells (they match TOKEN_BAR) and restamps the file with the rung's number, which is a
+    baseline that reads as current evidence for a bar nothing in it was measured at."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    p = tmp_path / "rung.json"
+    p.write_text(json.dumps(_bisect_report(bar=1408)))
+    assert cg._record_from(p) == 2, "a report from another bar was folded into this bar's baseline"
+    assert not (tmp_path / "baseline.json").exists(), "it wrote a baseline anyway"
+
+
+def test_recording_an_unreadable_or_empty_report_is_refused(tmp_path, monkeypatch):
+    """Truncated report = the run was killed. Recording it would publish a partial sweep as one."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    bad = tmp_path / "half.json"
+    bad.write_text('{"bar_tokens": 1536, "results": [{"model": "rf3"')      # killed mid-write
+    assert cg._record_from(bad) == 2
+    empty = tmp_path / "empty.json"
+    empty.write_text(json.dumps(dict(_bisect_report(), results=[])))
+    assert cg._record_from(empty) == 2
+    assert not (tmp_path / "baseline.json").exists()
+
+
+@pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
+def test_every_runnable_model_has_a_recorded_cell():
+    """Coverage that leaves no record behind is not coverage.
+
+    The roster guard asks whether a shipped model is covered by the gate. Nothing asked whether
+    the covered model actually has a measured cell, so the baseline sat at 8 of 16 through two
+    passes with every test green: boltz2's PASS at 1536 was measured, written up in prose and
+    never recorded, and its report lived in gitignored scratch inside a worktree that was later
+    torn down. The claim outlived the evidence, which is the one failure a capacity baseline
+    exists to prevent.
+    """
+    missing = cg.baseline_gaps()
+    assert not missing, (
+        f"these models are runnable by the gate but have no cell in "
+        f"docs/capacity_gate_baseline.json, so their verdict is prose and not evidence: "
+        f"{missing}. Run the gate for them and --record (or --record-from a finished report). "
+        f"A model that genuinely cannot be measured anywhere needs a written EXEMPT reason "
+        f"instead, the way saprot-1.3b has one.")
+
+
+def test_a_legs_wall_is_not_rounded_up_to_the_poll_interval(tmp_path):
+    """The gate's ~60 s/model budget verdict is decided on `wall_s`.
+
+    The watch loop slept 5 s and then asked whether the process had exited, while `wall` was taken
+    after the loop, so a leg was over-reported by 0-5 s -- which is why every recorded Tier 1 wall
+    was a multiple of 5. A leg that takes a fifth of a second must not read as five seconds.
+    """
+    w = cg.Worker("local", 0, True)
+    r = cg.execute(w, [sys.executable, "-c", "import time; time.sleep(0.2)"],
+                   tmp_path / "leg.log", mode="", hook_out=tmp_path / "o",
+                   hookdir=tmp_path / "hd", timeout=60, stall_s=60)
+    assert r["rc"] == 0, r
+    assert r["wall_s"] < 3.0, (
+        f"a 0.2 s leg reported {r['wall_s']} s: the wall is being rounded up to the poll "
+        f"interval, which inflates every per-model Tier 1 number the budget is judged on")
+
+
+def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None):
+    """Drive _bisect with canned leg outcomes, so the rung bookkeeping is testable without
+    spending a rung of real card time on it (a real rung is minutes to tens of minutes)."""
+    screen_verdicts = screen_verdicts or {}
+    residency_verdicts = residency_verdicts or {}
+    rec = {"legs": []}
+    calls = []
+
+    def screen(worker, cell, f, work, hookdir):
+        calls.append(("screen", f))
+        v = screen_verdicts.get(f)
+        if v is None:
+            v = "FAIL" if (screen_fail_above is not None and f > screen_fail_above) else "PASS"
+        return {"verdict": v, "mechanism": "alloc" if v == "FAIL" else None, "wall_s": 1.0}
+
+    def residency(worker, cell, f, work, hookdir, tokens):
+        calls.append(("residency", tokens))
+        return {"verdict": residency_verdicts.get(tokens, "FAIL"), "wall_s": 1.0,
+                "dram_peak_bytes": 1}
+
+    import unittest.mock as m
+    with m.patch.object(cg, "_screen", screen), m.patch.object(cg, "_residency", residency), \
+         m.patch.object(cg, "fixture_for", lambda cell, t, work, depth: t):
+        ceiling = cg._bisect(None, None, None, None, None, rec)
+    return ceiling, rec, calls
+
+
+def test_a_bisect_that_completes_no_rung_still_reports_what_it_walked():
+    """rf3 is this case. Every rung's shapes were refused, `lo` stayed None, and the function
+    returned before recording anything -- so seven rungs of card time came back as an empty cell
+    that reads as if the bisect had never run. The walk found something and has to say so."""
+    ceiling, rec, _ = _bisect_probe(screen_verdicts={t: "FAIL" for t in cg.BISECT_RUNGS})
+    assert ceiling is None, "nothing completed, so there is no completing ceiling"
+    assert "alloc_ceiling_note" in rec, "the walk recorded nothing at all"
+    assert str(min(cg.BISECT_RUNGS)) in rec["alloc_ceiling_note"], (
+        f"the note does not say how low the walk actually went: {rec['alloc_ceiling_note']}")
+
+
+def test_a_residency_failure_does_not_lower_the_allocation_ceiling():
+    """The two ceilings are different questions and were sharing one bound. If the screen at a
+    size is clean, the shapes allocate at that size -- whatever the residency run then does. Using
+    the residency failure to lower the allocation bound throws away a measured screen result."""
+    # Shapes allocate at 1408 and below, nothing completes. 1408 is the allocation ceiling and
+    # the completing ceiling does not exist -- two different answers from one walk.
+    top = max(cg.BISECT_RUNGS)
+    ceiling, rec, _ = _bisect_probe(screen_fail_above=top, residency_verdicts={})
+    assert ceiling is None, "no residency passed, so there is no completing ceiling"
+    assert rec["alloc_ceiling_tokens"] == top, (
+        f"the allocation ceiling came back {rec.get('alloc_ceiling_tokens')} even though the "
+        f"screen at {top} allocated cleanly and only the residency failed")
+
+
+#: Quoted verbatim from a real nesso1 residency leg on pc's p150a, 2026-09-07.
+_NESSO1_CB_OVERFLOW = (
+    "TT_THROW: Statically allocated circular buffers on core range "
+    "[(x=0,y=0) - (x=12,y=9)] grow to 3424768 B which is beyond max L1 size of 1572864 B")
+_NESSO1_INPUT_REFUSED = "Error: No protein or ligand tokens found in the batch"
+
+
+def test_a_circular_buffer_overflow_is_recognised_and_named_l1():
+    """The pattern for this was written as ".*exceed" and labelled "dram". tt-metal says "grow to
+    N B which is BEYOND max L1 size", so it could never fire for the message it existed for, and
+    a statically allocated circular buffer lives in L1 rather than DRAM anyway -- so it would have
+    named the wrong memory if it had."""
+    assert cg.classify(_NESSO1_CB_OVERFLOW) == "l1", (
+        f"the L1 circular-buffer wall classified as {cg.classify(_NESSO1_CB_OVERFLOW)!r}")
+
+
+def test_a_model_rejecting_its_input_is_not_a_failed_bar():
+    """The MODEL refusing the input is not the card refusing the size, and scoring the first as
+    the second publishes a ceiling nobody walked -- p1's defects 7 and 8 in a third guise. nesso1
+    is an affinity model and this gate's fixture is polymer-only, so it never got a valid input at
+    any size."""
+    assert cg._input_rejected(_NESSO1_INPUT_REFUSED)
+    # And it must not swallow a real capacity failure: rf3's refusal stays a refusal.
+    assert not cg._input_rejected(
+        "Out of Memory: Not enough space to allocate 19327352832 B DRAM buffer across 8 banks")
+
+
+def test_a_bad_fixture_is_neither_a_pass_nor_silently_ignored():
+    """It has to fail the run the way GATE_BUG does. A non-result that exits zero is a non-result
+    nobody looks at, and this one means the gate needs a new fixture."""
+    report = {"results": [{"verdict": "BAD_FIXTURE"}], "coverage_gaps": []}
+    cg._finish(report)
+    n = report["counts"]
+    assert n["PASS"] == 0, "a rejected input counted as a pass"
+    assert n["fail_like"] == 0, "a rejected input counted as a failed bar"
+    assert n["BAD_FIXTURE"] == 1
+    ok = (n["fail_like"] == 0 and not n["GATE_BUG"] and not n["BAD_FIXTURE"]
+          and not report["coverage_gaps"])
+    assert not ok, "the run would have exited 0 with a model whose input was never valid"
+
+
+def test_nesso1_is_exempt_for_a_reason_that_names_the_ligand():
+    """It is the roster's only affinity model and the fixture is polymer-only, so it is a
+    structural gap like the design models and not a capacity result."""
+    assert "nesso1" in cg.EXEMPT
+    assert "ligand" in cg.EXEMPT["nesso1"].lower()
+    assert "nesso1" not in cg.runnable()
+    assert "nesso1" not in cg.coverage_gaps(), "exempt in writing, so not a coverage gap"
+
+
+# --- the card probe's two phases ---------------------------------------------------------------
+#
+# Detecting a wedged chip used to cost up to 600 s, because one timeout covered python starting,
+# torch and ttnn importing, the device opening AND the dispatch. A bisect provokes an allocator
+# refusal on every rung and the gate re-probes after each one, so that timeout was paid over and
+# over. These pin the split: the child says CARD_OPEN when the host-side half is done, and only the
+# dispatch is held to the short budget.
+#
+# Every one of these runs a real child process through the real Worker.popen path -- no device, and
+# no mock of the thing under test.
+
+def _probe_with(body, **kw):
+    """Run probe_card against a local Worker whose probe script is `body`."""
+    import capacity_gate
+    real = capacity_gate._CARD_PROBE
+    capacity_gate._CARD_PROBE = body
+    try:
+        return capacity_gate.probe_card(cg.Worker(cg.local_host(), 0, True), **kw)
+    finally:
+        capacity_gate._CARD_PROBE = real
+
+
+def test_a_healthy_probe_reports_done_and_its_dispatch_cost():
+    p = _probe_with("print('CARD_OPEN', flush=True)\nprint('CARD_HEALTHY', flush=True)\n")
+    assert p and p.phase == "done", p
+    assert p.seconds < 30, "a probe that dispatched immediately should not report a long wall"
+    assert "dispatches" in p.why()
+
+
+def test_a_chip_that_opens_and_never_dispatches_is_caught_by_the_short_budget():
+    """THE case this split exists for: a chip left dirty by a TT_FATAL accepts the open and then
+    hangs, so the old single timeout charged the full 300-420 s to notice."""
+    t0 = time.monotonic()
+    p = _probe_with("import time\nprint('CARD_OPEN', flush=True)\ntime.sleep(600)\n",
+                    timeout=300, dispatch_budget=1)
+    took = time.monotonic() - t0
+    assert not p and p.phase == "dispatch", p
+    assert took < 60, (
+        f"the dispatch budget did not apply: took {took:.0f}s under a 300 s open timeout, which "
+        f"is the 600 s-to-notice behaviour this replaced")
+    assert "dirty-chip" in p.why()
+
+
+def test_a_probe_that_never_opens_is_a_different_finding_from_one_that_never_dispatches():
+    """'Never opened' is a busy card, a held lease or a missing driver; 'opened and would not
+    dispatch' is the wedge. Reporting them as one verdict sent every one of them to tt-smi -r."""
+    p = _probe_with("import time\ntime.sleep(600)\n", timeout=1, dispatch_budget=1)
+    assert not p and p.phase == "open", p
+    assert "never opened" in p.why()
+
+
+def test_a_probe_that_exits_without_dispatching_is_not_read_as_a_timeout():
+    p = _probe_with("print('CARD_OPEN', flush=True)\nraise SystemExit(1)\n")
+    assert not p and p.phase == "exit", p
+
+
+def test_a_probe_that_dispatches_and_exits_in_the_same_breath_is_not_a_wedge():
+    """The race the phase loop has to survive: the child prints CARD_HEALTHY and exits before the
+    reader thread has drained the pipe. Reading process-exit first scores a healthy card wedged,
+    and a wedged card gets tt-smi -r, which on a p300c takes the board pair down."""
+    for _ in range(12):
+        p = _probe_with("print('CARD_OPEN')\nprint('CARD_HEALTHY')\n")
+        assert p and p.phase == "done", f"a healthy probe read as {p.phase}"
+
+
+def test_a_chatty_probe_does_not_deadlock_on_its_own_stderr():
+    """A ttnn process writes ~50 lines of driver log per device open, on stderr. A pipe nobody
+    drains fills and blocks the child, so the probe would hang inside the very phase it times."""
+    body = ("import sys\n"
+            "for i in range(20000): print('driver log line %d' % i, file=sys.stderr)\n"
+            "print('CARD_OPEN', flush=True)\n"
+            "print('CARD_HEALTHY', flush=True)\n")
+    t0 = time.monotonic()
+    p = _probe_with(body, timeout=90, dispatch_budget=60)
+    assert p and p.phase == "done", f"{p.phase}: a chatty child blocked on its own output"
+    assert time.monotonic() - t0 < 60
+
+
+def test_the_dispatch_budget_is_justified_by_a_measured_healthy_cost():
+    """It cannot just be tightened to taste: a false 'cannot dispatch' triggers tt-smi -r, which
+    on a p300c resets the board pair and can kill a sibling leg's card. The number is safe because
+    the phase split puts every host-side cost before it, and the comment has to say so."""
+    import inspect
+    src = inspect.getsource(cg)
+    doc = src.split("_DISPATCH_BUDGET_S")[0].rsplit("#:", 1)[-1] + src.split(
+        "_DISPATCH_BUDGET_S = ")[0].split("#: Seconds allowed")[-1]
+    assert cg._DISPATCH_BUDGET_S >= 30, "too tight to absorb any variance at all"
+    assert "0.726" in doc and "p150a" in doc, (
+        "the dispatch budget must cite the measured healthy probe cost it is derived from")
+    assert "tt-smi -r" in doc, "the cost of a false negative must be written next to the number"
+
+
+def test_the_probe_prints_its_open_marker_before_it_dispatches():
+    """The marker has to sit between open_device and the first dispatch, or the split measures
+    nothing: after the dispatch it never prints on a wedged chip, before the open it charges the
+    import to the dispatch budget."""
+    lines = [l for l in cg._CARD_PROBE.splitlines() if l.strip()]
+    opened = next(i for i, l in enumerate(lines) if "open_device" in l)
+    marker = next(i for i, l in enumerate(lines) if "CARD_OPEN" in l)
+    dispatch = next(i for i, l in enumerate(lines) if "ttnn.add" in l)
+    assert opened < marker < dispatch, cg._CARD_PROBE
+    assert "flush=True" in lines[marker], "an unflushed marker arrives after the hang it precedes"
+
+
+# --- never reset a card somebody else is computing on -------------------------------------------
+#
+# The fleet dispatcher granted card 0 on pc to this gate AND to worker:ceiling-rfd3 at the same
+# time, mid-campaign. tt-bio's own lease handled the collision correctly: the residency leg was
+# refused at the device open and the cell scored CONTENDED, which is a non-result and not a failed
+# bar. What was not handled is the step after it. A contended card fails the health probe, a failed
+# probe reads as a wedge, and a wedge gets `tt-smi -r` -- which on a p300c takes the board pair
+# down, and on any card destroys whatever the other worker was measuring.
+
+def _lease(tmp_path, monkeypatch, **fields):
+    d = tmp_path / "leases"
+    d.mkdir(exist_ok=True)
+    meta = {"host": "pc", "card": "0", "holder": "worker:someone-else",
+            "pid": os.getpid(), "acquired": 0.0, "released": None}
+    meta.update(fields)
+    (d / "pc-card0.json").write_text(json.dumps(meta))
+    monkeypatch.setattr(cg.device_lease, "lease_dir", lambda: str(d))
+    return cg.Worker("pc", 0, True)
+
+
+def test_a_card_leased_by_another_worker_is_never_reset(tmp_path, monkeypatch):
+    w = _lease(tmp_path, monkeypatch)
+    monkeypatch.setenv("TT_BIO_LEASE_HOLDER", "worker:this-gate")
+    assert cg.co_tenant(w) == f"worker:someone-else (pid {os.getpid()})"
+
+    reset = []
+    monkeypatch.setattr(cg.subprocess, "run", lambda *a, **k: reset.append(a) or None)
+    monkeypatch.setattr(cg, "probe_card", lambda *a, **k: pytest.fail(
+        "the lease already answered this; probing costs 300 s to learn nothing"))
+    ok, how = cg.recover_card(w, [w])
+    assert not ok and not reset, "the gate reset a card another worker was computing on"
+    assert "worker:someone-else" in how and "must not reset" in how
+
+
+def test_our_own_lease_is_not_a_co_tenant(tmp_path, monkeypatch):
+    """A straggler of ours holding the lease on a wedged chip is exactly what a reset is for.
+    Reading every lease as a co-tenant would disable recovery entirely, and post-OOM recovery is
+    what keeps one real FAIL from wrapping itself in a cascade of invented ones."""
+    w = _lease(tmp_path, monkeypatch, holder="worker:this-gate")
+    monkeypatch.setenv("TT_BIO_LEASE_HOLDER", "worker:this-gate")
+    assert cg.co_tenant(w) is None
+
+
+def test_a_stale_lease_is_not_a_co_tenant(tmp_path, monkeypatch):
+    """A released lease, or one whose holder is gone, must not stand in the way of a reset: a
+    process killed on a wedged card leaves exactly that behind, and it is the case recovery
+    exists for."""
+    monkeypatch.setenv("TT_BIO_LEASE_HOLDER", "worker:this-gate")
+    assert cg.co_tenant(_lease(tmp_path, monkeypatch, released=1.0)) is None
+    dead = 2 ** 22 - 1                                     # above the default pid_max
+    assert cg.co_tenant(_lease(tmp_path, monkeypatch, pid=dead)) is None
+    assert cg.co_tenant(cg.Worker("no-such-host", 9, True)) is None, "absent lease file"
+
+
+def test_the_preflight_tells_the_operator_to_wait_not_to_reset(tmp_path, monkeypatch):
+    """The old message on an unusable card was "cannot dispatch a trivial program. Reset
+    (tt-smi -r) and re-run", which against a co-tenant is a direct instruction to break the other
+    job."""
+    import inspect
+    src = inspect.getsource(cg.main)
+    busy = next(l for l in src.splitlines() if l.strip().startswith("busy ="))
+    assert "co_tenant(w)" in busy and "for w in workers" in busy
+    after = src.split("busy =")[1]
+    assert "do NOT reset it" in after.split("sick =")[0]
+    assert after.index("if busy:") < after.index("sick ="), (
+        "the co-tenant check must come BEFORE the probe, or the gate pays 300 s per card to learn "
+        "what the lease file already said")
+
+
+# ---------------------------------------------------------------------------------------------
+# Defect 22: a screen sweep could overwrite a Tier 2 PASS with INCONCLUSIVE and print success.
+# The campaign shell avoided it by never passing --record to the warm sweep, which is a rule
+# living in a comment. The screen is the cheap leg, so it is the one that gets re-run.
+# ---------------------------------------------------------------------------------------------
+
+
+def _cell_report(model, verdict, decided_by, bar=None, **kw):
+    return {
+        "bar_tokens": cg.TOKEN_BAR if bar is None else bar,
+        "started": "2026-09-07T00:00:00Z", "tree": "deadbeef", "dirty": False,
+        "geometry": {"dram_banks": 8}, "reductions": {},
+        "results": [dict({"model": model, "verdict": verdict, "decided_by": decided_by,
+                          "tokens_requested": cg.TOKEN_BAR}, **kw)],
+    }
+
+
+def test_a_screen_sweep_does_not_overwrite_a_residency_pass(tmp_path, monkeypatch):
+    """The exact run that would do it: `--tier screen` over the roster, then `--record`. A clean
+    screen is INCONCLUSIVE by design, so every PASS in the file becomes a non-verdict and the
+    most expensive results in the baseline are gone with a success message printed."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_cell_report("openbind", "PASS", "residency",
+                                    dram_peak_bytes=6203490304, wall_s=280.3), partial=True)
+    msg = cg.record_baseline(_cell_report("openbind", "INCONCLUSIVE", "screen", wall_s=90.5),
+                             partial=True)
+    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["openbind"]
+    assert cell["verdict"] == "PASS", (
+        "a screen cell overwrote a residency PASS; the run that decided nothing replaced the one "
+        "that decided")
+    assert cell["dram_peak_bytes"] == 6203490304, "the PASS survived but its measurement did not"
+    assert "openbind" in msg and "kept" in msg, (
+        f"the cell was kept silently, which reads exactly like it was updated: {msg!r}")
+
+
+def test_a_full_roster_screen_record_does_not_wipe_every_pass(tmp_path, monkeypatch):
+    """partial=False empties `cells` before the merge, so the prior cell has to be read off the
+    file rather than off the working dict. A whole-roster screen sweep is the worst case."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_cell_report("esmc-6b", "PASS", "residency", dram_peak_bytes=12789007360),
+                       partial=True)
+    cg.record_baseline(_cell_report("esmc-6b", "INCONCLUSIVE", "screen"), partial=False)
+    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["esmc-6b"]["verdict"] \
+        == "PASS", "a full-roster screen record wiped a residency PASS"
+
+
+def test_a_card_that_was_never_available_does_not_erase_a_verdict(tmp_path, monkeypatch):
+    """CONTENDED and CARD_DIRTY are cells where no model code ran at all. openbind's Tier 2 stage
+    returned CONTENDED for real this campaign, with another worker holding card 0."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_cell_report("rf3", "FAIL", "screen", mechanism="dram",
+                                    alloc_ceiling_tokens=1088), partial=True)
+    for dud in ("CONTENDED", "CARD_DIRTY"):
+        cg.record_baseline(_cell_report("rf3", dud, "screen"), partial=True)
+        cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]
+        assert cell["verdict"] == "FAIL" and cell["alloc_ceiling_tokens"] == 1088, (
+            f"{dud} erased a measured FAIL and the ceiling the bisect spent hours on")
+
+
+def test_a_real_verdict_still_replaces_whatever_stands(tmp_path, monkeypatch):
+    """The control. Keeping the stronger cell must not turn the baseline read-only: a re-measured
+    verdict, including one that goes PASS -> FAIL, has to land. Otherwise a model that regresses
+    keeps publishing a ceiling it no longer walks."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_cell_report("protenix-v2", "PASS", "residency"), partial=True)
+    cg.record_baseline(_cell_report("protenix-v2", "FAIL", "residency", mechanism="dram"),
+                       partial=True)
+    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["protenix-v2"]["verdict"]\
+        == "FAIL", "the guard froze the cell instead of protecting it"
+    # And an INCONCLUSIVE over an INCONCLUSIVE is a legitimate refresh, not a downgrade.
+    cg.record_baseline(_cell_report("openfold3", "INCONCLUSIVE", "screen", wall_s=87.3),
+                       partial=True)
+    cg.record_baseline(_cell_report("openfold3", "INCONCLUSIVE", "screen", wall_s=12.0),
+                       partial=True)
+    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["openfold3"]["wall_s"] \
+        == 12.0, "a same-strength re-measurement was refused"
