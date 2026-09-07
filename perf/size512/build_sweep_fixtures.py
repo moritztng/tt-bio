@@ -21,6 +21,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts"))
+from capacity_fixture import cut   # one definition of the a3m column-cutting rule
 SRC_A3M = ROOT / "scripts/gpu_vs_tt/fixtures/prot300.a3m"
 SRC_YAML = ROOT / "examples/prot300.yaml"
 OUT = Path(__file__).resolve().parent / "fixtures"
@@ -29,24 +31,6 @@ OUT = Path(__file__).resolve().parent / "fixtures"
 # what the size sweep could show about it.
 SIZES = [int(x) for x in sys.argv[1:]] or [128, 256, 298, 320, 352, 384, 448, 512, 768, 1024]
 REPEAT = lambda L: -(-L // 298)   # tandem copies needed to reach L match columns
-
-
-def cut(row: str, ncols: int) -> str:
-    """First `ncols` match columns of an a3m row. Lowercase is an insertion and does not count;
-    a trailing insertion run is dropped so every row ends on a match column."""
-    out, seen = [], 0
-    for ch in row:
-        if ch.islower():
-            if seen == 0 or seen >= ncols:
-                continue
-            out.append(ch)
-        else:
-            if seen >= ncols:
-                break
-            out.append(ch)
-            seen += 1
-    assert seen == ncols, f"row has {seen} match columns, needed {ncols}"
-    return "".join(out)
 
 
 def main():

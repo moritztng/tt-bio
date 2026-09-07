@@ -1,0 +1,14 @@
+=== FINAL STALL EVIDENCE 2026-09-07T10:50:16Z ===
+fold start 11:58:07Z, elapsed 3129s
+Process 2753721: /home/moritz/tt-bio/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_handle=8) --multiprocessing-fork
+Python v3.10.19 (/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/bin/python3.10)
+
+Thread 2753721 (idle): "MainThread"
+    __call__ (ttnn/decorators.py:473)
+    to_torch (ttnn/operations/core.py:398)
+    __call__ (ttnn/decorators.py:473)
+    __call__ (tt_bio/openfold3_diffusion_transformer.py:291)
+    _post_encoder (tt_bio/openfold3_diffusion_module.py:385)
+    __call__ (tt_bio/openfold3_diffusion_module.py:298)
+    __call__ (tt_bio/openfold3_sample_diffusion.py:164)
+    fold (tt_bio/openfold3_fold.py:392)

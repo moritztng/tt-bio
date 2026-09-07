@@ -125,7 +125,7 @@ import numpy as np
 import torch
 from rdkit import Chem
 
-from tt_bio import weights
+from tt_bio import size_limits, weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
@@ -2644,6 +2644,12 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         1   every target failed
         2   some targets failed, some folded
     """
+    # Refuse a size this model is MEASURED not to fold, before anything opens a device. Placed
+    # ahead of the model branch so both routes are covered by one call: past this point predict
+    # forks into the scheduler path and the Boltz-2 path, and guarding each separately is how one
+    # of them ends up unguarded. Only measured ceilings refuse — see tt_bio/size_limits.py.
+    size_limits.check_input(data, model)
+
     # These are counts of things to generate; <1 crashes deep in the model
     # (e.g. "reshape tensor of 0 elements" / "Dimension size must be
     # non-negative"). Reject up front with a clear message.
@@ -3229,6 +3235,10 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
         embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
         manifest.json       # model/pool/shapes/dtype + which file holds each sequence
     """
+    # Before _require_ttnn and before any device open: esmc-6b has a measured DRAM ceiling
+    # (its 6B weights nearly fill the chip), so an oversized sequence is refused here rather
+    # than OOMing after the weights are resident.
+    size_limits.check_input(data, model)
     _require_ttnn()  # ESMC runs on the TT device only; fail clearly without the wheel
     if devices and "TT_VISIBLE_DEVICES" not in os.environ:
         _ids = [x for x in str(devices).split(",") if x.strip()]
@@ -3346,6 +3356,7 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         affinity.csv        # one row per input, for a screen
         processed/          # parsed structures, conformers and ESM-2 embeddings
     """
+    size_limits.check_input(data, model)
     if devices and "TT_VISIBLE_DEVICES" not in os.environ:
         ids = [x for x in str(devices).split(",") if x.strip()]
         if len(ids) > 1:
@@ -3446,6 +3457,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
         embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
         manifest.json       # model/pool/shapes/dtype + which file holds each sequence
     """
+    size_limits.check_input(data, model)
     _require_ttnn()  # SaProt runs on the TT device only; fail clearly without the wheel
     from tt_bio import saprot, esmc
 
@@ -3699,6 +3711,10 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
 
     All three models auto-download their checkpoints on first use.
     """
+    # rfd3 and pxdesign carry measured ceilings in DIFFERENT denominators (motif+designed vs
+    # target residues); size_limits sizes each spec in its own and refuses before any device open.
+    size_limits.check_input(inputs, model)
+
     ctx = click.get_current_context()
     from click.core import ParameterSource
 

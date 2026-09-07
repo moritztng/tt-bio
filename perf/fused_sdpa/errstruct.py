@@ -132,8 +132,11 @@ def capture_rf3(args, T, ttnn):
     orig = T._fp32_softmax_attention
     counter = [0]
 
+    # **kw, not the argument list as it stood when this was written: `_fp32_softmax_attention`
+    # has since grown `l1_padded_plan`, which PairformerLayer passes by keyword, and a spy that
+    # names every parameter breaks with a TypeError the next time the callee gains one.
     def spy(q, k, v, bias, scale_inv, compute_kernel_config, out_dtype=ttnn.bfloat16,
-            bias_scale_inv=None, accurate_softmax=False):
+            bias_scale_inv=None, accurate_softmax=False, **kw):
         shp = tuple(int(d) for d in q.shape)
         # Triangle attention is the only caller whose batch dim IS the sequence dim.
         if len(shp) == 4 and shp[0] == shp[2] and shp[0] > 1:
@@ -153,7 +156,7 @@ def capture_rf3(args, T, ttnn):
                     shape=list(shp)))
                 del qt, kt, vt, bt
         return orig(q, k, v, bias, scale_inv, compute_kernel_config, out_dtype, bias_scale_inv,
-                    accurate_softmax)
+                    accurate_softmax, **kw)
 
     T._fp32_softmax_attention = spy
     try:
@@ -177,7 +180,9 @@ def capture_protenix(args, T, ttnn):
     counter = [0]
     orig = T._tri_att_sdpa
 
-    def spy(q, k, v, bias, scale):
+    # Same signature-drift guard as capture_rf3's spy: `_tri_att_sdpa` has grown `ckc` and `pad`
+    # since, and PairformerLayer passes both positionally.
+    def spy(q, k, v, bias, scale, *a):
         shp = tuple(int(d) for d in q.shape)
         if len(shp) == 4 and shp[0] == shp[2] and shp[0] > 1:
             i = counter[0]
@@ -193,7 +198,7 @@ def capture_protenix(args, T, ttnn):
                     scale_inv=float(scale), bias_scale_inv=float(scale),
                     shape=list(shp)))
                 del qt, kt, vt, bt
-        return orig(q, k, v, bias, scale)
+        return orig(q, k, v, bias, scale, *a)
 
     T._tri_att_sdpa = spy
     try:
@@ -304,6 +309,13 @@ def main() -> int:
             qd, kd, vd, bd, scale_inv=si, compute_kernel_config=kcfg,
             out_dtype=ttnn.bfloat16, bias_scale_inv=bsi))
         score("fused_default", lambda: T._tri_att_sdpa(qd, kd, vd, bd_f, si))
+        # The route that SHIPS on rf3, and the only arm that answers the template embedder's
+        # "60-85% relative RMS off" comment: every rf3 tri-att construction site passes
+        # `sdpa_ragged_pad_site("rf3.tri_att", True)`, so on a raw token axis the fused kernel
+        # runs with its ragged tile tail MASKED. `fused_default` above leaves it unmasked, which
+        # is the arm that reads 71-76x wrong, and scoring only that arm is how a masked win gets
+        # mistaken for a fused loss.
+        score("fused_ragged_pad", lambda: T._tri_att_sdpa(qd, kd, vd, bd_f, si, None, True))
         for fid in ("HiFi2", "HiFi4"):
             for approx in (True, False):
                 for acc in (False, True):

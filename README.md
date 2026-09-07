@@ -43,7 +43,7 @@ On a host without a Tenstorrent card, plain `pip install tt-bio` is enough: the 
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.7.2"   # pinned release, see Releases for the latest
+pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.7.3"   # pinned release, see Releases for the latest
 pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
@@ -74,7 +74,7 @@ tt-bio predict examples/prot.yaml --model boltz2 --override
 Every command names its model with `--model`:
 
 - **`boltz2`**: folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
-- **`esmfold2`** / **`esmfold2-fast`**: fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint).
+- **`esmfold2`** / **`esmfold2-fast`**: fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint). Cyclic chains are not supported (they raise a clear error).
 - **`protenix-v1`** / **`protenix-v2`**: fold complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emit a PAE/PDE matrix with `--write_pae`. `protenix-v1` is upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against `protenix-v2`'s 10, so it is the cheaper of the two. Cyclic chains are not supported by either (they raise a clear error); covalent `bond` constraints are.
 - **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only, ligands, covalent bonds and cyclic chains are not supported yet (raise a clear error). Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
 - **`openbind`**: OpenBind-0, the same OpenFold3 stack on upstream's v0.5.0 checkpoint, tuned for protein-ligand co-folding. Takes ligands by SMILES or CCD code alongside protein, RNA and DNA chains; MSA-dependent (uses an MSA by default), with optional per-chain templates. Covalent bonds and cyclic chains are not supported yet (raise a clear error). Weights are a separate file from `openfold3` and are not downloaded; point `TT_BIO_OPENBIND` at them (see [`docs/weights.md`](docs/weights.md)).
@@ -105,10 +105,41 @@ tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the roll
 | Covalent `bond` constraints | yes | no | yes | yes | no | no | yes | from the input structure |
 | PAE/PDE output (`--write_pae`) | no | no | yes | yes | no | no | no | in `_summary_confidences.json` |
 
-Targets up to at least 1095 residues fold on a single 12 GiB Wormhole card, on every structure
-model including OpenDDE, whose structural-token expander makes it the strictest case. The pair
-track switches to row-blocked execution at a size threshold smaller targets never reach, so
-their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
+Targets of 850-1095 residues have folded on a single 12 GiB Wormhole card on every structure
+model, but that is not the same as a ceiling: a few models fail at sizes *below* one they handle,
+because the failure is an L1 layout clash that follows the padded tile shape rather than the
+residue count. OpenDDE folds 544, throws at 576, and folds 608 again. So the size a model is
+safe up to is the largest one below its first measured failure, which for several models on
+Wormhole is under 1024:
+
+| model | Wormhole limit | first measured failure |
+|---|---:|---:|
+| `opendde`, `opendde-abag` | 544 | 576 |
+| `openfold3` | 1024 | none found; top of the ladder |
+| `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
+| `pxdesign` | 768 (target residues) | none found; top of the ladder |
+| `protenix-v2` | 980 | 1095 |
+| `rfd3` | 490 (motif + designed) | above 490 |
+| `esmc-6b` (embed) | 1968 | 1984 |
+
+Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
+model, the limit and any model that does take the input. `rf3` is not in the table because
+it folds every rung to 1095 residues, the top of its ladder. `boltz2`, `esmfold2`,
+`boltzgen` and `nesso1` have no measured limit and are never refused. These numbers are
+Wormhole only; nothing is enforced on Blackhole, which has more memory per chip and where
+nobody has walked a ladder to a failure.
+
+The limits were measured with an MSA, which is the default for the models that take one, and at the
+deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you
+know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the refusal
+into a warning and runs it anyway. `openbind` has its own ladder now, walked with a ligand
+bound: 960 residues fold and 1024 do not. Its limit counts residues, but ligand atoms count
+too as far as the hardware is concerned, so 960 holds for a ligand of roughly 64 atoms or
+fewer. A much larger ligand can fail below the published number, and a residue count cannot
+warn you about that.
+
+The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
+so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
 Perf levers are gated at several sequence lengths, not just one; the release gate re-checks the
 ladder against a recorded baseline. See [docs/size-generality.md](docs/size-generality.md).
 
@@ -729,9 +760,9 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 **[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and current limitations: [`docs/rfd3-design.md`](docs/rfd3-design.md).
 
-**[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. The binder is written as GLY because PXDesign generates a backbone with no sequence. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and 8 at a time runs about 1.25x faster per design than one at a time. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
+**[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and 8 at a time runs about 1.25x faster per design than one at a time. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
-Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
+Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a fleet with `--controller http://host:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 
 ## Cite
 
