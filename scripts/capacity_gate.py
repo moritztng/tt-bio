@@ -109,7 +109,16 @@ RUN_TIMEOUT_S = 5400
 HOST_RAM_FLOOR_MB = 700
 
 VERDICTS = ("PASS", "FAIL", "STALL", "HOST_OOM", "NO_WEIGHTS", "CONTENDED", "CARD_DIRTY",
-            "ERROR", "SKIPPED")
+            "ERROR", "SKIPPED", "GATE_BUG")
+
+#: The Tier 1 hook wraps __init__ on every class in every non-vendored tt_bio module, and on one
+#: model that wrapping breaks construction outright: boltz2 died with "Boltz2.__init__() missing 5
+#: required positional arguments" 8 s in, which the gate scored FAIL -- a capacity verdict invented
+#: by the gate's own instrument. Without the hook the same fixture gets 172 s into the model. A
+#: model the gate cannot even build has not failed the bar, so this is GATE_BUG and it is loud.
+_HOOK_BROKE = re.compile(
+    r"__init__\(\) missing \d+ required positional argument"
+    r"|__init__\(\) takes \d+ positional argument", re.I)
 
 # ---------------------------------------------------------------------------------------------
 # THE MODEL LIST -- DERIVED, NEVER HARDCODED
@@ -709,6 +718,11 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
     if r["mechanism"] == "contention":
         r["verdict"] = "CONTENDED"
         return r
+    if _HOOK_BROKE.search(r["tail"] or "") and r["hook_installed"]:
+        r["verdict"] = "GATE_BUG"
+        r["reason"] = ("the Tier 1 block-truncation hook broke this model's construction, so "
+                       "nothing was measured. This is the gate's bug, not a failed bar.")
+        return r
     if not r["mechanism"] and (r["host_ram_floor_mb"] < HOST_RAM_FLOOR_MB
                                or _host_killed(r["rc"], r["tail"])):
         # No device-side error and the worker died on a signal: the HOST ran out of memory. A
@@ -879,9 +893,19 @@ def _host_killed(rc: int, tail: str) -> bool:
 
 def _oom_killer_fired(model: str) -> str | None:
     """The kernel's own record of the kill, so HOST_OOM is evidence and not an inference."""
-    try:
-        out = subprocess.run(["dmesg"], capture_output=True, text=True, timeout=20).stdout
-    except (OSError, subprocess.TimeoutExpired):
+    # kernel.dmesg_restrict=1 on this host, so the plain call fails with "Operation not
+    # permitted" and the corroboration silently came back empty on every run. Fall back to a
+    # non-interactive sudo, and stay best-effort: the SIGKILL itself is the primary signal.
+    out = ""
+    for argv in (["dmesg"], ["sudo", "-n", "dmesg"]):
+        try:
+            p = subprocess.run(argv, capture_output=True, text=True, timeout=20)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if p.returncode == 0 and p.stdout:
+            out = p.stdout
+            break
+    if not out:
         return None
     hits = [ln for ln in out.splitlines() if "Out of memory: Killed process" in ln]
     return hits[-1].strip()[-200:] if hits else None
@@ -1121,7 +1145,9 @@ def main(argv=None) -> int:
     print(f"\nreport: {out}")
     if a.record:
         print(record_baseline(report, partial=bool(a.models)))
-    return 0 if report["counts"]["fail_like"] == 0 and not report["coverage_gaps"] else 1
+    ok = (report["counts"]["fail_like"] == 0 and not report["counts"]["GATE_BUG"]
+          and not report["coverage_gaps"])
+    return 0 if ok else 1
 
 
 BASELINE = REPO_ROOT / "docs" / "capacity_gate_baseline.json"
@@ -1216,6 +1242,7 @@ def _finish(report: dict) -> None:
         "SKIPPED": v.count("SKIPPED"),
         "NO_WEIGHTS": v.count("NO_WEIGHTS"),
         "INCONCLUSIVE": v.count("INCONCLUSIVE"),
+        "GATE_BUG": v.count("GATE_BUG"),
     }
 
 

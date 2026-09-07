@@ -372,3 +372,30 @@ def test_the_screen_only_path_reclassifies_a_failing_leg_too():
     body = src[src.index("def _screen_only("):]
     assert '!= "FAIL" and _no_weights' not in body
     assert '("FAIL", "HOST_OOM") and _no_weights' in body
+
+
+def test_the_gates_own_instrument_breaking_a_model_is_not_a_failed_bar():
+    """Measured: the Tier 1 hook wraps __init__ on every class in every non-vendored tt_bio
+    module, and that broke boltz2's construction outright -- "Boltz2.__init__() missing 5 required
+    positional arguments", 8 s in, scored FAIL. Without the hook the same fixture gets 172 s into
+    the model, so the FAIL was a capacity verdict invented by the gate's own instrument.
+
+    A model the gate cannot even build has not failed the bar, and this must be loud rather than
+    quietly excluded: GATE_BUG makes the run exit nonzero without counting as a capacity result."""
+    assert "GATE_BUG" in cg.VERDICTS
+    assert cg._HOOK_BROKE.search("TypeError: Boltz2.__init__() missing 5 required positional "
+                                 "arguments: 'atom_s', 'atom_z', 'token_s', 'token_z'")
+    assert not cg._HOOK_BROKE.search("Out of Memory: Not enough space to allocate 18530435072 B")
+    src = (ROOT / "scripts" / "capacity_gate.py").read_text()
+    assert 'not report["counts"]["GATE_BUG"]' in src, (
+        "a gate that cannot instrument a model must not exit 0")
+
+
+def test_the_host_oom_corroboration_can_actually_read_the_kernel_log():
+    """kernel.dmesg_restrict=1 on this host, so the plain `dmesg` call failed with "Operation not
+    permitted" and the corroborating evidence came back None on every HOST_OOM the gate recorded,
+    silently. The SIGKILL stays the primary signal; this is the second opinion."""
+    src = (ROOT / "scripts" / "capacity_gate.py").read_text()
+    body = src[src.index("def _oom_killer_fired("):src.index("def _bisect(")]
+    assert '["sudo", "-n", "dmesg"]' in body
+    assert "returncode == 0" in body, "a failed dmesg must not read as 'no kill found'"
