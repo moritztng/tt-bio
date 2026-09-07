@@ -10,6 +10,14 @@ names a mode, which keeps the scratch dir harmless if it is ever left on a PYTHO
 Two modes, one mechanism. Both need the same thing -- the block lists a model builds -- so both
 are driven off one post-`__init__` walk:
 
+  Both modes also emit a per-block-call HEARTBEAT into TT_BIO_CAPACITY_HOOK_BEAT. The CLI's own
+  progress stream is per recycle, which at 1504 tokens is coarse enough that a legitimately slow
+  block looks exactly like a hang: OpenFold3 spent over five minutes inside ONE trunk block's
+  triangle attention here, computing the whole time. A stall detector reading only the coarse
+  signal would have called that a STALL, which is the same lie as a green gate in the other
+  direction. The heartbeat is a byte appended per block call, so forward progress INSIDE a stage
+  is visible.
+
   screen     truncate every block list to its first element. Class A failures (one oversized
              shape-determined tensor) appear on the FIRST execution of the op, so one block of
              a homogeneous stack surfaces them at a fraction of the wall-clock. This mode can
@@ -49,6 +57,9 @@ _STACK_ATTRS = ("blocks", "layers")
 _SAMPLE_DENSE = 2000
 _SAMPLE_STRIDE = 16
 
+_beat_path = None
+_beat_fh = None
+
 _state = {
     "mode": None,
     "truncated": [],      # [[qualname, attr, original_len]] -- proof the screen applied
@@ -82,12 +93,28 @@ def _flush() -> None:
         pass
 
 
+def _beat() -> None:
+    """One byte per block call: forward progress inside a stage, for the stall detector."""
+    global _beat_fh
+    if _beat_path is None:
+        return
+    try:
+        if _beat_fh is None:
+            _beat_fh = open(_beat_path, "ab", buffering=0)
+        _beat_fh.write(b".")
+    except OSError:
+        pass
+
+
 def _sample_dram() -> None:
     """DRAM allocator high-water, sampled at a block boundary in the calling thread."""
+    _beat()
     _state["samples"] += 1
     n = _state["samples"]
     if n > _SAMPLE_DENSE and n % _SAMPLE_STRIDE:
         return
+    if _state["mode"] != "residency":
+        return                                # screen mode wants the heartbeat, not the sampling
     try:
         import ttnn
         from tt_bio.tenstorrent import get_device
@@ -154,8 +181,10 @@ def _visit(obj) -> None:
             continue
         if first is None or isinstance(first, (int, float, str, bytes)):
             continue
+        # Instrument in BOTH modes: the heartbeat is what keeps a slow block from being read as a
+        # hang, and screen mode needs that as much as residency does.
+        _instrument_class(type(first))
         if mode == "residency":
-            _instrument_class(type(first))
             continue
         if n < 2:
             continue                              # nothing to truncate; the shape still runs once
@@ -241,6 +270,9 @@ def install() -> None:
     if _state["mode"] is not None:
         return
     _state["mode"] = mode
+    global _beat_path
+    beat = os.environ.get("TT_BIO_CAPACITY_HOOK_BEAT")
+    _beat_path = f"{beat}.{os.getpid()}" if beat else None
     sys.meta_path.insert(0, _Finder())
     for name, mod in list(sys.modules.items()):
         if name.startswith("tt_bio") and not name.startswith(_SKIP_PREFIXES):

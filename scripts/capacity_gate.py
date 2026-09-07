@@ -302,6 +302,29 @@ def classify(log_text: str) -> str | None:
     return None
 
 
+def tree_cpu_s(pid: int) -> float:
+    """CPU seconds burned by a process and its children, from /proc. Used only to ANNOTATE a
+    stall, never to decide one: the OF3 failure this gate watches for is a retry loop, so it burns
+    CPU going nowhere, and treating CPU as progress would hide exactly that case. But a stall that
+    was idle throughout and one that was computing throughout are different findings, and the
+    report should say which it saw."""
+    total, seen = 0.0, set()
+    stack = [pid]
+    while stack:
+        p = stack.pop()
+        if p in seen:
+            continue
+        seen.add(p)
+        try:
+            f = Path(f"/proc/{p}/stat").read_text().rsplit(") ", 1)[1].split()
+            total += (int(f[11]) + int(f[12])) / os.sysconf("SC_CLK_TCK")
+            stack += [int(c) for c in
+                      Path(f"/proc/{p}/task/{p}/children").read_text().split()]
+        except (OSError, IndexError, ValueError):
+            continue
+    return total
+
+
 def host_ram_free_mb() -> int:
     try:
         for line in Path("/proc/meminfo").read_text().splitlines():
@@ -472,8 +495,12 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
     """
     events = log.with_suffix(".events.jsonl")
     events.unlink(missing_ok=True)
+    beat = log.with_suffix(".beat")
+    for old in beat.parent.glob(beat.name + ".*"):
+        old.unlink(missing_ok=True)
     env = {"TT_BIO_CAPACITY_HOOK": mode,
            "TT_BIO_CAPACITY_HOOK_OUT": str(hook_out),
+           "TT_BIO_CAPACITY_HOOK_BEAT": str(beat),
            "TT_BIO_PROGRESS_CAPTURE": str(events),
            "PYTHONUNBUFFERED": "1",
            "PYTHONPATH": f"{hookdir}:{REPO_ROOT}"}
@@ -484,18 +511,26 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
                                 cwd=REPO_ROOT, start_new_session=True)
 
     def progress() -> tuple[int, bool]:
-        """(a monotonically growing progress counter, whether any event has landed yet)."""
+        """(a monotonically growing progress counter, whether real work has started yet).
+
+        Three signals summed. The heartbeat is the sharp one: the CLI's progress stream is per
+        recycle, and at 1504 tokens ONE trunk block can run for minutes, so the coarse signal alone
+        would read a legitimately grinding block as a hang.
+        """
         n = events.stat().st_size if events.exists() else 0
-        return (n + (log.stat().st_size if log.exists() else 0)), n > 0
+        beats = sum(f.stat().st_size for f in beat.parent.glob(beat.name + ".*"))
+        return (n + beats + (log.stat().st_size if log.exists() else 0)), (n > 0 or beats > 0)
 
     last, last_move, stalled, warm = -1, time.monotonic(), False, False
+    cpu_at_quiet, cpu_now = tree_cpu_s(proc.pid), tree_cpu_s(proc.pid)
     try:
         while proc.poll() is None:
             time.sleep(5)
             ram_floor = min(ram_floor, host_ram_free_mb())
+            cpu_now = tree_cpu_s(proc.pid)
             n, seen = progress()
             if n != last:
-                last, last_move = n, time.monotonic()
+                last, last_move, cpu_at_quiet = n, time.monotonic(), cpu_now
             if seen and not warm:
                 # First real progress event: the cold compile is behind us, so tighten up.
                 warm, last_move = True, time.monotonic()
@@ -529,6 +564,9 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
     return {"rc": proc.returncode, "wall_s": round(wall, 1), "stalled": stalled,
             "warmed": warm, "quiet_s": round(time.monotonic() - last_move, 1),
             "progress_events": events.stat().st_size if events.exists() else 0,
+            "block_calls": sum(f.stat().st_size for f in beat.parent.glob(beat.name + ".*")),
+            # Evidence for a STALL: was it grinding or waiting? Annotation only, never the verdict.
+            "cpu_s_while_quiet": round(max(0.0, cpu_now - cpu_at_quiet), 1),
             "host_ram_floor_mb": ram_floor, "mechanism": classify(text),
             "hook": hook_findings(hook_out),
             "tail": "\n".join(text.splitlines()[-25:])}
@@ -625,6 +663,8 @@ def _residency(worker, cell, fixture, work, hookdir, tokens) -> dict:
         r["verdict"] = "CONTENDED"
     elif r["stalled"]:
         r["verdict"] = "STALL"
+        r["stall_kind"] = ("compute-active" if r["cpu_s_while_quiet"] > 0.5 * STALL_S
+                           else "idle")
     elif r["host_ram_floor_mb"] < HOST_RAM_FLOOR_MB and not r["mechanism"]:
         r["verdict"] = "HOST_OOM"
     elif r["rc"] == 0:
