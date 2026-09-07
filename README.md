@@ -115,22 +115,28 @@ Wormhole is under 1024:
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
 | `opendde`, `opendde-abag` | 544 | 576 |
-| `openfold3`, `openbind` | 576 | 614 |
-| `rf3` | 627 | 630 |
+| `openfold3` | 1024 | none found; top of the ladder |
+| `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
 | `protenix-v2` | 980 | 1095 |
 | `rfd3` | 490 (motif + designed) | above 490 |
 | `esmc-6b` (embed) | 1968 | 1984 |
 
-Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the model,
-the limit and any model that does take the input. `boltz2`, `esmfold2`, `boltzgen` and `nesso1`
-have no measured limit and are never refused. These numbers are Wormhole only; nothing is enforced
-on Blackhole, which has more memory per chip and where nobody has walked a ladder to a failure.
+Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
+model, the limit and any model that does take the input. `rf3` is not in the table because
+it folds every rung to 1095 residues, the top of its ladder. `boltz2`, `esmfold2`,
+`boltzgen` and `nesso1` have no measured limit and are never refused. These numbers are
+Wormhole only; nothing is enforced on Blackhole, which has more memory per chip and where
+nobody has walked a ladder to a failure.
 
-The limits were measured with an MSA, which is the default for the models that take one. Folding
-single-sequence is roomier (OpenFold3 caps at 576 with an alignment and folds 768 without one), so
-if you know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the
-refusal into a warning and runs it anyway.
+The limits were measured with an MSA, which is the default for the models that take one, and at the
+deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you
+know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the refusal
+into a warning and runs it anyway. `openbind` has its own ladder now, walked with a ligand
+bound: 960 residues fold and 1024 do not. Its limit counts residues, but ligand atoms count
+too as far as the hardware is concerned, so 960 holds for a ligand of roughly 64 atoms or
+fewer. A much larger ligand can fail below the published number, and a residue count cannot
+warn you about that.
 
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).

@@ -388,6 +388,17 @@ def main() -> int:
         rep["warn"].append(f"{n_clash} marginal contacts < {CLASH_DIST} A (worst {worst} A)")
 
     conf_json = json.loads(a.conf.read_text()) if a.conf and a.conf.exists() else None
+    if isinstance(conf_json, list):
+        # tt-bio's predict writers emit one entry per target, so a single-target results.json is
+        # a one-element LIST. Reading it as a dict raised AttributeError five frames down inside
+        # confidence(), which read as "the checker cannot score this fold" rather than "the
+        # checker was handed a shape it did not unwrap". Match by the structure's own name where
+        # there is more than one.
+        stem = a.struct.stem
+        conf_json = (next((e for e in conf_json if isinstance(e, dict)
+                           and str(e.get("id")) == stem), None)
+                     or (conf_json[0] if len(conf_json) == 1 and isinstance(conf_json[0], dict)
+                         else None))
     cinfo, cf, cw = confidence(st, conf_json, required=(a.kind == "predict"))
     rep["checks"]["confidence"] = cinfo
     rep["fail"] += cf

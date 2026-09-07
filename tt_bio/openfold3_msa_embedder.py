@@ -21,7 +21,7 @@ import ttnn
 
 from .tenstorrent import (
     Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
-    accurate_softmax_site,
+    accurate_softmax_site, pwa_single_shot_bytes,
 )
 from .openfold3_weights import remap_msa_module
 
@@ -87,15 +87,44 @@ class MSAModuleBlock:
             scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
             accurate_softmax=accurate_softmax_site("openfold3.msa"))
 
-    def __call__(self, m, z, pair_mask=None, attn_mask=None):
+    def __call__(self, m, z, pair_mask=None, attn_mask=None, own_m: bool = False):
         # OuterProductMean is deliberately left unmasked: it reduces over MSA DEPTH, so a padded
         # token can only reach a padded pair through it. PairWeightedAveraging is not -- its
         # softmax runs over the token axis, so a padded key would take real weight without the
         # additive -1e9 (protenix.py Trunk.update_msa passes the same tensor for the same reason).
-        z = ttnn.add(z, self.opm(m, None, None))
+        # Every residual in this block accumulates IN PLACE. Out of place, an add holds three
+        # copies of its operand at the peak -- the input, the update and the new sum. For `m`,
+        # [depth, tokens, c_m], that third copy is 1 859 780 608 B at 1024 tokens against a
+        # 14189-row alignment and 1 976 016 896 B at the 1088 tokens a ligand pushes OpenBind-0
+        # to; both are buffers a fold is refused on a 12 GiB Wormhole part.
+        #
+        # `own_m` is False for the first block that updates `m`: the trunk keeps the embedder's
+        # `m` and hands the SAME tensor back on every recycle (openfold3_trunk.py), so writing
+        # into it would corrupt the next cycle. The sum lands in the UPDATE's buffer instead,
+        # which nothing else holds. bf16 addition is commutative, so this is the same number as
+        # `add(m, upd)` bit for bit. The `z` residual needs no such care: it lands in the OPM
+        # update's buffer and never writes `z` itself.
+        upd = self.opm(m, None, None)
+        z = ttnn.add_(upd, z)
         if self.has_msa_update:
-            m = ttnn.add(m, ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape)))
-            m = ttnn.add(m, ttnn.reshape(self.msa_transition(m), tuple(m.shape)))
+            upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
+            if own_m:
+                ttnn.add_(m, upd)
+                ttnn.deallocate(upd)
+            else:
+                m = ttnn.add_(upd, m)
+            # Each residual leaves the previous `m` buffer free somewhere in the middle of the
+            # heap, and the next one needs its whole width contiguous: at 960 tokens x 14191 rows
+            # the transition's 1 743 790 080 B was refused with 4.4 GB free and 1.35 GB as the
+            # largest run. Compacting between the two residuals coalesces that hole, the same call
+            # OuterProductMean already makes before its own matmuls. Pure data movement, and only
+            # where the residual is wide enough to be at risk -- below the budget this is the
+            # single-shot path's untouched sequence of allocations.
+            if m.logical_volume() * 2 > pwa_single_shot_bytes():
+                m = ttnn.reallocate(m)
+            upd = ttnn.reshape(self.msa_transition(m), tuple(m.shape))
+            ttnn.add_(m, upd)
+            ttnn.deallocate(upd)
         z = self.pair_stack(None, z, pair_mask, attn_mask, attn_mask)[1]
         return m, z
 
@@ -121,6 +150,10 @@ class MSAModule:
         ]
 
     def __call__(self, m, z, pair_mask=None, attn_mask=None):
+        # `own_m` turns on after the first block that returns an `m` of its own making, so no
+        # block ever writes into the tensor the trunk reuses across recycles.
+        own_m = False
         for block in self.blocks:
-            m, z = block(m, z, pair_mask, attn_mask)
+            m, z = block(m, z, pair_mask, attn_mask, own_m=own_m)
+            own_m = own_m or block.has_msa_update
         return m, z
