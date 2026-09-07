@@ -523,6 +523,88 @@ def test_a_model_fragment_does_not_touch_the_shared_baseline(rg_fresh, tmp_path)
     assert d["cards"]["tt-galaxy-wh l"]["host"] == "GWH02"
 
 
+def test_a_fragment_RECORD_PASS_does_not_touch_the_shared_baseline(rg_fresh, tmp_path,
+                                                                   monkeypatch):
+    """The test above proves the fragment WRITER leaves the monolith alone. The writer was
+    never the problem: the record pass around it re-serialised `_size_ladder_read_baseline`,
+    which is the monolith OVERLAID with every fragment beside it, so recording rf3 to its own
+    fragment wrote boltz-2's entire Wormhole entry into the shared json as well. Measured on
+    the Galaxy 2026-09-07: 1499 added lines, none of them rf3's.
+
+    So this drives the whole pass, with a sibling's fragment present, and demands the same
+    byte-identity of the monolith that the writer's own test does.
+    """
+    base = tmp_path / "size_ladder_baseline.json"
+    frag_dir = tmp_path / "size_ladder_baseline.d"
+    frag_dir.mkdir()
+    base.write_text(json.dumps({
+        "format": 1, "rungs": list(rg_fresh.SIZE_LADDER_RUNGS),
+        "what": "size-ladder release-gate baseline: per-model lever census and runtime "
+                "scaling exponents at every rung, per card type",
+        "rule": "a perf lever may not land default-ON on the strength of one sequence "
+                "length; re-record after any size-affecting change",
+        "record_with": "python3 scripts/release_gate.py --model size-ladder "
+                       "--size-ladder-record",
+        "fold": {"single_sequence": True, "sampling_steps": rg_fresh.SIZE_LADDER_STEPS,
+                 "diffusion_samples": 1, "seed": rg_fresh.SEED},
+        "cards": {"p150a": {"recorded": "2026-08-23", "host": "qb1", "commit": "8c22b305",
+                            "models": {"boltz2": _baseline()}}},
+    }, indent=2) + "\n")
+    # a sibling branch's rows for the card about to be recorded on
+    (frag_dir / "boltz2.json").write_text(json.dumps({
+        "cards": {"tt-galaxy-wh l": {"recorded": "2026-09-07", "host": "GWH02",
+                                     "commit": "c0fa561d",
+                                     "models": {"boltz2": _baseline()}}}}, indent=2))
+    before = base.read_bytes()
+
+    meas = {"levers": {str(r): {"K2": dict(FIRING)} for r in RUNGS},
+            "runtime_s": dict(BASE_RUNTIME), "sigma": 0.05, "census_jsons": {},
+            "grid": "8x9"}
+    monkeypatch.setattr(rg_fresh, "_size_ladder_measure_model", lambda *a, **k: meas)
+    monkeypatch.setattr(rg_fresh, "_size_ladder_card_type", lambda: "tt-galaxy-wh l")
+    monkeypatch.setattr(rg_fresh, "_repo_commit", lambda: "3880fe8f")
+
+    row = rg_fresh.run_size_ladder(keep=False, record=True, baseline_path=base,
+                                   models=["rf3"], fragment=True)
+    assert row["gate"], row
+    assert base.read_bytes() == before, "the record pass rewrote the shared baseline"
+    assert json.loads((frag_dir / "rf3.json").read_text())["cards"]["tt-galaxy-wh l"][
+        "models"]["rf3"]["runtime_s"] == dict(BASE_RUNTIME)
+    # the sibling's fragment is still the only place its rows live
+    assert json.loads((frag_dir / "boltz2.json").read_text())["cards"][
+        "tt-galaxy-wh l"]["models"]["boltz2"]["runtime_s"] == dict(BASE_RUNTIME)
+
+
+def test_a_models_fragment_records_its_own_ladder(rg_fresh, tmp_path):
+    """rf3 folds 1095 aa and the shared rungs stop at 1024, so its ladder is longer than
+    everyone else's. The fragment has to say so, because the monolith's `rungs` describes the
+    shared set and this branch deliberately does not touch it."""
+    base = tmp_path / "size_ladder_baseline.json"
+    base.write_text(json.dumps({"format": 1, "cards": {}}, indent=2))
+    rg_fresh._size_ladder_write_fragment(
+        base, "tt-galaxy-wh l", {"recorded": "2026-09-07", "host": "GWH02",
+                                "commit": "3880fe8f"},
+        "rf3", {"runtime_s": {"256": 51.6}})
+    frag = json.loads((tmp_path / "size_ladder_baseline.d" / "rf3.json").read_text())
+    assert frag["rungs"] == list(rg_fresh._size_ladder_model_rungs("rf3"))
+    assert 1088 in frag["rungs"]
+
+
+def test_an_extra_rung_belongs_to_one_model_only(rg_fresh):
+    """A per-model top rung must not leak into the shared ladder: every other model would
+    gain a rung with no baseline row, and check mode reads a missing row as a finding."""
+    assert 1088 in rg_fresh._size_ladder_model_rungs("rf3")
+    assert 1088 not in rg_fresh.SIZE_LADDER_RUNGS
+    for m in rg_fresh.SIZE_LADDER_MODELS:
+        if m != "rf3":
+            assert rg_fresh._size_ladder_model_rungs(m) == rg_fresh.SIZE_LADDER_RUNGS, m
+    # and --size-ladder-rungs FILTERS each model's ladder rather than selecting from one
+    # shared tuple, so a resume pass naming 1088 is a no-op for the models that lack it
+    assert rg_fresh._size_ladder_model_rungs("rf3", (256, 1088)) == (256, 1088)
+    assert rg_fresh._size_ladder_model_rungs("boltz2", (256, 1088)) == (256,)
+    assert rg_fresh._size_ladder_arg_rungs("1088") == (1088,)
+
+
 def test_reading_a_tree_with_no_fragments_is_unchanged(rg_fresh, tmp_path):
     """The read path is unconditional, so it has to be a no-op where no fragment exists."""
     base = tmp_path / "size_ladder_baseline.json"

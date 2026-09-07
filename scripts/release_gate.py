@@ -3166,14 +3166,20 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         todos = 0
 
         def _flush_baseline():
-            # An empty card block is not written. In --size-ladder-fragment mode every
+            # Writes the MONOLITH's own content, never `baseline`, which is the monolith
+            # overlaid with every fragment beside it. Serialising the overlay put every
+            # sibling's fragment rows into the shared json on any record pass that touched
+            # it: boltz-2's whole Wormhole entry, 1499 lines of it, duplicated out of the
+            # file that owns it and into the file six branches share.
+            #
+            # An empty card block is not written either. In --size-ladder-fragment mode every
             # model this pass recorded went to its own file, so on a card type the
-            # monolith has never held (the Wormhole Galaxy) `new_card` is stamp-only —
+            # monolith has never held (the Wormhole Galaxy) `new_card` is stamp-only,
             # and writing that would put this pass's host and commit in the one file five
             # sibling branches are also editing, for no rows at all.
             if new_card.get("models"):
-                baseline.setdefault("cards", {})[card] = new_card
-            baseline.update({
+                mono.setdefault("cards", {})[card] = new_card
+            mono.update({
                 "format": 1,
                 "what": "size-ladder release-gate baseline: per-model lever census and "
                         "runtime scaling exponents at every rung, per card type",
@@ -3194,7 +3200,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             # is a set of constants every model's record pass would rewrite identically. Six
             # branches each touching the shared json to write bytes it already contains is the
             # merge conflict the fragments exist to avoid, so a no-op stays a no-op.
-            text = json.dumps(baseline, indent=2) + "\n"
+            text = json.dumps(mono, indent=2) + "\n"
             if not baseline_path.exists() or baseline_path.read_text() != text:
                 baseline_path.write_text(text)
 
