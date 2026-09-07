@@ -908,8 +908,12 @@ def render(report: dict) -> str:
                  f"{report['coverage_gaps']}")
     n = report["counts"]
     L.append("")
-    L.append(f"  {n['PASS']} pass, {n['fail_like']} fail, {n['SKIPPED']} skipped, "
-             f"{n['NO_WEIGHTS']} no-weights of {len(report['results'])} cells")
+    L.append(f"  {n['PASS']} pass, {n['fail_like']} fail, {n['INCONCLUSIVE']} inconclusive, "
+             f"{n['SKIPPED']} skipped, {n['NO_WEIGHTS']} no-weights, "
+             f"{n['CONTENDED']} unmeasured of {len(report['results'])} cells")
+    if n["INCONCLUSIVE"]:
+        L.append("  INCONCLUSIVE is a Tier 1 result and is NOT a pass: one block per stack cannot "
+                 "see the cumulative-residency class. Run without --tier screen for a verdict.")
     return "\n".join(L)
 
 
@@ -989,8 +993,9 @@ def main(argv=None) -> int:
     # Flushed: a gate run is watched through a redirected log, where an unflushed header sits in
     # the buffer for the whole campaign and the board geometry it carries is what a reader needs
     # FIRST to know the numbers are comparable.
-    print(render(dict(report, results=[], counts={"PASS": 0, "fail_like": 0, "SKIPPED": 0,
-                                                  "NO_WEIGHTS": 0})), flush=True)
+    print(render(dict(report, results=[], counts=dict.fromkeys(
+        ("PASS", "fail_like", "SKIPPED", "NO_WEIGHTS", "INCONCLUSIVE", "CONTENDED"), 0))),
+        flush=True)
 
     for i, cell in enumerate(cells(models, depth=a.depth, recycling=a.recycling)):
         w = workers[i % len(workers)]
@@ -1083,8 +1088,12 @@ def _screen_only(worker, cell, work, hookdir, depth) -> dict:
                msa_rows_effective=f["effective_depth"] if cell.msa else 0)
     scr = _screen(worker, cell, f, work, hookdir)
     rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR))
+    if scr["verdict"] == "CONTENDED" and wait_for_card(worker):
+        scr = _screen(worker, cell, f, work, hookdir)
+        rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR, retry=True))
     rec.update(verdict=scr["verdict"], decided_by="screen", mechanism=scr["mechanism"],
-               wall_s=scr["wall_s"])
+               wall_s=scr["wall_s"], stacks_truncated=scr.get("stacks_truncated"),
+               block_calls=scr.get("block_calls"), note=scr.get("note"))
     if scr["verdict"] != "FAIL" and _no_weights(scr["tail"]):
         rec["verdict"] = "NO_WEIGHTS"
     return rec
