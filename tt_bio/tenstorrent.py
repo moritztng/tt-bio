@@ -3304,6 +3304,17 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     if _c:
         SEQ_LEN_MORE_CHUNKING = int(_c)
 
+    # The same screen hook, for the same reason, on the Transition's W-chunk gate. That gate is
+    # scaled to 640 above off per-core L1, and the resource it actually bounds is the per-chunk
+    # swiglu L1 -- which the row-height cap in Transition.__call__ already bounds through
+    # `w_eff`, per-core and tile-aware. So on this part every target from 672 aa up W-chunks and
+    # on Blackhole (threshold 1024) none below 1024 does, and no Wormhole baseline has ever
+    # measured that band against the unchunked path. Unset in production; the scaled value is
+    # unchanged.
+    _w = os.environ.get("TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD")
+    if _w:
+        TRANSITION_W_CHUNKING_THRESHOLD = int(_w)
+
 
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
     """Snap to a tuned 13x10 or 11x10 Blackhole grid when available; on smaller
