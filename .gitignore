@@ -123,3 +123,6 @@ node_modules/
 # merge_preflight.sh reads DIRTY on it. Re-ignore the bytecode; the sources stay included.
 tt_bio/_vendor/**/__pycache__/
 perf/capacity/work*/
+
+# capacity gate campaign scratch: stage work dirs, per-leg logs and stage reports
+.capacity/
