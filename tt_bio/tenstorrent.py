@@ -3983,56 +3983,6 @@ def concat_host_bytes() -> int:
     return _CONCAT_HOST_BYTES
 
 
-def _opm_whole_path_budget() -> int:
-    """Bytes the OuterProductMean whole-token path may materialise before it row-blocks.
-
-    `concat_host_bytes()` by default, which is where the number was measured. A screen hook so
-    the byte arm below can be priced without editing it, for the same reason
-    `TT_BIO_SEQ_LEN_MORE_CHUNKING` exists: main's `_with_dram_narrowing` catches this op's
-    refusal reactively and was measured to recover 992 on its own (1209 s, one refused
-    allocation), so whether gating up front earns its cost is an open question and not a
-    constant to bake in. Set it huge to leave only the token arm. Unset in production.
-    """
-    env = os.environ.get("TT_BIO_OPM_WHOLE_PATH_BYTES")
-    return int(env) if env else concat_host_bytes()
-
-
-def _opm_needs_row_blocks(tokens: int, per_row_bytes: int) -> bool:
-    """Whether OuterProductMean splits its token axis into row blocks.
-
-    The token test is the original one and is a perf decision: above it the trunk keeps fewer
-    full pair tensors live, which `_apply_grid_thresholds` re-anchored on DRAM after measuring
-    that chunking costs 15 % of the wall and was protecting nothing below 1088 tokens.
-
-    The byte test is a fit decision, and without it the whole-token path had no bound at all.
-    That path materialises (tokens, C*D, tokens) and then permutes it, and a ttnn permute is
-    out-of-place, so two of that tensor are live at once. A size the blocked path handles by
-    construction could therefore still be refused a single buffer: 9i3p at 992 tokens, C=D=32,
-    asks for 2015363072 B and is refused 704 B per bank short, with 48 % of DRAM free and no
-    hole that big. The blocked path already bounds every block it produces; this bounds the one
-    the whole path produces, by the same resource.
-
-    Against `concat_host_bytes()` rather than free DRAM because gating on free DRAM is a
-    documented dead end -- `protenix._msa_take_whole_path` records that it made a working target
-    fail, the check point being far from the allocation point. That budget is one eighth of this
-    part's DRAM and was measured on this same target for this same reason (a >~2 GiB request
-    refused with GiBs nominally free). On a 12 GiB Wormhole it is 1.5 GiB, so tokens from 887 up
-    take row blocks; on a 31.875 GiB p150a it is 3.98 GiB, which is above the whole-path size at
-    every token count Wormhole reaches, so Blackhole is unchanged by construction.
-
-    Mathematically inert: the I axis indexes independent token rows, the matmul contracts depth
-    rather than I, and each block accumulates its own full depth, so regrouping rows cannot move
-    a value in exact arithmetic. On device in bf16 it is inert only when the blocks come out
-    uniform. Measured on od_9i3p: at 1024 tokens the block height divides I exactly (8 x 128) and
-    the fold is byte-identical to the whole path, CIF md5 1e7320cd; at 960 the last block is a
-    ragged 64 rows and it is not, plDDT 0.708054 against 0.708594. A block of a different height
-    is a different matmul, and tt-metal is free to pick a different K-blocking for it. So the
-    band this gate newly blocks may move the answer by a bf16 re-association, and does at 960 --
-    which is the price of the sizes it makes foldable at all, not a claim to have avoided.
-    """
-    return tokens > SEQ_LEN_MORE_CHUNKING or tokens * per_row_bytes > _opm_whole_path_budget()
-
-
 def _host_concat(x: ttnn.Tensor) -> bool:
     """Whether a chunked path whose output is x's shape assembles its blocks on the host.
 
@@ -7988,7 +7938,15 @@ class OuterProductMean(Module):
             return out
 
         per_row = C * D * J * 2
-        if _opm_needs_row_blocks(I, per_row):
+        # Token count only. A byte arm that also row-blocked from 887 tokens up, to bound the
+        # whole path's (tokens, C*D, tokens) product, was measured and removed: _with_dram_narrowing
+        # below already catches that refusal reactively, and main folded 992 on one refused
+        # allocation in 1209 s against 1213 s with the arm in. Gating up front bought no wall time
+        # and re-blocked the whole 887-1088 band, where a ragged final block is a different matmul
+        # (960 tokens: plDDT 0.708054 against 0.708594) -- for every model sharing this op, at sizes
+        # that already folded. state/ceiling-opendde.md; do not re-add without a size main cannot
+        # fold at all.
+        if I > SEQ_LEN_MORE_CHUNKING:
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
