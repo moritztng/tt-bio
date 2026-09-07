@@ -32,6 +32,12 @@ RAMLOG=$OUT/hostram.log
 PEAK=$OUT/dram_peak.log
 STACK=$OUT/stack.log
 rm -f "$LOG" "$RAMLOG" "$PEAK" "$STACK"
+# And every prior results.json under this tag. record.py globs for one to read the engine's
+# own status, and the out dir persists across runs of the same rung: a run that dies before
+# it folds anything would otherwise be scored "ok" off the PREVIOUS run's file. That is a
+# false pass, and it happened -- a repeat that never got past the ttnn import recorded
+# status=ok with runtime_s from a run two hours earlier.
+rm -rf "$OUT"/*_results_* "$OUT"/results.json
 
 # Host RAM sidecar. pc has 30 GB against the Galaxy's 566, and a host OOM here is a
 # DIFFERENT result from the device DRAM wall this ladder is about, so both axes get sampled
