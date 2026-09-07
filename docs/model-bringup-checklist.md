@@ -17,7 +17,7 @@ last one.
       it is actually served with:
 
       TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
-        python3 scripts/capacity_gate.py --models <m>
+        python3 scripts/capacity_gate.py --models <m> --record
 
       A screen-only pass is not a pass. The gate reports `INCONCLUSIVE` for a Tier 1 run, because
       one block cannot see the cumulative-residency failures.
@@ -25,7 +25,10 @@ last one.
       the measured `pass_at`, the `fail_at` negative control, and evidence naming the gate run. A
       model that refuses above a measured ceiling is shipped. A model that crashes there is not.
 - [ ] `docs/capacity_gate_baseline.json` is re-recorded, so `tests/test_capacity_gate.py` pins the
-      ceiling table the gate was measured against.
+      ceiling table the gate was measured against. That is what `--record` above does, and it is
+      the step that makes the verdict evidence instead of a sentence in a review comment: the run
+      logs live in scratch that gets cleaned up, and the baseline is the only committed record.
+      `tests/test_capacity_gate.py` fails while a runnable model has no cell.
 
 The capacity gate answers "does it allocate and complete". It cannot answer "is the output right",
 and it is meant to run on cards that miscompute. It does not substitute for the parity gate, and
