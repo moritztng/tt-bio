@@ -115,7 +115,8 @@ Wormhole is under 1024:
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
 | `opendde`, `opendde-abag` | 544 | 576 |
-| `openfold3`, `openbind` | 576 | 614 |
+| `openfold3` | 896 | 960 |
+| `openbind` | 576 | 614 |
 | `rf3` | 627 | 630 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
 | `protenix-v2` | 980 | 1095 |
@@ -127,10 +128,12 @@ the limit and any model that does take the input. `boltz2`, `esmfold2`, `boltzge
 have no measured limit and are never refused. These numbers are Wormhole only; nothing is enforced
 on Blackhole, which has more memory per chip and where nobody has walked a ladder to a failure.
 
-The limits were measured with an MSA, which is the default for the models that take one. Folding
-single-sequence is roomier (OpenFold3 caps at 576 with an alignment and folds 768 without one), so
-if you know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the
-refusal into a warning and runs it anyway.
+The limits were measured with an MSA, which is the default for the models that take one, and at the
+deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you
+know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the refusal
+into a warning and runs it anyway. `openbind` runs the same stack as `openfold3` but dedups its
+alignment, so it keeps its own lower number until its own ladder is walked rather than inheriting
+896.
 
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).

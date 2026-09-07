@@ -325,22 +325,34 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
             sl.check_input(f, model, arch="wormhole_b0")
 
 
+#: A size the OpenFold3 Wormhole row is measured to REFUSE, read from the row itself rather than
+#: written down here. These two tests used a literal 768, which was over the cap when they were
+#: written and is under it now that the MSA track's DRAM defects are fixed -- so they stopped
+#: exercising the hatch and started asserting that a passing size raises. Derived, they cannot
+#: go stale when the ladder moves again.
+def _over_cap(model="openfold3", arch="wormhole_b0"):
+    row = sl.ceiling(model, arch)
+    assert row.fail_at and row.fail_at > row.pass_at, (model, arch)
+    return row.fail_at
+
+
 def test_the_escape_hatch_downgrades_a_refusal_to_a_warning(monkeypatch):
     """A limit you cannot get past is a bug report; one that tells you how to override it is a rail.
 
-    The case that motivates it is on the record: OpenFold3's 576 was measured with an MSA, and the
-    same model folds 768 single-sequence in 301 s. Refusing that is a false refusal, and unlike a
-    crash the user cannot retry past it.
+    The case that motivates it is on the record: OpenFold3's cap is measured WITH an MSA at the
+    deepest alignment the pipeline produces, and the same model folds far longer chains
+    single-sequence. Refusing those is a false refusal, and unlike a crash the user cannot retry
+    past it.
     """
     monkeypatch.setenv("TT_BIO_SIZE_LIMIT", "0")
     with pytest.warns(UserWarning, match="TT_BIO_SIZE_LIMIT"):
-        sl.check("openfold3", 768, arch="wormhole_b0")       # warns, does not raise
+        sl.check("openfold3", _over_cap(), arch="wormhole_b0")   # warns, does not raise
 
 
 def test_the_hatch_is_off_by_default_and_named_in_the_message(monkeypatch):
     monkeypatch.delenv("TT_BIO_SIZE_LIMIT", raising=False)
     with pytest.raises(sl.SizeTooLargeError) as e:
-        sl.check("openfold3", 768, arch="wormhole_b0")
+        sl.check("openfold3", _over_cap(), arch="wormhole_b0")
     # The message must carry the way out, or the hatch may as well not exist.
     assert "TT_BIO_SIZE_LIMIT=0" in str(e.value)
     assert "single-sequence" in str(e.value)
