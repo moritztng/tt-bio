@@ -88,7 +88,7 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/release_gate.py --model size-ladder
 
-# Capacity arm: does every model still ALLOCATE and COMPLETE at 1504 tokens, at the
+# Capacity arm: does every model still ALLOCATE and COMPLETE at 1536 tokens, at the
 # MSA depth it is served with? Two tiers -- a one-block screen that catches an
 # oversized shape in seconds, then the full pipeline with a stall detector. This
 # is a capacity check and not a correctness one; it does not substitute for the

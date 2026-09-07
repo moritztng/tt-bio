@@ -32,8 +32,10 @@ ceilings_fingerprint = cg.ceilings_fingerprint
 
 
 def test_the_bar_is_bucket_aligned():
-    """1500 pads to 1504 internally, so a gate that tests 1500 and reports 1500 hides a 4-token
-    pad and an unmasked tail is a ~72x error. The bar has to be a size the hardware sees."""
+    """The bar has to be a size the hardware actually sees. 1536 is exactly 48x32, so it needs no
+    padding at all; a "1500" bar would pad to 1504 and report a number 4 tokens smaller than the
+    one that ran, and an unmasked tail is a ~72x error."""
+    assert cg.TOKEN_BAR == 1536, "Moritz's number, and it needs no padding"
     assert cg.TOKEN_BAR % cg.TOKEN_BUCKET == 0
     for rung in cg.BISECT_RUNGS:
         assert rung % cg.TOKEN_BUCKET == 0, f"bisect rung {rung} is not bucket-aligned"
@@ -82,7 +84,7 @@ def test_the_residency_tier_watches_for_a_stall_not_only_an_exception():
 
 
 def test_host_oom_is_a_distinct_verdict_from_the_device_wall():
-    """A 1504-token deep-MSA fold can OOM the HOST. That is a different failure from running out
+    """A 1536-token deep-MSA fold can OOM the HOST. That is a different failure from running out
     of device DRAM and must not be recorded as a capacity ceiling."""
     assert "HOST_OOM" in cg.VERDICTS
     assert "NO_WEIGHTS" in cg.VERDICTS, "an absent checkpoint is not a failed bar either"
@@ -103,7 +105,7 @@ def test_the_fixture_reaches_the_bar_at_real_depth(tmp_path):
 
 def test_the_fixture_reaches_the_bar_in_every_denomination(tmp_path):
     """size_limits sizes `predict` on summed residues and `embed`/`saprot` on the LONGEST single
-    sequence, and it reads two different file formats to do it. Both must see 1504, or a cell
+    sequence, and it reads two different file formats to do it. Both must see 1536, or a cell
     passes having folded something smaller than the bar it reports.
     """
     f = capacity_fixture.build(cg.TOKEN_BAR, tmp_path)
@@ -143,6 +145,20 @@ def test_a_moved_ceiling_re_runs_the_capacity_gate():
         "  TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 scripts/capacity_gate.py\n"
         "and re-record docs/capacity_gate_baseline.json. This is the check that was missing when "
         "the ceilings went to 1024 on 2026-09-03 and three models broke in traffic.")
+
+
+@pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
+def test_a_baseline_from_a_different_bar_is_not_evidence():
+    """The ceiling guard next door catches the ceilings moving under a fixed bar. Moving the BAR
+    is the same hole from the other side: a baseline measured at 1504 says nothing about whether
+    a model allocates at 1536, and pair tensors scale roughly quadratically, so the gap is not
+    small. Caught for real when the bar was raised 1504 -> 1536 and every recorded cell stayed
+    green."""
+    recorded = json.loads(BASELINE.read_text()).get("bar_tokens")
+    assert recorded == cg.TOKEN_BAR, (
+        f"docs/capacity_gate_baseline.json was measured at {recorded} tokens but the bar is now "
+        f"{cg.TOKEN_BAR}. Those cells are not evidence for this bar; re-run the gate and "
+        f"re-record.")
 
 
 @pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")

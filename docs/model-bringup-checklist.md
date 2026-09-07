@@ -13,7 +13,7 @@ last one.
 
 ## 2. It fits at the size you advertise
 
-- [ ] `scripts/capacity_gate.py` passes for the model at the bar (1504 tokens), at the MSA depth
+- [ ] `scripts/capacity_gate.py` passes for the model at the bar (1536 tokens), at the MSA depth
       it is actually served with:
 
       TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \

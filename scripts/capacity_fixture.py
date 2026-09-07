@@ -1,6 +1,6 @@
 """Build a capacity-gate fixture: one protein chain at a target token count, at real MSA depth.
 
-WHY A GENERATED FIXTURE. The bar is 1504 tokens and no fixture in the tree reaches it. Running a
+WHY A GENERATED FIXTURE. The bar is 1536 tokens and no fixture in the tree reaches it. Running a
 fresh alignment search per gate run would put minutes of network wall-clock and an unreproducible
 alignment in front of a check whose whole point is being cheap enough that nobody skips it. So the
 fixture is derived, offline, from one committed source: CDK2 (PDB 1HCL, 298 aa) with its full
@@ -14,7 +14,7 @@ the answer right". Correctness lives in scripts/full_parity_gate.py against real
 
 WHY DEPTH IS NOT OPTIONAL. For the OF3-family models the failing tensor scales with tokens x rows:
 at 14190 rows OpenFold3 folds 576 and dies at 614, while single-sequence it folds 768 in 301 s. A
-1504-token single-sequence pass proves nothing a user hits, so the deep source is the default and
+1536-token single-sequence pass proves nothing a user hits, so the deep source is the default and
 --depth is a named reduction the gate has to write into its own output.
 
 The row count in the FILE is not the row count the model sees: `_parse_a3m_to_msa` deduplicates by

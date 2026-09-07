@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capacity gate: can every shipped model ALLOCATE and COMPLETE at 1504 tokens on this card?
+"""Capacity gate: can every shipped model ALLOCATE and COMPLETE at 1536 tokens on this card?
 
 THIS IS NOT A PARITY GATE AND CANNOT SUBSTITUTE FOR ONE. It answers one question -- does the shape
 fit and does the pipeline finish -- and says nothing about whether the numbers are right. Its
@@ -75,16 +75,18 @@ import capacity_fixture                                                    # noq
 # ---------------------------------------------------------------------------------------------
 # THE BAR
 # ---------------------------------------------------------------------------------------------
-#: The bar is 1504 TOKENS, not 1500. The token axis buckets to a multiple of 32 and an unmasked
-#: tail is a ~72x error, so 1500 pads to 1504 internally: a gate that tests "1500" and reports
-#: 1500 is hiding a 4-token pad. 1504 is what the hardware sees and 1504 is what gets reported.
-TOKEN_BAR = 1504
+#: The bar is 1536 TOKENS. The token axis buckets to a multiple of 32 and an unmasked tail is a
+#: ~72x error, so the number tested has to be the number the hardware sees: 1536 is exactly
+#: 48 x 32 and needs no padding at all, where a "1500" bar would pad to 1504 and report a size
+#: 4 tokens smaller than what actually ran. Blackhole-only -- 1536 is out of reach on a 12 GiB
+#: Wormhole chip for several of these models, so nothing here is a Wormhole statement.
+TOKEN_BAR = 1536
 TOKEN_BUCKET = 32
 assert TOKEN_BAR % TOKEN_BUCKET == 0
 
 #: Bisect rungs, used ONLY after a failure, to report where the real ceiling sits. A passing model
 #: never runs any of these. All bucket-aligned for the same reason the bar is.
-BISECT_RUNGS = (1280, 1024, 896, 768, 640, 512)
+BISECT_RUNGS = (1408, 1280, 1024, 896, 768, 640, 512)
 
 #: No forward progress for this long is a FAIL, not a wait. OpenFold3's diffusion-side L1 refusal
 #: is retried rather than raised and sat for 2289 s at diffusion step 0; a gate that waits for an
@@ -99,10 +101,10 @@ STALL_S = 900
 #: no output at all: measured on esmfold2 at 1504 tokens, 7.5 minutes of CPU and zero log bytes.
 #: Applying the post-first-event threshold from t=0 would score that cold compile as a hang.
 WARMUP_S = 2700
-#: Total wall-clock ceiling per run. A 1504-token deep-MSA fold is minutes, not an hour.
+#: Total wall-clock ceiling per run. A 1536-token deep-MSA fold is minutes, not an hour.
 RUN_TIMEOUT_S = 5400
 #: Host RAM headroom below which a death is recorded as HOST_OOM and not as a device wall. A
-#: 1504-token deep-MSA fold can OOM the HOST, which is a different failure and must not be
+#: 1536-token deep-MSA fold can OOM the HOST, which is a different failure and must not be
 #: reported as a capacity ceiling.
 HOST_RAM_FLOOR_MB = 700
 
@@ -140,10 +142,10 @@ EXEMPT = {
                 "triangle attention), which a token bar cannot express. Needs an atom-denominated "
                 "cell of its own.",
     "rfd3":     "design, not a fold: sized on DESIGN_TOTAL (motif plus designed) from a contig "
-                "spec, so the 1504-token fixture here is not a valid input. Its wall is "
+                "spec, so the 1536-token fixture here is not a valid input. Its wall is "
                 "fragmentation rather than capacity and wants its own cell.",
     "pxdesign": "design, not a fold: sized on DESIGN_TARGET from a target STRUCTURE, so it needs a "
-                "1504-residue PDB rather than a sequence. The shipped ladder's own fixture source "
+                "1536-residue PDB rather than a sequence. The shipped ladder's own fixture source "
                 "(1DP0 chain A, 1011 residues) cannot reach the bar either.",
     "saprot-1.3b": "structure-aware embeddings, and the checkpoint is not in the local weights "
                    "cache on this host. saprot-35m and saprot-650m carry the same code path at "
@@ -167,8 +169,8 @@ def coverage_gaps() -> list[str]:
 # ---------------------------------------------------------------------------------------------
 # PER-MODEL CELLS -- THE BAR IS IN TOKENS, RESIDUES ARE DERIVED
 # ---------------------------------------------------------------------------------------------
-# Ligand atoms are tokens on top of the residue count, so OpenBind at 1504 RESIDUES is more than
-# 1504 tokens and a residue-defined bar silently under-tests exactly the model that failed hardest
+# Ligand atoms are tokens on top of the residue count, so OpenBind at 1536 RESIDUES is more than
+# 1536 tokens and a residue-defined bar silently under-tests exactly the model that failed hardest
 # in production. The bar is therefore in tokens and each cell derives its own residue count:
 #
 #     residues = TOKEN_BAR - ligand_tokens
@@ -537,7 +539,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
         """(a monotonically growing progress counter, whether real work has started yet).
 
         Three signals summed. The heartbeat is the sharp one: the CLI's progress stream is per
-        recycle, and at 1504 tokens ONE trunk block can run for minutes, so the coarse signal alone
+        recycle, and at 1536 tokens ONE trunk block can run for minutes, so the coarse signal alone
         would read a legitimately grinding block as a hang.
         """
         n = events.stat().st_size if events.exists() else 0
@@ -597,7 +599,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
 
 #: Opening the device is NOT enough to prove the card is usable. A chip left dirty by a killed
 #: fold opens fine and then hangs on the first program dispatch -- measured here: a SIGKILLed
-#: 1504-token fold left card 0 in a state where the next run sat forever inside tt-bio's own
+#: large fold left card 0 in a state where the next run sat forever inside tt-bio's own
 #: dispatch probe, all threads idle, with no error. So this probe dispatches and synchronizes.
 _CARD_PROBE = (
     "import torch, ttnn\n"
@@ -777,8 +779,8 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
     """Screen at the bar, then the residency run, then bisect DOWN only if it failed.
 
     Target-first is the single biggest efficiency win here and it is the opposite of a ladder: a
-    model that clears 1504 costs exactly one screen and one residency run, and nobody pays for
-    640/768/896 to learn something the 1504 pass already proved.
+    model that clears 1536 costs exactly one screen and one residency run, and nobody pays for
+    640/768/896 to learn something the 1536 pass already proved.
     """
     rec = {"model": cell.model, "verb": cell.verb, "worker": repr(worker),
            "bar_tokens": TOKEN_BAR, "legs": []}
@@ -925,11 +927,11 @@ def reductions(depth, recycling, models) -> list[str]:
                "coverage.")
     out.append("The MSA is a committed alignment rather than a fresh search. Device memory does "
                "not care how the alignment was found; this costs no coverage.")
-    out.append("Target-first: 1504 runs FIRST and a pass ends the cell. Only a failure pays for a "
+    out.append("Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a "
                "downward bisect. Costs no coverage.")
     out.append("The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here "
                "sets ligand_tokens, and a model whose production input carries ligands is tested "
-               "at 1504 polymer tokens only.")
+               "at 1536 polymer tokens only.")
     skipped = sorted(set(models) & set(EXEMPT))
     if skipped:
         out.append(f"Not driven by this gate at all: {', '.join(skipped)} (see EXEMPT for each "
