@@ -20,8 +20,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   Measured with real alignments on one Galaxy card: 630 (22 936 rows), 656, 716, 796, 891, 980 and
   1095 (25 815 rows) all fold, at 76-82 pLDDT with zero backbone breaks, and 640 aa carries the
   deepest alignment walked at 27 317 rows. The same 640 aa target on the old route refuses
-  3 355 443 200 B after 179 s. `tt_bio/size_limits.py` publishes 1095 as a LADDER TOP, not a wall:
-  nothing above it has been run.
+  3 355 443 200 B after 179 s, and 627 aa -- the old cap itself -- refuses 51 363 840 B at 99% full
+  on a dedicated card while folding in 206 s on the new route, so the old ceiling was a
+  fragmentation-adjacent pass rather than headroom. `tt_bio/size_limits.py` publishes 1095 as a
+  LADDER TOP, not a wall: nothing above it has been run.
 
   Structures below the old ceiling barely move. The confidence-head change cannot move them at all
   -- it runs after the structure exists, and the coordinates come back bit-identical at 128 and
