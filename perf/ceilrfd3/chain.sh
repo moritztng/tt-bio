@@ -22,6 +22,10 @@ DEADLINE=${DEADLINE:-$(( $(date +%s) + 10800 ))}
 EXTRA_ENV=${EXTRA_ENV:-}
 CMD=${CMD:-perf/ceilrfd3/rfd3_cap.py}
 STOP_ON_FAIL=${STOP_ON_FAIL:-1}
+# 0 turns off the bisect and the boundary re-run, so an explicit list of rungs is walked
+# exactly as given. That is how a boundary already known to 32 residues is repeated N times:
+# the ladder that found it should not re-derive it.
+REPEAT=${REPEAT:-1}
 OUT=$SRC/perf/ceilrfd3/results/$TAG.jsonl
 LOG=$SRC/perf/ceilrfd3/results/$TAG.log
 mkdir -p "$SRC/perf/ceilrfd3/results"
@@ -64,7 +68,7 @@ done
 # Bisect the 32-residue grid between the last pass and the first failure. A ladder in steps
 # of 64 that stops at a failure gives a ceiling good to 64; the token axis buckets to 32, so
 # the published ceiling and its negative control have to be one bucket apart, not two.
-if [ -n "$last_pass" ] && [ -n "$first_fail" ]; then
+if [ "$REPEAT" = 1 ] && [ -n "$last_pass" ] && [ -n "$first_fail" ]; then
   while [ $(( first_fail - last_pass )) -gt 32 ]; do
     mid=$(( (last_pass + first_fail) / 2 / 32 * 32 ))
     [ "$mid" -le "$last_pass" ] && break
@@ -74,8 +78,10 @@ if [ -n "$last_pass" ] && [ -n "$first_fail" ]; then
   done
 fi
 
-for total in $first_fail $last_pass; do
-  r=$(run_rung "$total")
-  echo "[chain] $(date -Is) repeat total=$total -> $r" >> "$LOG"
-done
+if [ "$REPEAT" = 1 ]; then
+  for total in $first_fail $last_pass; do
+    r=$(run_rung "$total")
+    echo "[chain] $(date -Is) repeat total=$total -> $r" >> "$LOG"
+  done
+fi
 echo "[chain] $(date -Is) DONE last_pass=$last_pass first_fail=$first_fail" >> "$LOG"
