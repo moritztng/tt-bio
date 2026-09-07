@@ -17,9 +17,11 @@ the reader to assume it was checked.
 
 `scripts/release_gate.py --model size-ladder` enforces the size half of this, and it is in the
 default arm set, so a release runs it whether or not anyone remembers to. It folds each structure
-model at 256, 512, 640 and 768 aa, counts which perf levers actually fire at each rung by effect,
-and fails when the fired set, the clause a guard declines on, or the runtime scaling exponent moved
-away from `docs/size_ladder_baseline.json`. Nesso-1 rides the same rungs through `tt-bio affinity`
+model at 256, 512, 640, 768, 896 and 1024 aa, counts which perf levers actually fire at each rung
+by effect, and fails when the fired set, the clause a guard declines on, or the runtime scaling
+exponent moved away from `docs/size_ladder_baseline.json` and the fragments beside it. A model
+whose guard refuses a rung records that refusal, and a later run that folds the rung the baseline
+says it refuses is a failure, because the ceiling moved. Nesso-1 rides the same rungs through `tt-bio affinity`
 instead of `predict`, because it returns a scalar rather than a structure and `predict` cannot fold
 it. The clause matters on its own: a guard that starts
 refusing for a different reason has changed behaviour without changing either the fired count or the
@@ -33,9 +35,9 @@ answer changes and nobody said it should, in either direction. A lever that *sta
 size it was never measured at is also a failure, because that is what a threshold quietly widening
 looks like.
 
-**Re-recording is a human action that costs four sizes.** `--size-ladder-record` re-measures every
+**Re-recording is a human action that costs six sizes.** `--size-ladder-record` re-measures every
 rung, and the baseline stores each lever's resolved value at each one. So flipping a default to ON
-fails the arm until someone re-records, and re-recording measures four sequence lengths. The rule
+fails the arm until someone re-records, and re-recording measures six sequence lengths. The rule
 enforces itself instead of relying on a reviewer noticing.
 
 Baselines are per board type and per core grid. The L1 budgets scale to the part's measured per-core
@@ -44,6 +46,27 @@ at the same sequence length. Board type alone does not pin the grid, because har
 board type presents several. A card with no recorded baseline, or one whose grid differs from the
 baseline's, is a loud failure telling you to re-record rather than a silent skip or a false drift
 report.
+
+## Why the ladder reaches 1024
+
+1024 used to be left off entirely because OpenFold3 OOMs there on allocation count, and an arm that
+is red on arrival for one model is an arm someone switches off. A different model paid for that:
+boltz-2 has served 1024-residue jobs in production while the largest size anything measured was
+768, so its scaling across the top third of its supported range was unwatched.
+
+The ladder now runs to 1024 for every model, and a model that cannot fold a rung records that rung
+as a refusal instead of holding everyone else's ladder down. That refusal is information the arm
+carries, not a reason to leave the rung out. Every rung is a multiple of 32, the token-axis
+bucketing the fused kernels are served on.
+
+## Where the baseline lives
+
+`docs/size_ladder_baseline.json` plus `docs/size_ladder_baseline.d/<model>.json`, read as one. Pass
+`--size-ladder-fragment` and a record writes only its own model's fragment, dropping that model's
+rows from the monolith so the two cannot disagree. The reason is merge mechanics rather than taste:
+six models recorded in parallel on six branches all create the same new card key in the same file,
+so they conflict on a file none of them disagree about. Fragments never collide, and a model with
+no fragment is served from the monolith exactly as before.
 
 ## Why the ladder includes 640
 

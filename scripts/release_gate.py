@@ -3093,6 +3093,18 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         # (--size-ladder-models) then UPDATES those models and leaves the rest of
         # the card block intact. A 6-model record is ~2 h of device time, so it
         # has to be resumable a model at a time instead of all-or-nothing.
+        #
+        # From the MONOLITH alone, though, not from `baseline` — `baseline` is the
+        # resolved read (monolith overlaid with every fragment), so seeding from it
+        # copies fragment-recorded models straight back into the one file the
+        # fragments exist to keep them out of. Six branches recording six models
+        # with --size-ladder-fragment would each write the other five's rows into
+        # docs/size_ladder_baseline.json, which is the merge conflict the split was
+        # for, and the copy then goes stale in silence because the fragment wins on
+        # read. `old_models` above stays resolved: carry and exemption-reason
+        # inheritance need a model's previous entry wherever it actually lives.
+        mono = json.loads(baseline_path.read_text()) if baseline_path.exists() else {}
+        mono_models = mono.get("cards", {}).get(card, {}).get("models", {})
         stamp = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
                  "commit": _repo_commit()}
         # The card-level stamp describes the LAST record pass, so on a subset record
@@ -3104,7 +3116,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         old_stamp = {k: baseline.get("cards", {}).get(card, {}).get(k)
                      for k in ("recorded", "host", "commit")}
         carried = {}
-        for m_old, e_old in old_models.items():
+        for m_old, e_old in mono_models.items():
             e_old = dict(e_old)
             for k, v in old_stamp.items():
                 if v is not None:
@@ -3120,8 +3132,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             # and writing that would put this pass's host and commit in the one file five
             # sibling branches are also editing, for no rows at all.
             if new_card.get("models"):
-                baseline.setdefault("cards", {})[card] = new_card
-            baseline.update({
+                mono.setdefault("cards", {})[card] = new_card
+            mono.update({
                 "format": 1,
                 "what": "size-ladder release-gate baseline: per-model lever census and "
                         "runtime scaling exponents at every rung, per card type",
@@ -3142,7 +3154,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             # is a set of constants every model's record pass would rewrite identically. Six
             # branches each touching the shared json to write bytes it already contains is the
             # merge conflict the fragments exist to avoid, so a no-op stays a no-op.
-            text = json.dumps(baseline, indent=2) + "\n"
+            text = json.dumps(mono, indent=2) + "\n"
             if not baseline_path.exists() or baseline_path.read_text() != text:
                 baseline_path.write_text(text)
 

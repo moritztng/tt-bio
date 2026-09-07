@@ -245,6 +245,43 @@ def test_subset_record_keeps_the_other_models_own_provenance(rg, tmp_path, monke
     assert card["commit"] == "cafe1234"
 
 
+
+def test_fragment_record_writes_one_file_per_model_and_leaves_no_duplicate(
+        rg, tmp_path, monkeypatch):
+    """The record loop's fragment branch: each model lands in its own file and its rows are
+    dropped from the monolith's card block, so the same (card, model) is never recorded in
+    two places that can drift apart."""
+    baseline = tmp_path / "size_ladder_baseline.json"
+    baseline.write_text(json.dumps({"cards": {"p150a": {
+        "recorded": "2026-08-22", "host": "pc", "commit": "9bc86a5a",
+        "models": {"boltz2": _baseline(), "rf3": _baseline()}}}}))
+    meas = {"levers": {str(r): {"K2": dict(FIRING)} for r in RUNGS},
+            "runtime_s": dict(BASE_RUNTIME), "sigma": 0.05, "census_jsons": {},
+            "grid": "8x9"}
+    monkeypatch.setattr(rg, "_size_ladder_measure_model", lambda *a, **k: meas)
+    monkeypatch.setattr(rg, "_size_ladder_card_type", lambda: "tt-galaxy-wh l")
+    monkeypatch.setattr(rg, "_repo_commit", lambda: "cafe1234")
+
+    assert rg.run_size_ladder(keep=False, record=True, baseline_path=baseline,
+                              models=["boltz2"], fragment=True)["gate"]
+    # the monolith never gains the new card: every row this pass measured is in a fragment
+    assert "tt-galaxy-wh l" not in json.loads(baseline.read_text())["cards"]
+    after_first = baseline.read_text()
+
+    assert rg.run_size_ladder(keep=False, record=True, baseline_path=baseline,
+                              models=["rf3"], fragment=True)["gate"]
+    # the second pass reads boltz2's fragment but must not copy it into the shared file
+    assert baseline.read_text() == after_first
+
+    frags = sorted(f.name for f in (tmp_path / "size_ladder_baseline.d").glob("*.json"))
+    assert frags == ["boltz2.json", "rf3.json"], frags
+    resolved = rg._size_ladder_read_baseline(baseline)["cards"]
+    assert set(resolved["tt-galaxy-wh l"]["models"]) == {"boltz2", "rf3"}
+    # and the Blackhole card is still the one the monolith recorded
+    assert resolved["p150a"]["commit"] == "9bc86a5a"
+    assert sorted(resolved["p150a"]["models"]) == ["boltz2", "rf3"]
+
+
 def test_rf3_is_in_the_size_ladder(rg):
     """RF3 shipped as a `predict --model rf3` choice in v0.6.6 with no correctness coverage in
     either gate leg. It carries RF3-scoped perf levers and it has already had one L1 gate go
