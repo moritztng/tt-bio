@@ -1,6 +1,6 @@
 {
  "bar_tokens": 1536,
- "recorded": "2026-09-07T20:37:13Z",
+ "recorded": "2026-09-07T20:43:09Z",
  "tree": "3537876f783c068ecb1f11af862ed91a43b0c530",
  "dirty_tree": true,
  "geometry": {
@@ -156,20 +156,22 @@
    "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "rf3": {
-   "verdict": "FAIL",
+   "verdict": "PASS",
    "tokens_requested": 1536,
    "tokens_padded": 1536,
    "residues": 1536,
    "msa_rows_effective": 8832,
-   "dram_peak_bytes": null,
-   "dram_total_bytes": null,
-   "wall_s": 95.1,
-   "mechanism": "dram",
-   "decided_by": "screen",
-   "ceiling_tokens": 1024,
-   "alloc_ceiling_tokens": 1088,
-   "alloc_ceiling_note": "1088 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1120 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
-   "reason": null
+   "dram_peak_bytes": 9607230464,
+   "dram_total_bytes": 34225520128,
+   "wall_s": 393.6,
+   "mechanism": null,
+   "decided_by": "residency",
+   "ceiling_tokens": null,
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "openbind": {
    "verdict": "PASS",
