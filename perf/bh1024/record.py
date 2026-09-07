@@ -14,6 +14,8 @@ log = (out / "fold.log").read_text(errors="replace") if (out / "fold.log").exist
 # Status as the engine itself recorded it, not as the exit code implies: a nonzero rc with
 # an ok results.json (or the reverse) is a harness fact, and both are kept.
 status = "NORESULT"
+if int(rc) == 124:
+    status = "TIMEOUT"
 for g in glob.glob(str(out / "*" / "results.json")) + glob.glob(str(out / "results.json")):
     try:
         status = json.load(open(g))[0]["status"]
@@ -53,8 +55,25 @@ if pk.exists():
     if gib:
         peak_dram_B = int(max(gib) * 2**30)
 
+# Where a stalled rung was when its budget ran out. A rung that does not finish is only
+# useful if you can say which op it died in: pass 1's OF3 1024 sat 11+ min inside one
+# ttnn.to_torch of a [1024] token mask, which is a wedge, not slow compute -- and that
+# distinction is the difference between a size wall and a sick card.
+stall_frame, stall_tau = None, None
+st = out / "stack.log"
+if st.exists():
+    txt = st.read_text(errors="replace")
+    frames = re.findall(r"^ +(\S+ \(tt_bio/\S+:\d+\))", txt, re.M)
+    if frames:
+        stall_frame = frames[-1]
+    taus = re.findall(r"^ +tau: (\d+)", txt, re.M)
+    if taus:
+        stall_tau = int(taus[-1])
+
 host_oom = bool(re.search(r"MemoryError|Killed|Cannot allocate memory|std::bad_alloc|"
                           r"DefaultCPUAllocator: can't allocate", log))
+
+conclusive = (status in ("ok", "TIMEOUT")) or (oom is not None) or host_oom
 
 rec = dict(model=model, rung=rung, tokens=int(re.search(r"(\d+)$", rung)[1]), msa_rows=14190,
            recycling_steps=int(recyc), sampling_steps=int(samp), probe=probe,
@@ -62,7 +81,8 @@ rec = dict(model=model, rung=rung, tokens=int(re.search(r"(\d+)$", rung)[1]), ms
            peak_host_rss_kb=peak_rss_kb, min_mem_available_kb=min_avail_kb,
            peak_device_dram_B=peak_dram_B, dram_probe_samples=dram_lines,
            host_oom_signature=host_oom, oom=oom,
-           arch="blackhole", card="pc physical 0", banks=8, bank_size_B=4278190016)
+           stall_frame=stall_frame, stall_diffusion_step=stall_tau,
+           conclusive=conclusive, arch="blackhole", card="pc physical 0", banks=8, bank_size_B=4278190016)
 p = pathlib.Path(os.path.dirname(os.path.abspath(__file__))) / "results.jsonl"
 with open(p, "a") as fh:
     fh.write(json.dumps(rec) + "\n")
