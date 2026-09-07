@@ -179,15 +179,17 @@
    "tokens_padded": 1536,
    "residues": 1536,
    "msa_rows_effective": 8832,
-   "dram_peak_bytes": 17604753408,
+   "dram_peak_bytes": 15868311552,
    "dram_total_bytes": 34225520128,
-   "wall_s": 653.3,
+   "wall_s": 653.7,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
-   "reason": null
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "e1883076def1c70391a6b8e1e2762f652ba4e94b"
   },
   "protenix-v1": {
    "verdict": "PASS",
