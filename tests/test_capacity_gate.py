@@ -323,6 +323,87 @@ def test_the_hook_reaches_the_same_construction_hooked_and_unhooked(tmp_path, mo
     assert len(plain.blocks) == 48 and len(hooked.blocks) == 1, "depth is the only allowed change"
 
 
+def test_a_strict_state_dict_load_survives_the_screens_depth_cut(tmp_path, monkeypatch):
+    """Defect 13. Cutting `layers` to one element leaves the checkpoint's `layers.1.*` with
+    nowhere to go, and `load_state_dict(strict=True)` raises "Unexpected key(s) in state_dict".
+    Measured on boltz2, whose atom-encoder DiffusionTransformer holds 3 layers.
+
+    The block that still runs must keep its REAL weights: a screen against re-initialised weights
+    would allocate the right shapes for the wrong reasons and could not be trusted about anything
+    else either.
+    """
+    torch = pytest.importorskip("torch")
+    import types
+    nn = torch.nn
+    h = _fresh_hook("screen", tmp_path, monkeypatch)
+
+    class Inner(nn.Module):
+        def __init__(self, n):
+            super().__init__()
+            self.layers = nn.ModuleList([nn.Linear(4, 4) for _ in range(n)])
+
+    class Top(nn.Module):
+        def __init__(self, n):
+            super().__init__()
+            self.enc = Inner(n)
+
+    unhooked = Top(3)                     # built before the hook sees the module: the checkpoint
+    ckpt = unhooked.state_dict()
+    Inner.__module__ = Top.__module__ = "tt_bio._captest_sd"
+    mod = types.ModuleType("tt_bio._captest_sd")
+    mod.Inner, mod.Top = Inner, Top
+    h._patch_module(mod)
+
+    hooked = mod.Top(3)
+    assert len(hooked.enc.layers) == 1, "the cut did not apply, so this proves nothing"
+    hooked.load_state_dict(ckpt, strict=True)          # the whole test
+    assert torch.equal(hooked.enc.layers[0].weight, unhooked.enc.layers[0].weight), (
+        "the block that runs did not get the checkpoint's weights")
+
+
+def test_the_gate_does_not_read_its_own_depth_cut_as_a_bad_checkpoint():
+    """The misattribution defect 13 caused: the no-weights classifier matches "Unexpected key(s)
+    in state_dict", so a cut the GATE made came back as a fact about the ARTIFACT -- boltz2 scored
+    NO_WEIGHTS, which reads as "not our problem". A genuinely wrong checkpoint must still read
+    NO_WEIGHTS, so the discriminator is the recorded cut, not the message."""
+    cut = [["tt_bio.boltz2.DiffusionTransformer", "layers", 3]]
+    ours = ('Unexpected key(s) in state_dict: '
+            '"input_embedder.atom_attention_encoder.atom_encoder.diffusion_transformer.layers.1'
+            '.adaln.s_norm.weight"')
+    assert cg._hook_cut_these_weights(ours, cut), "the gate still blames the checkpoint"
+    assert cg._no_weights(ours), "and the classifier it has to win against still matches"
+
+    theirs = 'Unexpected key(s) in state_dict: "atom_encoder.extra_head.weight"'
+    assert not cg._hook_cut_these_weights(theirs, cut), (
+        "a checkpoint that is genuinely wrong for the module must still report NO_WEIGHTS")
+    assert not cg._hook_cut_these_weights(ours, []), "with no cut recorded there is nothing to own"
+
+
+def test_a_mechanismless_screen_fail_under_truncation_is_not_scored():
+    """Defect 14, and the one that breaks Tier 1's founding claim. `Module.__call__` in
+    tt_bio/tenstorrent.py slices a per-layer bias tensor as `z.shape[1] // len(self.layers)`, so
+    the cut from 3 layers to 1 turned a 4-head slice into a 12-head one. A block stack's LENGTH is
+    load-bearing for tensors outside the stack, so truncation CAN invent a failure.
+
+    A real capacity failure names a mechanism -- rf3's is an allocator refusal for a single
+    18530435072 B DRAM buffer. A shape mismatch names none, so it is not scored."""
+    invented = {"verdict": "FAIL", "mechanism": None, "stacks_truncated": 8,
+                "tail": "The size of tensor a (4) must match the size of tensor b (12)"}
+    assert cg.screen_reduction_is_unsafe(invented), (
+        "a shape mismatch under the gate's own depth cut would be published as a 1536 ceiling")
+
+    real = {"verdict": "FAIL", "mechanism": "dram", "stacks_truncated": 8,
+            "tail": "Out of Memory: Not enough space to allocate 18530435072 B DRAM buffer"}
+    assert not cg.screen_reduction_is_unsafe(real), (
+        "rf3's measured FAIL must stay definitive; re-running it full-depth costs 20 min and "
+        "cannot change a shape verdict")
+
+    untruncated = dict(invented, stacks_truncated=0)
+    assert not cg.screen_reduction_is_unsafe(untruncated), (
+        "with no cut applied the screen cannot be the cause, so the leg is the model's own")
+    assert not cg.screen_reduction_is_unsafe(dict(invented, verdict="INCONCLUSIVE"))
+
+
 def test_no_loader_introspects_in_a_way_the_hook_cannot_survive():
     """Keeps the test above honest against the real tree. `functools.wraps` sets `__wrapped__`,
     which `inspect.signature` follows and `inspect.getfullargspec` does NOT. So the transparency
@@ -401,6 +482,119 @@ def test_the_hook_reaches_a_spawned_child(tmp_path):
         f"the hook did not arm in the spawned child: {r.stdout!r} {r.stderr[-400:]!r}")
 
 
+# ---------------------------------------------------------------------------------------------
+# The --workers fan-out. p1 wired it and never validated it, because qb1 and qb2 were unpowered.
+# Validating it is what showed it did not fan out at all: the loop round-robined the ASSIGNMENT
+# and then ran the cell inline, so four cards cost exactly what one card cost. These run on one
+# host with no device, which is the only way the claim gets checked while the other boxes are down.
+# ---------------------------------------------------------------------------------------------
+
+
+def _sweep_probe(n_workers, n_cells, hold=0.15, retire=None):
+    """Run cg.sweep with fake workers and a cell that just sleeps, and record who ran what when."""
+    import threading
+    import time as _t
+    seen, lock = [], threading.Lock()
+    workers = [f"w{k}" for k in range(n_workers)]
+
+    def run_one(w, cell):
+        t0 = _t.monotonic()
+        _t.sleep(hold)
+        return {"model": cell, "verdict": "PASS", "worker": w, "t0": t0,
+                "t1": _t.monotonic()}
+
+    published = {}
+
+    def publish(i, rec):
+        with lock:
+            published[i] = rec
+            seen.append((rec["worker"], rec["model"]))
+
+    t0 = _t.monotonic()
+    unrun = cg.sweep(list(range(n_cells)), workers, run_one, publish, retire)
+    return published, unrun, _t.monotonic() - t0, seen
+
+
+def test_the_worker_fanout_actually_runs_cells_concurrently():
+    """The defect: `workers[i % len(workers)]` chose a different card per iteration and the loop
+    still waited for it, so --workers changed WHICH card ran a cell and never how many ran at
+    once. Four cards would have left the 19.9 min sweep at 19.9 min.
+
+    Wall-clock is the only honest check here, so it is the one used: 8 cells holding 0.15 s each
+    is 1.2 s serial and ~0.3 s on four cards. The bound is deliberately loose (0.75 s) so a busy
+    host does not fail it, and it is still far below serial.
+    """
+    published, unrun, wall, _seen = _sweep_probe(4, 8)
+    assert not unrun and len(published) == 8, "cells were lost"
+    assert wall < 0.75, (
+        f"8 cells x 0.15 s took {wall:.2f}s on 4 workers; serial is 1.2s, so the fan-out is "
+        f"still running one cell at a time")
+    overlap = max(sum(1 for o in published.values() if o["t0"] <= r["t0"] < o["t1"])
+                  for r in published.values())
+    assert overlap > 1, "no two cells were ever in flight together"
+    assert len({r["worker"] for r in published.values()}) == 4, "not every card was used"
+
+
+def test_the_fanout_balances_by_pulling_rather_than_by_index():
+    """Cell cost spans 10 s to 175 s here, so a static round-robin hands one card openfold3 and
+    protenix-v2 while another finishes saprot-35m and idles. A shared queue lets the card that is
+    free take the next cell, which is why more cells than cards is not a problem."""
+    published, unrun, _wall, _seen = _sweep_probe(2, 7, hold=0.05)
+    assert not unrun and len(published) == 7
+    per = {}
+    for r in published.values():
+        per[r["worker"]] = per.get(r["worker"], 0) + 1
+    assert sum(per.values()) == 7 and len(per) == 2
+    assert all(v >= 1 for v in per.values()), f"a card sat idle through the whole sweep: {per}"
+
+
+def test_a_retired_card_hands_its_remaining_cells_to_a_live_one():
+    """A wedge a reset cannot clear must cost that card, not the run. p1's recovery already does
+    this serially; under the fan-out the retiring thread has to leave the queue for the others."""
+    def retire(w, rec):
+        return w == "w0"                       # w0 dies on its very first cell
+    published, unrun, _wall, _seen = _sweep_probe(2, 6, hold=0.02, retire=retire)
+    assert not unrun, f"cells were dropped when a card retired: {unrun}"
+    assert len(published) == 6
+    by = {}
+    for r in published.values():
+        by[r["worker"]] = by.get(r["worker"], 0) + 1
+    assert by.get("w0", 0) == 1, f"w0 kept taking work after retiring: {by}"
+    assert by.get("w1", 0) == 5, f"w1 did not pick up the rest: {by}"
+
+
+def test_every_cell_is_reported_when_all_cards_retire():
+    """With no card left, the cells still queued were never measured. They come back as unrun so
+    main() can record CARD_DIRTY, rather than vanishing from the report."""
+    published, unrun, _wall, _seen = _sweep_probe(2, 6, hold=0.02, retire=lambda w, r: True)
+    assert len(published) == 2, "each card should have managed exactly one cell"
+    assert len(unrun) == 4, f"4 cells were owed and {len(unrun)} came back"
+    assert sorted([i for i, _c in unrun] + list(published)) == list(range(6)), (
+        "the reported and unrun cells do not add up to the sweep")
+
+
+def test_the_fanout_vets_every_card_not_just_the_first():
+    """A gate that probes workers[0] and fans out over four records every cell that landed on an
+    unhealthy card 3 as a capacity failure. That is the exact lie the card-0 probe exists to stop,
+    so the check has to iterate."""
+    import inspect
+    src = inspect.getsource(cg.main)
+    assert "card_healthy(workers[0])" not in src, (
+        "only the first card is vetted; cells on an unhealthy sibling would be scored as failed "
+        "bars")
+    assert "for w in workers if not card_healthy(w)" in src
+
+
+def test_concurrent_cells_do_not_race_on_the_shared_fixture():
+    """Models sharing a residue count share the fixture path, and the MSA target is keyed by
+    sequence hash, so two threads write one file while a third reads it. Serialised in
+    fixture_for, which is seconds against runs of minutes."""
+    import inspect
+    src = inspect.getsource(cg.fixture_for)
+    assert "_FIXTURE_LOCK" in src, "fixture construction is not serialised under the fan-out"
+    assert "capacity_fixture.build" in src.split("_FIXTURE_LOCK")[1]
+
+
 def test_a_failing_model_does_not_wedge_the_rest_of_the_run():
     """Measured: rf3's 1504-token OOM (a TT_FATAL from the allocator) left card 0 accepting an
     open and then never dispatching, and the next cell sat 10 minutes at 100% CPU inside
@@ -409,8 +603,10 @@ def test_a_failing_model_does_not_wedge_the_rest_of_the_run():
     Provoking that refusal is THE JOB of this gate, so recovery is part of the gate. Without it
     the first model that legitimately fails the bar turns every model after it into an invented
     failure -- a real one-line result wrapped in a cascade of noise."""
-    src = (ROOT / "scripts" / "capacity_gate.py").read_text()
-    loop = src[src.index("    for i, cell in enumerate(all_cells):"):src.index("    _finish(report)\n    print(flush=True)")]
+    import inspect
+    # The recovery moved into main()'s `retire` collaborator when the fan-out was made real; the
+    # policy it encodes is unchanged, so this reads where it lives now rather than being deleted.
+    loop = inspect.getsource(cg.main)
     assert "recover_card(w, workers)" in loop, (
         "the loop must re-check the card after a fail-like verdict; polling a wedged chip cannot "
         "fix it, only a reset can")
@@ -419,6 +615,8 @@ def test_a_failing_model_does_not_wedge_the_rest_of_the_run():
     assert 'dead[repr(w)]' in loop and '"CARD_DIRTY"' in loop, (
         "a card the gate gave up on must report its owed cells CARD_DIRTY -- nothing was "
         "measured on them, so recording FAIL would publish a ceiling nobody walked")
+    assert "retire" in inspect.signature(cg.sweep).parameters, (
+        "the scheduler must be able to retire a card, or one wedge poisons every cell after it")
 
 
 def test_a_reset_is_refused_when_the_run_does_not_own_the_host():

@@ -198,6 +198,44 @@ def _instrument_class(cls) -> None:
         return
 
 
+def _forget_truncated_weights(stack, attr: str, n: int) -> None:
+    """Let a strict state_dict load survive the truncation.
+
+    `load_state_dict(strict=True)` is the second way the screen's depth cut alters construction
+    rather than observing it. Truncating `layers` to one element leaves the checkpoint's
+    `layers.1.*` and up with nowhere to go, and torch raises
+
+        Unexpected key(s) in state_dict: "...atom_encoder.diffusion_transformer.layers.1.adaln..."
+
+    which the gate's own no-weights classifier then read as an unusable CHECKPOINT. So a depth
+    cut the gate made itself came back as a fact about the artifact.
+
+    Dropping exactly the removed indices is the honest repair: those blocks do not exist in this
+    process and never execute, so their weights are not missing, they are irrelevant. Block 0,
+    the one that runs, keeps its real weights. Anything else in the checkpoint is untouched, so a
+    genuinely broken artifact still reports as one.
+
+    Only reachable for an `nn.Module` container. A plain list in a ttnn port has no strict load to
+    break, and `_state["truncated"]` records the cut either way, so the gate can still tell its
+    own instrument's error from the model's.
+    """
+    reg = getattr(stack, "_register_load_state_dict_pre_hook", None)
+    if reg is None:
+        return
+
+    dead = tuple(f"{i}." for i in range(1, n))
+
+    def drop(state_dict, prefix, local_metadata, strict, missing, unexpected, errors):
+        for key in [k for k in state_dict if k.startswith(prefix)
+                    and k[len(prefix):].startswith(dead)]:
+            del state_dict[key]
+
+    try:
+        reg(drop)
+    except Exception as exc:
+        _record(f"forget {attr}[1:{n}]: {type(exc).__name__}: {exc}")
+
+
 def _visit(obj) -> None:
     """Post-`__init__` walk: find this object's block stacks and act on them."""
     mode = _state["mode"]
@@ -233,10 +271,12 @@ def _visit(obj) -> None:
         if n < 2:
             continue                              # nothing to truncate; the shape still runs once
         try:
-            setattr(obj, attr, stack[:1])
+            cut = stack[:1]
+            setattr(obj, attr, cut)
         except Exception as exc:                  # frozen dataclass, read-only property, ...
             _record(f"truncate {type(obj).__qualname__}.{attr}: {exc}")
             continue
+        _forget_truncated_weights(cut, attr, n)
         _state["truncated"].append([f"{type(obj).__module__}.{type(obj).__qualname__}", attr, n])
 
 

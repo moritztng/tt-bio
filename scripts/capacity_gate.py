@@ -57,12 +57,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import queue
 import re
 import shlex
 import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -119,6 +121,53 @@ VERDICTS = ("PASS", "FAIL", "STALL", "HOST_OOM", "NO_WEIGHTS", "CONTENDED", "CAR
 _HOOK_BROKE = re.compile(
     r"__init__\(\) missing \d+ required positional argument"
     r"|__init__\(\) takes \d+ positional argument", re.I)
+
+#: The SECOND way the instrument broke a model, found by fixing the first. The depth cut leaves a
+#: strict `load_state_dict` staring at the removed blocks' weights, and `_no_weights` below reads
+#: "Unexpected key(s) in state_dict" as an unusable CHECKPOINT -- so a cut the gate made itself
+#: came back as a fact about the artifact. `capacity_hook` now drops exactly the indices it
+#: removed, but that repair needs an `nn.Module` container to hang off, so the misattribution is
+#: also cut off here: an unexpected key naming a block index THIS RUN removed is the gate's bug.
+_UNEXPECTED_KEY = re.compile(r"Unexpected key\(s\) in state_dict", re.I)
+
+
+def screen_reduction_is_unsafe(leg: dict) -> bool:
+    """True when a screen FAIL cannot be attributed to the bar, because the screen's own depth cut
+    is a candidate cause.
+
+    Tier 1's founding claim was that truncation "can only reduce what runs, so a screen can miss a
+    Class B failure but cannot invent one". That is false, and boltz2 disproved it three separate
+    ways: the wrapper defeated a signature-filtering loader, the cut left a strict state_dict load
+    with orphaned weights, and -- once both were fixed -- `Module.__call__` in tt_bio/tenstorrent.py
+    slices a per-layer bias tensor as `z.shape[1] // len(self.layers)`, so cutting 3 layers to 1
+    turned a 4-head slice into a 12-head one: "The size of tensor a (4) must match the size of
+    tensor b (12)". A block stack's LENGTH can be load-bearing for tensors outside the stack.
+
+    The discriminator is the mechanism. A real capacity failure names one: rf3's is an allocator
+    refusal for a single 18530435072 B DRAM buffer. A shape mismatch names none. So a FAIL with no
+    capacity mechanism, on a leg where the cut was actually applied, is not scored -- the cell
+    falls through to the un-truncated residency run, which reduces nothing and is always a valid
+    measurement. It costs one slow run for the model whose fast path does not work, and nothing at
+    all for every model whose does.
+    """
+    return bool(leg.get("verdict") == "FAIL" and not leg.get("mechanism")
+                and leg.get("stacks_truncated"))
+
+
+def _hook_cut_these_weights(tail: str, truncated: list) -> bool:
+    """True when the unexpected keys name a block index the screen's own truncation removed.
+
+    Deliberately narrow: it wants the recorded attribute AND an index inside the recorded depth,
+    both from this run's own hook record. A checkpoint that is genuinely wrong for the module
+    still reports NO_WEIGHTS, because its unexpected keys do not sit under a stack the gate cut.
+    """
+    if not tail or not truncated or not _UNEXPECTED_KEY.search(tail):
+        return False
+    for _qualname, attr, n in truncated:
+        for i in range(1, min(int(n), 4096)):
+            if f".{attr}.{i}." in tail:
+                return True
+    return False
 
 # ---------------------------------------------------------------------------------------------
 # THE MODEL LIST -- DERIVED, NEVER HARDCODED
@@ -718,7 +767,8 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
     if r["mechanism"] == "contention":
         r["verdict"] = "CONTENDED"
         return r
-    if _HOOK_BROKE.search(r["tail"] or "") and r["hook_installed"]:
+    if r["hook_installed"] and (_HOOK_BROKE.search(r["tail"] or "")
+                                or _hook_cut_these_weights(r["tail"], trunc)):
         r["verdict"] = "GATE_BUG"
         r["reason"] = ("the Tier 1 block-truncation hook broke this model's construction, so "
                        "nothing was measured. This is the gate's bug, not a failed bar.")
@@ -763,6 +813,13 @@ def _residency(worker, cell, fixture, work, hookdir, tokens) -> dict:
     return r
 
 
+#: fixture_for writes work/fixtures and work/msa under paths keyed by residue count and sequence
+#: hash, and models sharing a residue count share the path -- so under the per-card fan-out two
+#: threads would write one file while a third read it. Building is seconds against runs of
+#: minutes, so it is simply serialised rather than made clever.
+_FIXTURE_LOCK = threading.Lock()
+
+
 def fixture_for(cell: Cell, tokens: int, work: Path, depth) -> dict:
     """Build (or reuse) the fixture for one cell at `tokens`, and wire its cached MSA.
 
@@ -771,17 +828,18 @@ def fixture_for(cell: Cell, tokens: int, work: Path, depth) -> dict:
     every run.
     """
     res = cell.residues(tokens)
-    f = capacity_fixture.build(res, work / "fixtures", depth=depth)
-    if cell.msa:
-        from tt_bio.cache import seq_hash
-        seq = [l for l in f["yaml"].read_text().splitlines() if "sequence:" in l][0]
-        seq = seq.split("sequence:")[1].strip()
-        msa_dir = work / "msa"
-        msa_dir.mkdir(parents=True, exist_ok=True)
-        target = msa_dir / f"{seq_hash(seq)}.a3m"
-        target.write_text(f["a3m"].read_text())
-        f["msa_dir"] = msa_dir
-        f["msa_file"] = target
+    with _FIXTURE_LOCK:
+        f = capacity_fixture.build(res, work / "fixtures", depth=depth)
+        if cell.msa:
+            from tt_bio.cache import seq_hash
+            seq = [l for l in f["yaml"].read_text().splitlines() if "sequence:" in l][0]
+            seq = seq.split("sequence:")[1].strip()
+            msa_dir = work / "msa"
+            msa_dir.mkdir(parents=True, exist_ok=True)
+            target = msa_dir / f"{seq_hash(seq)}.a3m"
+            target.write_text(f["a3m"].read_text())
+            f["msa_dir"] = msa_dir
+            f["msa_file"] = target
     f["tokens_requested"] = tokens
     f["tokens_padded"] = cell.padded(tokens)
     f["residues"] = res
@@ -819,7 +877,7 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
         rec.update(verdict="CONTENDED", decided_by="screen", wall_s=scr["wall_s"],
                    reason="another process held the card; nothing was measured")
         return rec
-    if scr["verdict"] in ("FAIL", "HOST_OOM"):
+    if scr["verdict"] in ("FAIL", "HOST_OOM") and not screen_reduction_is_unsafe(scr):
         # Definitive: a shape that cannot allocate once cannot allocate ever.
         rec.update(verdict=scr["verdict"], decided_by="screen",
                    mechanism=scr["mechanism"], wall_s=scr["wall_s"])
@@ -829,6 +887,12 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
             rec["ceiling_tokens"] = _bisect(worker, cell, work, hookdir, depth, rec)
         return rec
 
+    if screen_reduction_is_unsafe(scr):
+        rec["screen_unsafe"] = True
+        rec["note"] = ("the screen's depth cut is a candidate cause of its own FAIL "
+                       f"({scr['stacks_truncated']} stacks cut, no capacity mechanism in the "
+                       f"error), so it was not scored; this verdict comes from the un-truncated "
+                       f"run. Tier 1 has no fast path for this model.")
     res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
     rec["legs"].append(dict(res, tier="residency", tokens=TOKEN_BAR))
     # A STALL is only the MODEL's stall if the chip is still dispatching. A card left dirty by an
@@ -963,6 +1027,52 @@ def reductions(depth, recycling, models) -> list[str]:
     return out
 
 
+def sweep(all_cells: list, workers: list, run_one, publish, retire=None) -> list:
+    """ONE THREAD PER CARD, PULLING FROM A SHARED QUEUE. Returns the (index, cell) nobody ran.
+
+    `--workers` used to round-robin the ASSIGNMENT and then run the cell inline, so four cards
+    cost exactly what one card costs: `workers[i % len(workers)]` picked a different card each
+    iteration and the loop still waited for it. The 19.9 min sweep would have stayed 19.9 min.
+    Measured cell costs run 10 s to 175 s, so a static round-robin would also leave one card
+    holding openfold3 + protenix-v2 while another finished saprot-35m and idled; a shared queue is
+    both simpler and better balanced.
+
+    A card `retire` cannot recover retires its own thread, and the cells still queued are taken by
+    the live ones. Only what is left when every thread has gone comes back as unrun, which is the
+    honest verdict for it: nothing was measured there.
+
+    Module level with its collaborators injected, because the alternative is a closure inside
+    main() that no test can reach without four cards and half an hour.
+    """
+    cellq: queue.Queue = queue.Queue()
+    for item in enumerate(all_cells):
+        cellq.put(item)
+
+    def drain(w) -> None:
+        while True:
+            try:
+                i, cell = cellq.get_nowait()
+            except queue.Empty:
+                return
+            rec = run_one(w, cell)
+            publish(i, rec)
+            if retire is not None and retire(w, rec):
+                return
+
+    threads = [threading.Thread(target=drain, args=(w,), name=repr(w)) for w in workers]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    unrun = []
+    while True:
+        try:
+            unrun.append(cellq.get_nowait())
+        except queue.Empty:
+            return unrun
+
+
 def render(report: dict) -> str:
     g = report["geometry"]
     L = []
@@ -1067,10 +1177,14 @@ def main(argv=None) -> int:
     hookdir = hook_dir(work)
     workers = parse_workers(a.workers) if a.workers else [Worker(local_host(), 0, True)]
 
-    if not card_healthy(workers[0]):
-        print(f"{workers[0]} cannot dispatch a trivial program. Every leg would fail or hang and "
-              f"the gate would record capacity failures nobody walked. Reset it "
-              f"(tt-smi -r {workers[0].card}) and re-run.", file=sys.stderr)
+    # EVERY card, not just the first. A gate that vets workers[0] and fans out over four would
+    # record every cell that landed on an unhealthy card 3 as a capacity failure -- the exact lie
+    # the card 0 check exists to prevent, reintroduced by the fan-out.
+    sick = [repr(w) for w in workers if not card_healthy(w)]
+    if sick:
+        print(f"{', '.join(sick)} cannot dispatch a trivial program. Every leg landing there "
+              f"would fail or hang and the gate would record capacity failures nobody walked. "
+              f"Reset (tt-smi -r) and re-run.", file=sys.stderr)
         return 3
 
     report = {
@@ -1099,43 +1213,62 @@ def main(argv=None) -> int:
     dead: dict[str, str] = {}
     all_cells = list(cells(models, depth=a.depth, recycling=a.recycling))
 
-    for i, cell in enumerate(all_cells):
-        w = workers[i % len(workers)]
-        if repr(w) in dead:
-            r = {"model": cell.model, "verdict": "CARD_DIRTY", "worker": repr(w), "wall_s": 0.0,
-                 "reason": f"not run: {dead[repr(w)]}"}
-            report["results"].append(r)
-            print(f"  -> {r['model']:<14} {r['verdict']:<10} 0s  {r['reason'][:80]}", flush=True)
+    # ONE THREAD PER CARD, PULLING FROM A SHARED QUEUE.
+    #
+    # --workers used to round-robin the ASSIGNMENT and then run the cell inline, so four cards
+    # cost exactly what one card costs: `w = workers[i % len(workers)]` picked a different card
+    # each iteration and the loop still waited for it. The 19.9 min sweep would have stayed
+    # 19.9 min. Measured cell costs run 10 s to 175 s, so a static round-robin would also leave
+    # one card holding openfold3 + protenix-v2 while another finished saprot-35m and idled --
+    # a shared queue is both simpler and better balanced.
+    #
+    # A card that cannot be recovered RETIRES its own thread and the remaining cells are taken by
+    # the live ones. Only cells still queued when every thread has retired are CARD_DIRTY, which
+    # is the honest verdict: nothing was measured on them.
+    done: dict[int, dict] = {}
+    lock = threading.Lock()
+
+    def publish(i: int, r: dict) -> None:
+        with lock:
+            done[i] = r
+            report["results"] = [done[k] for k in sorted(done)]
             _finish(report)
             (a.report or work / "report.json").write_text(
                 json.dumps(report, indent=1, default=str))
-            continue
+            print(f"  -> {r['model']:<14} {r['verdict']:<10} {r.get('wall_s')}s "
+                  f"{r.get('mechanism') or ''} {str(r.get('reason', ''))[:80]}", flush=True)
+
+    def run_one(w: Worker, cell: Cell) -> dict:
         t0 = time.monotonic()
         try:
             r = run_cell(w, cell, work, hookdir, depth=a.depth, bisect=not a.no_bisect) \
                 if a.tier == "both" else _screen_only(w, cell, work, hookdir, a.depth)
         except Exception as exc:
-            r = {"model": cell.model, "verdict": "ERROR",
+            r = {"model": cell.model, "verdict": "ERROR", "worker": repr(w),
                  "reason": f"{type(exc).__name__}: {exc}"}
         r.setdefault("wall_s", round(time.monotonic() - t0, 1))
-        report["results"].append(r)
-        print(f"  -> {r['model']:<14} {r['verdict']:<10} {r.get('wall_s')}s "
-              f"{r.get('mechanism') or ''} {str(r.get('reason', ''))[:80]}", flush=True)
+        return r
 
+    def retire(w: Worker, r: dict) -> bool:
         # A device-side fatal can leave the chip open-able but not dispatching, so the NEXT cell
         # would hang in tt-bio's dispatch probe and be recorded as this gate's own kind of
         # failure. Checked only after a failure, so a clean run pays nothing for it.
-        if r["verdict"] in ("FAIL", "STALL", "ERROR", "CARD_DIRTY") and not a.no_card_reset:
-            ok, how = recover_card(w, workers)
-            r["card_after"] = how
-            if not ok:
+        if r["verdict"] not in ("FAIL", "STALL", "ERROR", "CARD_DIRTY") or a.no_card_reset:
+            return False
+        ok, how = recover_card(w, workers)
+        r["card_after"] = how
+        if not ok:
+            with lock:
                 dead[repr(w)] = how
-                print(f"     {w}: {how}", flush=True)
-            elif how != "still dispatching":
-                print(f"     {w}: {how}", flush=True)
+            print(f"     {w}: {how} -- retiring this card", flush=True)
+            return True
+        if how != "still dispatching":
+            print(f"     {w}: {how}", flush=True)
+        return False
 
-        _finish(report)
-        (a.report or work / "report.json").write_text(json.dumps(report, indent=1, default=str))
+    for i, cell in sweep(all_cells, workers, run_one, publish, retire):
+        publish(i, {"model": cell.model, "verdict": "CARD_DIRTY", "wall_s": 0.0,
+                    "reason": f"not run: every card retired ({'; '.join(dead.values())})"})
 
     _finish(report)
     print(flush=True)
@@ -1230,6 +1363,13 @@ def _screen_only(worker, cell, work, hookdir, depth) -> dict:
     # nonzero, so guarding this on "not already a FAIL" would skip every case it is for.
     if scr["verdict"] in ("FAIL", "HOST_OOM") and _no_weights(scr["tail"]):
         rec["verdict"] = "NO_WEIGHTS"
+    elif screen_reduction_is_unsafe(scr):
+        # --tier screen has no un-truncated leg to fall through to, so it must not report the
+        # FAIL. Say which tier can decide it instead of scoring a bar nobody walked.
+        rec.update(verdict="INCONCLUSIVE", screen_unsafe=True,
+                   note="the screen's own depth cut is a candidate cause of this FAIL and there "
+                        "is no capacity mechanism in the error, so Tier 1 cannot decide this "
+                        "model. Run it with --tier both.")
     return rec
 
 
