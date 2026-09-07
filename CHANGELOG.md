@@ -23,11 +23,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   3 355 443 200 B after 179 s. `tt_bio/size_limits.py` publishes 1095 as a LADDER TOP, not a wall:
   nothing above it has been run.
 
-  Faster above 256 residues, because the route being deleted costs O(N.S^2), and slower below it:
-  warm matched pairs on one card read 0.89x at 128, 0.93x at 256, 1.16x at 384 and 1.12x at 512.
-  None of the three changes is bit-exact with what it replaced, so each keeps a switch back --
-  `TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0`, `TT_BIO_RF3_MSA_FUSED_SDPA=0`, `TT_BIO_RF3_GLN_ROW_FOLD=0`
-  -- and those restore the old routes and the old ceiling with them.
+  Structures below the old ceiling barely move. The confidence-head change cannot move them at all
+  -- it runs after the structure exists, and the coordinates come back bit-identical at 128 and
+  256 residues -- and the attention change shifts CA positions by 0.057 A at 128 and 0.134 A at
+  256, inside rf3's own run-to-run reference noise. Reported confidence does change above 128
+  residues, and there the new reduction is the more accurate one. Speed below the ceiling is
+  unchanged as far as this can be measured: two runs of one arm with byte-identical output differed
+  by 31% at 128 residues, so nothing smaller than that is resolvable without a benchlocked
+  protocol. Each change keeps a switch back -- `TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0`,
+  `TT_BIO_RF3_MSA_FUSED_SDPA=0`, `TT_BIO_RF3_GLN_ROW_FOLD=0` -- and those restore the old routes
+  and the old ceiling with them.
 
 - **A `cyclic: true` chain is now refused by `esmfold2` and `esmfold2-fast` too.** Every other
   model that cannot cyclise already refused it. ESMFold2 was the one path left that took the flag,
