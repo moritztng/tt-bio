@@ -102,6 +102,13 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/capacity_gate.py
 
+# On a multi-card host, --workers runs one model per card. The gate sets
+# TT_VISIBLE_DEVICES and the card grant per leg itself, so do not pin it here:
+#   PYTHONPATH="$PWD" python3 scripts/capacity_gate.py --workers pc:0,pc:1,pc:2,pc:3
+# It refuses to start if any of those cards cannot dispatch, and it will not
+# tt-smi reset a card while a sibling on the same host is in flight, because a
+# reset takes the whole board pair down.
+
 TT_VISIBLE_DEVICES=0 OF3_CKPT=/path/to/of3-p2-155k.pt PYTHONPATH="$PWD" \
   python3 scripts/ux_regression.py
 ```

@@ -619,6 +619,17 @@ def test_a_failing_model_does_not_wedge_the_rest_of_the_run():
         "the scheduler must be able to retire a card, or one wedge poisons every cell after it")
 
 
+def test_every_bisect_rung_keeps_its_own_evidence():
+    """A bisect screens up to seven rungs and the ceiling it reports rests on which rung refused.
+    All of them wrote `screen_<model>.log`, so each rung overwrote the last and the only surviving
+    proof was the final one. A ceiling nobody can re-read is a ceiling nobody can check."""
+    import inspect
+    src = inspect.getsource(cg._screen)
+    assert 'f"screen_{cell.model}.log"' not in src, "every rung still writes one shared log"
+    assert 'tokens_requested' in src and '{tok}.log' in src, (
+        "the screen log must be keyed by size, the way the residency log already is")
+
+
 def test_a_reset_is_refused_when_the_run_does_not_own_the_host():
     """`tt-smi -r` resets the BOARD PAIR, not the chip, so a reset issued for card 0 of a p300c
     also takes down card 1. Under --workers fan-out that is somebody else's in-flight leg."""

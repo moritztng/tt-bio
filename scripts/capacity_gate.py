@@ -737,8 +737,13 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
     and nothing else -- including the case where the hook matched no block list at all and the
     "screen" quietly ran full depth, which the hook records and the report prints.
     """
-    log = work / f"screen_{cell.model}.log"
-    hook_out = work / f"hook_screen_{cell.model}"
+    # Keyed by SIZE, not just by model. A bisect screens seven rungs, and one shared path meant
+    # each rung overwrote the last -- so the only surviving evidence for a reported ceiling was
+    # its final rung, and every refusal that established the wall was gone. The residency leg was
+    # already per-size; this makes the screen match it.
+    tok = fixture["tokens_requested"]
+    log = work / f"screen_{cell.model}_{tok}.log"
+    hook_out = work / f"hook_screen_{cell.model}_{tok}"
     argv = build_argv(cell, fixture, work / f"out_screen_{cell.model}", tier="screen")
     r = execute(worker, argv, log, mode="screen", hook_out=hook_out, hookdir=hookdir,
                 timeout=RUN_TIMEOUT_S, stall_s=STALL_S)
@@ -976,8 +981,21 @@ def _oom_killer_fired(model: str) -> str | None:
 
 
 def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
-    """After a failure only: walk DOWN to report the real ceiling. Screen-first at each rung, so a
-    rung that cannot even allocate costs seconds."""
+    """After a failure only: walk DOWN to the real ceiling, then refine it to the bucket.
+
+    Two phases, because the two questions cost different amounts. The rung walk answers "what
+    size actually COMPLETES", which needs a residency run and takes minutes. The refinement
+    answers "where exactly is the wall", and for a Class A failure a SCREEN answers that
+    definitively in seconds -- a shape that cannot allocate once cannot allocate ever. So the
+    coarse rungs never get finer than they need to be, and the ceiling still comes back
+    bucket-exact instead of "somewhere between 1280 and 1408".
+
+    Both numbers are reported, never conflated: `ceiling_tokens` completed a full residency run,
+    `alloc_ceiling_tokens` is the largest bucket-aligned size whose SHAPES allocate. The second
+    is an upper bound on the first, because a clean screen cannot rule out a Class B failure.
+    """
+    lo = None                       # largest size that completed a residency run
+    hi = TOKEN_BAR                  # smallest size known to fail
     for rung in BISECT_RUNGS:
         try:
             f = fixture_for(cell, rung, work, depth)
@@ -986,12 +1004,52 @@ def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=rung))
         if scr["verdict"] in ("FAIL", "HOST_OOM"):
+            hi = rung
             continue
         res = _residency(worker, cell, f, work, hookdir, rung)
         rec["legs"].append(dict(res, tier="residency", tokens=rung))
         if res["verdict"] == "PASS":
-            return rung
-    return None
+            lo = rung
+            break
+        hi = rung
+
+    if lo is None:
+        return None
+
+    # Refine on screens. Every candidate is bucket-aligned, because the token axis buckets to a
+    # multiple of 32 and a size that is not is a size the hardware never saw.
+    alloc_lo, alloc_hi = lo, hi
+    while alloc_hi - alloc_lo > TOKEN_BUCKET:
+        mid = ((alloc_lo + alloc_hi) // 2 // TOKEN_BUCKET) * TOKEN_BUCKET
+        if mid <= alloc_lo or mid >= alloc_hi:
+            break
+        try:
+            f = fixture_for(cell, mid, work, depth)
+        except Exception:
+            break
+        scr = _screen(worker, cell, f, work, hookdir)
+        rec["legs"].append(dict(scr, tier="screen", tokens=mid, phase="refine"))
+        if scr["verdict"] in ("FAIL", "HOST_OOM"):
+            alloc_hi = mid
+        else:
+            alloc_lo = mid
+    rec["alloc_ceiling_tokens"] = alloc_lo
+    rec["alloc_ceiling_note"] = (
+        f"{alloc_lo} is the largest bucket-aligned size whose shapes ALLOCATE (screen); "
+        f"{alloc_hi} is the smallest that does not. A clean screen cannot rule out a Class B "
+        f"failure, so this is an upper bound on the completing ceiling, not a pass.")
+
+    # One residency run to try to promote the refined number to a completing ceiling.
+    if alloc_lo > lo:
+        try:
+            f = fixture_for(cell, alloc_lo, work, depth)
+            res = _residency(worker, cell, f, work, hookdir, alloc_lo)
+            rec["legs"].append(dict(res, tier="residency", tokens=alloc_lo, phase="refine"))
+            if res["verdict"] == "PASS":
+                lo = alloc_lo
+        except Exception:
+            pass
+    return lo
 
 
 # ---------------------------------------------------------------------------------------------
