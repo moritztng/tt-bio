@@ -44,7 +44,7 @@ rec = {"target": TARGET, "target_res": LEN, "binder": int(BINDER), "steps": STEP
        "total_res": LEN + int(BINDER),
        "host": HOST, "card": os.environ.get("TT_VISIBLE_DEVICES"), "tag": TAG,
        "atom_pair_budget_env": os.environ.get("TT_BIO_ATOM_PAIR_BUDGET_BYTES"),
-       "atoms": None, "stage": "start", "ok": False, "error": None, "dram": {}}
+       "atoms": None, "stage": "start", "ok": False, "error": None, "dram": {}, "l1": {}}
 
 
 def oom_numbers(msg):
@@ -81,22 +81,27 @@ def oom_numbers(msg):
 
 
 def census(dev, where):
-    """Bytes the DRAM allocator is holding right now, so 'fragmentation' is not asserted.
+    """Bytes each allocator is holding right now, so 'fragmentation' is not asserted.
+
+    Both spaces, because the mechanism this campaign was briefed on (DRAM fragmentation) is
+    not the one that stops the model: above 640 residues the row block clears DRAM and the
+    throw is an L1 buffer. Censusing only DRAM measures the resource that stopped binding.
 
     `free_over_need` above compares free space to one request; this compares the standing
     allocation to the chip, which is the other half of the same question.
     """
-    try:
-        mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
-        lcf = mv.largest_contiguous_bytes_free_per_bank
-        if isinstance(lcf, (list, tuple)):
-            lcf = min(lcf)
-        rec["dram"][where] = {"banks": int(mv.num_banks),
-                              "total_per_bank_B": int(mv.total_bytes_per_bank),
-                              "free_per_bank_B": int(mv.total_bytes_free_per_bank),
-                              "largest_free_per_bank_B": int(lcf)}
-    except Exception as e:                                # noqa: BLE001
-        rec["dram"][where] = {"unavailable": type(e).__name__}
+    for space, key in ((ttnn.BufferType.DRAM, "dram"), (ttnn.BufferType.L1, "l1")):
+        try:
+            mv = ttnn.get_memory_view(dev, space)
+            lcf = mv.largest_contiguous_bytes_free_per_bank
+            if isinstance(lcf, (list, tuple)):
+                lcf = min(lcf)
+            rec[key][where] = {"banks": int(mv.num_banks),
+                               "total_per_bank_B": int(mv.total_bytes_per_bank),
+                               "free_per_bank_B": int(mv.total_bytes_free_per_bank),
+                               "largest_free_per_bank_B": int(lcf)}
+        except Exception as e:                            # noqa: BLE001
+            rec[key][where] = {"unavailable": type(e).__name__}
 
 
 # Which tree is actually under test. The galaxy venv has tt_bio installed editable against
@@ -163,3 +168,4 @@ print("[cap] res=%d atoms=%s stage=%s ok=%s %s"
          json.dumps(rec["error"]["oom"]) if rec["error"] and rec["error"]["oom"] else
          (rec["error"]["type"] if rec["error"] else "")), flush=True)
 print("[dram] " + json.dumps(rec["dram"]), flush=True)
+print("[l1] " + json.dumps(rec["l1"]), flush=True)
