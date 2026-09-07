@@ -823,3 +823,55 @@ def test_a_legs_wall_is_not_rounded_up_to_the_poll_interval(tmp_path):
     assert r["wall_s"] < 3.0, (
         f"a 0.2 s leg reported {r['wall_s']} s: the wall is being rounded up to the poll "
         f"interval, which inflates every per-model Tier 1 number the budget is judged on")
+
+
+def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None):
+    """Drive _bisect with canned leg outcomes, so the rung bookkeeping is testable without
+    spending a rung of real card time on it (a real rung is minutes to tens of minutes)."""
+    screen_verdicts = screen_verdicts or {}
+    residency_verdicts = residency_verdicts or {}
+    rec = {"legs": []}
+    calls = []
+
+    def screen(worker, cell, f, work, hookdir):
+        calls.append(("screen", f))
+        v = screen_verdicts.get(f)
+        if v is None:
+            v = "FAIL" if (screen_fail_above is not None and f > screen_fail_above) else "PASS"
+        return {"verdict": v, "mechanism": "alloc" if v == "FAIL" else None, "wall_s": 1.0}
+
+    def residency(worker, cell, f, work, hookdir, tokens):
+        calls.append(("residency", tokens))
+        return {"verdict": residency_verdicts.get(tokens, "FAIL"), "wall_s": 1.0,
+                "dram_peak_bytes": 1}
+
+    import unittest.mock as m
+    with m.patch.object(cg, "_screen", screen), m.patch.object(cg, "_residency", residency), \
+         m.patch.object(cg, "fixture_for", lambda cell, t, work, depth: t):
+        ceiling = cg._bisect(None, None, None, None, None, rec)
+    return ceiling, rec, calls
+
+
+def test_a_bisect_that_completes_no_rung_still_reports_what_it_walked():
+    """rf3 is this case. Every rung's shapes were refused, `lo` stayed None, and the function
+    returned before recording anything -- so seven rungs of card time came back as an empty cell
+    that reads as if the bisect had never run. The walk found something and has to say so."""
+    ceiling, rec, _ = _bisect_probe(screen_verdicts={t: "FAIL" for t in cg.BISECT_RUNGS})
+    assert ceiling is None, "nothing completed, so there is no completing ceiling"
+    assert "alloc_ceiling_note" in rec, "the walk recorded nothing at all"
+    assert str(min(cg.BISECT_RUNGS)) in rec["alloc_ceiling_note"], (
+        f"the note does not say how low the walk actually went: {rec['alloc_ceiling_note']}")
+
+
+def test_a_residency_failure_does_not_lower_the_allocation_ceiling():
+    """The two ceilings are different questions and were sharing one bound. If the screen at a
+    size is clean, the shapes allocate at that size -- whatever the residency run then does. Using
+    the residency failure to lower the allocation bound throws away a measured screen result."""
+    # Shapes allocate at 1408 and below, nothing completes. 1408 is the allocation ceiling and
+    # the completing ceiling does not exist -- two different answers from one walk.
+    top = max(cg.BISECT_RUNGS)
+    ceiling, rec, _ = _bisect_probe(screen_fail_above=top, residency_verdicts={})
+    assert ceiling is None, "no residency passed, so there is no completing ceiling"
+    assert rec["alloc_ceiling_tokens"] == top, (
+        f"the allocation ceiling came back {rec.get('alloc_ceiling_tokens')} even though the "
+        f"screen at {top} allocated cleanly and only the residency failed")

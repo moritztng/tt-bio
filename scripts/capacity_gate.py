@@ -1050,7 +1050,9 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
             leg["card_dirty_after"] = True
 
     lo = None                       # largest size that completed a residency run
-    hi = TOKEN_BAR                  # smallest size known to fail
+    alloc_lo = None                 # largest size whose SHAPES allocate (a clean screen)
+    alloc_hi = TOKEN_BAR            # smallest size whose shapes do NOT allocate
+    walked = []                     # every rung actually screened, for the no-ceiling case
     for rung in BISECT_RUNGS:
         try:
             f = fixture_for(cell, rung, work, depth)
@@ -1058,24 +1060,36 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
             continue
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=rung))
+        walked.append(rung)
         if scr["verdict"] in ("FAIL", "HOST_OOM"):
-            hi = rung
+            alloc_hi = rung
             settle(rec["legs"][-1])
             continue
+        # The screen is clean, so the shapes allocate at this size. That is true regardless of
+        # what the residency run below then does, and the two bounds are NOT the same bound: a
+        # residency failure here must not lower the ALLOCATION ceiling, because the allocation
+        # plainly succeeded. Conflating them discarded a measured screen result.
+        alloc_lo = rung if alloc_lo is None else max(alloc_lo, rung)
         res = _residency(worker, cell, f, work, hookdir, rung)
         rec["legs"].append(dict(res, tier="residency", tokens=rung))
         if res["verdict"] == "PASS":
             lo = rung
             break
-        hi = rung
         settle(rec["legs"][-1])
 
-    if lo is None:
+    if alloc_lo is None:
+        # Nothing allocated at any rung walked. That IS the finding, and returning early without
+        # recording it threw away the whole walk: seven rungs of card time came back as an empty
+        # cell that reads as if the bisect had never run.
+        rec["alloc_ceiling_tokens"] = None
+        rec["alloc_ceiling_note"] = (
+            f"shapes do not allocate at any size walked: {', '.join(str(r) for r in walked)}. "
+            f"The ceiling is below {min(walked)} tokens if there is one at all."
+            if walked else "no rung could be built, so nothing was walked.")
         return None
 
     # Refine on screens. Every candidate is bucket-aligned, because the token axis buckets to a
     # multiple of 32 and a size that is not is a size the hardware never saw.
-    alloc_lo, alloc_hi = lo, hi
     while alloc_hi - alloc_lo > TOKEN_BUCKET:
         mid = ((alloc_lo + alloc_hi) // 2 // TOKEN_BUCKET) * TOKEN_BUCKET
         if mid <= alloc_lo or mid >= alloc_hi:
@@ -1097,8 +1111,9 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
         f"{alloc_hi} is the smallest that does not. A clean screen cannot rule out a Class B "
         f"failure, so this is an upper bound on the completing ceiling, not a pass.")
 
-    # One residency run to try to promote the refined number to a completing ceiling.
-    if alloc_lo > lo:
+    # One residency run to try to promote the refined number to a completing ceiling. `lo` is
+    # None when no rung completed, and that is exactly the case worth spending the run on.
+    if lo is None or alloc_lo > lo:
         try:
             f = fixture_for(cell, alloc_lo, work, depth)
             res = _residency(worker, cell, f, work, hookdir, alloc_lo)
