@@ -344,7 +344,9 @@ class OpenFold3(Module):
             s_trunk_d = ttnn.slice(s_trunk_d, (0, 0, 0), (1, n_token, s_trunk_d.shape[2]))
             z_trunk_d = ttnn.slice(z_trunk_d, (0, 0, 0, 0),
                                    (1, n_token, n_token, z_trunk_d.shape[3]))
-            for t in (s_input_t, relpos_t, token_bonds_t, msa_d, pair_mask_pad, attn_mask_pad):
+            # msa_d is NOT here: the trunk consumes it the moment the MSA embedder has read
+            # it, so that 1.86 GB (at 1024 tokens x 14191 rows) is not held across the trunk.
+            for t in (s_input_t, relpos_t, token_bonds_t, pair_mask_pad, attn_mask_pad):
                 ttnn.deallocate(t)
             for t in tmpl_d.values():
                 ttnn.deallocate(t)

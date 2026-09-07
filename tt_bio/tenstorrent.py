@@ -7288,22 +7288,26 @@ class PairWeightedAveraging(Module):
         # same ops from the same inputs. `depth` back means today's single pass, byte for byte.
         depth, tokens, c_m = (int(m.shape[0]), int(m.shape[1]), int(m.shape[2]))
         blk = pwa_depth_block(depth, tokens, c_m)
+        starts = range(0, depth, blk)
+        # Assemble the blocks on the host when the full result is large enough that the concat's
+        # own full-size allocation would risk a fragmented-DRAM refusal (concat_host_bytes()) --
+        # the same call the trimul and tri-att row-blocked paths make, for the same reason. The
+        # loop then holds ONE block on device instead of the whole output twice over, and the
+        # upload lands when the accumulator holds nothing. torch.cat is pure data movement, so
+        # the bytes are the device concat's bytes.
+        host_acc = len(starts) > 1 and _host_concat(m)
         parts = []
-        for st in range(0, depth, blk):
+        for st in starts:
             en = min(st + blk, depth)
             # A ttnn slice copies, so do not take one when it would copy the whole tensor.
             mc = m if (st == 0 and en == depth) else m[st:en]
-            parts.append(self._depth_block(mc, ws))
+            part = self._depth_block(mc, ws)
             if mc is not m:
                 ttnn.deallocate(mc)
+            _acc_append(parts, part, host_acc)
         for w in ws:
             ttnn.deallocate(w)
-        if len(parts) == 1:
-            o_out = parts[0]
-        else:
-            o_out = ttnn.concat(parts, dim=0)
-            for part in parts:
-                ttnn.deallocate(part)
+        o_out = _acc_concat(parts, 0, host_acc)
         return ttnn.reshape(o_out, (1, *o_out.shape))
 
     def _depth_block(self, m: ttnn.Tensor, ws: list) -> ttnn.Tensor:
