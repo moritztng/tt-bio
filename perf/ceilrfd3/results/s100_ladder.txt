@@ -1,0 +1,14 @@
+# Chain verdict lines from the 100-step ladder, extracted because perf/ceilrfd3/results/*.log
+# is gitignored while *.jsonl is tracked. Last pass a remote sync lost the ladder record
+# this file exists to preserve. Card UMD 26 = /dev/tenstorrent/2 on UF-EV-A13-GWH02.
+
+## first chain (s100), STOP_ON_FAIL=1, rungs 640 704 768 832 896 960
+[chain] 2026-09-07T17:39:18+00:00 total=640 -> PASS
+[chain] 2026-09-07T17:42:09+00:00 total=704 -> PASS
+[chain] 2026-09-07T17:43:22+00:00 total=768 -> FAIL
+
+## boundary repeat (s100rep), rungs 704 768 704 768
+[chain] 2026-09-07T17:49:24+00:00 total=704 -> PASS
+[chain] 2026-09-07T17:52:22+00:00 total=768 -> PASS
+[chain] 2026-09-07T17:54:52+00:00 total=704 -> PASS
+[chain] 2026-09-07T17:57:50+00:00 total=768 -> PASS
