@@ -7220,7 +7220,13 @@ class PairWeightedAveraging(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
-            o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+            # In place, like every other sigmoid gate on this path (`:5114`, `:6206`, `:6329`,
+            # `:6474`, af2.py:199). `o` and `g` are both [depth, tokens, head_dim] with head_dim=8
+            # tile-padded to 32, so each is 930 021 376 B at 1024 tokens x 14191 rows and an
+            # out-of-place product holds a THIRD one -- which is byte for byte the buffer a
+            # 1024-token fold is refused on once OuterProductMean stops asking for 2 GiB. Same
+            # operands, same order, written back into `o`.
+            o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g)
             o = ttnn.linear(
                 o,
