@@ -1,7 +1,7 @@
 {
  "bar_tokens": 1536,
- "recorded": "2026-09-07T19:05:45Z",
- "tree": "4fd8a277254810efd68eff34e1191dc17c16c7d6",
+ "recorded": "2026-09-07T21:14:52Z",
+ "tree": "e1883076def1c70391a6b8e1e2762f652ba4e94b",
  "dirty_tree": false,
  "geometry": {
   "arch": "blackhole",
@@ -22,7 +22,6 @@
   "host": "pc",
   "card": 0
  },
- "ceilings_fingerprint": "9c8bfb5d0bc79492",
  "reductions": [
   "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
   "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
@@ -38,11 +37,15 @@
    "msa_rows_effective": 0,
    "dram_peak_bytes": 82314240,
    "dram_total_bytes": 34225520128,
-   "wall_s": 5.0,
+   "wall_s": 3.6,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
-   "reason": null
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "esmc-300m": {
    "verdict": "PASS",
@@ -52,11 +55,15 @@
    "msa_rows_effective": 0,
    "dram_peak_bytes": 690308096,
    "dram_total_bytes": 32078036480,
-   "wall_s": 10.0,
+   "wall_s": 5.1,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
-   "reason": null
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "esmc-600m": {
    "verdict": "PASS",
@@ -66,11 +73,15 @@
    "msa_rows_effective": 0,
    "dram_peak_bytes": 1180894208,
    "dram_total_bytes": 32078036480,
-   "wall_s": 10.0,
+   "wall_s": 6.2,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
-   "reason": null
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "saprot-650m": {
    "verdict": "PASS",
@@ -80,11 +91,15 @@
    "msa_rows_effective": 0,
    "dram_peak_bytes": 1352860672,
    "dram_total_bytes": 34225520128,
-   "wall_s": 10.0,
+   "wall_s": 6.7,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
-   "reason": null
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "esmc-6b": {
    "verdict": "PASS",
@@ -94,11 +109,15 @@
    "msa_rows_effective": 0,
    "dram_peak_bytes": 12789007360,
    "dram_total_bytes": 34225520128,
-   "wall_s": 70.1,
+   "wall_s": 67.3,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
-   "reason": null
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "esmfold2": {
    "verdict": "HOST_OOM",
@@ -108,11 +127,15 @@
    "msa_rows_effective": 0,
    "dram_peak_bytes": null,
    "dram_total_bytes": null,
-   "wall_s": 100.1,
+   "wall_s": 88.3,
    "mechanism": null,
    "decided_by": "screen",
    "ceiling_tokens": null,
-   "reason": null
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "esmfold2-fast": {
    "verdict": "HOST_OOM",
@@ -122,27 +145,33 @@
    "msa_rows_effective": 0,
    "dram_peak_bytes": null,
    "dram_total_bytes": null,
-   "wall_s": 95.1,
+   "wall_s": 87.8,
    "mechanism": null,
    "decided_by": "screen",
    "ceiling_tokens": null,
-   "reason": null
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "rf3": {
-   "verdict": "FAIL",
+   "verdict": "PASS",
    "tokens_requested": 1536,
    "tokens_padded": 1536,
    "residues": 1536,
    "msa_rows_effective": 8832,
-   "dram_peak_bytes": null,
-   "dram_total_bytes": null,
-   "wall_s": 95.1,
-   "mechanism": "dram",
-   "decided_by": "screen",
-   "ceiling_tokens": 1024,
-   "alloc_ceiling_tokens": 1088,
-   "alloc_ceiling_note": "1088 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1120 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
-   "reason": null
+   "dram_peak_bytes": 9607230464,
+   "dram_total_bytes": 34225520128,
+   "wall_s": 393.6,
+   "mechanism": null,
+   "decided_by": "residency",
+   "ceiling_tokens": null,
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   },
   "openbind": {
    "verdict": "PASS",
@@ -150,15 +179,17 @@
    "tokens_padded": 1536,
    "residues": 1536,
    "msa_rows_effective": 8832,
-   "dram_peak_bytes": 17604753408,
+   "dram_peak_bytes": 15868311552,
    "dram_total_bytes": 34225520128,
-   "wall_s": 653.3,
+   "wall_s": 653.7,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
-   "reason": null
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "e1883076def1c70391a6b8e1e2762f652ba4e94b"
   },
   "protenix-v1": {
    "verdict": "PASS",
@@ -168,13 +199,15 @@
    "msa_rows_effective": 8832,
    "dram_peak_bytes": 7256956928,
    "dram_total_bytes": 34225520128,
-   "wall_s": 231.3,
+   "wall_s": 241.6,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
-   "reason": null
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "86996b3153b219b20743dd2f573db28a093b7478"
   },
   "protenix-v2": {
    "verdict": "PASS",
@@ -184,13 +217,15 @@
    "msa_rows_effective": 8832,
    "dram_peak_bytes": 10781372416,
    "dram_total_bytes": 34225520128,
-   "wall_s": 784.5,
+   "wall_s": 778.7,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
-   "reason": null
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "86996b3153b219b20743dd2f573db28a093b7478"
   },
   "openfold3": {
    "verdict": "PASS",
@@ -198,15 +233,71 @@
    "tokens_padded": 1536,
    "residues": 1536,
    "msa_rows_effective": 8832,
-   "dram_peak_bytes": 16398039040,
+   "dram_peak_bytes": 14661203968,
    "dram_total_bytes": 34225520128,
-   "wall_s": 656.8,
+   "wall_s": 646.5,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
-   "reason": null
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "e1883076def1c70391a6b8e1e2762f652ba4e94b"
+  },
+  "boltz2": {
+   "verdict": "PASS",
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_effective": 8832,
+   "dram_peak_bytes": 6203490304,
+   "dram_total_bytes": 34225520128,
+   "wall_s": 277.4,
+   "mechanism": null,
+   "decided_by": "residency",
+   "ceiling_tokens": null,
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "2565e79e3340f516e27ddf47691f81a1262db69d"
+  },
+  "opendde": {
+   "verdict": "HOST_OOM",
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_effective": 8832,
+   "dram_peak_bytes": null,
+   "dram_total_bytes": null,
+   "wall_s": 83.5,
+   "mechanism": null,
+   "decided_by": "screen",
+   "ceiling_tokens": null,
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
+  },
+  "opendde-abag": {
+   "verdict": "HOST_OOM",
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_effective": 8832,
+   "dram_peak_bytes": null,
+   "dram_total_bytes": null,
+   "wall_s": 81.5,
+   "mechanism": null,
+   "decided_by": "screen",
+   "ceiling_tokens": null,
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": null,
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "3537876f783c068ecb1f11af862ed91a43b0c530"
   }
  },
  "note": "CAPACITY ONLY: allocates and completes. Not a correctness record."

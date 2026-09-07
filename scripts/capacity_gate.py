@@ -259,6 +259,30 @@ def baseline_gaps() -> list[str]:
     return [m for m in runnable() if m not in cells]
 
 
+def baseline_stale() -> list[str]:
+    """Recorded cells measured against a DIFFERENT ceiling table than the one this tree ships.
+
+    Per cell, not per file. The file-level stamp this replaces was a false green waiting to
+    happen: `record_baseline` writes the CURRENT fingerprint whether the run measured one model
+    or twenty, so one `--models boltz2 --record` would have re-certified twelve cells nobody had
+    re-measured and turned the trigger green. And those twelve really were another engine's
+    numbers -- the ceilings that moved on 2026-09-07 arrived with 800 changed lines of
+    `tt_bio/tenstorrent.py`, the RF3 triangle-attention rewrite and OpenFold3's MSA embedder, all
+    of which move DRAM at 1536 tokens.
+
+    Naming the stale ones is also what makes the sweep resumable. It is hours of card time, it has
+    to run in stages, and a stage that re-measured four models should be able to show it.
+    """
+    if not BASELINE.exists():
+        return []
+    try:
+        cells = json.loads(BASELINE.read_text()).get("cells", {})
+    except ValueError:
+        return []
+    fp = ceilings_fingerprint()
+    return sorted(m for m, c in cells.items() if (c or {}).get("ceilings_fingerprint") != fp)
+
+
 # ---------------------------------------------------------------------------------------------
 # PER-MODEL CELLS -- THE BAR IS IN TOKENS, RESIDUES ARE DERIVED
 # ---------------------------------------------------------------------------------------------
@@ -1604,6 +1628,9 @@ def main(argv=None) -> int:
     if (gaps := baseline_gaps()):
         print(f"\nBASELINE GAP: runnable models with no recorded cell: {gaps}"
               f"\n  Run the gate for them and --record, or --record-from a finished report.")
+    if (stale := baseline_stale()):
+        print(f"\nBASELINE STALE: cells measured against another ceiling table: {stale}"
+              f"\n  The sweep runs in stages, so this is the remaining work, named.")
     ok = (report["counts"]["fail_like"] == 0 and not report["counts"]["GATE_BUG"]
           and not report["counts"]["BAD_FIXTURE"] and not report["coverage_gaps"])
     return 0 if ok else 1
@@ -1674,6 +1701,7 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     # rather than from `cells`, which is empty in that case. A screen sweep over the whole roster
     # is exactly the run that would wipe every PASS.
     before = (prior.get("cells") or {})
+    fp = ceilings_fingerprint()
     kept = []
     for r in report["results"]:
         if _would_lose_evidence(r, before.get(r["model"])):
@@ -1690,18 +1718,21 @@ def record_baseline(report: dict, *, partial: bool) -> str:
                               # alloc ceiling is the ONLY number the bisect produced. Persisting
                               # just the first silently discards the bisect's whole result.
                               "alloc_ceiling_tokens", "alloc_ceiling_note", "reason")}
+        # The ceiling table and the tree THIS cell was measured against, per cell. See
+        # baseline_stale(): a file-level stamp let a one-model record re-certify every cell.
+        cells[r["model"]]["ceilings_fingerprint"] = fp
+        cells[r["model"]]["tree"] = report["tree"]
     BASELINE.write_text(json.dumps({
         "bar_tokens": report["bar_tokens"],
         "recorded": report["started"],
         "tree": report["tree"],
         "dirty_tree": report["dirty"],
         "geometry": report["geometry"],
-        "ceilings_fingerprint": ceilings_fingerprint(),
         "reductions": report["reductions"],
         "cells": cells,
         "note": "CAPACITY ONLY: allocates and completes. Not a correctness record.",
     }, indent=1, default=str) + "\n")
-    msg = f"recorded {BASELINE} ({len(cells)} cells, ceilings {ceilings_fingerprint()})"
+    msg = f"recorded {BASELINE} ({len(cells)} cells, ceilings {fp})"
     # Said out loud. A cell that silently did not update is indistinguishable from one that did,
     # and the whole point of keeping it is that the stronger result cost card time.
     if kept:

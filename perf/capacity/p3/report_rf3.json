@@ -1,0 +1,211 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-07T20:43:09Z",
+ "tree": "3537876f783c068ecb1f11af862ed91a43b0c530",
+ "dirty": true,
+ "workers": [
+  "pc:0"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=13,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 130,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 190028800
+  },
+  "board_type": "p150a",
+  "host": "pc",
+  "card": 0
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "rf3",
+   "verb": "predict",
+   "worker": "pc:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 73.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.8,
+     "progress_events": 1477,
+     "block_calls": 8,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 15716,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__",
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 839013,
+      "samples": 8,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.rf3.template.TemplateEmbedder",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "22:43:18  [pc:tt0] loading model\u2026\n22:43:29  [pc:tt0] cap_1536\n22:43:29  [pc:tt0]   msa\n22:43:29  [pc:tt0]   prep\n22:43:56  [pc:tt0]   trunk 0/1\n22:44:24  [pc:tt0]   saving\n22:44:24  [pc:tt0] \u2713 cap_1536 \u2014 55.7s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/blackhole-1536-capacity-gate-p3/perf/capacity/work/out_screen_rf3/rf3_results_cap_1536/results.json",
+     "stacks_truncated": 7,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.rf3.template.TemplateEmbedder",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 393.6,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.5,
+     "progress_events": 11344,
+     "block_calls": 2017,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 8525,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2991408576,
+      "dram_peak_bytes": 9607230464,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__",
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 843466,
+      "samples": 2017,
+      "truncated": []
+     },
+     "tail": "22:50:48  [pc:tt0]   diffusion 28/49\n22:50:48  [pc:tt0]   diffusion 29/49\n22:50:49  [pc:tt0]   diffusion 30/49\n22:50:49  [pc:tt0]   diffusion 31/49\n22:50:49  [pc:tt0]   diffusion 32/49\n22:50:49  [pc:tt0]   diffusion 33/49\n22:50:50  [pc:tt0]   diffusion 34/49\n22:50:50  [pc:tt0]   diffusion 35/49\n22:50:50  [pc:tt0]   diffusion 36/49\n22:50:50  [pc:tt0]   diffusion 37/49\n22:50:51  [pc:tt0]   diffusion 38/49\n22:50:51  [pc:tt0]   diffusion 39/49\n22:50:51  [pc:tt0]   diffusion 40/49\n22:50:51  [pc:tt0]   diffusion 41/49\n22:50:51  [pc:tt0]   diffusion 42/49\n22:50:52  [pc:tt0]   diffusion 43/49\n22:50:52  [pc:tt0]   diffusion 44/49\n22:50:52  [pc:tt0]   diffusion 45/49\n22:50:52  [pc:tt0]   diffusion 46/49\n22:50:53  [pc:tt0]   diffusion 47/49\n22:50:53  [pc:tt0]   diffusion 48/49\n22:50:58  [pc:tt0]   saving\n22:50:58  [pc:tt0] \u2713 cap_1536 \u2014 383.5s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/blackhole-1536-capacity-gate-p3/perf/capacity/work/out_resid_rf3_1536/rf3_results_cap_1536/results.json",
+     "dram_peak_bytes": 9607230464,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2991408576,
+     "blocks_instrumented": 2,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 393.6,
+   "dram_peak_bytes": 9607230464,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2991408576,
+   "blocks_instrumented": 2,
+   "host_ram_floor_mb": 8525
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 1,
+  "fail_like": 0,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}

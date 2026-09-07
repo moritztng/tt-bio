@@ -137,15 +137,60 @@ def test_the_gate_says_out_loud_that_it_is_not_a_parity_gate():
 def test_a_moved_ceiling_re_runs_the_capacity_gate():
     """THE TRIGGER. A ceiling change is exactly what let the production failures ship: the gate's
     target follows the ceiling, and raising the ceiling without re-running the gate leaves the new
-    size untested. So the recorded run pins the ceiling table it was measured against."""
-    recorded = json.loads(BASELINE.read_text()).get("ceilings_fingerprint")
-    assert recorded, "the baseline records no ceiling fingerprint"
-    assert recorded == ceilings_fingerprint(), (
-        "tt_bio/size_limits.CEILINGS has changed since the capacity gate last ran, so the sizes "
-        "tt-bio now advertises have not been capacity-tested. Re-run\n"
-        "  TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 scripts/capacity_gate.py\n"
-        "and re-record docs/capacity_gate_baseline.json. This is the check that was missing when "
-        "the ceilings went to 1024 on 2026-09-03 and three models broke in traffic.")
+    size untested. So every recorded cell pins the ceiling table it was measured against.
+
+    PER CELL, and it used to be per file. `record_baseline` stamps the current fingerprint on the
+    whole file whether the run measured one model or twenty, so `--models boltz2 --record` would
+    have turned this test green while twelve cells still held another engine's numbers -- and the
+    2026-09-07 ceiling move arrived with 800 changed lines of tt_bio/tenstorrent.py, the RF3
+    triangle-attention rewrite and OpenFold3's MSA embedder, every one of which moves DRAM at
+    1536 tokens. The sweep is hours of card time and has to run in stages, so the check that
+    matters is the one that can be satisfied a stage at a time and says what is left.
+    """
+    cells = json.loads(BASELINE.read_text()).get("cells") or {}
+    assert cells, "the baseline records no cells"
+    unstamped = sorted(m for m, c in cells.items() if not (c or {}).get("ceilings_fingerprint"))
+    assert not unstamped, (
+        f"these cells record no ceiling fingerprint at all, so nothing can tell whether they are "
+        f"current: {unstamped}. Re-measure and --record them.")
+    assert not cg.baseline_stale(), (
+        f"tt_bio/size_limits.CEILINGS has changed since these cells were measured, so the sizes "
+        f"tt-bio now advertises have not been capacity-tested: {cg.baseline_stale()}. Re-run\n"
+        f"  TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 scripts/capacity_gate.py "
+        f"--models <them> --record\n"
+        f"This is the check that was missing when the ceilings went to 1024 on 2026-09-03 and "
+        f"three models broke in traffic.")
+
+
+def _record_into_tmp(report, *, prior_cells, partial):
+    """`record_baseline` against a throwaway file, so the committed baseline is not touched."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "baseline.json"
+        path.write_text(json.dumps({"bar_tokens": cg.TOKEN_BAR, "cells": prior_cells}))
+        real, cg.BASELINE = cg.BASELINE, path
+        try:
+            cg.record_baseline(report, partial=partial)
+            return json.loads(path.read_text())
+        finally:
+            cg.BASELINE = real
+
+
+def test_one_models_record_cannot_certify_another_models_cell():
+    """The false green above, pinned. Recording a run that measured ONE model must leave every
+    other cell reading exactly as stale as it was."""
+    stale = {"verdict": "PASS", "tokens_requested": cg.TOKEN_BAR,
+             "ceilings_fingerprint": "0000000000000000", "tree": "old"}
+    report = {"bar_tokens": cg.TOKEN_BAR, "started": "now", "tree": "new", "dirty": False,
+              "geometry": {}, "reductions": [],
+              "results": [{"model": "esmc-300m", "verdict": "PASS",
+                           "tokens_requested": cg.TOKEN_BAR}]}
+    written = _record_into_tmp(report, prior_cells={"esmc-6b": stale}, partial=True)
+    assert written["cells"]["esmc-6b"]["ceilings_fingerprint"] == "0000000000000000", \
+        "a one-model record re-certified a cell it never measured"
+    assert written["cells"]["esmc-300m"]["ceilings_fingerprint"] == ceilings_fingerprint()
+    assert "ceilings_fingerprint" not in written, \
+        "a file-level fingerprint is back; it is the thing that made the false green possible"
 
 
 @pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
@@ -188,6 +233,29 @@ def test_a_blackhole_ceiling_row_must_come_from_a_capacity_run():
 # was not on the spawned child's PYTHONPATH, the generated sitecustomize swallowed the
 # ModuleNotFoundError, and every "screen" ran the full model while reporting itself a screen.
 # ---------------------------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _leave_the_interpreter_as_we_found_it():
+    """Disarm the hook after every test in this file, whatever the test did with it.
+
+    `_fresh_hook` arms the real hook IN THIS PROCESS, and an armed hook is global state three ways
+    over: a finder at `sys.meta_path[0]` that wraps the loader of every `tt_bio` module imported
+    after it, a replaced `__init__` on every tt_bio class already imported, and an `atexit` flush.
+    None of that used to come back, so this file left the interpreter different for whoever ran
+    next: 7 tests in `test_sdpa_ragged_pad_defaults.py` and `test_triatt_sdpa_hifi_defaults.py`
+    read `inspect.signature(...).parameters[param].default` off a tt_bio class, saw the wrapper's
+    parameters, and failed only in full-suite order -- reported against those two files, which had
+    nothing wrong with them. Worse than the false failures: a leaked `screen` hook truncates the
+    block stack of anything constructed afterwards, so a later in-process fold would run 1 block
+    deep and say nothing about it.
+
+    Autouse rather than a teardown inside `_fresh_hook`, because a new test that arms the hook any
+    other way is covered too.
+    """
+    yield
+    import capacity_hook
+    capacity_hook.uninstall()
 
 
 def _fresh_hook(mode, tmp_path, monkeypatch):
@@ -460,6 +528,116 @@ def test_the_hook_is_inert_without_its_env_var(tmp_path, monkeypatch):
     assert h._state["mode"] is None
     mod = _stack_module(h)
     assert len(mod.Stack(48).blocks) == 48
+
+
+# ---------------------------------------------------------------------------------------------
+# THIS FILE MUST NOT LEAVE THE INTERPRETER DIFFERENT FOR WHOEVER RUNS NEXT.
+#
+# It arms the real hook in the pytest process, and until `uninstall()` existed nothing took it
+# back down. The bill: 7 tests in the two files below failed in full-suite order and passed alone,
+# and were reported against those files rather than against this one. They read
+# `inspect.signature(cls.__init__).parameters[param].default`, which is exactly what a replaced
+# `__init__` destroys.
+#
+# `functools.wraps` on `_wrap_init` (the boltz2 fix) makes that particular read transparent again,
+# so the symptom is currently masked on main. It is not the fix: a leaked `screen` hook still cuts
+# the block stack of every object built afterwards, and a model that quietly runs 1 block deep is
+# not a test-order nuisance. Both halves are pinned here -- the in-process one because it names
+# the mechanism, the session one because it is what a reader actually sees.
+# ---------------------------------------------------------------------------------------------
+
+#: The two files the leak actually broke. Named, not discovered: the guard has to fail if the
+#: mechanism comes back, and a search for "files that read a signature" would quietly find none.
+_COLLATERAL = ("tests/test_sdpa_ragged_pad_defaults.py",
+               "tests/test_triatt_sdpa_hifi_defaults.py")
+
+
+def _wrapped_inits(mod) -> list[str]:
+    """Classes in `mod` whose own `__init__` is currently the hook's wrapper."""
+    out = []
+    for name in dir(mod):
+        cls = getattr(mod, name, None)
+        if not isinstance(cls, type):
+            continue
+        init = cls.__dict__.get("__init__")
+        if getattr(init, "_capacity_wrapped", False):
+            out.append(name)
+    return out
+
+
+def test_uninstall_takes_back_every_change_install_made(tmp_path, monkeypatch):
+    """Each assertion has its own arm-side check, so a hook that failed to arm cannot pass this."""
+    h = _fresh_hook("screen", tmp_path, monkeypatch)
+    armed = _stack_module(h)
+    assert len(armed.Stack(48).blocks) == 1, "the hook did not arm; nothing below proves anything"
+    assert [f for f in sys.meta_path if type(f).__name__ == "_Finder"], \
+        "install() put no finder on sys.meta_path"
+    assert _wrapped_inits(sl), \
+        "install() patched no class in the already-imported tt_bio.size_limits, so the restore " \
+        "check below would pass on an empty set"
+
+    h.uninstall()
+
+    assert not [f for f in sys.meta_path if type(f).__name__ == "_Finder"], \
+        "a finder is still on sys.meta_path, so every later `import tt_bio.*` is still wrapped"
+    assert not _wrapped_inits(sl), "tt_bio classes still carry the hook's __init__"
+    assert h._state["mode"] is None
+    after = _stack_module(h, "tt_bio._captest_after")
+    assert len(after.Stack(48).blocks) == 48, \
+        "a stack built after uninstall is still being truncated"
+
+
+def test_uninstall_takes_the_atexit_flush_back_down(tmp_path):
+    """Checked by what the flush DOES, not by `atexit._ncallbacks()`, which on 3.10 keeps counting
+    a callback `unregister` has already removed and would pass either way."""
+    import subprocess
+    prog = (
+        "import os, sys, capacity_hook as h\n"
+        "h.install()\n"
+        "if 'uninstall' in sys.argv: h.uninstall()\n"
+    )
+    for argv, expect in ((["armed"], True), (["uninstall"], False)):
+        out = tmp_path / argv[0]
+        r = subprocess.run([sys.executable, "-c", prog, *argv], cwd=ROOT,
+                           env=dict(os.environ, PYTHONPATH=str(ROOT / "scripts"),
+                                    TT_BIO_CAPACITY_HOOK="screen",
+                                    TT_BIO_CAPACITY_HOOK_OUT=str(out)),
+                           capture_output=True, text=True, timeout=120)
+        assert r.returncode == 0, r.stderr
+        wrote = bool(list(tmp_path.glob(f"{argv[0]}.*.json")))
+        assert wrote is expect, (
+            f"armed hook wrote its findings at exit: {expect}, observed {wrote}. The 'armed' leg "
+            f"is the control: if it does not write, this test proves nothing about uninstall.")
+
+
+@pytest.mark.skipif(bool(os.environ.get("TT_BIO_CAPACITY_GATE_NO_RECURSE")),
+                    reason="the inner session this guard spawned; it must not spawn its own")
+def test_this_file_does_not_break_the_files_that_run_after_it():
+    """One pytest session: this file, then the two it used to break. Both halves have to be green.
+
+    A subprocess because the property is about a fresh interpreter's import state, which cannot be
+    observed from inside the session that already polluted it.
+    """
+    import subprocess
+    for rel in _COLLATERAL:
+        assert (ROOT / rel).exists(), (
+            f"{rel} is gone, so this guard is now vacuous. Re-ground it on a file that reads a "
+            f"tt_bio signature -- grep for `inspect.signature` under tests/.")
+    env = dict(os.environ, TT_BIO_CAPACITY_GATE_NO_RECURSE="1", TT_VISIBLE_DEVICES="",
+               PYTHONPATH=str(ROOT))
+    r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:randomly", "--tb=no",
+                        "-rf", "tests/test_capacity_gate.py", *_COLLATERAL],
+                       cwd=ROOT, env=env, capture_output=True, text=True, timeout=1800)
+    out = r.stdout + r.stderr
+    assert " passed" in out, f"the inner session did not run at all:\n{out[-4000:]}"
+    broke = [ln for ln in out.splitlines()
+             if ln.startswith("FAILED") and any(c in ln for c in _COLLATERAL)]
+    assert not broke, (
+        "test_capacity_gate.py ran first and took these down with it, which is the import-state "
+        f"leak coming back: {broke}\nThey pass on their own. See capacity_hook.uninstall().")
+    assert r.returncode == 0, (
+        "the inner session is red, but not from the pollution this guard is about -- every "
+        f"failure is in test_capacity_gate.py itself:\n{out[-4000:]}")
 
 
 def test_a_failed_hook_install_is_recorded_not_swallowed(tmp_path):

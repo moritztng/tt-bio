@@ -1,0 +1,338 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-07T21:14:52Z",
+ "tree": "e1883076def1c70391a6b8e1e2762f652ba4e94b",
+ "dirty": false,
+ "workers": [
+  "pc:0"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=13,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 130,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 190028800
+  },
+  "board_type": "p150a",
+  "host": "pc",
+  "card": 0
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "openfold3",
+   "verb": "predict",
+   "worker": "pc:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 1.9,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 1.9,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 24493,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.openfold3_msa_embedder.MSAModuleBlock.__call__",
+       "tt_bio.openfold3_diffusion_transformer._DiTBlock.__call__"
+      ],
+      "mode": "screen",
+      "pid": 902710,
+      "samples": 9,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.openfold3_template.TemplatePairStack",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.openfold3_msa_embedder.MSAModule",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.openfold3_diffusion_transformer.OF3DiffusionTransformer",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "All predictions complete",
+     "stacks_truncated": 5,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.openfold3_template.TemplatePairStack",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.openfold3_msa_embedder.MSAModule",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.openfold3_diffusion_transformer.OF3DiffusionTransformer",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 646.5,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 11.4,
+     "progress_events": 36588,
+     "block_calls": 5032,
+     "cpu_s_while_quiet": 0.5,
+     "host_ram_floor_mb": 5734,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2306826176,
+      "dram_peak_bytes": 14661203968,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.openfold3_msa_embedder.MSAModuleBlock.__call__",
+       "tt_bio.openfold3_diffusion_transformer._DiTBlock.__call__"
+      ],
+      "mode": "residency",
+      "pid": 913704,
+      "samples": 5032,
+      "truncated": []
+     },
+     "tail": "23:25:09  [pc:tt0]   diffusion 179/200\n23:25:09  [pc:tt0]   diffusion 180/200\n23:25:09  [pc:tt0]   diffusion 181/200\n23:25:09  [pc:tt0]   diffusion 182/200\n23:25:10  [pc:tt0]   diffusion 183/200\n23:25:10  [pc:tt0]   diffusion 184/200\n23:25:10  [pc:tt0]   diffusion 185/200\n23:25:10  [pc:tt0]   diffusion 186/200\n23:25:11  [pc:tt0]   diffusion 187/200\n23:25:11  [pc:tt0]   diffusion 188/200\n23:25:11  [pc:tt0]   diffusion 189/200\n23:25:11  [pc:tt0]   diffusion 190/200\n23:25:12  [pc:tt0]   diffusion 191/200\n23:25:12  [pc:tt0]   diffusion 192/200\n23:25:12  [pc:tt0]   diffusion 193/200\n23:25:12  [pc:tt0]   diffusion 194/200\n23:25:13  [pc:tt0]   diffusion 195/200\n23:25:13  [pc:tt0]   diffusion 196/200\n23:25:13  [pc:tt0]   diffusion 197/200\n23:25:13  [pc:tt0]   diffusion 198/200\n23:25:14  [pc:tt0]   diffusion 199/200\n23:25:30  [pc:tt0]   saving\n23:25:30  [pc:tt0] \u2713 cap_1536 \u2014 625.5s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/blackhole-1536-capacity-gate-p3/perf/capacity/work/out_resid_openfold3_1536/openfold3_results_cap_1536/results.json",
+     "dram_peak_bytes": 14661203968,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2306826176,
+     "blocks_instrumented": 3,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 646.5,
+   "dram_peak_bytes": 14661203968,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2306826176,
+   "blocks_instrumented": 3,
+   "host_ram_floor_mb": 5734
+  },
+  {
+   "model": "openbind",
+   "verb": "predict",
+   "worker": "pc:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 77.9,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 12.9,
+     "progress_events": 1822,
+     "block_calls": 9,
+     "cpu_s_while_quiet": 0.2,
+     "host_ram_floor_mb": 8691,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.openfold3_msa_embedder.MSAModuleBlock.__call__",
+       "tt_bio.openfold3_diffusion_transformer._DiTBlock.__call__"
+      ],
+      "mode": "screen",
+      "pid": 936329,
+      "samples": 9,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.openfold3_template.TemplatePairStack",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.openfold3_msa_embedder.MSAModule",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.openfold3_diffusion_transformer.OF3DiffusionTransformer",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "23:25:49  [pc:tt0] loading model\u2026\n23:25:56  [pc:tt0] cap_1536\n23:25:56  [pc:tt0]   msa\n23:25:56  [pc:tt0]   prep\n23:26:14  [pc:tt0]   trunk 0/2\n23:26:26  [pc:tt0]   trunk 1/2\n23:26:35  [pc:tt0]   diffusion 0/1\n23:26:49  [pc:tt0]   saving\n23:26:49  [pc:tt0] \u2713 cap_1536 \u2014 53.3s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/blackhole-1536-capacity-gate-p3/perf/capacity/work/out_screen_openbind/openbind_results_cap_1536/results.json",
+     "stacks_truncated": 5,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.openfold3_template.TemplatePairStack",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.openfold3_msa_embedder.MSAModule",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.openfold3_diffusion_transformer.OF3DiffusionTransformer",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 653.7,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 13.5,
+     "progress_events": 36589,
+     "block_calls": 5032,
+     "cpu_s_while_quiet": 0.2,
+     "host_ram_floor_mb": 7308,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2285240256,
+      "dram_peak_bytes": 15868311552,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.openfold3_msa_embedder.MSAModuleBlock.__call__",
+       "tt_bio.openfold3_diffusion_transformer._DiTBlock.__call__"
+      ],
+      "mode": "residency",
+      "pid": 940839,
+      "samples": 5032,
+      "truncated": []
+     },
+     "tail": "23:37:21  [pc:tt0]   diffusion 179/200\n23:37:21  [pc:tt0]   diffusion 180/200\n23:37:22  [pc:tt0]   diffusion 181/200\n23:37:22  [pc:tt0]   diffusion 182/200\n23:37:22  [pc:tt0]   diffusion 183/200\n23:37:23  [pc:tt0]   diffusion 184/200\n23:37:23  [pc:tt0]   diffusion 185/200\n23:37:23  [pc:tt0]   diffusion 186/200\n23:37:23  [pc:tt0]   diffusion 187/200\n23:37:23  [pc:tt0]   diffusion 188/200\n23:37:24  [pc:tt0]   diffusion 189/200\n23:37:24  [pc:tt0]   diffusion 190/200\n23:37:24  [pc:tt0]   diffusion 191/200\n23:37:24  [pc:tt0]   diffusion 192/200\n23:37:25  [pc:tt0]   diffusion 193/200\n23:37:25  [pc:tt0]   diffusion 194/200\n23:37:25  [pc:tt0]   diffusion 195/200\n23:37:25  [pc:tt0]   diffusion 196/200\n23:37:26  [pc:tt0]   diffusion 197/200\n23:37:26  [pc:tt0]   diffusion 198/200\n23:37:26  [pc:tt0]   diffusion 199/200\n23:37:43  [pc:tt0]   saving\n23:37:43  [pc:tt0] \u2713 cap_1536 \u2014 630.1s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/blackhole-1536-capacity-gate-p3/perf/capacity/work/out_resid_openbind_1536/openbind_results_cap_1536/results.json",
+     "dram_peak_bytes": 15868311552,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2285240256,
+     "blocks_instrumented": 3,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 653.7,
+   "dram_peak_bytes": 15868311552,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2285240256,
+   "blocks_instrumented": 3,
+   "host_ram_floor_mb": 7308
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 2,
+  "fail_like": 0,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}

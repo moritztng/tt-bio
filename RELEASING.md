@@ -110,6 +110,12 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
 # tt-smi reset a card while a sibling on the same host is in flight, because a
 # reset takes the whole board pair down.
 #
+# Check the host's RAM before fanning out. A residency leg at this bar peaks at
+# 10-24 GiB of HOST memory, so on a box with less than roughly 16 GiB per card
+# concurrent legs OOM-kill each other and the gate records HOST_OOM for models
+# that pass alone. Four of the roster's models already hit that wall one at a
+# time on a 30 GB host.
+#
 # The run above measures but does not record. Add --record to fold the result
 # into docs/capacity_gate_baseline.json, which is the file the ceiling test
 # reads -- so after a ceiling moves, re-running alone does not clear the test,
@@ -117,6 +123,11 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
 # stages, so --record-from <report.json> folds a stage that already finished
 # into the baseline without spending its card time twice. It refuses a report
 # measured at a different bar, since every bisect rung is one.
+#
+# Each cell records the ceiling table it was measured against, so a --models
+# subset clears only the models it measured. After a ceiling moves, the whole
+# roster is owed, not one model; the gate prints BASELINE STALE naming what is
+# left, and so does the test.
 
 TT_VISIBLE_DEVICES=0 OF3_CKPT=/path/to/of3-p2-155k.pt PYTHONPATH="$PWD" \
   python3 scripts/ux_regression.py
