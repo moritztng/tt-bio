@@ -15,8 +15,12 @@
 # `--override` always: predict applies resume semantics without it, so a re-run into a populated
 # out_dir folds nothing, exits in seconds and logs the PREVIOUS verdict as this one's.
 #
-# The engine under test is logged as tt_bio.__file__, not as a branch name: a label can lie about
-# which tree got imported and a module path cannot.
+# The engine under test is logged as tt_bio.__file__ AND as the tree's HEAD sha. The path proves
+# which tree got imported, which a branch name cannot; the sha proves which COMMIT, which the path
+# cannot. Both are needed, and the second was learned the hard way: a `git checkout` in the tree
+# mid-walk (to re-test a harness script) silently moved the engine between rungs, and every line
+# in the log said the same thing because the path never changed. It was harness-only that time,
+# so the ladder survived; it would not have been visible if it had not been.
 set -u
 TREE=$1; OUT=$2; shift 2
 PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
@@ -57,7 +61,8 @@ for r in "$@"; do
     if [ "$waited" -gt 240 ]; then continue; fi
     s=$(date +%s)
     engine=$(cd "$TREE" && PYTHONPATH="$TREE" "$PY" -c 'import tt_bio, sys; sys.stdout.write(tt_bio.__file__)')
-    echo "=== $r attempt $attempt start card=$CARD node=$NODE engine=$engine $(date -u +%FT%TZ)" >> "$LOG"
+    sha=$(git -C "$TREE" rev-parse --short HEAD 2>/dev/null)
+    echo "=== $r attempt $attempt start card=$CARD node=$NODE sha=$sha engine=$engine $(date -u +%FT%TZ)" >> "$LOG"
     # TT_BIO_SIZE_LIMIT=0: the ceiling under test is exactly what size_limits refuses on, so a
     # ladder that honoured it could only ever re-measure the published number.
     # The counters are what turn "this rung took a byte-identical path" from an argument into a
