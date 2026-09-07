@@ -3949,9 +3949,15 @@ def _opm_needs_row_blocks(tokens: int, per_row_bytes: int) -> bool:
     take row blocks; on a 31.875 GiB p150a it is 3.98 GiB, which is above the whole-path size at
     every token count Wormhole reaches, so Blackhole is unchanged by construction.
 
-    Numerically inert either way: the I axis indexes independent token rows, the matmul contracts
-    depth rather than I, and each block accumulates its own full depth, so regrouping rows cannot
-    move a value.
+    Mathematically inert: the I axis indexes independent token rows, the matmul contracts depth
+    rather than I, and each block accumulates its own full depth, so regrouping rows cannot move
+    a value in exact arithmetic. On device in bf16 it is inert only when the blocks come out
+    uniform. Measured on od_9i3p: at 1024 tokens the block height divides I exactly (8 x 128) and
+    the fold is byte-identical to the whole path, CIF md5 1e7320cd; at 960 the last block is a
+    ragged 64 rows and it is not, plDDT 0.708054 against 0.708594. A block of a different height
+    is a different matmul, and tt-metal is free to pick a different K-blocking for it. So the
+    band this gate newly blocks may move the answer by a bf16 re-association, and does at 960 --
+    which is the price of the sizes it makes foldable at all, not a claim to have avoided.
     """
     return tokens > SEQ_LEN_MORE_CHUNKING or tokens * per_row_bytes > concat_host_bytes()
 
