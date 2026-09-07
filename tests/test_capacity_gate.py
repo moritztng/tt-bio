@@ -137,15 +137,60 @@ def test_the_gate_says_out_loud_that_it_is_not_a_parity_gate():
 def test_a_moved_ceiling_re_runs_the_capacity_gate():
     """THE TRIGGER. A ceiling change is exactly what let the production failures ship: the gate's
     target follows the ceiling, and raising the ceiling without re-running the gate leaves the new
-    size untested. So the recorded run pins the ceiling table it was measured against."""
-    recorded = json.loads(BASELINE.read_text()).get("ceilings_fingerprint")
-    assert recorded, "the baseline records no ceiling fingerprint"
-    assert recorded == ceilings_fingerprint(), (
-        "tt_bio/size_limits.CEILINGS has changed since the capacity gate last ran, so the sizes "
-        "tt-bio now advertises have not been capacity-tested. Re-run\n"
-        "  TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 scripts/capacity_gate.py\n"
-        "and re-record docs/capacity_gate_baseline.json. This is the check that was missing when "
-        "the ceilings went to 1024 on 2026-09-03 and three models broke in traffic.")
+    size untested. So every recorded cell pins the ceiling table it was measured against.
+
+    PER CELL, and it used to be per file. `record_baseline` stamps the current fingerprint on the
+    whole file whether the run measured one model or twenty, so `--models boltz2 --record` would
+    have turned this test green while twelve cells still held another engine's numbers -- and the
+    2026-09-07 ceiling move arrived with 800 changed lines of tt_bio/tenstorrent.py, the RF3
+    triangle-attention rewrite and OpenFold3's MSA embedder, every one of which moves DRAM at
+    1536 tokens. The sweep is hours of card time and has to run in stages, so the check that
+    matters is the one that can be satisfied a stage at a time and says what is left.
+    """
+    cells = json.loads(BASELINE.read_text()).get("cells") or {}
+    assert cells, "the baseline records no cells"
+    unstamped = sorted(m for m, c in cells.items() if not (c or {}).get("ceilings_fingerprint"))
+    assert not unstamped, (
+        f"these cells record no ceiling fingerprint at all, so nothing can tell whether they are "
+        f"current: {unstamped}. Re-measure and --record them.")
+    assert not cg.baseline_stale(), (
+        f"tt_bio/size_limits.CEILINGS has changed since these cells were measured, so the sizes "
+        f"tt-bio now advertises have not been capacity-tested: {cg.baseline_stale()}. Re-run\n"
+        f"  TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 scripts/capacity_gate.py "
+        f"--models <them> --record\n"
+        f"This is the check that was missing when the ceilings went to 1024 on 2026-09-03 and "
+        f"three models broke in traffic.")
+
+
+def _record_into_tmp(report, *, prior_cells, partial):
+    """`record_baseline` against a throwaway file, so the committed baseline is not touched."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "baseline.json"
+        path.write_text(json.dumps({"bar_tokens": cg.TOKEN_BAR, "cells": prior_cells}))
+        real, cg.BASELINE = cg.BASELINE, path
+        try:
+            cg.record_baseline(report, partial=partial)
+            return json.loads(path.read_text())
+        finally:
+            cg.BASELINE = real
+
+
+def test_one_models_record_cannot_certify_another_models_cell():
+    """The false green above, pinned. Recording a run that measured ONE model must leave every
+    other cell reading exactly as stale as it was."""
+    stale = {"verdict": "PASS", "tokens_requested": cg.TOKEN_BAR,
+             "ceilings_fingerprint": "0000000000000000", "tree": "old"}
+    report = {"bar_tokens": cg.TOKEN_BAR, "started": "now", "tree": "new", "dirty": False,
+              "geometry": {}, "reductions": [],
+              "results": [{"model": "esmc-300m", "verdict": "PASS",
+                           "tokens_requested": cg.TOKEN_BAR}]}
+    written = _record_into_tmp(report, prior_cells={"esmc-6b": stale}, partial=True)
+    assert written["cells"]["esmc-6b"]["ceilings_fingerprint"] == "0000000000000000", \
+        "a one-model record re-certified a cell it never measured"
+    assert written["cells"]["esmc-300m"]["ceilings_fingerprint"] == ceilings_fingerprint()
+    assert "ceilings_fingerprint" not in written, \
+        "a file-level fingerprint is back; it is the thing that made the false green possible"
 
 
 @pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
