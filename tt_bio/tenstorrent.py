@@ -88,6 +88,29 @@ _OPM_Z_SINGLE_SHOT_BYTES = None                 # resolved once, on first use af
 # bracketed by 800's OPM refusal. Above it the op blocks its MSA-DEPTH axis instead.
 PWA_SINGLE_SHOT_BYTES_BASE = 1395032064         # 1.299 GiB; 768 tokens, measured to allocate
 _PWA_SINGLE_SHOT_BYTES = None
+
+# Above this the MSA representation is not held contiguously AT ALL: the trunk splits it into
+# depth chunks once, after the embedder, and every consumer in the MSA module takes the list.
+#
+# Blocking each op's own output is not enough on its own, because each still ASSEMBLES a
+# full-width result and the assembly needs its whole width in one run. Measured on the ladder:
+# 896 assembles its 1 627 537 408 B result and folds, 960 is refused 1 743 790 080 B with
+# **3.79 GB free per the allocator's own count and 1.256 GB as the largest run**. Capacity was
+# never the problem at 960; contiguity was, in a heap the trunk has churned. So the base is
+# 896's figure, measured to assemble, with 960's refusal as its negative control -- the same
+# construction as the two budgets above.
+#
+# The list is a strictly weaker demand on the allocator, not a smaller one: the same bytes, in
+# pieces no bigger than one depth block. It is also the only one of the three that can move a
+# number, because OuterProductMean's chunk-list input reassociates its bf16 depth reduction
+# (its own comment says so, and its reduction IS over depth -- unlike everything in
+# PairWeightedAveraging and Transition, which are per-depth-row and stay bit-exact). Sizes at or
+# below 896 therefore keep the contiguous path they were measured bit-exact on, and only sizes
+# that do not fold at all today take this one.
+MSA_LIST_BYTES_BASE = 1627537408                # 1.516 GiB; 896 tokens, measured to assemble
+_MSA_LIST_BYTES = None
+#: [chunked, whole], so a census can tell a dark gate from a correctly declining one.
+MSA_LIST_STATS = [0, 0]
 # Cap on one depth block's share of that tensor. Both the block and the head accumulator are
 # [rows, tokens, c_m], so the pair is bounded at twice this whatever the token count.
 PWA_DEPTH_BUDGET_BYTES = 1 << 28                # 0.25 GiB, as OPM_Z_BUDGET_BYTES
@@ -3818,6 +3841,42 @@ def pwa_single_shot_bytes() -> int:
     return _PWA_SINGLE_SHOT_BYTES
 
 
+def _msa_list_budget(dram_total: int) -> int:
+    return _single_shot_budget(MSA_LIST_BYTES_BASE, dram_total)
+
+
+def msa_list_bytes() -> int:
+    """Byte size above which the MSA representation is kept as depth chunks, never contiguous."""
+    global _MSA_LIST_BYTES
+    if _MSA_LIST_BYTES is None:
+        env = os.environ.get("TT_BIO_MSA_LIST_BYTES")
+        _MSA_LIST_BYTES = (int(env) if env else _msa_list_budget(_dram_total_bytes()))
+    return _MSA_LIST_BYTES
+
+
+def msa_depth_chunks(m: ttnn.Tensor, budget: int | None = None) -> list | ttnn.Tensor:
+    """``m`` as a list of [1, rows, tokens, c_m] depth chunks, or ``m`` itself when it fits.
+
+    Called once, right after the MSA embedder, where the heap is still clean: the split holds the
+    contiguous tensor and the chunks together for a moment and then frees the contiguous one,
+    which is the cheapest point in the trunk to pay it. Returning ``m`` unchanged is the whole of
+    the no-change path -- every consumer branches on ``isinstance(m, list)``.
+
+    Splitting the depth axis cannot move a number by itself: it is dim -3 of a TILE tensor, so no
+    tile is split, and it is a pure partition. What the LIST changes downstream is
+    OuterProductMean's depth reduction, which its chunk-list input reassociates.
+    """
+    rows, tokens, c_m = (int(m.shape[-3]), int(m.shape[-2]), int(m.shape[-1]))
+    if rows * tokens * c_m * 2 <= (msa_list_bytes() if budget is None else budget):
+        MSA_LIST_STATS[1] += 1
+        return m
+    MSA_LIST_STATS[0] += 1
+    blk = pwa_depth_block(rows, tokens, c_m)
+    out = [m[:, s:min(s + blk, rows)] for s in range(0, rows, blk)]
+    ttnn.deallocate(m)
+    return out
+
+
 def pwa_depth_block(depth: int, tokens: int, c_m: int, budget: int | None = None) -> int:
     """MSA-depth rows per PairWeightedAveraging block, or ``depth`` for the single-shot path.
 
@@ -7243,8 +7302,13 @@ class PairWeightedAveraging(Module):
         self.z_weight = self.torch_to_tt("proj_z.weight")
         self.o_weight = self.torch_to_tt("proj_o.weight")
 
-    def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        m = ttnn.reshape(m, tuple(m.shape)[1:])
+    def __call__(self, m, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None):
+        # `m` may arrive as a LIST of depth chunks (msa_depth_chunks). Then there is nothing to
+        # slice and nothing to join: one output chunk per input chunk, and the full-width tensor
+        # never exists. Returns a list in that case and a tensor otherwise.
+        chunks = m if isinstance(m, list) else None
+        if chunks is None:
+            m = ttnn.reshape(m, tuple(m.shape)[1:])
         z = ttnn.reshape(z, tuple(z.shape)[1:])
         # One layer_norm, `n_heads` projections of it: every head reads the whole normed pair
         # tensor to write one tile of width, so all eight are source-bound and one L1-resident
@@ -7281,6 +7345,14 @@ class PairWeightedAveraging(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 numeric_stable=True,
             ))
+        if chunks is not None:
+            out = []
+            for c in chunks:
+                part = self._depth_block(ttnn.reshape(c, tuple(c.shape)[1:]), ws)
+                out.append(ttnn.reshape(part, (1, *part.shape)))
+            for w in ws:
+                ttnn.deallocate(w)
+            return out
         # Block the MSA-DEPTH axis when the whole [depth, tokens, c_m] result is above the measured
         # budget. Every step of `_depth_block` reads and writes one depth row at a time -- the
         # layer_norm reduces over c_m, the matmul contracts the TOKEN axis, and nothing anywhere

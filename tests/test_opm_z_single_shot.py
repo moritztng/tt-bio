@@ -152,3 +152,60 @@ def test_both_gates_scale_by_the_same_dram_fraction():
     assert T._single_shot_budget(0, WH_DRAM) == WH_DRAM * 3 // 32
     for base in (T.OPM_Z_SINGLE_SHOT_BYTES_BASE, T.PWA_SINGLE_SHOT_BYTES_BASE):
         assert T._single_shot_budget(base, BH_DRAM) == BH_DRAM * 3 // 32 > base
+
+
+# --- the MSA representation as a list of depth chunks ------------------------------------------
+def list_budget(dram=WH_DRAM):
+    return T._msa_list_budget(dram)
+
+
+def test_msa_list_base_is_the_896_tensor_and_960_is_its_negative_control():
+    # 896 assembles its full-width result and folds; 960 is refused 1 743 790 080 B with 3.79 GB
+    # free and 1.256 GB as the largest run, so the wall is contiguity and the base is 896's.
+    assert T.MSA_LIST_BYTES_BASE == pwa_bytes(14191, 896) == 1627537408
+    assert pwa_bytes(14191, 960) == 1743790080
+    assert list_budget() == T.MSA_LIST_BYTES_BASE
+    assert T._msa_list_budget(0) == T.MSA_LIST_BYTES_BASE
+
+
+def test_the_band_measured_bit_exact_keeps_the_contiguous_representation():
+    # These sizes fold today and were measured bit-exact against main, so they must NOT take the
+    # chunk list -- it is the one change of the three that can move a number, because
+    # OuterProductMean reassociates its bf16 depth reduction on a chunk-list input.
+    for tokens in (128, 256, 512, 640, 704, 768, 832, 896):
+        assert pwa_bytes(14191, tokens) <= list_budget(), tokens
+
+
+def test_only_the_sizes_that_do_not_fold_at_all_take_the_chunk_list():
+    for tokens in (960, 1024):
+        assert pwa_bytes(14191, tokens) > list_budget(), tokens
+
+
+def test_msa_list_is_neutral_on_blackhole_across_the_advertised_range():
+    # 3.98 GiB there against 1.86 GB at 1024x14191, and production caps the alignment at 16384
+    # rows, so a p150a never splits the representation and keeps the bit-exact path everywhere.
+    for tokens in (768, 896, 1024):
+        assert pwa_bytes(16384, tokens) <= list_budget(BH_DRAM), tokens
+
+
+def test_the_chunk_split_is_a_partition_of_the_alignment():
+    # msa_depth_chunks slices on the depth axis with pwa_depth_block's own block, so the chunks
+    # cover every row exactly once and no chunk is wider than one PWA block.
+    for tokens in (960, 1024):
+        blk = pwa_blk(14191, tokens)
+        bounds = [(s, min(s + blk, 14191)) for s in range(0, 14191, blk)]
+        assert bounds[0][0] == 0 and bounds[-1][1] == 14191
+        assert all(b[0] == a[1] for a, b in zip(bounds, bounds[1:])), tokens
+        assert sum(e - s for s, e in bounds) == 14191
+        assert max(e - s for s, e in bounds) <= blk
+
+
+def test_all_three_budgets_share_one_rule_and_order_by_their_measurements():
+    # Each base is the largest tensor of its own shape measured to be placed, so they order the
+    # same way the walls fell: OPM's z first, then PWA's per-head projection, then the whole
+    # representation.
+    assert (T.OPM_Z_SINGLE_SHOT_BYTES_BASE < T.PWA_SINGLE_SHOT_BYTES_BASE
+            < T.MSA_LIST_BYTES_BASE)
+    for base in (T.OPM_Z_SINGLE_SHOT_BYTES_BASE, T.PWA_SINGLE_SHOT_BYTES_BASE,
+                 T.MSA_LIST_BYTES_BASE):
+        assert T._single_shot_budget(base, BH_DRAM) == BH_DRAM * 3 // 32 > base
