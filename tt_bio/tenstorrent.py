@@ -7583,9 +7583,15 @@ class OuterProductMean(Module):
                 return a, b, (S, I, C, D, J)
             except BaseException:
                 # Hand the device back everything this attempt holds, or the un-joined path
-                # runs against a device this one filled and is refused in its turn.
+                # runs against a device this one filled and is refused in its turn. Each free
+                # is guarded because the failing op may be `reallocate`, which has already
+                # freed its input -- and a second free raising there would replace the
+                # allocator refusal with a bookkeeping error and lose the fix's own trigger.
                 for t in a_parts + b_parts + [t for t in (a, b) if t is not None]:
-                    ttnn.deallocate(t)
+                    try:
+                        ttnn.deallocate(t)
+                    except BaseException:
+                        pass
                 raise
 
         depth_parts = dims = None
