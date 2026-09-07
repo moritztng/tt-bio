@@ -114,7 +114,7 @@ UNKNOWN = "unknown"                # not diagnosed
 MECHANISMS = (L1_CLASH, L1_BUDGET, DRAM, DRAM_MSA, FRAGMENTATION, NO_FAILURE, UNKNOWN)
 
 # WHAT THE NUMBER COUNTS. Not decoration: the two design models were measured in DIFFERENT
-# denominators, and holding one against the other would be a silent unit substitution. RFD3's 992 is
+# denominators, and holding one against the other would be a silent unit substitution. RFD3's 490 is
 # motif PLUS designed residues, while PXDesign's 768 is TARGET residues only, with its 80-residue
 # binder on top and outside the number. A guard that compared a total against a target-only cap
 # would refuse correct work on one model and pass oversized work on the other. Each row names its
@@ -301,44 +301,45 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "rfd3": {
         "wormhole_b0": Ceiling(
-            residues=992, pass_at=992, fail_at=1024, binds=MEMORY, mechanism=L1_BUDGET,
+            residues=490, pass_at=490, fail_at=992, binds=MEMORY, mechanism=L1_BUDGET,
             counts=DESIGN_TOTAL,
-            evidence="state/ceiling-rfd3.md, its own ladder measured 2026-09-07 on GWH02, "
-                     "ws:ceiling-rfd3. 992 total residues = 892 target + a 100-residue binder, "
-                     "8538 atoms. ONE target cut to every rung (laczc_1008, 1DP0 chain A), so no "
-                     "two rungs differ in anything but size, one 12 GiB chip per process. 992 "
-                     "folds FIVE times out of five in 88.0/87.9/88.4/97.8/244.7 s and 1024 FAILS "
-                     "six out of six, always on the identical allocation: a 33554432 B L1 buffer "
-                     "over 72 banks needing 466944 B per bank against 461536 B free. It misses by "
-                     "5408 B per bank, 1.2 %, and the buffer is named -- the SwiGLU gated product "
-                     "of the chunked pair transition in the conditioning Pairformer, held in L1 on "
-                     "purpose, where 1024 tokens make 1024**2 pair rows, a chunk height of 32768 "
-                     "and 32768 x 512 x 2 B = the request to the byte. Everything below is "
-                     "unbroken: 512/576/640/704/768/832/896/960/992 all fold. The failure is "
-                     "clean, an allocator RuntimeError before any coordinate is written, and the "
-                     "chip was reusable 30 s later. The mechanism is L1_BUDGET and NOT the "
-                     "fragmentation this row used to claim: at the throw `free` and `largest free "
-                     "block` are the same 461536 B, DRAM is 97 % free with 1041987808 B contiguous "
-                     "per bank, and host RAM peaks at 21.7 of 566 GB. The 490 this replaces was a "
-                     "real DRAM-fragmentation wall in the token initializer's atom-pair section, "
-                     "and it is fixed rather than reinterpreted: the unblocked section dies at 640 "
-                     "on a 2114887680 B request, and row-blocking it against "
-                     "atom_pair_budget_bytes() clears the wall AND is faster (512 residues: 71.2 s "
-                     "blocked against 124.5 s, 8.2 GB host RSS against 16.1 GB, since the "
-                     "unblocked form materialises the whole [L, L, 16] fp32 pair tensor on host in "
-                     "one piece). SO THIS CAP DEPENDS ON THAT ROW BLOCK: "
-                     "TT_BIO_ATOM_PAIR_BUDGET_BYTES=0 restores the unblocked path and its 640 "
-                     "wall. Parity is bit-exact against the unblocked path at 128/256/480/512 on "
-                     "all five tensors the initializer hands the sampler, with the block count "
-                     "recorded beside each digest so a pass proves the lever engaged rather than "
-                     "the size having stayed under the budget; 128 and 256 stay in one block, so "
-                     "the sizes users actually run are the shipped path byte for byte. A REFERENCE "
-                     "parity number at 992 is owed and is NOT claimed -- what is measured at the "
-                     "top size is that all 8538 output coordinates are finite and the atom count "
-                     "out equals the atom count in, on all five passes. 1024 misses by 1.2 % and "
-                     "declining the L1 residency there (keeping the chunk height, which is a "
-                     "NUMERICS knob: h=64 at 514 tokens diverges 2.44e-4 per call) is the "
-                     "parity-safe way to close it, unmeasured and deliberately not in this row",
+            evidence="wh-design-models-l1-budget-and-size-caps for the cap, measured through the "
+                     "live API on this Galaxy: 390 TARGET residues, 490 total including the "
+                     "designed regions, 4373 atoms. The negative control is new and is the reason "
+                     "this row still says 490: state/ceiling-rfd3.md walked a ladder to 992 and "
+                     "992 FAILS at the platform's default 100 diffusion steps, on card UMD 26 "
+                     "(node 2) of GWH02, 2026-09-07. It reaches the sampler -- 8538 atoms, the "
+                     "atom-pair row block engaged at 9 blocks of 960 rows -- and then throws a "
+                     "65011712 B L1 buffer over 72 banks needing 903168 B per bank against 492256 "
+                     "B free, short by 410912 B per bank, 45 %. Not fragmentation: `free` and "
+                     "`largest free block` are the same 492256 B, so there is no block to "
+                     "coalesce, and L1 reads fully free at open, weights and token_init. The site "
+                     "is the SwiGLU gated product of the pair transition in the conditioning "
+                     "Pairformer (model.py:885 -> :954, z_transition at model.py:1061), and the "
+                     "frames above it are what makes this row a correction rather than a "
+                     "measurement: model.py:3636 _forward_with_recycle -> :3646 _process_ with "
+                     "D_II_self, the SELF-CONDITIONING path. THAT PATH DOES NOT RUN AT A LOW STEP "
+                     "COUNT. An earlier ladder in the same file recorded 992 folding five times "
+                     "out of five and published it, and every one of those rows carries "
+                     "\"steps\": 2 -- rfd3_cap.py defaults RFD3_CAP_STEPS to 2. At 2 steps the "
+                     "same site asks 33554432 B and misses by 5408 B per bank, 1.2 %, which reads "
+                     "like a boundary one lever would close; at 100 steps it asks 1.94x that and "
+                     "misses by 45 %. So a 2-step ladder is not a ceiling ladder for this model, "
+                     "the 992 it produced is withdrawn, and the real production ceiling is "
+                     "somewhere in (490, 992) with the 100-step ladder still walking. 1024 also "
+                     "fails 6/6, but at 2 steps, so it is not quoted as this row's control. What "
+                     "IS carried forward from that work is the atom-pair row block, which is a "
+                     "genuine and separate fix: the unblocked token initializer dies at 640 total "
+                     "residues on a 2114887680 B DRAM request, row-blocking it against "
+                     "atom_pair_budget_bytes() clears that wall and is faster (512 residues: 71.2 "
+                     "s against 124.5 s, 8.2 GB host RSS against 16.1 GB), and it is bit-exact "
+                     "against the unblocked path at 128/256/480/512 on all five tensors the "
+                     "initializer hands the sampler. 128 and 256 stay in a single block, so the "
+                     "sizes users run are the shipped path byte for byte. That fix is why 992 now "
+                     "reaches the sampler at all instead of dying in setup, and it is what will "
+                     "let the 100-step ladder raise this number once a rung passes with a rung "
+                     "above it failing. TT_BIO_ATOM_PAIR_BUDGET_BYTES=0 restores the unblocked "
+                     "path and its 640 wall",
         ),
     },
     "pxdesign": {

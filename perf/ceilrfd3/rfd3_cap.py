@@ -34,7 +34,15 @@ import tt_bio                                                                   
 LEN = int(os.environ["RFD3_CAP_LEN"])
 BINDER = os.environ.get("RFD3_CAP_BINDER", "100")
 TARGET = os.environ.get("RFD3_CAP_TARGET", "perf/ceilrfd3/targets/laczc_1008.cif")
-STEPS = int(os.environ.get("RFD3_CAP_STEPS", "2"))
+# 100 because that is what the platform sends, and this default used to be 2. A 2-step run
+# NEVER ENTERS THE SELF-CONDITIONING PATH: model.py:3646 passes D_II_self only on a recycle,
+# and the pair transition's SwiGLU asks 1.94x as much L1 once it does. Measured on 992 total
+# residues, card UMD 26 of GWH02: at 2 steps the site asks 33554432 B and misses by 1.2 %,
+# so the rung PASSES, five times out of five; at 100 steps it asks 65011712 B and misses by
+# 45 %, so the rung FAILS. A whole ladder was walked at 2 steps and published a ceiling of
+# 992 that the model does not have at the settings anybody runs. So the step count is part of
+# the measurement, not a way to make the ladder cheaper.
+STEPS = int(os.environ.get("RFD3_CAP_STEPS", "100"))
 CKPT = pathlib.Path(os.environ.get("RFD3_CKPT", "/home/cust-team/.boltz/rfd3/weights"))
 OUT = pathlib.Path(os.environ.get("RFD3_CAP_OUT", "perf/ceilrfd3/results/rfd3_cap.jsonl"))
 HOST = os.environ.get("RFD3_HOST", "UF-EV-A13-GWH02")
