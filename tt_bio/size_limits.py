@@ -198,36 +198,87 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "openfold3": {
         "wormhole_b0": Ceiling(
-            residues=576, pass_at=576, fail_at=614, binds=MEMORY, mechanism=DRAM_MSA, msa_rows=14190,
-            evidence="catalog.py, measured 2026-08-17 on GWH02, tt-bio 6329f8ef, real ColabFold "
-                     "alignments cut to length. The MSA track runs out of DRAM. Depth was varied "
-                     "and the ladder walked at both: at 14190 rows 448/512/544/576 all fold; at "
-                     "8138 rows 592 folds and 614 dies asking 2.01 GB against 207 MB free. 576 is "
-                     "the largest size proven at the deepest alignment this pipeline has produced. "
-                     "Single-sequence is far roomier (768 folds in 301 s) but is not the default",
+            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            msa_rows=14190,
+            evidence="its own ladder, measured 2026-09-07 on GWH02 at 14190 alignment rows on "
+                     "every rung -- the deepest real ColabFold alignment this pipeline has "
+                     "produced. Monotone with NO failure found: 640/672/704/736/768/800/832/896/"
+                     "960/1024 all fold, in 219/229/287/319/324/384/435/666/453/642 s. 1024 is "
+                     "the platform's own max_residues fence, so there is nothing above it to walk "
+                     "to. Every rung was scored for structure and not just for returning: 0 "
+                     "backbone breaks everywhere, Ca-Ca median 3.849-3.863 A at 99.48-100 % in "
+                     "band, Rg ratio 1.155-1.213, pLDDT 0.733-0.773 declining smoothly with size, "
+                     "and clashes 0 except 2/6171 at 768, 2/7711 at 960 and 8/8231 at 1024 -- all "
+                     "marginal contacts inside the budget real crystal structures show. The 576 "
+                     "this replaces was measured 2026-08-17 against an engine whose "
+                     "OuterProductMean materialised its whole z matmul and whose MSA track held "
+                     "four redundant full-width copies of the representation; 614 dying at 2.01 GB "
+                     "was that engine, and 614 buckets to 640, which folds. The wall clocks above "
+                     "are the ws:ceiling-openfold3-1024 arm. The shipped engine takes the "
+                     "refusal-narrowed route instead, and the top two rungs were re-walked on it "
+                     "(ws:ceiling-1024-integration-and-gate): 960 folds in 768 s and 1024 in "
+                     "963 s, each absorbing OuterProductMean's single-shot z refusal (1887436800 "
+                     "and 2147483648 B) through the row block. Slower than the arm above and "
+                     "structurally at least as good: 1024 scores PASS with ZERO clashes and 960 "
+                     "WARNs at 2/7711 marginal contacts, both with the backbone intact (Ca-Ca "
+                     "median 3.842/3.863 A, 99.61/99.48 % in band). Every size that folds on the "
+                     "previous engine is bit-exact against it. A refusal narrows the row block, "
+                     "which partitions independent rows and is bit-exact too; only "
+                     "OuterProductMean's un-joined form reassociates a bf16 depth sum, and it ran "
+                     "on NEITHER rung (join_split=0 at 960 and 1024), so nothing on this ladder "
+                     "moved a bit. Single-sequence is roomier still and is not the default",
         ),
     },
     "openbind": {
         "wormhole_b0": Ceiling(
-            residues=576, pass_at=576, fail_at=614, binds=MEMORY, mechanism=DRAM_MSA, msa_rows=14190,
-            evidence="inherits openfold3's ladder by construction rather than by assumption: same "
-                     "OF3Trunk, same MSA track, and openfold3_fold.py asserts the two BUCKET_MULTIPLE "
-                     "rows agree. Ligand atoms add tokens on top of the polymer, which this "
-                     "residue-denominated cap covers but does not separately measure",
+            residues=960, pass_at=960, fail_at=1024, binds=MEMORY, mechanism=DRAM_MSA,
+            msa_rows=14190,
+            evidence="its own ladder, and walked WITH A LIGAND BOUND rather than inherited from "
+                     "openfold3 -- measured 2026-09-07 on GWH02 at 14190 alignment rows, "
+                     "ws:ceiling-1024-integration-and-gate on tt-bio e9cb5b70. Every rung carries "
+                     "CCD STU, 35 heavy atoms: 768 folds in 525 s, 896 in 747 s, 960 in 1080 s, "
+                     "and 1024 FAILS. Scored for structure and not just for returning: 768 and "
+                     "896 PASS with zero clashes, 960 WARNs at 3/7746 marginal contacts inside "
+                     "the 0.1 % budget, and no rung breaks a backbone (Ca-Ca median 3.854-3.861 "
+                     "A, 99.66-99.74 % in band). The wall is the TOKEN count, not the residue "
+                     "count, and the same input apo proves it: 1024 residues with no ligand fold "
+                     "in 863 s. 1024 residues plus 35 ligand atoms is 1059 tokens, which buckets "
+                     "to 1088, and 1088 is refused twice over -- OuterProductMean's z at "
+                     "2424307712 = 1088 x 1088 x 1024 x 2, and the MSA Transition's "
+                     "host-assembled result uploaded whole at 1976016896 = 14189 x 1088 x 64 x 2. "
+                     "So this cap counts residues while the model tokenises ligand heavy atoms on "
+                     "top of them: at 960 residues it holds for a ligand of about 64 atoms or "
+                     "fewer, since 960 + 64 = 1024 tokens is the budget measured to fold. A "
+                     "larger ligand crosses the wall at a residue count this guard admits, which "
+                     "is the one case it cannot see coming. The 576/614 this replaces was "
+                     "measured 2026-08-17 against an engine whose OuterProductMean materialised "
+                     "its whole z matmul; openbind dedups its main MSA "
+                     "(af3_spec_main_msa_dedup is keyed on the checkpoint), so the depth reaching "
+                     "its model at a given alignment is not openfold3's and this ladder is its "
+                     "own. Single-sequence is roomier still and is not the default",
         ),
     },
     "rf3": {
         "wormhole_b0": Ceiling(
-            residues=627, pass_at=627, fail_at=630, binds=MEMORY, mechanism=DRAM_MSA, msa_rows=29017,
-            evidence="catalog.py: sixteen consecutive sizes fold (375 through 627) and then 630 "
-                     "dies, as do 640 twice, 650, 656, 716, 796, 891, 980 and 1095. The wall is "
-                     "clean and monotonic here, and it is not a depth artefact -- the deepest "
-                     "alignment in the band (612 aa, 29017 rows) folds while the shallower 630 "
-                     "(22936 rows) does not. TWO different DRAM failures sit above the cap: 630-656 "
-                     "die late on a request as small as 103 MB with DRAM already 99% full (the "
-                     "allocation-COUNT shape of of3-1024aa-oom-allocation-count-not-size), while "
-                     "from 716 up a single 6.2-8.6 GB buffer is asked of a 12 GB chip. Only the "
-                     "lower one yields to depth chunking, so fixing it reaches ~716 and not 1024",
+            residues=1095, pass_at=1095, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            msa_rows=27317,
+            evidence="was 627 (fail_at 630) until the two allocations that set it were fixed; "
+                     "state/ceiling-rf3-1024.md, measured 2026-09-07 on GWH02 card UMD 2 with real "
+                     "ColabFold alignments. Both walls were shape choices, not memory the model "
+                     "needs. The template embedder and the MSA module were the last two RF3 "
+                     "triangle-attention sites on the materialised fp32-softmax route, which writes "
+                     "[tokens, heads, S_pad, S_pad] over the RAW token axis: 656 aa asked "
+                     "2369912832 B = 656 x 4 x 672 x 672 x 2 at trunk 0/10. The confidence head's "
+                     "global layer norm flattened the pair tensor to one row, and TILE_LAYOUT pads "
+                     "one row to 32, so it asked 32x: 640 aa died on 3355443200 B = 32 x (640 x 640 "
+                     "x 128 x 2), reproduced on this card at 179 s. Ladder above the old cap, fix "
+                     "arm, all folded with zero backbone breaks and clash fractions of 0.2-0.7%: "
+                     "630 (22936 rows), 656 (23951), 716 (11615), 796 (21448), 891 (16253), 980 "
+                     "(12267), 1095 (25815, pLDDT 80.5 in 584 s). 640 aa carries the deepest "
+                     "alignment walked, 27317 rows. Nothing above 1095 has been run, hence "
+                     "LADDER_TOP: the real ceiling may be higher. The fix is on by default; "
+                     "TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0, TT_BIO_RF3_MSA_FUSED_SDPA=0 or "
+                     "TT_BIO_RF3_GLN_ROW_FOLD=0 restore the old route and the old 627 wall with it",
         ),
     },
     "protenix-v2": {

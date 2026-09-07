@@ -24,7 +24,7 @@ from __future__ import annotations
 import torch
 
 from tt_bio.tenstorrent import (_TRANSPOSE_L1_RESERVE_PER_CORE, accurate_softmax_site,
-                                sdpa_ragged_pad_site)
+                                sdpa_ragged_pad_site, triatt_sdpa_hifi_site)
 
 #: RF3 block-relative name -> tt-bio block-relative name.
 #: Triangle multiplication is absent because its six weights already match.
@@ -227,11 +227,43 @@ PAIRFORMER_DIMS = (32, 4, 24, 16)
 #: `accurate_softmax` onto triangle attention reached RF3 by accident and cost 1.376x on the
 #: published 512 aa cell (81.05 s -> 111.57 s) plus a moved CIF digest; RF3 was the only model
 #: both on the fp32_softmax route and already opted into `accurate_softmax` for the other site.
-PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=False, transpose_bias=False,
+def tri_att_fused_flags(on: bool) -> dict:
+    """The one pair of flags that routes an RF3 triangle attention through the fused SDPA.
+
+    All four RF3 sites that build a pairformer block want exactly this pair, and spelling it out
+    per site is how the 627 aa Wormhole ceiling survived: the trunk and the confidence head moved
+    to the fused route, the template embedder and the MSA module were left on the materialised
+    one, and at 656 tokens that route asks for a single 2 369 912 832 B buffer. One function, so
+    a fifth site cannot quietly disagree with the other four.
+
+    The mask never ships without the move. These blocks run on the RAW token axis, so the key tail
+    is ragged on any input that is not a multiple of 32, and unmasked the fused kernel is 71-76x
+    wrong there and reads whatever the previous op left in the physical tile tail -- which makes
+    the output depend on allocation history. See `sdpa_ragged_pad_site`.
+    """
+    return dict(fp32_softmax=not on,
+                tri_att_sdpa_ragged_pad=on and sdpa_ragged_pad_site("rf3.tri_att", True),
+                # The per-site compute-kernel config on the fused route (HiFi4, math_approx off,
+                # fp32_dest_acc on) rather than the kernel's op default. It was off because it was
+                # "unmeasured on RF3"; it is measured now, and the measurement says it is the
+                # accurate arm. On the template embedder's and MSA module's OWN captured operands
+                # at 298 tokens, scored against an fp64 reference (perf/fused_sdpa/errstruct.py,
+                # card 2, 6 calls): op default 1.36e-2 to 2.63e-2 relative, the materialised
+                # fp32-softmax chain it replaces 9.55e-3 to 2.10e-2, and this config 4.79e-3 to
+                # 1.64e-2 -- 1.2-4.4x closer to fp64 than the route being deleted, and 1.6-3.1x
+                # closer than the op default. Still DEFAULT OFF: those operands were re-uploaded
+                # from host, so their tile tail is zero-padded and the ragged mask cannot act,
+                # which makes this a clean-tail ranking rather than a fold. Turn it on for all
+                # three RF3 sites at once with TT_BIO_TRIATT_SDPA_HIFI_AB=rf3.tri_att and score it
+                # at the fold level before flipping the default.
+                tri_att_sdpa_hifi=on and triatt_sdpa_hifi_site("rf3.tri_att", False))
+
+
+PAIRFORMER_FLAGS = dict(scale_pair_bias=True, transpose_bias=False,
                         gated_move=True, accurate_softmax=True,
                         tri_att_accurate_softmax=accurate_softmax_site("rf3.tri_att"),
-                        tri_att_sdpa_ragged_pad=sdpa_ragged_pad_site("rf3.tri_att", True),
-                        transpose_l1_reserve=_TRANSPOSE_L1_RESERVE_PER_CORE)
+                        transpose_l1_reserve=_TRANSPOSE_L1_RESERVE_PER_CORE,
+                        **tri_att_fused_flags(True))
 
 
 def remap_pairformer_stack(raw: dict, n_layers: int, prefix: str = "pairformer.",

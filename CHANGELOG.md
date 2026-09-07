@@ -5,7 +5,47 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+
+- **Triangle attention on the fused kernel now pre-bakes the pair bias.** The fused kernel adds the
+  bias before applying its scale, so it wants a bias already multiplied by `sqrt(head_dim)`. The
+  fp32-softmax route did that; the fused route did not. Every model that ships
+  `scale_pair_bias=True` had the multiply folded into its weights at load, so nothing shipped was
+  affected -- the bug only bites a caller that passes `False`, and until RoseTTAFold3's template
+  embedder and MSA module moved to the fused route in this release, no such caller existed. There
+  it was worth 13.3x: 7ROA L117 scored 0.10683 A against its torch reference on the old route and
+  1.41825 A on the fused one, back to 0.15238 A with the bias corrected.
+
 ### Changed
+
+- **RoseTTAFold3 folds 1095 residues on a 12 GiB Wormhole card, up from 627.** Neither wall was
+  memory the model needs; both were shape choices, and the allocator's own byte counts name them.
+  The template embedder and the MSA module were the last two triangle-attention sites still
+  materialising the whole score tensor over the raw token axis, so 656 residues asked for a single
+  2 369 912 832 B buffer at the first trunk step -- exactly `656 x 4 x 672 x 672 x 2`. Both now take
+  the same fused attention the trunk's 48 blocks and the confidence head already use. Separately,
+  the confidence head's global layer norm flattened the pair tensor to a single row, and a tile
+  layout pads one row up to 32, so normalising a 0.10 GB tensor at 640 residues asked for
+  3 355 443 200 B = `32 x (640 x 640 x 128 x 2)`. Folding that flatten into rows pads nothing.
+
+  Measured with real alignments on one Galaxy card: 630 (22 936 rows), 656, 716, 796, 891, 980 and
+  1095 (25 815 rows) all fold, at 76-82 pLDDT with zero backbone breaks, and 640 aa carries the
+  deepest alignment walked at 27 317 rows. The same 640 aa target on the old route refuses
+  3 355 443 200 B after 179 s, and 627 aa -- the old cap itself -- refuses 51 363 840 B at 99% full
+  on a dedicated card while folding in 206 s on the new route, so the old ceiling was a
+  fragmentation-adjacent pass rather than headroom. `tt_bio/size_limits.py` publishes 1095 as a
+  LADDER TOP, not a wall: nothing above it has been run.
+
+  Structures below the old ceiling barely move. The confidence-head change cannot move them at all
+  -- it runs after the structure exists, and the coordinates come back bit-identical at 128 and
+  256 residues -- and the attention change shifts CA positions by 0.057 A at 128 and 0.134 A at
+  256, inside rf3's own run-to-run reference noise. Reported confidence does change above 128
+  residues, and there the new reduction is the more accurate one. Speed below the ceiling is
+  unchanged as far as this can be measured: two runs of one arm with byte-identical output differed
+  by 31% at 128 residues, so nothing smaller than that is resolvable without a benchlocked
+  protocol. Each change keeps a switch back -- `TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0`,
+  `TT_BIO_RF3_MSA_FUSED_SDPA=0`, `TT_BIO_RF3_GLN_ROW_FOLD=0` -- and those restore the old routes
+  and the old ceiling with them.
 
 - **A `cyclic: true` chain is now refused by `esmfold2` and `esmfold2-fast` too.** Every other
   model that cannot cyclise already refused it. ESMFold2 was the one path left that took the flag,
