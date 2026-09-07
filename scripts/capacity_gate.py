@@ -74,6 +74,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import capacity_fixture                                                    # noqa: E402
+from tt_bio import device_lease                                             # noqa: E402
 
 # ---------------------------------------------------------------------------------------------
 # THE BAR
@@ -842,6 +843,39 @@ def _may_reset(worker: Worker, workers: list[Worker]) -> bool:
     return worker.is_local and sum(1 for w in workers if w.host == worker.host) == 1
 
 
+def co_tenant(worker: Worker) -> str | None:
+    """Another live process holding this card's device lease, or None.
+
+    THE reason this exists. "This run owns the host" was read off the gate's own --workers list,
+    which says nothing about who else on the box is using the card. The fleet dispatcher can grant
+    card 0 on pc to two workers at once, and it did, mid-campaign: tt-bio's own lease refused this
+    gate's residency leg with "physical card 0 on pc is in use by worker:ceiling-rfd3 (pid ...)".
+    That is handled -- it is a CONTENDED verdict and nothing is scored. What was NOT handled is
+    what comes next: a contended card fails the health probe, a failed probe reads as a wedge, and
+    a wedge gets `tt-smi -r`. The gate would have reset the chip out from under another worker's
+    running job, which is the one action here that destroys somebody else's measurement.
+
+    The lease file is authoritative and free to read, so it is consulted before the probe rather
+    than inferred from it. A lease held by OUR OWN holder label is not a co-tenant: that is this
+    gate's own leg, and a straggler of ours on a wedged chip is exactly the case a reset is for.
+    """
+    path = Path(device_lease.lease_dir()) / f"{worker.host}-card{worker.card}.json"
+    try:
+        meta = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    if meta.get("released") is not None:
+        return None
+    pid, holder = meta.get("pid"), meta.get("holder")
+    if holder == os.environ.get("TT_BIO_LEASE_HOLDER"):
+        return None
+    try:
+        os.kill(int(pid), 0)                 # signal 0: liveness, delivers nothing
+    except (OSError, TypeError, ValueError):
+        return None                          # holder is gone; a stale lease is not a co-tenant
+    return f"{holder} (pid {pid})"
+
+
 def recover_card(worker: Worker, workers: list[Worker]) -> tuple[bool, str]:
     """Bring a wedged card back, or say why not.
 
@@ -851,6 +885,14 @@ def recover_card(worker: Worker, workers: list[Worker]) -> tuple[bool, str]:
     it reads as a failure too, so a one-line real result would arrive wrapped in a cascade of
     invented ones. Polling cannot fix a wedge; only a reset can.
     """
+    # Before the probe, not after: a co-tenant's card fails the probe for a reason that has
+    # nothing to do with the chip, and the 300 s spent finding that out is 300 s in which the
+    # answer was already sitting in the lease file.
+    other = co_tenant(worker)
+    if other:
+        return False, (f"card {worker.card} is leased by {other}, so this gate must not reset it "
+                       f"-- that would take the chip down under another job's running work. "
+                       f"Nothing was measured here; re-run this cell when the card is free.")
     before = probe_card(worker, timeout=300)
     if before:
         return True, "still dispatching"
@@ -1446,6 +1488,14 @@ def main(argv=None) -> int:
     # EVERY card, not just the first. A gate that vets workers[0] and fans out over four would
     # record every cell that landed on an unhealthy card 3 as a capacity failure -- the exact lie
     # the card 0 check exists to prevent, reintroduced by the fan-out.
+    # A co-tenant is named before the probe runs. Its card cannot dispatch FOR US, but the chip is
+    # fine and the operator's next move is to wait, not to reset -- and "cannot dispatch a trivial
+    # program. Reset (tt-smi -r) and re-run" is a direct instruction to break the other job.
+    busy = [f"{w!r} is leased by {t}" for w, t in ((w, co_tenant(w)) for w in workers) if t]
+    if busy:
+        print(f"{'; '.join(busy)}. Nothing was measured. Wait for the card, or point --workers "
+              f"at a free one; do NOT reset it.", file=sys.stderr)
+        return 4
     sick = [f"{w!r} {p.why()}" for w, p in ((w, probe_card(w)) for w in workers) if not p]
     if sick:
         print(f"{'; '.join(sick)}. Every leg landing there "

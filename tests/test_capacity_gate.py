@@ -1038,3 +1038,72 @@ def test_the_probe_prints_its_open_marker_before_it_dispatches():
     dispatch = next(i for i, l in enumerate(lines) if "ttnn.add" in l)
     assert opened < marker < dispatch, cg._CARD_PROBE
     assert "flush=True" in lines[marker], "an unflushed marker arrives after the hang it precedes"
+
+
+# --- never reset a card somebody else is computing on -------------------------------------------
+#
+# The fleet dispatcher granted card 0 on pc to this gate AND to worker:ceiling-rfd3 at the same
+# time, mid-campaign. tt-bio's own lease handled the collision correctly: the residency leg was
+# refused at the device open and the cell scored CONTENDED, which is a non-result and not a failed
+# bar. What was not handled is the step after it. A contended card fails the health probe, a failed
+# probe reads as a wedge, and a wedge gets `tt-smi -r` -- which on a p300c takes the board pair
+# down, and on any card destroys whatever the other worker was measuring.
+
+def _lease(tmp_path, monkeypatch, **fields):
+    d = tmp_path / "leases"
+    d.mkdir(exist_ok=True)
+    meta = {"host": "pc", "card": "0", "holder": "worker:someone-else",
+            "pid": os.getpid(), "acquired": 0.0, "released": None}
+    meta.update(fields)
+    (d / "pc-card0.json").write_text(json.dumps(meta))
+    monkeypatch.setattr(cg.device_lease, "lease_dir", lambda: str(d))
+    return cg.Worker("pc", 0, True)
+
+
+def test_a_card_leased_by_another_worker_is_never_reset(tmp_path, monkeypatch):
+    w = _lease(tmp_path, monkeypatch)
+    monkeypatch.setenv("TT_BIO_LEASE_HOLDER", "worker:this-gate")
+    assert cg.co_tenant(w) == f"worker:someone-else (pid {os.getpid()})"
+
+    reset = []
+    monkeypatch.setattr(cg.subprocess, "run", lambda *a, **k: reset.append(a) or None)
+    monkeypatch.setattr(cg, "probe_card", lambda *a, **k: pytest.fail(
+        "the lease already answered this; probing costs 300 s to learn nothing"))
+    ok, how = cg.recover_card(w, [w])
+    assert not ok and not reset, "the gate reset a card another worker was computing on"
+    assert "worker:someone-else" in how and "must not reset" in how
+
+
+def test_our_own_lease_is_not_a_co_tenant(tmp_path, monkeypatch):
+    """A straggler of ours holding the lease on a wedged chip is exactly what a reset is for.
+    Reading every lease as a co-tenant would disable recovery entirely, and post-OOM recovery is
+    what keeps one real FAIL from wrapping itself in a cascade of invented ones."""
+    w = _lease(tmp_path, monkeypatch, holder="worker:this-gate")
+    monkeypatch.setenv("TT_BIO_LEASE_HOLDER", "worker:this-gate")
+    assert cg.co_tenant(w) is None
+
+
+def test_a_stale_lease_is_not_a_co_tenant(tmp_path, monkeypatch):
+    """A released lease, or one whose holder is gone, must not stand in the way of a reset: a
+    process killed on a wedged card leaves exactly that behind, and it is the case recovery
+    exists for."""
+    monkeypatch.setenv("TT_BIO_LEASE_HOLDER", "worker:this-gate")
+    assert cg.co_tenant(_lease(tmp_path, monkeypatch, released=1.0)) is None
+    dead = 2 ** 22 - 1                                     # above the default pid_max
+    assert cg.co_tenant(_lease(tmp_path, monkeypatch, pid=dead)) is None
+    assert cg.co_tenant(cg.Worker("no-such-host", 9, True)) is None, "absent lease file"
+
+
+def test_the_preflight_tells_the_operator_to_wait_not_to_reset(tmp_path, monkeypatch):
+    """The old message on an unusable card was "cannot dispatch a trivial program. Reset
+    (tt-smi -r) and re-run", which against a co-tenant is a direct instruction to break the other
+    job."""
+    import inspect
+    src = inspect.getsource(cg.main)
+    busy = next(l for l in src.splitlines() if l.strip().startswith("busy ="))
+    assert "co_tenant(w)" in busy and "for w in workers" in busy
+    after = src.split("busy =")[1]
+    assert "do NOT reset it" in after.split("sick =")[0]
+    assert after.index("if busy:") < after.index("sick ="), (
+        "the co-tenant check must come BEFORE the probe, or the gate pays 300 s per card to learn "
+        "what the lease file already said")
