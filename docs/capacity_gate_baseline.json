@@ -1,8 +1,8 @@
 {
  "bar_tokens": 1536,
- "recorded": "2026-09-07T20:51:03Z",
- "tree": "86996b3153b219b20743dd2f573db28a093b7478",
- "dirty_tree": true,
+ "recorded": "2026-09-07T21:14:52Z",
+ "tree": "e1883076def1c70391a6b8e1e2762f652ba4e94b",
+ "dirty_tree": false,
  "geometry": {
   "arch": "blackhole",
   "grid": "(x=13,y=10)",
@@ -231,15 +231,17 @@
    "tokens_padded": 1536,
    "residues": 1536,
    "msa_rows_effective": 8832,
-   "dram_peak_bytes": 16398039040,
+   "dram_peak_bytes": 14661203968,
    "dram_total_bytes": 34225520128,
-   "wall_s": 656.8,
+   "wall_s": 646.5,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
-   "reason": null
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "e1883076def1c70391a6b8e1e2762f652ba4e94b"
   },
   "boltz2": {
    "verdict": "PASS",
