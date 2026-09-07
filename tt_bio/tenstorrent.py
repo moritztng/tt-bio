@@ -6142,19 +6142,58 @@ class Transition(Module):
             if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
             else TRANSITION_W_CHUNKING_THRESHOLD
         )
-        # Size the row chunk against the width a swiglu actually sees: when W exceeds
-        # the chunking threshold the W loop below never feeds swiglu more than
-        # TRANSITION_W_CHUNK_SIZE columns, so dividing by the full W over-shrinks the
-        # row chunk by W/w_eff (3-4x at structural scale) and degenerates to one row
-        # per chunk -- thousands of tiny live buffers that fragment DRAM. The min(1.0)
-        # clamp means this only ever raises the chunk size where it had been shrunk,
-        # so W<=threshold shapes (every normal target) are byte-identical to before.
-        w_eff = min(W, TRANSITION_W_CHUNK_SIZE) if W > transition_w_chunking_threshold else W
+        # Whether to split the swiglu along W is not a token-count question. The row-height
+        # budgets below already make the per-chunk footprint W-INVARIANT: both of them scale the
+        # height as 1/w_eff, so h * w_eff * (c + 2*hidden) -- which IS the live L1 per chunk --
+        # comes out the same number chunked or not. At protenix-v2's c=256, hid=1024, W=768 on
+        # the 8x9 Galaxy: chunked (w_eff=480) gives h=8 and 245,760 B/core, unchunked (w_eff=768)
+        # gives h=5 and 245,760 B/core. Byte for byte identical, so W chunking is not what keeps
+        # the chunk inside L1.
+        #
+        # What it does add is churn: per row block an extra device slice and an extra full-width
+        # ttnn.concat, 288 ops against the unchunked 154 at that shape, on every Transition call
+        # of every recycle. MEASURED on GWH02, protenix-v2, cdk2x2_768, size-ladder config: the
+        # chunked arm HANGS in the ttnn.layer_norm inside this loop at trunk recycle 6 -- after
+        # the identical shapes completed six times, so it is allocation state and not a bad shape
+        # -- while the unchunked arm folds the same target in 317.8 s.
+        #
+        # So gate on the one case the row-height cap cannot absorb: a SINGLE row at the full width
+        # that already overflows the budget, because the height floors at 1. On this part that is
+        # W > 6144 at c=256 and W > 4096 at OpenDDE's c=384, i.e. never for a shipped shape --
+        # which is the finding, not an accident of the numbers. Blackhole keeps the token-count
+        # threshold: the per-core byte budget this derivation rests on was measured on a Wormhole
+        # Galaxy and is only applied under _IS_SMALL_GRID, so extending it to a part it was never
+        # measured on would be asserting a roof instead of measuring one.
+        #
+        # w_eff is still what sizes the row height, for the reason it always was: when the W loop
+        # does run it never feeds swiglu more than TRANSITION_W_CHUNK_SIZE columns, so dividing by
+        # the full W would over-shrink the height and degenerate to one row per chunk.
         _base_h = transition_h_chunk_size
         _ref = 1024 * 128
         if _IS_SMALL_GRID:
             _ref = _ref * 128 // max(128, x.shape[-1])
-        transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * x.shape[-1]))))
+        _tile = lambda v: -(-int(v) // 32) * 32
+        _hid = int(self.fc1_weight.shape[-1])
+        _gx, _gy = COMPUTE_GRID_MAIN
+
+        def _l1_rows_at(w):
+            """Row height the per-core L1 budget alone allows at swiglu width `w`."""
+            return (TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy
+                    / (2 * _tile(w) * (_tile(x.shape[-1]) + 2 * _tile(_hid))))
+
+        def _rows_at(w):
+            """Row height EVERY budget allows at swiglu width `w`, BEFORE the floor at 1."""
+            h = _base_h * min(1.0, _ref / (w * x.shape[-1]))
+            return min(h, _l1_rows_at(w)) if _IS_SMALL_GRID else h
+
+        # The screen hook survives: set TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD and the old
+        # token-count gate answers instead, so both paths stay A/B-able on one build.
+        if _IS_SMALL_GRID and not os.environ.get("TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD"):
+            w_chunked = _rows_at(W) < 1.0
+        else:
+            w_chunked = W > transition_w_chunking_threshold
+        w_eff = min(W, TRANSITION_W_CHUNK_SIZE) if w_chunked else W
+        transition_h_chunk_size = max(1, int(_base_h * min(1.0, _ref / (w_eff * x.shape[-1]))))
 
         # ...and raise it back where the compounded ratio above over-shrinks. That ratio divides by
         # the channel TWICE -- once here and again in the small-grid `_ref * 128 // c` -- so the
@@ -6180,6 +6219,9 @@ class Transition(Module):
         _c = int(x.shape[-1])
         if (_IS_SMALL_GRID and SMALL_GRID_TRANSITION_ELEMS
                 and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
+                # NOT `w_chunked`: this bound is the regime the raise was validated in
+                # (every arm torch.equal below it), which is a token count of its own and does
+                # not follow the chunking gate above.
                 and W <= transition_w_chunking_threshold and H <= SEQ_LEN_MORE_CHUNKING):
             transition_h_chunk_size = max(transition_h_chunk_size,
                                           min(_base_h, SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
@@ -6195,12 +6237,11 @@ class Transition(Module):
             # measured throw edge (perf/wh-protenix/wh_transition_h.py: fits <= 393,216,
             # throws >= 409,600), which is why 298 aa still clashed in the confidence
             # Pairformer after the cap landed. Tile-aligned W is unaffected by construction.
-            _gx, _gy = COMPUTE_GRID_MAIN
-            _hid = int(self.fc1_weight.shape[-1])
-            _tile = lambda v: -(-int(v) // 32) * 32
-            _cap = max(1, int(TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy
-                              // (2 * _tile(w_eff) * (_tile(x.shape[-1]) + 2 * _tile(_hid)))))
-            transition_h_chunk_size = min(transition_h_chunk_size, _cap)
+            # The L1 term ONLY: transition_h_chunk_size may already have been raised above the
+            # ratio by SMALL_GRID_TRANSITION_ELEMS above, and capping by the ratio again would
+            # undo that measured raise.
+            transition_h_chunk_size = min(transition_h_chunk_size,
+                                          max(1, int(_l1_rows_at(w_eff))))
         if H > SEQ_LEN_MORE_CHUNKING:
             # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
             # would materialise a full second copy of the pair tensor up front, and the
@@ -6214,7 +6255,7 @@ class Transition(Module):
             parts = []
             for s in range(0, H, transition_h_chunk_size):
                 c = x[:, s:min(s + transition_h_chunk_size, H)]
-                if W <= transition_w_chunking_threshold:
+                if not w_chunked:
                     _acc_append(parts, swiglu(c), host_acc)
                     ttnn.deallocate(c)
                 else:
@@ -6231,7 +6272,7 @@ class Transition(Module):
             return _acc_concat(parts, 1, host_acc)
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
-        if W <= transition_w_chunking_threshold:
+        if not w_chunked:
             return ttnn.concat([swiglu(c) for c in chunks], dim=1)
         return ttnn.concat([
             ttnn.concat([swiglu(c[:, :, w:min(w+TRANSITION_W_CHUNK_SIZE, W), :]) for w in range(0, W, TRANSITION_W_CHUNK_SIZE)], dim=2)
