@@ -1,0 +1,10 @@
+# Size-ladder rung, self-contained: the CIF path is repo-relative and there is no
+# msa: key, so this runs anywhere the repo is checked out. laczc_768.yaml beside it
+# points at /work/targets2 and /work/msa_sliced from the host it was authored on.
+# No MSA matches the fold arm, which walks its ladder --single_sequence.
+target:
+  file: "perf/pxdesign/targets/laczc_768.cif"
+  chains:
+    A:
+      hotspots: [384, 385, 386]
+binder_length: 80
