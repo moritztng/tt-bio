@@ -2497,10 +2497,15 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                 # in every cell, which reads as "this model cannot fold at all" instead of "this
                 # model folds up to 640 and died at 768". That cost a bisect on 2026-08-23 to
                 # recover information the leg already had.
-                return {"error": f"rung {rung} "
-                                 f"{'warm-up' if rep == 0 else f'rep {rep - 1}'}: "
-                                 f"{r['error']}",
-                        "runtime_s": runtimes, "partial": True}
+                # The census half is carried for the same reason: a lever going dark at one
+                # rung is what this arm exists to catch, and dropping the censuses that DID
+                # measure throws away exactly that evidence.
+                where = f"rung {rung} {'warm-up' if rep == 0 else f'rep {rep - 1}'}"
+                return {"error": f"{where}: {r['error']}",
+                        "levers": levers, "runtime_s": runtimes,
+                        "census_jsons": census_jsons, "sigma": sigma, "grid": grid,
+                        "drift": drift, "refused": {str(rung): r["error"]},
+                        "partial": True}
             if rep == 0:
                 continue          # cold: kernels for this shape compile on this fold
             grid = grid or r.get("grid")
@@ -2538,6 +2543,17 @@ def _size_ladder_record_refusal(meas: dict) -> str | None:
     just written.
     """
     if meas.get("error"):
+        # A model that cannot reach the top rung is the normal case, not a failed pass. The
+        # ladder runs to 1024 because that is what users can submit, and opendde is capped at
+        # 544 on Wormhole, pxdesign at 768, rfd3 at 490 — discarding every rung they DID
+        # measure because they cannot reach 1024 would leave most of the fleet with no
+        # baseline at all. So a partial records what it measured and stores the rung that
+        # refused, provided it reached the two lowest timing rungs; below that there is
+        # nothing to gate on and the pass really did fail.
+        need = sorted(SIZE_LADDER_EXP_RUNGS)[:2]
+        if meas.get("partial") and all(str(n) in (meas.get("runtime_s") or {})
+                                       for n in need):
+            return None
         return meas["error"]
     if meas.get("drift"):
         return ("census does not reproduce across reps, so no baseline was recorded: "
@@ -2655,11 +2671,17 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
         return {"model": model, "gate": False, "error": pre, "findings": [pre]}
     reps = base_model.get("reps", 1)
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
-    if meas.get("error"):
-        return {"model": model, "gate": False, "error": meas["error"],
-                "findings": [meas["error"]],
-                "runtime_s": meas.get("runtime_s") or {}, "partial": True}
     findings = []
+    expected_refusals = base_model.get("refused") or {}
+    if meas.get("error"):
+        # The baseline names the rung a capped model cannot reach, so refusing there again is
+        # the recorded behaviour and the rungs below it still have to be checked. Refusing at a
+        # rung the baseline does NOT name is the failure this branch was written for.
+        refused = meas.get("refused") or {}
+        if not refused or not set(refused) <= set(expected_refusals):
+            return {"model": model, "gate": False, "error": meas["error"],
+                    "findings": [meas["error"]],
+                    "runtime_s": meas.get("runtime_s") or {}, "partial": True}
     b_grid, c_grid = base_model.get("grid"), meas.get("grid")
     if b_grid and c_grid and b_grid != c_grid:
         # Not a warning. A guard sized against the core grid flips with it (protenix-v2's K2 is
@@ -2675,6 +2697,12 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
     for rung in rungs:
         b_levers = base_model.get("levers", {}).get(str(rung))
         where = f"{model}/{rung}"
+        if str(rung) in expected_refusals:
+            if str(rung) in meas["levers"]:
+                findings.append(f"{where}: the baseline records this rung as refused and it "
+                                f"folded — the ceiling moved, re-record with "
+                                f"--size-ladder-record")
+            continue
         if b_levers is None:
             findings.append(f"{where}: rung not recorded in the baseline")
             continue
@@ -3015,7 +3043,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # changed but how many folds the number came from.
                 reps = (block or {}).get("reps", 1)
                 if reps > 1:
-                    again = [r for r in rungs if r != 512]
+                    again = [r for r in rungs if r != 512
+                             and str(r) in meas["runtime_s"]]
                     print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
                           f"{','.join(map(str, again))} at {reps} reps", flush=True)
                     m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
@@ -3034,6 +3063,11 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 _size_ladder_other_card_levers(reasons_from, card, m))
             entry = {"grid": meas.get("grid"), **stamp,
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
+            if meas.get("refused"):
+                entry["refused"] = meas["refused"]
+                for rung, why in meas["refused"].items():
+                    print(f"  [size-ladder] {m}: rung {rung} REFUSED, recorded as a refusal "
+                          f"— {why}", flush=True)
             if block:
                 entry.update(block)
             else:
