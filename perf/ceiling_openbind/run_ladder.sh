@@ -2,6 +2,10 @@
 #
 #   sh perf/ceiling_openbind/run_ladder.sh <tree> <out-dir> <rung> [rung ...]
 #
+# MODEL, RUNGS and MSA override the defaults. OpenBind-0 and OpenFold3 are the same OF3Trunk on
+# two checkpoints, so a shared-trunk capacity fix has to be walked on BOTH before it is a
+# shared fix rather than a claim -- same runner, same card, different MODEL and fixtures.
+#
 # The card is fixed by CARD (UMD index) and never picked: this box is the live JapanFold Galaxy
 # and 26 of its 32 chips are serving users, so a picker that scans is a picker that can land on
 # one of them. The /dev node is only for the occupancy check -- a UMD index is not a node number
@@ -18,8 +22,10 @@ TREE=$1; OUT=$2; shift 2
 PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
 CARD=${CARD:-1}
 NODE=${NODE:-17}
+MODEL=${MODEL:-openbind}
 LOG=$OUT/ladder.log
-RUNGS=$(cd "$TREE/rundir" && pwd)/rungs
+RUNGS=${RUNGS:-$(cd "$TREE/rundir" && pwd)/rungs}
+MSA=${MSA:-$TREE/rundir/msacache_deep}
 mkdir -p "$OUT"
 
 map=$(cd "$TREE" && "$PY" perf/ceiling_of3/pick_chip.py --map 2>/dev/null)
@@ -60,8 +66,8 @@ for r in "$@"; do
         TT_BIO_CAPACITY_CENSUS="$OUT/$r.census" \
         TT_BIO_LEASE_HOLDER=worker:ceiling-openbind-1024 TT_METAL_LOGGER_LEVEL=FATAL \
         PYTHONPATH="$TREE" "$PY" -m tt_bio.main predict "$RUNGS/$r.yaml" \
-        --model openbind --accelerator tenstorrent --out_dir "$OUT/$r" --override \
-        --msa_dir "$TREE/rundir/msacache_deep" --msa_cache_only --debug ) > "$OUT/$r.log" 2>&1
+        --model "$MODEL" --accelerator tenstorrent --out_dir "$OUT/$r" --override \
+        --msa_dir "$MSA" --msa_cache_only --debug ) > "$OUT/$r.log" 2>&1
     rc=$?
     e=$(date +%s)
     if grep -q "DeviceInUseError" "$OUT/$r.log" 2>/dev/null; then
