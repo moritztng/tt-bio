@@ -116,16 +116,17 @@ Wormhole is under 1024:
 |---|---:|---:|
 | `opendde`, `opendde-abag` | 544 | 576 |
 | `openfold3`, `openbind` | 576 | 614 |
-| `rf3` | 627 | 630 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
 | `protenix-v2` | 980 | 1095 |
 | `rfd3` | 490 (motif + designed) | above 490 |
 | `esmc-6b` (embed) | 1968 | 1984 |
 
-Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the model,
-the limit and any model that does take the input. `boltz2`, `esmfold2`, `boltzgen` and `nesso1`
-have no measured limit and are never refused. These numbers are Wormhole only; nothing is enforced
-on Blackhole, which has more memory per chip and where nobody has walked a ladder to a failure.
+Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
+model, the limit and any model that does take the input. `rf3` is not in the table because
+it folds every rung to 1095 residues, the top of its ladder. `boltz2`, `esmfold2`,
+`boltzgen` and `nesso1` have no measured limit and are never refused. These numbers are
+Wormhole only; nothing is enforced on Blackhole, which has more memory per chip and where
+nobody has walked a ladder to a failure.
 
 The limits were measured with an MSA, which is the default for the models that take one. Folding
 single-sequence is roomier (OpenFold3 caps at 576 with an alignment and folds 768 without one), so

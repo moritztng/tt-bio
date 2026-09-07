@@ -4970,9 +4970,32 @@ class TriangleAttention(Module):
                         l1_padded_plan=self.l1_padded_plan,
                     )
             else:
-                o = _tri_att_sdpa(q, k, v, bias, self.scale**-1,
+                # Pre-bake sqrt(head_dim) into the bias, exactly as the fp32 branch above does
+                # for `_tri_att_sdpa_hifi` and as `_fp32_softmax_attention` does through
+                # `bias_scale_inv`. The fused kernel adds the bias BEFORE applying `scale`
+                # (compute_common.hpp: `exp((qk + mask - max) * scale)`), so it wants a bias that
+                # has already been multiplied by sqrt(head_dim). `scale_pair_bias=True` did that
+                # to `bias_weight` at load, and for every site that ships True this multiply is a
+                # no-op -- which is why this branch got away without it.
+                #
+                # RF3's template embedder and MSA module pass scale_pair_bias=False, and they were
+                # the only two sites that did. While they were on the fp32_softmax route the
+                # correction was applied for them; moving them here dropped it, feeding the kernel
+                # a bias sqrt(32) = 5.66x too small. Measured at 7ROA L117 against the committed
+                # torch reference: 0.10683 A with the two sites on the old route, 1.41825 A with
+                # them here and this multiply missing -- a 13.3x regression, and within 14% of the
+                # 1.6415 A that `sdpa_ragged_pad_site` records for a fully unmasked ragged tail,
+                # which is how a bias-scale bug and a masking bug look alike from the outside. The
+                # mask was never the problem: `sdpa_ragged_sites` counts 120 of 120 fused tri-att
+                # calls masked on that fold.
+                b = bias
+                if self._bias_scale != self.scale:
+                    b = ttnn.multiply(bias, self.scale / self._bias_scale)
+                o = _tri_att_sdpa(q, k, v, b, self.scale**-1,
                                   _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None,
                                   self.sdpa_ragged_pad)
+                if b is not bias:
+                    ttnn.deallocate(b)
                 if _TRIATT_DUALPROBE:
                     o = _triatt_dualprobe(o, q, k, v, bias, self.scale ** -1,
                                           1.0 / self._bias_scale,

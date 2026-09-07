@@ -29,6 +29,18 @@ stage that never reads them, so the confidence pair track started with under 2 G
 are freed at the diffusion boundary now, which drops the confidence entry from 10.04 to
 5.72 GiB.
 
+RoseTTAFold3 was stuck at 627 residues on the same pool until 2026-09-07, and neither wall was
+memory the model needs. Its template embedder and MSA module were the last two triangle-attention
+sites still materialising the whole score tensor over the raw token axis, so 656 residues asked
+for a single 2.37 GB buffer at the first trunk step; both now take the same fused attention the
+rest of the model uses. Separately, the confidence head's global layer norm flattened the pair
+tensor to a single row, and a tile-layout row pads to 32, so normalising a 0.10 GB tensor at
+640 residues asked the allocator for 3.36 GB. Folding that flatten into rows pads nothing. RF3
+then folds 630, 656, 716, 796, 891, 980 and 1095 residues with real alignments, at 80 pLDDT and
+zero backbone breaks. None of the three changes is bit-exact with what it replaced;
+`TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0`, `TT_BIO_RF3_MSA_FUSED_SDPA=0` and
+`TT_BIO_RF3_GLN_ROW_FOLD=0` restore the old routes and the old ceiling.
+
 **A cell that folds does not license the sizes below it.** These four targets fold, and OpenDDE
 still throws at 576 residues on the same pool. The throw is an L1 static circular-buffer clash:
 the layout follows the padded tile shape and the core-grid split, neither of which is monotonic
