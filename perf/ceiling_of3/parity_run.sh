@@ -3,6 +3,9 @@
 #
 #   sh parity_run.sh <main-tree> <fix-tree>
 #
+# MODEL/RUN/RUNGS/CARD/HOLDER pass straight through to parity_ab.sh, so one runner scores any
+# model on this trunk. OpenBind-0 uses MODEL=openbind RUNGS=rungs CARD=1 and its own rundir.
+#
 # Legs, in this order:
 #   aa_256   main, seed 42     -- the A/A control's first half
 #   aa2_256  main, seed 42     -- and its second. These two MUST match, or nothing below means
@@ -16,7 +19,7 @@
 set -u
 MAIN=$1; FIX=$2
 HERE=$(dirname "$0")
-RUN=/home/cust-team/mthuening/ceilof3/rundir
+RUN=${RUN:-/home/cust-team/mthuening/ceilof3/rundir}
 PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
 LOG=$RUN/parity/parity.log
 mkdir -p "$RUN/parity"
