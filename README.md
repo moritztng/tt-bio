@@ -116,7 +116,7 @@ Wormhole is under 1024:
 |---|---:|---:|
 | `opendde`, `opendde-abag` | 544 | 576 |
 | `openfold3` | 1024 | none found; top of the ladder |
-| `openbind` | 576 | 614 |
+| `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
 | `protenix-v2` | 980 | 1095 |
 | `rfd3` | 490 (motif + designed) | above 490 |
@@ -132,9 +132,11 @@ nobody has walked a ladder to a failure.
 The limits were measured with an MSA, which is the default for the models that take one, and at the
 deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you
 know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the refusal
-into a warning and runs it anyway. `openbind` runs the same stack as `openfold3` but dedups its
-alignment, so it keeps its own lower number until its own ladder is walked rather than inheriting
-1024.
+into a warning and runs it anyway. `openbind` has its own ladder now, walked with a ligand
+bound: 960 residues fold and 1024 do not. Its limit counts residues, but ligand atoms count
+too as far as the hardware is concerned, so 960 holds for a ligand of roughly 64 atoms or
+fewer. A much larger ligand can fail below the published number, and a residue count cannot
+warn you about that.
 
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).

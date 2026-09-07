@@ -231,16 +231,31 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "openbind": {
         "wormhole_b0": Ceiling(
-            residues=576, pass_at=576, fail_at=614, binds=MEMORY, mechanism=DRAM_MSA, msa_rows=14190,
-            evidence="inherits openfold3's ladder by construction rather than by assumption: same "
-                     "OF3Trunk, same MSA track, and openfold3_fold.py asserts the two BUCKET_MULTIPLE "
-                     "rows agree. Ligand atoms add tokens on top of the polymer, which this "
-                     "residue-denominated cap covers but does not separately measure. NOT raised "
-                     "alongside openfold3's 2026-09-07 move to 1024: the DRAM fixes that bought it "
-                     "are in the shared MSA track and openbind gets them too, but openbind also "
-                     "dedups its main MSA (af3_spec_main_msa_dedup is keyed on the checkpoint), so "
-                     "the depth reaching its model at a given alignment is NOT openfold3's and the "
-                     "ladder has to be walked, not inherited. Under-promising is the safe error",
+            residues=960, pass_at=960, fail_at=1024, binds=MEMORY, mechanism=DRAM_MSA,
+            msa_rows=14190,
+            evidence="its own ladder, and walked WITH A LIGAND BOUND rather than inherited from "
+                     "openfold3 -- measured 2026-09-07 on GWH02 at 14190 alignment rows, "
+                     "ws:ceiling-1024-integration-and-gate on tt-bio e9cb5b70. Every rung carries "
+                     "CCD STU, 35 heavy atoms: 768 folds in 525 s, 896 in 747 s, 960 in 1080 s, "
+                     "and 1024 FAILS. Scored for structure and not just for returning: 768 and "
+                     "896 PASS with zero clashes, 960 WARNs at 3/7746 marginal contacts inside "
+                     "the 0.1 % budget, and no rung breaks a backbone (Ca-Ca median 3.854-3.861 "
+                     "A, 99.66-99.74 % in band). The wall is the TOKEN count, not the residue "
+                     "count, and the same input apo proves it: 1024 residues with no ligand fold "
+                     "in 863 s. 1024 residues plus 35 ligand atoms is 1059 tokens, which buckets "
+                     "to 1088, and 1088 is refused twice over -- OuterProductMean's z at "
+                     "2424307712 = 1088 x 1088 x 1024 x 2, and the MSA Transition's "
+                     "host-assembled result uploaded whole at 1976016896 = 14189 x 1088 x 64 x 2. "
+                     "So this cap counts residues while the model tokenises ligand heavy atoms on "
+                     "top of them: at 960 residues it holds for a ligand of about 64 atoms or "
+                     "fewer, since 960 + 64 = 1024 tokens is the budget measured to fold. A "
+                     "larger ligand crosses the wall at a residue count this guard admits, which "
+                     "is the one case it cannot see coming. The 576/614 this replaces was "
+                     "measured 2026-08-17 against an engine whose OuterProductMean materialised "
+                     "its whole z matmul; openbind dedups its main MSA "
+                     "(af3_spec_main_msa_dedup is keyed on the checkpoint), so the depth reaching "
+                     "its model at a given alignment is not openfold3's and this ladder is its "
+                     "own. Single-sequence is roomier still and is not the default",
         ),
     },
     "rf3": {
