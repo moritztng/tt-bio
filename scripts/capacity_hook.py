@@ -61,6 +61,12 @@ _SAMPLE_STRIDE = 16
 _beat_path = None
 _beat_fh = None
 
+#: Every attribute this hook has replaced, as (owner, name, original), newest last. A capacity
+#: run installs the hook in a process that folds one model and exits, so nothing there needed to
+#: undo it. `tests/test_capacity_gate.py` arms it IN-PROCESS, and then it is global state three
+#: ways over -- see `uninstall()`, which is what this list exists for.
+_patched: list = []
+
 _state = {
     "mode": None,
     "truncated": [],      # [[qualname, attr, original_len]] -- proof the screen applied
@@ -201,6 +207,7 @@ def _instrument_class(cls) -> None:
         except (AttributeError, TypeError) as exc:
             _record(f"instrument {cls.__qualname__}.{name}: {exc}")
             continue
+        _patched.append((cls, name, fn))
         _state["instrumented"].append(f"{cls.__module__}.{cls.__qualname__}.{name}")
         return
 
@@ -299,7 +306,8 @@ def _patch_module(mod) -> None:
         try:
             cls.__init__ = _wrap_init(init)
         except (AttributeError, TypeError):
-            pass
+            continue
+        _patched.append((cls, "__init__", init))
 
 
 class _Finder:
@@ -372,3 +380,44 @@ def install() -> None:
             except Exception:
                 pass
     atexit.register(_flush)
+
+
+def uninstall() -> None:
+    """Put the interpreter back the way `install()` found it.
+
+    An armed hook is global state three ways over: a finder at `sys.meta_path[0]` that wraps the
+    loader of every `tt_bio` module imported after it, a replaced `__init__` on every tt_bio class
+    already imported (36 of them in `tt_bio.tenstorrent` alone), and an `atexit` flush. A capacity
+    run installs it in a process that folds one model and exits, so none of that had to come back.
+    `tests/test_capacity_gate.py` arms it in the pytest process, where all three outlive the test.
+
+    That leak has already been paid for twice. It cost 7 false failures in
+    `test_sdpa_ragged_pad_defaults.py` and `test_triatt_sdpa_hifi_defaults.py`, which read
+    `inspect.signature(...).parameters[param].default` off a tt_bio class and saw the wrapper's
+    parameters instead -- green alone, red in full-suite order, and reported against the wrong
+    files. `functools.wraps` on `_wrap_init` (the boltz2 fix) hides that particular symptom, not
+    the leak: a leaked `screen` hook still truncates the block stack of anything constructed
+    afterwards, which is a silently 1-block-deep model rather than a test-order nuisance, and the
+    sampler's `get_device()` once took a card lease out of a `TT_VISIBLE_DEVICES= pytest` session
+    that wanted no card at all.
+
+    Instances the screen already truncated are not restored: their stacks were cut on purpose and
+    they are garbage once the leg ends. What matters is that no NEW object is cut, which disarming
+    guarantees.
+    """
+    global _beat_fh
+    sys.meta_path[:] = [f for f in sys.meta_path if type(f).__name__ != "_Finder"]
+    while _patched:
+        owner, name, original = _patched.pop()
+        try:
+            setattr(owner, name, original)
+        except (AttributeError, TypeError) as exc:
+            _record(f"unpatch {getattr(owner, '__qualname__', owner)}.{name}: {exc}")
+    atexit.unregister(_flush)
+    if _beat_fh is not None:
+        try:
+            _beat_fh.close()
+        except OSError:
+            pass
+        _beat_fh = None
+    _state["mode"] = None
