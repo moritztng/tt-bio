@@ -33,35 +33,50 @@ for r in "$@"; do
     echo "=== $r already folded, skipping" >> "$LOG"
     continue
   fi
-  if sudo -n lsof "/dev/tenstorrent/$NODE" >/dev/null 2>&1; then
-    echo "UNRUN $r node $NODE busy $(date -u +%FT%TZ)" >> "$LOG"
-    sleep 60
-    continue
-  fi
-  s=$(date +%s)
-  engine=$(cd "$TREE" && PYTHONPATH="$TREE" "$PY" -c 'import tt_bio, sys; sys.stdout.write(tt_bio.__file__)')
-  echo "=== $r start card=$CARD node=$NODE engine=$engine $(date -u +%FT%TZ)" >> "$LOG"
-  # TT_BIO_SIZE_LIMIT=0: the ceiling under test is exactly what size_limits refuses on, so a
-  # ladder that honoured it could only ever re-measure the published number.
-  ( cd "$TREE" && TT_BIO_SIZE_LIMIT=0 TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" \
-      TT_BIO_LEASE_HOLDER=worker:ceiling-openbind-1024 TT_METAL_LOGGER_LEVEL=FATAL \
-      PYTHONPATH="$TREE" "$PY" -m tt_bio.main predict "$RUNGS/$r.yaml" \
-      --model openbind --accelerator tenstorrent --out_dir "$OUT/$r" --override \
-      --msa_dir "$TREE/rundir/msacache_deep" --msa_cache_only --debug ) > "$OUT/$r.log" 2>&1
-  rc=$?
-  e=$(date +%s)
-  if grep -q "DeviceInUseError" "$OUT/$r.log" 2>/dev/null; then
-    echo "UNRUN $r lost card=$CARD to a lease holder $(date -u +%FT%TZ)" >> "$LOG"
-    sleep 30
-    continue
-  fi
-  st=$("$PY" - "$OUT/$r" <<'PYEOF2' 2>/dev/null || echo NORESULT
+  attempt=0
+  while [ "$attempt" -lt 4 ]; do
+    attempt=$((attempt + 1))
+    if sudo -n lsof "/dev/tenstorrent/$NODE" >/dev/null 2>&1; then
+      echo "UNRUN $r node $NODE busy $(date -u +%FT%TZ)" >> "$LOG"
+      sleep 60
+      continue
+    fi
+    s=$(date +%s)
+    engine=$(cd "$TREE" && PYTHONPATH="$TREE" "$PY" -c 'import tt_bio, sys; sys.stdout.write(tt_bio.__file__)')
+    echo "=== $r attempt $attempt start card=$CARD node=$NODE engine=$engine $(date -u +%FT%TZ)" >> "$LOG"
+    # TT_BIO_SIZE_LIMIT=0: the ceiling under test is exactly what size_limits refuses on, so a
+    # ladder that honoured it could only ever re-measure the published number.
+    ( cd "$TREE" && TT_BIO_SIZE_LIMIT=0 TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" \
+        TT_BIO_LEASE_HOLDER=worker:ceiling-openbind-1024 TT_METAL_LOGGER_LEVEL=FATAL \
+        PYTHONPATH="$TREE" "$PY" -m tt_bio.main predict "$RUNGS/$r.yaml" \
+        --model openbind --accelerator tenstorrent --out_dir "$OUT/$r" --override \
+        --msa_dir "$TREE/rundir/msacache_deep" --msa_cache_only --debug ) > "$OUT/$r.log" 2>&1
+    rc=$?
+    e=$(date +%s)
+    if grep -q "DeviceInUseError" "$OUT/$r.log" 2>/dev/null; then
+      echo "UNRUN $r attempt $attempt lost card=$CARD to a lease holder $(date -u +%FT%TZ)" >> "$LOG"
+      sleep 30
+      continue
+    fi
+    # A chip left dirty by the previous process fails INSIDE the device open ("Read unexpected
+    # run_mailbox value"), before a single op runs. That is not a rung: recording it as one makes
+    # the resume check skip a size that was never folded, which is how a ceiling gets published
+    # with a hole in its ladder. Observed on this card at 2026-09-07T10:36Z, and the next open
+    # came up clean, so retrying the rung is the whole recovery.
+    if grep -q "run_mailbox" "$OUT/$r.log" 2>/dev/null; then
+      echo "UNRUN $r attempt $attempt card=$CARD came up dirty (run_mailbox) $(date -u +%FT%TZ)" >> "$LOG"
+      sleep 30
+      continue
+    fi
+    st=$("$PY" - "$OUT/$r" <<'PYEOF2' 2>/dev/null || echo NORESULT
 import glob, json, sys
 g = glob.glob(sys.argv[1] + "/*/results.json")
 print(json.load(open(g[0]))[0]["status"] if g else "NORESULT")
 PYEOF2
 )
-  refused=$(grep -oE "Not enough space to allocate [0-9]+ B" "$OUT/$r.log" 2>/dev/null | head -1 | tr -d '\n')
-  echo "RUNG $r rc=$rc status=$st wall=$((e - s))s card=$CARD ${refused:+refused=[$refused]} $(date -u +%FT%TZ)" >> "$LOG"
+    refused=$(grep -oE "Not enough space to allocate [0-9]+ B" "$OUT/$r.log" 2>/dev/null | head -1 | tr -d '\n')
+    echo "RUNG $r rc=$rc status=$st wall=$((e - s))s card=$CARD ${refused:+refused=[$refused]} $(date -u +%FT%TZ)" >> "$LOG"
+    break
+  done
 done
 echo "LADDER DONE $(date -u +%FT%TZ)" >> "$LOG"
