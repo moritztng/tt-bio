@@ -27,9 +27,23 @@ BUILDER = re.compile(r"\bPairformer(Layer)?\s*\(")
 def test_the_pair_moves_together():
     from tt_bio.rf3.remap import tri_att_fused_flags
     assert tri_att_fused_flags(True) == {
-        "fp32_softmax": False, "tri_att_sdpa_ragged_pad": True}
+        "fp32_softmax": False, "tri_att_sdpa_ragged_pad": True,
+        "tri_att_sdpa_hifi": False}
     assert tri_att_fused_flags(False) == {
-        "fp32_softmax": True, "tri_att_sdpa_ragged_pad": False}
+        "fp32_softmax": True, "tri_att_sdpa_ragged_pad": False,
+        "tri_att_sdpa_hifi": False}
+
+
+def test_the_hifi_config_is_off_by_default_and_reachable(monkeypatch):
+    """It is measured accurate on these operands but not at the fold level, so it stays off.
+
+    Reachable matters as much as off: the note it replaces said "unmeasured on RF3, so it stays
+    off", and a flag nobody can turn on never gets measured.
+    """
+    import tt_bio.rf3.remap as remap
+    assert remap.tri_att_fused_flags(True)["tri_att_sdpa_hifi"] is False
+    monkeypatch.setenv("TT_BIO_TRIATT_SDPA_HIFI_AB", "rf3.tri_att")
+    assert remap.tri_att_fused_flags(True)["tri_att_sdpa_hifi"] is True
 
 
 def test_pairformer_flags_carry_the_fused_pair():

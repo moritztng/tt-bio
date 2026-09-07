@@ -24,7 +24,7 @@ from __future__ import annotations
 import torch
 
 from tt_bio.tenstorrent import (_TRANSPOSE_L1_RESERVE_PER_CORE, accurate_softmax_site,
-                                sdpa_ragged_pad_site)
+                                sdpa_ragged_pad_site, triatt_sdpa_hifi_site)
 
 #: RF3 block-relative name -> tt-bio block-relative name.
 #: Triangle multiplication is absent because its six weights already match.
@@ -242,7 +242,21 @@ def tri_att_fused_flags(on: bool) -> dict:
     the output depend on allocation history. See `sdpa_ragged_pad_site`.
     """
     return dict(fp32_softmax=not on,
-                tri_att_sdpa_ragged_pad=on and sdpa_ragged_pad_site("rf3.tri_att", True))
+                tri_att_sdpa_ragged_pad=on and sdpa_ragged_pad_site("rf3.tri_att", True),
+                # The per-site compute-kernel config on the fused route (HiFi4, math_approx off,
+                # fp32_dest_acc on) rather than the kernel's op default. It was off because it was
+                # "unmeasured on RF3"; it is measured now, and the measurement says it is the
+                # accurate arm. On the template embedder's and MSA module's OWN captured operands
+                # at 298 tokens, scored against an fp64 reference (perf/fused_sdpa/errstruct.py,
+                # card 2, 6 calls): op default 1.36e-2 to 2.63e-2 relative, the materialised
+                # fp32-softmax chain it replaces 9.55e-3 to 2.10e-2, and this config 4.79e-3 to
+                # 1.64e-2 -- 1.2-4.4x closer to fp64 than the route being deleted, and 1.6-3.1x
+                # closer than the op default. Still DEFAULT OFF: those operands were re-uploaded
+                # from host, so their tile tail is zero-padded and the ragged mask cannot act,
+                # which makes this a clean-tail ranking rather than a fold. Turn it on for all
+                # three RF3 sites at once with TT_BIO_TRIATT_SDPA_HIFI_AB=rf3.tri_att and score it
+                # at the fold level before flipping the default.
+                tri_att_sdpa_hifi=on and triatt_sdpa_hifi_site("rf3.tri_att", False))
 
 
 PAIRFORMER_FLAGS = dict(scale_pair_bias=True, transpose_bias=False,
