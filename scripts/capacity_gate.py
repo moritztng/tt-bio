@@ -852,7 +852,7 @@ def fixture_for(cell: Cell, tokens: int, work: Path, depth) -> dict:
 
 
 def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
-             bisect: bool) -> dict:
+             bisect: bool, recover=None) -> dict:
     """Screen at the bar, then the residency run, then bisect DOWN only if it failed.
 
     Target-first is the single biggest efficiency win here and it is the opposite of a ladder: a
@@ -889,7 +889,8 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
         if _no_weights(scr["tail"]):
             rec["verdict"] = "NO_WEIGHTS"
         elif bisect:
-            rec["ceiling_tokens"] = _bisect(worker, cell, work, hookdir, depth, rec)
+            rec["ceiling_tokens"] = _bisect(worker, cell, work, hookdir, depth, rec,
+                                            recover=recover)
         return rec
 
     if screen_reduction_is_unsafe(scr):
@@ -926,7 +927,8 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
     if res["verdict"] != "PASS" and _no_weights(res["tail"]):
         rec["verdict"] = "NO_WEIGHTS"
     elif res["verdict"] in ("FAIL", "STALL") and bisect:
-        rec["ceiling_tokens"] = _bisect(worker, cell, work, hookdir, depth, rec)
+        rec["ceiling_tokens"] = _bisect(worker, cell, work, hookdir, depth, rec,
+                                            recover=recover)
     return rec
 
 
@@ -980,7 +982,7 @@ def _oom_killer_fired(model: str) -> str | None:
     return hits[-1].strip()[-200:] if hits else None
 
 
-def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
+def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None:
     """After a failure only: walk DOWN to the real ceiling, then refine it to the bucket.
 
     Two phases, because the two questions cost different amounts. The rung walk answers "what
@@ -994,6 +996,24 @@ def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
     `alloc_ceiling_tokens` is the largest bucket-aligned size whose SHAPES allocate. The second
     is an upper bound on the first, because a clean screen cannot rule out a Class B failure.
     """
+    def settle(leg: dict) -> None:
+        """Re-probe the card after a fail-like rung, BEFORE the next one runs.
+
+        p1's defect 6: rf3's allocator refusal is a TT_FATAL that leaves card 0 accepting a device
+        open and then never dispatching, so the cell after it sits at 100% CPU inside tt_bio's own
+        dispatch probe with no log line. p1 put the recovery after each CELL -- but a bisect
+        provokes that refusal once per rung INSIDE one cell, which is the densest sequence of
+        refusals this gate ever produces and had no recovery in it at all. Every rung below the
+        first failing one was running on a card the rung above may have wedged, so the ceiling
+        those rungs report is exactly the kind of number that gets published without being walked.
+        """
+        if recover is None or leg.get("verdict") not in ("FAIL", "HOST_OOM", "STALL", "ERROR"):
+            return
+        ok, how = recover(worker)
+        leg["card_after"] = how
+        if not ok:
+            leg["card_dirty_after"] = True
+
     lo = None                       # largest size that completed a residency run
     hi = TOKEN_BAR                  # smallest size known to fail
     for rung in BISECT_RUNGS:
@@ -1005,6 +1025,7 @@ def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
         rec["legs"].append(dict(scr, tier="screen", tokens=rung))
         if scr["verdict"] in ("FAIL", "HOST_OOM"):
             hi = rung
+            settle(rec["legs"][-1])
             continue
         res = _residency(worker, cell, f, work, hookdir, rung)
         rec["legs"].append(dict(res, tier="residency", tokens=rung))
@@ -1012,6 +1033,7 @@ def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
             lo = rung
             break
         hi = rung
+        settle(rec["legs"][-1])
 
     if lo is None:
         return None
@@ -1031,6 +1053,7 @@ def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
         rec["legs"].append(dict(scr, tier="screen", tokens=mid, phase="refine"))
         if scr["verdict"] in ("FAIL", "HOST_OOM"):
             alloc_hi = mid
+            settle(rec["legs"][-1])
         else:
             alloc_lo = mid
     rec["alloc_ceiling_tokens"] = alloc_lo
@@ -1299,7 +1322,9 @@ def main(argv=None) -> int:
     def run_one(w: Worker, cell: Cell) -> dict:
         t0 = time.monotonic()
         try:
-            r = run_cell(w, cell, work, hookdir, depth=a.depth, bisect=not a.no_bisect) \
+            r = run_cell(w, cell, work, hookdir, depth=a.depth, bisect=not a.no_bisect,
+                         recover=None if a.no_card_reset
+                         else lambda ww: recover_card(ww, workers)) \
                 if a.tier == "both" else _screen_only(w, cell, work, hookdir, a.depth)
         except Exception as exc:
             r = {"model": cell.model, "verdict": "ERROR", "worker": repr(w),

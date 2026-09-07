@@ -630,6 +630,25 @@ def test_every_bisect_rung_keeps_its_own_evidence():
         "the screen log must be keyed by size, the way the residency log already is")
 
 
+def test_the_bisect_re_probes_the_card_between_rungs():
+    """Defect 15. p1's recovery runs after each CELL, but a bisect provokes rf3's TT_FATAL
+    allocator refusal once per RUNG inside one cell -- the densest run of refusals this gate ever
+    produces, and it had no recovery in it. Every rung below the first failing one was running on
+    a card the rung above may have left accepting an open and never dispatching, so the ceiling
+    those rungs report is exactly the kind of number that gets published without being walked."""
+    import inspect
+    src = inspect.getsource(cg._bisect)
+    assert "recover" in inspect.signature(cg._bisect).parameters
+    assert src.count("settle(") >= 3, (
+        "the coarse walk, its residency leg and the refinement must each re-probe the card")
+    for v in ('"FAIL"', '"HOST_OOM"', '"STALL"'):
+        assert v in src, f"recovery must trigger on {v} between rungs"
+    # and main() must actually supply it, or the parameter is decoration
+    m = inspect.getsource(cg.main)
+    assert "recover_card(ww, workers)" in m and "no_card_reset" in m, (
+        "run_cell is called without a recovery, so the bisect still runs on a card nobody checked")
+
+
 def test_a_reset_is_refused_when_the_run_does_not_own_the_host():
     """`tt-smi -r` resets the BOARD PAIR, not the chip, so a reset issued for card 0 of a p300c
     also takes down card 1. Under --workers fan-out that is somebody else's in-flight leg."""
