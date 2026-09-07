@@ -21,7 +21,7 @@ import ttnn
 
 from .tenstorrent import (
     Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
-    accurate_softmax_site,
+    accurate_softmax_site, pwa_single_shot_bytes,
 )
 from .openfold3_weights import remap_msa_module
 
@@ -87,15 +87,57 @@ class MSAModuleBlock:
             scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
             accurate_softmax=accurate_softmax_site("openfold3.msa"))
 
-    def __call__(self, m, z, pair_mask=None, attn_mask=None):
+    def __call__(self, m, z, pair_mask=None, attn_mask=None, own_m=False):
         # OuterProductMean is deliberately left unmasked: it reduces over MSA DEPTH, so a padded
         # token can only reach a padded pair through it. PairWeightedAveraging is not -- its
         # softmax runs over the token axis, so a padded key would take real weight without the
         # additive -1e9 (protenix.py Trunk.update_msa passes the same tensor for the same reason).
-        z = ttnn.add(z, self.opm(m, None, None))
-        if self.has_msa_update:
-            m = ttnn.add(m, ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape)))
-            m = ttnn.add(m, ttnn.reshape(self.msa_transition(m), tuple(m.shape)))
+        # Each residual writes its sum into the UPDATE's buffer, not into a third one. `m` is
+        # [depth, tokens, c_m] -- 1 860 042 752 B at 1024 tokens x 14191 MSA rows -- and
+        # `ttnn.add(m, upd)` holds the old `m`, the update and the result live at once, so every
+        # residual here carried one whole redundant copy of the MSA representation. The operands
+        # and their order are unchanged and elementwise addition is commutative, so the sum is the
+        # same bits; only which buffer receives it moves. `m` itself is never written in place:
+        # the trunk re-feeds the embedder's `m` on every recycle, so mutating it would corrupt the
+        # next cycle. Same lever as PairWeightedAveraging's in-place head accumulate.
+        upd = self.opm(m, None, None)
+        z = ttnn.add_(upd, z)
+        if self.has_msa_update and isinstance(m, list):
+            # `m` is a list of depth chunks and stays one: both residuals are per depth row, so
+            # each chunk's new value depends only on that chunk's old value and on `z`. Nothing
+            # here ever holds the representation contiguously, which is the point -- at 1024
+            # tokens x 14191 rows the contiguous form is 1.86 GB and the allocator had 3.79 GB
+            # free with 1.256 GB as its largest run.
+            #
+            # `own_m` says whether this block may free the chunks it was handed. The FIRST block
+            # may not: the trunk re-feeds the embedder's `m` on every recycle, so its chunks have
+            # to survive the whole trunk. Every later block consumes its predecessor's output and
+            # frees each chunk as soon as its replacement exists, so the peak is the trunk's list
+            # plus one block's list plus ~2 chunks, never a second contiguous copy.
+            pwa_out = self.pwa(m, ttnn.clone(z), attn_mask)
+            out = []
+            for mc, pc in zip(m, pwa_out):
+                t1 = ttnn.add_(pc, mc)
+                if own_m:
+                    ttnn.deallocate(mc)
+                t2 = ttnn.reshape(self.msa_transition(t1), tuple(t1.shape))
+                out.append(ttnn.add_(t2, t1))
+                ttnn.deallocate(t1)
+            m = out
+        elif self.has_msa_update:
+            upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
+            m = ttnn.add_(upd, m)
+            # Each residual leaves the previous `m` buffer free somewhere in the middle of the
+            # heap, and the next one needs its whole width contiguous: at 960 tokens x 14191 rows
+            # the transition's 1 743 790 080 B was refused with 4.4 GB free and 1.35 GB as the
+            # largest run. Compacting between the two residuals coalesces that hole, the same call
+            # OuterProductMean already makes before its own matmuls. Pure data movement, and only
+            # where the residual is wide enough to be at risk -- below the budget this is the
+            # single-shot path's untouched sequence of allocations.
+            if m.logical_volume() * 2 > pwa_single_shot_bytes():
+                m = ttnn.reallocate(m)
+            upd = ttnn.reshape(self.msa_transition(m), tuple(m.shape))
+            m = ttnn.add_(upd, m)
         z = self.pair_stack(None, z, pair_mask, attn_mask, attn_mask)[1]
         return m, z
 
@@ -121,6 +163,10 @@ class MSAModule:
         ]
 
     def __call__(self, m, z, pair_mask=None, attn_mask=None):
+        # Only a block that updates `m` produces a new one, and only then does the next block own
+        # what it is handed. The trunk's own `m` is never freed here: it is re-fed every recycle.
+        own = False
         for block in self.blocks:
-            m, z = block(m, z, pair_mask, attn_mask)
+            m, z = block(m, z, pair_mask, attn_mask, own_m=own)
+            own = own or block.has_msa_update
         return m, z

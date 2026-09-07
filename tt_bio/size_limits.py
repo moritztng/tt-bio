@@ -198,13 +198,25 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "openfold3": {
         "wormhole_b0": Ceiling(
-            residues=576, pass_at=576, fail_at=614, binds=MEMORY, mechanism=DRAM_MSA, msa_rows=14190,
-            evidence="catalog.py, measured 2026-08-17 on GWH02, tt-bio 6329f8ef, real ColabFold "
-                     "alignments cut to length. The MSA track runs out of DRAM. Depth was varied "
-                     "and the ladder walked at both: at 14190 rows 448/512/544/576 all fold; at "
-                     "8138 rows 592 folds and 614 dies asking 2.01 GB against 207 MB free. 576 is "
-                     "the largest size proven at the deepest alignment this pipeline has produced. "
-                     "Single-sequence is far roomier (768 folds in 301 s) but is not the default",
+            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            msa_rows=14190,
+            evidence="its own ladder, measured 2026-09-07 on GWH02 at 14190 alignment rows on "
+                     "every rung -- the deepest real ColabFold alignment this pipeline has "
+                     "produced. Monotone with NO failure found: 640/672/704/736/768/800/832/896/"
+                     "960/1024 all fold, in 219/229/287/319/324/384/435/666/453/642 s. 1024 is "
+                     "the platform's own max_residues fence, so there is nothing above it to walk "
+                     "to. Every rung was scored for structure and not just for returning: 0 "
+                     "backbone breaks everywhere, Ca-Ca median 3.849-3.863 A at 99.48-100 % in "
+                     "band, Rg ratio 1.155-1.213, pLDDT 0.733-0.773 declining smoothly with size, "
+                     "and clashes 0 except 2/6171 at 768, 2/7711 at 960 and 8/8231 at 1024 -- all "
+                     "marginal contacts inside the budget real crystal structures show. The 576 "
+                     "this replaces was measured 2026-08-17 against an engine whose "
+                     "OuterProductMean materialised its whole z matmul and whose MSA track held "
+                     "four redundant full-width copies of the representation; 614 dying at 2.01 GB "
+                     "was that engine, and 614 buckets to 640, which folds. 960 and 1024 need the "
+                     "chunk-list MSA representation, which reassociates OuterProductMean's bf16 "
+                     "depth reduction; 128-896 keep the contiguous path and are measured bit-exact "
+                     "against main. Single-sequence is roomier still and is not the default",
         ),
     },
     "openbind": {
@@ -213,7 +225,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             evidence="inherits openfold3's ladder by construction rather than by assumption: same "
                      "OF3Trunk, same MSA track, and openfold3_fold.py asserts the two BUCKET_MULTIPLE "
                      "rows agree. Ligand atoms add tokens on top of the polymer, which this "
-                     "residue-denominated cap covers but does not separately measure",
+                     "residue-denominated cap covers but does not separately measure. NOT raised "
+                     "alongside openfold3's 2026-09-07 move to 1024: the DRAM fixes that bought it "
+                     "are in the shared MSA track and openbind gets them too, but openbind also "
+                     "dedups its main MSA (af3_spec_main_msa_dedup is keyed on the checkpoint), so "
+                     "the depth reaching its model at a given alignment is NOT openfold3's and the "
+                     "ladder has to be walked, not inherited. Under-promising is the safe error",
         ),
     },
     "rf3": {
