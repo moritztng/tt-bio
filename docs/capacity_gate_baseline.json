@@ -1,7 +1,7 @@
 {
  "bar_tokens": 1536,
- "recorded": "2026-09-07T20:43:09Z",
- "tree": "3537876f783c068ecb1f11af862ed91a43b0c530",
+ "recorded": "2026-09-07T20:51:03Z",
+ "tree": "86996b3153b219b20743dd2f573db28a093b7478",
  "dirty_tree": true,
  "geometry": {
   "arch": "blackhole",
@@ -197,13 +197,15 @@
    "msa_rows_effective": 8832,
    "dram_peak_bytes": 7256956928,
    "dram_total_bytes": 34225520128,
-   "wall_s": 231.3,
+   "wall_s": 241.6,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
-   "reason": null
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "86996b3153b219b20743dd2f573db28a093b7478"
   },
   "protenix-v2": {
    "verdict": "PASS",
@@ -213,13 +215,15 @@
    "msa_rows_effective": 8832,
    "dram_peak_bytes": 10781372416,
    "dram_total_bytes": 34225520128,
-   "wall_s": 784.5,
+   "wall_s": 778.7,
    "mechanism": null,
    "decided_by": "residency",
    "ceiling_tokens": null,
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
-   "reason": null
+   "reason": null,
+   "ceilings_fingerprint": "76fefbfd2e11459b",
+   "tree": "86996b3153b219b20743dd2f573db28a093b7478"
   },
   "openfold3": {
    "verdict": "PASS",
