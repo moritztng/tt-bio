@@ -575,6 +575,64 @@ def test_a_fragment_RECORD_PASS_does_not_touch_the_shared_baseline(rg_fresh, tmp
         "tt-galaxy-wh l"]["models"]["boltz2"]["runtime_s"] == dict(BASE_RUNTIME)
 
 
+def test_a_resumed_rung_is_measured_at_the_reps_the_check_reads(rg_fresh, tmp_path,
+                                                                monkeypatch):
+    """`--size-ladder-rungs 640` used to record 640 from ONE fold while the entry it resumes
+    says `reps: 3`, so the check compared a median of three against a single draw. Measured
+    consequence, not a hypothetical: rf3's five reps at 512 on the Wormhole Galaxy read 96.9,
+    117.3, 81.1, 80.6, 86.7 s, sigma 16.6 %, because the box serves 23 production workers.
+    """
+    base = tmp_path / "size_ladder_baseline.json"
+    prev = _baseline()
+    prev.update({"reps": 3, "host": socket.gethostname(), "commit": "cafe1234",
+                 "grid": "8x9", "runtime_s": {"256": 36.6, "512": 86.7}})
+    base.write_text(json.dumps({"cards": {"tt-galaxy-wh l": {
+        "recorded": "2026-09-07", "host": socket.gethostname(), "commit": "cafe1234",
+        "models": {"rf3": prev}}}}, indent=2))
+
+    seen = []
+
+    def fake_measure(model, rungs, workdir, reps_512, reps_other):
+        seen.append((tuple(rungs), reps_512, reps_other))
+        return {"levers": {"640": {"K2": dict(FIRING)}}, "runtime_s": {"640": 120.0},
+                "sigma": None, "census_jsons": {}, "grid": "8x9"}
+
+    monkeypatch.setattr(rg_fresh, "_size_ladder_measure_model", fake_measure)
+    monkeypatch.setattr(rg_fresh, "_size_ladder_card_type", lambda: "tt-galaxy-wh l")
+    monkeypatch.setattr(rg_fresh, "_repo_commit", lambda: "cafe1234")
+
+    row = rg_fresh.run_size_ladder(keep=False, record=True, baseline_path=base,
+                                   models=["rf3"], rungs=(640,))
+    assert row["gate"], row
+    assert seen == [((640,), rg_fresh.SIZE_LADDER_SIGMA_REPS, 3)], seen
+    # and the carried rungs survived, so the resume is still a resume
+    e = json.loads(base.read_text())["cards"]["tt-galaxy-wh l"]["models"]["rf3"]
+    assert e["runtime_s"] == {"256": 36.6, "512": 86.7, "640": 120.0}
+    assert e["rungs_carried"] == ["256", "512"]
+
+
+def test_a_first_pass_with_nothing_to_resume_still_uses_one_rep(rg_fresh, tmp_path,
+                                                                monkeypatch):
+    """The reps come from the entry being resumed, so the first pass on a card has none and
+    must not invent one: the sigma that decides the rep count is measured at 512 by that very
+    pass."""
+    base = tmp_path / "size_ladder_baseline.json"
+    base.write_text(json.dumps({"cards": {}}, indent=2))
+    seen = []
+
+    def fake_measure(model, rungs, workdir, reps_512, reps_other):
+        seen.append(reps_other)
+        return {"levers": {"512": {"K2": dict(FIRING)}}, "runtime_s": {"512": 86.7},
+                "sigma": 0.02, "census_jsons": {}, "grid": "8x9"}
+
+    monkeypatch.setattr(rg_fresh, "_size_ladder_measure_model", fake_measure)
+    monkeypatch.setattr(rg_fresh, "_size_ladder_card_type", lambda: "tt-galaxy-wh l")
+    monkeypatch.setattr(rg_fresh, "_repo_commit", lambda: "cafe1234")
+    rg_fresh.run_size_ladder(keep=False, record=True, baseline_path=base,
+                             models=["rf3"], rungs=(512,))
+    assert seen == [1], seen
+
+
 def test_a_models_fragment_records_its_own_ladder(rg_fresh, tmp_path):
     """rf3 folds 1095 aa and the shared rungs stop at 1024, so its ladder is longer than
     everyone else's. The fragment has to say so, because the monolith's `rungs` describes the

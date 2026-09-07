@@ -3209,8 +3209,17 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             if pre:
                 legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
                 continue
+            # A resumed pass measures its rung at the rep count the CHECK will read, taken
+            # from the entry it is resuming. Without this, `--size-ladder-rungs 640` records
+            # 640 from a single fold while the baseline's own `reps` says 3, so the check
+            # compares a median of three against a single draw. That is not hypothetical on a
+            # shared host: rf3's five reps at 512 on the Wormhole Galaxy read 96.9, 117.3,
+            # 81.1, 80.6, 86.7 s -- sigma 16.6 % against 1.9 % on a quiet Blackhole, because
+            # the box is serving 23 production workers -- and a one-draw rung on that spread
+            # can fake an exponent step of more than 1.
+            reps_other = max(1, int((old_models.get(m) or {}).get("reps") or 1))
             meas = _size_ladder_measure_model(m, ladders[m], workdir,
-                                              SIZE_LADDER_SIGMA_REPS, 1)
+                                              SIZE_LADDER_SIGMA_REPS, reps_other)
             err = _size_ladder_record_refusal(meas)
             block = skip = None
             if err is None:
@@ -3222,7 +3231,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # same card and commit, failing its own 256->512 exponent by 0.96 with nothing
                 # changed but how many folds the number came from.
                 reps = (block or {}).get("reps", 1)
-                if reps > 1:
+                if reps > reps_other:
                     again = [r for r in ladders[m] if r != 512]
                     print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
                           f"{','.join(map(str, again))} at {reps} reps", flush=True)
