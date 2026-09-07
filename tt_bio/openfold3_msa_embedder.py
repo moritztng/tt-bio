@@ -21,7 +21,7 @@ import ttnn
 
 from .tenstorrent import (
     Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
-    accurate_softmax_site,
+    accurate_softmax_site, pwa_single_shot_bytes,
 )
 from .openfold3_weights import remap_msa_module
 
@@ -105,6 +105,15 @@ class MSAModuleBlock:
         if self.has_msa_update:
             upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
             m = ttnn.add_(upd, m)
+            # Each residual leaves the previous `m` buffer free somewhere in the middle of the
+            # heap, and the next one needs its whole width contiguous: at 960 tokens x 14191 rows
+            # the transition's 1 743 790 080 B was refused with 4.4 GB free and 1.35 GB as the
+            # largest run. Compacting between the two residuals coalesces that hole, the same call
+            # OuterProductMean already makes before its own matmuls. Pure data movement, and only
+            # where the residual is wide enough to be at risk -- below the budget this is the
+            # single-shot path's untouched sequence of allocations.
+            if m.logical_volume() * 2 > pwa_single_shot_bytes():
+                m = ttnn.reallocate(m)
             upd = ttnn.reshape(self.msa_transition(m), tuple(m.shape))
             m = ttnn.add_(upd, m)
         z = self.pair_stack(None, z, pair_mask, attn_mask, attn_mask)[1]
