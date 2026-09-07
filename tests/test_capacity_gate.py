@@ -719,3 +719,70 @@ def test_the_host_oom_corroboration_can_actually_read_the_kernel_log():
     body = src[src.index("def _oom_killer_fired("):src.index("def _bisect(")]
     assert '["sudo", "-n", "dmesg"]' in body
     assert "returncode == 0" in body, "a failed dmesg must not read as 'no kill found'"
+
+
+# ---------------------------------------------------------------------------------------------
+# Recording. A sweep at this bar is hours and a bisect alone can be hours, so it runs in stages,
+# and the two defects below both lose a measurement that cost card time to get.
+# ---------------------------------------------------------------------------------------------
+
+
+def _bisect_report(bar=None, model="rf3"):
+    """A report shaped like the one a bisect writes: no completing ceiling at any rung, so the
+    alloc ceiling is the only number it produced."""
+    return {
+        "bar_tokens": cg.TOKEN_BAR if bar is None else bar,
+        "started": "2026-09-07T00:00:00Z", "tree": "deadbeef", "dirty": False,
+        "geometry": {"dram_banks": 8}, "reductions": {},
+        "results": [{"model": model, "verdict": "FAIL", "tokens_requested": cg.TOKEN_BAR,
+                     "ceiling_tokens": None, "alloc_ceiling_tokens": 1344,
+                     "alloc_ceiling_note": "1344 allocates, 1376 does not",
+                     "mechanism": "TT_FATAL bank_manager.cpp:439", "wall_s": 64.7}],
+    }
+
+
+def test_the_baseline_keeps_the_only_ceiling_number_a_bisect_produced(tmp_path, monkeypatch):
+    """`ceiling_tokens` is None for a model that never completes a residency run at any rung, and
+    rf3 is exactly that model. Recording only the completing ceiling threw away the entire result
+    of a multi-hour bisect and left the cell reading as if nothing had been measured."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_bisect_report(), partial=True)
+    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]
+    assert cell["alloc_ceiling_tokens"] == 1344, (
+        "the baseline dropped alloc_ceiling_tokens, which for a model with no completing rung is "
+        "the only ceiling the bisect measured")
+    assert cell["alloc_ceiling_note"], "the number is recorded without what it means"
+
+
+def test_a_finished_run_can_be_recorded_without_rerunning_it(tmp_path, monkeypatch):
+    """The stages of one campaign are separate processes, so a stage that finished before anyone
+    thought about `--record` could otherwise only be recorded by spending its card time twice."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    p = tmp_path / "report.json"
+    p.write_text(json.dumps(_bisect_report()))
+    assert cg._record_from(p) == 0
+    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]["verdict"] == "FAIL"
+
+
+def test_recording_another_bars_report_is_refused(tmp_path, monkeypatch):
+    """p1's defect 9 through a new door, and the easiest mistake to make here: a bisect's rungs
+    are all BELOW the bar, so its per-rung reports are other-bar reports. Folding one in keeps the
+    1536 cells (they match TOKEN_BAR) and restamps the file with the rung's number, which is a
+    baseline that reads as current evidence for a bar nothing in it was measured at."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    p = tmp_path / "rung.json"
+    p.write_text(json.dumps(_bisect_report(bar=1408)))
+    assert cg._record_from(p) == 2, "a report from another bar was folded into this bar's baseline"
+    assert not (tmp_path / "baseline.json").exists(), "it wrote a baseline anyway"
+
+
+def test_recording_an_unreadable_or_empty_report_is_refused(tmp_path, monkeypatch):
+    """Truncated report = the run was killed. Recording it would publish a partial sweep as one."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    bad = tmp_path / "half.json"
+    bad.write_text('{"bar_tokens": 1536, "results": [{"model": "rf3"')      # killed mid-write
+    assert cg._record_from(bad) == 2
+    empty = tmp_path / "empty.json"
+    empty.write_text(json.dumps(dict(_bisect_report(), results=[])))
+    assert cg._record_from(empty) == 2
+    assert not (tmp_path / "baseline.json").exists()

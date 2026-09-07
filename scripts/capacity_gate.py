@@ -1230,7 +1230,15 @@ def main(argv=None) -> int:
                     help="write docs/capacity_gate_baseline.json, pinning the ceiling table this "
                          "run measured against. tests/test_capacity_gate.py fails until this is "
                          "re-recorded after any ceiling change.")
+    ap.add_argument("--record-from", metavar="REPORT.JSON",
+                    help="fold an ALREADY-COMPLETED run's report into the baseline and exit, "
+                         "without opening a device. A full sweep at this bar takes hours and has "
+                         "to run in stages, so without this the only way to record a finished "
+                         "stage is to run it again.")
     a = ap.parse_args(argv)
+
+    if a.record_from:
+        return _record_from(Path(a.record_from))
 
     STALL_S = a.stall_s
     if a.tokens % TOKEN_BUCKET:
@@ -1410,7 +1418,12 @@ def record_baseline(report: dict, *, partial: bool) -> str:
         cells[r["model"]] = {k: r.get(k) for k in
                              ("verdict", "tokens_requested", "tokens_padded", "residues",
                               "msa_rows_effective", "dram_peak_bytes", "dram_total_bytes",
-                              "wall_s", "mechanism", "decided_by", "ceiling_tokens", "reason")}
+                              "wall_s", "mechanism", "decided_by", "ceiling_tokens",
+                              # Both ceiling numbers, because for a model that never completes a
+                              # residency run at any rung, ceiling_tokens is None and the
+                              # alloc ceiling is the ONLY number the bisect produced. Persisting
+                              # just the first silently discards the bisect's whole result.
+                              "alloc_ceiling_tokens", "alloc_ceiling_note", "reason")}
     BASELINE.write_text(json.dumps({
         "bar_tokens": report["bar_tokens"],
         "recorded": report["started"],
@@ -1423,6 +1436,38 @@ def record_baseline(report: dict, *, partial: bool) -> str:
         "note": "CAPACITY ONLY: allocates and completes. Not a correctness record.",
     }, indent=1, default=str) + "\n")
     return f"recorded {BASELINE} ({len(cells)} cells, ceilings {ceilings_fingerprint()})"
+
+
+def _record_from(path: Path) -> int:
+    """Fold a completed run's report into the baseline without opening a device.
+
+    A full sweep at this bar is hours and a bisect alone can be hours, so the campaign runs in
+    stages; re-running a stage just to reach `--record` would double the card time it cost.
+
+    The bar guard is the point. `record_baseline` stamps the file with the report's OWN
+    `bar_tokens` while keeping prior cells measured at `TOKEN_BAR`, so folding in a 1408 report
+    would restamp a baseline full of 1536 cells as 1408 -- p1's defect 9 exactly, arriving
+    through a new door. A bisect report is the likely input here and every rung below the bar is
+    a different bar, so this is the one place that mistake is easy to make.
+    """
+    try:
+        report = json.loads(path.read_text())
+    except (OSError, ValueError) as e:
+        print(f"--record-from {path}: cannot read a report out of it ({e})", file=sys.stderr)
+        return 2
+    if report.get("bar_tokens") != TOKEN_BAR:
+        print(f"--record-from {path}: measured at bar {report.get('bar_tokens')}, and this tree's "
+              f"bar is {TOKEN_BAR}. Recording it would stamp a baseline of {TOKEN_BAR} cells with "
+              f"another bar's number. Re-run at {TOKEN_BAR} instead.", file=sys.stderr)
+        return 2
+    if not report.get("results"):
+        print(f"--record-from {path}: no results in it, nothing to record.", file=sys.stderr)
+        return 2
+    measured = {r["model"] for r in report["results"]}
+    # Partial unless this run actually covered the whole derived roster: a partial record leaves
+    # the other cells standing, a full one replaces them.
+    print(record_baseline(report, partial=measured != set(roster())))
+    return 0
 
 
 def _screen_only(worker, cell, work, hookdir, depth) -> dict:
