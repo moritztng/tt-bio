@@ -54,7 +54,10 @@ for r in "$@"; do
     echo "=== $r attempt $attempt start card=$CARD node=$NODE engine=$engine $(date -u +%FT%TZ)" >> "$LOG"
     # TT_BIO_SIZE_LIMIT=0: the ceiling under test is exactly what size_limits refuses on, so a
     # ladder that honoured it could only ever re-measure the published number.
+    # The counters are what turn "this rung took a byte-identical path" from an argument into a
+    # reading: dram_narrowed and join_split at 0 means no capacity fallback ran.
     ( cd "$TREE" && TT_BIO_SIZE_LIMIT=0 TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" \
+        TT_BIO_CAPACITY_CENSUS="$OUT/$r.census" \
         TT_BIO_LEASE_HOLDER=worker:ceiling-openbind-1024 TT_METAL_LOGGER_LEVEL=FATAL \
         PYTHONPATH="$TREE" "$PY" -m tt_bio.main predict "$RUNGS/$r.yaml" \
         --model openbind --accelerator tenstorrent --out_dir "$OUT/$r" --override \
@@ -83,7 +86,20 @@ print(json.load(open(g[0]))[0]["status"] if g else "NORESULT")
 PYEOF2
 )
     refused=$(grep -oE "Not enough space to allocate [0-9]+ B" "$OUT/$r.log" 2>/dev/null | head -1 | tr -d '\n')
-    echo "RUNG $r rc=$rc status=$st wall=$((e - s))s card=$CARD ${refused:+refused=[$refused]} $(date -u +%FT%TZ)" >> "$LOG"
+    cens=$("$PY" - "$OUT/$r.census" <<'PYEOF3' 2>/dev/null
+import glob, json, sys
+# Every process that imported tt_bio writes one file: the parent's counters are all zero and the
+# spawned worker's carry the fold. Summing takes the worker without having to guess which pid it is.
+g = glob.glob(sys.argv[1] + "/capacity_*.json")
+if g:
+    d = [json.load(open(f)) for f in g]
+    t = lambda k, s: sum(x[k][s] for x in d)
+    print("narrowed=%d/%d/%d join_split=%d" % (
+        t("opm_row", "dram_narrowed"), t("pwa_depth", "dram_narrowed"),
+        t("fp32_softmax", "dram_narrowed"), t("opm_row", "join_split")))
+PYEOF3
+)
+    echo "RUNG $r rc=$rc status=$st wall=$((e - s))s card=$CARD ${refused:+refused=[$refused]} ${cens:+$cens} $(date -u +%FT%TZ)" >> "$LOG"
     break
   done
 done
