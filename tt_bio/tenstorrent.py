@@ -3700,6 +3700,36 @@ def concat_host_bytes() -> int:
     return _CONCAT_HOST_BYTES
 
 
+def _opm_needs_row_blocks(tokens: int, per_row_bytes: int) -> bool:
+    """Whether OuterProductMean splits its token axis into row blocks.
+
+    The token test is the original one and is a perf decision: above it the trunk keeps fewer
+    full pair tensors live, which `_apply_grid_thresholds` re-anchored on DRAM after measuring
+    that chunking costs 15 % of the wall and was protecting nothing below 1088 tokens.
+
+    The byte test is a fit decision, and without it the whole-token path had no bound at all.
+    That path materialises (tokens, C*D, tokens) and then permutes it, and a ttnn permute is
+    out-of-place, so two of that tensor are live at once. A size the blocked path handles by
+    construction could therefore still be refused a single buffer: 9i3p at 992 tokens, C=D=32,
+    asks for 2015363072 B and is refused 704 B per bank short, with 48 % of DRAM free and no
+    hole that big. The blocked path already bounds every block it produces; this bounds the one
+    the whole path produces, by the same resource.
+
+    Against `concat_host_bytes()` rather than free DRAM because gating on free DRAM is a
+    documented dead end -- `protenix._msa_take_whole_path` records that it made a working target
+    fail, the check point being far from the allocation point. That budget is one eighth of this
+    part's DRAM and was measured on this same target for this same reason (a >~2 GiB request
+    refused with GiBs nominally free). On a 12 GiB Wormhole it is 1.5 GiB, so tokens from 887 up
+    take row blocks; on a 31.875 GiB p150a it is 3.98 GiB, which is above the whole-path size at
+    every token count Wormhole reaches, so Blackhole is unchanged by construction.
+
+    Numerically inert either way: the I axis indexes independent token rows, the matmul contracts
+    depth rather than I, and each block accumulates its own full depth, so regrouping rows cannot
+    move a value.
+    """
+    return tokens > SEQ_LEN_MORE_CHUNKING or tokens * per_row_bytes > concat_host_bytes()
+
+
 def _host_concat(x: ttnn.Tensor) -> bool:
     """Whether a chunked path whose output is x's shape assembles its blocks on the host.
 
@@ -7477,11 +7507,11 @@ class OuterProductMean(Module):
             ttnn.deallocate(z)
             return out
 
-        if I > SEQ_LEN_MORE_CHUNKING:
+        per_row = C * D * J * 2
+        if _opm_needs_row_blocks(I, per_row):
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
-            per_row = C * D * J * 2
             rows_blk = max(32, min(OPM_CHUNK_SIZE,
                                    (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
             z_acc = None
