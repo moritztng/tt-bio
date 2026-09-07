@@ -3131,6 +3131,16 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     if record:
         card_block = baseline.get("cards", {}).get(card, {})
         old_models = card_block.get("models", {})
+        # The monolith's OWN rows for this card, read past the fragment overlay. What gets
+        # carried forward per model comes from the merged view above (rf3's own earlier rungs
+        # may live in its fragment), but what gets written BACK to the monolith may only be
+        # what the monolith already held: seeding it from the merged view copied every
+        # sibling's fragment rows into the one file the fragments exist to keep them out of.
+        try:
+            mono = json.loads(baseline_path.read_text()) if baseline_path.exists() else {}
+        except Exception:
+            mono = {}
+        mono_models = mono.get("cards", {}).get(card, {}).get("models", {})
         # Seeded with the card's existing models, not empty: recording a subset
         # (--size-ladder-models) then UPDATES those models and leaves the rest of
         # the card block intact. A 6-model record is ~2 h of device time, so it
@@ -3143,10 +3153,10 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         # per-model stamp the file then claims all six came from qb1. So every entry
         # carries its own, and an entry from before this existed inherits the card-level
         # stamp it WAS recorded under, which is the one being overwritten here.
-        old_stamp = {k: baseline.get("cards", {}).get(card, {}).get(k)
+        old_stamp = {k: mono.get("cards", {}).get(card, {}).get(k)
                      for k in ("recorded", "host", "commit")}
         carried = {}
-        for m_old, e_old in old_models.items():
+        for m_old, e_old in mono_models.items():
             e_old = dict(e_old)
             for k, v in old_stamp.items():
                 if v is not None:
