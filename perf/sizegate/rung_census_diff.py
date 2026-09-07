@@ -66,6 +66,13 @@ def _shape(row: dict) -> str:
     return "served" if declined == 0 else "mixed"
 
 
+def _served(row: dict) -> int | None:
+    """How many call sites this lever actually served, or None if it was absent."""
+    if row.get("served") is None and row.get("declined") is None:
+        return None
+    return int(row.get("served") or 0)
+
+
 def main(paths: list[str]) -> int:
     by_rung: dict[int, dict[str, dict]] = {}
     for p in paths:
@@ -84,24 +91,49 @@ def main(paths: list[str]) -> int:
     flags = sorted({f for rows in by_rung.values() for f in rows})
     width = max(len(f) for f in flags)
     print(f"rungs: {', '.join(map(str, rungs))}")
-    header = "  ".join(f"{n:>8}" for n in rungs)
+    header = "  ".join(f"{n:>13}" for n in rungs)
     print(f"{'lever':<{width}}  {header}")
-    changed = 0
+    lost, shape_only = [], []
     for flag in flags:
-        shapes = [_shape(by_rung[n].get(flag, {})) for n in rungs]
-        if len(set(shapes)) == 1:
+        cells = [(_shape(by_rung[n].get(flag, {})), _served(by_rung[n].get(flag, {})))
+                 for n in rungs]
+        shapes = [c[0] for c in cells]
+        counts = [c[1] for c in cells]
+        # A shape change alone is not a finding. TRIATT_PERSISTENT_MASK reads
+        # `served` -> `mixed` between 512 and 640 aa on Wormhole with its served count
+        # flat at 1088: `_PM_OVER_L1` latches a refused (Sq, Sk, q_chunk, k_chunk,
+        # kv_factor) config, the L1 ladder drops to a narrower chunk and that one
+        # serves, so every call site is still served and the declines are the probes
+        # it cost to get there. What actually costs the wall is a lever serving FEWER
+        # call sites than it did a rung earlier, which is `TRANSPOSE_L1_RESIDENT`
+        # (1088 -> 40 at 640 aa, its pair tensor outgrowing aggregate L1). Report the
+        # served counts and split the two, rather than suppressing either: the shape
+        # change is still worth seeing, it is just not the headline.
+        seen = [c for c in counts if c is not None]
+        fell = any(b < a for a, b in zip(seen, seen[1:]))
+        if len(set(shapes)) == 1 and not fell:
             continue
-        changed += 1
-        print(f"{flag:<{width}}  " + "  ".join(f"{s:>8}" for s in shapes))
-    if not changed:
-        print("\nno lever changes shape across these rungs.")
-    else:
-        print(f"\n{changed} lever(s) change shape. A `served` -> `DARK`/`unused` "
-              "transition is the one to root-cause: the lever stopped serving because "
-              "of the size, not because of the model.")
-    # Served counts for the levers that stay served everywhere are still worth a look
-    # when an exponent jumps: a lever that keeps serving but serves a shrinking FRACTION
-    # of its call sites reads as `served` here and still costs the wall.
+        row = f"{flag:<{width}}  " + "  ".join(
+            f"{s + ('' if n is None else f'({n})'):>13}" for s, n in cells)
+        (lost if fell else shape_only).append(row)
+
+    for row in lost:
+        print(row)
+    for row in shape_only:
+        print(row)
+
+    if not lost and not shape_only:
+        print("\nno lever changes shape or loses coverage across these rungs.")
+        return 0
+    print()
+    if lost:
+        print(f"{len(lost)} lever(s) SERVE FEWER call sites at a larger rung (listed first). "
+              "This is the finding: root-cause each one, because the lever stopped "
+              "covering work it used to cover and the wall pays for it.")
+    if shape_only:
+        print(f"{len(shape_only)} lever(s) change shape with their served count "
+              "flat or rising. Usually benign -- a size-conditioned optimisation "
+              "engaging, or an L1 ladder paying a refused probe before it serves.")
     return 0
 
 
