@@ -49,11 +49,19 @@ def main() -> int:
     args = ap.parse_args()
     ca, cb = coords(args.a), coords(args.b)
     sa, sb = scores(args.a), scores(args.b)
-    if not ca:
-        print(f"{args.label}: NO COORDINATES in {args.a} -- nothing was compared")
-        return 2
+    # BOTH sides, and separately from a mismatch. A leg that crashed leaves an empty directory,
+    # and reporting that as `coords_bit_exact=False differing_atoms=0` reads as a numerical
+    # difference of zero atoms -- two fields contradicting each other, and an invitation to hunt
+    # a numerics bug that is really a leg that never ran.
+    for label, d, c in (("A", args.a, ca), ("B", args.b, cb)):
+        if not c:
+            print(f"{args.label}: NO COORDINATES in the {label} leg ({d}) -- nothing was "
+                  f"compared, this is a MISSING MEASUREMENT and not a parity result")
+            return 2
     same_c, same_s = ca == cb, sa == sb
-    n = sum(1 for x, y in zip(ca, cb) if x != y)
+    # Count the length difference too: zip() truncates to the shorter side, so a run that wrote
+    # fewer atoms would otherwise report differing_atoms=0 next to coords_bit_exact=False.
+    n = (sum(1 for x, y in zip(ca, cb) if x != y) + abs(len(ca) - len(cb)))
     print(f"{args.label}: atoms={len(ca)}/{len(cb)} coords_bit_exact={same_c} "
           f"differing_atoms={n} scores_bit_exact={same_s}")
     if not same_s:
