@@ -7526,7 +7526,60 @@ class OuterProductMean(Module):
                 e = min(s + MSA_CHUNK_SIZE, x.shape[0])
                 yield x[s:e], None if msa_mask is None else msa_mask[s:e]
 
-        depth_parts = None
+        def contiguous_ab():
+            """`a` and `b` built whole and laid out for `z_rows`.
+
+            Every allocation that needs one contiguous full-depth buffer is in here, so a
+            single refusal can decline the lot. There are two of them, not one: the join, and
+            the permute right after it, which builds a third full copy of `a` beside `a` and
+            `b`. At 1024 tokens against a 14189-row alignment they ask for 929 890 304 B and
+            931 135 488 B against largest free blocks of 44 520 544 B and 65 499 136 B -- more
+            free per bank than either needs, and nowhere to put it. Fixing only the first just
+            moves the fold 25 s further down and dies on the second.
+
+            Returns ``(a, b, dims)``, or ``(a, b, None)`` when `_small_depth` will consume the
+            projections unpermuted and the layout stage never runs.
+            """
+            a_parts, b_parts, a, b = [], [], None, None
+            try:
+                if x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
+                    a, b = project_ab(x, msa_mask)
+                else:
+                    for c, maskc in depth_slices():
+                        ac, bc = project_ab(c, maskc)
+                        a_parts.append(ac)
+                        b_parts.append(bc)
+                    # Free per side: only the SECOND concat has room to gain from it.
+                    a = ttnn.concat(a_parts, dim=0)
+                    for p in a_parts:
+                        ttnn.deallocate(p)
+                    a_parts = []
+                    b = ttnn.concat(b_parts, dim=0)
+                    for p in b_parts:
+                        ttnn.deallocate(p)
+                    b_parts = []
+                if _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
+                    return a, b, None
+                S, I, C = a.shape
+                _, J, D = b.shape
+                a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
+                b = ttnn.permute(b, (2, 1, 0))
+                b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
+                b = ttnn.reshape(b, (-1, S))
+                b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
+                if I > SEQ_LEN_MORE_CHUNKING:
+                    # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
+                    a = ttnn.reallocate(a)
+                    b = ttnn.reallocate(b)
+                return a, b, (S, I, C, D, J)
+            except BaseException:
+                # Hand the device back everything this attempt holds, or the un-joined path
+                # runs against a device this one filled and is refused in its turn.
+                for t in a_parts + b_parts + [t for t in (a, b) if t is not None]:
+                    ttnn.deallocate(t)
+                raise
+
+        depth_parts = dims = None
         if x_chunks is not None:
             if msa_mask is not None:
                 raise NotImplementedError(
@@ -7535,64 +7588,34 @@ class OuterProductMean(Module):
             depth_parts, S, I, C, D, J = project_depth_parts(
                 (ttnn.reshape(c, tuple(c.shape)[1:]), None) for c in x_chunks)
             a = b = None
-        elif x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
-            a, b = project_ab(x, msa_mask)
         elif _OPM_JOIN_REFUSED.get(tuple(x.shape)):
-            # This shape class already refused the join once in this process. Paying for it
-            # again only to catch the same refusal costs a whole extra projection pass.
+            # This shape class already refused the contiguous form once in this process.
+            # Paying for it again only to collect the same refusal costs a projection pass.
             OPM_ROW_STATS["join_split"] += 1
             depth_parts, S, I, C, D, J = project_depth_parts(depth_slices())
             a = b = None
         else:
-            a_parts, b_parts = [], []
-            a = b = None
             try:
-                for c, maskc in depth_slices():
-                    ac, bc = project_ab(c, maskc)
-                    a_parts.append(ac)
-                    b_parts.append(bc)
-                # Same per-side free as the chunk-list branch above, for the same reason.
-                a = ttnn.concat(a_parts, dim=0)
-                for p in a_parts:
-                    ttnn.deallocate(p)
-                a_parts = []
-                b = ttnn.concat(b_parts, dim=0)
-                for p in b_parts:
-                    ttnn.deallocate(p)
-                b_parts = []
+                a, b, dims = contiguous_ab()
             except RuntimeError as exc:
-                # The join is the only thing here that asks for one contiguous full-depth
-                # tensor, so it is the only thing that can be refused with room to spare
-                # everywhere else -- 929 890 304 B (14189 x 1024 x 32 bf16) against a
-                # 44 520 544 B largest free block, at 1024 tokens on a 12 GiB Wormhole.
-                # Let the device decide whether to pay for it: `depth_parts` computes the same
-                # contraction without ever joining, and a fold that is never refused never
-                # reaches this line, so every size that folds today keeps its exact numbers.
-                # Costs one extra projection pass over `x`; the memo pays it once per shape.
+                # Let the device decide whether the contiguous form is affordable. The
+                # un-joined `depth_parts` contracts the same depth rows without ever building
+                # `a` or `b`, at the cost of reassociating a bf16 sum -- so it engages on a
+                # refusal and never on a prediction. A fold that is never refused never reaches
+                # this line and keeps its exact numbers, which OPM_ROW_STATS["join_split"]
+                # reports rather than asserts. The memo pays the extra pass once per shape.
                 if not _dram_oom(exc):
                     raise
-                for p in a_parts + b_parts + [t for t in (a, b) if t is not None]:
-                    ttnn.deallocate(p)
                 _OPM_JOIN_REFUSED[tuple(x.shape)] = True
                 OPM_ROW_STATS["join_split"] += 1
                 depth_parts, S, I, C, D, J = project_depth_parts(depth_slices())
                 a = b = None
-        if depth_parts is None and _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
+        if depth_parts is None and dims is None:
             OPM_SMALL_DEPTH_STATS[0] += 1
             return self._small_depth(a, b, n_msa)
         if depth_parts is None:
             OPM_SMALL_DEPTH_STATS[1] += 1
-            S, I, C = a.shape
-            _, J, D = b.shape
-            a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
-            b = ttnn.permute(b, (2, 1, 0))
-            b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
-            b = ttnn.reshape(b, (-1, S))
-            b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
-            if I > SEQ_LEN_MORE_CHUNKING:
-                # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
-                a = ttnn.reallocate(a)
-                b = ttnn.reallocate(b)
+            S, I, C, D, J = dims
 
         def z_rows(i0, i1):
             """`z = a b^T` contracted over the full depth, for token rows [i0, i1).
