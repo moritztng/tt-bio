@@ -633,8 +633,17 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
     last, last_move, stalled, warm = -1, time.monotonic(), False, False
     cpu_at_quiet, cpu_now = tree_cpu_s(proc.pid), tree_cpu_s(proc.pid)
     try:
-        while proc.poll() is None:
-            time.sleep(5)
+        while True:
+            # Wait ON the process rather than sleeping and then asking: a plain sleep(5) means a
+            # leg that exits early in a tick is not noticed for up to 5 s, and `wall` is taken
+            # after the loop, so every leg was over-reported by 0-5 s. That is why the recorded
+            # Tier 1 walls were all multiples of 5. The gate's own ~60 s/model budget verdict is
+            # decided on this number, so a mean +2.5 s bias is not cosmetic.
+            try:
+                proc.wait(timeout=5)
+                break
+            except subprocess.TimeoutExpired:
+                pass
             ram_floor = min(ram_floor, host_ram_free_mb())
             cpu_now = tree_cpu_s(proc.pid)
             n, seen = progress()

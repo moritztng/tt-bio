@@ -806,3 +806,20 @@ def test_every_runnable_model_has_a_recorded_cell():
         f"{missing}. Run the gate for them and --record (or --record-from a finished report). "
         f"A model that genuinely cannot be measured anywhere needs a written EXEMPT reason "
         f"instead, the way saprot-1.3b has one.")
+
+
+def test_a_legs_wall_is_not_rounded_up_to_the_poll_interval(tmp_path):
+    """The gate's ~60 s/model budget verdict is decided on `wall_s`.
+
+    The watch loop slept 5 s and then asked whether the process had exited, while `wall` was taken
+    after the loop, so a leg was over-reported by 0-5 s -- which is why every recorded Tier 1 wall
+    was a multiple of 5. A leg that takes a fifth of a second must not read as five seconds.
+    """
+    w = cg.Worker("local", 0, True)
+    r = cg.execute(w, [sys.executable, "-c", "import time; time.sleep(0.2)"],
+                   tmp_path / "leg.log", mode="", hook_out=tmp_path / "o",
+                   hookdir=tmp_path / "hd", timeout=60, stall_s=60)
+    assert r["rc"] == 0, r
+    assert r["wall_s"] < 3.0, (
+        f"a 0.2 s leg reported {r['wall_s']} s: the wall is being rounded up to the poll "
+        f"interval, which inflates every per-model Tier 1 number the budget is judged on")
