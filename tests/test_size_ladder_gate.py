@@ -373,3 +373,179 @@ def test_check_model_propagates_the_partial_rungs_to_the_printer(rg_fresh, monke
     cells = [f"{leg['runtime_s'][str(n)]:.1f}s" if leg["runtime_s"].get(str(n)) is not None
              else "-" for n in RUNGS]
     assert cells == ["25.4s", "70.4s", "115.0s", "-"]
+
+
+# --- the ladder above 768: refused rungs, per-rung resume, per-model fragments ----------
+#
+# The ladder stopped at 768 while the platform advertised 1024 and openfold3 reached it, so
+# the top of the measured ladder sat below the sizes a user can submit. Extending it to
+# 896/1024 brings three things the four-rung ladder never had to handle, and each one is a
+# way to lose a measurement quietly rather than loudly.
+
+
+def test_a_rung_above_the_size_guard_is_recorded_not_a_failure(rg_fresh, monkeypatch, tmp_path):
+    """openbind's guard caps at 960, so its 1024 rung is refused. That is the measurement.
+
+    Without this the 1024 rung turns the arm red for every model whose ceiling is lower
+    (opendde 544, pxdesign 768, openbind 960, protenix-v2 980) and throws away the one
+    number a user cares about: where this model stops accepting work on this card.
+    """
+    guard = ("'cdk2x2_1024.yaml' has 1024 residues, and openbind is measured to handle at "
+             "most 960 on wormhole_b0")
+
+    def fake_fold(model, rung, workdir, tag, need_runtime=True):
+        if rung >= 1024:
+            return {"refused": guard}
+        return {"levers": {"X": dict(FIRING)}, "runtime_s": float(rung) / 8,
+                "wall": 1.0, "census_json": tmp_path / "c.json", "grid": "8x10"}
+
+    monkeypatch.setattr(rg_fresh, "_run_census_fold", fake_fold)
+    out = rg_fresh._size_ladder_measure_model("openbind", (768, 896, 1024), tmp_path, 1, 1)
+
+    assert "error" not in out
+    assert sorted(out["runtime_s"]) == ["768", "896"]
+    assert out["refused"] == {"1024": guard}
+    # and it must NOT be laundered into a timing cell
+    assert "1024" not in out["runtime_s"]
+
+
+def test_every_rung_refused_is_an_error_and_not_an_empty_pass(rg_fresh, monkeypatch, tmp_path):
+    """A model refused at every rung recorded nothing, and nothing is not a baseline."""
+    monkeypatch.setattr(rg_fresh, "_run_census_fold",
+                        lambda *a, **k: {"refused": "has 896 residues, cap is 544"})
+    out = rg_fresh._size_ladder_measure_model("opendde", (896, 1024), tmp_path, 1, 1)
+
+    assert "is above this model's size guard" in out["error"]
+
+
+def test_check_flags_a_ceiling_that_moved_in_either_direction(rg_fresh, monkeypatch, tmp_path):
+    """A size that folded at the last release and is now refused has no timing to compare,
+    so the exponent leg cannot see it. Neither can the census leg. This is the only thing
+    that can."""
+    base = {"reps": 1, "grid": "8x10", "runtime_s": {"256": 30.0, "512": 120.0},
+            "levers": {"256": {"X": dict(FIRING)}, "512": {"X": dict(FIRING)}},
+            "refused": {"1024": "cap 960"}}
+
+    def fake(model, rungs, workdir, reps_512, reps_other):
+        # 512 now refused (regression), 1024 now folds (cap raised, baseline stale)
+        return {"runtime_s": {"256": 30.0, "1024": 400.0}, "grid": "8x10",
+                "levers": {"256": {"X": dict(FIRING)}, "1024": {"X": dict(FIRING)}},
+                "refused": {"512": "cap dropped to 448"}, "sigma": 0.05, "drift": []}
+
+    monkeypatch.setattr(rg_fresh, "_size_ladder_measure_model", fake)
+    leg = rg_fresh._size_ladder_check_model("openbind", (256, 512, 1024), base, tmp_path)
+
+    assert leg["gate"] is False
+    joined = " | ".join(leg["findings"])
+    assert "openbind/512: folded when the baseline was recorded, now refused" in joined
+    assert "openbind/1024: refused by the size guard when the baseline was recorded, folds" \
+        in joined
+
+
+def test_a_resumed_pass_carries_the_rungs_it_did_not_measure(rg_fresh):
+    """256->1024 is hours of device time per model. A pass that measures only the top rung
+    must keep the rungs below it, or the ladder is only ever as long as one turn."""
+    stamp = {"recorded": "2026-09-07", "host": "GWH02", "commit": "abc1234"}
+    prev = {**stamp, "grid": "8x10", "sigma_runtime_512": 0.05,
+            "runtime_s": {"256": 30.0, "512": 120.0},
+            "levers": {"256": {"X": dict(FIRING)}, "512": {"X": dict(FIRING)}},
+            "refused": {"1024": "cap 960"}}
+    meas = {"runtime_s": {"896": 400.0}, "levers": {"896": {"X": dict(FIRING)}},
+            "grid": "8x10", "sigma": None}
+
+    carried = rg_fresh._size_ladder_carry_rungs(meas, prev, stamp)
+
+    assert carried == ["256", "512", "1024"]
+    assert meas["runtime_s"] == {"896": 400.0, "256": 30.0, "512": 120.0}
+    assert meas["refused"] == {"1024": "cap 960"}
+    # the noise floor comes with them, or the exponent block would skip for want of a sigma
+    assert meas["sigma"] == 0.05
+
+
+@pytest.mark.parametrize("differs", ["commit", "host", "grid"])
+def test_a_resumed_pass_refuses_to_mix_two_engines(rg_fresh, differs):
+    """The arm's own rule is "re-record after any size-affecting change". A ladder whose
+    256 came from one commit and whose 1024 came from another measures neither, and its
+    exponent is the difference between two engines."""
+    stamp = {"recorded": "2026-09-07", "host": "GWH02", "commit": "abc1234"}
+    prev = {**stamp, "grid": "8x10", "runtime_s": {"256": 30.0}, "levers": {"256": {}}}
+    prev[differs] = "something-else" if differs != "grid" else "13x10"
+    meas = {"runtime_s": {"1024": 900.0}, "levers": {"1024": {}}, "grid": "8x10",
+            "sigma": 0.05}
+
+    assert rg_fresh._size_ladder_carry_rungs(meas, prev, stamp) == []
+    assert meas["runtime_s"] == {"1024": 900.0}
+
+
+def test_rungs_arg_refuses_a_size_the_baseline_has_no_column_for(rg_fresh):
+    assert rg_fresh._size_ladder_arg_rungs("1024,512") == (512, 1024)   # sorted ascending
+    assert rg_fresh._size_ladder_arg_rungs(None) is None
+    with pytest.raises(SystemExit) as e:
+        rg_fresh._size_ladder_arg_rungs("700")
+    assert "not on the ladder" in str(e.value)
+
+
+def test_rungs_arg_cannot_narrow_the_check(rg_fresh, tmp_path):
+    """A check over a subset passes without reading the rungs where a lever most often goes
+    dark, which is the arm's whole purpose. Record-mode resume aid only."""
+    out = rg_fresh.run_size_ladder(False, False, tmp_path / "b.json",
+                                   models=["openfold3"], rungs=(256,))
+    assert out["gate"] is False
+    assert "RECORD-mode resume aid" in out["error"]
+
+
+def test_a_model_fragment_does_not_touch_the_shared_baseline(rg_fresh, tmp_path):
+    """Six workstreams recording six models into one json is a merge conflict by
+    construction. A fragment write must leave the monolith byte-identical, and the read
+    must still assemble both — including a model that holds rows in both places."""
+    base = tmp_path / "size_ladder_baseline.json"
+    monolith = {"format": 1, "rungs": [256, 512],
+                "cards": {"p150a": {"recorded": "2026-08-23", "host": "qb1",
+                                    "commit": "8c22b305",
+                                    "models": {"openfold3": {"runtime_s": {"256": 10.2}},
+                                               "boltz2": {"runtime_s": {"256": 7.8}}}}}}
+    base.write_text(json.dumps(monolith, indent=2))
+    before = base.read_bytes()
+
+    rg_fresh._size_ladder_write_fragment(
+        base, "tt-galaxy-wh l",
+        {"recorded": "2026-09-07", "host": "GWH02", "commit": "fc7df2a7"},
+        "openfold3", {"runtime_s": {"256": 31.0}, "refused": {"1024": "cap 960"}})
+
+    assert base.read_bytes() == before          # the file five other branches also edit
+    d = rg_fresh._size_ladder_read_baseline(base)
+    # openfold3 keeps its Blackhole rows and gains its Wormhole ones
+    assert d["cards"]["p150a"]["models"]["openfold3"]["runtime_s"] == {"256": 10.2}
+    assert d["cards"]["tt-galaxy-wh l"]["models"]["openfold3"]["runtime_s"] == {"256": 31.0}
+    # a sibling's model is untouched, and the new card carries only what was recorded to it
+    assert sorted(d["cards"]["p150a"]["models"]) == ["boltz2", "openfold3"]
+    assert list(d["cards"]["tt-galaxy-wh l"]["models"]) == ["openfold3"]
+    assert d["cards"]["tt-galaxy-wh l"]["host"] == "GWH02"
+
+
+def test_reading_a_tree_with_no_fragments_is_unchanged(rg_fresh, tmp_path):
+    """The read path is unconditional, so it has to be a no-op where no fragment exists."""
+    base = tmp_path / "size_ladder_baseline.json"
+    payload = {"format": 1, "cards": {"p150a": {"models": {"boltz2": {}}}}}
+    base.write_text(json.dumps(payload))
+    assert rg_fresh._size_ladder_read_baseline(base) == payload
+
+
+def test_every_rung_on_the_ladder_has_a_fixture_for_every_model(rg):
+    """Adding a rung to SIZE_LADDER_RUNGS without its fixtures is how the arm goes red for
+    a model that is fine: nesso1 brings its own ladder, and 896 had to be generated for it."""
+    for rung in rg.SIZE_LADDER_RUNGS:
+        assert rung % 32 == 0, f"rung {rung} is not a multiple of 32"
+        for model in ("openfold3", "nesso1"):
+            f = rg._size_ladder_fixture(model, rung)
+            assert f.exists(), f"{model} has no fixture at rung {rung}: {f}"
+
+
+def test_all_pair_exponents_cover_every_consecutive_rung(rg):
+    """The gated set is narrow on measured grounds; the recorded set is not, because the
+    thing a human reads this file for is where the exponent jumps."""
+    k = rg._size_ladder_all_pair_exponents({"256": 10.0, "512": 40.0, "768": 90.0,
+                                            "1024": 160.0})
+    assert list(k) == ["256->512", "512->768", "768->1024"]
+    assert k["256->512"] == 2.0                      # exactly quadratic
+    assert rg._size_ladder_all_pair_exponents({"256": 10.0}) == {}
