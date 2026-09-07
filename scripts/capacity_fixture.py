@@ -88,8 +88,14 @@ def build(residues: int, out_dir: Path, *, depth: int | None = None,
     head, _ = SRC_YAML.read_text().split("sequence: ", 1)
     yaml_path = out_dir / f"{stem}.yaml"
     yaml_path.write_text(head + "sequence: " + seq + "\n")
+    # `embed` and `saprot` take a FASTA, a directory of them, a bare sequence, or a YAML that is a
+    # flat {id: sequence} mapping -- NOT predict's `sequences:` document. Handing them the predict
+    # yaml parses to nothing, so those verbs get a FASTA of the same sequence.
+    fasta_path = out_dir / f"{stem}.fasta"
+    fasta_path.write_text(f">{stem}\n{seq}\n")
     return {
-        "yaml": yaml_path, "a3m": a3m_path, "residues": residues, "repeats": reps,
+        "yaml": yaml_path, "fasta": fasta_path, "a3m": a3m_path,
+        "residues": residues, "repeats": reps,
         # Deduplicated over the rows AS WRITTEN, not the source rows: cutting can collapse two
         # rows that differed only outside the kept columns.
         "file_depth": len(kept), "effective_depth": len(set(kept)),

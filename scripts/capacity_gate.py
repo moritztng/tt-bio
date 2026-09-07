@@ -438,8 +438,10 @@ def build_argv(cell: Cell, fixture: dict, out_dir: Path, *, tier: str) -> list[s
     """The CLI invocation for one cell. `tier` picks screen depth from residency depth."""
     py = [sys.executable, "-m", "tt_bio.main"]
     if cell.verb in ("embed", "saprot"):
-        # No MSA track and no diffusion stage: one pass at the bar is the whole test.
-        return py + [cell.verb, str(fixture["yaml"]), "--model", cell.model,
+        # No MSA track and no diffusion stage: one pass at the bar is the whole test. These verbs
+        # want a FASTA, not predict's `sequences:` document -- handing them the latter parses to
+        # nothing and the cell would pass having embedded zero residues.
+        return py + [cell.verb, str(fixture["fasta"]), "--model", cell.model,
                      "--out_dir", str(out_dir)]
     if cell.verb == "affinity":
         return py + ["affinity", str(fixture["yaml"]), "--model", cell.model,

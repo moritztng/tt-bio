@@ -100,6 +100,26 @@ def test_the_fixture_reaches_the_bar_at_real_depth(tmp_path):
     assert f["effective_depth"] >= 0.99 * f["file_depth"], "tandem repetition collapsed rows"
 
 
+def test_the_fixture_reaches_the_bar_in_every_denomination(tmp_path):
+    """size_limits sizes `predict` on summed residues and `embed`/`saprot` on the LONGEST single
+    sequence, and it reads two different file formats to do it. Both must see 1504, or a cell
+    passes having folded something smaller than the bar it reports.
+    """
+    f = capacity_fixture.build(cg.TOKEN_BAR, tmp_path)
+    assert sl.scan_residues(f["yaml"].read_text()) == cg.TOKEN_BAR
+    assert sl.scan_longest_sequence(f["fasta"].read_text()) == cg.TOKEN_BAR
+
+
+def test_embed_and_saprot_are_handed_a_fasta_not_the_predict_yaml():
+    """`embed` takes a FASTA, a bare sequence, or a YAML that is a flat {id: sequence} mapping.
+    predict's `sequences:` document is none of those and parses to nothing, so the cell would
+    complete having embedded zero residues and be scored PASS."""
+    src = (ROOT / "scripts" / "capacity_gate.py").read_text()
+    body = src[src.index("def build_argv("):src.index("def execute(")]
+    head = body[:body.index('if cell.verb == "affinity"')]
+    assert 'fixture["fasta"]' in head and 'fixture["yaml"]' not in head
+
+
 def test_the_gate_says_out_loud_that_it_is_not_a_parity_gate():
     """pc card 0 miscomputes matmuls and runs custom 130-core firmware, so this gate can answer
     "allocates and completes" and can never answer "the output is right". A completed fold with a
