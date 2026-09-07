@@ -3,6 +3,9 @@
 #
 #   sh perf/ceiling_openbind/gate_chain.sh <tree> <out-dir> [model ...]
 #
+# WAIT_ON=<log> holds the chain until that log says LADDER DONE, so the gate can be armed while
+# the card is still busy instead of having to be launched by hand when it frees.
+#
 # OuterProductMean and the MSA block are shared by boltz2, protenix, opendde, openfold3, rf3 and
 # openbind, so "openbind still folds" is not the question the gate has to answer. boltz2 is the
 # one that matters most: this branch's whole argument is that a fold which is never refused never
@@ -15,6 +18,15 @@ TREE=$1; OUT=$2; shift 2
 PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
 mkdir -p "$OUT"
 LOG=$OUT/gate.log
+waited=0
+while [ -n "${WAIT_ON:-}" ] && ! grep -q "^LADDER DONE" "$WAIT_ON" 2>/dev/null; do
+  waited=$((waited + 1))
+  if [ "$waited" -gt 360 ]; then
+    echo "GIVING UP waiting on $WAIT_ON $(date -u +%FT%TZ)" >> "$LOG"
+    exit 2
+  fi
+  sleep 30
+done
 for m in "$@"; do
   grep -q "^GATE $m " "$LOG" 2>/dev/null && continue
   s=$(date +%s)
