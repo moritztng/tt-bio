@@ -311,10 +311,18 @@ def _trimul_inproj_group(seq_len: int, chunk: int, batch: int, n_pairs: int) -> 
     partition of an independent-channel sum and everything below the four-way unpack is elementwise,
     an index move or a per-channel matmul (`torch.equal` at G=2/4/8, perf/trimul_root/).
     Bytes are priced at bf16 even when `_dtype()` is bfloat8_b, so the budget is a bound.
+
+    The byte budget is a footprint CAP, not a fit test -- it was measured with 6 GiB of foreign
+    DRAM held, not against whatever a given fold has live -- so at the top of the size range it
+    can name a width DRAM will refuse. `_trimul_inproj_budget` lowers it for a shape that has
+    already had one refused. Deciding from free DRAM instead is the dead end
+    `protenix._msa_take_whole_path` documents: the check point and the allocation point are far
+    apart, and the gate made a working target fail.
     """
+    budget = _trimul_inproj_budget(seq_len, chunk * n_pairs, batch)
     fused = 4 * chunk * seq_len * seq_len * batch * 2
     for g in range(min(n_pairs, _TRIMUL_INPROJ_GROUP), 1, -1):
-        if n_pairs % g == 0 and g * fused <= _TRIMUL_INPROJ_FUSED_BYTES:
+        if n_pairs % g == 0 and g * fused <= budget:
             return g
     return 1
 # Widest inner K block the pair-track projection config may use; None disables the config.
@@ -482,6 +490,33 @@ def _record_trimul_clash(seq_len: int, hidden: int, batch: int, width: int) -> N
     prev = _TRIMUL_CHUNK_CLASH.get(key)
     if prev is None or width < prev:
         _TRIMUL_CHUNK_CLASH[key] = width
+
+
+# Per-shape ceiling on the fused in-projection, once DRAM has refused one. Recorded so that a
+# shape pays one refused allocation rather than one per pairformer block.
+_TRIMUL_INPROJ_FUSED_CAP: dict = {}
+
+
+def _trimul_inproj_budget(seq_len: int, hidden: int, batch: int) -> int:
+    """Bytes this shape's fused in-projection may occupy: the measured cap, or less if the
+    device has already refused something that size."""
+    return _TRIMUL_INPROJ_FUSED_CAP.get(_trimul_chunk_key(seq_len, hidden, batch),
+                                        _TRIMUL_INPROJ_FUSED_BYTES)
+
+
+def _record_trimul_inproj_oom(seq_len: int, hidden: int, batch: int, fused: int) -> None:
+    """Halve this shape's fused budget after a refusal.
+
+    The budget has to be in BYTES, not in group widths. The refused allocation is one quarter of
+    the fused output and both are live at the same moment, so the peak is what must come down --
+    and narrowing the group alone does not bring it down, because a narrower channel chunk makes
+    the fused output smaller and `_trimul_inproj_group` then wins the same peak back as a wider
+    group. Halving is deliberately coarse: each refusal costs a wasted channel-loop pass, so
+    converging in two or three steps beats walking the divisors.
+    """
+    key = _trimul_chunk_key(seq_len, hidden, batch)
+    cap = min(_TRIMUL_INPROJ_FUSED_CAP.get(key, _TRIMUL_INPROJ_FUSED_BYTES), fused)
+    _TRIMUL_INPROJ_FUSED_CAP[key] = max(1, cap // 2)
 
 # Wormhole 8x9 re-fit of the two trimul constants above. `_apply_grid_thresholds` derives its
 # small-grid values by scaling the Blackhole ones -- the residency threshold by per-core L1 (which
@@ -4713,16 +4748,57 @@ class TriangleMultiplication(Module):
                         x_chunks.append(moved)
                 break
             except RuntimeError as e:
-                if large_seq or "clash with L1 buffers" not in str(e):
+                msg = str(e)
+                # Two refusals, one retry loop. The L1 clash is a program-validation throw on
+                # the L1 path. A DRAM "Out of Memory" on the large path is this module's own
+                # peak: the fused in-projection plus the four-way split it feeds is ~2x the
+                # fused size, and `_TRIMUL_INPROJ_FUSED_BYTES` is a footprint cap measured
+                # against held foreign DRAM, not a fit test against what this fold has live.
+                # Both the group and the channel-chunk width are partitions of the same
+                # independent-channel sum, so narrowing either is bit-exact, and it only ever
+                # happens after a throw -- so a size that folds today keeps its arithmetic and
+                # its launch count, and only a size that produces no structure at all sees a
+                # different partition.
+                oom = large_seq and "Out of Memory" in msg
+                if not oom and (large_seq or "clash with L1 buffers" not in msg):
                     raise
                 for _t in x_chunks:
-                    ttnn.deallocate(_t)
+                    # Host-assembled chunks are torch tensors (`_acc_append`), and the large
+                    # path is where host assembly happens, so the accumulator cannot be
+                    # assumed to hold device tensors here.
+                    if isinstance(_t, ttnn.Tensor):
+                        ttnn.deallocate(_t)
                 x_chunks = []
                 # Drop the interrupted iteration's intermediates: whatever was live
                 # at the throw still holds L1, and the retry must allocate against a
                 # clean slate, not against the corpse of the failed attempt.
                 gp_in_fused = g_in_a = g_in_b = p_in_a = p_in_b = None
                 a_chunk = b_chunk = x_chunk = None
+                if oom:
+                    was = (chunk_size, group)
+                    _record_trimul_inproj_oom(
+                        H, self._hidden, batch, 4 * chunk_size * group * H * H * batch * 2)
+                    budget = _trimul_inproj_budget(H, self._hidden, batch)
+                    # Narrow the channel chunk while even a single group is over the new
+                    # budget. On the DRAM path `_trimul_chunk_size` already returns the
+                    # minimum tuned width, so this is the only lever below it -- and on
+                    # OpenDDE's structural-token axis (2016 tokens for a 1024-residue fold) a
+                    # single group IS the whole 0.97 GiB, so the group has nothing left to give
+                    # before this runs.
+                    while (chunk_size > 1 and self._hidden % (chunk_size // 2) == 0
+                           and 4 * chunk_size * H * H * batch * 2 > budget):
+                        chunk_size //= 2
+                    n_pairs = self._hidden // chunk_size
+                    group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
+                    if (chunk_size, group) == was:
+                        raise                       # nothing left to give
+                    gp_in_chunks = self._gp_in_chunks(chunk_size, group)
+                    print(f"[tt-bio] trimul DRAM refused the fused in-projection at chunk "
+                          f"{was[0]} x group {was[1]} (seq {H}): retrying at chunk "
+                          f"{chunk_size} x group {group}. The tt-metal 'Out of Memory' line "
+                          f"above is expected and handled; the result is unchanged.",
+                          file=sys.stderr, flush=True)
+                    continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a
                 # fatal error to anyone watching the fold. Say what actually happened.
@@ -7861,6 +7937,15 @@ class OuterProductMean(Module):
             ttnn.deallocate(z)
             return out
 
+        per_row = C * D * J * 2
+        # Token count only. A byte arm that also row-blocked from 887 tokens up, to bound the
+        # whole path's (tokens, C*D, tokens) product, was measured and removed: _with_dram_narrowing
+        # below already catches that refusal reactively, and main folded 992 on one refused
+        # allocation in 1209 s against 1213 s with the arm in. Gating up front bought no wall time
+        # and re-blocked the whole 887-1088 band, where a ragged final block is a different matmul
+        # (960 tokens: plDDT 0.708054 against 0.708594) -- for every model sharing this op, at sizes
+        # that already folded. state/ceiling-opendde.md; do not re-add without a size main cannot
+        # fold at all.
         if I > SEQ_LEN_MORE_CHUNKING:
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256

@@ -97,7 +97,23 @@ def _install_nanobind_leak_stderr_filter() -> None:
         pass
 
 
-if "--debug" not in _sys.argv:
+# `--debug` turns the filter off, and it has to travel to the SPAWNED WORKERS, not just to this
+# process. A multiprocessing spawn re-execs python with `-c from multiprocessing.spawn import
+# spawn_main`, so the child's `sys.argv` no longer carries `--debug` and an argv-only test
+# reinstalls the filter in exactly the process whose stderr you asked to see. The filter's
+# forwarding child holds PR_SET_PDEATHSIG SIGKILL, so when a worker dies the child is killed with
+# whatever is still in the pipe -- which is the worker's traceback. That is how OpenDDE's 992-
+# residue deep-MSA failure reported "SpawnProcess-1 exit 0 ... the worker's own traceback above
+# says why" with no traceback above it, twice, on two trees. The environment IS inherited by a
+# spawn, so decide once here and let the children read the decision.
+def _stderr_filter_wanted(argv, env) -> bool:
+    """Whether this process should install the filter. Pure, so it can be tested."""
+    return "--debug" not in argv and not env.get("TT_BIO_DEBUG_STDERR")
+
+
+if "--debug" in _sys.argv:
+    _os.environ["TT_BIO_DEBUG_STDERR"] = "1"
+if _stderr_filter_wanted(_sys.argv, _os.environ):
     _install_nanobind_leak_stderr_filter()
 
 
