@@ -27,6 +27,10 @@ PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
 CARD=${CARD:-1}
 NODE=${NODE:-17}
 MODEL=${MODEL:-openbind}
+# The lease identity is a property of the RUN, not of this script: the fleet dispatcher's
+# running-task check reads it to decide whether a task is still alive, so a hardcoded name makes
+# one workstream's card look like another's. Required rather than defaulted for that reason.
+HOLDER=${HOLDER:?set HOLDER to worker:<your-workstream>, the identity the lease file carries}
 LOG=$OUT/ladder.log
 RUNGS=${RUNGS:-$(cd "$TREE/rundir" && pwd)/rungs}
 MSA=${MSA:-$TREE/rundir/msacache_deep}
@@ -69,7 +73,7 @@ for r in "$@"; do
     # reading: dram_narrowed and join_split at 0 means no capacity fallback ran.
     ( cd "$TREE" && TT_BIO_SIZE_LIMIT=0 TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" \
         TT_BIO_CAPACITY_CENSUS="$OUT/$r.census" \
-        TT_BIO_LEASE_HOLDER=worker:ceiling-openbind-1024 TT_METAL_LOGGER_LEVEL=FATAL \
+        TT_BIO_LEASE_HOLDER="$HOLDER" TT_METAL_LOGGER_LEVEL=FATAL \
         PYTHONPATH="$TREE" "$PY" -m tt_bio.main predict "$RUNGS/$r.yaml" \
         --model "$MODEL" --accelerator tenstorrent --out_dir "$OUT/$r" --override \
         --msa_dir "$MSA" --msa_cache_only --debug ) > "$OUT/$r.log" 2>&1
