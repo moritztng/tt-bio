@@ -283,3 +283,34 @@ def test_the_hook_reaches_a_spawned_child(tmp_path):
                        env=env, timeout=180)
     assert r.stdout.strip().endswith("screen"), (
         f"the hook did not arm in the spawned child: {r.stdout!r} {r.stderr[-400:]!r}")
+
+
+def test_a_failing_model_does_not_wedge_the_rest_of_the_run():
+    """Measured: rf3's 1504-token OOM (a TT_FATAL from the allocator) left card 0 accepting an
+    open and then never dispatching, and the next cell sat 10 minutes at 100% CPU inside
+    tt_bio's own `_assert_local_dispatch` with no log line and no progress event.
+
+    Provoking that refusal is THE JOB of this gate, so recovery is part of the gate. Without it
+    the first model that legitimately fails the bar turns every model after it into an invented
+    failure -- a real one-line result wrapped in a cascade of noise."""
+    src = (ROOT / "scripts" / "capacity_gate.py").read_text()
+    loop = src[src.index("    for i, cell in enumerate(all_cells):"):src.index("    _finish(report)\n    print(flush=True)")]
+    assert "recover_card(w, workers)" in loop, (
+        "the loop must re-check the card after a fail-like verdict; polling a wedged chip cannot "
+        "fix it, only a reset can")
+    for v in ('"FAIL"', '"STALL"'):
+        assert v in loop, f"recovery must trigger on {v}"
+    assert 'dead[repr(w)]' in loop and '"CARD_DIRTY"' in loop, (
+        "a card the gate gave up on must report its owed cells CARD_DIRTY -- nothing was "
+        "measured on them, so recording FAIL would publish a ceiling nobody walked")
+
+
+def test_a_reset_is_refused_when_the_run_does_not_own_the_host():
+    """`tt-smi -r` resets the BOARD PAIR, not the chip, so a reset issued for card 0 of a p300c
+    also takes down card 1. Under --workers fan-out that is somebody else's in-flight leg."""
+    a = cg.Worker("pc", 0, True)
+    b = cg.Worker("pc", 1, True)
+    assert cg._may_reset(a, [a]) is True
+    assert cg._may_reset(a, [a, b]) is False, "two cards on one host: a reset hits the sibling"
+    assert cg._may_reset(cg.Worker("qb1", 0, False), [cg.Worker("qb1", 0, False)]) is False, (
+        "the reset path is local-only; it does not ssh a reset at a remote host")

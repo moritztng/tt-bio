@@ -636,6 +636,38 @@ def wait_for_card(worker: Worker, *, timeout=600) -> bool:
         time.sleep(15)
 
 
+#: Resetting a card is the ONE operation in this gate that can hurt somebody else's run, so it is
+#: allowed only when this run owns the host outright. On a p300c a `tt-smi -r` resets the BOARD
+#: PAIR and not the chip, so a reset issued for card 0 also takes down card 1 -- a card this gate
+#: may not even be scheduling on.
+def _may_reset(worker: Worker, workers: list[Worker]) -> bool:
+    return worker.is_local and sum(1 for w in workers if w.host == worker.host) == 1
+
+
+def recover_card(worker: Worker, workers: list[Worker]) -> tuple[bool, str]:
+    """Bring a wedged card back, or say why not.
+
+    This exists because provoking an out-of-memory refusal is THE JOB of this gate, and a
+    device-side TT_FATAL can leave the chip accepting an open and then never dispatching. Without
+    recovery the first model that legitimately fails the bar wedges the card and every model after
+    it reads as a failure too, so a one-line real result would arrive wrapped in a cascade of
+    invented ones. Polling cannot fix a wedge; only a reset can.
+    """
+    if card_healthy(worker, timeout=300):
+        return True, "still dispatching"
+    if not _may_reset(worker, workers):
+        return False, ("card stopped dispatching and this run does not own the host exclusively, "
+                       "so it must not reset (a reset takes the board pair down with it)")
+    smi = os.path.expanduser("~/.local/bin/tt-smi")
+    try:
+        subprocess.run([smi, "-r", str(worker.card)], capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"reset failed to run: {type(exc).__name__}"
+    if card_healthy(worker, timeout=420):
+        return True, f"recovered by tt-smi -r {worker.card}"
+    return False, f"tt-smi -r {worker.card} did not restore dispatch"
+
+
 def _screen(worker, cell, fixture, work, hookdir) -> dict:
     """TIER 1. A FAIL here is definitive and short-circuits Tier 2. A pass is INCONCLUSIVE.
 
@@ -937,6 +969,10 @@ def main(argv=None) -> int:
     ap.add_argument("--no-bisect", action="store_true",
                     help="do not walk down to find the real ceiling after a failure")
     ap.add_argument("--stall-s", type=int, default=STALL_S)
+    ap.add_argument("--no-card-reset", action="store_true",
+                    help="never tt-smi -r a wedged card; report the rest of the run CARD_DIRTY "
+                         "instead. A reset takes the board pair down, so use this when anything "
+                         "else on the host is in flight.")
     ap.add_argument("--list", action="store_true", help="print the derived roster and exit")
     ap.add_argument("--record", action="store_true",
                     help="write docs/capacity_gate_baseline.json, pinning the ceiling table this "
@@ -997,8 +1033,22 @@ def main(argv=None) -> int:
         ("PASS", "fail_like", "SKIPPED", "NO_WEIGHTS", "INCONCLUSIVE", "CONTENDED"), 0))),
         flush=True)
 
-    for i, cell in enumerate(cells(models, depth=a.depth, recycling=a.recycling)):
+    #: Cards this run has given up on: a wedge that a reset could not clear. Every cell still
+    #: owed on such a card is reported CARD_DIRTY, because nothing was measured on it.
+    dead: dict[str, str] = {}
+    all_cells = list(cells(models, depth=a.depth, recycling=a.recycling))
+
+    for i, cell in enumerate(all_cells):
         w = workers[i % len(workers)]
+        if repr(w) in dead:
+            r = {"model": cell.model, "verdict": "CARD_DIRTY", "worker": repr(w), "wall_s": 0.0,
+                 "reason": f"not run: {dead[repr(w)]}"}
+            report["results"].append(r)
+            print(f"  -> {r['model']:<14} {r['verdict']:<10} 0s  {r['reason'][:80]}", flush=True)
+            _finish(report)
+            (a.report or work / "report.json").write_text(
+                json.dumps(report, indent=1, default=str))
+            continue
         t0 = time.monotonic()
         try:
             r = run_cell(w, cell, work, hookdir, depth=a.depth, bisect=not a.no_bisect) \
@@ -1010,6 +1060,19 @@ def main(argv=None) -> int:
         report["results"].append(r)
         print(f"  -> {r['model']:<14} {r['verdict']:<10} {r.get('wall_s')}s "
               f"{r.get('mechanism') or ''} {str(r.get('reason', ''))[:80]}", flush=True)
+
+        # A device-side fatal can leave the chip open-able but not dispatching, so the NEXT cell
+        # would hang in tt-bio's dispatch probe and be recorded as this gate's own kind of
+        # failure. Checked only after a failure, so a clean run pays nothing for it.
+        if r["verdict"] in ("FAIL", "STALL", "ERROR", "CARD_DIRTY") and not a.no_card_reset:
+            ok, how = recover_card(w, workers)
+            r["card_after"] = how
+            if not ok:
+                dead[repr(w)] = how
+                print(f"     {w}: {how}", flush=True)
+            elif how != "still dispatching":
+                print(f"     {w}: {how}", flush=True)
+
         _finish(report)
         (a.report or work / "report.json").write_text(json.dumps(report, indent=1, default=str))
 
