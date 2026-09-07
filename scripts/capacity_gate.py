@@ -224,6 +224,32 @@ def coverage_gaps() -> list[str]:
                                                               "affinity"))
 
 
+def runnable() -> list[str]:
+    """The models this gate is expected to hold a measured cell for: the roster, less the written
+    exemptions, less anything it has no verb to run."""
+    gaps = set(coverage_gaps())
+    return [m for m in roster() if m not in EXEMPT and m not in gaps]
+
+
+def baseline_gaps() -> list[str]:
+    """Runnable models with no recorded cell in `docs/capacity_gate_baseline.json`.
+
+    The roster guard next door asks whether a model is COVERED by the gate. This asks whether the
+    coverage actually left a record behind, which is a different question and was the one nobody
+    was asking: the baseline sat at 8 of 16 cells through two passes and every test stayed green.
+    boltz2's PASS at 1536 was measured, written up in prose, and never recorded -- and its report
+    lived in gitignored scratch inside a worktree fleet hygiene later removed, so the claim
+    outlived its evidence. A verdict not folded into the baseline when it is measured is lost.
+    """
+    if not BASELINE.exists():
+        return runnable()
+    try:
+        cells = json.loads(BASELINE.read_text()).get("cells", {})
+    except ValueError:
+        return runnable()
+    return [m for m in runnable() if m not in cells]
+
+
 # ---------------------------------------------------------------------------------------------
 # PER-MODEL CELLS -- THE BAR IS IN TOKENS, RESIDUES ARE DERIVED
 # ---------------------------------------------------------------------------------------------

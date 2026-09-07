@@ -786,3 +786,23 @@ def test_recording_an_unreadable_or_empty_report_is_refused(tmp_path, monkeypatc
     empty.write_text(json.dumps(dict(_bisect_report(), results=[])))
     assert cg._record_from(empty) == 2
     assert not (tmp_path / "baseline.json").exists()
+
+
+@pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
+def test_every_runnable_model_has_a_recorded_cell():
+    """Coverage that leaves no record behind is not coverage.
+
+    The roster guard asks whether a shipped model is covered by the gate. Nothing asked whether
+    the covered model actually has a measured cell, so the baseline sat at 8 of 16 through two
+    passes with every test green: boltz2's PASS at 1536 was measured, written up in prose and
+    never recorded, and its report lived in gitignored scratch inside a worktree that was later
+    torn down. The claim outlived the evidence, which is the one failure a capacity baseline
+    exists to prevent.
+    """
+    missing = cg.baseline_gaps()
+    assert not missing, (
+        f"these models are runnable by the gate but have no cell in "
+        f"docs/capacity_gate_baseline.json, so their verdict is prose and not evidence: "
+        f"{missing}. Run the gate for them and --record (or --record-from a finished report). "
+        f"A model that genuinely cannot be measured anywhere needs a written EXEMPT reason "
+        f"instead, the way saprot-1.3b has one.")
