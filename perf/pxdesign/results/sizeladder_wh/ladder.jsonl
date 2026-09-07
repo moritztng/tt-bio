@@ -1,0 +1,5 @@
+{"rung": 128, "tag": "a", "rc": 0, "wall_s": 26, "runtime_s": 21.95, "n_token": 208, "fit_rmsd": 0.19748362986925205, "binder_atoms": 321}
+{"rung": 256, "tag": "a", "rc": 0, "wall_s": 38, "runtime_s": 34.17, "n_token": 336, "fit_rmsd": 0.1371434275192437, "binder_atoms": 321}
+{"rung": 512, "tag": "a", "rc": 0, "wall_s": 68, "runtime_s": 60.53, "n_token": 592, "fit_rmsd": 2.437832920001431, "binder_atoms": 321}
+{"rung": 768, "tag": "a", "rc": 0, "wall_s": 90, "runtime_s": 85.02, "n_token": 848, "fit_rmsd": 0.1678667856249325, "binder_atoms": 321}
+{"rung": 512, "tag": "b", "rc": 0, "wall_s": 70, "runtime_s": 62.37, "n_token": 592, "fit_rmsd": 2.437832920001431, "binder_atoms": 321}
