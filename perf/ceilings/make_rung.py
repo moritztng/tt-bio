@@ -1,9 +1,15 @@
-"""Cut a cdk2x2 rung of N residues from the 1024 fixture.
+"""Build a cdk2x2 rung of N residues from the 1024 fixture.
 
 Every existing rung is the same 298-aa CDK2 pattern tiled and truncated to N *query columns*, so a
-new rung is a column prefix of the 1024 one. a3m lowercase characters are insertions and do not
-consume a column, which is why this is not a character cut. `--verify` regenerates the committed
-512/576/640/768/896/960 rungs and compares byte-for-byte; that is the proof the rule is the rule.
+rung below 1024 is a column prefix of the 1024 one and a rung above it is a continuation of the
+same period. a3m lowercase characters are insertions and do not consume a column, which is why
+this is not a character cut.
+
+Two self-proofs, because a fixture that is not the rule it claims to be measures nothing:
+`--verify` regenerates the committed 512/576/640/768/896/960 rungs byte-for-byte, and
+`--verify-grow` rebuilds the committed 1024 a3m from nothing but its own first 298 columns.
+`--verify-depth` counts the rows the model's parser actually keeps, which is not the row count of
+the file.
 """
 import os
 import sys
@@ -14,8 +20,9 @@ from pathlib import Path
 SRC = Path(os.environ.get("TT_BIO_RUNG_SRC")
            or Path(__file__).resolve().parents[1] / "size512" / "fixtures")
 HDR = ("version: 1\n"
-       "# CDK2 (PDB 1HCL) tiled to {n} residues, apo, one chain. Cut from cdk2x2_1024 by\n"
-       "# perf/ceilings/make_rung.py, the same 298-aa pattern every other rung uses.\n"
+       "# CDK2 (PDB 1HCL) tiled to {n} residues, apo, one chain. Built by\n"
+       "# perf/ceilings/make_rung.py from cdk2x2_1024's 298-aa period, the same pattern every\n"
+       "# other rung uses: a column prefix of it below 1024, a continuation of it above.\n"
        "sequences:\n  - protein:\n      id: A\n      sequence: {seq}\n      msa: {msa}\n")
 
 
@@ -30,6 +37,21 @@ def _column_prefix(row, n):
         out.append(ch)
         cols += 1
     return "".join(out)
+
+
+_PERIOD = 298   # the CDK2 repeat every cdk2x2 rung is tiled from
+
+
+def _grow(row, n):
+    """Repeat the row's own 298-column block until it covers at least `n` columns.
+
+    A ceiling needs a rung ABOVE it or it is not a boundary, and the platform's own cap is 1024,
+    so the negative control for a 1024 ceiling lives past the 1024 fixture. The fixture is exactly
+    periodic at 298 columns -- every row, insertions included, because that is how it was tiled --
+    so continuing the period is the rule the column cut already relies on, not a new one.
+    `--verify` regenerates the committed 1024 a3m from its own first block, which is the proof.
+    """
+    return _column_prefix(row, _PERIOD) * (-(-n // _PERIOD))
 
 
 # Substituted into a match column to make a tiled copy distinct. Any residue works; the
@@ -97,8 +119,8 @@ def unique_rows(a3m):
 
 def cut(n, out_dir, depth=None):
     rows = (SRC / "cdk2x2_1024.a3m").read_text().splitlines()
-    if n > len(_column_prefix(rows[1], 10**9)):
-        raise SystemExit(f"{n} columns is past the 1024 fixture")
+    if n > len(_column_prefix(rows[1], 10 ** 9)):
+        rows = [r if i % 2 == 0 else _grow(r, n) for i, r in enumerate(rows)]
     # Cut columns BEFORE deepening. The other order lets the column cut truncate away the very
     # substitution that made a row distinct, collapsing the depth again for small n.
     rows = [rows[i] if i % 2 == 0 else _column_prefix(rows[i], n) for i in range(len(rows))]
@@ -130,6 +152,17 @@ if __name__ == "__main__":
                 print(f"{n}: a3m {'OK' if ok_a3m else 'MISMATCH'} "
                       f"seq {'OK' if got == want_seq else 'MISMATCH'}")
         sys.exit(1 if bad else 0)
+    if sys.argv[1] == "--verify-grow":
+        # A rung past 1024 continues the fixture's own 298-column period. Rebuilding the
+        # committed 1024 a3m from nothing but its first block is the proof that the period is
+        # the period, for every row and every insertion in it.
+        rows = (SRC / "cdk2x2_1024.a3m").read_text().splitlines()
+        regrown = "".join(f"{rows[i]}\n{_column_prefix(_grow(rows[i + 1], 1024), 1024)}\n"
+                          for i in range(0, len(rows), 2))
+        ok = regrown == (SRC / "cdk2x2_1024.a3m").read_text()
+        print(f"1024 regrown from its own {_PERIOD}-column block: "
+              f"{'OK' if ok else 'MISMATCH'}")
+        sys.exit(0 if ok else 1)
     if sys.argv[1] == "--verify-depth":
         # A depth fixture is only a depth fixture if the parser KEEPS the rows. Counting lines
         # in the file measures the generator, not the model's input; this counts what survives
