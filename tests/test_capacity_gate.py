@@ -314,3 +314,37 @@ def test_a_reset_is_refused_when_the_run_does_not_own_the_host():
     assert cg._may_reset(a, [a, b]) is False, "two cards on one host: a reset hits the sibling"
     assert cg._may_reset(cg.Worker("qb1", 0, False), [cg.Worker("qb1", 0, False)]) is False, (
         "the reset path is local-only; it does not ssh a reset at a remote host")
+
+
+def test_a_sigkilled_worker_is_the_host_not_the_card():
+    """Measured: esmfold2 at 1504 residues was killed by the kernel OOM killer at 22.8 GiB
+    anon-rss on this 30 GB host. The launcher only ever saw `SpawnProcess-1 exit -9` and no
+    device error, and the RSS-floor sampler missed the spike because the kill lands between two
+    samples. Scored as FAIL that publishes a Blackhole ceiling that nothing on the card set."""
+    assert cg._host_killed(-9, "") is True
+    assert cg._host_killed(137, "") is True
+    assert cg._host_killed(1, "every local worker exited before the run finished "
+                              "(SpawnProcess-1 exit -9); no job can be served") is True
+    assert cg._host_killed(0, "all good") is False
+    assert cg._host_killed(1, "Out of Memory: Not enough space to allocate 18530435072 B "
+                              "DRAM buffer across 8 banks") is False, (
+        "a device allocator refusal is the bar failing, not the host")
+
+
+def test_an_unusable_checkpoint_is_not_a_failed_bar():
+    """nesso1's artifact on this host carries atom-encoder layers the module does not declare, so
+    from_pretrained dies in load_state_dict(strict=True) before one tensor reaches the card. An
+    absent checkpoint was already excluded; an unusable one is the same non-result."""
+    assert cg._no_weights("RuntimeError: Error(s) in loading state_dict for Nesso1:\n\t"
+                          "Unexpected key(s) in state_dict: \"input_embedder.atom_attention\"")
+    assert cg._no_weights("size mismatch for trunk.weight: copying a param with shape ...")
+    assert not cg._no_weights("Out of Memory: Not enough space to allocate 18530435072 B DRAM")
+
+
+def test_the_screen_only_path_reclassifies_a_failing_leg_too():
+    """The guard here read `!= "FAIL"`, which skipped every case the reclassification exists for:
+    a missing or broken checkpoint is precisely what makes the leg exit nonzero."""
+    src = (ROOT / "scripts" / "capacity_gate.py").read_text()
+    body = src[src.index("def _screen_only("):]
+    assert '!= "FAIL" and _no_weights' not in body
+    assert '("FAIL", "HOST_OOM") and _no_weights' in body

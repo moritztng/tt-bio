@@ -707,8 +707,13 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
     if r["mechanism"] == "contention":
         r["verdict"] = "CONTENDED"
         return r
-    if r["host_ram_floor_mb"] < HOST_RAM_FLOOR_MB and not r["mechanism"]:
+    if not r["mechanism"] and (r["host_ram_floor_mb"] < HOST_RAM_FLOOR_MB
+                               or _host_killed(r["rc"], r["tail"])):
+        # No device-side error and the worker died on a signal: the HOST ran out of memory. A
+        # 1504-token fold that the kernel kills at 22.8 GiB anon-rss on a 30 GB box never reached
+        # the device wall, and recording it as one publishes a ceiling nobody walked.
         r["verdict"] = "HOST_OOM"
+        r["host_oom_evidence"] = _oom_killer_fired(r.get("model", ""))
         return r
     r["verdict"] = "FAIL"
     return r
@@ -731,8 +736,10 @@ def _residency(worker, cell, fixture, work, hookdir, tokens) -> dict:
         r["verdict"] = "STALL"
         r["stall_kind"] = ("compute-active" if r["cpu_s_while_quiet"] > 0.5 * STALL_S
                            else "idle")
-    elif r["host_ram_floor_mb"] < HOST_RAM_FLOOR_MB and not r["mechanism"]:
+    elif not r["mechanism"] and (r["host_ram_floor_mb"] < HOST_RAM_FLOOR_MB
+                                 or _host_killed(r["rc"], r["tail"])):
         r["verdict"] = "HOST_OOM"
+        r["host_oom_evidence"] = _oom_killer_fired(r.get("model", ""))
     elif r["rc"] == 0:
         r["verdict"] = "PASS"
     else:
@@ -841,13 +848,41 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
 _NO_WEIGHTS = re.compile(
     r"could not (be )?(download|fetch)|No such file or directory.*\.(pt|safetensors|ckpt)"
     r"|HFValidationError|RepositoryNotFound|GatedRepo|401 Client Error|Connection error"
-    r"|Weights .* not found|missing weights", re.I)
+    r"|Weights .* not found|missing weights"
+    # An UNUSABLE checkpoint is the same non-result as an absent one: the model was never
+    # constructed, so nothing was ever asked of the device. Measured on nesso1, whose artifact on
+    # this host carries atom-encoder layers the module does not declare, so from_pretrained dies
+    # in load_state_dict(strict=True) before a single tensor reaches the card.
+    r"|Error\(s\) in loading state_dict|Unexpected key\(s\) in state_dict"
+    r"|Missing key\(s\) in state_dict|size mismatch for ", re.I)
 
 
 def _no_weights(tail: str) -> bool:
-    """A model whose checkpoint is not on this host has NOT failed the bar. Recording that as a
-    capacity failure would be the same lie in the other direction as scoring it a pass."""
+    """A model whose checkpoint is absent or unusable on this host has NOT failed the bar.
+    Recording that as a capacity failure would be the same lie in the other direction as scoring
+    it a pass: it publishes a ceiling nobody walked."""
     return bool(_NO_WEIGHTS.search(tail or ""))
+
+
+#: A leg whose worker died on SIGKILL with no device-side error is the HOST out of memory, not the
+#: card. Measured: esmfold2 at 1504 residues was killed by the kernel OOM killer at 22.8 GiB
+#: anon-rss on this 30 GB host, and the launcher only ever saw "SpawnProcess-1 exit -9". The
+#: RSS-floor sampler can miss it outright, because the kill happens between two samples.
+_SIGKILLED = re.compile(r"exit -9\b|exit 137\b|Killed\b|SIGKILL")
+
+
+def _host_killed(rc: int, tail: str) -> bool:
+    return rc in (-9, 137) or bool(_SIGKILLED.search(tail or ""))
+
+
+def _oom_killer_fired(model: str) -> str | None:
+    """The kernel's own record of the kill, so HOST_OOM is evidence and not an inference."""
+    try:
+        out = subprocess.run(["dmesg"], capture_output=True, text=True, timeout=20).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    hits = [ln for ln in out.splitlines() if "Out of memory: Killed process" in ln]
+    return hits[-1].strip()[-200:] if hits else None
 
 
 def _bisect(worker, cell, work, hookdir, depth, rec) -> int | None:
@@ -1157,7 +1192,9 @@ def _screen_only(worker, cell, work, hookdir, depth) -> dict:
     rec.update(verdict=scr["verdict"], decided_by="screen", mechanism=scr["mechanism"],
                wall_s=scr["wall_s"], stacks_truncated=scr.get("stacks_truncated"),
                block_calls=scr.get("block_calls"), note=scr.get("note"))
-    if scr["verdict"] != "FAIL" and _no_weights(scr["tail"]):
+    # Not `!= "FAIL"`: an absent or unusable checkpoint is exactly what makes a leg exit
+    # nonzero, so guarding this on "not already a FAIL" would skip every case it is for.
+    if scr["verdict"] in ("FAIL", "HOST_OOM") and _no_weights(scr["tail"]):
         rec["verdict"] = "NO_WEIGHTS"
     return rec
 
