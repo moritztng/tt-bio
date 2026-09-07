@@ -154,11 +154,19 @@ def test_a_baseline_from_a_different_bar_is_not_evidence():
     a model allocates at 1536, and pair tensors scale roughly quadratically, so the gap is not
     small. Caught for real when the bar was raised 1504 -> 1536 and every recorded cell stayed
     green."""
-    recorded = json.loads(BASELINE.read_text()).get("bar_tokens")
-    assert recorded == cg.TOKEN_BAR, (
-        f"docs/capacity_gate_baseline.json was measured at {recorded} tokens but the bar is now "
-        f"{cg.TOKEN_BAR}. Those cells are not evidence for this bar; re-run the gate and "
-        f"re-record.")
+    b = json.loads(BASELINE.read_text())
+    assert b.get("bar_tokens") == cg.TOKEN_BAR, (
+        f"docs/capacity_gate_baseline.json was measured at {b.get('bar_tokens')} tokens but the "
+        f"bar is now {cg.TOKEN_BAR}. Those cells are not evidence for this bar; re-run the gate "
+        f"and re-record.")
+    # The file-level stamp alone is not enough: a PARTIAL re-record (--models) merges into the
+    # prior file and stamps it with the new bar, so a cell measured at the old bar can sit inside
+    # a correctly-stamped file. That is exactly what happened at 1504 -> 1536.
+    stale = {m: c.get("tokens_requested") for m, c in b.get("cells", {}).items()
+             if c.get("tokens_requested") not in (None, cg.TOKEN_BAR)}
+    assert not stale, (
+        f"these baseline cells were measured at a different bar and are not evidence for "
+        f"{cg.TOKEN_BAR}: {stale}")
 
 
 @pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")

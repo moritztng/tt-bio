@@ -1158,6 +1158,12 @@ def record_baseline(report: dict, *, partial: bool) -> str:
         except ValueError:
             prior = {}
     cells = prior.get("cells", {}) if partial else {}
+    # A partial run must not carry cells measured at a DIFFERENT bar across into this baseline.
+    # Measured: raising the bar 1504 -> 1536 and re-recording six cells left the two esmfold2
+    # cells from the 1504 run inside a file stamped 1536, where they read as current evidence.
+    # Pair tensors scale roughly quadratically, so a 1504 result is not a 1536 result.
+    cells = {m: c for m, c in cells.items()
+             if (c or {}).get("tokens_requested") in (None, TOKEN_BAR)}
     for r in report["results"]:
         cells[r["model"]] = {k: r.get(k) for k in
                              ("verdict", "tokens_requested", "tokens_padded", "residues",
