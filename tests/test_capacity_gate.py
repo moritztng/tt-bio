@@ -1107,3 +1107,81 @@ def test_the_preflight_tells_the_operator_to_wait_not_to_reset(tmp_path, monkeyp
     assert after.index("if busy:") < after.index("sick ="), (
         "the co-tenant check must come BEFORE the probe, or the gate pays 300 s per card to learn "
         "what the lease file already said")
+
+
+# ---------------------------------------------------------------------------------------------
+# Defect 22: a screen sweep could overwrite a Tier 2 PASS with INCONCLUSIVE and print success.
+# The campaign shell avoided it by never passing --record to the warm sweep, which is a rule
+# living in a comment. The screen is the cheap leg, so it is the one that gets re-run.
+# ---------------------------------------------------------------------------------------------
+
+
+def _cell_report(model, verdict, decided_by, bar=None, **kw):
+    return {
+        "bar_tokens": cg.TOKEN_BAR if bar is None else bar,
+        "started": "2026-09-07T00:00:00Z", "tree": "deadbeef", "dirty": False,
+        "geometry": {"dram_banks": 8}, "reductions": {},
+        "results": [dict({"model": model, "verdict": verdict, "decided_by": decided_by,
+                          "tokens_requested": cg.TOKEN_BAR}, **kw)],
+    }
+
+
+def test_a_screen_sweep_does_not_overwrite_a_residency_pass(tmp_path, monkeypatch):
+    """The exact run that would do it: `--tier screen` over the roster, then `--record`. A clean
+    screen is INCONCLUSIVE by design, so every PASS in the file becomes a non-verdict and the
+    most expensive results in the baseline are gone with a success message printed."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_cell_report("openbind", "PASS", "residency",
+                                    dram_peak_bytes=6203490304, wall_s=280.3), partial=True)
+    msg = cg.record_baseline(_cell_report("openbind", "INCONCLUSIVE", "screen", wall_s=90.5),
+                             partial=True)
+    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["openbind"]
+    assert cell["verdict"] == "PASS", (
+        "a screen cell overwrote a residency PASS; the run that decided nothing replaced the one "
+        "that decided")
+    assert cell["dram_peak_bytes"] == 6203490304, "the PASS survived but its measurement did not"
+    assert "openbind" in msg and "kept" in msg, (
+        f"the cell was kept silently, which reads exactly like it was updated: {msg!r}")
+
+
+def test_a_full_roster_screen_record_does_not_wipe_every_pass(tmp_path, monkeypatch):
+    """partial=False empties `cells` before the merge, so the prior cell has to be read off the
+    file rather than off the working dict. A whole-roster screen sweep is the worst case."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_cell_report("esmc-6b", "PASS", "residency", dram_peak_bytes=12789007360),
+                       partial=True)
+    cg.record_baseline(_cell_report("esmc-6b", "INCONCLUSIVE", "screen"), partial=False)
+    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["esmc-6b"]["verdict"] \
+        == "PASS", "a full-roster screen record wiped a residency PASS"
+
+
+def test_a_card_that_was_never_available_does_not_erase_a_verdict(tmp_path, monkeypatch):
+    """CONTENDED and CARD_DIRTY are cells where no model code ran at all. openbind's Tier 2 stage
+    returned CONTENDED for real this campaign, with another worker holding card 0."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_cell_report("rf3", "FAIL", "screen", mechanism="dram",
+                                    alloc_ceiling_tokens=1088), partial=True)
+    for dud in ("CONTENDED", "CARD_DIRTY"):
+        cg.record_baseline(_cell_report("rf3", dud, "screen"), partial=True)
+        cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]
+        assert cell["verdict"] == "FAIL" and cell["alloc_ceiling_tokens"] == 1088, (
+            f"{dud} erased a measured FAIL and the ceiling the bisect spent hours on")
+
+
+def test_a_real_verdict_still_replaces_whatever_stands(tmp_path, monkeypatch):
+    """The control. Keeping the stronger cell must not turn the baseline read-only: a re-measured
+    verdict, including one that goes PASS -> FAIL, has to land. Otherwise a model that regresses
+    keeps publishing a ceiling it no longer walks."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    cg.record_baseline(_cell_report("protenix-v2", "PASS", "residency"), partial=True)
+    cg.record_baseline(_cell_report("protenix-v2", "FAIL", "residency", mechanism="dram"),
+                       partial=True)
+    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["protenix-v2"]["verdict"]\
+        == "FAIL", "the guard froze the cell instead of protecting it"
+    # And an INCONCLUSIVE over an INCONCLUSIVE is a legitimate refresh, not a downgrade.
+    cg.record_baseline(_cell_report("openfold3", "INCONCLUSIVE", "screen", wall_s=87.3),
+                       partial=True)
+    cg.record_baseline(_cell_report("openfold3", "INCONCLUSIVE", "screen", wall_s=12.0),
+                       partial=True)
+    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["openfold3"]["wall_s"] \
+        == 12.0, "a same-strength re-measurement was refused"

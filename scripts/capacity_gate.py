@@ -1630,6 +1630,27 @@ def ceilings_fingerprint() -> str:
     return hashlib.sha256(json.dumps(rows, default=str).encode()).hexdigest()[:16]
 
 
+# Verdicts that mean THIS RUN DECIDED NOTHING. INCONCLUSIVE is a clean Tier 1 screen, which by
+# design is never a pass; CONTENDED and CARD_DIRTY are cells where the card was unavailable and
+# no model code ran at all. Each is a legitimate thing to report, and none of them is evidence
+# about the bar.
+UNDECIDED = frozenset(("INCONCLUSIVE", "CONTENDED", "CARD_DIRTY"))
+
+
+def _would_lose_evidence(new: dict, old: dict | None) -> bool:
+    """True when recording `new` over `old` replaces a measurement with the absence of one.
+
+    The screen is cheap and the residency run is minutes to hours, so the cheap one is the one
+    that gets re-run -- and a screen cell overwriting a Tier 2 PASS is a silent downgrade of the
+    most expensive result in the file. The campaign shell knew this and worked around it by never
+    passing --record to the warm sweep, which is a rule enforced by discipline rather than by the
+    tool: one `--tier screen --record` erases every PASS in the baseline and prints success.
+    """
+    if not old or old.get("tokens_requested") not in (None, TOKEN_BAR):
+        return False       # nothing to lose, or prior cell is another bar's and drops anyway
+    return new.get("verdict") in UNDECIDED and old.get("verdict") not in UNDECIDED
+
+
 def record_baseline(report: dict, *, partial: bool) -> str:
     """Merge this run's cells into docs/capacity_gate_baseline.json.
 
@@ -1649,7 +1670,17 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     # Pair tensors scale roughly quadratically, so a 1504 result is not a 1536 result.
     cells = {m: c for m, c in cells.items()
              if (c or {}).get("tokens_requested") in (None, TOKEN_BAR)}
+    # A full-roster record replaces the file, so the prior cells have to be read from `prior`
+    # rather than from `cells`, which is empty in that case. A screen sweep over the whole roster
+    # is exactly the run that would wipe every PASS.
+    before = (prior.get("cells") or {})
+    kept = []
     for r in report["results"]:
+        if _would_lose_evidence(r, before.get(r["model"])):
+            kept.append(f"{r['model']} ({before[r['model']]['verdict']} kept over "
+                        f"{r['verdict']})")
+            cells[r["model"]] = before[r["model"]]
+            continue
         cells[r["model"]] = {k: r.get(k) for k in
                              ("verdict", "tokens_requested", "tokens_padded", "residues",
                               "msa_rows_effective", "dram_peak_bytes", "dram_total_bytes",
@@ -1670,7 +1701,13 @@ def record_baseline(report: dict, *, partial: bool) -> str:
         "cells": cells,
         "note": "CAPACITY ONLY: allocates and completes. Not a correctness record.",
     }, indent=1, default=str) + "\n")
-    return f"recorded {BASELINE} ({len(cells)} cells, ceilings {ceilings_fingerprint()})"
+    msg = f"recorded {BASELINE} ({len(cells)} cells, ceilings {ceilings_fingerprint()})"
+    # Said out loud. A cell that silently did not update is indistinguishable from one that did,
+    # and the whole point of keeping it is that the stronger result cost card time.
+    if kept:
+        msg += ("\n  this run decided nothing for these, so the recorded result stands: "
+                + "; ".join(kept))
+    return msg
 
 
 def _record_from(path: Path) -> int:
