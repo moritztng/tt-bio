@@ -2675,7 +2675,30 @@ def _size_ladder_all_pair_exponents(runtimes: dict) -> dict:
             for n1, n2 in zip(rungs, rungs[1:])}
 
 
-def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
+def _size_ladder_other_card_levers(reference: dict, card: str, model: str) -> list:
+    """(card, levers) for the same model on every OTHER card type, newest first.
+
+    A dark lever's exemption reason is two halves: measured evidence (counts, decline
+    clause) and a human judgement about why that is legitimate at that size. The evidence
+    is per card and gets regenerated on every record. The judgement usually is not: "an
+    ESMC lever, a protenix-v1 fold does not run that module" is true on every board. With
+    no cross-card source, recording a brand-new card type writes TODO on every dark lever
+    it has — hundreds of them — and the check cannot pass until a human retypes judgements
+    the file already holds one card block away. Carried reasons are tagged with the card
+    they came from so an inherited judgement never reads as one measured here.
+    """
+    out = []
+    for other, block in (reference.get("cards") or {}).items():
+        if other == card:
+            continue
+        entry = (block.get("models") or {}).get(model)
+        if entry and entry.get("levers"):
+            out.append((other, entry["levers"], str(entry.get("recorded") or "")))
+    out.sort(key=lambda t: t[2], reverse=True)
+    return [(c, lv) for c, lv, _ in out]
+
+
+def _size_ladder_fill_reasons(levers: dict, old_levers: dict, inherited=()) -> int:
     """Carry exemption reasons forward from the previous baseline; newly dark
     levers get a TODO. Returns the number of dark levers still needing a reason."""
     todo = 0
@@ -2685,6 +2708,12 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
                 e.pop("reason", None)
                 continue
             old = ((old_levers or {}).get(rung, {}).get(flag, {})).get("reason", "")
+            if not old or old.startswith("TODO"):
+                for other_card, other_levers in inherited:
+                    cand = (other_levers.get(rung, {}).get(flag, {})).get("reason", "")
+                    if cand and not cand.startswith("TODO"):
+                        old = f"{cand} [carried from {other_card}]"
+                        break
             if old and not old.startswith("TODO"):
                 # Carry the EXPLANATION forward, re-measure the evidence. A reason opens with
                 # the counts and clause it was written against, and carrying that verbatim
@@ -2695,7 +2724,8 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
                 # must not.
                 head, sep, why = old.partition(": ")
                 e["reason"] = (_size_ladder_reason_evidence(e) + ": " + why
-                               if sep and head.startswith("declines all ") else old)
+                               if sep and head.startswith(SIZE_LADDER_EVIDENCE_HEADS)
+                               else old)
             else:
                 e["reason"] = _size_ladder_lever_todo(e)
                 todo += 1
@@ -2779,6 +2809,12 @@ def _size_ladder_clause_str(entry: dict, top: int = 0) -> str:
     """The clause a lever declined on, biggest first: `flag:shape xN, ...`."""
     items = sorted((entry.get("rejects") or {}).items(), key=lambda kv: -kv[1])
     return ", ".join(f"{k} x{v}" for k, v in (items[:top] if top else items))
+
+
+# The openings a generated evidence half can have. `_size_ladder_fill_reasons` splits a
+# carried reason on the first of these and regenerates it, so the judgement survives a
+# re-record and the numbers never do.
+SIZE_LADDER_EVIDENCE_HEADS = ("declines all ", "never reached at this size")
 
 
 def _size_ladder_reason_evidence(entry: dict) -> str:
@@ -3070,6 +3106,12 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 "legs": []}
     try:
         baseline = _size_ladder_read_baseline(baseline_path)
+        # Exemption reasons are the one thing worth reading across files even when
+        # --size-ladder-baseline points somewhere else: a fresh fragment for a new card
+        # type holds no judgements at all, and the committed union does.
+        reasons_from = (baseline
+                        if baseline_path.resolve() == SIZE_LADDER_BASELINE.resolve()
+                        else _size_ladder_read_baseline(SIZE_LADDER_BASELINE))
     except Exception as e:
         return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
                 "error": f"baseline {baseline_path} unreadable: {e}", "legs": []}
@@ -3194,12 +3236,16 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             carried_rungs = _size_ladder_carry_rungs(meas, old_models.get(m), stamp)
             if carried_rungs:
                 block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
-            todos += _size_ladder_fill_reasons(meas["levers"],
-                                               old_models.get(m, {}).get("levers"))
+            todos += _size_ladder_fill_reasons(
+                meas["levers"], old_models.get(m, {}).get("levers"),
+                _size_ladder_other_card_levers(reasons_from, card, m))
             entry = {"grid": meas.get("grid"), **stamp,
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
             if meas.get("refused"):
                 entry["refused"] = meas["refused"]
+                for rung, why in meas["refused"].items():
+                    print(f"  [size-ladder] {m}: rung {rung} REFUSED, recorded as a refusal "
+                          f"— {why}", flush=True)
             if carried_rungs:
                 entry["rungs_carried"] = carried_rungs
             if block:

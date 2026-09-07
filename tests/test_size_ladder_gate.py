@@ -282,6 +282,65 @@ def test_fragment_record_writes_one_file_per_model_and_leaves_no_duplicate(
     assert sorted(resolved["p150a"]["models"]) == ["boltz2", "rf3"]
 
 
+DARK = {"resolved": "True", "served": 0, "declined": 8, "frac": 0.0, "how": "stats"}
+
+
+def test_a_new_card_inherits_the_judgement_half_of_an_exemption_reason(rg):
+    """Recording a card type for the first time has no previous entry for that card, so
+    every dark lever would take a TODO and the check could not pass until a human retyped
+    judgements the file already holds one card block away."""
+    reference = {"cards": {
+        "p150a": {"models": {"boltz2": {"recorded": "2026-08-22", "levers": {"256": {"K2": {
+            **DARK, "reason": "declines all 556 calls on l1_dest: an ESMC lever, boltz-2 "
+                              "does not run that module"}}}}}},
+        "p300c": {"models": {"boltz2": {"recorded": "2026-08-19", "levers": {"256": {"K2": {
+            **DARK, "reason": "declines all 4 calls: stale, from the older record"}}}}}},
+    }}
+    inherited = rg._size_ladder_other_card_levers(reference, "tt-galaxy-wh l", "boltz2")
+    assert [c for c, _ in inherited] == ["p150a", "p300c"]      # newest first
+
+    levers = {"256": {"K2": dict(DARK)}}
+    assert rg._size_ladder_fill_reasons(levers, None, inherited) == 0
+    reason = levers["256"]["K2"]["reason"]
+    # the judgement carries, tagged with where it came from
+    assert "does not run that module" in reason
+    assert "[carried from p150a]" in reason
+    # the evidence half is this card's own, not p150a's 556 calls
+    assert "declines all 8 calls" in reason and "556" not in reason
+
+
+def test_a_never_reached_reason_re_measures_its_counts_too(rg):
+    """The evidence half is regenerated whichever opening it has. A lever that was dark
+    for want of a call site and now declines real calls must not keep saying 0 offered."""
+    old = {"256": {"K2": {**DARK, "served": 0, "declined": 0,
+                          "reason": "never reached at this size, 0 offered and 0 declined: "
+                                    "no call site on boltz-2's path"}}}
+    levers = {"256": {"K2": dict(DARK)}}
+    assert rg._size_ladder_fill_reasons(levers, old) == 0
+    reason = levers["256"]["K2"]["reason"]
+    assert reason.startswith("declines all 8 calls")
+    assert "no call site on boltz-2's path" in reason
+    assert "0 offered" not in reason
+
+
+def test_a_lever_dark_only_on_the_new_card_still_gets_a_todo(rg):
+    """Inheritance must not invent a judgement. A lever that fires everywhere else has no
+    reason to carry, so it is still a human's to write."""
+    reference = {"cards": {"p150a": {"models": {"boltz2": {
+        "recorded": "2026-08-22", "levers": {"256": {"K2": dict(FIRING)}}}}}}}
+    levers = {"256": {"K2": dict(DARK)}}
+    inherited = rg._size_ladder_other_card_levers(reference, "tt-galaxy-wh l", "boltz2")
+    assert rg._size_ladder_fill_reasons(levers, None, inherited) == 1
+    assert levers["256"]["K2"]["reason"].startswith("TODO")
+
+
+def test_the_card_being_recorded_is_not_its_own_inheritance_source(rg):
+    """Otherwise a stale reason on the card being re-recorded would look inherited."""
+    reference = {"cards": {"p150a": {"models": {"boltz2": {
+        "recorded": "2026-08-22", "levers": {"256": {"K2": {**DARK, "reason": "x: y"}}}}}}}}
+    assert rg._size_ladder_other_card_levers(reference, "p150a", "boltz2") == []
+
+
 def test_rf3_is_in_the_size_ladder(rg):
     """RF3 shipped as a `predict --model rf3` choice in v0.6.6 with no correctness coverage in
     either gate leg. It carries RF3-scoped perf levers and it has already had one L1 gate go

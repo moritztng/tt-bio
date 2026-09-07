@@ -68,6 +68,12 @@ six models recorded in parallel on six branches all create the same new card key
 so they conflict on a file none of them disagree about. Fragments never collide, and a model with
 no fragment is served from the monolith exactly as before.
 
+Recording a card type for the first time inherits each dark lever's exemption reason from the
+newest other card that has one, tagged `[carried from <card>]`. Only the judgement half carries;
+the counts and the decline clause are re-measured from the entry being written. Without that, a
+new card writes TODO on every dark lever it has and the check cannot pass until a human retypes
+judgements the file already holds one card block away.
+
 ## Why the ladder includes 640
 
 256, 512, 768 and 1024 all have a padded length that the SDPA chunk size divides, so they all sit
