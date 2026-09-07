@@ -23,7 +23,13 @@
 # so the ladder survived; it would not have been visible if it had not been.
 set -u
 TREE=$1; OUT=$2; shift 2
-PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
+# Overridable, and it has to be: this was hardcoded, so a caller that exported PY to line the
+# ladder up with the rest of its pipeline got the production venv anyway and no line in the log
+# said so. The default stays the production venv because a published ceiling should describe the
+# interpreter that actually serves, but a caller comparing a ladder against gate or parity legs
+# needs them all on one interpreter, and silently ignoring the request is the worst of the three
+# outcomes. Same defect as the lease holder below: a hardcoded value that reads like a default.
+PY=${PY:-/home/cust-team/mthuening/tt-bio/env/bin/python3.10}
 CARD=${CARD:-1}
 NODE=${NODE:-17}
 MODEL=${MODEL:-openbind}
@@ -66,7 +72,7 @@ for r in "$@"; do
     s=$(date +%s)
     engine=$(cd "$TREE" && PYTHONPATH="$TREE" "$PY" -c 'import tt_bio, sys; sys.stdout.write(tt_bio.__file__)')
     sha=$(git -C "$TREE" rev-parse --short HEAD 2>/dev/null)
-    echo "=== $r attempt $attempt start card=$CARD node=$NODE sha=$sha engine=$engine $(date -u +%FT%TZ)" >> "$LOG"
+    echo "=== $r attempt $attempt start card=$CARD node=$NODE sha=$sha engine=$engine py=$PY $(date -u +%FT%TZ)" >> "$LOG"
     # TT_BIO_SIZE_LIMIT=0: the ceiling under test is exactly what size_limits refuses on, so a
     # ladder that honoured it could only ever re-measure the published number.
     # The counters are what turn "this rung took a byte-identical path" from an argument into a
