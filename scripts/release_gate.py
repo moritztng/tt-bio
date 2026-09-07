@@ -686,9 +686,6 @@ SIZE_LADDER_KNOWN_GAP = {
 _LADDER_NOT_A_FOLD = "not a predict/affinity model — %s; covered by its own release-gate arm"
 SIZE_LADDER_EXEMPT.update({
     m: _LADDER_NOT_A_FOLD % what for m, what in (
-        ("boltzgen",    "binder design, gated by the designability leg"),
-        ("rfd3",        "backbone design, gated by the rfd3 leg"),
-        ("pxdesign",    "sequence design, gated by the pxdesign leg"),
         ("esmc-300m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
         ("esmc-600m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
         ("esmc-6b",     "protein-LM embeddings, opt-in embed leg"),
@@ -763,6 +760,59 @@ SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
 # holding it when it is not in the default one; the leg fails naming the variable.
 SIZE_LADDER_NESSO_RECYCLING = 5
 SIZE_LADDER_NESSO_TOKENS_BUDGET = 256
+
+# --- the design arm ---------------------------------------------------------------------------
+# boltzgen, rfd3 and pxdesign do not fold, so `predict` cannot walk them, and they sat in
+# SIZE_LADDER_EXEMPT as "not a predict/affinity model". That left the three models whose size
+# axis is LEAST like a residue count with no runtime-scaling record at all. They run through
+# `tt-bio design` here, with three differences from the fold arm that are properties of the
+# models rather than of this script:
+#
+#   * EACH HAS ITS OWN AXIS. rfd3 counts the contig's total residues (target + binder),
+#     pxdesign the target chain's residues, boltzgen atoms. ``tt_bio.size_limits`` already keys
+#     them that way (DESIGN_TOTAL / DESIGN_TARGET), so this follows that grain instead of
+#     inventing a fourth reading of "size". ``axis`` is recorded beside the rows so a reader
+#     cannot mistake a pxdesign 768 for a boltz2 768.
+#   * EACH HAS ITS OWN RUNGS. A design ladder stops where its own target stops. pxdesign's
+#     rungs are cut from 1DP0 chain A, 1011 residues, so 1024 is not reachable from its own
+#     fixture source and 896 is the top rung. Recording a rung no fixture can express would be
+#     a fabricated number.
+#   * THE STEP COUNT IS PART OF THE MEASUREMENT, not a knob to make the ladder cheap. The fold
+#     arm's 6 sampling steps still resolve every guard. That is NOT true here: rfd3's
+#     self-conditioning path runs only on a recycle, so a 2-step ladder never enters it and
+#     published a ceiling of 992 the model does not have at the settings the platform sends
+#     (size_limits.py's rfd3 row). Design rungs run at the platform's own step count.
+#
+# They stay OUT of SIZE_LADDER_MODELS: a release run would then pay 100-step rfd3 and 400-step
+# pxdesign folds at every rung, which is minutes per rung, and this arm is opt-in via
+# --size-ladder-models until somebody decides that cost is worth a release's wall-clock.
+SIZE_LADDER_DESIGN = {
+    "pxdesign": {
+        "axis": "target residues",
+        # 1DP0 chain A is 1011 residues; 896 is the last rung it can cut.
+        "rungs": (128, 256, 512, 640, 768, 896),
+        "exp_rungs": (256, 512, 768),
+        "steps": ("--n_step", "400"),   # what an upstream run uses (main.py's own default)
+    },
+    "rfd3": {
+        "axis": "contig total residues (target + binder)",
+        "rungs": (256, 512, 640, 704, 768),
+        "exp_rungs": (256, 512, 768),
+        "steps": ("--num_timesteps", "100"),   # what the platform sends; see the block above
+    },
+    "boltzgen": {
+        "axis": "atoms",
+        "rungs": (),      # no atom-denominated fixture ladder exists yet — see the note below
+        "exp_rungs": (),
+        "steps": (),
+    },
+}
+# boltzgen carries no rungs on purpose. Its measured cap is atom-denominated (between 3158 and
+# 4651 atoms, in the trunk Pairformer's triangle attention -- wh-design-models-l1-budget-and-
+# size-caps) and atoms per residue vary with composition, so cutting a residue ladder and
+# labelling it an atom ladder would be a units substitution, the same mistake size_limits.py
+# refuses to make in its boltzgen row. It needs an atom-denominated fixture set walked on its
+# own axis, which is a task and not a line of config.
 
 
 # ---------------------------------------------------------------------------
@@ -2044,6 +2094,13 @@ def _size_ladder_fixture(model: str, rung: int) -> Path:
     if model == "nesso1":
         return (REPO_ROOT / "perf" / "nesso1" / "inputs" / "ladder" / f"aa{rung}"
                 / f"cdk2_{rung}.yaml")
+    if model == "pxdesign":
+        # ladder_<N>.yaml, not laczc_<N>.yaml: the laczc pair points at /work/targets2 and
+        # /work/msa_sliced from the host it was authored on, so it does not resolve in a fresh
+        # checkout. The ladder copy is repo-relative and carries no msa key.
+        return REPO_ROOT / "perf" / "pxdesign" / "targets" / f"ladder_{rung}.yaml"
+    if model == "rfd3":
+        return REPO_ROOT / "perf" / "ceilrfd3" / "targets" / f"ladder_{rung}.json"
     return REPO_ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
 
 
@@ -2055,6 +2112,25 @@ def _affinity_seconds(out_dir: Path):
     with csv_path.open() as fh:
         rows = list(csv.DictReader(fh))
     vals = [float(r["seconds"]) for r in rows if r.get("seconds") and not r.get("error")]
+    return max(vals) if vals else None
+
+
+def _design_seconds(out_dir: Path):
+    """The design trajectory's own seconds from `designs.json`, anywhere under out_dir.
+
+    `tt-bio design` chooses its own subdirectory per model (rfd3 and pxdesign write
+    `designs/`, boltzgen a ranked tree), so this globs rather than reconstructing the layout
+    and duplicating that choice here. Max, not sum: the ladder's runtime is one trajectory's
+    time and every row of one call carries the same value.
+    """
+    vals = []
+    for path in out_dir.rglob("designs.json"):
+        try:
+            rows = json.loads(path.read_text())
+        except Exception:
+            continue
+        vals += [float(r["runtime_s"]) for r in rows
+                 if isinstance(r, dict) and r.get("runtime_s") is not None]
     return max(vals) if vals else None
 
 
@@ -2140,6 +2216,15 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
         ]
         if os.environ.get("NESSO_CACHE"):
             cmd += ["--cache", os.environ["NESSO_CACHE"]]
+    elif model in SIZE_LADDER_DESIGN:
+        # `tt-bio design`, one design, at the model's own step count — see SIZE_LADDER_DESIGN.
+        cmd = census + [
+            "-m", "tt_bio.main", "design", str(fixture),
+            "--model", model,
+            "--num_designs", "1",
+            "--seed", str(SEED),
+            "--out_dir", str(out_dir),
+        ] + list(SIZE_LADDER_DESIGN[model]["steps"])
     else:
         cmd = census + [
             "-m", "tt_bio.main", "predict", str(fixture),
@@ -2183,6 +2268,9 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     if model == "nesso1":
         runtime_s = _affinity_seconds(out_dir)
         where = "affinity.csv"
+    elif model in SIZE_LADDER_DESIGN:
+        runtime_s = _design_seconds(out_dir)
+        where = "designs.json"
     else:
         results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
         where = results.name
@@ -2480,6 +2568,19 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
             findings.append(f"{where} {flag}: new lever not in the baseline "
                             f"(re-record with --size-ladder-record)")
     return findings
+
+
+def _size_ladder_model_rungs(model: str, rungs, explicit: bool) -> tuple:
+    """This model's own ladder.
+
+    A design model is walked on its own axis (SIZE_LADDER_DESIGN), so the fold rungs do not
+    apply to it: pxdesign's 768 is 768 TARGET residues against a fold's 768 tokens, and its
+    top rung is set by how far its own fixture source can be cut. An explicit
+    --size-ladder-rungs still wins, because that flag is the record-mode resume aid.
+    """
+    if explicit or model not in SIZE_LADDER_DESIGN:
+        return tuple(rungs)
+    return tuple(SIZE_LADDER_DESIGN[model]["rungs"])
 
 
 def _size_ladder_measure_model(model: str, rungs, workdir: Path,
@@ -2991,7 +3092,8 @@ def _size_ladder_coverage_gap() -> list[str]:
     for name in dir(_main):
         if name.endswith("_MODELS") and isinstance(getattr(_main, name), tuple):
             shipped |= set(getattr(_main, name))
-    return sorted(shipped - set(SIZE_LADDER_MODELS) - set(SIZE_LADDER_EXEMPT))
+    return sorted(shipped - set(SIZE_LADDER_MODELS) - set(SIZE_LADDER_EXEMPT)
+                  - set(SIZE_LADDER_DESIGN))
 
 
 def _rel_to_repo(path: Path) -> str:
@@ -3085,6 +3187,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     """
     subset = models is not None
     models = list(models or SIZE_LADDER_MODELS)
+    rungs_explicit = rungs is not None
     rungs = tuple(rungs or SIZE_LADDER_RUNGS)
     if not record and rungs != SIZE_LADDER_RUNGS:
         return {"model": "size-ladder", "seconds": 0, "gate": False,
@@ -3205,7 +3308,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             if pre:
                 legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
                 continue
-            meas = _size_ladder_measure_model(m, rungs, workdir,
+            meas = _size_ladder_measure_model(m, _size_ladder_model_rungs(
+                                                  m, rungs, rungs_explicit), workdir,
                                               SIZE_LADDER_SIGMA_REPS, 1)
             err = _size_ladder_record_refusal(meas)
             block = skip = None
@@ -3309,7 +3413,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 legs.append({"model": m, "gate": False, "error": err,
                              "findings": [err]})
                 continue
-            legs.append(_size_ladder_check_model(m, rungs, base_model, workdir))
+            legs.append(_size_ladder_check_model(
+                m, _size_ladder_model_rungs(m, rungs, rungs_explicit), base_model,
+                workdir))
 
     gate = bool(legs) and all(l["gate"] for l in legs)
     row = {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,

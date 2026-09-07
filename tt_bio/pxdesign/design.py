@@ -55,8 +55,18 @@ def run_design(inputs: Path, out_dir, cache, num_designs: int, n_step: int, seed
         print(f"Designing {num_designs} binder(s) against {inputs.name} "
               f"({n_token} tokens, {n_step} steps) → {out_dir}", flush=True)
     model = ProtenixDesign.load_from_checkpoint(str(ckpt))
+    t0 = time.monotonic()
     coords = model.design(feats, n_step=n_step, n_sample=num_designs, seed=seed)
+    runtime_s = round(time.monotonic() - t0, 2)
     rows = write_design_cifs(coords, feats, out_dir, stem=stem or inputs.stem)
+    # The diffusion trajectory's own seconds, excluding import, checkpoint load and write.
+    # Every design in one call shares one batched trajectory, so this is the call's time and
+    # not a per-design split; num_designs says how many came out of it. Until this was here a
+    # local run reported no timing at all -- runtime_s existed only on the fleet path, from the
+    # worker's job record -- so anything measuring pxdesign against size had to scrape stdout.
+    for r in rows:
+        r["runtime_s"] = runtime_s
+        r["n_token"] = int(feats["restype"].shape[0])
     _write_metrics(out_dir, rows)
     return rows
 
@@ -78,7 +88,8 @@ def _write_metrics(out_dir, rows: list[dict]) -> None:
             prior = [r for r in json.loads(path.read_text()) if isinstance(r, dict)]
         except Exception:
             prior = []
-    keep = ("fit_rmsd", "binder_residues", "binder_atoms", "conditioned_tokens")
+    keep = ("fit_rmsd", "binder_residues", "binder_atoms", "conditioned_tokens",
+            "runtime_s", "n_token")
     fresh = [{"id": Path(str(r["cif"])).stem, **{k: r[k] for k in keep if k in r}}
              for r in rows]
     have = {r["id"] for r in fresh}
