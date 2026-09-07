@@ -98,9 +98,13 @@ while still serving. Thirteen of the fifteen tile-aligned lengths from 640 to 10
 non-dividing fallback, on a path shared by rf3, boltz-2, protenix-v2, openfold3 and opendde.
 
 `TT_BIO_TRIATT_NARROW_Q_FALLBACK` offers a dividing chunk below the production pick before one
-that pads. It is off, and it stays off on measured grounds: at 896 aa it does restore the fused
-kernel to all 1088 calls and the fold goes from 267 s to 297 s, and at 1088 aa it does not restore
-it at all. Recovering the lever is not the same as recovering the time.
+that pads. It is off, and the fold A/B that would justify turning it on did not. At 896 aa the
+flag does exactly what it was written to do, restoring the fused kernel to all 1088 calls; at
+1088 aa it does not restore it at all, so something other than the padding mask blocks that rung.
+Neither arm produced a usable wall: the control arm alone read 267 s and 327 s on the same size
+and the same code, which is the contention floor of a host serving 23 production workers, and a
+lever worth a few per cent cannot be measured through it. Restoring a lever is not the same as
+recovering time, and this pair of rungs has yet to show it recovers any.
 
 640 is a lever rung only, not a timing rung. Run-to-run noise is measured per model when the
 baseline is recorded, and it ranges from 0.7 % to 7.1 % across the five models. At a 6.5 % floor a 3-sigma exponent band
