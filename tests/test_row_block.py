@@ -28,7 +28,8 @@ def test_peak_stays_under_budget(atoms):
 
 @pytest.mark.parametrize("atoms", [419, 1200, 2290, 2770])
 def test_small_designs_are_one_block(atoms):
-    # RFD3 runs about 8.9 atoms per residue (4373 atoms at 490), so the budget puts the
+    # RFD3 runs about 8.6-8.9 atoms per residue (4373 atoms at 490, 8538 at 992), so the
+    # budget puts the
     # first cut at roughly 325 residues: 128 and 256 take the unblocked path, byte for
     # byte, and only sizes at and above the old cap are blocked at all.
     assert _rows(atoms) >= atoms

@@ -122,7 +122,11 @@ def test_design_refuses_an_oversized_rfd3_contig(tmp_path, wormhole, no_device):
                                         "--out_dir", str(tmp_path / "out")])
     assert res.exit_code != 0
     msg = str(res.output) + str(res.exception)
-    assert "4002" in msg and "490" in msg
+    # The cap is read from the table rather than written here. A literal would have to be
+    # edited every time a ladder raises the row, and the one time somebody forgot, the test
+    # would be pinning a ceiling the engine no longer has.
+    cap = sl.ceiling("rfd3", "wormhole_b0").residues
+    assert "4002" in msg and str(cap) in msg
     assert not no_device
 
 

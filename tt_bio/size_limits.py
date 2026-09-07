@@ -98,15 +98,23 @@ BINDS = (MEMORY, RUNTIME, LADDER_TOP, UNMEASURED)
 # wall and useless against an L1 clash, where the throw lands at a consumer's program creation with
 # DRAM nowhere near full.
 L1_CLASH = "l1_clash"              # L1 static circular buffers overlap the tensor. Not monotonic.
+# L1 is simply too full for a residency the code asked for on purpose, and that is a THIRD thing,
+# distinct from both neighbours above and below it. Not L1_CLASH: nothing static is in the way, the
+# allocator just has fewer bytes per bank than the request. Not FRAGMENTATION either, and the throw
+# proves it -- `free` and `largest free block` come back EQUAL, so there is no block to coalesce and
+# a defragmenting fix would buy nothing. What sets the size is a chunk height chosen against an L1
+# budget that was tuned at a smaller size, so the lever is the budget or the residency, not the
+# layout (`one-size-tuning-is-a-standing-defect-class`).
+L1_BUDGET = "l1_budget"            # an L1 residency sized by a budget too optimistic at this size
 DRAM = "dram"                      # a single allocation the chip cannot serve
 DRAM_MSA = "dram_msa"              # DRAM, in the MSA track, growing with tokens and depth
 FRAGMENTATION = "fragmentation"    # enough free DRAM, no block big enough
 NO_FAILURE = "none"                # nothing broke
 UNKNOWN = "unknown"                # not diagnosed
-MECHANISMS = (L1_CLASH, DRAM, DRAM_MSA, FRAGMENTATION, NO_FAILURE, UNKNOWN)
+MECHANISMS = (L1_CLASH, L1_BUDGET, DRAM, DRAM_MSA, FRAGMENTATION, NO_FAILURE, UNKNOWN)
 
 # WHAT THE NUMBER COUNTS. Not decoration: the two design models were measured in DIFFERENT
-# denominators, and holding one against the other would be a silent unit substitution. RFD3's 490 is
+# denominators, and holding one against the other would be a silent unit substitution. RFD3's 992 is
 # motif PLUS designed residues, while PXDesign's 768 is TARGET residues only, with its 80-residue
 # binder on top and outside the number. A guard that compared a total against a target-only cap
 # would refuse correct work on one model and pass oversized work on the other. Each row names its
@@ -293,14 +301,44 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "rfd3": {
         "wormhole_b0": Ceiling(
-            residues=490, pass_at=490, fail_at=UNRECORDED, binds=MEMORY, mechanism=FRAGMENTATION,
+            residues=992, pass_at=992, fail_at=1024, binds=MEMORY, mechanism=L1_BUDGET,
             counts=DESIGN_TOTAL,
-            evidence="wh-design-models-l1-budget-and-size-caps, measured on this Galaxy: 390 TARGET "
-                     "residues, 490 total including the designed regions, 4373 atoms. The wall is "
-                     "fragmentation and not capacity -- 2.04-2.37x the needed space is free while "
-                     "the largest block is 0.89-0.93x of the request. Fails hard, not slowly. The "
-                     "failing size above 490 was witnessed but never written down, which is why "
-                     "this row's negative control is UNRECORDED rather than a number",
+            evidence="state/ceiling-rfd3.md, its own ladder measured 2026-09-07 on GWH02, "
+                     "ws:ceiling-rfd3. 992 total residues = 892 target + a 100-residue binder, "
+                     "8538 atoms. ONE target cut to every rung (laczc_1008, 1DP0 chain A), so no "
+                     "two rungs differ in anything but size, one 12 GiB chip per process. 992 "
+                     "folds FIVE times out of five in 88.0/87.9/88.4/97.8/244.7 s and 1024 FAILS "
+                     "six out of six, always on the identical allocation: a 33554432 B L1 buffer "
+                     "over 72 banks needing 466944 B per bank against 461536 B free. It misses by "
+                     "5408 B per bank, 1.2 %, and the buffer is named -- the SwiGLU gated product "
+                     "of the chunked pair transition in the conditioning Pairformer, held in L1 on "
+                     "purpose, where 1024 tokens make 1024**2 pair rows, a chunk height of 32768 "
+                     "and 32768 x 512 x 2 B = the request to the byte. Everything below is "
+                     "unbroken: 512/576/640/704/768/832/896/960/992 all fold. The failure is "
+                     "clean, an allocator RuntimeError before any coordinate is written, and the "
+                     "chip was reusable 30 s later. The mechanism is L1_BUDGET and NOT the "
+                     "fragmentation this row used to claim: at the throw `free` and `largest free "
+                     "block` are the same 461536 B, DRAM is 97 % free with 1041987808 B contiguous "
+                     "per bank, and host RAM peaks at 21.7 of 566 GB. The 490 this replaces was a "
+                     "real DRAM-fragmentation wall in the token initializer's atom-pair section, "
+                     "and it is fixed rather than reinterpreted: the unblocked section dies at 640 "
+                     "on a 2114887680 B request, and row-blocking it against "
+                     "atom_pair_budget_bytes() clears the wall AND is faster (512 residues: 71.2 s "
+                     "blocked against 124.5 s, 8.2 GB host RSS against 16.1 GB, since the "
+                     "unblocked form materialises the whole [L, L, 16] fp32 pair tensor on host in "
+                     "one piece). SO THIS CAP DEPENDS ON THAT ROW BLOCK: "
+                     "TT_BIO_ATOM_PAIR_BUDGET_BYTES=0 restores the unblocked path and its 640 "
+                     "wall. Parity is bit-exact against the unblocked path at 128/256/480/512 on "
+                     "all five tensors the initializer hands the sampler, with the block count "
+                     "recorded beside each digest so a pass proves the lever engaged rather than "
+                     "the size having stayed under the budget; 128 and 256 stay in one block, so "
+                     "the sizes users actually run are the shipped path byte for byte. A REFERENCE "
+                     "parity number at 992 is owed and is NOT claimed -- what is measured at the "
+                     "top size is that all 8538 output coordinates are finite and the atom count "
+                     "out equals the atom count in, on all five passes. 1024 misses by 1.2 % and "
+                     "declining the L1 residency there (keeping the chunk height, which is a "
+                     "NUMERICS knob: h=64 at 514 tokens diverges 2.44e-4 per call) is the "
+                     "parity-safe way to close it, unmeasured and deliberately not in this row",
         ),
     },
     "pxdesign": {
