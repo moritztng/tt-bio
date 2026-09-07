@@ -182,6 +182,7 @@ see RELEASING.md. The two are independent; both must exit 0 before a tag.
 """
 
 import argparse
+import copy
 import csv
 import hashlib
 import importlib.util
@@ -551,16 +552,20 @@ CAPACITY_LEGS = [
 # action that runs all three rungs — flipping a default forces measuring three
 # sizes. The standing rule this enforces is in the module docstring.
 #
-# Rungs 256/512/768: 512 is the anchor every lever was tuned at; 256 is inside
-# the compute-bound regime (128 aa is fixed-cost dominated — ~3 s of prep /
-# confidence / save against ~5 s of fold — and sits below grid saturation, so
+# Rungs 256/512/768/1024: 512 is the anchor every lever was tuned at; 256 is
+# inside the compute-bound regime (128 aa is fixed-cost dominated — ~3 s of prep
+# / confidence / save against ~5 s of fold — and sits below grid saturation, so
 # half its dark levers are uninteresting); 768 is where the measured N^3.6
-# cliff and the SDPA q-chunk overflow live. 1024 is excluded: OpenFold3 OOMs
-# there on allocation COUNT, so the arm would be red on arrival for one model,
-# which is how arms get disabled. Override for a single-rung debug run:
-# RELEASE_GATE_SIZE_RUNGS=640.
+# cliff and the SDPA q-chunk overflow live; 1024 is the advertised platform
+# ceiling, so it is the largest input a user can actually submit. 1024 used to
+# be excluded because OpenFold3 OOM'd there on allocation COUNT and the arm
+# would have been red on arrival for one model, which is how arms get disabled.
+# That ceiling work landed (OpenFold3 reaches 1024, RF3 1095), so a ladder that
+# stops at 768 now measures a band strictly smaller than the shipped one.
+# Override for a single-rung debug run: RELEASE_GATE_SIZE_RUNGS=640.
 #
-# 640 is the fourth rung and it is not decoration. 256/512/768/1024 all have a
+# 640 and 896 are the off-lattice rungs and they are not decoration.
+# 256/512/768/1024 all have a
 # padded length that 256 divides, and _capped_sdpa_chunk_size returns 256, so
 # they all sit on the lattice the fused K1/K2 kernel is SERVED on. 6dbdcf1f
 # records the same kernel silently declining at padded 448, 576, 640, 704, 832,
@@ -568,7 +573,9 @@ CAPACITY_LEGS = [
 # multiples of 256 holds "N padded is a multiple of the SDPA chunk" constant at
 # every rung and is blind to that whole defect class (the size-axis form of
 # correctness-sweep-tiled-fixture-measures-one-input). 640 is the off-lattice
-# control, and it is the rung the arm's own RED proof fires at.
+# control below the cliff and it is the rung the arm's own RED proof fires at;
+# 896 is the same control above it, in the 768..1024 band the ceiling work just
+# opened and nothing has ever measured.
 #
 # Fold config: --single_sequence --sampling_steps 6 --diffusion_samples 1
 # --seed 0. Single-sequence makes the arm hermetic (no MSA server, no
@@ -698,18 +705,27 @@ SIZE_LADDER_EXEMPT.update({
     )
 })
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
-                          os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
+                          os.environ.get("RELEASE_GATE_SIZE_RUNGS",
+                                         "256,512,640,768,896,1024").split(",")
                           if x.strip())
 # Exponent intervals are taken over these rungs only; every other rung is
-# census-only. 640 is in the ladder but not here on measured grounds: at the
-# sigma = 6.5% noise floor a 3-sigma band over ln(640/512) = 0.223 is +-1.24 and
-# over ln(768/640) = 0.182 is +-1.51, both at or past the ~1.40 cliff signal, so
-# an exponent gate on those two intervals is a coin flip. Splitting 512->768
-# into two ungateable halves would also destroy the one interval that IS
-# gateable (+-0.68 over ln(768/512) = 0.405). So 640 earns its place as a lever
-# rung and stays out of the timing chain.
-SIZE_LADDER_EXP_RUNGS = (256, 512, 768)
+# census-only. 640 and 896 are in the ladder but not here on measured grounds:
+# at the sigma = 6.5% noise floor a 3-sigma band over ln(640/512) = 0.223 is
+# +-1.24 and over ln(768/640) = 0.182 is +-1.51, both at or past the ~1.40 cliff
+# signal, so an exponent gate on those intervals is a coin flip; ln(896/768) =
+# 0.154 and ln(1024/896) = 0.134 are narrower still. Splitting 512->768 into two
+# ungateable halves would also destroy the one interval that IS gateable (+-0.68
+# over ln(768/512) = 0.405). 768->1024 is gateable on the same arithmetic:
+# ln(1024/768) = 0.288 gives +-0.96, inside the cliff signal. So 640 and 896
+# earn their place as lever rungs and stay out of the timing chain.
+SIZE_LADDER_EXP_RUNGS = (256, 512, 768, 1024)
 SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
+# Per-record fragments overlaid on the monolith at read time. A record pass covers one card
+# type and usually one model, and several of them run concurrently on different hosts; a
+# single shared JSON edited by every one of them is a merge conflict by construction. So a
+# record pass writes its own file here (--size-ladder-baseline docs/size_ladder_baseline.d/
+# <card>.json) and the arm reads monolith-then-fragments, last writer per (card, model) wins.
+SIZE_LADDER_FRAGMENTS = REPO_ROOT / "docs" / "size_ladder_baseline.d"
 SIZE_LADDER_STEPS = 6
 SIZE_LADDER_FRAC_TOL = 0.05
 SIZE_LADDER_SIGMA_REPS = 5
@@ -2556,7 +2572,50 @@ def _size_ladder_exponent_block(runtimes: dict, sigma):
     return {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}, None
 
 
-def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
+def _size_ladder_merge_fragments(baseline: dict, frag_dir: Path) -> dict:
+    """Overlay every fragment in `frag_dir` onto `baseline`, one (card, model) at a time.
+
+    Mutates and returns `baseline`. A fragment is a whole baseline file in the same format,
+    so the same recorder writes both and there is no second format to keep in step.
+    """
+    if not frag_dir.is_dir():
+        return baseline
+    for frag_path in sorted(frag_dir.glob("*.json")):
+        frag = json.loads(frag_path.read_text())
+        for card, block in (frag.get("cards") or {}).items():
+            dst = baseline.setdefault("cards", {}).setdefault(card, {})
+            for k, v in block.items():
+                if k == "models":
+                    dst.setdefault("models", {}).update(v)
+                else:
+                    dst[k] = v
+    return baseline
+
+
+def _size_ladder_other_card_levers(reference: dict, card: str, model: str) -> list:
+    """(card, levers) for the same model on every OTHER card type, newest first.
+
+    A dark lever's exemption reason is two halves: measured evidence (counts, decline
+    clause) and a human judgement about why that is legitimate at that size. The evidence
+    is per card and gets regenerated on every record. The judgement usually is not: "an
+    ESMC lever, a protenix-v1 fold does not run that module" is true on every board. With
+    no cross-card source, recording a brand-new card type writes TODO on every dark lever
+    it has -- hundreds of them -- and the check cannot pass until a human retypes
+    judgements the file already holds one card block away. Carried reasons are tagged with
+    the card they came from so an inherited judgement never reads as one measured here.
+    """
+    out = []
+    for other, block in (reference.get("cards") or {}).items():
+        if other == card:
+            continue
+        entry = (block.get("models") or {}).get(model)
+        if entry and entry.get("levers"):
+            out.append((other, entry["levers"], str(entry.get("recorded") or "")))
+    out.sort(key=lambda t: t[2], reverse=True)
+    return [(c, lv) for c, lv, _ in out]
+
+
+def _size_ladder_fill_reasons(levers: dict, old_levers: dict, inherited=()) -> int:
     """Carry exemption reasons forward from the previous baseline; newly dark
     levers get a TODO. Returns the number of dark levers still needing a reason."""
     todo = 0
@@ -2566,6 +2625,12 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
                 e.pop("reason", None)
                 continue
             old = ((old_levers or {}).get(rung, {}).get(flag, {})).get("reason", "")
+            if not old or old.startswith("TODO"):
+                for other_card, other_levers in inherited:
+                    cand = (other_levers.get(rung, {}).get(flag, {})).get("reason", "")
+                    if cand and not cand.startswith("TODO"):
+                        old = f"{cand} [carried from {other_card}]"
+                        break
             if old and not old.startswith("TODO"):
                 # Carry the EXPLANATION forward, re-measure the evidence. A reason opens with
                 # the counts and clause it was written against, and carrying that verbatim
@@ -2576,7 +2641,8 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
                 # must not.
                 head, sep, why = old.partition(": ")
                 e["reason"] = (_size_ladder_reason_evidence(e) + ": " + why
-                               if sep and head.startswith("declines all ") else old)
+                               if sep and head.startswith(SIZE_LADDER_EVIDENCE_HEADS)
+                               else old)
             else:
                 e["reason"] = _size_ladder_lever_todo(e)
                 todo += 1
@@ -2640,11 +2706,19 @@ def _size_ladder_clause_str(entry: dict, top: int = 0) -> str:
     return ", ".join(f"{k} x{v}" for k, v in (items[:top] if top else items))
 
 
+# The openings a generated evidence half can have. `_size_ladder_fill_reasons` splits a
+# carried reason on the first of these and regenerates it, so the judgement survives a
+# re-record and the numbers never do.
+SIZE_LADDER_EVIDENCE_HEADS = ("declines all ", "never reached at this size")
+
+
 def _size_ladder_reason_evidence(entry: dict) -> str:
     """The measured half of an exemption reason, regenerated from the entry it annotates."""
+    served, declined = entry.get("served") or 0, entry.get("declined") or 0
+    if not served and not declined:
+        return "never reached at this size, 0 offered and 0 declined"
     clause = _size_ladder_clause_str(entry)
-    return (f"declines all {entry.get('declined') or 0} calls"
-            + (f" on {clause}" if clause else ""))
+    return f"declines all {declined} calls" + (f" on {clause}" if clause else "")
 
 
 def _size_ladder_lever_todo(entry: dict) -> str:
@@ -2850,7 +2924,22 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         except Exception as e:
             return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
                     "error": f"baseline {baseline_path} unreadable: {e}", "legs": []}
-    if not record and not baseline:
+    # What the arm READS: baseline_path plus its own fragment directory. Record mode still
+    # writes baseline_path alone, so pointing --size-ladder-baseline at a fragment records
+    # that fragment and touches nothing else.
+    try:
+        reference = _size_ladder_merge_fragments(copy.deepcopy(baseline),
+                                                 baseline_path.parent /
+                                                 f"{baseline_path.stem}.d")
+        # Exemption reasons are the one thing worth sharing across files: a fresh fragment
+        # for a new card type holds no judgements at all, and the committed union does.
+        reasons_from = _size_ladder_merge_fragments(
+            json.loads(SIZE_LADDER_BASELINE.read_text())
+            if SIZE_LADDER_BASELINE.exists() else {}, SIZE_LADDER_FRAGMENTS)
+    except Exception as e:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"size-ladder fragment unreadable: {e}", "legs": []}
+    if not record and not reference:
         return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
                 "error": f"no baseline at {baseline_path} — record one with "
                          f"--size-ladder-record", "legs": []}
@@ -2940,8 +3029,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
                 legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
                 continue
-            todos += _size_ladder_fill_reasons(meas["levers"],
-                                               old_models.get(m, {}).get("levers"))
+            todos += _size_ladder_fill_reasons(
+                meas["levers"], old_models.get(m, {}).get("levers"),
+                _size_ladder_other_card_levers(reasons_from, card, m))
             entry = {"grid": meas.get("grid"), **stamp,
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
             if block:
@@ -2973,7 +3063,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                   f"reason — search TODO in {baseline_path} and fill them in; the "
                   f"check FAILS on any dark lever without a reason.", flush=True)
     else:
-        card_block = baseline.get("cards", {}).get(card)
+        card_block = reference.get("cards", {}).get(card)
         if card_block is None:
             return {"model": "size-ladder", "seconds": time.monotonic() - t0,
                     "gate": False, "card": card,
