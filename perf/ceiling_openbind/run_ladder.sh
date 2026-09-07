@@ -36,11 +36,19 @@ for r in "$@"; do
   attempt=0
   while [ "$attempt" -lt 4 ]; do
     attempt=$((attempt + 1))
-    if sudo -n lsof "/dev/tenstorrent/$NODE" >/dev/null 2>&1; then
-      echo "UNRUN $r node $NODE busy $(date -u +%FT%TZ)" >> "$LOG"
-      sleep 60
-      continue
-    fi
+    # Waiting for the card is not an attempt. Four attempts of sixty seconds is a four-minute
+    # patience, and one rung of this ladder takes five, so a chained arm would have given up
+    # before the arm ahead of it finished a single fold.
+    waited=0
+    while sudo -n lsof "/dev/tenstorrent/$NODE" >/dev/null 2>&1; do
+      waited=$((waited + 1))
+      if [ "$waited" -gt 240 ]; then
+        echo "UNRUN $r node $NODE busy for 2h $(date -u +%FT%TZ)" >> "$LOG"
+        break
+      fi
+      sleep 30
+    done
+    if [ "$waited" -gt 240 ]; then continue; fi
     s=$(date +%s)
     engine=$(cd "$TREE" && PYTHONPATH="$TREE" "$PY" -c 'import tt_bio, sys; sys.stdout.write(tt_bio.__file__)')
     echo "=== $r attempt $attempt start card=$CARD node=$NODE engine=$engine $(date -u +%FT%TZ)" >> "$LOG"
