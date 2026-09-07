@@ -41,7 +41,9 @@ for r in "$@"; do
   s=$(date +%s)
   engine=$(cd "$TREE" && PYTHONPATH="$TREE" "$PY" -c 'import tt_bio, sys; sys.stdout.write(tt_bio.__file__)')
   echo "=== $r start card=$CARD node=$NODE engine=$engine $(date -u +%FT%TZ)" >> "$LOG"
-  ( cd "$TREE" && TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" \
+  # TT_BIO_SIZE_LIMIT=0: the ceiling under test is exactly what size_limits refuses on, so a
+  # ladder that honoured it could only ever re-measure the published number.
+  ( cd "$TREE" && TT_BIO_SIZE_LIMIT=0 TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" \
       TT_BIO_LEASE_HOLDER=worker:ceiling-openbind-1024 TT_METAL_LOGGER_LEVEL=FATAL \
       PYTHONPATH="$TREE" "$PY" -m tt_bio.main predict "$RUNGS/$r.yaml" \
       --model openbind --accelerator tenstorrent --out_dir "$OUT/$r" --override \
