@@ -160,6 +160,9 @@ def _instrument_class(cls) -> None:
 def _visit(obj) -> None:
     """Post-`__init__` walk: find this object's block stacks and act on them."""
     mode = _state["mode"]
+    if mode is None:
+        return                                # disarmed: never touch a model
+
     for attr in _STACK_ATTRS:
         try:
             stack = getattr(obj, attr, None)

@@ -12,6 +12,7 @@ new size and docs/capacity_gate_baseline.json re-recorded.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -155,3 +156,130 @@ def test_a_blackhole_ceiling_row_must_come_from_a_capacity_run():
             assert "capacity_gate" in c.evidence, (
                 f"{model}/{arch} publishes a measured Blackhole ceiling whose evidence does not "
                 f"name the run that measured it")
+
+
+# ---------------------------------------------------------------------------------------------
+# The hook. These exist because the hook was silently inert for a whole campaign: `capacity_hook`
+# was not on the spawned child's PYTHONPATH, the generated sitecustomize swallowed the
+# ModuleNotFoundError, and every "screen" ran the full model while reporting itself a screen.
+# ---------------------------------------------------------------------------------------------
+
+
+def _fresh_hook(mode, tmp_path, monkeypatch):
+    """A hook instance armed in-process, with its module-level state reset."""
+    import importlib
+    import capacity_hook
+    h = importlib.reload(capacity_hook)
+    monkeypatch.setenv("TT_BIO_CAPACITY_HOOK", mode)
+    monkeypatch.setenv("TT_BIO_CAPACITY_HOOK_OUT", str(tmp_path / "out"))
+    monkeypatch.setenv("TT_BIO_CAPACITY_HOOK_BEAT", str(tmp_path / "beat"))
+    h.install()
+    return h
+
+
+def _stack_module(h, name="tt_bio._captest"):
+    """A module shaped like the real ports: a class holding `self.blocks = [...]` of a block class
+    with its own `__call__`."""
+    import types
+    mod = types.ModuleType(name)
+
+    class Block:
+        def __call__(self, x):
+            return x + 1
+
+    class Stack:
+        def __init__(self, n):
+            self.blocks = [Block() for _ in range(n)]
+
+        def __call__(self, x):
+            for b in self.blocks:
+                x = b(x)
+            return x
+
+    Block.__module__ = Stack.__module__ = name
+    mod.Block, mod.Stack = Block, Stack
+    h._patch_module(mod)
+    return mod
+
+
+def test_the_screen_hook_actually_truncates_a_block_stack(tmp_path, monkeypatch):
+    h = _fresh_hook("screen", tmp_path, monkeypatch)
+    mod = _stack_module(h)
+    s = mod.Stack(48)
+    assert len(s.blocks) == 1, "the screen ran 48 blocks and would have reported itself a screen"
+    assert s(0) == 1
+    assert h._state["truncated"], "the hook truncated without recording it, so a no-op is invisible"
+    assert h._state["truncated"][0][2] == 48, "the record must carry the ORIGINAL depth"
+
+
+def test_the_hook_emits_a_heartbeat_per_block_call(tmp_path, monkeypatch):
+    """The stall detector's sharp signal. Without it a legitimately slow block reads as a hang."""
+    h = _fresh_hook("residency", tmp_path, monkeypatch)
+    mod = _stack_module(h)
+    mod.Stack(4)(0)
+    beats = sum(f.stat().st_size for f in tmp_path.glob("beat.*"))
+    assert beats >= 4, f"only {beats} block calls seen; the heartbeat is not wired"
+
+
+def test_the_residency_hook_leaves_the_depth_alone(tmp_path, monkeypatch):
+    """Tier 2's whole job is the cumulative residency, which a truncated stack cannot build up."""
+    h = _fresh_hook("residency", tmp_path, monkeypatch)
+    mod = _stack_module(h)
+    assert len(mod.Stack(48).blocks) == 48
+    assert not h._state["truncated"]
+
+
+def test_the_hook_is_inert_without_its_env_var(tmp_path, monkeypatch):
+    """The generated sitecustomize can outlive a run on a stale PYTHONPATH; it must do nothing."""
+    import importlib
+    import capacity_hook
+    h = importlib.reload(capacity_hook)
+    monkeypatch.delenv("TT_BIO_CAPACITY_HOOK", raising=False)
+    h.install()
+    assert h._state["mode"] is None
+    mod = _stack_module(h)
+    assert len(mod.Stack(48).blocks) == 48
+
+
+def test_a_failed_hook_install_is_recorded_not_swallowed(tmp_path):
+    """The bug itself: an ImportError in the generated sitecustomize left no trace, so a full-depth
+    run was reported as a screen. The gate must be able to SEE that it happened."""
+    src = (ROOT / "scripts" / "capacity_gate.py").read_text()
+    body = src[src.index("def hook_dir("):src.index("def hook_findings(")]
+    assert "install-failed" in body, "sitecustomize must record an install failure"
+    assert "except Exception:\n" not in body.replace("except BaseException", "")
+    assert "install_failed" in src[src.index("def hook_findings("):], \
+        "the gate must read the install-failure marker"
+    assert "Not a\n                     f\"screen." in src or "Not a" in src, \
+        "a leg whose hook did not apply must not be called a screen"
+
+
+def test_the_hook_reaches_a_spawned_child(tmp_path):
+    """`predict` folds in a spawned worker. A hook that only installs in the launcher measures
+    nothing, which is exactly what happened."""
+    import subprocess
+    d = tmp_path / "_hook"
+    d.mkdir()
+    (d / "capacity_hook.py").write_text((ROOT / "scripts" / "capacity_hook.py").read_text())
+    (d / "sitecustomize.py").write_text(
+        "import os\n"
+        "if os.environ.get('TT_BIO_CAPACITY_HOOK'):\n"
+        "    import capacity_hook; capacity_hook.install()\n")
+    env = dict(os.environ, PYTHONPATH=str(d), TT_BIO_CAPACITY_HOOK="screen",
+               TT_BIO_CAPACITY_HOOK_OUT=str(tmp_path / "o"),
+               TT_BIO_CAPACITY_HOOK_BEAT=str(tmp_path / "b"))
+    # `spawn` re-imports the child target's module, so it has to live in a real file.
+    driver = tmp_path / "driver.py"
+    driver.write_text(
+        "import multiprocessing as mp\n"
+        "def child(q):\n"
+        "    import capacity_hook as h\n"
+        "    q.put(h._state['mode'])\n"
+        "if __name__ == '__main__':\n"
+        "    ctx = mp.get_context('spawn'); q = ctx.Queue()\n"
+        "    p = ctx.Process(target=child, args=(q,)); p.start(); p.join(60)\n"
+        "    print(q.get(timeout=10))\n")
+    r = subprocess.run([sys.executable, str(driver)], capture_output=True, text=True,
+                       env=env, timeout=180)
+    assert r.stdout.strip().endswith("screen"), (
+        f"the hook did not arm in the spawned child: {r.stdout!r} {r.stderr[-400:]!r}")
