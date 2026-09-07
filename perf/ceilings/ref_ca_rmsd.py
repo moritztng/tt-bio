@@ -14,7 +14,19 @@ too -- without that last check any 3-chain prediction matched any 3-chain deposi
 overlap and reported 39.92 A as if it were a measurement.
 
 Controls, both live: the same file against itself reads 0.0000 A over 627 CA, and a different
-target refuses with "residue names agreeing on 42".
+target refuses with "residue names agreeing on 68".
+
+KNOWN LIMIT, and it is why this refuses more often than it answers. Matching on seq_id assumes the
+two files NUMBER their residues the same way. A deposited mmCIF frequently does not -- 9SAT's
+prediction and deposit share 602 of 627 seq_ids and agree on only 162 residue names even after
+best-of chain matching, because the deposit numbers by its own entity sequence. Doing that properly
+needs a per-chain sequence alignment, not a seq_id lookup, and this file does not have one. It
+refuses instead of guessing.
+
+For a crystal-referenced accuracy number on a model tt-bio ships, prefer the committed harness:
+`scripts/release_gate.py --model <model>` scores the model's ground-truth anchor with a mapping
+that is already vetted and floors the release already trusts. Use this script for
+prediction-vs-prediction geometry and for deposits whose numbering you have checked.
 
     python perf/ceilings/ref_ca_rmsd.py <predicted.cif> <deposited.cif>
 """
@@ -55,6 +67,21 @@ def ca(path):
     return out, order
 
 
+def _match_chains(a, ao, b, bo):
+    """{predicted chain -> deposited chain}, each pair the best residue-name agreement left."""
+    score = {}
+    for x in ao:
+        for y in bo:
+            shared = [(a[(x, i)][1], b[(y, i)][1]) for (cx, i) in a if cx == x and (y, i) in b]
+            if shared:
+                score[(x, y)] = sum(p == q for p, q in shared) / len(shared)
+    out, used = {}, set()
+    for (x, y), _ in sorted(score.items(), key=lambda kv: -kv[1]):
+        if x not in out and y not in used:
+            out[x], _ = y, used.add(y)
+    return out
+
+
 def kabsch_rmsd(a, b):
     ac, bc = a - a.mean(0), b - b.mean(0)
     u, _, vt = np.linalg.svd(ac.T @ bc)
@@ -76,12 +103,14 @@ def main(pred, dep):
     selftest()
     (a, ao), (b, bo) = ca(pred), ca(dep)
     # A prediction names its chains from the input yaml's `id:` (A/H/L for an antibody-antigen
-    # complex); the deposit names them by label_asym_id (A/B/C). They are the same chains in the
-    # same order, so map positionally and keep the seq_id match, which is the part that must be
-    # exact. If the chain counts disagree the mapping is a guess and the run refuses below.
-    if set(ao) != set(bo) and len(ao) == len(bo):
-        ren = dict(zip(ao, bo))
-        a = {(ren[k[0]], k[1]): v for k, v in a.items()}
+    # complex); the deposit names them by label_asym_id (A/B/C). Match them by SEQUENCE, not by
+    # position: 9SAT's deposited chain order is not its yaml order, and a positional map there
+    # scored 597 of 627 residues as matched with only 45 residue NAMES agreeing -- a phantom
+    # waiting to be printed. Each predicted chain takes the deposited chain it agrees with best
+    # on shared seq_ids, greedily, which is exact for the handful of chains a complex has.
+    if set(ao) != set(bo):
+        a = {(ren, k[1]): v for k, v in a.items()
+             for ren in (_match_chains(a, ao, b, bo).get(k[0], k[0]),)}
     common = sorted(set(a) & set(b))
     small = min(len(a), len(b))
     # The keys alone are not enough. Renaming chains positionally makes ANY 3-chain prediction
