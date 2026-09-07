@@ -72,20 +72,6 @@
    "ceiling_tokens": null,
    "reason": null
   },
-  "nesso1": {
-   "verdict": "NO_WEIGHTS",
-   "tokens_requested": 1536,
-   "tokens_padded": 1536,
-   "residues": 1536,
-   "msa_rows_effective": 0,
-   "dram_peak_bytes": null,
-   "dram_total_bytes": null,
-   "wall_s": 30.0,
-   "mechanism": null,
-   "decided_by": "screen",
-   "ceiling_tokens": null,
-   "reason": null
-  },
   "saprot-650m": {
    "verdict": "PASS",
    "tokens_requested": 1536,

@@ -205,6 +205,13 @@ EXEMPT = {
     "pxdesign": "design, not a fold: sized on DESIGN_TARGET from a target STRUCTURE, so it needs a "
                 "1536-residue PDB rather than a sequence. The shipped ladder's own fixture source "
                 "(1DP0 chain A, 1011 residues) cannot reach the bar either.",
+    "nesso1":   "affinity, and the roster's only such model: it is handed a protein AND a ligand, "
+                "and this gate's fixture is polymer-only by construction, so its batch builder "
+                "refuses the input outright with 'No protein or ligand tokens found in the batch'. "
+                "Measured, not assumed: the weights load (539 tensors) and the un-truncated "
+                "residency leg still gets no valid input, so no size was tested at any bar. Needs "
+                "a ligand-bearing cell, which is a fixture change. p1 recorded NO_WEIGHTS here "
+                "and blamed the checkpoint; that was the gate's own depth cut, not the artifact.",
     "saprot-1.3b": "structure-aware embeddings, and the checkpoint is not in the local weights "
                    "cache on this host. saprot-35m and saprot-650m carry the same code path at "
                    "the bar; this one is a weights gap, not a code gap.",
@@ -371,7 +378,11 @@ MECHANISM_PATTERNS = (
     ("dram",          re.compile(r"Out of Memory: Not enough space to allocate.*DRAM", re.I)),
     ("l1",            re.compile(r"Out of Memory: Not enough space to allocate.*L1", re.I)),
     ("fragmentation", re.compile(r"largest free block", re.I)),
-    ("dram",          re.compile(r"Statically allocated circular buffers.*exceed", re.I)),
+    # Statically allocated circular buffers live in L1, not DRAM, and tt-metal words this
+    # "grow to N B which is BEYOND max L1 size of M B" -- so the old pattern (".*exceed",
+    # labelled "dram") could never match the message it was written for, and would have named the
+    # wrong memory if it had. Quoted from a real nesso1 leg on a p150a.
+    ("l1",            re.compile(r"circular buffers.*(?:beyond|exceed).*L1 size", re.I)),
     ("oom",           re.compile(r"Out of Memory|bad_alloc|std::bad_alloc", re.I)),
     # Not a capacity result at all: another process holds the card. Scoring this as FAIL would
     # publish a ceiling that was never measured -- and it is easy to hit, because a killed leg
@@ -848,6 +859,8 @@ def _residency(worker, cell, fixture, work, hookdir, tokens) -> dict:
         r["host_oom_evidence"] = _oom_killer_fired(r.get("model", ""))
     elif r["rc"] == 0:
         r["verdict"] = "PASS"
+    elif _input_rejected(r["tail"]):
+        r["verdict"] = "BAD_FIXTURE"
     else:
         r["verdict"] = "FAIL"
     return r
@@ -995,6 +1008,22 @@ _SIGKILLED = re.compile(r"exit -9\b|exit 137\b|Killed\b|SIGKILL")
 
 def _host_killed(rc: int, tail: str) -> bool:
     return rc in (-9, 137) or bool(_SIGKILLED.search(tail or ""))
+
+
+#: The model refusing the INPUT is not the card refusing the SIZE, and only one of those is a
+#: capacity result. nesso1 is the roster's only `affinity` model and this gate's fixture is
+#: polymer-only by construction, so its batch builder rejects the ligand-free input outright:
+#: "No protein or ligand tokens found in the batch". Scored FAIL, that publishes a failed 1536
+#: bar for a model that never received a valid input at ANY size -- the same lie as p1's defects
+#: 7 and 8, where a host kill and an unusable checkpoint were read as a walked ceiling.
+_BAD_INPUT = re.compile(
+    r"No protein or ligand tokens found"
+    r"|[Nn]o tokens found in the batch"
+    r"|No sequences (?:found|provided)", re.I)
+
+
+def _input_rejected(tail: str) -> bool:
+    return bool(_BAD_INPUT.search(tail or ""))
 
 
 def _oom_killer_fired(model: str) -> str | None:
@@ -1248,6 +1277,10 @@ def render(report: dict) -> str:
     if n["INCONCLUSIVE"]:
         L.append("  INCONCLUSIVE is a Tier 1 result and is NOT a pass: one block per stack cannot "
                  "see the cumulative-residency class. Run without --tier screen for a verdict.")
+    if n.get("BAD_FIXTURE"):
+        L.append("  BAD_FIXTURE: the MODEL rejected the input, so nothing about the size was "
+                 "measured. Not a failed bar -- this gate's fixture is polymer-only, and a model "
+                 "needing a ligand never got a valid input at any size.")
     return "\n".join(L)
 
 
@@ -1344,7 +1377,8 @@ def main(argv=None) -> int:
     # the buffer for the whole campaign and the board geometry it carries is what a reader needs
     # FIRST to know the numbers are comparable.
     print(render(dict(report, results=[], counts=dict.fromkeys(
-        ("PASS", "fail_like", "SKIPPED", "NO_WEIGHTS", "INCONCLUSIVE", "CONTENDED"), 0))),
+        ("PASS", "fail_like", "SKIPPED", "NO_WEIGHTS", "INCONCLUSIVE", "CONTENDED",
+         "BAD_FIXTURE"), 0))),
         flush=True)
 
     #: Cards this run has given up on: a wedge that a reset could not clear. Every cell still
@@ -1419,8 +1453,15 @@ def main(argv=None) -> int:
     print(f"\nreport: {out}")
     if a.record:
         print(record_baseline(report, partial=bool(a.models)))
+    # Said after recording, because that is the moment it is actionable: whatever is still listed
+    # here has a verdict in somebody's prose and not in the committed baseline, and the run logs
+    # that would back it up live in scratch. Not part of the exit code -- the gate's rc is about
+    # capacity verdicts, and tests/test_capacity_gate.py is what fails on a gap.
+    if (gaps := baseline_gaps()):
+        print(f"\nBASELINE GAP: runnable models with no recorded cell: {gaps}"
+              f"\n  Run the gate for them and --record, or --record-from a finished report.")
     ok = (report["counts"]["fail_like"] == 0 and not report["counts"]["GATE_BUG"]
-          and not report["coverage_gaps"])
+          and not report["counts"]["BAD_FIXTURE"] and not report["coverage_gaps"])
     return 0 if ok else 1
 
 
@@ -1561,6 +1602,7 @@ def _finish(report: dict) -> None:
         "NO_WEIGHTS": v.count("NO_WEIGHTS"),
         "INCONCLUSIVE": v.count("INCONCLUSIVE"),
         "GATE_BUG": v.count("GATE_BUG"),
+        "BAD_FIXTURE": v.count("BAD_FIXTURE"),
     }
 
 

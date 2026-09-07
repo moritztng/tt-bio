@@ -875,3 +875,53 @@ def test_a_residency_failure_does_not_lower_the_allocation_ceiling():
     assert rec["alloc_ceiling_tokens"] == top, (
         f"the allocation ceiling came back {rec.get('alloc_ceiling_tokens')} even though the "
         f"screen at {top} allocated cleanly and only the residency failed")
+
+
+#: Quoted verbatim from a real nesso1 residency leg on pc's p150a, 2026-09-07.
+_NESSO1_CB_OVERFLOW = (
+    "TT_THROW: Statically allocated circular buffers on core range "
+    "[(x=0,y=0) - (x=12,y=9)] grow to 3424768 B which is beyond max L1 size of 1572864 B")
+_NESSO1_INPUT_REFUSED = "Error: No protein or ligand tokens found in the batch"
+
+
+def test_a_circular_buffer_overflow_is_recognised_and_named_l1():
+    """The pattern for this was written as ".*exceed" and labelled "dram". tt-metal says "grow to
+    N B which is BEYOND max L1 size", so it could never fire for the message it existed for, and
+    a statically allocated circular buffer lives in L1 rather than DRAM anyway -- so it would have
+    named the wrong memory if it had."""
+    assert cg.classify(_NESSO1_CB_OVERFLOW) == "l1", (
+        f"the L1 circular-buffer wall classified as {cg.classify(_NESSO1_CB_OVERFLOW)!r}")
+
+
+def test_a_model_rejecting_its_input_is_not_a_failed_bar():
+    """The MODEL refusing the input is not the card refusing the size, and scoring the first as
+    the second publishes a ceiling nobody walked -- p1's defects 7 and 8 in a third guise. nesso1
+    is an affinity model and this gate's fixture is polymer-only, so it never got a valid input at
+    any size."""
+    assert cg._input_rejected(_NESSO1_INPUT_REFUSED)
+    # And it must not swallow a real capacity failure: rf3's refusal stays a refusal.
+    assert not cg._input_rejected(
+        "Out of Memory: Not enough space to allocate 19327352832 B DRAM buffer across 8 banks")
+
+
+def test_a_bad_fixture_is_neither_a_pass_nor_silently_ignored():
+    """It has to fail the run the way GATE_BUG does. A non-result that exits zero is a non-result
+    nobody looks at, and this one means the gate needs a new fixture."""
+    report = {"results": [{"verdict": "BAD_FIXTURE"}], "coverage_gaps": []}
+    cg._finish(report)
+    n = report["counts"]
+    assert n["PASS"] == 0, "a rejected input counted as a pass"
+    assert n["fail_like"] == 0, "a rejected input counted as a failed bar"
+    assert n["BAD_FIXTURE"] == 1
+    ok = (n["fail_like"] == 0 and not n["GATE_BUG"] and not n["BAD_FIXTURE"]
+          and not report["coverage_gaps"])
+    assert not ok, "the run would have exited 0 with a model whose input was never valid"
+
+
+def test_nesso1_is_exempt_for_a_reason_that_names_the_ligand():
+    """It is the roster's only affinity model and the fixture is polymer-only, so it is a
+    structural gap like the design models and not a capacity result."""
+    assert "nesso1" in cg.EXEMPT
+    assert "ligand" in cg.EXEMPT["nesso1"].lower()
+    assert "nesso1" not in cg.runnable()
+    assert "nesso1" not in cg.coverage_gaps(), "exempt in writing, so not a coverage gap"
