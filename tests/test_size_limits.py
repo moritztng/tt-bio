@@ -325,15 +325,16 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
             sl.check_input(f, model, arch="wormhole_b0")
 
 
-#: A size the OpenFold3 Wormhole row is measured to REFUSE, read from the row itself rather than
-#: written down here. These two tests used a literal 768, which was over the cap when they were
-#: written and is under it now that the MSA track's DRAM defects are fixed -- so they stopped
-#: exercising the hatch and started asserting that a passing size raises. Derived, they cannot
-#: go stale when the ladder moves again.
+#: A size the row refuses, read from the row itself rather than written down here. These two tests
+#: used a literal 768, which was over the cap when they were written and is under it now that the
+#: MSA track's DRAM defects are fixed -- so they stopped exercising the hatch and started asserting
+#: that a passing size raises. `residues + 1` is over the cap for BOTH kinds of row: one with a
+#: recorded negative control, and one that is simply the top of its ladder with nothing above it
+#: measured (which is what openfold3 became). Derived, so it cannot go stale when a ladder moves.
 def _over_cap(model="openfold3", arch="wormhole_b0"):
     row = sl.ceiling(model, arch)
-    assert row.fail_at and row.fail_at > row.pass_at, (model, arch)
-    return row.fail_at
+    assert row.measured and row.residues, (model, arch)
+    return row.residues + 1
 
 
 def test_the_escape_hatch_downgrades_a_refusal_to_a_warning(monkeypatch):
