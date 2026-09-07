@@ -55,9 +55,17 @@ A CEILING IS ONLY VALID IN THE CONFIGURATION IT WAS MEASURED IN
 Every number below was walked with the flags the serving platform sends, and for the MSA-dependent
 models that means **the MSA on**. Single-sequence folding is measurably roomier: OpenFold3 caps at
 576 with a real alignment and folds **768 single-sequence in 301 s** (catalog.py). The same is
-likely true of the other ``dram_msa`` rows and is NOT true of the ``l1_clash`` rows, where the
-throw comes from a static circular-buffer layout in the structural refiner and has nothing to do
-with alignment depth.
+likely true of the other ``dram_msa`` rows.
+
+It is true of the ``l1_clash`` rows too, which this file used to deny. The throw does come from a
+static circular-buffer layout in the structural refiner, and the refiner runs on the structural
+token axis, so its own shapes do not depend on alignment depth -- which is why "nothing to do with
+alignment depth" looked safe. But a CB *clash* is not about one op's size, it is about what else is
+resident: the message names an L1 buffer at 352256 that the static CB region, ending at 382240,
+runs into. Deeper alignments leave more live, so the same op clashes at a smaller residue count.
+Measured on OpenDDE 2026-09-07, one fixture walked at four depths: it folds past 1056 residues at
+35 alignment rows, 832 at 512 rows, and fails at 576 with the platform's default 8192. A ladder is
+therefore a (residues, depth) point and ``msa_rows`` is the field that says which.
 
 Rather than guess a second set of numbers, the table keeps the measured (MSA-on) ceiling and
 ``TT_BIO_SIZE_LIMIT=0`` turns any refusal into a warning -- see ``enforced()``. A single-sequence
@@ -180,20 +188,32 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "opendde": {
         "wormhole_b0": Ceiling(
             residues=544, pass_at=544, fail_at=576, binds=MEMORY, mechanism=L1_CLASH,
+            msa_rows=8192,
             evidence="catalog.py, measured 2026-08-16/17 through the live API on the GWH02 "
                      "Galaxy: 512 and 544 fold, 576 throws an L1 static-CB clash, 608 folds, 640 "
                      "throws. Pass/fail is NOT monotonic in residue count, so 544 is the largest "
                      "size below the FIRST failure and not the largest that folds. The throw's own "
                      "addresses reproduced identically in two worker processes a day apart -- L1 "
                      "buffer at 352256 against a static CB region ending at 382240, 29984 B short "
-                     "(opendde-wh-crash-set-cap-nondeterministic)",
+                     "(opendde-wh-crash-set-cap-nondeterministic). RE-WALKED 2026-09-07 at the "
+                     "platform's default 8192 alignment rows and the row survived unchanged: 544 "
+                     "folds in 569 s at plDDT 0.897, 576 throws twice on two chips at the SAME two "
+                     "addresses. The re-walk exists because a 35-row ladder folds every rung to "
+                     "1056 on the same tree and would have published 1024; depth is what binds "
+                     "here, so a shallow-alignment input really is roomier than this number and "
+                     "TT_BIO_SIZE_LIMIT=0 is the supported way to run one",
         ),
     },
     "opendde-abag": {
         "wormhole_b0": Ceiling(
             residues=544, pass_at=544, fail_at=576, binds=MEMORY, mechanism=L1_CLASH,
+            msa_rows=8192,
             evidence="catalog.py, its OWN ladder measured 2026-08-17, not inherited from opendde: "
-                     "512 and 544 fold, 576 throws, 608 and 640 fold. Same first failure, same cap",
+                     "512 and 544 fold, 576 throws, 608 and 640 fold. Same first failure, same cap. "
+                     "The 2026-09-07 deep-alignment re-walk was run on the opendde checkpoint only; "
+                     "abag is the same architecture and the same tensor shapes with different "
+                     "weights, and the clash is a layout, so it inherits -- but that is an argument, "
+                     "not a measurement, and a rung of its own is outstanding",
         ),
     },
     "openfold3": {
