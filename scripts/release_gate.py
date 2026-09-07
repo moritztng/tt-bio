@@ -700,6 +700,26 @@ SIZE_LADDER_EXEMPT.update({
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
+# The top of the ladder is per model, because a ceiling is per model. 1024 was
+# excluded arm-wide on OpenFold3's behalf (it OOMs there on allocation count),
+# which made one model's ceiling every model's ceiling -- and boltz-2 has been
+# serving 1024-residue jobs in production with nothing watching its scaling above
+# 768. A model earns a rung by having been recorded at it; everything else keeps
+# the four-rung ladder. RELEASE_GATE_SIZE_RUNGS still overrides both, for a
+# single-rung debug run.
+SIZE_LADDER_MODEL_RUNGS = {
+    "boltz2": (256, 512, 640, 768, 896, 1024),
+}
+
+
+def _size_ladder_model_rungs(model: str) -> tuple:
+    """The rungs this model folds: its own ladder if it has one, else the default.
+    An explicit RELEASE_GATE_SIZE_RUNGS wins over both."""
+    if os.environ.get("RELEASE_GATE_SIZE_RUNGS"):
+        return SIZE_LADDER_RUNGS
+    return SIZE_LADDER_MODEL_RUNGS.get(model, SIZE_LADDER_RUNGS)
+
+
 # Exponent intervals are taken over these rungs only; every other rung is
 # census-only. 640 is in the ladder but not here on measured grounds: at the
 # sigma = 6.5% noise floor a 3-sigma band over ln(640/512) = 0.223 is +-1.24 and
@@ -2684,7 +2704,7 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
     """
     models = list(models or SIZE_LADDER_MODELS)
     flags = [f for f in (flags.split(",") if isinstance(flags, str) else flags) if f]
-    rungs = SIZE_LADDER_RUNGS
+    rungs = sorted({r for m in models for r in _size_ladder_model_rungs(m)})
     card = _size_ladder_card_type()
     workdir = SIZE_LADDER_WORKDIR
     unknown = [f for f in flags if f not in lever_census_flags()]
@@ -2693,7 +2713,7 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
                 "error": f"not levers in scripts/lever_census.py: {', '.join(unknown)}",
                 "legs": []}
     try:
-        baseline = json.loads(baseline_path.read_text())
+        baseline = _size_ladder_read_baseline(baseline_path)
     except Exception as e:
         return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
                 "error": f"baseline {baseline_path} unreadable: {e}", "legs": []}
@@ -2719,7 +2739,7 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
             legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
             continue
         measured, clauses, findings, grid = {}, {}, [], None
-        for rung in rungs:
+        for rung in _size_ladder_model_rungs(m):
             # need_runtime=False: this mode compares census counts and writes one lever's
             # row. It never reads a timing, so a fold whose results.json is not readable the
             # instant the subprocess exits must not refuse the splice — openfold3 writes its
@@ -2799,6 +2819,69 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
             "legs": legs}
 
 
+def _size_ladder_fragment_dir(baseline_path: Path) -> Path:
+    """Where the per-model baseline fragments live, beside the monolith."""
+    return baseline_path.parent / f"{baseline_path.stem}.d"
+
+
+def _size_ladder_read_baseline(baseline_path: Path) -> dict:
+    """The baseline: the monolith, with every per-model fragment merged over it.
+
+    One JSON holding every (card, model) is a merge conflict by construction. A size
+    campaign records six models on six branches at once and every one of them creates
+    the same new card key, so the six branches conflict on a file none of them disagree
+    about. A record pass therefore writes only its own model's fragment, and two
+    fragments never touch the same file. The monolith stays the record for everything
+    measured before the split and is read first, so a model with no fragment is
+    unaffected.
+    """
+    data = {}
+    if baseline_path.exists():
+        data = json.loads(baseline_path.read_text())
+    for frag_path in sorted(_size_ladder_fragment_dir(baseline_path).glob("*.json")):
+        frag = json.loads(frag_path.read_text())
+        for card, block in frag.get("cards", {}).items():
+            dst = data.setdefault("cards", {}).setdefault(card, {})
+            for key, val in block.items():
+                if key == "models":
+                    # Per-model, so a fragment adds its own model and overwrites nothing
+                    # else. Every entry carries its own recorded/host/commit stamp.
+                    dst.setdefault("models", {}).update(val)
+                else:
+                    dst.setdefault(key, val)
+    return data
+
+
+def _size_ladder_write_fragment(baseline_path: Path, card: str, model: str,
+                                entry: dict, rungs, stamp: dict) -> Path:
+    """Write this (card, model) row to its own fragment, preserving the model's rows
+    for every OTHER card type already in that file."""
+    frag_path = _size_ladder_fragment_dir(baseline_path) / f"{model}.json"
+    frag = {}
+    if frag_path.exists():
+        try:
+            frag = json.loads(frag_path.read_text())
+        except Exception:                                                # noqa: BLE001
+            frag = {}
+    frag.update({
+        "format": 1,
+        "what": f"size-ladder baseline fragment: {model} only. Merged over "
+                f"{baseline_path.name} by _size_ladder_read_baseline; split per model so "
+                f"parallel per-model records do not collide on one file",
+        "record_with": "python3 scripts/release_gate.py --model size-ladder "
+                       f"--size-ladder-record --size-ladder-models {model}",
+        "rungs": list(rungs),
+        "fold": {"single_sequence": True, "sampling_steps": SIZE_LADDER_STEPS,
+                 "diffusion_samples": 1, "seed": SEED},
+    })
+    card_block = frag.setdefault("cards", {}).setdefault(card, {})
+    card_block.update(stamp)
+    card_block.setdefault("models", {})[model] = entry
+    frag_path.parent.mkdir(parents=True, exist_ok=True)
+    frag_path.write_text(json.dumps(frag, indent=2) + "\n")
+    return frag_path
+
+
 def _size_ladder_coverage_gap() -> list[str]:
     """Foldable models that are neither on the ladder nor in SIZE_LADDER_EXEMPT.
 
@@ -2824,14 +2907,15 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
 
     Check mode folds every model at every rung through the lever census and
     fails on any divergence from the checked-in baseline. Record mode
-    (--size-ladder-record) re-measures the baseline for THIS card type,
-    preserving other cards' blocks and carrying existing exemption reasons
-    forward; dark levers with no carried reason are written as TODO and the
-    check mode refuses to pass until each carries a real one-line reason.
+    (--size-ladder-record) re-measures the baseline for THIS card type, writing
+    each model to its own fragment and leaving every model it did not measure
+    alone; exemption reasons are carried forward from the previous baseline, and
+    dark levers with no carried reason are written as TODO so the check refuses
+    to pass until each carries a real one-line reason.
     """
     subset = models is not None
     models = list(models or SIZE_LADDER_MODELS)
-    rungs = SIZE_LADDER_RUNGS
+    rungs = sorted({r for m in models for r in _size_ladder_model_rungs(m)})
     card = _size_ladder_card_type()
     workdir = SIZE_LADDER_WORKDIR
     # Only on a full run: --size-ladder-models is for a debug or single-model record and
@@ -2844,12 +2928,11 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                          f"record its rungs, or write why the arm does not cover it",
                 "legs": []}
     baseline = {}
-    if baseline_path.exists():
-        try:
-            baseline = json.loads(baseline_path.read_text())
-        except Exception as e:
-            return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
-                    "error": f"baseline {baseline_path} unreadable: {e}", "legs": []}
+    try:
+        baseline = _size_ladder_read_baseline(baseline_path)
+    except Exception as e:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"baseline {baseline_path} unreadable: {e}", "legs": []}
     if not record and not baseline:
         return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
                 "error": f"no baseline at {baseline_path} — record one with "
@@ -2870,49 +2953,29 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         # (--size-ladder-models) then UPDATES those models and leaves the rest of
         # the card block intact. A 6-model record is ~2 h of device time, so it
         # has to be resumable a model at a time instead of all-or-nothing.
+        # Every entry carries its own stamp: rf3 was recorded on qb1 while the other five
+        # were recorded on pc, and a card-level stamp alone then claims all six came from
+        # qb1. Models this pass does not touch are not rewritten at all, so they keep the
+        # stamp they were recorded under.
         stamp = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
                  "commit": _repo_commit()}
-        # The card-level stamp describes the LAST record pass, so on a subset record
-        # (--size-ladder-models) it stops describing the models that pass did not touch.
-        # rf3 was recorded on qb1 while the other five were recorded on pc; without a
-        # per-model stamp the file then claims all six came from qb1. So every entry
-        # carries its own, and an entry from before this existed inherits the card-level
-        # stamp it WAS recorded under, which is the one being overwritten here.
-        old_stamp = {k: baseline.get("cards", {}).get(card, {}).get(k)
-                     for k in ("recorded", "host", "commit")}
-        carried = {}
-        for m_old, e_old in old_models.items():
-            e_old = dict(e_old)
-            for k, v in old_stamp.items():
-                if v is not None:
-                    e_old.setdefault(k, v)
-            carried[m_old] = e_old
-        new_card = {**stamp, "models": carried}
+        new_card = {**stamp, "models": {}}
         todos = 0
 
-        def _flush_baseline():
-            baseline.setdefault("cards", {})[card] = new_card
-            baseline.update({
-                "format": 1,
-                "what": "size-ladder release-gate baseline: per-model lever census and "
-                        "runtime scaling exponents at every rung, per card type",
-                "rule": "a perf lever may not land default-ON on the strength of one "
-                        "sequence length; re-record after any size-affecting change",
-                "record_with": "python3 scripts/release_gate.py --model size-ladder "
-                               "--size-ladder-record",
-                "rungs": list(rungs),
-                "fold": {"single_sequence": True, "sampling_steps": SIZE_LADDER_STEPS,
-                         "diffusion_samples": 1, "seed": SEED},
-            })
-            baseline_path.parent.mkdir(parents=True, exist_ok=True)
-            baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+        def _flush_baseline(m: str):
+            """Persist the model just recorded, as its own fragment beside the monolith
+            (see _size_ladder_read_baseline for why the monolith is not rewritten)."""
+            return _size_ladder_write_fragment(baseline_path, card, m,
+                                               new_card["models"][m],
+                                               _size_ladder_model_rungs(m), stamp)
 
         for m in models:
             pre = _size_ladder_precondition(m)
             if pre:
                 legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
                 continue
-            meas = _size_ladder_measure_model(m, rungs, workdir,
+            m_rungs = _size_ladder_model_rungs(m)
+            meas = _size_ladder_measure_model(m, m_rungs, workdir,
                                               SIZE_LADDER_SIGMA_REPS, 1)
             err = _size_ladder_record_refusal(meas)
             block = skip = None
@@ -2926,7 +2989,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # changed but how many folds the number came from.
                 reps = (block or {}).get("reps", 1)
                 if reps > 1:
-                    again = [r for r in rungs if r != 512]
+                    again = [r for r in m_rungs if r != 512]
                     print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
                           f"{','.join(map(str, again))} at {reps} reps", flush=True)
                     m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
@@ -2966,8 +3029,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             for rung, cj in meas["census_jsons"].items():
                 shutil.copy(cj, prov / f"census_{m}_{rung}_{card}.json")
             # After every model, so a run that dies at model 4 keeps models 1-3.
-            _flush_baseline()
-        _flush_baseline()
+            print(f"  [size-ladder] {m}: recorded to "
+                  f"{_flush_baseline(m).relative_to(REPO_ROOT)}", flush=True)
         if todos:
             print(f"[size-ladder] {todos} dark lever(s) need a one-line exemption "
                   f"reason — search TODO in {baseline_path} and fill them in; the "
@@ -2994,7 +3057,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 legs.append({"model": m, "gate": False, "error": err,
                              "findings": [err]})
                 continue
-            legs.append(_size_ladder_check_model(m, rungs, base_model, workdir))
+            legs.append(_size_ladder_check_model(m, _size_ladder_model_rungs(m),
+                                                 base_model, workdir))
 
     gate = bool(legs) and all(l["gate"] for l in legs)
     row = {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,
@@ -3700,7 +3764,8 @@ def main() -> int:
                              args.size_ladder_models.split(",")
                              if args.size_ladder_models else None)
         all_pass &= sl["gate"]
-        rungs = SIZE_LADDER_RUNGS
+        rungs = sorted({r for leg in sl["legs"]
+                        for r in _size_ladder_model_rungs(leg["model"])})
         print(f"\n{'#'*78}\nRELEASE GATE — size-ladder (rungs "
               f"{','.join(map(str, rungs))}, {SIZE_LADDER_STEPS} steps / 1 sample, "
               f"seed {SEED}, single-sequence, card {sl.get('card', '?')})"
