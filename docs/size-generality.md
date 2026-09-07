@@ -17,9 +17,11 @@ the reader to assume it was checked.
 
 `scripts/release_gate.py --model size-ladder` enforces the size half of this, and it is in the
 default arm set, so a release runs it whether or not anyone remembers to. It folds each structure
-model at 256, 512, 640 and 768 aa, counts which perf levers actually fire at each rung by effect,
-and fails when the fired set, the clause a guard declines on, or the runtime scaling exponent moved
-away from `docs/size_ladder_baseline.json`. Nesso-1 rides the same rungs through `tt-bio affinity`
+model at 256, 512, 640, 768, 896 and 1024 aa, counts which perf levers actually fire at each rung
+by effect, and fails when the fired set, the clause a guard declines on, or the runtime scaling
+exponent moved away from `docs/size_ladder_baseline.json` and the fragments beside it. A model
+whose guard refuses a rung records that refusal, and a later run that folds the rung the baseline
+says it refuses is a failure, because the ceiling moved. Nesso-1 rides the same rungs through `tt-bio affinity`
 instead of `predict`, because it returns a scalar rather than a structure and `predict` cannot fold
 it. The clause matters on its own: a guard that starts
 refusing for a different reason has changed behaviour without changing either the fired count or the
@@ -33,9 +35,9 @@ answer changes and nobody said it should, in either direction. A lever that *sta
 size it was never measured at is also a failure, because that is what a threshold quietly widening
 looks like.
 
-**Re-recording is a human action that costs four sizes.** `--size-ladder-record` re-measures every
+**Re-recording is a human action that costs six sizes.** `--size-ladder-record` re-measures every
 rung, and the baseline stores each lever's resolved value at each one. So flipping a default to ON
-fails the arm until someone re-records, and re-recording measures four sequence lengths. The rule
+fails the arm until someone re-records, and re-recording measures six sequence lengths. The rule
 enforces itself instead of relying on a reviewer noticing.
 
 Baselines are per board type and per core grid. The L1 budgets scale to the part's measured per-core
@@ -44,6 +46,33 @@ at the same sequence length. Board type alone does not pin the grid, because har
 board type presents several. A card with no recorded baseline, or one whose grid differs from the
 baseline's, is a loud failure telling you to re-record rather than a silent skip or a false drift
 report.
+
+## Why the ladder reaches 1024
+
+1024 used to be left off entirely because OpenFold3 OOMs there on allocation count, and an arm that
+is red on arrival for one model is an arm someone switches off. A different model paid for that:
+boltz-2 has served 1024-residue jobs in production while the largest size anything measured was
+768, so its scaling across the top third of its supported range was unwatched.
+
+The ladder now runs to 1024 for every model, and a model that cannot fold a rung records that rung
+as a refusal instead of holding everyone else's ladder down. That refusal is information the arm
+carries, not a reason to leave the rung out. Every rung is a multiple of 32, the token-axis
+bucketing the fused kernels are served on.
+
+## Where the baseline lives
+
+`docs/size_ladder_baseline.json` plus `docs/size_ladder_baseline.d/<model>.json`, read as one. Pass
+`--size-ladder-fragment` and a record writes only its own model's fragment, dropping that model's
+rows from the monolith so the two cannot disagree. The reason is merge mechanics rather than taste:
+six models recorded in parallel on six branches all create the same new card key in the same file,
+so they conflict on a file none of them disagree about. Fragments never collide, and a model with
+no fragment is served from the monolith exactly as before.
+
+Recording a card type for the first time inherits each dark lever's exemption reason from the
+newest other card that has one, tagged `[carried from <card>]`. Only the judgement half carries;
+the counts and the decline clause are re-measured from the entry being written. Without that, a
+new card writes TODO on every dark lever it has and the check cannot pass until a human retypes
+judgements the file already holds one card block away.
 
 ## Why the ladder includes 640
 
@@ -197,6 +226,24 @@ apo fixture, so until Nesso-1 joined, no rung of this arm exercised an affinity 
 model — four of those five have no affinity module to exercise. K2, which is 100 % dark on that path,
 read as fully served at every rung. A ladder covers the sizes you list; it covers only the code the
 fixture reaches, and that is a separate thing to check.
+
+## First Wormhole baseline: boltz-2 to 1024
+
+`docs/size_ladder_baseline.d/boltz2.json` (2026-09-07, `tt-galaxy-wh l`, 8x9 grid) is the first
+size-ladder baseline recorded on Wormhole, and the first for boltz-2 above 768: 256/512/640/768/
+896/1024, median of 3 after a discarded warm-up. 640→768→896→1024 reads a clean k = 1.99/2.03/2.18
+— a quadratic in tokens with no lever going dark anywhere in the band the platform's 1024 ceiling
+opens up but no ladder had ever measured.
+
+One open anomaly, recorded rather than silently smoothed over: the 512 rung sits ~23% above what
+its own 640-1024 curve predicts (55.5 s measured vs 45.1 s extrapolated), inside the same rung
+whose measured run-to-run sigma is 12%. The leading mechanistic suspect — `TRANSPOSE_L1_HEADROOM`
+(1.25), the only lever whose census differs at 512 vs the rest of the ladder — was A/B screened by
+forcing the tensor off its L1 route (`TT_BIO_TRANSPOSE_L1_HEADROOM=8.0`) and **refuted**: the
+forced/DRAM arm was 10.9% slower, not faster, at the median. The screen's own within-arm spread
+(14.3% across three identical folds) is close to the size of the anomaly, so it reads as host
+contention on a shared measurement box rather than a real regression. Not re-recorded on a quiet
+host yet; that is the one follow-up this baseline leaves open.
 
 ## Running it
 

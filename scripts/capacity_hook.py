@@ -117,8 +117,15 @@ def _sample_dram() -> None:
         return                                # screen mode wants the heartbeat, not the sampling
     try:
         import ttnn
-        from tt_bio.tenstorrent import get_device
-        dev = get_device()
+        import tt_bio.tenstorrent as tt
+        # The handle if one is already open, and never get_device(): an instrument must not
+        # acquire the thing it measures. get_device() OPENS a card and takes an exclusive
+        # host-wide lease on it first, so sampling through it made a run with no card of its
+        # own block TT_BIO_LEASE_TIMEOUT (120 s) behind whoever legitimately held the card --
+        # once per sampled block, which is how `TT_VISIBLE_DEVICES= pytest tests/` reached the
+        # 1800 s wall with nothing on stdout. Nothing is lost: in a real capacity run the
+        # device is open before the first block executes, which is the only time this samples.
+        dev = getattr(tt, "_device", None)
         if dev is None:
             return
         v = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
@@ -237,8 +244,13 @@ class _Finder:
             return None
         if fullname.startswith(_SKIP_PREFIXES):
             return None
-        # Ask everyone AFTER us to locate it, then wrap the loader they hand back.
-        rest = [f for f in sys.meta_path if f is not self]
+        # Ask everyone AFTER us to locate it, then wrap the loader they hand back. Every
+        # _Finder is skipped, not just `self`: two of them on sys.meta_path each treat the
+        # other as "someone after us" and delegate forever (RecursionError inside an import,
+        # so it surfaces as a failure in whatever model happened to be loading). One instance
+        # is all install() ever adds to a real interpreter, but reloading this module gives a
+        # second class object, so `is not self` alone does not cover it.
+        rest = [f for f in sys.meta_path if type(f).__name__ != "_Finder"]
         for finder in rest:
             try:
                 spec = finder.find_spec(fullname, path, target)
@@ -276,6 +288,9 @@ def install() -> None:
     global _beat_path
     beat = os.environ.get("TT_BIO_CAPACITY_HOOK_BEAT")
     _beat_path = f"{beat}.{os.getpid()}" if beat else None
+    # Drop any finder a previous install left behind (this module reloaded) before adding
+    # ours, so meta_path carries exactly one and nothing has to tolerate a stack of them.
+    sys.meta_path[:] = [f for f in sys.meta_path if type(f).__name__ != "_Finder"]
     sys.meta_path.insert(0, _Finder())
     for name, mod in list(sys.modules.items()):
         if name.startswith("tt_bio") and not name.startswith(_SKIP_PREFIXES):

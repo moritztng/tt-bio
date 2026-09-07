@@ -79,12 +79,13 @@ TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_v
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/perf_regression.py
 
-# Size-generality arm: folds every structure model at 256/512/768 aa and fails
-# if the fired/dark perf-lever set or the runtime scaling exponent drifted from
-# docs/size_ladder_baseline.json. A perf lever may not ship default-ON on the
-# strength of one sequence length; re-record after an intentional size-affecting
-# change with --size-ladder-record (once per card type — a card with no baseline
-# fails loudly). See docs/size-generality.md.
+# Size-generality arm: folds every structure model at 256/512/640/768/896/1024 aa
+# and fails if the fired/dark perf-lever set or the runtime scaling exponent
+# drifted from docs/size_ladder_baseline.json plus docs/size_ladder_baseline.d/,
+# read as one. A model whose guard refuses a rung records the refusal. A perf
+# lever may not ship default-ON on the strength of one sequence length; re-record
+# after an intentional size-affecting change with --size-ladder-record (once per
+# card type — a card with no baseline fails loudly). See docs/size-generality.md.
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/release_gate.py --model size-ladder
 

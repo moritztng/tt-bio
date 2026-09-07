@@ -106,15 +106,23 @@ BINDS = (MEMORY, RUNTIME, LADDER_TOP, UNMEASURED)
 # wall and useless against an L1 clash, where the throw lands at a consumer's program creation with
 # DRAM nowhere near full.
 L1_CLASH = "l1_clash"              # L1 static circular buffers overlap the tensor. Not monotonic.
+# L1 is simply too full for a residency the code asked for on purpose, and that is a THIRD thing,
+# distinct from both neighbours above and below it. Not L1_CLASH: nothing static is in the way, the
+# allocator just has fewer bytes per bank than the request. Not FRAGMENTATION either, and the throw
+# proves it -- `free` and `largest free block` come back EQUAL, so there is no block to coalesce and
+# a defragmenting fix would buy nothing. What sets the size is a chunk height chosen against an L1
+# budget that was tuned at a smaller size, so the lever is the budget or the residency, not the
+# layout (`one-size-tuning-is-a-standing-defect-class`).
+L1_BUDGET = "l1_budget"            # an L1 residency sized by a budget too optimistic at this size
 DRAM = "dram"                      # a single allocation the chip cannot serve
 DRAM_MSA = "dram_msa"              # DRAM, in the MSA track, growing with tokens and depth
 FRAGMENTATION = "fragmentation"    # enough free DRAM, no block big enough
 NO_FAILURE = "none"                # nothing broke
 UNKNOWN = "unknown"                # not diagnosed
-MECHANISMS = (L1_CLASH, DRAM, DRAM_MSA, FRAGMENTATION, NO_FAILURE, UNKNOWN)
+MECHANISMS = (L1_CLASH, L1_BUDGET, DRAM, DRAM_MSA, FRAGMENTATION, NO_FAILURE, UNKNOWN)
 
 # WHAT THE NUMBER COUNTS. Not decoration: the two design models were measured in DIFFERENT
-# denominators, and holding one against the other would be a silent unit substitution. RFD3's 490 is
+# denominators, and holding one against the other would be a silent unit substitution. RFD3's 704 is
 # motif PLUS designed residues, while PXDesign's 768 is TARGET residues only, with its 80-residue
 # binder on top and outside the number. A guard that compared a total against a target-only cap
 # would refuse correct work on one model and pass oversized work on the other. Each row names its
@@ -313,14 +321,60 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "rfd3": {
         "wormhole_b0": Ceiling(
-            residues=490, pass_at=490, fail_at=UNRECORDED, binds=MEMORY, mechanism=FRAGMENTATION,
+            residues=704, pass_at=704, fail_at=768, binds=MEMORY, mechanism=L1_BUDGET,
             counts=DESIGN_TOTAL,
-            evidence="wh-design-models-l1-budget-and-size-caps, measured on this Galaxy: 390 TARGET "
-                     "residues, 490 total including the designed regions, 4373 atoms. The wall is "
-                     "fragmentation and not capacity -- 2.04-2.37x the needed space is free while "
-                     "the largest block is 0.89-0.93x of the request. Fails hard, not slowly. The "
-                     "failing size above 490 was witnessed but never written down, which is why "
-                     "this row's negative control is UNRECORDED rather than a number",
+            evidence="state/ceiling-rfd3.md, its own ladder measured 2026-09-07 on GWH02 card UMD "
+                     "26 (node 2), ws:ceiling-rfd3. 704 total residues = 604 target + a "
+                     "100-residue binder, 6261 atoms. ONE target cut to every rung "
+                     "(laczc_1008, 1DP0 chain A) so no two rungs differ in anything but size. "
+                     "Walked AT THE PLATFORM'S 100 DIFFUSION STEPS, which is the whole point of "
+                     "this row: 640 folds in 162.2 s, 704 folds THREE times out of three in "
+                     "169.6/161.5/148.0 s, and 768 FAILS 1 IN 3 (70.2 s to the throw; the two "
+                     "passes took 176.2 and 175.4 s). 768 is therefore NOT publishable even "
+                     "though it usually works, and 704 is the largest size below the FIRST "
+                     "failure exactly as this module's convention requires -- capping at 768 "
+                     "would promise a size that throws every third run. The failure lands in the "
+                     "sampler with the input already built -- 6776 atoms, atom-pair row block "
+                     "engaged at 6 blocks -- on a 50331648 B L1 buffer over 72 banks needing "
+                     "700416 B per bank against 695008 B free. It is short "
+                     "by 5408 B per bank. That is 0.39 % of the 1395424 B bank, and it is what "
+                     "makes the boundary intermittent rather than sharp: the site wants TWO of "
+                     "these live at once, 2 x 700416 = 1400832, the bank holds 1395424, and "
+                     "whether the last one fits depends on what the preceding steps left behind. "
+                     "The same 5408 B shortfall appears in the 2-step 992 throw, where it passed "
+                     "5/5, so a 5408-B miss on this site is a coin flip and not a wall. Not "
+                     "fragmentation -- `free` and `largest free block` are the same 695008 B, so "
+                     "there is nothing to coalesce -- and L1 reads fully free at open, weights "
+                     "and token_init, so nothing is carried out of setup. The site is the SwiGLU "
+                     "gated product of the pair transition in the conditioning Pairformer "
+                     "(model.py:885 -> :954, z_transition at model.py:1061), reached through "
+                     "model.py:3636 _forward_with_recycle -> :3646 _process_ with D_II_self, the "
+                     "SELF-CONDITIONING path. THAT PATH ONLY RUNS ON A RECYCLE, which is why the "
+                     "step count is part of this measurement and not a way to make it cheaper: an "
+                     "earlier ladder ran at rfd3_cap.py's old default of 2 steps, never entered "
+                     "the path, and published a ceiling of 992 that this model does not have. At "
+                     "2 steps the same SwiGLU asks 33554432 B; at 100 it asks 1.94x that at the "
+                     "same input, and 992 misses by 45 %. The 992 is withdrawn and 1024's 6/6 "
+                     "failure is not quoted, because both were measured at 2 steps. Pass/fail is "
+                     "not assumed monotonic for this class, so 704 is the largest size below the "
+                     "FIRST failure and not merely the largest that folds. The cap DEPENDS on the "
+                     "atom-pair row block: unblocked, the token initializer dies at 640 total "
+                     "residues on a 2114887680 B DRAM request, and TT_BIO_ATOM_PAIR_BUDGET_BYTES=0 "
+                     "restores that wall. The block is bit-exact against the unblocked path at "
+                     "128/256/480/512 on all five tensors the initializer hands the sampler, with "
+                     "the block count recorded beside each digest so a pass proves the lever "
+                     "engaged rather than the size having stayed under the budget; 128 and 256 "
+                     "stay in one block, so the sizes users run are the shipped path byte for "
+                     "byte. It is also faster and lighter (512 residues: 71.2 s against 124.5 s, "
+                     "8.2 GB host RSS against 16.1 GB). Owed and NOT claimed: a structural score "
+                     "at 704 (only finite coordinates and atoms-out == atoms-in are measured), "
+                     "reference parity at the top size, and Blackhole, where "
+                     "atom_pair_budget_bytes() reads the part's own DRAM and so blocks later. 768 "
+                     "missing by 0.39 % of a bank makes declining that one L1 residency to DRAM "
+                     "the obvious next lever -- the gated product is elementwise, so its "
+                     "destination cannot change its arithmetic -- but it touches "
+                     "Transition._swiglu, which every model with a pair transition uses, so it is "
+                     "a release-gated change and is not in this row",
         ),
     },
     "pxdesign": {

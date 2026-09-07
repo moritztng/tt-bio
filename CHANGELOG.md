@@ -18,6 +18,28 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **RFdiffusion3 designs up to 704 residues on a 12 GiB Wormhole card, up from 490.** 704 is
+  604 target residues plus a 100-residue binder, 6261 atoms, and it folds three times out of
+  three in 148-170 s. The number holds only at the 100 diffusion steps a real run uses: a
+  2-step run never passes `D_II_self`, so it never enters self-conditioning, and the same
+  SwiGLU in the pair transition then asks for 33 554 432 B instead of 65 011 712 B. A ladder
+  walked at 2 steps reported 992 and that is withdrawn -- 992 fails at 100.
+
+  The first failure is 768, and it is a coin flip rather than a wall: the site wants two
+  700 416 B per-bank buffers live at once against a 1 395 424 B bank, so it misses by 5408 B
+  and whether the last one fits depends on what the preceding diffusion steps left behind.
+  It folded twice in three attempts and still cannot be published, because a limit has to be
+  a size below which everything works. The ceiling is therefore 704, the largest size below
+  the *first* failure, the same rule OpenDDE's 544 follows.
+
+  Getting there also needed the token initializer's atom-pair section row-blocked against
+  the part's own DRAM: unblocked it dies at 640 residues on a 2 114 887 680 B request, and it
+  is faster and lighter blocked (71.2 s against 124.5 s and 8.2 GB host RSS against 16.1 GB
+  at 512 residues, same card, budget the only difference). Designs up to about 310 residues
+  stay in a single block and so run the old path byte for byte; the five tensors the
+  initializer hands the sampler are md5-identical at 128, 256, 480 and 512.
+  `TT_BIO_ATOM_PAIR_BUDGET_BYTES=0` restores the unblocked path and its 640 wall.
+
 - **RoseTTAFold3 folds 1095 residues on a 12 GiB Wormhole card, up from 627.** Neither wall was
   memory the model needs; both were shape choices, and the allocator's own byte counts name them.
   The template embedder and the MSA module were the last two triangle-attention sites still
