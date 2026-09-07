@@ -256,8 +256,20 @@ def reblock_permute(x, memory_config=None, device=None):
 
 # The L1 leg's window edges, named so a fold-level A/B can move one of them in-process without
 # editing the gate. See eligible()'s docstring for what measured them.
-L1_N_MIN = 288
-L1_N_MAX = 352
+#
+# The env overrides exist because `predict` folds in spawned worker processes, so setting the
+# module attribute in the launcher does not reach the code that reads it, and an in-process A/B
+# is only possible for a caller that folds in its own process. They default to the measured
+# constants, so with neither variable set this is byte-for-byte the shipped gate.
+#
+# Why they were added: ESMFold2 on Wormhole asks this gate 8672 times per fold at 256 aa and is
+# refused every time on `window_BufferType.L1`, because its call sites want an L1 output and no
+# rung of the 256/512/640/768/896/1024 size ladder falls inside 288..352. The 352 edge is one
+# grid's collapse point (qb1 13x10) applied to every grid, while qb2 measured 1.02-1.62x wins on
+# an L1 output out to N=544. Whether the window should be wider on a given card type is a
+# measurement, and this is what makes it measurable per rung.
+L1_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MIN", "288"))
+L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 
 
 def eligible(x, memory_config) -> bool:
