@@ -218,16 +218,25 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "rf3": {
         "wormhole_b0": Ceiling(
-            residues=627, pass_at=627, fail_at=630, binds=MEMORY, mechanism=DRAM_MSA, msa_rows=29017,
-            evidence="catalog.py: sixteen consecutive sizes fold (375 through 627) and then 630 "
-                     "dies, as do 640 twice, 650, 656, 716, 796, 891, 980 and 1095. The wall is "
-                     "clean and monotonic here, and it is not a depth artefact -- the deepest "
-                     "alignment in the band (612 aa, 29017 rows) folds while the shallower 630 "
-                     "(22936 rows) does not. TWO different DRAM failures sit above the cap: 630-656 "
-                     "die late on a request as small as 103 MB with DRAM already 99% full (the "
-                     "allocation-COUNT shape of of3-1024aa-oom-allocation-count-not-size), while "
-                     "from 716 up a single 6.2-8.6 GB buffer is asked of a 12 GB chip. Only the "
-                     "lower one yields to depth chunking, so fixing it reaches ~716 and not 1024",
+            residues=1095, pass_at=1095, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            msa_rows=27317,
+            evidence="was 627 (fail_at 630) until the two allocations that set it were fixed; "
+                     "state/ceiling-rf3-1024.md, measured 2026-09-07 on GWH02 card UMD 2 with real "
+                     "ColabFold alignments. Both walls were shape choices, not memory the model "
+                     "needs. The template embedder and the MSA module were the last two RF3 "
+                     "triangle-attention sites on the materialised fp32-softmax route, which writes "
+                     "[tokens, heads, S_pad, S_pad] over the RAW token axis: 656 aa asked "
+                     "2369912832 B = 656 x 4 x 672 x 672 x 2 at trunk 0/10. The confidence head's "
+                     "global layer norm flattened the pair tensor to one row, and TILE_LAYOUT pads "
+                     "one row to 32, so it asked 32x: 640 aa died on 3355443200 B = 32 x (640 x 640 "
+                     "x 128 x 2), reproduced on this card at 179 s. Ladder above the old cap, fix "
+                     "arm, all folded with zero backbone breaks and clash fractions of 0.2-0.7%: "
+                     "630 (22936 rows), 656 (23951), 716 (11615), 796 (21448), 891 (16253), 980 "
+                     "(12267), 1095 (25815, pLDDT 80.5 in 584 s). 640 aa carries the deepest "
+                     "alignment walked, 27317 rows. Nothing above 1095 has been run, hence "
+                     "LADDER_TOP: the real ceiling may be higher. The fix is on by default; "
+                     "TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0, TT_BIO_RF3_MSA_FUSED_SDPA=0 or "
+                     "TT_BIO_RF3_GLN_ROW_FOLD=0 restore the old route and the old 627 wall with it",
         ),
     },
     "protenix-v2": {
