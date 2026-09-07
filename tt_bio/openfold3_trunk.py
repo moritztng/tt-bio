@@ -177,6 +177,10 @@ class OF3Trunk(Module):
         z = self._zeros_like(z_init)
         # m is identical across cycles (verified in the reference golden); compute once.
         m = self.msa_embedder(msa_feat, s_input)
+        # ...and `msa_feat` is dead the moment it has been. It is [1, N_seq, N, 34] with the 34
+        # tile-padded to 64, so at 1024 tokens x 14191 alignment rows it is 1 860 042 752 B held
+        # for the whole trunk for nothing. The trunk CONSUMES it; `fold` must not free it again.
+        ttnn.deallocate(msa_feat)
         # the template feature half is a function of template_feat alone, so it is the
         # same tensor in every cycle -- compute it once, exactly like m above.
         a_tmpl = self.template.features(template_feat)

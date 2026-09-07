@@ -88,6 +88,20 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/release_gate.py --model size-ladder
 
+# Capacity arm: does every model still ALLOCATE and COMPLETE at 1536 tokens, at the
+# MSA depth it is served with? Two tiers -- a one-block screen that catches an
+# oversized shape in seconds, then the full pipeline with a stall detector. This
+# is a capacity check and not a correctness one; it does not substitute for the
+# accuracy gate above. See docs/model-bringup-checklist.md.
+#
+# RE-RUN IT WHENEVER A CEILING MOVES. tests/test_capacity_gate.py pins the
+# ceiling table this run was measured against, so raising a ceiling fails that
+# test until the gate has run at the new size and the baseline is re-recorded.
+# That is the check that was missing when the ceilings went to 1024 and three
+# models broke in traffic at 40-50%.
+TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
+  python3 scripts/capacity_gate.py
+
 TT_VISIBLE_DEVICES=0 OF3_CKPT=/path/to/of3-p2-155k.pt PYTHONPATH="$PWD" \
   python3 scripts/ux_regression.py
 ```
