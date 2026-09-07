@@ -2958,6 +2958,14 @@ def _size_ladder_coverage_gap() -> list[str]:
     return sorted(shipped - set(SIZE_LADDER_MODELS) - set(SIZE_LADDER_EXEMPT))
 
 
+def _rel_to_repo(path: Path) -> str:
+    """``path`` relative to the repo for a log line, or absolute when it is outside it."""
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def _size_ladder_fragment_dir(baseline_path: Path) -> Path:
     """``docs/size_ladder_baseline.d/`` beside ``docs/size_ladder_baseline.json``."""
     return baseline_path.with_name(baseline_path.stem + ".d")
@@ -3129,7 +3137,14 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                          "diffusion_samples": 1, "seed": SEED},
             })
             baseline_path.parent.mkdir(parents=True, exist_ok=True)
-            baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+            # Only if it actually changed. In --size-ladder-fragment mode every measured row
+            # went to its own file and all that is left here is the top-level contract, which
+            # is a set of constants every model's record pass would rewrite identically. Six
+            # branches each touching the shared json to write bytes it already contains is the
+            # merge conflict the fragments exist to avoid, so a no-op stays a no-op.
+            text = json.dumps(baseline, indent=2) + "\n"
+            if not baseline_path.exists() or baseline_path.read_text() != text:
+                baseline_path.write_text(text)
 
         for m in models:
             pre = _size_ladder_precondition(m)
@@ -3185,8 +3200,10 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # Drop the monolith's copy for THIS card so the two cannot disagree; the
                 # fragment is now the only place this (card, model) is recorded.
                 new_card["models"].pop(m, None)
-                print(f"  [size-ladder] {m}: recorded to {frag.relative_to(REPO_ROOT)}",
-                      flush=True)
+                # Not relative_to(REPO_ROOT): --size-ladder-baseline exists so a smoke run
+                # can record to scratch, and a scratch path is not under the repo, so
+                # relativising it raised ValueError and took the whole record pass with it.
+                print(f"  [size-ladder] {m}: recorded to {_rel_to_repo(frag)}", flush=True)
             else:
                 new_card["models"][m] = entry
             legs.append({"model": m, "gate": True, "error": None, "findings": [],

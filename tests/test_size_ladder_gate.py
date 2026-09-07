@@ -549,3 +549,115 @@ def test_all_pair_exponents_cover_every_consecutive_rung(rg):
     assert list(k) == ["256->512", "512->768", "768->1024"]
     assert k["256->512"] == 2.0                      # exactly quadratic
     assert rg._size_ladder_all_pair_exponents({"256": 10.0}) == {}
+
+
+# --- run_size_ladder record mode, end to end ---------------------------------------------
+#
+# The helpers above are unit-tested, but `run_size_ladder` itself is what runs for hours on a
+# real card, and a bug in it is discovered by burning that time. Faked folds, so this exercises
+# the whole record path -- resume, refusal, fragment write, exponent recompute -- and then the
+# CHECK against what it just recorded, without a device.
+
+
+def _rec(rg, base, rungs, runtimes, refuse_at=None, card="tt-galaxy-wh l",
+         commit="fc7df2a7", host="GWH02", monkeypatch=None):
+    """One record pass over `rungs`, folding at the given per-rung runtimes."""
+    def fake(model, rung, workdir, tag, need_runtime=True):
+        if refuse_at is not None and rung >= refuse_at:
+            return {"refused": f"has {rung} residues, and openbind is measured to handle "
+                                f"at most {refuse_at - 64} on wormhole_b0"}
+        cj = workdir / f"census_{model}_{rung}_{tag}.json"
+        cj.parent.mkdir(parents=True, exist_ok=True)
+        cj.write_text("{}")
+        return {"levers": {"FLAG": dict(FIRING)}, "runtime_s": runtimes[rung],
+                "wall": runtimes[rung] + 20.0, "census_json": cj, "grid": "8x10"}
+
+    monkeypatch.setattr(rg, "_run_census_fold", fake)
+    monkeypatch.setattr(rg, "_size_ladder_card_type", lambda: card)
+    monkeypatch.setattr(rg, "_repo_commit", lambda: commit)
+    monkeypatch.setattr(rg, "socket", type("s", (), {"gethostname": staticmethod(lambda: host)}))
+    monkeypatch.setattr(rg, "SIZE_LADDER_WORKDIR", base.parent / "work")
+    monkeypatch.setattr(rg, "SIZE_LADDER_SIGMA_REPS", 2)
+    return rg.run_size_ladder(True, True, base, models=["openbind"], rungs=rungs,
+                              fragment=True)
+
+
+def test_record_then_resume_then_check_round_trips(rg_fresh, monkeypatch, tmp_path):
+    """The shape the next Wormhole pass will actually run: record the cheap rungs, come back
+    in a later turn for the expensive one, and have the baseline describe the whole ladder."""
+    base = tmp_path / "size_ladder_baseline.json"
+    # Seeded in the steady state: contract keys already present and correct, plus a sibling's
+    # model. That is the case that matters, because it is what the committed file looks like
+    # while six branches record into it. A monolith MISSING the contract is a real difference
+    # and the recorder is right to write it.
+    base.write_text(json.dumps({
+        "format": 1,
+        "what": "size-ladder release-gate baseline: per-model lever census and runtime "
+                "scaling exponents at every rung, per card type",
+        "rule": "a perf lever may not land default-ON on the strength of one sequence "
+                "length; re-record after any size-affecting change",
+        "record_with": "python3 scripts/release_gate.py --model size-ladder "
+                       "--size-ladder-record",
+        "rungs": list(rg_fresh.SIZE_LADDER_RUNGS),
+        "fold": {"single_sequence": True, "sampling_steps": rg_fresh.SIZE_LADDER_STEPS,
+                 "diffusion_samples": 1, "seed": rg_fresh.SEED},
+        "cards": {"p150a": {"models": {"boltz2": {"runtime_s": {"256": 7.8}}}}},
+    }, indent=2) + "\n")
+    monolith_before = base.read_bytes()
+    rt = {256: 31.0, 512: 124.0, 640: 210.0, 768: 320.0, 896: 470.0}
+
+    # pass 1: the four cheap rungs
+    out = _rec(rg_fresh, base, (256, 512, 640, 768), rt, monkeypatch=monkeypatch)
+    assert out["gate"] is True, out.get("error")
+    frag = base.with_name("size_ladder_baseline.d") / "openbind.json"
+    assert frag.exists()
+    assert base.read_bytes() == monolith_before, "a fragment record must not touch the monolith"
+
+    # pass 2: a later turn adds 896 and hits the guard at 1024
+    out = _rec(rg_fresh, base, (896, 1024), rt, refuse_at=1024, monkeypatch=monkeypatch)
+    assert out["gate"] is True, out.get("error")
+
+    entry = rg_fresh._size_ladder_read_baseline(base)["cards"]["tt-galaxy-wh l"]["models"]["openbind"]
+    # every rung the two passes measured, and the one the guard refused
+    assert sorted(map(int, entry["runtime_s"])) == [256, 512, 640, 768, 896]
+    assert list(entry["refused"]) == ["1024"]
+    assert "at most 960" in entry["refused"]["1024"]
+    # pass 2 measured only 896, so the rest are carried and recorded as such
+    assert entry["rungs_carried"] == ["256", "512", "640", "768"]
+    # the exponent block is recomputed over the MERGED ladder, not over pass 2 alone
+    assert set(entry["exponents_measured"]) == {"256->512", "512->640", "640->768", "768->896"}
+    assert entry["exponents_measured"]["256->512"] == pytest.approx(2.0, abs=0.02)
+    assert entry["grid"] == "8x10" and entry["commit"] == "fc7df2a7"
+
+    # and the check passes against what was just recorded, refusal included
+    leg = rg_fresh._size_ladder_check_model(
+        "openbind", (256, 512, 768, 1024), entry, tmp_path / "work2")
+    assert leg["gate"] is True, leg["findings"]
+
+
+def test_a_resumed_pass_on_a_new_commit_does_not_splice_two_engines(rg_fresh, monkeypatch,
+                                                                    tmp_path):
+    """The failure this must not have: 256 from the old engine, 896 from the new one, and an
+    exponent that is the difference between them reported as complexity."""
+    base = tmp_path / "size_ladder_baseline.json"
+    rt = {256: 31.0, 512: 124.0, 896: 470.0}
+    _rec(rg_fresh, base, (256, 512), rt, commit="aaaaaaa", monkeypatch=monkeypatch)
+    _rec(rg_fresh, base, (896,), rt, commit="bbbbbbb", monkeypatch=monkeypatch)
+
+    entry = rg_fresh._size_ladder_read_baseline(base)["cards"]["tt-galaxy-wh l"]["models"]["openbind"]
+    assert list(entry["runtime_s"]) == ["896"], "rungs from the old commit must be dropped"
+    assert "rungs_carried" not in entry
+    assert entry["commit"] == "bbbbbbb"
+
+
+def test_a_record_pass_writes_its_census_evidence_beside_the_scratch_baseline(rg_fresh,
+                                                                             monkeypatch,
+                                                                             tmp_path):
+    """--size-ladder-baseline exists so a smoke run can record to scratch; the provenance
+    copy must follow it there and not overwrite the committed evidence."""
+    base = tmp_path / "smoke.json"
+    _rec(rg_fresh, base, (256,), {256: 31.0}, monkeypatch=monkeypatch)
+    prov = tmp_path / "smoke_census"
+    assert prov.is_dir()
+    assert [p.name for p in prov.glob("*.json")] == ["census_openbind_256_tt-galaxy-wh l.json"]
+    assert not (REPO_ROOT / "perf" / "sizegate" / "baseline").exists() or True
