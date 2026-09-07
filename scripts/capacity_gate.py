@@ -912,8 +912,11 @@ def main(argv=None) -> int:
         "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is "
                 "correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
     }
+    # Flushed: a gate run is watched through a redirected log, where an unflushed header sits in
+    # the buffer for the whole campaign and the board geometry it carries is what a reader needs
+    # FIRST to know the numbers are comparable.
     print(render(dict(report, results=[], counts={"PASS": 0, "fail_like": 0, "SKIPPED": 0,
-                                                  "NO_WEIGHTS": 0})))
+                                                  "NO_WEIGHTS": 0})), flush=True)
 
     for i, cell in enumerate(cells(models, depth=a.depth, recycling=a.recycling)):
         w = workers[i % len(workers)]
@@ -932,8 +935,8 @@ def main(argv=None) -> int:
         (a.report or work / "report.json").write_text(json.dumps(report, indent=1, default=str))
 
     _finish(report)
-    print()
-    print(render(report))
+    print(flush=True)
+    print(render(report), flush=True)
     out = a.report or work / "report.json"
     out.write_text(json.dumps(report, indent=1, default=str))
     print(f"\nreport: {out}")
