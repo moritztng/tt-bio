@@ -16,6 +16,11 @@ import pytest
 from tt_bio import tenstorrent as tt
 
 
+def narrow(key, blk):
+    """The shared row-block narrowing, bound to the fp32-softmax tail's cap and counter."""
+    return tt._dram_narrow(tt._FP32_SOFTMAX_DRAM_ROW_CAP, key, blk, tt.FP32_SOFTMAX_STATS)
+
+
 @pytest.fixture(autouse=True)
 def clean():
     tt._FP32_SOFTMAX_DRAM_ROW_CAP.clear()
@@ -39,13 +44,13 @@ class TestRefusalDetection:
 
 class TestNarrowing:
     def test_halves_to_a_tile_multiple(self):
-        assert tt._fp32_softmax_dram_narrow(("k",), 736) == 352      # 368 -> floor 32
-        assert tt._fp32_softmax_dram_narrow(("k",), 352) == 160
+        assert narrow(("k",), 736) == 352      # 368 -> floor 32
+        assert narrow(("k",), 352) == 160
 
     def test_reaches_one_tile_row_and_stops_there(self):
         blk, seen = 736, []
         for _ in range(12):
-            blk = tt._fp32_softmax_dram_narrow(("k",), blk)
+            blk = narrow(("k",), blk)
             seen.append(blk)
             if blk <= 32:
                 break
@@ -55,20 +60,20 @@ class TestNarrowing:
         assert all(b < a for a, b in zip([736] + seen, seen)), seen
 
     def test_a_small_block_still_makes_progress(self):
-        assert tt._fp32_softmax_dram_narrow(("k",), 48) == 32
-        assert tt._fp32_softmax_dram_narrow(("k",), 32) == 32
+        assert narrow(("k",), 48) == 32
+        assert narrow(("k",), 32) == 32
 
     def test_cap_is_per_shape_class_and_only_ever_tightens(self):
-        tt._fp32_softmax_dram_narrow(("a",), 736)
-        tt._fp32_softmax_dram_narrow(("b",), 128)
+        narrow(("a",), 736)
+        narrow(("b",), 128)
         assert tt._FP32_SOFTMAX_DRAM_ROW_CAP == {("a",): 352, ("b",): 64}
-        tt._fp32_softmax_dram_narrow(("a",), 1024)     # a LOOSER cap must not win
+        narrow(("a",), 1024)     # a LOOSER cap must not win
         assert tt._FP32_SOFTMAX_DRAM_ROW_CAP[("a",)] == 352
 
     def test_every_narrow_is_counted(self):
         n = tt.FP32_SOFTMAX_STATS["dram_narrowed"]
-        tt._fp32_softmax_dram_narrow(("a",), 736)
-        tt._fp32_softmax_dram_narrow(("a",), 352)
+        narrow(("a",), 736)
+        narrow(("a",), 352)
         assert tt.FP32_SOFTMAX_STATS["dram_narrowed"] == n + 2
 
 
@@ -93,7 +98,7 @@ class TestRetryControlFlow:
     @staticmethod
     def _narrowing(run, blk=736):
         """`_with_dram_narrowing` wired to the fp32-softmax narrow, which is what ships."""
-        return tt._with_dram_narrowing(run, blk, lambda b: tt._fp32_softmax_dram_narrow(("k",), b))
+        return tt._with_dram_narrowing(run, blk, lambda b: narrow(("k",), b))
 
     def test_a_call_that_fits_runs_once_and_narrows_nothing(self):
         seen = []

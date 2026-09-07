@@ -11,6 +11,16 @@ import pytest
 import tt_bio.tenstorrent as tt
 
 
+def opm_narrow(key, blk):
+    """The shared row-block narrowing, bound to OuterProductMean's cap and counter."""
+    return tt._dram_narrow(tt._OPM_DRAM_ROW_CAP, key, blk, tt.OPM_ROW_STATS)
+
+
+def pwa_narrow(key, blk):
+    """The same, bound to PairWeightedAveraging's."""
+    return tt._dram_narrow(tt._PWA_DEPTH_ROW_CAP, key, blk, tt.PWA_DEPTH_STATS)
+
+
 @pytest.fixture(autouse=True)
 def _clean():
     def reset():
@@ -28,24 +38,24 @@ def _clean():
 class TestNarrow:
     def test_it_halves_and_remembers_the_shape_class(self):
         key = (1024, 32, 32, 1024)
-        assert tt._opm_dram_narrow(key, 1024) == 512
+        assert opm_narrow(key, 1024) == 512
         assert tt._OPM_DRAM_ROW_CAP[key] == 512
         assert tt.OPM_ROW_STATS["dram_narrowed"] == 1
 
     def test_a_looser_cap_never_wins(self):
         key = (1024, 32, 32, 1024)
-        tt._opm_dram_narrow(key, 256)
-        tt._opm_dram_narrow(key, 1024)
+        opm_narrow(key, 256)
+        opm_narrow(key, 1024)
         assert tt._OPM_DRAM_ROW_CAP[key] == 128
 
     def test_one_shape_class_does_not_narrow_another(self):
-        tt._opm_dram_narrow((800, 32, 32, 800), 800)
+        opm_narrow((800, 32, 32, 800), 800)
         assert (1024, 32, 32, 1024) not in tt._OPM_DRAM_ROW_CAP
 
     def test_it_floors_at_one_tile_row(self):
         key = (64, 32, 32, 64)
-        assert tt._opm_dram_narrow(key, 48) == 32
-        assert tt._opm_dram_narrow(key, 32) == 32
+        assert opm_narrow(key, 48) == 32
+        assert opm_narrow(key, 32) == 32
 
 
 class TestBlockArithmetic:
@@ -79,18 +89,18 @@ class TestBlockArithmetic:
 class TestPwaNarrow:
     def test_it_halves_and_remembers_the_shape_class(self):
         key = (14189, 1088)
-        assert tt._pwa_dram_narrow(key, 1920) == 960
+        assert pwa_narrow(key, 1920) == 960
         assert tt._PWA_DEPTH_ROW_CAP[key] == 960
         assert tt.PWA_DEPTH_STATS["dram_narrowed"] == 1
 
     def test_a_looser_cap_never_wins(self):
         key = (14189, 1088)
-        tt._pwa_dram_narrow(key, 256)
-        tt._pwa_dram_narrow(key, 4096)
+        pwa_narrow(key, 256)
+        pwa_narrow(key, 4096)
         assert tt._PWA_DEPTH_ROW_CAP[key] == 128
 
     def test_it_floors_at_one_tile_row(self):
-        assert tt._pwa_dram_narrow((64, 64), 32) == 32
+        assert pwa_narrow((64, 64), 32) == 32
 
 
 class TestPwaBlockArithmetic:

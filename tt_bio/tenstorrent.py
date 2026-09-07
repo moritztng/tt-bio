@@ -1787,37 +1787,23 @@ def _with_dram_narrowing(run, blk: int, narrow):
             blk = narrow(blk)
 
 
-def _fp32_softmax_dram_narrow(l1_key, blk: int) -> int:
-    """Halve the row block for this shape class after a refusal, floored at one tile row."""
+def _dram_narrow(cap: dict, key, blk: int, stats: dict) -> int:
+    """Halve a row block for this shape class after a refusal, floored at one tile row.
+
+    Three sites narrow a row block on a refusal -- the fp32-softmax tail, OuterProductMean's
+    token rows and PairWeightedAveraging's MSA depth -- and the arithmetic is the same at all
+    three, so it lives once. ``cap`` only ever tightens: a later, looser figure never wins,
+    or a call that happened to be narrowed less would undo a cap paid for by a real refusal.
+    """
     nxt = max(32, (int(blk) // 2) // 32 * 32)
     if nxt >= int(blk):
         nxt = 32
-    prev = _FP32_SOFTMAX_DRAM_ROW_CAP.get(l1_key)
-    _FP32_SOFTMAX_DRAM_ROW_CAP[l1_key] = nxt if prev is None else min(prev, nxt)
-    FP32_SOFTMAX_STATS["dram_narrowed"] += 1
+    prev = cap.get(key)
+    cap[key] = nxt if prev is None else min(prev, nxt)
+    stats["dram_narrowed"] += 1
     return nxt
 
 
-def _opm_dram_narrow(key, blk: int) -> int:
-    """Halve OuterProductMean's token-row block after a refusal, floored at one tile row."""
-    nxt = max(32, (int(blk) // 2) // 32 * 32)
-    if nxt >= int(blk):
-        nxt = 32
-    prev = _OPM_DRAM_ROW_CAP.get(key)
-    _OPM_DRAM_ROW_CAP[key] = nxt if prev is None else min(prev, nxt)
-    OPM_ROW_STATS["dram_narrowed"] += 1
-    return nxt
-
-
-def _pwa_dram_narrow(key, blk: int) -> int:
-    """Halve PairWeightedAveraging's MSA-depth block after a refusal, floored at one tile row."""
-    nxt = max(32, (int(blk) // 2) // 32 * 32)
-    if nxt >= int(blk):
-        nxt = 32
-    prev = _PWA_DEPTH_ROW_CAP.get(key)
-    _PWA_DEPTH_ROW_CAP[key] = nxt if prev is None else min(prev, nxt)
-    PWA_DEPTH_STATS["dram_narrowed"] += 1
-    return nxt
 _FP32_SOFTMAX_FUSED_ADD = True
 # ttnn.softmax normalises through a reciprocal whose range reduction loses up to 2.9e-2 when
 # the exp-sum sits at or just above a power of two, which a confident softmax always does.
@@ -2463,7 +2449,9 @@ def _fp32_softmax_attention(
             ttnn.deallocate(part)
         return o
 
-    return _with_dram_narrowing(run, blk, lambda b: _fp32_softmax_dram_narrow(l1_key, b))
+    return _with_dram_narrowing(
+        run, blk,
+        lambda b: _dram_narrow(_FP32_SOFTMAX_DRAM_ROW_CAP, l1_key, b, FP32_SOFTMAX_STATS))
 
 
 def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
@@ -7351,7 +7339,9 @@ class PairWeightedAveraging(Module):
             return _acc_concat(parts, 0, host)
 
         try:
-            o_out = _with_dram_narrowing(run, blk, lambda b: _pwa_dram_narrow((depth, tokens), b))
+            o_out = _with_dram_narrowing(
+                run, blk,
+                lambda b: _dram_narrow(_PWA_DEPTH_ROW_CAP, (depth, tokens), b, PWA_DEPTH_STATS))
         finally:
             for w in ws:
                 ttnn.deallocate(w)
@@ -7735,7 +7725,9 @@ class OuterProductMean(Module):
                 raise
             return z_acc
 
-        z = _with_dram_narrowing(run, rows_blk, lambda b: _opm_dram_narrow((I, C, D, J), b))
+        z = _with_dram_narrowing(
+            run, rows_blk,
+            lambda b: _dram_narrow(_OPM_DRAM_ROW_CAP, (I, C, D, J), b, OPM_ROW_STATS))
         if depth_parts is None:
             ttnn.deallocate(a)
             ttnn.deallocate(b)
