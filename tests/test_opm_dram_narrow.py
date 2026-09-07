@@ -1,4 +1,5 @@
-"""OuterProductMean's token-row block: the refusal memo and the block arithmetic.
+"""The MSA track's two row blocks: OuterProductMean's token rows and PairWeightedAveraging's
+MSA-depth rows -- the refusal memos and the block arithmetic.
 
 The block loop itself needs real ttnn tensors, but the two host-side decisions do not: how far
 a refusal narrows the block, and which block the byte budget asks for at a given token width.
@@ -12,11 +13,15 @@ import tt_bio.tenstorrent as tt
 
 @pytest.fixture(autouse=True)
 def _clean():
-    tt._OPM_DRAM_ROW_CAP.clear()
-    tt.OPM_ROW_STATS.update(whole=0, blocked=0, dram_narrowed=0)
+    def reset():
+        tt._OPM_DRAM_ROW_CAP.clear()
+        tt._PWA_DEPTH_ROW_CAP.clear()
+        tt.OPM_ROW_STATS.update(whole=0, blocked=0, dram_narrowed=0)
+        tt.PWA_DEPTH_STATS.update(whole=0, blocked=0, dram_narrowed=0)
+
+    reset()
     yield
-    tt._OPM_DRAM_ROW_CAP.clear()
-    tt.OPM_ROW_STATS.update(whole=0, blocked=0, dram_narrowed=0)
+    reset()
 
 
 class TestNarrow:
@@ -68,3 +73,42 @@ class TestBlockArithmetic:
         """The tensor this exists for, named by its own byte count."""
         assert 1024 * 32 * 32 * 1024 * 2 == 2147483648
         assert self._rows(1024) * 32 * 32 * 1024 * 2 == 268435456
+
+
+class TestPwaNarrow:
+    def test_it_halves_and_remembers_the_shape_class(self):
+        key = (14189, 1088)
+        assert tt._pwa_dram_narrow(key, 1920) == 960
+        assert tt._PWA_DEPTH_ROW_CAP[key] == 960
+        assert tt.PWA_DEPTH_STATS["dram_narrowed"] == 1
+
+    def test_a_looser_cap_never_wins(self):
+        key = (14189, 1088)
+        tt._pwa_dram_narrow(key, 256)
+        tt._pwa_dram_narrow(key, 4096)
+        assert tt._PWA_DEPTH_ROW_CAP[key] == 128
+
+    def test_it_floors_at_one_tile_row(self):
+        assert tt._pwa_dram_narrow((64, 64), 32) == 32
+
+
+class TestPwaBlockArithmetic:
+    """The refused tensor is one head's tile-padded `v`: 14189 x 1088 x 32 x 2 = 988 008 448 B,
+    with a second full-depth c_m copy of `m` beside it. The block bounds the normed chunk."""
+
+    @staticmethod
+    def _rows(tokens, c_m=64):
+        return max(32, (tt.PWA_DEPTH_BLOCK_BYTES // (tokens * c_m * 2)) // 32 * 32)
+
+    @pytest.mark.parametrize("tokens", (640, 768, 896, 1024, 1088))
+    def test_the_block_keeps_the_normed_chunk_under_budget(self, tokens):
+        rows = self._rows(tokens)
+        assert rows % 32 == 0 and rows >= 32
+        assert rows * tokens * 64 * 2 <= tt.PWA_DEPTH_BLOCK_BYTES
+
+    def test_a_shallow_alignment_is_one_block_and_takes_the_whole_path(self):
+        """Depth below the block is the unblocked path, so a shallow MSA cannot change path."""
+        assert self._rows(1088) > 256
+
+    def test_the_refused_v_at_1088_is_named_by_its_byte_count(self):
+        assert 14189 * 1088 * 32 * 2 == 988008448
