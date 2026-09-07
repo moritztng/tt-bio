@@ -70,8 +70,32 @@ OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 # measured figure: a 12 GiB Wormhole keeps 1.125 GiB and a 34.2 GB p150a gets 2.99 GiB, which
 # leaves every Blackhole size up to 1248 tokens on today's single-shot path byte for byte.
 OPM_Z_SINGLE_SHOT_BYTES_BASE = 1207959552       # 1.125 GiB; 768 tokens, measured to allocate
-OPM_Z_SINGLE_SHOT_DRAM_NUM, OPM_Z_SINGLE_SHOT_DRAM_DEN = 3, 32
 _OPM_Z_SINGLE_SHOT_BYTES = None                 # resolved once, on first use after the open
+
+# PairWeightedAveraging asks for a buffer of the same kind and answers to the same rule: it
+# projects each head's gated output to the full [depth, tokens, c_m] width, and allocates a fresh
+# one per head beside an accumulator of that shape. On the same ladder, same fixtures, same card:
+#
+#     tokens   [depth, tokens, c_m]        outcome
+#        768   1 395 032 064 B (1.299 GiB)   allocates; the fold runs on
+#        800   1 453 158 400 B (1.353 GiB)   REFUSED, 121 098 240 B/bank needed against a
+#                                            60 549 120 B largest free block
+#        896   1 627 537 408 B              REFUSED
+#        960   1 743 790 080 B              REFUSED
+#       1024   1 860 042 752 B (1.732 GiB)   REFUSED
+#
+# So the base is 768's figure, bracketed above by 800's refusal, exactly as the OPM base is
+# bracketed by 800's OPM refusal. Above it the op blocks its MSA-DEPTH axis instead.
+PWA_SINGLE_SHOT_BYTES_BASE = 1395032064         # 1.299 GiB; 768 tokens, measured to allocate
+_PWA_SINGLE_SHOT_BYTES = None
+# Cap on one depth block's share of that tensor. Both the block and the head accumulator are
+# [rows, tokens, c_m], so the pair is bounded at twice this whatever the token count.
+PWA_DEPTH_BUDGET_BYTES = 1 << 28                # 0.25 GiB, as OPM_Z_BUDGET_BYTES
+# Every "largest single buffer of this shape this part has been measured to place" budget scales
+# by the same fraction of DRAM, so a part with more memory widens all of them together and no
+# single lever can drift away from the others. 3/32 is 1 207 959 552 B on the 12 GiB Galaxy chip
+# every base above was measured on.
+SINGLE_SHOT_DRAM_NUM, SINGLE_SHOT_DRAM_DEN = 3, 32
 
 # Fold `proj_o` into the outer product's own projection instead of materialising the
 # [I, J, C, D] product in order to project it. Same algebra --
@@ -3752,15 +3776,22 @@ def _concat_host_budget(dram_total: int) -> int:
     return max(CONCAT_HOST_BYTES_BASE, int(dram_total) // 8)
 
 
-def _opm_z_single_shot_budget(dram_total: int) -> int:
-    """The budget for a part with ``dram_total`` bytes of DRAM.
+def _single_shot_budget(base: int, dram_total: int) -> int:
+    """Largest single buffer of a measured shape this part should be asked to place.
 
     ``max()`` pins every part at or above the figure measured on a 12 GiB Galaxy chip, so a part
     that reports nothing falls back to it rather than to zero -- which would block every size --
-    and the budget can only widen with DRAM, never tighten.
+    and a budget can only widen with DRAM, never tighten.
     """
-    return max(OPM_Z_SINGLE_SHOT_BYTES_BASE,
-               dram_total * OPM_Z_SINGLE_SHOT_DRAM_NUM // OPM_Z_SINGLE_SHOT_DRAM_DEN)
+    return max(base, dram_total * SINGLE_SHOT_DRAM_NUM // SINGLE_SHOT_DRAM_DEN)
+
+
+def _opm_z_single_shot_budget(dram_total: int) -> int:
+    return _single_shot_budget(OPM_Z_SINGLE_SHOT_BYTES_BASE, dram_total)
+
+
+def _pwa_single_shot_budget(dram_total: int) -> int:
+    return _single_shot_budget(PWA_SINGLE_SHOT_BYTES_BASE, dram_total)
 
 
 def opm_z_single_shot_bytes() -> int:
@@ -3775,6 +3806,37 @@ def opm_z_single_shot_bytes() -> int:
         _OPM_Z_SINGLE_SHOT_BYTES = (int(env) if env
                                     else _opm_z_single_shot_budget(_dram_total_bytes()))
     return _OPM_Z_SINGLE_SHOT_BYTES
+
+
+def pwa_single_shot_bytes() -> int:
+    """Byte size above which PairWeightedAveraging blocks its MSA-depth axis."""
+    global _PWA_SINGLE_SHOT_BYTES
+    if _PWA_SINGLE_SHOT_BYTES is None:
+        env = os.environ.get("TT_BIO_PWA_SINGLE_SHOT_BYTES")
+        _PWA_SINGLE_SHOT_BYTES = (int(env) if env
+                                  else _pwa_single_shot_budget(_dram_total_bytes()))
+    return _PWA_SINGLE_SHOT_BYTES
+
+
+def pwa_depth_block(depth: int, tokens: int, c_m: int, budget: int | None = None) -> int:
+    """MSA-depth rows per PairWeightedAveraging block, or ``depth`` for the single-shot path.
+
+    Returns ``depth`` unchanged -- today's exact single call, single allocation, no concat --
+    whenever the whole [depth, tokens, c_m] tensor is inside the measured budget. Above it the
+    block is derived from the TOKEN WIDTH rather than being a constant, so the per-block tensor
+    stays bounded however wide the tokens get: the same construction as OPM's row block, which a
+    fixed 256 got wrong at 992 tokens.
+
+    ``budget`` defaults to this part's, so a test can ask what a part with different DRAM would do
+    without the lazily-cached global deciding for it.
+    """
+    per_row = tokens * c_m * 2
+    if budget is None:
+        budget = pwa_single_shot_bytes()
+    if per_row <= 0 or depth * per_row <= budget:
+        return depth
+    rows = max(32, (PWA_DEPTH_BUDGET_BYTES // per_row) // 32 * 32)
+    return min(depth, rows)
 
 
 def concat_host_bytes() -> int:
@@ -7184,13 +7246,6 @@ class PairWeightedAveraging(Module):
     def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         m = ttnn.reshape(m, tuple(m.shape)[1:])
         z = ttnn.reshape(z, tuple(z.shape)[1:])
-        m = ttnn.layer_norm(
-            m,
-            weight=self.m_norm_weight,
-            bias=self.m_norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
         # One layer_norm, `n_heads` projections of it: every head reads the whole normed pair
         # tensor to write one tile of width, so all eight are source-bound and one L1-resident
         # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
@@ -7202,7 +7257,11 @@ class PairWeightedAveraging(Module):
                       (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                        epsilon=1e-5,
                                        compute_kernel_config=self.compute_kernel_config), False))
-        o_out = None
+        # The per-head pair weights come from `z` alone -- there is no MSA-depth axis in them -- so
+        # they are built once here rather than inside the depth loop below. Each is
+        # [1, tokens, tokens]: 2 MiB at 1024 tokens, against the [depth, tokens, *] tensors the
+        # loop is sized for, so hoisting all `n_heads` of them is free.
+        ws = []
         for i in range(self.n_heads):
             zw = self.z_weight[:, i : i + 1]
             b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype, l1_out=z_in_l1)
@@ -7216,12 +7275,48 @@ class PairWeightedAveraging(Module):
             b = ttnn.permute(b, (2, 0, 1))
             if attn_mask is not None:
                 b = ttnn.add_(b, ttnn.reshape(attn_mask, (1, 1, attn_mask.shape[-1])))
-            w = ttnn.softmax(
+            ws.append(ttnn.softmax(
                 b,
                 dim=-1,
                 compute_kernel_config=self.compute_kernel_config,
                 numeric_stable=True,
-            )
+            ))
+        # Block the MSA-DEPTH axis when the whole [depth, tokens, c_m] result is above the measured
+        # budget. Every step of `_depth_block` reads and writes one depth row at a time -- the
+        # layer_norm reduces over c_m, the matmul contracts the TOKEN axis, and nothing anywhere
+        # reduces over depth -- so a block is a partition and each output row is computed by the
+        # same ops from the same inputs. `depth` back means today's single pass, byte for byte.
+        depth, tokens, c_m = (int(m.shape[0]), int(m.shape[1]), int(m.shape[2]))
+        blk = pwa_depth_block(depth, tokens, c_m)
+        parts = []
+        for st in range(0, depth, blk):
+            en = min(st + blk, depth)
+            # A ttnn slice copies, so do not take one when it would copy the whole tensor.
+            mc = m if (st == 0 and en == depth) else m[st:en]
+            parts.append(self._depth_block(mc, ws))
+            if mc is not m:
+                ttnn.deallocate(mc)
+        for w in ws:
+            ttnn.deallocate(w)
+        if len(parts) == 1:
+            o_out = parts[0]
+        else:
+            o_out = ttnn.concat(parts, dim=0)
+            for part in parts:
+                ttnn.deallocate(part)
+        return ttnn.reshape(o_out, (1, *o_out.shape))
+
+    def _depth_block(self, m: ttnn.Tensor, ws: list) -> ttnn.Tensor:
+        """All heads, for the MSA-depth rows in ``m``. Returns [rows, tokens, c_m]."""
+        m = ttnn.layer_norm(
+            m,
+            weight=self.m_norm_weight,
+            bias=self.m_norm_bias,
+            epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+        )
+        o_out = None
+        for i, w in enumerate(ws):
             v = ttnn.linear(
                 m,
                 self.m_weight[:, i * self.head_dim : (i + 1) * self.head_dim],
@@ -7237,7 +7332,6 @@ class PairWeightedAveraging(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(v)
-            ttnn.deallocate(w)
             o = ttnn.permute(o, (0, 2, 1))
             g = ttnn.linear(
                 m,
@@ -7246,11 +7340,10 @@ class PairWeightedAveraging(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             # In place, like every other sigmoid gate on this path (`:5114`, `:6206`, `:6329`,
-            # `:6474`, af2.py:199). `o` and `g` are both [depth, tokens, head_dim] with head_dim=8
-            # tile-padded to 32, so each is 930 021 376 B at 1024 tokens x 14191 rows and an
-            # out-of-place product holds a THIRD one -- which is byte for byte the buffer a
-            # 1024-token fold is refused on once OuterProductMean stops asking for 2 GiB. Same
-            # operands, same order, written back into `o`.
+            # `:6474`, af2.py:199). `o` and `g` are both [rows, tokens, head_dim] with head_dim=8
+            # tile-padded to 32, so each is 930 021 376 B at 1024 tokens x 14191 rows unblocked,
+            # and an out-of-place product holds a THIRD one. Same operands, same order, written
+            # back into `o`.
             o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g)
             o = ttnn.linear(
@@ -7262,16 +7355,16 @@ class PairWeightedAveraging(Module):
             if o_out is None:
                 o_out = o
             else:
-                # Accumulate IN PLACE. `o` and `o_out` are both the full MSA tensor
-                # [depth, tokens, c_m], and an out-of-place add holds three of them at once --
-                # the old accumulator, this head's `o`, and the new accumulator -- so the peak
-                # carried one whole redundant copy per head. At 768 tokens x 14191 rows that copy
-                # is 1 395 032 064 B, and it is exactly the allocation OpenFold3 was refused on a
-                # 12 GiB Wormhole part (state/ceiling-openfold3.md). Same elementwise add, same
-                # operands, same order, written to the accumulator instead of to a new buffer.
+                # Accumulate IN PLACE. `o` and `o_out` are both [rows, tokens, c_m], and an
+                # out-of-place add holds three of them at once -- the old accumulator, this head's
+                # `o`, and the new accumulator -- so the peak carried one whole redundant copy per
+                # head. At 768 tokens x 14191 rows unblocked that copy is 1 395 032 064 B, and it
+                # is exactly the allocation OpenFold3 was refused on a 12 GiB Wormhole part. Same
+                # elementwise add, same operands, same order, written to the accumulator instead
+                # of to a new buffer.
                 ttnn.add_(o_out, o)
                 ttnn.deallocate(o)
-        o_out = ttnn.reshape(o_out, (1, *o_out.shape))
+        ttnn.deallocate(m)
         return o_out
 
 

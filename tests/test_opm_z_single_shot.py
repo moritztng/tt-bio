@@ -1,4 +1,4 @@
-"""OuterProductMean's row-block gate reads bytes, not a token count.
+"""The MSA track's two single-shot gates read bytes, not a token count.
 
 The gate used to be ``I > SEQ_LEN_MORE_CHUNKING``. That constant belongs to the pair-tensor
 paths and was moved 608 -> 1088 on a 12 GiB Galaxy part on a pair-tensor measurement, which
@@ -90,3 +90,65 @@ def test_env_override_exists_for_an_ab_screen():
     finally:
         os.environ.pop("TT_BIO_OPM_Z_SINGLE_SHOT_BYTES", None)
         T._OPM_Z_SINGLE_SHOT_BYTES = None
+
+
+# --- PairWeightedAveraging's MSA-depth block ---------------------------------------------------
+C_M = 64            # OF3 msa_module c_m; the shape PWA projects each head's output up to
+
+
+def pwa_bytes(depth, tokens):
+    """The [depth, tokens, c_m] tensor PWA allocates per head, unblocked."""
+    return depth * tokens * C_M * BF16
+
+
+def test_pwa_base_is_the_768_tensor_and_800_is_its_negative_control():
+    # 768 x 14191 allocates and the fold runs on; 800 x 14191 is refused on this exact buffer.
+    assert T.PWA_SINGLE_SHOT_BYTES_BASE == pwa_bytes(14191, 768) == 1395032064
+    assert pwa_bytes(14191, 800) == 1453158400
+    assert T._pwa_single_shot_budget(WH_DRAM) == T.PWA_SINGLE_SHOT_BYTES_BASE
+    assert T._pwa_single_shot_budget(0) == T.PWA_SINGLE_SHOT_BYTES_BASE
+
+
+
+
+def pwa_blk(depth, tokens, dram=WH_DRAM):
+    return T.pwa_depth_block(depth, tokens, C_M, T._pwa_single_shot_budget(dram))
+
+
+def test_pwa_is_single_shot_wherever_openfold3_folds_today():
+    # `depth` back means today's exact path: one layer_norm, one accumulator, no concat.
+    for tokens in (128, 256, 384, 512, 576, 640, 704, 736, 768):
+        assert pwa_blk(14191, tokens) == 14191, tokens
+
+
+def test_pwa_blocks_every_rung_that_was_refused():
+    for tokens in (800, 832, 896, 960, 1024):
+        blk = pwa_blk(14191, tokens)
+        assert blk < 14191, tokens
+        assert blk % 32 == 0 and blk >= 32
+        # the block is derived from the token width, so the per-block tensor is bounded whatever
+        # the token count -- the fixed-constant mistake OPM's row block already made at 992
+        assert pwa_bytes(blk, tokens) <= T.PWA_DEPTH_BUDGET_BYTES, tokens
+
+
+def test_pwa_depth_blocks_are_a_partition_of_the_alignment():
+    for tokens in (800, 1024):
+        blk = pwa_blk(14191, tokens)
+        covered = sum(min(s + blk, 14191) - s for s in range(0, 14191, blk))
+        assert covered == 14191, (tokens, blk)
+
+
+def test_pwa_is_neutral_on_blackhole_across_the_whole_advertised_range():
+    # 2.99 GiB there, and production caps OF3's alignment at 16384 rows, so a p150a never blocks.
+    for tokens in (512, 768, 1024):
+        assert pwa_blk(16384, tokens, BH_DRAM) == 16384, tokens
+    # and the Wormhole part it was measured on does block there, so this is not a vacuous pass
+    assert pwa_blk(16384, 1024) < 16384
+
+
+def test_both_gates_scale_by_the_same_dram_fraction():
+    # One rule, two measured bases: a part with more DRAM widens both together, so no single
+    # lever can drift away from the other.
+    assert T._single_shot_budget(0, WH_DRAM) == WH_DRAM * 3 // 32
+    for base in (T.OPM_Z_SINGLE_SHOT_BYTES_BASE, T.PWA_SINGLE_SHOT_BYTES_BASE):
+        assert T._single_shot_budget(base, BH_DRAM) == BH_DRAM * 3 // 32 > base
