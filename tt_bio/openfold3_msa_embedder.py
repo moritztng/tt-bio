@@ -87,15 +87,30 @@ class MSAModuleBlock:
             scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
             accurate_softmax=accurate_softmax_site("openfold3.msa"))
 
-    def __call__(self, m, z, pair_mask=None, attn_mask=None):
+    def __call__(self, m, z, pair_mask=None, attn_mask=None, own_m: bool = False):
         # OuterProductMean is deliberately left unmasked: it reduces over MSA DEPTH, so a padded
         # token can only reach a padded pair through it. PairWeightedAveraging is not -- its
         # softmax runs over the token axis, so a padded key would take real weight without the
         # additive -1e9 (protenix.py Trunk.update_msa passes the same tensor for the same reason).
         z = ttnn.add(z, self.opm(m, None, None))
         if self.has_msa_update:
-            m = ttnn.add(m, ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape)))
-            m = ttnn.add(m, ttnn.reshape(self.msa_transition(m), tuple(m.shape)))
+            # Both residuals accumulate IN PLACE where the block owns `m`. Out of place, each add
+            # holds three copies of the full [depth, tokens, c_m] MSA tensor at the peak -- the
+            # input, the update, and the new sum -- and at 1024 tokens against a 14189-row
+            # alignment that third copy is 1 859 780 608 B, which is exactly the buffer an
+            # OpenBind-0 fold is refused on a 12 GiB Wormhole part. Same elementwise add, same
+            # operands, same order, written to the accumulator.
+            #
+            # `own_m` is False for the first block that updates `m`, because the trunk keeps the
+            # embedder's `m` and hands the SAME tensor back on every recycle
+            # (openfold3_trunk.py). That first add is what makes a copy this module owns, and
+            # every add after it is in place.
+            upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
+            m = ttnn.add_(m, upd) if own_m else ttnn.add(m, upd)
+            ttnn.deallocate(upd)
+            upd = ttnn.reshape(self.msa_transition(m), tuple(m.shape))
+            ttnn.add_(m, upd)
+            ttnn.deallocate(upd)
         z = self.pair_stack(None, z, pair_mask, attn_mask, attn_mask)[1]
         return m, z
 
@@ -121,6 +136,10 @@ class MSAModule:
         ]
 
     def __call__(self, m, z, pair_mask=None, attn_mask=None):
+        # `own_m` turns on after the first block that returns an `m` of its own making, so no
+        # block ever writes into the tensor the trunk reuses across recycles.
+        own_m = False
         for block in self.blocks:
-            m, z = block(m, z, pair_mask, attn_mask)
+            m, z = block(m, z, pair_mask, attn_mask, own_m=own_m)
+            own_m = own_m or block.has_msa_update
         return m, z
