@@ -7,6 +7,27 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **RoseTTAFold3 folds 1095 residues on a 12 GiB Wormhole card, up from 627.** Neither wall was
+  memory the model needs; both were shape choices, and the allocator's own byte counts name them.
+  The template embedder and the MSA module were the last two triangle-attention sites still
+  materialising the whole score tensor over the raw token axis, so 656 residues asked for a single
+  2 369 912 832 B buffer at the first trunk step -- exactly `656 x 4 x 672 x 672 x 2`. Both now take
+  the same fused attention the trunk's 48 blocks and the confidence head already use. Separately,
+  the confidence head's global layer norm flattened the pair tensor to a single row, and a tile
+  layout pads one row up to 32, so normalising a 0.10 GB tensor at 640 residues asked for
+  3 355 443 200 B = `32 x (640 x 640 x 128 x 2)`. Folding that flatten into rows pads nothing.
+
+  Measured with real alignments on one Galaxy card: 630 (22 936 rows), 656, 716, 796, 891, 980 and
+  1095 (25 815 rows) all fold, at 76-82 pLDDT with zero backbone breaks, and 640 aa carries the
+  deepest alignment walked at 27 317 rows. The same 640 aa target on the old route refuses
+  3 355 443 200 B after 179 s. `tt_bio/size_limits.py` publishes 1095 as a LADDER TOP, not a wall:
+  nothing above it has been run.
+
+  Faster as well as larger, because the route being deleted costs O(N.S^2): 1.75x at 128 residues,
+  1.43x at 256, 2.46x at 384. None of the three changes is bit-exact with what it replaced, so each
+  keeps a switch back -- `TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0`, `TT_BIO_RF3_MSA_FUSED_SDPA=0`,
+  `TT_BIO_RF3_GLN_ROW_FOLD=0` -- and those restore the old routes and the old ceiling with them.
+
 - **A `cyclic: true` chain is now refused by `esmfold2` and `esmfold2-fast` too.** Every other
   model that cannot cyclise already refused it. ESMFold2 was the one path left that took the flag,
   dropped it and folded the chain straight, returning `status=ok`: `examples/cyclic_prot.yaml` came
