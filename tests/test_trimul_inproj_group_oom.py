@@ -93,6 +93,27 @@ def test_only_the_refused_shape_narrows(shape):
         assert again() == before, name
 
 
+def test_an_empty_record_returns_exactly_the_shipped_width(shape):
+    """Nothing that folds today may change, and here that is an identity, not a measurement.
+
+    With no refusal recorded the search bound is `min(n_pairs, CAP, n_pairs)`, which is
+    `min(n_pairs, CAP)` -- the bound that shipped. So every shape keeps its width, its launch
+    count and its arithmetic until the device itself refuses one. The oracle below is the
+    pre-fix expression written out independently.
+    """
+    for seq in (128, 256, 384, 512, 768, 1024):
+        for pairs, chunk in ((4, 32), (12, 32), (4, 64)):
+            for batch in (1, 2, 5):
+                fused = 4 * chunk * seq * seq * batch * 2
+                want = 1
+                for g in range(min(pairs, T._TRIMUL_INPROJ_GROUP), 1, -1):
+                    if pairs % g == 0 and g * fused <= T._TRIMUL_INPROJ_FUSED_BYTES:
+                        want = g
+                        break
+                got = T._trimul_inproj_group(seq, chunk, batch, pairs)
+                assert got == want, (seq, chunk, batch, pairs, got, want)
+
+
 def test_the_byte_budget_still_bounds_the_width(shape):
     """Narrowing after a refusal may not step over the cap the budget already enforced."""
     budget = T._TRIMUL_INPROJ_FUSED_BYTES
