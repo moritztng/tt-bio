@@ -245,6 +245,29 @@ def test_the_hook_emits_a_heartbeat_per_block_call(tmp_path, monkeypatch):
     assert beats >= 4, f"only {beats} block calls seen; the heartbeat is not wired"
 
 
+def test_the_hook_never_opens_the_device_it_samples(tmp_path, monkeypatch):
+    """An instrument must not acquire the thing it measures.
+
+    The DRAM sampler read the allocator through `get_device()`, which OPENS a card and takes
+    an exclusive host-wide lease on it first. In a run with no card of its own that blocked
+    TT_BIO_LEASE_TIMEOUT (120 s) behind whoever legitimately held the card, once per sampled
+    block -- which is how `TT_VISIBLE_DEVICES= pytest tests/` reached its 1800 s wall on this
+    very test with nothing on stdout, and got misread as a collection hang. The handle it
+    wants is the one already open; in a real capacity run the device is open before the first
+    block executes, which is the only time this samples at all.
+    """
+    import tt_bio.tenstorrent as tt
+    opened = []
+    monkeypatch.setattr(tt, "get_device", lambda *a, **kw: opened.append(1))
+    monkeypatch.setattr(tt, "_device", None)
+    h = _fresh_hook("residency", tmp_path, monkeypatch)
+    mod = _stack_module(h)
+    mod.Stack(4)(0)
+    assert not opened, "the DRAM sampler opened (and leased) the device"
+    assert not h._state["errors"], h._state["errors"]
+    assert h._state["samples"] == 4, "the sampler stopped counting blocks"
+
+
 def test_the_residency_hook_leaves_the_depth_alone(tmp_path, monkeypatch):
     """Tier 2's whole job is the cumulative residency, which a truncated stack cannot build up."""
     h = _fresh_hook("residency", tmp_path, monkeypatch)

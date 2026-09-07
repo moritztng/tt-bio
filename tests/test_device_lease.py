@@ -7,6 +7,7 @@ two-process open on a real TT card.
 
 Run: python3 tests/test_device_lease.py, or as part of the release suite via pytest.
 """
+import glob
 import json
 import os
 import signal
@@ -241,6 +242,33 @@ def test_card_set_leases_every_visible_card(d):
         os.environ.pop("TT_VISIBLE_DEVICES", None)
 
 
+def test_an_empty_visibility_declaration_leases_nothing(d):
+    """`TT_VISIBLE_DEVICES=` is "no card", not "every card". Both are set-and-empty vs unset.
+
+    tests/conftest.py already treats set-and-empty as a deliberate CPU-only run, and ttnn
+    shows such a process no chips at all. physical_cards() read it as unset and returned
+    every card node on the box, so a CPU-only run took an exclusive lease on a card it could
+    never open -- or, on a single-card host with a worker already holding it, blocked
+    TT_BIO_LEASE_TIMEOUT per get_device() call. That is the 1800 s no-output pytest wall:
+    scripts/capacity_hook.py sampled DRAM through get_device() once per block.
+    """
+    present = glob.glob("/dev/tenstorrent/[0-9]*")
+    os.environ["TT_VISIBLE_DEVICES"] = ""
+    try:
+        assert physical_cards() == [], physical_cards()
+        with CardSetLease(timeout=5) as lease:
+            assert lease._held == []
+            assert lease.card is None
+            assert not os.listdir(d), f"a CPU-only run wrote lease files: {os.listdir(d)}"
+    finally:
+        os.environ.pop("TT_VISIBLE_DEVICES", None)
+    # Unset still means the whole box, which is the case the lease exists to make visible.
+    if present:
+        assert physical_cards() == sorted(
+            (p.rsplit("/", 1)[-1] for p in present), key=int), physical_cards()
+    print("  empty visibility: leases nothing, and unset still covers the box  OK")
+
+
 def test_card_set_is_all_or_nothing(d):
     """A set containing ONE contended card leases none of them, and says which.
 
@@ -416,6 +444,7 @@ if __name__ == "__main__":
         test_card_grant_allows_granted_and_multi_card_grant(d)
         test_card_grant_absent_or_empty_is_unbounded(d)
         test_card_set_leases_every_visible_card(d)
+        test_an_empty_visibility_declaration_leases_nothing(d)
         test_card_set_is_all_or_nothing(d)
         test_card_set_shares_one_timeout_budget(d)
         test_card_set_refused_when_visibility_exceeds_grant(d)

@@ -124,14 +124,23 @@ def physical_cards():
 
     ttnn brings up the whole visible set (see the module docstring for the fd measurement),
     so this -- not ``physical_card()`` -- is the set a lease has to cover. With
-    ``TT_VISIBLE_DEVICES`` set it is that value's cards; unset, it is every card present,
-    which is exactly the whole-box open this exists to stop being invisible.
+    ``TT_VISIBLE_DEVICES`` set it is that value's cards; set and EMPTY it is none of them;
+    unset, it is every card present, which is exactly the whole-box open this exists to stop
+    being invisible.
 
     Sorted ascending so every process acquires an overlapping set in the same order and two
     of them cannot deadlock holding each other's next card.
     """
-    visible = os.environ.get("TT_VISIBLE_DEVICES", "")
-    if visible.strip():
+    visible = os.environ.get("TT_VISIBLE_DEVICES")
+    if visible is not None and not visible.strip():
+        # Set and empty is a DECLARATION, not an absence: `TT_VISIBLE_DEVICES= <cmd>` is the
+        # deliberate CPU-only run tests/conftest.py documents, and ttnn shows such a process
+        # no chips at all. Treating it like unset leased every card on the box for a run that
+        # could never use one -- on a single-card host that is a 120 s block behind whoever
+        # legitimately held the card, per get_device() call. The open now fails on ttnn's own
+        # no-chips abort, which is the honest error and the one conftest already reads.
+        return []
+    if visible:
         from tt_bio.runtime import visible_device_indices
         cards = visible_device_indices(visible)
     else:
