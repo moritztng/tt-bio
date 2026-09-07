@@ -33,5 +33,14 @@ Per-cell fold times and peak DRAM are in the release notes of the version that l
 Normal-size targets never enter the blocked path: it is gated on a token-count threshold that
 a 300-residue target does not reach, and the before/after timings on the standard 117/298-residue
 benchmarks are unchanged within noise. The threshold is 1536 on Blackhole. On Wormhole it is
-derived from the part's usable per-core L1 rather than fixed, so it varies by machine: on the
-Galaxy above it is 608, not the 640 a full-L1 part would give.
+derived from the part's DRAM, so it varies by machine: on the Galaxy above it is 1088.
+
+A token count alone does not decide it, though. The outer product mean builds an
+`N x (C*D) x N` product and then permutes it, and a permute is out-of-place, so two of that
+tensor are live at once. Between about 887 and 1088 tokens that pair is 3-4 GiB on a 12 GiB
+part whose address space the trunk has already churned, and the allocator can refuse it with
+half of DRAM free because no single hole is big enough — 992 residues on OpenDDE was refused by
+704 bytes per bank. So the same block size that bounds the blocked path also bounds the whole
+one, and that band takes row blocks whatever the token threshold says. Anything below it keeps
+the byte-identical unblocked path, and on a 32 GiB Blackhole part the bound is above every size
+the models reach, so Blackhole never changes path.
