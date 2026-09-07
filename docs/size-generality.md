@@ -298,3 +298,40 @@ taught the census to record WHY a guard declined, so three levers read as having
 decline clause with served and declined identical. An absent clause means not measured, not "no
 clause". **The rule, alongside the L1-budget leg's: an instrument change that widens what the
 baseline compares re-records in the same commit.**
+
+## ESMFold2 on Wormhole, 256 to 1024, and the lever the old ladder top was hiding
+
+`docs/size_ladder_baseline.d/esmfold2.json` and `esmfold2-fast.json` (2026-09-07,
+`tt-galaxy-wh l`, 11x10/8x9 grid) hold both served ESMFold2 checkpoints at all six rungs.
+
+| aa | 256 | 512 | 640 | 768 | 896 | 1024 |
+|---|---:|---:|---:|---:|---:|---:|
+| `esmfold2` s | 39.9 | 91.6 | 133.4 | 196.1 | 278.5 | 331.1 |
+| `esmfold2-fast` s | 25.1 | 55.6 | 81.2 | 111.0 | 151.4 | 195.4 |
+
+The exponent rises 1.199 -> 1.685 -> 2.113 -> 2.276 across 256-896 aa and reads 1.296 into 1024,
+which is one workload changing mix rather than several regimes: the ESMC language model is
+near-linear in L and dominates at the bottom of the ladder, the pair work is not and takes over.
+Nothing here is a fast path falling off. The 896 -> 1024 number in particular is not a cliff — the
+top rungs are close together, so `ln(n2/n1)` is small and the 3-sigma band on that interval is
++-1.47 at the measured 4.6 % noise floor. `esmfold2-fast` reads 1.911 over the same interval.
+
+**What the two new rungs did find is in the census, not the timing.** `PAIR_FFN_FUSED_RESIDUAL` and
+`PAIR_FFN_FILL_ASSEMBLY` serve every call at 512, 640 and 768 aa and none at 896 and 1024, on both
+checkpoints, while `PAIR_FFN_L1_SLICE` keeps serving. That is `_row_blocked`'s L1 retry ladder
+(`tt_bio/esmc.py`) dropping G then F and keeping C-in, because the block is `rows` rows of
+`[1, rows, L, C]` at a fixed `rows = 32` and stops fitting L1 somewhere between 768 and 896 on a
+72-core grid. It was invisible while the ladder stopped at 768, which is the last rung where both
+levers fire, and the platform had been serving 1024 for a while. A count is not a timing: it has no
+error bar, so the census carries this finding at sizes where the exponent cannot.
+
+Two more levers are dark for dtype rather than size, both because `tt_bio/main.py` forces `--fast`
+for ESMFold2 on Wormhole (ESMC-6B in normal precision needs ~12.8 GB against a ~12 GB chip):
+`TRIMUL_IN_PROJ_DUAL_NOC` declines 100 % of calls at every rung on `dtype`, and
+`PAIR_PROJ_MINIMAL_MATMUL` declines from 512 up on `dtype:(8,32)` — where the 8 is `k_tiles`, which
+is exactly what that lever wants, so ESMFold2 is the one model whose pair projection fits it and it
+is refused only on precision. Widening that guard is a parity decision, not a tuning one.
+
+`esmfold2-fast` stays in `SIZE_LADDER_EXEMPT`, and now on a measurement: its dark set is identical
+to `esmfold2`'s at all six rungs, with call counts about half (24 trunk blocks against 48). Its
+fragment is recorded anyway, as the evidence for the exemption rather than an argument for it.
