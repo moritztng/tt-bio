@@ -827,6 +827,10 @@ def main(argv=None) -> int:
                     help="do not walk down to find the real ceiling after a failure")
     ap.add_argument("--stall-s", type=int, default=STALL_S)
     ap.add_argument("--list", action="store_true", help="print the derived roster and exit")
+    ap.add_argument("--record", action="store_true",
+                    help="write docs/capacity_gate_baseline.json, pinning the ceiling table this "
+                         "run measured against. tests/test_capacity_gate.py fails until this is "
+                         "re-recorded after any ceiling change.")
     a = ap.parse_args(argv)
 
     STALL_S = a.stall_s
@@ -894,7 +898,62 @@ def main(argv=None) -> int:
     out = a.report or work / "report.json"
     out.write_text(json.dumps(report, indent=1, default=str))
     print(f"\nreport: {out}")
+    if a.record:
+        print(record_baseline(report, partial=bool(a.models)))
     return 0 if report["counts"]["fail_like"] == 0 and not report["coverage_gaps"] else 1
+
+
+BASELINE = REPO_ROOT / "docs" / "capacity_gate_baseline.json"
+
+
+def ceilings_fingerprint() -> str:
+    """A stable hash over every published ceiling, so moving any row is detectable.
+
+    The published ceilings a user sees live in the serving platform, which tt-bio does not import.
+    The engine's own copy is tt_bio.size_limits.CEILINGS, and that is what a ceiling change edits
+    here, so that is what gets pinned.
+    """
+    import hashlib
+    from tt_bio import size_limits as sl
+    rows = []
+    for model in sorted(sl.CEILINGS):
+        for arch in sorted(sl.CEILINGS[model]):
+            c = sl.CEILINGS[model][arch]
+            rows.append([model, arch, c.residues, c.pass_at, c.binds, c.mechanism,
+                         c.msa_rows, c.counts])
+    return hashlib.sha256(json.dumps(rows, default=str).encode()).hexdigest()[:16]
+
+
+def record_baseline(report: dict, *, partial: bool) -> str:
+    """Merge this run's cells into docs/capacity_gate_baseline.json.
+
+    A partial run (--models) updates only the cells it measured and leaves the rest standing, so
+    re-measuring one model does not silently erase the others' recorded results.
+    """
+    prior = {}
+    if BASELINE.exists():
+        try:
+            prior = json.loads(BASELINE.read_text())
+        except ValueError:
+            prior = {}
+    cells = prior.get("cells", {}) if partial else {}
+    for r in report["results"]:
+        cells[r["model"]] = {k: r.get(k) for k in
+                             ("verdict", "tokens_requested", "tokens_padded", "residues",
+                              "msa_rows_effective", "dram_peak_bytes", "dram_total_bytes",
+                              "wall_s", "mechanism", "decided_by", "ceiling_tokens", "reason")}
+    BASELINE.write_text(json.dumps({
+        "bar_tokens": report["bar_tokens"],
+        "recorded": report["started"],
+        "tree": report["tree"],
+        "dirty_tree": report["dirty"],
+        "geometry": report["geometry"],
+        "ceilings_fingerprint": ceilings_fingerprint(),
+        "reductions": report["reductions"],
+        "cells": cells,
+        "note": "CAPACITY ONLY: allocates and completes. Not a correctness record.",
+    }, indent=1, default=str) + "\n")
+    return f"recorded {BASELINE} ({len(cells)} cells, ceilings {ceilings_fingerprint()})"
 
 
 def _screen_only(worker, cell, work, hookdir, depth) -> dict:

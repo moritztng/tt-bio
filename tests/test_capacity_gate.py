@@ -11,8 +11,6 @@ new size and docs/capacity_gate_baseline.json re-recorded.
 
 from __future__ import annotations
 
-import hashlib
-import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -20,24 +18,16 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = ROOT / "docs" / "capacity_gate_baseline.json"
-
 sys.path.insert(0, str(ROOT / "scripts"))
 import capacity_fixture                                                          # noqa: E402
 import capacity_gate as cg                                                       # noqa: E402
 
 from tt_bio import size_limits as sl                                             # noqa: E402
 
-
-def ceilings_fingerprint() -> str:
-    """A stable hash over every published ceiling. Any row added, removed or moved changes it."""
-    rows = []
-    for model in sorted(sl.CEILINGS):
-        for arch in sorted(sl.CEILINGS[model]):
-            c = sl.CEILINGS[model][arch]
-            rows.append([model, arch, c.residues, c.pass_at, c.binds, c.mechanism,
-                         c.msa_rows, c.counts])
-    return hashlib.sha256(json.dumps(rows, default=str).encode()).hexdigest()[:16]
+BASELINE = cg.BASELINE
+#: One definition of the fingerprint, in the gate that records it. A second copy here would let
+#: the recorder and the check drift apart, which is the one failure this pair cannot survive.
+ceilings_fingerprint = cg.ceilings_fingerprint
 
 
 def test_the_bar_is_bucket_aligned():
