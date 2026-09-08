@@ -45,3 +45,7 @@ the shipped `tt-bio design` CLI rather than through `rfd3_cap.py`, so every PASS
 
 `../whverify/wh_cap704.cif` and `wh_cap1024.cif` are the scored structures for the old cap and
 the new one.
+* `whverify_seed7.jsonl` — 768/832/896 at seed 7 instead of 42. The backbone break inside the
+  designed binder at 768 and 832 reproduces under both seeds and 896 is clean under both, so it
+  is a property of those sizes on this target and not of the noise draw. It is not this ceiling
+  and not the L1 lever: the 768 CIF is byte-identical with the residency granted.
