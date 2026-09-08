@@ -42,25 +42,47 @@ def build_transition(c, n=4, seed=0):
     return T.Transition(sd, ckc)
 
 
-def ratio_for(W, c):
-    """The shipped `min(1.0, _ref / (w_eff * c))` factor, recomputed here so an arm's target
-    h_chunk can be hit exactly instead of guessed."""
-    thr = (T.SEQ_LEN_MORE_CHUNKING if T.COMPUTE_GRID_MAIN[0] == T.COMPUTE_GRID_X_13
-           else T.TRANSITION_W_CHUNKING_THRESHOLD)
-    w_eff = min(W, T.TRANSITION_W_CHUNK_SIZE) if W > thr else W
+def shipped_h_for(W, c, hid):
+    """The height the ENGINE lands on at this shape, mirroring `Transition.__call__`.
+
+    This used to read `w_eff` off a token-count threshold, which the engine stopped doing: it now
+    decides `w_chunked` from whether ANY row fits (`_rows_at(W) < 1.0`), so at OpenDDE's c=384 the
+    old rule here predicted w_eff=512 and h=3 at W=896 where the fold actually runs w_eff=896 and
+    h=2. A screen that names the wrong shipped arm measures the wrong thing, so the whole chain is
+    reproduced -- ratio, the L1 cap, the floor -- and `_SHIPPED_SELFCHECK` below asserts it against
+    the two heights the DRAM census read off real folds.
+    """
+    tile = lambda v: -(-int(v) // 32) * 32
+    gx, gy = T.COMPUTE_GRID_MAIN
+    base_h = T.TRANSITION_H_CHUNK_SIZE
     ref = 1024 * 128
     if T._IS_SMALL_GRID:
         ref = ref * 128 // max(128, c)
-    return min(1.0, ref / (w_eff * c)), w_eff
+    l1_rows_at = lambda w: (T.TRANSITION_L1_CHUNK_BYTES_PER_CORE * gx * gy
+                            / (2 * tile(w) * (tile(c) + 2 * tile(hid))))
+    def rows_at(w):
+        h = base_h * min(1.0, ref / (w * c))
+        return min(h, l1_rows_at(w)) if T._IS_SMALL_GRID else h
+    w_chunked = rows_at(W) < 1.0 if T._IS_SMALL_GRID else W > T.TRANSITION_W_CHUNKING_THRESHOLD
+    w_eff = min(W, T.TRANSITION_W_CHUNK_SIZE) if w_chunked else W
+    h = max(1, int(base_h * min(1.0, ref / (w_eff * c))))
+    if T._IS_SMALL_GRID:
+        h = min(h, max(1, int(l1_rows_at(w_eff))))
+    return h, w_eff, w_chunked
+
+
+#: (W, c, hid) -> h, as MEASURED on device by the DRAM census (state/opendde-l1-clash-to-1024.md).
+#: A drift in the mirrored chain above fails here instead of in a silently mislabelled arm.
+_SHIPPED_SELFCHECK = {(896, 384, 1536): 2, (1024, 384, 1536): 1}
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sizes", default="320,512,640,995")
+    ap.add_argument("--sizes", default="896,1024")
     ap.add_argument("--c", type=int, default=384)
     ap.add_argument("--iters", type=int, default=5)
     ap.add_argument("--warm", type=int, default=2)
-    ap.add_argument("--targets", default="3,6,10,16")
+    ap.add_argument("--targets", default="1,2,3,4,6")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -77,24 +99,23 @@ def main():
     tr = build_transition(a.c)
     for W in [int(s) for s in a.sizes.split(",")]:
         H = W
-        r, w_eff = ratio_for(W, a.c)
-        shipped_h = max(1, int(base_h * r))
+        hid = int(tr.fc1_weight.shape[-1])
+        shipped_h, w_eff, w_chunked = shipped_h_for(W, a.c, hid)
+        want = _SHIPPED_SELFCHECK.get((W, a.c, hid))
+        assert want is None or want == shipped_h, (
+            f"mirrored chain says h={shipped_h} at W={W} c={a.c}, census measured {want}")
+        r = min(1.0, (1024 * 128 * 128 // max(128, a.c) if T._IS_SMALL_GRID else 1024 * 128)
+                / (w_eff * a.c))
         x_t = torch.randn(1, H, W, a.c) * 0.5
         ref_out = None
-        print(f"--- W=H={W} c={a.c}: ratio {r:.4f} w_eff {w_eff} shipped h_chunk {shipped_h} "
-              f"({-(-H // shipped_h)} blocks) ---", flush=True)
+        print(f"--- W=H={W} c={a.c}: w_eff {w_eff} w_chunked {w_chunked} "
+              f"shipped h_chunk {shipped_h} ({-(-H // shipped_h)} blocks) ---", flush=True)
         for target in sorted({shipped_h, *[int(t) for t in a.targets.split(",")]}):
-            # Hit `target` exactly through the shipped expression, or skip the arm.
-            k = max(1, int(math.ceil(target / r))) if r > 0 else target
-            for cand in (k, k - 1, k + 1, k - 2, k + 2):
-                if cand >= 1 and max(1, int(cand * r)) == target:
-                    k = cand
-                    break
-            else:
-                print(f"  h={target}: unreachable through the shipped expression, skipped",
-                      flush=True)
-                continue
-            T.TRANSITION_H_CHUNK_SIZE = k
+            # The engine's own screen hook sets the height exactly, so an arm cannot land on a
+            # neighbour of what it claims -- which the old back-solve through
+            # TRANSITION_H_CHUNK_SIZE could, and did whenever the ratio made a target unreachable.
+            os.environ["TT_BIO_TRANSITION_H_CHUNK"] = str(target)
+            k = None
             row = {"W": W, "c": a.c, "h_chunk": target, "k": k,
                    "blocks": -(-H // target), "shipped": target == shipped_h}
             try:
@@ -128,7 +149,7 @@ def main():
                 print(f"  h={target:3d} k={k:3d} FAILED {row['error'][:200]}", flush=True)
             res["rows"].append(row)
             a.out.write_text(json.dumps(res, indent=1))
-        T.TRANSITION_H_CHUNK_SIZE = base_h
+        os.environ.pop("TT_BIO_TRANSITION_H_CHUNK", None)
         # Ratio table against the shipped arm, so the screen answers its own question.
         got = {r0["h_chunk"]: r0.get("ms") for r0 in res["rows"] if r0["W"] == W and "ms" in r0}
         if shipped_h in got:
