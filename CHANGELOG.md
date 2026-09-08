@@ -25,7 +25,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   engine hung. Blackhole keeps the token-count threshold, which the budget this derivation rests
   on was never measured on, and the whole 1536-token Blackhole capacity baseline was re-recorded on
   the fixed engine to check that: all 15 cells came back with the same verdict and the same DRAM
-  peak to the byte.
+  peak to the byte. Accuracy was checked above the old threshold as well as below it, where the
+  identical digests only cover 256 and 512 aa: the `rf3-1024aa` gate leg folds a 997 aa crystal
+  target on the fixed engine and lands 1.964 A from the crystal against a 4.0 A floor, where the
+  shipped engine read 1.9687 A and the CPU reference itself reads 2.009 A.
 
 - **Closing a device now actually frees the card.** `ttnn.close_device()` releases the device but
   not the process's claim on the chip -- tt-metal's own docs say so, and direct you to
