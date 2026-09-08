@@ -3004,14 +3004,14 @@ _PAIR_BIAS_LN_CONSUMER_RESERVE = int(
     os.environ.get("TT_BIO_PAIR_BIAS_LN_RESERVE", str(PAIR_BIAS_LN_CONSUMER_RESERVE)))
 # Off only to run the parity A/B for the row cap against the same reserve; 0 disables the cap and
 # leaves the gate, so a block too tall falls to DRAM instead of getting shorter.
-_PAIR_BIAS_LN_CAP = os.environ.get("TT_BIO_PAIR_BIAS_LN_CAP", "1") != "0"
+_PAIR_BIAS_LN_CAP = env_flag("TT_BIO_PAIR_BIAS_LN_CAP", True)
 # Off only for the negative control, which has to restore the old gate AND the old absence of any
 # recovery from it. On, a clash here costs this shape class's L1 route; off, it costs the fold.
-_PAIR_BIAS_LN_RETRY = os.environ.get("TT_BIO_PAIR_BIAS_LN_RETRY", "1") != "0"
+_PAIR_BIAS_LN_RETRY = env_flag("TT_BIO_PAIR_BIAS_LN_RETRY", True)
 # TT_BIO_PAIR_BIAS_TRACE=1 prints the ending block's axis, chunk and byte count at every call.
 # Diagnosis only, and it exists because the first reading of this bug guessed the pair axis from
 # the residue count and was out by 1.945x.
-_PAIR_BIAS_TRACE = os.environ.get("TT_BIO_PAIR_BIAS_TRACE", "0") != "0"
+_PAIR_BIAS_TRACE = env_flag("TT_BIO_PAIR_BIAS_TRACE", False)
 
 
 def _pair_bias_ln_reserve() -> int:
@@ -4165,7 +4165,7 @@ def dram_peak(tag=None):
         global _DRAM_PEAK_T0
         mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
         used = (mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * mv.num_banks
-        trace = bool(os.environ.get("TT_BIO_DRAM_PEAK_TRACE"))
+        trace = env_flag("TT_BIO_DRAM_PEAK_TRACE", False)
         rose = used > _DRAM_PEAK.get(tag, 0)
         if rose:
             _DRAM_PEAK[tag] = used

@@ -15,6 +15,12 @@ import pytest
 
 from tt_bio import size_limits as sl
 
+#: One residue past opendde's published Wormhole cap, read from the guard rather than
+#: written down. These fixtures used a literal 600, which silently stopped being oversized
+#: the day the cap moved from 544 to 1024 -- five tests then asserted a refusal that could
+#: not happen. Deriving it means a moved ceiling updates the fixtures with it.
+_OVER_OPENDDE = sl.ceiling('opendde', 'wormhole_b0').residues + 1
+
 
 def _rows():
     return [(m, arch, c) for m, per_arch in sl.CEILINGS.items() for arch, c in per_arch.items()]
@@ -218,7 +224,7 @@ def test_check_input_refuses_a_real_file_before_any_device(tmp_path):
     """End to end through the CLI entry point's own call, on a file, with no device open."""
     big = tmp_path / "big.yaml"
     big.write_text("sequences:\n  - protein:\n      id: A\n      sequence: "
-                   + "A" * 600 + "\n")
+                   + "A" * _OVER_OPENDDE + "\n")
     with pytest.raises(sl.SizeTooLargeError) as e:
         sl.check_input(big, "opendde", arch="wormhole_b0")
     assert "big.yaml" in str(e.value)
@@ -230,7 +236,7 @@ def test_check_input_scans_every_file_in_a_directory(tmp_path):
     (tmp_path / "small.yaml").write_text(
         "sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * 100 + "\n")
     (tmp_path / "big.yaml").write_text(
-        "sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * 600 + "\n")
+        "sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * _OVER_OPENDDE + "\n")
     with pytest.raises(sl.SizeTooLargeError):
         sl.check_input(tmp_path, "opendde", arch="wormhole_b0")
 
@@ -277,9 +283,10 @@ def test_predict_still_sums_the_chains_of_one_complex():
 
     One predict file is ONE complex whose chains fold together, so the sum is what occupies the chip.
     """
-    two_chains = ("sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * 300 +
-                  "\n  - protein:\n      id: B\n      sequence: " + "A" * 300 + "\n")
-    assert sl.scan_residues(two_chains) == 600
+    two_chains = ("sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * (_OVER_OPENDDE // 2 + 1) +
+                  "\n  - protein:\n      id: B\n      sequence: " + "A" * (_OVER_OPENDDE // 2 + 1) + "\n")
+    chain = _OVER_OPENDDE // 2 + 1
+    assert sl.scan_residues(two_chains) == 2 * chain > _OVER_OPENDDE   # the SUM is what refuses
     with pytest.raises(sl.SizeTooLargeError):
         sl.check("opendde", sl.scan_residues(two_chains), arch="wormhole_b0")
 
@@ -291,7 +298,7 @@ def test_check_input_takes_a_path_or_a_bare_sequence_not_a_document(tmp_path):
     does nothing -- the string is not a path and not a bare sequence, so it matches neither branch.
     A test that made that mistake would pass while checking nothing.
     """
-    doc = "sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * 600 + "\n"
+    doc = "sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * _OVER_OPENDDE + "\n"
     sl.check_input(doc, "opendde", arch="wormhole_b0")          # a document: no-op, by design
     f = tmp_path / "t.yaml"
     f.write_text(doc)
@@ -311,8 +318,8 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
         ("esmc-6b", "big.fasta", ">big\n" + "A" * 2500 + "\n"),
         ("esmc-6b", "big.yaml", "a: " + "A" * 2500 + "\n"),
         ("opendde", "big.yaml",
-         "sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * 600 + "\n"),
-        ("opendde", "big.fasta", ">t|protein\n" + "A" * 600 + "\n"),
+         "sequences:\n  - protein:\n      id: A\n      sequence: " + "A" * _OVER_OPENDDE + "\n"),
+        ("opendde", "big.fasta", ">t|protein\n" + "A" * _OVER_OPENDDE + "\n"),
         ("rfd3", "spec.json", '{"a": {"input": "t.pdb", "contig": "A1-2,4000"}}'),
         ("rfd3", "spec.yaml", 'a:\n  input: t.pdb\n  contig: A1-2,4000\n'),
         ("pxdesign", "t.yaml",

@@ -108,13 +108,13 @@ tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the roll
 Targets of 850-1095 residues have folded on a single 12 GiB Wormhole card on every structure
 model, but that is not the same as a ceiling: a few models fail at sizes *below* one they handle,
 because the failure is an L1 layout clash that follows the padded tile shape rather than the
-residue count. OpenDDE folds 544, throws at 576, and folds 608 again. So the size a model is
-safe up to is the largest one below its first measured failure, which for several models on
-Wormhole is under 1024:
+residue count -- a model can fold 608 residues and throw at 576. So the size a model is safe up
+to is the largest one below its first measured failure, which for several models on Wormhole is
+under 1024:
 
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
-| `opendde`, `opendde-abag` | 544 | 576 |
+| `opendde`, `opendde-abag` | 1024 | none found; top of the ladder |
 | `openfold3` | 1024 | none found; top of the ladder |
 | `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |

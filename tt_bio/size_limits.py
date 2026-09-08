@@ -195,33 +195,33 @@ _INHERITS_DEMO_FENCE = (
 CEILINGS: dict[str, dict[str, Ceiling]] = {
     "opendde": {
         "wormhole_b0": Ceiling(
-            residues=544, pass_at=544, fail_at=576, binds=MEMORY, mechanism=L1_CLASH,
+            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             msa_rows=8192,
-            evidence="catalog.py, measured 2026-08-16/17 through the live API on the GWH02 "
-                     "Galaxy: 512 and 544 fold, 576 throws an L1 static-CB clash, 608 folds, 640 "
-                     "throws. Pass/fail is NOT monotonic in residue count, so 544 is the largest "
-                     "size below the FIRST failure and not the largest that folds. The throw's own "
-                     "addresses reproduced identically in two worker processes a day apart -- L1 "
-                     "buffer at 352256 against a static CB region ending at 382240, 29984 B short "
-                     "(opendde-wh-crash-set-cap-nondeterministic). RE-WALKED 2026-09-07 at the "
-                     "platform's default 8192 alignment rows and the row survived unchanged: 544 "
-                     "folds in 569 s at plDDT 0.897, 576 throws twice on two chips at the SAME two "
-                     "addresses. The re-walk exists because a 35-row ladder folds every rung to "
-                     "1056 on the same tree and would have published 1024; depth is what binds "
-                     "here, so a shallow-alignment input really is roomier than this number and "
-                     "TT_BIO_SIZE_LIMIT=0 is the supported way to run one",
+            evidence="its own ladder, re-measured 2026-09-08 on GWH02 at the platform's default "
+                     "8192 alignment rows after the trimul in-projection re-probe fix: 128, 256, "
+                     "512, 576, 640, 768, 896 and 1024 all fold, 0 backbone breaks on every rung. "
+                     "1024 folds 3/3 in separate processes, byte-identical (CIF md5 3b3099f9, "
+                     "~1553 s, clash_frac 0.01226, plDDT 0.774); 896 folds 2/2 byte-identical "
+                     "(md5 5ee2bacb, ~1040 s). The previous row capped this at 544 because 576 "
+                     "threw an L1 static-CB clash: the cause was a fused in-projection width DRAM "
+                     "had already refused being re-probed once per pairformer block, which "
+                     "ratcheted a fold to the narrowest channel chunk. Parity is bit-exact against "
+                     "the merge base at 128/256/512 and the row cap that fixes the clash is "
+                     "bit-exact at 512 with it forced off. See state/opendde-l1-clash-to-1024.md",
         ),
     },
     "opendde-abag": {
         "wormhole_b0": Ceiling(
-            residues=544, pass_at=544, fail_at=576, binds=MEMORY, mechanism=L1_CLASH,
+            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             msa_rows=8192,
-            evidence="catalog.py, its OWN ladder measured 2026-08-17, not inherited from opendde: "
-                     "512 and 544 fold, 576 throws, 608 and 640 fold. Same first failure, same cap. "
-                     "The 2026-09-07 deep-alignment re-walk was run on the opendde checkpoint only; "
-                     "abag is the same architecture and the same tensor shapes with different "
-                     "weights, and the clash is a layout, so it inherits -- but that is an argument, "
-                     "not a measurement, and a rung of its own is outstanding",
+            evidence="its OWN rungs at 8192 alignment rows, 2026-09-08, not inherited from "
+                     "opendde by architecture argument: 1024 folds 3/3 in separate processes, "
+                     "byte-identical (CIF md5 a27f0d67, 1545-1549 s, clash_frac 0.00971, plDDT "
+                     "0.717) and 512 folds (md5 7cc87160, 296 s, clash_frac 0.00534). The two "
+                     "checkpoints share the trunk, the refiner and every tensor shape and differ "
+                     "only in weight values, which is why the same fix serves both -- but these "
+                     "numbers are measured on this checkpoint. Same history as the opendde row: "
+                     "the old 544 cap was the re-probed in-projection width, not a capacity wall",
         ),
     },
     "openfold3": {

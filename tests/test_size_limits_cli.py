@@ -68,13 +68,17 @@ def _yaml_of(n: int) -> str:
 
 
 def test_predict_refuses_an_oversized_target(tmp_path, wormhole, no_device):
+    # Sized from the guard, not written down: this test asked for 1024 residues against a 544 cap,
+    # and 1024 became the cap itself, at which point it asserted a refusal that cannot happen.
+    from tt_bio import size_limits as sl
+    cap = sl.ceiling("opendde", "wormhole_b0").residues
     f = tmp_path / "big.yaml"
-    f.write_text(_yaml_of(1024))
+    f.write_text(_yaml_of(cap + 1))
     res = CliRunner().invoke(main.cli, ["predict", str(f), "--model", "opendde",
                                         "--out_dir", str(tmp_path / "out")])
     assert res.exit_code != 0
     msg = str(res.output) + str(res.exception)
-    assert "1024" in msg and "544" in msg and "opendde" in msg
+    assert str(cap + 1) in msg and str(cap) in msg and "opendde" in msg
     assert not no_device
 
 

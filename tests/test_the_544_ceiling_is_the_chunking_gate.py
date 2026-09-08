@@ -8,8 +8,8 @@ is 1088 pair tokens. OpenDDE refines on a structural-token axis 1.945x its resid
     544 residues -> 1057 tokens -> 1088 padded == the gate, so the WHOLE-tensor path
     576 residues -> 1120 tokens -> 1120 padded  > the gate, so the CHUNKED path
 
-`size_limits.CEILINGS` records `pass_at=544, fail_at=576` for both checkpoints, measured through
-the live API on two independent ladders a day apart. That boundary is not a capacity limit that
+`size_limits.CEILINGS` recorded `pass_at=544, fail_at=576` for both checkpoints until 2026-09-08,
+measured through the live API on two independent ladders a day apart (the row now reads 1024). That boundary is not a capacity limit that
 happens to land between two rungs: it is the exact token where this gate changes which path the
 pair track takes, and two independently measured ladders landed on it.
 
@@ -79,15 +79,23 @@ def test_the_gate_resolves_to_1088_tokens_on_a_12_gib_wormhole(restore_globals):
     assert _gate(BH_DRAM) == 1536      # and to the Blackhole baseline on a 32 GiB part
 
 
-def test_the_published_ceiling_and_first_failure_straddle_the_gate(restore_globals):
-    """The finding. `pass_at` is the last rung on the whole-tensor path, `fail_at` the first on
-    the chunked one, for BOTH checkpoints and on two independently measured ladders."""
+def test_the_old_544_boundary_straddled_the_gate(restore_globals):
+    """The historical coincidence, kept as arithmetic now that the row itself has moved.
+
+    `CEILINGS` published `pass_at=544, fail_at=576` for both checkpoints from 2026-08-16 until
+    2026-09-08, off two independently measured ladders, and 544 aa lands EXACTLY on this part's
+    `SEQ_LEN_MORE_CHUNKING` in pair tokens while 576 is the first rung over it. That is why the
+    coincidence was worth recording.
+
+    It was a coincidence, though, not the cause: the 576 throw was a fused in-projection width DRAM
+    had already refused being re-probed once per pairformer block, and with that fixed the ladder
+    runs to 1024 with no failure -- so the live row now reads 1024 and this test no longer reads it.
+    What still matters is the gate value, because anything that moves it moves which sizes take the
+    chunked path.
+    """
     gate = _gate(WH_DRAM)
-    for model in ("opendde", "opendde-abag"):
-        c = size_limits.CEILINGS[model]["wormhole_b0"]
-        assert (c.pass_at, c.fail_at) == (544, 576)
-        assert _pair_axis(c.pass_at) == gate            # 1088, exactly at it
-        assert _pair_axis(c.fail_at) == 1120 > gate     # the first rung over
+    assert _pair_axis(544) == gate == 1088      # the last rung on the whole-tensor path
+    assert _pair_axis(576) == 1120 > gate       # the first rung over it
 
 
 def test_no_other_rung_boundary_lands_on_the_gate(restore_globals):
