@@ -1028,11 +1028,43 @@ def test_a_legs_wall_is_not_rounded_up_to_the_poll_interval(tmp_path):
     w = cg.Worker("local", 0, True)
     r = cg.execute(w, [sys.executable, "-c", "import time; time.sleep(0.2)"],
                    tmp_path / "leg.log", mode="", hook_out=tmp_path / "o",
-                   hookdir=tmp_path / "hd", timeout=60, stall_s=60)
+                   hookdir=tmp_path / "hd", out_dir=tmp_path / "out", timeout=60, stall_s=60)
     assert r["rc"] == 0, r
     assert r["wall_s"] < 3.0, (
         f"a 0.2 s leg reported {r['wall_s']} s: the wall is being rounded up to the poll "
         f"interval, which inflates every per-model Tier 1 number the budget is judged on")
+
+
+def test_a_leg_cannot_inherit_the_previous_runs_output_or_dram_peak(tmp_path):
+    """A warm work dir turned a re-run into a PASS that folded nothing.
+
+    `tt_bio.main predict` skips a target whose results already exist, so a second leg at the same
+    (model, tokens) exits 0 in seconds and prints "All predictions complete"; `hook_findings` then
+    globs `<hook_out>.*.json` and returns the EARLIER run's numbers. Measured 2026-09-08 re-running
+    the boltz2 cell against this repo's own perf/capacity/work: PASS in 2.6 s at 1536 tokens,
+    carrying the previous run's 5.78 GiB peak. With --record that banks a cell nobody measured, and
+    the wall is the only tell -- the verdict and the peak both look right.
+    """
+    out = tmp_path / "out_resid_boltz2_1536"
+    (out / "boltz2_results_cap_1536").mkdir(parents=True)
+    (out / "boltz2_results_cap_1536" / "results.json").write_text('{"ok": true}')
+    stale = tmp_path / "o.4242.json"
+    stale.write_text(json.dumps({"dram_peak_bytes": 6203490304, "truncated": [],
+                                 "instrumented": ["stale"]}))
+
+    r = cg.execute(cg.Worker("local", 0, True), [sys.executable, "-c", "pass"],
+                   tmp_path / "leg.log", mode="", hook_out=tmp_path / "o",
+                   hookdir=tmp_path / "hd", out_dir=out, timeout=60, stall_s=60)
+
+    assert not out.exists(), (
+        "the leg ran against the previous run's output directory, so tt_bio skips every target "
+        "that already has results and the leg passes without folding anything")
+    assert not stale.exists(), (
+        "the previous run's hook json survived, and hook_findings globs the prefix -- so this "
+        "leg's DRAM peak can be the last leg's")
+    assert not (r["hook"] or {}).get("instrumented"), (
+        f"this leg folded nothing yet reports hook findings, which can only have come from an "
+        f"earlier run: {r['hook']}")
 
 
 def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None):
