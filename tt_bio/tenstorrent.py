@@ -6655,6 +6655,13 @@ class Transition(Module):
         if _h:
             transition_h_chunk_size = max(1, min(int(_h), H))
         if H > SEQ_LEN_MORE_CHUNKING:
+            # Tag on ENTRY as well as on exit. The eager branch below tags before its loop, so a
+            # long call there is visible as a tag with no successor; this branch only tagged after
+            # its loop, so a Transition that grinds here writes NOTHING and the trace simply stops
+            # -- which is exactly how the 896 aa fold read as "stuck with no tag" while it was
+            # inside one lazy Transition over the 8192-row MSA representation.
+            dram_peak(f"transition4d loop enter (lazy, h={transition_h_chunk_size}) "
+                      f"[z={'x'.join(str(d) for d in x.shape)}]")
             # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
             # would materialise a full second copy of the pair tensor up front, and the
             # list comprehension accumulates a full set of outputs before concat adds a

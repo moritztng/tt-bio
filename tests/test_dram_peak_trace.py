@@ -123,3 +123,21 @@ def test_a_tag_that_never_rises_still_traces(fresh, tmp_path):
     for _ in range(4):
         _sample(path, True, 100 << 20)
     assert len(path.read_text().splitlines()) == 4
+
+
+def test_the_lazy_transition_branch_tags_on_entry():
+    """A branch that only tags after its loop is invisible while it runs.
+
+    The eager row branch calls `dram_peak` before its loop, so a slow call there shows up as a tag
+    with no successor. The lazy branch (H > SEQ_LEN_MORE_CHUNKING) tagged only on the way out, so a
+    Transition grinding over the 8192-row MSA representation wrote nothing at all and the trace
+    stopped dead -- which is how the 896 aa fold read as "no tag reached in 13 minutes" while it was
+    inside exactly one such call (state/opendde-l1-clash-to-1024.md, Pass 14).
+    """
+    src = open(T.__file__).read()
+    enter = src.index('transition4d loop enter (lazy')
+    done = src.index('transition4d loop done (lazy')
+    assert enter < done, "the entry tag must precede the loop, not follow it"
+    # and it must sit inside the large-sequence branch, above the row loop
+    branch = src.index("if H > SEQ_LEN_MORE_CHUNKING:", src.index("def __call__", src.index("class Transition") if "class Transition" in src else 0))
+    assert branch < enter < src.index("for s in range(0, H, transition_h_chunk_size)")
