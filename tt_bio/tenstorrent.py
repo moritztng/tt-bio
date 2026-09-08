@@ -6245,9 +6245,16 @@ class Transition(Module):
         # -- while the unchunked arm folds the same target in 317.8 s.
         #
         # So gate on the one case the row-height cap cannot absorb: a SINGLE row at the full width
-        # that already overflows the budget, because the height floors at 1. On this part that is
-        # W > 6144 at c=256 and W > 4096 at OpenDDE's c=384, i.e. never for a shipped shape --
-        # which is the finding, not an accident of the numbers. Blackhole keeps the token-count
+        # that already overflows the budget, because the height floors at 1. Where that lands, per
+        # shipped channel, walked over the whole ladder by perf/wchunk_equiv.py against these
+        # constants: W=12320 at c=128 (boltz2/esmfold2), 7296 at c=192 (rf3), 4128 at c=256
+        # (protenix-v2), 1824 at c=384 (opendde). The ratio term binds, not the per-core L1 term
+        # (which alone would say 6144 at c=256 and 4096 at c=384), so quote the min of the two or
+        # the number is 1.5-2.2x too generous. The tightest channel still sits 1.7x above
+        # SEQ_LEN_MORE_CHUNKING=1088 and 1.19x above the 1536-token capacity bar, so no shipped
+        # shape W-chunks -- which is the finding, not an accident of the numbers. At 1536 tokens
+        # c=384 does land on h=1, the floor, where the old gate had 3 rows at w_eff=480; that
+        # regime is Blackhole's today, and Blackhole keeps the token-count
         # threshold: the per-core byte budget this derivation rests on was measured on a Wormhole
         # Galaxy and is only applied under _IS_SMALL_GRID, so extending it to a part it was never
         # measured on would be asserting a roof instead of measuring one.
