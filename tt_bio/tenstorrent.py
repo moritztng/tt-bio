@@ -1775,7 +1775,21 @@ def _latch(name: str, field: str, why: object = None) -> None:
     st = LATCH_STATS[name]
     st[field] += 1
     if why is not None and len(st["why"]) < 3:
-        st["why"].append(str(why)[:180])
+        st["why"].append(_latch_reason(why))
+
+
+def _latch_reason(why: object) -> str:
+    """One line for a latched refusal -- 180 chars, but not 180 chars of preamble.
+
+    tt-metal puts the addresses at the END of an L1 clash message, past the 180th character, so a
+    plain prefix records that something clashed and drops the only part that says what. That is
+    why every handled refusal in the 576 aa OpenDDE log is unattributable. Substitute the census
+    those addresses imply.
+    """
+    census = describe_l1_clash(why)
+    if census is None:
+        return str(why)[:180]
+    return "L1 clash: " + " ".join(f"{k}={v}" for k, v in census.items())
 
 
 # Worker L1 is one flat region per core with two fronts growing towards each other: the allocator
@@ -2820,6 +2834,7 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
                 return out
             except Exception as e:                                              # noqa: BLE001
                 _TRANSPOSE_L1_REFUSED.add(key)
+                note_l1_clash("tri_att/transpose_l1", e)
                 _latch("transpose_l1", "refused", e)
         memory_config = ttnn.DRAM_MEMORY_CONFIG
     if (l1_stage_reserve
@@ -2837,6 +2852,7 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
                 return out
             except Exception as e:                                              # noqa: BLE001
                 _TRANSPOSE_L1_REFUSED.add(key)
+                note_l1_clash("tri_att/transpose_stage", e)
                 _latch("transpose_stage", "refused", e)
     return _pair_transpose_impl(t, memory_config)
 
@@ -2926,6 +2942,85 @@ def _transpose_memory_config(t: ttnn.Tensor, reserve_per_core: int = 0) -> ttnn.
     # TRANSPOSE_L1_RESERVE_PER_CORE. The allocation itself is still the real test, and
     # `_pair_transpose` falls back to DRAM per shape class when it is refused.
     return _l1_memory_config_if_it_fits(t, 1.0, reserve_per_core=reserve_per_core)
+
+
+# Bytes per core that must stay free underneath the ending triangle attention's L1-resident pair
+# block, for the `ttnn.layer_norm` that reads it. MEASURED on the Galaxy Wormhole 8x9 grid at
+# [480, 672, 128] bf16, off the fold's own throw: live tensors reached down to 352 256 B and the
+# program's static circular buffers ended at 382 240 B over a 33 056 B CB base, so the consumer
+# needed 349 184 B per core and had 319 200 B. `tests/test_l1_clash_census.py` holds that reading.
+# 384 KiB carries 1.13x of it.
+#
+# Absolute bytes, not a multiple of the tensor. `_TRANSPOSE_L1_HEADROOM = 1.25` prices the same
+# need as a fraction of the block, and a fraction is stingiest exactly where the block is largest:
+# its own best case admits 1 172 864 B/core of tensor and so leaves 293 216 B/core, which is
+# 55 968 B LESS than this consumer needs -- at every shape, not just an unlucky one. The top of
+# the multiplicative gate's range is therefore unconditionally broken and nothing below it is.
+# Ending blocks are 122 880 x Nsw bytes at chunk 480, and volumes in (80 416 512, 84 446 208] are
+# the broken band: Nsw = 672 lands there and no other multiple of 32 does. That is the whole of
+# the 576 aa-throws / 608 aa-folds non-monotonicity, which reads as a capacity wall and is not one.
+#
+# Priced with headroom 1.0, NOT on top of 1.25: "the block per core plus the consumer's buffers
+# per core fit in the core's L1" is the entire requirement, and applying 1.25 as well double-counts
+# it -- that would admit only 59 909 529 B and so cost the L1 route at 544 tokens, which fits today
+# with 592 KB/core to spare.
+PAIR_BIAS_LN_CONSUMER_RESERVE = 384 * 1024
+_PAIR_BIAS_LN_CONSUMER_RESERVE = int(
+    os.environ.get("TT_BIO_PAIR_BIAS_LN_RESERVE", str(PAIR_BIAS_LN_CONSUMER_RESERVE)))
+# Off only to run the parity A/B for the row cap against the same reserve; 0 disables the cap and
+# leaves the gate, so a block too tall falls to DRAM instead of getting shorter.
+_PAIR_BIAS_LN_CAP = os.environ.get("TT_BIO_PAIR_BIAS_LN_CAP", "1") != "0"
+
+
+def _pair_bias_ln_reserve() -> int:
+    """Bytes to keep free per core under the ending transpose's L1 block. 0 off the small grid.
+
+    Wormhole only, and visibly so: Blackhole runs 8 banks x 3.984 GiB and 1 532 448 B/core against
+    Wormhole's 12 x ~1 GiB and 1 466 080 B, `_apply_grid_thresholds` returns before every budget
+    in this file on a >= 110-core grid, and Blackhole must not move. Reserve 0 there leaves the
+    multiplicative gate exactly as it was.
+    """
+    return _PAIR_BIAS_LN_CONSUMER_RESERVE if _IS_SMALL_GRID else 0
+
+
+def _pair_bias_transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
+    """`_transpose_memory_config` for the ending transpose, with its consumer priced in bytes.
+
+    `_transpose_memory_config`'s own `reserve_per_core` is deliberately not reused: there it is a
+    RELAXATION, consulted only once the multiplicative test has already failed. Here the reserve
+    has to restrict, and one parameter name cannot carry both meanings.
+    """
+    reserve = _pair_bias_ln_reserve()
+    if not reserve:
+        return _transpose_memory_config(t)
+    return _l1_memory_config_if_it_fits(t, 1.0, reserve_per_core=reserve)
+
+
+def _pair_bias_ln_row_cap(width: int, channels: int, elem: int = 2) -> int:
+    """Rows of the ending transpose's block that still leave its layer_norm room, or 0 for no cap.
+
+    The lever is a shorter block, not a DRAM block. Abandoning L1 when the consumer does not fit
+    is correct and costs 1.887x on the transpose at every size from 640 tokens up; the byte budget
+    instead names a height at which both fit, and that keeps the L1 route at 1024 as well as at
+    576. It cannot move a number for the same reason the chunked path exists at all: layer_norm is
+    row-local, so a row block is bit-identical to a slice of the whole normed tensor, and
+    `_pair_proj_linear` reduces over `channels`, which the block height does not touch. Only M
+    changes, and a matmul cannot reassociate over M. (That K term is exactly what made the
+    OuterProductMean re-blocking non-bit-exact: there the ragged block changed K. Here it cannot.)
+    Same claim, same idiom and the same 32-snap as the `_qkv_cap` byte cap beside the caller.
+    """
+    reserve = _pair_bias_ln_reserve()
+    if not reserve or not _PAIR_BIAS_LN_CAP:
+        return 0
+    try:
+        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:                                                          # noqa: BLE001
+        return 0
+    row = int(width) * ((int(channels) + 31) // 32) * 32 * int(elem)
+    if row <= 0:
+        return 0
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    return max(per_core - reserve, 0) * cores // row // 32 * 32
 
 
 def _l1_layer_norm(x: ttnn.Tensor, headroom: float, reserve_per_core: int = 0, **kw):
@@ -5223,16 +5318,38 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
         e = min(s + step, S)
         # A ttnn slice copies, so a full-width block takes the tensor itself.
         blk = z if e - s == S else (z[:, s:e, :] if ending else z[s:e, :, :])
+        own = blk is not z
+        key = None
         if ending:
-            blk = _pair_transpose(blk, _transpose_memory_config(blk))
-        zn = ttnn.layer_norm(
-            blk,
-            weight=ln_weight,
-            bias=ln_bias,
-            epsilon=1e-5,
-            compute_kernel_config=compute_kernel_config,
-            memory_config=ttnn.DRAM_MEMORY_CONFIG,
-        )
+            key = (tuple(blk.padded_shape), str(blk.dtype))
+            mc = _pair_bias_transpose_memory_config(blk)
+            if mc.buffer_type == ttnn.BufferType.L1 and key in _TRANSPOSE_L1_REFUSED:
+                mc = ttnn.DRAM_MEMORY_CONFIG
+            blk = _pair_transpose(blk, mc)
+            own = True
+        ln = dict(weight=ln_weight, bias=ln_bias, epsilon=1e-5,
+                  compute_kernel_config=compute_kernel_config,
+                  memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        try:
+            zn = ttnn.layer_norm(blk, **ln)
+        except Exception as e:                                                  # noqa: BLE001
+            # A reserve fitted at one shape is a prediction, and this op is what a wrong one
+            # costs: its static circular buffers are created after the block is already resident,
+            # so the allocator's real answer arrives an op too late for the gate. Retrying in
+            # DRAM makes a wrong prediction cost this shape class's L1 route instead of the fold,
+            # which is what makes the ceiling stable against allocator history. Same memo as
+            # `_pair_transpose`, on the pre-transpose key, so both sites back off together.
+            if blk.memory_config().buffer_type != ttnn.BufferType.L1:
+                raise
+            if key is not None:
+                _TRANSPOSE_L1_REFUSED.add(key)
+            note_l1_clash("tri_att_end/pair_bias_layer_norm", e)
+            _latch("pair_bias_ln_l1", "refused", e)
+            spill = ttnn.to_memory_config(blk, ttnn.DRAM_MEMORY_CONFIG)
+            if own:
+                ttnn.deallocate(blk)
+            blk = spill
+            zn = ttnn.layer_norm(blk, **ln)
         b = _pair_proj_linear(zn, bias_weight, compute_kernel_config, ttnn.bfloat16)
         ttnn.deallocate(zn)
         # No explicit deallocate of b/bp: unsqueeze shares b's buffer, and an explicit
@@ -5415,6 +5532,15 @@ class TriangleAttention(Module):
             # boundaries only, not what any row computes.
             _qkv_cap = (1536 * 2 ** 20) // (-(-S // 32) * 32 * x.shape[2] * 3 * 2)
             chunk = min(chunk, max(32, _qkv_cap // 32 * 32))
+            if self.ending:
+                # Second byte cap, same shape of argument, different resource: the ending block
+                # goes to L1 and its layer_norm's circular buffers come out of the same banks.
+                # See `_pair_bias_ln_row_cap`. Bias and qkv take one `chunk` so their row
+                # boundaries stay identical.
+                _ln_cap = _pair_bias_ln_row_cap(
+                    S, x.shape[2], 4 if x.dtype == ttnn.float32 else 2)
+                if _ln_cap:
+                    chunk = min(chunk, max(32, _ln_cap))
 
             def normed_rows(s, e):
                 blk = x[:, s:e, :] if self.ending else x[s:e, :, :]
