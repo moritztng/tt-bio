@@ -1,0 +1,79 @@
+"""The clash message says which allocation is resident, if you subtract.
+
+Both messages here are verbatim from the OpenDDE 576 aa fold that set the published 544 ceiling
+(state/ceiling-opendde.md, logs/576.log on the Galaxy, 2026-09-07). The numbers asserted below are
+the ones that identify the buffer, so a regression in the parsing shows up as a wrong diagnosis
+rather than a missing one.
+"""
+import re
+
+import pytest
+
+pytest.importorskip("ttnn", reason="tenstorrent.py imports ttnn at module scope")
+
+from tt_bio.tenstorrent import describe_l1_clash, note_l1_clash  # noqa: E402
+
+CLASH = (
+    "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\n"
+    "info:\nStatically allocated circular buffers in program 1060 clash with L1 buffers on core "
+    "range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 352256 and static circular buffer "
+    "region ends at 382240"
+)
+OVERFLOW = (
+    "Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to "
+    "3822880 B which is beyond max L1 size of 1499136 B"
+)
+
+# Measured on the Galaxy Wormhole chip this fold ran on, card 2, 2026-09-08.
+WH_L1_TOP = 1499136
+WH_L1_UNRESERVED = 1466080
+
+
+def test_clash_names_the_resident_buffer():
+    c = describe_l1_clash(CLASH, WH_L1_TOP, WH_L1_UNRESERVED)
+    assert c["grid"] == (8, 9) and c["cores"] == 72
+    # 1499136 - 352256: what the live tensors held on every core when the program was built.
+    assert c["resident_per_core"] == 1146880
+    # x 72 banks = the interleaved buffer's whole size, which is what identifies it. 82575360 B is
+    # the ending triangle attention's transposed pair block, 480 x 672 x 128 bf16.
+    assert c["resident_total"] == 82575360
+    assert 480 * 672 * 128 * 2 == c["resident_total"]
+    # The consumer's static CBs, and the room they had. The gap is the whole bug.
+    assert c["cb_base"] == WH_L1_TOP - WH_L1_UNRESERVED == 33056
+    assert c["cb_need"] == 349184
+    assert c["cb_free"] == 319200
+    assert c["shortfall"] == 29984 == c["cb_need"] - c["cb_free"]
+
+
+def test_shortfall_needs_no_device_constants():
+    c = describe_l1_clash(CLASH)
+    assert c["shortfall"] == 29984
+    assert c["cores"] == 72
+    assert "cb_need" not in c or c.get("l1_top")  # omitted, not guessed
+
+
+def test_overflow_form_implicates_no_tensor():
+    c = describe_l1_clash(OVERFLOW)
+    assert c["cores"] == 72
+    assert c["resident_per_core"] == 0
+    assert c["cb_need"] == 3822880 and c["l1_top"] == 1499136
+    assert c["shortfall"] == 3822880 - 1499136
+
+
+def test_note_learns_l1_top_from_the_overflow_form():
+    import tt_bio.tenstorrent as T
+
+    T._L1_TOP_SEEN.clear()
+    T.L1_CLASH_CENSUS.clear()
+    assert describe_l1_clash(CLASH).get("resident_per_core") is None
+    note_l1_clash("probe", OVERFLOW)
+    c = note_l1_clash("tri_att_end/layer_norm", CLASH)
+    assert c["resident_per_core"] == 1146880
+    assert [w for w, _ in T.L1_CLASH_CENSUS] == ["probe", "tri_att_end/layer_norm"]
+    T._L1_TOP_SEEN.clear()
+    T.L1_CLASH_CENSUS.clear()
+
+
+def test_unrelated_message_is_not_a_clash():
+    assert describe_l1_clash("Out of Memory: Not enough space to allocate 2015363072 B") is None
+    assert note_l1_clash("x", "boom") is None

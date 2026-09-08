@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import contextlib
 import torch, ttnn, atexit
@@ -1775,6 +1776,100 @@ def _latch(name: str, field: str, why: object = None) -> None:
     st[field] += 1
     if why is not None and len(st["why"]) < 3:
         st["why"].append(str(why)[:180])
+
+
+# Worker L1 is one flat region per core with two fronts growing towards each other: the allocator
+# hands out tensor buffers from the TOP down, a program's static circular buffers from the
+# unreserved BASE up. A clash is those fronts meeting, and the message reports both as raw
+# addresses and nothing else. Read literally it looks like "out of memory at N", which is how four
+# passes of the OpenDDE ceiling read it; subtract instead and it says which buffer is resident, how
+# much room it left and how much the consumer was short -- enough to name the allocation without a
+# second run. The core range in the message carries the bank count, so the arithmetic needs no
+# device.
+_CLASH_RE = re.compile(
+    r"clash with L1 buffers on core range \[\(x=(\d+),y=(\d+)\) - \(x=(\d+),y=(\d+)\)\]\. "
+    r"L1 buffer allocated at (\d+) and static circular buffer region ends at (\d+)")
+_CB_OVERFLOW_RE = re.compile(
+    r"circular buffers on core range \[\(x=(\d+),y=(\d+)\) - \(x=(\d+),y=(\d+)\)\] "
+    r"grow to (\d+) B which is beyond max L1 size of (\d+) B")
+
+
+def describe_l1_clash(msg: object, l1_top: int | None = None,
+                      l1_unreserved: int | None = None) -> dict | None:
+    """Turn an L1 static-CB throw into the allocation census it implies, or None.
+
+    Handles both forms tt-metal raises. The CLASH form ("L1 buffer allocated at X and static
+    circular buffer region ends at Y") means a program's buffers ran into a live tensor; the
+    OVERFLOW form ("grow to N B which is beyond max L1 size of M B") means they did not fit an
+    empty core, so no tensor is implicated and `resident_per_core` is 0.
+
+    `l1_top` is the top of the per-core buffer region and `l1_unreserved` the space between the
+    CB base and that top; both are read off the device when not given, and the fields that need
+    them are omitted rather than guessed when there is no device.
+    """
+    s = str(msg)
+    m = _CLASH_RE.search(s)
+    over = None if m else _CB_OVERFLOW_RE.search(s)
+    if not m and not over:
+        return None
+    g = m or over
+    x0, y0, x1, y1 = (int(g.group(i)) for i in (1, 2, 3, 4))
+    out = {"grid": (x1 - x0 + 1, y1 - y0 + 1)}
+    out["cores"] = out["grid"][0] * out["grid"][1]
+    if over:
+        out["cb_need"] = int(over.group(5))
+        out["l1_top"] = l1_top = int(over.group(6))
+        out["resident_per_core"] = 0
+        out["shortfall"] = out["cb_need"] - l1_top
+    else:
+        buf, cb_end = int(m.group(5)), int(m.group(6))
+        out["buffer_addr"], out["cb_end"] = buf, cb_end
+        out["shortfall"] = cb_end - buf
+        if l1_top is None:
+            l1_top = _worker_l1_top()
+        if l1_top:
+            out["l1_top"] = l1_top
+            out["resident_per_core"] = l1_top - buf
+            out["resident_total"] = out["resident_per_core"] * out["cores"]
+        if l1_unreserved is None:
+            l1_unreserved = _worker_l1_unreserved()
+        if l1_top and l1_unreserved:
+            base = l1_top - l1_unreserved
+            out["cb_base"] = base
+            out["cb_need"] = cb_end - base
+            out["cb_free"] = buf - base
+    return out
+
+
+def _worker_l1_unreserved() -> int | None:
+    try:
+        return int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:                                                          # noqa: BLE001
+        return None
+
+
+# The buffer region's top is not exposed, so it is reconstructed from the OVERFLOW form's "max L1
+# size" when one has been seen this process, and left unknown otherwise. Deliberately not a
+# hardcoded 1499136: that is the Wormhole number and Blackhole's is different.
+_L1_TOP_SEEN: list = []
+
+
+def _worker_l1_top() -> int | None:
+    return _L1_TOP_SEEN[0] if _L1_TOP_SEEN else None
+
+
+def note_l1_clash(where: str, msg: object) -> dict | None:
+    """Record a clash census under `where` and return it. Safe to call from an except block."""
+    seen = _CB_OVERFLOW_RE.search(str(msg))
+    if seen and not _L1_TOP_SEEN:
+        _L1_TOP_SEEN.append(int(seen.group(6)))
+    census = describe_l1_clash(msg)
+    if census is not None:
+        L1_CLASH_CENSUS.append((where, census))
+    return census
+
+
+L1_CLASH_CENSUS: list = []
 
 
 def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
