@@ -60,6 +60,7 @@ import os
 import queue
 import re
 import shlex
+import shutil
 import signal
 import socket
 import subprocess
@@ -641,7 +642,8 @@ def build_argv(cell: Cell, fixture: dict, out_dir: Path, *, tier: str) -> list[s
 
 
 def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
-            hook_out: Path, hookdir: Path, timeout=RUN_TIMEOUT_S, stall_s=STALL_S) -> dict:
+            hook_out: Path, hookdir: Path, out_dir: Path,
+            timeout=RUN_TIMEOUT_S, stall_s=STALL_S) -> dict:
     """Run one leg with a stall detector and a host-RAM watch.
 
     The stall detector is the reason this is not a plain subprocess.run: OpenFold3's diffusion-side
@@ -652,6 +654,16 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
     events.unlink(missing_ok=True)
     beat = log.with_suffix(".beat")
     for old in beat.parent.glob(beat.name + ".*"):
+        old.unlink(missing_ok=True)
+    # THE OUTPUT DIRECTORY AND THE HOOK FILES TOO, and this one is a false green, not tidiness.
+    # `tt_bio.main predict` skips a target whose results already exist, so a second leg at the same
+    # (model, tokens) against a warm work dir returns rc=0 in seconds having folded nothing, prints
+    # "All predictions complete", and `hook_findings` globs `<prefix>.*.json` and hands back the
+    # PREVIOUS run's DRAM peak. Measured 2026-09-08 re-running the boltz2 cell: PASS in 2.6 s at
+    # 1536 tokens carrying the earlier run's 5.78 GiB. With --record that banks a capacity cell
+    # nobody measured. Every artifact this leg reads must be this leg's own.
+    shutil.rmtree(out_dir, ignore_errors=True)
+    for old in hook_out.parent.glob(hook_out.name + ".*"):
         old.unlink(missing_ok=True)
     env = {"TT_BIO_CAPACITY_HOOK": mode,
            # repo/scripts too: the gate's own sys.path tweak does not reach a spawned child.
@@ -950,9 +962,10 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
     tok = fixture["tokens_requested"]
     log = work / f"screen_{cell.model}_{tok}.log"
     hook_out = work / f"hook_screen_{cell.model}_{tok}"
-    argv = build_argv(cell, fixture, work / f"out_screen_{cell.model}", tier="screen")
+    out_dir = work / f"out_screen_{cell.model}_{tok}"
+    argv = build_argv(cell, fixture, out_dir, tier="screen")
     r = execute(worker, argv, log, mode="screen", hook_out=hook_out, hookdir=hookdir,
-                timeout=RUN_TIMEOUT_S, stall_s=STALL_S)
+                out_dir=out_dir, timeout=RUN_TIMEOUT_S, stall_s=STALL_S)
     trunc = r["hook"].get("truncated") or []
     r["stacks_truncated"] = len(trunc)
     r["truncated"] = trunc[:40]
@@ -1000,8 +1013,10 @@ def _residency(worker, cell, fixture, work, hookdir, tokens) -> dict:
     """TIER 2. The full pipeline at the target size. This is the only tier that can say PASS."""
     log = work / f"resid_{cell.model}_{tokens}.log"
     hook_out = work / f"hook_resid_{cell.model}_{tokens}"
-    argv = build_argv(cell, fixture, work / f"out_resid_{cell.model}_{tokens}", tier="residency")
-    r = execute(worker, argv, log, mode="residency", hook_out=hook_out, hookdir=hookdir)
+    out_dir = work / f"out_resid_{cell.model}_{tokens}"
+    argv = build_argv(cell, fixture, out_dir, tier="residency")
+    r = execute(worker, argv, log, mode="residency", hook_out=hook_out, hookdir=hookdir,
+                out_dir=out_dir)
     h = r["hook"]
     r["dram_peak_bytes"] = h.get("dram_peak_bytes")
     r["dram_total_bytes"] = h.get("dram_total_bytes")
