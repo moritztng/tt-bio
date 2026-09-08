@@ -29,7 +29,7 @@ from ..envflags import env_flag
 from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul,
-                           atom_pair_budget_bytes, row_block)
+                           atom_pair_budget_bytes, l1_resident_budget_bytes, row_block)
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
@@ -259,6 +259,12 @@ FC1STATS = [0, 0]                  # [served, declined], the shape `lever_census
                                    # reads, so an A/B arm cannot silently decline
 FC1SERVED = {}                     # shape -> count, for the calls that got both halves
 FC1DECLINES = {}                   # shape+reason -> count, the other half of the same census
+# Same census, for the L1 residency of the gated product itself. [granted, declined] plus the
+# per-shape reasons, because a size whose verdict is "the residency was declined" has to SAY so:
+# an unchanged fold digest is exactly what a working decline and a dead gate both produce
+# (`negative-control-must-break-what-check-reads`).
+PTL1STATS = [0, 0]
+PTL1DECLINES = {}
 
 
 def set_fc1_split_enabled(on):
@@ -760,6 +766,32 @@ def _pair_transition_chunk_h(w_pad, hidden, height, residents=2):
     return max(1, min(height, _PAIR_TRANSITION_H_CHUNK, cap))
 
 
+def _pair_transition_l1_fits(w_pad, hidden, h, residents=2):
+    """Whether `residents` [1, h, w_pad, hidden] bf16 chunks fit this part's L1 at once.
+
+    The chunk height `h` is fixed before this is asked and this cannot move it, which is the
+    whole design: `h` selects which of several bit-different answers the chunked path produces
+    (`_pair_transition_chunk_h`), so a capacity gate that shrank it would change the structure
+    the model designs. What it decides instead is only the DESTINATION -- L1 or DRAM -- and a
+    destination cannot change the arithmetic, because `_tuned_linear` honours `mem` only on a
+    pinned program config and `ttnn.multiply` is elementwise (`_swiglu`).
+
+    `_pair_transition_chunk_h`'s own budget cannot do this job. It is a constant, 138000000 B,
+    and a Wormhole part has 100470528 B of L1, so at every width up to 1053 tokens the 64-row
+    cap binds first and the budget declines nothing. That is how 768 residues came to ask for
+    two 700416 B-per-bank buffers out of a 1395424 B bank and miss by 5408 B: 0.39 %, which made
+    the boundary a coin flip rather than a wall (`state/ceiling-rfd3.md`). Priced against the
+    part's real L1 the same shape declines the residency and runs in DRAM instead of throwing.
+
+    `row_block` rather than a second copy of the same division: it is the shared helper the
+    atom-pair section already uses, `per_row_bytes` is what one row costs summed over the
+    tensors live at the same moment, and its 32-alignment is exact at the 64-row cap this site
+    asks for.
+    """
+    per_row = 2 * residents * int(w_pad) * int(hidden)
+    return row_block(per_row, l1_resident_budget_bytes(), cap=h) >= h
+
+
 def _pair_transition_slices(batch, height, h):
     """Every (batch index, row start, row stop) chunk the L1-resident path covers.
 
@@ -831,7 +863,11 @@ class Transition(Module):
         self.fc3_w = self.torch_to_tt("linear_3.weight", dtype=self.dtype)
 
     def __call__(self, x):
-        """Whole-tensor by default; L1-resident row blocks on the token pair tensor.
+        """Whole-tensor by default; row blocks on the token pair tensor, L1-resident where they fit.
+
+        The row block's height comes from `_pair_transition_chunk_h` and its destination from
+        `_pair_transition_l1_fits`, and the split matters: the height is part of the arithmetic
+        and the destination is not, so only the destination may answer to a capacity budget.
 
         See `_PAIR_TRANSITION_L1` for the measurements. `RFD3_PAIR_TRANSITION_L1=0` restores
         the whole-tensor path op for op at 3-to-63-row tails; at 1- and 2-row tails (22 of 689
@@ -867,13 +903,30 @@ class Transition(Module):
         # regress. At an equal height that is every size at hidden=256, and 161 of the 689
         # chunked sizes at hidden=512.
         h3 = _pair_transition_chunk_h(w_pad, hidden, H, residents=3)
-        split = _FC1_SPLIT_SILU and h3 == h
+        # Does this part's L1 hold the two residents `_swiglu` keeps live, `b` and `m`? Priced
+        # against the part rather than against a constant, and it decides the destination only:
+        # `h` is already fixed above and this cannot move it, so the chunk plan and therefore
+        # the arithmetic are the same either way. Declining costs the DRAM round trip the
+        # residency exists to avoid; not declining costs the fold, which is what 768 residues
+        # did on a Wormhole part.
+        resident = _pair_transition_l1_fits(w_pad, hidden, h)
+        mem = ttnn.L1_MEMORY_CONFIG if resident else None
+        shape = "tensor_rows=%d w=%d hidden=%d" % (H, w_pad, hidden)
+        PTL1STATS[0 if resident else 1] += 1
+        if not resident:
+            key = "%s h=%d l1-holds-fewer-than-two" % (shape, h)
+            PTL1DECLINES[key] = PTL1DECLINES.get(key, 0) + 1
+        # `fc1`'s output is a third resident in the same L1, so the split cannot outlive the
+        # residency it shares. Nothing else about the split moves: the `h3 == h` test still
+        # decides it wherever L1 holds two, so no size that takes the split today loses it.
+        split = _FC1_SPLIT_SILU and h3 == h and resident
         if _FC1_SPLIT_SILU and not split:
-            # Decline route 2 of 3, and the only one that was invisible: the third resident would
-            # move the chunk height, so `fc1`'s output stays in DRAM and the silu stays on the
-            # call. 528 of the 689 chunked sizes at hidden=512 land here.
-            k = ("tensor_rows=%d w=%d hidden=%d chunk-height-would-move %d->%d"
-                 % (H, w_pad, hidden, h, h3))
+            # Decline route 2 of 3, and the only one that was invisible. Two ways in, kept apart
+            # in the census because they call for different levers: the third resident would move
+            # the chunk height (528 of the 689 chunked sizes at hidden=512), or L1 does not hold
+            # even the two the gated product needs, in which case there is no residency to join.
+            k = ("%s chunk-height-would-move %d->%d" % (shape, h, h3) if resident
+                 else "%s no-residency-to-join" % shape)
             FC1DECLINES[k] = FC1DECLINES.get(k, 0) + 1
             FC1STATS[1] += 1
         # Slice lazily rather than `ttnn.chunk`, which materialises a second full copy of the
@@ -882,7 +935,7 @@ class Transition(Module):
         parts = []
         for b, s, e in _pair_transition_slices(int(x.shape[0]), H, h):
             c = x[b:b + 1, s:e]
-            parts.append(self._swiglu(c, ttnn.L1_MEMORY_CONFIG,
+            parts.append(self._swiglu(c, mem,
                                       fc1_mem=ttnn.L1_MEMORY_CONFIG if split else None))
             ttnn.deallocate(c)
         return _pair_transition_join(parts, int(x.shape[0]))
