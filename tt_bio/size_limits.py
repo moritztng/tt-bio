@@ -312,17 +312,19 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "protenix-v2": {
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=1095, binds=MEMORY, mechanism=DRAM,
-            evidence="1024 aa measured 2026-09-08 on GWH02 card 3, ws:wh-transition-wchunk-hang-"
-                     "fix-p2: folds in 476.8 s, pLDDT 0.745, 8240 atoms, on merged main 00b7112d "
-                     "-- structure digest 2226d5a9adfa135810f3f2df9a4a3460, bit-identical to the "
-                     "same rung run pre-merge on the fix branch, so the rung reproduces across "
-                     "commits and not just across runs. It needed the Transition W-chunk gate fix "
-                     "(938989d7): under the shipped gate this band W-chunked the swiglu and hung "
-                     "the chip rather than OOMing. 1095 aa still OOMs on DRAM (catalog.py, "
-                     "2026-08-11, tree d0ff69b2), and 980 folded in 1072 s the same day -- so the "
-                     "gap this row used to call UNTESTED is now walked. Memory binds the failure; "
-                     "on the platform, whose budget is 1200 s, runtime is close behind, but a "
-                     "tt-bio CLI user has no such budget and only the OOM applies",
+            msa_rows=8832,
+            evidence="1024 measured 2026-09-08 on GWH02 (8x9, 12 GiB/card), "
+                     "ws:wh-transition-wchunk-hang-fix-p2, AT PRODUCTION MSA DEPTH: "
+                     "capacity_gate.py --tokens 1024 folds screen and full residency at 8832 "
+                     "unique alignment rows, 730.5 s, DRAM peak 5.79 GiB = 48% of the card "
+                     "(perf/capacity/wh_1024_protenix-v2_msa8832.json). Depth is the load-bearing "
+                     "part: the failing tensor here scales with tokens x rows, so the "
+                     "single-sequence 1024 fold measured the same day (476.8 s, pLDDT 0.745, "
+                     "digest 2226d5a9adfa135810f3f2df9a4a3460, bit-identical to the same rung "
+                     "pre-merge on the fix branch) would not have been evidence for this row on "
+                     "its own. Both needed 938989d7: under the shipped W-chunk gate this band did "
+                     "not OOM, it hung the chip, which is why the row called 1024 UNTESTED for a "
+                     "month. 1095 still OOMs on DRAM (catalog.py, 2026-08-11, tree d0ff69b2)",
         ),
     },
     "rfd3": {

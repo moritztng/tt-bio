@@ -51,10 +51,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
-- **Protenix-v2's Wormhole ceiling is 1024 residues, up from 980.** 1024 folds in 476.8 s; 1095
-  still runs the card out of DRAM. The row itself had said 1024 sat in an untested gap between the
-  two, and the reason it stayed untested for a month is the Transition hang above: in that band the
-  engine did not refuse the size, it wedged the chip.
+- **Protenix-v2's Wormhole ceiling is 1024 residues, up from 980.** Measured with the alignment
+  depth the service actually serves, 8832 rows: 1024 tokens fold in 730.5 s and peak at 5.79 GiB,
+  48% of a 12 GiB card. 1095 still runs the card out of DRAM. The row itself had said 1024 sat in
+  an untested gap between the two, and the reason it stayed untested for a month is the Transition
+  hang above: in that band the engine did not refuse the size, it wedged the chip.
 
 - **OpenFold3 folds 1024 residues on a 12 GiB Wormhole card, up from 576, and OpenBind 960, up
   from 576.** Both walls were in the shared MSA track, and both were a whole-tensor shape rather
