@@ -6643,6 +6643,17 @@ class Transition(Module):
             # undo that measured raise.
             transition_h_chunk_size = min(transition_h_chunk_size,
                                           max(1, int(_l1_rows_at(w_eff))))
+        # Screen hook, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING and
+        # TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD above: the wall is documented NON-monotonic in
+        # this height (h=7/8/9 all fit at W=512 and are all slower than h=6), and the derivation
+        # lands h=2 at W=896 against h=1 at W=1024 -- the two sides of the 896-vs-1024 anomaly in
+        # state/opendde-l1-clash-to-1024.md, where the 896 aa fold does 0.44x the calls at 1.75x
+        # the size, i.e. LESS element-work, and still takes more than twice the wall clock. Forcing
+        # the height is what separates "h=2 is a bad height here" from "the size is the problem",
+        # and it must not require editing a derivation to find out. Unset in production.
+        _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
+        if _h:
+            transition_h_chunk_size = max(1, min(int(_h), H))
         if H > SEQ_LEN_MORE_CHUNKING:
             # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
             # would materialise a full second copy of the pair tensor up front, and the
