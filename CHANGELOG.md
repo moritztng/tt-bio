@@ -16,7 +16,50 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   it was worth 13.3x: 7ROA L117 scored 0.10683 A against its torch reference on the old route and
   1.41825 A on the fused one, back to 0.15238 A with the bias corrected.
 
+- **`--debug` now reaches the spawned worker.** The stderr filter is skipped when `--debug` is in
+  `sys.argv`, but a multiprocessing spawn re-execs python and the child's argv does not carry the
+  flag, so the filter reinstalled itself in exactly the process whose stderr you asked to see. A
+  worker traceback was swallowed and the CLI printed "the worker's own traceback above says why"
+  with nothing above it. The decision is made once at import and passed down as
+  `TT_BIO_DEBUG_STDERR`, which a spawn does inherit; set it directly to get the same effect
+  without the flag.
+
 ### Changed
+
+- **OpenFold3 folds 1024 residues on a 12 GiB Wormhole card, up from 576, and OpenBind 960, up
+  from 576.** Both walls were in the shared MSA track, and both were a whole-tensor shape rather
+  than memory the model needs. `OuterProductMean` now blocks its `z` matmul on measured bytes
+  instead of a token count and stops materialising the joined `a`/`b` form when DRAM refuses it;
+  `PairWeightedAveraging` blocks its MSA-depth axis, gates in place, and accumulates heads in
+  place instead of holding two whole copies of `m`; above 896 residues the MSA representation is
+  never held contiguously; and the trimul in-projection narrows its group when DRAM refuses the
+  allocation rather than throwing. Each site lets the device have the last word: the block shrinks
+  on the allocator's actual refusal, so nothing is tuned to one sequence length.
+
+  OpenFold3's ladder found no failure at all, so 1024 publishes as a LADDER TOP and the real
+  ceiling may be higher. OpenBind's does fail, at 1024, so its cap is 960. OpenBind's number
+  counts residues but the hardware counts tokens, and a bound ligand adds them: 960 holds for a
+  ligand of roughly 64 atoms or fewer, and a much larger ligand can fail below it.
+
+- **OpenDDE's 544 is a ceiling at one alignment depth, not an absolute one.** The cap did not
+  move, but what it means is now written down. The L1 clash it comes from is about what else is
+  resident, so a deeper alignment leaves more live and the same site clashes at a smaller residue
+  count. One fixture walked at four depths folds past 1056 residues at 35 alignment rows and 832
+  at 512 rows, and fails at 576 with the 8192 rows the serving platform sends. `size_limits.py`
+  now records the depth each ceiling was measured at, and `TT_BIO_SIZE_LIMIT=0` still turns any
+  refusal into a warning when you know your run is lighter than the ladder that set it.
+
+- **A 1536-token capacity baseline on Blackhole, for the models that fit a 30 GB host.** This
+  is capacity and not accuracy: it says the engine still allocates and completes at a size above
+  every published Wormhole ceiling, at the alignment depth each model is served with. Eleven cells
+  PASS on a p150a, boltz2 / rf3 / openfold3 / openbind / protenix-v1 / protenix-v2 / esmc-300m /
+  esmc-600m / esmc-6b / saprot-35m / saprot-650m, with device DRAM peaks from 0.08 to 15.9 GiB.
+  Four record `HOST_OOM` rather than PASS, esmfold2, esmfold2-fast, opendde and opendde-abag: they
+  exhausted the recording host's 30 GB of system RAM before the card was the limit, so the card
+  question is still open for them. `docs/capacity_gate_baseline.json` holds the numbers, and
+  raising a ceiling now fails `tests/test_capacity_gate.py` until the gate has been re-run and
+  re-recorded at the new size. That check was missing when the ceilings went to 1024 and three
+  models broke in traffic.
 
 - **RFdiffusion3 designs up to 704 residues on a 12 GiB Wormhole card, up from 490.** 704 is
   604 target residues plus a 100-residue binder, 6261 atoms, and it folds three times out of
