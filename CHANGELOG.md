@@ -7,6 +7,21 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **Wormhole folds above 640 residues instead of hanging the chip.** Every target from 640 aa up
+  split the Transition SwiGLU along the pair tensor's width, and that path wedged the card:
+  protenix-v2 at 768 aa died inside `ttnn.layer_norm` at trunk recycle 6 on two different chips,
+  where the only recovery is a board reset. Splitting bought nothing -- both row-height budgets
+  already scale the height as `1/width`, so the live L1 per chunk is the same number either way --
+  and it added an extra slice and an extra full-width concat per row block, 288 device ops against
+  154 at that shape, on every Transition call of every recycle. The decision now comes from the L1
+  budget rather than a token count, and asks the one thing the row-height cap cannot absorb: does a
+  single row at the full width already overflow the budget. No shipped shape reaches that, so on
+  Wormhole the split is gone. Below the old 608-token threshold nothing changes: identical row
+  blocking on all four pair channels, and identical structure digests at 256 and 512 aa against a
+  pre-fix build. protenix-v2 now folds 768 / 896 / 1024 aa (290.6 / 402.1 / 476.8 s) and openfold3
+  768 aa (227.0 s) where the shipped engine hung. Blackhole keeps the token-count threshold, which
+  the budget this derivation rests on was never measured on.
+
 - **Closing a device now actually frees the card.** `ttnn.close_device()` releases the device but
   not the process's claim on the chip -- tt-metal's own docs say so, and direct you to
   `ReleaseOwnership()`, which ttnn does not bind. Without it the UMD cluster, its two
@@ -35,6 +50,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   without the flag.
 
 ### Changed
+
+- **Protenix-v2's Wormhole ceiling is 1024 residues, up from 980.** 1024 folds in 476.8 s; 1095
+  still runs the card out of DRAM. The row itself had said 1024 sat in an untested gap between the
+  two, and the reason it stayed untested for a month is the Transition hang above: in that band the
+  engine did not refuse the size, it wedged the chip.
 
 - **OpenFold3 folds 1024 residues on a 12 GiB Wormhole card, up from 576, and OpenBind 960, up
   from 576.** Both walls were in the shared MSA track, and both were a whole-tensor shape rather

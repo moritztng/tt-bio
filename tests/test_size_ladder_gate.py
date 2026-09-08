@@ -483,7 +483,7 @@ def test_a_rung_above_the_size_guard_is_recorded_not_a_failure(rg_fresh, monkeyp
     """openbind's guard caps at 960, so its 1024 rung is refused. That is the measurement.
 
     Without this the 1024 rung turns the arm red for every model whose ceiling is lower
-    (opendde 544, pxdesign 768, openbind 960, protenix-v2 980) and throws away the one
+    (opendde 544, pxdesign 768, openbind 960, protenix-v2 1024) and throws away the one
     number a user cares about: where this model stops accepting work on this card.
     """
     guard = ("'cdk2x2_1024.yaml' has 1024 residues, and openbind is measured to handle at "
