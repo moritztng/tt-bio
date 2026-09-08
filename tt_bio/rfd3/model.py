@@ -29,7 +29,8 @@ from ..envflags import env_flag
 from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul,
-                           atom_pair_budget_bytes, l1_resident_budget_bytes, row_block)
+                           atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
+                           _dram_oom)
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
@@ -265,6 +266,10 @@ FC1DECLINES = {}                   # shape+reason -> count, the other half of th
 # (`negative-control-must-break-what-check-reads`).
 PTL1STATS = [0, 0]
 PTL1DECLINES = {}
+# Shapes whose residency the allocator refused at runtime even though the budget granted it.
+# Remembered the way `_dram_narrow`'s cap is: the first block of a tensor pays for the refusal
+# and the rest of its blocks start where that one ended.
+PTL1REFUSED = {}
 
 
 def set_fc1_split_enabled(on):
@@ -909,12 +914,17 @@ class Transition(Module):
         # the arithmetic are the same either way. Declining costs the DRAM round trip the
         # residency exists to avoid; not declining costs the fold, which is what 768 residues
         # did on a Wormhole part.
-        resident = _pair_transition_l1_fits(w_pad, hidden, h)
-        mem = ttnn.L1_MEMORY_CONFIG if resident else None
         shape = "tensor_rows=%d w=%d hidden=%d" % (H, w_pad, hidden)
+        # The budget decides, and a refusal this shape has already paid for overrides it: a
+        # granted residency the allocator refused once is not granted again, so the census and
+        # the split read the same verdict `_swiglu_resident` will act on.
+        budget_ok = _pair_transition_l1_fits(w_pad, hidden, h)
+        resident = budget_ok and shape not in PTL1REFUSED
+        mem = ttnn.L1_MEMORY_CONFIG if resident else None
         PTL1STATS[0 if resident else 1] += 1
         if not resident:
-            key = "%s h=%d l1-holds-fewer-than-two" % (shape, h)
+            key = "%s h=%d %s" % (shape, h, "l1-holds-fewer-than-two" if not budget_ok
+                                  else "l1-refused-at-runtime")
             PTL1DECLINES[key] = PTL1DECLINES.get(key, 0) + 1
         # `fc1`'s output is a third resident in the same L1, so the split cannot outlive the
         # residency it shares. Nothing else about the split moves: the `h3 == h` test still
@@ -935,10 +945,55 @@ class Transition(Module):
         parts = []
         for b, s, e in _pair_transition_slices(int(x.shape[0]), H, h):
             c = x[b:b + 1, s:e]
-            parts.append(self._swiglu(c, mem,
-                                      fc1_mem=ttnn.L1_MEMORY_CONFIG if split else None))
+            parts.append(self._swiglu_resident(
+                c, mem, ttnn.L1_MEMORY_CONFIG if split else None, shape))
             ttnn.deallocate(c)
         return _pair_transition_join(parts, int(x.shape[0]))
+
+    def _swiglu_resident(self, x, mem, fc1_mem, key):
+        """`_swiglu`, dropping the L1 residency rather than the fold if the allocator refuses.
+
+        `_pair_transition_l1_fits` is a pure function of the part's L1 and the block's shape, and
+        that is deliberate -- a residency decision that read live occupancy would make the chunk
+        plan depend on allocator history. The cost of being pure is that it can grant a residency
+        an allocator holding something it did not price then refuses.
+
+        `_with_dram_narrowing` is the same guard for DRAM row blocks and its answer is to halve
+        the block, which is not available here: the block height is part of this op's arithmetic
+        (`_pair_transition_chunk_h`). Dropping the residency is not. It is the same chunk plan
+        written to DRAM, measured byte-identical at 768 and 1024 total residues, so the retry
+        returns what the first attempt would have returned. That also makes the mixed case safe:
+        when a refusal lands mid-tensor, the blocks before it ran in L1 and the blocks after it
+        run in DRAM, and the concatenation is the same either way.
+
+        A refusal is remembered per shape, and `__call__` reads that memo before it grants the
+        next tensor at the same shape, so only the first block of the first such tensor pays for
+        it -- and the census says `l1-refused-at-runtime` rather than reporting a grant that then
+        ran in DRAM.
+
+        The retry runs OUTSIDE the handler on purpose. The failed frame's own `xn`, `a` and `b`
+        are still referenced by the exception's traceback, so retrying inside `except` would
+        re-run with those buffers still holding the L1 that was just refused. Letting the handler
+        exit drops the traceback and frees them first.
+        """
+        refused = False
+        try:
+            return self._swiglu(x, mem, fc1_mem=fc1_mem)
+        except RuntimeError as exc:
+            # `_dram_oom` matches the allocator's own "Out of Memory" wording, which it uses for
+            # both spaces -- it is named for its first caller, not for the space it can read.
+            # Anything else (a compile error, a bad shape) re-raises rather than being retried
+            # and reported as a residency problem.
+            if mem is None or not _dram_oom(exc):
+                raise
+            refused = True
+        if refused:
+            PTL1REFUSED[key] = True
+            PTL1STATS[0] -= 1
+            PTL1STATS[1] += 1
+            k = key + " l1-refused-at-runtime"
+            PTL1DECLINES[k] = PTL1DECLINES.get(k, 0) + 1
+        return self._swiglu(x, None, fc1_mem=None)
 
     def _swiglu(self, x, mem, fc1_mem=None):
         """RMSNorm + silu-gated SwiGLU. `mem=None` keeps every intermediate in DRAM.

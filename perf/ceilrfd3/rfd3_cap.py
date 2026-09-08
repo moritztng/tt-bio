@@ -29,7 +29,7 @@ from tt_bio.rfd3.sampler import RFD3Sampler                                     
 from tt_bio.rfd3.input import InputSpecification                                 # noqa: E402
 from tt_bio.rfd3.featurize import featurize                                      # noqa: E402
 from tt_bio.rfd3.model import (set_tune_matmul_for_atoms, ATOM_PAIR_BLOCK_STATS,   # noqa: E402
-                              PTL1STATS, PTL1DECLINES)
+                              PTL1STATS, PTL1DECLINES, PTL1REFUSED)
 from tt_bio.tenstorrent import l1_resident_budget_bytes                          # noqa: E402
 from tt_bio.tenstorrent import get_device                                        # noqa: E402
 import tt_bio                                                                    # noqa: E402
@@ -175,7 +175,11 @@ except Exception as e:                                    # noqa: BLE001
 # dead gate both produce (`negative-control-must-break-what-check-reads`).
 rec["pt_l1"] = {"budget_B": l1_resident_budget_bytes(),
                 "granted": PTL1STATS[0], "declined": PTL1STATS[1],
-                "declines": dict(PTL1DECLINES)}
+                "declines": dict(PTL1DECLINES),
+                # Empty means the budget's verdict stood at every shape. A non-empty dict is the
+                # budget having granted a residency the allocator then refused, which is the case
+                # the fallback exists for and the one that says the budget needs re-deriving.
+                "refused": sorted(PTL1REFUSED)}
 rec["wall_s"] = round(time.time() - t0, 1)
 try:
     # Host RAM has been this model's binding resource before, so the peak is measured

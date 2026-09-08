@@ -98,3 +98,92 @@ def test_the_gate_cannot_move_the_chunk_height(budget):
             wh = _pair_transition_chunk_h(tokens, hidden, tokens)
             budget(P150A)
             assert _pair_transition_chunk_h(tokens, hidden, tokens) == wh
+
+
+# --- the runtime-refusal fallback -------------------------------------------------------------
+#
+# Cannot be provoked on hardware at any size the model reaches: a p150a bank holds two of these
+# residents until about 2900 tokens, and a Wormhole part is where the mispredict would happen and
+# is not this host. So the control flow is tested directly, on a stub whose `_swiglu` raises the
+# allocator's own wording once. What it must NOT do is retry anything else.
+
+class _StubSwiglu:
+    """Stands in for `Transition`: `_swiglu_resident` only ever calls `self._swiglu`."""
+
+    OOM = ("Out of Memory: Not enough space to allocate 50331648 B L1 buffer across 72 banks, "
+           "where each bank needs to store 700416 B")
+
+    def __init__(self, raise_on=()):
+        self.calls = []
+        self.raise_on = set(raise_on)
+
+    def _swiglu(self, x, mem, fc1_mem=None):
+        self.calls.append((mem, fc1_mem))
+        if len(self.calls) in self.raise_on:
+            raise RuntimeError(self.OOM)
+        return "out-%d" % len(self.calls)
+
+
+@pytest.fixture(autouse=True)
+def _clean_census():
+    from tt_bio.rfd3 import model
+    for d in (model.PTL1REFUSED, model.PTL1DECLINES):
+        d.clear()
+    model.PTL1STATS[:] = [0, 0]
+    yield
+
+
+def _resident(stub, mem="L1", fc1_mem="L1", key="tensor_rows=768 w=768 hidden=512"):
+    from tt_bio.rfd3.model import Transition
+    return Transition._swiglu_resident(stub, "x", mem, fc1_mem, key)
+
+
+def test_a_refused_residency_is_retried_in_dram_not_lost():
+    from tt_bio.rfd3 import model
+    stub = _StubSwiglu(raise_on=(1,))
+    assert _resident(stub) == "out-2"
+    # First attempt asked for L1 with the split; the retry asks for neither.
+    assert stub.calls == [("L1", "L1"), (None, None)]
+    assert model.PTL1STATS == [-1, 1]      # the grant `__call__` counted, taken back
+    assert list(model.PTL1DECLINES) == ["tensor_rows=768 w=768 hidden=512 l1-refused-at-runtime"]
+
+
+def test_the_refusal_is_remembered_for_the_shape():
+    from tt_bio.rfd3 import model
+    stub = _StubSwiglu(raise_on=(1,))
+    _resident(stub)
+    # This is the memo `__call__` reads before it grants the next tensor at the same shape, so
+    # only the first block of the first such tensor pays for the refusal.
+    assert model.PTL1REFUSED == {"tensor_rows=768 w=768 hidden=512": True}
+
+
+def test_a_dram_only_call_does_not_retry():
+    # Nothing to give back: the residency was already declined, so a throw is a real throw.
+    stub = _StubSwiglu(raise_on=(1,))
+    with pytest.raises(RuntimeError):
+        _resident(stub, mem=None, fc1_mem=None)
+    assert len(stub.calls) == 1
+
+
+def test_anything_other_than_an_allocator_refusal_re_raises():
+    # A compile error or a bad shape must not come back as "the residency was declined", which
+    # would report a broken op as a capacity result.
+    from tt_bio.rfd3 import model
+
+    class Boom(_StubSwiglu):
+        def _swiglu(self, x, mem, fc1_mem=None):
+            self.calls.append((mem, fc1_mem))
+            raise RuntimeError("Statically allocated circular buffers overflow L1")
+
+    stub = Boom()
+    with pytest.raises(RuntimeError, match="circular buffers"):
+        _resident(stub)
+    assert len(stub.calls) == 1
+    assert model.PTL1REFUSED == {} and model.PTL1DECLINES == {}
+
+
+def test_a_second_refusal_on_the_retry_is_not_swallowed():
+    stub = _StubSwiglu(raise_on=(1, 2))
+    with pytest.raises(RuntimeError, match="Out of Memory"):
+        _resident(stub)
+    assert len(stub.calls) == 2
