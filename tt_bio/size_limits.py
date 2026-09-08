@@ -311,12 +311,18 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "protenix-v2": {
         "wormhole_b0": Ceiling(
-            residues=980, pass_at=980, fail_at=1095, binds=MEMORY, mechanism=DRAM,
-            evidence="catalog.py, measured 2026-08-11 (tree d0ff69b2, warm MSA, platform flags): "
-                     "980 aa folds in 1072 s, 1095 aa OOMs on DRAM. Memory binds the failure, but "
-                     "runtime is close behind on the platform, whose budget is 1200 s -- a tt-bio "
-                     "CLI user has no such budget and only the OOM applies. 1024 sits in an "
-                     "UNTESTED gap between the two and one ladder rung would settle it",
+            residues=1024, pass_at=1024, fail_at=1095, binds=MEMORY, mechanism=DRAM,
+            evidence="1024 aa measured 2026-09-08 on GWH02 card 3, ws:wh-transition-wchunk-hang-"
+                     "fix-p2: folds in 476.8 s, pLDDT 0.745, 8240 atoms, on merged main 00b7112d "
+                     "-- structure digest 2226d5a9adfa135810f3f2df9a4a3460, bit-identical to the "
+                     "same rung run pre-merge on the fix branch, so the rung reproduces across "
+                     "commits and not just across runs. It needed the Transition W-chunk gate fix "
+                     "(938989d7): under the shipped gate this band W-chunked the swiglu and hung "
+                     "the chip rather than OOMing. 1095 aa still OOMs on DRAM (catalog.py, "
+                     "2026-08-11, tree d0ff69b2), and 980 folded in 1072 s the same day -- so the "
+                     "gap this row used to call UNTESTED is now walked. Memory binds the failure; "
+                     "on the platform, whose budget is 1200 s, runtime is close behind, but a "
+                     "tt-bio CLI user has no such budget and only the OOM applies",
         ),
     },
     "rfd3": {
