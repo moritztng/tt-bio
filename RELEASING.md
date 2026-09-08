@@ -78,6 +78,11 @@ either lacks or carries below a floor transformers 5.x needs.
 Run every gate there with `PYTHONPATH="$PWD"` from the checkout under test, and a card outside the
 serving pool (`AIAND_BIO_DEVICE_IDS` is 6-31; 0-5 are the loaner cards, and 18/25/26 never open).
 
+Keep the venv. It has since run the whole protenix-v2 size ladder (16 folds over six rungs) and the
+rf3-1024aa accuracy leg, and prod still reads transformers 4.57.6 / huggingface_hub 0.36.2 with
+JapanFold serving folds throughout. If the directory ever goes missing the recipe above rebuilds it
+in one pip install, so treat the recipe as the artifact rather than the path.
+
 The `[tenstorrent,test]` extras are not optional here. Without `tenstorrent` the venv has
 no TT-NN at all, and the dependency preflight above counts a missing declared dependency
 as a problem, so every gate refuses before it opens a card. `test` supplies pytest, which
