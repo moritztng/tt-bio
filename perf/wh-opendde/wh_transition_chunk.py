@@ -120,8 +120,7 @@ def main():
             # neighbour of what it claims -- which the old back-solve through
             # TRANSITION_H_CHUNK_SIZE could, and did whenever the ratio made a target unreachable.
             os.environ["TT_BIO_TRANSITION_H_CHUNK"] = str(target)
-            k = None
-            row = {"W": W, "c": a.c, "h_chunk": target, "k": k,
+            row = {"W": W, "c": a.c, "h_chunk": target,
                    "blocks": -(-H // target), "shipped": target == shipped_h}
             try:
                 walls = []
@@ -146,12 +145,12 @@ def main():
                 row["bit_exact_vs_first"] = bool(torch.equal(ho, ref_out))
                 if not row["bit_exact_vs_first"]:
                     row["max_abs_diff"] = float((ho - ref_out).abs().max())
-                print(f"  h={target:3d} k={k:3d} blocks={row['blocks']:4d}  {row['ms']:9.3f} ms "
+                print(f"  h={target:3d} blocks={row['blocks']:4d}  {row['ms']:9.3f} ms "
                       f"(spread {row['ms_spread_pct']:.1f}%)  exact={row['bit_exact_vs_first']}",
                       flush=True)
             except Exception as e:                                              # noqa: BLE001
                 row["error"] = f"{type(e).__name__}: {str(e)[:400]}"
-                print(f"  h={target:3d} k={k:3d} FAILED {row['error'][:200]}", flush=True)
+                print(f"  h={target:3d} FAILED {row['error'][:300]}", flush=True)
             res["rows"].append(row)
             a.out.write_text(json.dumps(res, indent=1))
         os.environ.pop("TT_BIO_TRANSITION_H_CHUNK", None)
