@@ -945,8 +945,16 @@ class Transition(Module):
         parts = []
         for b, s, e in _pair_transition_slices(int(x.shape[0]), H, h):
             c = x[b:b + 1, s:e]
+            # The blocks AFTER a refusal in the same tensor read the memo too, not just the next
+            # tensor. Measured on a Galaxy chip at 1024 residues: the first hidden=256 tensor had
+            # all 16 of its blocks ask for an L1 residency the allocator had already refused
+            # once, so 15 doomed allocations and 15 throws bought the same DRAM path the memo
+            # would have chosen. It is also what kept the census honest -- `granted` is
+            # incremented once per tensor and was being decremented once per refused block, and
+            # came back as -13.
+            blk = mem if shape not in PTL1REFUSED else None
             parts.append(self._swiglu_resident(
-                c, mem, ttnn.L1_MEMORY_CONFIG if split else None, shape))
+                c, blk, ttnn.L1_MEMORY_CONFIG if split and blk is not None else None, shape))
             ttnn.deallocate(c)
         return _pair_transition_join(parts, int(x.shape[0]))
 

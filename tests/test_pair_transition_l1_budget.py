@@ -152,9 +152,30 @@ def test_the_refusal_is_remembered_for_the_shape():
     from tt_bio.rfd3 import model
     stub = _StubSwiglu(raise_on=(1,))
     _resident(stub)
-    # This is the memo `__call__` reads before it grants the next tensor at the same shape, so
-    # only the first block of the first such tensor pays for the refusal.
+    # The memo the block loop and `__call__` both read before asking for the next residency at
+    # this shape.
     assert model.PTL1REFUSED == {"tensor_rows=768 w=768 hidden=512": True}
+
+
+def test_only_the_first_block_of_a_refused_tensor_pays_for_the_refusal():
+    """The invariant a Galaxy chip broke at 1024 residues, where `granted` came back **-13**.
+
+    `__call__` counts one grant per tensor; every refused block was taking one back. The first
+    hidden=256 tensor had all 16 of its blocks ask for a residency the allocator had already
+    refused once, so 15 doomed allocations and 15 throws bought the same DRAM path the memo
+    would have chosen, and the census went negative. Reading the memo per block is what makes
+    the comment above true.
+    """
+    from tt_bio.rfd3 import model
+    from tt_bio.rfd3.model import Transition
+    stub = _StubSwiglu(raise_on=(1,))
+    key = "tensor_rows=1024 w=1024 hidden=256"
+    model.PTL1STATS[:] = [1, 0]                 # the one grant `__call__` counted for this tensor
+    for _ in range(16):                         # H=1024 at h=64
+        mem = "L1" if key not in model.PTL1REFUSED else None
+        Transition._swiglu_resident(stub, "x", mem, mem, key)
+    assert model.PTL1STATS == [0, 1]            # exactly one grant taken back, not sixteen
+    assert sum(1 for mem, _ in stub.calls if mem == "L1") == 1
 
 
 def test_a_dram_only_call_does_not_retry():
