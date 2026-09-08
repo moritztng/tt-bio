@@ -1768,12 +1768,22 @@ _BMM_CFG_REFUSED: set = set()
 # all-or-nothing retirement that cost RF3 1.264x on the fp32-softmax tail at 1024 aa.
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
-                               "bmm_cfg")}
+                               "pair_bias_ln_l1", "bmm_cfg")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
-    st = LATCH_STATS[name]
-    st[field] += 1
+    """Count a latch outcome. `setdefault`, and that is not laziness.
+
+    Every caller is inside an except block recovering from a device refusal, so a KeyError raised
+    HERE turns a handled refusal into a dead fold. It did: `pair_bias_ln_l1` was missing from the
+    dict above and the DRAM retry in `_pair_bias_from_z` never ran, so a 576 aa fold that was
+    about to recover died on its own instrumentation instead (measured 2026-09-08, base576a).
+    `tests/test_latch_names_are_registered.py` keeps the dict complete; this keeps a gap in it
+    from being fatal.
+    """
+    st = LATCH_STATS.setdefault(
+        name, {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []})
+    st[field] = st.get(field, 0) + 1
     if why is not None and len(st["why"]) < 3:
         st["why"].append(_latch_reason(why))
 
@@ -2970,6 +2980,9 @@ _PAIR_BIAS_LN_CONSUMER_RESERVE = int(
 # Off only to run the parity A/B for the row cap against the same reserve; 0 disables the cap and
 # leaves the gate, so a block too tall falls to DRAM instead of getting shorter.
 _PAIR_BIAS_LN_CAP = os.environ.get("TT_BIO_PAIR_BIAS_LN_CAP", "1") != "0"
+# Off only for the negative control, which has to restore the old gate AND the old absence of any
+# recovery from it. On, a clash here costs this shape class's L1 route; off, it costs the fold.
+_PAIR_BIAS_LN_RETRY = os.environ.get("TT_BIO_PAIR_BIAS_LN_RETRY", "1") != "0"
 
 
 def _pair_bias_ln_reserve() -> int:
@@ -5339,12 +5352,17 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
             # DRAM makes a wrong prediction cost this shape class's L1 route instead of the fold,
             # which is what makes the ceiling stable against allocator history. Same memo as
             # `_pair_transpose`, on the pre-transpose key, so both sites back off together.
-            if blk.memory_config().buffer_type != ttnn.BufferType.L1:
+            if not _PAIR_BIAS_LN_RETRY or blk.memory_config().buffer_type != ttnn.BufferType.L1:
                 raise
             if key is not None:
                 _TRANSPOSE_L1_REFUSED.add(key)
-            note_l1_clash("tri_att_end/pair_bias_layer_norm", e)
-            _latch("pair_bias_ln_l1", "refused", e)
+            # Diagnostics must not be able to cost the fold they are diagnosing. This is the
+            # recovery path; anything that only records is best-effort.
+            try:
+                note_l1_clash("tri_att_end/pair_bias_layer_norm", e)
+                _latch("pair_bias_ln_l1", "refused", e)
+            except Exception:                                                   # noqa: BLE001
+                pass
             spill = ttnn.to_memory_config(blk, ttnn.DRAM_MEMORY_CONFIG)
             if own:
                 ttnn.deallocate(blk)
