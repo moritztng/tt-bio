@@ -17,15 +17,35 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
 from unittest import mock
 
 import pytest
 
 from tt_bio import tenstorrent as T
 
-# The prefix the release gate's capacity leg reads. If this regex needs editing, the gate needs
-# editing too -- that is the point of asserting it here.
+# The prefix the release gate's capacity leg reads.
 GATE = re.compile(r"^\[DRAM\] (?P<tag>.+): \d+\.\d{3} GiB used \(of 12\.0 GiB\) maxfree=\d+MiB/bank")
+
+#: The patterns that actually parse these files today, verified by reading them rather than by
+#: trusting the comment in `dram_peak`. Every one stops at "GiB used" and takes a max over lines,
+#: so a suffix cannot move a number and extra non-peak lines in trace mode cannot either.
+#: Asserted as CONTENT, not existence: if a consumer rewrites its pattern, this fails here instead
+#: of silently in a gate leg.
+CONSUMERS = {
+    "scripts/release_gate.py": r'r"^\[DRAM\] .*?: ([0-9.]+) GiB used"',
+    "perf/bh1024/record.py": r'r"\[DRAM\] .*?: ([\d.]+) GiB used"',
+    "perf/whb2/wh_cap.sh": r"'[0-9]+\.[0-9]+ GiB used'",
+    "perf/whb2/wh_leverD.sh": r"'[0-9]+\.[0-9]+ GiB used'",
+}
+
+
+def test_every_consumer_of_this_file_stops_at_gib_used():
+    """The suffix is only safe because nothing downstream reads past that field."""
+    root = Path(T.__file__).resolve().parents[1]
+    for rel, needle in CONSUMERS.items():
+        text = (root / rel).read_text()
+        assert needle in text, f"{rel} no longer parses with {needle}"
 TRACE_SUFFIX = re.compile(r" t=\+\d+\.\d+s n=(?P<n>\d+)$")
 
 
