@@ -423,6 +423,13 @@ _PAIR_FFN_FUSED_RESIDUAL = os.environ.get(
 # declined, which is what separates "the gate refused" from "the gate was never asked".
 FUSED_RESID_STATS = [0, 0]
 _FUSED_RESID_REFUSED = set()
+# padded_shape -> the block height that stopped throwing for it. Read back on the next
+# call for the same shape so a fold pays the exception once, not once per block, which is
+# the same contract the three *_REFUSED sets above keep.
+_ROW_BLOCK_SHRUNK: dict[tuple, int] = {}
+# Smallest block the shrink rung will go to. Below this the per-block dispatch and CB fill
+# dominate what the L1 residency buys, and the honest answer is to drop G and F instead.
+PAIR_FFN_ROW_BLOCK_MIN = 8
 
 # Sixth lever (G). With F in place the block loop still assembled its result with
 # `ttnn.concat`, which reads 134 MB and writes 134 MB per call at 512 aa purely to lay 16 blocks
@@ -667,13 +674,25 @@ class SwiGLUFFN(Module):
         The try/except is load-bearing, not defensive. Block-sized L1 residents do run out on a
         smaller grid -- 16 of them is a measured `TT_THROW @ program.cpp:1052` even on qb1's
         larger one -- and F keeps the sliced block alive through fc1 on top of that. On a refusal
-        this drops G first, then F, then C-in, and re-runs the loop on the weaker rung; the
-        refusal is
-        cached per `padded_shape`, so a size that declines costs one exception per fold rather
-        than one per block. Each rung is also reachable on its own through its env gate:
+        this HALVES the block first, and only when the block cannot shrink further drops G, then
+        F, then C-in, re-running the loop on the weaker rung each time; every refusal is cached
+        per `padded_shape`, so a size that declines costs one exception per fold rather than one
+        per block. Each rung is also reachable on its own through its env gate:
         both -0.842 s/fold at 512 aa on qb1, F alone -0.392, C-in alone -0.295.
+
+        The block is `rows` rows of [1, rows, L, C], so at a fixed `rows` it grows with L and the
+        L1 residents stop fitting at some length. Shrinking it is therefore the rung that fits the
+        actual cause, and it keeps both destination levers; dropping G and F does not shrink
+        anything, it just stops using L1. Measured on the 8x9 Wormhole Galaxy at 1024 aa: with
+        `rows` pinned at 32 the size-ladder census reads F and G at 0 served / 538 declined, and
+        with `rows` at 16 both read 538/0 and the fold goes 333.1/333.4 -> 325.6 s (-2.3 %) with
+        an identical CIF sha256 (`131382c1247c0ff8`). ESMFold2 at 512 and 768 aa is untouched:
+        `rows` stays 32 there because nothing throws. Bit-exact by the same argument as the row
+        blocking itself -- the FFN is row-independent over dim 1, so regrouping rows cannot change
+        a value.
         """
         L, key = x.shape[1], tuple(x.padded_shape)
+        rows = min(rows, _ROW_BLOCK_SHRUNK.get(key, rows))
         nblk = -(-L // rows)
         lazy = _PAIR_FFN_L1_SLICE and key not in _L1_SLICE_REFUSED
         fused = residual and _PAIR_FFN_FUSED_RESIDUAL and key not in _FUSED_RESID_REFUSED
@@ -713,7 +732,15 @@ class SwiGLUFFN(Module):
                     ttnn.deallocate(tensor)
                 if dst is not None:
                     ttnn.deallocate(dst)
-                if filled:
+                if rows > PAIR_FFN_ROW_BLOCK_MIN and rows % 2 == 0:
+                    # Shrink before giving up a lever: the block not fitting L1 is a size problem,
+                    # and G and F are destinations, not sizes. Recompute everything derived from
+                    # `rows`; `filled` additionally needs the blocks to tile L exactly.
+                    rows //= 2
+                    _ROW_BLOCK_SHRUNK[key] = rows
+                    nblk = -(-L // rows)
+                    filled = filled and nblk * rows == L
+                elif filled:
                     _FILL_ASSEMBLY_REFUSED.add(key)
                     filled = False
                 elif fused:

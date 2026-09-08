@@ -324,29 +324,45 @@ baseline compares re-records in the same commit.**
 
 ## ESMFold2 on Wormhole, 256 to 1024, and the lever the old ladder top was hiding
 
-`docs/size_ladder_baseline.d/esmfold2.json` and `esmfold2-fast.json` (2026-09-07,
+`docs/size_ladder_baseline.d/esmfold2.json` and `esmfold2-fast.json` (2026-09-08,
 `tt-galaxy-wh l`, 11x10/8x9 grid) hold both served ESMFold2 checkpoints at all six rungs.
 
 | aa | 256 | 512 | 640 | 768 | 896 | 1024 |
 |---|---:|---:|---:|---:|---:|---:|
-| `esmfold2` s | 39.9 | 91.6 | 133.4 | 196.1 | 278.5 | 331.1 |
-| `esmfold2-fast` s | 25.1 | 55.6 | 81.2 | 111.0 | 151.4 | 195.4 |
+| `esmfold2` s | 39.2 | 90.7 | 133.6 | 192.4 | 252.6 | 327.8 |
+| `esmfold2-fast` s | 23.6 | 53.2 | 76.4 | 109.9 | 152.5 | 184.3 |
 
-The exponent rises 1.199 -> 1.685 -> 2.113 -> 2.276 across 256-896 aa and reads 1.296 into 1024,
-which is one workload changing mix rather than several regimes: the ESMC language model is
-near-linear in L and dominates at the bottom of the ladder, the pair work is not and takes over.
-Nothing here is a fast path falling off. The 896 -> 1024 number in particular is not a cliff — the
-top rungs are close together, so `ln(n2/n1)` is small and the 3-sigma band on that interval is
-+-1.47 at the measured 4.6 % noise floor. `esmfold2-fast` reads 1.911 over the same interval.
+The exponent reads 1.210 -> 1.736 -> 2.000 -> 1.766 -> 1.952 across the five intervals, which is
+one workload changing mix rather than several regimes: the ESMC language model is near-linear in L
+and dominates at the bottom of the ladder, the pair work is not and takes over. Nothing here is a
+fast path falling off, and the 896 -> 1024 number is not a cliff: the top rungs are close together,
+so `ln(n2/n1)` is small and the 3-sigma band on that interval is +-1.13 at the measured 3.5 % noise
+floor. `esmfold2-fast` reads 1.418 over the same interval.
 
-**What the two new rungs did find is in the census, not the timing.** `PAIR_FFN_FUSED_RESIDUAL` and
-`PAIR_FFN_FILL_ASSEMBLY` serve every call at 512, 640 and 768 aa and none at 896 and 1024, on both
-checkpoints, while `PAIR_FFN_L1_SLICE` keeps serving. That is `_row_blocked`'s L1 retry ladder
-(`tt_bio/esmc.py`) dropping G then F and keeping C-in, because the block is `rows` rows of
-`[1, rows, L, C]` at a fixed `rows = 32` and stops fitting L1 somewhere between 768 and 896 on a
-72-core grid. It was invisible while the ladder stopped at 768, which is the last rung where both
-levers fire, and the platform had been serving 1024 for a while. A count is not a timing: it has no
-error bar, so the census carries this finding at sizes where the exponent cannot.
+**What the two new rungs found is in the census, not the timing, and it has since been fixed.**
+Recorded before the fix, `PAIR_FFN_FUSED_RESIDUAL` and `PAIR_FFN_FILL_ASSEMBLY` served every call
+at 512, 640 and 768 aa and none at 896 and 1024, on both checkpoints, while `PAIR_FFN_L1_SLICE`
+kept serving. That was `_row_blocked`'s L1 retry ladder (`tt_bio/esmc.py`) dropping G then F and
+keeping C-in, because the block is `rows` rows of `[1, rows, L, C]` at a fixed `rows = 32` and
+stops fitting L1 somewhere between 768 and 896 on a 72-core grid. It was invisible while the ladder
+stopped at 768, which is the last rung where both levers fire, and the platform had been serving
+1024 for a while. A count is not a timing: it has no error bar, so the census carries this finding
+at sizes where the exponent cannot.
+
+The retry ladder now halves the block before it gives up a lever, and drops G, then F, then C-in
+only once the block cannot shrink past `PAIR_FFN_ROW_BLOCK_MIN`. The block not fitting is a size
+problem, and G and F are destinations, not sizes. Both affected rungs settle at `rows = 16` after
+a single halving and both levers serve every call again. It is worth 5.9 % at 896 aa, measured as
+an alternating six-fold A/B against the unpatched engine on one card: 252.3 s against 268.2 s
+median, with no overlap between the arms. At 1024 aa the same halving is inside the noise. The
+change is bit-exact, confirmed by an identical CIF sha256 from both engines at both rungs, and it
+cannot reach the four other models that share `SwiGLUFFN`: `PAIR_FFN_L1_SLICE`, which every
+`_row_blocked` call bumps, reads 0 served and 0 declined for every one of them at every rung on
+every card type, so they never enter the row-blocked path at all.
+
+The old ladder's exponents were distorted by this. Before the fix the curve read
+1.199 -> 1.685 -> 2.113 -> 2.276 -> 1.296, a spike into 896 and a collapse out of it, and both were
+the same inflated 896 cell rather than anything about the workload.
 
 Two more levers are dark for dtype rather than size, both because `tt_bio/main.py` forces `--fast`
 for ESMFold2 on Wormhole (ESMC-6B in normal precision needs ~12.8 GB against a ~12 GB chip):
