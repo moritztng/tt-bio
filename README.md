@@ -118,7 +118,7 @@ Wormhole is under 1024:
 | `openfold3` | 1024 | none found; top of the ladder |
 | `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
-| `protenix-v2` | 980 | 1095 |
+| `protenix-v2` | 1024 | 1095 |
 | `rfd3` | 704 (motif + designed) | 768 |
 | `esmc-6b` (embed) | 1968 | 1984 |
 
