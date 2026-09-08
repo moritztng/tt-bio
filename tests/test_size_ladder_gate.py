@@ -922,7 +922,17 @@ def test_a_record_pass_writes_its_census_evidence_beside_the_scratch_baseline(rg
 # nothing revisits it. The fix is to re-record, not to widen the test.
 
 def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
-    """A rung added to SIZE_LADDER_RUNGS owes every already-recorded card a re-record."""
+    """A rung added to SIZE_LADDER_RUNGS owes every already-recorded card a re-record.
+
+    SCOPE, because the count this prints is easy to read as the whole gap and is not: it walks
+    the cells that EXIST and checks their rungs. A model with no cell at all on a card is
+    invisible to it. Measured 2026-09-08: p150a has no protenix-v1 (SIZE_LADDER_KNOWN_GAP
+    carries that one, keyed by model rather than by card+model) and `tt-galaxy-wh l` has no
+    cell for six of the nine models the ladder walks, none of which anything asserts on. The
+    missing-model case is deliberately left to a separate check rather than folded in here,
+    since whether a fragment-recorded card is expected to carry every model is a different
+    question from whether a recorded cell is current.
+    """
     data = rg._size_ladder_read_baseline(rg.SIZE_LADDER_BASELINE)
     short = []
     for card, blk in sorted(data.get("cards", {}).items()):
