@@ -24,8 +24,8 @@ from tt_bio import tenstorrent as tt  # noqa: E402
 
 WH_L1_PER_CORE = 1466080
 WH_CORES = 72                    # 8x9, read off the throw's own core range
-BH_L1_PER_CORE = 1532448
-BH_CORES = 110                   # 11x10
+BH_L1_PER_CORE = 1532416         # measured on a p150a, `get_max_worker_l1_unreserved_size()`
+BH_CORES = 130                   # 13x10, measured; `_apply_grid_thresholds` returns above 110
 LN_CB_NEED = 349184              # measured at [480, 672, 128] bf16 on Wormhole
 
 
@@ -124,9 +124,16 @@ def test_1024_aa_keeps_the_l1_route(wh):
 
 
 def test_blackhole_does_not_move(monkeypatch):
-    """Negative control: on a >= 110-core grid the reserve is 0 and the gate is the old one."""
+    """Negative control: on a >= 110-core grid the reserve is 0 and the gate is the old one.
+
+    Confirmed on a real p150a, not only here: 130 cores, `_IS_SMALL_GRID` False, 1 532 416 B per
+    core, reserve 0 and row cap 0 at 1024, 1120 and 2016 tokens. So on Blackhole the changed
+    branch is unreachable rather than merely quiet, which is a stronger claim than one matching
+    fold md5 -- and it is the claim that matters, because Blackhole runs 8 banks x 3.984 GiB
+    against Wormhole's 12 x ~1 GiB and is not in this band at all.
+    """
     monkeypatch.setattr(ttnn, "get_max_worker_l1_unreserved_size", lambda: BH_L1_PER_CORE)
-    monkeypatch.setattr(tt, "COMPUTE_GRID_MAIN", (11, 10))
+    monkeypatch.setattr(tt, "COMPUTE_GRID_MAIN", (13, 10))
     monkeypatch.setattr(tt, "_IS_SMALL_GRID", False)
     assert tt._pair_bias_ln_reserve() == 0
     assert tt._pair_bias_ln_row_cap(672, 128) == 0          # 0 means "no cap", not "cap of 0"
