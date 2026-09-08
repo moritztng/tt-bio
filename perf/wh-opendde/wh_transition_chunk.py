@@ -78,11 +78,16 @@ _SHIPPED_SELFCHECK = {(896, 384, 1536): 2, (1024, 384, 1536): 1}
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sizes", default="896,1024")
+    # A width sweep at fixed height, because the height alone is refuted: h=2 covers W=608..896,
+    # and 640 aa (h=2, 490 s) and 768 aa (h=2, 876 s) both fold fine while 896 aa (h=2) has never
+    # finished. 896 is the only one of them whose width carries a factor of 7 (28 tiles, against
+    # 20, 24 and 32), so the sweep steps across it in 32s to see whether the cost spikes at the
+    # width rather than at the height.
+    ap.add_argument("--sizes", default="768,800,832,864,896,928,960,1024")
     ap.add_argument("--c", type=int, default=384)
     ap.add_argument("--iters", type=int, default=5)
     ap.add_argument("--warm", type=int, default=2)
-    ap.add_argument("--targets", default="1,2,3,4,6")
+    ap.add_argument("--targets", default="1,2")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
