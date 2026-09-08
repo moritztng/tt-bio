@@ -9,8 +9,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 - **Wormhole folds above 640 residues instead of hanging the chip.** Every target from 640 aa up
   split the Transition SwiGLU along the pair tensor's width, and that path wedged the card:
-  protenix-v2 at 768 aa died inside `ttnn.layer_norm` at trunk recycle 6 on two different chips,
-  where the only recovery is a board reset. Splitting bought nothing -- both row-height budgets
+  protenix-v2 at 768 aa hung mid-fold on two different chips, at trunk recycle 6 and recycle 4, and
+  the only recovery is a board reset. Neither arm hung on first touch and the two stopped in
+  different ttnn calls (`ttnn.layer_norm` inside the W loop, and the fused triangle-multiplication
+  tail), which points at allocator state rather than at one bad shape. Splitting bought nothing -- both row-height budgets
   already scale the height as `1/width`, so the live L1 per chunk is the same number either way --
   and it added an extra slice and an extra full-width concat per row block, 288 device ops against
   154 at that shape, on every Transition call of every recycle. The decision now comes from the L1
