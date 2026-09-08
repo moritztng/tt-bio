@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import time
 import contextlib
 import torch, ttnn, atexit
 from torch import nn
@@ -4125,6 +4126,8 @@ def get_device(trace_region_size=0):
 
 
 _DRAM_PEAK = {}   # tag -> high-water device DRAM bytes, when TT_BIO_DRAM_PEAK is set
+_DRAM_PEAK_N = {}  # tag -> samples taken, for the trace mode below
+_DRAM_PEAK_T0 = None
 
 
 def dram_peak(tag=None):
@@ -4144,16 +4147,33 @@ def dram_peak(tag=None):
     the footprint has to be measured directly at the largest supported input.
     Call with no tag to read the current peak across all tags.
 
+    A tag only writes a line when its OWN high-water mark rises, which makes the file a
+    footprint census and NOT a progress trace: the trunk's tags recur once per recycling
+    cycle, so cycle 1 and cycle 10 are indistinguishable and a fold that is slow in the
+    trunk looks identical to one that is finished with it. Set TT_BIO_DRAM_PEAK_TRACE=1
+    alongside the path and every sample is written instead, with elapsed seconds and a
+    per-tag sample count appended -- which is what localises a stall to a cycle. Suffix
+    only: the "[DRAM] tag: N GiB used (of M GiB) maxfree=..." prefix the release gate's
+    capacity leg matches on is byte-for-byte unchanged.
+
     Lives here rather than in a model module because the trunk (MSA/Pairformer, below) is
     the largest DRAM consumer and cannot import a model module without a cycle."""
     path = os.environ.get("TT_BIO_DRAM_PEAK")
     if not path:
         return 0
     if tag is not None:
+        global _DRAM_PEAK_T0
         mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
         used = (mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * mv.num_banks
-        if used > _DRAM_PEAK.get(tag, 0):
+        trace = bool(os.environ.get("TT_BIO_DRAM_PEAK_TRACE"))
+        rose = used > _DRAM_PEAK.get(tag, 0)
+        if rose:
             _DRAM_PEAK[tag] = used
+        if trace:
+            if _DRAM_PEAK_T0 is None:
+                _DRAM_PEAK_T0 = time.time()
+            _DRAM_PEAK_N[tag] = _DRAM_PEAK_N.get(tag, 0) + 1
+        if rose or trace:
             # Largest contiguous free block per bank (min over banks): the binding
             # constraint for an interleaved allocation is size/12 contiguous in EVERY
             # bank, so this -- not total free -- decides whether a big request is
@@ -4164,7 +4184,10 @@ def dram_peak(tag=None):
                 lcf = min(lcf)
             line = (f"[DRAM] {tag}: {used / 2**30:.3f} GiB used "
                     f"(of {mv.total_bytes_per_bank * mv.num_banks / 2**30:.1f} GiB) "
-                    f"maxfree={lcf / 2**20:.0f}MiB/bank\n")
+                    f"maxfree={lcf / 2**20:.0f}MiB/bank"
+                    + (f" t=+{time.time() - _DRAM_PEAK_T0:.1f}s n={_DRAM_PEAK_N[tag]}"
+                       if trace else "")
+                    + "\n")
             try:
                 with open(path, "a") as fp:      # append: the worker is a separate process
                     fp.write(line)
