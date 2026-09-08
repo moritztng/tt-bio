@@ -1,0 +1,2140 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-08T08:15:28Z",
+ "tree": "e2544021dde7b8713bc36efb5c9f8fccb6eb292d",
+ "dirty": true,
+ "workers": [
+  "pc:0"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=13,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 130,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 190028800
+  },
+  "board_type": "p150a",
+  "host": "pc",
+  "card": 0
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "esmfold2",
+   "verb": "predict",
+   "worker": "pc:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 104.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 9.3,
+     "progress_events": 732,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 10.1,
+     "host_ram_floor_mb": 2062,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 3968127,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 3908, in <module>\n    cli()\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1569, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1490, in main\n    rv = self.invoke(ctx)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1594, in invoke\n    return super().invoke(ctx)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1970, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1353, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 907, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 2825, in predict\n    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1396, in _dispatch_run\n    failed = _stream_run(client, run_id, total=total, n_workers=len(workers),\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1354, in _stream_run\n    raise RuntimeError(\nRuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit -9); no job can be served. The worker's own traceback above says why.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "HOST_OOM",
+     "host_oom_evidence": "[50543.442610] Out of memory: Killed process 3968175 (python3) total-vm:67298024kB, anon-rss:25400404kB, file-rss:1256kB, shmem-rss:100kB, UID:1000 pgtables:119308kB oom_score_adj:0",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 1,
+     "wall_s": 100.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 9.9,
+     "progress_events": 732,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 12.0,
+     "host_ram_floor_mb": 2697,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 3972071,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 3908, in <module>\n    cli()\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1569, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1490, in main\n    rv = self.invoke(ctx)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1594, in invoke\n    return super().invoke(ctx)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1970, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1353, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 907, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 2825, in predict\n    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1396, in _dispatch_run\n    failed = _stream_run(client, run_id, total=total, n_workers=len(workers),\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1354, in _stream_run\n    raise RuntimeError(\nRuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit -9); no job can be served. The worker's own traceback above says why.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "HOST_OOM",
+     "host_oom_evidence": "[50646.279251] Out of memory: Killed process 3972159 (python3) total-vm:65601432kB, anon-rss:24868204kB, file-rss:1696kB, shmem-rss:100kB, UID:1000 pgtables:118272kB oom_score_adj:0",
+     "tier": "screen",
+     "tokens": 1408
+    },
+    {
+     "rc": 1,
+     "wall_s": 105.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 4.9,
+     "progress_events": 1085,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 4225,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 3975951,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]\nFetching 6 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 6/6 [00:00<00:00, 1641.29it/s]\n10:19:04  [pc:tt0] loading model\u2026\n10:20:14  [pc:tt0] cap_1280\n10:20:14  [pc:tt0]   msa\n10:20:14  [pc:tt0]   prep\n10:20:39  [pc:tt0] \u2717 cap_1280 \u2014 25.5s\n\n1 failed:\n  \u2717 cap_1280: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2/esmfold2_results_cap_1280/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1280
+    },
+    {
+     "rc": 1,
+     "wall_s": 102.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 2.8,
+     "progress_events": 1085,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 6488,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 3980660,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]\nFetching 6 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 6/6 [00:00<00:00, 1714.41it/s]\n10:20:49  [pc:tt0] loading model\u2026\n10:22:01  [pc:tt0] cap_1024\n10:22:01  [pc:tt0]   msa\n10:22:01  [pc:tt0]   prep\n10:22:23  [pc:tt0] \u2717 cap_1024 \u2014 22.4s\n\n1 failed:\n  \u2717 cap_1024: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2/esmfold2_results_cap_1024/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1024
+    },
+    {
+     "rc": 1,
+     "wall_s": 100.7,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.7,
+     "progress_events": 1082,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 6929,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 3985378,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]\nFetching 6 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 6/6 [00:00<00:00, 2739.58it/s]\n10:22:31  [pc:tt0] loading model\u2026\n10:23:42  [pc:tt0] cap_896\n10:23:42  [pc:tt0]   msa\n10:23:42  [pc:tt0]   prep\n10:24:04  [pc:tt0] \u2717 cap_896 \u2014 22.3s\n\n1 failed:\n  \u2717 cap_896: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2/esmfold2_results_cap_896/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 896
+    },
+    {
+     "rc": 1,
+     "wall_s": 99.6,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 9.6,
+     "progress_events": 1082,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 2.2,
+     "host_ram_floor_mb": 7859,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 3989808,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]\nFetching 6 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 6/6 [00:00<00:00, 1910.70it/s]\n10:24:13  [pc:tt0] loading model\u2026\n10:25:24  [pc:tt0] cap_768\n10:25:24  [pc:tt0]   msa\n10:25:24  [pc:tt0]   prep\n10:25:44  [pc:tt0] \u2717 cap_768 \u2014 20.8s\n\n1 failed:\n  \u2717 cap_768: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2/esmfold2_results_cap_768/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 768
+    },
+    {
+     "rc": 1,
+     "wall_s": 98.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.2,
+     "progress_events": 1082,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 8424,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 3992654,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]\nFetching 6 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 6/6 [00:00<00:00, 2058.39it/s]\n10:25:53  [pc:tt0] loading model\u2026\n10:27:03  [pc:tt0] cap_640\n10:27:03  [pc:tt0]   msa\n10:27:03  [pc:tt0]   prep\n10:27:23  [pc:tt0] \u2717 cap_640 \u2014 20.4s\n\n1 failed:\n  \u2717 cap_640: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2/esmfold2_results_cap_640/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 640
+    },
+    {
+     "rc": 1,
+     "wall_s": 97.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 2.0,
+     "progress_events": 1082,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 8898,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 3997284,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]\nFetching 6 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 6/6 [00:00<00:00, 2209.08it/s]\n10:27:31  [pc:tt0] loading model\u2026\n10:28:40  [pc:tt0] cap_512\n10:28:40  [pc:tt0]   msa\n10:28:40  [pc:tt0]   prep\n10:29:00  [pc:tt0] \u2717 cap_512 \u2014 20.3s\n\n1 failed:\n  \u2717 cap_512: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2/esmfold2_results_cap_512/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 512
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "verdict": "HOST_OOM",
+   "decided_by": "screen",
+   "mechanism": null,
+   "wall_s": 104.3,
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": "shapes do not allocate at any size walked: 1408, 1280, 1024, 896, 768, 640, 512. The ceiling is below 512 tokens if there is one at all.",
+   "ceiling_tokens": null
+  },
+  {
+   "model": "esmfold2-fast",
+   "verb": "predict",
+   "worker": "pc:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 89.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 8.9,
+     "progress_events": 732,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 12.7,
+     "host_ram_floor_mb": 3450,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 4002052,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 3908, in <module>\n    cli()\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1569, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1490, in main\n    rv = self.invoke(ctx)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1594, in invoke\n    return super().invoke(ctx)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1970, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1353, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 907, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 2825, in predict\n    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1396, in _dispatch_run\n    failed = _stream_run(client, run_id, total=total, n_workers=len(workers),\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1354, in _stream_run\n    raise RuntimeError(\nRuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit -9); no job can be served. The worker's own traceback above says why.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "HOST_OOM",
+     "host_oom_evidence": "[51343.554393] Out of memory: Killed process 4002090 (python3) total-vm:65016972kB, anon-rss:25218180kB, file-rss:1156kB, shmem-rss:100kB, UID:1000 pgtables:118604kB oom_score_adj:0",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 1,
+     "wall_s": 93.4,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 8.3,
+     "progress_events": 732,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 12.8,
+     "host_ram_floor_mb": 1823,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 4005266,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 3908, in <module>\n    cli()\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1569, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1490, in main\n    rv = self.invoke(ctx)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1594, in invoke\n    return super().invoke(ctx)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1970, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1353, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 907, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 2825, in predict\n    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1396, in _dispatch_run\n    failed = _stream_run(client, run_id, total=total, n_workers=len(workers),\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1354, in _stream_run\n    raise RuntimeError(\nRuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit -9); no job can be served. The worker's own traceback above says why.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "HOST_OOM",
+     "host_oom_evidence": "[51438.239421] Out of memory: Killed process 4005342 (python3) total-vm:65378120kB, anon-rss:25228508kB, file-rss:1232kB, shmem-rss:100kB, UID:1000 pgtables:118644kB oom_score_adj:0",
+     "tier": "screen",
+     "tokens": 1408
+    },
+    {
+     "rc": 1,
+     "wall_s": 93.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.3,
+     "progress_events": 1085,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 5295,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 4008619,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]\nFetching 5 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 5/5 [00:00<00:00, 1213.84it/s]\n10:32:15  [pc:tt0] loading model\u2026\n10:33:27  [pc:tt0] cap_1280\n10:33:27  [pc:tt0]   msa\n10:33:27  [pc:tt0]   prep\n10:33:39  [pc:tt0] \u2717 cap_1280 \u2014 11.7s\n\n1 failed:\n  \u2717 cap_1280: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2-fast/esmfold2_results_cap_1280/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1280
+    },
+    {
+     "rc": 1,
+     "wall_s": 90.9,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.9,
+     "progress_events": 1085,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 7490,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 4024441,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]\nFetching 5 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 5/5 [00:00<00:00, 2663.39it/s]\n10:33:48  [pc:tt0] loading model\u2026\n10:35:00  [pc:tt0] cap_1024\n10:35:00  [pc:tt0]   msa\n10:35:00  [pc:tt0]   prep\n10:35:11  [pc:tt0] \u2717 cap_1024 \u2014 10.5s\n\n1 failed:\n  \u2717 cap_1024: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2-fast/esmfold2_results_cap_1024/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1024
+    },
+    {
+     "rc": 1,
+     "wall_s": 88.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.3,
+     "progress_events": 1081,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 9097,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 4094338,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]\nFetching 5 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 5/5 [00:00<00:00, 2014.75it/s]\n10:35:20  [pc:tt0] loading model\u2026\n10:36:31  [pc:tt0] cap_896\n10:36:31  [pc:tt0]   msa\n10:36:31  [pc:tt0]   prep\n10:36:40  [pc:tt0] \u2717 cap_896 \u2014 8.4s\n\n1 failed:\n  \u2717 cap_896: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2-fast/esmfold2_results_cap_896/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 896
+    },
+    {
+     "rc": 1,
+     "wall_s": 86.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.0,
+     "progress_events": 1081,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 9461,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 4097238,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]\nFetching 5 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 5/5 [00:00<00:00, 1781.78it/s]\n10:36:48  [pc:tt0] loading model\u2026\n10:37:58  [pc:tt0] cap_768\n10:37:58  [pc:tt0]   msa\n10:37:59  [pc:tt0]   prep\n10:38:06  [pc:tt0] \u2717 cap_768 \u2014 7.7s\n\n1 failed:\n  \u2717 cap_768: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2-fast/esmfold2_results_cap_768/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 768
+    },
+    {
+     "rc": 1,
+     "wall_s": 83.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.0,
+     "progress_events": 1081,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 9675,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 4099811,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]\nFetching 5 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 5/5 [00:00<00:00, 1752.59it/s]\n10:38:14  [pc:tt0] loading model\u2026\n10:39:23  [pc:tt0] cap_640\n10:39:23  [pc:tt0]   msa\n10:39:23  [pc:tt0]   prep\n10:39:30  [pc:tt0] \u2717 cap_640 \u2014 6.4s\n\n1 failed:\n  \u2717 cap_640: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2-fast/esmfold2_results_cap_640/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 640
+    },
+    {
+     "rc": 1,
+     "wall_s": 83.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.2,
+     "progress_events": 1081,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 9500,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 4100871,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "\nFetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]\nFetching 5 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 5/5 [00:00<00:00, 1890.86it/s]\n10:39:38  [pc:tt0] loading model\u2026\n10:40:48  [pc:tt0] cap_512\n10:40:48  [pc:tt0]   msa\n10:40:48  [pc:tt0]   prep\n10:40:53  [pc:tt0] \u2717 cap_512 \u2014 5.7s\n\n1 failed:\n  \u2717 cap_512: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_esmfold2-fast/esmfold2_results_cap_512/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 512
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "verdict": "HOST_OOM",
+   "decided_by": "screen",
+   "mechanism": null,
+   "wall_s": 89.3,
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": "shapes do not allocate at any size walked: 1408, 1280, 1024, 896, 768, 640, 512. The ceiling is below 512 tokens if there is one at all.",
+   "ceiling_tokens": null
+  },
+  {
+   "model": "opendde",
+   "verb": "predict",
+   "worker": "pc:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 122.1,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 42.1,
+     "progress_events": 896,
+     "block_calls": 13,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 5743,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 4104001,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 3908, in <module>\n    cli()\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1569, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1490, in main\n    rv = self.invoke(ctx)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1594, in invoke\n    return super().invoke(ctx)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1970, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1353, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 907, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 2825, in predict\n    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1396, in _dispatch_run\n    failed = _stream_run(client, run_id, total=total, n_workers=len(workers),\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1354, in _stream_run\n    raise RuntimeError(\nRuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit -9); no job can be served. The worker's own traceback above says why.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "HOST_OOM",
+     "host_oom_evidence": "[52089.645172] Out of memory: Killed process 4104038 (python3) total-vm:67487880kB, anon-rss:25123216kB, file-rss:428kB, shmem-rss:96kB, UID:1000 pgtables:116868kB oom_score_adj:0",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 1,
+     "wall_s": 150.7,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 35.7,
+     "progress_events": 896,
+     "block_calls": 13,
+     "cpu_s_while_quiet": 40.4,
+     "host_ram_floor_mb": 4526,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 4112742,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 3908, in <module>\n    cli()\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1569, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1490, in main\n    rv = self.invoke(ctx)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1594, in invoke\n    return super().invoke(ctx)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1970, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1353, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 907, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 2825, in predict\n    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1396, in _dispatch_run\n    failed = _stream_run(client, run_id, total=total, n_workers=len(workers),\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1354, in _stream_run\n    raise RuntimeError(\nRuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit -9); no job can be served. The worker's own traceback above says why.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "HOST_OOM",
+     "host_oom_evidence": "[52241.885778] Out of memory: Killed process 4112866 (python3) total-vm:69131232kB, anon-rss:25399332kB, file-rss:1136kB, shmem-rss:96kB, UID:1000 pgtables:117388kB oom_score_adj:0",
+     "tier": "screen",
+     "tokens": 1408
+    },
+    {
+     "rc": 1,
+     "wall_s": 149.4,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 34.3,
+     "progress_events": 896,
+     "block_calls": 13,
+     "cpu_s_while_quiet": 35.1,
+     "host_ram_floor_mb": 2982,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 4125225,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 3908, in <module>\n    cli()\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1569, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1490, in main\n    rv = self.invoke(ctx)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1594, in invoke\n    return super().invoke(ctx)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1970, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1353, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 907, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 2825, in predict\n    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1396, in _dispatch_run\n    failed = _stream_run(client, run_id, total=total, n_workers=len(workers),\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1354, in _stream_run\n    raise RuntimeError(\nRuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit -9); no job can be served. The worker's own traceback above says why.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "HOST_OOM",
+     "host_oom_evidence": "[52392.345530] Out of memory: Killed process 4125262 (python3) total-vm:64417524kB, anon-rss:25211256kB, file-rss:36kB, shmem-rss:96kB, UID:1000 pgtables:116992kB oom_score_adj:0",
+     "tier": "screen",
+     "tokens": 1280
+    },
+    {
+     "rc": 0,
+     "wall_s": 203.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.1,
+     "progress_events": 1659,
+     "block_calls": 15,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 10074,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 4139967,
+      "samples": 15,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "\nFetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]\nFetching 21 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 21/21 [00:00<00:00, 3238.61it/s]\n10:48:09  [pc:tt0] loading model\u2026\n10:48:20  [pc:tt0] cap_1024\n10:48:20  [pc:tt0]   msa\n10:48:20  [pc:tt0]   prep\n10:48:48  [pc:tt0]   trunk 0/1\n10:50:59  [pc:tt0]   diffusion 0/1\n10:51:23  [pc:tt0]   saving\n10:51:23  [pc:tt0] \u2713 cap_1024 \u2014 183.7s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_opendde/opendde_results_cap_1024/results.json",
+     "stacks_truncated": 3,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1024
+    },
+    {
+     "rc": 0,
+     "wall_s": 460.4,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.3,
+     "progress_events": 37594,
+     "block_calls": 608,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 11571,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3170026944,
+      "dram_peak_bytes": 7507021824,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 4161316,
+      "samples": 608,
+      "truncated": []
+     },
+     "tail": "10:58:54  [pc:tt0]   diffusion 179/200\n10:58:55  [pc:tt0]   diffusion 180/200\n10:58:55  [pc:tt0]   diffusion 181/200\n10:58:55  [pc:tt0]   diffusion 182/200\n10:58:55  [pc:tt0]   diffusion 183/200\n10:58:55  [pc:tt0]   diffusion 184/200\n10:58:55  [pc:tt0]   diffusion 185/200\n10:58:55  [pc:tt0]   diffusion 186/200\n10:58:56  [pc:tt0]   diffusion 187/200\n10:58:56  [pc:tt0]   diffusion 188/200\n10:58:56  [pc:tt0]   diffusion 189/200\n10:58:56  [pc:tt0]   diffusion 190/200\n10:58:56  [pc:tt0]   diffusion 191/200\n10:58:56  [pc:tt0]   diffusion 192/200\n10:58:56  [pc:tt0]   diffusion 193/200\n10:58:57  [pc:tt0]   diffusion 194/200\n10:58:57  [pc:tt0]   diffusion 195/200\n10:58:57  [pc:tt0]   diffusion 196/200\n10:58:57  [pc:tt0]   diffusion 197/200\n10:58:57  [pc:tt0]   diffusion 198/200\n10:58:57  [pc:tt0]   diffusion 199/200\n10:59:04  [pc:tt0]   saving\n10:59:04  [pc:tt0] \u2713 cap_1024 \u2014 448.5s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_resid_opendde_1024/opendde_results_cap_1024/results.json",
+     "dram_peak_bytes": 7507021824,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 3170026944,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1024
+    },
+    {
+     "rc": 0,
+     "wall_s": 186.4,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.4,
+     "progress_events": 1659,
+     "block_calls": 15,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 7178,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 4173738,
+      "samples": 15,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "\nFetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]\nFetching 21 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 21/21 [00:00<00:00, 3482.54it/s]\n10:59:11  [pc:tt0] loading model\u2026\n10:59:16  [pc:tt0] cap_1152\n10:59:16  [pc:tt0]   msa\n10:59:16  [pc:tt0]   prep\n10:59:43  [pc:tt0]   trunk 0/1\n11:01:49  [pc:tt0]   diffusion 0/1\n11:02:11  [pc:tt0]   saving\n11:02:11  [pc:tt0] \u2713 cap_1152 \u2014 175.4s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_opendde/opendde_results_cap_1152/results.json",
+     "stacks_truncated": 3,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1152,
+     "phase": "refine"
+    },
+    {
+     "rc": 0,
+     "wall_s": 223.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.1,
+     "progress_events": 1657,
+     "block_calls": 15,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 1289,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 2247,
+      "samples": 15,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "\nFetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]\nFetching 21 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 21/21 [00:00<00:00, 3091.19it/s]\n11:02:19  [pc:tt0] loading model\u2026\n11:02:22  [pc:tt0] cap_1216\n11:02:22  [pc:tt0]   msa\n11:02:22  [pc:tt0]   prep\n11:02:50  [pc:tt0]   trunk 0/1\n11:05:34  [pc:tt0]   diffusion 0/1\n11:05:55  [pc:tt0]   saving\n11:05:55  [pc:tt0] \u2713 cap_1216 \u2014 212.3s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_opendde/opendde_results_cap_1216/results.json",
+     "stacks_truncated": 3,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1216,
+     "phase": "refine"
+    },
+    {
+     "rc": 0,
+     "wall_s": 233.9,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.9,
+     "progress_events": 1660,
+     "block_calls": 15,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 2355,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 20795,
+      "samples": 15,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "\nFetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]\nFetching 21 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 21/21 [00:00<00:00, 3432.46it/s]\n11:06:04  [pc:tt0] loading model\u2026\n11:06:15  [pc:tt0] cap_1248\n11:06:15  [pc:tt0]   msa\n11:06:15  [pc:tt0]   prep\n11:06:44  [pc:tt0]   trunk 0/1\n11:09:27  [pc:tt0]   diffusion 0/1\n11:09:49  [pc:tt0]   saving\n11:09:49  [pc:tt0] \u2713 cap_1248 \u2014 214.6s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_opendde/opendde_results_cap_1248/results.json",
+     "stacks_truncated": 3,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1248,
+     "phase": "refine"
+    },
+    {
+     "rc": 1,
+     "wall_s": 666.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.2,
+     "progress_events": 2389,
+     "block_calls": 600,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 5218,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "residency",
+      "pid": 40458,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 3908, in <module>\n    cli()\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1569, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1490, in main\n    rv = self.invoke(ctx)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1594, in invoke\n    return super().invoke(ctx)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1970, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1353, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 907, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 2825, in predict\n    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1396, in _dispatch_run\n    failed = _stream_run(client, run_id, total=total, n_workers=len(workers),\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1354, in _stream_run\n    raise RuntimeError(\nRuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit -9); no job can be served. The worker's own traceback above says why.",
+     "dram_peak_bytes": null,
+     "dram_total_bytes": null,
+     "dram_largest_free_at_peak": null,
+     "blocks_instrumented": 0,
+     "verdict": "HOST_OOM",
+     "host_oom_evidence": "[54369.520777] Out of memory: Killed process 40517 (python3) total-vm:64315972kB, anon-rss:25399328kB, file-rss:2044kB, shmem-rss:96kB, UID:1000 pgtables:117392kB oom_score_adj:0",
+     "tier": "residency",
+     "tokens": 1248,
+     "phase": "refine"
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "HOST_OOM",
+   "decided_by": "screen",
+   "mechanism": null,
+   "wall_s": 122.1,
+   "alloc_ceiling_tokens": 1248,
+   "alloc_ceiling_note": "1248 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1280 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
+   "ceiling_tokens": 1024
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 0,
+  "fail_like": 3,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}

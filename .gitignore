@@ -130,3 +130,5 @@ perf/capacity/work*/
 # W-chunk hang A/B scratch: the folds, plus two pristine source exports used as the pre-fix and
 # post-fix arms (526M of repo copies). The evidence that matters lives in the state doc.
 perf/wchunk/
+perf/wchunk-p2/*.cif
+perf/wchunk-p2/*.results.json

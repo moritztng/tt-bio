@@ -311,12 +311,20 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "protenix-v2": {
         "wormhole_b0": Ceiling(
-            residues=980, pass_at=980, fail_at=1095, binds=MEMORY, mechanism=DRAM,
-            evidence="catalog.py, measured 2026-08-11 (tree d0ff69b2, warm MSA, platform flags): "
-                     "980 aa folds in 1072 s, 1095 aa OOMs on DRAM. Memory binds the failure, but "
-                     "runtime is close behind on the platform, whose budget is 1200 s -- a tt-bio "
-                     "CLI user has no such budget and only the OOM applies. 1024 sits in an "
-                     "UNTESTED gap between the two and one ladder rung would settle it",
+            residues=1024, pass_at=1024, fail_at=1095, binds=MEMORY, mechanism=DRAM,
+            msa_rows=8832,
+            evidence="1024 measured 2026-09-08 on GWH02 (8x9, 12 GiB/card), "
+                     "ws:wh-transition-wchunk-hang-fix-p2, AT PRODUCTION MSA DEPTH: "
+                     "capacity_gate.py --tokens 1024 folds screen and full residency at 8832 "
+                     "unique alignment rows, 730.5 s, DRAM peak 5.79 GiB = 48% of the card "
+                     "(perf/capacity/wh_1024_protenix-v2_msa8832.json). Depth is the load-bearing "
+                     "part: the failing tensor here scales with tokens x rows, so the "
+                     "single-sequence 1024 fold measured the same day (476.8 s, pLDDT 0.745, "
+                     "digest 2226d5a9adfa135810f3f2df9a4a3460, bit-identical to the same rung "
+                     "pre-merge on the fix branch) would not have been evidence for this row on "
+                     "its own. Both needed 938989d7: under the shipped W-chunk gate this band did "
+                     "not OOM, it hung the chip, which is why the row called 1024 UNTESTED for a "
+                     "month. 1095 still OOMs on DRAM (catalog.py, 2026-08-11, tree d0ff69b2)",
         ),
     },
     "rfd3": {

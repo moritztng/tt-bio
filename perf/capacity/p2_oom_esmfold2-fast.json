@@ -1,0 +1,98 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-08T10:18:07Z",
+ "tree": "e2544021dde7b8713bc36efb5c9f8fccb6eb292d",
+ "dirty": true,
+ "workers": [
+  "pc:0"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=13,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 130,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 190028800
+  },
+  "board_type": "p150a",
+  "host": "pc",
+  "card": 0
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "esmfold2-fast",
+   "verb": "predict",
+   "worker": "pc:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 89.6,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 4.6,
+     "progress_events": 732,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 4597,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 101310,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/home/moritz/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 3908, in <module>\n    cli()\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1569, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1490, in main\n    rv = self.invoke(ctx)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1594, in invoke\n    return super().invoke(ctx)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1970, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 1353, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/click/core.py\", line 907, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 2825, in predict\n    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1396, in _dispatch_run\n    failed = _stream_run(client, run_id, total=total, n_workers=len(workers),\n  File \"/home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/tt_bio/main.py\", line 1354, in _stream_run\n    raise RuntimeError(\nRuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit -9); no job can be served. The worker's own traceback above says why.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "HOST_OOM",
+     "host_oom_evidence": "[ 1736.891051] Out of memory: Killed process 131896 (python3) total-vm:67184128kB, anon-rss:25641372kB, file-rss:1672kB, shmem-rss:100kB, UID:1000 pgtables:119456kB oom_score_adj:1000",
+     "tier": "screen",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "verdict": "HOST_OOM",
+   "decided_by": "screen",
+   "mechanism": null,
+   "wall_s": 89.6
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 0,
+  "fail_like": 1,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}

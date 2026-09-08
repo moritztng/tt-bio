@@ -1,0 +1,159 @@
+{
+ "bar_tokens": 1024,
+ "started": "2026-09-08T07:31:05Z",
+ "tree": "698fa63fb1fcfab98ec31fd8421ef9cad1f3d283",
+ "dirty": true,
+ "workers": [
+  "UF-EV-A13-GWH02:0"
+ ],
+ "geometry": {
+  "arch": "wormhole_b0",
+  "grid": "(x=8,y=9)",
+  "dram": {
+   "banks": 12,
+   "bytes_per_bank": 1073741792,
+   "largest_contiguous_free_per_bank": 1073741792,
+   "total_bytes": 12884901504
+  },
+  "l1": {
+   "banks": 72,
+   "bytes_per_bank": 1395424,
+   "largest_contiguous_free_per_bank": 1395424,
+   "total_bytes": 100470528
+  },
+  "board_type": "tt-galaxy-wh L",
+  "host": "UF-EV-A13-GWH02",
+  "card": 0
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "protenix-v2",
+   "verb": "predict",
+   "worker": "UF-EV-A13-GWH02:0",
+   "bar_tokens": 1024,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 91.7,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.7,
+     "progress_events": 2008,
+     "block_calls": 14,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 416780,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1774036,
+      "samples": 14,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "07:31:15  [UF-EV-A13-GWH02:tt0] loading model\u2026\n07:31:25  [UF-EV-A13-GWH02:tt0] cap_1024\n07:31:25  [UF-EV-A13-GWH02:tt0]   msa\n07:31:25  [UF-EV-A13-GWH02:tt0]   prep\n07:31:49  [UF-EV-A13-GWH02:tt0]   trunk 0/1\n07:32:28  [UF-EV-A13-GWH02:tt0]   diffusion 0/1\n07:32:37  [UF-EV-A13-GWH02:tt0]   saving\n07:32:37  [UF-EV-A13-GWH02:tt0] \u2713 cap_1024 \u2014 71.7s\n\nDone: 1 ok, 0 failed \u2014 /home/cust-team/mthuening/wchunkp2/p2logs/capwork_1024/out_screen_protenix-v2/protenix_results_cap_1024/results.json",
+     "stacks_truncated": 2,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1024
+    },
+    {
+     "rc": 0,
+     "wall_s": 730.5,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.3,
+     "progress_events": 46057,
+     "block_calls": 604,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 415533,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 12,
+      "dram_largest_free_at_peak": 463883744,
+      "dram_peak_bytes": 6222055680,
+      "dram_total_bytes": 12884901504,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1780226,
+      "samples": 604,
+      "truncated": []
+     },
+     "tail": "07:44:33  [UF-EV-A13-GWH02:tt0]   diffusion 179/200\n07:44:33  [UF-EV-A13-GWH02:tt0]   diffusion 180/200\n07:44:33  [UF-EV-A13-GWH02:tt0]   diffusion 181/200\n07:44:33  [UF-EV-A13-GWH02:tt0]   diffusion 182/200\n07:44:34  [UF-EV-A13-GWH02:tt0]   diffusion 183/200\n07:44:34  [UF-EV-A13-GWH02:tt0]   diffusion 184/200\n07:44:34  [UF-EV-A13-GWH02:tt0]   diffusion 185/200\n07:44:35  [UF-EV-A13-GWH02:tt0]   diffusion 186/200\n07:44:35  [UF-EV-A13-GWH02:tt0]   diffusion 187/200\n07:44:35  [UF-EV-A13-GWH02:tt0]   diffusion 188/200\n07:44:35  [UF-EV-A13-GWH02:tt0]   diffusion 189/200\n07:44:36  [UF-EV-A13-GWH02:tt0]   diffusion 190/200\n07:44:36  [UF-EV-A13-GWH02:tt0]   diffusion 191/200\n07:44:36  [UF-EV-A13-GWH02:tt0]   diffusion 192/200\n07:44:37  [UF-EV-A13-GWH02:tt0]   diffusion 193/200\n07:44:37  [UF-EV-A13-GWH02:tt0]   diffusion 194/200\n07:44:37  [UF-EV-A13-GWH02:tt0]   diffusion 195/200\n07:44:37  [UF-EV-A13-GWH02:tt0]   diffusion 196/200\n07:44:38  [UF-EV-A13-GWH02:tt0]   diffusion 197/200\n07:44:38  [UF-EV-A13-GWH02:tt0]   diffusion 198/200\n07:44:38  [UF-EV-A13-GWH02:tt0]   diffusion 199/200\n07:44:48  [UF-EV-A13-GWH02:tt0]   saving\n07:44:48  [UF-EV-A13-GWH02:tt0] \u2713 cap_1024 \u2014 712.0s\n\nDone: 1 ok, 0 failed \u2014 /home/cust-team/mthuening/wchunkp2/p2logs/capwork_1024/out_resid_protenix-v2_1024/protenix_results_cap_1024/results.json",
+     "dram_peak_bytes": 6222055680,
+     "dram_total_bytes": 12884901504,
+     "dram_largest_free_at_peak": 463883744,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1024
+    }
+   ],
+   "tokens_requested": 1024,
+   "tokens_padded": 1024,
+   "residues": 1024,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 730.5,
+   "dram_peak_bytes": 6222055680,
+   "dram_total_bytes": 12884901504,
+   "dram_largest_free_at_peak": 463883744,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 415533
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 1,
+  "fail_like": 0,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}
