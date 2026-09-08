@@ -84,8 +84,15 @@ def clashes(asym, seq, elem, xyz, cutoff=2.0, sep=2):
 
 
 def main(out_dir):
+    # Two layouts, because a design model is not a fold model: the predict CLIs write
+    # `<out_dir>/*results_*/structures/*.cif` beside a results.json, and `tt-bio design` writes
+    # one CIF per spec straight into `--out_dir` with no results.json at all. Globbing only the
+    # first is why RFD3's ceiling rungs went unscored -- the instrument reported `scored: 0` and
+    # the ladder recorded finite coordinates instead of geometry.
     cif = sorted(glob.glob(f"{out_dir}/*results_*/structures/*.cif"))
     res = sorted(glob.glob(f"{out_dir}/*results_*/results.json"))
+    if not cif:
+        cif = sorted(glob.glob(f"{out_dir}/*.cif"))
     if not cif:
         print(json.dumps({"scored": 0}))
         return
