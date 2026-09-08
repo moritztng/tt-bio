@@ -927,8 +927,7 @@ def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
     short = []
     for card, blk in sorted(data.get("cards", {}).items()):
         for model, entry in sorted(blk.get("models", {}).items()):
-            want = {str(r) for r in rg._size_ladder_model_rungs(
-                model, rg.SIZE_LADDER_RUNGS, False)}
+            want = {str(r) for r in rg._size_ladder_model_rungs(model)}
             # A refused rung IS coverage: the guard declining a size is the information the
             # arm exists to carry, so it counts the same as a timed one.
             have = set(entry.get("runtime_s") or {}) | set(entry.get("refused") or {})
