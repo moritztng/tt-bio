@@ -79,7 +79,8 @@ TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_v
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/perf_regression.py
 
-# Size-generality arm: folds every structure model at 256/512/640/768/896/1024 aa
+# Size-generality arm: folds every structure model at 256/512/640/768/896/1024 aa,
+# plus a model's own top rung where it reaches past that (rf3 also folds 1088)
 # and fails if the fired/dark perf-lever set or the runtime scaling exponent
 # drifted from docs/size_ladder_baseline.json plus docs/size_ladder_baseline.d/,
 # read as one. A model whose guard refuses a rung records the refusal. A perf
