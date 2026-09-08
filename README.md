@@ -119,7 +119,7 @@ under 1024:
 | `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
 | `protenix-v2` | 1024 | 1095 |
-| `rfd3` | 704 (motif + designed) | 768 |
+| `rfd3` | 1024 (motif + designed) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968 | 1984 |
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
