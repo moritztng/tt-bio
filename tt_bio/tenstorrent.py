@@ -1,5 +1,7 @@
 import os
+import re
 import sys
+import time
 import contextlib
 import torch, ttnn, atexit
 from torch import nn
@@ -517,6 +519,30 @@ def _record_trimul_inproj_oom(seq_len: int, hidden: int, batch: int, fused: int)
     key = _trimul_chunk_key(seq_len, hidden, batch)
     cap = min(_TRIMUL_INPROJ_FUSED_CAP.get(key, _TRIMUL_INPROJ_FUSED_BYTES), fused)
     _TRIMUL_INPROJ_FUSED_CAP[key] = max(1, cap // 2)
+
+
+def _trimul_inproj_chunk_cap(seq_len: int, hidden: int, batch: int, chunk: int) -> int:
+    """The widest channel chunk at or below `chunk` whose fused in-projection is inside this
+    shape's recorded byte budget.
+
+    Only a shape DRAM has already refused has a budget below `_TRIMUL_INPROJ_FUSED_BYTES`, so
+    this returns `chunk` unchanged wherever the cap has never fired: a size that folds today
+    keeps its width, its launch count and its arithmetic. Where it has fired, this is what stops
+    every later pairformer block from re-probing the width that was just refused. Read the cap
+    only in the handler and the per-block ladder is: attempt the full width, get refused, halve
+    the budget, narrow to satisfy a budget one halving smaller than the last block's -- so the
+    budget walks to nothing over a fold and every block ends at chunk 1, i.e. `hidden` channel
+    passes. Measured at 4-5 minutes per block on OpenDDE's 2016-token trunk (a 1024-residue
+    fold), which is what put that fold past a 2400 s timeout rather than into an error.
+
+    Narrowing is bit-exact: the chunk is a partition of an independent-channel sum, the same
+    argument `_trimul_chunk_size` and `_trimul_inproj_group` make for their own widths.
+    """
+    budget = _trimul_inproj_budget(seq_len, hidden, batch)
+    while (chunk > 1 and hidden % (chunk // 2) == 0
+           and 4 * chunk * seq_len * seq_len * batch * 2 > budget):
+        chunk //= 2
+    return chunk
 
 # Wormhole 8x9 re-fit of the two trimul constants above. `_apply_grid_thresholds` derives its
 # small-grid values by scaling the Blackhole ones -- the residency threshold by per-core L1 (which
@@ -1767,14 +1793,132 @@ _BMM_CFG_REFUSED: set = set()
 # all-or-nothing retirement that cost RF3 1.264x on the fp32-softmax tail at 1024 aa.
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
-                               "bmm_cfg")}
+                               "pair_bias_ln_l1", "bmm_cfg")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
-    st = LATCH_STATS[name]
-    st[field] += 1
+    """Count a latch outcome. `setdefault`, and that is not laziness.
+
+    Every caller is inside an except block recovering from a device refusal, so a KeyError raised
+    HERE turns a handled refusal into a dead fold. It did: `pair_bias_ln_l1` was missing from the
+    dict above and the DRAM retry in `_pair_bias_from_z` never ran, so a 576 aa fold that was
+    about to recover died on its own instrumentation instead (measured 2026-09-08, base576a).
+    `tests/test_latch_names_are_registered.py` keeps the dict complete; this keeps a gap in it
+    from being fatal.
+    """
+    st = LATCH_STATS.setdefault(
+        name, {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []})
+    st[field] = st.get(field, 0) + 1
     if why is not None and len(st["why"]) < 3:
-        st["why"].append(str(why)[:180])
+        st["why"].append(_latch_reason(why))
+
+
+def _latch_reason(why: object) -> str:
+    """One line for a latched refusal -- 180 chars, but not 180 chars of preamble.
+
+    tt-metal puts the addresses at the END of an L1 clash message, past the 180th character, so a
+    plain prefix records that something clashed and drops the only part that says what. That is
+    why every handled refusal in the 576 aa OpenDDE log is unattributable. Substitute the census
+    those addresses imply.
+    """
+    census = describe_l1_clash(why)
+    if census is None:
+        return str(why)[:180]
+    return "L1 clash: " + " ".join(f"{k}={v}" for k, v in census.items())
+
+
+# Worker L1 is one flat region per core with two fronts growing towards each other: the allocator
+# hands out tensor buffers from the TOP down, a program's static circular buffers from the
+# unreserved BASE up. A clash is those fronts meeting, and the message reports both as raw
+# addresses and nothing else. Read literally it looks like "out of memory at N", which is how four
+# passes of the OpenDDE ceiling read it; subtract instead and it says which buffer is resident, how
+# much room it left and how much the consumer was short -- enough to name the allocation without a
+# second run. The core range in the message carries the bank count, so the arithmetic needs no
+# device.
+_CLASH_RE = re.compile(
+    r"clash with L1 buffers on core range \[\(x=(\d+),y=(\d+)\) - \(x=(\d+),y=(\d+)\)\]\. "
+    r"L1 buffer allocated at (\d+) and static circular buffer region ends at (\d+)")
+_CB_OVERFLOW_RE = re.compile(
+    r"circular buffers on core range \[\(x=(\d+),y=(\d+)\) - \(x=(\d+),y=(\d+)\)\] "
+    r"grow to (\d+) B which is beyond max L1 size of (\d+) B")
+
+
+def describe_l1_clash(msg: object, l1_top: int | None = None,
+                      l1_unreserved: int | None = None) -> dict | None:
+    """Turn an L1 static-CB throw into the allocation census it implies, or None.
+
+    Handles both forms tt-metal raises. The CLASH form ("L1 buffer allocated at X and static
+    circular buffer region ends at Y") means a program's buffers ran into a live tensor; the
+    OVERFLOW form ("grow to N B which is beyond max L1 size of M B") means they did not fit an
+    empty core, so no tensor is implicated and `resident_per_core` is 0.
+
+    `l1_top` is the top of the per-core buffer region and `l1_unreserved` the space between the
+    CB base and that top; both are read off the device when not given, and the fields that need
+    them are omitted rather than guessed when there is no device.
+    """
+    s = str(msg)
+    m = _CLASH_RE.search(s)
+    over = None if m else _CB_OVERFLOW_RE.search(s)
+    if not m and not over:
+        return None
+    g = m or over
+    x0, y0, x1, y1 = (int(g.group(i)) for i in (1, 2, 3, 4))
+    out = {"grid": (x1 - x0 + 1, y1 - y0 + 1)}
+    out["cores"] = out["grid"][0] * out["grid"][1]
+    if over:
+        out["cb_need"] = int(over.group(5))
+        out["l1_top"] = l1_top = int(over.group(6))
+        out["resident_per_core"] = 0
+        out["shortfall"] = out["cb_need"] - l1_top
+    else:
+        buf, cb_end = int(m.group(5)), int(m.group(6))
+        out["buffer_addr"], out["cb_end"] = buf, cb_end
+        out["shortfall"] = cb_end - buf
+        if l1_top is None:
+            l1_top = _worker_l1_top()
+        if l1_top:
+            out["l1_top"] = l1_top
+            out["resident_per_core"] = l1_top - buf
+            out["resident_total"] = out["resident_per_core"] * out["cores"]
+        if l1_unreserved is None:
+            l1_unreserved = _worker_l1_unreserved()
+        if l1_top and l1_unreserved:
+            base = l1_top - l1_unreserved
+            out["cb_base"] = base
+            out["cb_need"] = cb_end - base
+            out["cb_free"] = buf - base
+    return out
+
+
+def _worker_l1_unreserved() -> int | None:
+    try:
+        return int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:                                                          # noqa: BLE001
+        return None
+
+
+# The buffer region's top is not exposed, so it is reconstructed from the OVERFLOW form's "max L1
+# size" when one has been seen this process, and left unknown otherwise. Deliberately not a
+# hardcoded 1499136: that is the Wormhole number and Blackhole's is different.
+_L1_TOP_SEEN: list = []
+
+
+def _worker_l1_top() -> int | None:
+    return _L1_TOP_SEEN[0] if _L1_TOP_SEEN else None
+
+
+def note_l1_clash(where: str, msg: object) -> dict | None:
+    """Record a clash census under `where` and return it. Safe to call from an except block."""
+    seen = _CB_OVERFLOW_RE.search(str(msg))
+    if seen and not _L1_TOP_SEEN:
+        _L1_TOP_SEEN.append(int(seen.group(6)))
+    census = describe_l1_clash(msg)
+    if census is not None:
+        L1_CLASH_CENSUS.append((where, census))
+    return census
+
+
+L1_CLASH_CENSUS: list = []
 
 
 def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
@@ -2725,6 +2869,7 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
                 return out
             except Exception as e:                                              # noqa: BLE001
                 _TRANSPOSE_L1_REFUSED.add(key)
+                note_l1_clash("tri_att/transpose_l1", e)
                 _latch("transpose_l1", "refused", e)
         memory_config = ttnn.DRAM_MEMORY_CONFIG
     if (l1_stage_reserve
@@ -2742,6 +2887,7 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
                 return out
             except Exception as e:                                              # noqa: BLE001
                 _TRANSPOSE_L1_REFUSED.add(key)
+                note_l1_clash("tri_att/transpose_stage", e)
                 _latch("transpose_stage", "refused", e)
     return _pair_transpose_impl(t, memory_config)
 
@@ -2831,6 +2977,92 @@ def _transpose_memory_config(t: ttnn.Tensor, reserve_per_core: int = 0) -> ttnn.
     # TRANSPOSE_L1_RESERVE_PER_CORE. The allocation itself is still the real test, and
     # `_pair_transpose` falls back to DRAM per shape class when it is refused.
     return _l1_memory_config_if_it_fits(t, 1.0, reserve_per_core=reserve_per_core)
+
+
+# Bytes per core that must stay free underneath the ending triangle attention's L1-resident pair
+# block, for the `ttnn.layer_norm` that reads it. MEASURED on the Galaxy Wormhole 8x9 grid at
+# [480, 672, 128] bf16, off the fold's own throw: live tensors reached down to 352 256 B and the
+# program's static circular buffers ended at 382 240 B over a 33 056 B CB base, so the consumer
+# needed 349 184 B per core and had 319 200 B. `tests/test_l1_clash_census.py` holds that reading.
+# 384 KiB carries 1.13x of it.
+#
+# Absolute bytes, not a multiple of the tensor. `_TRANSPOSE_L1_HEADROOM = 1.25` prices the same
+# need as a fraction of the block, and a fraction is stingiest exactly where the block is largest:
+# its own best case admits 1 172 864 B/core of tensor and so leaves 293 216 B/core, which is
+# 55 968 B LESS than this consumer needs -- at every shape, not just an unlucky one. The top of
+# the multiplicative gate's range is therefore unconditionally broken and nothing below it is.
+# Ending blocks are 122 880 x Nsw bytes at chunk 480, and volumes in (80 416 512, 84 446 208] are
+# the broken band: Nsw = 672 lands there and no other multiple of 32 does. That is the whole of
+# the 576 aa-throws / 608 aa-folds non-monotonicity, which reads as a capacity wall and is not one.
+#
+# Priced with headroom 1.0, NOT on top of 1.25: "the block per core plus the consumer's buffers
+# per core fit in the core's L1" is the entire requirement, and applying 1.25 as well double-counts
+# it -- that would admit only 59 909 529 B and so cost the L1 route at 544 tokens, which fits today
+# with 592 KB/core to spare.
+PAIR_BIAS_LN_CONSUMER_RESERVE = 384 * 1024
+_PAIR_BIAS_LN_CONSUMER_RESERVE = int(
+    os.environ.get("TT_BIO_PAIR_BIAS_LN_RESERVE", str(PAIR_BIAS_LN_CONSUMER_RESERVE)))
+# Off only to run the parity A/B for the row cap against the same reserve; 0 disables the cap and
+# leaves the gate, so a block too tall falls to DRAM instead of getting shorter.
+_PAIR_BIAS_LN_CAP = env_flag("TT_BIO_PAIR_BIAS_LN_CAP", True)
+# Off only for the negative control, which has to restore the old gate AND the old absence of any
+# recovery from it. On, a clash here costs this shape class's L1 route; off, it costs the fold.
+_PAIR_BIAS_LN_RETRY = env_flag("TT_BIO_PAIR_BIAS_LN_RETRY", True)
+# TT_BIO_PAIR_BIAS_TRACE=1 prints the ending block's axis, chunk and byte count at every call.
+# Diagnosis only, and it exists because the first reading of this bug guessed the pair axis from
+# the residue count and was out by 1.945x.
+_PAIR_BIAS_TRACE = env_flag("TT_BIO_PAIR_BIAS_TRACE", False)
+
+
+def _pair_bias_ln_reserve() -> int:
+    """Bytes to keep free per core under the ending transpose's L1 block. 0 off the small grid.
+
+    Wormhole only, and visibly so: Blackhole runs 8 banks x 3.984 GiB and 1 532 448 B/core against
+    Wormhole's 12 x ~1 GiB and 1 466 080 B, `_apply_grid_thresholds` returns before every budget
+    in this file on a >= 110-core grid, and Blackhole must not move. Reserve 0 there leaves the
+    multiplicative gate exactly as it was.
+    """
+    return _PAIR_BIAS_LN_CONSUMER_RESERVE if _IS_SMALL_GRID else 0
+
+
+def _pair_bias_transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
+    """`_transpose_memory_config` for the ending transpose, with its consumer priced in bytes.
+
+    `_transpose_memory_config`'s own `reserve_per_core` is deliberately not reused: there it is a
+    RELAXATION, consulted only once the multiplicative test has already failed. Here the reserve
+    has to restrict, and one parameter name cannot carry both meanings.
+    """
+    reserve = _pair_bias_ln_reserve()
+    if not reserve:
+        return _transpose_memory_config(t)
+    return _l1_memory_config_if_it_fits(t, 1.0, reserve_per_core=reserve)
+
+
+def _pair_bias_ln_row_cap(width: int, channels: int, elem: int = 2) -> int:
+    """Rows of the ending transpose's block that still leave its layer_norm room, or 0 for no cap.
+
+    The lever is a shorter block, not a DRAM block. Abandoning L1 when the consumer does not fit
+    is correct and costs 1.887x on the transpose at every size from 640 tokens up; the byte budget
+    instead names a height at which both fit, and that keeps the L1 route at 1024 as well as at
+    576. It cannot move a number for the same reason the chunked path exists at all: layer_norm is
+    row-local, so a row block is bit-identical to a slice of the whole normed tensor, and
+    `_pair_proj_linear` reduces over `channels`, which the block height does not touch. Only M
+    changes, and a matmul cannot reassociate over M. (That K term is exactly what made the
+    OuterProductMean re-blocking non-bit-exact: there the ragged block changed K. Here it cannot.)
+    Same claim, same idiom and the same 32-snap as the `_qkv_cap` byte cap beside the caller.
+    """
+    reserve = _pair_bias_ln_reserve()
+    if not reserve or not _PAIR_BIAS_LN_CAP:
+        return 0
+    try:
+        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:                                                          # noqa: BLE001
+        return 0
+    row = int(width) * ((int(channels) + 31) // 32) * 32 * int(elem)
+    if row <= 0:
+        return 0
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    return max(per_core - reserve, 0) * cores // row // 32 * 32
 
 
 def _l1_layer_norm(x: ttnn.Tensor, headroom: float, reserve_per_core: int = 0, **kw):
@@ -3894,6 +4126,8 @@ def get_device(trace_region_size=0):
 
 
 _DRAM_PEAK = {}   # tag -> high-water device DRAM bytes, when TT_BIO_DRAM_PEAK is set
+_DRAM_PEAK_N = {}  # tag -> samples taken, for the trace mode below
+_DRAM_PEAK_T0 = None
 
 
 def dram_peak(tag=None):
@@ -3913,16 +4147,33 @@ def dram_peak(tag=None):
     the footprint has to be measured directly at the largest supported input.
     Call with no tag to read the current peak across all tags.
 
+    A tag only writes a line when its OWN high-water mark rises, which makes the file a
+    footprint census and NOT a progress trace: the trunk's tags recur once per recycling
+    cycle, so cycle 1 and cycle 10 are indistinguishable and a fold that is slow in the
+    trunk looks identical to one that is finished with it. Set TT_BIO_DRAM_PEAK_TRACE=1
+    alongside the path and every sample is written instead, with elapsed seconds and a
+    per-tag sample count appended -- which is what localises a stall to a cycle. Suffix
+    only: the "[DRAM] tag: N GiB used (of M GiB) maxfree=..." prefix the release gate's
+    capacity leg matches on is byte-for-byte unchanged.
+
     Lives here rather than in a model module because the trunk (MSA/Pairformer, below) is
     the largest DRAM consumer and cannot import a model module without a cycle."""
     path = os.environ.get("TT_BIO_DRAM_PEAK")
     if not path:
         return 0
     if tag is not None:
+        global _DRAM_PEAK_T0
         mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
         used = (mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * mv.num_banks
-        if used > _DRAM_PEAK.get(tag, 0):
+        trace = env_flag("TT_BIO_DRAM_PEAK_TRACE", False)
+        rose = used > _DRAM_PEAK.get(tag, 0)
+        if rose:
             _DRAM_PEAK[tag] = used
+        if trace:
+            if _DRAM_PEAK_T0 is None:
+                _DRAM_PEAK_T0 = time.time()
+            _DRAM_PEAK_N[tag] = _DRAM_PEAK_N.get(tag, 0) + 1
+        if rose or trace:
             # Largest contiguous free block per bank (min over banks): the binding
             # constraint for an interleaved allocation is size/12 contiguous in EVERY
             # bank, so this -- not total free -- decides whether a big request is
@@ -3933,7 +4184,10 @@ def dram_peak(tag=None):
                 lcf = min(lcf)
             line = (f"[DRAM] {tag}: {used / 2**30:.3f} GiB used "
                     f"(of {mv.total_bytes_per_bank * mv.num_banks / 2**30:.1f} GiB) "
-                    f"maxfree={lcf / 2**20:.0f}MiB/bank\n")
+                    f"maxfree={lcf / 2**20:.0f}MiB/bank"
+                    + (f" t=+{time.time() - _DRAM_PEAK_T0:.1f}s n={_DRAM_PEAK_N[tag]}"
+                       if trace else "")
+                    + "\n")
             try:
                 with open(path, "a") as fp:      # append: the worker is a separate process
                     fp.write(line)
@@ -4669,6 +4923,8 @@ class TriangleMultiplication(Module):
         memory_config = _triangle_mul_memory_config(H)
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+        if large_seq:
+            chunk_size = _trimul_inproj_chunk_cap(H, self._hidden, batch, chunk_size)
         n_pairs = self._hidden // chunk_size
         group = _trimul_inproj_group(H, chunk_size, batch, n_pairs) if large_seq else 1
         self._gp_in_chunks(chunk_size, group)
@@ -4702,6 +4958,11 @@ class TriangleMultiplication(Module):
         batch = prod(shp[:-3])
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+        if large_seq:
+            # Start inside the byte budget this shape has already been refused above, instead of
+            # re-probing the refused width once per pairformer block. Inert until a refusal has
+            # been recorded for this shape.
+            chunk_size = _trimul_inproj_chunk_cap(H, self._hidden, batch, chunk_size)
         n_pairs = self._hidden // chunk_size
         # The matmul's N and the channel-chunk width are two different numbers this code has been
         # forcing to be one. Only the matmul widens (_TRIMUL_INPROJ_GROUP), and only on the DRAM
@@ -4865,16 +5126,14 @@ class TriangleMultiplication(Module):
                     was = (chunk_size, group)
                     _record_trimul_inproj_oom(
                         H, self._hidden, batch, 4 * chunk_size * group * H * H * batch * 2)
-                    budget = _trimul_inproj_budget(H, self._hidden, batch)
                     # Narrow the channel chunk while even a single group is over the new
                     # budget. On the DRAM path `_trimul_chunk_size` already returns the
                     # minimum tuned width, so this is the only lever below it -- and on
                     # OpenDDE's structural-token axis (2016 tokens for a 1024-residue fold) a
                     # single group IS the whole 0.97 GiB, so the group has nothing left to give
-                    # before this runs.
-                    while (chunk_size > 1 and self._hidden % (chunk_size // 2) == 0
-                           and 4 * chunk_size * H * H * batch * 2 > budget):
-                        chunk_size //= 2
+                    # before this runs. Same helper the call site above enters with, so the
+                    # width a refusal lands on is the width the next block starts at.
+                    chunk_size = _trimul_inproj_chunk_cap(H, self._hidden, batch, chunk_size)
                     n_pairs = self._hidden // chunk_size
                     group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
                     if (chunk_size, group) == was:
@@ -5123,21 +5382,60 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
     """
     S = int(z.shape[1] if ending else z.shape[0])
     step = chunk or S
+    if _PAIR_BIAS_TRACE:
+        # One line per call, off by default. The 576 aa throw was first attributed to a
+        # [480, 672, 128] block on the reading that OpenDDE's pair axis is its residue count;
+        # it is not -- `build_structural_token_features` emits a backbone AND a sidechain
+        # structural token per non-GLY residue, so 576 residues are 1120 pair tokens (measured,
+        # ratio 1.945 at every rung from 128 to 1024). An attribution that has to guess the
+        # axis is worth one printed line.
+        blk0 = (step, S, int(z.shape[-1]))
+        print(f"[pair_bias] ending={ending} S={S} chunk={chunk} step={step} "
+              f"z={tuple(z.shape)} block={blk0} bytes={blk0[0]*blk0[1]*blk0[2]*2} "
+              f"row_cap={_pair_bias_ln_row_cap(S, int(z.shape[-1]))} "
+              f"reserve={_pair_bias_ln_reserve()}", flush=True)
     parts = []
     for s in range(0, S, step):
         e = min(s + step, S)
         # A ttnn slice copies, so a full-width block takes the tensor itself.
         blk = z if e - s == S else (z[:, s:e, :] if ending else z[s:e, :, :])
+        own = blk is not z
+        key = None
         if ending:
-            blk = _pair_transpose(blk, _transpose_memory_config(blk))
-        zn = ttnn.layer_norm(
-            blk,
-            weight=ln_weight,
-            bias=ln_bias,
-            epsilon=1e-5,
-            compute_kernel_config=compute_kernel_config,
-            memory_config=ttnn.DRAM_MEMORY_CONFIG,
-        )
+            key = (tuple(blk.padded_shape), str(blk.dtype))
+            mc = _pair_bias_transpose_memory_config(blk)
+            if mc.buffer_type == ttnn.BufferType.L1 and key in _TRANSPOSE_L1_REFUSED:
+                mc = ttnn.DRAM_MEMORY_CONFIG
+            blk = _pair_transpose(blk, mc)
+            own = True
+        ln = dict(weight=ln_weight, bias=ln_bias, epsilon=1e-5,
+                  compute_kernel_config=compute_kernel_config,
+                  memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        try:
+            zn = ttnn.layer_norm(blk, **ln)
+        except Exception as e:                                                  # noqa: BLE001
+            # A reserve fitted at one shape is a prediction, and this op is what a wrong one
+            # costs: its static circular buffers are created after the block is already resident,
+            # so the allocator's real answer arrives an op too late for the gate. Retrying in
+            # DRAM makes a wrong prediction cost this shape class's L1 route instead of the fold,
+            # which is what makes the ceiling stable against allocator history. Same memo as
+            # `_pair_transpose`, on the pre-transpose key, so both sites back off together.
+            if not _PAIR_BIAS_LN_RETRY or blk.memory_config().buffer_type != ttnn.BufferType.L1:
+                raise
+            if key is not None:
+                _TRANSPOSE_L1_REFUSED.add(key)
+            # Diagnostics must not be able to cost the fold they are diagnosing. This is the
+            # recovery path; anything that only records is best-effort.
+            try:
+                note_l1_clash("tri_att_end/pair_bias_layer_norm", e)
+                _latch("pair_bias_ln_l1", "refused", e)
+            except Exception:                                                   # noqa: BLE001
+                pass
+            spill = ttnn.to_memory_config(blk, ttnn.DRAM_MEMORY_CONFIG)
+            if own:
+                ttnn.deallocate(blk)
+            blk = spill
+            zn = ttnn.layer_norm(blk, **ln)
         b = _pair_proj_linear(zn, bias_weight, compute_kernel_config, ttnn.bfloat16)
         ttnn.deallocate(zn)
         # No explicit deallocate of b/bp: unsqueeze shares b's buffer, and an explicit
@@ -5320,6 +5618,15 @@ class TriangleAttention(Module):
             # boundaries only, not what any row computes.
             _qkv_cap = (1536 * 2 ** 20) // (-(-S // 32) * 32 * x.shape[2] * 3 * 2)
             chunk = min(chunk, max(32, _qkv_cap // 32 * 32))
+            if self.ending:
+                # Second byte cap, same shape of argument, different resource: the ending block
+                # goes to L1 and its layer_norm's circular buffers come out of the same banks.
+                # See `_pair_bias_ln_row_cap`. Bias and qkv take one `chunk` so their row
+                # boundaries stay identical.
+                _ln_cap = _pair_bias_ln_row_cap(
+                    S, x.shape[2], 4 if x.dtype == ttnn.float32 else 2)
+                if _ln_cap:
+                    chunk = min(chunk, max(32, _ln_cap))
 
             def normed_rows(s, e):
                 blk = x[:, s:e, :] if self.ending else x[s:e, :, :]
@@ -6336,7 +6643,25 @@ class Transition(Module):
             # undo that measured raise.
             transition_h_chunk_size = min(transition_h_chunk_size,
                                           max(1, int(_l1_rows_at(w_eff))))
+        # Screen hook, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING and
+        # TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD above: the wall is documented NON-monotonic in
+        # this height (h=7/8/9 all fit at W=512 and are all slower than h=6), and the derivation
+        # lands h=2 at W=896 against h=1 at W=1024 -- the two sides of the 896-vs-1024 anomaly in
+        # state/opendde-l1-clash-to-1024.md, where the 896 aa fold does 0.44x the calls at 1.75x
+        # the size, i.e. LESS element-work, and still takes more than twice the wall clock. Forcing
+        # the height is what separates "h=2 is a bad height here" from "the size is the problem",
+        # and it must not require editing a derivation to find out. Unset in production.
+        _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
+        if _h:
+            transition_h_chunk_size = max(1, min(int(_h), H))
         if H > SEQ_LEN_MORE_CHUNKING:
+            # Tag on ENTRY as well as on exit. The eager branch below tags before its loop, so a
+            # long call there is visible as a tag with no successor; this branch only tagged after
+            # its loop, so a Transition that grinds here writes NOTHING and the trace simply stops
+            # -- which is exactly how the 896 aa fold read as "stuck with no tag" while it was
+            # inside one lazy Transition over the 8192-row MSA representation.
+            dram_peak(f"transition4d loop enter (lazy, h={transition_h_chunk_size}) "
+                      f"[z={'x'.join(str(d) for d in x.shape)}]")
             # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
             # would materialise a full second copy of the pair tensor up front, and the
             # list comprehension accumulates a full set of outputs before concat adds a

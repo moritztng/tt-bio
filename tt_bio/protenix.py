@@ -85,14 +85,19 @@ MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
 TOKEN_PAD_MULTIPLE = _bucket_multiple("protenix-v2")
-# 64, the same multiple as PAIRFORMER_PAD_MULTIPLE and the rest of the Pairformer family. 32 is the
-# tile, so 32 is all correctness needs, and 32 is never the wider pad: it is strictly cheaper at
-# N % 64 in 33..63 (N=580 pads to 608 against 640, +9.9 % pair area against +21.8 %) and identical
-# everywhere else, 298 and 512 included. 64 ships because it is the width the release gate is green
-# at, and the only fold ever measured at 32's width for the gate's 76-residue leg is a bad one
-# (6.6630 A against 1.5688 A at 128, one target, one seed, on a metric a diffusion sampler can flip
-# by basin). Displacing a gate-green constant needs multi-seed accuracy evidence at N in 65..96
-# first; the open question is registered in state/protenix-opendde-token-bucket-flip-measure.md.
+# 32 today, and the comment here said 64 until 2026-09-08. `bucket_multiple` returns
+# `BUCKET_EXCEPTIONS.get(model, TOKEN_BUCKET)`, `TOKEN_BUCKET` is 32 and `BUCKET_EXCEPTIONS` is
+# empty, so protenix-v2's 64 went away with its exception entry and only this comment still
+# claimed it. Worth stating because the wrong width silently rewrites any L1 arithmetic done
+# against this axis: the first pass of the OpenDDE ending-transpose census read Nsw off 64 and
+# got the wrong buffer.
+#
+# 32 is the tile, so 32 is all correctness needs, and it is never the wider pad: strictly cheaper
+# at N % 64 in 33..63 (N=580 pads to 608 against 640, +9.9 % pair area against +21.8 %) and
+# identical everywhere else, 298 and 512 included. The open accuracy question 64 was held for --
+# multi-seed evidence at N in 65..96, after one bad 76-residue fold at 32's width (6.6630 A
+# against 1.5688 A at 128, one target, one seed, on a metric a diffusion sampler can flip by
+# basin) -- is still registered in state/protenix-opendde-token-bucket-flip-measure.md.
 #
 # VALIDITY RANGE, measured, as GOALS.md SIZE GENERALITY requires of a threshold constant:
 #   N % 64 == 0   0 %. Both bucketing sites early-out, the fold is byte-identical.

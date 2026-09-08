@@ -131,8 +131,13 @@ def cut(n, out_dir, depth=None):
     out_dir = Path(out_dir)
     tag = f"cdk2x2_{n}" if not depth else f"cdk2x2_{n}_d{depth}"
     (out_dir / f"{tag}.a3m").write_text(a3m)
+    # ABSOLUTE, and it is not cosmetic: tt_bio resolves a relative `msa:` against the process
+    # cwd, so a rung run from anywhere but the directory above its own finds no a3m, silently
+    # falls back to the ONLINE MSA server and folds at whatever depth that returns. A depth
+    # fixture that quietly stops being a depth fixture measures nothing (caught 2026-09-08: a
+    # d8192 rung invoked as `rungs/x.yaml` went to api.colabfold.com).
     (out_dir / f"{tag}.yaml").write_text(
-        HDR.format(n=n, seq=seq, msa=out_dir / f"{tag}.a3m"))
+        HDR.format(n=n, seq=seq, msa=(out_dir / f"{tag}.a3m").resolve()))
     return seq
 
 
