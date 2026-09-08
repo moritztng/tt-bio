@@ -75,8 +75,20 @@ prod's transformers 4.57.6 would shadow the venv's 5.x. `--no-deps` is what keep
 installing a second numpy on top of prod's 1.26.4; the list above is exactly the set prod's env
 either lacks or carries below a floor transformers 5.x needs.
 
-Run every gate there with `PYTHONPATH="$PWD"` from the checkout under test, and a card outside the
-serving pool (`AIAND_BIO_DEVICE_IDS` is 6-31; 0-5 are the loaner cards, and 18/25/26 never open).
+Run every gate there with `PYTHONPATH="$PWD"` from the checkout under test, and pick the card by
+checking which chips are actually free rather than by which ones the pool config names:
+
+```bash
+for c in $(seq 0 31); do lsof /dev/tenstorrent/$c >/dev/null 2>&1 || printf '%s ' $c; done; echo
+```
+
+`AIAND_BIO_DEVICE_IDS` on GWH02 is `6-31` minus `18,25,26`, so 0-5 read like free loaner cards, and
+they are not. Those ids are UMD logical ids and the `/dev/tenstorrent/N` node numbers are a
+different numbering: with 23 prod workers up on that pool, the 23 held nodes measured
+2026-09-08 were `0 3 4 5 6 7 8 9 11 12 13 14 15 22 23 24 25 26 27 28 29 30 31`, which includes
+every "loaner" card and excludes six ids the pool does name. A gate that opens a chip a prod worker
+already holds does not fail, it hangs in `futex_wait` on that chip's `CHIP_IN_USE` mutex, so this is
+worth the one `lsof` loop before launching.
 
 Keep the venv. It has since run the whole protenix-v2 size ladder (16 folds over six rungs) and the
 rf3-1024aa accuracy leg, and prod still reads transformers 4.57.6 / huggingface_hub 0.36.2 with
