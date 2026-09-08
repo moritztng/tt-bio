@@ -519,6 +519,30 @@ def _record_trimul_inproj_oom(seq_len: int, hidden: int, batch: int, fused: int)
     cap = min(_TRIMUL_INPROJ_FUSED_CAP.get(key, _TRIMUL_INPROJ_FUSED_BYTES), fused)
     _TRIMUL_INPROJ_FUSED_CAP[key] = max(1, cap // 2)
 
+
+def _trimul_inproj_chunk_cap(seq_len: int, hidden: int, batch: int, chunk: int) -> int:
+    """The widest channel chunk at or below `chunk` whose fused in-projection is inside this
+    shape's recorded byte budget.
+
+    Only a shape DRAM has already refused has a budget below `_TRIMUL_INPROJ_FUSED_BYTES`, so
+    this returns `chunk` unchanged wherever the cap has never fired: a size that folds today
+    keeps its width, its launch count and its arithmetic. Where it has fired, this is what stops
+    every later pairformer block from re-probing the width that was just refused. Read the cap
+    only in the handler and the per-block ladder is: attempt the full width, get refused, halve
+    the budget, narrow to satisfy a budget one halving smaller than the last block's -- so the
+    budget walks to nothing over a fold and every block ends at chunk 1, i.e. `hidden` channel
+    passes. Measured at 4-5 minutes per block on OpenDDE's 2016-token trunk (a 1024-residue
+    fold), which is what put that fold past a 2400 s timeout rather than into an error.
+
+    Narrowing is bit-exact: the chunk is a partition of an independent-channel sum, the same
+    argument `_trimul_chunk_size` and `_trimul_inproj_group` make for their own widths.
+    """
+    budget = _trimul_inproj_budget(seq_len, hidden, batch)
+    while (chunk > 1 and hidden % (chunk // 2) == 0
+           and 4 * chunk * seq_len * seq_len * batch * 2 > budget):
+        chunk //= 2
+    return chunk
+
 # Wormhole 8x9 re-fit of the two trimul constants above. `_apply_grid_thresholds` derives its
 # small-grid values by scaling the Blackhole ones -- the residency threshold by per-core L1 (which
 # fell 7 %) and the chunk budget by core count (which fell 45 %) -- and neither scaling has ever
@@ -4876,6 +4900,8 @@ class TriangleMultiplication(Module):
         memory_config = _triangle_mul_memory_config(H)
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+        if large_seq:
+            chunk_size = _trimul_inproj_chunk_cap(H, self._hidden, batch, chunk_size)
         n_pairs = self._hidden // chunk_size
         group = _trimul_inproj_group(H, chunk_size, batch, n_pairs) if large_seq else 1
         self._gp_in_chunks(chunk_size, group)
@@ -4909,6 +4935,11 @@ class TriangleMultiplication(Module):
         batch = prod(shp[:-3])
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+        if large_seq:
+            # Start inside the byte budget this shape has already been refused above, instead of
+            # re-probing the refused width once per pairformer block. Inert until a refusal has
+            # been recorded for this shape.
+            chunk_size = _trimul_inproj_chunk_cap(H, self._hidden, batch, chunk_size)
         n_pairs = self._hidden // chunk_size
         # The matmul's N and the channel-chunk width are two different numbers this code has been
         # forcing to be one. Only the matmul widens (_TRIMUL_INPROJ_GROUP), and only on the DRAM
@@ -5072,16 +5103,14 @@ class TriangleMultiplication(Module):
                     was = (chunk_size, group)
                     _record_trimul_inproj_oom(
                         H, self._hidden, batch, 4 * chunk_size * group * H * H * batch * 2)
-                    budget = _trimul_inproj_budget(H, self._hidden, batch)
                     # Narrow the channel chunk while even a single group is over the new
                     # budget. On the DRAM path `_trimul_chunk_size` already returns the
                     # minimum tuned width, so this is the only lever below it -- and on
                     # OpenDDE's structural-token axis (2016 tokens for a 1024-residue fold) a
                     # single group IS the whole 0.97 GiB, so the group has nothing left to give
-                    # before this runs.
-                    while (chunk_size > 1 and self._hidden % (chunk_size // 2) == 0
-                           and 4 * chunk_size * H * H * batch * 2 > budget):
-                        chunk_size //= 2
+                    # before this runs. Same helper the call site above enters with, so the
+                    # width a refusal lands on is the width the next block starts at.
+                    chunk_size = _trimul_inproj_chunk_cap(H, self._hidden, batch, chunk_size)
                     n_pairs = self._hidden // chunk_size
                     group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
                     if (chunk_size, group) == was:
