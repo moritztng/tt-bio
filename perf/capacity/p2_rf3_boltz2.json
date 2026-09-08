@@ -1,0 +1,390 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-08T07:38:49Z",
+ "tree": "698fa63fb1fcfab98ec31fd8421ef9cad1f3d283",
+ "dirty": true,
+ "workers": [
+  "pc:0"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=13,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 130,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 190028800
+  },
+  "board_type": "p150a",
+  "host": "pc",
+  "card": 0
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "rf3",
+   "verb": "predict",
+   "worker": "pc:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 109.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 24.8,
+     "progress_events": 1477,
+     "block_calls": 8,
+     "cpu_s_while_quiet": 13.5,
+     "host_ram_floor_mb": 16223,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__",
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 3883834,
+      "samples": 8,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.rf3.template.TemplateEmbedder",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "09:38:58  [pc:tt0] loading model\u2026\n09:39:09  [pc:tt0] cap_1536\n09:39:09  [pc:tt0]   msa\n09:39:09  [pc:tt0]   prep\n09:39:53  [pc:tt0]   trunk 0/1\n09:40:40  [pc:tt0]   saving\n09:40:40  [pc:tt0] \u2713 cap_1536 \u2014 91.1s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_rf3/rf3_results_cap_1536/results.json",
+     "stacks_truncated": 7,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.rf3.template.TemplateEmbedder",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 402.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.9,
+     "progress_events": 11344,
+     "block_calls": 2017,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 11244,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2991408576,
+      "dram_peak_bytes": 9607230464,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__",
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 3893454,
+      "samples": 2017,
+      "truncated": []
+     },
+     "tail": "09:47:12  [pc:tt0]   diffusion 28/49\n09:47:12  [pc:tt0]   diffusion 29/49\n09:47:12  [pc:tt0]   diffusion 30/49\n09:47:12  [pc:tt0]   diffusion 31/49\n09:47:13  [pc:tt0]   diffusion 32/49\n09:47:13  [pc:tt0]   diffusion 33/49\n09:47:13  [pc:tt0]   diffusion 34/49\n09:47:13  [pc:tt0]   diffusion 35/49\n09:47:14  [pc:tt0]   diffusion 36/49\n09:47:14  [pc:tt0]   diffusion 37/49\n09:47:15  [pc:tt0]   diffusion 38/49\n09:47:15  [pc:tt0]   diffusion 39/49\n09:47:15  [pc:tt0]   diffusion 40/49\n09:47:16  [pc:tt0]   diffusion 41/49\n09:47:16  [pc:tt0]   diffusion 42/49\n09:47:16  [pc:tt0]   diffusion 43/49\n09:47:16  [pc:tt0]   diffusion 44/49\n09:47:17  [pc:tt0]   diffusion 45/49\n09:47:17  [pc:tt0]   diffusion 46/49\n09:47:17  [pc:tt0]   diffusion 47/49\n09:47:17  [pc:tt0]   diffusion 48/49\n09:47:22  [pc:tt0]   saving\n09:47:22  [pc:tt0] \u2713 cap_1536 \u2014 390.6s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_resid_rf3_1536/rf3_results_cap_1536/results.json",
+     "dram_peak_bytes": 9607230464,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2991408576,
+     "blocks_instrumented": 2,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 402.0,
+   "dram_peak_bytes": 9607230464,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2991408576,
+   "blocks_instrumented": 2,
+   "host_ram_floor_mb": 11244
+  },
+  {
+   "model": "boltz2",
+   "verb": "predict",
+   "worker": "pc:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 30.4,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.4,
+     "progress_events": 1162,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 21448,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.boltz2.DiffusionTransformerLayer.forward",
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.tenstorrent.MSALayer.__call__",
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 3906669,
+      "samples": 0,
+      "truncated": [
+       [
+        "tt_bio.boltz2.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.tenstorrent.MSA",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        64
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        8
+       ]
+      ]
+     },
+     "tail": "09:47:37  [pc:tt0] loading model\u2026\n09:47:48  [pc:tt0] cap_1536\n09:47:48  [pc:tt0]   msa\n09:47:51  [pc:tt0]   prep\n09:47:53  [pc:tt0]   trunk 0/2\n09:47:53  [pc:tt0] \u2717 cap_1536 \u2014 5.7s\n\n1 failed:\n  \u2717 cap_1536: The size of tensor a (4) must match the size of tensor b (12) at non-singleton dimension 1\n\nDone: 0 ok, 1 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_screen_boltz2/boltz2_results_cap_1536/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.boltz2.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.tenstorrent.MSA",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       64
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       8
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 326.9,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.8,
+     "progress_events": 5851,
+     "block_calls": 6299,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 7927,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3358668736,
+      "dram_peak_bytes": 6203490304,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.boltz2.DiffusionTransformerLayer.forward",
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.tenstorrent.MSALayer.__call__",
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 3906964,
+      "samples": 6299,
+      "truncated": []
+     },
+     "tail": "09:51:52  [pc:tt0]   diffusion 0/200\n09:52:40  [pc:tt0]   diffusion 10/200\n09:52:41  [pc:tt0]   diffusion 20/200\n09:52:43  [pc:tt0]   diffusion 30/200\n09:52:44  [pc:tt0]   diffusion 40/200\n09:52:45  [pc:tt0]   diffusion 50/200\n09:52:46  [pc:tt0]   diffusion 60/200\n09:52:48  [pc:tt0]   diffusion 70/200\n09:52:49  [pc:tt0]   diffusion 80/200\n09:52:51  [pc:tt0]   diffusion 90/200\n09:52:52  [pc:tt0]   diffusion 100/200\n09:52:53  [pc:tt0]   diffusion 110/200\n09:52:55  [pc:tt0]   diffusion 120/200\n09:52:57  [pc:tt0]   diffusion 130/200\n09:52:58  [pc:tt0]   diffusion 140/200\n09:53:00  [pc:tt0]   diffusion 150/200\n09:53:01  [pc:tt0]   diffusion 160/200\n09:53:02  [pc:tt0]   diffusion 170/200\n09:53:04  [pc:tt0]   diffusion 180/200\n09:53:05  [pc:tt0]   diffusion 190/200\n09:53:07  [pc:tt0]   confidence\n09:53:20  [pc:tt0]   saving\n09:53:20  [pc:tt0] \u2713 cap_1536 \u2014 314.9s\n\nDone: 1 ok, 0 failed \u2014 /home/moritz/.coworker/wt/wh-transition-wchunk-hang-fix-p2/perf/capacity/work/out_resid_boltz2_1536/boltz2_results_cap_1536/results.json",
+     "dram_peak_bytes": 6203490304,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 3358668736,
+     "blocks_instrumented": 4,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "screen_unsafe": true,
+   "note": "the screen's depth cut is a candidate cause of its own FAIL (8 stacks cut, no capacity mechanism in the error), so it was not scored; this verdict comes from the un-truncated run. Tier 1 has no fast path for this model.",
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 326.9,
+   "dram_peak_bytes": 6203490304,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 3358668736,
+   "blocks_instrumented": 4,
+   "host_ram_floor_mb": 7927
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 2,
+  "fail_like": 0,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}

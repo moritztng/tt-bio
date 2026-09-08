@@ -12,17 +12,20 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   protenix-v2 at 768 aa hung mid-fold on two different chips, at trunk recycle 6 and recycle 4, and
   the only recovery is a board reset. Neither arm hung on first touch and the two stopped in
   different ttnn calls (`ttnn.layer_norm` inside the W loop, and the fused triangle-multiplication
-  tail), which points at allocator state rather than at one bad shape. Splitting bought nothing -- both row-height budgets
-  already scale the height as `1/width`, so the live L1 per chunk is the same number either way --
-  and it added an extra slice and an extra full-width concat per row block, 288 device ops against
-  154 at that shape, on every Transition call of every recycle. The decision now comes from the L1
-  budget rather than a token count, and asks the one thing the row-height cap cannot absorb: does a
-  single row at the full width already overflow the budget. No shipped shape reaches that, so on
-  Wormhole the split is gone. Below the old 608-token threshold nothing changes: identical row
-  blocking on all four pair channels, and identical structure digests at 256 and 512 aa against a
-  pre-fix build. protenix-v2 now folds 768 / 896 / 1024 aa (290.6 / 402.1 / 476.8 s) and openfold3
-  768 aa (227.0 s) where the shipped engine hung. Blackhole keeps the token-count threshold, which
-  the budget this derivation rests on was never measured on.
+  tail), which points at allocator state rather than at one bad shape. Splitting bought nothing:
+  both row-height budgets already scale the height as `1/width`, so the live L1 per chunk is the
+  same number either way, and it added an extra slice and an extra full-width concat per row
+  block, 288 device ops against 154 at that shape, on every Transition call of every recycle. The
+  decision now comes from the L1 budget rather than a token count, and asks the one thing the
+  row-height cap cannot absorb: does a single row at the full width already overflow the budget.
+  No shipped shape reaches that, so on Wormhole the split is gone. Below the old 608-token
+  threshold nothing changes: identical row blocking on all four pair channels, and identical
+  structure digests at 256 and 512 aa against a pre-fix build. protenix-v2 now folds
+  768 / 896 / 1024 aa (290.6 / 402.1 / 476.8 s) and openfold3 768 aa (227.0 s) where the shipped
+  engine hung. Blackhole keeps the token-count threshold, which the budget this derivation rests
+  on was never measured on, and the whole 1536-token Blackhole capacity baseline was re-recorded on
+  the fixed engine to check that: all 15 cells came back with the same verdict and the same DRAM
+  peak to the byte.
 
 - **Closing a device now actually frees the card.** `ttnn.close_device()` releases the device but
   not the process's claim on the chip -- tt-metal's own docs say so, and direct you to
