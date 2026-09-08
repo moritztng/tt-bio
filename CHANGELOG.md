@@ -7,6 +7,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **Closing a device now actually frees the card.** `ttnn.close_device()` releases the device but
+  not the process's claim on the chip -- tt-metal's own docs say so, and direct you to
+  `ReleaseOwnership()`, which ttnn does not bind. Without it the UMD cluster, its two
+  `/dev/tenstorrent/N` fds and the per-chip `CHIP_IN_USE` mutex all lived until the process exited,
+  so `cleanup()` advertised the card as free while still holding it and the next process to open
+  that card hung in `futex_wait` forever. A tt-bio process that folds and then keeps running held
+  its card the whole time; running the test suite on a card could not finish, because any
+  collection order that put an in-process device test before a device-spawning one stalled the run.
+  Fixed in the one shared close path, so every model and tool inherits it.
+
 - **Triangle attention on the fused kernel now pre-bakes the pair bias.** The fused kernel adds the
   bias before applying its scale, so it wants a bias already multiplied by `sqrt(head_dim)`. The
   fp32-softmax route did that; the fused route did not. Every model that ships
