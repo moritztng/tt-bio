@@ -96,10 +96,12 @@ _RFD3_TARGET = os.path.join(REPO, "perf", "wh-correctness", "results", "payloads
                             "des_rfd3_binder.json")
 
 
-# The softmax probe runs in a CHILD, like every other test in this file. pytest itself must never
-# open the card: an in-process `get_device()` here, even with `cleanup()` afterwards, left the chip
-# in a state that WEDGED the next subprocess to open it (0% CPU, futex_do_wait, needing tt-smi -r 0)
-# -- twice, on the rfd3 job that runs in 11 s standalone.
+# The softmax probe runs in a CHILD, like every other test in this file, so one file's tests are one
+# kind of thing. It used to be forced: an in-process `get_device()` here, even with `cleanup()`
+# afterwards, WEDGED the next subprocess to open the card (0% CPU, futex_do_wait, tt-smi -r 0 to
+# recover) -- twice, on the rfd3 job that runs in 11 s standalone. That was `close_device()` not
+# releasing ownership of the chip, fixed in `tenstorrent._close_device_locked` and pinned by
+# `tests/test_device_close_releases_the_card.py`, so an in-process open here would be safe now.
 _SOFTMAX_CHILD = r"""
 import os, sys, json
 sys.path.insert(0, os.environ["REPO"])
