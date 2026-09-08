@@ -68,17 +68,26 @@ _DEVICE_ENV = ("TT_VISIBLE_DEVICES", "TT_BIO_LEASE_CARDS", "TT_BIO_LEASE_HOLDER"
 
 
 # get_device() caches a module-global handle and holds an EXCLUSIVE flock on the card for the
-# life of the process that opened it. A test file that folds in-process therefore makes the
-# pytest parent the lease holder, and every later test that shells out to run a device fold
-# blocks on that lease until it times out -- test_protenix_confidence opening the device in
-# process is enough to take the four protenix fold legs after it down with it, each one
-# reported as a failure a long way from the file that caused it.
+# life of the process that opened it. A test that folds in-process therefore makes the pytest
+# parent the lease holder, and every later test that shells out to run a device fold blocks on
+# that lease until it times out -- test_protenix_confidence opening the device in process is
+# enough to take the four protenix fold legs after it down with it, each one reported as a
+# failure a long way from the test that caused it.
 #
-# cleanup() closes the chip, releases the lease, and bumps device_generation(), which every
-# module-level device-tensor cache is already required to key on. So the next module that wants
-# a card opens a fresh one and pays only the open.
-@pytest.fixture(scope="module", autouse=True)
-def _release_device_after_module():
+# Per TEST, not per module: a module holds both kinds. In test_token_axis_bucketing_hw.py,
+# test_bucket_lives_at_the_op_boundary_not_in_the_caller folds in process and
+# test_of3_trunk_bucket_padding_is_inert shells out, in that order, in the same file -- so a
+# module-scoped release came two tests too late and both of the latter's legs failed on the
+# parent's own lease (DeviceInUseError after a 120 s wait, "the same holder identity in a
+# DIFFERENT process"). Measured cost of the tighter scope: one device open per in-process
+# device test, 0.35-1.0 s each. Cheap enough not to trade an order-independent suite for.
+#
+# cleanup() closes the chip, hands it back, releases the lease, and bumps device_generation(),
+# which every module-level device-tensor cache is already required to key on. No fixture holds a
+# device handle across tests, so the next test that wants a card opens a fresh one and pays only
+# the open.
+@pytest.fixture(autouse=True)
+def _release_device_after_test():
     yield
     tt = sys.modules.get("tt_bio.tenstorrent")
     if tt is not None and getattr(tt, "_device", None) is not None:
