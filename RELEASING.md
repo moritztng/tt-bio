@@ -47,6 +47,37 @@ PYTHONPATH="$PWD" /tmp/relvenv/bin/python3 scripts/full_parity_gate.py ...
 `full_parity_gate.py`, `perf_regression.py` and `ux_regression.py` all spawn their
 folds and scorers as `sys.executable`, so the choice propagates to every leg.
 
+### The gate interpreter on the WH Galaxy
+
+`japanfold-ssh` (GWH02) has exactly one tt-bio env, `/home/cust-team/mthuening/tt-bio/env`, and
+that env serves JapanFold. It stays on the versions prod ships, so it fails the preflight above
+against main's `transformers>=5.5.0` / `huggingface_hub>=1.5.0` floors and no gate will run on it.
+Do not pip into it.
+
+Use `/home/cust-team/mthuening/gatevenv` instead. It is built empty from prod's own 3.10.19 and
+inherits prod's torch and TT-NN by appending prod's `site-packages` to `sys.path`, so the venv's
+own packages win and prod's tree is never written:
+
+```bash
+PROD=/home/cust-team/mthuening/tt-bio/env/lib/python3.10/site-packages
+GV=/home/cust-team/mthuening/gatevenv
+/home/cust-team/.local/bin/python3.10 -m venv $GV
+printf 'import sys; _p="%s"; _p in sys.path or sys.path.append(_p)\n' "$PROD" \
+    > $GV/lib/python3.10/site-packages/zzz-prod-inherit.pth
+$GV/bin/python -m pip install --no-deps 'transformers>=5.5.0,<6.0' \
+    'huggingface_hub>=1.5.0,<2.0' 'tokenizers>=0.23.1,<0.24.0' 'click>=8.4.2,<9' \
+    'hf-xet>=1.5.2,<2.0.0' httpx httpcore h11 anyio sniffio typer shellingham
+```
+
+`--system-site-packages` does not work here. `~/.local/lib/python3.10/site-packages/zz-ttnn-path.pth`
+does `sys.path.insert(0, <prod site-packages>)`, and a system-site venv processes the user site, so
+prod's transformers 4.57.6 would shadow the venv's 5.x. `--no-deps` is what keeps the venv from
+installing a second numpy on top of prod's 1.26.4; the list above is exactly the set prod's env
+either lacks or carries below a floor transformers 5.x needs.
+
+Run every gate there with `PYTHONPATH="$PWD"` from the checkout under test, and a card outside the
+serving pool (`AIAND_BIO_DEVICE_IDS` is 6-31; 0-5 are the loaner cards, and 18/25/26 never open).
+
 The `[tenstorrent,test]` extras are not optional here. Without `tenstorrent` the venv has
 no TT-NN at all, and the dependency preflight above counts a missing declared dependency
 as a problem, so every gate refuses before it opens a card. `test` supplies pytest, which
