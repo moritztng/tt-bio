@@ -2983,6 +2983,10 @@ _PAIR_BIAS_LN_CAP = os.environ.get("TT_BIO_PAIR_BIAS_LN_CAP", "1") != "0"
 # Off only for the negative control, which has to restore the old gate AND the old absence of any
 # recovery from it. On, a clash here costs this shape class's L1 route; off, it costs the fold.
 _PAIR_BIAS_LN_RETRY = os.environ.get("TT_BIO_PAIR_BIAS_LN_RETRY", "1") != "0"
+# TT_BIO_PAIR_BIAS_TRACE=1 prints the ending block's axis, chunk and byte count at every call.
+# Diagnosis only, and it exists because the first reading of this bug guessed the pair axis from
+# the residue count and was out by 1.945x.
+_PAIR_BIAS_TRACE = os.environ.get("TT_BIO_PAIR_BIAS_TRACE", "0") != "0"
 
 
 def _pair_bias_ln_reserve() -> int:
@@ -5326,6 +5330,18 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
     """
     S = int(z.shape[1] if ending else z.shape[0])
     step = chunk or S
+    if _PAIR_BIAS_TRACE:
+        # One line per call, off by default. The 576 aa throw was first attributed to a
+        # [480, 672, 128] block on the reading that OpenDDE's pair axis is its residue count;
+        # it is not -- `build_structural_token_features` emits a backbone AND a sidechain
+        # structural token per non-GLY residue, so 576 residues are 1120 pair tokens (measured,
+        # ratio 1.945 at every rung from 128 to 1024). An attribution that has to guess the
+        # axis is worth one printed line.
+        blk0 = (step, S, int(z.shape[-1]))
+        print(f"[pair_bias] ending={ending} S={S} chunk={chunk} step={step} "
+              f"z={tuple(z.shape)} block={blk0} bytes={blk0[0]*blk0[1]*blk0[2]*2} "
+              f"row_cap={_pair_bias_ln_row_cap(S, int(z.shape[-1]))} "
+              f"reserve={_pair_bias_ln_reserve()}", flush=True)
     parts = []
     for s in range(0, S, step):
         e = min(s + step, S)

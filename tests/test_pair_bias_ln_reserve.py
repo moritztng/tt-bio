@@ -5,6 +5,14 @@ static circular buffers as a fraction of the block, so its own best case leaves 
 free while the consumer needs 349 184 B (measured; tests/test_l1_clash_census.py). The top of the
 gate's admitted range is therefore broken at every shape and nothing below it is, which is why
 576 aa throws and 608 aa folds. Numbers here are the Galaxy Wormhole 8x9 grid, card 2, 2026-09-08.
+
+Every `width` below is a PAIR-TOKEN count, not a residue count, and the two are not close.
+`build_structural_token_features` emits a backbone and a sidechain structural token per non-GLY
+residue, so OpenDDE's pair axis runs at 1.945x its residue count -- measured on the rung
+sequences: 128 aa -> 249 tokens, 512 -> 995, 544 -> 1057, 576 -> 1120, 640 -> 1243, 1024 -> 1993,
+each then bucketed up to a multiple of 32. `test_the_pair_axis_is_not_the_residue_axis` pins it.
+The first reading of this bug used the residue count and so named a [480, 672, 128] block for a
+throw whose 82 575 360 B is 288 x 1120 x 128 bf16.
 """
 import pytest
 
@@ -46,16 +54,21 @@ def test_the_old_multiplicative_gate_admits_what_cannot_fit(wh):
     assert 480 * 672 * 128 * 2 <= biggest
 
 
-def test_the_broken_band_holds_exactly_one_bucket(wh):
-    """Non-monotonicity, derived: 672 structural tokens land in it and no other multiple of 32."""
+def test_the_broken_band_is_one_bucket_wide_and_no_rung_is_in_it(wh):
+    """The band is real and narrow, and at chunk 480 no rung's pair width reaches it.
+
+    Enumerated over the whole pair axis, to 2048: `1024 aa` is 2016 pair tokens, so a range that
+    stops at 1056 stops halfway. Exactly one multiple of 32 is admitted by the 1.25 gate and too
+    big to leave the consumer its buffers -- 672 tokens -- and that is 345 residues, which is not
+    a rung and not the 576 aa throw. So the throw is NOT a block at chunk 480: 576 aa is 1120
+    tokens and 480 x 1120 x 128 bf16 is 137 625 600 B, which misses L1 by 63 %.
+    """
     old = int(WH_L1_PER_CORE * WH_CORES / tt.TRANSPOSE_L1_HEADROOM)
     safe = (WH_L1_PER_CORE - LN_CB_NEED) * WH_CORES  # volume that still leaves the consumer room
-    band = [n for n in range(32, 1057, 32) if safe < 122880 * n <= old]   # 122880 = 480 x 128 x 2
+    band = [n for n in range(32, 2049, 32) if safe < 122880 * n <= old]   # 122880 = 480 x 128 x 2
     assert band == [672]
-    # 640 fits under the old gate on 24 640 B/core of slack; 704 misses L1 entirely and so runs
-    # DRAM, where there is no clash. A bigger input succeeding is the gate's boundary, not a
-    # paradox.
     assert 122880 * 640 <= safe and 122880 * 704 > old
+    assert 480 * 1120 * 128 * 2 > old                 # 576 aa at chunk 480 never reaches L1
 
 
 def test_the_new_gate_leaves_the_consumer_room_at_every_admitted_shape(wh):
@@ -67,18 +80,26 @@ def test_the_new_gate_leaves_the_consumer_room_at_every_admitted_shape(wh):
     assert free >= LN_CB_NEED
 
 
-def test_the_new_gate_refuses_the_576_block_and_keeps_the_544_one(wh):
+def test_the_gate_and_the_cap_agree_on_what_reaches_l1(wh):
+    """The reserve refuses; the cap then names a height that fits. Both, or the route is lost.
+
+    Stated over the rungs' real pair widths. Every one of them is chunked (`SEQ_LEN_MORE_CHUNKING`
+    is 608 on this part and the smallest rung here is 1024 tokens), and at chunk 480 every one of
+    them misses L1 under either gate -- which is why the cap, not the reserve, is what recovers
+    the route.
+    """
     reserve = tt._pair_bias_ln_reserve()
     cap = admitted(WH_L1_PER_CORE, WH_CORES, reserve)
-    assert 480 * 672 * 128 * 2 > cap                # the throw: L1 refused, so no clash
-    # 544 aa takes the non-chunked branch (S <= SEQ_LEN_MORE_CHUNKING) with the whole 544-token
-    # pair tensor, which fits today and must still fit. This is what rules out pricing the
-    # reserve on top of 1.25 as well.
-    assert 544 * 544 * 128 * 2 <= cap
-    assert 544 * 544 * 128 * 2 * tt.TRANSPOSE_L1_HEADROOM > cap
+    for width in (1024, 1088, 1120, 1248, 1504, 1760, 2016):     # 512..1024 aa
+        assert 480 * width * 128 * 2 > cap                        # chunk 480 never fits
+        rows = tt._pair_bias_ln_row_cap(width, 128)
+        assert 0 < rows < 480                                     # so the cap always binds
+        blk = width * rows * 128 * 2
+        assert blk <= cap                                         # and what it names does fit
+        assert WH_L1_PER_CORE - blk // WH_CORES >= LN_CB_NEED
 
 
-@pytest.mark.parametrize("width,expect", [(672, 448), (640, 448), (1024, 288), (512, 576)])
+@pytest.mark.parametrize("width,expect", [(672, 448), (1120, 256), (2016, 128), (512, 576)])
 def test_row_cap_keeps_the_l1_route_instead_of_abandoning_it(wh, width, expect):
     cap = tt._pair_bias_ln_row_cap(width, 128)
     assert cap == expect
@@ -90,15 +111,16 @@ def test_row_cap_keeps_the_l1_route_instead_of_abandoning_it(wh, width, expect):
         assert cap > tt.TRIANGLE_ATT_CHUNK_SIZE_FAST or cap >= 480   # does not bind below 640
 
 
-def test_1024_tokens_keep_the_l1_route(wh):
-    """The ceiling this exists for. 288 rows of a 1024-token block, still in L1."""
-    cap = tt._pair_bias_ln_row_cap(1024, 128)
-    blk = 1024 * cap * 128 * 2
+def test_1024_aa_keeps_the_l1_route(wh):
+    """The ceiling this exists for. 1024 residues are 2016 pair tokens, and 128 rows of them fit."""
+    cap = tt._pair_bias_ln_row_cap(2016, 128)
+    assert cap == 128
+    blk = 2016 * cap * 128 * 2
     assert blk <= admitted(WH_L1_PER_CORE, WH_CORES, tt._pair_bias_ln_reserve())
     assert WH_L1_PER_CORE - blk // WH_CORES >= LN_CB_NEED
-    # Without the cap the 1024 block is 125 829 120 B and misses L1 by 19 %, so the route is
-    # something the cap RECOVERS, not something it costs.
-    assert 1024 * 480 * 128 * 2 > WH_L1_PER_CORE * WH_CORES / tt.TRANSPOSE_L1_HEADROOM
+    # Uncapped, the 2016-token block at chunk 480 is 247 726 080 B and misses L1 by 193 %, so the
+    # route is something the cap RECOVERS, not something it costs.
+    assert 2016 * 480 * 128 * 2 > WH_L1_PER_CORE * WH_CORES / tt.TRANSPOSE_L1_HEADROOM
 
 
 def test_blackhole_does_not_move(monkeypatch):
@@ -108,7 +130,7 @@ def test_blackhole_does_not_move(monkeypatch):
     monkeypatch.setattr(tt, "_IS_SMALL_GRID", False)
     assert tt._pair_bias_ln_reserve() == 0
     assert tt._pair_bias_ln_row_cap(672, 128) == 0          # 0 means "no cap", not "cap of 0"
-    assert tt._pair_bias_ln_row_cap(1024, 128) == 0
+    assert tt._pair_bias_ln_row_cap(2016, 128) == 0
 
 
 def test_cap_off_switch_leaves_the_gate_on(wh, monkeypatch):
@@ -139,7 +161,7 @@ def test_the_non_chunked_geometry_never_lands_in_the_broken_band(wh):
     through `_transpose_memory_config`, with no reserve and no retry. It runs when the pair width
     is at or below `SEQ_LEN_MORE_CHUNKING`, which `_apply_grid_thresholds` snaps to 608 on this
     part, and its volume is 256 x Nsw^2 rather than the chunked path's 122 880 x Nsw. Solve for
-    that band and it opens at Nsw 561 and shuts at 574: no multiple of 32 is inside, so the
+    that band and it opens at 561 pair tokens and shuts at 574: no multiple of 32 is inside, so the
     branch is safe by arithmetic. Pinned because "safe by arithmetic" stops being true the moment
     the bucket, the channel count or the threshold moves, and then it should fail here rather
     than in a fold.
@@ -151,3 +173,23 @@ def test_the_non_chunked_geometry_never_lands_in_the_broken_band(wh):
     # The two neighbours that bracket it, so the test is not vacuous on a shifted band.
     assert 256 * 544 * 544 <= safe                  # admitted to L1 and the consumer fits
     assert 256 * 576 * 576 > old                    # refused L1, runs DRAM, no clash
+
+
+def test_the_pair_axis_is_not_the_residue_axis():
+    """OpenDDE's pair track runs at 1.945x its residue count, and every byte budget here is on it.
+
+    MEASURED on the rung sequences with `build_structural_token_features`, host-only, 2026-09-08:
+    a backbone token plus a sidechain token per non-GLY residue. Pinned because reading a residue
+    count as a pair width is what named the wrong block for the 576 aa throw, and nothing in the
+    log distinguishes the two -- both factor 82 575 360 B exactly.
+    """
+    from tt_bio.token_axis import bucketed_width
+    measured = {128: 249, 256: 497, 512: 995, 544: 1057, 576: 1120,
+                608: 1183, 640: 1243, 768: 1494, 896: 1744, 1024: 1993}
+    for res, ns in measured.items():
+        assert 1.93 < ns / res < 1.96, (res, ns)
+    assert bucketed_width(measured[576], 32) == 1120
+    assert bucketed_width(measured[1024], 32) == 2016
+    # The two readings of the throw's 82 575 360 B, and why the axis has to be measured:
+    assert 480 * 672 * 128 * 2 == 82575360          # the residue-count reading, wrong
+    assert 288 * 1120 * 128 * 2 == 82575360         # the pair-token reading, 576 aa
