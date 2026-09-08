@@ -58,6 +58,14 @@
       "target_residues": 1008,
       "cif": "laczc_1008.cif",
       "hotspots_local": "511, 512, 513"
+    },
+    "laczc_960_b64": {
+      "yaml": "laczc_960_b64.yaml",
+      "target_residues": 960,
+      "binder_length": 64,
+      "cif": "laczc_960.cif",
+      "hotspots_local": "480, 481, 482",
+      "note": "exactly 1024 tokens, the sum the platform refuses above; 960 + 64 reuses a checked CIF"
     }
   },
   "chain_residue_range": [

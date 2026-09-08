@@ -1,0 +1,10 @@
+# Exactly 1024 tokens, which is what the platform accepts (limits.py caps target +
+# binder, not target alone). 960 + 64 rather than 944 + 80 so the CIF is one whose cut
+# rule is already checked byte-for-byte against the recipe; binder_length is a
+# first-class user parameter, so this exercises the refusal boundary as a user hits it.
+target:
+  file: "laczc_960.cif"
+  chains:
+    A:
+      hotspots: [480, 481, 482]
+binder_length: 64
