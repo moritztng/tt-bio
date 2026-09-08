@@ -41,19 +41,30 @@ zero backbone breaks. None of the three changes is bit-exact with what it replac
 `TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0`, `TT_BIO_RF3_MSA_FUSED_SDPA=0` and
 `TT_BIO_RF3_GLN_ROW_FOLD=0` restore the old routes and the old ceiling.
 
-RFdiffusion3 hit the same shape of wall on the design side and it moved from 490 to 704 residues
-on 2026-09-07. The token initializer's atom-pair section was building its product over the whole
-token axis, so 640 residues asked for a single 2.11 GB buffer; it is row-blocked against the
-part's own DRAM now, which is both lighter and faster (71.2 s against 124.5 s, and 8.2 GB host RSS
-against 16.1 GB, at 512 residues on the same card with the budget the only difference). Designs up
-to about 310 residues stay in a single block and run the old path byte for byte, and the five
-tensors the initializer hands the sampler are md5-identical at 128, 256, 480 and 512.
-`TT_BIO_ATOM_PAIR_BUDGET_BYTES=0` restores the unblocked path and the 640-residue wall with it.
+RFdiffusion3 hit the same shape of wall on the design side and it went from 490 to 704 to 1024
+residues over two passes. First the token initializer's atom-pair section, which was building its
+product over the whole token axis, so 640 residues asked for a single 2.11 GB buffer; it is
+row-blocked against the part's own DRAM now, which is both lighter and faster (71.2 s against
+124.5 s, and 8.2 GB host RSS against 16.1 GB, at 512 residues on the same card with the budget the
+only difference). Designs up to about 310 residues stay in a single block and run the old path byte
+for byte, and the five tensors the initializer hands the sampler are md5-identical at 128, 256, 480
+and 512. `TT_BIO_ATOM_PAIR_BUDGET_BYTES=0` restores the unblocked path and the 640-residue wall
+with it.
 
-The 704 holds at the 100 diffusion steps a real run uses, not at a short one. A 2-step run never
-passes `D_II_self`, so it never enters self-conditioning, and the same SwiGLU in the pair
-transition then asks for half the bytes. A ladder walked at 2 steps reported 992 and that number
-is withdrawn.
+That left 704, and the thing holding it was a budget that had never applied. The pair transition
+priced the L1 residency of its SwiGLU against a fixed 138 MB, and a Wormhole chip has 100 MB of L1,
+so nothing was ever declined and at 768 residues the op asked the allocator for two buffers that
+together miss a bank by 5408 bytes. 0.4 %, which is why 768 used to fold two times in three instead
+of failing cleanly. The budget reads the part it is running on now, so above 704 the wider pair
+transition writes to DRAM instead, and RFD3 designs 640, 704, 768, 832, 896, 960 and 1024 residues
+on a 12 GiB Wormhole card, in 141 to 286 seconds, twice each on two different chips with
+byte-identical output. Declining costs about 4 % of wall where it fires and buys the design.
+Nothing below 768 changes path, and at 768 itself the old unconditional-L1 route returns the same
+structure to the byte, so this is a capacity change and not an accuracy one.
+
+Both ceilings hold at the 100 diffusion steps a real run uses, not at a short one. A 2-step run
+never passes `D_II_self`, so it never enters self-conditioning, and the same SwiGLU then asks for
+half the bytes. A ladder walked at 2 steps reported 992 and that number is withdrawn.
 
 **A cell that folds does not license the sizes below it.** These four targets fold, and OpenDDE
 still throws at 576 residues on the same pool. The throw is an L1 static circular-buffer clash:
