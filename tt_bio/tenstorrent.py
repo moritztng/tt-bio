@@ -3772,6 +3772,60 @@ def _open_device_locked(device_id, kwargs):
         return dev
 
 
+#: ``tt::tt_metal::detail::ReleaseOwnership()``, which ttnn does not bind. Nullary and void,
+#: so calling it through the loaded library needs no argument marshalling.
+_RELEASE_OWNERSHIP_SYMBOL = "_ZN2tt8tt_metal6detail16ReleaseOwnershipEv"
+
+
+@lru_cache(maxsize=1)
+def _release_ownership_fn():
+    """Resolve ReleaseOwnership in the libtt_metal.so this process already loaded.
+
+    Read from /proc/self/maps rather than guessing the wheel's layout, so the symbol comes
+    from the library actually backing ttnn (wheel or source build), and dlopen returns the
+    existing handle instead of loading a second copy.
+    """
+    import ctypes
+    path = None
+    with open("/proc/self/maps") as f:
+        for line in f:
+            cand = line.rstrip().rsplit(" ", 1)[-1]
+            if cand.endswith("libtt_metal.so"):
+                path = cand
+                break
+    if path is None:
+        raise RuntimeError("libtt_metal.so is not mapped in this process; "
+                           "ttnn must be imported and a device opened first")
+    fn = getattr(ctypes.CDLL(path), _RELEASE_OWNERSHIP_SYMBOL)
+    fn.restype = None
+    fn.argtypes = []
+    return fn
+
+
+def _close_device_locked(dev):
+    """Close the device AND hand the chip back, so a closed card is a free card.
+
+    ``ttnn.close_device()`` frees the device's own resources but not this process's claim on
+    the hardware. tt-metal says so itself, in the docstring of ``CloseDevices``: "After this
+    call, this process still controls all devices. Call ReleaseOwnership() to fully release
+    ownership." What survives a close is the ``MetalContext`` singleton, and with it the UMD
+    cluster, its two ``/dev/tenstorrent/<N>`` fds and the ``CHIP_IN_USE`` robust mutex UMD
+    takes in ``LocalChip::start_device`` -- all of them until the process exits. The next
+    process to open the same chip then blocks in ``futex_wait`` inside ``start_device`` and
+    never comes back, which is how one in-process device test wedged every later test that
+    spawns a child (v0.8.0 release attempt: two fds still on the card after ``cleanup()``,
+    and pytest could not finish the device suite on any card).
+
+    Closing and releasing are one operation because a caller has no use for the half-way
+    state, and both run through the UMD device path, so both belong inside
+    ``_device_init_lock`` (see ``_open_device_locked``). ``MetalContext`` is recreated on
+    next access, so a later ``get_device()`` in this same process still works.
+    """
+    with _device_init_lock():
+        ttnn.close_device(dev)
+        _release_ownership_fn()()
+
+
 def _assert_local_dispatch(dev):
     """Verify a freshly-opened chip can actually dispatch a program.
 
@@ -3789,11 +3843,10 @@ def _assert_local_dispatch(dev):
         ttnn.add(t, t)
         ttnn.synchronize_device(dev)
     except Exception as e:
-        with _device_init_lock():
-            try:
-                ttnn.close_device(dev)
-            except Exception:
-                pass
+        try:
+            _close_device_locked(dev)
+        except Exception:
+            pass
         raise RuntimeError(f"device bring-up failed the local-dispatch check "
                            f"(likely a remote-only init): {e}") from e
 
@@ -3826,7 +3879,11 @@ def get_device(trace_region_size=0):
         # an orphaned holder keeps its flock and defers every later job on that card.
         from tt_bio.device_lease import CardSetLease, arm_orphan_guard
         arm_orphan_guard()
-        _device_lease = CardSetLease().acquire()
+        # Normally None here. A cleanup() that failed to hand the chip back keeps its lease
+        # on purpose (the card is genuinely still held), and flock is per open file
+        # description, so re-acquiring in this same process would block on ourselves.
+        if _device_lease is None:
+            _device_lease = CardSetLease().acquire()
         try:
             _device = _open_and_init_device(trace_region_size)
         except Exception:
@@ -4151,17 +4208,15 @@ def cleanup():
             ttnn.synchronize_device(_device)
         except Exception:
             pass
-        # Closing also runs through the UMD device path, so serialize it with
-        # opens (see _device_init_lock): a close racing an open on another chip
-        # contends on the same cross-process init mutexes.
-        with _device_init_lock():
-            ttnn.close_device(_device)
+        _close_device_locked(_device)
         _device = None
         _trace_region_size = 0
         _device_generation += 1
-    # Release the physical-card lease AFTER the chip is closed, so the card is not
-    # advertised as free while UMD teardown is still in flight. The kernel also drops
-    # the flock on process exit, so a skipped cleanup (e.g. SIGKILL) still frees it.
+    # Release the physical-card lease only after the chip is closed AND handed back, so
+    # the card is never advertised as free while this process still holds it. If
+    # _close_device_locked raised, we never get here and the lease stays held, which is the
+    # truth. The kernel also drops the flock on process exit, so a skipped cleanup (e.g.
+    # SIGKILL) still frees it.
     if _device_lease is not None:
         _device_lease.release()
         _device_lease = None
