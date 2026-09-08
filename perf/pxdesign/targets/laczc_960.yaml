@@ -1,0 +1,6 @@
+target:
+  file: "laczc_960.cif"
+  chains:
+    A:
+      hotspots: [480, 481, 482]
+binder_length: 80

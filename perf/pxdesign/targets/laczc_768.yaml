@@ -1,5 +1,5 @@
 target:
-  file: "/work/targets2/laczc_768.cif"
+  file: "laczc_768.cif"
   chains:
     A:
       hotspots: [384, 385, 386]
