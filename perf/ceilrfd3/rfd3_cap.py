@@ -11,6 +11,7 @@ surviving setup is not the same as running.
 
     RFD3_CAP_LEN=390 TT_VISIBLE_DEVICES=<umd> PYTHONPATH=$PWD python3 perf/ceilrfd3/rfd3_cap.py
 """
+import hashlib
 import json
 import os
 import pathlib
@@ -27,7 +28,9 @@ from tt_bio.rfd3.design import build_token_initializer, build_diffusion_module  
 from tt_bio.rfd3.sampler import RFD3Sampler                                      # noqa: E402
 from tt_bio.rfd3.input import InputSpecification                                 # noqa: E402
 from tt_bio.rfd3.featurize import featurize                                      # noqa: E402
-from tt_bio.rfd3.model import set_tune_matmul_for_atoms, ATOM_PAIR_BLOCK_STATS   # noqa: E402
+from tt_bio.rfd3.model import (set_tune_matmul_for_atoms, ATOM_PAIR_BLOCK_STATS,   # noqa: E402
+                              PTL1STATS, PTL1DECLINES)
+from tt_bio.tenstorrent import l1_resident_budget_bytes                          # noqa: E402
 from tt_bio.tenstorrent import get_device                                        # noqa: E402
 import tt_bio                                                                    # noqa: E402
 
@@ -52,6 +55,8 @@ rec = {"target": TARGET, "target_res": LEN, "binder": int(BINDER), "steps": STEP
        "total_res": LEN + int(BINDER),
        "host": HOST, "card": os.environ.get("TT_VISIBLE_DEVICES"), "tag": TAG,
        "atom_pair_budget_env": os.environ.get("TT_BIO_ATOM_PAIR_BUDGET_BYTES"),
+       "l1_budget_env": os.environ.get("TT_BIO_L1_RESIDENT_BUDGET_BYTES"),
+       "coords_md5": None, "pt_l1": None,
        "atoms": None, "stage": "start", "ok": False, "error": None, "dram": {}, "l1": {}}
 
 
@@ -147,6 +152,11 @@ try:
             dm, 1, L, coord0, f, init, is_motif,
             generator=[torch.Generator().manual_seed(7)])
     census(dev, "sample")
+    # md5 of the sampled coordinates, because THIS lever runs inside the diffusion loop: the
+    # token initializer's five digests cannot see it at all, and they are what the atom-pair row
+    # block was proved on. fp32 contiguous bytes, so the digest is the tensor and not a repr.
+    rec["coords_md5"] = hashlib.md5(
+        X.detach().to(torch.float32).contiguous().numpy().tobytes()).hexdigest()
     rec["coords_finite"] = bool(torch.isfinite(X).all())
     rec["atoms_out"] = int(X.shape[1])
     rec["ok"] = rec["coords_finite"] and rec["atoms_out"] == L
@@ -160,6 +170,12 @@ except Exception as e:                                    # noqa: BLE001
     rec["error"]["py"] = [
         "%s:%d %s" % (pathlib.Path(fs.filename).name, fs.lineno, (fs.line or "").strip())
         for fs in traceback.extract_tb(e.__traceback__)][-12:]
+# Whether the L1-residency gate actually decided anything at this size. A rung whose verdict is
+# "the residency was declined" has to SAY so: an unchanged digest is what a working decline and a
+# dead gate both produce (`negative-control-must-break-what-check-reads`).
+rec["pt_l1"] = {"budget_B": l1_resident_budget_bytes(),
+                "granted": PTL1STATS[0], "declined": PTL1STATS[1],
+                "declines": dict(PTL1DECLINES)}
 rec["wall_s"] = round(time.time() - t0, 1)
 try:
     # Host RAM has been this model's binding resource before, so the peak is measured
@@ -177,3 +193,5 @@ print("[cap] res=%d atoms=%s stage=%s ok=%s %s"
          (rec["error"]["type"] if rec["error"] else "")), flush=True)
 print("[dram] " + json.dumps(rec["dram"]), flush=True)
 print("[l1] " + json.dumps(rec["l1"]), flush=True)
+print("[pt_l1] " + json.dumps(rec["pt_l1"]), flush=True)
+print("[md5] " + str(rec["coords_md5"]), flush=True)
