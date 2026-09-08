@@ -130,3 +130,24 @@ def test_row_cap_is_a_multiple_of_the_tile_and_of_the_token_bucket(wh):
         cap = tt._pair_bias_ln_row_cap(w, 128)
         assert cap % 32 == 0, w
         assert cap > 0, w
+
+
+def test_the_non_chunked_geometry_never_lands_in_the_broken_band(wh):
+    """The one path the fix does not touch, and why it does not have to.
+
+    `TriangleAttention.__call__`'s non-chunked ending branch still asks for the whole pair tensor
+    through `_transpose_memory_config`, with no reserve and no retry. It runs when the pair width
+    is at or below `SEQ_LEN_MORE_CHUNKING`, which `_apply_grid_thresholds` snaps to 608 on this
+    part, and its volume is 256 x Nsw^2 rather than the chunked path's 122 880 x Nsw. Solve for
+    that band and it opens at Nsw 561 and shuts at 574: no multiple of 32 is inside, so the
+    branch is safe by arithmetic. Pinned because "safe by arithmetic" stops being true the moment
+    the bucket, the channel count or the threshold moves, and then it should fail here rather
+    than in a fold.
+    """
+    old = int(WH_L1_PER_CORE * WH_CORES / tt.TRANSPOSE_L1_HEADROOM)
+    safe = (WH_L1_PER_CORE - LN_CB_NEED) * WH_CORES
+    band = [n for n in range(32, 641, 32) if safe < 256 * n * n <= old]
+    assert band == []
+    # The two neighbours that bracket it, so the test is not vacuous on a shifted band.
+    assert 256 * 544 * 544 <= safe                  # admitted to L1 and the consumer fits
+    assert 256 * 576 * 576 > old                    # refused L1, runs DRAM, no clash
