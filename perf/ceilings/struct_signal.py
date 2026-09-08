@@ -14,7 +14,7 @@ shifting every residue above 500 by 20 A moves `worst_ca_ca` 4.20 -> 18.56 and `
 `clash_frac` 0.0071 -> 0.1288 and leaves continuity alone. For scale, the deposited experimental
 9SAT reads `clash_frac` 0.00098 and `worst_ca_ca` 3.91 A through this same code.
 
-    python perf/ceilings/struct_signal.py <out_dir>
+    python perf/ceilings/struct_signal.py <out_dir_or_cif>
 """
 import glob
 import json
@@ -89,10 +89,16 @@ def main(out_dir):
     # one CIF per spec straight into `--out_dir` with no results.json at all. Globbing only the
     # first is why RFD3's ceiling rungs went unscored -- the instrument reported `scored: 0` and
     # the ladder recorded finite coordinates instead of geometry.
-    cif = sorted(glob.glob(f"{out_dir}/*results_*/structures/*.cif"))
-    res = sorted(glob.glob(f"{out_dir}/*results_*/results.json"))
-    if not cif:
-        cif = sorted(glob.glob(f"{out_dir}/*.cif"))
+    # A single CIF is also a valid argument. A directory holding one ladder's rungs holds
+    # several CIFs, and scoring `sorted(...)[0]` of those scores whichever rung sorts first
+    # (cap1024 before cap640) rather than the one asked about.
+    if out_dir.endswith(".cif"):
+        cif, res = [out_dir], []
+    else:
+        cif = sorted(glob.glob(f"{out_dir}/*results_*/structures/*.cif"))
+        res = sorted(glob.glob(f"{out_dir}/*results_*/results.json"))
+        if not cif:
+            cif = sorted(glob.glob(f"{out_dir}/*.cif"))
     if not cif:
         print(json.dumps({"scored": 0}))
         return
