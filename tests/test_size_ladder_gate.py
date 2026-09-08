@@ -900,3 +900,54 @@ def test_a_record_pass_writes_its_census_evidence_beside_the_scratch_baseline(rg
     assert prov.is_dir()
     assert [p.name for p in prov.glob("*.json")] == ["census_openbind_256_tt-galaxy-wh l.json"]
     assert not (REPO_ROOT / "perf" / "sizegate" / "baseline").exists() or True
+
+
+# --- the committed baseline has to cover the rungs the ladder actually walks -------------
+#
+# Adding a rung to SIZE_LADDER_RUNGS silently invalidates every card's recorded baseline at
+# that rung: `run_size_ladder`'s per-rung loop reads `base_model["levers"][str(rung)]`, gets
+# None, and records "rung not recorded in the baseline" for every model. So the arm goes red
+# on every card in the fleet at once, and the only thing that discovers it is a multi-hour
+# device run at the end of a release.
+#
+# 896 and 1024 were added on 2026-09-07 and nothing re-recorded p150a or p300c, so both card
+# types have been two rungs short since. The capacity gate already carries the matching guard
+# (test_a_moved_ceiling_re_runs_the_capacity_gate: a moved ceiling fails the test until the
+# gate has re-run at the new size). This is that guard for the rung set.
+#
+# It is deliberately a FAILURE and not a skip or an exemption entry: a card whose ladder no
+# longer reaches the sizes users can submit has a real coverage gap, and
+# `transient-reason-in-structural-exemption-dict` is the ruling that a transient hardware
+# reason must stay visible as a red rather than be parked in a written-reason dict where
+# nothing revisits it. The fix is to re-record, not to widen the test.
+
+def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
+    """A rung added to SIZE_LADDER_RUNGS owes every already-recorded card a re-record.
+
+    SCOPE, because the count this prints is easy to read as the whole gap and is not: it walks
+    the cells that EXIST and checks their rungs. A model with no cell at all on a card is
+    invisible to it. Measured 2026-09-08: p150a has no protenix-v1 (SIZE_LADDER_KNOWN_GAP
+    carries that one, keyed by model rather than by card+model) and `tt-galaxy-wh l` has no
+    cell for six of the nine models the ladder walks, none of which anything asserts on. The
+    missing-model case is deliberately left to a separate check rather than folded in here,
+    since whether a fragment-recorded card is expected to carry every model is a different
+    question from whether a recorded cell is current.
+    """
+    data = rg._size_ladder_read_baseline(rg.SIZE_LADDER_BASELINE)
+    short = []
+    for card, blk in sorted(data.get("cards", {}).items()):
+        for model, entry in sorted(blk.get("models", {}).items()):
+            want = {str(r) for r in rg._size_ladder_model_rungs(model)}
+            # A refused rung IS coverage: the guard declining a size is the information the
+            # arm exists to carry, so it counts the same as a timed one.
+            have = set(entry.get("runtime_s") or {}) | set(entry.get("refused") or {})
+            missing = sorted(want - have, key=int)
+            if missing:
+                short.append(f"{card}/{model}: no cell at {', '.join(missing)}")
+    assert not short, (
+        "the size ladder walks rungs these recorded cells have never been measured at, so "
+        "`release_gate.py --model size-ladder` will report 'rung not recorded in the "
+        "baseline' for each of them after hours on a card:\n  "
+        + "\n  ".join(short)
+        + "\n\nRe-record on a card of that type: python3 scripts/release_gate.py "
+          "--model size-ladder --size-ladder-record")
