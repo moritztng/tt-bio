@@ -18,7 +18,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from ceilings.struct_signal import clashes, read_cif  # noqa: E402
+from ceilings.struct_signal import CA_CA_BREAK, clashes, read_cif  # noqa: E402
 
 _DRG = {}
 
@@ -37,6 +37,10 @@ def crop_protrusion(target, crop):
 
 
 def breaks_with_index(atom, asym, seq, xyz):
+    # `CA_CA_BREAK` is the release gate's own constant, reached through struct_signal. This
+    # function had its own 4.5 and struct_signal had another, so the same backbone could be
+    # two breaks here and one there. Measured over the 52 committed ceiling CIFs: the count
+    # differs on 3 and the verdict (broken at all, which is what the ladder records) on none.
     ca = atom == "CA"
     out, worst = [], 0.0
     for ch in np.unique(asym[ca]):
@@ -49,7 +53,7 @@ def breaks_with_index(atom, asym, seq, xyz):
             continue
         d = np.linalg.norm(np.diff(p, axis=0), axis=1)
         worst = max(worst, float(d[adj].max()))
-        for i in np.nonzero(adj & (d > 4.5))[0]:
+        for i in np.nonzero(adj & (d > CA_CA_BREAK))[0]:
             out.append((str(ch), int(s[i]), int(s[i + 1]), round(float(d[i]), 2)))
     return worst, out
 
@@ -71,9 +75,10 @@ def main(paths, md=False):
                                 ("spec_id", "target", "target_res", "binder", "total_res", "seed")},
                              "err": (r.get("error") or {}).get("type", "no-cif")})
                 continue
-            atom, comp, asym, seq, elem, xyz = read_cif(r["cif"])
+            cols = read_cif(r["cif"])
+            atom, comp, asym, seq, elem, xyz = cols
             worst, brk = breaks_with_index(atom, asym, seq, xyz)
-            frac, _ = clashes(asym, seq, elem, xyz)
+            frac, _ = clashes(*cols)
             rows.append({"spec_id": r["spec_id"], "target": pathlib.Path(r["target"]).stem,
                          "target_res": r["target_res"], "binder": r["binder"],
                          "total_res": r["total_res"], "seed": r["seed"],

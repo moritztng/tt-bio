@@ -5154,7 +5154,7 @@ class TriangleMultiplication(Module):
                 # happens after a throw -- so a size that folds today keeps its arithmetic and
                 # its launch count, and only a size that produces no structure at all sees a
                 # different partition.
-                oom = large_seq and "Out of Memory" in msg
+                oom = large_seq and _dram_oom(e)
                 if not oom and (large_seq or "clash with L1 buffers" not in msg):
                     raise
                 for _t in x_chunks:
