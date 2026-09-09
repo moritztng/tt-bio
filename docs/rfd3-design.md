@@ -50,9 +50,31 @@ spec file.
 The contig string reads left to right: `A1-100` takes residues 1-100 of chain
 A from the input structure verbatim (fixed coordinates and sequence); a bare
 number (`70`) is a designed region of that exact length; a range (`60-80`)
-randomizes the designed length per design. `/0` marks a chain break. See
-`tt-bio design --help` for the full grammar (indexed/unindexed motifs,
-per-atom fixing, symmetry, and the rest of the InputSelection mini-language).
+randomizes the designed length per design. `/0` marks a chain break. The full
+grammar (indexed and unindexed motifs, per-atom fixing, the InputSelection
+mini-language) is in the module docstring of `tt_bio/rfd3/input.py`; the fields a
+spec can actually ask for are below.
+
+### What a spec can ask for
+
+Honoured: `input`, `contig`, `length`, `unindex` (string and dict form),
+`select_fixed_atoms` (per-residue atom lists, and the `BKBN` shorthand for
+N/CA/C/O), `ligand`, `is_non_loopy`, `partial_t`, plus `select_buried` and
+`select_exposed` on a spec that names a `ligand`.
+
+Refused, because the feature they would set is not built yet and a spec that
+asked for them used to run and quietly return an unconditioned design:
+`select_hotspots`, `select_partially_buried`, `select_hbond_donor`,
+`select_hbond_acceptor`, `select_unfixed_sequence`, `redesign_motif_sidechains`,
+`ori_token`, `infer_ori_strategy`, `plddt_enhanced`, `dialect` other than 2,
+`cif_parser_args`, `extra`, `select_buried`/`select_exposed` without a `ligand`,
+the `TIP` atom shorthand, and any key not in the upstream schema. Hotspot
+conditioning is the one most people want; there is no way to steer an RFD3 design
+toward an epitope in this port today. `tt-bio design --model boltzgen` does have
+it, as `binding_types`.
+
+`symmetry` is accepted by the parser but the featurizer raises on it from a real
+PDB, like the ligand and enzyme modes in the table above.
 
 Each design writes one `<id>.cif` to `--out_dir`. `--num_timesteps` controls
 the diffusion sampling steps (default 4, a fast smoke setting; the upstream

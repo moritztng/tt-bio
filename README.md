@@ -268,8 +268,10 @@ tt-bio saprot proteins.fasta --model saprot-650m --devices 0,1    # data-paralle
 `--structure` is a PDB/cif file (single sequence) or a directory of `<id>.pdb`/`<id>.cif`
 files, one per FASTA id. The 3Di structural tokens are computed on host with
 [Foldseek](https://github.com/steineggerlab/foldseek) (`conda install -c bioconda foldseek`,
-or set `FOLDSEEK_BIN`); it runs off-device. Omit `--structure` for sequence-only mode
-(lower accuracy for 35M/650M; the 1.3B works sequence-only).
+or set `FOLDSEEK_BIN`); it runs off-device. Residues the structure does not resolve get the
+`#` unknown-structure token, and a structure that is not of the sequence you passed is refused
+rather than lined up by length. Omit `--structure` for sequence-only mode (lower accuracy for
+35M/650M; the 1.3B works sequence-only).
 
 For each sequence you get **per-residue** structure-aware embeddings (`[length, d_model]`
 float32) and a **pooled** vector, plus per-residue MLM logits (`[length, 446]` with
@@ -762,9 +764,9 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 **[BoltzGen](https://github.com/HannesStark/boltzgen)** designs binders against a target structure. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<out_dir>/final_ranked_designs/`. Input grammar, protocols, pipeline subsets, and options: [`docs/boltzgen-design.md`](docs/boltzgen-design.md). Designability (scRMSD) QA: [`docs/boltzgen-designability.md`](docs/boltzgen-designability.md).
 
-**[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and current limitations: [`docs/rfd3-design.md`](docs/rfd3-design.md).
+**[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and which conditioning fields a spec can and cannot ask for: [`docs/rfd3-design.md`](docs/rfd3-design.md).
 
-**[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and 8 at a time runs about 1.25x faster per design than one at a time. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
+**[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. Hotspot residues are `label_seq` numbers, not the author numbering a viewer shows, and a number that names no residue is refused rather than dropped. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and 8 at a time runs about 1.25x faster per design than one at a time; design `k` comes from `--seed + k` whatever `--num_designs` you ask for. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
 Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a fleet with `--controller http://host:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 

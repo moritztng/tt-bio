@@ -247,15 +247,25 @@ class ProtenixDesign(Protenix):
 
         Defaults are what an upstream run uses: 400 steps, eta constant 2.5, gamma0 1.0,
         gamma_min 0.01. The design_token_mask half of the output is the designed binder;
-        the rest reproduces the conditioned target."""
+        the rest reproduces the conditioned target.
+
+        Sample k comes from seed + k whether it was generated alone or in a batch, so
+        `--num_designs` changes how many designs come back and not which ones."""
         cond, aux = self._trunk_cond(feats, progress_fn=progress_fn)
         eta = DESIGN_ETA_SCHEDULE if eta_schedule is None else eta_schedule
         M = int(n_sample)
         sampler = dict(n_step=n_step, step_scale=eta, gamma0=DESIGN_GAMMA0,
                        gamma_min=DESIGN_GAMMA_MIN, progress_fn=progress_fn)
         if M > 1 and getattr(self.diffusion, "supports_multiplicity", False):
+            # Design k draws from its own `seed + k` stream, the same one it would draw
+            # from as a run of its own, so --num_designs is a throughput knob and not a
+            # different set of designs. Without member_seeds the batch shares one stream
+            # and design 0 of three is not the design a single-design run at that seed
+            # produced, which makes --seed reproducible only at a fixed --num_designs.
             return edm_sample(self.diffusion, cond, aux["N"], multiplicity=M,
                               max_parallel_samples=max_parallel_samples or M, seed=seed,
+                              member_seeds=None if seed is None else
+                              [seed + k for k in range(M)],
                               **sampler)
         return torch.stack([edm_sample(self.diffusion, cond, aux["N"],
                                        seed=None if seed is None else seed + k, **sampler)[0]

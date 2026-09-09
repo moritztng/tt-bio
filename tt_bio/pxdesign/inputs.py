@@ -25,6 +25,7 @@ from pathlib import Path
 
 import torch
 
+from ..data.yaml_input import refuse_unresolved
 from ..protenix_data import build_complex_features, structure_token_coords
 from .featurize import BINDER_PLACEHOLDER, RESTYPE_VOCAB, condition_template, restype_onehot
 
@@ -37,23 +38,46 @@ MODEL_INPUT_KEYS = (
 )
 
 
+# Per-chain keys the upstream target YAML defines that this path does not act on.
+_CHAIN_UNREAD = {
+    "msa": (None, "PXDesign-d has no trunk, so generation reads no alignment"),
+}
+
+
 def read_design_yaml(path) -> dict:
     """A PXDesign target YAML to `{structure, chains, crop, hotspots, binder_length}`.
 
     Schema per `pxdesign/utils/inputs.py`: `target.file`, `target.chains.<label_asym_id>`
-    with optional `crop` / `hotspots` / `msa`, and a top-level `binder_length`. A chain
-    mapped to null, `all` or `full` means the whole chain. `msa` is accepted and ignored:
-    PXDesign-d has no trunk, so generation reads no alignment.
+    with optional `crop` / `hotspots`, and a top-level `binder_length`. A chain mapped to
+    null, `all` or `full` means the whole chain.
+
+    Any other key is refused by name. A mistyped `hotspot:` or `crops:` used to read as a
+    design that simply had no hotspots and no crop, which is a full-cost run that answers
+    a different question than the one asked; `msa:` is refused for the same reason, since
+    accepting an alignment that is never read is the same silence.
     """
-    from ..data.yaml_input import load_mapping
+    from ..data.yaml_input import load_mapping, refuse_unread_keys
 
     path = Path(path)
     cfg = load_mapping(path)
+    refuse_unread_keys(cfg, honoured=("target", "binder_length"), what=f"{path}")
     target = cfg.get("target")
     if not target or not target.get("file"):
         raise ValueError(f"{path}: missing target.file")
     if not target.get("chains"):
         raise ValueError(f"{path}: missing target.chains")
+    refuse_unread_keys(target, honoured=("file", "chains"), what=f"{path}: target")
+    # Every key check first, so a mistyped spec is refused on its own terms rather than
+    # on whichever of the file or the chain ids it happens to trip over next.
+    chain_props = {}
+    for cid, props in target["chains"].items():
+        cid = str(cid)
+        if props is None or (isinstance(props, str) and props.lower() in ("all", "full")):
+            props = {}
+        refuse_unread_keys(props, honoured=("crop", "hotspots"),
+                           unimplemented=_CHAIN_UNREAD,
+                           what=f"{path}: target.chains.{cid}")
+        chain_props[cid] = props
     structure = Path(target["file"])
     if not structure.is_absolute():
         # Upstream resolves against the working directory; a committed fixture YAML wants to
@@ -63,10 +87,7 @@ def read_design_yaml(path) -> dict:
     if not structure.exists():
         raise FileNotFoundError(f"{path}: target.file {target['file']} not found")
     crop, hotspots = {}, {}
-    for cid, props in target["chains"].items():
-        cid = str(cid)
-        if props is None or (isinstance(props, str) and props.lower() in ("all", "full")):
-            props = {}
+    for cid, props in chain_props.items():
         if props.get("crop") is not None:
             crop[cid] = props["crop"]
         if props.get("hotspots"):
@@ -111,6 +132,13 @@ def design_inputs(structure, chains, binder_length: int, crop=None, hotspots=Non
     residue_index = torch.tensor(
         [s for c in chains for s in toks[c]["label_seq"]] + list(range(1, binder_length + 1)),
         dtype=torch.long)
+    # A hotspot number that names no residue would drop out of the membership test and
+    # leave the channel at zero, which is the same input as asking for no hotspots at
+    # all. The usual cause is author numbering where label_seq is read, so say so.
+    for c in chains:
+        if hotspots.get(c):
+            refuse_unresolved("hotspots", hotspots[c], toks[c]["label_seq"],
+                              what=f"chain {c}")
     hotspot = torch.tensor(
         [1.0 if s in set(hotspots.get(c, ())) else 0.0
          for c in chains for s in toks[c]["label_seq"]] + [0.0] * binder_length)

@@ -3162,7 +3162,8 @@ def warmup(max_seq, max_msa, n_samples, cache):
 
 def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model: str,
                                   out: Path, out_format: str, pool: str, return_logits: bool,
-                                  fast: bool, batch_size: int, owner: str | None) -> None:
+                                  fast: bool, batch_size: int, owner: str | None,
+                                  logits_shape: str | None = None) -> None:
     """Shard ``sequences`` across whatever workers are already connected to
     ``controller_url`` and reassemble their embeddings under ``out``.
 
@@ -3218,7 +3219,8 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
     id_lengths = [pair for r in rows for pair in zip(r["ids"], r["lengths"])]
     d_model = next((r["d_model"] for r in rows if r.get("d_model")), 0)
     esmc.write_manifest_for(id_lengths, d_model, out / "manifest.json", model=model, pool=pool,
-                           fast=fast, out_format=out_format, return_logits=return_logits)
+                           fast=fast, out_format=out_format, return_logits=return_logits,
+                           logits_shape=logits_shape or esmc.LOGITS_SHAPE)
     click.echo(f"Done — {sum(r['n_sequences'] for r in rows)} sequence(s), d_model={d_model} "
                f"→ {out} (see manifest.json)")
 
@@ -3240,9 +3242,12 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
 @click.option("--fast", is_flag=True,
               help="Use block-fp8 weights (faster, slightly lower precision).")
 @click.option("--batch_size", default=8, show_default=True,
-              help="Sequences per device forward (300M/600M). Padded+masked per "
-                   "batch so per-sequence embeddings are unchanged; larger values "
-                   "amortise compile/dispatch over more sequences.")
+              help="Sequences per device forward (300M/600M). Larger values amortise "
+                   "compile/dispatch over more sequences. Padding is masked, so a "
+                   "sequence's embedding does not depend on what it shares a batch with, "
+                   "but the batch's bucketed length does set the bf16 reduction order: a "
+                   "37-residue sequence batched with a 200-residue one moves by 3.1e-2, "
+                   "PCC 0.9987. Batch it alone for a bit-exact rerun.")
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to shard the sequences across, "
                    "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
@@ -3456,8 +3461,10 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
                    "AA+Foldseek-3Di vocabulary).")
 @click.option("--structure", default=None,
               help="PDB/cif file or a directory of <id>.pdb/.cif files for the 3Di "
-                   "structural tokens. Omit for sequence-only mode (3Di = '#', lower "
-                   "accuracy for 35M/650M; the 1.3B works sequence-only).")
+                   "structural tokens. Residues the structure does not resolve get '#', "
+                   "and a structure of a different sequence is refused. Omit for "
+                   "sequence-only mode (3Di = '#', lower accuracy for 35M/650M; the 1.3B "
+                   "works sequence-only).")
 @click.option("--out_dir", default="./embeddings", show_default=True)
 @click.option("--format", "out_format", type=click.Choice(["npz", "parquet"]),
               default="npz", show_default=True,
@@ -3470,8 +3477,10 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 @click.option("--fast", is_flag=True,
               help="Use block-fp8 weights (faster, slightly lower precision).")
 @click.option("--batch_size", default=8, show_default=True,
-              help="Sequences per device forward (padded+masked per batch so "
-                   "per-sequence embeddings are unchanged).")
+              help="Sequences per device forward. Padding is masked, so a sequence's "
+                   "embedding does not depend on what it shares a batch with, but the "
+                   "batch's bucketed length sets the bf16 reduction order (same as "
+                   "`tt-bio embed`). Batch it alone for a bit-exact rerun.")
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to shard the sequences across, "
                    "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
@@ -3529,14 +3538,8 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
         _dispatch_embed_to_controller(controller, bare, model=model, out=out,
                                       out_format=out_format, pool=pool,
                                       return_logits=return_logits, fast=fast,
-                                      batch_size=batch_size, owner=owner)
-        if return_logits:
-            # SaProt logits are over the 446-token fused vocab, not ESMC's 64-dim head.
-            import json as _json
-            _mf = out / "manifest.json"
-            _m = _json.load(open(_mf))
-            _m["shapes"]["logits"] = "[length, 446] float32 (per-residue MLM logits over the fused AA+3Di vocab)"
-            _json.dump(_m, open(_mf, "w"), indent=2)
+                                      batch_size=batch_size, owner=owner,
+                                      logits_shape=esmc.SAPROT_LOGITS_SHAPE)
         return
 
     device_list = None
@@ -3566,13 +3569,8 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
         esmc.write_parquet(results, out / "embeddings.parquet")
         click.echo(f"Wrote {out / 'embeddings.parquet'}")
     esmc.write_manifest(results, out / "manifest.json", model=model, pool=pool, fast=fast,
-                         out_format=out_format, return_logits=return_logits)
-    # SaProt logits are over the 446-token fused vocab, not ESMC's 64-dim sequence head.
-    import json as _json
-    _mf = out / "manifest.json"
-    _m = _json.load(open(_mf))
-    _m["shapes"]["logits"] = "[length, 446] float32 (per-residue MLM logits over the fused AA+3Di vocab)"
-    _json.dump(_m, open(_mf, "w"), indent=2)
+                         out_format=out_format, return_logits=return_logits,
+                         logits_shape=esmc.SAPROT_LOGITS_SHAPE)
     click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]} "
                f"→ {out} (see manifest.json)")
 
