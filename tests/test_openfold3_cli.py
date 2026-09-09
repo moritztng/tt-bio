@@ -64,8 +64,8 @@ def test_worker_errors_clearly_without_checkpoint(tmp_path, monkeypatch):
         _ensure_local_artifacts({"model": "openfold3", "msa_dir": None})
 
 
-def _yaml(tmp_path, body):
-    p = tmp_path / "in.yaml"
+def _yaml(tmp_path, body, name="in.yaml"):
+    p = tmp_path / name
     p.write_text(body)
     return p
 
@@ -128,45 +128,46 @@ def test_template_map_ignores_fasta_and_template_free_yaml(tmp_path):
     assert _openfold3_template_map(p) == {}
 
 
-def test_of3_constraints_reject_covalent_bonds(tmp_path):
-    import yaml
+def test_of3_refuses_covalent_bonds_and_ligands_through_the_capability_table(tmp_path):
+    """The two OF3 refusals, at the door a real fold goes through. The table's full cross
+    product lives in tests/test_input_capabilities.py; this pins the OF3 arms specifically,
+    because the OF3 query is built with covalent_bonds=None and would otherwise drop a bond
+    block in silence."""
+    from tt_bio.capabilities import check_input
+    from tt_bio.main import _read_bio_chains
 
-    from tt_bio.worker import _validate_openfold3_constraints
+    p = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n"
+                        "      sequence: GACGAC\n"
+                        "constraints:\n  - bond:\n      atom1: [A, 1, SG]\n"
+                        "      atom2: [A, 4, SG]\n")
+    with pytest.raises(RuntimeError, match="covalent bond"):
+        check_input(p, _read_bio_chains(p), "openfold3", echo=None)
 
-    p = tmp_path / "covalent.yaml"
-    p.write_text(yaml.safe_dump({
-        "version": 1,
-        "sequences": [{"protein": {"id": "A", "sequence": "GACGAC"}}],
-        "constraints": [{"bond": {"atom1": ["A", 1, "SG"], "atom2": ["A", 4, "SG"]}}],
-    }))
-    try:
-        _validate_openfold3_constraints(p)
-    except RuntimeError as e:
-        assert "covalent bonds" in str(e)
-    else:
-        raise AssertionError("covalent constraint must raise, not be ignored")
-
-    p2 = tmp_path / "plain.yaml"
-    p2.write_text(yaml.safe_dump({
-        "version": 1,
-        "sequences": [{"protein": {"id": "A", "sequence": "GACGAC"}}],
-    }))
-    _validate_openfold3_constraints(p2)  # no constraints: passes
-
-
-def test_of3_chains_reject_ligands_blank_and_empty():
-    from tt_bio.worker import _validate_openfold3_chains
-
-    with pytest.raises(RuntimeError, match="no protein/nucleic-acid"):
-        _validate_openfold3_chains([])
+    lig = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n"
+                          "      sequence: GACGAC\n  - ligand:\n      id: L\n"
+                          "      ccd: ATP\n", name="lig.yaml")
     with pytest.raises(RuntimeError, match="polymer-only"):
-        _validate_openfold3_chains([("L", "CCD_ATP", None, "ligand", None)])
-    with pytest.raises(RuntimeError, match="empty/whitespace-only"):
-        _validate_openfold3_chains([("A", "   ", None, "protein", None)])
-    with pytest.raises(RuntimeError, match="empty/whitespace-only"):
-        _validate_openfold3_chains([("A", "MKVL", None, "protein", None), ("B", "", None, "rna", None)])
-    # valid polymer chains pass; unknown residue codes are upstream-compatible (UNK warning)
-    _validate_openfold3_chains([("A", "MKVLXXX", None, "protein", None), ("R", "ACGU", None, "rna", None)])
+        check_input(lig, _read_bio_chains(lig), "openfold3", echo=None)
+
+    plain = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n"
+                            "      sequence: GACGAC\n", name="plain.yaml")
+    check_input(plain, _read_bio_chains(plain), "openfold3", echo=None)   # the control
+
+
+def test_of3_reader_refuses_blank_polymers_and_keeps_unknown_residue_codes(tmp_path):
+    """Blank sequences are refused in the one reader now, for every model that uses it.
+    Unknown residue CODES stay upstream-compatible: the vendored featurizer maps them to UNK
+    with a warning, exactly like the reference."""
+    from tt_bio.main import _read_bio_chains
+
+    blank = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n"
+                            "      sequence: '   '\n")
+    with pytest.raises(Exception, match="empty/whitespace"):
+        _read_bio_chains(blank)
+    ok = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n"
+                         "      sequence: MKVLXXX\n  - rna:\n      id: R\n"
+                         "      sequence: ACGU\n", name="ok.yaml")
+    assert [c[3] for c in _read_bio_chains(ok)] == ["protein", "rna"]
 
 
 def _of3_query(chains):

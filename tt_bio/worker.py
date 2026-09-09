@@ -29,6 +29,7 @@ from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_p
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 from tt_bio.envflags import env_flag
 from tt_bio.cache import cached, seq_hash, staged
+from tt_bio.capabilities import check_input
 
 
 _REAL_STDERR_FD: int | None = None
@@ -227,193 +228,6 @@ def _openfold3_template_map(path: Path) -> dict[str, str]:
             for c in id_list:
                 out[c.strip()] = str(tp)
     return out
-
-
-def _validate_openfold3_constraints(path, model: str = "openfold3") -> None:
-    """Reject yaml `constraints:` blocks for OF3 instead of folding without them.
-
-    The OF3 query is built with `covalent_bonds: None` (the bond graph is not
-    ported), so a constraints block would otherwise be silently dropped — the
-    silent-garbage class. Raises naming the constraint count and the models that
-    do honor covalent bonds.
-    """
-    from tt_bio.main import _read_bio_constraints
-
-    bonds = _read_bio_constraints(path)
-    if bonds:
-        raise RuntimeError(
-            f"--model {model} does not port covalent bonds yet "
-            f"(got {len(bonds)} constraint(s) from {path.name}); the fold would "
-            "silently ignore them. Remove the constraints block or use "
-            "--model protenix-v1 / protenix-v2 / opendde.")
-
-
-def _validate_rf3_yaml_unsupported(path) -> None:
-    """Refuse a yaml/fasta block `--model rf3` would drop.
-
-    RF3 the model reads its own JSON/CIF spec and does carry covalent bonds, modified
-    residues and cyclic chains — `rf3/feature_init.py` has the cyclic branch, and
-    `featurize(src)` reads a spec straight off disk. The YAML front door does not: the
-    only RF3 spec builder is `_predict_rf3_one`, and it constructs every component from
-    `_read_bio_chains`, which returns (chain_id, sequence, msa_spec, mol_type) and
-    nothing else. So a `constraints:`, `modifications:` or `cyclic:` block was accepted,
-    dropped, and never mentioned — the silent-garbage class, and the worse half of it,
-    because a dropped covalent bond changes the answer rather than omitting an output.
-
-    Refusing rather than warning, for the same reason `_validate_openfold3_constraints`
-    refuses: the structure that comes back would be confidently wrong.
-    """
-    import yaml as _yaml
-
-    from tt_bio.main import _read_bio_constraints
-
-    bonds = _read_bio_constraints(path)
-    if bonds:
-        raise RuntimeError(
-            f"--model rf3 does not read the yaml `constraints:` block "
-            f"(got {len(bonds)} constraint(s) from {Path(path).name}); the fold would "
-            "silently ignore them. Use --model boltz2 / protenix-v2 / opendde, or give "
-            "RF3 its own JSON spec, which does carry a bond graph.")
-    if Path(path).suffix.lower() not in (".yml", ".yaml"):
-        return
-    try:
-        doc = _yaml.safe_load(Path(path).read_text()) or {}
-    except Exception:
-        return
-    modified = []
-    for entry in (doc.get("sequences") or []):
-        if not isinstance(entry, dict):
-            continue
-        for sub in entry.values():
-            if isinstance(sub, dict) and sub.get("modifications"):
-                ids = sub.get("id")
-                modified += ([str(x) for x in ids] if isinstance(ids, (list, tuple))
-                             else [str(ids)])
-    if modified:
-        raise RuntimeError(
-            f"--model rf3 does not read yaml `modifications:` (chain(s) "
-            f"{', '.join(modified)} in {Path(path).name}); the fold would return the "
-            "unmodified residue. Use --model boltz2, or give RF3 its own JSON spec.")
-
-
-def _validate_cyclic_unsupported(path, model: str) -> None:
-    """Reject a yaml `cyclic: true` chain for a model that cannot honour it, instead of
-    folding it linear.
-
-    OpenFold3/OpenBind: upstream's query format carries `Chain.cyclic` and its structure
-    featurizer sets a `cyclic_mask` feature from it; tt-bio's vendored copy has neither (both
-    were dropped when the tree was vendored, consistently).
-
-    Protenix (v1/v2) and OpenDDE: there is no cyclic input path to drop. `_read_bio_chains`
-    returns (chain_id, sequence, msa_spec, mol_type, modifications) and never reads the flag,
-    and upstream
-    Protenix v0.5.0 has no cyclic chain flag either -- its only "cyclic" is the
-    `cyclic-pseudo-peptide` LIGAND entity label (protenix/data/constants.py), not a polymer
-    input. So the flag was dropped silently and the fold returned status=ok on a linear
-    structure. Caught by folding examples/cyclic_prot.yaml with --model protenix-v1 during the
-    v1 bring-up sweep: it succeeded, which is the bug.
-
-    ESMFold2 / ESMFold2-Fast: the same, one door further along — it reads the same
-    `_read_bio_chains`, which never reads the flag, so the fold ran on a straight chain and
-    returned status=ok. This was the last predict path missing the call.
-
-    RF3: the model has the cyclic branch (`rf3/feature_init.py` builds a wrapped relative
-    position from `cyclic_asym_ids`), but its spec builder here reads only what
-    `_read_bio_chains` returns, which does not include the flag — so the YAML door drops it
-    exactly like the others and rf3 IS passed to this. Boltz-2 honours it end to end and must
-    never be.
-
-    Cyclisation changes the STRUCTURE, which is why this is a hard error like `constraints:`
-    and not a warning like `properties: affinity`, which only omits an extra output.
-    """
-    if Path(path).suffix.lower() not in (".yml", ".yaml"):
-        return
-    import yaml
-
-    doc = yaml.safe_load(Path(path).read_text()) or {}
-    cyclic = []
-    for entry in doc.get("sequences") or []:
-        if not isinstance(entry, dict):
-            continue
-        for mt, sub in entry.items():
-            if isinstance(sub, dict) and sub.get("cyclic"):
-                ids = sub.get("id", "?")
-                cyclic += ([str(x) for x in ids] if isinstance(ids, (list, tuple))
-                           else [str(ids)])
-    if cyclic:
-        raise RuntimeError(
-            f"--model {model} does not port cyclic chains (chain(s) "
-            f"{', '.join(cyclic)} in {Path(path).name} set `cyclic: true`); the fold "
-            "would silently return a linear structure. Remove the flag, express the "
-            "cyclisation as a covalent `bond` constraint, or use --model rf3 / boltz2, "
-            "which honor it.")
-
-
-def _warn_openfold3_affinity_ignored(path, model: str) -> None:
-    """Say so when a `properties: affinity` block will not be answered.
-
-    Enabling ligands on --model openbind made this reachable: an affinity yaml used to
-    be refused by the ligand gate, so the request could not be silently dropped. Now the
-    fold succeeds and the affinity block simply produces nothing. Unlike a dropped
-    `constraints:` block -- which changes the structure and is therefore a hard error in
-    _validate_openfold3_constraints -- this only omits an extra output, so a loud warning
-    is the proportionate response rather than refusing a fold the user can still use.
-    """
-    if path.suffix.lower() not in (".yml", ".yaml"):
-        return
-    import yaml
-
-    doc = yaml.safe_load(path.read_text()) or {}
-    props = doc.get("properties") or []
-    binders = [str(pr["affinity"].get("binder"))
-               for pr in props
-               if isinstance(pr, dict) and isinstance(pr.get("affinity"), dict)]
-    if binders:
-        import click
-
-        click.secho(
-            f"Note: --model {model} predicts structure only; the `properties: affinity` "
-            f"block in {path.name} (binder {', '.join(binders)}) is NOT answered and no "
-            f"affinity value is written. Use --model boltz2 for affinity.",
-            fg="yellow")
-
-
-def _validate_openfold3_chains(chains: list, model: str = "openfold3") -> None:
-    """Reject OF3/OpenBind inputs that would otherwise fold into plausible-looking garbage.
-
-    A blank/whitespace sequence would tokenize to UNK placeholders and still produce a
-    status=ok structure — the silent-garbage class from
-    tt-bio-fold-succeeds-on-malformed-input. Unknown residue CODES (X/Z/...) stay
-    upstream-compatible: the vendored featurizer maps them to UNK with a warning,
-    exactly like the reference implementation.
-
-    Ligands are accepted for ``--model openbind`` and still refused for
-    ``--model openfold3``. That split is deliberate and is not a leftover: OpenBind is
-    the checkpoint upstream trained and evaluated for protein-ligand co-folding, while
-    OF3-preview2 was released as a polymer model. The featurizer would happily build a
-    ligand for preview2 and preview2 would happily emit a status=ok structure for it,
-    which is the same silent-garbage failure this function exists to stop — it would
-    just be garbage produced by an untrained-for-the-task checkpoint rather than by a
-    malformed input.
-    """
-    if not chains:
-        raise RuntimeError("no protein/nucleic-acid sequences")
-    allowed = ("protein", "rna", "dna") + (("ligand",) if model == "openbind" else ())
-    rejected = [cid for cid, _s, _sp, mt, _mods in chains if mt not in allowed]
-    if rejected:
-        ligands = [cid for cid, _s, _sp, mt, _mods in chains if mt == "ligand"]
-        hint = ("--model openbind folds protein-ligand complexes"
-                if ligands and model != "openbind"
-                else "see docs/openfold3-port.md")
-        raise RuntimeError(
-            f"--model {model} is polymer-only: chain(s) {rejected} are not "
-            f"protein/rna/dna. {hint}.")
-    # A ligand chain carries its spec (SMILES or CCD_<code>) in the sequence slot, so the
-    # blank check applies to it too: an empty ligand spec builds no molecule at all.
-    blank = [cid for cid, cseq, _sp, _mt, _mods in chains if not cseq or not cseq.strip()]
-    if blank:
-        raise RuntimeError(
-            f"--model {model}: chain(s) {blank} have empty/whitespace-only sequences.")
 
 
 def _prefetch_openfold3_template_structures(tmpl_map: dict[str, str],
@@ -863,17 +677,21 @@ class _WorkerState:
             raise RuntimeError("no sequences")
         if not any(mt == "protein" for _c, _s, _sp, mt, _mo in chains):
             raise RuntimeError("esmfold2 needs at least one protein chain")
-        blank = [cid for cid, spec, _sp, _mt, _mo in chains if not spec or not spec.strip()]
-        if blank:
-            raise RuntimeError(f"esmfold2: chain(s) {blank} have empty sequences/ligand specs.")
-        _validate_cyclic_unsupported(path, cfg.get("model", "esmfold2"))
+        check_input(path, chains, cfg.get("model", "esmfold2"))
         msa_dir = Path(cfg["msa_dir"])
         max_msa = cfg.get("max_msa_seqs") or 16384
         # Only the checkpoints that ship an MSA encoder can use an MSA. ESMFold2
         # has one; ESMFold2-Fast does not (model.msa_encoder is None), so there's
         # nothing to consume an alignment — skip the search and fold single-seq
         # rather than do wasted work and falsely report msa=true.
-        uses_msa = getattr(self.model, "msa_encoder", None) is not None
+        #
+        # --single_sequence lands here too. It used to be read only by the models that go
+        # through _build_chain_specs, so on esmfold2 it was a silent no-op for the two MSA
+        # sources the search below does not touch: an a3m pinned by the YAML `msa:` key, and
+        # one already cached under msa_dir for this sequence hash. The fold used the MSA and
+        # only `msa: true` in the metrics row hinted at it.
+        uses_msa = (getattr(self.model, "msa_encoder", None) is not None
+                    and not cfg.get("single_sequence"))
 
         # MSA phase — rendered as the "MSA" stage, exactly like Boltz-2 (which
         # generates worker-side in prepare_features). When a source is given we
@@ -977,14 +795,8 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein sequences")
-        unsupported = [cid for cid, _s, _sp, mt, _mods in chains if mt not in ("protein", "ligand")]
-        if unsupported:
-            raise RuntimeError(
-                f"--model opendde supports protein + ligand chains only (chain(s) "
-                f"{unsupported} are nucleic-acid); nucleic-acid structural tokens are not "
-                "ported yet. Ligand covalent bonds are honored.")
-        bonds = _read_bio_constraints(path)
-        _validate_cyclic_unsupported(path, cfg.get("model", "opendde"))
+        check_input(path, chains, cfg.get("model", "opendde"))
+        bonds = _read_bio_constraints(path)   # covalent bonds, resolved into token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -1114,8 +926,8 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
-        bonds = _read_bio_constraints(path)   # covalent bonds; rejects pocket/contact
-        _validate_cyclic_unsupported(path, cfg.get("model", "protenix-v2"))
+        check_input(path, chains, cfg.get("model", "protenix-v2"))
+        bonds = _read_bio_constraints(path)   # covalent bonds, resolved into token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -1277,11 +1089,10 @@ class _WorkerState:
         from tt_bio.rf3 import confidence as rf3_confidence
         from tt_bio.rf3.featurize import featurize
 
-        _validate_rf3_yaml_unsupported(path)
-        _validate_cyclic_unsupported(path, "rf3")
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no sequences")
+        check_input(path, chains, "rf3")
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -1454,10 +1265,9 @@ class _WorkerState:
 
         model = cfg.get("model", "openfold3")
         chains = _read_bio_chains(path)
-        _validate_openfold3_chains(chains, model)
-        _validate_openfold3_constraints(path, model)
-        _validate_cyclic_unsupported(path, model)
-        _warn_openfold3_affinity_ignored(path, model)
+        if not chains:
+            raise RuntimeError("no protein/nucleic-acid sequences")
+        check_input(path, chains, model)
         tmpl_map = _openfold3_template_map(path)
         unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt, _mods in chains})
         if unknown_tmpl:

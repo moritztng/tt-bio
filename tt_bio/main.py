@@ -2008,6 +2008,36 @@ def _chain_label(n: int) -> str:
 
 _NA_HEADER_TYPES = {"rna": "rna", "rnasequence": "rna", "dna": "dna", "dnasequence": "dna"}
 
+#: Keys the YAML input language defines. A key outside these sets is a typo, and a typo used
+#: to cost a whole chain or a whole constraint block without a word: `protien:` folded the
+#: complex one chain short, `constrains:` folded without the covalent bond, both status=ok.
+#: What a MODEL does with a key it cannot honour is a separate question, answered by the one
+#: table in tt_bio/capabilities.py.
+_DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates"})
+_ENTRY_KEYS = frozenset({"protein", "rna", "dna", "ligand"})
+_POLYMER_KEYS = frozenset({"id", "sequence", "msa", "modifications", "cyclic", "templates"})
+_LIGAND_KEYS = frozenset({"id", "ccd", "smiles"})
+
+
+def _check_yaml_keys(doc: dict, path) -> None:
+    """Refuse an unrecognized key instead of dropping it."""
+    def bad(what, keys, allowed):
+        extra = sorted(set(keys) - allowed)
+        if extra:
+            raise click.ClickException(
+                f"{path.name}: unrecognized {what} {', '.join(repr(k) for k in extra)}. "
+                f"Accepted: {', '.join(sorted(allowed))}.")
+
+    bad("top-level key(s)", doc, _DOC_KEYS)
+    for entry in doc.get("sequences") or []:
+        if not isinstance(entry, dict):
+            continue
+        bad("entity key(s)", entry, _ENTRY_KEYS)
+        for key, sub in entry.items():
+            if isinstance(sub, dict):
+                bad(f"key(s) on a {key} entity", sub,
+                    _LIGAND_KEYS if key == "ligand" else _POLYMER_KEYS)
+
 
 def _read_bio_chains(path, what="input"):
     """Read a FASTA/YAML complex as [(chain_id, sequence, msa_spec, mol_type, modifications)].
@@ -2064,6 +2094,7 @@ def _read_bio_chains(path, what="input"):
     elif suffix in (".yml", ".yaml"):
         import yaml
         doc = yaml.safe_load(path.read_text()) or {}
+        _check_yaml_keys(doc, path)
         for entry in doc.get("sequences", []):
             if not isinstance(entry, dict):
                 continue
@@ -2093,6 +2124,11 @@ def _read_bio_chains(path, what="input"):
                     chains.append((c.strip(), spec, None, "ligand", None))
     else:
         raise click.ClickException(f"Unsupported input for {what}: {path.name}")
+    blank = [cid for cid, cseq, _sp, _mt, _mods in chains if not cseq or not cseq.strip()]
+    if blank:
+        raise click.ClickException(
+            f"{path.name}: chain(s) {', '.join(blank)} have empty/whitespace-only "
+            f"sequences (a ligand carries its CCD/SMILES spec in the same slot).")
     return chains
 
 
