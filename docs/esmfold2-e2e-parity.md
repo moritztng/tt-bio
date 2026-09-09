@@ -90,6 +90,9 @@ recall is the fraction of the 11 protein residues within 4.5 Å of SB3 in the cr
 also in contact in the prediction. Controls for that script: identical files give 0.000 Å and
 recall 1.0, and displacing the deposited ligand 30 Å gives exactly 30.000 Å and recall 0.0.
 
+Record: `docs/implementation-parity-data/esmfold2-cocrystal-1fkg.json` (all three runs and the
+four pocket scores).
+
 ### Verdict
 
 **Pass, and the ligand is in the right pocket.** Device and reference agree to the same
