@@ -7,6 +7,28 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **An input a model cannot honour is now refused by name instead of dropped.** The one
+  YAML/FASTA reader accepts more than any single model can use, and what each model did with a
+  key it cannot honour was decided in five separate validators wired per model. Everything
+  outside that wiring was accepted, discarded, and reported as success. `modifications:` was
+  dropped by protenix-v1/v2, opendde, opendde-abag, openfold3 and openbind, so the fold
+  returned the unmodified residue: `build_complex_features` has no argument for it and the
+  OpenFold3 query hardcodes `non_canonical_residues=None` against an upstream field that
+  exists. `templates:` was dropped by protenix-v1/v2, opendde, opendde-abag, rf3 and esmfold2,
+  including on two checkpoints that ship a real template pairformer stack. A `constraints:`
+  block was dropped by esmfold2, which never read it. `properties: affinity` produced nothing
+  and said nothing on protenix, opendde, rf3 and esmfold2, and a top-level `constraints:`
+  block did the same on nesso1. An unrecognized key was dropped anywhere it appeared, so
+  `protien:` folded the complex one chain short and `constrains:` folded without the covalent
+  bond. `--single_sequence` was a silent no-op on esmfold2, which resolves its own MSAs, so a
+  pinned or cached alignment still reached the fold. `--write_pae` wrote nothing on esmfold2
+  and rf3, `--write_pde` nothing on protenix, and `--max_msa_seqs` nothing on protenix,
+  opendde or rf3. What each model honours is one table now (`tt_bio/capabilities.py`), with
+  three verdicts: honoured, refused when dropping it would change the structure, and a warning
+  when it would only omit an output. Refusals name the models that do honour the key, derived
+  from the table, and land before the weights download and the first device open. The published
+  matrix is `docs/model-capabilities.md`, generated from the same table.
+
 - **Wormhole folds above 640 residues instead of hanging the chip.** Every target from 640 aa up
   split the Transition SwiGLU along the pair tensor's width, and that path wedged the card:
   protenix-v2 at 768 aa hung mid-fold on two different chips, at trunk recycle 6 and recycle 4, and
