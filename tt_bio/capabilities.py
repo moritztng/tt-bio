@@ -218,3 +218,40 @@ def check_input(path, chains, model: str, echo=_click_note) -> dict[str, str]:
                      f"{Path(path).name}): {effect}."
                      + (f" Use --model {others} for it." if others else ""))
     return found
+
+
+#: Column order and heading for the published matrix, so docs/model-capabilities.md and this
+#: table can never disagree about what a column means.
+DOC_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("ligand", "ligand"),
+    ("rna", "RNA"),
+    ("dna", "DNA"),
+    ("cyclic", "cyclic"),
+    ("modifications", "modifications"),
+    ("templates", "templates"),
+    ("bond", "bond constraint"),
+    ("pocket", "pocket/contact"),
+    ("affinity", "affinity"),
+)
+
+_MARK = {HONOURED: "yes", REFUSED: "refused", NOTED: "ignored, warns"}
+
+
+def markdown_table() -> str:
+    """The capability matrix as the markdown block docs/model-capabilities.md carries.
+
+    Rendered from CAPABILITY, checked against the committed doc by
+    tests/test_capabilities_doc.py, and printed by ``python3 -m tt_bio.capabilities`` so
+    updating the doc after a table change is one command.
+    """
+    from tt_bio.main import PREDICT_MODELS
+
+    head = "| model | " + " | ".join(h for _f, h in DOC_COLUMNS) + " |"
+    rule = "|" + "---|" * (len(DOC_COLUMNS) + 1)
+    rows = ["| `" + m + "` | " + " | ".join(_MARK[CAPABILITY[m][f]] for f, _h in DOC_COLUMNS)
+            + " |" for m in PREDICT_MODELS]
+    return "\n".join([head, rule, *rows])
+
+
+if __name__ == "__main__":
+    print(markdown_table())
