@@ -12,6 +12,10 @@ and a rung has to SAY whether the gate fired rather than leave an unchanged outc
 for both a working decline and a dead gate (`negative-control-must-break-what-check-reads`).
 
     WH_TOTAL=768 WH_OUT_DIR=... WH_JSONL=... TT_VISIBLE_DEVICES=3 python3 perf/ceilrfd3/wh_ladder.py
+
+WH_CROP names the target crop instead of the total (total becomes crop + WH_BINDER), and
+WH_SPEC_ID names the output CIF, so two rungs that share a total but not a contig do not
+overwrite each other.
 """
 import json
 import os
@@ -22,8 +26,16 @@ import traceback
 
 sys.path.insert(0, os.getcwd())
 
-TOTAL = int(os.environ["WH_TOTAL"])
 BINDER = int(os.environ.get("WH_BINDER", "100"))
+# Crop and binder are the two independent knobs; WH_TOTAL is the convenience that fixes the sum.
+# Naming the crop directly is what lets a rung hold the target crop still while the binder moves,
+# which is the only way "the break follows the size" and "the break follows the crop" come apart.
+if "WH_CROP" in os.environ:
+    CROP = int(os.environ["WH_CROP"])
+    TOTAL = CROP + BINDER
+else:
+    TOTAL = int(os.environ["WH_TOTAL"])
+    CROP = TOTAL - BINDER
 STEPS = int(os.environ.get("WH_STEPS", "100"))
 SEED = int(os.environ.get("WH_SEED", "42"))
 TARGET = os.environ.get("WH_TARGET", "perf/ceilrfd3/targets/laczc_1008.cif")
@@ -35,11 +47,11 @@ HOST_THREADS = os.environ.get("WH_HOST_THREADS")
 OUTD.mkdir(parents=True, exist_ok=True)
 JL.parent.mkdir(parents=True, exist_ok=True)
 
-spec_id = "cap%d" % TOTAL
+spec_id = os.environ.get("WH_SPEC_ID") or "cap%d" % TOTAL
+contig = "A1-%d,%d" % (CROP, BINDER)
 specfile = OUTD / (spec_id + ".json")
 specfile.write_text(json.dumps(
-    {spec_id: {"input": TARGET, "contig": "A1-%d,%d" % (TOTAL - BINDER, BINDER),
-               "length": str(BINDER)}}, indent=2))
+    {spec_id: {"input": TARGET, "contig": contig, "length": str(BINDER)}}, indent=2))
 cif = OUTD / (spec_id + ".cif")
 if cif.exists():
     cif.unlink()
@@ -50,7 +62,8 @@ argv = ["design", str(specfile), "--model", "rfd3", "--from_pdb",
 if HOST_THREADS:
     argv += ["--host_threads", HOST_THREADS]
 
-rec = {"total_res": TOTAL, "target_res": TOTAL - BINDER, "binder": BINDER, "steps": STEPS,
+rec = {"total_res": TOTAL, "target_res": CROP, "binder": BINDER, "contig": contig,
+       "spec_id": spec_id, "steps": STEPS,
        "seed": SEED, "target": TARGET, "argv": " ".join(argv),
        "host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
        "tag": os.environ.get("WH_TAG", ""), "ok": False, "atoms": None, "cif": None,

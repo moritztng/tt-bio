@@ -1,0 +1,10 @@
+# pc Blackhole p150a. laczc replication first: the second-target and contig arms only mean
+# something on a part that shows the break itself.
+lz_c668_b100 perf/ceilrfd3/targets/laczc_1008.cif 668 100 42
+lz_c732_b100 perf/ceilrfd3/targets/laczc_1008.cif 732 100 42
+lz_c604_b100 perf/ceilrfd3/targets/laczc_1008.cif 604 100 42
+lz_c796_b100 perf/ceilrfd3/targets/laczc_1008.cif 796 100 42
+gpb_c668_b100 perf/ceilrfd3/targets/gpb_823.cif 668 100 42
+gpb_c732_b100 perf/ceilrfd3/targets/gpb_823.cif 732 100 42
+gpb_c604_b100 perf/ceilrfd3/targets/gpb_823.cif 604 100 42
+gpb_c796_b100 perf/ceilrfd3/targets/gpb_823.cif 796 100 42
