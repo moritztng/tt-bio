@@ -10,7 +10,7 @@ ESMFold2 folded a cocrystal YAML as bare protein that way, and ``cyclic: true`` 
 four models as a linear fold before its guard existed.
 
 So the per-model facts are DATA here (``CAPABILITY``), the mechanism is one function
-(``check_input``), and tests/test_input_capabilities.py fails when a shipped model has no
+(``check_capabilities``), and tests/test_input_capabilities.py fails when a shipped model has no
 row or a predict path does not call the check. Three verdicts:
 
 * ``HONOURED`` -- the input reaches the model and changes the answer.
@@ -95,7 +95,33 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # own JSON/CIF spec; the YAML door here builds a spec from the chain reader alone.
     "rf3": _row(cyclic=REFUSED, modifications=REFUSED, templates=REFUSED, bond=REFUSED,
                 pocket=REFUSED, affinity=NOTED),
+    # `tt-bio affinity --model nesso1`, not predict. It returns a scalar and no coordinates,
+    # so nothing it drops can come back as a wrong structure, and the docs tell users to
+    # reuse their Boltz-2 affinity yaml, which carries msa:, constraints: and properties:
+    # blocks. Refusing those would break the documented path for no safety gain, so
+    # everything it cannot read is NOTED. Its own vendored parser is the enforcement point
+    # for molecule types and refuses a third entity type by name ("Unsupported entity type
+    # 'rna' (only protein, ligand)"), which is why the chain columns here record a verdict
+    # this module does not apply itself.
+    "nesso1": _row(rna=REFUSED, dna=REFUSED, cyclic=NOTED, modifications=NOTED,
+                   templates=NOTED, bond=NOTED, pocket=NOTED),
 }
+
+#: Molecule-type features: they come from the parsed chain list, not from a yaml key.
+CHAIN_FEATURES = frozenset({"ligand", "rna", "dna"})
+
+#: Models whose molecule types their own reader enforces, so check_capabilities is called
+#: with no chain list and the chain columns are a record rather than an enforcement. Only
+#: nesso1, which never goes through _read_bio_chains.
+CHAINS_ELSEWHERE = frozenset({"nesso1"})
+
+#: How a user reaches a model, for the "somewhere else to go" hint. predict is the default.
+COMMAND: dict[str, str] = {"nesso1": "tt-bio affinity --model nesso1"}
+
+
+def how(model: str) -> str:
+    """The command form a hint should print for ``model``."""
+    return COMMAND.get(model, f"--model {model}")
 
 #: (model, feature) -> the reason this refusal exists, replacing the generic "what a silent
 #: drop would do" line where that line would be wrong. OF3-preview2's featurizer WOULD build
@@ -187,7 +213,7 @@ def _click_note(msg: str) -> None:
     click.secho(msg, fg="yellow")
 
 
-def check_input(path, chains, model: str, echo=_click_note) -> dict[str, str]:
+def check_capabilities(path, chains, model: str, echo=_click_note) -> dict[str, str]:
     """Refuse the structure-changing input ``model`` cannot honour; note the rest.
 
     Raises RuntimeError naming every refused feature at once, so a user fixing one key does
@@ -202,21 +228,21 @@ def check_input(path, chains, model: str, echo=_click_note) -> dict[str, str]:
         lines = []
         for f in refused:
             label, generic = FEATURES[f]
-            others = ", ".join(m for m in honoured_by(f) if m != model)
+            others = ", ".join(how(m) for m in honoured_by(f) if m != model)
             lines.append(f"  - {label} ({found[f]}): {WHY.get((model, f), generic)}."
                          + (f" Honoured by: {others}." if others else ""))
         tail = ELSEWHERE.get(model)
         raise RuntimeError(
-            f"--model {model} cannot honour {len(refused)} part(s) of "
+            f"{how(model)} cannot honour {len(refused)} part(s) of "
             f"{Path(path).name}:\n" + "\n".join(lines) + (f"\n{tail}" if tail else ""))
     if echo is not None:
         for f in FEATURES:
             if f in found and caps[f] == NOTED:
                 label, effect = FEATURES[f]
-                others = ", ".join(m for m in honoured_by(f) if m != model)
-                echo(f"Note: --model {model} ignores {label} ({found[f]} in "
+                others = ", ".join(how(m) for m in honoured_by(f) if m != model)
+                echo(f"Note: {how(model)} ignores {label} ({found[f]} in "
                      f"{Path(path).name}): {effect}."
-                     + (f" Use --model {others} for it." if others else ""))
+                     + (f" Use {others} for it." if others else ""))
     return found
 
 

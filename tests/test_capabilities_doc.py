@@ -41,6 +41,14 @@ def test_a_table_change_would_fail_this(monkeypatch):
     assert _published() != markdown_table()
 
 
+def test_the_published_matrix_is_the_predict_models():
+    """nesso1 has a row in CAPABILITY but not in this matrix: it is a different command with
+    a different reader, and the doc says so in prose instead."""
+    published = _published()
+    assert "`nesso1`" not in published
+    assert "nesso1" in DOC.read_text()
+
+
 def test_every_column_and_model_is_published():
     assert {f for f, _h in DOC_COLUMNS} == set(FEATURES)
     published = _published()
@@ -54,7 +62,7 @@ def test_the_doc_is_linked_from_the_readme():
         "a capability doc nobody links to is a doc nobody reads"
 
 
-@pytest.mark.parametrize("model", sorted(CAPABILITY))
+@pytest.mark.parametrize("model", sorted(PREDICT_MODELS))
 def test_the_doc_never_promises_what_the_code_refuses(model):
     """The specific failure this guards: a row that reads `yes` for something check_input
     raises on."""

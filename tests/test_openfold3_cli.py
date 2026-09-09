@@ -133,7 +133,7 @@ def test_of3_refuses_covalent_bonds_and_ligands_through_the_capability_table(tmp
     product lives in tests/test_input_capabilities.py; this pins the OF3 arms specifically,
     because the OF3 query is built with covalent_bonds=None and would otherwise drop a bond
     block in silence."""
-    from tt_bio.capabilities import check_input
+    from tt_bio.capabilities import check_capabilities
     from tt_bio.main import _read_bio_chains
 
     p = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n"
@@ -141,17 +141,17 @@ def test_of3_refuses_covalent_bonds_and_ligands_through_the_capability_table(tmp
                         "constraints:\n  - bond:\n      atom1: [A, 1, SG]\n"
                         "      atom2: [A, 4, SG]\n")
     with pytest.raises(RuntimeError, match="covalent bond"):
-        check_input(p, _read_bio_chains(p), "openfold3", echo=None)
+        check_capabilities(p, _read_bio_chains(p), "openfold3", echo=None)
 
     lig = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n"
                           "      sequence: GACGAC\n  - ligand:\n      id: L\n"
                           "      ccd: ATP\n", name="lig.yaml")
     with pytest.raises(RuntimeError, match="polymer-only"):
-        check_input(lig, _read_bio_chains(lig), "openfold3", echo=None)
+        check_capabilities(lig, _read_bio_chains(lig), "openfold3", echo=None)
 
     plain = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n"
                             "      sequence: GACGAC\n", name="plain.yaml")
-    check_input(plain, _read_bio_chains(plain), "openfold3", echo=None)   # the control
+    check_capabilities(plain, _read_bio_chains(plain), "openfold3", echo=None)   # the control
 
 
 def test_of3_reader_refuses_blank_polymers_and_keeps_unknown_residue_codes(tmp_path):

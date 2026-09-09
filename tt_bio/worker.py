@@ -29,7 +29,7 @@ from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_p
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 from tt_bio.envflags import env_flag
 from tt_bio.cache import cached, seq_hash, staged
-from tt_bio.capabilities import check_input
+from tt_bio.capabilities import check_capabilities
 
 
 _REAL_STDERR_FD: int | None = None
@@ -677,7 +677,7 @@ class _WorkerState:
             raise RuntimeError("no sequences")
         if not any(mt == "protein" for _c, _s, _sp, mt, _mo in chains):
             raise RuntimeError("esmfold2 needs at least one protein chain")
-        check_input(path, chains, cfg.get("model", "esmfold2"))
+        check_capabilities(path, chains, cfg.get("model", "esmfold2"))
         msa_dir = Path(cfg["msa_dir"])
         max_msa = cfg.get("max_msa_seqs") or 16384
         # Only the checkpoints that ship an MSA encoder can use an MSA. ESMFold2
@@ -795,7 +795,7 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein sequences")
-        check_input(path, chains, cfg.get("model", "opendde"))
+        check_capabilities(path, chains, cfg.get("model", "opendde"))
         bonds = _read_bio_constraints(path)   # covalent bonds, resolved into token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
@@ -926,7 +926,7 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
-        check_input(path, chains, cfg.get("model", "protenix-v2"))
+        check_capabilities(path, chains, cfg.get("model", "protenix-v2"))
         bonds = _read_bio_constraints(path)   # covalent bonds, resolved into token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
@@ -1092,7 +1092,7 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no sequences")
-        check_input(path, chains, "rf3")
+        check_capabilities(path, chains, "rf3")
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -1267,7 +1267,7 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
-        check_input(path, chains, model)
+        check_capabilities(path, chains, model)
         tmpl_map = _openfold3_template_map(path)
         unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt, _mods in chains})
         if unknown_tmpl:

@@ -19,9 +19,10 @@ from pathlib import Path
 
 import pytest
 
-from tt_bio.capabilities import (CAPABILITY, FEATURES, HONOURED, NOTED, REFUSED, check_input,
-                                 detect, honoured_by)
-from tt_bio.main import PREDICT_MODELS, _read_bio_chains
+from tt_bio.capabilities import (CAPABILITY, CHAIN_FEATURES, CHAINS_ELSEWHERE, FEATURES,
+                                 HONOURED, NOTED, REFUSED, check_capabilities, detect,
+                                 honoured_by, how)
+from tt_bio.main import AFFINITY_MODELS, PREDICT_MODELS, _read_bio_chains
 
 SEQ = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ"
 _HEAD = f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {SEQ}\n"
@@ -55,14 +56,15 @@ def _yaml(tmp_path, text, name="q.yaml"):
 def _check(tmp_path, text, model, notes=None):
     """Run the real reader and the real check, collecting NOTED messages."""
     p = _yaml(tmp_path, text)
-    return check_input(p, _read_bio_chains(p), model,
+    return check_capabilities(p, _read_bio_chains(p), model,
                        echo=(notes.append if notes is not None else None))
 
 
 def test_every_shipped_model_has_a_row():
     """A new port with no row is invisible: nothing would tell you it drops `modifications:`."""
-    assert set(PREDICT_MODELS) <= set(CAPABILITY), \
-        f"no capability row for {sorted(set(PREDICT_MODELS) - set(CAPABILITY))}"
+    shipped = set(PREDICT_MODELS) | set(AFFINITY_MODELS)
+    assert shipped <= set(CAPABILITY), \
+        f"no capability row for {sorted(shipped - set(CAPABILITY))}"
     for model, caps in CAPABILITY.items():
         assert set(caps) == set(FEATURES), \
             f"{model} row does not cover {sorted(set(FEATURES) ^ set(caps))}"
@@ -79,6 +81,9 @@ def test_boltz2_honours_the_whole_input_language():
 @pytest.mark.parametrize("model", sorted(CAPABILITY))
 @pytest.mark.parametrize("feature", sorted(INPUTS))
 def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, capsys):
+    if model in CHAINS_ELSEWHERE and feature in CHAIN_FEATURES:
+        pytest.skip(f"{model} has its own reader; the chain columns record its verdict, they "
+                    f"are not applied here (see CHAINS_ELSEWHERE)")
     verdict = CAPABILITY[model][feature]
     label = FEATURES[feature][0]
     notes: list[str] = []
@@ -86,11 +91,11 @@ def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, caps
         with pytest.raises(RuntimeError) as e:
             _check(tmp_path, INPUTS[feature], model, notes)
         msg = str(e.value)
-        assert model in msg and label in msg
+        assert how(model) in msg and label in msg
         # A refusal that names nowhere else to go leaves the user stuck.
         others = [m for m in honoured_by(feature) if m != model]
         if others:
-            assert any(m in msg for m in others), msg
+            assert any(how(m) in msg for m in others), msg
         return
     assert _check(tmp_path, INPUTS[feature], model, notes), "the feature was not even detected"
     if verdict == NOTED:
@@ -141,8 +146,8 @@ def test_a_fasta_input_still_sees_its_molecule_types(tmp_path):
     chains = _read_bio_chains(p)
     assert detect(p, chains) == {"ligand": "chain(s) B"}
     with pytest.raises(RuntimeError, match="polymer-only"):
-        check_input(p, chains, "openfold3", echo=None)
-    check_input(p, chains, "openbind", echo=None)
+        check_capabilities(p, chains, "openfold3", echo=None)
+    check_capabilities(p, chains, "openbind", echo=None)
 
 
 def test_an_empty_or_odd_yaml_does_not_raise_by_accident(tmp_path):
@@ -156,10 +161,10 @@ def test_the_committed_cyclic_example_is_refused():
     if not p.exists():
         pytest.skip("examples/cyclic_prot.yaml not in this checkout")
     with pytest.raises(RuntimeError, match="cyclic"):
-        check_input(p, _read_bio_chains(p), "openbind", echo=None)
+        check_capabilities(p, _read_bio_chains(p), "openbind", echo=None)
 
 
-def test_every_predict_path_calls_check_input():
+def test_every_predict_path_calls_check_capabilities():
     """A check a path does not call is not a guard, and a missing call is exactly how the
     ESMFold2 cyclic hole sat unnoticed."""
     from tt_bio.worker import _WorkerState
@@ -167,7 +172,7 @@ def test_every_predict_path_calls_check_input():
     for method in ("_predict_esmfold2_one", "_predict_opendde_one", "_protenix_inputs",
                    "_predict_rf3_one", "_predict_openfold3_one"):
         src = inspect.getsource(getattr(_WorkerState, method))
-        assert "check_input(path, chains," in src, f"{method} does not call check_input"
+        assert "check_capabilities(path, chains," in src, f"{method} does not call check_input"
     # protenix-v1/v2 reach it one level down, through the shared input builder.
     assert "self._protenix_inputs(" in inspect.getsource(_WorkerState._predict_protenix_one)
 
@@ -218,3 +223,25 @@ def test_the_reader_still_drops_what_the_table_refuses():
     of3 = inspect.getsource(_WorkerState._predict_openfold3_one)
     assert '"non_canonical_residues": None' in of3, \
         "the OF3 query now carries non_canonical_residues -- revisit the OF3 modifications rows"
+
+
+def test_the_nesso1_row_covers_the_command_that_is_not_predict():
+    """Nesso-1 reads the same Boltz-2 affinity yaml through its own parser, so it needs a row
+    in the same table: its `constraints:` block used to go by in silence while its protein
+    keys were already warned about. It answers `properties: affinity`, which is why the
+    affinity hint now points at `tt-bio affinity --model nesso1` and not only at boltz2."""
+    from tt_bio.capabilities import COMMAND
+
+    assert CAPABILITY["nesso1"]["affinity"] == HONOURED
+    assert "nesso1" in honoured_by("affinity")
+    assert COMMAND["nesso1"].startswith("tt-bio affinity")
+    assert CAPABILITY["nesso1"]["bond"] == NOTED
+
+
+def test_the_affinity_command_runs_the_check():
+    import inspect
+
+    from tt_bio.main import affinity_cmd
+
+    src = inspect.getsource(affinity_cmd.callback)
+    assert "check_capabilities(yp, None, model)" in src

@@ -25,6 +25,13 @@ changing the structure. That prints a warning and the fold runs.
 
 `boltz2` is the fallback for anything the others refuse: it takes the whole input language.
 
+`tt-bio affinity --model nesso1` reads the same file through its own parser and is not in the
+matrix, because it returns a scalar and no coordinates. It answers `properties: affinity`,
+takes protein and ligand chains, refuses a third entity type, and warns about everything else
+it cannot read (`msa:`, `modifications:`, `cyclic:`, `templates:`, `constraints:`) rather than
+refusing, so a Boltz-2 affinity yaml stays reusable. See
+[`docs/nesso1.md`](nesso1.md).
+
 ## The input language
 
 ```yaml

@@ -16,7 +16,7 @@ something else.
 """
 import pytest
 
-from tt_bio.capabilities import CAPABILITY, HONOURED, REFUSED, check_input
+from tt_bio.capabilities import CAPABILITY, HONOURED, REFUSED, check_capabilities
 
 _PROT = ("A", "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",
          None, "protein", None)
@@ -33,9 +33,9 @@ def test_the_asymmetry_is_declared():
 def test_openbind_accepts_ligands_and_preview2_refuses_them(tmp_path, lig):
     p = tmp_path / "q.yaml"
     p.write_text("version: 1\nsequences: []\n")
-    check_input(p, [_PROT, lig], "openbind", echo=None)
+    check_capabilities(p, [_PROT, lig], "openbind", echo=None)
     with pytest.raises(RuntimeError) as e:
-        check_input(p, [_PROT, lig], "openfold3", echo=None)
+        check_capabilities(p, [_PROT, lig], "openfold3", echo=None)
     # the refusal has to say why and point somewhere useful, not just say no
     assert "polymer-only" in str(e.value) and "openbind" in str(e.value)
 

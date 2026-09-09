@@ -2719,7 +2719,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only)
 
-    from tt_bio.capabilities import check_input
+    from tt_bio.capabilities import check_capabilities
 
     if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
                  "opendde-abag", "rf3"):
@@ -2792,7 +2792,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         for job in jobs:
             jp = Path(job.path)
             try:
-                check_input(jp, _read_bio_chains(jp, what=model), model)
+                check_capabilities(jp, _read_bio_chains(jp, what=model), model)
             except RuntimeError as e:
                 raise click.ClickException(str(e)) from e
 
@@ -3392,6 +3392,14 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         processed/          # parsed structures, conformers and ESM-2 embeddings
     """
     size_limits.check_input(data, model)
+    # The affinity yaml is the Boltz-2 one, so it can carry blocks Nesso-1 does not read.
+    # It already warns about protein keys it drops; a `constraints:` block was the one that
+    # went by in silence. Same table as predict, same wording, one line.
+    from tt_bio.capabilities import check_capabilities
+    from tt_bio.nesso1_input import find_yamls
+
+    for yp in find_yamls(Path(data)):
+        check_capabilities(yp, None, model)
     if devices and "TT_VISIBLE_DEVICES" not in os.environ:
         ids = [x for x in str(devices).split(",") if x.strip()]
         if len(ids) > 1:
