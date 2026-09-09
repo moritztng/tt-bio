@@ -25,15 +25,24 @@ from rich.text import Text
 #
 #   Start → MSA → Prep → Trunk(recycling) → Diffusion(steps) → Confidence → Save
 #
-# A stage owns a slice of the bar proportional to how long it takes. The
-# starting weights below are a guess and they are wrong for most models: on
-# esmfold2 at 20 aa, `prep` is 43% of a warm fold and `trunk` is 14%, the
-# reverse of any fixed table. So they are only used until the first structure
-# finishes — from then on the display divides the bar by the seconds each stage
-# actually took on this model, on this machine, in this run.
+# A stage owns a slice of the bar proportional to how long it takes. These
+# starting weights are the median of four models measured at 20 aa,
+# single-sequence, warm, on a p150a (`predict` stage timestamps, 2026-09-09):
+#
+#   model       total   prep   trunk   diffusion
+#   esmfold2     21 s    43%     14%       38%
+#   rf3         148 s    33%     41%       26%
+#   opendde     161 s    17%     57%       25%
+#   openfold3   234 s    16%     38%       46%
+#
+# No table fits all four, which is the point: they are only used until the first
+# structure finishes, after which the display divides the bar by the seconds
+# each stage actually took on this model, on this machine, in this run. The
+# table they replace gave prep 6%, so the bar sat near 15% for the first third
+# to half of every fold.
 STAGE_ORDER = ("start", "msa", "prep", "trunk", "diffusion", "confidence", "saving")
-DEFAULT_WEIGHTS = {"start": 0.01, "msa": 0.10, "prep": 0.15, "trunk": 0.27,
-                   "diffusion": 0.40, "confidence": 0.05, "saving": 0.02}
+DEFAULT_WEIGHTS = {"start": 0.01, "msa": 0.08, "prep": 0.25, "trunk": 0.35,
+                   "diffusion": 0.28, "confidence": 0.02, "saving": 0.01}
 
 # A stage with no measurement yet still gets this sliver of the bar, so it does
 # not become a zero-width band the bar sits frozen in.
