@@ -656,9 +656,10 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
                 compute_msa(to_gen, record.id, msa_dir, msa_url, msa_strategy, msa_user, msa_pass, api_key)
             elif to_gen:
                 raise RuntimeError(
-                    "Missing MSAs. Use one of:\n"
-                    "  1) Online:  --use_msa_server\n"
-                    "  2) Offline: tt-bio msa  (then rerun predict)"
+                    "No MSA for this target and no source to search one with. Use:\n"
+                    "  --use_msa_server        the online ColabFold server\n"
+                    "  --msa_db_path <dir>     a local ColabFold DB (`tt-bio msa` downloads one)\n"
+                    "  --single_sequence       fold without an MSA, at a large accuracy cost"
                 )
         finally:
             for lf in locks:
@@ -2412,6 +2413,16 @@ def _resolve_sampling_steps(sampling_steps, model):
 MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "openbind", "opendde", "opendde-abag",
                      "rf3")
 
+# The models whose worker path actually passes --msa_endpoint to its MSA search
+# (grep msa_endpoint in worker.py: _predict_esmfold2_one, _predict_opendde_one,
+# _protenix_inputs, _predict_rf3_one, _predict_openfold3_one). boltz2 resolves
+# MSAs through main.py's own path, which has no endpoint client. The option help
+# is built from this tuple so the two cannot drift: the help used to omit rf3,
+# and passing the flag with --model boltz2 was accepted and then died mid-run
+# with "Missing MSAs", blaming the user for supplying no source.
+MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2",
+                       "openfold3", "openbind", "opendde", "opendde-abag", "rf3")
+
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                          single_sequence, cache, controller, msa_server_url,
@@ -2439,6 +2450,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
     """
+    if msa_endpoint and model not in MSA_ENDPOINT_MODELS:
+        raise click.BadParameter(
+            f"--msa_endpoint is not read by --model {model}; it applies to "
+            f"{', '.join(MSA_ENDPOINT_MODELS)}. Use --msa_db_path for a local "
+            "ColabFold DB or --use_msa_server for the online one.")
     if model not in MSA_DEFAULT_MODELS:
         return use_msa_server, msa_db_path
 
@@ -2526,7 +2542,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v1/protenix-v2/openfold3/"
                    "opendde (no local DB, no online server). Explicit opt-out for batch-screening "
                    "orphan sequences.")
-@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v1/protenix-v2/openfold3/openbind/opendde.")
+@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model " + "/".join(MSA_ENDPOINT_MODELS) + ".")
 @click.option("--msa_server_url", default="https://api.colabfold.com")
 @click.option("--msa_pairing_strategy", default="greedy")
 @click.option("--msa_server_username", default=None)

@@ -270,5 +270,41 @@ def test_opendde_event_sequence_has_trunk_phase():
     assert stages.index("prep") < stages.index("trunk") < stages.index("diffusion")
 
 
+# -- 5. --msa_endpoint is refused for a model that never reads it ---------
+
+def test_msa_endpoint_refused_for_a_model_that_ignores_it():
+    """boltz2 resolves MSAs through main.py, which has no endpoint client. The
+    flag used to be accepted, suppress the auto-detected local DB, and then die
+    mid-run with "Missing MSAs" -- blaming the user for supplying no source."""
+    import click
+    import pytest as _pytest
+
+    from tt_bio.main import MSA_ENDPOINT_MODELS, _resolve_msa_default
+
+    assert "boltz2" not in MSA_ENDPOINT_MODELS
+    with _pytest.raises(click.BadParameter) as exc:
+        _resolve_msa_default("boltz2", False, None, "http://host:8765",
+                             False, "~/.boltz", False, None)
+    msg = str(exc.value)
+    assert "boltz2" in msg and "rf3" in msg and "--msa_db_path" in msg
+
+    # And it is not refused for a model whose worker path does pass it through.
+    for model in ("rf3", "openfold3", "opendde", "protenix-v2", "esmfold2"):
+        _resolve_msa_default(model, False, None, "http://host:8765",
+                             False, "~/.boltz", False, None)
+
+
+def test_msa_endpoint_help_lists_exactly_the_models_that_read_it():
+    """The help string used to be hand-written and omitted rf3, which does read
+    the flag. It is built from the same tuple the refusal checks."""
+    from tt_bio.main import MSA_ENDPOINT_MODELS, predict
+
+    help_text = next(p.help for p in predict.params
+                     if getattr(p, "name", None) == "msa_endpoint")
+    for model in MSA_ENDPOINT_MODELS:
+        assert model in help_text, model
+    assert "boltz2" not in help_text
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
