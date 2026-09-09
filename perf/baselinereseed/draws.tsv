@@ -1,0 +1,17 @@
+model	draw	card	throughput	latency_ms	median_s	unit	tt_bio_version
+opendde	1	0	2.928807	341.44	0.3414	structures/s	0.7.3
+opendde	2	0	2.875689	347.74	0.3477	structures/s	0.7.3
+opendde	3	0	2.914204	343.15	0.3431	structures/s	0.7.3
+opendde	4	0	2.858943	349.78	0.3498	structures/s	0.7.3
+opendde	5	0	2.905054	344.23	0.3442	structures/s	0.7.3
+protenix-v2	1	0	3.080661	324.61	0.3246	structures/s	0.7.3
+protenix-v2	2	0	3.091062	323.51	0.3235	structures/s	0.7.3
+protenix-v2	3	0	3.093688	323.24	0.3232	structures/s	0.7.3
+protenix-v2	4	0	3.147018	317.76	0.3178	structures/s	0.7.3
+protenix-v2	5	0	3.087316	323.91	0.3239	structures/s	0.7.3
+opendde	1	3	2.905015	344.23	0.3442	structures/s	0.7.3
+opendde	2	3	2.929659	341.34	0.3413	structures/s	0.7.3
+opendde	3	3	2.928382	341.49	0.3415	structures/s	0.7.3
+protenix-v2	1	3	3.108425	321.71	0.3217	structures/s	0.7.3
+protenix-v2	2	3	3.119386	320.58	0.3206	structures/s	0.7.3
+protenix-v2	3	3	3.038045	329.16	0.3292	structures/s	0.7.3
