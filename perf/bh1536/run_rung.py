@@ -10,7 +10,7 @@ because a host OOM has taken one of these boxes down.
 
 Appends one JSON object per rung to results.jsonl and one line to sweep.log.
 """
-import argparse, json, os, re, resource, shutil, subprocess, sys, time
+import argparse, fcntl, json, os, re, resource, shutil, subprocess, sys, time
 from pathlib import Path
 
 WT = Path(__file__).resolve().parents[2]
@@ -87,8 +87,12 @@ def _oom_of(text):
 
 def _write(row):
     OUTROOT.mkdir(parents=True, exist_ok=True)
+    # report.py --backfill rewrites this file whole, so an unlocked append can be dropped
+    # (gate-mandated-write-to-single-owner-file-is-a-race). Both sides take the same lock.
     with (OUTROOT / "results.jsonl").open("a") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
         fh.write(json.dumps(row) + "\n")
+        fcntl.flock(fh, fcntl.LOCK_UN)
     line = (f"{row['when']} {row['model']:14s} {row['size']:5d}tok {row['verdict']:8s} "
             f"wall={row['wall_s']:7.1f}s engine={row['engine_runtime_s']} "
             f"cif_res={row['cif_residues']}/{row['size']} ntok={row['n_tokens']} "
