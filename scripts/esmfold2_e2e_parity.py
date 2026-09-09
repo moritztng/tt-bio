@@ -351,6 +351,8 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
     import numpy as np
     # Polymer residues only: a ligand chain's "sequence" is a CCD/SMILES spec.
     n_res = sum(len("".join(str(c[1]).split())) for c in chains if c[3] != "ligand")
+    # A target named by file path cannot be a filename. Use its stem.
+    stem = Path(name).stem if ("/" in name or name.endswith((".yaml", ".yml"))) else name
     root = Path(fixture_dir)
     if root.exists() and any(root.iterdir()):
         raise SystemExit(f"fixture dir {root} exists and is non-empty; refusing to overwrite")
@@ -365,8 +367,19 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
             atom_mask=atom_mask.float().cpu().numpy(),
         )
 
+    def _cif(run, out: Path):
+        res = builder.decode(run, feats, chain_infos, num_diffusion_samples=1, complex_id=stem)
+        if isinstance(res, list):
+            res = res[0]
+        out.write_text(res.complex.to_mmcif())
+
+    (root / "ref_fp32" / "structures").mkdir(parents=True)
     for s in seeds:
         np.savez(root / "ref_fp32" / f"seed{s}.npz", **_npz(ref_runs[s]))
+        # The reference structure, written too: for a co-fold the ligand's placement is
+        # only readable from coordinates, and "the device put it somewhere else" and "the
+        # reference never docked it either" are different findings.
+        _cif(ref_runs[s], root / "ref_fp32" / "structures" / f"{stem}_seed{s}.cif")
     (root / "ref_fp32" / "results.json").write_text(json.dumps(
         [_seed_result(name, n_res, ref_runs[s], atom_mask) for s in seeds], indent=2))
     (root / "ref_fp32" / "meta.json").write_text(json.dumps({
@@ -380,11 +393,7 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
         d = root / f"seed{s}"
         (d / "structures").mkdir(parents=True)
         np.savez(d / f"device_seed{s}.npz", **_npz(tt_runs[s]))
-        res = builder.decode(tt_runs[s], feats, chain_infos,
-                             num_diffusion_samples=1, complex_id=name)
-        if isinstance(res, list):
-            res = res[0]
-        (d / "structures" / f"{name}.cif").write_text(res.complex.to_mmcif())
+        _cif(tt_runs[s], d / "structures" / f"{stem}.cif")
         (d / "results.json").write_text(json.dumps(
             [_seed_result(name, n_res, tt_runs[s], atom_mask)], indent=2))
         (d / "meta.json").write_text(json.dumps({
