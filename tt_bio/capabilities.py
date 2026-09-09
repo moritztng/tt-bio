@@ -150,6 +150,59 @@ def honoured_by(feature: str) -> tuple[str, ...]:
     return tuple(sorted(m for m, caps in CAPABILITY.items() if caps[feature] == HONOURED))
 
 
+#: Output/limit flags and the --model ids that actually read each one. A flag a model does
+#: not read only omits a file or leaves a default in place, so this warns rather than refuses,
+#: the same distinction CAPABILITY draws between REFUSED and NOTED. Kept here next to the
+#: capability table because it is the same question -- does the output reflect what I asked
+#: for -- and the same failure if it is answered per model in five places.
+FLAG_READERS: dict[str, tuple[str, ...]] = {
+    "--write_pae": ("boltz2", "protenix-v1", "protenix-v2", "opendde", "opendde-abag"),
+    "--write_pde": ("boltz2",),
+    "--write_embeddings": ("boltz2",),
+    "--max_msa_seqs": ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind"),
+}
+
+#: (flag, model) -> why that model does not read it, when the generic line is not the reason.
+FLAG_WHY: dict[tuple[str, str], str] = {
+    ("--write_pae", "openfold3"): "its confidence head computes PAE logits but the fold does "
+                                  "not return the matrices",
+    ("--write_pae", "openbind"): "its confidence head computes PAE logits but the fold does "
+                                 "not return the matrices",
+    ("--write_pae", "rf3"): "rf3 writes pTM, ipTM and chain-pair PAE/PDE into "
+                            "<name>_summary_confidences.json next to each structure",
+    ("--write_pae", "esmfold2"): "it has no PAE head",
+    ("--write_pae", "esmfold2-fast"): "it has no PAE head",
+    ("--write_pde", "protenix-v1"): "--write_pae already writes PAE and PDE in one npz",
+    ("--write_pde", "protenix-v2"): "--write_pae already writes PAE and PDE in one npz",
+    ("--write_pde", "opendde"): "it writes PAE only, under --write_pae",
+    ("--write_pde", "opendde-abag"): "it writes PAE only, under --write_pae",
+    ("--max_msa_seqs", "protenix-v1"): "the resolved alignment reaches the featurizer whole; "
+                                       "this path has no depth cap",
+    ("--max_msa_seqs", "protenix-v2"): "the resolved alignment reaches the featurizer whole; "
+                                       "this path has no depth cap",
+    ("--max_msa_seqs", "opendde"): "the resolved alignment reaches the featurizer whole; "
+                                   "this path has no depth cap",
+    ("--max_msa_seqs", "opendde-abag"): "the resolved alignment reaches the featurizer whole; "
+                                        "this path has no depth cap",
+    ("--max_msa_seqs", "rf3"): "the a3m path is handed to upstream's featurizer, which reads "
+                               "it whole",
+}
+
+
+def unread_flags(model: str, given: dict[str, bool]) -> list[str]:
+    """Warning lines for the flags in ``given`` that ``model`` does not read.
+
+    ``given`` maps a flag name to whether the user passed it, so a caller hands over its own
+    parameters and gets back exactly the notes worth printing.
+    """
+    out = []
+    for flag, readers in FLAG_READERS.items():
+        if given.get(flag) and model not in readers:
+            why = FLAG_WHY.get((flag, model), f"{model} does not emit it")
+            out.append(f"Note: --model {model} ignores {flag}: {why}.")
+    return out
+
+
 def _yaml_doc(path) -> dict:
     if Path(path).suffix.lower() not in (".yml", ".yaml"):
         return {}

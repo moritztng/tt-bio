@@ -20,8 +20,8 @@ from pathlib import Path
 import pytest
 
 from tt_bio.capabilities import (CAPABILITY, CHAIN_FEATURES, CHAINS_ELSEWHERE, FEATURES,
-                                 HONOURED, NOTED, REFUSED, check_capabilities, detect,
-                                 honoured_by, how)
+                                 FLAG_READERS, FLAG_WHY, HONOURED, NOTED, REFUSED,
+                                 check_capabilities, detect, honoured_by, how, unread_flags)
 from tt_bio.main import AFFINITY_MODELS, PREDICT_MODELS, _read_bio_chains
 
 SEQ = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ"
@@ -245,3 +245,50 @@ def test_the_affinity_command_runs_the_check():
 
     src = inspect.getsource(affinity_cmd.callback)
     assert "check_capabilities(yp, None, model)" in src
+
+
+# --- output flags a model does not read --------------------------------------------------
+# Same failure as the yaml keys, one layer out: --write_pae was accepted and written by
+# nobody on esmfold2 and rf3, --write_pde did nothing on protenix (--write_pae writes both),
+# and --max_msa_seqs did nothing on protenix/opendde/rf3.
+
+ALL_FLAGS = {f: True for f in FLAG_READERS}
+
+
+@pytest.mark.parametrize("model", sorted(CAPABILITY))
+def test_a_flag_is_either_read_or_reported(model):
+    notes = unread_flags(model, ALL_FLAGS)
+    for flag, readers in FLAG_READERS.items():
+        # match the flag in its own slot: a reason may name another flag
+        named = [n for n in notes if f"ignores {flag}:" in n]
+        if model in readers:
+            assert not named, f"{model} reads {flag} but is warned about it"
+        else:
+            assert len(named) == 1, f"{model} does not read {flag} and says nothing"
+            assert model in named[0]
+
+
+def test_no_flag_is_reported_when_none_was_passed():
+    """The control: a warning that always fires is noise, not information."""
+    for model in CAPABILITY:
+        assert unread_flags(model, {f: False for f in FLAG_READERS}) == []
+
+
+def test_boltz2_reads_every_output_flag():
+    assert unread_flags("boltz2", ALL_FLAGS) == []
+
+
+def test_every_reason_names_a_model_that_exists():
+    for (flag, model) in FLAG_WHY:
+        assert flag in FLAG_READERS, f"{flag} has a reason but no reader list"
+        assert model in CAPABILITY, f"{flag}/{model}: no such model"
+        assert model not in FLAG_READERS[flag], f"{flag}/{model} both reads it and explains why not"
+
+
+def test_predict_reports_them():
+    import inspect
+
+    from tt_bio.main import predict
+
+    src = inspect.getsource(predict.callback)
+    assert "unread_flags(model," in src

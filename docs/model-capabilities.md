@@ -86,11 +86,18 @@ refused with the accepted set, because a dropped key used to cost a whole chain
 ## Outputs
 
 Every structure model writes a ranked `.cif`/`.pdb` per sample and per-atom pLDDT in the
-B-factor column. `--write_pae` adds a token-token PAE/PDE matrix on `protenix-v1`,
-`protenix-v2` and `opendde`; `rf3` writes pTM, ipTM and chain-pair PAE into
-`<name>_summary_confidences.json`; `openfold3`/`openbind` compute PAE logits but do not
-return the matrices, and say so. `--diffusion_samples N` draws N samples and writes all of
-them, best first. `--seed` makes a run reproducible.
+B-factor column. `--diffusion_samples N` draws N samples and writes all of them, best first.
+`--seed` makes a run reproducible: two runs at the same seed give byte-identical files.
+
+`--write_pae` adds a token-token PAE and PDE matrix as `<name>_pae.npz` on `boltz2`,
+`protenix-v1`, `protenix-v2` and `opendde`. `rf3` writes pTM, ipTM and chain-pair PAE into
+`<name>_summary_confidences.json` instead. `openfold3` and `openbind` compute PAE logits but
+their fold does not return the matrices, and `esmfold2` has no PAE head.
+
+An output flag a model does not read prints a note saying which model does read it, so it is
+never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both),
+`--write_embeddings` outside Boltz-2, and `--max_msa_seqs` on `protenix-*`, `opendde*` and
+`rf3`, where the resolved alignment reaches the featurizer uncapped.
 
 ## Keeping this honest
 

@@ -2719,7 +2719,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only)
 
-    from tt_bio.capabilities import check_capabilities
+    from tt_bio.capabilities import check_capabilities, unread_flags
 
     if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
                  "opendde-abag", "rf3"):
@@ -2743,16 +2743,18 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 f"it), so --accelerator {accelerator} cannot be honored. Drop the flag to fold "
                 f"on the card; --model boltz2 is the one model with a CPU/GPU path."
             )
-        for n, on in [("--use_potentials", use_potentials),
-                      ("--write_embeddings", write_embeddings), ("--checkpoint", bool(checkpoint))]:
+        for n, on in [("--use_potentials", use_potentials), ("--checkpoint", bool(checkpoint))]:
             if on:
-                click.secho(f"Note: --model {model} is protein-only; ignoring {n}", fg="yellow")
-        # Every other fold model with a confidence head writes <name>_pae.npz under
-        # --write_pae; OF3's head computes PAE logits but the fold does not return the
-        # matrices, so the flag would otherwise be a silent no-op.
-        if model in OF3_FAMILY and (write_pae or write_pde):
-            click.secho(f"Note: --model {model} does not emit PAE/PDE matrices; "
-                        "ignoring --write_pae/--write_pde", fg="yellow")
+                click.secho(f"Note: --model {model} does not read {n}; ignoring it", fg="yellow")
+        # Output and limit flags this model does not read, from the one table. --write_pae was
+        # already called out for the OF3 family and was a silent no-op everywhere else it is
+        # unread: esmfold2 and rf3 accepted it and wrote nothing, --write_pde did nothing on
+        # protenix (--write_pae writes both) and --max_msa_seqs did nothing on
+        # protenix/opendde/rf3, where the alignment reaches the featurizer uncapped.
+        for note in unread_flags(model, {"--write_pae": write_pae, "--write_pde": write_pde,
+                                         "--write_embeddings": write_embeddings,
+                                         "--max_msa_seqs": max_msa_seqs != 8192}):
+            click.secho(note, fg="yellow")
         # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
         # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
         # --fast block-fp8 path halves it to ~6.4 GB and, with the grid-aware FFN
