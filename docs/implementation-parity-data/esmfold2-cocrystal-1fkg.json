@@ -435,5 +435,50 @@
       "ligand_atoms_matched": 33,
       "protein_ca_rmsd_A": 0.282
     }
+  },
+  "cli_end_to_end": {
+    "_about": "The user-facing path, not the harness: `tt-bio predict examples/fkg_ligand.yaml --model esmfold2 --recycling_steps 3 --sampling_steps 100` on the same card. pLDDT and pTM match the harness device run to four decimals, so the doc's numbers and a user's numbers are the same numbers.",
+    "results_json": {
+      "id": "fkg_ligand",
+      "status": "ok",
+      "plddt": 0.9312,
+      "ptm": 0.9512,
+      "n_residues": 107,
+      "n_chains": 2,
+      "n_ligands": 1,
+      "msa": false,
+      "samples": 1,
+      "runtime_s": 14.7
+    },
+    "pocket_vs_deposited_1fkg": {
+      "pred": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/cli_fkg_ligand.cif",
+      "truth": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/1fkg.cif",
+      "ligand": "SB3",
+      "cutoff_A": 4.5,
+      "seq_offset": 0,
+      "truth_pocket_residues": 11,
+      "pred_pocket_residues": 14,
+      "shared_residues": 11,
+      "pocket_recall": 1.0,
+      "pocket_precision": 0.7857,
+      "jaccard": 0.7857,
+      "truth_min_contact_A": 3.719,
+      "pred_min_contact_A": 3.567,
+      "truth_pocket_seq": "YFDFEVIWYHF",
+      "pred_pocket_seq": "YFDFQEVIWYHIIF",
+      "ligand_rmsd_A": 1.466,
+      "ligand_atoms_matched": 33,
+      "protein_ca_rmsd_A": 0.297
+    }
+  },
+  "token_axis_census": {
+    "_about": "tests/test_token_axis_bucketing_hw.py::test_a_ligand_token_axis_is_not_ragged_either, added here because every existing census row feeds a protein FASTA and no model's ligand axis had ever been censused. 98 aa + BTN = 114 tokens.",
+    "host": "japanfold-ssh card 1",
+    "result": "3 passed, 0 masked_ragged calls",
+    "rows": [
+      "esmfold2 (ligand axis)",
+      "esmfold2-fast (ligand axis)",
+      "esmfold2 (polymer axis)"
+    ]
   }
 }

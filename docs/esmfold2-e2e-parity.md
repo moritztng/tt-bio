@@ -93,6 +93,12 @@ recall 1.0, and displacing the deposited ligand 30 Å gives exactly 30.000 Å an
 Record: `docs/implementation-parity-data/esmfold2-cocrystal-1fkg.json` (all three runs and the
 four pocket scores).
 
+The CLI path was checked against the harness, since the harness builds its own input and a user
+does not: `tt-bio predict examples/fkg_ligand.yaml --model esmfold2 --recycling_steps 3
+--sampling_steps 100` folds in 14.7 s on one Wormhole card at pLDDT 0.9312 / pTM 0.9512 — the same
+numbers to four decimals — reports `n_ligands: 1`, and its written CIF scores 0.297 Å protein CA,
+1.466 Å ligand, pocket recall 1.00 against the crystal.
+
 ### Verdict
 
 **Pass, and the ligand is in the right pocket.** Device and reference agree to the same
