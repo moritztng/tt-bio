@@ -879,7 +879,6 @@ class _WorkerState:
         # generates worker-side in prepare_features). When a source is given we
         # search any chain whose {seq_hash}.a3m/.csv is not already cached, into
         # the shared msa_dir. MSA is optional: with no source, fold single-seq.
-        report_progress("msa")
         if uses_msa and (cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")):
             to_gen = {}
             for _cid, seq, spec, mt, _mods in chains:
@@ -891,6 +890,7 @@ class _WorkerState:
                 if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv"):
                     to_gen[h] = seq
             if to_gen:
+                report_progress("msa")
                 _generate_esmfold2_a3m(
                     to_gen, path.stem, msa_dir, cfg.get("msa_db_path"), cfg.get("use_envdb", False),
                     cfg.get("msa_server_url"), cfg.get("msa_pairing_strategy"),
@@ -987,7 +987,6 @@ class _WorkerState:
         _validate_cyclic_unsupported(path, cfg.get("model", "opendde"))
         msa_dir = Path(cfg["msa_dir"])
 
-        report_progress("msa")
         # search any uncached protein chain (batched into one MSA call), reusing the
         # Protenix-v2 / ESMFold2 stage verbatim -- no separate OpenDDE MSA path.
         # A second, paired (species-pairing) search is run below for multi-chain
@@ -1001,6 +1000,7 @@ class _WorkerState:
                 if not cached(msa_dir / f"{h}.a3m"):
                     need[h] = cseq
         if need:
+            report_progress("msa")
             _generate_esmfold2_a3m(
                 need, path.stem, msa_dir, cfg.get("msa_db_path"),
                 cfg.get("use_envdb", False), cfg.get("msa_server_url"),
@@ -1118,7 +1118,6 @@ class _WorkerState:
         _validate_cyclic_unsupported(path, cfg.get("model", "protenix-v2"))
         msa_dir = Path(cfg["msa_dir"])
 
-        report_progress("msa")
         # search any uncached protein chain (batched into one MSA call); NA chains are single-seq
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
@@ -1129,6 +1128,7 @@ class _WorkerState:
                 if not cached(msa_dir / f"{h}.a3m"):
                     need[h] = cseq
         if need:
+            report_progress("msa")
             _generate_esmfold2_a3m(
                 need, path.stem, msa_dir, cfg.get("msa_db_path"),
                 cfg.get("use_envdb", False), cfg.get("msa_server_url"),
@@ -1284,7 +1284,6 @@ class _WorkerState:
             raise RuntimeError("no sequences")
         msa_dir = Path(cfg["msa_dir"])
 
-        report_progress("msa")
         want_msa = (cfg.get("use_msa_server") or cfg.get("msa_db_path")
                     or cfg.get("msa_endpoint")) and not cfg.get("single_sequence")
         need = {}
@@ -1297,6 +1296,7 @@ class _WorkerState:
             if not cached(msa_dir / f"{h}.a3m"):
                 need[h] = cseq
         if need:
+            report_progress("msa")
             _generate_esmfold2_a3m(
                 need, path.stem, msa_dir, cfg.get("msa_db_path"),
                 cfg.get("use_envdb", False), cfg.get("msa_server_url"),
@@ -1466,7 +1466,6 @@ class _WorkerState:
                 f"{unknown_tmpl}.")
         msa_dir = Path(cfg["msa_dir"])
 
-        report_progress("msa")
         _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA", "ligand": "LIGAND"}
 
         def _query_chain(cid, cseq, spec, mt):
@@ -1504,7 +1503,6 @@ class _WorkerState:
             "chains": [_query_chain(cid, cseq, spec, mt) for cid, cseq, spec, mt, _mods in chains],
         }
 
-        report_progress("prep")
         import json as _json
         import tempfile
 
@@ -1548,6 +1546,8 @@ class _WorkerState:
         # IndexError. Relink it under the canonical name first; bytes unchanged.
         of3_query = normalize_openfold3_msa_paths(
             of3_query, msa_dir, openbind=(model == "openbind"))
+        if want_msa:
+            report_progress("msa")
         of3_query = resolve_openfold3_msas(
             of3_query, msa_dir, target_id=path.stem,
             msa_db_path=cfg.get("msa_db_path"),
@@ -1580,6 +1580,7 @@ class _WorkerState:
         if not any(c.main_msa_file_paths for c in of3_query.chains):
             of3_query.use_msas = False
             of3_query.use_main_msas = False
+        report_progress("prep")
         if tmpl_map:
             _prefetch_openfold3_template_structures(
                 tmpl_map, Path(cfg["of3_template_structures"]))
@@ -2038,9 +2039,6 @@ def _execute_job(
         except Exception as exc:
             raise RuntimeError(f"failed to decode input bytes: {exc}") from exc
 
-        # Both model families start in the MSA stage and resolve/search MSAs
-        # worker-side; the esmfold2 path then reports "prep" before folding.
-        emit("stage", stage="msa")
         metrics, best, feats = state.predict_one(input_path, job_cfg)
         emit("stage", stage="saving")
         if metrics:
