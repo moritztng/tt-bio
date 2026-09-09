@@ -47,10 +47,30 @@ echo "# tt-bio design scratch/px/{nohot,hot,badhot}.yaml --model pxdesign --n_st
 for f in scratch/px/o_nohot/nohot.cif scratch/px/o_hot/hot.cif scratch/px/o_badhot/badhot.cif; do
     [ -f "$f" ] && printf "  %-34s %s\n" "$f" "$(coords "$f")"
 done
-echo "# --num_designs 1 vs design 0 of --num_designs 3, same --seed 5"
-for f in scratch/px/o_hot/hot.cif scratch/px/o_n3/hot_0.cif scratch/px/o_n3b/hot_0.cif; do
-    [ -f "$f" ] && printf "  %-34s %s\n" "$f" "$(coords "$f")"
-done
+echo "# does --num_designs change WHICH designs come back? (RMSD over the 321 atoms)"
+echo "# before member_seeds: o_n3, after: s_n3/s_n2, single runs: s_one_<seed>"
+$PY - <<'PY' 2>&1 | quiet
+import numpy as np
+
+
+def c(p):
+    return np.array([[float(f[10]), float(f[11]), float(f[12])]
+                     for f in (l.split() for l in open(p)) if f and f[0] == "ATOM"])
+
+
+def rms(a, b):
+    x, y = c(a), c(b)
+    return float(np.sqrt(((x - y) ** 2).sum(1).mean()))
+
+
+R = "scratch/px/"
+print("  two independent designs (seed 5 vs 6)          %8.4f A" % rms(R + "s_one_5/hot.cif", R + "s_one_6/hot.cif"))
+print("  PRE  batch-3 design 0 vs the seed-5 single run %8.4f A" % rms(R + "o_n3/hot_0.cif", R + "s_one_5/hot.cif"))
+print("  POST batch-3 design 0 vs the seed-5 single run %8.4f A" % rms(R + "s_n3/hot_0.cif", R + "s_one_5/hot.cif"))
+print("  POST batch-2 vs batch-3, design 0              %8.4f A" % rms(R + "s_n2/hot_0.cif", R + "s_n3/hot_0.cif"))
+print("  POST batch-2 vs batch-3, design 1              %8.4f A" % rms(R + "s_n2/hot_1.cif", R + "s_n3/hot_1.cif"))
+print("  POST the same command run twice                %8.4f A" % rms(R + "s_n3/hot_0.cif", R + "s_n3b/hot_0.cif"))
+PY
 
 echo
 echo "### ESMC + SaProt: assertions on the written artifacts"
@@ -76,7 +96,9 @@ $PY scripts/saprot_structure_alignment.py 2>&1 | quiet
 
 echo
 echo "### SaProt: manifest written without --logits"
-$PY -c "import json;m=json.load(open('scratch/sap_seq/manifest.json'));print('  logits flag:',m['logits']);print('  shapes.logits:',m['shapes']['logits'])"
+for d in sap_mf sap_mfl; do
+    $PY -c "import json,sys;m=json.load(open('scratch/$d/manifest.json'));print('  $d  logits:',m['logits'],' shapes.logits:',m['shapes']['logits'])"
+done
 
 echo
 echo "### BoltzGen: what the spec front door refuses"
@@ -87,10 +109,12 @@ echo "# a Boltz-2 pocket constraint"
 B check scratch/bg_pocket.yaml | grep -iE "does not support" | sed 's/^/  /'
 echo "# binding_types past the end of the chain"
 B check scratch/bg_binding_bad.yaml | grep -iE "higher than the length" | sed 's/^/  /'
-echo "# binding_types in range: does it move the design spec?"
-for f in bgf_ok.cif bgf_binding.cif; do
-    [ -f "$f" ] && printf "  %-20s %s\n" "$f" "$(md5sum "$f" | cut -c1-32)"
-done
+echo "# binding_types in range: does it move the design spec, at a pinned binder length?"
+# `gen check` writes its visualization CIF to the working directory, so run it in scratch.
+( cd scratch && for y in bgf_ok bgf_binding; do
+      $PY -m tt_bio.main gen check "$y.yaml" 2>&1 | quiet | grep -iE "Total designed" | sed "s/^/  $y /"
+  done
+  md5sum bgf_ok.cif bgf_binding.cif 2>/dev/null | sed 's/^/  /' )
 
 echo
 echo "### BoltzGen: --config key checking"
@@ -101,10 +125,10 @@ grep -n "not_a_real_key" scratch/bg_bogus/config/design.yaml 2>/dev/null | sed '
 echo "# a bogus step name does not"
 $PY -m tt_bio.main design scratch/bgf_binding.yaml --model boltzgen --steps design \
     --num_designs 1 --devices 2 --config nosuchstep k=1 --out_dir scratch/bg_bogus2 --debug 2>&1 \
-    | grep -iE "Invalid step name" | sed 's/^/  /'
+    | grep -iE "Invalid step name" | head -1 | sed 's/^/  /'
 
 echo
-echo "### docs/boltzgen-design.md's own example for a step subset"
+echo "### the --steps spelling docs/boltzgen-design.md used to show (it is comma-separated now)"
 $PY -m tt_bio.main design examples/binder.yaml --model boltzgen --steps analysis filtering 2>&1 \
     | grep -iE "^Error" | sed 's/^/  /'
 echo "=============================================================="
