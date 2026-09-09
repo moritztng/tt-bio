@@ -108,12 +108,21 @@ def target_chains(name: str) -> list:
 
 
 def target_label(chains) -> str:
-    """`107aa+SB3` / `120aa` -- what the target is, in one field of the result row."""
-    polymers = sum(len("".join(str(c[1]).split())) for c in chains if c[3] != "ligand")
-    ligs = [str(c[1])[4:] if str(c[1]).upper().startswith("CCD_") else "smiles"
-            for c in chains if c[3] == "ligand"]
-    kinds = sorted({c[3] for c in chains if c[3] not in ("protein", "ligand")})
-    return "+".join([f"{polymers}aa"] + kinds + ligs)
+    """`107aa+SB3` / `107aa+24nt-dna` / `120aa` -- what the target is, in one result field.
+
+    Residues and nucleotides are counted separately; summing them and calling the total "aa"
+    reads as a longer protein than there is.
+    """
+    def _n(kind):
+        return sum(len("".join(str(c[1]).split())) for c in chains if c[3] == kind)
+
+    parts = [f"{_n('protein')}aa"]
+    for na in ("dna", "rna"):
+        if _n(na):
+            parts.append(f"{_n(na)}nt-{na}")
+    parts += [str(c[1])[4:] if str(c[1]).upper().startswith("CCD_") else "smiles"
+              for c in chains if c[3] == "ligand"]
+    return "+".join(parts)
 
 
 # forward() kwargs that prepare_input supplies (extras are dropped by name).

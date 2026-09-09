@@ -41,6 +41,84 @@ Diffusion is not bit-identical across the torch and ttnn samplers by design;
 that is why the coordinate comparison is variance-relative, mirroring the
 Boltz-2 `--fast` parity methodology (`docs/boltz2-fast-parity.md`).
 
+## Result — a protein-ligand cocrystal (1FKG, 107 aa + SB3), Wormhole (japanfold-ssh card 1), `--fast`
+
+The port carries no molecule-type logic, so a ligand is not a new code path on device — it is
+33 more tokens on the same axis. That is a claim worth measuring rather than asserting, because
+every protein-only metric in this file is dominated by the L² protein block and would barely
+move if the ligand ended up in solvent.
+
+Target: **PDB 1FKG**, FKBP12 (107 aa) with the synthetic ligand **SB3**, `examples/fkg_ligand.yaml`.
+The token axis runs **140** (107 residues + 33 SB3 heavy atoms), which buckets to 160 — a
+different rung from the protein alone, which buckets to 128.
+
+```bash
+TT_VISIBLE_DEVICES=1 PYTHONPATH=$PWD:$PWD/scripts \
+  python3 scripts/esmfold2_e2e_parity.py --fast --proteins examples/fkg_ligand.yaml \
+    --seeds 0,1 --loops 3 --steps 100 --fixture_dir /tmp/fx_fkg_lig --out /tmp/cocrystal.json
+```
+
+| metric | 107 aa + SB3 (140 tokens) | 107 aa alone (107 tokens) | reading |
+|---|---|---|---|
+| `plddt_pcc` | 0.9992 | 0.9971 | per-residue confidence |
+| `plddt_mae` | 0.0023 | 0.0071 | mean pLDDT 0.931 (tt) / 0.930 (ref) |
+| `distogram_pcc` | 0.9993 | 0.9987 | |
+| `distogram_rel_l2` | **0.050** | 0.077 | gated at 0.25 |
+| `ptm` | 0.951 (tt) / 0.950 (ref) | 0.870 / 0.861 | |
+| `kabsch_rmsd` | 0.550 Å | 0.579 A | tt-vs-ref |
+| noise floor | 0.588 Å | 0.636 A | reference/device own seed spread |
+| within noise floor | yes (0.94x) | yes, 0.91x | |
+
+The ligand-specific metrics, which the table above cannot see:
+
+| | reference (torch fp32) | device (ttnn `--fast`) |
+|---|---|---|
+| closest ligand-protein contact | 2.78 Å | 2.82 Å |
+| protein atoms within 4.5 Å of the ligand | 54 | 52 |
+| ligand RMSD in the reference's protein frame | — | **0.89 Å** |
+
+And against the deposited crystal structure, scored by `scripts/esmfold2_ligand_pocket.py`:
+
+| | protein CA RMSD | ligand heavy-atom RMSD | pocket recall |
+|---|---|---|---|
+| reference, seed 0 / 1 | 0.30 / 0.28 Å | 1.62 / 1.43 Å | 1.00 / 1.00 |
+| device, seed 0 / 1 | 0.30 / 0.28 Å | **1.47 / 1.37 Å** | 1.00 / 0.91 |
+
+Ligand RMSD is measured after superposing the shared protein CA atoms, so the ligand plays no
+part in the fit it is then scored against; ligand atoms are matched by CCD atom name. Pocket
+recall is the fraction of the 11 protein residues within 4.5 Å of SB3 in the crystal that are
+also in contact in the prediction. Controls for that script: identical files give 0.000 Å and
+recall 1.0, and displacing the deposited ligand 30 Å gives exactly 30.000 Å and recall 0.0.
+
+### Verdict
+
+**Pass, and the ligand is in the right pocket.** Device and reference agree to the same
+tolerances the protein-only legs report (pLDDT PCC 0.9992, distogram rel L2 0.050, coordinates
+inside the reference's own seed spread), and the placement metrics say the agreement is real
+rather than an average over a mostly-protein structure: the device puts SB3 0.89 Å from where
+the reference puts it, with the same 52-54 pocket contacts. Against the crystal the device pose
+is 1.37-1.47 Å, marginally *better* than the torch reference's own 1.43-1.62 Å, which is seed
+noise, not a device advantage.
+
+The protein-only control is the useful comparison and it goes the other way: on the same protein
+at 107 tokens, `plddt_pcc` is 0.9971 and `distogram_rel_l2` 0.077, both slightly *worse* than the
+140-token cocrystal. Adding the ligand does not cost parity. It also raises confidence the way a
+real binder should — mean pLDDT 0.889 without SB3, 0.931 with it.
+
+Nothing about the device path needed changing. The blockers were three host-side spots in
+tt-bio's own plumbing (a protein-only input reader, a `ProteinInput`-only SPI builder, and the
+platform capability row), not the port.
+
+### Nucleic acid chains
+
+The same target plus a 2x12-mer DNA duplex (131 tokens) folds on device too, at one recycle and
+20 steps: `distogram_pcc` 0.9986, `distogram_rel_l2` 0.069, `ptm` 0.796 (tt) / 0.791 (ref),
+`plddt_pcc` 0.964. That is a path check, not an accuracy claim — the DNA sequence is arbitrary and
+has no binding relationship to FKBP12, so the fold is genuinely low-confidence and the pLDDT
+correlation is correspondingly noisy. It says DNA and RNA chains reach the device and track the
+reference; it does not say ESMFold2 is good at protein-DNA complexes, which is upstream's question,
+not the port's.
+
 ## Result — ESMFold2-Fast (L=20 to L=129), Blackhole (qb2 card 1), non-fast path
 
 Same harness, same targets, same metrics, on the 24-block `biohub/ESMFold2-Fast`
