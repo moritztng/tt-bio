@@ -1370,12 +1370,12 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
         # full message here so any actionable guidance (e.g. how to supply
         # MSAs) is readable once the live display is gone.
         click.echo(f"\n{len(failures)} failed:")
+        # An allocator refusal reaches here as a TT_FATAL whose first line names a tt-metal
+        # source file and the literal word "false", followed by twenty backtrace frames. The
+        # headline a user needs is the one sentence in the middle, so render that and keep the
+        # raw text for --debug. Every other failure prints exactly as before.
+        from tt_bio import size_limits
         for job_id, error in failures.items():
-            # An allocator refusal reaches here as a TT_FATAL whose first line names a tt-metal
-            # source file and the literal word "false", followed by twenty backtrace frames. The
-            # headline a user needs is the one sentence in the middle, so render that and keep
-            # the raw text for --debug. Every other failure prints exactly as before.
-            from tt_bio import size_limits
             summary = size_limits.describe_device_oom(str(error))
             if summary and not debug:
                 click.echo(f"  ✗ {job_id}: {summary}")
