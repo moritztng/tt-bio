@@ -142,13 +142,17 @@ def test_ttnn_softmax_masks_its_ragged_tail():
         f"unmasked {unmasked:.6f}. Every IMMUNE row in tt_bio/token_axis.py rests on this.")
 
 
-def _census(model, argv, env_extra=None, seq=None, tap=None):
-    """Run one tiny job under the probe and return the merged counters."""
+def _census(model, argv, env_extra=None, seq=None, tap=None, yaml_text=None):
+    """Run one tiny job under the probe and return the merged counters.
+
+    ``yaml_text`` writes a YAML complex instead of the shared protein fasta and substitutes
+    it for ``{fasta}``: the only way to census a token axis that is not all protein.
+    """
     import token_axis_probe as P
     with tempfile.TemporaryDirectory() as d:
-        fasta = os.path.join(d, "q.fasta")
+        fasta = os.path.join(d, "q.yaml" if yaml_text else "q.fasta")
         with open(fasta, "w") as fh:
-            fh.write(">q|protein\n" + (seq or _SEQ) + "\n")
+            fh.write(yaml_text if yaml_text else ">q|protein\n" + (seq or _SEQ) + "\n")
         spec = os.path.join(d, "spec.json")
         if "{spec}" in " ".join(argv):
             with open(_RFD3_TARGET) as fh:
@@ -223,6 +227,30 @@ def test_no_bucketed_model_reaches_a_ragged_fused_sdpa(model):
     bad = [r for r in s["rows"] if r["masked_ragged"]]
     assert not bad, (
         f"{model} is declared BUCKETED but presented a ragged key axis to the fused SDPA at: "
+        + "; ".join(f"{r['site']} x{r['masked_ragged']} {r['shapes']}" for r in bad))
+
+
+# A ligand token axis is NOT the polymer one: ligand atoms are appended after the protein
+# residues, so the ragged length, the pair mask and the per-atom features all differ from
+# anything a protein-only fasta reaches. Every JOBS row above feeds a protein fasta, so until
+# this arm existed no model's ligand axis had ever been censused. 98 aa + biotin's 16 heavy
+# atoms = 114 tokens, ragged either way, and the ligand is what makes it 114 rather than 98.
+_COCRYSTAL_YAML = (
+    "version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: " + _SEQ
+    + "\n  - ligand:\n      id: L\n      ccd: BTN\n")
+
+
+@pytest.mark.device
+@pytest.mark.parametrize("model", ["esmfold2", "esmfold2-fast"])
+def test_a_ligand_token_axis_is_not_ragged_either(model):
+    """The cocrystal arm of the guard above. Same counter, an input with 16 ligand tokens on
+    the end of the axis, so the bucket is measured on the length the featurizer actually
+    produced rather than on the protein length the caller passed in."""
+    s = _census(model, ["predict", "{fasta}", "--single_sequence", "--model", model],
+                yaml_text=_COCRYSTAL_YAML)
+    bad = [r for r in s["rows"] if r["masked_ragged"]]
+    assert not bad, (
+        f"{model} presented a ragged key axis to the fused SDPA on a protein+ligand input at: "
         + "; ".join(f"{r['site']} x{r['masked_ragged']} {r['shapes']}" for r in bad))
 
 

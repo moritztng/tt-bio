@@ -1,0 +1,9 @@
+# card A: second target first (decisive), then laczc contig variation at total 768
+gpb_s42_c668_b100 perf/ceilrfd3/targets/gpb_823.cif 668 100 42
+gpb_s42_c732_b100 perf/ceilrfd3/targets/gpb_823.cif 732 100 42
+gpb_s42_c604_b100 perf/ceilrfd3/targets/gpb_823.cif 604 100 42
+gpb_s42_c796_b100 perf/ceilrfd3/targets/gpb_823.cif 796 100 42
+lz_t768_b60 perf/ceilrfd3/targets/laczc_1008.cif 708 60 42
+lz_t768_b140 perf/ceilrfd3/targets/laczc_1008.cif 628 140 42
+lz_c668_b60 perf/ceilrfd3/targets/laczc_1008.cif 668 60 42
+lz_c668_b140 perf/ceilrfd3/targets/laczc_1008.cif 668 140 42

@@ -12,3 +12,13 @@ own ladder stops at 768.
 One target for the whole ladder, on purpose. RFD3's previous Wormhole cap was bisected on
 9ma0 for exactly this reason: two rungs cut from different PDBs differ in size and in
 everything else, which is fine for a perf ladder and not fine for a ceiling.
+
+## The second target
+
+`gpb_823.cif` — 1GPB chain A (rabbit muscle glycogen phosphorylase), 823 residues, 6691 atoms,
+renumbered 1..823 by `make_target.py`. Cut for the 768/832 break pass, which needs a target that
+shares nothing with 1DP0 but the ladder's rungs: different organism, different fold, different
+function, and a chain with no numbering gap and no CA-CA break above 3.91 A, so nothing in the
+target itself can be scored as a backbone break.
+
+`make_target.py` refuses a chain with either kind of discontinuity rather than renumbering over it.

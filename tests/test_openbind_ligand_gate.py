@@ -17,11 +17,12 @@ import pytest
 
 from tt_bio.worker import _validate_openfold3_chains
 
-# (chain_id, sequence-or-ligand-spec, msa_spec, molecule_type) -- what _read_bio_chains emits.
+# (chain_id, sequence-or-ligand-spec, msa_spec, molecule_type, modifications) -- what
+# _read_bio_chains emits.
 _PROT = ("A", "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",
-         None, "protein")
-_SMILES = ("B", "c1ccccc1", None, "ligand")
-_CCD = ("B", "CCD_ATP", None, "ligand")
+         None, "protein", None)
+_SMILES = ("B", "c1ccccc1", None, "ligand", None)
+_CCD = ("B", "CCD_ATP", None, "ligand", None)
 
 
 @pytest.mark.parametrize("lig", [_SMILES, _CCD], ids=["smiles", "ccd"])
@@ -43,16 +44,16 @@ def test_blank_ligand_spec_is_refused_on_both():
     The ligand spec rides the sequence slot, so it is the same blank check as a polymer."""
     for model in ("openbind", "openfold3"):
         with pytest.raises(RuntimeError):
-            _validate_openfold3_chains([_PROT, ("B", "   ", None, "ligand")], model)
+            _validate_openfold3_chains([_PROT, ("B", "   ", None, "ligand", None)], model)
 
 
 def test_polymer_only_models_unaffected():
     """preview2's polymer behaviour is byte-identical to before the ligand work."""
     for model in ("openbind", "openfold3"):
         _validate_openfold3_chains([_PROT], model)
-        _validate_openfold3_chains([_PROT, ("B", "GAUC", None, "rna")], model)
+        _validate_openfold3_chains([_PROT, ("B", "GAUC", None, "rna", None)], model)
         with pytest.raises(RuntimeError, match="empty/whitespace"):
-            _validate_openfold3_chains([("A", "", None, "protein")], model)
+            _validate_openfold3_chains([("A", "", None, "protein", None)], model)
 
 
 def test_ligand_query_chain_shape():

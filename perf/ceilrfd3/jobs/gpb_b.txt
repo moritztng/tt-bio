@@ -1,0 +1,9 @@
+# card B: second target at seed 7, then laczc contig variation at total 832
+gpb_s7_c668_b100 perf/ceilrfd3/targets/gpb_823.cif 668 100 7
+gpb_s7_c732_b100 perf/ceilrfd3/targets/gpb_823.cif 732 100 7
+gpb_s7_c604_b100 perf/ceilrfd3/targets/gpb_823.cif 604 100 7
+gpb_s7_c796_b100 perf/ceilrfd3/targets/gpb_823.cif 796 100 7
+lz_t832_b60 perf/ceilrfd3/targets/laczc_1008.cif 772 60 42
+lz_t832_b140 perf/ceilrfd3/targets/laczc_1008.cif 692 140 42
+lz_c732_b60 perf/ceilrfd3/targets/laczc_1008.cif 732 60 42
+lz_c732_b140 perf/ceilrfd3/targets/laczc_1008.cif 732 140 42

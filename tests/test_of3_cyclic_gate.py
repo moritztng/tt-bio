@@ -10,9 +10,9 @@ reads the flag, and upstream Protenix v0.5.0 has no cyclic chain flag either -- 
 examples/cyclic_prot.yaml with --model protenix-v1 SUCCEEDED and returned a linear 13-token
 structure, which is how this was found during the v1 bring-up sweep.
 
-ESMFold2 / ESMFold2-Fast: same shape. `_read_protein_chains` returns (chain_id, sequence,
-msa_spec, modifications) and never reads the flag either, so examples/cyclic_prot.yaml folded
-to status=ok on a straight chain. This was the last predict path missing the guard.
+ESMFold2 / ESMFold2-Fast: same shape, and since 2026-09-09 literally the same reader — it
+never reads the flag either, so examples/cyclic_prot.yaml folded to status=ok on a straight
+chain. This was the last predict path missing the guard.
 
 Cyclisation changes the structure, so this is a hard error, the same treatment `constraints:`
 gets and unlike `properties: affinity`, which only omits an extra output. boltz2 and rf3 do
@@ -124,8 +124,8 @@ def test_the_vendored_tree_really_has_no_cyclic_support():
 @pytest.mark.parametrize("model", ["protenix-v1", "protenix-v2", "opendde"])
 def test_the_protenix_reader_really_drops_the_flag(model):
     """The reason the Protenix/OpenDDE arms of this gate exist. `_read_bio_chains` returns
-    (chain_id, sequence, msa_spec, mol_type) and carries no cyclic field, so the flag cannot
-    reach the featurizer. If that ever changes, this fails and the gate should be reconsidered
+    (chain_id, sequence, msa_spec, mol_type, modifications) and carries no cyclic field, so
+    the flag cannot reach the featurizer. If that ever changes, this fails and the gate should be reconsidered
     rather than left refusing something the featurizer now supports."""
     import inspect
 
@@ -161,20 +161,6 @@ def test_a_linear_esmfold2_job_still_gets_past_the_guard(tmp_path):
     with pytest.raises(KeyError) as e:
         state.predict_one(_yaml(tmp_path, LINEAR), {"model": "esmfold2"})
     assert "msa_dir" in str(e.value)
-
-
-def test_the_esmfold2_reader_really_drops_the_flag():
-    """The reason the ESMFold2 arm of this gate exists. `_read_protein_chains` returns
-    (chain_id, sequence, msa_spec, modifications) and carries no cyclic field, so the flag
-    cannot reach the folder. If that ever changes, this fails and the gate should be
-    reconsidered rather than left refusing something ESMFold2 now supports."""
-    import inspect
-
-    from tt_bio.main import _read_protein_chains
-
-    src = inspect.getsource(_read_protein_chains)
-    assert "cyclic" not in src, \
-        "_read_protein_chains now reads `cyclic` -- revisit _validate_cyclic_unsupported"
 
 
 def test_every_model_that_cannot_honour_it_calls_the_validator():

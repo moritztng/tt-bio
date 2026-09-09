@@ -43,13 +43,11 @@ def test_protenix_strips_whitespace_in_sequence():
 def test_blank_chain_id_is_auto_assigned_not_dropped(tmp_path):
     """A record with a blank leading id (``>|protein``) must yield a chain with an auto-assigned
     id, not be silently dropped (which surfaces later as a misleading 'no sequences' error)."""
-    from tt_bio.main import _read_bio_chains, _read_protein_chains
+    from tt_bio.main import _read_bio_chains
 
     p = _fasta(tmp_path, ">|protein\nMKVL\n")
-    prot = _read_protein_chains(p)
-    assert len(prot) == 1 and prot[0][0] == "A" and prot[0][1] == "MKVL"
     bio = _read_bio_chains(p)
-    assert len(bio) == 1 and bio[0][0] == "A"
+    assert len(bio) == 1 and bio[0][0] == "A" and bio[0][1] == "MKVL"
 
 
 def test_msa_id_on_non_protein_rejected(tmp_path):

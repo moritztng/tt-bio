@@ -161,6 +161,25 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Added
 
+- **ESMFold2 folds protein-ligand cocrystals, and protein-DNA/RNA complexes.** The capability was
+  in the upstream model the whole time and its featurizer is vendored intact; what was missing was
+  entirely ours. ESMFold2 kept a second, protein-only input reader, so a `ligand:` / `dna:` / `rna:`
+  entry was dropped without a word and the job reported success on a bare-protein structure. That
+  reader is gone: `_read_bio_chains`, already shared by Protenix, OpenFold3, OpenDDE and OpenBind,
+  now also carries `modifications` and is the only input parser, and `esmfold2_runtime.build_spi`
+  is the only place a chain list becomes the model's input. A ligand is a CCD code (a list of them
+  for a glycan chain) or a SMILES string, and the device path needed no change at all: a ligand is
+  one more token per heavy atom on the same axis, which the bucket already reads off the featurized
+  length. Measured on PDB 1FKG, FKBP12 (107 aa) + SB3, 140 tokens, on a Wormhole card: pLDDT PCC
+  0.9992 and distogram relative L2 0.050 against the vendored torch reference, coordinates inside
+  the reference's own seed spread, and the ligand 0.89 A from where the reference puts it. Against
+  the crystal the device pose is 1.37-1.47 A with the reference's own at 1.43-1.62 A, and it
+  recovers the crystal's binding-site residues. The protein alone, as a control, scores slightly
+  *worse* on every parity metric, so the ligand costs no parity, and mean pLDDT rises 0.889 -> 0.931
+  when SB3 is present, as it should for a real binder. Also closed a blind spot the work turned up:
+  every row of the token-axis bucketing census fed a protein FASTA, so no model's ligand axis had
+  ever been censused. See `docs/esmfold2-e2e-parity.md`.
+
 - **tt-bio refuses a target it is measured not to fold, instead of crashing on it.** The per-model
   ceilings only ever existed in the serving platform, as a record of where a worker had been seen to
   die, so a CLI user who asked OpenDDE for 1024 residues got the crash itself: an L1 throw, an OOM,

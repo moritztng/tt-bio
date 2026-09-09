@@ -1,0 +1,7 @@
+# The prospective test. gpb_823 has been clean at five crops, all below d/Rg 1.67. These two are
+# the only crops on it that reach the range where laczc breaks: 576 at 1.86 and 508 at 1.80,
+# against a break threshold of 1.82 fitted on laczc alone. If 576 breaks, the metric predicted a
+# break on a target that had never produced one.
+gpb_c576_b100 perf/ceilrfd3/targets/gpb_823.cif 576 100 42
+gpb_c508_b100 perf/ceilrfd3/targets/gpb_823.cif 508 100 42
+gpb_c576_b100_s7 perf/ceilrfd3/targets/gpb_823.cif 576 100 7

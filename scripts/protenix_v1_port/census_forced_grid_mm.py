@@ -80,8 +80,8 @@ BIG_M = 4096   # a multicast over this many rows or more; the hang was at M = 51
 def main(model, target):
     chains = _read_bio_chains(Path(target))
     bonds = _read_bio_constraints(Path(target))
-    specs = [(seq, None, mt) for _cid, seq, _spec, mt in chains]
-    ids = [cid for cid, _s, _sp, _mt in chains]
+    specs = [(seq, None, mt) for _cid, seq, _spec, mt, _mods in chains]
+    ids = [cid for cid, _s, _sp, _mt, _mods in chains]
     feats = build_complex_features(specs, mol_dir=str(weights.fetch("mols")),
                                    chain_ids=ids, bonds=bonds)
     m = Protenix.load_from_checkpoint(str(weights.fetch(model)))

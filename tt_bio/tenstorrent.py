@@ -148,6 +148,10 @@ _CONCAT_HOST_BYTES = None                    # resolved once, on first use after
 # 12 GiB Wormhole chip that is 3.0 GiB, which keeps every design up to ~310 residues in a
 # single block and therefore byte-identical to the unblocked path.
 ATOM_PAIR_BUDGET_FRACTION = 4
+# L1 of a 12 GiB Wormhole Galaxy chip: 72 banks of 1395424 B. The fallback for
+# l1_resident_budget_bytes() when no device is open, i.e. the tighter of the two part classes.
+# Read it through the function, never this constant.
+L1_TOTAL_BYTES_WORMHOLE = 100_470_528
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
 # Row-block height for the trimul's row-local projections. One number so the input and output
@@ -4212,6 +4216,49 @@ def _dram_total_bytes(device=None) -> int:
         return 0
 
 
+def _l1_total_bytes(device=None) -> int:
+    """This part's total L1 in bytes, or 0 when no device is open or the read throws.
+
+    Same contract as _dram_total_bytes(): never calls get_device(), and 0 makes every caller
+    fall back to its measured base figure. A 12 GiB Wormhole Galaxy chip reports 72 banks of
+    1395424 B (100470528 B); a p150a reports 130 banks of 1461760 B (190028800 B).
+    """
+    device = device if device is not None else _device
+    if device is None:
+        return 0
+    try:
+        mv = ttnn.get_memory_view(device, ttnn.BufferType.L1)
+        return int(mv.total_bytes_per_bank) * int(mv.num_banks)
+    except Exception:
+        return 0
+
+
+def l1_resident_budget_bytes() -> int:
+    """L1 a row-blocked op may hold across all its live blocks at once, on the part now open.
+
+    The part's own L1, not a constant, for the same reason atom_pair_budget_bytes() reads the
+    part's own DRAM: the two parts differ by 1.9x (100470528 B on a Wormhole Galaxy chip against
+    190028800 B on a p150a), so any single figure is either dead on one of them or over the other.
+    A residency budget written as a constant is the defect class this replaces -- RFD3's pair
+    transition carried 138000000 B, which is 1.37x the L1 a Wormhole part has, so it never
+    declined anything there and the op asked the allocator for a buffer that could not exist.
+
+    The whole L1 rather than a fraction of it, because the sites that ask hold nothing else in L1
+    at the time: at RFD3's 768-residue throw the allocator reported free == bank size minus the
+    one resident already placed, so the budget's job is to bound the residents against each other
+    and not against a standing allocation. Falls back to the Wormhole figure when no device is
+    open, so a caller sizing a block before the open gets the tighter of the two answers.
+    """
+    override = os.environ.get("TT_BIO_L1_RESIDENT_BUDGET_BYTES")
+    if override:
+        n = int(override)
+        # 0 means no budget: every residency granted, which is the unconditional-L1 path the
+        # code shipped with. That is what a bit-exact A/B runs against, and the way back if the
+        # budget ever has to come out at a release gate.
+        return n if n > 0 else 1 << 62
+    return _l1_total_bytes() or L1_TOTAL_BYTES_WORMHOLE
+
+
 def atom_pair_budget_bytes() -> int:
     """DRAM a row-blocked atom-pair section may hold at once on the part now open.
 
@@ -5107,7 +5154,7 @@ class TriangleMultiplication(Module):
                 # happens after a throw -- so a size that folds today keeps its arithmetic and
                 # its launch count, and only a size that produces no structure at all sees a
                 # different partition.
-                oom = large_seq and "Out of Memory" in msg
+                oom = large_seq and _dram_oom(e)
                 if not oom and (large_seq or "clash with L1 buffers" not in msg):
                     raise
                 for _t in x_chunks:

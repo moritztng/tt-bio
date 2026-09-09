@@ -1,0 +1,7 @@
+{
+  "gpb_s7_c668_b100": {
+    "input": "perf/ceilrfd3/targets/gpb_823.cif",
+    "contig": "A1-668,100",
+    "length": "100"
+  }
+}

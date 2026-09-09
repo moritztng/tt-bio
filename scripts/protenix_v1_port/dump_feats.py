@@ -30,8 +30,8 @@ def main(src, out, a3m=None):
     # reproducible byte for byte. build_complex_features takes the alignment TEXT, and only
     # protein chains carry one (the featurizer refuses an MSA on a nucleic-acid chain).
     text = Path(a3m).read_text() if a3m else None
-    specs = [(seq, text if mt == "protein" else None, mt) for _cid, seq, _spec, mt in chains]
-    ids = [cid for cid, _s, _sp, _mt in chains]
+    specs = [(seq, text if mt == "protein" else None, mt) for _cid, seq, _spec, mt, _mods in chains]
+    ids = [cid for cid, _s, _sp, _mt, _mods in chains]
     feats = build_complex_features(specs, mol_dir=str(weights.fetch("mols")),
                                    chain_ids=ids, bonds=bonds)
     torch.save({"feats": feats, "chains": chains}, out)

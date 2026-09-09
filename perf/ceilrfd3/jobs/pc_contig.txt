@@ -1,0 +1,15 @@
+# pc Blackhole round 2. Every rung here is a prediction the protrusion metric makes and the
+# size hypothesis does not, or the reverse. dist = the crop's last CA to the crop's centroid.
+# lz crop 816 dist 66.5 -> BREAK at total 916, a size outside the band entirely
+lz_c816_b100 perf/ceilrfd3/targets/laczc_1008.cif 816 100 42
+# lz crop 628 dist 27.0 and crop 692 dist 20.5 -> CLEAN at totals 768 and 832, which break at
+# crops 668 and 732
+lz_t768_b140 perf/ceilrfd3/targets/laczc_1008.cif 628 140 42
+lz_t832_b140 perf/ceilrfd3/targets/laczc_1008.cif 692 140 42
+# gpb crop 616 dist 45.3, the most protruding chain end the second target has in range -> the
+# positive control on a target whose 668/732 crops are compact and clean
+gpb_c616_b100 perf/ceilrfd3/targets/gpb_823.cif 616 100 42
+gpb_s7_c668_b100 perf/ceilrfd3/targets/gpb_823.cif 668 100 7
+gpb_s7_c732_b100 perf/ceilrfd3/targets/gpb_823.cif 732 100 7
+lz_c604_b140 perf/ceilrfd3/targets/laczc_1008.cif 604 140 42
+lz_t768_b60 perf/ceilrfd3/targets/laczc_1008.cif 708 60 42

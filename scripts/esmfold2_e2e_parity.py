@@ -79,21 +79,50 @@ PROTEINS = {
 PERF_FIXTURES = "perf/size512/fixtures"
 
 
-def protein_sequence(name: str) -> str:
-    """Sequence for a harness target: a PROTEINS key, or a perf fold fixture by name."""
+def target_chains(name: str) -> list:
+    """Canonical chain list for a harness target.
+
+    Three ways to name one: a PROTEINS key, a path to any input YAML the CLI accepts
+    (a cocrystal, a protein-DNA complex, a multimer), or a perf fold fixture by bare
+    name. The file route goes through ``tt_bio.main._read_bio_chains``, the reader the
+    CLI itself uses, so what this harness scores is what a user submits -- including the
+    ligand and nucleic entries the old protein-only path dropped on the floor.
+    """
     if name in PROTEINS:
-        return PROTEINS[name]
-    import yaml
-    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        PERF_FIXTURES, f"{name}.yaml")
-    if not os.path.exists(path):
-        raise SystemExit(f"unknown protein {name!r}: not in {sorted(PROTEINS)} and no {path}")
-    with open(path) as f:
-        doc = yaml.safe_load(f)
-    seqs = [e["protein"]["sequence"] for e in doc["sequences"] if "protein" in e]
-    if len(seqs) != 1:
-        raise SystemExit(f"{path}: expected one protein chain, got {len(seqs)}")
-    return seqs[0]
+        return [("A", PROTEINS[name], None, "protein", None)]
+    from pathlib import Path
+
+    from tt_bio.main import _read_bio_chains
+
+    path = Path(name)
+    if not path.exists():
+        path = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) \
+            / PERF_FIXTURES / f"{name}.yaml"
+    if not path.exists():
+        raise SystemExit(f"unknown target {name!r}: not in {sorted(PROTEINS)}, not a file, "
+                         f"and no {path}")
+    chains = _read_bio_chains(path, what="esmfold2")
+    if not chains:
+        raise SystemExit(f"{path}: no sequences")
+    return chains
+
+
+def target_label(chains) -> str:
+    """`107aa+SB3` / `107aa+24nt-dna` / `120aa` -- what the target is, in one result field.
+
+    Residues and nucleotides are counted separately; summing them and calling the total "aa"
+    reads as a longer protein than there is.
+    """
+    def _n(kind):
+        return sum(len("".join(str(c[1]).split())) for c in chains if c[3] == kind)
+
+    parts = [f"{_n('protein')}aa"]
+    for na in ("dna", "rna"):
+        if _n(na):
+            parts.append(f"{_n(na)}nt-{na}")
+    parts += [str(c[1])[4:] if str(c[1]).upper().startswith("CCD_") else "smiles"
+              for c in chains if c[3] == "ligand"]
+    return "+".join(parts)
 
 
 # forward() kwargs that prepare_input supplies (extras are dropped by name).
@@ -170,13 +199,69 @@ def dist_matrix(x):  # x: [n,3] -> [n,n]
     return torch.cdist(x.float(), x.float())
 
 
-def build_features(seq, seed, device):
-    from tt_bio._vendor.esm.models.esmfold2 import (
-        ESMFold2InputBuilder, ProteinInput, StructurePredictionInput)
-    spi = StructurePredictionInput(sequences=[ProteinInput(id="A", sequence=seq)])
+def build_features(chains, seed, device):
+    """Featurize the canonical chain list through the same builder ``fold_complex`` uses."""
+    from tt_bio._vendor.esm.models.esmfold2 import ESMFold2InputBuilder
+    from tt_bio.esmfold2_runtime import build_spi
+
     builder = ESMFold2InputBuilder()
-    feats, chain_infos = builder.prepare_input(spi, seed=seed, device=device)
+    feats, chain_infos = builder.prepare_input(build_spi(chains), seed=seed, device=device)
     return feats, chain_infos, builder
+
+
+# prepare_input's mol_type encoding (prepare_input.MOL_TYPE_*): 0 protein, 1 RNA, 2 DNA,
+# 3 non-polymer (ligand).
+MOL_TYPE_PROTEIN, MOL_TYPE_LIGAND = 0, 3
+POCKET_CONTACT_A = 4.5   # heavy-atom contact cut-off, the usual pocket-residue definition
+
+
+def ligand_placement(ref_out, tt_out, feats):
+    """Where the ligand sits -- the one thing every protein-only metric above is blind to.
+
+    A cocrystal fold can score a perfect distogram PCC and a perfect pLDDT while parking
+    the ligand in solvent, because both are dominated by the L**2 protein block. Two
+    measures, and they answer different questions:
+
+    * ``ligand_rmsd_protein_frame`` -- align device onto reference using the PROTEIN atoms
+      only, then RMSD over the ligand atoms in that frame. This is device-vs-reference
+      placement: it asks whether the port puts the ligand where the reference does,
+      relative to the same protein, rather than whether the two structures happen to
+      superpose overall.
+    * ``min_contact_A`` / ``n_contacts`` per backend -- closest ligand-protein heavy-atom
+      distance and how many protein atoms sit within 4.5 A of the ligand. Bound in a
+      pocket is ~2.5-4 A with tens of contacts; adrift in solvent is a large minimum and
+      no contacts. Reported for the reference too, so a reference that itself fails to
+      dock cannot be read as a device defect.
+
+    Returns {} when the input has no ligand.
+    """
+    mol = feats["mol_type"][0]
+    a2t = feats["atom_to_token"][0]
+    mask = feats["atom_attention_mask"][0] > 0.5
+    lig_tok = (mol == MOL_TYPE_LIGAND).nonzero(as_tuple=True)[0]
+    if lig_tok.numel() == 0:
+        return {}
+    prot_tok = (mol == MOL_TYPE_PROTEIN).nonzero(as_tuple=True)[0]
+    lig = torch.isin(a2t, lig_tok) & mask
+    prot = torch.isin(a2t, prot_tok) & mask
+
+    import tt_bio.esmfold2 as E
+
+    ref = ref_out["sample_atom_coords"][0].float()
+    tt = tt_out["sample_atom_coords"][0].float()
+    w = prot.float().unsqueeze(0)
+    aligned = E._weighted_rigid_align(tt.unsqueeze(0), ref.unsqueeze(0), w, w)[0]
+    lig_rmsd = (aligned[lig] - ref[lig]).pow(2).sum(-1).mean().sqrt().item()
+    prot_rmsd = (aligned[prot] - ref[prot]).pow(2).sum(-1).mean().sqrt().item()
+
+    def contacts(x):
+        d = torch.cdist(x[lig], x[prot])
+        return {"min_contact_A": round(d.min().item(), 3),
+                "n_contacts": int((d < POCKET_CONTACT_A).any(dim=0).sum())}
+
+    return {"n_ligand_atoms": int(lig.sum()), "n_protein_atoms": int(prot.sum()),
+            "ligand_rmsd_protein_frame": lig_rmsd, "protein_rmsd_protein_frame": prot_rmsd,
+            "ref": contacts(ref), "device": contacts(tt)}
 
 
 def run_forward(model, feats, lm_hs, *, loops, steps, samples, seed=0):
@@ -258,21 +343,25 @@ def executed_step_count(ref_model, requested, cap=256.0):
     return len(sched) - 1
 
 
-def _seed_result(name, seq, run, atom_mask):
+def _seed_result(name, n_res, run, atom_mask):
     ptm = float(run["ptm"].float().mean())
     iptm_t = run.get("iptm")
     iptm = float(iptm_t.float().mean()) if iptm_t is not None else 0.0
     plddt = float(run["plddt"].float().mean())
     return {"id": name, "status": "ok", "plddt": plddt, "complex_plddt": plddt,
             "ptm": ptm, "iptm": iptm, "confidence_score": 0.8 * iptm + 0.2 * ptm,
-            "n_residues": len(seq), "n_atoms": int(atom_mask.sum()), "samples": 1}
+            "n_residues": n_res, "n_atoms": int(atom_mask.sum()), "samples": 1}
 
 
-def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, tt_runs,
+def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_runs, tt_runs,
                  atom_mask, seeds, args, parity, n_steps_code, n_steps_device, ckpt):
     """Dump the opendde-schema fixture tree: meta.json + ref_fp32/ + seed<N>/ device legs."""
     from pathlib import Path
     import numpy as np
+    # Polymer residues only: a ligand chain's "sequence" is a CCD/SMILES spec.
+    n_res = sum(len("".join(str(c[1]).split())) for c in chains if c[3] != "ligand")
+    # A target named by file path cannot be a filename. Use its stem.
+    stem = Path(name).stem if ("/" in name or name.endswith((".yaml", ".yml"))) else name
     root = Path(fixture_dir)
     if root.exists() and any(root.iterdir()):
         raise SystemExit(f"fixture dir {root} exists and is non-empty; refusing to overwrite")
@@ -287,10 +376,21 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
             atom_mask=atom_mask.float().cpu().numpy(),
         )
 
+    def _cif(run, out: Path):
+        res = builder.decode(run, feats, chain_infos, num_diffusion_samples=1, complex_id=stem)
+        if isinstance(res, list):
+            res = res[0]
+        out.write_text(res.complex.to_mmcif())
+
+    (root / "ref_fp32" / "structures").mkdir(parents=True)
     for s in seeds:
         np.savez(root / "ref_fp32" / f"seed{s}.npz", **_npz(ref_runs[s]))
+        # The reference structure, written too: for a co-fold the ligand's placement is
+        # only readable from coordinates, and "the device put it somewhere else" and "the
+        # reference never docked it either" are different findings.
+        _cif(ref_runs[s], root / "ref_fp32" / "structures" / f"{stem}_seed{s}.cif")
     (root / "ref_fp32" / "results.json").write_text(json.dumps(
-        [_seed_result(name, seq, ref_runs[s], atom_mask) for s in seeds], indent=2))
+        [_seed_result(name, n_res, ref_runs[s], atom_mask) for s in seeds], indent=2))
     (root / "ref_fp32" / "meta.json").write_text(json.dumps({
         "reference_impl": "tt-bio vendored torch reference (Biohub/transformers fork f9a5a37, CPU fp32)",
         "dtype": "fp32", "seeds": seeds,
@@ -302,13 +402,9 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
         d = root / f"seed{s}"
         (d / "structures").mkdir(parents=True)
         np.savez(d / f"device_seed{s}.npz", **_npz(tt_runs[s]))
-        res = builder.decode(tt_runs[s], feats, chain_infos,
-                             num_diffusion_samples=1, complex_id=name)
-        if isinstance(res, list):
-            res = res[0]
-        (d / "structures" / f"{name}.cif").write_text(res.complex.to_mmcif())
+        _cif(tt_runs[s], d / "structures" / f"{stem}.cif")
         (d / "results.json").write_text(json.dumps(
-            [_seed_result(name, seq, tt_runs[s], atom_mask)], indent=2))
+            [_seed_result(name, n_res, tt_runs[s], atom_mask)], indent=2))
         (d / "meta.json").write_text(json.dumps({
             "seed": s, "backend": "ttnn (Tenstorrent Blackhole), production sampler path",
             "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 — device sampler draws "
@@ -351,7 +447,7 @@ def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, 
             "single_sequence": True,
             "dtype": "fp32",
             "checkpoint": ckpt["version"],
-            "target": f"{name} ({len(seq)} res)",
+            "target": f"{name} ({target_label(chains)})",
             "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 (global CPU torch stream seeded per seed on both paths)",
             "lm_hidden_states": "shared: one ttnn ESMC-6B (biohub/ESMC-6B rev 45b0fa5d) forward injected into both paths",
             "rationale": "sample=1 isolates convergence (loops/steps) from best-of-N selection",
@@ -892,9 +988,13 @@ def main():
 
     results = []
     for name in names:
-        seq = protein_sequence(name)
-        print(f"\n=== {name} (L={len(seq)}), seeds={seeds} ===", flush=True)
-        feats, chain_infos, builder = build_features(seq, args.feature_seed, ref_model.device)
+        chains = target_chains(name)
+        label = target_label(chains)
+        feats, chain_infos, builder = build_features(chains, args.feature_seed, ref_model.device)
+        # L is the TOKEN axis, not the residue count: a ligand contributes one token per
+        # heavy atom, so a 107 aa + SB3 cocrystal runs 107+27 tokens through the trunk.
+        seq_len = int(feats["token_index"].shape[-1])
+        print(f"\n=== {name} ({label}, L={seq_len} tokens), seeds={seeds} ===", flush=True)
         lm_hs = compute_lm_hidden_states(
             esmc, feats["input_ids"], feats["asym_id"], feats["residue_index"],
             feats["mol_type"], feats["token_attention_mask"])
@@ -909,7 +1009,8 @@ def main():
                                x_swap_pdb=args.x_swap_pdb,
                                inputs_swap=args.inputs_swap, ref_z=args.ref_z,
                                z_ref_out=args.z_ref_out)
-            ab = dict(protein=name, L=len(seq), seed=seeds[0], checkpoint=args.checkpoint,
+            ab = dict(protein=name, target=label, L=seq_len, seed=seeds[0],
+                      checkpoint=args.checkpoint,
                       trunk_blocks=ckpt["trunk_blocks"], **ab)
             results.append(ab)
             print(json.dumps(ab, indent=2), flush=True)
@@ -929,7 +1030,7 @@ def main():
             [float(ref_runs[s]["plddt"].float().mean()) for s in seeds],
             [float(tt_runs[s]["plddt"].float().mean()) for s in seeds], seeds)
         m = dict(
-            protein=name, L=len(seq), n_seeds=len(seeds),
+            protein=name, target=label, L=seq_len, n_seeds=len(seeds),
             checkpoint=args.checkpoint, trunk_blocks=ckpt["trunk_blocks"],
             plddt_mean=plddt_means,
             plddt_pcc=pcc(base_tt["plddt"], base_ref["plddt"]),
@@ -939,6 +1040,9 @@ def main():
             ptm_tt=float(base_tt["ptm"].mean()), ptm_ref=float(base_ref["ptm"].mean()),
             **verdicts,
         )
+        placement = ligand_placement(base_ref, base_tt, feats)
+        if placement:
+            m["ligand"] = placement
         results.append(m)
         print(json.dumps(m, indent=2), flush=True)
         assert dg_rel < DISTOGRAM_REL_L2_MAX, (
@@ -952,7 +1056,7 @@ def main():
                 f"device executed {n_steps_device} steps, schedule says {n_steps_code}")
             if args.steps == 100:
                 assert n_steps_code == 68, f"requested 100 must execute 68, got {n_steps_code}"
-            dump_fixture(args.fixture_dir, name, seq, feats, chain_infos, builder,
+            dump_fixture(args.fixture_dir, name, chains, feats, chain_infos, builder,
                          ref_runs, tt_runs, atom_mask, seeds, args, m,
                          n_steps_code, n_steps_device, ckpt)
 

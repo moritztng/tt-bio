@@ -8,19 +8,37 @@ geometry. So every rung a ceiling task calls PASS gets scored here, on the CIF.
 Model-agnostic: reads `<out_dir>/*results_*/structures/*.cif` and the sibling `results.json`,
 which every tt-bio structure model writes.
 
+WHAT COUNTS as a clash and as a break is not decided here. `perf/wh-correctness/check_structure.py`
+is the release gate's own structural instrument and already carries the calibrated thresholds and
+the two exclusions a predicted structure needs, so they are imported rather than restated. They
+were restated once and both exclusions were missing: on `des_rfd3_binder/design_0.cif` this file
+read 222 clash pairs where the gate reads 53, and on the 1ahw antibody fold it read 6 clashes in an
+esmfold2-fast structure that has none. A ceiling ladder scored on one threshold cannot be compared
+to a release gate scored on another.
+
 Both arms carry a negative control and the two are independent, measured on a 1095 aa RF3 fold:
 shifting every residue above 500 by 20 A moves `worst_ca_ca` 4.20 -> 18.56 and `ca_breaks`
 0 -> 1 and leaves `clash_frac` alone; superposing one chain onto another chain's centroid moves
 `clash_frac` 0.0071 -> 0.1288 and leaves continuity alone. For scale, the deposited experimental
 9SAT reads `clash_frac` 0.00098 and `worst_ca_ca` 3.91 A through this same code.
 
-    python perf/ceilings/struct_signal.py <out_dir>
+Neither exclusion moves a deposit -- checked on 9gei, 9j4c and 9q6z, `clash_frac` unmoved --
+because a crystal structure carries no placeholder atoms and its disulfides sit at 2.05 A, just
+outside the 2.0 A cutoff. Which is why a control measured on a deposit cannot catch either rule
+going missing, and `struct_signal_control.py` is the control that can.
+
+    python perf/ceilings/struct_signal.py <out_dir_or_cif>
 """
 import glob
 import json
 import sys
+from pathlib import Path
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "wh-correctness"))
+from check_structure import (  # noqa: E402
+    CA_CA_BREAK, CLASH_DIST, DISULFIDE_MAX, VIRTUAL_ATOM)
 
 
 def read_cif(path):
@@ -46,8 +64,12 @@ def read_cif(path):
             np.array(col("type_symbol")), xyz)
 
 
-def continuity(atom, asym, seq, xyz):
-    """Max and count of CA-CA breaks between sequence-adjacent residues, per chain."""
+def continuity(atom, comp, asym, seq, elem, xyz):
+    """Max and count of CA-CA breaks between sequence-adjacent residues, per chain.
+
+    Takes `read_cif`'s columns in `read_cif`'s order, so a caller writes `continuity(*read_cif(p))`
+    and cannot transpose two of them.
+    """
     ca = atom == "CA"
     worst, breaks, n = 0.0, 0, 0
     for ch in np.unique(asym[ca]):
@@ -61,16 +83,25 @@ def continuity(atom, asym, seq, xyz):
         d = np.linalg.norm(np.diff(p, axis=0), axis=1)[adj]
         n += len(d)
         worst = max(worst, float(d.max()))
-        breaks += int((d > 4.5).sum())
+        breaks += int((d > CA_CA_BREAK).sum())
     return worst, breaks, n
 
 
-def clashes(asym, seq, elem, xyz, cutoff=2.0, sep=2):
+def clashes(atom, comp, asym, seq, elem, xyz, cutoff=CLASH_DIST, sep=2):
     """Fraction of heavy atoms with a heavy-atom neighbour under `cutoff` A that is at
     least `sep` residues away in sequence (or on another chain). Bonded pairs excluded by
-    the separation rule, so a clean structure scores ~0."""
-    heavy = elem != "H"
+    the separation rule, so a clean structure scores ~0.
+
+    Two exclusions beyond the separation rule, both `check_structure.py`'s and both measured
+    there rather than argued here. RFD3 ships sidechain placeholders named V0..V8 typed as
+    carbon -- 964 of the 2051 atoms in a 220-residue design -- which have no van der Waals
+    radius and belong in neither the numerator nor the denominator. And a cysteine disulfide is
+    a covalent bond between residues far apart in sequence, which is exactly the pair this scan
+    is looking for, so every one of them scored as a clash.
+    """
+    heavy = (elem != "H") & ~np.array([bool(VIRTUAL_ATOM.match(n)) for n in atom], bool)
     p, a, s = xyz[heavy], asym[heavy], seq[heavy]
+    an, cn = atom[heavy], comp[heavy]
     hit = np.zeros(len(p), bool)
     step = 2048
     for i in range(0, len(p), step):
@@ -78,20 +109,36 @@ def clashes(asym, seq, elem, xyz, cutoff=2.0, sep=2):
         far = (a[i:i + step, None] != a[None, :]) | (
             np.abs(s[i:i + step, None] - s[None, :]) >= sep)
         near = (d < cutoff) & far
+        near &= ~((d < DISULFIDE_MAX) & (an[i:i + step, None] == "SG") & (an[None, :] == "SG")
+                  & (cn[i:i + step, None] == "CYS") & (cn[None, :] == "CYS"))
         hit[i:i + step] |= near.any(1)
         hit |= near.any(0)
     return float(hit.sum()) / len(p), len(p)
 
 
 def main(out_dir):
-    cif = sorted(glob.glob(f"{out_dir}/*results_*/structures/*.cif"))
-    res = sorted(glob.glob(f"{out_dir}/*results_*/results.json"))
+    # Two layouts, because a design model is not a fold model: the predict CLIs write
+    # `<out_dir>/*results_*/structures/*.cif` beside a results.json, and `tt-bio design` writes
+    # one CIF per spec straight into `--out_dir` with no results.json at all. Globbing only the
+    # first is why RFD3's ceiling rungs went unscored -- the instrument reported `scored: 0` and
+    # the ladder recorded finite coordinates instead of geometry.
+    # A single CIF is also a valid argument. A directory holding one ladder's rungs holds
+    # several CIFs, and scoring `sorted(...)[0]` of those scores whichever rung sorts first
+    # (cap1024 before cap640) rather than the one asked about.
+    if out_dir.endswith(".cif"):
+        cif, res = [out_dir], []
+    else:
+        cif = sorted(glob.glob(f"{out_dir}/*results_*/structures/*.cif"))
+        res = sorted(glob.glob(f"{out_dir}/*results_*/results.json"))
+        if not cif:
+            cif = sorted(glob.glob(f"{out_dir}/*.cif"))
     if not cif:
         print(json.dumps({"scored": 0}))
         return
-    atom, comp, asym, seq, elem, xyz = read_cif(cif[0])
-    worst, breaks, nadj = continuity(atom, asym, seq, xyz)
-    frac, nheavy = clashes(asym, seq, elem, xyz)
+    cols = read_cif(cif[0])
+    atom = cols[0]
+    worst, breaks, nadj = continuity(*cols)
+    frac, nheavy = clashes(*cols)
     r = json.load(open(res[0]))[0] if res else {}
     print(json.dumps({
         "scored": 1, "cif": cif[0], "n_atoms": len(atom), "n_heavy": nheavy,

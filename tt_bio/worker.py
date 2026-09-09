@@ -305,16 +305,17 @@ def _validate_cyclic_unsupported(path, model: str) -> None:
     were dropped when the tree was vendored, consistently).
 
     Protenix (v1/v2) and OpenDDE: there is no cyclic input path to drop. `_read_bio_chains`
-    returns (chain_id, sequence, msa_spec, mol_type) and never reads the flag, and upstream
+    returns (chain_id, sequence, msa_spec, mol_type, modifications) and never reads the flag,
+    and upstream
     Protenix v0.5.0 has no cyclic chain flag either -- its only "cyclic" is the
     `cyclic-pseudo-peptide` LIGAND entity label (protenix/data/constants.py), not a polymer
     input. So the flag was dropped silently and the fold returned status=ok on a linear
     structure. Caught by folding examples/cyclic_prot.yaml with --model protenix-v1 during the
     v1 bring-up sweep: it succeeded, which is the bug.
 
-    ESMFold2 / ESMFold2-Fast: the same, one door further along. `_read_protein_chains` returns
-    (chain_id, sequence, msa_spec, modifications) and never reads the flag, so the fold ran on a
-    straight chain and returned status=ok. This was the last predict path missing the call.
+    ESMFold2 / ESMFold2-Fast: the same, one door further along — it reads the same
+    `_read_bio_chains`, which never reads the flag, so the fold ran on a straight chain and
+    returned status=ok. This was the last predict path missing the call.
 
     RF3: the model has the cyclic branch (`rf3/feature_init.py` builds a wrapped relative
     position from `cyclic_asym_ids`), but its spec builder here reads only what
@@ -398,9 +399,9 @@ def _validate_openfold3_chains(chains: list, model: str = "openfold3") -> None:
     if not chains:
         raise RuntimeError("no protein/nucleic-acid sequences")
     allowed = ("protein", "rna", "dna") + (("ligand",) if model == "openbind" else ())
-    rejected = [cid for cid, _s, _sp, mt in chains if mt not in allowed]
+    rejected = [cid for cid, _s, _sp, mt, _mods in chains if mt not in allowed]
     if rejected:
-        ligands = [cid for cid, _s, _sp, mt in chains if mt == "ligand"]
+        ligands = [cid for cid, _s, _sp, mt, _mods in chains if mt == "ligand"]
         hint = ("--model openbind folds protein-ligand complexes"
                 if ligands and model != "openbind"
                 else "see docs/openfold3-port.md")
@@ -409,7 +410,7 @@ def _validate_openfold3_chains(chains: list, model: str = "openfold3") -> None:
             f"protein/rna/dna. {hint}.")
     # A ligand chain carries its spec (SMILES or CCD_<code>) in the sequence slot, so the
     # blank check applies to it too: an empty ligand spec builds no molecule at all.
-    blank = [cid for cid, cseq, _sp, _mt in chains if not cseq or not cseq.strip()]
+    blank = [cid for cid, cseq, _sp, _mt, _mods in chains if not cseq or not cseq.strip()]
     if blank:
         raise RuntimeError(
             f"--model {model}: chain(s) {blank} have empty/whitespace-only sequences.")
@@ -516,7 +517,7 @@ def _build_chain_specs(chains, msa_dir, cfg, protein_only: bool):
              (_resolve_a3m_text(spec, cseq, msa_dir)
               if not single_seq and (mt == "protein" or not protein_only) else None),
              mt)
-            for _cid, cseq, spec, mt in chains]
+            for _cid, cseq, spec, mt, _mods in chains]
 
 
 def _protenix_family() -> tuple[str, ...]:
@@ -855,11 +856,16 @@ class _WorkerState:
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.esmfold2_runtime import fold_complex, resolve_msa
-        from tt_bio.main import _generate_esmfold2_a3m, _read_protein_chains, _write_structure
+        from tt_bio.main import _generate_esmfold2_a3m, _read_bio_chains, _write_structure
 
-        chains = _read_protein_chains(path)
+        chains = _read_bio_chains(path, what=cfg.get("model", "esmfold2"))
         if not chains:
-            raise RuntimeError("no protein sequences")
+            raise RuntimeError("no sequences")
+        if not any(mt == "protein" for _c, _s, _sp, mt, _mo in chains):
+            raise RuntimeError("esmfold2 needs at least one protein chain")
+        blank = [cid for cid, spec, _sp, _mt, _mo in chains if not spec or not spec.strip()]
+        if blank:
+            raise RuntimeError(f"esmfold2: chain(s) {blank} have empty sequences/ligand specs.")
         _validate_cyclic_unsupported(path, cfg.get("model", "esmfold2"))
         msa_dir = Path(cfg["msa_dir"])
         max_msa = cfg.get("max_msa_seqs") or 16384
@@ -876,7 +882,9 @@ class _WorkerState:
         report_progress("msa")
         if uses_msa and (cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")):
             to_gen = {}
-            for _cid, seq, spec, _mods in chains:
+            for _cid, seq, spec, mt, _mods in chains:
+                if mt != "protein":
+                    continue
                 if spec and Path(spec).expanduser().exists():
                     continue
                 h = seq_hash(seq)
@@ -896,9 +904,15 @@ class _WorkerState:
         # measured to fit rather than let the allocation fail. No-op on Blackhole.
         if self.accelerator == "tenstorrent":
             from tt_bio.tenstorrent import msa_depth_cap
-            max_msa = msa_depth_cap(sum(len(seq) for _c, seq, _s, _m in chains), max_msa)
-        chains = [(cid, seq, resolve_msa(spec, seq, msa_dir, max_sequences=max_msa) if uses_msa else None, mods)
-                  for cid, seq, spec, mods in chains]
+            max_msa = msa_depth_cap(
+                sum(len(seq) for _c, seq, _s, mt, _mo in chains if mt != "ligand"), max_msa)
+        # Only protein chains carry an MSA; a nucleic or ligand chain keeps msa=None, and a
+        # ligand's `seq` is its CCD/SMILES spec, so hashing it for an alignment is meaningless.
+        chains = [(cid, seq,
+                   resolve_msa(spec, seq, msa_dir, max_sequences=max_msa)
+                   if (uses_msa and mt == "protein") else None,
+                   mt, mods)
+                  for cid, seq, spec, mt, mods in chains]
         ranked = fold_complex(
             self.model, chains,
             num_loops=cfg["recycling_steps"], num_sampling_steps=cfg["sampling_steps"],
@@ -924,7 +938,10 @@ class _WorkerState:
 
         metrics = {
             **_sample_scalars(res),
-            "n_residues": sum(len(c[1]) for c in chains), "n_chains": len(chains),
+            # A ligand chain's sequence slot is a CCD/SMILES spec, not residues.
+            "n_residues": sum(len(c[1]) for c in chains if c[3] != "ligand"),
+            "n_chains": len(chains),
+            "n_ligands": sum(1 for c in chains if c[3] == "ligand"),
             "msa": any(c[2] is not None for c in chains),
             "samples": cfg["diffusion_samples"],  # best-of-N: report N (plddt is the winner's)
         }
@@ -960,7 +977,7 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein sequences")
-        unsupported = [cid for cid, _s, _sp, mt in chains if mt not in ("protein", "ligand")]
+        unsupported = [cid for cid, _s, _sp, mt, _mods in chains if mt not in ("protein", "ligand")]
         if unsupported:
             raise RuntimeError(
                 f"--model opendde supports protein + ligand chains only (chain(s) "
@@ -977,7 +994,7 @@ class _WorkerState:
         # complexes to inject the cross-chain co-evolution signal.
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
-        for _cid, cseq, spec, mt in chains:
+        for _cid, cseq, spec, mt, _mods in chains:
             have_spec = bool(spec and Path(spec).expanduser().exists())
             if mt == "protein" and want_msa and not have_spec:
                 h = seq_hash(cseq)
@@ -996,7 +1013,7 @@ class _WorkerState:
         # _resolve_a3m_text returns None for an uncached chain and the fold quietly proceeds
         # single-sequence for it -- a large, invisible accuracy loss in a benchmark run.
         if cfg.get("msa_cache_only"):
-            uncached = [cid for (cid, _s, _sp, mt), (_q, a3m, _m)
+            uncached = [cid for (cid, _s, _sp, mt, _mo), (_q, a3m, _m)
                         in zip(chains, chain_specs) if mt == "protein" and not a3m]
             if uncached:
                 raise RuntimeError(
@@ -1010,10 +1027,10 @@ class _WorkerState:
         # (unpaired block-diagonal MSA carries no cross-chain signal). Best-effort:
         # a failed paired search falls back to unpaired-only so the fold still runs.
         paired_a3ms = None
-        n_prot = sum(1 for _c, _s, _sp, mt in chains if mt == "protein")
+        n_prot = sum(1 for _c, _s, _sp, mt, _mods in chains if mt == "protein")
         if n_prot > 1 and want_msa:
             paired_seqs = {seq_hash(cseq): cseq
-                           for _cid, cseq, _spec, mt in chains if mt == "protein"}
+                           for _cid, cseq, _spec, mt, _mods in chains if mt == "protein"}
             try:
                 paired = _generate_opendde_paired_a3m(
                     paired_seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
@@ -1021,13 +1038,13 @@ class _WorkerState:
                     cfg.get("msa_server_password"), cfg.get("api_key_value"),
                     msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
                 paired_a3ms = [paired.get(seq_hash(cseq))
-                               for _cid, cseq, _spec, mt in chains if mt == "protein"]
+                               for _cid, cseq, _spec, mt, _mods in chains if mt == "protein"]
             except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
                 print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
                 paired_a3ms = None
 
         report_progress("prep")
-        feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt in chains],
+        feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains],
                                        bonds=bonds, paired_a3ms=paired_a3ms)
 
         # OpenDDE.fold rides the Protenix-v2 trunk + EDM sampler, so the same
@@ -1073,7 +1090,7 @@ class _WorkerState:
         best = confs[order[0]]
         metrics = {
             **_row(best),
-            "n_residues": sum(len(cseq) for _c, cseq, _s, mt in chains if mt != "ligand"),
+            "n_residues": sum(len(cseq) for _c, cseq, _s, mt, _mods in chains if mt != "ligand"),
             "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
             "msa": any(a for _, a, _ in chain_specs), "n_atoms": int(coords.shape[1]),
             "samples": n_sample,
@@ -1105,7 +1122,7 @@ class _WorkerState:
         # search any uncached protein chain (batched into one MSA call); NA chains are single-seq
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
-        for _cid, cseq, spec, mt in chains:
+        for _cid, cseq, spec, mt, _mods in chains:
             have_spec = bool(spec and Path(spec).expanduser().exists())
             if mt == "protein" and want_msa and not have_spec:
                 h = seq_hash(cseq)
@@ -1122,7 +1139,7 @@ class _WorkerState:
 
         report_progress("prep")
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
-                                       chain_ids=[cid for cid, _s, _sp, _mt in chains], bonds=bonds)
+                                       chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains], bonds=bonds)
         return feats, chains, chain_specs
 
     def _protenix_emit(self, path: Path, cfg: dict[str, Any], feats, chains, chain_specs,
@@ -1164,7 +1181,7 @@ class _WorkerState:
         best = confs[order[0]]
         metrics = {
             **_row(best),
-            "n_residues": sum(len(cseq) for _c, cseq, _s, mt in chains if mt != "ligand"),
+            "n_residues": sum(len(cseq) for _c, cseq, _s, mt, _mods in chains if mt != "ligand"),
             "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
             "msa": any(a for _, a, _ in chain_specs),
             "n_atoms": int(coords[0].shape[-2]), "samples": len(confs),
@@ -1271,7 +1288,7 @@ class _WorkerState:
         want_msa = (cfg.get("use_msa_server") or cfg.get("msa_db_path")
                     or cfg.get("msa_endpoint")) and not cfg.get("single_sequence")
         need = {}
-        for _cid, cseq, spec, mt in chains:
+        for _cid, cseq, spec, mt, _mods in chains:
             if mt != "protein" or not want_msa:
                 continue
             if spec and Path(spec).expanduser().exists():
@@ -1290,7 +1307,7 @@ class _WorkerState:
         report_progress("prep")
         _CHAIN_TYPE = {"rna": "POLYRIBONUCLEOTIDE", "dna": "POLYDEOXYRIBONUCLEOTIDE"}
         components, msa_used = [], False
-        for cid, cseq, spec, mt in chains:
+        for cid, cseq, spec, mt, _mods in chains:
             if mt == "ligand":
                 # _read_bio_chains carries a CCD code as "CCD_<code>" and a SMILES raw.
                 components.append({"ccd_code": cseq[4:]} if cseq.startswith("CCD_")
@@ -1442,7 +1459,7 @@ class _WorkerState:
         _validate_cyclic_unsupported(path, model)
         _warn_openfold3_affinity_ignored(path, model)
         tmpl_map = _openfold3_template_map(path)
-        unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt in chains})
+        unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt, _mods in chains})
         if unknown_tmpl:
             raise RuntimeError(
                 f"--model openfold3: `templates:` given for unknown chain id(s) "
@@ -1484,7 +1501,7 @@ class _WorkerState:
         query = {
             "query_name": path.stem, "use_msas": True, "use_paired_msas": False,
             "use_main_msas": True, "covalent_bonds": None,
-            "chains": [_query_chain(cid, cseq, spec, mt) for cid, cseq, spec, mt in chains],
+            "chains": [_query_chain(cid, cseq, spec, mt) for cid, cseq, spec, mt, _mods in chains],
         }
 
         report_progress("prep")
@@ -1645,7 +1662,7 @@ class _WorkerState:
         best = confs[order[0]]
         metrics = {
             **_row(best),
-            "n_residues": sum(len(cseq) for _c, cseq, _s, _mt in chains),
+            "n_residues": sum(len(cseq) for _c, cseq, _s, _mt, _mods in chains),
             "n_chains": len(chains), "n_tokens": int(features["restype"].shape[0]),
             "msa": any(c.main_msa_file_paths for c in of3_query.chains),
             "n_atoms": int(result.samples[0].shape[0]), "samples": n_sample,

@@ -1991,7 +1991,7 @@ def msa_server_cmd(listen, msa_db_path, cache_dir, use_envdb, max_concurrent, to
 
 
 # ---------------------------------------------------------------------------
-# ESMFold2 (--model esmfold2): single-sequence, protein-only, on-device ttnn.
+# ESMFold2 (--model esmfold2): protein / DNA / RNA / ligand, no MSA required, on-device ttnn.
 # ---------------------------------------------------------------------------
 def _chain_label(n: int) -> str:
     """Chain id for the n-th chain (0-indexed): A..Z, then AA, AB, ... (bijective base-26).
@@ -2006,86 +2006,30 @@ def _chain_label(n: int) -> str:
     return s
 
 
-def _read_protein_chains(path):
-    """Extract [(chain_id, sequence, msa_spec)] protein entries from FASTA/YAML.
-
-    FASTA headers may be plain (``>name``) or Boltz-style (``>ID|TYPE|MSA``)
-    where the third field is an optional a3m path (``empty`` / blank = none);
-    non-protein typed records are skipped, and comma-separated ids expand to
-    repeated chains (sharing the MSA). YAML protein entries may carry an
-    ``msa:`` path and a ``modifications:`` list (``{position: N, ccd: CODE}``,
-    1-indexed, the Boltz convention). ``msa_spec`` is the a3m path string or
-    None; ``modifications`` is the list of dicts or None. Each input file
-    is one (possibly multi-chain) complex.
-    """
-    suffix = path.suffix.lower()
-    chains: list[tuple[str, str, str | None, list | None]] = []
-    if suffix in (".fa", ".fas", ".fasta"):
-        cid, buf, msa = None, [], None
-        def flush():
-            # cid is None for a skipped (non-protein) record; a blank id ("") is a real protein
-            # chain whose id we auto-assign below — gate on `is not None` so it isn't dropped.
-            if cid is not None and buf:
-                for c in cid.split(","):
-                    chains.append((c.strip() or _chain_label(len(chains)), "".join(buf), msa, None))
-        for line in path.read_text().splitlines():
-            line = line.strip()
-            if line.startswith(">"):
-                flush()
-                parts = line[1:].split("|")
-                if len(parts) > 1 and parts[1].strip().lower() not in ("protein", ""):
-                    cid, buf, msa = None, [], None  # skip non-protein chain
-                else:
-                    cid, buf = parts[0].strip(), []
-                    m = parts[2].strip() if len(parts) > 2 else ""
-                    msa = m if m and m.lower() != "empty" else None
-            elif line and cid is not None:
-                buf.append(line)
-        flush()
-    elif suffix in (".yml", ".yaml"):
-        import yaml
-        doc = yaml.safe_load(path.read_text()) or {}
-        for entry in doc.get("sequences", []):
-            prot = entry.get("protein") if isinstance(entry, dict) else None
-            if prot and prot.get("sequence"):
-                m = prot.get("msa")
-                m = str(m) if m and str(m).lower() not in ("", "empty") else None
-                mods = prot.get("modifications")
-                if mods:
-                    seq_len = len("".join(prot["sequence"].split()))
-                    for mod in mods:
-                        pos = mod.get("position") if isinstance(mod, dict) else None
-                        if (not isinstance(pos, int) or not (1 <= pos <= seq_len)
-                                or not mod.get("ccd")):
-                            raise click.ClickException(
-                                f"esmfold2: modification {mod!r} on chain "
-                                f"{prot.get('id', 'A')} needs a 1-indexed position within the "
-                                f"sequence (length {seq_len}) and a ccd code.")
-                    mods = [dict(mod) for mod in mods]
-                else:
-                    mods = None
-                # `id` may be a YAML list ([A, C]) or a comma-separated string.
-                ids = prot.get("id", "A")
-                id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
-                           else str(ids).split(","))
-                for c in id_list:
-                    chains.append((c.strip(), prot["sequence"], m, mods))
-    else:
-        raise click.ClickException(f"Unsupported input for esmfold2: {path.name}")
-    return chains
-
-
 _NA_HEADER_TYPES = {"rna": "rna", "rnasequence": "rna", "dna": "dna", "dnasequence": "dna"}
 
 
-def _read_bio_chains(path):
-    """Like _read_protein_chains but modality-aware: returns [(chain_id, sequence, msa_spec,
-    mol_type)] for protein / rna / dna / ligand entries (Protenix complexes). FASTA type field
-    and YAML entry key select the modality; protein keeps MSA, nucleic-acid and ligand chains
-    are single-sequence (msa_spec=None). For ligands the `sequence` carries the spec the
-    featurizer expects: 'CCD_<code>' for a CCD code or a raw SMILES string."""
+def _read_bio_chains(path, what="input"):
+    """Read a FASTA/YAML complex as [(chain_id, sequence, msa_spec, mol_type, modifications)].
+
+    The ONE input reader for every model that folds a complex from a file — Protenix,
+    OpenFold3, OpenDDE, OpenBind and ESMFold2. ESMFold2 had a second, protein-only copy
+    of this that silently dropped every non-protein record, so
+    a cocrystal YAML folded as bare protein and reported success; there is now one parser
+    and one set of accepted keys.
+
+    The FASTA type field and the YAML entry key select the modality; protein keeps its
+    MSA, nucleic-acid and ligand chains are single-sequence (``msa_spec=None``). A ligand
+    carries its spec in the ``sequence`` slot: ``CCD_<code>`` for a CCD component (comma
+    separated for a multi-residue ligand chain) or a raw SMILES string. ``modifications``
+    is the polymer's ``[{"position": N, "ccd": CODE}]`` list (1-indexed, Boltz
+    convention) or None; positions are validated here against the sequence length so a
+    typo fails at read time rather than deep inside a featurizer.
+
+    ``what`` names the model in the "unsupported input" error only.
+    """
     suffix = path.suffix.lower()
-    chains: list[tuple[str, str, str | None, str]] = []
+    chains: list[tuple[str, str, str | None, str, list | None]] = []
     if suffix in (".fa", ".fas", ".fasta"):
         cid, buf, msa, mt = None, [], None, "protein"
         def flush():
@@ -2096,7 +2040,7 @@ def _read_bio_chains(path):
                 seq = ("CCD_" + seq.upper()) if mt == "_ccd" else seq   # ccd code -> CCD_ spec
                 mtype = "ligand" if mt in ("_ccd", "ligand") else mt
                 for c in cid.split(","):
-                    chains.append((c.strip() or _chain_label(len(chains)), seq, msa, mtype))
+                    chains.append((c.strip() or _chain_label(len(chains)), seq, msa, mtype, None))
         for line in path.read_text().splitlines():
             line = line.strip()
             if line.startswith(">"):
@@ -2129,22 +2073,47 @@ def _read_bio_chains(path):
                     continue
                 m = sub.get("msa") if mt == "protein" else None
                 m = str(m) if m and str(m).lower() not in ("", "empty") else None
+                mods = _read_modifications(sub, key)
                 ids = sub.get("id", "A")
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
                            else str(ids).split(","))
                 for c in id_list:
-                    chains.append((c.strip(), sub["sequence"], m, mt))
-            lig = entry.get("ligand")                       # {ccd: CODE} or {smiles: STR}
+                    chains.append((c.strip(), sub["sequence"], m, mt, mods))
+            lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]} or {smiles: STR}
             if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles")):
-                spec = ("CCD_" + str(lig["ccd"]).upper()) if lig.get("ccd") else str(lig["smiles"])
+                if lig.get("ccd"):
+                    codes = lig["ccd"] if isinstance(lig["ccd"], (list, tuple)) else [lig["ccd"]]
+                    spec = "CCD_" + ",".join(str(x).strip().upper() for x in codes)
+                else:
+                    spec = str(lig["smiles"])
                 ids = lig.get("id", "L")
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
                            else str(ids).split(","))
                 for c in id_list:
-                    chains.append((c.strip(), spec, None, "ligand"))
+                    chains.append((c.strip(), spec, None, "ligand", None))
     else:
-        raise click.ClickException(f"Unsupported input for Protenix: {path.name}")
+        raise click.ClickException(f"Unsupported input for {what}: {path.name}")
     return chains
+
+
+def _read_modifications(sub: dict, key: str):
+    """Validate and copy a polymer entry's ``modifications:`` list, or None if absent.
+
+    Positions are 1-indexed over the chain's own sequence (the Boltz YAML convention);
+    a position outside it, or a missing ccd code, is a user error worth naming here
+    rather than a wrong structure later.
+    """
+    mods = sub.get("modifications")
+    if not mods:
+        return None
+    seq_len = len("".join(str(sub["sequence"]).split()))
+    for mod in mods:
+        pos = mod.get("position") if isinstance(mod, dict) else None
+        if not isinstance(pos, int) or not (1 <= pos <= seq_len) or not mod.get("ccd"):
+            raise click.ClickException(
+                f"modification {mod!r} on {key} chain {sub.get('id', 'A')} needs a "
+                f"1-indexed position within the sequence (length {seq_len}) and a ccd code.")
+    return [dict(mod) for mod in mods]
 
 
 def _read_bio_constraints(path):

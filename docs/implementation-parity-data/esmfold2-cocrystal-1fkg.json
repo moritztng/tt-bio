@@ -1,0 +1,484 @@
+{
+  "_about": "ESMFold2 protein-ligand cocrystal parity, the leg that answers whether the ttnn port folds a co-fold and puts the ligand in the right pocket. Same harness as every other esmfold2 row (scripts/esmfold2_e2e_parity.py), plus the ligand-placement metrics that row cannot carry: pLDDT/distogram/coordinates are dominated by the L^2 protein block and barely move if the ligand ends up in solvent. Target PDB 1FKG (FKBP12 107 aa + SB3), examples/fkg_ligand.yaml, 140 tokens. The protein-only entry is the control: same protein, no ligand, 107 tokens, and slightly WORSE on every parity metric, so the ligand costs no parity. The nucleic entry is a path check at reduced settings (1 recycle, 20 steps) on an arbitrary DNA duplex, not an accuracy claim. Pocket scores come from scripts/esmfold2_ligand_pocket.py against the deposited 1FKG; its controls are 0.000 A / recall 1.0 for identical files and exactly 30.000 A / recall 0.0 for a 30 A displaced ligand.",
+  "run": {
+    "date": "2026-09-09",
+    "host": "japanfold-ssh (Wormhole Galaxy UF-EV-A13-GWH02)",
+    "device": 1,
+    "config": {
+      "checkpoint": "esmfold2",
+      "fast": true,
+      "seeds": [
+        0,
+        1
+      ],
+      "loops": 3,
+      "steps": 100,
+      "executed_steps": 68,
+      "note": "--fast is forced on Wormhole: the non-fast ESMC-6B needs >12 GB/chip"
+    },
+    "commands": [
+      "TT_VISIBLE_DEVICES=1 PYTHONPATH=$PWD:$PWD/scripts python3 scripts/esmfold2_e2e_parity.py --fast --proteins examples/fkg_ligand.yaml --seeds 0,1 --loops 3 --steps 100 --fixture_dir /tmp/fx_fkg_lig --out cocrystal.json",
+      "python3 scripts/esmfold2_ligand_pocket.py --pred /tmp/fx_fkg_lig/seed0/structures/fkg_ligand.cif --truth 1fkg.cif --ligand SB3"
+    ]
+  },
+  "cocrystal": [
+    {
+      "protein": "examples/fkg_ligand.yaml",
+      "target": "107aa+SB3",
+      "L": 140,
+      "n_seeds": 2,
+      "checkpoint": "esmfold2",
+      "trunk_blocks": 48,
+      "plddt_mean": {
+        "seeds": [
+          0,
+          1
+        ],
+        "ref": [
+          0.9302120804786682,
+          0.9312304854393005
+        ],
+        "tt": [
+          0.931210994720459,
+          0.9305282831192017
+        ],
+        "ref_seed_spread": 0.0010184049606323242,
+        "tt_seed_spread": 0.0006827116012573242,
+        "same_seed_abs_delta": [
+          0.0009989142417907715,
+          0.000702202320098877
+        ],
+        "mean_abs_delta": 0.0008505582809448242
+      },
+      "plddt_pcc": 0.9991678595542908,
+      "plddt_mae": 0.0022521435748785734,
+      "distogram_pcc": 0.9993412494659424,
+      "distogram_rel_l2": 0.050262268632650375,
+      "ptm_tt": 0.9511958360671997,
+      "ptm_ref": 0.9497313499450684,
+      "kabsch_rmsd": {
+        "metric": "kabsch_rmsd",
+        "cross": {
+          "n": 4,
+          "mean": 0.5498755797743797,
+          "std": 0.05382822705219354,
+          "min": 0.4897055923938751,
+          "max": 0.6101332306861877
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 0.4646057188510895,
+          "std": 0.0,
+          "min": 0.4646057188510895,
+          "max": 0.4646057188510895
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 0.5880594253540039,
+          "std": 0.0,
+          "min": 0.5880594253540039,
+          "max": 0.5880594253540039
+        },
+        "floor_mean": 0.5880594253540039,
+        "cross_over_floor": 0.9350680493614434,
+        "dev_over_ref_floor": 1.265717147882294,
+        "dev_floor_instability_check_applied": true,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true,
+        "same_seed_cross": {
+          "n": 2,
+          "mean": 0.5430562645196915,
+          "std": 0.053350672125816345,
+          "min": 0.4897055923938751,
+          "max": 0.5964069366455078
+        },
+        "same_seed_over_all_cross": 0.9875984395279268
+      },
+      "coord_dm_1mpcc": {
+        "metric": "1-coord_dm_pcc",
+        "cross": {
+          "n": 4,
+          "mean": 0.0016018152236938477,
+          "std": 8.312169578510395e-05,
+          "min": 0.0014589428901672363,
+          "max": 0.0016632676124572754
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 0.0011780261993408203,
+          "std": 0.0,
+          "min": 0.0011780261993408203,
+          "max": 0.0011780261993408203
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 0.0017192363739013672,
+          "std": 0.0,
+          "min": 0.0017192363739013672,
+          "max": 0.0017192363739013672
+        },
+        "floor_mean": 0.0017192363739013672,
+        "cross_over_floor": 0.9317015670503398,
+        "dev_over_ref_floor": 1.4594211698036834,
+        "dev_floor_instability_check_applied": true,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true,
+        "same_seed_cross": {
+          "n": 2,
+          "mean": 0.0016488134860992432,
+          "std": 1.4454126358032227e-05,
+          "min": 0.001634359359741211,
+          "max": 0.0016632676124572754
+        },
+        "same_seed_over_all_cross": 1.0293406266279677
+      },
+      "ligand": {
+        "n_ligand_atoms": 33,
+        "n_protein_atoms": 831,
+        "ligand_rmsd_protein_frame": 0.88946932554245,
+        "protein_rmsd_protein_frame": 0.4668576717376709,
+        "ref": {
+          "min_contact_A": 2.778,
+          "n_contacts": 54
+        },
+        "device": {
+          "min_contact_A": 2.821,
+          "n_contacts": 52
+        }
+      }
+    }
+  ],
+  "protein_only_control": [
+    {
+      "protein": "fkg_prot_only.yaml",
+      "target": "107aa",
+      "L": 107,
+      "n_seeds": 2,
+      "checkpoint": "esmfold2",
+      "trunk_blocks": 48,
+      "plddt_mean": {
+        "seeds": [
+          0,
+          1
+        ],
+        "ref": [
+          0.881528913974762,
+          0.8795900344848633
+        ],
+        "tt": [
+          0.8883386850357056,
+          0.8896488547325134
+        ],
+        "ref_seed_spread": 0.0019388794898986816,
+        "tt_seed_spread": 0.0013101696968078613,
+        "same_seed_abs_delta": [
+          0.0068097710609436035,
+          0.010058820247650146
+        ],
+        "mean_abs_delta": 0.008434295654296875
+      },
+      "plddt_pcc": 0.9971414804458618,
+      "plddt_mae": 0.00705961138010025,
+      "distogram_pcc": 0.9986661672592163,
+      "distogram_rel_l2": 0.07739479094743729,
+      "ptm_tt": 0.8695437908172607,
+      "ptm_ref": 0.8607767224311829,
+      "kabsch_rmsd": {
+        "metric": "kabsch_rmsd",
+        "cross": {
+          "n": 4,
+          "mean": 0.578811801970005,
+          "std": 0.07431422066229346,
+          "min": 0.4679606258869171,
+          "max": 0.6524147987365723
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 0.6364491581916809,
+          "std": 0.0,
+          "min": 0.6364491581916809,
+          "max": 0.6364491581916809
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 0.5633407235145569,
+          "std": 0.0,
+          "min": 0.5633407235145569,
+          "max": 0.5633407235145569
+        },
+        "floor_mean": 0.6364491581916809,
+        "cross_over_floor": 0.9094391822507257,
+        "dev_over_ref_floor": 0.8851307543797461,
+        "dev_floor_instability_check_applied": true,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true,
+        "same_seed_cross": {
+          "n": 2,
+          "mean": 0.6034447848796844,
+          "std": 0.04897001385688782,
+          "min": 0.5544747710227966,
+          "max": 0.6524147987365723
+        },
+        "same_seed_over_all_cross": 1.042557844926175
+      },
+      "coord_dm_1mpcc": {
+        "metric": "1-coord_dm_pcc",
+        "cross": {
+          "n": 4,
+          "mean": 0.0017506927251815796,
+          "std": 0.00016836065154564832,
+          "min": 0.0016055703163146973,
+          "max": 0.0020314455032348633
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 0.0017535090446472168,
+          "std": 0.0,
+          "min": 0.0017535090446472168,
+          "max": 0.0017535090446472168
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 0.0019975900650024414,
+          "std": 0.0,
+          "min": 0.0019975900650024414,
+          "max": 0.0019975900650024414
+        },
+        "floor_mean": 0.0019975900650024414,
+        "cross_over_floor": 0.8764023989974339,
+        "dev_over_ref_floor": 1.1391957578435705,
+        "dev_floor_instability_check_applied": true,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true,
+        "same_seed_cross": {
+          "n": 2,
+          "mean": 0.0018339753150939941,
+          "std": 0.00019747018814086914,
+          "min": 0.001636505126953125,
+          "max": 0.0020314455032348633
+        },
+        "same_seed_over_all_cross": 1.0475712206456884
+      }
+    }
+  ],
+  "nucleic_path_check": [
+    {
+      "protein": "fkg_dna.yaml",
+      "target": "131aa+dna",
+      "L": 131,
+      "n_seeds": 1,
+      "checkpoint": "esmfold2",
+      "trunk_blocks": 48,
+      "plddt_mean": {
+        "seeds": [
+          0
+        ],
+        "ref": [
+          0.7588075399398804
+        ],
+        "tt": [
+          0.7632516622543335
+        ],
+        "ref_seed_spread": 0.0,
+        "tt_seed_spread": 0.0,
+        "same_seed_abs_delta": [
+          0.004444122314453125
+        ],
+        "mean_abs_delta": 0.004444122314453125
+      },
+      "plddt_pcc": 0.9641385674476624,
+      "plddt_mae": 0.014704551547765732,
+      "distogram_pcc": 0.9985751509666443,
+      "distogram_rel_l2": 0.06946353614330292,
+      "ptm_tt": 0.7957611680030823,
+      "ptm_ref": 0.790839672088623,
+      "kabsch_rmsd": {
+        "metric": "kabsch_rmsd",
+        "cross": {
+          "n": 1,
+          "mean": 2.679342269897461,
+          "std": 0.0,
+          "min": 2.679342269897461,
+          "max": 2.679342269897461
+        },
+        "ref_floor": {
+          "n": 0
+        },
+        "dev_floor": {
+          "n": 0
+        },
+        "floor_mean": 0.0,
+        "cross_over_floor": Infinity,
+        "dev_over_ref_floor": null,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": false,
+        "same_seed_cross": {
+          "n": 1,
+          "mean": 2.679342269897461,
+          "std": 0.0,
+          "min": 2.679342269897461,
+          "max": 2.679342269897461
+        },
+        "same_seed_over_all_cross": 1.0
+      },
+      "coord_dm_1mpcc": {
+        "metric": "1-coord_dm_pcc",
+        "cross": {
+          "n": 1,
+          "mean": 0.012053608894348145,
+          "std": 0.0,
+          "min": 0.012053608894348145,
+          "max": 0.012053608894348145
+        },
+        "ref_floor": {
+          "n": 0
+        },
+        "dev_floor": {
+          "n": 0
+        },
+        "floor_mean": 0.0,
+        "cross_over_floor": Infinity,
+        "dev_over_ref_floor": null,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": false,
+        "same_seed_cross": {
+          "n": 1,
+          "mean": 0.012053608894348145,
+          "std": 0.0,
+          "min": 0.012053608894348145,
+          "max": 0.012053608894348145
+        },
+        "same_seed_over_all_cross": 1.0
+      }
+    }
+  ],
+  "pocket_vs_deposited_1fkg": {
+    "ref_seed0": {
+      "pred": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/fx_fkg_lig/ref_fp32/structures/fkg_ligand_seed0.cif",
+      "truth": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/1fkg.cif",
+      "ligand": "SB3",
+      "cutoff_A": 4.5,
+      "seq_offset": 0,
+      "truth_pocket_residues": 11,
+      "pred_pocket_residues": 14,
+      "shared_residues": 11,
+      "pocket_recall": 1.0,
+      "pocket_precision": 0.7857,
+      "jaccard": 0.7857,
+      "truth_min_contact_A": 3.719,
+      "pred_min_contact_A": 3.748,
+      "truth_pocket_seq": "YFDFEVIWYHF",
+      "pred_pocket_seq": "YFDFQEVIWYHIIF",
+      "ligand_rmsd_A": 1.622,
+      "ligand_atoms_matched": 33,
+      "protein_ca_rmsd_A": 0.304
+    },
+    "ref_seed1": {
+      "pred": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/fx_fkg_lig/ref_fp32/structures/fkg_ligand_seed1.cif",
+      "truth": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/1fkg.cif",
+      "ligand": "SB3",
+      "cutoff_A": 4.5,
+      "seq_offset": 0,
+      "truth_pocket_residues": 11,
+      "pred_pocket_residues": 14,
+      "shared_residues": 11,
+      "pocket_recall": 1.0,
+      "pocket_precision": 0.7857,
+      "jaccard": 0.7857,
+      "truth_min_contact_A": 3.719,
+      "pred_min_contact_A": 3.712,
+      "truth_pocket_seq": "YFDFEVIWYHF",
+      "pred_pocket_seq": "YFDFQEVIWYHIIF",
+      "ligand_rmsd_A": 1.433,
+      "ligand_atoms_matched": 33,
+      "protein_ca_rmsd_A": 0.283
+    },
+    "device_seed0": {
+      "pred": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/fx_fkg_lig/seed0/structures/fkg_ligand.cif",
+      "truth": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/1fkg.cif",
+      "ligand": "SB3",
+      "cutoff_A": 4.5,
+      "seq_offset": 0,
+      "truth_pocket_residues": 11,
+      "pred_pocket_residues": 14,
+      "shared_residues": 11,
+      "pocket_recall": 1.0,
+      "pocket_precision": 0.7857,
+      "jaccard": 0.7857,
+      "truth_min_contact_A": 3.719,
+      "pred_min_contact_A": 3.567,
+      "truth_pocket_seq": "YFDFEVIWYHF",
+      "pred_pocket_seq": "YFDFQEVIWYHIIF",
+      "ligand_rmsd_A": 1.466,
+      "ligand_atoms_matched": 33,
+      "protein_ca_rmsd_A": 0.297
+    },
+    "device_seed1": {
+      "pred": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/fx_fkg_lig/seed1/structures/fkg_ligand.cif",
+      "truth": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/1fkg.cif",
+      "ligand": "SB3",
+      "cutoff_A": 4.5,
+      "seq_offset": 0,
+      "truth_pocket_residues": 11,
+      "pred_pocket_residues": 13,
+      "shared_residues": 10,
+      "pocket_recall": 0.9091,
+      "pocket_precision": 0.7692,
+      "jaccard": 0.7143,
+      "truth_min_contact_A": 3.719,
+      "pred_min_contact_A": 3.556,
+      "truth_pocket_seq": "YFDFEVIWYHF",
+      "pred_pocket_seq": "YFDFQEVIWYIIF",
+      "ligand_rmsd_A": 1.374,
+      "ligand_atoms_matched": 33,
+      "protein_ca_rmsd_A": 0.282
+    }
+  },
+  "cli_end_to_end": {
+    "_about": "The user-facing path, not the harness: `tt-bio predict examples/fkg_ligand.yaml --model esmfold2 --recycling_steps 3 --sampling_steps 100` on the same card. pLDDT and pTM match the harness device run to four decimals, so the doc's numbers and a user's numbers are the same numbers.",
+    "results_json": {
+      "id": "fkg_ligand",
+      "status": "ok",
+      "plddt": 0.9312,
+      "ptm": 0.9512,
+      "n_residues": 107,
+      "n_chains": 2,
+      "n_ligands": 1,
+      "msa": false,
+      "samples": 1,
+      "runtime_s": 14.7
+    },
+    "pocket_vs_deposited_1fkg": {
+      "pred": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/cli_fkg_ligand.cif",
+      "truth": "/home/moritz/.coworker/artifacts/esmfold2-ligand-nucleic-enablement/1fkg.cif",
+      "ligand": "SB3",
+      "cutoff_A": 4.5,
+      "seq_offset": 0,
+      "truth_pocket_residues": 11,
+      "pred_pocket_residues": 14,
+      "shared_residues": 11,
+      "pocket_recall": 1.0,
+      "pocket_precision": 0.7857,
+      "jaccard": 0.7857,
+      "truth_min_contact_A": 3.719,
+      "pred_min_contact_A": 3.567,
+      "truth_pocket_seq": "YFDFEVIWYHF",
+      "pred_pocket_seq": "YFDFQEVIWYHIIF",
+      "ligand_rmsd_A": 1.466,
+      "ligand_atoms_matched": 33,
+      "protein_ca_rmsd_A": 0.297
+    }
+  },
+  "token_axis_census": {
+    "_about": "tests/test_token_axis_bucketing_hw.py::test_a_ligand_token_axis_is_not_ragged_either, added here because every existing census row feeds a protein FASTA and no model's ligand axis had ever been censused. 98 aa + BTN = 114 tokens.",
+    "host": "japanfold-ssh card 1",
+    "result": "3 passed, 0 masked_ragged calls",
+    "rows": [
+      "esmfold2 (ligand axis)",
+      "esmfold2-fast (ligand axis)",
+      "esmfold2 (polymer axis)"
+    ]
+  }
+}

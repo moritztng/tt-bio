@@ -1,0 +1,7 @@
+{
+  "gpb_c576_b100": {
+    "input": "perf/ceilrfd3/targets/gpb_823.cif",
+    "contig": "A1-576,100",
+    "length": "100"
+  }
+}

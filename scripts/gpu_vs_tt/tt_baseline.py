@@ -191,7 +191,7 @@ PHASES: dict[str, list[tuple[str, str, str]]] = {
         ("mod", "tt_bio.main:write_result", "host"),             # worker.py:645
     ],
     "esmfold2": [
-        ("mod", "tt_bio.main:_read_protein_chains", "host"),           # worker.py:665
+        ("mod", "tt_bio.main:_read_bio_chains", "host"),                # worker.py:860
         ("mod", "tt_bio.esmfold2_runtime:resolve_msa", "host"),        # worker.py:705
         ("mod", "tt_bio.esmfold2_runtime:fold_complex", "device"),     # worker.py:707
         ("mod", "tt_bio.main:_write_structure", "host"),               # worker.py:727
@@ -401,13 +401,13 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
         bonds = _read_bio_constraints(target)
         chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir)
                         if mt == "protein" else None, mt)
-                       for _cid, cseq, spec, mt in chains]
+                       for _cid, cseq, spec, mt, _mods in chains]
         t_feat = time.perf_counter()
         feats_h = build_complex_features(
             chain_specs, mol_dir=cfg.get("mol_dir"),
-            chain_ids=[cid for cid, _s, _sp, _mt in chains], bonds=bonds)
+            chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains], bonds=bonds)
         feat_once_s = time.perf_counter() - t_feat
-        n_res = sum(len(cseq) for _c, cseq, _s, mt in chains if mt != "ligand")
+        n_res = sum(len(cseq) for _c, cseq, _s, mt, _mods in chains if mt != "ligand")
 
         def hoisted():
             t0 = time.perf_counter()
