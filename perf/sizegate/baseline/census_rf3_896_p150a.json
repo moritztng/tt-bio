@@ -1,10 +1,10 @@
 {
-  "label": "rf3-640-rep0",
+  "label": "rf3-896-rep0",
   "cli": [
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/ttuser/.coworker/wt/tt-bio-release-bh-0-8-p2/perf/size512/fixtures/cdk2x2_640.yaml",
+    "/home/ttuser/.coworker/wt/tt-bio-release-bh-0-8-p2/perf/size512/fixtures/cdk2x2_896.yaml",
     "--model",
     "rf3",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/tt-bio-release-bh-0-8-p2/perf/sizegate/work/out_rf3-640-rep0"
+    "/home/ttuser/.coworker/wt/tt-bio-release-bh-0-8-p2/perf/sizegate/work/out_rf3-896-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -115,11 +115,10 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 563,
-      "declined": 526,
+      "served": 1087,
+      "declined": 2,
       "rejects": {
-        "l1_dest_is_faster:640x640x64": 40,
-        "l1_dest_is_faster:640x640x128": 486
+        "l1_dest_is_faster:896x896x64": 2
       }
     },
     {
@@ -128,10 +127,11 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 3178,
+      "declined": 4308,
       "rejects": {
+        "k_tiles=2:(2,2)": 76,
         "k_tiles=2:(2,1)": 40,
-        "k_tiles=4:(4,4)": 2090,
+        "k_tiles=4:(4,4)": 3144,
         "k_tiles=4:(4,1)": 1048
       }
     },
@@ -200,10 +200,11 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 1088,
-      "declined": 1088,
+      "served": 0,
+      "declined": 2177,
       "rejects": {
-        "l1_budget": 1,
+        "l1_budget": 2,
+        "fill_preconditions": 1088,
         "pm_over_l1": 1087
       }
     },
@@ -295,8 +296,8 @@
       "how": "wrap",
       "counter": null,
       "resolved": "1.25",
-      "served": 1088,
-      "declined": 0,
+      "served": 40,
+      "declined": 1048,
       "rejects": null
     },
     {
@@ -305,7 +306,7 @@
       "counter": "tt_bio.tenstorrent._SDPA_Q_CHUNK_OVER_L1",
       "resolved": "True",
       "served": 0,
-      "declined": 0,
+      "declined": 1,
       "rejects": null
     },
     {
