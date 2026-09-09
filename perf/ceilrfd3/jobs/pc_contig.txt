@@ -1,0 +1,10 @@
+# pc Blackhole, complementary to the galaxy walk: total held at a broken value while the crop
+# moves, plus a clean-crop control at two sizes nothing has ever run.
+lz_t832_b140 perf/ceilrfd3/targets/laczc_1008.cif 692 140 42
+lz_t768_b140 perf/ceilrfd3/targets/laczc_1008.cif 628 140 42
+lz_c604_b140 perf/ceilrfd3/targets/laczc_1008.cif 604 140 42
+lz_c732_b60 perf/ceilrfd3/targets/laczc_1008.cif 732 60 42
+lz_c796_b60 perf/ceilrfd3/targets/laczc_1008.cif 796 60 42
+lz_c604_b60 perf/ceilrfd3/targets/laczc_1008.cif 604 60 42
+lz_t832_b60 perf/ceilrfd3/targets/laczc_1008.cif 772 60 42
+lz_t768_b60 perf/ceilrfd3/targets/laczc_1008.cif 708 60 42

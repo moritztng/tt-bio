@@ -1,0 +1,11 @@
+# Wormhole UMD 3, the part the break was found on. Two axes crossed:
+#   crop held at a broken value while the binder moves  -> does the break follow the crop
+#   total held at a broken value while the crop moves   -> does the break follow the size
+lz_c668_b60 perf/ceilrfd3/targets/laczc_1008.cif 668 60 42
+lz_c668_b140 perf/ceilrfd3/targets/laczc_1008.cif 668 140 42
+lz_t768_b60 perf/ceilrfd3/targets/laczc_1008.cif 708 60 42
+lz_t768_b140 perf/ceilrfd3/targets/laczc_1008.cif 628 140 42
+lz_c732_b60 perf/ceilrfd3/targets/laczc_1008.cif 732 60 42
+lz_c732_b140 perf/ceilrfd3/targets/laczc_1008.cif 732 140 42
+lz_t832_b60 perf/ceilrfd3/targets/laczc_1008.cif 772 60 42
+lz_t832_b140 perf/ceilrfd3/targets/laczc_1008.cif 692 140 42
