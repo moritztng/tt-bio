@@ -7,6 +7,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **`--msa_endpoint` is refused where it does nothing, and its help lists rf3.** The help string
+  was hand-written and omitted rf3, which reads the flag. Passing it with `--model boltz2`, which
+  has no endpoint client, was accepted, suppressed the auto-detected local ColabFold DB, and the
+  run then died after a full model load with "Missing MSAs" — telling the user they gave no source
+  when they had given one. One list now drives both the help and an up-front refusal, so boltz2
+  fails in 3 s at argument parsing instead of 24 s mid-run. The missing-MSA message also names
+  `--msa_db_path` and `--single_sequence`, the two ways out it used to leave off.
+
 - **The predict progress view no longer overstates what it knows.** Four things it got wrong,
   all found by watching real folds against their own event stream. Its table was five fixed
   columns totalling 88 cells, so in an 80-column terminal Rich clipped the bar and a finished
