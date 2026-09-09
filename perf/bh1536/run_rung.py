@@ -18,13 +18,38 @@ OUTROOT = WT / "perf" / "bh1536"
 PY = "/home/ttuser/tt-bio-dev/env/bin/python3"
 
 # The refusals we classify. DRAM and L1 are different walls with different fixes.
+# The parenthetical is the whole classification and is captured on purpose. `free` vs
+# `largest free block` is what separates the two OOM classes the campaign asks to be told
+# apart: request > bank size is one oversized tensor, request < free but > largest free block
+# is fragmentation, and request > free is plain exhaustion. Dropping it (as a regex that stops
+# at "bank size is N B" does) makes all three look identical.
+_ALLOC = (r"Not enough space to allocate (?P<req>\d+) B {kind} buffer across (?P<banks>\d+) "
+          r"banks, where each bank needs to store (?P<per_bank>\d+) B, but bank size is "
+          r"(?P<bank_size>\d+) B\s*\(allocated: (?P<allocated>\d+) B, free: (?P<free>\d+) B, "
+          r"largest free block: (?P<largest>\d+) B\)")
 OOM_PATTERNS = [
-    (re.compile(r"Not enough space to allocate (\d+) B DRAM buffer across (\d+) banks.*?"
-                r"each bank needs to store (\d+) B, but bank size is (\d+) B", re.S), "dram"),
-    (re.compile(r"Not enough space to allocate (\d+) B L1 buffer across (\d+) banks.*?"
-                r"each bank needs to store (\d+) B, but bank size is (\d+) B", re.S), "l1"),
-    (re.compile(r"grow to (\d+) B .*?beyond max L1 size of (\d+) B", re.S), "l1_cb"),
+    (re.compile(_ALLOC.format(kind="DRAM")), "dram"),
+    (re.compile(_ALLOC.format(kind="L1")), "l1"),
+    (re.compile(r"grow to (?P<req>\d+) B .*?beyond max L1 size of (?P<bank_size>\d+) B", re.S),
+     "l1_cb"),
 ]
+
+
+def classify(g: dict) -> str:
+    """Which of the two OOM classes this refusal is, from the allocator's own numbers."""
+    per_bank, bank = g.get("per_bank"), g.get("bank_size")
+    if per_bank is None:                       # a circular-buffer throw carries no bank figures
+        return "l1_static_cb"
+    if per_bank > bank:
+        return "oversized_tensor"              # no chip state would have served this request
+    free, largest = g.get("free"), g.get("largest")
+    if free is None or largest is None:
+        return "residency_unclassified"
+    if per_bank > free:
+        return "residency_exhausted"           # the chip is simply full
+    if per_bank > largest:
+        return "fragmentation"                 # room exists, no single block holds it
+    return "unclassified"
 
 
 def sample_host():
@@ -77,10 +102,13 @@ def cif_residues(path: Path) -> int:
 
 
 def _oom_of(text):
+    """The LAST refusal in the log, not the first: the blocking paths retry past an early one."""
     for pat, kind in OOM_PATTERNS:
-        m = pat.search(text)
-        if m:
-            return {"class": kind, "groups": [int(g) for g in m.groups()],
+        ms = list(pat.finditer(text))
+        if ms:
+            m = ms[-1]
+            g = {k: int(v) for k, v in m.groupdict().items() if v is not None}
+            return {"class": kind, "mechanism": classify(g), "bytes": g,
                     "text": m.group(0)[:400].replace("\n", " ")}
     return None
 
@@ -97,7 +125,7 @@ def _write(row):
             f"wall={row['wall_s']:7.1f}s engine={row['engine_runtime_s']} "
             f"cif_res={row['cif_residues']}/{row['size']} ntok={row['n_tokens']} "
             f"rss={row['peak_host_rss_gib']}G "
-            f"oom={row['oom']['class'] if row['oom'] else '-'}"
+            f"oom={row['oom']['class'] + '/' + row['oom']['mechanism'] if row['oom'] else '-'}"
             f"{'(fatal)' if row['fatal_oom'] else ''}"
             + (f" breaks={row['struct'].get('ca_breaks')} "
                f"worst_ca={row['struct'].get('worst_ca_ca')} "

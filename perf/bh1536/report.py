@@ -22,6 +22,20 @@ if "--backfill" in sys.argv:
     # Rungs recorded before run_rung.py started scoring geometry still have their output dirs.
     # Score them from the same CIF rather than leaving the column empty or, worse, guessing.
     changed = False
+    # An OOM recorded before the allocator parenthetical was captured cannot say which of the
+    # two classes it is. The fold.log is still there, so re-read it rather than leaving it blank.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rr", HERE / "run_rung.py")
+    rr = importlib.util.module_from_spec(spec); spec.loader.exec_module(rr)
+    for r in rows:
+        if r.get("oom") and "mechanism" not in r["oom"]:
+            log = HERE / "runs" / (f"{r['model']}_{r['size']}"
+                                   + (f"_{r['tag']}" if r.get("tag") else "")) / "fold.log"
+            if log.is_file():
+                fresh_oom = rr._oom_of(log.read_text(errors="replace"))
+                if fresh_oom:
+                    r["oom"] = fresh_oom; changed = True
+
     for r in rows:
         if r.get("struct") or r["verdict"] != "PASS" or not r.get("cif"):
             continue
@@ -43,10 +57,14 @@ if "--backfill" in sys.argv:
     fresh = [json.loads(l) for l in JL.read_text().splitlines() if l.strip()]
     scored = {(r["model"], r["size"], r.get("tag", ""), r["when"]): r.get("struct")
               for r in rows if r.get("struct")}
+    ooms = {(r["model"], r["size"], r.get("tag", ""), r["when"]): r.get("oom")
+            for r in rows if r.get("oom") and "mechanism" in r["oom"]}
     for r in fresh:
         key = (r["model"], r["size"], r.get("tag", ""), r["when"])
         if not r.get("struct") and scored.get(key):
             r["struct"] = scored[key]; changed = True
+        if r.get("oom") and "mechanism" not in r["oom"] and ooms.get(key):
+            r["oom"] = ooms[key]; changed = True
     if changed:
         JL.write_text("".join(json.dumps(r) + "\n" for r in fresh))
     rows = fresh
@@ -63,7 +81,8 @@ print("|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|")
 for m in sorted(by_model):
     for r in sorted(by_model[m], key=lambda x: x["size"]):
         s = r.get("struct") or {}
-        print(f"| {m} | {r['size']} | {r['verdict']} | {r['wall_s']} | "
+        v = r["verdict"] + (f" ({r['oom']['mechanism']})" if r.get("oom") and r["verdict"] != "PASS" else "")
+        print(f"| {m} | {r['size']} | {v} | {r['wall_s']} | "
               f"{r.get('engine_runtime_s') or s.get('runtime_s') or '-'} | "
               f"{s.get('n_atoms', '-')} | {s.get('ca_breaks', '-')} | "
               f"{s.get('worst_ca_ca', '-')} | {s.get('clash_frac', '-')} | "
