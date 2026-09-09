@@ -1485,11 +1485,31 @@ def _resolve_ligand_atom_selection(sel_value, code: str, not_selected: "AtomSele
     )
 
 
+# BKBN is the protein backbone, per the contig grammar in `input.py` (verified against
+# upstream's docs/input.md). A residue that does not carry all four is not a protein
+# residue, and there is no verified backbone set for a ligand, so that case still raises.
+_BKBN_ATOMS = ("N", "CA", "C", "O")
+
+
 def _atom_selection_mask(sel: AtomSelection, names: Sequence[str]) -> np.ndarray:
+    """Which of ``names`` an InputSelection atom spec picks.
+
+    Shared by the protein/NA and ligand paths, so an unresolvable shorthand has to say
+    which residue it could not resolve rather than blame a ligand for a protein's atoms.
+    """
     if sel.shorthand == "ALL":
         return np.ones(len(names), dtype=bool)
-    if sel.shorthand in ("TIP", "BKBN"):
-        raise NotImplementedError(f"{sel.shorthand} shorthand for ligand atoms — p17+")
+    if sel.shorthand == "BKBN":
+        if not set(_BKBN_ATOMS) <= set(names):
+            raise NotImplementedError(
+                f"BKBN on a residue with atoms {sorted(names)}: the backbone shorthand is "
+                f"{list(_BKBN_ATOMS)}, which this residue does not carry. Name the atoms "
+                "explicitly instead.")
+        return np.isin(np.asarray(names), np.asarray(_BKBN_ATOMS))
+    if sel.shorthand == "TIP":
+        raise NotImplementedError(
+            "TIP is residue-dependent and is not resolved yet; name the tip atoms "
+            "explicitly instead (e.g. 'NE,CZ,NH1,NH2' for ARG)")
     if not sel.atoms:
         return np.zeros(len(names), dtype=bool)
     return np.isin(np.asarray(names), np.asarray(sorted(sel.atoms)))

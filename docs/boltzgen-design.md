@@ -54,7 +54,7 @@ binding sites, scaffolds, and residue constraints.
 
 ```bash
 tt-bio design examples/binder.yaml --steps design --num_designs 10
-tt-bio design examples/binder.yaml --out_dir existing/ --steps analysis filtering
+tt-bio design examples/binder.yaml --out_dir existing/ --steps analysis,filtering
 ```
 
 ## Command-line options
@@ -65,7 +65,7 @@ tt-bio design examples/binder.yaml --out_dir existing/ --steps analysis filterin
 | `--num_designs` | `10000` | Number of binders to generate |
 | `--budget` | `30` | Number of top designs kept after filtering |
 | `--out_dir` | `./<basename>/` | Output directory |
-| `--steps` | (all) | Run only specific stages |
+| `--steps` | (all) | Run only specific stages, comma-separated |
 | `--config STEP key=val` | — | Override per-stage config (e.g. `--config design sampling_steps=200`) |
 | `--devices` | all cards | Restrict to specific cards (e.g. `0,2`) |
 | `--fast` | `False` | Use a lower-precision path for some ops (slightly lower precision, faster) |

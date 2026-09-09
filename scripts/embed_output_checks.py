@@ -2,10 +2,11 @@
 """Assert on what `tt-bio embed` / `tt-bio saprot` actually wrote.
 
 Reads the npz/parquet/manifest artifacts from runs already on disk and checks the
-claims the CLI help makes: batch size does not move a per-sequence embedding, the
-three pool modes are three different vectors and each is the function it names, the
-per-residue rows align 1:1 with the sequence, and the manifest describes the files
-that exist. Usage: embed_output_checks.py <run_dir_root>
+claims the CLI help makes: a sequence batched alone reproduces --batch_size 1 exactly,
+batching it with a longer sequence moves it only by the bf16 reduction order the help
+now quotes, the three pool modes are three different vectors and each is the function
+it names, the per-residue rows align 1:1 with the sequence, and the manifest describes
+the files that exist. Usage: embed_output_checks.py <run_dir_root>
 """
 import json
 import sys
@@ -41,9 +42,15 @@ def main():
         a, b = b1[sid]["per_residue"], b8[sid]["per_residue"]
         check(a.shape == (lens[sid], 1152),
               "%s per_residue is [L,d] with L=%d (got %s)" % (sid, lens[sid], a.shape))
-        same = np.array_equal(a, b)
-        mx = float(np.abs(a.astype(np.float64) - b.astype(np.float64)).max())
-        check(same, "%s batch 1 vs 8 bit-identical (maxabs %.3e)" % (sid, mx))
+        x, y = a.astype(np.float64), b.astype(np.float64)
+        mx = float(np.abs(x - y).max())
+        pcc = float(np.corrcoef(x.ravel(), y.ravel())[0, 1])
+        # Batching changes the bucketed length and with it the bf16 reduction order. The
+        # help quotes 3.1e-2 / PCC 0.9987 at L=37, the worst of these three; anything
+        # past that is a different effect and worth looking at.
+        check(mx <= 4e-2 and pcc >= 0.998,
+              "%s batch 1 vs 8 within the quoted bf16 band (maxabs %.3e, PCC %.6f)"
+              % (sid, mx, pcc))
 
     pools = {p: load(root / ("emb_" + p)) for p in ("mean", "max", "cls")}
     for sid in lens:
@@ -75,6 +82,18 @@ def main():
         for e in m["sequences"]:
             check((root / name / e["file"]).exists(),
                   "%s manifest names a file that exists: %s" % (name, e["file"]))
+
+    # The claim the help does make exactly: padding cannot reach a sequence's own rows,
+    # so a batch of one reproduces --batch_size 1 bit for bit.
+    alone = load(root / "pad_out_alone")
+    check(np.array_equal(alone["L37"]["per_residue"], b1["L37"]["per_residue"]),
+          "L37 batched alone is bit-identical to --batch_size 1")
+    for tag in ("200", "600"):
+        x = load(root / ("pad_out_" + tag))["L37"]["per_residue"].astype(np.float64)
+        r = alone["L37"]["per_residue"].astype(np.float64)
+        check(np.abs(x - r).max() <= 4e-2,
+              "L37 with a %s-mer partner stays in the band (maxabs %.3e)"
+              % (tag, np.abs(x - r).max()))
 
     import pandas as pd
     df = pd.read_parquet(root / "emb_pq" / "embeddings.parquet")
