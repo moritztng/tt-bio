@@ -565,19 +565,87 @@ def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
     return None
 
 
+MOL_TYPES = ("protein", "dna", "rna", "ligand")
+
+
+def build_spi(chains):
+    """Canonical ``chains`` -> the vendored ``StructurePredictionInput``.
+
+    One entry per chain: ``(chain_id, sequence, msa, mol_type, modifications)``, the
+    5-tuple ``tt_bio.main._read_bio_chains`` emits — so the CLI, the platform worker and
+    the parity harness all build the model's input through this one function instead of
+    each assembling dataclasses of its own. Shorter protein-only tuples are accepted
+    (``mol_type`` defaults to ``"protein"``, the trailing fields to None).
+
+    * ``protein`` -- ``msa`` is an esm ``MSA`` (or None for single-sequence).
+    * ``dna`` / ``rna`` -- nucleotide sequence, single-sequence only.
+    * ``ligand`` -- the sequence slot carries the featurizer spec: ``CCD_<code>`` (or
+      ``CCD_<code>,<code>`` for a multi-residue ligand chain such as a glycan) selects
+      CCD ideal-conformer tokenization, anything else is read as SMILES and gets an
+      RDKit conformer on the host. Same encoding Protenix and OpenFold3 already read.
+    * ``modifications`` -- ``[{"position": N, "ccd": CODE}]``, 1-indexed (the Boltz YAML
+      convention; the featurizer's ``Modification`` is 0-indexed). Polymer chains only.
+
+    Every entry becomes one token-axis chain: a protein residue is one token, a ligand
+    atom is one token, so a ligand extends the token axis by its heavy-atom count.
+    """
+    from tt_bio._vendor.esm.models.esmfold2 import (
+        DNAInput, LigandInput, Modification, ProteinInput, RNAInput,
+        StructurePredictionInput)
+
+    _POLYMER = {"protein": ProteinInput, "dna": DNAInput, "rna": RNAInput}
+
+    def _entry(c):
+        cid, spec = c[0], c[1]
+        msa = c[2] if len(c) > 2 else None
+        mol_type = (c[3] or "protein") if len(c) > 3 else "protein"
+        # The 4-tuple was (cid, seq, msa, modifications) before the readers unified on
+        # mol_type; a list in that slot is a modifications list, not a molecule type.
+        mods = c[4] if len(c) > 4 else None
+        if isinstance(mol_type, (list, tuple)):
+            mods, mol_type = mol_type, "protein"
+        if mol_type not in MOL_TYPES:
+            raise ValueError(f"chain {cid}: unknown molecule type {mol_type!r}, "
+                             f"expected one of {MOL_TYPES}")
+        if mol_type == "ligand":
+            if str(spec).upper().startswith("CCD_"):
+                codes = [x.strip().upper() for x in str(spec)[4:].split(",") if x.strip()]
+                if not codes:
+                    raise ValueError(f"ligand {cid}: empty CCD code")
+                return LigandInput(id=cid, ccd=codes)
+            return LigandInput(id=cid, smiles=str(spec).strip())
+        # Normalise the sequence (strip whitespace, upper-case): otherwise those
+        # characters tokenize to unknowns and crash the MSA-feature step. Matches
+        # the Boltz-2 parser's behaviour.
+        seq = "".join(str(spec).split()).upper()
+        modifications = None
+        if mods:
+            modifications = []
+            for mod in mods:
+                pos = mod["position"]
+                if not isinstance(pos, int) or not (1 <= pos <= len(seq)) or not mod.get("ccd"):
+                    raise ValueError(
+                        f"Modification {mod!r} on chain {cid} needs a 1-indexed position "
+                        f"within the sequence (length {len(seq)}) and a ccd code.")
+                modifications.append(Modification(position=pos - 1, ccd=str(mod["ccd"])))
+        kwargs = {"id": cid, "sequence": seq, "modifications": modifications}
+        if mol_type == "protein":
+            kwargs["msa"] = msa
+        return _POLYMER[mol_type](**kwargs)
+
+    return StructurePredictionInput(sequences=[_entry(c) for c in chains])
+
+
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                  num_diffusion_samples=1, seed=0, return_all=False):
-    """Fold one (possibly multi-chain) protein complex on an already-patched model.
+    """Fold one (possibly multi-chain) complex on an already-patched model.
 
-    `chains` is a list of ``(chain_id, sequence)``, ``(chain_id, sequence,
-    msa)`` or ``(chain_id, sequence, msa, modifications)`` where ``msa`` is an
-    esm ``MSA`` object (or None for single-sequence) and ``modifications`` a
-    list of ``{"position": N, "ccd": CODE}`` dicts (1-indexed, the Boltz YAML
-    convention; the vendored featurizer's ``Modification`` is 0-indexed).
-    A modified residue is atom-tokenized by the input pipeline, so it folds as
-    the modified chemistry rather than being silently dropped. When an MSA is
-    given the on-device MSA encoder runs. Returns the reference
-    fold result (with `.complex`, `.plddt`, `.ptm`).
+    `chains` is the canonical chain list :func:`build_spi` documents: protein, DNA, RNA
+    and ligand (CCD code or SMILES) entries, with optional MSA and modified residues on
+    the polymers. Non-protein chains are atom-tokenized by the vendored featurizer, the
+    same machinery a modified residue already goes through. When an MSA is given the
+    on-device MSA encoder runs. Returns the reference fold result (with `.complex`,
+    `.plddt`, `.ptm`).
 
     With ``num_diffusion_samples > 1`` the diffusion head emits one structure per
     sample (distinct seeds); the reference ``fold`` returns them as a list. This
@@ -592,28 +660,9 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     sample-scaling curve, say — needs the list. The default is unchanged, so the
     single-result callers keep the exact object they had.
     """
-    from tt_bio._vendor.esm.models.esmfold2 import (
-        ESMFold2InputBuilder, Modification, ProteinInput, StructurePredictionInput)
+    from tt_bio._vendor.esm.models.esmfold2 import ESMFold2InputBuilder
 
-    def _protein(c):
-        msa = c[2] if len(c) > 2 else None
-        # Normalise the sequence (strip whitespace, upper-case): otherwise those
-        # characters tokenize to unknowns and crash the MSA-feature step. Matches
-        # the Boltz-2 parser's behaviour.
-        seq = "".join(c[1].split()).upper()
-        mods = None
-        if len(c) > 3 and c[3]:
-            mods = []
-            for mod in c[3]:
-                pos = mod["position"]
-                if not isinstance(pos, int) or not (1 <= pos <= len(seq)) or not mod.get("ccd"):
-                    raise ValueError(
-                        f"Modification {mod!r} on chain {c[0]} needs a 1-indexed position "
-                        f"within the sequence (length {len(seq)}) and a ccd code.")
-                mods.append(Modification(position=pos - 1, ccd=str(mod["ccd"])))
-        return ProteinInput(id=c[0], sequence=seq, msa=msa, modifications=mods)
-
-    spi = StructurePredictionInput(sequences=[_protein(c) for c in chains])
+    spi = build_spi(chains)
     # A 12 GiB Wormhole chip cannot hold the resident block-fp8 ESMC-6B (6.29 GiB)
     # plus the MSA encoder's [1, L, M, d] activation, which is 1.0 GiB at 128 aa for
     # the default M=8192 and grows with L: every MSA fold died in the encoder with

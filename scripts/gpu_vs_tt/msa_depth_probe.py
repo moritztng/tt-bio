@@ -26,8 +26,8 @@ for name, yaml, a3m in [
         chains = _read_bio_chains(yaml)
         bonds = _read_bio_constraints(yaml)
         specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir) if mt == "protein" else None, mt)
-                 for _cid, cseq, spec, mt in chains]
-        feats = build_complex_features(specs, chain_ids=[c for c, _s, _sp, _m in chains],
+                 for _cid, cseq, spec, mt, _mods in chains]
+        feats = build_complex_features(specs, chain_ids=[c for c, _s, _sp, _m, _mods in chains],
                                        bonds=bonds)
     msa = feats.get("msa")
     depth = tuple(msa.shape) if msa is not None else None

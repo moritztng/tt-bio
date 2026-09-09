@@ -160,13 +160,13 @@ def test_of3_chains_reject_ligands_blank_and_empty():
     with pytest.raises(RuntimeError, match="no protein/nucleic-acid"):
         _validate_openfold3_chains([])
     with pytest.raises(RuntimeError, match="polymer-only"):
-        _validate_openfold3_chains([("L", "CCD_ATP", None, "ligand")])
+        _validate_openfold3_chains([("L", "CCD_ATP", None, "ligand", None)])
     with pytest.raises(RuntimeError, match="empty/whitespace-only"):
-        _validate_openfold3_chains([("A", "   ", None, "protein")])
+        _validate_openfold3_chains([("A", "   ", None, "protein", None)])
     with pytest.raises(RuntimeError, match="empty/whitespace-only"):
-        _validate_openfold3_chains([("A", "MKVL", None, "protein"), ("B", "", None, "rna")])
+        _validate_openfold3_chains([("A", "MKVL", None, "protein", None), ("B", "", None, "rna", None)])
     # valid polymer chains pass; unknown residue codes are upstream-compatible (UNK warning)
-    _validate_openfold3_chains([("A", "MKVLXXX", None, "protein"), ("R", "ACGU", None, "rna")])
+    _validate_openfold3_chains([("A", "MKVLXXX", None, "protein", None), ("R", "ACGU", None, "rna", None)])
 
 
 def _of3_query(chains):

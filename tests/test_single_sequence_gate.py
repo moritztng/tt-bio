@@ -22,9 +22,9 @@ def _ok(cond, msg):
     return cond
 
 
-CHAINS = [("A", "PEPTIDE", "/pinned/a.a3m", "protein"),
-          ("B", "ACGU", None, "rna"),
-          ("C", "OTHER", None, "protein")]
+CHAINS = [("A", "PEPTIDE", "/pinned/a.a3m", "protein", None),
+          ("B", "ACGU", None, "rna", None),
+          ("C", "OTHER", None, "protein", None)]
 
 
 def _patched():
