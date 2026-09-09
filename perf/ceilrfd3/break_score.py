@@ -36,10 +36,17 @@ def breaks_with_index(atom, asym, seq, xyz):
 
 
 def main(paths):
-    rows = []
+    # Last record wins per spec. A rung can appear twice when two chains walk one job file (it
+    # happened here: a wait-then-launch monitor and a manual launch both started the same list),
+    # and both wrote the same CIF path, so the second row describes the file on disk.
+    recs = {}
     for p in paths:
         for line in open(p):
             r = json.loads(line)
+            recs[(r.get("spec_id"), r.get("target"), r.get("seed"))] = r
+    rows = []
+    if True:
+        for r in recs.values():
             if not r.get("ok"):
                 rows.append({**{k: r.get(k) for k in
                                 ("spec_id", "target", "target_res", "binder", "total_res", "seed")},
