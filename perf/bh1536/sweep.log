@@ -3,3 +3,4 @@
 2026-09-09T23:01:56Z esmfold2-fast   1536tok PASS     wall=  378.9s engine=None cif_res=1536/1536 ntok=None rss=50.43G oom=-
 2026-09-09T23:04:53Z esmfold2        1536tok OOM      wall=  177.3s engine=None cif_res=0/1536 ntok=None rss=62.96G oom=dram(fatal)
 2026-09-09T23:13:12Z boltz2          1536tok PASS     wall=  491.3s engine=337.3 cif_res=1536/1536 ntok=None rss=37.58G oom=- breaks=0 worst_ca=4.11 clash=0.00494
+2026-09-09T23:21:04Z rf3             1536tok FAIL     wall=  471.8s engine=None cif_res=0/1536 ntok=None rss=42.7G oom=-
