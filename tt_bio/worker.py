@@ -466,11 +466,32 @@ def _err_text(exc: BaseException, limit: int = 2000) -> str:
     the OOM parenthetical, the TT_THROW payload and the first backtrace frames.
     """
     s = str(exc)
-    if len(s) <= limit:
-        return s
-    keep = limit - 5                       # room for the " ... " elision marker
-    head = keep // 2
-    return s[:head] + " ... " + s[-(keep - head):]
+    if len(s) > limit:
+        keep = limit - 5                   # room for the " ... " elision marker
+        head = keep // 2
+        s = s[:head] + " ... " + s[-(keep - head):]
+    origin = _origin_frame(exc)
+    return f"{s}\n[tt_bio origin: {origin}]" if origin else s
+
+
+def _origin_frame(exc: BaseException) -> str | None:
+    """The deepest tt_bio frame in the traceback, i.e. which of our ops made the request.
+
+    An allocator refusal arrives as a RuntimeError whose text is a tt-metal message and a
+    C++ backtrace. Neither names a tt-bio op, and the Python traceback that does is thrown
+    away when the exception is turned into a job row -- so a recorded OOM says how many bytes
+    were refused and nothing about what asked for them. esmfold2 at 1536 tokens was refused
+    4831838208 B with no attributable site at all, which is a measurement that cannot be acted
+    on. Appended after the length budget rather than inside it, so it is never the part that
+    gets elided.
+    """
+    tb, deepest = exc.__traceback__, None
+    while tb is not None:
+        code = tb.tb_frame.f_code
+        if f"{os.sep}tt_bio{os.sep}" in code.co_filename:
+            deepest = f"{os.path.basename(code.co_filename)}:{tb.tb_lineno} in {code.co_name}"
+        tb = tb.tb_next
+    return deepest
 
 
 def _is_esmc_model(model_id: str) -> bool:
