@@ -94,7 +94,10 @@ def _write(row):
             f"cif_res={row['cif_residues']}/{row['size']} ntok={row['n_tokens']} "
             f"rss={row['peak_host_rss_gib']}G "
             f"oom={row['oom']['class'] if row['oom'] else '-'}"
-            f"{'(fatal)' if row['fatal_oom'] else ''}")
+            f"{'(fatal)' if row['fatal_oom'] else ''}"
+            + (f" breaks={row['struct'].get('ca_breaks')} "
+               f"worst_ca={row['struct'].get('worst_ca_ca')} "
+               f"clash={row['struct'].get('clash_frac')}" if row.get("struct") else ""))
     with (OUTROOT / "sweep.log").open("a") as fh:
         fh.write(line + "\n")
     print(line)
@@ -218,12 +221,26 @@ def main():
     # that the run did not survive.
     fatal_oom = oom if (oom and nres == 0) else None
 
+    # A CIF that exists is not a fold. `perf/ceilings/struct_signal.py` is the repo's one
+    # structural instrument (it imports the release gate's own thresholds), so a rung that
+    # returns coordinates still has to show a continuous backbone before it counts as PASS.
+    signal = {}
+    if cifs:
+        try:
+            sig = subprocess.run([PY, str(WT / "perf/ceilings/struct_signal.py"), str(out)],
+                                 capture_output=True, text=True, cwd=str(WT), env=env,
+                                 timeout=1800)
+            signal = json.loads(sig.stdout.strip().splitlines()[-1])
+        except Exception as exc:
+            signal = {"scored": 0, "error": str(exc)[:200]}
+
     ok = bool(cifs) and nres == a.size
     verdict = "PASS" if ok else ("TIMEOUT" if killed else ("OOM" if fatal_oom else "FAIL"))
     row = {"model": a.model, "size": a.size, "tag": a.tag, "task": "predict",
            "verdict": verdict, "wall_s": round(wall, 1), "engine_runtime_s": runtime_s,
            "cif": str(cifs[0]) if cifs else None, "cif_residues": nres,
-           "n_tokens": ntok, "plddt": plddt, "exit": proc.returncode, "killed": killed,
+           "n_tokens": ntok, "plddt": plddt, "struct": signal,
+           "exit": proc.returncode, "killed": killed,
            "single_sequence": a.single_sequence, "sampling_steps": a.sampling_steps,
            "recycling_steps": a.recycling_steps,
            "peak_host_rss_gib": round(peak_rss / 2**30, 2),
