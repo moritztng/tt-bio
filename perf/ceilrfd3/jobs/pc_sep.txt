@@ -1,0 +1,7 @@
+# The same two crops that break as a C-terminal fusion, run as a docked binder instead: a real
+# /0 chain break between the target range and the designed length. Sixth field is the contig.
+# struct_signal scores continuity per chain, so "clean" means the same thing in both arms -- the
+# designed segment's own backbone is continuous.
+lz_c668_sep perf/ceilrfd3/targets/laczc_1008.cif 668 100 42 A1-668,/0,100
+lz_c732_sep perf/ceilrfd3/targets/laczc_1008.cif 732 100 42 A1-732,/0,100
+lz_c816_sep perf/ceilrfd3/targets/laczc_1008.cif 816 100 42 A1-816,/0,100
