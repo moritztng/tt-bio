@@ -7,6 +7,37 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **A design spec key the model will not read is now an error, not a default.** An RFD3 spec with
+  and without `select_hotspots` produced a byte-identical CIF at the same seed, and a PXDesign run
+  with `hotspots: [9001, 9002]` produced coordinates byte-identical to a run with no hotspots
+  block: a full-cost design that answers a different question than the one asked, with nothing
+  said. Fifteen RFD3 InputSpecification fields were in that state, because the features they feed
+  (`is_atom_level_hotspot`, `active_donor`, `active_acceptor`, and `ref_atomwise_rasa` outside a
+  ligand) are hardcoded zero. Both readers now refuse by name, with the reason, before a device
+  opens, through one helper beside the YAML loader that already existed for the same reason;
+  BoltzGen's spec parser already did this and is the model they follow. PXDesign also refuses a
+  hotspot number that names no residue, showing the `label_seq` range it matched against, since the
+  usual cause is author numbering. A spec that only spells out defaults still runs, and designs
+  that were already valid are unchanged byte for byte. `select_fixed_atoms: {"A5": "BKBN"}` now
+  resolves to N/CA/C/O instead of raising "BKBN shorthand for ligand atoms" on a protein residue.
+
+- **SaProt puts each 3Di token on the residue it was computed for.** Foldseek reports 3Di only for
+  the residues a structure resolves and returns the structure's sequence alongside; the reader
+  discarded that sequence and reconciled the two by length, so an unresolved loop shifted every
+  token after it. On a 117-residue structure missing three residues, 82 residues carried another
+  residue's structural token and the run reported success. The 3Di string is now placed by matching
+  the structure's own sequence, unresolved positions get `#`, and a structure that is not of the
+  sequence passed is refused. A fully resolved structure is bit-identical to before. A `tt-bio
+  saprot` run without `--logits` also no longer writes a manifest advertising a `[length, 446]`
+  array it did not produce.
+
+- **`--batch_size` says what it does.** `tt-bio embed` and `tt-bio saprot` claimed per-sequence
+  embeddings are unchanged across batch size. Padding is masked and a sequence batched alone is
+  bit-identical to `--batch_size 1`, but the batch's bucketed length sets the bf16 reduction order:
+  a 37-residue sequence batched with a 200-residue one moves 3.1e-2, PCC 0.9987. Both help texts
+  now quote that. `docs/boltzgen-design.md` showed `--steps analysis filtering`, which the CLI
+  rejects; the option is comma-separated.
+
 - **Wormhole folds above 640 residues instead of hanging the chip.** Every target from 640 aa up
   split the Transition SwiGLU along the pair tensor's width, and that path wedged the card:
   protenix-v2 at 768 aa hung mid-fold on two different chips, at trunk recycle 6 and recycle 4, and
