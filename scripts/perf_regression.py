@@ -153,7 +153,10 @@ caught.
 
 Usage::
 
-    # run the whole gate on the card (one device context per model subprocess)
+    # run the whole gate on the card (one device context per model subprocess).
+    # `python3` must be the interpreter carrying the pinned ttnn runtime. A bare
+    # `python3` is the system one on some release hosts, where it has no numpy and
+    # the gate dies importing tt_bio before it ever opens a device.
     TT_VISIBLE_DEVICES=0 PYTHONPATH=<worktree> python3 scripts/perf_regression.py
 
     # one model / a subset
