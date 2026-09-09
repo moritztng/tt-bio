@@ -74,7 +74,7 @@ tt-bio predict examples/prot.yaml --model boltz2 --override
 Every command names its model with `--model`:
 
 - **`boltz2`**: folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
-- **`esmfold2`** / **`esmfold2-fast`**: fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint). Cyclic chains are not supported (they raise a clear error).
+- **`esmfold2`** / **`esmfold2-fast`**: fold complexes of proteins, DNA, RNA, and ligands (CCD code or SMILES) on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint). Modified residues are folded as the modified chemistry. Cyclic chains and covalent `bond` constraints are not supported (they raise a clear error).
 - **`protenix-v1`** / **`protenix-v2`**: fold complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emit a PAE/PDE matrix with `--write_pae`. `protenix-v1` is upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against `protenix-v2`'s 10, so it is the cheaper of the two. Cyclic chains are not supported by either (they raise a clear error); covalent `bond` constraints are.
 - **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only, ligands, covalent bonds and cyclic chains are not supported yet (raise a clear error). Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
 - **`openbind`**: OpenBind-0, the same OpenFold3 stack on upstream's v0.5.0 checkpoint, tuned for protein-ligand co-folding. Takes ligands by SMILES or CCD code alongside protein, RNA and DNA chains; MSA-dependent (uses an MSA by default), with optional per-chain templates. Covalent bonds and cyclic chains are not supported yet (raise a clear error). Weights are a separate file from `openfold3` and are not downloaded; point `TT_BIO_OPENBIND` at them (see [`docs/weights.md`](docs/weights.md)).
@@ -85,6 +85,7 @@ Every command names its model with `--model`:
 
 ```bash
 tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
+tt-bio predict examples/fkg_ligand.yaml --model esmfold2   # protein + ligand co-fold, no MSA
 tt-bio predict examples/prot.yaml --model protenix-v2   # MSA on by default; NA/ligand chains are single-sequence
 tt-bio predict examples/prot.yaml --model protenix-v1   # upstream's v0.5.0 base checkpoint, 4 recycles
 tt-bio predict examples/prot.fasta --model openfold3    # MSA on by default; set OF3_CKPT to the weights file
@@ -98,7 +99,7 @@ tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the roll
 
 | Feature | Boltz-2 | ESMFold2 | Protenix-v1 | Protenix-v2 | OpenFold3 | OpenBind-0 | OpenDDE | RF3 |
 |---|---|---|---|---|---|---|---|---|
-| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein/DNA/RNA/ligand complex | protein complex (antibody-antigen) | protein/DNA/RNA/ligand complex |
+| Input | protein/DNA/RNA/ligand complex | protein/DNA/RNA/ligand complex | protein/DNA/RNA/ligand complex | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein/DNA/RNA/ligand complex | protein complex (antibody-antigen) | protein/DNA/RNA/ligand complex |
 | MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
 | Affinity / potentials / templates | yes | no | no | no | templates only | templates only | no | no |
 | Pocket / contact constraints | yes | no | no | no | no | no | no | no |
@@ -408,7 +409,8 @@ when comparing numbers against another implementation.
 
 ### Input Format
 
-ESMFold2 accepts protein inputs only. Protenix-v1 and Protenix-v2 accept proteins, DNA, RNA,
+ESMFold2 accepts proteins, DNA, RNA and ligands, and no constraints.
+Protenix-v1 and Protenix-v2 accept proteins, DNA, RNA,
 ligands, and covalent `bond` constraints. OpenFold3 accepts proteins, DNA and RNA
 plus per-chain templates, and rejects ligands and constraints with a named error.
 OpenDDE accepts proteins and ligands
@@ -619,7 +621,7 @@ Model-specific options are labelled below.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v1` / `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes; `protenix-v1` is upstream's v0.5.0 base checkpoint at 4 trunk recycles, `protenix-v2` the wider one at 10), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates, `OF3_CKPT` weights), `openbind` (OpenBind-0; the OpenFold3 stack on upstream v0.5.0 weights, protein-ligand co-folding, `TT_BIO_OPENBIND` weights), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), or `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes; non-canonical residues, covalent modifications and cyclic chains need RF3's own JSON spec, not the YAML input) |
+| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2; protein / DNA / RNA / ligand complexes), `protenix-v1` / `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes; `protenix-v1` is upstream's v0.5.0 base checkpoint at 4 trunk recycles, `protenix-v2` the wider one at 10), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates, `OF3_CKPT` weights), `openbind` (OpenBind-0; the OpenFold3 stack on upstream v0.5.0 weights, protein-ligand co-folding, `TT_BIO_OPENBIND` weights), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), or `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes; non-canonical residues, covalent modifications and cyclic chains need RF3's own JSON spec, not the YAML input) |
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | Weight cache directory. Whole-repo models (ESMFold2, ESMC, SaProt, OpenDDE) use the Hugging Face cache; `TT_BIO_CACHE` moves both, see [docs/weights.md](docs/weights.md) |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
