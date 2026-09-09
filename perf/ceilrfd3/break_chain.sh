@@ -18,11 +18,12 @@ LOG=$OUT.log
 JL=$OUT.jsonl
 mkdir -p "$OUT"
 cd "$WT" || exit 1
-while read -r spec target crop binder seed; do
+while read -r spec target crop binder seed contig; do
   [ -z "${spec:-}" ] && continue
   case "$spec" in \#*) continue;; esac
   echo "[chain] $(date -Is) tag=$TAG card=$CARD spec=$spec crop=$crop binder=$binder seed=$seed start" >> "$LOG"
   env PYTHONPATH=$WT WH_SPEC_ID=$spec WH_TARGET=$target WH_CROP=$crop WH_BINDER=$binder \
+      ${contig:+WH_CONTIG=$contig} \
       WH_SEED=$seed WH_TAG=$TAG WH_HOST_THREADS=30 \
       WH_OUT_DIR=$OUT WH_JSONL=$JL \
       TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD \

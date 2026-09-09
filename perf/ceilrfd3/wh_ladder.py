@@ -48,7 +48,11 @@ OUTD.mkdir(parents=True, exist_ok=True)
 JL.parent.mkdir(parents=True, exist_ok=True)
 
 spec_id = os.environ.get("WH_SPEC_ID") or "cap%d" % TOTAL
-contig = "A1-%d,%d" % (CROP, BINDER)
+# WH_CONTIG is the escape hatch for a contig this crop/binder shorthand cannot spell, notably
+# "A1-<crop>,/0,<binder>": the same two segments with a real chain break between them, which is a
+# docked binder rather than the C-terminal fusion the shorthand builds. WH_CROP and WH_BINDER
+# still describe it for the record, so a run stays comparable to the fused one it is paired with.
+contig = os.environ.get("WH_CONTIG") or "A1-%d,%d" % (CROP, BINDER)
 specfile = OUTD / (spec_id + ".json")
 specfile.write_text(json.dumps(
     {spec_id: {"input": TARGET, "contig": contig, "length": str(BINDER)}}, indent=2))
