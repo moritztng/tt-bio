@@ -7,6 +7,21 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **The predict progress view no longer overstates what it knows.** Four things it got wrong,
+  all found by watching real folds against their own event stream. Its table was five fixed
+  columns totalling 88 cells, so in an 80-column terminal Rich clipped the bar and a finished
+  fold rendered identically to a 92% one; the columns are now sized from the terminal. Its stage
+  bands were a compiled-in table that fits no model: on a warm 20 aa esmfold2 fold prep is 43% of
+  the work and the table budgeted it 6%, so the bar sat at 15% for the first half of every fold.
+  It now charges each stage the seconds it takes and re-divides the bar from the first finished
+  target on. The header counted finished structures only, so a single fold read `0/1 (0%)` from
+  start to finish while its own bar was at 80%, and the ETA priced the one-off model load into
+  every remaining target: on a two-target run with one target a second from done it said 55 s
+  left. And every job announced an MSA stage, including single-sequence folds whose own
+  `results.json` recorded `"msa": false`, while OpenFold3 ran its real MSA search under a
+  `Featurize` label; the stage is now emitted where the search starts. Progress lines from a
+  redirected run also go to stderr rather than mixing into the result stream on stdout.
+
 - **Wormhole folds above 640 residues instead of hanging the chip.** Every target from 640 aa up
   split the Transition SwiGLU along the pair tensor's width, and that path wedged the card:
   protenix-v2 at 768 aa hung mid-fold on two different chips, at trunk recycle 6 and recycle 4, and
