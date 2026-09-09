@@ -127,8 +127,11 @@ Ask for more than a model's limit and tt-bio refuses before it opens a device, n
 model, the limit and any model that does take the input. `rf3` is not in the table because
 it folds every rung to 1095 residues, the top of its ladder. `boltz2`, `esmfold2`,
 `boltzgen` and `nesso1` have no measured limit and are never refused. These numbers are
-Wormhole only; nothing is enforced on Blackhole, which has more memory per chip and where
-nobody has walked a ladder to a failure.
+Wormhole only, and nothing is enforced on Blackhole: an oversized request is accepted there
+rather than refused. Blackhole ladders have now been walked and one rung fails. `rf3` folds 768
+residues on a p300c in 102 s and does not return at 896, though on a p150a it reaches 1088;
+`esmfold2` and `protenix-v2` fold to 1024 on both Blackhole boards. So on a p300c, treat `rf3`
+over 768 residues as a known gap rather than something tt-bio will refuse for you.
 
 The limits were measured with an MSA, which is the default for the models that take one, and at the
 deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you
