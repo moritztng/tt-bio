@@ -125,21 +125,82 @@ def pxdesign_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
     return p
 
 
-def boltzgen_fixture(work: pathlib.Path, target_res: int, seq: str, binder: int = 80) -> pathlib.Path:
+def crop_cif(src: pathlib.Path, n_res: int, dst: pathlib.Path) -> tuple[int, int]:
+    """Write the first `n_res` residues of `src` to `dst`. Returns (residues, atoms).
+
+    The atom axis is walked by cropping a REAL structure, never by generating one: a synthetic
+    backbone carries ~4 atoms per residue where a deposited one carries ~8, so a ladder built on
+    a generated target would report an atom ceiling about twice the one the model really reaches.
+    """
+    cols, rows = cif_atoms(src)
+    ch = _col(cols, "label_asym_id", "auth_asym_id")
+    sq = _col(cols, "label_seq_id", "auth_seq_id")
+    keep, seen = [], {}
+    for r in rows:
+        key = (r[ch], r[sq])
+        if key not in seen:
+            if len(seen) >= n_res:
+                break
+            seen[key] = True
+        keep.append(r)
+    idx = cols.index("id") if "id" in cols else None
+    out = [f"data_{dst.stem}", "#", "loop_"] + [f"_atom_site.{c} " for c in cols]
+    for i, r in enumerate(keep, 1):
+        r = list(r)
+        if idx is not None:
+            r[idx] = str(i)      # renumber, or the crop carries the parent's atom serials
+        out.append(" ".join(r))
+    raw = dst.with_suffix(".raw.cif")
+    raw.write_text("\n".join(out) + "\n#\n")
+
+    # Re-emit through gemmi. The targets on hand are biotite-written and carry `_atom_site`
+    # and nothing else, but BoltzGen's mmCIF reader indexes `_entity_poly_seq.entity_id`
+    # directly and raises "not found in block" on an atom-only file. `setup_entities()`
+    # derives that loop from the chains, so the fixture is well-formed rather than
+    # hand-decorated with metadata this ladder would be inventing.
+    import gemmi
+    st = gemmi.read_structure(str(raw))
+    st.setup_entities()
+    # setup_entities() assigns the entity but leaves full_sequence EMPTY, and gemmi omits an
+    # empty loop on write -- so the category exists in the document and no rows reach the file.
+    # Filling it from the residues actually present is what puts _entity_poly_seq on disk.
+    for ent in st.entities:
+        ent.full_sequence = [r.name for ch in st[0] for r in ch if r.subchain in ent.subchains]
+    st.make_mmcif_document().write_file(str(dst))
+    if "_entity_poly_seq.entity_id" not in dst.read_text():
+        raise SystemExit(f"crop_cif: {dst} has no _entity_poly_seq loop; BoltzGen will refuse it")
+    raw.unlink()
+
+    res, atoms = cif_stats(dst)
+    if (res, atoms) != (len(seen), len(keep)):
+        raise SystemExit(f"crop_cif: gemmi round-trip changed the crop, "
+                         f"{len(seen)}res/{len(keep)}atoms -> {res}res/{atoms}atoms")
+    return res, atoms
+
+
+def boltzgen_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
+                     binder: int = 80) -> tuple[pathlib.Path, int]:
+    """A BoltzGen design spec against the first `target_res` residues of `target`.
+
+    Returns the YAML and the target's ATOM count -- the axis this model is sized on. BoltzGen
+    takes the `entities:` grammar (a designed chain given as a length, plus a structure file to
+    include a chain from), NOT the `sequences:` schema `tt-bio predict` takes; the two are
+    different parsers and the predict spelling is silently a different model's input.
+    """
+    cif = work / f"bgt{target_res}.cif"
+    _, atoms = crop_cif(target, target_res, cif)
     p = work / f"bg{target_res}.yaml"
     p.write_text(
-        "version: 1\n"
-        "sequences:\n"
-        "  - protein:\n"
-        "      id: A\n"
-        f"      sequence: {seq[:target_res]}\n"
+        "entities:\n"
         "  - protein:\n"
         "      id: B\n"
-        f"      sequence: {'X' * binder}\n"
-        "design:\n"
-        "  - chain_id: B\n")
-    return p
-
+        f"      sequence: {binder}\n"
+        "  - file:\n"
+        f"      path: {cif.name}\n"
+        "      include:\n"
+        "        - chain:\n"
+        "            id: A\n")
+    return p, atoms
 
 # --------------------------------------------------------------------------------------------
 # Mechanism classification. Says WHY, not just WHERE -- the two OOM classes want different fixes.
@@ -191,6 +252,7 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     env["TT_BIO_SIZE_LIMIT"] = "0"   # the ladder is what MEASURES the ceiling; it cannot obey one
 
     base = [PY, "-u", "-m", "tt_bio.main"]
+    extra: dict = {}
     if model.startswith("esmc"):
         fx = fasta_fixture(work, size)
         cmd = base + ["embed", str(fx), "--model", model, "--out_dir", str(out_dir),
@@ -204,20 +266,22 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     elif model == "rfd3":
         fx = rfd3_fixture(work, size, args.binder, pathlib.Path(args.target))
         cmd = base + ["design", str(fx), "--model", "rfd3", "--from_pdb", "--out_dir", str(out_dir),
-                      "--num_timesteps", str(args.steps), "--num_designs", "1",
-                      "--devices", str(args.card)]
+                      "--num_timesteps", str(args.steps), "--num_designs", "1"]
         checker = ("cif", size)
     elif model == "pxdesign":
         fx = pxdesign_fixture(work, size, pathlib.Path(args.target), args.binder)
         cmd = base + ["design", str(fx), "--model", "pxdesign", "--out_dir", str(out_dir),
-                      "--n_step", str(args.steps), "--num_designs", "1", "--devices", str(args.card)]
+                      "--n_step", str(args.steps), "--num_designs", "1"]
         checker = ("cif", size + args.binder)
     elif model == "boltzgen":
-        fx = boltzgen_fixture(work, size, seq_of(size), args.binder)
+        fx, atoms = boltzgen_fixture(work, size, pathlib.Path(args.target), args.binder)
+        # --devices is a COUNT, not an id. 1 keeps the run in-process on the one card the
+        # ambient TT_VISIBLE_DEVICES leaves visible; 0 would mean "every card it can detect".
         cmd = base + ["design", str(fx), "--model", "boltzgen", "--out_dir", str(out_dir),
-                      "--num_designs", "1", "--steps", "design", "--devices", str(args.card),
+                      "--num_designs", "1", "--steps", "design", "--devices", "1",
                       "--debug"]
-        checker = ("any", 0)
+        checker = ("designcif", args.binder)
+        extra = {"target_atoms": atoms}
     else:
         raise SystemExit(f"no fixture for {model}")
 
@@ -234,7 +298,7 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
 
     rec = {"model": model, "size": size, "rc": rc, "wall_s": wall,
            "cmd": " ".join(cmd[3:]), "arch": "blackhole", "card": args.card,
-           "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+           "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra}
 
     ok, detail = check_artifact(checker, out_dir, model)
     rec["artifact"] = detail
@@ -277,6 +341,22 @@ def check_artifact(checker, out_dir: pathlib.Path, model: str) -> tuple[bool, di
         res, atoms = cif_stats(cifs[0])
         detail = {"cif": cifs[0].name, "residues": res, "atoms": atoms}
         return (res == expect and atoms > 3 * res), detail
+    if kind == "designcif":
+        # BoltzGen's design step writes the DESIGNED chain, not the target: the artifact that
+        # proves the rung ran is a CIF whose residue count is the binder length. "some file
+        # landed in out_dir" would pass on a config dump, which is why it is not the check.
+        cifs = sorted(out_dir.rglob("*.cif"))
+        if not cifs:
+            return False, {"reason": "no design .cif written",
+                           "saw": sorted(q.name for q in out_dir.rglob("*") if q.is_file())[:8]}
+        for c in cifs:
+            res, atoms = cif_stats(c)
+            if res == expect and atoms >= 3 * res:
+                return True, {"cif": c.name, "residues": res, "atoms": atoms}
+        res, atoms = cif_stats(cifs[0])
+        return False, {"reason": f"no .cif carries {expect} designed residues",
+                       "cif": cifs[0].name, "residues": res, "atoms": atoms,
+                       "n_cifs": len(cifs)}
     files = [p for p in out_dir.rglob("*") if p.is_file() and p.stat().st_size > 0]
     return bool(files), {"files": len(files),
                          "names": sorted(p.name for p in files)[:6]}
