@@ -140,6 +140,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 import gate_guard  # noqa: E402  (card-grant + host-load guards, shared with release_gate.py)
+import perf_regression  # noqa: E402  (detect_stack: driver + card firmware, device-free)
 
 FIXTURE_ROOT = REPO / "docs" / "implementation-parity-data" / "ref-fixtures"
 FINGERPRINT_INDEX = REPO / "docs" / "implementation-parity-data" / "ref-fixture-fingerprints.json"
@@ -2460,7 +2461,14 @@ def main() -> int:
               "total_wall_s": total_wall,
               "card_grant": None if grant is None else sorted(grant),
               "skipped_for_card_grant": [r["leg"] for r in skipped],
-              "workers": [f"{w.host}:{w.card}" for w in workers]}
+              "workers": [f"{w.host}:{w.card}" for w in workers],
+              # The driver and card firmware this run was measured under. A committed floor
+              # that does not carry them cannot be re-measured: the af2ig device floor was
+              # recorded on qb1 cards [3, 0] under card firmware 19.8.1.0, the same two cards
+              # under 19.15.0.0 report a Tensix grid of 11x10 instead of 13x10, and the leg
+              # then read as an accuracy FAIL of the port rather than as a floor measured on
+              # another stack (state doc 60.3, 60.4). Device-free, so it costs nothing.
+              "stack": perf_regression.detect_stack()}
     (workdir / "report.json").write_text(json.dumps(report, indent=2))
     if args.out:
         Path(args.out).write_text(json.dumps(report, indent=2))

@@ -1,12 +1,12 @@
 {
-  "label": "esmfold2-256-rep0",
+  "label": "rf3-1024-rep0",
   "cli": [
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/ttuser/.coworker/wt/tt-bio-release-bh-0-8-p2/perf/size512/fixtures/cdk2x2_256.yaml",
+    "/home/ttuser/.coworker/wt/tt-bio-release-bh-0-8-p2/perf/size512/fixtures/cdk2x2_1024.yaml",
     "--model",
-    "esmfold2",
+    "rf3",
     "--single_sequence",
     "--sampling_steps",
     "6",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/tt-bio-release-bh-0-8-p2/perf/sizegate/work/out_esmfold2-256-rep0"
+    "/home/ttuser/.coworker/wt/tt-bio-release-bh-0-8-p2/perf/sizegate/work/out_rf3-1024-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -25,8 +25,8 @@
       "how": "stats",
       "counter": "tt_bio.esmc.SPLIT_STATS",
       "resolved": "True",
-      "served": 538,
-      "declined": 87,
+      "served": 0,
+      "declined": 0,
       "rejects": null
     },
     {
@@ -34,8 +34,8 @@
       "how": "stats-shared",
       "counter": "tt_bio.esmc.SPLIT_STATS",
       "resolved": "True",
-      "served": 538,
-      "declined": 87,
+      "served": 0,
+      "declined": 0,
       "rejects": null
     },
     {
@@ -71,7 +71,7 @@
       "counter": "tt_bio.esmc.FUSED_RESID_STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 538,
+      "declined": 0,
       "rejects": null
     },
     {
@@ -88,18 +88,16 @@
       "how": "stats",
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 4336,
-      "rejects": {
-        "memory": 4336
-      }
+      "served": 1088,
+      "declined": 0,
+      "rejects": null
     },
     {
       "flag": "ADALN_S_HOIST",
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
+      "served": 306,
       "declined": 0,
       "rejects": null
     },
@@ -108,7 +106,7 @@
       "how": "stats-dict",
       "counter": "tt_bio.tenstorrent.FP32_SOFTMAX_STATS",
       "resolved": "True",
-      "served": 0,
+      "served": 33,
       "declined": 0,
       "rejects": null
     },
@@ -117,9 +115,11 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
-      "declined": 0,
-      "rejects": null
+      "served": 1048,
+      "declined": 40,
+      "rejects": {
+        "l1_dest_is_faster:1024x1024x64": 40
+      }
     },
     {
       "flag": "PAIR_PROJ_MINIMAL_MATMUL",
@@ -127,34 +127,47 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 0,
-      "rejects": null
+      "declined": 4352,
+      "rejects": {
+        "k_tiles=2:(2,2)": 80,
+        "k_tiles=2:(2,1)": 40,
+        "no_mm_block:(8,2)": 40,
+        "k_tiles=4:(4,4)": 3144,
+        "k_tiles=4:(4,1)": 1048
+      }
     },
     {
       "flag": "TRIMUL_TAIL_F1",
       "how": "stats",
       "counter": "tt_bio.trimul_tail.STATS",
       "resolved": "True",
-      "served": 1084,
-      "declined": 0,
-      "rejects": null
+      "served": 0,
+      "declined": 1088,
+      "rejects": {
+        "k_tiles=2": 40,
+        "k_tiles=4": 1048
+      }
     },
     {
       "flag": "QKV_MM_CONFIG",
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
-      "declined": 0,
-      "rejects": null
+      "served": 2096,
+      "declined": 160,
+      "rejects": {
+        "no_mm_block:(2,24)": 80,
+        "no_mm_block:(2,8)": 40,
+        "no_mm_block:(8,2)": 40
+      }
     },
     {
       "flag": "DEVICE_LM_HANDOFF",
       "how": "stats",
       "counter": "tt_bio.esmfold2_runtime.LM_HANDOFF_STATS",
-      "resolved": "True",
-      "served": 1,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
@@ -162,18 +175,16 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 4336,
-      "rejects": {
-        "window_BufferType.L1": 4336
-      }
+      "served": 240,
+      "declined": 0,
+      "rejects": null
     },
     {
       "flag": "REBLOCK_PERMUTE_BACK",
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 0,
+      "served": 1088,
       "declined": 0,
       "rejects": null
     },
@@ -182,7 +193,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 0,
+      "served": 1936,
       "declined": 0,
       "rejects": null
     },
@@ -191,9 +202,12 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 0,
-      "rejects": null
+      "served": 1088,
+      "declined": 2176,
+      "rejects": {
+        "l1_budget": 2,
+        "pm_over_l1": 2174
+      }
     },
     {
       "flag": "SDPA_WIDE_K",
@@ -227,9 +241,11 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 0,
-      "rejects": null
+      "served": 1048,
+      "declined": 40,
+      "rejects": {
+        "head_dim_or_width": 40
+      }
     },
     {
       "flag": "TRIATT_HEAD_MAJOR_TAIL",
@@ -263,7 +279,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
+      "served": 66,
       "declined": 0,
       "rejects": null
     },
@@ -281,8 +297,8 @@
       "how": "wrap",
       "counter": null,
       "resolved": "1.25",
-      "served": 0,
-      "declined": 0,
+      "served": 40,
+      "declined": 1048,
       "rejects": null
     },
     {
@@ -313,5 +329,5 @@
       "rejects": null
     }
   ],
-  "grid": "11x10/13x10"
+  "grid": "11x10"
 }

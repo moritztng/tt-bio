@@ -612,6 +612,39 @@ def detect_machine_id() -> str:
     return socket.gethostname()
 
 
+def detect_stack() -> dict:
+    """Driver and card-firmware identity for the boards this host has. Opens no device.
+
+    Every baseline and every parity floor in this repo records host, cards, commit and date, and
+    none of them record the stack they were measured under. That gap cost two release passes:
+    qb1's p150a cards report a 13x10 Tensix grid on card firmware 19.8.1.0 and an 11x10 grid on
+    19.15.0.0, ``detect_card_type`` keys the baseline on the board type alone, and the af2ig
+    device floor recorded under the older firmware then read as an accuracy FAIL of the port
+    under the newer one. A record that cannot say which stack it belongs to cannot be
+    re-measured, so this goes beside the card key rather than into one gate's report.
+
+    sysfs only -- ``/sys/module/tenstorrent/version`` for the driver, and the per-node
+    ``tt_card_type``/``tt_fw_bundle_ver``/``tt_serial`` attributes for the boards -- so it is
+    safe in the parent before any model loads, next to ``detect_card_type``. An unreadable value
+    is recorded as None instead of dropped: a record made where sysfs is missing has to say so,
+    or it reads as a record made on an unknown stack.
+    """
+    def _read(path: Path) -> str | None:
+        try:
+            return path.read_text().strip() or None
+        except Exception:
+            return None
+
+    cards = {}
+    for entry in Path("/sys/class/tenstorrent").glob("tenstorrent!*"):
+        node = entry.name.rsplit("!", 1)[-1]
+        cards[node] = {"card_type": _read(entry / "tt_card_type"),
+                       "fw_bundle_ver": _read(entry / "tt_fw_bundle_ver"),
+                       "serial": _read(entry / "tt_serial")}
+    return {"tt_kmd": _read(Path("/sys/module/tenstorrent/version")),
+            "cards": {k: cards[k] for k in sorted(cards, key=lambda s: (len(s), s))}}
+
+
 def card_baselines(data: dict, card_type: str, machine_id: str | None = None) -> dict | None:
     """The resolved per-model baseline map for ``card_type`` on ``machine_id``,
     or None if this card type has no recorded baseline at all (the gate must
