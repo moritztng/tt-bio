@@ -97,11 +97,16 @@ def main():
             if negative:
                 print("            ^^ NEGATIVE CONTROL DID NOT MOVE - instrument is blind")
                 fails += 1
-    # The reader's own view, so an ignored key is visibly dropped rather than inferred.
+    # The reader's own view: every key it does not act on, in one message.
     d = spec(lambda x: set_chain(x, hotspot=[40], msa="m", symmetry="C3"))
     p = tmp / "r.yaml"
     p.write_text(yaml.safe_dump(d))
-    print("read_design_yaml keeps: %s" % sorted(read_design_yaml(p)))
+    try:
+        print("  NOT REFUSED  read_design_yaml keeps: %s" % sorted(read_design_yaml(p)))
+        fails += 1
+    except ValueError as e:
+        print("  REFUSED   every key the reader ignores, in one message:")
+        print("            %s" % str(e).split(": ", 2)[-1])
     return 1 if fails else 0
 
 

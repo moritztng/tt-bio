@@ -7,7 +7,5 @@ target:
     A:
       crop: ["1-116"]
       hotspots: [40, 99, 107]
-      # Accepted and ignored. PXDesign-d has no trunk, so generation reads no alignment.
-      msa: "./msa/PDL1/0"
 
 binder_length: 80
