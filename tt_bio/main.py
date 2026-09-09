@@ -1371,9 +1371,19 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
         # MSAs) is readable once the live display is gone.
         click.echo(f"\n{len(failures)} failed:")
         for job_id, error in failures.items():
+            # An allocator refusal reaches here as a TT_FATAL whose first line names a tt-metal
+            # source file and the literal word "false", followed by twenty backtrace frames. The
+            # headline a user needs is the one sentence in the middle, so render that and keep
+            # the raw text for --debug. Every other failure prints exactly as before.
+            from tt_bio import size_limits
+            summary = size_limits.describe_device_oom(str(error))
+            if summary and not debug:
+                click.echo(f"  ✗ {job_id}: {summary}")
+                click.echo("      Re-run with --debug for the allocator trace.")
+                continue
             lines = str(error).splitlines() or [""]
-            click.echo(f"  ✗ {job_id}: {lines[0]}")
-            for extra in lines[1:]:
+            click.echo(f"  ✗ {job_id}: {summary or lines[0]}")
+            for extra in (lines if summary else lines[1:]):
                 click.echo(f"      {extra}")
     return failed
 

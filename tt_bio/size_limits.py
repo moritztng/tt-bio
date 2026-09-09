@@ -796,3 +796,63 @@ def shipped_models() -> set:
     from tt_bio import main as _main
     tuples = {n: getattr(_main, n) for n in dir(_main) if n.endswith("_MODELS")}
     return set().union(*tuples.values())
+
+
+# ---------------------------------------------------------------------------------------------
+# The refusal that arrives too late for the table above.
+# ---------------------------------------------------------------------------------------------
+
+# The allocator's message, with its closing parenthetical, which is the part that says which wall
+# was hit. Everything before it describes the request; only these three numbers describe the chip.
+_ALLOC_REFUSAL = re.compile(
+    r"Not enough space to allocate (?P<req>\d+) B (?P<space>DRAM|L1) buffer across "
+    r"(?P<banks>\d+) banks, where each bank needs to store (?P<per_bank>\d+) B, but bank size "
+    r"is (?P<bank_size>\d+) B\s*\(allocated: (?P<allocated>\d+) B, free: (?P<free>\d+) B, "
+    r"largest free block: (?P<largest>\d+) B\)")
+
+
+def _mib(n: int) -> str:
+    return f"{n / 2**30:.2f} GiB" if n >= 2**30 else f"{n / 2**20:.1f} MiB"
+
+
+def describe_device_oom(text: str) -> str | None:
+    """One sentence for an allocator refusal, or None if `text` is not one.
+
+    A user who asks for a size the chip cannot serve currently gets a C++ assertion line
+    (``TT_FATAL @ .../bank_manager.cpp:439: false``) followed by twenty backtrace frames, and the
+    one sentence that says what actually happened is buried in the middle. The assertion line is
+    the least informative thing in the message: it names a file in tt-metal and the literal word
+    "false".
+
+    The three cases below are genuinely different problems and want different answers, so the
+    sentence names which one it is instead of saying "out of memory" three ways:
+
+      * the request does not fit an EMPTY bank -- one oversized tensor, and no amount of freeing
+        would have helped. A smaller input is the only lever.
+      * it fits the free bytes but not any single free block -- fragmentation. The chip has the
+        room and cannot hand it over in one piece.
+      * it does not fit the free bytes -- the chip is full. Something else resident has to go.
+
+    The LAST refusal in the text, not the first: several paths in this engine catch a refusal and
+    retry with a smaller block, so an early one is routinely not the one that ended the run.
+    """
+    hits = list(_ALLOC_REFUSAL.finditer(text))
+    if not hits:
+        return None
+    g = {k: (v if k == "space" else int(v)) for k, v in hits[-1].groupdict().items()}
+    space, per_bank = g["space"], g["per_bank"]
+    if per_bank > g["bank_size"]:
+        why = (f"one allocation of {_mib(g['req'])} needs {_mib(per_bank)} in each of "
+               f"{g['banks']} {space} banks and a bank holds {_mib(g['bank_size'])}. No chip "
+               f"state would have served it, so this is the shape and not the load")
+    elif per_bank > g["free"]:
+        why = (f"{_mib(g['req'])} was requested, needing {_mib(per_bank)} per {space} bank, and "
+               f"only {_mib(g['free'])} is free. The chip is full")
+    elif per_bank > g["largest"]:
+        why = (f"{_mib(g['req'])} was requested, needing {_mib(per_bank)} per {space} bank. "
+               f"{_mib(g['free'])} is free but the largest single free block is "
+               f"{_mib(g['largest'])}, so the room exists and cannot be handed over in one "
+               f"piece: this is fragmentation, not a full chip")
+    else:
+        return None      # the numbers do not describe a refusal; say nothing rather than guess
+    return f"out of device {space}: {why}."
