@@ -8,12 +8,19 @@ the fixture. An exit status of 0 is not accepted as evidence, and neither is a
 folder before. Peak host RSS and MemAvailable floor are sampled while it runs,
 because a host OOM has taken one of these boxes down.
 
+Verdicts: PASS (artifact checked and scored), OOM (an allocator refusal the run did not
+survive), TIMEOUT (killed at --budget), FAIL (ran and produced no usable artifact), and
+CONTENDED, which is NOT a result -- a co-tenant held card 0, so this rung measured nothing
+and has to be walked again.
+
 Appends one JSON object per rung to results.jsonl and one line to sweep.log.
 """
 import argparse, fcntl, json, os, re, resource, shutil, subprocess, sys, time
 from pathlib import Path
 
 WT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(WT))
+from tt_bio.device_lease import CONTENDED_EXIT_CODE  # noqa: E402  (75, not re-typed here)
 OUTROOT = WT / "perf" / "bh1536"
 PY = "/home/ttuser/tt-bio-dev/env/bin/python3"
 
@@ -50,6 +57,21 @@ def classify(g: dict) -> str:
     if per_bank > largest:
         return "fragmentation"                 # room exists, no single block holds it
     return "unclassified"
+
+
+#: A rung that never opened the card measured nothing, and recording it as FAIL publishes a
+#: Blackhole ceiling that no Blackhole allocator set. Five tasks share these boxes tonight and
+#: one of them runs an UNPINNED pytest, which brings up every visible chip and holds card 0's
+#: lease: protenix-v1 at 1536 was scored FAIL at 23:45Z purely because
+#: tt-boltz-kisoji/env/bin/python -m pytest (pid 789447) had the lease for its whole 120 s wait.
+#: Same class as capacity_gate's _host_killed and _input_rejected — the thing under test has to
+#: have run before its verdict means anything.
+_CONTENDED = re.compile(r"is in use by pid|leased by another process|Refusing to open it "
+                        r"concurrently|DeviceInUseError")
+
+
+def contended(returncode: int, text: str) -> bool:
+    return returncode == CONTENDED_EXIT_CODE or bool(_CONTENDED.search(text or ""))
 
 
 def sample_host():
@@ -153,7 +175,8 @@ def _judge_affinity(a, out, text, wall, proc, killed, peak_rss, floor_avail):
             value = None
     oom = _oom_of(text)
     ok = value is not None
-    verdict = "PASS" if ok else ("TIMEOUT" if killed else ("OOM" if oom else "FAIL"))
+    verdict = ("PASS" if ok else "CONTENDED" if contended(proc.returncode, text)
+               else "TIMEOUT" if killed else "OOM" if oom else "FAIL")
     row = {"model": a.model, "size": a.size, "tag": a.tag, "task": "affinity",
            "verdict": verdict, "wall_s": round(wall, 1), "engine_runtime_s": None,
            "cif": str(scores[0]) if scores else None,
@@ -175,6 +198,11 @@ def main():
     ap.add_argument("--model", required=True)
     ap.add_argument("--size", type=int, required=True)
     ap.add_argument("--budget", type=int, default=2400, help="seconds before the rung is killed")
+    ap.add_argument("--contention_retries", type=int, default=2,
+                    help="re-attempts when a co-tenant holds the card (verdict CONTENDED, "
+                         "never FAIL: nothing ran, so nothing was measured)")
+    ap.add_argument("--contention_wait", type=int, default=180,
+                    help="seconds between contention re-attempts")
     ap.add_argument("--sampling_steps", type=int, default=20)
     ap.add_argument("--recycling_steps", type=int, default=None)
     ap.add_argument("--single_sequence", action="store_true", default=True)
@@ -210,20 +238,32 @@ def main():
     env.update(PYTHONPATH=str(WT), TT_VISIBLE_DEVICES="0", TT_BIO_LEASE_CARDS="0",
                TT_BIO_LEASE_HOLDER="worker:bh-1536-structure")
 
+    # A co-tenant with the card is transient, so wait it out rather than burning the rung:
+    # the sibling pytest that took card 0 tonight holds it for a test, not for the night.
+    # Bounded, and the last attempt's log is what gets judged either way.
     t0 = time.time()
     peak_rss, floor_avail = 0, 1 << 62
-    with log.open("wb") as fh:
-        proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT, cwd=str(WT), env=env)
-        killed = False
-        while proc.poll() is None:
-            time.sleep(2)
-            r, av = sample_host()
-            peak_rss = max(peak_rss, r); floor_avail = min(floor_avail, av)
-            if time.time() - t0 > a.budget:
-                proc.kill(); killed = True; break
-        proc.wait()
+    for attempt in range(a.contention_retries + 1):
+        with log.open("wb") as fh:
+            proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT,
+                                    cwd=str(WT), env=env)
+            killed = False
+            while proc.poll() is None:
+                time.sleep(2)
+                r, av = sample_host()
+                peak_rss = max(peak_rss, r); floor_avail = min(floor_avail, av)
+                if time.time() - t0 > a.budget:
+                    proc.kill(); killed = True; break
+            proc.wait()
+        text = log.read_text(errors="replace")
+        if not contended(proc.returncode, text) or killed or attempt == a.contention_retries:
+            break
+        print(f"card 0 held by a co-tenant, retrying {a.model} {a.size} in "
+              f"{a.contention_wait}s (attempt {attempt + 2}/{a.contention_retries + 1})",
+              flush=True)
+        time.sleep(a.contention_wait)
     wall = time.time() - t0
-    text = log.read_text(errors="replace")
+    was_contended = contended(proc.returncode, text)
 
     # --- judge the artifact, never the exit code -------------------------------------------
     if a.task == "affinity":
@@ -267,7 +307,9 @@ def main():
             signal = {"scored": 0, "error": str(exc)[:200]}
 
     ok = bool(cifs) and nres == a.size
-    verdict = "PASS" if ok else ("TIMEOUT" if killed else ("OOM" if fatal_oom else "FAIL"))
+    # CONTENDED outranks OOM and FAIL: a run that never got the card cannot have found a wall.
+    verdict = ("PASS" if ok else "CONTENDED" if was_contended
+               else "TIMEOUT" if killed else "OOM" if fatal_oom else "FAIL")
     row = {"model": a.model, "size": a.size, "tag": a.tag, "task": "predict",
            "verdict": verdict, "wall_s": round(wall, 1), "engine_runtime_s": runtime_s,
            "cif": str(cifs[0]) if cifs else None, "cif_residues": nres,

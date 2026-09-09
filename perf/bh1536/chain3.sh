@@ -1,9 +1,9 @@
 #!/bin/bash
-# Third batch. Waits for BOTH earlier chains: chain2.sh execs chain.sh, and there is a poll-length
-# window where chain1 has exited and chain2 has not exec'd yet, so waiting on chain.sh alone would
-# start inside it and contend for the card.
+# The third batch. Ordering is chain.sh's blocking flock on .card0.lock, so this no longer waits on
+# another chain's process being gone -- that wait keyed on a cmdline, and the `bash -c ...
+# setsid nohup ./chain2.sh &` launcher outlives its own `&` with the chain as its child, so the
+# pattern kept matching and chain3.sh sat in its poll loop for 19 minutes without running one
+# rung. Kept as a separate file only so a relaunch can see which batch is which in ps.
 WT=/home/ttuser/.coworker/wt/bh-1536-structure
 cd $WT || exit 1
-while pgrep -f "bh1536/chain\.sh|bh1536/chain2\.sh" > /dev/null; do sleep 30; done
-echo "earlier chains gone at $(date -u +%FT%TZ), starting"
 exec ./perf/bh1536/chain.sh "$@"
