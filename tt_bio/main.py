@@ -1351,9 +1351,16 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                         raise DeviceInUseError(
                             f"every local worker exited at device open ({codes}); the card "
                             "is leased by another process, so nothing ran")
+                    # Do not promise a traceback: a worker stopped by a signal
+                    # mid-job prints one line and no trace (worker.run_worker_loop's
+                    # KeyboardInterrupt arm), and rf3 at 1536 tokens sent a reader
+                    # looking for a traceback that was never written. Name what each
+                    # code means instead, so the exit code alone is the diagnosis.
                     raise RuntimeError(
                         f"every local worker exited before the run finished ({codes}); "
-                        "no job can be served. The worker's own traceback above says why.")
+                        "no job can be served. Exit 130/143 means a signal stopped the "
+                        "worker mid-job, 70 that it was orphaned, -9/137 that the host "
+                        "OOM killer took it; any other code prints its own fatal above.")
                 all_dead_seen = True
             else:
                 all_dead_seen = False
