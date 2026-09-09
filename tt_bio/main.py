@@ -1991,7 +1991,7 @@ def msa_server_cmd(listen, msa_db_path, cache_dir, use_envdb, max_concurrent, to
 
 
 # ---------------------------------------------------------------------------
-# ESMFold2 (--model esmfold2): single-sequence, protein-only, on-device ttnn.
+# ESMFold2 (--model esmfold2): protein / DNA / RNA / ligand, no MSA required, on-device ttnn.
 # ---------------------------------------------------------------------------
 def _chain_label(n: int) -> str:
     """Chain id for the n-th chain (0-indexed): A..Z, then AA, AB, ... (bijective base-26).

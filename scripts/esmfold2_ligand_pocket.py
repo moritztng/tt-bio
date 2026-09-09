@@ -91,6 +91,59 @@ def contact_indices(st: gemmi.Structure, code: str | None, cutoff: float):
     return hit, seq, best
 
 
+def ligand_rmsd_in_protein_frame(truth: gemmi.Structure, pred: gemmi.Structure,
+                                 code: str | None, off: int):
+    """Ligand heavy-atom RMSD (A) after superposing the PREDICTED protein onto the deposited one.
+
+    The complement to the pocket-residue overlap: overlap says the right residues are in
+    contact, this says how far the ligand itself is from where the crystal puts it, in the
+    crystal's own frame. Superposition uses CA atoms of the residues the two structures
+    share; the ligand takes no part in fitting it, so it cannot flatter itself. Atoms are
+    matched by CCD atom name, which is exact for a CCD ligand and needs no ordering
+    assumption. Returns (rmsd, n_atoms_matched, ca_rmsd) or None if the ligand names do
+    not correspond.
+    """
+    t_poly, p_poly = polymer_residues(truth), polymer_residues(pred)
+    t_ca, p_ca = [], []
+    for i, (_c, tr) in enumerate(t_poly):
+        j = i + off
+        if not (0 <= j < len(p_poly)):
+            continue
+        a, b = tr.find_atom("CA", "*"), p_poly[j][1].find_atom("CA", "*")
+        if a and b:
+            t_ca.append(a.pos)
+            p_ca.append(b.pos)
+    if len(t_ca) < 3:
+        return None
+    sup = gemmi.superpose_positions(t_ca, p_ca)   # maps predicted -> deposited frame
+
+    def by_name(st, c):
+        out = {}
+        for ch in st[0]:
+            for res in ch:
+                info = _AA3.find_tabulated_residue(res.name)
+                if info and (info.is_amino_acid() or info.is_nucleic_acid()):
+                    continue
+                if res.name in ("HOH", "DOD"):
+                    continue
+                if c and res.name.upper() != c.upper():
+                    continue
+                for a in res:
+                    if a.element != gemmi.Element("H"):
+                        out[a.name] = a.pos
+        return out
+
+    t_at, p_at = by_name(truth, code), by_name(pred, None)
+    shared = sorted(set(t_at) & set(p_at))
+    if not shared:
+        return None
+    sq = 0.0
+    for n in shared:
+        v = sup.transform.apply(p_at[n])       # gemmi returns a Vec3, not a Position
+        sq += gemmi.Position(v.x, v.y, v.z).dist(t_at[n]) ** 2
+    return ((sq / len(shared)) ** 0.5, len(shared), sup.rmsd)
+
+
 def align_offset(truth_seq: str, pred_seq: str) -> int:
     """Index in `pred_seq` where `truth_seq` starts (best identity over all offsets).
 
@@ -147,6 +200,11 @@ def main():
         "truth_pocket_seq": "".join(p_seq[i] for i in sorted(t_mapped)),
         "pred_pocket_seq": "".join(p_seq[i] for i in sorted(p_hit)),
     }
+    lig = ligand_rmsd_in_protein_frame(truth, pred, args.ligand, off)
+    if lig:
+        rmsd, n_at, ca = lig
+        m.update(ligand_rmsd_A=round(rmsd, 3), ligand_atoms_matched=n_at,
+                 protein_ca_rmsd_A=round(ca, 3))
     print(json.dumps(m, indent=2))
     if args.out:
         with open(args.out, "w") as f:
