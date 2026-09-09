@@ -30,6 +30,12 @@ for spec in "$@"; do
     echo "skip $model $size (already measured)"; continue
   fi
   flock 9
+  # The lock serialises the chains that take it. A chain launched BEFORE the lock existed is
+  # still walking its own list from a loop parsed in memory and cannot be made to take it, so
+  # also wait on the thing that actually opens the card. Keyed on run_rung.py, the card user
+  # itself, not on a chain wrapper's cmdline -- that is the mistake chain3.sh sat in for 19
+  # minutes. Inside the lock, any run_rung.py seen here belongs to a lock-blind chain.
+  while pgrep -f "bh1536/run_rung\.py" > /dev/null; do sleep 20; done
   echo "=== $(date -u +%FT%TZ) $model $size ${tag:+tag=$tag} ==="
   $PY perf/bh1536/run_rung.py --model "$model" --size "$size" --budget 2700 \
       ${tag:+--tag "$tag"}
