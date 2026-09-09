@@ -292,3 +292,79 @@ def test_predict_reports_them():
 
     src = inspect.getsource(predict.callback)
     assert "unread_flags(model," in src
+
+
+# --- --max_msa_seqs actually caps depth ---------------------------------------------------
+# It was listed as read by boltz2/esmfold2/openfold3/openbind and unread by protenix/opendde/
+# rf3. Two of those were wrong: the OF3 family read OF3_MAX_MSA_SEQS, never the flag. All of
+# them cap now, through one truncation function, and only when the user asks -- protenix,
+# opendde, rf3 and the OF3 family fold the resolved alignment whole by default, so inheriting
+# boltz2's 8192 would silently change every fold they have already produced.
+
+A3M = ">q\nMKTA\n>h1\nMKTS\n>h2\nMKSA\n>h3\nMATA\n"
+
+
+def test_cap_a3m_text_counts_records_from_the_top():
+    from tt_bio.main import cap_a3m_text
+
+    assert cap_a3m_text(A3M, 2) == ">q\nMKTA\n>h1\nMKTS\n"
+    assert cap_a3m_text(A3M, 1) == ">q\nMKTA\n"
+
+
+def test_an_uncapped_a3m_is_returned_untouched():
+    """The control: no cap, or a cap the file already fits under, must not rewrite the input."""
+    from tt_bio.main import cap_a3m_text
+
+    for cap in (None, 0, 4, 99):
+        assert cap_a3m_text(A3M, cap) is A3M
+
+
+def test_cap_a3m_file_only_writes_a_copy_when_it_has_to(tmp_path):
+    from tt_bio.main import cap_a3m_file
+
+    src = tmp_path / "aln.a3m"
+    src.write_text(A3M)
+    assert cap_a3m_file(src, None, tmp_path) == src
+    assert cap_a3m_file(src, 99, tmp_path) == src
+    out = cap_a3m_file(src, 2, tmp_path)
+    assert out != src and out.read_text().count(">") == 2
+
+
+def test_the_cap_reaches_every_msa_path():
+    """Each model's MSA loading path reads the cap the CLI put in the config. Without this
+    the flag is accepted and dropped, which is exactly what it did on protenix/opendde/rf3."""
+    from tt_bio import worker
+    from tt_bio.worker import _WorkerState
+
+    assert 'cfg.get("msa_cap")' in inspect.getsource(worker._build_chain_specs), \
+        "protenix/opendde chain specs no longer apply the cap"
+    for name in ("_predict_rf3_one", "_predict_openfold3_one"):
+        assert 'cfg.get("msa_cap")' in inspect.getsource(getattr(_WorkerState, name)), \
+            f"{name} no longer applies the cap"
+    src = inspect.getsource(_WorkerState._predict_opendde_one)
+    assert "cap_a3m_text(paired.get(" in src, "the opendde paired MSA is no longer capped"
+
+
+def test_the_default_does_not_travel():
+    """8192 is boltz2's and esmfold2's shipped default, not a cap the other models ever had.
+    predict must pass the cap on only when the flag was set, or every protenix/opendde/rf3/
+    OF3 fold silently changes depth."""
+    from tt_bio.main import predict
+
+    src = inspect.getsource(predict.callback)
+    assert "ParameterSource.DEFAULT" in src and '"msa_cap": msa_cap' in src
+
+
+@pytest.mark.parametrize("model", sorted(CAPABILITY))
+def test_every_folding_model_reports_the_depth_it_used(model):
+    """`msa: true` says an alignment was used, not how deep. --max_msa_seqs is only checkable
+    from the outside if the depth is in the row."""
+    from tt_bio.worker import _WorkerState
+
+    paths = {"protenix-v1": "_protenix_emit", "protenix-v2": "_protenix_emit",
+             "opendde": "_predict_opendde_one", "opendde-abag": "_predict_opendde_one",
+             "openfold3": "_predict_openfold3_one", "openbind": "_predict_openfold3_one",
+             "rf3": "_predict_rf3_one"}
+    if model not in paths:
+        pytest.skip(f"{model} has no MSA depth of its own to report")
+    assert '"msa_depth"' in inspect.getsource(getattr(_WorkerState, paths[model]))

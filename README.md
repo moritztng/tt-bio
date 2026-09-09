@@ -675,7 +675,7 @@ Model-specific options are labelled below.
 | `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE) |
 | `--msa_server_url` | `https://api.colabfold.com` | MSA server URL |
 | `--msa_pairing_strategy` | `greedy` | `greedy` or `complete` |
-| `--max_msa_seqs` | `8192` | Maximum MSA sequences |
+| `--max_msa_seqs` | `8192` | Maximum MSA depth. The default applies to Boltz-2 and ESMFold-2 only; Protenix, OpenDDE, RF3, OpenFold3 and OpenBind fold the whole alignment unless you set it. Each fold reports the depth it used as `msa_depth` |
 | `--subsample_msa` | `False` | Subsample MSA |
 | `--num_subsampled_msa` | `1024` | Number of subsampled sequences |
 

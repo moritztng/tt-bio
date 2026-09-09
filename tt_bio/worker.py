@@ -323,12 +323,16 @@ def _build_chain_specs(chains, msa_dir, cfg, protein_only: bool):
     protein_only keeps each caller's existing per-chain-type behaviour: Protenix resolves an
     a3m for protein chains only, OpenDDE for every chain. That difference is not what this
     function is fixing, so it is a parameter rather than a silent unification.
+
+    ``--max_msa_seqs`` is applied here too, for the same reason: it was a silent no-op on
+    protenix-v1/v2 and opendde, which read the resolved alignment whole however deep it was.
     """
     from tt_bio.main import _resolve_a3m_text
 
     single_seq = bool(cfg.get("single_sequence"))
+    cap = cfg.get("msa_cap")
     return [(cseq,
-             (_resolve_a3m_text(spec, cseq, msa_dir)
+             (_resolve_a3m_text(spec, cseq, msa_dir, max_seqs=cap)
               if not single_seq and (mt == "protein" or not protein_only) else None),
              mt)
             for _cid, cseq, spec, mt, _mods in chains]
@@ -789,7 +793,7 @@ class _WorkerState:
         from tt_bio.main import (_generate_esmfold2_a3m,
                                  _generate_opendde_paired_a3m, _read_bio_chains,
                                  _read_bio_constraints,
-                                 _write_protenix_structure)
+                                 _write_protenix_structure, cap_a3m_text)
         from tt_bio.protenix_data import build_complex_features
 
         chains = _read_bio_chains(path)
@@ -849,7 +853,7 @@ class _WorkerState:
                     cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
                     cfg.get("msa_server_password"), cfg.get("api_key_value"),
                     msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
-                paired_a3ms = [paired.get(seq_hash(cseq))
+                paired_a3ms = [cap_a3m_text(paired.get(seq_hash(cseq)), cfg.get("msa_cap"))
                                for _cid, cseq, _spec, mt, _mods in chains if mt == "protein"]
             except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
                 print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
@@ -905,6 +909,9 @@ class _WorkerState:
             "n_residues": sum(len(cseq) for _c, cseq, _s, mt, _mods in chains if mt != "ligand"),
             "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
             "msa": any(a for _, a, _ in chain_specs), "n_atoms": int(coords.shape[1]),
+            # the depth actually folded, so --max_msa_seqs is checkable from results.json
+            # instead of only from a "msa: true" that says nothing about how deep it went
+            "msa_depth": int(feats["msa"].shape[0]),
             "samples": n_sample,
         }
         if len(confs) > 1:
@@ -996,6 +1003,7 @@ class _WorkerState:
             "n_residues": sum(len(cseq) for _c, cseq, _s, mt, _mods in chains if mt != "ligand"),
             "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
             "msa": any(a for _, a, _ in chain_specs),
+            "msa_depth": int(feats["msa"].shape[0]),
             "n_atoms": int(coords[0].shape[-2]), "samples": len(confs),
         }
         if len(confs) > 1:
@@ -1085,7 +1093,7 @@ class _WorkerState:
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
-                                 _resolve_a3m_path)
+                                 _resolve_a3m_path, cap_a3m_file)
         from tt_bio.rf3 import confidence as rf3_confidence
         from tt_bio.rf3.featurize import featurize
 
@@ -1146,6 +1154,13 @@ class _WorkerState:
         partial_t = int(cfg.get("partial_t") or 0)
         early_stop_plddt = cfg.get("early_stop_plddt")
         with tempfile.TemporaryDirectory() as td:
+            # --max_msa_seqs: upstream's featurizer reads a component's msa_path whole, so the
+            # cap is applied by handing it a truncated copy of the a3m instead of the cached
+            # one. Uncapped runs keep pointing at the cache file itself.
+            for comp in components:
+                if comp.get("msa_path"):
+                    comp["msa_path"] = str(cap_a3m_file(
+                        comp["msa_path"], cfg.get("msa_cap"), td))
             spec_path = Path(td) / f"{path.stem}.json"
             spec_path.write_text(_json.dumps(
                 [{"name": path.stem, "components": components}]))
@@ -1237,6 +1252,7 @@ class _WorkerState:
             "n_atoms": int(atom_array.array_length()),
             "n_chains": len({c[0] for c in chains}),
             "msa": msa_used,
+            "msa_depth": int(f["msa_stack"].shape[1]),
             "recycling_steps": n_recycles,
             "samples": len(samples),
         }
@@ -1400,9 +1416,12 @@ class _WorkerState:
         # Default = the featurizer max_rows (16384), i.e. NO extra subsampling: the
         # CPU reference folds the full featurized MSA, so any lower cap is an input
         # divergence (measured on 9BK6: the 1024-row subsample cost chain A
-        # 11.1 vs 7.6 A Ca-RMSD). OF3_MAX_MSA_SEQS stays as a memory escape hatch.
+        # 11.1 vs 7.6 A Ca-RMSD). --max_msa_seqs is the flag for it and wins over the
+        # OF3_MAX_MSA_SEQS env escape hatch; neither set means no extra subsampling.
         msa_feat = make_openfold3_msa_features(
-            features, max_sequences=int(cfg.get("of3_max_msa_seqs") or 16384), seed=0)
+            features,
+            max_sequences=int(cfg.get("msa_cap") or cfg.get("of3_max_msa_seqs") or 16384),
+            seed=0)
         aux = derive_block_aux(features)
         template_feat, template_slots = dedup_template_slots(
             derive_template_feat(features))
@@ -1475,6 +1494,7 @@ class _WorkerState:
             "n_residues": sum(len(cseq) for _c, cseq, _s, _mt, _mods in chains),
             "n_chains": len(chains), "n_tokens": int(features["restype"].shape[0]),
             "msa": any(c.main_msa_file_paths for c in of3_query.chains),
+            "msa_depth": int(msa_feat.shape[0]),
             "n_atoms": int(result.samples[0].shape[0]), "samples": n_sample,
         }
         if len(confs) > 1:

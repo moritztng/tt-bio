@@ -95,9 +95,15 @@ B-factor column. `--diffusion_samples N` draws N samples and writes all of them,
 their fold does not return the matrices, and `esmfold2` has no PAE head.
 
 An output flag a model does not read prints a note saying which model does read it, so it is
-never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both),
-`--write_embeddings` outside Boltz-2, and `--max_msa_seqs` on `protenix-*`, `opendde*` and
-`rf3`, where the resolved alignment reaches the featurizer uncapped.
+never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both) and
+`--write_embeddings` outside Boltz-2.
+
+`--max_msa_seqs` caps alignment depth on every model that folds from an MSA. Left alone it
+changes nothing: Boltz-2 and ESMFold-2 keep their shipped 8192 default, and `protenix-v1`,
+`protenix-v2`, `opendde`, `opendde-abag`, `rf3`, `openfold3` and `openbind` keep folding the
+resolved alignment whole, which is the depth their reference numbers were measured at. Set it
+and all of them cap. Every fold writes the depth it actually used as `msa_depth` in
+`results.json`.
 
 ## Keeping this honest
 

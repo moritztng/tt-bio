@@ -159,7 +159,13 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
     "--write_pae": ("boltz2", "protenix-v1", "protenix-v2", "opendde", "opendde-abag"),
     "--write_pde": ("boltz2",),
     "--write_embeddings": ("boltz2",),
-    "--max_msa_seqs": ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind"),
+    # Everything that folds from an alignment. Left at its default the flag does nothing to
+    # protenix/opendde/rf3/openfold3/openbind: they fold the resolved alignment whole, and
+    # taking boltz2's 8192 default to them would change every fold they already produced. Set
+    # explicitly, it caps them -- the a3m at `main.cap_a3m_text` for protenix/opendde/rf3,
+    # `make_openfold3_msa_features(max_sequences=)` for the OF3 family.
+    "--max_msa_seqs": ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind",
+                       "protenix-v1", "protenix-v2", "opendde", "opendde-abag", "rf3"),
 }
 
 #: (flag, model) -> why that model does not read it, when the generic line is not the reason.
@@ -176,16 +182,8 @@ FLAG_WHY: dict[tuple[str, str], str] = {
     ("--write_pde", "protenix-v2"): "--write_pae already writes PAE and PDE in one npz",
     ("--write_pde", "opendde"): "it writes PAE only, under --write_pae",
     ("--write_pde", "opendde-abag"): "it writes PAE only, under --write_pae",
-    ("--max_msa_seqs", "protenix-v1"): "the resolved alignment reaches the featurizer whole; "
-                                       "this path has no depth cap",
-    ("--max_msa_seqs", "protenix-v2"): "the resolved alignment reaches the featurizer whole; "
-                                       "this path has no depth cap",
-    ("--max_msa_seqs", "opendde"): "the resolved alignment reaches the featurizer whole; "
-                                   "this path has no depth cap",
-    ("--max_msa_seqs", "opendde-abag"): "the resolved alignment reaches the featurizer whole; "
-                                        "this path has no depth cap",
-    ("--max_msa_seqs", "rf3"): "the a3m path is handed to upstream's featurizer, which reads "
-                               "it whole",
+    ("--max_msa_seqs", "nesso1"): "it conditions on ESM-2 embeddings, not on an alignment, so "
+                                  "there is no depth to cap",
 }
 
 
