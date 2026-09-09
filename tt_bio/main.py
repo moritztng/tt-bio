@@ -2719,6 +2719,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only)
 
+    from tt_bio.capabilities import check_input
+
     if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
                  "opendde-abag", "rf3"):
         # ESMFold2, Protenix, OpenFold3, OpenDDE and RF3 ride the SAME scheduler / worker /
@@ -2781,6 +2783,18 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             done = discover_jobs(data, struct_dir, output_format, override=True)
             click.echo("All predictions complete" if done else "No input files found")
             return
+
+        # Read every input NOW and refuse what this model cannot honour, before the weights
+        # download and the first device open. The worker checks again -- that is the
+        # authoritative point, because the platform submits jobs straight to the controller
+        # and never comes through here -- but a user typing a command should not wait two
+        # minutes for a model load to be told the yaml key is unsupported.
+        for job in jobs:
+            jp = Path(job.path)
+            try:
+                check_input(jp, _read_bio_chains(jp, what=model), model)
+            except RuntimeError as e:
+                raise click.ClickException(str(e)) from e
 
         # MSA is resolved + searched worker-side, exactly like Boltz-2: the worker
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
