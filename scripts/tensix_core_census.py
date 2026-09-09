@@ -19,6 +19,12 @@ logical id. Resolve with ``readlink /sys/class/tenstorrent/tenstorrent!N/device`
 the PCI BDFs ascending to get UMD ids.
 
 Only reads. Run it against a chip no process holds.
+
+Wormhole ONLY, and that is enforced rather than documented: the coordinates and
+SOFT_RESET_0 below are Wormhole B0's, and reading them on a Blackhole chip wedges
+its ARC. Measured on pc's p150a 2026-09-09, 3/3 cycles: detect_chips() clean before,
+"ARC Status: 0 out of 1 initialized" straight after, persistent until `tt-smi -r`.
+That looked for half a day like a dead card.
 """
 import argparse
 import json
@@ -32,10 +38,21 @@ SOFT_RESET_0 = 0xFFB121B0
 RESET_HELD = 0x47800
 
 
+class WrongArch(Exception):
+    pass
+
+
 def census(node):
     from pyluwen import PciChip
 
     chip = PciChip(pci_interface=node)
+    # Constructing the chip and asking its architecture are both safe; the NOC reads below
+    # are not, on anything but Wormhole. See the module docstring.
+    if chip.as_wh() is None:
+        arch = "Blackhole" if chip.as_bh() is not None else "unknown"
+        raise WrongArch("/dev/tenstorrent/%d (%s) is %s, not Wormhole -- refusing to read "
+                        "Wormhole NOC coordinates on it, that wedges the ARC and costs a "
+                        "tt-smi -r to undo" % (node, chip.get_pci_bdf(), arch))
     cores = {}
     for y in WORKER_Y:
         for x in WORKER_X:
@@ -53,7 +70,11 @@ def main():
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args()
 
-    bdf, cores = census(args.node)
+    try:
+        bdf, cores = census(args.node)
+    except WrongArch as e:
+        print(e, file=sys.stderr)
+        return 2
     odd = {c: v for c, v in cores.items() if v != RESET_HELD}
     if args.json:
         print(json.dumps({
