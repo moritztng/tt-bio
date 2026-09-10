@@ -1212,6 +1212,26 @@ def test_every_leg_is_registered_so_a_teardown_can_find_it():
         "execute() never deregisters a finished leg, so the reaper signals stale pids")
 
 
+def test_every_cell_says_which_card_it_was_measured_on(tmp_path, monkeypatch):
+    """`cells` is keyed by model alone and `geometry` is one block for the whole file, so a
+    baseline holding a p150a run and a p300c run reads as if every cell came from whichever card
+    recorded last. That is not hypothetical: two workers recorded the two card types on
+    2026-09-10, and the verdicts genuinely differ -- esmfold2 FAILs 1536 on a 31.875 GiB p150a.
+    A partial record merges per cell, so the mixing is the normal case, not the edge one."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    report = {"bar_tokens": cg.TOKEN_BAR, "started": "2026-09-10T00:00:00Z", "tree": "deadbeef",
+              "dirty": False, "reductions": [],
+              "geometry": {"board_type": "p150a", "host": "qb1", "card": 3},
+              "results": [{"model": "esmfold2", "verdict": "FAIL", "worker": "qb1:3",
+                           "tokens_requested": cg.TOKEN_BAR, "mechanism": "dram"}]}
+    cg.record_baseline(report, partial=True)
+    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["esmfold2"]
+    assert cell["board_type"] == "p150a", (
+        f"the cell does not say which board type it describes: {cell}")
+    assert cell["measured_on"] == "qb1:3", (
+        f"the cell does not say which host and card measured it: {cell}")
+
+
 #: Quoted verbatim from a real nesso1 residency leg on pc's p150a, 2026-09-07.
 _NESSO1_CB_OVERFLOW = (
     "TT_THROW: Statically allocated circular buffers on core range "

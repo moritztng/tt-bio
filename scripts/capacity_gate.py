@@ -1821,6 +1821,14 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     before = (prior.get("cells") or {})
     fp = ceilings_fingerprint()
     kept = []
+    # WHICH CARD each cell describes, per cell. `cells` is keyed by model alone and `geometry` is
+    # one block for the whole file, so a file holding a p150a run and a p300c run -- which is what
+    # two workers recording two card types produce, and they did on 2026-09-10 -- reads as if
+    # every cell came from whichever card recorded last. The verdicts differ by card: esmfold2
+    # FAILs 1536 on a 31.875 GiB p150a. This does not give the file a card axis (that is a schema
+    # change and a merge conflict with anyone recording the other card); it makes a mixed file
+    # say so instead of quietly averaging two machines.
+    geom = report.get("geometry") or {}
     for r in report["results"]:
         if _would_lose_evidence(r, before.get(r["model"])):
             kept.append(f"{r['model']} ({before[r['model']]['verdict']} kept over "
@@ -1840,6 +1848,9 @@ def record_baseline(report: dict, *, partial: bool) -> str:
         # baseline_stale(): a file-level stamp let a one-model record re-certify every cell.
         cells[r["model"]]["ceilings_fingerprint"] = fp
         cells[r["model"]]["tree"] = report["tree"]
+        cells[r["model"]]["board_type"] = geom.get("board_type")
+        cells[r["model"]]["measured_on"] = r.get("worker") or (
+            f"{geom.get('host')}:{geom.get('card')}" if geom.get("host") else None)
     BASELINE.write_text(json.dumps({
         "bar_tokens": report["bar_tokens"],
         "recorded": report["started"],
