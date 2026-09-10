@@ -108,3 +108,12 @@ widened to 2,3 on those commands only. Nothing was killed and no card was reset.
 # 1.9 GB of per-rung output including seven .npz embeddings over the 100 MB file limit, the largest
 # 301 MB. The work dirs are now gitignored the way perf/sizegate/work/ and perf/capacity/work*/
 # already were, the two commits were rewritten without them, and the branch is on origin.
+#
+# BOLTZGEN 3662 IS A CLOCK, NOT A CEILING. The 3662-residue / 29572-atom rung ran the full
+# 1200 s rung budget and was killed by it, so the row is FAIL and the number is NOT a capacity
+# wall. Its mech=l1 label is not trustworthy for the same reason qb1 recorded one round earlier:
+# the classifier reads log text and an L1 throw in this model is absorbed, so it cannot tell a
+# fatal throw from one the engine recovered from. What the row does prove is that the fixture is
+# right -- the target in out_dir carries all four chains, 1008+823+1008+823 = 3662 -- and that
+# 1831 at 548.9 s is the largest boltzgen target measured on either box. A ceiling for this model
+# needs a rung budget above 1200 s, not a bigger target.
