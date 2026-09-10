@@ -145,7 +145,7 @@ The embedding wall is one allocation: the model asks for the whole sequence-by-s
 matrix as a single buffer that grows with the square of the sequence length, 34.4 GB at 131072
 residues against a 31.9 GiB card. `saprot-35m` gets one rung further than the rest because its
 weights are the smallest and leave more room for it. Everything else is unmeasured on Blackhole
-and refused nothing, including `boltzgen`, which designs against a 14786-atom target there.
+and refused nothing, including `boltzgen`, which designs against a 16948-atom target there.
 
 The limits were measured with an MSA, which is the default for the models that take one, and at the
 deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you

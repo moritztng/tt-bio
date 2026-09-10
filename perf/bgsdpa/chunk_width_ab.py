@@ -55,6 +55,10 @@ def main():
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True,
         packer_l1_acc=True)
     shipped = T._TRIMUL_INPROJ_FUSED_BYTES
+    # The floor is what this script is measuring the other side of, so it has to be able to ask
+    # for the widths the floor removes. Lifted here only, and restored below.
+    floor = T._TRIMUL_MIN_CHUNK
+    T._TRIMUL_MIN_CHUNK = 1
     rows = []
     for name, cz, hidden in SHAPES:
         for ending in (False, True):
@@ -90,6 +94,7 @@ def main():
             ttnn.deallocate(z)
             del tm
     T._TRIMUL_INPROJ_FUSED_BYTES = shipped
+    T._TRIMUL_MIN_CHUNK = floor
     T._TRIMUL_INPROJ_FUSED_CAP.clear()
     bad = [r for r in rows if not r["bit_exact_vs_shipped_cap"]]
     with open(args.out, "w") as fh:

@@ -555,15 +555,16 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "boltzgen": {
         "blackhole": _unmeasured(
             "no residue-denominated ceiling on Blackhole either, and this row is a RECORD rather "
-            "than a gap: on qb1 p150a a 1831-residue / 14786-atom target designs an 80-residue "
-            "binder in 692.0 s (task bh-1536-design-embed-p2, 2026-09-10), which is 3.2x the top "
-            "of the Wormhole 3158-4651 atom band and 1.8x the 8095 atoms the first Blackhole pass "
-            "could reach with the largest single chain on hand. The next rung, 20171 atoms, did "
-            "not fail either: it was killed at 3002.1 s by that ladder's own 3000 s budget with "
-            "no allocator throw in its output, so what binds up there is runtime, and a runtime "
-            "cap needs a budget somebody agrees to wait for rather than one harness timeout. The "
-            "axis is atom-denominated on top of that -- COUNTS carries no atom unit, so writing "
-            "it as residues would be a unit substitution",),
+            "than a gap: on qb1 p150a a 2100-residue / 16948-atom target designs an 80-residue "
+            "binder in 805.3 s (task bh-boltzgen-sdpa-circbuf-p3, 2026-09-10), which is 3.6x the "
+            "top of the Wormhole 3158-4651 atom band and 2.1x the 8095 atoms the first Blackhole "
+            "pass could reach with the largest single chain on hand; 1831 residues / 14786 atoms "
+            "is 692.0 s. Above 16948 the ladder has to be re-walked before anything is claimed: "
+            "the rungs above it were read while the trimul in-projection wedged the card on a "
+            "sub-tile slice above 2048 padded tokens (_TRIMUL_MIN_CHUNK), so a rung that 'ran out "
+            "its 3000 s budget with no allocator throw' was a spinning card and bounds nothing. "
+            "The axis is atom-denominated on top of that -- COUNTS carries no atom unit, so "
+            "writing it as residues would be a unit substitution",),
         "wormhole_b0": _unmeasured(
             "its measured cap is NOT residue-denominated and so cannot be expressed as a row here: "
             "wh-design-models-l1-budget-and-size-caps puts it between 3158 and 4651 ATOMS, in the "

@@ -36,7 +36,9 @@ def build(cz, hidden, ckc):
 
     sd = {
         "norm_in.weight": rnd(cz), "norm_in.bias": rnd(cz),
-        "norm_out.weight": rnd(cz), "norm_out.bias": rnd(cz),
+        # hidden, not cz: the out-norm runs on the channel axis, so this builder was only
+        # ever valid at hidden == cz (its own default) and threw "32 != 64" anywhere else.
+        "norm_out.weight": rnd(hidden), "norm_out.bias": rnd(hidden),
         "g_in.weight": rnd(2 * hidden, cz), "p_in.weight": rnd(2 * hidden, cz),
         "g_out.weight": rnd(cz, cz), "p_out.weight": rnd(cz, hidden),
     }
