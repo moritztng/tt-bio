@@ -13,21 +13,24 @@
 # limitations under the License.
 
 # TODO: note in module level docstrings that nothing here supports hydrogens
+from __future__ import annotations
+
 import logging
 from collections import defaultdict
 from collections.abc import Generator, Iterable
 from functools import cached_property
-from typing import Literal, NamedTuple, TypeAlias
+from typing import TYPE_CHECKING, Literal, NamedTuple, TypeAlias
 
 import biotite.structure as struc
 import gemmi
 import numpy as np
 from biotite.structure import AtomArray, BondType, info
 from biotite.structure.io.pdbx import CIFFile
-from pdbeccdutils.core import ccd_reader
-from pdbeccdutils.core.ccd_reader import Component
 from rdkit import Chem
 from rdkit.Chem import AllChem, Mol
+
+if TYPE_CHECKING:  # pdbeccdutils is imported where it is used, see below
+    from pdbeccdutils.core.ccd_reader import Component
 
 from tt_bio._vendor.openfold3.core.data.primitives.caches.format import DatasetChainData
 from tt_bio._vendor.openfold3.core.data.primitives.quality_control.logging_utils import (
@@ -292,6 +295,12 @@ def pdbeccdutils_component_from_ccd(
     cif_block = ccd[ccd_id]
     cif_block.name = ccd_id
     cif_str = cif_block.serialize()
+
+    # pdbeccdutils pulls in rdkit.Chem.Draw, which needs libXrender at import time. A
+    # polymer fold never builds a CCD component, so importing it at module scope made
+    # every OpenFold3/OpenBind fold on a host without that system library die in the
+    # data pipeline, plain protein included. Import it where it is used instead.
+    from pdbeccdutils.core import ccd_reader
 
     # Manually recreate ccd_reader.read_pdb_cif_file but using a string instead of
     # file-path input
