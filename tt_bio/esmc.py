@@ -474,15 +474,12 @@ WINDOW_FALLBACK_STATS = [0, 0]
 
 
 def _is_alloc_refusal(exc: BaseException) -> bool:
-    """Whether this exception is the device allocator refusing, and not any other failure.
+    """See ``size_limits.is_alloc_refusal``: one definition, shared with esmfold2's
+    OuterProductMean. Imported lazily; size_limits is a leaf module and this keeps esmc's
+    import graph unchanged."""
+    from tt_bio.size_limits import is_alloc_refusal
 
-    Reuses ``size_limits.describe_device_oom`` rather than matching the message here, so the
-    engine has ONE definition of "the allocator said no". Imported lazily: size_limits is a
-    leaf module and this keeps esmc's import graph unchanged.
-    """
-    from tt_bio.size_limits import describe_device_oom
-
-    return describe_device_oom(str(exc)) is not None
+    return is_alloc_refusal(exc)
 
 
 def set_split_swiglu(on: bool) -> bool:

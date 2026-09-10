@@ -815,6 +815,16 @@ def _mib(n: int) -> str:
     return f"{n / 2**30:.2f} GiB" if n >= 2**30 else f"{n / 2**20:.1f} MiB"
 
 
+def is_alloc_refusal(exc: BaseException) -> bool:
+    """Whether this exception is the device allocator refusing, and not any other failure.
+
+    The one predicate every retry path shares, so a circular-buffer throw or a shape error is
+    never quietly re-run through a fallback meant for an out-of-memory. Reads the same message
+    ``describe_device_oom`` renders, so the two can never disagree about what a refusal is.
+    """
+    return describe_device_oom(str(exc)) is not None
+
+
 def describe_device_oom(text: str) -> str | None:
     """One sentence for an allocator refusal, or None if `text` is not one.
 
