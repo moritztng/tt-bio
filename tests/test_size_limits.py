@@ -116,6 +116,23 @@ def test_unmeasured_and_unknown_arch_never_refuse():
     sl.check("a-model-that-does-not-exist", 100_000, arch="wormhole_b0")
 
 
+def test_the_blackhole_rows_actually_refuse_on_blackhole_and_not_on_wormhole():
+    """The rows are new, so the guard needs its own negative control, not just the table's.
+
+    A row that is present but never consulted refuses nothing, and a row consulted on the wrong
+    arch refuses everything. Both are silent. saprot-35m embeds 126976 residues on a p150a and
+    throws at 131072, and on Wormhole nobody walked it at all.
+    """
+    c = sl.ceiling("saprot-35m", "blackhole")
+    assert c.residues == c.pass_at and c.fail_at is not None
+    sl.check("saprot-35m", c.pass_at, arch="blackhole")             # measured to work
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check("saprot-35m", c.fail_at, arch="blackhole")         # measured to throw
+    # The same size on the arch with no measured row must sail through, or a Blackhole ladder
+    # would have quietly become a Wormhole limit.
+    sl.check("saprot-35m", c.fail_at, arch="wormhole_b0")
+
+
 def test_a_blackhole_row_was_measured_on_blackhole():
     """The arch key exists to stop a Wormhole number being reused on a chip nobody walked.
 
