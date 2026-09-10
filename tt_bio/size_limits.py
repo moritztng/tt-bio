@@ -73,17 +73,30 @@ Rather than guess a second set of numbers, the table keeps the measured (MSA-on)
 ladder for the MSA-dependent models would let these become two rows instead of one, and until
 somebody walks it, guessing which configuration a user is in would be inventing a ceiling.
 
-THE UNITS ARE RESIDUES, AND THAT IS A CHOICE
---------------------------------------------
+THE UNITS ARE RESIDUES, AND A LIGAND IS COUNTED ON TOP
+-----------------------------------------------------
 Every ceiling below was measured by walking residue counts, so residues is what this table can
 honestly express -- the model-internal expansion is already folded into the measured number.
-OpenDDE's structural axis is ``Ns = 2*n_res - n_gly``, roughly 1.9x the residue count, and ligand
-atoms add tokens on top of the polymer; none of that needs restating here, because a ladder walked
-in residues already paid for it. What this table therefore CANNOT see is an input whose token count
-is unusual for its residue count -- a short polymer carrying a large ligand. Converting these to
-token-denominated ceilings would need the ladders re-walked on the token axis, which nobody has
-done; asserting a token cap from a residue ladder would be a units substitution, not a measurement.
-Said plainly so the gap is a known one.
+OpenDDE's structural axis is ``Ns = 2*n_res - n_gly``, roughly 1.9x the residue count; that needs
+no restating here, because a ladder walked in residues already paid for it.
+
+A ligand was the one input this could not see. Its heavy atoms are TOKENS the trunk pays for
+exactly like residues and they are nowhere in the residue count, so a request at the residue cap
+plus any ligand was admitted here and then died on the chip -- the failure this whole file exists
+to replace with a sentence. Four rows now say where their wall really is. Three carry evidence
+that names it as a token wall (openbind, esmfold2, esmfold2-fast) and one was walked on the token
+axis outright (protenix-v2); each declares ``ladder_ligand_atoms``, the ligand ITS OWN rungs
+carried, which is what turns its residue numbers into token numbers without inventing anything.
+``check`` then refuses a ligand-bearing input whose PADDED token width is past that wall, padded
+by ``token_axis``'s own bucket so the guard and the model cannot drift apart.
+
+It is an EXTRA refusal and never a relaxation. An input with no ligand is compared on residues
+exactly as it always was, which matters more than it looks: openbind's 960 was walked WITH a
+35-atom ligand, so its token wall is the 1024 that 995 pads to, and letting that wall speak for a
+ligand-free input would quietly raise a published ceiling nobody re-walked.
+
+A row without ``ladder_ligand_atoms`` keeps the residue check alone. Asserting a token wall from a
+residue ladder that never saw a ligand would be a units substitution, not a measurement.
 """
 
 from __future__ import annotations
@@ -176,10 +189,28 @@ class Ceiling:
     evidence: str              # who measured it, when, on what. Never empty.
     msa_rows: int | None = None  # alignment depth the ladder was walked at, where it was varied
     counts: str = RESIDUES     # what `residues` counts -- see COUNTS
+    # The ligand EVERY rung of this ladder carried, in heavy atoms, and the flag that says the
+    # wall is on tokens. 0 is a real value and means "walked apo, and the wall is still on
+    # tokens"; None means nobody established that, so the row is checked on residues alone. Set it
+    # only from the row's own evidence: it is what converts residue numbers into token numbers,
+    # and a guessed value would refuse work nothing ever measured to fail.
+    ladder_ligand_atoms: int | None = None
 
     @property
     def measured(self) -> bool:
         return self.binds != UNMEASURED
+
+    @property
+    def token_bound(self) -> bool:
+        """The wall is on TOKENS, so a ligand's heavy atoms count against it."""
+        return self.ladder_ligand_atoms is not None
+
+    @property
+    def tokens(self) -> int | None:
+        """The cap in tokens: the residue cap plus the ligand the ladder was walked with."""
+        if self.ladder_ligand_atoms is None or self.residues is None:
+            return None
+        return self.residues + self.ladder_ligand_atoms
 
 
 def _unmeasured(evidence: str, counts: str = RESIDUES) -> Ceiling:
@@ -309,7 +340,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "openbind": {
         "wormhole_b0": Ceiling(
             residues=960, pass_at=960, fail_at=1024, binds=MEMORY, mechanism=DRAM_MSA,
-            msa_rows=14190,
+            msa_rows=14190, ladder_ligand_atoms=35,
             evidence="its own ladder, and walked WITH A LIGAND BOUND rather than inherited from "
                      "openfold3 -- measured 2026-09-07 on GWH02 at 14190 alignment rows, "
                      "ws:ceiling-1024-integration-and-gate on tt-bio e9cb5b70. Every rung carries "
@@ -323,11 +354,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "to 1088, and 1088 is refused twice over -- OuterProductMean's z at "
                      "2424307712 = 1088 x 1088 x 1024 x 2, and the MSA Transition's "
                      "host-assembled result uploaded whole at 1976016896 = 14189 x 1088 x 64 x 2. "
-                     "So this cap counts residues while the model tokenises ligand heavy atoms on "
-                     "top of them: at 960 residues it holds for a ligand of about 64 atoms or "
-                     "fewer, since 960 + 64 = 1024 tokens is the budget measured to fold. A "
-                     "larger ligand crosses the wall at a residue count this guard admits, which "
-                     "is the one case it cannot see coming. The 576/614 this replaces was "
+                     "So the wall this row records is on TOKENS, and ladder_ligand_atoms=35 says "
+                     "which ligand every rung carried: the 960 cap is 995 tokens, which pad to "
+                     "the 1024 measured to fold. At 960 residues it therefore holds for a ligand "
+                     "of 64 atoms or fewer and refuses 65. A larger ligand at a residue count "
+                     "this row admits used to cross the wall unseen and die on the chip; it is "
+                     "refused at submission now. The 576/614 this replaces was "
                      "measured 2026-08-17 against an engine whose OuterProductMean materialised "
                      "its whole z matmul; openbind dedups its main MSA "
                      "(af3_spec_main_msa_dedup is keyed on the checkpoint), so the depth reaching "
@@ -361,7 +393,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "protenix-v2": {
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=1095, binds=MEMORY, mechanism=DRAM,
-            msa_rows=8832,
+            msa_rows=8832, ladder_ligand_atoms=0,
             evidence="1024 measured 2026-09-08 on GWH02 (8x9, 12 GiB/card), "
                      "ws:wh-transition-wchunk-hang-fix-p2, AT PRODUCTION MSA DEPTH: "
                      "capacity_gate.py --tokens 1024 folds screen and full residency at 8832 "
@@ -373,7 +405,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "pre-merge on the fix branch) would not have been evidence for this row on "
                      "its own. Both needed 938989d7: under the shipped W-chunk gate this band did "
                      "not OOM, it hung the chip, which is why the row called 1024 UNTESTED for a "
-                     "month. 1095 still OOMs on DRAM (catalog.py, 2026-08-11, tree d0ff69b2)",
+                     "month. 1095 still OOMs on DRAM (catalog.py, 2026-08-11, tree d0ff69b2). "
+                     "The wall is on TOKENS and not on the polymer: the failing tensor scales "
+                     "with tokens x rows, and the ladder was walked with capacity_gate.py "
+                     "--tokens. ladder_ligand_atoms=0 records that those rungs were apo, so 1024 "
+                     "residues is 1024 tokens and a ligand's heavy atoms are counted against the "
+                     "same 1024 instead of being invisible to the residue count",
         ),
     },
     "rfd3": {
@@ -462,7 +499,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "esmfold2": {
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=1057, binds=MEMORY, mechanism=DRAM,
-            msa_rows=0,
+            msa_rows=0, ladder_ligand_atoms=0,
             evidence="its own ladder, walked 2026-09-09 on GWH02 card 1 by "
                      "ws:esmfold2-cocrystal-everywhere at the settings a user gets: "
                      "single-sequence, which is this model's default, and --fast, which "
@@ -477,16 +514,18 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "tokens it adds. This model read UNMEASURED until now because its published "
                      "ladder (docs/size-generality.md, 2026-09-08) stopped at 1024, the "
                      "platform's demo fence, and so never recorded a failing size above the cap: "
-                     "the ceiling was there, the negative control was not. CAVEAT, the same one "
-                     "openbind's row carries: this cap counts residues and scan_residues does "
-                     "not count ligand atoms, so 1024 residues plus any ligand at all is over "
-                     "the token wall, will be admitted here, and will fail on the chip",
+                     "the ceiling was there, the negative control was not. The wall is recorded "
+                     "in TOKENS on the strength of that cocrystal pair, and ladder_ligand_atoms=0 "
+                     "says the rungs above were walked apo, so the cap is 1024 tokens: 991 "
+                     "residues + 33 atoms is admitted because it is the 1024 that folded, and "
+                     "1024 residues plus any ligand at all is refused. It used to be admitted "
+                     "here and fail on the chip",
         ),
     },
     "esmfold2-fast": {
         "wormhole_b0": Ceiling(
             residues=1152, pass_at=1152, fail_at=1280, binds=MEMORY, mechanism=DRAM,
-            msa_rows=0,
+            msa_rows=0, ladder_ligand_atoms=0,
             evidence="its OWN ladder, walked 2026-09-09 on GWH02 card 1 by "
                      "ws:esmfold2-cocrystal-everywhere, not inherited from esmfold2 by "
                      "architecture argument -- and it had to be walked separately, because the "
@@ -497,8 +536,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "direction: same architecture at half the trunk depth (24 blocks against "
                      "48), so a smaller DRAM peak. Same settings as the esmfold2 row -- "
                      "single-sequence (this checkpoint has no MSA encoder at all) and --fast, "
-                     "forced on Wormhole. Same residue-vs-token caveat as esmfold2 and openbind: "
-                     "ligand atoms are tokens the residue count cannot see",
+                     "forced on Wormhole. The wall is on TOKENS for the same reason esmfold2's "
+                     "is -- same trunk, same allocation, same per-atom ligand tokenisation -- and "
+                     "it is closed the same way rather than left as a caveat: "
+                     "ladder_ligand_atoms=0 records apo rungs, so the cap is 1152 tokens and a "
+                     "ligand is counted against it. The NUMBERS are still this checkpoint's own; "
+                     "only the denominator is shared",
         ),
     },
     "protenix-v1": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
@@ -714,50 +757,107 @@ def ceiling(model: str, arch: str | None = None) -> Ceiling:
     return CEILINGS.get(model, {}).get(arch, _NO_ROW)
 
 
-def models_accepting(residues: int, arch: str | None = None, exclude: str | None = None) -> list[str]:
-    """Models with a MEASURED ceiling that admits this many residues, so a refusal can point
-    somewhere instead of only saying no.
+def padded_tokens(model: str, tokens: int) -> int:
+    """`tokens` as the width the chip actually allocates for `model`.
+
+    Straight through ``token_axis``'s own bucket rather than a second ceil-to-32 written here: the
+    guard has to pad by the SAME rule the model does, and a drift between them would be silent and
+    in the permissive direction. It is also the width the measurements are written in -- openbind's
+    row records its failing allocation as 1088 x 1088 x 1024 x 2, and 1088 is 1059 tokens bucketed.
+    """
+    from .token_axis import bucket_multiple, bucketed_width
+    return bucketed_width(tokens, bucket_multiple(model))
+
+
+def _verdict(model: str, c: Ceiling, residues: int, ligand_atoms: int):
+    """``(refused, tokens, padded, wall)`` for one input against one ceiling. THE predicate.
+
+    One copy of it, because ``check`` and ``models_accepting`` have to agree: a refusal that sent
+    the user to a model this same rule would also refuse is worse than no hint at all.
+
+    The token arm only ever ADDS a refusal. A ligand-free input never reaches it, so every
+    residue-denominated ceiling behaves exactly as it did before the arm existed.
+    """
+    if not c.measured or c.residues is None:
+        return False, None, None, None
+    if c.token_bound and ligand_atoms > 0:
+        tokens = residues + ligand_atoms
+        padded, wall = padded_tokens(model, tokens), padded_tokens(model, c.tokens)
+        if padded > wall:
+            return True, tokens, padded, wall
+    return residues > c.residues, None, None, None
+
+
+def models_accepting(residues: int, arch: str | None = None, exclude: str | None = None,
+                     ligand_atoms: int = 0) -> list[str]:
+    """Models with a MEASURED ceiling that admits this input, so a refusal can point somewhere
+    instead of only saying no.
 
     Only measured rows, and that keeps the list a promise we can keep: a model whose ladder nobody
     walked might well fold the input, but sending someone to it is advertising an untested size.
+    A ligand-bearing input narrows it further, from ``capabilities.CAPABILITY`` rather than a
+    second list here: OpenFold3 has plenty of room at these sizes and refuses a ligand by name, so
+    naming it would send a cocrystal to a model that cannot take one.
     """
     arch = arch if arch is not None else current_arch()
+    if ligand_atoms > 0:
+        from .capabilities import CAPABILITY, HONOURED
+        folds_ligand = {m for m, row in CAPABILITY.items() if row.get("ligand") == HONOURED}
     out = []
     for name in sorted(CEILINGS):
-        if name == exclude:
+        if name == exclude or (ligand_atoms > 0 and name not in folds_ligand):
             continue
         c = ceiling(name, arch)
-        if c.measured and c.residues is not None and c.residues >= residues:
+        if c.measured and c.residues is not None and not _verdict(name, c, residues, ligand_atoms)[0]:
             out.append(name)
     return out
 
 
-def check(model: str, residues: int, *, arch: str | None = None, where: str = "This input") -> None:
-    """Refuse `residues` on `model` if a MEASURED ceiling says it will not fold. Otherwise silent.
+def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None = None,
+          where: str = "This input") -> None:
+    """Refuse an input of `residues` plus `ligand_atoms` ligand heavy atoms on `model`, if a
+    MEASURED ceiling says it will not fold. Otherwise silent.
 
     Raises ``SizeTooLargeError``. The message names the model, the dimension, the value, the limit
     and the architecture, because a refusal that omits the architecture is unactionable -- the same
-    input at the same size folds on Blackhole for several of these models.
+    input at the same size folds on Blackhole for several of these models. Where the ligand is what
+    crosses the wall it shows the token arithmetic as well, and how many ligand atoms this input
+    did have room for: a user who sent 1000 residues and was told "1024 residues is the limit" has
+    been told something true and useless.
     """
     arch = arch if arch is not None else current_arch()
     c = ceiling(model, arch)
-    if not c.measured or c.residues is None or residues <= c.residues:
+    refused, tokens, padded, wall = _verdict(model, c, residues, ligand_atoms)
+    if not refused:
         return
+    if tokens is None:
+        had = f"{residues} {_COUNT_NAMES[c.counts]}"
+        limit = f"{c.residues} {_COUNT_NAMES[c.counts]}"
+        ligand_note = ""
+    else:
+        had = (f"{residues} {_COUNT_NAMES[c.counts]} and a {ligand_atoms}-atom ligand, which is "
+               f"{tokens} tokens padded to {padded}")
+        limit = f"{wall} tokens"
+        ligand_note = (
+            f" A ligand's heavy atoms are tokens the trunk pays for exactly like residues, so they "
+            f"count against the same wall: at {residues} {_COUNT_NAMES[c.counts]} there is room "
+            f"for {max(0, wall - residues)} ligand atoms, not {ligand_atoms}.")
     if not enforced():
         import warnings
         warnings.warn(
-            f"{where} has {residues} {_COUNT_NAMES[c.counts]}, above {model}'s measured limit of "
-            f"{c.residues} on {arch}. TT_BIO_SIZE_LIMIT=0 is set, so this runs anyway and may "
+            f"{where} has {had}, above {model}'s measured limit of "
+            f"{limit} on {arch}. TT_BIO_SIZE_LIMIT=0 is set, so this runs anyway and may "
             f"fail on the device.", stacklevel=2)
         return
-    alts = models_accepting(residues, arch, exclude=model)
+    alts = models_accepting(residues, arch, exclude=model, ligand_atoms=ligand_atoms)
     # "no model accepts this size" is only true where every model HAS a row. On an arch that is
     # mostly unmeasured -- blackhole, where two freeze rows exist and the other nine models were
     # measured folding 1536 by the 2026-09-10 ladder without earning a row -- the same sentence
     # would report missing rows as a hardware fact. Absence of a row means unmeasured, and this
     # message must not turn that into "cannot".
     unmeasured_here = [m for m in shipped_models() if not ceiling(m, arch).measured]
-    hint = (f" Models with a measured ceiling above {residues} on this hardware: "
+    fits = (f"above {residues}" if tokens is None else f"that admit this input")
+    hint = (f" Models with a measured ceiling {fits} on this hardware: "
             f"{', '.join(alts)}." if alts else
             f" {len(unmeasured_here)} of this engine's models have no measured ceiling on "
             f"{arch} at all, so there is no answer here about what else fits; try a smaller "
@@ -769,8 +869,8 @@ def check(model: str, residues: int, *, arch: str | None = None, where: str = "T
            if c.binds == LADDER_TOP else
            "the largest size below the first measured failure")
     raise SizeTooLargeError(
-        f"{where} has {residues} {_COUNT_NAMES[c.counts]}, and {model} is measured to handle at "
-        f"most {c.residues} on {arch}{depth} -- {top}.{hint}"
+        f"{where} has {had}, and {model} is measured to handle at "
+        f"most {limit} on {arch}{depth} -- {top}.{ligand_note}{hint}"
         f" If you have reason to think this input is roomier than the ladder that set the limit "
         f"(a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it "
         f"anyway."
@@ -833,6 +933,52 @@ def scan_residues(text: str) -> int:
             copies = len(idv) if isinstance(idv, list) and idv else 1
             total += _seq_residues(body.get("sequence")) * copies
     return total
+
+
+def _heavy_atoms(spec: str) -> int:
+    """Heavy atoms in one ligand spec: ``CCD_<code>[,<code>...]`` or a SMILES string.
+
+    The two sources the FEATURIZER tokenises, not a third: the CCD component's own Mol out of the
+    ``mols`` library, and RDKit's parse of a SMILES. Heavy atoms only, the same
+    ``GetAtomicNum() > 1`` filter ``protenix_data.ligand_atom_features`` applies when it lays one
+    token per atom. So this is the token count the model will build, not an estimate of it --
+    checked against the two ligand counts already written into this file's own evidence: CCD STU
+    comes back 35 (openbind's ladder) and BTN 16 (the census arm at 98 aa + BTN = 114 tokens).
+    """
+    try:
+        if spec.upper().startswith("CCD_"):
+            from .data.mol import load_molecules
+            from .protenix_data import _default_mol_dir
+            codes = [x.strip().upper() for x in spec[4:].split(",") if x.strip()]
+            mols = load_molecules(_default_mol_dir(), codes)
+            return sum(sum(1 for a in mols[c].GetAtoms() if a.GetAtomicNum() > 1) for c in codes)
+        from rdkit import Chem
+        mol = Chem.MolFromSmiles(spec)
+        return mol.GetNumHeavyAtoms() if mol is not None else 0
+    except Exception:
+        return 0
+
+
+def scan_ligand_atoms(path) -> int:
+    """Ligand heavy atoms in one predict input, summed over every ligand chain. 0 if it has none.
+
+    Takes a PATH rather than text because it reads the chains through ``main._read_bio_chains`` --
+    the engine's own reader, the one the fold itself uses -- instead of a second copy of the input
+    grammar. ``scan_rfd3_total`` goes through the engine's contig parser for the same reason: a
+    size rule that reimplements the grammar it sizes drifts away from it, silently, and in the
+    permissive direction.
+
+    Never raises, and anything it cannot count scores 0 and refuses nothing -- a host with no CCD
+    library, an unparseable SMILES, a file the real parser will reject on its own terms. That is
+    ``scan_residues``'s rule and it holds here: a size guard is the wrong place to learn that an
+    input is malformed.
+    """
+    try:
+        from .main import _read_bio_chains
+        chains = _read_bio_chains(Path(path))
+    except Exception:
+        return 0
+    return sum(_heavy_atoms(c[1]) for c in chains if len(c) > 3 and c[3] == "ligand")
 
 
 _BARE_SEQUENCE = re.compile(r"^[A-Za-z]+$")
@@ -1018,6 +1164,10 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
     from .runtime import INPUT_SUFFIXES
     _, sizer, suffixes = sizer_for(model)
     suffixes = suffixes or INPUT_SUFFIXES
+    arch = arch if arch is not None else current_arch()
+    # The ligand is only counted where the ceiling's wall is measured on tokens. Anywhere else it
+    # would load the CCD library and RDKit to produce a number nothing compares against.
+    tokenwise = ceiling(model, arch).token_bound
     text = str(data).strip()
     p = Path(text).expanduser()
     try:
@@ -1036,7 +1186,8 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
         except Exception:
             continue
         if n:
-            check(model, n, arch=arch, where=f"'{q.name}'")
+            check(model, n, ligand_atoms=scan_ligand_atoms(q) if tokenwise else 0,
+                  arch=arch, where=f"'{q.name}'")
 
 
 def shipped_models() -> set:

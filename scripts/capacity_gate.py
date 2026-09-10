@@ -1660,6 +1660,12 @@ def ceilings_fingerprint() -> str:
     The published ceilings a user sees live in the serving platform, which tt-bio does not import.
     The engine's own copy is tt_bio.size_limits.CEILINGS, and that is what a ceiling change edits
     here, so that is what gets pinned.
+
+    Every field that decides what a row ADMITS is in the hash, and `ladder_ligand_atoms` is one of
+    them -- it converts a row's residue numbers into the token numbers a ligand-bearing input is
+    checked against, so changing it changes the advertised size as surely as moving `residues`
+    would. Evidence prose is not, on purpose: rewording a row is not a new measurement and should
+    not cost a re-record.
     """
     import hashlib
     from tt_bio import size_limits as sl
@@ -1668,7 +1674,7 @@ def ceilings_fingerprint() -> str:
         for arch in sorted(sl.CEILINGS[model]):
             c = sl.CEILINGS[model][arch]
             rows.append([model, arch, c.residues, c.pass_at, c.binds, c.mechanism,
-                         c.msa_rows, c.counts])
+                         c.msa_rows, c.counts, c.ladder_ligand_atoms])
     return hashlib.sha256(json.dumps(rows, default=str).encode()).hexdigest()[:16]
 
 

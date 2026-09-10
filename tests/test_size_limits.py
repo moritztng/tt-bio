@@ -11,6 +11,9 @@ Here it is an assertion.
 Nothing in this file opens a device or imports ttnn.
 """
 
+import os
+from pathlib import Path
+
 import pytest
 
 from tt_bio import size_limits as sl
@@ -108,11 +111,16 @@ def test_check_refuses_above_and_admits_at_the_cap():
     assert "opendde" in msg and str(c.residues) in msg and "wormhole_b0" in msg
 
 
-def test_unmeasured_and_unknown_arch_never_refuse():
+def test_unmeasured_and_unknown_arch_never_refuse(monkeypatch):
     """Absence of a limit is not a limit -- the rule that keeps this guard from inventing ceilings."""
     sl.check("boltz2", 100_000, arch="wormhole_b0")     # measured-nothing model
     sl.check("boltz2", 100_000, arch="blackhole")       # no row on this arch
     sl.check("opendde", 100_000, arch="grayskull")      # nor on an arch nobody measured
+    # The no-card case has to be FORCED. Passing arch=None only reaches it on a host that has no
+    # Tenstorrent card; on one that does it resolves to that card and this line asserted the
+    # opposite of what it reads as (on a Blackhole host it hit opendde's blackhole row and the
+    # test failed, whatever the code did).
+    monkeypatch.setattr(sl, "current_arch", lambda: None)
     sl.check("opendde", 100_000, arch=None)             # no card / no ttnn
     sl.check("a-model-that-does-not-exist", 100_000, arch="wormhole_b0")
 
@@ -437,6 +445,199 @@ def test_a_refusal_on_a_mostly_unmeasured_arch_does_not_claim_nothing_fits():
     with pytest.raises(sl.SizeTooLargeError) as e2:
         sl.check("opendde", 1200, arch="wormhole_b0")
     assert "Models with a measured ceiling above 1200" in str(e2.value)
+
+
+# --- The ligand is tokens, and tokens are what the wall is made of ---------------------------
+# A ligand's heavy atoms are tokens the trunk pays for and they are nowhere in a residue count, so
+# a request at the residue cap PLUS a ligand used to be admitted here and die on the chip. These
+# tests hold the fix to the numbers already written into the rows' own evidence, in both
+# directions: the cocrystals measured to FOLD stay admitted, and the ones measured to FAIL are
+# refused at submission.
+
+_TOKEN_ROWS = [(m, arch, c) for m, arch, c in _rows() if c.token_bound]
+
+
+def test_at_least_one_row_declares_a_token_wall():
+    """Otherwise every test below passes vacuously on an empty list."""
+    assert _TOKEN_ROWS, "no row declares ladder_ligand_atoms; the token arm is dead code"
+
+
+@pytest.mark.parametrize("model,arch,c", _TOKEN_ROWS, ids=lambda v: v if isinstance(v, str) else "")
+def test_a_token_wall_is_only_claimed_where_a_ligand_can_reach_it(model, arch, c):
+    """A token wall is a claim about the input, so the model must be able to take that input.
+
+    Declaring one on a model that refuses ligands would be a refusal nothing can trigger, and
+    worse, it would read as evidence that somebody checked.
+    """
+    from tt_bio.capabilities import CAPABILITY, HONOURED
+    assert CAPABILITY.get(model, {}).get("ligand") == HONOURED, (
+        f"{model}/{arch} declares ladder_ligand_atoms but does not honour a ligand chain")
+    assert c.measured and c.residues is not None, f"{model}/{arch}: a token wall needs a cap"
+    assert "TOKEN" in c.evidence, (
+        f"{model}/{arch}: ladder_ligand_atoms turns this row's residue numbers into token "
+        f"numbers, so the evidence has to say the wall is on tokens rather than leave a reader "
+        f"to infer it from a field")
+
+
+@pytest.mark.parametrize("model,arch,c", _TOKEN_ROWS, ids=lambda v: v if isinstance(v, str) else "")
+def test_the_token_wall_reproduces_the_rows_own_ladder(model, arch, c):
+    """Converting residues to tokens must not move the ladder it was read off.
+
+    This is the whole safety argument for `ladder_ligand_atoms`: the row's proven rung has to stay
+    proven and its failing rung has to stay failing once both are expressed in padded tokens. If a
+    conversion flips either one, the number in the row and the number the guard enforces are two
+    different numbers and only one of them was measured.
+    """
+    wall = sl.padded_tokens(model, c.tokens)
+    lig = c.ladder_ligand_atoms
+    assert sl.padded_tokens(model, c.pass_at + lig) <= wall, (
+        f"{model}/{arch}: the token wall refuses pass_at={c.pass_at}, a size measured to fold")
+    if isinstance(c.fail_at, int):
+        assert sl.padded_tokens(model, c.fail_at + lig) > wall, (
+            f"{model}/{arch}: the token wall admits fail_at={c.fail_at}, a size measured to fail")
+
+
+def test_a_ligand_at_the_residue_cap_is_refused_instead_of_reaching_the_chip():
+    """THE bug. A token-bound row admitted its residue cap plus a ligand of ANY size, because a
+    residue count cannot see one, and the fold then died on the chip instead of at submission.
+
+    What a row has room for at its own cap is `wall - residues`, and that is not a free parameter:
+    it is 0 on the three ladders walked apo, and 64 on openbind, whose 960 was walked with 35
+    ligand atoms already on it -- the number that row's evidence states in words.
+    """
+    for model, arch, c in _TOKEN_ROWS:
+        wall = sl.padded_tokens(model, c.tokens)
+        room = wall - c.residues
+        sl.check(model, c.residues, arch=arch)                            # apo at the cap: fine
+        sl.check(model, c.residues, ligand_atoms=room, arch=arch)         # the ligand it fits: fine
+        with pytest.raises(sl.SizeTooLargeError) as e:
+            sl.check(model, c.residues, ligand_atoms=room + 1, arch=arch)
+        msg = str(e.value)
+        assert "tokens" in msg and str(wall) in msg, msg
+    assert sl.padded_tokens("openbind", sl.ceiling("openbind", "wormhole_b0").tokens) - 960 == 64
+
+
+def test_the_cocrystals_measured_to_fold_are_still_admitted():
+    """From the evidence, not invented: esmfold2 folded 991 aa + a 33-atom ligand in 278 s, and
+    openbind's row states 960 residues holds for a ligand of 64 atoms or fewer. A guard that
+    refuses either has over-corrected, which is the worse failure of the two."""
+    sl.check("esmfold2", 991, ligand_atoms=33, arch="wormhole_b0")
+    sl.check("openbind", 960, ligand_atoms=64, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check("openbind", 960, ligand_atoms=65, arch="wormhole_b0")
+
+
+def test_a_ligand_free_input_is_checked_exactly_as_it_was():
+    """No false-refusal regression: with no ligand the verdict is the residue comparison, on every
+    row of the table, including the four that now carry a token wall.
+
+    openbind is why this is asserted and not assumed. Its 960 was walked WITH a 35-atom ligand, so
+    its token wall is 1024 -- and letting that wall speak for a ligand-free input would raise a
+    published cap by 64 residues on the strength of no ladder at all.
+    """
+    for model, arch, c in _rows():
+        if not c.measured or c.residues is None:
+            continue
+        for n in (c.residues - 1, c.residues, c.residues + 1):
+            refused = False
+            try:
+                sl.check(model, n, arch=arch)
+            except sl.SizeTooLargeError:
+                refused = True
+            assert refused == (n > c.residues), (
+                f"{model}/{arch}: {n} {c.counts} with no ligand -> refused={refused}, "
+                f"cap {c.residues}")
+
+
+def test_a_row_with_no_token_wall_ignores_the_ligand():
+    """A residue ladder that never saw a ligand says nothing about one, and this guard does not
+    fill that in. rf3 and opendde both fold ligands; neither has a ladder that measured one."""
+    for model in ("rf3", "opendde"):
+        c = sl.ceiling(model, "wormhole_b0")
+        assert not c.token_bound
+        sl.check(model, c.residues, ligand_atoms=500, arch="wormhole_b0")
+
+
+def test_the_padding_comes_from_token_axis_and_is_not_a_second_copy_of_it(monkeypatch):
+    """The guard has to pad by the same rule the model does. A literal 32 here would agree today
+    and drift silently the day the fleet bucket moves, in the permissive direction."""
+    from tt_bio import token_axis
+    assert sl.padded_tokens("esmfold2", 1025) == 1056 == token_axis.bucketed_width(1025, 32)
+    monkeypatch.setenv("TT_BIO_TOKEN_BUCKET_MULTIPLE", "64")
+    assert sl.padded_tokens("esmfold2", 1025) == 1088, (
+        "padded_tokens does not go through token_axis.bucket_multiple")
+
+
+def test_a_ligand_refusal_only_offers_models_that_fold_a_ligand():
+    """OpenFold3 has room at these sizes and refuses a ligand by name (capabilities.CAPABILITY),
+    so sending a cocrystal there would replace one refusal with another."""
+    alts = sl.models_accepting(1000, "wormhole_b0", exclude="esmfold2", ligand_atoms=40)
+    assert "openfold3" not in alts and "rfd3" not in alts and "esmc-6b" not in alts
+    assert "opendde" in alts, alts
+
+
+# --- counting the ligand off the input --------------------------------------------------------
+
+_MOLS = Path(os.path.expanduser("~/.boltz/mols"))
+_needs_ccd = pytest.mark.skipif(not _MOLS.exists(), reason="no CCD mols library on this host")
+
+
+def _yaml(tmp_path, name, body):
+    q = tmp_path / name
+    q.write_text(body)
+    return q
+
+
+@_needs_ccd
+def test_ligand_atoms_are_counted_from_the_ccd_component_the_model_tokenises(tmp_path):
+    """35 for STU is not a number this test chose -- it is the ligand openbind's ladder was walked
+    with, written into that row's evidence, so the counter and the row agree on the same molecule."""
+    q = _yaml(tmp_path, "co.yaml",
+              "sequences:\n  - protein: {id: A, sequence: MKTAYIAK}\n  - ligand: {id: L, ccd: STU}\n")
+    assert sl.scan_ligand_atoms(q) == 35
+    assert sl.ceiling("openbind", "wormhole_b0").ladder_ligand_atoms == 35
+
+
+@_needs_ccd
+def test_each_ligand_copy_costs_its_own_atoms(tmp_path):
+    """`id: [L, M]` is two ligand chains and the model tokenises both, so the guard counts both."""
+    q = _yaml(tmp_path, "two.yaml",
+              "sequences:\n  - protein: {id: A, sequence: MKTAYIAK}\n  - ligand: {id: [L, M], ccd: BTN}\n")
+    assert sl.scan_ligand_atoms(q) == 32          # BTN is 16 heavy atoms, twice
+
+
+def test_a_smiles_ligand_is_counted_too(tmp_path):
+    pytest.importorskip("rdkit")
+    q = _yaml(tmp_path, "smi.yaml",
+              "sequences:\n  - protein: {id: A, sequence: MKTAYIAK}\n"
+              "  - ligand: {id: L, smiles: 'CC(=O)Oc1ccccc1C(=O)O'}\n")
+    assert sl.scan_ligand_atoms(q) == 13          # aspirin, heavy atoms only
+
+
+def test_an_input_with_no_ligand_scores_zero_and_junk_never_raises(tmp_path):
+    q = _yaml(tmp_path, "apo.yaml", "sequences:\n  - protein: {id: A, sequence: MKTAYIAK}\n")
+    assert sl.scan_ligand_atoms(q) == 0
+    assert sl.scan_ligand_atoms(_yaml(tmp_path, "junk.yaml", "%%% not yaml [")) == 0
+    assert sl.scan_ligand_atoms(_yaml(tmp_path, "typo.yaml", "sequences:\n  - protien: {}\n")) == 0
+    assert sl.scan_ligand_atoms(tmp_path / "missing.yaml") == 0
+
+
+@_needs_ccd
+def test_check_input_refuses_a_cocrystal_before_any_device(tmp_path):
+    """End to end on the CLI's own entry point: 1000 residues is under esmfold2's 1024 cap and was
+    admitted, STU takes it to 1035 tokens, and 1035 pads to 1056 against a 1024 wall."""
+    cap = sl.ceiling("esmfold2", "wormhole_b0").residues
+    body = ("sequences:\n  - protein: {id: A, sequence: " + "A" * (cap - 24) + "}\n"
+            "  - ligand: {id: L, ccd: STU}\n")
+    q = _yaml(tmp_path, "cocrystal.yaml", body)
+    sl.check_input(str(q), "rf3", arch="wormhole_b0")            # no token wall: still admitted
+    with pytest.raises(sl.SizeTooLargeError) as e:
+        sl.check_input(str(q), "esmfold2", arch="wormhole_b0")
+    msg = str(e.value)
+    assert "35-atom ligand" in msg and "1035 tokens" in msg and "1056" in msg, msg
+    # and the same file without its ligand is admitted, so the ligand is what refused it
+    apo = _yaml(tmp_path, "apo.yaml", body.split("  - ligand")[0])
+    sl.check_input(str(apo), "esmfold2", arch="wormhole_b0")
 
 
 # --- describe_device_oom: the refusal that arrives after the fold has started -----------------
