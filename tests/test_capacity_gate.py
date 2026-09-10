@@ -1084,16 +1084,25 @@ def test_a_leg_cannot_inherit_the_previous_runs_output_or_dram_peak(tmp_path):
 
 
 def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None,
-                  screen_mechanism="dram"):
+                  screen_mechanism="dram", screen_sequence=None):
     """Drive _bisect with canned leg outcomes, so the rung bookkeeping is testable without
-    spending a rung of real card time on it (a real rung is minutes to tens of minutes)."""
+    spending a rung of real card time on it (a real rung is minutes to tens of minutes).
+
+    `screen_sequence` maps a size to the verdicts its successive screens return, so a rung that
+    loses the card and is re-walked can be canned. The last entry repeats.
+    """
     screen_verdicts = screen_verdicts or {}
     residency_verdicts = residency_verdicts or {}
+    seq = {k: list(v) for k, v in (screen_sequence or {}).items()}
     rec = {"legs": []}
     calls = []
 
     def screen(worker, cell, f, work, hookdir):
         calls.append(("screen", f))
+        if seq.get(f):
+            v = seq[f].pop(0) if len(seq[f]) > 1 else seq[f][0]
+            return {"verdict": v, "mechanism": {"CARD_DIRTY": "card"}.get(v, screen_mechanism)
+                    if v not in ("PASS", "INCONCLUSIVE") else None, "wall_s": 1.0}
         v = screen_verdicts.get(f)
         if v is None:
             v = "FAIL" if (screen_fail_above is not None and f > screen_fail_above) else "PASS"
@@ -1481,3 +1490,128 @@ def test_a_real_verdict_still_replaces_whatever_stands(tmp_path, monkeypatch):
                        partial=True)
     assert _cells(tmp_path / "baseline.json")["openfold3"]["wall_s"] == 12.0, \
         "a same-strength re-measurement was refused"
+
+
+#: Quoted verbatim from work/resid_opendde_1536.log, qb2 card 3, 2026-09-10T02:31:24Z. The whole
+#: log is 73 lines: the banner and this throw at the top, then the outer CLI traceback.
+_P300C_FW_INIT_OPEN_FAIL = """tt-bio worker tt-quietbox2:tt3: device open failed
+Traceback (most recent call last):
+  File "tt_bio/worker.py", line 1793, in run_worker_loop
+    _get_device()
+  File "tt_bio/tenstorrent.py", line 4005, in _open_device_locked
+    dev = ttnn.open_device(device_id=device_id, **kwargs)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/device/firmware/risc_firmware_initializer.cpp:1115: tt::exception
+info:
+Device 0 init: failed to initialize FW! Try resetting the board.
+backtrace:
+ --- tt::tt_metal::RiscFirmwareInitializer::initialize_and_launch_firmware(int)
+RuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit 1); no job can be served. The worker's own traceback above says why."""
+
+#: Same cause, different message: work/resid_protenix-v1_1536.log, 2026-09-10T04:35:08Z.
+_P300C_SYSMEM_PIN_OPEN_FAIL = """tt-bio worker tt-quietbox2:tt3: device open failed
+Traceback (most recent call last):
+  File "tt_bio/tenstorrent.py", line 4005, in _open_device_locked
+    dev = ttnn.open_device(device_id=device_id, **kwargs)
+RuntimeError: TT_THROW @ /project/tt_metal/third_party/umd/device/chip_helpers/silicon_sysmem_manager.cpp:326: tt::exception
+info:
+Proceeding could lead to undefined behavior
+backtrace:
+ --- tt::umd::SiliconSysmemManager::pin_or_map_iommu()
+ --- tt::umd::LocalChip::start_device()"""
+
+
+def test_a_leg_whose_worker_never_opened_the_device_decided_nothing():
+    """Three of the four p300c FAIL cells recorded on qb2 on 2026-09-10 were this: opendde,
+    opendde-abag and protenix-v1 all came back FAIL at the 1536 bar in 9.9-16.6 s with
+    mechanism null, 0 progress events and 0 blocks instrumented, and their logs say `device open
+    failed` on line 1. No model code ran at any of them.
+
+    The gate already had the right idea for this -- `contention` exists because "a killed leg
+    whose spawned fold worker outlived the kill keeps the lease" is not a capacity result -- but
+    it only knew the one message. A p300c whose previous leg was killed on the stall timeout does
+    not report a busy device; it throws out of ttnn.open_device at firmware init or at the sysmem
+    pin. So the arm matches the PHASE, which every future open-time error also has.
+    """
+    for name, log in (("firmware init", _P300C_FW_INIT_OPEN_FAIL),
+                      ("sysmem pin", _P300C_SYSMEM_PIN_OPEN_FAIL)):
+        assert cg.classify(log) == "card", (
+            f"a {name} failure at device open classified as {cg.classify(log)!r}, so the leg "
+            f"scores as a capacity FAIL and the cell publishes a wall nobody walked")
+        assert cg.classify(log) not in cg.ALLOC_MECHANISMS, \
+            f"a {name} failure at device open counts as an allocator refusal"
+    assert cg.NOTHING_RAN["card"] == "CARD_DIRTY"
+    assert cg.NOTHING_RAN_VERDICTS <= cg.UNDECIDED, (
+        "a verdict that means no model code ran is not in UNDECIDED, so it can still decide a "
+        "bar")
+
+
+def test_a_real_allocator_refusal_still_outranks_the_card_arm():
+    """The negative control the `card` arm needs. It must not swallow a leg that opened the card,
+    ran, and then hit the allocator -- which is the only thing a ceiling is allowed to be made
+    of. The arm sits after the allocator rows for exactly this reason."""
+    real = ("Out of Memory: Not enough space to allocate 4831838208 B DRAM buffer across 8 "
+            "banks, where each bank needs to store 603979776 B, but bank size is 4278190016 B")
+    assert cg.classify(real) == "dram"
+    # And a log holding both -- a leg that opened, ran, and was killed after its refusal -- is
+    # still the allocator's statement, because that is the one that reached the model.
+    assert cg.classify(real + "\n" + _P300C_FW_INIT_OPEN_FAIL) == "dram", \
+        "a measured DRAM refusal was demoted to a card-dirty leg"
+
+
+def test_a_rung_that_lost_the_card_moves_neither_bisect_bound():
+    """opendde-abag's cell reported "1344 is the largest bucket-aligned size whose shapes ALLOCATE
+    (screen); 1376 is the smallest that does not". The 1376 screen ran 15.6 s and never opened
+    the device. The ceiling was read off a size the allocator was never asked about.
+
+    So: recover and re-walk the rung once, and if the card is still gone, walk past it. It must
+    not lower alloc_hi (a wall that was never measured) and must not raise alloc_lo (shapes that
+    were never allocated)."""
+    top = cg.BISECT_RUNGS[0]
+    below = cg.BISECT_RUNGS[1]
+    _, rec, calls = _bisect_probe(screen_sequence={top: ["CARD_DIRTY"]},
+                                  residency_verdicts={below: "PASS"})
+    assert [c for c in calls if c == ("screen", top)][1:], \
+        f"the rung that lost the card was never re-walked: {calls}"
+    note = rec["alloc_ceiling_note"]
+    assert f"{top} is the smallest that does not" not in note, (
+        f"a rung whose worker never opened the device was published as the wall: {note}")
+    assert rec["alloc_ceiling_tokens"] != top, (
+        f"a rung whose worker never opened the device was published as allocating: {note}")
+
+
+def test_a_rung_that_really_failed_to_allocate_is_still_the_wall():
+    """The other direction of the same guard: an identical walk where the top rung genuinely got
+    an allocator refusal must still name it. Otherwise the fix above just blinds the bisect."""
+    top = cg.BISECT_RUNGS[0]
+    below = cg.BISECT_RUNGS[1]
+    _, rec, _ = _bisect_probe(screen_sequence={top: ["FAIL"]},
+                              residency_verdicts={below: "PASS"}, screen_mechanism="dram")
+    assert f"{top} is the smallest that does not" in rec["alloc_ceiling_note"], (
+        f"a real allocator refusal at {top} stopped being the wall: "
+        f"{rec['alloc_ceiling_note']}")
+
+
+def test_a_failed_leg_records_the_first_error_it_threw():
+    """A leg that dies in the spawned fold worker records `mechanism: null` and a 25-line tail
+    holding only the outer click traceback, whose last line is literally "The worker's own
+    traceback above says why". The cause is on line 1 of the log and the report threw it away, so
+    all three of Finding 9's cells said FAIL without saying why.
+    """
+    fw = cg.first_error(_P300C_FW_INIT_OPEN_FAIL)
+    assert fw and "risc_firmware_initializer.cpp:1115" in fw, (
+        f"the firmware-init throw did not survive into the record: {fw!r}")
+    assert "failed to initialize FW" in fw, (
+        f"the sentence under `info:` is the human-readable half and was dropped: {fw!r}")
+    pin = cg.first_error(_P300C_SYSMEM_PIN_OPEN_FAIL)
+    assert pin and "silicon_sysmem_manager.cpp:326" in pin, (
+        f"the sysmem pin throw did not survive into the record: {pin!r}")
+    # It is the FIRST error, not the loudest or the last: the outer wrapper says nothing useful.
+    for got in (fw, pin):
+        assert "every local worker exited" not in got
+
+    # A capacity refusal is the case this must not garble, because that one becomes a ceiling.
+    oom = cg.first_error(
+        "RuntimeError: Out of Memory: Not enough space to allocate 4831838208 B DRAM buffer "
+        "across 8 banks")
+    assert oom and "4831838208 B DRAM" in oom, oom
+    assert cg.first_error("nothing was thrown here at all") is None

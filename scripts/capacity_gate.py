@@ -418,13 +418,66 @@ MECHANISM_PATTERNS = (
     # whose spawned fold worker outlived the kill keeps the lease.
     ("contention",    re.compile(r"DeviceInUseError|device contention, nothing ran"
                                  r"|is in use by", re.I)),
+    # Same family as contention and the same consequence: no model code ran. But the aftermath of
+    # a killed leg does not always announce itself as a busy device. On qb2's p300c it comes back
+    # out of ttnn.open_device as a firmware-init throw (risc_firmware_initializer.cpp:1115,
+    # "failed to initialize FW! Try resetting the board") or as a sysmem pin throw
+    # (silicon_sysmem_manager.cpp:326, pin_or_map_iommu). Matching the PHASE rather than the error
+    # is the whole point: tt_bio's worker prints this banner and re-raises whenever get_device()
+    # fails, so the next open-time error nobody has seen yet lands on the arm that already exists.
+    # It sits AFTER the allocator rows deliberately. If the allocator spoke in this log, that is
+    # the stronger statement about the bar and it wins.
+    ("card",          re.compile(r"device open failed", re.I)),
 )
+
+#: Mechanisms that mean NO MODEL CODE RAN, and the verdict each one reports. Every retry and
+#: recovery site reads this instead of comparing against one verdict string. A second string
+#: sprayed across four call sites is exactly how "the card was gone" came to be scored as "the
+#: model failed the bar" for three cells on qb2's p300c on 2026-09-10.
+NOTHING_RAN = {"contention": "CONTENDED", "card": "CARD_DIRTY"}
+NOTHING_RAN_VERDICTS = frozenset(NOTHING_RAN.values())
+
+#: Why the cell decided nothing, in the words of whatever stopped it.
+NOTHING_RAN_REASON = {
+    "CONTENDED": "another process held the card; nothing was measured",
+    "CARD_DIRTY": "the worker never opened the device, so no model code ran and this size was "
+                  "not measured. Reset the card (tt-smi -r) and re-run this cell.",
+}
 
 
 def classify(log_text: str) -> str | None:
     for name, pat in MECHANISM_PATTERNS:
         if pat.search(log_text):
             return name
+    return None
+
+
+#: A thrown error, at the start of a line: python's own, or tt-metal's macros.
+_FIRST_THROW = re.compile(r"^(?:\w*(?:Error|Exception):\s*\S.*|TT_(?:THROW|FATAL)\b.*)$")
+
+
+def first_error(log_text: str) -> str | None:
+    """The FIRST error the log threw, which for a leg that died in a spawned worker is the only
+    line that says why.
+
+    The 25-line tail cannot hold it. When the fold worker dies, tt-bio's outer error is
+    "every local worker exited before the run finished ... The worker's own traceback above says
+    why" -- and the outer click traceback is what fills those 25 lines, so `above` is exactly what
+    gets dropped. Finding 9 cost seven leg logs read off disk to recover a line the report had
+    already seen and discarded, and the work dir is scratch that hygiene eventually deletes.
+    """
+    lines = log_text.splitlines()
+    for i, line in enumerate(lines):
+        if not _FIRST_THROW.match(line.strip()):
+            continue
+        out = line.strip()
+        # tt-metal prints the human sentence on the line after a bare `info:`.
+        window = lines[i + 1:i + 4]
+        for j, nxt in enumerate(window):
+            if nxt.strip() == "info:" and j + 1 < len(window):
+                out += " | " + window[j + 1].strip()
+                break
+        return out[:400]
     return None
 
 
@@ -748,6 +801,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
             "cpu_s_while_quiet": round(max(0.0, cpu_now - cpu_at_quiet), 1),
             "host_ram_floor_mb": ram_floor, "mechanism": classify(text),
             "hook": hook_findings(hook_out),
+            "first_error": first_error(text),
             "tail": "\n".join(text.splitlines()[-25:])}
 
 
@@ -992,8 +1046,8 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
         r["verdict"] = "INCONCLUSIVE"
         r["note"] = f"screen made no progress for {STALL_S}s; deferring to the residency run"
         return r
-    if r["mechanism"] == "contention":
-        r["verdict"] = "CONTENDED"
+    if r["mechanism"] in NOTHING_RAN:
+        r["verdict"] = NOTHING_RAN[r["mechanism"]]
         return r
     if r["hook_installed"] and (_HOOK_BROKE.search(r["tail"] or "")
                                 or _hook_cut_these_weights(r["tail"], trunc)):
@@ -1026,8 +1080,8 @@ def _residency(worker, cell, fixture, work, hookdir, tokens) -> dict:
     r["dram_total_bytes"] = h.get("dram_total_bytes")
     r["dram_largest_free_at_peak"] = h.get("dram_largest_free_at_peak")
     r["blocks_instrumented"] = len(h.get("instrumented") or [])
-    if r["mechanism"] == "contention":
-        r["verdict"] = "CONTENDED"
+    if r["mechanism"] in NOTHING_RAN:
+        r["verdict"] = NOTHING_RAN[r["mechanism"]]
     elif r["stalled"]:
         r["verdict"] = "STALL"
         r["stall_kind"] = ("compute-active" if r["cpu_s_while_quiet"] > 0.5 * STALL_S
@@ -1102,12 +1156,12 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
 
     scr = _screen(worker, cell, f, work, hookdir)
     rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR))
-    if scr["verdict"] == "CONTENDED" and wait_for_card(worker):
+    if scr["verdict"] in NOTHING_RAN_VERDICTS and wait_for_card(worker):
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR, retry=True))
-    if scr["verdict"] == "CONTENDED":
-        rec.update(verdict="CONTENDED", decided_by="screen", wall_s=scr["wall_s"],
-                   reason="another process held the card; nothing was measured")
+    if scr["verdict"] in NOTHING_RAN_VERDICTS:
+        rec.update(verdict=scr["verdict"], decided_by="screen", wall_s=scr["wall_s"],
+                   reason=NOTHING_RAN_REASON[scr["verdict"]])
         return rec
     if scr["verdict"] in ("FAIL", "HOST_OOM") and not screen_reduction_is_unsafe(scr):
         # Definitive: a shape that cannot allocate once cannot allocate ever.
@@ -1132,7 +1186,7 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
     # earlier killed fold accepts an open and then hangs, with all threads idle and no error --
     # indistinguishable from a model hang from the outside, and attributing it to the model would
     # publish a ceiling that is really a housekeeping bug.
-    if res["verdict"] in ("CONTENDED", "STALL") and not card_healthy(worker):
+    if res["verdict"] in (NOTHING_RAN_VERDICTS | {"STALL"}) and not card_healthy(worker):
         rec["legs"][-1]["card_unhealthy_after"] = True
         if wait_for_card(worker):
             res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
@@ -1142,7 +1196,7 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
                        reason="the card stopped dispatching and did not recover; nothing was "
                               "measured. Reset it (tt-smi -r) and re-run this cell.")
             return rec
-    elif res["verdict"] == "CONTENDED" and wait_for_card(worker):
+    elif res["verdict"] in NOTHING_RAN_VERDICTS and wait_for_card(worker):
         res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
         rec["legs"].append(dict(res, tier="residency", tokens=TOKEN_BAR, retry=True))
     rec.update(verdict=res["verdict"], decided_by="residency", mechanism=res["mechanism"],
@@ -1250,7 +1304,8 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
         first failing one was running on a card the rung above may have wedged, so the ceiling
         those rungs report is exactly the kind of number that gets published without being walked.
         """
-        if recover is None or leg.get("verdict") not in ("FAIL", "HOST_OOM", "STALL", "ERROR"):
+        if recover is None or leg.get("verdict") not in (
+                {"FAIL", "HOST_OOM", "STALL", "ERROR"} | NOTHING_RAN_VERDICTS):
             return
         ok, how = recover(worker)
         leg["card_after"] = how
@@ -1268,6 +1323,18 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
             continue
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=rung))
+        if scr["verdict"] in NOTHING_RAN_VERDICTS:
+            # The card was gone, so this rung says nothing about shapes. Recover and re-walk it
+            # once; if it is still gone, the rung is not walked at all. Letting it fall through
+            # set alloc_hi and published a wall at a size the allocator was never asked about --
+            # measured on qb2's p300c 2026-09-10, where opendde (1280), opendde-abag (1344) and
+            # protenix-v1 (1376) each got their ceiling from the rung above, whose worker died
+            # inside ttnn.open_device after the previous leg was killed on the stall timeout.
+            settle(rec["legs"][-1])
+            scr = _screen(worker, cell, f, work, hookdir)
+            rec["legs"].append(dict(scr, tier="screen", tokens=rung, retry=True))
+            if scr["verdict"] in NOTHING_RAN_VERDICTS:
+                continue
         walked.append(rung)
         if scr["verdict"] in ("FAIL", "HOST_OOM"):
             alloc_hi = rung
@@ -1336,6 +1403,19 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
             break
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=mid, phase="refine"))
+        if scr["verdict"] in NOTHING_RAN_VERDICTS:
+            # Here it is worse than in the rung loop above: the else branch RAISES alloc_lo, so a
+            # rung where no model code ran would be published as a size whose shapes allocate.
+            # Recover and re-screen once, then stop: a walk that cannot reach the card cannot
+            # refine, and the bounds it already has are the honest answer.
+            settle(rec["legs"][-1])
+            scr = _screen(worker, cell, f, work, hookdir)
+            rec["legs"].append(dict(scr, tier="screen", tokens=mid, phase="refine", retry=True))
+            if scr["verdict"] in NOTHING_RAN_VERDICTS:
+                rec["refine_stopped"] = (
+                    f"the card was gone at {mid} on two consecutive attempts, so the bound was "
+                    f"not refined past {alloc_lo}")
+                break
         if scr["verdict"] in ("FAIL", "HOST_OOM"):
             alloc_hi = mid
             settle(rec["legs"][-1])
@@ -1745,7 +1825,7 @@ def ceilings_fingerprint() -> str:
 # design is never a pass; CONTENDED and CARD_DIRTY are cells where the card was unavailable and
 # no model code ran at all. Each is a legitimate thing to report, and none of them is evidence
 # about the bar.
-UNDECIDED = frozenset(("INCONCLUSIVE", "CONTENDED", "CARD_DIRTY"))
+UNDECIDED = frozenset(("INCONCLUSIVE",)) | NOTHING_RAN_VERDICTS
 
 
 def _would_lose_evidence(new: dict, old: dict | None) -> bool:
@@ -1878,7 +1958,7 @@ def _screen_only(worker, cell, work, hookdir, depth) -> dict:
                msa_rows_effective=f["effective_depth"] if cell.msa else 0)
     scr = _screen(worker, cell, f, work, hookdir)
     rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR))
-    if scr["verdict"] == "CONTENDED" and wait_for_card(worker):
+    if scr["verdict"] in NOTHING_RAN_VERDICTS and wait_for_card(worker):
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR, retry=True))
     rec.update(verdict=scr["verdict"], decided_by="screen", mechanism=scr["mechanism"],
