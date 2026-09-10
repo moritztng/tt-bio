@@ -1,8 +1,14 @@
 #!/bin/bash
 # The 1536 bar first, for every model in the registry. A model that clears it needs no ladder;
 # a model that does not gets one walked downward in a later pass.
-WT=/home/ttuser/.coworker/wt/bh-1536-structure
-cd $WT || exit 1
+# The repo this script is IN, not a path typed once for one worktree. It used to name
+# /home/ttuser/.coworker/wt/bh-1536-structure, which exists on exactly one box until fleet
+# hygiene removes it -- so `cd $WT || exit 1` exited 1 everywhere else, and the three tests in
+# tests/test_bh1536_chain_breaker.py that drive this script to check the circuit breaker were
+# vacuous in every checkout including CI's. Sibling scripts in this directory already do it
+# this way (`cd "$(dirname "$0")"`).
+WT=$(cd "$(dirname "$0")/../.." && pwd) || exit 1
+cd "$WT" || exit 1
 # Overridable so the circuit breaker below can be tested against a stub that returns a
 # chosen exit code, instead of needing a wedged card to reproduce.
 PY=${PY:-/home/ttuser/tt-bio-dev/env/bin/python3}
@@ -17,7 +23,10 @@ export PATH=/home/ttuser/.tenstorrent-venv/bin:$PATH
 # (measured: 19 min, zero rungs). A lock does not care what the process tree looks like.
 # flock is not fair, so a chain can be passed over; with rungs this long that costs order, not
 # correctness, and every rung is idempotent and skipped once measured.
-exec 9>"$WT/perf/bh1536/.card0.lock"
+# Host-global and not inside the checkout: the point is one rung on card 0 at a time on this
+# BOX, and two chains launched from two worktrees would take two different in-tree locks and
+# both open the card. Same convention the sibling chains use (/tmp/tt_bio_ladder_card1.lock).
+exec 9>"/tmp/tt_bio_ladder_card0.lock"
 # Skip a rung only if it was actually MEASURED. A CONTENDED row means a co-tenant held card 0
 # and nothing ran, so skipping on the row's mere existence would retire the rung on the one
 # outcome that carries no information (cost: protenix-v1 at 1536, scored FAIL behind a

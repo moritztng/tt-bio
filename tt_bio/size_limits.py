@@ -1207,7 +1207,9 @@ def shipped_models() -> set:
 
 # The allocator's message, with its closing parenthetical, which is the part that says which wall
 # was hit. Everything before it describes the request; only these three numbers describe the chip.
-_ALLOC_REFUSAL = re.compile(
+# Public: it is tt-metal's format and not ours, so every instrument that reads a run log reads it
+# from here rather than transcribing it and rotting on somebody else's release schedule.
+ALLOC_REFUSAL = re.compile(
     r"Not enough space to allocate (?P<req>\d+) B (?P<space>DRAM|L1) buffer across "
     r"(?P<banks>\d+) banks, where each bank needs to store (?P<per_bank>\d+) B, but bank size "
     r"is (?P<bank_size>\d+) B\s*\(allocated: (?P<allocated>\d+) B, free: (?P<free>\d+) B, "
@@ -1226,6 +1228,66 @@ def is_alloc_refusal(exc: BaseException) -> bool:
     ``describe_device_oom`` renders, so the two can never disagree about what a refusal is.
     """
     return describe_device_oom(str(exc)) is not None
+
+
+# What the allocator's own numbers say happened. One decision, two renderings: the sentence a user
+# reads (``describe_device_oom``) and the mechanism a ceiling row records (``classify_device_oom``).
+# Written once because they have to agree -- a refusal a ladder records as fragmentation and the
+# guard describes as a full chip is two answers to one question.
+_SHAPE = "shape"            # the request does not fit an EMPTY bank
+_FULL = "full"              # it does not fit the free bytes
+_FRAGMENTED = "fragmented"  # it fits the free bytes but not any single free block
+
+
+def _last_refusal(text: str) -> dict | None:
+    """The LAST allocator refusal in ``text`` as typed numbers, or None if there is none.
+
+    The last and not the first: several paths in this engine catch a refusal and retry with a
+    smaller block, so an early one is routinely not the one that ended the run.
+    """
+    hits = list(ALLOC_REFUSAL.finditer(text))
+    if not hits:
+        return None
+    return {k: (v if k == "space" else int(v)) for k, v in hits[-1].groupdict().items()}
+
+
+def _refusal_kind(g: dict) -> str | None:
+    """Which of the three walls a parsed refusal hit. None when the numbers describe no refusal."""
+    per_bank = g["per_bank"]
+    if per_bank > g["bank_size"]:
+        return _SHAPE
+    if per_bank > g["free"]:
+        return _FULL
+    if per_bank > g["largest"]:
+        return _FRAGMENTED
+    return None
+
+
+def classify_device_oom(text: str) -> str | None:
+    """Which of ``MECHANISMS`` an allocator refusal in ``text`` names, or None if it holds none.
+
+    The vocabulary a CEILINGS row is written in, so a ladder that measures a rung and a row that
+    publishes the ceiling name the same wall and nobody translates between them by hand.
+
+    It reads the allocator's NUMBERS, which is the whole point. A refusal message carries the word
+    DRAM (or L1) and the phrase "largest free block" in the same sentence, so a list of substring
+    patterns can only ever report which memory it was and never which wall: whichever arm is listed
+    first wins every time, and the other is unreachable. That is not hypothetical, it is what
+    ``capacity_gate.classify`` did until this existed.
+
+    ``FRAGMENTATION`` is not split by space. An L1 refusal comes back with ``free`` equal to
+    ``largest`` (nothing to coalesce, see ``L1_BUDGET``), so the fragmented arm is a DRAM answer by
+    construction rather than by assumption.
+    """
+    g = _last_refusal(text)
+    if g is None:
+        return None
+    kind = _refusal_kind(g)
+    if kind is None:
+        return None
+    if kind == _FRAGMENTED:
+        return FRAGMENTATION
+    return DRAM if g["space"] == "DRAM" else L1_BUDGET
 
 
 def describe_device_oom(text: str) -> str | None:
@@ -1249,19 +1311,18 @@ def describe_device_oom(text: str) -> str | None:
     The LAST refusal in the text, not the first: several paths in this engine catch a refusal and
     retry with a smaller block, so an early one is routinely not the one that ended the run.
     """
-    hits = list(_ALLOC_REFUSAL.finditer(text))
-    if not hits:
+    g = _last_refusal(text)
+    if g is None:
         return None
-    g = {k: (v if k == "space" else int(v)) for k, v in hits[-1].groupdict().items()}
-    space, per_bank = g["space"], g["per_bank"]
-    if per_bank > g["bank_size"]:
+    space, per_bank, kind = g["space"], g["per_bank"], _refusal_kind(g)
+    if kind == _SHAPE:
         why = (f"one allocation of {_mib(g['req'])} needs {_mib(per_bank)} in each of "
                f"{g['banks']} {space} banks and a bank holds {_mib(g['bank_size'])}. No chip "
                f"state would have served it, so this is the shape and not the load")
-    elif per_bank > g["free"]:
+    elif kind == _FULL:
         why = (f"{_mib(g['req'])} was requested, needing {_mib(per_bank)} per {space} bank, and "
                f"only {_mib(g['free'])} is free. The chip is full")
-    elif per_bank > g["largest"]:
+    elif kind == _FRAGMENTED:
         why = (f"{_mib(g['req'])} was requested, needing {_mib(per_bank)} per {space} bank. "
                f"{_mib(g['free'])} is free but the largest single free block is "
                f"{_mib(g['largest'])}, so the room exists and cannot be handed over in one "
