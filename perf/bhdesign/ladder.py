@@ -124,15 +124,34 @@ def rfd3_fixture(work: pathlib.Path, total: int, binder: int, target: pathlib.Pa
 
 def pxdesign_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
                      binder: int = 80) -> pathlib.Path:
+    """Condition on `target_res` residues of `target`, spilling into later chains as needed.
+
+    Cropping chain A alone caps the axis at chain A's length, and pxdesign does not complain:
+    a `crop: ["1-1831"]` against a 1008-residue chain A conditions on 1008 and writes a
+    perfectly good 80-residue binder, so the rung reads as a PASS at a size that never ran.
+    `big_1831.cif` is exactly that shape (A=1008, B=823), which is how the plateau showed up.
+    """
+    chains = cif_chains(target)
+    total = sum(chains.values())
+    if target_res > total:
+        raise SystemExit(f"pxdesign_fixture: {target} carries {total} residues, "
+                         f"cannot condition on {target_res}")
+    take, left = {}, target_res
+    for cid in sorted(chains):
+        if left <= 0:
+            break
+        take[cid] = min(chains[cid], left)
+        left -= take[cid]
+    hot_chain = next(iter(take))
+    h = take[hot_chain] // 2
+    lines = ["target:", f'  file: "{target}"', "  chains:"]
+    for cid, n in take.items():
+        lines += [f"    {cid}:", f'      crop: ["1-{n}"]']
+        if cid == hot_chain:
+            lines.append(f"      hotspots: [{h}, {h + 1}, {h + 2}]")
+    lines.append(f"binder_length: {binder}")
     p = work / f"px{target_res}.yaml"
-    p.write_text(
-        "target:\n"
-        f'  file: "{target}"\n'
-        "  chains:\n"
-        "    A:\n"
-        f"      crop: [\"1-{target_res}\"]\n"
-        "      hotspots: [%d, %d, %d]\n" % (target_res // 2, target_res // 2 + 1, target_res // 2 + 2)
-        + f"binder_length: {binder}\n")
+    p.write_text("\n".join(lines) + "\n")
     return p
 
 
@@ -189,8 +208,11 @@ def crop_cif(src: pathlib.Path, n_res: int, dst: pathlib.Path) -> tuple[int, int
     return res, atoms
 
 
+_BINDER_CHAIN = "Z"   # never collides with the crop, whose chains are labelled A..H
+
+
 def boltzgen_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
-                     binder: int = 80) -> tuple[pathlib.Path, int]:
+                     binder: int = 80) -> tuple[pathlib.Path, int, int]:
     """A BoltzGen design spec against the first `target_res` residues of `target`.
 
     Returns the YAML and the target's ATOM count -- the axis this model is sized on. BoltzGen
@@ -199,19 +221,24 @@ def boltzgen_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
     different parsers and the predict spelling is silently a different model's input.
     """
     cif = work / f"bgt{target_res}.cif"
-    _, atoms = crop_cif(target, target_res, cif)
+    res, atoms = crop_cif(target, target_res, cif)
+    # Include EVERY chain the crop produced. Naming one chain caps the axis at that chain's
+    # length and BoltzGen does not complain: a 3662-residue crop whose chain A is 1008 conditions
+    # on 1008 and still designs a perfectly good 80-residue binder, so the rung reads PASS at a
+    # size that never ran. Same cause as the pxdesign fixture, same fix.
+    chains = cif_chains(cif)
+    include = "".join(f"        - chain:\n            id: {cid}\n" for cid in sorted(chains))
     p = work / f"bg{target_res}.yaml"
     p.write_text(
         "entities:\n"
         "  - protein:\n"
-        "      id: B\n"
+        f"      id: {_BINDER_CHAIN}\n"
         f"      sequence: {binder}\n"
         "  - file:\n"
         f"      path: {cif.name}\n"
         "      include:\n"
-        "        - chain:\n"
-        "            id: A\n")
-    return p, atoms
+        + include)
+    return p, atoms, res
 
 # --------------------------------------------------------------------------------------------
 # Mechanism classification. Says WHY, not just WHERE -- the two OOM classes want different fixes.
@@ -231,6 +258,28 @@ def classify(text: str) -> str:
         if rx.search(text):
             return name
     return "unknown"
+
+
+# A ttnn failure ends in ~200 lines of C++ backtrace and, on interpreter teardown, a few
+# hundred nanobind "leaked instance" lines. A fixed-size tail of the blob is therefore all
+# noise and none of the cause: the throw that says WHY sits thousands of characters above it.
+# So a failed rung keeps the lines that carry a diagnosis, not the lines that came last.
+_DIAG = re.compile(
+    r"TT_(?:THROW|FATAL|ASSERT)|Not enough space|RuntimeError|MemoryError|Error:|error:|"
+    r"Exception|Traceback|^\s+File \"|raise |device contention|out of memory|Killed|"
+    r"Timed out|is in use by", re.M)
+
+
+def diagnosis(text: str, keep: int = 25) -> list[str]:
+    """The lines that say why, in order, deduplicated."""
+    seen, out = set(), []
+    for line in text.splitlines():
+        if len(line) > 400 or line.lstrip().startswith("---") or "leaked " in line:
+            continue          # a backtrace frame or nanobind teardown noise, not a diagnosis
+        if _DIAG.search(line) and line.strip() not in seen:
+            seen.add(line.strip())
+            out.append(line.rstrip()[:300])
+    return out[:keep]
 
 
 def dram_numbers(text: str) -> dict:
@@ -258,7 +307,9 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(ROOT)
     env["TT_VISIBLE_DEVICES"] = str(args.card)
-    env["TT_BIO_LEASE_CARDS"] = str(args.card)
+    # The grant can be wider than the card this rung computes on: fanning a backlog onto an
+    # idle sibling chip means holding a lease on both, while TT_VISIBLE_DEVICES still pins one.
+    env["TT_BIO_LEASE_CARDS"] = os.environ.get("BH_LEASE_CARDS", str(args.card))
     env["TT_BIO_LEASE_HOLDER"] = args.holder
     env["TT_BIO_SIZE_LIMIT"] = "0"   # the ladder is what MEASURES the ceiling; it cannot obey one
 
@@ -283,15 +334,17 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         fx = pxdesign_fixture(work, size, pathlib.Path(args.target), args.binder)
         cmd = base + ["design", str(fx), "--model", "pxdesign", "--out_dir", str(out_dir),
                       "--n_step", str(args.steps), "--num_designs", "1"]
-        checker = ("binder", args.binder)
+        checker = ("binder", (args.binder, size))
     elif model == "boltzgen":
-        fx, atoms = boltzgen_fixture(work, size, pathlib.Path(args.target), args.binder)
-        # --devices is a COUNT, not an id. 1 keeps the run in-process on the one card the
-        # ambient TT_VISIBLE_DEVICES leaves visible; 0 would mean "every card it can detect".
+        fx, atoms, tres = boltzgen_fixture(work, size, pathlib.Path(args.target), args.binder)
+        # `--devices` is an ID LIST, not a count: `--devices 1` means physical card 1, and it
+        # only looked like a count on qb1 because the grant there happened to BE card 1. On any
+        # other card it dies before the model loads with "Requested Tenstorrent device id(s) [1]
+        # not available". Left unset it uses every visible card, and TT_VISIBLE_DEVICES has
+        # already narrowed that to the one this rung is pinned to.
         cmd = base + ["design", str(fx), "--model", "boltzgen", "--out_dir", str(out_dir),
-                      "--num_designs", "1", "--steps", "design", "--devices", "1",
-                      "--debug"]
-        checker = ("designcif", args.binder)
+                      "--num_designs", "1", "--steps", "design", "--debug"]
+        checker = ("designcif", (args.binder, tres))
         extra = {"target_atoms": atoms}
     else:
         raise SystemExit(f"no fixture for {model}")
@@ -308,7 +361,8 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     wall = round(time.time() - t0, 1)
 
     rec = {"model": model, "size": size, "rc": rc, "wall_s": wall,
-           "cmd": " ".join(cmd[3:]), "arch": "blackhole", "card": args.card,
+           "cmd": " ".join(cmd[3:]), "arch": "blackhole", "board": args.board,
+           "host": os.uname().nodename, "card": args.card,
            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra}
 
     ok, detail = check_artifact(checker, out_dir, model)
@@ -320,6 +374,7 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         rec["verdict"] = "FAIL"
         rec["mechanism"] = classify(blob)
         rec.update(dram_numbers(blob))
+        rec["diag"] = diagnosis(blob)
         rec["tail"] = blob[-2500:]
     return rec
 
@@ -327,10 +382,11 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
 def rescore_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     """Re-verify a rung from the artifacts on disk. No subprocess, no device."""
     out_dir = work / f"out_{model}_{size}"
-    checker = {"rfd3": ("cif", size), "pxdesign": ("binder", args.binder),
-               "boltzgen": ("designcif", args.binder)}.get(model, ("npz", size))
+    checker = {"rfd3": ("cif", size), "pxdesign": ("binder", (args.binder, size)),
+               "boltzgen": ("designcif", (args.binder, size))}.get(model, ("npz", size))
     rec = {"model": model, "size": size, "rc": None, "wall_s": 0.0,
-           "cmd": "(rescored from artifacts on disk)", "arch": "blackhole", "card": args.card,
+           "cmd": "(rescored from artifacts on disk)", "arch": "blackhole", "board": args.board,
+           "host": os.uname().nodename, "card": args.card,
            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "rescored": True}
     if model == "boltzgen":
         cif = work / f"bgt{size}.cif"
@@ -372,19 +428,38 @@ def check_artifact(checker, out_dir: pathlib.Path, model: str) -> tuple[bool, di
         detail = {"cif": cifs[0].name, "residues": res, "atoms": atoms}
         return (res == expect and atoms > 3 * res), detail
     if kind == "binder":
-        # A designed BACKBONE: `expect` residues at ~4 atoms each. The atom floor is 3x rather
+        # A designed BACKBONE: `nres` residues at ~4 atoms each. The atom floor is 3x rather
         # than the 4x a pure backbone gives, so a run that writes a few sidechains still passes,
         # while a stub or a copied single-residue file does not.
+        #
+        # The binder alone is NOT enough, because its size does not depend on the target: a run
+        # that conditioned on 1008 residues when the rung asked for 1831 writes exactly the same
+        # 80-residue backbone. So the rung also reads `conditioned_tokens` out of designs.json
+        # and requires it to be the size that was asked for. That is what makes this ladder a
+        # measurement of the target axis rather than of the binder length.
+        nres, want_target = expect
         cifs = sorted(out_dir.rglob("*.cif"))
         if not cifs:
             return False, {"reason": "no binder .cif written",
                            "saw": sorted(q.name for q in out_dir.rglob("*") if q.is_file())[:8]}
+        designs = out_dir / "designs.json"
+        cond = None
+        if designs.is_file():
+            recs = json.loads(designs.read_text())
+            if recs:
+                cond = recs[0].get("conditioned_tokens")
         for c in cifs:
             res, atoms = cif_stats(c)
-            if res == expect and atoms >= 3 * res:
-                return True, {"cif": c.name, "residues": res, "atoms": atoms}
+            if res == nres and atoms >= 3 * res:
+                d = {"cif": c.name, "residues": res, "atoms": atoms,
+                     "conditioned_tokens": cond, "asked_target": want_target}
+                if cond != want_target:
+                    d["reason"] = (f"binder is right but the target was not: conditioned on "
+                                   f"{cond} tokens, rung asked for {want_target}")
+                    return False, d
+                return True, d
         res, atoms = cif_stats(cifs[0])
-        return False, {"reason": f"no .cif is a {expect}-residue binder",
+        return False, {"reason": f"no .cif is a {nres}-residue binder",
                        "cif": cifs[0].name, "residues": res, "atoms": atoms}
     if kind == "designcif":
         # BoltzGen's design step writes the DESIGNED chain, not the target: the artifact that
@@ -395,6 +470,13 @@ def check_artifact(checker, out_dir: pathlib.Path, model: str) -> tuple[bool, di
         # `expect` residues) NEXT TO it. So the check is "some chain is the designed one", not
         # "the file has `expect` residues" -- the latter rejects a run that in fact succeeded,
         # and "a .cif landed in out_dir" accepts the input copy.
+        # The designed chain alone is NOT enough, for the same reason it is not enough for
+        # pxdesign: the binder length does not depend on the target, so a run that conditioned
+        # on 1008 residues when the rung asked for 3662 writes the identical 80-residue chain.
+        # The rung therefore also sums the chains that are NOT the binder and requires that to
+        # be the size that was asked for. That is what makes this a measurement of the target
+        # axis rather than of the binder length.
+        nres, want_target = expect
         cifs = sorted(out_dir.rglob("*.cif"))
         if not cifs:
             return False, {"reason": "no design .cif written",
@@ -404,9 +486,23 @@ def check_artifact(checker, out_dir: pathlib.Path, model: str) -> tuple[bool, di
             chains = cif_chains(c)
             res, atoms = cif_stats(c)
             seen.append({"cif": c.name, "chains": chains})
-            if expect in chains.values() and len(chains) > 1 and atoms >= 3 * res:
-                return True, {"cif": c.name, "chains": chains, "residues": res, "atoms": atoms}
-        return False, {"reason": f"no .cif carries a designed chain of {expect} residues "
+            if nres not in chains.values() or len(chains) < 2 or atoms < 3 * res:
+                continue
+            # Exactly one chain is the binder; everything else is target.
+            rest, dropped = dict(chains), False
+            for cid, n in sorted(chains.items()):
+                if n == nres and not dropped:
+                    del rest[cid]
+                    dropped = True
+            got_target = sum(rest.values())
+            d = {"cif": c.name, "chains": chains, "residues": res, "atoms": atoms,
+                 "target_residues": got_target, "asked_target": want_target}
+            if got_target != want_target:
+                d["reason"] = (f"the binder is right but the target was not: conditioned on "
+                               f"{got_target} residues, rung asked for {want_target}")
+                return False, d
+            return True, d
+        return False, {"reason": f"no .cif carries a designed chain of {nres} residues "
                                  f"alongside the target", "saw": seen[:4]}
     files = [p for p in out_dir.rglob("*") if p.is_file() and p.stat().st_size > 0]
     return bool(files), {"files": len(files),
@@ -420,6 +516,9 @@ def main() -> int:
     ap.add_argument("--out", required=True, type=pathlib.Path)
     ap.add_argument("--card", default=os.environ.get("BH_CARD", "1"))
     ap.add_argument("--holder", default="worker:bh-1536-design-embed")
+    ap.add_argument("--board", default=os.environ.get("BH_BOARD", "p150a"),
+                    help="which Blackhole board this walk ran on; a row without it cannot be "
+                         "compared across machines")
     ap.add_argument("--target", default="perf/ceilrfd3/targets/laczc_1008.cif")
     ap.add_argument("--binder", type=int, default=80)
     ap.add_argument("--steps", type=int, default=20)

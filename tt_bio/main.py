@@ -1639,7 +1639,15 @@ def _run_boltzgen_cli(prog: str, args) -> None:
 
     ensure_p300_mesh_descriptor()
 
-    _bg_main()
+    try:
+        _bg_main()
+    except ValueError as exc:
+        # BoltzGen's CLI raises ValueError for bad input: an unknown --config
+        # key, an invalid step or protocol name, a budget below 1. Those reached
+        # the user as a traceback. --debug still shows it.
+        if "--debug" in sys.argv:
+            raise
+        raise click.ClickException(str(exc)) from exc
 
 
 @cli.command(
@@ -3577,6 +3585,9 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
                    "and a structure of a different sequence is refused. Omit for "
                    "sequence-only mode (3Di = '#', lower accuracy for 35M/650M; the 1.3B "
                    "works sequence-only).")
+@click.option("--foldseek", "foldseek_bin", default=None,
+              help="Path to the foldseek binary that computes the 3Di tokens for "
+                   "--structure. Default: $FOLDSEEK_BIN, else foldseek on PATH.")
 @click.option("--out_dir", default="./embeddings", show_default=True)
 @click.option("--format", "out_format", type=click.Choice(["npz", "parquet"]),
               default="npz", show_default=True,
@@ -3607,8 +3618,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 @click.option("--owner", default=None,
               help="Opaque fairness key the controller uses to fair-share workers across users. "
                    "Requires --controller.")
-def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast,
-               batch_size, devices, controller, owner):
+def saprot_cmd(data, model, structure, foldseek_bin, out_dir, out_format, pool,
+               return_logits, fast, batch_size, devices, controller, owner):
     """Compute SaProt structure-aware protein-language-model embeddings.
 
     SaProt is an ESM-2 encoder over a fused amino-acid + Foldseek-3Di
@@ -3633,7 +3644,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
             "--controller runs are sequence-only (structures stay on the submitting "
             "client and are never shipped to workers). Drop --structure or run locally.")
     try:
-        seqs = saprot.load_sequences_with_structure(data, structure)
+        seqs = saprot.load_sequences_with_structure(data, structure, foldseek_bin)
     except ValueError as e:
         raise click.ClickException(str(e))
 
@@ -4006,7 +4017,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 num_designs=num_designs, batch_size=batch_size,
                 run_id=run_id, owner=owner, verbose=True,
             )
-        except (ValueError, TypeError, RuntimeError) as e:
+        except (ValueError, TypeError, RuntimeError, NotImplementedError) as e:
             raise click.ClickException(str(e))
         click.echo(f"Done — {len(results)} design(s) → {out_dir}")
         return
@@ -4035,7 +4046,10 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             batch_size=batch_size, devices=device_list, host_threads=host_threads,
             verbose=True,
         )
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, NotImplementedError) as e:
+        # RFD3 refuses a spec it cannot featurize with NotImplementedError, naming
+        # the condition. That is an answer about the input, not a crash, so it reads
+        # as one line like every other refusal.
         raise click.ClickException(str(e))
     click.echo(f"Done — {len(results)} design(s) → {out_dir}")
     for r in results:

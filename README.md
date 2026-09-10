@@ -278,11 +278,12 @@ tt-bio saprot proteins.fasta --model saprot-650m --devices 0,1    # data-paralle
 
 `--structure` is a PDB/cif file (single sequence) or a directory of `<id>.pdb`/`<id>.cif`
 files, one per FASTA id. The 3Di structural tokens are computed on host with
-[Foldseek](https://github.com/steineggerlab/foldseek) (`conda install -c bioconda foldseek`,
-or set `FOLDSEEK_BIN`); it runs off-device. Residues the structure does not resolve get the
-`#` unknown-structure token, and a structure that is not of the sequence you passed is refused
-rather than lined up by length. Omit `--structure` for sequence-only mode (lower accuracy for
-35M/650M; the 1.3B works sequence-only).
+[Foldseek](https://github.com/steineggerlab/foldseek) (`conda install -c bioconda foldseek`;
+`--foldseek PATH` or `FOLDSEEK_BIN` if it is not on PATH); it runs off-device. Residues
+the structure does not resolve get the `#` unknown-structure token, and a structure that
+is not of the sequence you passed is refused rather than lined up by length. Omit
+`--structure` for sequence-only mode (lower accuracy for 35M/650M; the 1.3B works
+sequence-only).
 
 For each sequence you get **per-residue** structure-aware embeddings (`[length, d_model]`
 float32) and a **pooled** vector, plus per-residue MLM logits (`[length, 446]` with
