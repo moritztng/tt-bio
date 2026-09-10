@@ -15,3 +15,16 @@
 2026-09-10T01:17:03Z card1 opendde-abag    1536tok FAIL     wall=   16.1s engine=None cif_res=0/1536 ntok=None rss=46.57G oom=-
 2026-09-10T01:17:31Z card1 nesso1          1536tok FAIL     wall=   28.1s engine=None cif_res=0/1536 ntok=None rss=58.58G oom=-
 2026-09-10T01:18:30Z card1 esmfold2        1536tok FAIL     wall=   16.1s engine=None cif_res=0/1536 ntok=None rss=46.57G oom=-
+# ---------------------------------------------------------------------------------------------
+# 01:14:26Z - 01:18:30Z: every line above in this window is a WEDGED card, not a measurement.
+# opendde's 2400 s budget kill did not reach its spawn worker (pid 392233, reparented to init,
+# 107 % CPU, still holding card 1's lease). The orphan ignored two SIGINTs and a SIGTERM inside a
+# device op; SIGKILL ended it and left the card refusing every open at
+# TT_THROW risc_firmware_initializer.cpp:1115, which is what the 16-28 s FAILs are. The
+# esmfold2 1536 line at 01:14:26 (328.6 s) is contention retries against that same orphan.
+# `tt-smi -r 1` cleared it and the card was verified to open before anything else ran. Those ten
+# rows are retagged WEDGED in results.p300c.jsonl (original verdict in reclassified_from) so no
+# rung retires on them, and run_rung.py now kills the whole process group at the budget.
+# ---------------------------------------------------------------------------------------------
+2026-09-10T01:29:17Z card1 esmfold2        1300tok PASS     wall=      -s engine=424.9 cif_res=1300/1300 ntok=None rss=NoneG oom=- breaks=0 worst_ca=4.27 clash=0.00096
+2026-09-10T01:30:57Z card1 boltz2          1300tok PASS     wall=  615.7s engine=192.9 cif_res=1300/1300 ntok=None rss=79.28G oom=- breaks=0 worst_ca=4.14 clash=0.0023

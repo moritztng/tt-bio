@@ -199,8 +199,9 @@ def _write(row, tag=""):
         fcntl.flock(fh, fcntl.LOCK_EX)
         fh.write(json.dumps(row) + "\n")
         fcntl.flock(fh, fcntl.LOCK_UN)
+    _num = lambda v, w=7, d=1: (f"{v:{w}.{d}f}" if isinstance(v, (int, float)) else f"{'-':>{w}}")
     line = (f"{row['when']} card{row['card']} {row['model']:14s} {row['size']:5d}tok {row['verdict']:8s} "
-            f"wall={row['wall_s']:7.1f}s engine={row['engine_runtime_s']} "
+            f"wall={_num(row['wall_s'])}s engine={row['engine_runtime_s']} "
             f"cif_res={row['cif_residues']}/{row['size']} ntok={row['n_tokens']} "
             f"rss={row['peak_host_rss_gib']}G "
             f"oom={row['oom']['class'] + '/' + row['oom']['mechanism'] if row['oom'] else '-'}"
