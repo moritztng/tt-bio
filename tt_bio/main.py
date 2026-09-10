@@ -4014,7 +4014,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 num_designs=num_designs, batch_size=batch_size,
                 run_id=run_id, owner=owner, verbose=True,
             )
-        except (ValueError, TypeError, RuntimeError) as e:
+        except (ValueError, TypeError, RuntimeError, NotImplementedError) as e:
             raise click.ClickException(str(e))
         click.echo(f"Done — {len(results)} design(s) → {out_dir}")
         return
@@ -4043,7 +4043,10 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             batch_size=batch_size, devices=device_list, host_threads=host_threads,
             verbose=True,
         )
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, NotImplementedError) as e:
+        # RFD3 refuses a spec it cannot featurize with NotImplementedError, naming
+        # the condition. That is an answer about the input, not a crash, so it reads
+        # as one line like every other refusal.
         raise click.ClickException(str(e))
     click.echo(f"Done — {len(results)} design(s) → {out_dir}")
     for r in results:

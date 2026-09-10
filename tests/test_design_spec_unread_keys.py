@@ -245,3 +245,57 @@ def test_a_kwargs_catch_all_does_not_make_every_key_valid():
     instantiate(cfg)  # tolerated on load
     with pytest.raises(ValueError, match="matmul_precision"):
         check_overrides(_template("design"), {"matmul_precision": "high"}, "design")
+
+
+# ---------------------------------------------------------------------------
+# RFD3: the real reference specs have to keep parsing
+#
+# The unknown-key refusal above landed with `allow_ligand_on_existing_chain`
+# missing from the schema, which is an upstream passthrough field every real
+# enzyme and symmetric-with-ligand example sets. Those specs, verbatim in this
+# repo as the port's own parity fixtures, were refused before their design ran.
+
+PARITY_SPECS = sorted(
+    (Path(__file__).parent.parent / "scripts" / "rfd3_port" / "parity_artifacts").glob(
+        "*/spec*.json"))
+
+
+def test_the_repo_ships_rfd3_reference_specs_to_check():
+    assert len(PARITY_SPECS) >= 8, [p.name for p in PARITY_SPECS]
+
+
+@pytest.mark.parametrize("spec_path", PARITY_SPECS, ids=lambda p: f"{p.parent.name}/{p.stem}")
+def test_no_reference_spec_hits_the_unknown_key_refusal(spec_path):
+    """A reference spec may name a feature this port does not implement (one
+    fixture is a `dialect: 1` case, deliberately refused). What it must never hit
+    is "unknown key": that means the schema is missing a real upstream field."""
+    import json
+
+    try:
+        InputSpecification.from_dict(json.loads(spec_path.read_text())).validate()
+    except ValueError as exc:
+        assert "unknown key" not in str(exc), str(exc)
+
+
+def test_rfd3_accepts_allow_ligand_on_existing_chain_true():
+    """True is what the port does: a ligand is found wherever it sits."""
+    InputSpecification.from_dict(
+        {"length": "60", "ligand": "IAI", "allow_ligand_on_existing_chain": True}).validate()
+
+
+def test_rfd3_refuses_allow_ligand_on_existing_chain_false():
+    spec = InputSpecification.from_dict(
+        {"length": "60", "ligand": "IAI", "allow_ligand_on_existing_chain": False})
+    with pytest.raises(ValueError, match="allow_ligand_on_existing_chain"):
+        spec.validate()
+
+
+def test_rfd3_refusals_do_not_quote_the_ports_own_pass_numbers():
+    """A message a user reads names the condition, not the pass that scoped it."""
+    import re
+
+    src = (Path(__file__).parent.parent / "tt_bio" / "rfd3" / "featurize.py").read_text()
+    raises = re.findall(r"raise (?:NotImplementedError|ValueError)\((.*?)\)\n", src, re.S)
+    assert raises
+    bad = [r for r in raises if re.search(r"\bp\d+\+|this pass|\bF\d/F\d\b", r)]
+    assert not bad, bad

@@ -850,7 +850,7 @@ def _unindexed_kept_atom_names(spec: InputSpecification, chain: str, res_id: int
         return None
     raise NotImplementedError(
         f"select_fixed_atoms={sel!r} (a contig-string selection) on an "
-        "unindexed protein/NA residue is not supported this pass — p17+"
+        "unindexed protein/NA residue is not supported"
     )
 
 
@@ -912,7 +912,7 @@ def _indexed_fixed_atom_names(spec: InputSpecification, chain: str, res_id: int,
         return None
     raise NotImplementedError(
         f"select_fixed_atoms={sel!r} (a contig-string selection) on an "
-        "indexed protein/NA residue is not supported this pass — p21+"
+        "indexed protein/NA residue is not supported"
     )
 
 
@@ -1054,7 +1054,8 @@ def _fresh_chain_letter(used: set[str]) -> str:
         if letter not in used:
             used.add(letter)
             return letter
-    raise NotImplementedError("more than 26 chains — p15+")
+    raise NotImplementedError(
+        "a design cannot use more than 26 chains (one letter each)")
 
 
 # -- symmetry (F5) ------------------------------------------------------------
@@ -1101,7 +1102,9 @@ def _symmetry_frames(sym_conf: Mapping) -> list[tuple[np.ndarray, np.ndarray]]:
     sym_id = str(sym_conf.get("id", "")).strip().upper()
     m = _SYMMETRY_ID_RE.match(sym_id)
     if not m:
-        raise NotImplementedError(f"symmetry id {sym_id!r} not supported (only C<n>/D<n>) — p18+")
+        raise NotImplementedError(
+            f"symmetry id {sym_id!r} not supported: only C<n> (cyclic) and D<n> "
+            "(dihedral), which is upstream's own scope too")
     kind, order = m.group(1), int(m.group(2))
     return _cyclic_frames(order) if kind == "C" else _dihedral_frames(order)
 
@@ -1220,12 +1223,11 @@ def _symmetry_frames_from_structure(all_residues: list[_Residue], n_frames: int,
     candidates = [chains for chains in groups.values() if len(chains) == n_frames]
     if len(candidates) != 1:
         raise NotImplementedError(
-            "get_symmetry_frames_from_atom_array: expected exactly one real "
-            f"protein entity with {n_frames} identical-sequence chains (the "
-            f"symmetry id's own order), found candidate group sizes "
-            f"{sorted(len(v) for v in groups.values())} — a genuinely "
-            "heteromeric or mismatched-multiplicity symmetric input is not "
-            "supported this pass (p19+)"
+            f"symmetry needs exactly one protein entity with {n_frames} "
+            "identical-sequence chains in the input (the symmetry id's own "
+            f"order); this structure has entities of "
+            f"{sorted(len(v) for v in groups.values())} chain(s). A heteromeric "
+            "or mismatched-multiplicity symmetric input is not supported"
         )
     chains_to_consider = sorted(candidates[0])
     ref_chain = chains_to_consider[0]
@@ -1241,8 +1243,8 @@ def _symmetry_frames_from_structure(all_residues: list[_Residue], n_frames: int,
             raise NotImplementedError(
                 f"get_symmetry_frames_from_atom_array: chain {c!r} has "
                 f"{coord.shape[0]} real protein atoms, reference chain "
-                f"{ref_chain!r} has {ref_coord.shape[0]} — unequal subunit "
-                "sizes not supported this pass (p19+)"
+                f"{ref_chain!r} has {ref_coord.shape[0]}: symmetric subunits of "
+                "unequal size are not supported"
             )
         R = _kabsch_align(coord, ref_coord)
         frames.append((R, np.zeros(3, dtype=np.float32)))
@@ -1324,7 +1326,10 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                 if r is None:
                     raise ValueError(f"contig indexes {c.chain}{rid} not present in input structure")
                 if not (_is_protein(r) or _is_na(r)):
-                    raise NotImplementedError("ligand/enzyme indexed motif (F3/F4) — p15+")
+                    raise NotImplementedError(
+                        f"contig indexes {c.chain}{rid} ({r.res_name}), which is "
+                        "neither protein nor a nucleic acid. Name a ligand in the "
+                        "`ligand` field instead of the contig")
                 # p21: `select_fixed_atoms` can partially fix an INDEXED
                 # motif residue's real atoms (per-atom, not a subset -- see
                 # `_indexed_fixed_atom_names`). `apply_selections` runs on ANY
@@ -1372,7 +1377,7 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                                      break_before_next, None))
                 break_before_next = False
             continue
-        raise NotImplementedError(f"contig component {c!r} not supported this pass (p12)")
+        raise NotImplementedError(f"contig component {c!r} is not supported")
     return tokens, indexed_keys
 
 
@@ -1389,7 +1394,8 @@ def _token_kind(tk: "_Token") -> str:
         return "dna"
     if tk.res_name in RNA_RES:
         return "rna"
-    raise NotImplementedError(f"unrecognized residue {tk.res_name!r} — p17+")
+    raise NotImplementedError(
+        f"unrecognized residue {tk.res_name!r} in the input structure")
 
 
 # -- ligand (F3/F4) -----------------------------------------------------------
@@ -1481,7 +1487,7 @@ def _resolve_ligand_atom_selection(sel_value, code: str, not_selected: "AtomSele
         return not_selected
     raise NotImplementedError(
         f"select_* value {sel_value!r} not supported for ligand atoms "
-        "(a contig-string selection targeting a ligand) — p17+"
+        "(a contig-string selection targeting a ligand)"
     )
 
 
@@ -1565,7 +1571,7 @@ def _plan_ligand_tokens(spec: InputSpecification, all_residues: list[_Residue],
     if len(codes) != len(set(codes)):
         raise NotImplementedError(
             f"ligand code repeated in the `ligand` string itself {spec.ligand!r} "
-            "— p17+ (a degenerate spec; name each code once, multiple physical "
+            "(name each code once; multiple physical "
             "instances of one code are resolved from the structure, not the string)"
         )
     matches_by_code: dict[str, list[_Residue]] = {}
@@ -1671,10 +1677,10 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
         overlap_codes = set(_ligand_codes(spec)) & set(unsym_motif_names)
         if overlap_codes:
             raise NotImplementedError(
-                f"`is_unsym_motif` naming ligand code(s) {sorted(overlap_codes)!r} "
-                "directly is not supported this pass (the reference's own "
-                "mechanism (c) already treats every ligand as implicitly "
-                "unsym — see module docstring) — p20+"
+                f"`is_unsym_motif` cannot name a ligand code "
+                f"({sorted(overlap_codes)!r}): a ligand is never replicated "
+                "across subunits in the first place, so excluding it asks for "
+                "nothing"
             )
     replica_chains: list[str] | None = None
     if spec.symmetry:

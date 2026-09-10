@@ -50,6 +50,22 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   from the table, and land before the weights download and the first device open. The published
   matrix is `docs/model-capabilities.md`, generated from the same table.
 
+- **RFD3's ligand, enzyme and symmetric-oligomer modes do run from a real PDB, and the docs said
+  they did not.** `docs/rfd3-design.md` marked all three "Not yet (`NotImplementedError`)" for real
+  `--from_pdb` input. Run from the port's own reference structures they all complete and write a
+  structure: `IAI.pdb` with `ligand: IAI` (873 atoms), `M0255_1mg5.pdb` with `ligand: "NAI,ACT"` and
+  four catalytic residues in `unindex` (898 atoms, the 48 ligand atoms placed at their input
+  geometry, one rigid shift, per-axis spread 0.0), `6t8h_C3.pdb` at `C3` (three 100-atom subunits
+  plus one copy each of the two `is_unsym_motif` DNA chains), `1j79_C2.pdb` at `C2` with
+  `ligand: "ORO,ZN"` (two subunits, each with its own 13-atom ligand chain). Two of those four
+  specs could not run at all: `allow_ligand_on_existing_chain`, an upstream passthrough field every
+  real enzyme and symmetric-with-ligand example sets, was refused as an unknown key. It is accepted
+  at `true`, which is what this port does anyway, and refused at `false`. A refusal that stays real
+  says so with the condition: a heteromeric symmetric input now reads "symmetry needs exactly one
+  protein entity with 2 identical-sequence chains in the input ...; this structure has entities of
+  [2, 2] chain(s)" instead of an internal function name and a pass number, and RFD3 refusals reach
+  the CLI as one `Error:` line rather than a traceback.
+
 - **A mistyped `--config` key for a BoltzGen step is refused instead of ignored.** `--config
   design not_a_real_key=5` deep-merged the key into the step's YAML and ran the whole pipeline at
   the default, because `Predict.__init__` keeps a `**kwargs` catch-all so old configs still load.
