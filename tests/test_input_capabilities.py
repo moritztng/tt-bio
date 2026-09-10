@@ -120,12 +120,12 @@ def test_cyclic_false_is_not_a_refusal(tmp_path, model):
 
 def test_every_refused_feature_is_named_at_once(tmp_path):
     """A user fixing one key should not have to run again to find the next."""
-    text = (_HEAD + "      cyclic: true\n      modifications:\n        - position: 5\n"
-            "          ccd: TPO\n")
+    text = (_HEAD + "      cyclic: true\n"
+            + "constraints:\n  - pocket:\n      binder: A\n      contacts: [[A, 5]]\n")
     with pytest.raises(RuntimeError) as e:
         _check(tmp_path, text, "protenix-v2")
     msg = str(e.value)
-    assert "cyclic" in msg and "modifications" in msg
+    assert "cyclic" in msg and "pocket" in msg
 
 
 def test_every_offending_chain_id_is_named_and_no_other(tmp_path):
@@ -210,19 +210,30 @@ def test_the_vendored_of3_tree_still_has_no_cyclic_field():
 
 
 def test_the_reader_still_drops_what_the_table_refuses():
-    """Why the cyclic and modifications rows are REFUSED rather than honoured: there is no
-    path from the key to the featurizer. Each of these failing means a port gained the
-    feature and its row is now wrong."""
+    """Why the cyclic rows are REFUSED rather than honoured: there is no path from the key to
+    the featurizer. This failing means a port gained the feature and its row is now wrong."""
+    assert "cyclic" not in inspect.getsource(_read_bio_chains), \
+        "the reader now carries `cyclic` -- revisit the cyclic rows"
+
+
+def test_modifications_reach_every_featurizer_that_honours_them():
+    """The other half of the same guard, now that the key is wired: a model whose row says
+    `yes` has to have a path from `modifications:` into its features."""
     from tt_bio.protenix_data import build_complex_features
     from tt_bio.worker import _WorkerState
 
-    assert "cyclic" not in inspect.getsource(_read_bio_chains), \
-        "the reader now carries `cyclic` -- revisit the cyclic rows"
-    assert "modifications" not in inspect.signature(build_complex_features).parameters, \
-        "build_complex_features now takes modifications -- revisit the Protenix/OpenDDE rows"
+    assert "modifications" in inspect.signature(build_complex_features).parameters
+    for name in ("_predict_opendde_one", "_protenix_inputs"):
+        assert "modifications=[mods" in inspect.getsource(getattr(_WorkerState, name)), \
+            f"{name} builds features without the chain's modifications"
     of3 = inspect.getsource(_WorkerState._predict_openfold3_one)
-    assert '"non_canonical_residues": None' in of3, \
-        "the OF3 query now carries non_canonical_residues -- revisit the OF3 modifications rows"
+    assert '"non_canonical_residues": ({m["position"]' in of3, \
+        "the OF3 query stopped carrying non_canonical_residues"
+    for model in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag", "openfold3",
+                  "openbind", "esmfold2"):
+        assert CAPABILITY[model]["modifications"] == HONOURED
+    assert CAPABILITY["rf3"]["modifications"] == REFUSED, \
+        "rf3 reads modified residues from its own JSON/CIF spec, not from this YAML"
 
 
 def test_the_nesso1_row_covers_the_command_that_is_not_predict():
@@ -292,3 +303,79 @@ def test_predict_reports_them():
 
     src = inspect.getsource(predict.callback)
     assert "unread_flags(model," in src
+
+
+# --- --max_msa_seqs actually caps depth ---------------------------------------------------
+# It was listed as read by boltz2/esmfold2/openfold3/openbind and unread by protenix/opendde/
+# rf3. Two of those were wrong: the OF3 family read OF3_MAX_MSA_SEQS, never the flag. All of
+# them cap now, through one truncation function, and only when the user asks -- protenix,
+# opendde, rf3 and the OF3 family fold the resolved alignment whole by default, so inheriting
+# boltz2's 8192 would silently change every fold they have already produced.
+
+A3M = ">q\nMKTA\n>h1\nMKTS\n>h2\nMKSA\n>h3\nMATA\n"
+
+
+def test_cap_a3m_text_counts_records_from_the_top():
+    from tt_bio.main import cap_a3m_text
+
+    assert cap_a3m_text(A3M, 2) == ">q\nMKTA\n>h1\nMKTS\n"
+    assert cap_a3m_text(A3M, 1) == ">q\nMKTA\n"
+
+
+def test_an_uncapped_a3m_is_returned_untouched():
+    """The control: no cap, or a cap the file already fits under, must not rewrite the input."""
+    from tt_bio.main import cap_a3m_text
+
+    for cap in (None, 0, 4, 99):
+        assert cap_a3m_text(A3M, cap) is A3M
+
+
+def test_cap_a3m_file_only_writes_a_copy_when_it_has_to(tmp_path):
+    from tt_bio.main import cap_a3m_file
+
+    src = tmp_path / "aln.a3m"
+    src.write_text(A3M)
+    assert cap_a3m_file(src, None, tmp_path) == src
+    assert cap_a3m_file(src, 99, tmp_path) == src
+    out = cap_a3m_file(src, 2, tmp_path)
+    assert out != src and out.read_text().count(">") == 2
+
+
+def test_the_cap_reaches_every_msa_path():
+    """Each model's MSA loading path reads the cap the CLI put in the config. Without this
+    the flag is accepted and dropped, which is exactly what it did on protenix/opendde/rf3."""
+    from tt_bio import worker
+    from tt_bio.worker import _WorkerState
+
+    assert 'cfg.get("msa_cap")' in inspect.getsource(worker._build_chain_specs), \
+        "protenix/opendde chain specs no longer apply the cap"
+    for name in ("_predict_rf3_one", "_predict_openfold3_one"):
+        assert 'cfg.get("msa_cap")' in inspect.getsource(getattr(_WorkerState, name)), \
+            f"{name} no longer applies the cap"
+    src = inspect.getsource(_WorkerState._predict_opendde_one)
+    assert "cap_a3m_text(paired.get(" in src, "the opendde paired MSA is no longer capped"
+
+
+def test_the_default_does_not_travel():
+    """8192 is boltz2's and esmfold2's shipped default, not a cap the other models ever had.
+    predict must pass the cap on only when the flag was set, or every protenix/opendde/rf3/
+    OF3 fold silently changes depth."""
+    from tt_bio.main import predict
+
+    src = inspect.getsource(predict.callback)
+    assert "ParameterSource.DEFAULT" in src and '"msa_cap": msa_cap' in src
+
+
+@pytest.mark.parametrize("model", sorted(CAPABILITY))
+def test_every_folding_model_reports_the_depth_it_used(model):
+    """`msa: true` says an alignment was used, not how deep. --max_msa_seqs is only checkable
+    from the outside if the depth is in the row."""
+    from tt_bio.worker import _WorkerState
+
+    paths = {"protenix-v1": "_protenix_emit", "protenix-v2": "_protenix_emit",
+             "opendde": "_predict_opendde_one", "opendde-abag": "_predict_opendde_one",
+             "openfold3": "_predict_openfold3_one", "openbind": "_predict_openfold3_one",
+             "rf3": "_predict_rf3_one"}
+    if model not in paths:
+        pytest.skip(f"{model} has no MSA depth of its own to report")
+    assert '"msa_depth"' in inspect.getsource(getattr(_WorkerState, paths[model]))
