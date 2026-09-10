@@ -460,6 +460,22 @@ TRIANGLE_MULT_L1_CHUNK_BUDGET = 64 * 320 * 320
 # Tightens the L1-edge chunking thresholds and chunk sizes above this comment block.
 _IS_SMALL_GRID = False
 
+# Does a sub-tile last-axis slice off a large TILE-layout DRAM tensor come back? On Blackhole it
+# does not: `ttnn.chunk(x, 4, dim=-1)` wedges the card at every shape a narrowed trimul asks for,
+# and the piece width is what decides it, not the row width (perf/bgsdpa/repro_hang.py, p150a
+# card 2, 130-200 s watchdogs, `tt-smi -r` to clear each one):
+#
+#     [1, 2208, 2208, 128] -> 4 x 32 wide    27.982 ms
+#     [1, 1856, 1856,  64] -> 2 x 32 wide    17.400 ms
+#     [1, 2208, 2208,  64] -> 4 x 16 wide    HANG
+#     [1, 2016, 2016,  32] -> 4 x  8 wide    HANG      <- one tile wide, still hangs
+#
+# On Wormhole the third and fourth of those are what OpenDDE's 1024-residue fold runs, 3/3
+# byte-identical at chunk 8 (state/opendde-l1-clash-to-1024.md), so this is a part property and
+# not a tt-bio bug to route around everywhere. Set at device open from the arch, defaulting to the
+# wedging side: a part nobody has measured gets the wider width, not a spin no timeout catches.
+_SUB_TILE_SLICE_WEDGES = True
+
 # Per-process record of trimul chunk widths that threw an L1/circular-buffer clash at
 # program creation, keyed by call shape. The budget above was measured on a 130-core
 # p150a; on a 110-core Blackhole (p300/p300c) the in-projection's static circular
@@ -525,25 +541,57 @@ def _record_trimul_inproj_oom(seq_len: int, hidden: int, batch: int, fused: int)
     _TRIMUL_INPROJ_FUSED_CAP[key] = max(1, cap // 2)
 
 
+# Narrowest channel chunk the in-projection may take. The channel loop consumes the fused
+# projection with a 4-way `ttnn.chunk` along the last axis, so the chunk width IS the slice width,
+# and on the parts `_SUB_TILE_SLICE_WEDGES` names a sub-tile piece never comes back (measurements
+# there). `reblock_permute.eligible_gated` has always required `slice_c % TILE_W == 0` for the
+# fused gated kernel, so a narrowed shape fell out of that kernel and into the stock four-way
+# path, which had no such guard.
+#
+# This is what BoltzGen's "Blackhole capacity ceiling above 14786 atoms" was, and nothing about it
+# is BoltzGen's: every trimul-using model on the DRAM path is narrowed to a half tile the moment
+# its padded token count passes 2048, so the same wedge waits for OpenFold3, Protenix-v2,
+# RoseTTAFold3 and Boltz-2 at their own large sizes. A 1831-residue design (padded 1856) folds in
+# 692 s; 2100 residues (padded 2208) hung, four for four.
+#
+# It floors the footprint cap only, not a refusal -- see `_trimul_inproj_chunk_cap`.
+_TRIMUL_MIN_CHUNK = _reblock.TILE_W
+
+
 def _trimul_inproj_chunk_cap(seq_len: int, hidden: int, batch: int, chunk: int) -> int:
     """The widest channel chunk at or below `chunk` whose fused in-projection is inside this
     shape's recorded byte budget.
 
-    Only a shape DRAM has already refused has a budget below `_TRIMUL_INPROJ_FUSED_BYTES`, so
-    this returns `chunk` unchanged wherever the cap has never fired: a size that folds today
-    keeps its width, its launch count and its arithmetic. Where it has fired, this is what stops
-    every later pairformer block from re-probing the width that was just refused. Read the cap
-    only in the handler and the per-block ladder is: attempt the full width, get refused, halve
-    the budget, narrow to satisfy a budget one halving smaller than the last block's -- so the
-    budget walks to nothing over a fold and every block ends at chunk 1, i.e. `hidden` channel
-    passes. Measured at 4-5 minutes per block on OpenDDE's 2016-token trunk (a 1024-residue
-    fold), which is what put that fold past a 2400 s timeout rather than into an error.
+    This is what stops every later pairformer block from re-probing a width DRAM has just
+    refused. Read the cap only in the handler and the per-block ladder is: attempt the full
+    width, get refused, halve the budget, narrow to satisfy a budget one halving smaller than
+    the last block's -- so the budget walks down over a fold. Measured at 4-5 minutes per block
+    on OpenDDE's 2016-token trunk (a 1024-residue fold), which is what put that fold past a
+    2400 s timeout rather than into an error.
+
+    It does NOT only fire after a refusal, which this docstring used to claim: the budget
+    defaults to `_TRIMUL_INPROJ_FUSED_BYTES`, so any shape whose fused projection exceeds that
+    at the tuned width is narrowed here on the first block with nothing refused.
+    `4 * 32 * seq^2 * 2` crosses 1 GiB at exactly seq 2048, which is why the floor matters.
+
+    The two budgets are not the same kind of number, so they do not get the same floor. The
+    default is a footprint PREFERENCE, measured with 6 GiB of foreign DRAM held and leaving
+    >20 GiB free, and paying it with a sub-tile slice trades a fold for a device wedge
+    (`_TRIMUL_MIN_CHUNK`), so it stops at one tile and a shape that wants more footprint gets
+    it. A RECORDED budget is an allocation the device actually refused, and there a sub-tile
+    pass is the only thing left between narrowing and not folding at all -- so on a part where
+    that slice returns it may go all the way down, which is how OpenDDE's 1024-residue Wormhole
+    fold reaches chunk 8 and stays 3/3 byte-identical. On a part where it does not return
+    (`_SUB_TILE_SLICE_WEDGES`) there is nothing below a tile to reach for, and the refusal is
+    re-raised as a refusal.
 
     Narrowing is bit-exact: the chunk is a partition of an independent-channel sum, the same
     argument `_trimul_chunk_size` and `_trimul_inproj_group` make for their own widths.
     """
     budget = _trimul_inproj_budget(seq_len, hidden, batch)
-    while (chunk > 1 and hidden % (chunk // 2) == 0
+    refused = _trimul_chunk_key(seq_len, hidden, batch) in _TRIMUL_INPROJ_FUSED_CAP
+    floor = 1 if refused and not _SUB_TILE_SLICE_WEDGES else _TRIMUL_MIN_CHUNK
+    while (chunk > floor and hidden % (chunk // 2) == 0
            and 4 * chunk * seq_len * seq_len * batch * 2 > budget):
         chunk //= 2
     return chunk
@@ -3827,7 +3875,15 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
     """Snap to a tuned 13x10 or 11x10 Blackhole grid when available; on smaller
     archs (e.g. Wormhole B0 8x8 with ETH dispatch) adopt the device's grid."""
-    global CORE_GRID_MAIN, COMPUTE_GRID_MAIN
+    global CORE_GRID_MAIN, COMPUTE_GRID_MAIN, _SUB_TILE_SLICE_WEDGES
+
+    # Before the two early returns below, not after: a hook placed past a `return` in this
+    # family of functions has silently done nothing before (`_apply_grid_thresholds` returns
+    # on a full-size grid, which left the trimul W-chunk gate dead on Blackhole).
+    try:
+        _SUB_TILE_SLICE_WEDGES = device.arch() != ttnn.Arch.WORMHOLE_B0
+    except Exception:
+        pass
 
     gx, gy = COMPUTE_GRID_X_11, COMPUTE_GRID_Y
     try:

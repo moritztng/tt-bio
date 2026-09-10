@@ -1,0 +1,18 @@
+START Thu Sep 10 07:59:13 AM UTC 2026
+{
+  "target_res": 2100,
+  "target_atoms": 16948,
+  "rc": 0,
+  "wall_s": 805.3,
+  "calls_entered": 228595,
+  "calls_returned": 228595,
+  "log": "/home/ttuser/.coworker/wt/bh-boltzgen-sdpa-circbuf-p3/perf/bgsdpa/work/multiply_fixed.log"
+}
+
+--- last 5 lines ---
+228593 #228593 multiply_ exit
+228594 #228594 multiply_ ENTER [1, 966, 32, 256]/DataType.BFLOAT16/Layout.TILE/BufferType.DRAM [1, 966, 32, 256]/DataType.BFLOAT16/Layout.TILE/BufferType.DRAM
+228594 #228594 multiply_ exit
+228595 #228595 multiply_ ENTER [1, 966, 32, 128]/DataType.BFLOAT16/Layout.TILE/BufferType.DRAM [1, 966, 32, 128]/DataType.BFLOAT16/Layout.TILE/BufferType.DRAM
+228595 #228595 multiply_ exit
+END rc=0 Thu Sep 10 08:12:39 AM UTC 2026

@@ -33,6 +33,9 @@ def shape(monkeypatch):
     monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", GRID)
     monkeypatch.setattr(T, "_FAST_MODE", False)
     monkeypatch.setattr(T, "_TRIMUL_INPROJ_FUSED_CAP", {})
+    # Wormhole returns from the sub-tile slice the bottom of this ladder asks for; Blackhole
+    # wedges on it, and stops at one tile instead (test_trimul_inproj_tile_floor.py).
+    monkeypatch.setattr(T, "_SUB_TILE_SLICE_WEDGES", False)
 
 
 def _fused(chunk, group=1):
