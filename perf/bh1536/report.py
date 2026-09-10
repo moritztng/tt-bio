@@ -79,10 +79,14 @@ for r in rows:
 print("| model | tokens | verdict | wall s | engine s | atoms | CA breaks | worst CA-CA | clash frac | pLDDT | host RSS |")
 print("|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|")
 for m in sorted(by_model):
-    for r in sorted(by_model[m], key=lambda x: x["size"]):
+    for r in sorted(by_model[m], key=lambda x: (x["size"], x.get("when") or "")):
         s = r.get("struct") or {}
         v = r["verdict"] + (f" ({r['oom']['mechanism']})" if r.get("oom") and r["verdict"] != "PASS" else "")
-        print(f"| {m} | {r['size']} | {v} | {r['wall_s']} | "
+        # Name the tag in the row. Without it a deliberate re-walk and the rung it re-examines
+        # are two identical-looking lines: rf3 at 1536 reads as both FAIL and PASS with nothing
+        # saying which came first or why.
+        name = m + (f" [{r['tag']}]" if r.get("tag") else "")
+        print(f"| {name} | {r['size']} | {v} | {r['wall_s']} | "
               f"{r.get('engine_runtime_s') or s.get('runtime_s') or '-'} | "
               f"{s.get('n_atoms', '-')} | {s.get('ca_breaks', '-')} | "
               f"{s.get('worst_ca_ca', '-')} | {s.get('clash_frac', '-')} | "

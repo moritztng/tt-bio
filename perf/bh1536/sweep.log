@@ -17,3 +17,4 @@
 2026-09-10T00:51:18Z protenix-v1     1536tok FAIL     wall=   22.4s engine=None cif_res=0/1536 ntok=None rss=21.52G oom=-
 2026-09-10T00:51:39Z openfold3        512tok FAIL     wall=   14.2s engine=None cif_res=0/512 ntok=None rss=22.66G oom=-
 2026-09-10T00:54:51Z esmfold2        1536tok OOM      wall=  191.7s engine=None cif_res=0/1536 ntok=None rss=163.72G oom=dram/fragmentation(fatal)
+2026-09-10T01:03:27Z rf3             1536tok PASS     wall=  508.4s engine=487.2 cif_res=1536/1536 ntok=1536 rss=154.17G oom=l1_cb/l1_static_cb breaks=0 worst_ca=3.93 clash=0.36171
