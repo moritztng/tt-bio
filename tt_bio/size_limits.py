@@ -487,7 +487,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
                 "bh-1536-design-embed-p2, perf/bhdesign/ladder.py, one rung per subprocess "
                 "through the shipped CLI, verdict read off the .npz and not off the exit code): "
-                "99999 residues embed to [99999, 1280], finite, nonzero_frac 1.0, in 219.7 s. "
+                "99999 residues embed to [99999, 1280], finite, nonzero_frac 0.9999, in 219.7 s. "
                 "131072 throws on DRAM in 56.8 s. The throw is the SAME on every model in this "
                 "family and that is the point: it asks for 34376517632 B as ONE buffer, which is "
                 "131104^2 x 2 -- the full L x L attention matrix in bf16 at the token length "
@@ -498,7 +498,25 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "fill it in: nobody walked this ladder on a Galaxy chip",
         ),
     },
-    "saprot-1.3b": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
+    "saprot-1.3b": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=99999, pass_at=99999, fail_at=131072, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2): 99999 residues embed to [99999, 1280], finite, "
+                "nonzero_frac 0.9999, in 278.6 s, and 131072 throws on DRAM in 58.5 s. Same "
+                "throw as its siblings and that is the finding: 34376517632 B as ONE buffer, "
+                "131104^2 x 2, the full L x L attention matrix in bf16 at the token length "
+                "padded to a multiple of 32. Per bank the ask is 4297066496 B against a "
+                "4278190016 B bank, so it does not fit an EMPTY bank; the 334467200 B of "
+                "resident weights, the largest of this family, is not what decided it. That is "
+                "why the four rows carry the same numbers despite four different weight sizes: "
+                "the wall is the shape, not the residency. This model is one of the four the "
+                "capacity gate exempts, now measured rather than exempted",
+        ),
+    },
 }
 
 _NO_ROW = _unmeasured("no row for this architecture: nothing has been measured on it")
