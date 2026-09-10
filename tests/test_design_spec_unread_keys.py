@@ -299,3 +299,28 @@ def test_rfd3_refusals_do_not_quote_the_ports_own_pass_numbers():
     assert raises
     bad = [r for r in raises if re.search(r"\bp\d+\+|this pass|\bF\d/F\d\b", r)]
     assert not bad, bad
+
+
+def test_every_shipped_boltzgen_template_only_names_keys_its_target_declares():
+    """The template is a schema instance too, and nothing was checking it.
+
+    Removing the dead `trainer` node left `logger: false` indented under
+    `writer:` in two templates, so FoldingWriter got a kwarg it does not take
+    and the pipeline died at the design_folding step. The override check could
+    not see it: it validates overrides, not the file they merge into.
+    """
+    bad = []
+    for path in sorted(CONFIG_DIR.glob("*.yaml")):
+        def walk(node, where):
+            if not isinstance(node, dict):
+                return
+            target = node.get("_target_")
+            if isinstance(target, str):
+                accepted = target_kwargs(target)
+                for key in node:
+                    if key != "_target_" and key not in accepted:
+                        bad.append(f"{path.name}:{where}.{key} not a parameter of {target}")
+            for key, value in node.items():
+                walk(value, f"{where}.{key}")
+        walk(load_yaml(path), path.stem)
+    assert not bad, bad

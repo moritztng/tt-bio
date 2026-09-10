@@ -3585,6 +3585,9 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
                    "and a structure of a different sequence is refused. Omit for "
                    "sequence-only mode (3Di = '#', lower accuracy for 35M/650M; the 1.3B "
                    "works sequence-only).")
+@click.option("--foldseek", "foldseek_bin", default=None,
+              help="Path to the foldseek binary that computes the 3Di tokens for "
+                   "--structure. Default: $FOLDSEEK_BIN, else foldseek on PATH.")
 @click.option("--out_dir", default="./embeddings", show_default=True)
 @click.option("--format", "out_format", type=click.Choice(["npz", "parquet"]),
               default="npz", show_default=True,
@@ -3615,8 +3618,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 @click.option("--owner", default=None,
               help="Opaque fairness key the controller uses to fair-share workers across users. "
                    "Requires --controller.")
-def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast,
-               batch_size, devices, controller, owner):
+def saprot_cmd(data, model, structure, foldseek_bin, out_dir, out_format, pool,
+               return_logits, fast, batch_size, devices, controller, owner):
     """Compute SaProt structure-aware protein-language-model embeddings.
 
     SaProt is an ESM-2 encoder over a fused amino-acid + Foldseek-3Di
@@ -3641,7 +3644,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
             "--controller runs are sequence-only (structures stay on the submitting "
             "client and are never shipped to workers). Drop --structure or run locally.")
     try:
-        seqs = saprot.load_sequences_with_structure(data, structure)
+        seqs = saprot.load_sequences_with_structure(data, structure, foldseek_bin)
     except ValueError as e:
         raise click.ClickException(str(e))
 

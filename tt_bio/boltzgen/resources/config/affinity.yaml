@@ -34,8 +34,6 @@ writer:
   _target_: tt_bio.boltzgen.task.predict.writer.AffinityWriter
   design_dir: ${data.design_dir}
 
-  logger: false
-
 name: affinity_in_eval_affinity
 output: null
 checkpoint: null

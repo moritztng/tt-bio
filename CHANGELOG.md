@@ -50,6 +50,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   from the table, and land before the weights download and the first device open. The published
   matrix is `docs/model-capabilities.md`, generated from the same table.
 
+- **`tt-bio saprot` takes `--foldseek`, and no longer prefers one machine's conda prefix.**
+  `_FOLDSEEK_BIN_CANDIDATES` listed `/home/ttuser/miniforge3/envs/foldseek/bin/foldseek` ahead of
+  PATH, so on any host where that path exists the shipped package silently ran that binary instead
+  of the one the user installed. Discovery is now `--foldseek`, then `FOLDSEEK_BIN`, then PATH, and
+  a path given explicitly has to be there: falling back to PATH after a bad `--foldseek` would run
+  a different binary than the one asked for. Same 3Di tokens either way, verified on a 118-residue
+  structure.
+
 - **RFD3's ligand, enzyme and symmetric-oligomer modes do run from a real PDB, and the docs said
   they did not.** `docs/rfd3-design.md` marked all three "Not yet (`NotImplementedError`)" for real
   `--from_pdb` input. Run from the port's own reference structures they all complete and write a
