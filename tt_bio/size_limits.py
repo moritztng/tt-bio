@@ -475,13 +475,15 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "saprot-35m": {
         "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
         "blackhole": Ceiling(
-            residues=99999, pass_at=99999, fail_at=131072, binds=MEMORY, mechanism=DRAM,
+            residues=126976, pass_at=126976, fail_at=131072, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
             evidence=
                 "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
                 "bh-1536-design-embed-p2, perf/bhdesign/ladder.py, one rung per subprocess "
                 "through the shipped CLI, verdict read off the .npz and not off the exit code): "
-                "99999 residues embed to [99999, 480], finite, nonzero_frac 1.0, in 160.6 s. "
+                "walked 99999 (160.6 s), 114688 (149.6 s) and 126976 (176.1 s), each embedding to "
+                "[L, 480], finite, nonzero_frac 1.0, and bisected between the last pass and "
+                "the first failure so the published cap is 4096 wide and not 31073. "
                 "131072 throws on DRAM in 50.1 s. The throw is the SAME on every model in this "
                 "family and that is the point: it asks for 34376517632 B as ONE buffer, which is "
                 "131104^2 x 2 -- the full L x L attention matrix in bf16 at the token length "

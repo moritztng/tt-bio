@@ -131,11 +131,12 @@ it folds every rung to 1095 residues, the top of its ladder. `boltz2`, `esmfold2
 `boltzgen` and `nesso1` have no measured limit and are never refused.
 
 Blackhole has more memory per chip, so it is a separate table and the Wormhole numbers do not
-carry over. Four models have been walked to a failure on a p150a:
+carry over. Six models have been walked to a failure on a p150a:
 
 | model | Blackhole limit | first measured failure |
 |---|---:|---:|
-| `esmc-600m`, `saprot-35m`, `saprot-650m` (embed) | 99999 (longest sequence) | 131072 |
+| `saprot-35m` (embed) | 126976 (longest sequence) | 131072 |
+| `esmc-300m`, `esmc-600m`, `saprot-650m`, `saprot-1.3b` (embed) | 99999 (longest sequence) | 131072 |
 | `pxdesign` | 2500 (target residues) | 3000 |
 
 The embedding wall is one allocation: the model asks for the whole sequence-by-sequence attention
