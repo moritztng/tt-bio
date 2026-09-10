@@ -470,7 +470,7 @@ def _download_file(url: str, dest: Path) -> None:
     present: staged next to the destination, size-checked against the server's
     Content-Length, then renamed in. The structural archive check is skipped because
     these tarballs are hundreds of GB, too large to scan."""
-    weights.fetch_url(url, dest, check_archive=False)
+    weights.fetch_file((url,), dest, check_archive=False)
 
 
 def _recommended_threads() -> int:
@@ -1697,6 +1697,99 @@ def install_deps():
     install_system_deps()
 
 
+@cli.command("preflight")
+@click.argument("models", nargs=-1)
+@click.option("--download", is_flag=True, help="Fetch whatever the named models are missing.")
+@click.option("--cache", default=None, type=click.Path(),
+              help="Weight cache directory (default: $TT_BIO_CACHE, $BOLTZ_CACHE, or ~/.boltz).")
+def preflight_cmd(models, download, cache):
+    """Can this machine run these models right now? Answer before submitting a job.
+
+    \b
+        tt-bio preflight                     every model: ready, or what it needs
+        tt-bio preflight protenix-v1         one model
+        tt-bio preflight protenix-v1 --download
+
+    Exits non-zero when anything asked for is not ready, so it works in a script. For
+    a model that is missing weights it also measures whether the hosts those weights
+    come from can be reached from HERE, which is the part that a job submitted anyway
+    would have discovered ten minutes later.
+    """
+    root = Path(cache).expanduser() if cache else None
+    names = list(models) or list(weights.models_known())
+    unknown = [m for m in names if m not in weights.MODEL_ARTIFACTS]
+    if unknown:
+        raise click.ClickException(
+            f"unknown model(s): {', '.join(unknown)}; known: "
+            f"{', '.join(weights.models_known())}")
+
+    cache_dir = weights.cache_root(root)
+    free = shutil.disk_usage(cache_dir if cache_dir.exists() else Path.home()).free
+    click.echo(f"cache {cache_dir}  ({free / (1 << 30):.0f} GiB free)")
+    click.echo()
+
+    width = max(len(m) for m in names)
+    missing_models, manual_models, sources = [], [], []
+    for model in sorted(names):
+        ready, stats = weights.model_ready(model, root)
+        need = [s for s in stats if s.state != "present"]
+        if ready:
+            have = sum(s.on_disk for s in stats)
+            click.echo(f"  {click.style('READY  ', fg='green')} {model:{width}s}  "
+                       f"{have / (1 << 30):.1f} GiB cached")
+            continue
+        auto = [s for s in need if s.artifact.source != "manual"]
+        want = sum(s.artifact.approx_bytes for s in need)
+        if auto:
+            missing_models.append(model)
+            click.echo(f"  {click.style('MISSING', fg='yellow')} {model:{width}s}  "
+                       f"{want / (1 << 30):.1f} GiB to fetch: "
+                       f"{', '.join(s.artifact.key for s in need)}")
+            # probe_urls, not sources: a Hugging Face row is fetched by the hub client
+            # rather than by a URL of ours, and "can this machine reach huggingface.co"
+            # is exactly as much the question.
+            for s in auto:
+                sources.extend(s.artifact.probe_urls)
+        else:
+            manual_models.append(model)
+            click.echo(f"  {click.style('MANUAL ', fg='yellow')} {model:{width}s}  "
+                       f"not downloadable ({need[0].artifact.licence}); put "
+                       f"{need[0].artifact.filename} at {need[0].path} or set "
+                       f"${need[0].artifact.env}")
+
+    if sources:
+        click.echo()
+        click.echo("can this machine reach the hosts those weights come from?")
+        for url in dict.fromkeys(sources):
+            r = weights.probe(url)
+            if r["ok"]:
+                got = f"{r['bytes'] >> 10} KiB" if r["bytes"] >= 1024 else f"{r['bytes']} B"
+                click.echo(f"  {click.style('ok         ', fg='green')} {r['host']}  "
+                           f"{got} in {r['seconds']}s ({r['mb_per_s']} MB/s)")
+            else:
+                click.echo(f"  {click.style('UNREACHABLE', fg='red')} {r['host']}  "
+                           f"{r['error']} (after {r['seconds']}s)")
+
+    if download and missing_models:
+        click.echo()
+        for model in missing_models:
+            click.echo(f"fetching {model} ...")
+            weights.fetch_models(model, root=root)
+        missing_models = [m for m in missing_models if not weights.model_ready(m, root)[0]]
+
+    click.echo()
+    if not missing_models and not manual_models:
+        click.echo(f"{len(names)} model(s) ready.")
+        return
+    if missing_models:
+        click.echo(f"{len(missing_models)} model(s) need weights. Fetch them with:")
+        click.echo(f"  tt-bio preflight {' '.join(missing_models)} --download")
+    if manual_models:
+        click.echo(f"{len(manual_models)} model(s) need a checkpoint placed by hand "
+                   f"(see above): {', '.join(manual_models)}")
+    raise SystemExit(1)
+
+
 @cli.command("weights")
 @click.argument("models", nargs=-1)
 @click.option("--download", is_flag=True,
@@ -1741,6 +1834,18 @@ def weights_cmd(models, download, prune, force, yes, cache):
     _print_weights_table(rows, root)
 
 
+def _source_col(art) -> str:
+    """Where this row is fetched from, for the table. The host, not the row kind: every
+    flat row is a `file`, so printing that says nothing, while "huggingface.co" or
+    "files.ipd.uw.edu" is the answer to the question a reader actually has."""
+    if art.source == "manual":
+        return "manual"
+    if art.source == "hf-repo":
+        return "huggingface.co"
+    hosts = dict.fromkeys(weights.source_host(s) for s in art.sources)
+    return ",".join(hosts) if len(hosts) == 1 else f"{next(iter(hosts))}+{len(hosts) - 1}"
+
+
 def _print_weights_table(rows, root) -> None:
     """One line per artifact: what it is, whether this host has it, and what a fold
     would load. Every consumer of "the artifact list" reads the same registry, so this
@@ -1748,7 +1853,9 @@ def _print_weights_table(rows, root) -> None:
     stats = [weights.status(a.key, root) for a in rows]
     colour = {"present": "green", "missing": "yellow", "corrupt": "red", "partial": "red"}
     width = max(len(s.artifact.key) for s in stats)
-    click.echo(f"{'ARTIFACT':{width}s}  {'MODEL':14s} {'SOURCE':8s} {'STATUS':8s} "
+    src = {s.artifact.key: _source_col(s.artifact) for s in stats}
+    swidth = max(len(v) for v in src.values())
+    click.echo(f"{'ARTIFACT':{width}s}  {'MODEL':14s} {'SOURCE':{swidth}s} {'STATUS':8s} "
                f"{'SIZE':>8s}  PATH")
     for st in stats:
         a = st.artifact
@@ -1756,7 +1863,7 @@ def _print_weights_table(rows, root) -> None:
         note = f"  ({st.extra})" if st.extra else ""
         if st.override:
             note += f"  [${st.override}]"
-        click.echo(f"{a.key:{width}s}  {a.models[0]:14s} {a.source:8s} "
+        click.echo(f"{a.key:{width}s}  {a.models[0]:14s} {src[a.key]:{swidth}s} "
                    + click.style(f"{st.state:8s}", fg=colour.get(st.state))
                    + f" {size:>8s}  {st.path or '-'}{note}")
 

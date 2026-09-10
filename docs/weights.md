@@ -5,14 +5,15 @@ has, what it would load, and what is still missing:
 
 ```
 $ tt-bio weights
-ARTIFACT            MODEL          SOURCE   STATUS       SIZE  PATH
-boltz2-conf         boltz2         hf-file  present     2.13G  /home/you/.boltz/boltz2_conf.ckpt
-mols                boltz2         hf-file  present     3.42G  /home/you/.boltz/mols
-esmc-6b             esmc-6b        hf-repo  present    23.66G  /home/you/.cache/huggingface/hub/models--biohub--ESMC-6B/...
-rf3                 rf3            url      missing         -  /home/you/.boltz/rf3/rf3_foundry_01_24_latest_remapped.ckpt
-openfold3           openfold3      manual   present     2.13G  /home/you/.boltz/of3-p2-155k.pt
-openbind            openbind       manual   present     2.13G  /home/you/.boltz/of3-ob-2025-06-30-174k.pt
-nesso1-ccd          nesso1         hf-repo  present     0.38G  /home/you/.cache/huggingface/hub/models--recursionpharma--nesso/...
+ARTIFACT            MODEL          SOURCE           STATUS       SIZE  PATH
+boltz2-conf         boltz2         huggingface.co   present     2.13G  /home/you/.boltz/boltz2_conf.ckpt
+mols                boltz2         huggingface.co   present     3.42G  /home/you/.boltz/mols
+esmc-6b             esmc-6b        huggingface.co   present    23.66G  /home/you/.cache/huggingface/hub/models--biohub--ESMC-6B/...
+protenix-v1         protenix-v1    huggingface.co+1 present     1.37G  /home/you/.boltz/protenix/model_v0.5.0.pt
+rf3                 rf3            files.ipd.uw.edu missing         -  /home/you/.boltz/rf3/rf3_foundry_01_24_latest_remapped.ckpt
+openfold3           openfold3      manual           present     2.13G  /home/you/.boltz/of3-p2-155k.pt
+openbind            openbind       manual           present     2.13G  /home/you/.boltz/of3-ob-2025-06-30-174k.pt
+nesso1-ccd          nesso1         huggingface.co   present     0.38G  /home/you/.cache/huggingface/hub/models--recursionpharma--nesso/...
 ...
 25/28 present, 64.8 GiB on disk, 6.8 GiB to fetch (tt-bio weights --download)
 ```
@@ -23,10 +24,13 @@ nesso1-ccd          nesso1         hf-repo  present     0.38G  /home/you/.cache/
   leftovers, printing the bytes and asking first. Naming models (`--prune saprot-1.3b`)
   also drops those models' artifacts.
 
-The list comes from `tt_bio/weights.py`, which holds one row per artifact: source, repo or
-URL, destination, licence and env override. Anything that needs "every artifact we ship"
-reads that registry, so the CLI, the docs and what a fold actually fetches cannot drift
-apart.
+The SOURCE column is the host the bytes come from. A row with more than one source shows
+the first and how many follow (`huggingface.co+1`).
+
+The list comes from `tt_bio/weights.py`, which holds one row per artifact: where it can be
+fetched from, destination, licence and env override. Anything that needs "every artifact we
+ship" reads that registry, so the CLI, the docs and what a fold actually fetches cannot
+drift apart.
 
 ## Where the files go
 
@@ -62,6 +66,51 @@ driving.
 The four names that predate the registry keep working and still win when both are set:
 `PROTENIX_CKPT`, `OF3_CKPT`, `RF3_CKPT`, `OPENDDE_CKPT`.
 
+## Before you start a job: `tt-bio preflight`
+
+```
+$ tt-bio preflight protenix-v1
+cache /home/you/.boltz  (223 GiB free)
+
+  MISSING protenix-v1   1.4 GiB to fetch: protenix-v1
+
+can this machine reach the hosts those weights come from?
+  ok           huggingface.co  1024 KiB in 0.9s (1.08 MB/s)
+  UNREACHABLE  af3-dev.tos-cn-beijing.volces.com  TimeoutError after 20.0s
+
+1 model(s) need weights. Fetch them with:
+  tt-bio preflight protenix-v1 --download
+```
+
+It exits non-zero when anything you asked for is not ready, so it works in a script.
+Without arguments it checks every model. For a model that is missing something it also
+measures whether the hosts those weights come from answer *from this machine*, which is
+the part a job submitted anyway would only discover after it had been queued for a while.
+
+## When a download will not start
+
+Every download is bounded. A transfer that produces no bytes at all for 60 seconds, or that
+stops for 120 seconds after starting, is cut off and the next source is tried; the error
+then names every host and tool that was tried, how far each got, where to put the file by
+hand, its size and its sha256. Nothing waits forever, on any tool.
+
+A row may list several sources and they are tried in order. `protenix-v1` is the one that
+made this necessary: upstream serves that checkpoint only from a Volcengine bucket in
+Beijing, which some networks cannot pull from at all, and the download simply sat at zero
+bytes. It now comes from [`moritztng/protenix-v0.5.0`](https://huggingface.co/moritztng/protenix-v0.5.0)
+on the hub, which is upstream's file unmodified, with upstream's Apache-2.0 licence and a
+card naming the original URL. The registry records its sha256, so a truncated download is a
+named error rather than a crash inside `torch.load`. Upstream stays as the fallback.
+
+If no host answers from your network, fetch the file anywhere that can reach one and copy it
+in, or point the row's env var at it:
+
+```
+tt-bio preflight protenix-v1     # says which host is reachable from here
+huggingface-cli download moritztng/protenix-v0.5.0 model_v0.5.0.pt --local-dir .
+mv model_v0.5.0.pt ~/.boltz/protenix/   # or: export TT_BIO_PROTENIX_V1=/path/to/it
+```
+
 ## Why `present` is not just "the file is there"
 
 A download killed mid-flight leaves a truncated multi-GB file. Gating on "does the path
@@ -78,10 +127,13 @@ that is the same check the fetch path uses. A row that fails shows as `corrupt` 
 re-fetched on next use instead of being loaded.
 
 Downloads never write to the final path. Each one stages next to its destination, verifies
-against the source's byte count and archive structure, and only then renames into place, so
-an interrupt cannot leave a file that looks complete. Direct HTTP downloads stage in a
-`.<name>.part` that resumes across runs, so an interrupted 3 GB fetch continues rather than
-restarting.
+against the source's byte count or recorded sha256 and the archive structure, and only then
+renames into place, so an interrupt cannot leave a file that looks complete. Direct HTTP
+downloads stage in a `.<name>.part` that resumes across runs, so an interrupted 3 GB fetch
+continues rather than restarting.
+
+A file already on disk and intact costs no network call at all, so a fold on a host that has
+its weights never waits on a weight host.
 
 Archives that get unpacked (the CCD molecule library, the RFD3 weight split) are built under
 a staging directory and renamed in, and a source archive that gets discarded after extraction
