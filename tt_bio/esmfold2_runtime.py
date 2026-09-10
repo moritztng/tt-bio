@@ -64,6 +64,11 @@ class _ESMCAdapter:
             self.lm = ESMCLanguageModel.from_pretrained(self._repo)
             dram_peak("esmfold2/lm-loaded")
 
+    # No progress stage of its own: this single forward is a small slice of the band the
+    # CLI shows as "Featurize". Measured on ESMFold2-Fast at 20 aa on a p150a: 0.60 s of a
+    # 7.94 s first-fold prep band (8%) and 0.10 s of a 0.17 s warm one, 3-5% of the whole
+    # fold either way. A label the user sees for a tenth of a second is not worth a stage
+    # every other model then has to skip over in the bar.
     def __call__(self, input_ids, sequence_id=None, output_hidden_states=True, **_):
         attn_mask = None
         if sequence_id is not None:
