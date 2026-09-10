@@ -52,3 +52,4 @@
 2026-09-10T04:31:11Z rf3             1536tok PASS     wall=  442.5s engine=422.9 cif_res=1536/1536 ntok=1536 rss=39.69G oom=- breaks=0 worst_ca=3.93 clash=0.36171
 2026-09-10T04:40:24Z esmfold2        1536tok PASS     wall=  542.4s engine=499.2 cif_res=1536/1536 ntok=None rss=58.97G oom=dram/fragmentation breaks=0 worst_ca=4.43 clash=0.00146 ffn_fallback=YES
 2026-09-10T04:49:40Z esmfold2        1536tok PASS     wall=  546.3s engine=503.3 cif_res=1536/1536 ntok=None rss=65.06G oom=dram/fragmentation breaks=0 worst_ca=4.43 clash=0.00146 ffn_fallback=YES
+2026-09-10T05:37:05Z opendde         1536tok STALLED  wall=  711.9s engine=None cif_res=0/1536 ntok=None rss=54.64G oom=-
