@@ -7,11 +7,12 @@ has never been exercised by a real refusal. Every test on it so far fed it a han
 
 This drives the real `_stream_run` failure path with the error string the worker ACTUALLY stored
 for that fold (`perf/bh1536/runs/esmfold2_1536/.../results.json`, 2000 chars, elided in the
-middle by `worker._err_text`) and asserts on what lands on stdout. The elision is the specific
-risk: the renderer's regex needs the closing `(allocated: ... largest free block: N B)`
-parenthetical, and `_err_text` cuts the message at a fixed budget and spends the rest of it on
-backtrace frames. If a future budget change moves that cut one field earlier, the summary
-silently disappears and the user is back to reading tt-metal source paths.
+middle by `worker._err_text`) and asserts on what lands on stdout. The renderer's regex needs
+the closing `(allocated: ... largest free block: N B)` parenthetical, and `_err_text` keeps a
+head and a tail around a middle elision precisely so that survives; the refusal lands about
+310 chars in against a ~997-char head, so the margin is real. The test pins the invariant
+rather than the budget, so a change to the elision that moved the cut ahead of the
+parenthetical fails here instead of silently degrading what the user reads.
 
 Host-only: no device, no controller, no worker. The client is a stub that reports one failed job.
 """
@@ -75,13 +76,23 @@ def _run(capsys, error: str, debug: bool) -> str:
 
 
 def test_the_stored_refusal_still_carries_the_field_the_summary_needs():
-    """The elision guard. If `_err_text`'s budget ever cuts one field earlier, this fails here
-    with a clear reason instead of silently degrading the message the user reads."""
+    """The elision guard, stated as the invariant and not as a constant.
+
+    `worker._err_text` keeps a head AND a tail around a middle elision, exactly so an allocator
+    refusal survives -- its docstring says so. The refusal sits at the front of the message
+    (about 310 chars in, against a ~997-char head at the current 2000 budget) and the elided
+    middle is backtrace frames, so there is real margin here rather than luck. What matters is
+    not the budget number but that whatever the worker stores still renders, so assert that: a
+    future change to the elision that moved the cut ahead of the parenthetical would fail here
+    with a reason instead of silently putting the user back in front of a C++ assertion.
+    """
     err = _recorded_error()
-    assert len(err) == 2000, f"budget changed ({len(err)}); re-check the elision"
     assert "largest free block:" in err, "the elision removed the field the summary is read from"
     assert describe_device_oom(err) is not None, (
         "the stored error no longer renders; the user is back to the C++ assertion")
+    # And the margin itself, so a shrinking budget is caught before it bites.
+    assert err.index("largest free block:") < len(err) // 3, (
+        "the refusal has drifted out of the kept head; the next budget cut will drop it")
 
 
 def test_a_real_refusal_prints_one_sentence_and_not_a_cpp_assertion(capsys):
