@@ -121,13 +121,14 @@ under 1024:
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
 | `protenix-v2` | 1024 | 1095 |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1057 |
+| `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1280 |
 | `rfd3` | 1024 (motif + designed) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968 | 1984 |
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
 model, the limit and any model that does take the input. `rf3` is not in the table because
 it folds every rung to 1095 residues, the top of its ladder. `boltz2`,
-`esmfold2-fast`, `boltzgen` and `nesso1` have no measured limit and are never refused. These numbers are
+`boltzgen` and `nesso1` have no measured limit and are never refused. These numbers are
 Wormhole only; nothing is enforced on Blackhole, which has more memory per chip and where
 nobody has walked a ladder to a failure.
 
@@ -146,7 +147,8 @@ and a cocrystal at 1057 tokens are refused by the identical DRAM allocation, so 
 exactly the tokens it adds and nothing more. Because 1024 is the wall rather than a rung below
 it, 1024 residues plus *any* ligand is already over -- the residue count cannot see those atoms,
 so that input is accepted here and fails on the chip. `esmfold2-fast` is the same architecture at
-half the trunk depth and is roomier: it folds 1057 residues, where the full trunk does not.
+half the trunk depth and is roomier, which is why it has its own row rather than sharing one:
+it folds 1152 residues and fails at 1280, where the full trunk already fails at 1057.
 
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).

@@ -413,7 +413,24 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "the token wall, will be admitted here, and will fail on the chip",
         ),
     },
-    "esmfold2-fast": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
+    "esmfold2-fast": {
+        "wormhole_b0": Ceiling(
+            residues=1152, pass_at=1152, fail_at=1280, binds=MEMORY, mechanism=DRAM,
+            msa_rows=0,
+            evidence="its OWN ladder, walked 2026-09-09 on GWH02 card 1 by "
+                     "ws:esmfold2-cocrystal-everywhere, not inherited from esmfold2 by "
+                     "architecture argument -- and it had to be walked separately, because the "
+                     "two checkpoints do NOT share a ceiling. 960 folds in 202 s, 1024 in 214 s, "
+                     "1057 in 261 s, 1152 in 278 s; 1280 does not fold (838860800 B DRAM buffer "
+                     "across 12 banks, 69906432 B wanted per bank). 1057 is the rung that stops "
+                     "the full trunk and this checkpoint clears it, which is the expected "
+                     "direction: same architecture at half the trunk depth (24 blocks against "
+                     "48), so a smaller DRAM peak. Same settings as the esmfold2 row -- "
+                     "single-sequence (this checkpoint has no MSA encoder at all) and --fast, "
+                     "forced on Wormhole. Same residue-vs-token caveat as esmfold2 and openbind: "
+                     "ligand atoms are tokens the residue count cannot see",
+        ),
+    },
     "protenix-v1": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
     "nesso1": {
         "wormhole_b0": _unmeasured(
