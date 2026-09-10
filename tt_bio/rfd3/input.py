@@ -338,8 +338,13 @@ class InputSpecification:
     plddt_enhanced: bool = True
     is_non_loopy: bool | None = None
     partial_t: float | None = None
-    # passthrough for fields the parser doesn't validate (allow_ligand_on_existing_chain, etc.)
+    allow_ligand_on_existing_chain: bool = True
+    # keys the dataclass has no slot for. Nothing reads them, so validate() refuses them
+    # rather than let a typo look like a design that ignored its own conditioning.
     extra_fields: dict = field(default_factory=dict)
+    # exactly what the user's mapping held, so validate() can tell "asked for X" from
+    # "left X at its default". Empty when the spec was built in code rather than parsed.
+    provided: dict = field(default_factory=dict)
 
     _SELECT_FIELDS = (
         "select_fixed_atoms", "select_unfixed_sequence", "select_buried",
@@ -347,15 +352,51 @@ class InputSpecification:
         "select_hbond_acceptor", "select_hotspots",
     )
 
+    # Fields the upstream InputSpecification defines that the featurizer never reads:
+    # `key -> (default, reason)`. The features they would feed are hardcoded zero
+    # (`is_atom_level_hotspot`, `active_donor`, `active_acceptor`, and `ref_atomwise_rasa`
+    # for anything that is not a ligand atom), so setting one changes nothing at all --
+    # measured with `scripts/rfd3_spec_field_coverage.py`, which diffs every feature.
+    # A spec that spells out a default still runs; a spec that asks for conditioning we
+    # cannot give is refused here rather than at the end of a design that ignored it.
+    _UNREAD_FIELDS = {
+        "select_hotspots": (None, "hotspot conditioning; is_atom_level_hotspot is always zero"),
+        "select_partially_buried": (None, "the partially-buried RASA bin is never set"),
+        "select_hbond_donor": (None, "hbond conditioning; active_donor is always zero"),
+        "select_hbond_acceptor": (None, "hbond conditioning; active_acceptor is always zero"),
+        "select_unfixed_sequence": (True, "protein/NA sequence-fixing follows the contig"),
+        "redesign_motif_sidechains": (False, "motif sidechains are always kept as given"),
+        "ori_token": (None, "the orientation token is not built"),
+        "infer_ori_strategy": (None, "the orientation token is not built"),
+        "plddt_enhanced": (True, "the plddt-enhanced path is not selectable"),
+        "dialect": (2, "only input dialect 2 is implemented"),
+        "cif_parser_args": (None, "the structure is read by this port's own parser"),
+        "extra": (None, "the free-form extra block is not consumed"),
+        # Upstream needs this to pick up a ligand that shares a chain with protein
+        # (the real enzyme and symmetric examples all set it). This port always picks
+        # up every instance of the requested code wherever it sits, so `true` asks for
+        # what it already does and `false` is a restriction it does not implement.
+        "allow_ligand_on_existing_chain": (
+            True, "a ligand is picked up wherever it sits in the input structure"),
+    }
+
+    # Read for ligand atoms only (they become the ref_atomwise_rasa one-hot bin); on a
+    # protein or NA residue they change nothing, so they are refused without a `ligand`.
+    _LIGAND_ONLY_FIELDS = {
+        "select_buried": "the buried RASA bin is only built for ligand atoms",
+        "select_exposed": "the exposed RASA bin is only built for ligand atoms",
+    }
+
     @classmethod
     def from_dict(cls, d: Mapping) -> "InputSpecification":
         known = {f for f in (
             "input", "contig", "unindex", "length", "ligand", "cif_parser_args",
             "extra", "dialect", *cls._SELECT_FIELDS, "redesign_motif_sidechains",
             "symmetry", "ori_token", "infer_ori_strategy", "plddt_enhanced",
-            "is_non_loopy", "partial_t",
+            "is_non_loopy", "partial_t", "allow_ligand_on_existing_chain",
         )}
         spec = cls()
+        spec.provided = dict(d)
         for k, v in d.items():
             if k in known:
                 setattr(spec, k, v)
@@ -364,10 +405,22 @@ class InputSpecification:
         return spec
 
     def validate(self) -> None:
-        """Early, informative errors (input.md "Safer parsing"): unknown keys
-        already separated into extra_fields by from_dict; here we check the
-        contig/unindex grammar and mutually-exclusive RASA bins are well-formed
-        at the string level (overlap checks need the structure -> featurizer)."""
+        """Early, informative errors (input.md "Safer parsing"): an unknown key or a
+        field this port never reads is refused by name, then the contig/unindex grammar
+        and the mutually-exclusive RASA bins are checked at the string level (overlap
+        checks need the structure -> featurizer)."""
+        from ..data.yaml_input import refuse_unread_keys
+
+        unread = dict(self._UNREAD_FIELDS)
+        if not self.ligand:
+            unread.update({k: (None, r) for k, r in self._LIGAND_ONLY_FIELDS.items()})
+        refuse_unread_keys(
+            self.provided,
+            honoured=("input", "contig", "unindex", "length", "ligand",
+                      "select_fixed_atoms", "select_buried", "select_exposed",
+                      "is_non_loopy", "partial_t", "symmetry"),
+            unimplemented=unread,
+            what="RFD3 design spec")
         if self.contig is not None:
             parse_contig(self.contig)  # raises on malformed
         if isinstance(self.unindex, str):

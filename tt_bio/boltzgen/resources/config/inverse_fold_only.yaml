@@ -29,8 +29,6 @@ writer:
   inverse_fold: true
   write_native: false
 
-trainer:
-
 name: inverse_fold_only
 output: null
 checkpoint: null

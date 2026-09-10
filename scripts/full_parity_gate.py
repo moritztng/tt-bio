@@ -195,7 +195,9 @@ def _shared_draw_env() -> dict:
 #          (ESMC/SaProt/ESMFold2/BoltzGen/abag run their own reference live each pass — fast).
 # committed_json: the docs/implementation-parity-data/*.json to compare the fresh verdict
 #                 against for drift ("" skips the drift check).
-# device_args: extra args appended to `tt-bio predict <yaml> --model <model>`.
+# device_args: extra args appended to `tt-bio predict <yaml> --model <model>`, or, on a leg
+#              that drives a harness script instead (esmfold2), appended to the harness
+#              command. Last wins, so a leg can override a default the builder set.
 # msa: "none" | "server" | "staged" — how the device gets its MSA. "staged" copies the
 #       fixture's msa.a3m into a per-leg msa dir named by seq_hash (protenix-v2).
 #       "none" passes --single_sequence (boltz2) / nothing (opendde). "server" passes
@@ -281,6 +283,15 @@ LEGS = [
     Leg("esmfold2-fast-trpcage", "esmfold2-fast", "esmfold2", "examples/trpcage.yaml",
         committed_json="esmfold2-fast.json", seeds=(0, 1, 2, 3, 4),
         note="24-block trunk, no MSA encoder; same four targets as the esmfold2 leg"),
+    # A capability with no gate leg regresses quietly, and this one regresses in the worst
+    # way available: the ligand is dropped and the fold still succeeds. So the leg exists,
+    # and _esmfold2_verdict refuses to call a record with an empty ligand block a PASS.
+    # 140 tokens on two seeds, the cheapest target that has a deposited cocrystal.
+    Leg("esmfold2-cocrystal", "esmfold2", "esmfold2", "examples/fkg_ligand.yaml",
+        committed_json="esmfold2-cocrystal.json", seeds=(0, 1),
+        device_args=("--proteins", "examples/fkg_ligand.yaml"),
+        note="FKBP12 + SB3 (PDB 1FKG), 107 aa + 33 ligand atom-tokens; scores where the "
+             "ligand went, not only the protein block"),
 
     # --- Boltz-2 structure legs (cached fixture, device-only per release) ---
     Leg("boltz2-trpcage-nomsa", "boltz2", "structure", "examples/trpcage_no_msa.yaml",
@@ -1525,8 +1536,9 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
     elif leg.kind == "esmfold2":
         cmd = [sys.executable, "scripts/esmfold2_e2e_parity.py",
                "--checkpoint", leg.model,
-               "--proteins", "trpcage,gb1,ubiquitin,lysozyme", "--seeds", "0,1,2,3,4",
-               "--out", str(out_json)]
+               "--proteins", "trpcage,gb1,ubiquitin,lysozyme",
+               "--seeds", ",".join(str(x) for x in leg.seeds),
+               "--out", str(out_json), *leg.device_args]
         # Mirror production (main.py): esmfold2 auto-runs --fast on Wormhole because the
         # non-fast model needs >12 GB DRAM/chip; without this the device load OOMs.
         from tt_bio.tenstorrent import is_wormhole
@@ -1552,6 +1564,49 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
 # ---------------------------------------------------------------------------
 # Verdict extraction + drift check
 # ---------------------------------------------------------------------------
+# The device must put the ligand within this far of where the reference puts it, in the
+# reference's protein frame, and it must touch the protein at all. Measured 2026-09-09 on
+# 1FKG: 0.89 A displacement, 52 contacts vs the reference's 54, closest contact 2.82 A. These
+# are loose bounds on a gross failure (ligand in solvent, ligand dropped), not accuracy targets
+# -- the accuracy numbers are the drift check against the committed record.
+ESMFOLD2_LIGAND_MAX_RMSD_A = 2.5
+ESMFOLD2_LIGAND_MAX_CONTACT_A = 5.0
+ESMFOLD2_LIGAND_MIN_CONTACTS = 10
+
+
+def _esmfold2_ligand_gap(targets: list) -> str:
+    """Why a ligand-bearing esmfold2 record fails, or "" if every ligand is where it should be.
+
+    Reads the harness's `ligand` block (scripts/esmfold2_e2e_parity.ligand_placement), which is
+    absent on a protein-only target and empty on a target whose ligand never reached the
+    featurizer -- and an absent ligand on a cocrystal target is exactly the silent drop this
+    leg exists to catch, so a named ligand with no block is a gap too.
+    """
+    for t in targets:
+        label = str(t.get("target") or t.get("protein") or "?")
+        wants_ligand = int(t.get("n_ligand_chains") or 0) > 0
+        block = t.get("ligand") or {}
+        if not block:
+            if wants_ligand:
+                return f"{label}: the input names a ligand and the fold recorded none"
+            continue
+        n = int(block.get("n_ligand_atoms") or 0)
+        if n <= 0:
+            return f"{label}: 0 ligand atoms in the fold"
+        rmsd = block.get("ligand_rmsd_protein_frame")
+        if rmsd is None or float(rmsd) > ESMFOLD2_LIGAND_MAX_RMSD_A:
+            return (f"{label}: ligand {rmsd} A from the reference pose in the protein frame "
+                    f"(max {ESMFOLD2_LIGAND_MAX_RMSD_A})")
+        dev = block.get("device") or {}
+        contact = dev.get("min_contact_A")
+        if contact is None or float(contact) > ESMFOLD2_LIGAND_MAX_CONTACT_A:
+            return f"{label}: closest ligand-protein contact {contact} A -- the ligand is in solvent"
+        if int(dev.get("n_contacts") or 0) < ESMFOLD2_LIGAND_MIN_CONTACTS:
+            return (f"{label}: {dev.get('n_contacts')} protein atoms within 4.5 A of the ligand "
+                    f"(min {ESMFOLD2_LIGAND_MIN_CONTACTS})")
+    return ""
+
+
 def _rmsd_block(target_view: dict) -> dict:
     """The target's Kabsch-RMSD metric block, whatever key its record filed it under.
 
@@ -1929,6 +1984,14 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         if not proteins:
             return "NO-DATA", "no proteins in summary"
         n_within = sum(1 for p in proteins if p.get("kabsch_rmsd", {}).get("within_noise_floor"))
+        # A cocrystal target is the one case where PASS-if-scored is the wrong rule: the
+        # protein block dominates every metric above, so a fold that dropped the ligand
+        # scores the same as one that placed it. Any target carrying a ligand has to show
+        # the ligand present and touching the protein, or the leg is a GAP. Keyed on the
+        # record, not on the leg id, so this covers the next ligand target for free.
+        lig = _esmfold2_ligand_gap(proteins)
+        if lig:
+            return "GAP", lig
         return "PASS", f"{len(proteins)} proteins scored ({n_within} within floor)"
     return "UNKNOWN", "no extractor"
 

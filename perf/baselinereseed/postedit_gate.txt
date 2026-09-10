@@ -1,0 +1,20 @@
+benchlock: perf-baseline-reseed-opendde-protenix-v2 acquired after 0s, loadavg 0.26 0.76 1.02
+Fetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]Fetching 21 files: 100%|██████████| 21/21 [00:00<00:00, 5324.33it/s]
+[opendde] 2.873641 structures/s  (348 ms/call, load 2s)
+[protenix-v2] 3.084589 structures/s  (324 ms/call, load 1s)
+Fetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]Fetching 21 files: 100%|██████████| 21/21 [00:00<00:00, 5299.34it/s]
+[opendde-abag] 2.928575 structures/s  (341 ms/call, load 2s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — opendde, protenix-v2, opendde-abag  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+opendde         structures/s          2.905      2.874     -1.1%      PASS
+protenix-v2     structures/s          3.091      3.085     -0.2%      PASS
+opendde-abag    structures/s          2.903      2.929     +0.9%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.7.3  |  input: trpcage (20 aa, single-seq)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: perf-baseline-reseed-opendde-protenix-v2 released, rc=0, loadavg 0.95 0.90 1.05

@@ -139,3 +139,58 @@ def test_write_manifest_documents_shapes_and_files(tmp_path):
         {"id": "p1", "length": 3, "file": "p1.npz"},
         {"id": "p2", "length": 4, "file": "p2.npz"},
     ]
+
+
+# --- the input language's own vocabulary -------------------------------------------------
+# An unrecognized key used to be dropped without a word, which cost a whole chain
+# (`protien:`) or a whole constraint block (`constrains:`) and still reported success. What a
+# MODEL does with a key it cannot honour is a different question, answered by the table in
+# tt_bio/capabilities.py and tested in tests/test_input_capabilities.py.
+
+_GOOD = ("version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MKTAYIAK\n")
+
+
+@pytest.mark.parametrize("text,needle", [
+    ("sequences:\n  - protein: {id: A, sequence: MKTAYIAK}\nconstrains:\n  - bond: {}\n",
+     "constrains"),
+    ("sequences:\n  - protien: {id: A, sequence: MKTAYIAK}\n", "protien"),
+    ("sequences:\n  - protein: {id: A, sequence: MKTAYIAK, msa_path: x.a3m}\n", "msa_path"),
+    ("sequences:\n  - ligand: {id: B, ccd: ATP, cyclic: true}\n", "cyclic"),
+])
+def test_an_unrecognized_key_is_refused_not_dropped(tmp_path, text, needle):
+    from tt_bio.main import _read_bio_chains
+
+    p = tmp_path / "q.yaml"
+    p.write_text(text)
+    with pytest.raises(Exception) as e:
+        _read_bio_chains(p)
+    assert needle in str(e.value)
+    assert "Accepted" in str(e.value)       # name the vocabulary, do not just say no
+
+
+def test_the_accepted_keys_still_pass(tmp_path):
+    """Control: a check that refused every key would pass the test above."""
+    from tt_bio.main import _read_bio_chains
+
+    p = tmp_path / "q.yaml"
+    p.write_text("version: 1\nsequences:\n"
+                 "  - protein: {id: A, sequence: MKTAYIAK, msa: empty, cyclic: false}\n"
+                 "  - rna: {id: R, sequence: GAUC}\n"
+                 "  - dna: {id: D, sequence: GATC}\n"
+                 "  - ligand: {id: L, smiles: c1ccccc1}\n"
+                 "constraints:\n  - bond: {atom1: [A, 1, N], atom2: [L, 1, C]}\n"
+                 "properties:\n  - affinity: {binder: L}\n")
+    assert len(_read_bio_chains(p)) == 4
+
+
+def test_a_blank_sequence_is_refused_for_every_model_at_the_reader(tmp_path):
+    """The blank check used to live in the OpenFold3 validator with a second copy in the
+    ESMFold2 path; it is one check in the one reader now, so every model that rides it gets
+    it."""
+    from tt_bio.main import _read_bio_chains
+
+    p = tmp_path / "q.yaml"
+    p.write_text("version: 1\nsequences:\n  - protein: {id: A, sequence: MKTAYIAK}\n"
+                 "  - protein: {id: B, sequence: '   '}\n")
+    with pytest.raises(Exception, match="empty/whitespace"):
+        _read_bio_chains(p)

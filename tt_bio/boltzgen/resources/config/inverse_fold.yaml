@@ -40,8 +40,6 @@ writer:
   inverse_fold: ${data.cfg.inverse_fold}
   write_native: false
 
-trainer:
-
 name: if_full
 output: null
 checkpoint: null

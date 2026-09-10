@@ -81,6 +81,7 @@ from typing import Any, Dict, List, Tuple
 import yaml
 
 from tt_bio.boltzgen._config import (
+    check_overrides as _check_overrides,
     deep_merge as _deep_merge,
     dotlist_to_dict as _dotlist_to_dict,
     instantiate as _instantiate,
@@ -195,7 +196,8 @@ def add_configure_arguments(
         nargs="+",
         action="append",
         help="Override pipeline step configuration, in format <step_name> <arg1>=<value1> <arg2>=<value2> ..."
-        "(example: '--config folding num_workers=4 trainer.devices=4'). Can be used multiple times.",
+        "(example: '--config design sampling_steps=200 --config folding recycling_steps=1'). "
+        "Can be used multiple times; an unknown key is refused by name.",
     )
     p.add_argument(
         "--devices",
@@ -1238,6 +1240,12 @@ class PipelineStep:
             )
         if not os.path.exists(self.config_path):
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
+        # Every override, ours and the user's, has to name something this step's
+        # config schema accepts. Checked here rather than at instantiate time so a
+        # typo costs nothing instead of the steps that run before it.
+        _check_overrides(
+            _load_yaml(self.config_path), _dotlist_to_dict(self.args), self.name
+        )
 
     def get_config(self) -> dict:
         config = _load_yaml(self.config_path)
@@ -1311,12 +1319,6 @@ class BinderDesignPipeline:
         config_args_by_step = parse_config_args(
             protocol_config, args.config, step_names
         )
-
-        # Tenstorrent runs as a single logical device per pipeline-step process.
-        # Multi-card parallelism happens at the protein level via tt-bio's
-        # scheduler, not via Lightning DDP within a step.
-        devices = args.devices if args.devices is not None else 1
-        print(f"Using {devices} devices")
 
         # ``--steps`` restricts which pipeline stages run; checking enabled
         # *before* building each stage's config means we never resolve (and
@@ -1412,8 +1414,7 @@ class BinderDesignPipeline:
                         args=[
                             f"output={output_dir}",
                             f"data.cfg.yaml_path=[{', '.join(str(s) for s in args.design_spec)}]",
-                            f"trainer.devices={devices}",
-                            f"data.cfg.multiplicity={getattr(args, 'inverse_fold_num_sequences', 10)}",
+                                f"data.cfg.multiplicity={getattr(args, 'inverse_fold_num_sequences', 10)}",
                             f"data.cfg.skip_existing={args.reuse}",
                             f"data.cfg.output_dir={output_dir}",
                             f"override.use_kernels={use_kernels}",
@@ -1434,8 +1435,7 @@ class BinderDesignPipeline:
                         args=[
                             f"output={output_dir}",
                             f"data.cfg.yaml_path=[{', '.join(str(s) for s in args.design_spec)}]",
-                            f"trainer.devices={devices}",
-                            f"data.num_workers={args.num_workers}",
+                                f"data.num_workers={args.num_workers}",
                             f"data.cfg.skip_existing={args.reuse}",
                             f"data.cfg.multiplicity={num_batches}",
                             f"diffusion_samples={diffusion_batch_size}",
@@ -1487,8 +1487,7 @@ class BinderDesignPipeline:
                                 f"override.use_kernels={use_kernels}",
                                 f"checkpoint={get_artifact_path(args, args.inverse_fold_checkpoint)}",
                                 f"data.cfg.moldir={moldir}",
-                                f"trainer.devices={devices}",
-                                f"override.inverse_fold_args.inverse_fold_restriction=[{', '.join(exclude_residues)}]",
+                                        f"override.inverse_fold_args.inverse_fold_restriction=[{', '.join(exclude_residues)}]",
                             ]
                             + config_args_by_step["inverse_folding"],
                         )
@@ -1504,7 +1503,6 @@ class BinderDesignPipeline:
                     args=[
                         f"output={output_dir}",
                         f"data.design_dir={input_dir}",
-                        f"trainer.devices={devices}",
                         f"data.cfg.num_workers={args.num_workers}",
                         f"data.skip_existing={args.reuse}",
                         f"data.skip_existing_kind=folded",
@@ -1527,7 +1525,6 @@ class BinderDesignPipeline:
                     args=[
                         f"output={output_dir}",
                         f"data.design_dir={input_dir}",
-                        f"trainer.devices={devices}",
                         f"data.cfg.num_workers={args.num_workers}",
                         f"data.skip_existing={args.reuse}",
                         f"data.skip_existing_kind=design_folded",
@@ -1551,7 +1548,6 @@ class BinderDesignPipeline:
                     args=[
                         f"output={output_dir}",
                         f"data.design_dir={input_dir}",
-                        f"trainer.devices={devices}",
                         f"data.cfg.num_workers={args.num_workers}",
                         f"data.skip_existing={args.reuse}",
                         f"data.skip_existing_kind=affinity",

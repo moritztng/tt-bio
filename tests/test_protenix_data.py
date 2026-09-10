@@ -138,3 +138,86 @@ def test_build_complex_features_oxt_is_per_chain():
     cropped = build_complex_features(chains, chain_ids=["A", "B"],
                                      oxt=[[False] * 5, [False] * 3 + [True]])
     assert cropped["ref_charge"].shape[0] == base["ref_charge"].shape[0] - 1
+
+
+# --- `modifications:` ---------------------------------------------------------------------
+# A modified residue is tokenized PER ATOM from its CCD component (AF3 SI 2.6), which is why
+# a chain with one gains tokens but not residues. Before this, build_complex_features had no
+# argument for the key at all and every Protenix/OpenDDE fold quietly returned the standard
+# residue.
+
+_MSEQ = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEK"      # residue 13 is SER
+_SEP = [{"position": 13, "ccd": "SEP"}]
+
+
+def _feats(mods=None):
+    from tt_bio.protenix_data import build_complex_features
+    return build_complex_features([(_MSEQ, None, "protein")], chain_ids=["A"],
+                                  modifications=None if mods is None else [mods])
+
+
+def test_no_modification_is_byte_identical_to_the_per_residue_path():
+    """The control. Every existing fold goes through the new code path, so it has to be a
+    no-op when the key is absent."""
+    plain, explicit_none = _feats(), _feats(None)
+    for k in plain:
+        assert torch.equal(plain[k], explicit_none[k]), k
+
+
+def test_a_modified_residue_becomes_atom_tokens_in_one_residue_frame():
+    plain, mod = _feats(), _feats(_SEP)
+    # SER 6 heavy atoms -> SEP 10 (OXT is a leaving atom mid-chain): +4 atoms, +9 tokens
+    assert plain["ref_pos"].shape[0] == 418 and mod["ref_pos"].shape[0] == 422
+    assert plain["restype"].shape[0] == 53 and mod["restype"].shape[0] == 62
+    assert int(plain["ref_space_uid"].max()) == int(mod["ref_space_uid"].max()) == 52
+    assert mod["residue_index"].tolist().count(13) == 10
+    assert (mod["restype"].argmax(-1)[mod["residue_index"] == 13] == 20).all()  # UNK per atom
+
+
+def test_the_modified_residue_carries_the_ccd_element_and_the_backbone_link():
+    plain, mod = _feats(), _feats(_SEP)
+    z = lambda f: (f["ref_element"].argmax(-1) + 1)
+    assert (z(plain) == 15).sum() == 0 and (z(mod) == 15).sum() == 1   # the SEP phosphorus
+    assert (z(mod) == 8).sum() - (z(plain) == 8).sum() == 3            # O1P, O2P, O3P
+    names = ["".join(chr(c + 32) for c in ch).strip()
+             for ch in mod["ref_atom_name_chars"].argmax(-1).tolist()]
+    a2t = mod["atom_to_token_idx"].tolist()
+    tok = {names[i]: a2t[i] for i in range(len(a2t)) if int(mod["residue_index"][a2t[i]]) == 13}
+    assert "OXT" not in tok, "a mid-chain residue kept the leaving carboxylate oxygen"
+    tb = mod["token_bonds"]
+    assert tb[tok["N"] - 1, tok["N"]] == 1.0, "no bond to the preceding residue"
+    assert tb[tok["C"], max(tok.values()) + 1] == 1.0, "no bond to the following residue"
+    assert tb[tok["N"] - 1, max(tok.values()) + 1] == 0.0, "residues 12 and 14 bonded directly"
+
+
+def test_the_alignment_follows_the_tokens():
+    """The MSA is per residue and the chain is now per token in one place, so the columns
+    have to be re-placed or every column after the modification reads the wrong residue."""
+    from tt_bio.protenix_data import MSA_GAP_IDX, build_complex_features
+    a3m = ">q\n" + _MSEQ + "\n>h\n" + _MSEQ.replace("K", "R") + "\n"
+    plain = build_complex_features([(_MSEQ, a3m, "protein")], chain_ids=["A"])
+    mod = build_complex_features([(_MSEQ, a3m, "protein")], chain_ids=["A"],
+                                 modifications=[_SEP])
+    atom_cols = (mod["residue_index"] == 13).nonzero().flatten().tolist()
+    keep = [t for t in range(mod["msa"].shape[1]) if t not in atom_cols]
+    assert torch.equal(mod["msa"][:, keep],
+                       plain["msa"][:, [t for t in range(53) if t != 12]])
+    assert (mod["msa"][0, atom_cols] == 20).all()            # query row: the token's UNK
+    assert (mod["msa"][1:, atom_cols] == MSA_GAP_IDX).all()  # every other row: gap
+
+
+def test_an_unknown_ccd_code_is_named_not_guessed():
+    with pytest.raises(ValueError, match="not a CCD component"):
+        _feats([{"position": 13, "ccd": "ZZZZ"}])
+
+
+def test_a_bond_constraint_onto_a_modified_residue_resolves_by_atom_name():
+    from tt_bio.protenix_data import build_complex_features
+    f = build_complex_features([(_MSEQ, None, "protein")], chain_ids=["A"],
+                               modifications=[_SEP],
+                               bonds=[(("A", 13, "O3P"), ("A", 40, "CA"))])
+    assert f["token_bonds"].sum() > 0
+    with pytest.raises(ValueError, match="modified residue"):
+        build_complex_features([(_MSEQ, None, "protein")], chain_ids=["A"],
+                               modifications=[_SEP],
+                               bonds=[(("A", 13, "NOPE"), ("A", 40, "CA"))])

@@ -35,9 +35,6 @@ writer:
   _target_: tt_bio.boltzgen.task.predict.writer.FoldingWriter
   design_dir: ${data.design_dir}
 
-trainer:
-  logger: false
-
 name: null
 output: null
 checkpoint: null

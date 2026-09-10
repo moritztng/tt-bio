@@ -1,64 +1,61 @@
 """The ligand gate: OpenBind folds protein-ligand complexes, OF3-preview2 still refuses.
 
-Host-only, no card. Guards the asymmetry deliberately introduced when ligands were enabled,
-because it is the kind of thing a later "simplification" removes on the reasoning that the
-two models share every module. They do share every module; they do not share training.
-OpenBind is the checkpoint upstream trained and evaluated for protein-ligand co-folding.
-preview2 was released as a polymer model, and its featurizer would happily build a ligand
-and its sampler would happily emit a status=ok structure for it -- garbage from a
-checkpoint that was never trained for the task, which is the same silent-garbage class the
-gate exists to stop.
+Host-only, no card. Guards an asymmetry that was introduced deliberately, because it is the
+kind of thing a later "simplification" removes on the reasoning that the two models share
+every module. They do share every module; they do not share training. OpenBind is the
+checkpoint upstream trained and evaluated for protein-ligand co-folding. preview2 was
+released as a polymer model, and its featurizer would happily build a ligand and its sampler
+would happily emit a status=ok structure for it -- garbage from a checkpoint never trained
+for the task, which is the silent-garbage class the gate exists to stop.
 
-Also pins the Query translation, since a LIGAND chain is shaped differently from a polymer
-one upstream (inference_query_format.Chain): smiles OR ccd_codes, and no sequence. Getting
-that wrong does not raise; it folds something else.
+The refusal itself lives in the capability table (tt_bio/capabilities.py) and is exercised
+across every model in tests/test_input_capabilities.py. What is specific here is the
+asymmetry and the Query translation: a LIGAND chain is shaped differently from a polymer one
+upstream (inference_query_format.Chain), and getting that wrong does not raise, it folds
+something else.
 """
 import pytest
 
-from tt_bio.worker import _validate_openfold3_chains
+from tt_bio.capabilities import CAPABILITY, HONOURED, REFUSED, check_capabilities
 
-# (chain_id, sequence-or-ligand-spec, msa_spec, molecule_type, modifications) -- what
-# _read_bio_chains emits.
 _PROT = ("A", "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",
          None, "protein", None)
 _SMILES = ("B", "c1ccccc1", None, "ligand", None)
 _CCD = ("B", "CCD_ATP", None, "ligand", None)
 
 
-@pytest.mark.parametrize("lig", [_SMILES, _CCD], ids=["smiles", "ccd"])
-def test_openbind_accepts_ligands(lig):
-    _validate_openfold3_chains([_PROT, lig], "openbind")
+def test_the_asymmetry_is_declared():
+    assert CAPABILITY["openbind"]["ligand"] == HONOURED
+    assert CAPABILITY["openfold3"]["ligand"] == REFUSED
 
 
 @pytest.mark.parametrize("lig", [_SMILES, _CCD], ids=["smiles", "ccd"])
-def test_openfold3_still_refuses_ligands(lig):
-    with pytest.raises(RuntimeError, match="polymer-only"):
-        _validate_openfold3_chains([_PROT, lig], "openfold3")
-    # and the refusal has to point somewhere useful, not just say no
-    with pytest.raises(RuntimeError, match="openbind"):
-        _validate_openfold3_chains([_PROT, lig], "openfold3")
+def test_openbind_accepts_ligands_and_preview2_refuses_them(tmp_path, lig):
+    p = tmp_path / "q.yaml"
+    p.write_text("version: 1\nsequences: []\n")
+    check_capabilities(p, [_PROT, lig], "openbind", echo=None)
+    with pytest.raises(RuntimeError) as e:
+        check_capabilities(p, [_PROT, lig], "openfold3", echo=None)
+    # the refusal has to say why and point somewhere useful, not just say no
+    assert "polymer-only" in str(e.value) and "openbind" in str(e.value)
 
 
-def test_blank_ligand_spec_is_refused_on_both():
+def test_a_blank_ligand_spec_never_reaches_a_model(tmp_path):
     """An empty ligand spec builds no molecule; it must not fold to a status=ok structure.
-    The ligand spec rides the sequence slot, so it is the same blank check as a polymer."""
-    for model in ("openbind", "openfold3"):
-        with pytest.raises(RuntimeError):
-            _validate_openfold3_chains([_PROT, ("B", "   ", None, "ligand", None)], model)
+    The spec rides the sequence slot, so this is the same blank check a polymer gets, and it
+    is now in the one reader instead of per model."""
+    from tt_bio.main import _read_bio_chains
 
-
-def test_polymer_only_models_unaffected():
-    """preview2's polymer behaviour is byte-identical to before the ligand work."""
-    for model in ("openbind", "openfold3"):
-        _validate_openfold3_chains([_PROT], model)
-        _validate_openfold3_chains([_PROT, ("B", "GAUC", None, "rna", None)], model)
-        with pytest.raises(RuntimeError, match="empty/whitespace"):
-            _validate_openfold3_chains([("A", "", None, "protein", None)], model)
+    p = tmp_path / "q.yaml"
+    p.write_text("version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MQIF\n"
+                 "  - ligand:\n      id: B\n      smiles: '   '\n")
+    with pytest.raises(Exception, match="empty/whitespace"):
+        _read_bio_chains(p)
 
 
 def test_ligand_query_chain_shape():
-    """A LIGAND Chain upstream takes smiles OR ccd_codes and NO sequence; a polymer takes
-    a sequence and neither. Validated through the real upstream pydantic model, so a field
+    """A LIGAND Chain upstream takes smiles OR ccd_codes and NO sequence; a polymer takes a
+    sequence and neither. Validated through the real upstream pydantic model, so a field
     rename or a tightened validator upstream fails here rather than at fold time."""
     from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
         Chain,

@@ -647,28 +647,32 @@ def embed(sequences, model: str = "saprot-650m", *, fast=False, return_logits=Fa
 # its `structureto3didescriptor` subcommand. It runs on CPU, off-device, and is
 # not a ttnn concern. The struc vocab is the 20 Foldseek 3Di states + "#" (unknown).
 
-_FOLDSEEK_BIN_CANDIDATES = (
-    os.environ.get("FOLDSEEK_BIN", ""),
-    "/home/ttuser/miniforge3/envs/foldseek/bin/foldseek",
-    "foldseek",
-)
+def find_foldseek(foldseek_bin: str | None = None) -> str:
+    """Locate the foldseek binary: ``--foldseek``, then ``FOLDSEEK_BIN``, then PATH.
 
+    A path given explicitly has to be there. Falling back to PATH after a bad
+    ``--foldseek`` would run a different binary than the one asked for.
+    """
+    import shutil
 
-def find_foldseek() -> str:
-    """Locate the foldseek binary (FOLDSEEK_BIN env, then PATH)."""
-    for cand in _FOLDSEEK_BIN_CANDIDATES:
+    explicit = [(foldseek_bin, "--foldseek"),
+                (os.environ.get("FOLDSEEK_BIN") or None, "FOLDSEEK_BIN")]
+    for cand, where in explicit:
         if not cand:
             continue
         p = os.path.expanduser(cand)
         if os.path.isfile(p) and os.access(p, os.X_OK):
             return p
-    import shutil
+        raise ValueError(
+            f"{where}={cand} is not an executable file. SaProt needs foldseek to turn "
+            "a structure into 3Di tokens.")
     found = shutil.which("foldseek")
     if found:
         return found
     raise ValueError(
-        "foldseek not found. Install it (e.g. `conda install -c bioconda foldseek`) "
-        "or set FOLDSEEK_BIN to its path. SaProt needs 3Di tokens from a structure.")
+        "foldseek not found on PATH. Install it (e.g. `conda install -c bioconda "
+        "foldseek`), or point --foldseek / FOLDSEEK_BIN at the binary. SaProt needs "
+        "3Di tokens from a structure.")
 
 
 def foldseek_3di(pdb_path: str, foldseek_bin: str | None = None, chains: list | None = None) -> dict:
@@ -679,7 +683,7 @@ def foldseek_3di(pdb_path: str, foldseek_bin: str | None = None, chains: list | 
     Foldseek 3Di states (lower-cased) plus ``#`` for masked/unknown residues.
     """
     import subprocess, tempfile
-    bin_ = foldseek_bin or find_foldseek()
+    bin_ = find_foldseek(foldseek_bin)
     if not os.path.isfile(pdb_path):
         raise ValueError(f"structure file not found: {pdb_path}")
     out = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False).name
@@ -733,13 +737,18 @@ def read_shard_yaml(path) -> dict:
     return out
 
 
-def load_sequences_with_structure(data, structure=None) -> dict:
+def load_sequences_with_structure(data, structure=None, foldseek_bin=None) -> dict:
     """Load {id: (aa, struc)} for the SaProt tokenizer.
 
     ``data`` is a FASTA file/dir/bare AA sequence (reuses ``esmc.load_sequences``).
     ``structure`` is a single PDB/cif (its first chain is paired with a single
     input sequence), a directory of PDB/cif files named ``<id>.pdb``/``<id>.cif``
     matched to the FASTA ids, or None (sequence-only: 3Di taken as all ``#``).
+
+    The 3Di string is placed on the sequence by matching the structure's own residues,
+    not by length: foldseek reports 3Di only for residues the structure resolves, so a
+    deposited structure with an unresolved loop returns a shorter string and lining the
+    two up by length shifts every token after the gap. See ``_map_3di``.
     """
     from tt_bio import esmc
     aas = esmc.load_sequences(data)  # {id: aa}
@@ -749,11 +758,11 @@ def load_sequences_with_structure(data, structure=None) -> dict:
         return out
     spath = Path(structure).expanduser()
     if spath.is_file():
-        seqs = foldseek_3di(str(spath))
+        seqs = foldseek_3di(str(spath), foldseek_bin)
         first = next(iter(seqs.values()))
         if len(aas) == 1:
             sid = next(iter(aas))
-            out[sid] = (aas[sid], _align_3di(aas[sid], first[1]))
+            out[sid] = (aas[sid], _map_3di(aas[sid], first[0], first[1], spath))
         else:
             raise ValueError(
                 "a single --structure pairs with a single input sequence; pass a "
@@ -770,18 +779,42 @@ def load_sequences_with_structure(data, structure=None) -> dict:
                 raise ValueError(
                     f"no structure file '{sid}.pdb/.cif' in {spath}; --structure dir "
                     "must contain one per FASTA id")
-            ch = foldseek_3di(str(cand))
+            ch = foldseek_3di(str(cand), foldseek_bin)
             first = next(iter(ch.values()))
-            out[sid] = (aa, _align_3di(aa, first[1]))
+            out[sid] = (aa, _map_3di(aa, first[0], first[1], cand))
         return out
     raise ValueError(f"--structure must be a PDB/cif file or a directory: {structure}")
 
 
-def _align_3di(aa: str, struc: str) -> str:
-    """Right-pad or truncate the 3Di string to the AA length (foldseek 3Di may
-    include/omit residues relative to the FASTA AA sequence)."""
-    if len(struc) >= len(aa):
-        return struc[: len(aa)]
-    return struc + "#" * (len(aa) - len(struc))
+def _map_3di(aa: str, struct_aa: str, struct_3di: str, path) -> str:
+    """Put each structural token on the residue it belongs to, or refuse.
+
+    Foldseek returns the structure's own amino-acid sequence alongside the 3Di string,
+    and that is what says which residues the structure actually resolved. Matching the
+    two sequences and filling the unresolved positions with ``#`` (SaProt's own token for
+    unknown structure) is the whole fix. Reconciling by length instead put another
+    residue's token on 82 of 117 positions for a structure missing three residues, and
+    the run reported success.
+
+    Every residue the structure resolves has to land somewhere in the sequence. If some
+    do not, the structure is not of this sequence and pairing them would invent a fused
+    AA+3Di token for each mismatch, so this refuses rather than guess.
+    """
+    from difflib import SequenceMatcher
+
+    if struct_aa == aa:
+        return struct_3di
+    tokens = ["#"] * len(aa)
+    placed = 0
+    for i, j, n in SequenceMatcher(a=aa, b=struct_aa, autojunk=False).get_matching_blocks():
+        tokens[i:i + n] = list(struct_3di[j:j + n])
+        placed += n
+    if placed < len(struct_aa):
+        raise ValueError(
+            f"{path}: the structure resolves {len(struct_aa)} residues but only {placed} of "
+            f"them appear in the {len(aa)}-residue input sequence, so this structure is not "
+            "of this sequence. Pass the matching structure, or drop --structure to run "
+            "sequence-only.")
+    return "".join(tokens)
 
 

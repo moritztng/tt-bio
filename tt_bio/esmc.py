@@ -1958,8 +1958,18 @@ def write_parquet(embeddings: list[ESMCEmbedding], path) -> None:
     df.to_parquet(path)
 
 
+# What a run's logits array is, per model family. SaProt's head is the fused AA+3Di
+# vocabulary, ESMC's is the 64-token sequence head; the manifest has to say which, and
+# saying it here rather than patching the written JSON afterwards is what keeps a run
+# that produced no logits from advertising a shape for them.
+LOGITS_SHAPE = "[length, 64] float32 (per-residue sequence-head logits)"
+SAPROT_LOGITS_SHAPE = ("[length, 446] float32 (per-residue MLM logits over the fused "
+                       "AA+3Di vocab)")
+
+
 def write_manifest(embeddings: list[ESMCEmbedding], path, *, model: str, pool: str,
-                   fast: bool, out_format: str, return_logits: bool) -> None:
+                   fast: bool, out_format: str, return_logits: bool,
+                   logits_shape: str = LOGITS_SHAPE) -> None:
     """Write a manifest.json documenting a run's outputs — shapes, dtype, ordering,
     and which file holds each sequence — so a downstream consumer never has to
     read the code to know what it's looking at.
@@ -1967,11 +1977,13 @@ def write_manifest(embeddings: list[ESMCEmbedding], path, *, model: str, pool: s
     id_lengths = [(e.id, len(e.sequence)) for e in embeddings]
     d_model = int(embeddings[0].pooled.shape[0])
     write_manifest_for(id_lengths, d_model, path, model=model, pool=pool, fast=fast,
-                       out_format=out_format, return_logits=return_logits)
+                       out_format=out_format, return_logits=return_logits,
+                       logits_shape=logits_shape)
 
 
 def write_manifest_for(id_lengths: list[tuple[str, int]], d_model: int, path, *, model: str,
-                       pool: str, fast: bool, out_format: str, return_logits: bool) -> None:
+                       pool: str, fast: bool, out_format: str, return_logits: bool,
+                       logits_shape: str = LOGITS_SHAPE) -> None:
     """Core of :func:`write_manifest`, taking ``(id, length)`` pairs directly.
 
     Lets a caller that only has per-sequence id/length (e.g. reassembled from
@@ -1986,7 +1998,7 @@ def write_manifest_for(id_lengths: list[tuple[str, int]], d_model: int, path, *,
         "shapes": {
             "per_residue": "[length, d_model] float32, one row per residue, <cls>/<eos> stripped",
             "pooled": "[d_model] float32",
-            "logits": "[length, 64] float32 (per-residue sequence-head logits)" if return_logits else None,
+            "logits": logits_shape if return_logits else None,
         },
         "sequences": [
             {"id": sid, "length": length,

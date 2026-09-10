@@ -74,14 +74,14 @@ tt-bio predict examples/prot.yaml --model boltz2 --override
 Every command names its model with `--model`:
 
 - **`boltz2`**: folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
-- **`esmfold2`** / **`esmfold2-fast`**: fold complexes of proteins, DNA, RNA, and ligands (CCD code or SMILES) on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint). Modified residues are folded as the modified chemistry. Cyclic chains and covalent `bond` constraints are not supported (they raise a clear error).
-- **`protenix-v1`** / **`protenix-v2`**: fold complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emit a PAE/PDE matrix with `--write_pae`. `protenix-v1` is upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against `protenix-v2`'s 10, so it is the cheaper of the two. Cyclic chains are not supported by either (they raise a clear error); covalent `bond` constraints are.
-- **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only, ligands, covalent bonds and cyclic chains are not supported yet (raise a clear error). Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
-- **`openbind`**: OpenBind-0, the same OpenFold3 stack on upstream's v0.5.0 checkpoint, tuned for protein-ligand co-folding. Takes ligands by SMILES or CCD code alongside protein, RNA and DNA chains; MSA-dependent (uses an MSA by default), with optional per-chain templates. Covalent bonds and cyclic chains are not supported yet (raise a clear error). Weights are a separate file from `openfold3` and are not downloaded; point `TT_BIO_OPENBIND` at them (see [`docs/weights.md`](docs/weights.md)).
+- **`esmfold2`** / **`esmfold2-fast`**: fold complexes of proteins, DNA, RNA, and ligands (CCD code or SMILES) on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint). Modified residues are folded as the modified chemistry. Cyclic chains, templates and constraints are not supported and are refused.
+- **`protenix-v1`** / **`protenix-v2`**: fold complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emit a PAE/PDE matrix with `--write_pae`. `protenix-v1` is upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against `protenix-v2`'s 10, so it is the cheaper of the two. Covalent `bond` constraints and modified residues are supported, and `protenix-v2` takes per-chain templates as a precomputed alignment `.npz`. `protenix-v1`'s checkpoint ships no template blocks, so it refuses templates; cyclic chains are refused on both.
+- **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only: ligands, covalent bonds, cyclic chains and modified residues are refused. Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
+- **`openbind`**: OpenBind-0, the same OpenFold3 stack on upstream's v0.5.0 checkpoint, tuned for protein-ligand co-folding. Takes ligands by SMILES or CCD code alongside protein, RNA and DNA chains; MSA-dependent (uses an MSA by default), with optional per-chain templates. Covalent bonds, cyclic chains and modified residues are refused. Weights are a separate file from `openfold3` and are not downloaded; point `TT_BIO_OPENBIND` at them (see [`docs/weights.md`](docs/weights.md)).
 - **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
 - **`nesso1`** (`tt-bio affinity`): protein-ligand binding affinity without a structure. Predicts a soft distogram and reads the affinity off that, so it is much cheaper than folding and it returns no coordinates. Proteins and ligands only.
-- **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only for now; proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
-- **`rf3`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, [RoseTTAFold3](https://github.com/RosettaCommons/foundry) from the Institute for Protein Design); MSA-dependent for proteins (uses an MSA by default). Writes AlphaFold3-style `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score) next to each structure. Non-canonical residues, covalent modifications and cyclic chains reach the model only through RF3's own JSON/CIF spec, which `featurize` reads directly; the YAML/FASTA input builds its spec from chains alone, so a `constraints:`, `modifications:` or `cyclic:` block is refused there rather than dropped. Weights download from the IPD on first use.
+- **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein and ligand chains, with covalent `bond` constraints, modified residues and per-chain templates; nucleic acids and cyclic chains are refused. Proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
+- **`rf3`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, [RoseTTAFold3](https://github.com/RosettaCommons/foundry) from the Institute for Protein Design); MSA-dependent for proteins (uses an MSA by default). Writes AlphaFold3-style `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score) next to each structure. Non-canonical residues, covalent modifications and cyclic chains reach the model only through RF3's own JSON/CIF spec, which `featurize` reads directly; the YAML/FASTA input builds its spec from chains alone, so a `constraints:`, `modifications:`, `templates:` or `cyclic:` block is refused there rather than dropped. Weights download from the IPD on first use.
 
 ```bash
 tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
@@ -101,10 +101,12 @@ tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the roll
 |---|---|---|---|---|---|---|---|---|
 | Input | protein/DNA/RNA/ligand complex | protein/DNA/RNA/ligand complex | protein/DNA/RNA/ligand complex | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein/DNA/RNA/ligand complex | protein complex (antibody-antigen) | protein/DNA/RNA/ligand complex |
 | MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
-| Affinity / potentials / templates | yes | no | no | no | templates only | templates only | no | no |
-| Pocket / contact constraints | yes | no | no | no | no | no | no | no |
-| Covalent `bond` constraints | yes | no | yes | yes | no | no | yes | from the input structure |
 | PAE/PDE output (`--write_pae`) | no | no | yes | yes | no | no | no | in `_summary_confidences.json` |
+
+Ligands, nucleic acids, modified residues, cyclic chains, covalent and pocket constraints,
+templates and affinity are one generated matrix:
+[`docs/model-capabilities.md`](docs/model-capabilities.md). Anything a model cannot honour is
+refused by name before the fold starts, never accepted and dropped.
 
 Targets of 850-1095 residues have folded on a single 12 GiB Wormhole card on every structure
 model, but that is not the same as a ceiling: a few models fail at sizes *below* one they handle,
@@ -120,12 +122,14 @@ under 1024:
 | `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
 | `protenix-v2` | 1024 | 1095 |
+| `esmfold2` | 1024 (residues; a ligand adds tokens) | 1057 |
+| `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1280 |
 | `rfd3` | 1024 (motif + designed) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968 | 1984 |
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
 model, the limit and any model that does take the input. `rf3` is not in the table because
-it folds every rung to 1095 residues, the top of its ladder. `boltz2`, `esmfold2`,
+it folds every rung to 1095 residues, the top of its ladder. `boltz2`,
 `boltzgen` and `nesso1` have no measured limit and are never refused. These numbers are
 Wormhole only; nothing is enforced on Blackhole, which has more memory per chip and where
 nobody has walked a ladder to a failure.
@@ -138,6 +142,15 @@ bound: 960 residues fold and 1024 do not. Its limit counts residues, but ligand 
 too as far as the hardware is concerned, so 960 holds for a ligand of roughly 64 atoms or
 fewer. A much larger ligand can fail below the published number, and a residue count cannot
 warn you about that.
+
+`esmfold2`'s limit was walked the same way, and it carries the same caveat more sharply. 1024
+residues fold and 1057 do not, and the wall is a token wall: a protein-only fold at 1057 tokens
+and a cocrystal at 1057 tokens are refused by the identical DRAM allocation, so a ligand costs
+exactly the tokens it adds and nothing more. Because 1024 is the wall rather than a rung below
+it, 1024 residues plus *any* ligand is already over -- the residue count cannot see those atoms,
+so that input is accepted here and fails on the chip. `esmfold2-fast` is the same architecture at
+half the trunk depth and is roomier, which is why it has its own row rather than sharing one:
+it folds 1152 residues and fails at 1280, where the full trunk already fails at 1057.
 
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
@@ -265,9 +278,12 @@ tt-bio saprot proteins.fasta --model saprot-650m --devices 0,1    # data-paralle
 
 `--structure` is a PDB/cif file (single sequence) or a directory of `<id>.pdb`/`<id>.cif`
 files, one per FASTA id. The 3Di structural tokens are computed on host with
-[Foldseek](https://github.com/steineggerlab/foldseek) (`conda install -c bioconda foldseek`,
-or set `FOLDSEEK_BIN`); it runs off-device. Omit `--structure` for sequence-only mode
-(lower accuracy for 35M/650M; the 1.3B works sequence-only).
+[Foldseek](https://github.com/steineggerlab/foldseek) (`conda install -c bioconda foldseek`;
+`--foldseek PATH` or `FOLDSEEK_BIN` if it is not on PATH); it runs off-device. Residues
+the structure does not resolve get the `#` unknown-structure token, and a structure that
+is not of the sequence you passed is refused rather than lined up by length. Omit
+`--structure` for sequence-only mode (lower accuracy for 35M/650M; the 1.3B works
+sequence-only).
 
 For each sequence you get **per-residue** structure-aware embeddings (`[length, d_model]`
 float32) and a **pooled** vector, plus per-residue MLM logits (`[length, 446]` with
@@ -599,11 +615,12 @@ templates:
     threshold: 2.0           # Max deviation in Angstroms
 ```
 
-OpenFold3 takes templates per protein chain instead, as a precomputed alignment
-`.npz` (the format the upstream benchmark cache ships). There is no template
-search; the referenced structures are fetched from RCSB, and a missing one is a
-hard error rather than a silently dropped template. See
-`examples/7xi5_tmpl.yaml`.
+`openfold3`, `openbind`, `protenix-v2`, `opendde` and `opendde-abag` take
+templates per protein chain instead, as a precomputed alignment `.npz` (the
+format the upstream benchmark cache ships). It is one file format across all
+five. There is no template search; the referenced structures are fetched from
+RCSB, and a missing one is a hard error rather than a silently dropped
+template. See `examples/7xi5_tmpl.yaml`.
 
 ```yaml
 sequences:
@@ -673,7 +690,7 @@ Model-specific options are labelled below.
 | `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE) |
 | `--msa_server_url` | `https://api.colabfold.com` | MSA server URL |
 | `--msa_pairing_strategy` | `greedy` | `greedy` or `complete` |
-| `--max_msa_seqs` | `8192` | Maximum MSA sequences |
+| `--max_msa_seqs` | `8192` | Maximum MSA depth. The default applies to Boltz-2 and ESMFold-2 only; Protenix, OpenDDE, RF3, OpenFold3 and OpenBind fold the whole alignment unless you set it. Each fold reports the depth it used as `msa_depth` |
 | `--subsample_msa` | `False` | Subsample MSA |
 | `--num_subsampled_msa` | `1024` | Number of subsampled sequences |
 
@@ -760,9 +777,9 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 **[BoltzGen](https://github.com/HannesStark/boltzgen)** designs binders against a target structure. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<out_dir>/final_ranked_designs/`. Input grammar, protocols, pipeline subsets, and options: [`docs/boltzgen-design.md`](docs/boltzgen-design.md). Designability (scRMSD) QA: [`docs/boltzgen-designability.md`](docs/boltzgen-designability.md).
 
-**[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and current limitations: [`docs/rfd3-design.md`](docs/rfd3-design.md).
+**[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and which conditioning fields a spec can and cannot ask for: [`docs/rfd3-design.md`](docs/rfd3-design.md).
 
-**[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and 8 at a time runs about 1.25x faster per design than one at a time. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
+**[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. Hotspot residues are `label_seq` numbers, not the author numbering a viewer shows, and a number that names no residue is refused rather than dropped. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and 8 at a time runs about 1.25x faster per design than one at a time; design `k` comes from `--seed + k` whatever `--num_designs` you ask for. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
 Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a fleet with `--controller http://host:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 

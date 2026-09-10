@@ -137,6 +137,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import click
+from click.core import ParameterSource
 import numpy as np
 import torch
 from rdkit import Chem
@@ -656,9 +657,10 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
                 compute_msa(to_gen, record.id, msa_dir, msa_url, msa_strategy, msa_user, msa_pass, api_key)
             elif to_gen:
                 raise RuntimeError(
-                    "Missing MSAs. Use one of:\n"
-                    "  1) Online:  --use_msa_server\n"
-                    "  2) Offline: tt-bio msa  (then rerun predict)"
+                    "No MSA for this target and no source to search one with. Use:\n"
+                    "  --use_msa_server        the online ColabFold server\n"
+                    "  --msa_db_path <dir>     a local ColabFold DB (`tt-bio msa` downloads one)\n"
+                    "  --single_sequence       fold without an MSA, at a large accuracy cost"
                 )
         finally:
             for lf in locks:
@@ -1616,6 +1618,20 @@ class _Cli(click.Group):
             raise click.ClickException(str(exc)) from exc
 
 
+def _quiet_download_bars() -> None:
+    """Silence huggingface_hub's tqdm bar when stderr is not a terminal.
+
+    It is the one progress bar tt-bio does not own, and it writes carriage
+    returns straight into a redirected log ("Fetching 6 files: 0%|..."), which is
+    exactly what the rest of the CLI switches to plain timestamped lines to
+    avoid. Set in the environment rather than through the library so the worker
+    subprocesses that do the actual downloading inherit it. A terminal keeps its
+    bar, and an explicit setting from the caller wins.
+    """
+    if not _sys.stderr.isatty():
+        os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+
+
 @click.group(cls=_Cli)
 def cli():
     """Run biomolecular prediction, design, and embedding on Tenstorrent."""
@@ -1623,6 +1639,7 @@ def cli():
     # CLI spawned us, die with it instead of polling or holding a card after it is gone.
     from tt_bio.device_lease import arm_orphan_guard
 
+    _quiet_download_bars()
     arm_orphan_guard()
 
 
@@ -1639,7 +1656,15 @@ def _run_boltzgen_cli(prog: str, args) -> None:
 
     ensure_p300_mesh_descriptor()
 
-    _bg_main()
+    try:
+        _bg_main()
+    except ValueError as exc:
+        # BoltzGen's CLI raises ValueError for bad input: an unknown --config
+        # key, an invalid step or protocol name, a budget below 1. Those reached
+        # the user as a traceback. --debug still shows it.
+        if "--debug" in sys.argv:
+            raise
+        raise click.ClickException(str(exc)) from exc
 
 
 @cli.command(
@@ -2025,6 +2050,36 @@ def _chain_label(n: int) -> str:
 
 _NA_HEADER_TYPES = {"rna": "rna", "rnasequence": "rna", "dna": "dna", "dnasequence": "dna"}
 
+#: Keys the YAML input language defines. A key outside these sets is a typo, and a typo used
+#: to cost a whole chain or a whole constraint block without a word: `protien:` folded the
+#: complex one chain short, `constrains:` folded without the covalent bond, both status=ok.
+#: What a MODEL does with a key it cannot honour is a separate question, answered by the one
+#: table in tt_bio/capabilities.py.
+_DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates"})
+_ENTRY_KEYS = frozenset({"protein", "rna", "dna", "ligand"})
+_POLYMER_KEYS = frozenset({"id", "sequence", "msa", "modifications", "cyclic", "templates"})
+_LIGAND_KEYS = frozenset({"id", "ccd", "smiles"})
+
+
+def _check_yaml_keys(doc: dict, path) -> None:
+    """Refuse an unrecognized key instead of dropping it."""
+    def bad(what, keys, allowed):
+        extra = sorted(set(keys) - allowed)
+        if extra:
+            raise click.ClickException(
+                f"{path.name}: unrecognized {what} {', '.join(repr(k) for k in extra)}. "
+                f"Accepted: {', '.join(sorted(allowed))}.")
+
+    bad("top-level key(s)", doc, _DOC_KEYS)
+    for entry in doc.get("sequences") or []:
+        if not isinstance(entry, dict):
+            continue
+        bad("entity key(s)", entry, _ENTRY_KEYS)
+        for key, sub in entry.items():
+            if isinstance(sub, dict):
+                bad(f"key(s) on a {key} entity", sub,
+                    _LIGAND_KEYS if key == "ligand" else _POLYMER_KEYS)
+
 
 def _read_bio_chains(path, what="input"):
     """Read a FASTA/YAML complex as [(chain_id, sequence, msa_spec, mol_type, modifications)].
@@ -2081,6 +2136,7 @@ def _read_bio_chains(path, what="input"):
     elif suffix in (".yml", ".yaml"):
         import yaml
         doc = yaml.safe_load(path.read_text()) or {}
+        _check_yaml_keys(doc, path)
         for entry in doc.get("sequences", []):
             if not isinstance(entry, dict):
                 continue
@@ -2110,6 +2166,11 @@ def _read_bio_chains(path, what="input"):
                     chains.append((c.strip(), spec, None, "ligand", None))
     else:
         raise click.ClickException(f"Unsupported input for {what}: {path.name}")
+    blank = [cid for cid, cseq, _sp, _mt, _mods in chains if not cseq or not cseq.strip()]
+    if blank:
+        raise click.ClickException(
+            f"{path.name}: chain(s) {', '.join(blank)} have empty/whitespace-only "
+            f"sequences (a ligand carries its CCD/SMILES spec in the same slot).")
     return chains
 
 
@@ -2170,6 +2231,43 @@ def _read_bio_constraints(path):
     return bonds
 
 
+def cap_a3m_text(text, max_seqs):
+    """``text`` truncated to its first ``max_seqs`` alignment records (the query is record 0).
+
+    The ONE place ``--max_msa_seqs`` is applied to an a3m, so protenix-v1/v2, opendde and
+    rf3 cap depth the same way and the same way boltz2 already does it in
+    ``data/parse.py::_parse_a3m`` (rows counted from the top, query included). Returns
+    ``text`` unchanged when no cap was asked for or the file already fits, so an uncapped
+    run reads byte-identical input to before.
+    """
+    if not text or not max_seqs or max_seqs <= 0:
+        return text
+    out, kept = [], 0
+    for line in text.splitlines(keepends=True):
+        if line.startswith(">"):
+            kept += 1
+            if kept > max_seqs:
+                break
+        out.append(line)
+    return text if kept <= max_seqs else "".join(out)
+
+
+def cap_a3m_file(path, max_seqs, tmp_dir):
+    """A capped copy of the a3m at ``path`` under ``tmp_dir``, or ``path`` itself when it
+    already fits. For the callers that hand a PATH to a featurizer (rf3's per-component
+    ``msa_path``) rather than text."""
+    if not max_seqs or max_seqs <= 0:
+        return path
+    path = Path(path)
+    text = path.read_text()
+    capped = cap_a3m_text(text, max_seqs)
+    if capped is text:                                  # already under the cap
+        return path
+    out = Path(tmp_dir) / f"{path.stem}.cap{max_seqs}.a3m"
+    publish_text(out, capped)
+    return out
+
+
 def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     """Return the a3m file for a chain, or None for single-sequence folding. Tries an
     explicit a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in
@@ -2186,21 +2284,29 @@ def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     return None
 
 
-def _resolve_a3m_text(msa_spec, sequence, msa_dir):
+def _resolve_a3m_text(msa_spec, sequence, msa_dir, max_seqs=None):
     """The same resolution, as text: what the protenix featurizer takes. RF3's takes a
-    path (`msa_path` per component), which is why the path half is separate."""
+    path (`msa_path` per component), which is why the path half is separate.
+
+    ``max_seqs`` is the user's ``--max_msa_seqs``, applied here so protenix-v1/v2 and
+    opendde cap depth in the one place they already share."""
     p = _resolve_a3m_path(msa_spec, sequence, msa_dir)
-    return p.read_text() if p else None
+    return cap_a3m_text(p.read_text(), max_seqs) if p else None
 
 
-def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None):
+def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None,
+                              mod_names=None):
     """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
 
     Reconstructed entirely from the feature dict so it is modality- and chain-agnostic
     (proteins, complexes, nucleic acids, ligands): atom name from ref_atom_name_chars,
     element from ref_element, chain letter from asym_id, residue number from residue_index,
     residue name from restype. `aatype` is accepted for back-compat but unused. `b_factors`
-    (per-atom, e.g. pLDDT*100) is written to the B-factor column when given."""
+    (per-atom, e.g. pLDDT*100) is written to the B-factor column when given.
+
+    `mod_names` maps (asym_id, residue_index) -> CCD code for a `modifications:` residue.
+    Those residues are tokenized per atom and carry restype UNK, so without it the writer
+    would name them "LIG" and a user who asked for SEP would read back a ligand."""
     import biotite.structure as struc
     import biotite.structure.io.pdb as _pdb
     import biotite.structure.io.pdbx as _pdbx
@@ -2234,10 +2340,11 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
         t = a2t[i]
         arr.chain_id[i] = _chain_label(int(asym[t]))
         arr.res_id[i] = int(resid[t])
-        arr.res_name[i] = "LIG" if is_lig_tok[t] else resname[t]
+        mod = (mod_names or {}).get((int(asym[t]), int(resid[t])))
+        arr.res_name[i] = mod or ("LIG" if is_lig_tok[t] else resname[t])
         arr.atom_name[i] = names[i]
         arr.element[i] = z2sym.get(int(znum[i]), "C")
-        arr.hetero[i] = is_lig_tok[t]
+        arr.hetero[i] = is_lig_tok[t] or mod is not None
     outpath = Path(outpath)
     if output_format == "pdb":
         pf = _pdb.PDBFile(); pf.set_structure(arr); pf.write(str(outpath))
@@ -2379,6 +2486,28 @@ RECYCLING_STEPS = {
 }
 RECYCLING_STEPS_DEFAULT = 3
 
+#: Models whose trunk runs --recycling_steps + 1 cycles rather than exactly N. Measured
+#: off the live progress stream, not asserted: esmfold2 shows "Trunk 0/11" at its default
+#: of 10, openfold3 "Trunk 0/4" at 3, while rf3 and opendde show 10/10 at 10. The help is
+#: built from this, because it used to name openfold3 alone.
+TRUNK_CYCLES_PLUS_ONE = ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind")
+
+#: Requested diffusion-sampling steps per model, and what the request executes where the
+#: two differ (see _resolve_sampling_steps for why). The help is built from this: it used
+#: to say "every other model 200" while rf3 has shipped 50 since its port.
+SAMPLING_STEPS = {"esmfold2": 100, "esmfold2-fast": 100, "rf3": 50}
+SAMPLING_STEPS_DEFAULT = 200
+SAMPLING_STEPS_EXECUTED = {100: 68, 50: 49}
+
+
+def _grouped_defaults(table, default, models):
+    """Render a per-model default table as "V: a, b; W: c", commonest value last."""
+    groups = {}
+    for m in models:
+        groups.setdefault(table.get(m, default), []).append(m)
+    ordered = sorted(groups.items(), key=lambda kv: (len(kv[1]), kv[0]))
+    return "; ".join(f"{v} for {', '.join(ms)}" for v, ms in ordered)
+
 
 def _resolve_recycling_steps(recycling_steps, model):
     """Per-model default trunk-recycling count when --recycling_steps is unset (None).
@@ -2413,11 +2542,7 @@ def _resolve_sampling_steps(sampling_steps, model):
     """
     if sampling_steps is not None:
         return sampling_steps
-    if model in ("esmfold2", "esmfold2-fast"):
-        return 100
-    if model == "rf3":
-        return 50
-    return 200
+    return SAMPLING_STEPS.get(model, SAMPLING_STEPS_DEFAULT)
 
 
 # The structure models that degrade sharply folded single-sequence, so `predict` resolves an
@@ -2428,6 +2553,16 @@ def _resolve_sampling_steps(sampling_steps, model):
 # actually used, instead of hand-listing the same set a second time.
 MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "openbind", "opendde", "opendde-abag",
                      "rf3")
+
+# The models whose worker path actually passes --msa_endpoint to its MSA search
+# (grep msa_endpoint in worker.py: _predict_esmfold2_one, _predict_opendde_one,
+# _protenix_inputs, _predict_rf3_one, _predict_openfold3_one). boltz2 resolves
+# MSAs through main.py's own path, which has no endpoint client. The option help
+# is built from this tuple so the two cannot drift: the help used to omit rf3,
+# and passing the flag with --model boltz2 was accepted and then died mid-run
+# with "Missing MSAs", blaming the user for supplying no source.
+MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2",
+                       "openfold3", "openbind", "opendde", "opendde-abag", "rf3")
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
@@ -2456,6 +2591,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
     """
+    if msa_endpoint and model not in MSA_ENDPOINT_MODELS:
+        raise click.BadParameter(
+            f"--msa_endpoint is not read by --model {model}; it applies to "
+            f"{', '.join(MSA_ENDPOINT_MODELS)}. Use --msa_db_path for a local "
+            "ColabFold DB or --use_msa_server for the online one.")
     if model not in MSA_DEFAULT_MODELS:
         return use_msa_server, msa_db_path
 
@@ -2499,13 +2639,17 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--checkpoint", type=click.Path(exists=True), default=None)
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
-              help="Trunk recycling iterations. Default: protenix-v2/opendde/esmfold2/rf3 use 10; "
-                   "protenix-v1 uses 4, its own upstream N_cycle; boltz2 and openfold3 use 3 "
-                   "(openfold3 runs recycles+1 = 4 trunk cycles).")
+              help="Trunk recycling iterations. Default: "
+                   + _grouped_defaults(RECYCLING_STEPS, RECYCLING_STEPS_DEFAULT, PREDICT_MODELS)
+                   + ". " + ", ".join(TRUNK_CYCLES_PLUS_ONE)
+                   + " run one more trunk cycle than they are asked for (N recycles = N+1 cycles), "
+                     "which is the count the progress view shows.")
 @click.option("--sampling_steps", default=None, type=int,
-              help="Requested diffusion sampling steps. Default: esmfold2/esmfold2-fast request "
-                   "100 (executes 68 after the sigma_max=256 schedule clip); every other model "
-                   "200. Explicit values are honored verbatim.")
+              help="Requested diffusion sampling steps. Default: "
+                   + _grouped_defaults(SAMPLING_STEPS, SAMPLING_STEPS_DEFAULT, PREDICT_MODELS)
+                   + ". A request of 100 executes 68 (the sigma_max=256 schedule clip) and 50 "
+                     "executes 49 (the rollout consumes consecutive schedule pairs). Explicit "
+                     "values are honored verbatim.")
 @click.option("--diffusion_samples", default=1, type=int)
 @click.option("--partial_t", default=0, type=int,
               help="RF3 only. Start the diffusion rollout at schedule index N instead of "
@@ -2543,7 +2687,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v1/protenix-v2/openfold3/"
                    "opendde (no local DB, no online server). Explicit opt-out for batch-screening "
                    "orphan sequences.")
-@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v1/protenix-v2/openfold3/openbind/opendde.")
+@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model " + "/".join(MSA_ENDPOINT_MODELS) + ".")
 @click.option("--msa_server_url", default="https://api.colabfold.com")
 @click.option("--msa_pairing_strategy", default="greedy")
 @click.option("--msa_server_username", default=None)
@@ -2700,6 +2844,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only)
 
+    from tt_bio.capabilities import check_capabilities, unread_flags
+
     if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
                  "opendde-abag", "rf3"):
         # ESMFold2, Protenix, OpenFold3, OpenDDE and RF3 ride the SAME scheduler / worker /
@@ -2722,16 +2868,25 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 f"it), so --accelerator {accelerator} cannot be honored. Drop the flag to fold "
                 f"on the card; --model boltz2 is the one model with a CPU/GPU path."
             )
-        for n, on in [("--use_potentials", use_potentials),
-                      ("--write_embeddings", write_embeddings), ("--checkpoint", bool(checkpoint))]:
+        for n, on in [("--use_potentials", use_potentials), ("--checkpoint", bool(checkpoint))]:
             if on:
-                click.secho(f"Note: --model {model} is protein-only; ignoring {n}", fg="yellow")
-        # Every other fold model with a confidence head writes <name>_pae.npz under
-        # --write_pae; OF3's head computes PAE logits but the fold does not return the
-        # matrices, so the flag would otherwise be a silent no-op.
-        if model in OF3_FAMILY and (write_pae or write_pde):
-            click.secho(f"Note: --model {model} does not emit PAE/PDE matrices; "
-                        "ignoring --write_pae/--write_pde", fg="yellow")
+                click.secho(f"Note: --model {model} does not read {n}; ignoring it", fg="yellow")
+        # --max_msa_seqs left at its default means "the depth this model already uses", not
+        # 8192: protenix-v1/v2, opendde, rf3 and the OF3 family fold the resolved alignment
+        # whole, so applying the boltz2/esmfold2 default to them would quietly change every
+        # fold they have ever produced. The cap travels only when the user asked for one, and
+        # that same signal is what decides whether the "does not read it" note fires.
+        msa_cap = (max_msa_seqs if click.get_current_context()
+                   .get_parameter_source("max_msa_seqs") is not ParameterSource.DEFAULT
+                   else None)
+        # Output and limit flags this model does not read, from the one table. --write_pae was
+        # already called out for the OF3 family and was a silent no-op everywhere else it is
+        # unread: esmfold2 and rf3 accepted it and wrote nothing, --write_pde did nothing on
+        # protenix (--write_pae writes both).
+        for note in unread_flags(model, {"--write_pae": write_pae, "--write_pde": write_pde,
+                                         "--write_embeddings": write_embeddings,
+                                         "--max_msa_seqs": msa_cap is not None}):
+            click.secho(note, fg="yellow")
         # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
         # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
         # --fast block-fp8 path halves it to ~6.4 GB and, with the grid-aware FFN
@@ -2763,6 +2918,18 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo("All predictions complete" if done else "No input files found")
             return
 
+        # Read every input NOW and refuse what this model cannot honour, before the weights
+        # download and the first device open. The worker checks again -- that is the
+        # authoritative point, because the platform submits jobs straight to the controller
+        # and never comes through here -- but a user typing a command should not wait two
+        # minutes for a model load to be told the yaml key is unsupported.
+        for job in jobs:
+            jp = Path(job.path)
+            try:
+                check_capabilities(jp, _read_bio_chains(jp, what=model), model)
+            except RuntimeError as e:
+                raise click.ClickException(str(e)) from e
+
         # MSA is resolved + searched worker-side, exactly like Boltz-2: the worker
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
         # shared msa_dir cache, and folds. MSA is optional here (single-sequence
@@ -2791,6 +2958,11 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
+            # The cap the USER asked for, None when the flag was left alone. esmfold2 keeps
+            # reading max_msa_seqs (8192 is its shipped default); protenix, opendde, rf3 and
+            # the OF3 family read this one, so leaving the flag alone folds exactly the depth
+            # they folded before.
+            "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
         }
@@ -3127,7 +3299,8 @@ def warmup(max_seq, max_msa, n_samples, cache):
 
 def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model: str,
                                   out: Path, out_format: str, pool: str, return_logits: bool,
-                                  fast: bool, batch_size: int, owner: str | None) -> None:
+                                  fast: bool, batch_size: int, owner: str | None,
+                                  logits_shape: str | None = None) -> None:
     """Shard ``sequences`` across whatever workers are already connected to
     ``controller_url`` and reassemble their embeddings under ``out``.
 
@@ -3183,7 +3356,8 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
     id_lengths = [pair for r in rows for pair in zip(r["ids"], r["lengths"])]
     d_model = next((r["d_model"] for r in rows if r.get("d_model")), 0)
     esmc.write_manifest_for(id_lengths, d_model, out / "manifest.json", model=model, pool=pool,
-                           fast=fast, out_format=out_format, return_logits=return_logits)
+                           fast=fast, out_format=out_format, return_logits=return_logits,
+                           logits_shape=logits_shape or esmc.LOGITS_SHAPE)
     click.echo(f"Done — {sum(r['n_sequences'] for r in rows)} sequence(s), d_model={d_model} "
                f"→ {out} (see manifest.json)")
 
@@ -3205,9 +3379,12 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
 @click.option("--fast", is_flag=True,
               help="Use block-fp8 weights (faster, slightly lower precision).")
 @click.option("--batch_size", default=8, show_default=True,
-              help="Sequences per device forward (300M/600M). Padded+masked per "
-                   "batch so per-sequence embeddings are unchanged; larger values "
-                   "amortise compile/dispatch over more sequences.")
+              help="Sequences per device forward (300M/600M). Larger values amortise "
+                   "compile/dispatch over more sequences. Padding is masked, so a "
+                   "sequence's embedding does not depend on what it shares a batch with, "
+                   "but the batch's bucketed length does set the bf16 reduction order: a "
+                   "37-residue sequence batched with a 200-residue one moves by 3.1e-2, "
+                   "PCC 0.9987. Batch it alone for a bit-exact rerun.")
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to shard the sequences across, "
                    "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
@@ -3359,6 +3536,14 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         processed/          # parsed structures, conformers and ESM-2 embeddings
     """
     size_limits.check_input(data, model)
+    # The affinity yaml is the Boltz-2 one, so it can carry blocks Nesso-1 does not read.
+    # It already warns about protein keys it drops; a `constraints:` block was the one that
+    # went by in silence. Same table as predict, same wording, one line.
+    from tt_bio.capabilities import check_capabilities
+    from tt_bio.nesso1_input import find_yamls
+
+    for yp in find_yamls(Path(data)):
+        check_capabilities(yp, None, model)
     if devices and "TT_VISIBLE_DEVICES" not in os.environ:
         ids = [x for x in str(devices).split(",") if x.strip()]
         if len(ids) > 1:
@@ -3413,8 +3598,13 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
                    "AA+Foldseek-3Di vocabulary).")
 @click.option("--structure", default=None,
               help="PDB/cif file or a directory of <id>.pdb/.cif files for the 3Di "
-                   "structural tokens. Omit for sequence-only mode (3Di = '#', lower "
-                   "accuracy for 35M/650M; the 1.3B works sequence-only).")
+                   "structural tokens. Residues the structure does not resolve get '#', "
+                   "and a structure of a different sequence is refused. Omit for "
+                   "sequence-only mode (3Di = '#', lower accuracy for 35M/650M; the 1.3B "
+                   "works sequence-only).")
+@click.option("--foldseek", "foldseek_bin", default=None,
+              help="Path to the foldseek binary that computes the 3Di tokens for "
+                   "--structure. Default: $FOLDSEEK_BIN, else foldseek on PATH.")
 @click.option("--out_dir", default="./embeddings", show_default=True)
 @click.option("--format", "out_format", type=click.Choice(["npz", "parquet"]),
               default="npz", show_default=True,
@@ -3427,8 +3617,10 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 @click.option("--fast", is_flag=True,
               help="Use block-fp8 weights (faster, slightly lower precision).")
 @click.option("--batch_size", default=8, show_default=True,
-              help="Sequences per device forward (padded+masked per batch so "
-                   "per-sequence embeddings are unchanged).")
+              help="Sequences per device forward. Padding is masked, so a sequence's "
+                   "embedding does not depend on what it shares a batch with, but the "
+                   "batch's bucketed length sets the bf16 reduction order (same as "
+                   "`tt-bio embed`). Batch it alone for a bit-exact rerun.")
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to shard the sequences across, "
                    "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
@@ -3443,8 +3635,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 @click.option("--owner", default=None,
               help="Opaque fairness key the controller uses to fair-share workers across users. "
                    "Requires --controller.")
-def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast,
-               batch_size, devices, controller, owner):
+def saprot_cmd(data, model, structure, foldseek_bin, out_dir, out_format, pool,
+               return_logits, fast, batch_size, devices, controller, owner):
     """Compute SaProt structure-aware protein-language-model embeddings.
 
     SaProt is an ESM-2 encoder over a fused amino-acid + Foldseek-3Di
@@ -3469,7 +3661,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
             "--controller runs are sequence-only (structures stay on the submitting "
             "client and are never shipped to workers). Drop --structure or run locally.")
     try:
-        seqs = saprot.load_sequences_with_structure(data, structure)
+        seqs = saprot.load_sequences_with_structure(data, structure, foldseek_bin)
     except ValueError as e:
         raise click.ClickException(str(e))
 
@@ -3486,14 +3678,8 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
         _dispatch_embed_to_controller(controller, bare, model=model, out=out,
                                       out_format=out_format, pool=pool,
                                       return_logits=return_logits, fast=fast,
-                                      batch_size=batch_size, owner=owner)
-        if return_logits:
-            # SaProt logits are over the 446-token fused vocab, not ESMC's 64-dim head.
-            import json as _json
-            _mf = out / "manifest.json"
-            _m = _json.load(open(_mf))
-            _m["shapes"]["logits"] = "[length, 446] float32 (per-residue MLM logits over the fused AA+3Di vocab)"
-            _json.dump(_m, open(_mf, "w"), indent=2)
+                                      batch_size=batch_size, owner=owner,
+                                      logits_shape=esmc.SAPROT_LOGITS_SHAPE)
         return
 
     device_list = None
@@ -3523,13 +3709,8 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
         esmc.write_parquet(results, out / "embeddings.parquet")
         click.echo(f"Wrote {out / 'embeddings.parquet'}")
     esmc.write_manifest(results, out / "manifest.json", model=model, pool=pool, fast=fast,
-                         out_format=out_format, return_logits=return_logits)
-    # SaProt logits are over the 446-token fused vocab, not ESMC's 64-dim sequence head.
-    import json as _json
-    _mf = out / "manifest.json"
-    _m = _json.load(open(_mf))
-    _m["shapes"]["logits"] = "[length, 446] float32 (per-residue MLM logits over the fused AA+3Di vocab)"
-    _json.dump(_m, open(_mf, "w"), indent=2)
+                         out_format=out_format, return_logits=return_logits,
+                         logits_shape=esmc.SAPROT_LOGITS_SHAPE)
     click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]} "
                f"→ {out} (see manifest.json)")
 
@@ -3718,7 +3899,6 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     size_limits.check_input(inputs, model)
 
     ctx = click.get_current_context()
-    from click.core import ParameterSource
 
     def _explicit(name: str) -> bool:
         return ctx.get_parameter_source(name) == ParameterSource.COMMANDLINE
@@ -3854,7 +4034,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 num_designs=num_designs, batch_size=batch_size,
                 run_id=run_id, owner=owner, verbose=True,
             )
-        except (ValueError, TypeError, RuntimeError) as e:
+        except (ValueError, TypeError, RuntimeError, NotImplementedError) as e:
             raise click.ClickException(str(e))
         click.echo(f"Done — {len(results)} design(s) → {out_dir}")
         return
@@ -3883,7 +4063,10 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             batch_size=batch_size, devices=device_list, host_threads=host_threads,
             verbose=True,
         )
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, NotImplementedError) as e:
+        # RFD3 refuses a spec it cannot featurize with NotImplementedError, naming
+        # the condition. That is an answer about the input, not a crash, so it reads
+        # as one line like every other refusal.
         raise click.ClickException(str(e))
     click.echo(f"Done — {len(results)} design(s) → {out_dir}")
     for r in results:
