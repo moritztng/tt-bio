@@ -1,4 +1,6 @@
 {
+ "verdict": "GAP-evidenced",
+ "verdict_note": "How the release gate reads this leg (full_parity_gate._committed_verdict): a live GAP reproduces this record and is gate-passing, a live FAIL is excused by nothing. The per-record verdict below is tap_gate.py raw output on the recording run, scored against fp32, and device_floor.py never reads it.",
  "note": "One record per Tensix compute grid. scripts/af2_port/device_floor.py scores a live report against the record with the same compute_grid and FAILs when there is none; an unmeasured grid is not a blessed grid.",
  "superseded": {
   "pcc_min": 0.9964227723349419,

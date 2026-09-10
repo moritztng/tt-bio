@@ -223,3 +223,25 @@ def test_the_committed_file_carries_a_record_for_every_grid_it_names():
         assert rec.get("rows"), "a record with no rows excuses nothing"
         assert df.af2ig_device_floor_verdict(dict(rec), committed)[0] == "GAP", \
             "a record does not reproduce itself"
+
+
+def test_the_gate_reads_this_floor_as_gap_evidenced():
+    """The grid-keyed rewrite dropped the file's top-level `verdict` and the gate went red.
+
+    `full_parity_gate._committed_verdict` reads the committed file's own top-level `verdict`
+    first and only falls back to scoring it as if it were a live report, which for this file
+    returns NO-DATA. A live GAP against a committed NO-DATA fails the gate, so the leg the
+    re-record was supposed to make green stayed red for a reason that had nothing to do with
+    the measurement (gate of record 2026-09-10, `l4.json`: verdict GAP, committed NO-DATA).
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "full_parity_gate", REPO / "scripts" / "full_parity_gate.py")
+    fpg = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = fpg
+    spec.loader.exec_module(fpg)
+    leg = next(l for l in fpg.LEGS if l.id == "af2ig-trunk-device")
+
+    assert fpg._committed_verdict(leg) == "GAP-evidenced"
+    assert fpg.finalize_leg(leg, "GAP", "", 0.0)[2], "a live GAP must pass the gate"
+    assert not fpg.finalize_leg(leg, "FAIL", "", 0.0)[2], "a live FAIL is excused by nothing"
