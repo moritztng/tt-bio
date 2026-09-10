@@ -370,7 +370,8 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             counts=DESIGN_TARGET,
             evidence=
                 "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
-                "bh-1536-design-embed-p2): 1536, 1831 and 2500 conditioned target residues each "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py): 1536, 1831 and 2500 "
+                "conditioned target residues each "
                 "design an 80-residue, 321-atom binder in 97.8, 177.1 and 208.2 s, and 3000 "
                 "throws on DRAM at 199.6 s. The target above 1008 residues is "
                 "perf/bhdesign/targets/big_7324.cif, real deposited chains placed side by side, "

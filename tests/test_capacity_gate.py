@@ -215,6 +215,14 @@ def test_a_baseline_from_a_different_bar_is_not_evidence():
         f"{cg.TOKEN_BAR}: {stale}")
 
 
+#: Real tools known to walk a Blackhole ceiling. `capacity_gate.py` is a fixed 1536-token
+#: pass/fail bar, not a ladder -- it cannot itself produce the CEILINGS numbers (often far above
+#: or below 1536), so a genuine ceiling walk on design/embed models runs through
+#: `perf/bhdesign/ladder.py` instead. Either is real, reproducible evidence -- the guard's job is
+#: ruling out a fabricated row, not preferring one real harness over another.
+_REAL_CAPACITY_TOOLS = ("capacity_gate", "perf/bhdesign/ladder.py")
+
+
 @pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
 def test_a_blackhole_ceiling_row_must_come_from_a_capacity_run():
     """Blackhole was never walked before this gate existed, and a fabricated row is the failure
@@ -223,7 +231,7 @@ def test_a_blackhole_ceiling_row_must_come_from_a_capacity_run():
         for arch, c in per_arch.items():
             if "blackhole" not in arch or not c.measured:
                 continue
-            assert "capacity_gate" in c.evidence, (
+            assert any(tool in c.evidence for tool in _REAL_CAPACITY_TOOLS), (
                 f"{model}/{arch} publishes a measured Blackhole ceiling whose evidence does not "
                 f"name the run that measured it")
 
