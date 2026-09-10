@@ -4198,6 +4198,13 @@ class AtomDiffusion(Module):
         # gradually denoise
         _n_steps = len(sigmas_and_gammas)
         for step_idx, (sigma_tm, sigma_t, gamma) in enumerate(sigmas_and_gammas):
+            # Every 10th step, not every step: the progress emit is not free here. A/B on a
+            # 20 aa single-sequence fold, 10 warm folds per arm in alternating blocks on one
+            # p150a, median 24.1 s at every-10th against 32.3 s at every-step (+34%), with the
+            # two arms completely separated (worst every-10th 28.9 s < best every-step 30.6 s).
+            # 180 extra queue.put_nowait calls inside the denoise loop cost ~46 ms each, which
+            # is the mp.Queue feeder thread contending with the ttnn dispatch loop, not the put
+            # itself. A coarse bar is correct, just coarse; 8 s of fold time is not.
             if progress_fn and step_idx % 10 == 0:
                 progress_fn("diffusion", step=step_idx, total=_n_steps)
             random_R, random_tr = compute_random_augmentation(
