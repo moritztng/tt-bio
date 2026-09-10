@@ -389,7 +389,30 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     # --- No measured ceiling. Never refused. ---------------------------------------------------
     "boltz2": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
-    "esmfold2": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
+    "esmfold2": {
+        "wormhole_b0": Ceiling(
+            residues=1024, pass_at=1024, fail_at=1057, binds=MEMORY, mechanism=DRAM,
+            msa_rows=0,
+            evidence="its own ladder, walked 2026-09-09 on GWH02 card 1 by "
+                     "ws:esmfold2-cocrystal-everywhere at the settings a user gets: "
+                     "single-sequence, which is this model's default, and --fast, which "
+                     "tt_bio/main.py forces on Wormhole because ESMC-6B needs ~12.8 GB against "
+                     "a ~12 GB chip. 895 folds in 213 s, 960 in 273 s, 1024 in 287 s; 1057 does "
+                     "not fold. The failure is one DRAM allocation the chip cannot serve, and it "
+                     "is refused on BANK size rather than total memory: 588808192 B across 12 "
+                     "banks wants 49068032 B per bank against a 43118592 B largest free block. "
+                     "It is a TOKEN wall, not a polymer one -- a cocrystal at 1024 tokens (991 "
+                     "residues plus a 33-atom ligand) folds in 278 s and one at 1057 tokens is "
+                     "refused with the identical message, so a ligand costs nothing beyond the "
+                     "tokens it adds. This model read UNMEASURED until now because its published "
+                     "ladder (docs/size-generality.md, 2026-09-08) stopped at 1024, the "
+                     "platform's demo fence, and so never recorded a failing size above the cap: "
+                     "the ceiling was there, the negative control was not. CAVEAT, the same one "
+                     "openbind's row carries: this cap counts residues and scan_residues does "
+                     "not count ligand atoms, so 1024 residues plus any ligand at all is over "
+                     "the token wall, will be admitted here, and will fail on the chip",
+        ),
+    },
     "esmfold2-fast": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
     "protenix-v1": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
     "nesso1": {
