@@ -147,9 +147,11 @@ def test_a_moved_ceiling_re_runs_the_capacity_gate():
     1536 tokens. The sweep is hours of card time and has to run in stages, so the check that
     matters is the one that can be satisfied a stage at a time and says what is left.
     """
-    cells = json.loads(BASELINE.read_text()).get("cells") or {}
-    assert cells, "the baseline records no cells"
-    unstamped = sorted(m for m, c in cells.items() if not (c or {}).get("ceilings_fingerprint"))
+    per_card = cg.read_baseline()
+    assert per_card, "the baseline records no cells"
+    unstamped = sorted(f"{card}/{m}" for card, blk in per_card.items()
+                       for m, c in (blk.get("cells") or {}).items()
+                       if not (c or {}).get("ceilings_fingerprint"))
     assert not unstamped, (
         f"these cells record no ceiling fingerprint at all, so nothing can tell whether they are "
         f"current: {unstamped}. Re-measure and --record them.")
@@ -167,7 +169,9 @@ def _record_into_tmp(report, *, prior_cells, partial):
     import tempfile
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "baseline.json"
-        path.write_text(json.dumps({"bar_tokens": cg.TOKEN_BAR, "cells": prior_cells}))
+        path.write_text(json.dumps({
+            "bar_tokens": cg.TOKEN_BAR,
+            "cards": {"p150a": {"geometry": {"board_type": "p150a"}, "cells": prior_cells}}}))
         real, cg.BASELINE = cg.BASELINE, path
         try:
             cg.record_baseline(report, partial=partial)
@@ -182,15 +186,18 @@ def test_one_models_record_cannot_certify_another_models_cell():
     stale = {"verdict": "PASS", "tokens_requested": cg.TOKEN_BAR,
              "ceilings_fingerprint": "0000000000000000", "tree": "old"}
     report = {"bar_tokens": cg.TOKEN_BAR, "started": "now", "tree": "new", "dirty": False,
-              "geometry": {}, "reductions": [],
+              "geometry": {"board_type": "p150a"}, "reductions": [],
               "results": [{"model": "esmc-300m", "verdict": "PASS",
                            "tokens_requested": cg.TOKEN_BAR}]}
     written = _record_into_tmp(report, prior_cells={"esmc-6b": stale}, partial=True)
-    assert written["cells"]["esmc-6b"]["ceilings_fingerprint"] == "0000000000000000", \
+    cells = written["cards"]["p150a"]["cells"]
+    assert cells["esmc-6b"]["ceilings_fingerprint"] == "0000000000000000", \
         "a one-model record re-certified a cell it never measured"
-    assert written["cells"]["esmc-300m"]["ceilings_fingerprint"] == ceilings_fingerprint()
+    assert cells["esmc-300m"]["ceilings_fingerprint"] == ceilings_fingerprint()
     assert "ceilings_fingerprint" not in written, \
         "a file-level fingerprint is back; it is the thing that made the false green possible"
+    assert "ceilings_fingerprint" not in written["cards"]["p150a"], \
+        "a card-level fingerprint is the same false green one level down"
 
 
 @pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
@@ -208,7 +215,9 @@ def test_a_baseline_from_a_different_bar_is_not_evidence():
     # The file-level stamp alone is not enough: a PARTIAL re-record (--models) merges into the
     # prior file and stamps it with the new bar, so a cell measured at the old bar can sit inside
     # a correctly-stamped file. That is exactly what happened at 1504 -> 1536.
-    stale = {m: c.get("tokens_requested") for m, c in b.get("cells", {}).items()
+    stale = {f"{card}/{m}": c.get("tokens_requested")
+             for card, blk in cg.read_baseline().items()
+             for m, c in (blk.get("cells") or {}).items()
              if c.get("tokens_requested") not in (None, cg.TOKEN_BAR)}
     assert not stale, (
         f"these baseline cells were measured at a different bar and are not evidence for "
@@ -937,13 +946,20 @@ def test_the_host_oom_corroboration_can_actually_read_the_kernel_log():
 # ---------------------------------------------------------------------------------------------
 
 
+def _cells(path, card="p150a"):
+    """The recorded cells for one board. The file is keyed by board type: p150a and p300c are
+    both "blackhole" to ttnn and have 130 vs 110 L1 banks, so a cell filed under no card is a
+    cell about no card."""
+    return json.loads(Path(path).read_text())["cards"][card]["cells"]
+
+
 def _bisect_report(bar=None, model="rf3"):
     """A report shaped like the one a bisect writes: no completing ceiling at any rung, so the
     alloc ceiling is the only number it produced."""
     return {
         "bar_tokens": cg.TOKEN_BAR if bar is None else bar,
         "started": "2026-09-07T00:00:00Z", "tree": "deadbeef", "dirty": False,
-        "geometry": {"dram_banks": 8}, "reductions": {},
+        "geometry": {"dram_banks": 8, "board_type": "p150a"}, "reductions": {},
         "results": [{"model": model, "verdict": "FAIL", "tokens_requested": cg.TOKEN_BAR,
                      "ceiling_tokens": None, "alloc_ceiling_tokens": 1344,
                      "alloc_ceiling_note": "1344 allocates, 1376 does not",
@@ -957,7 +973,7 @@ def test_the_baseline_keeps_the_only_ceiling_number_a_bisect_produced(tmp_path, 
     of a multi-hour bisect and left the cell reading as if nothing had been measured."""
     monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
     cg.record_baseline(_bisect_report(), partial=True)
-    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]
+    cell = _cells(tmp_path / "baseline.json")["rf3"]
     assert cell["alloc_ceiling_tokens"] == 1344, (
         "the baseline dropped alloc_ceiling_tokens, which for a model with no completing rung is "
         "the only ceiling the bisect measured")
@@ -971,7 +987,7 @@ def test_a_finished_run_can_be_recorded_without_rerunning_it(tmp_path, monkeypat
     p = tmp_path / "report.json"
     p.write_text(json.dumps(_bisect_report()))
     assert cg._record_from(p) == 0
-    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]["verdict"] == "FAIL"
+    assert _cells(tmp_path / "baseline.json")["rf3"]["verdict"] == "FAIL"
 
 
 def test_recording_another_bars_report_is_refused(tmp_path, monkeypatch):
@@ -1374,7 +1390,7 @@ def _cell_report(model, verdict, decided_by, bar=None, **kw):
     return {
         "bar_tokens": cg.TOKEN_BAR if bar is None else bar,
         "started": "2026-09-07T00:00:00Z", "tree": "deadbeef", "dirty": False,
-        "geometry": {"dram_banks": 8}, "reductions": {},
+        "geometry": {"dram_banks": 8, "board_type": "p150a"}, "reductions": {},
         "results": [dict({"model": model, "verdict": verdict, "decided_by": decided_by,
                           "tokens_requested": cg.TOKEN_BAR}, **kw)],
     }
@@ -1389,7 +1405,7 @@ def test_a_screen_sweep_does_not_overwrite_a_residency_pass(tmp_path, monkeypatc
                                     dram_peak_bytes=6203490304, wall_s=280.3), partial=True)
     msg = cg.record_baseline(_cell_report("openbind", "INCONCLUSIVE", "screen", wall_s=90.5),
                              partial=True)
-    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["openbind"]
+    cell = _cells(tmp_path / "baseline.json")["openbind"]
     assert cell["verdict"] == "PASS", (
         "a screen cell overwrote a residency PASS; the run that decided nothing replaced the one "
         "that decided")
@@ -1405,8 +1421,8 @@ def test_a_full_roster_screen_record_does_not_wipe_every_pass(tmp_path, monkeypa
     cg.record_baseline(_cell_report("esmc-6b", "PASS", "residency", dram_peak_bytes=12789007360),
                        partial=True)
     cg.record_baseline(_cell_report("esmc-6b", "INCONCLUSIVE", "screen"), partial=False)
-    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["esmc-6b"]["verdict"] \
-        == "PASS", "a full-roster screen record wiped a residency PASS"
+    assert _cells(tmp_path / "baseline.json")["esmc-6b"]["verdict"] == "PASS", \
+        "a full-roster screen record wiped a residency PASS"
 
 
 def test_a_card_that_was_never_available_does_not_erase_a_verdict(tmp_path, monkeypatch):
@@ -1417,7 +1433,7 @@ def test_a_card_that_was_never_available_does_not_erase_a_verdict(tmp_path, monk
                                     alloc_ceiling_tokens=1088), partial=True)
     for dud in ("CONTENDED", "CARD_DIRTY"):
         cg.record_baseline(_cell_report("rf3", dud, "screen"), partial=True)
-        cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]
+        cell = _cells(tmp_path / "baseline.json")["rf3"]
         assert cell["verdict"] == "FAIL" and cell["alloc_ceiling_tokens"] == 1088, (
             f"{dud} erased a measured FAIL and the ceiling the bisect spent hours on")
 
@@ -1430,12 +1446,12 @@ def test_a_real_verdict_still_replaces_whatever_stands(tmp_path, monkeypatch):
     cg.record_baseline(_cell_report("protenix-v2", "PASS", "residency"), partial=True)
     cg.record_baseline(_cell_report("protenix-v2", "FAIL", "residency", mechanism="dram"),
                        partial=True)
-    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["protenix-v2"]["verdict"]\
-        == "FAIL", "the guard froze the cell instead of protecting it"
+    assert _cells(tmp_path / "baseline.json")["protenix-v2"]["verdict"] == "FAIL", \
+        "the guard froze the cell instead of protecting it"
     # And an INCONCLUSIVE over an INCONCLUSIVE is a legitimate refresh, not a downgrade.
     cg.record_baseline(_cell_report("openfold3", "INCONCLUSIVE", "screen", wall_s=87.3),
                        partial=True)
     cg.record_baseline(_cell_report("openfold3", "INCONCLUSIVE", "screen", wall_s=12.0),
                        partial=True)
-    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["openfold3"]["wall_s"] \
-        == 12.0, "a same-strength re-measurement was refused"
+    assert _cells(tmp_path / "baseline.json")["openfold3"]["wall_s"] == 12.0, \
+        "a same-strength re-measurement was refused"

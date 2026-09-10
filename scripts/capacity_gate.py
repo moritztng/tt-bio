@@ -251,13 +251,11 @@ def baseline_gaps() -> list[str]:
     lived in gitignored scratch inside a worktree fleet hygiene later removed, so the claim
     outlived its evidence. A verdict not folded into the baseline when it is measured is lost.
     """
-    if not BASELINE.exists():
+    per_card = read_baseline()
+    if not per_card:
         return runnable()
-    try:
-        cells = json.loads(BASELINE.read_text()).get("cells", {})
-    except ValueError:
-        return runnable()
-    return [m for m in runnable() if m not in cells]
+    return [f"{card}/{m}" for card, blk in sorted(per_card.items())
+            for m in runnable() if m not in (blk.get("cells") or {})]
 
 
 def baseline_stale() -> list[str]:
@@ -274,14 +272,11 @@ def baseline_stale() -> list[str]:
     Naming the stale ones is also what makes the sweep resumable. It is hours of card time, it has
     to run in stages, and a stage that re-measured four models should be able to show it.
     """
-    if not BASELINE.exists():
-        return []
-    try:
-        cells = json.loads(BASELINE.read_text()).get("cells", {})
-    except ValueError:
-        return []
     fp = ceilings_fingerprint()
-    return sorted(m for m, c in cells.items() if (c or {}).get("ceilings_fingerprint") != fp)
+    return sorted(f"{card}/{m}"
+                  for card, blk in read_baseline().items()
+                  for m, c in (blk.get("cells") or {}).items()
+                  if (c or {}).get("ceilings_fingerprint") != fp)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1474,6 +1469,9 @@ def main(argv=None) -> int:
     ap.add_argument("--work-dir", type=Path,
                     default=REPO_ROOT / "perf" / "capacity" / "work")
     ap.add_argument("--report", type=Path, default=None)
+    ap.add_argument("--card-type", default=None,
+                    help="board type to file the recorded cells under (p150a, p300c, ...). Read "
+                         "from tt-smi for a local worker; needed only for a remote one.")
     ap.add_argument("--depth", type=int, default=None,
                     help="truncate MSA depth (a NAMED reduction, written into the report)")
     ap.add_argument("--recycling", type=int, default=None,
@@ -1553,7 +1551,8 @@ def main(argv=None) -> int:
         "dirty": bool(subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT,
                                      capture_output=True, text=True).stdout.strip()),
         "workers": [repr(w) for w in workers],
-        "geometry": geometry(workers[0]),
+        "geometry": dict(geometry(workers[0]),
+                         **({"board_type": a.card_type} if a.card_type else {})),
         "coverage_gaps": coverage_gaps(),
         "reductions": reductions(a.depth, a.recycling, models),
         "results": [],
@@ -1657,6 +1656,39 @@ def main(argv=None) -> int:
 
 BASELINE = REPO_ROOT / "docs" / "capacity_gate_baseline.json"
 
+#: Bumped when the on-disk shape changes. 1 was a single flat `cells` block.
+BASELINE_FORMAT = 2
+
+
+def read_baseline() -> dict:
+    """The baseline as ``{board_type: {..., "cells": {model: cell}}}``.
+
+    THE FILE IS PER CARD, because the answer is. p150a and p300c are both "blackhole" to ttnn and
+    they are not the same board: measured off the live allocator on the same tree, pc's p150a has
+    130 L1 banks on a (x=13,y=10) grid and qb2's p300c has 110 on (x=11,y=10), 15.4 % less L1
+    against identical DRAM. A gate that answers "does every model allocate and complete at 1536
+    tokens on this card" cannot file that answer under no card.
+
+    Format 1 had one flat `cells` block and one file-level `geometry`, so it could hold exactly
+    one card and never said which. It held p150a: the probes opened ttnn bare and could not open a
+    p300c at all, so no other card could ever have been recorded into it. A format 1 file is read
+    as the card its own geometry names, which is that card and no other.
+    """
+    if not BASELINE.exists():
+        return {}
+    try:
+        data = json.loads(BASELINE.read_text())
+    except ValueError:
+        return {}
+    if "cards" in data:
+        return data["cards"]
+    cells = data.get("cells") or {}
+    card = (data.get("geometry") or {}).get("board_type")
+    if not cells or not card:
+        return {}
+    keep = ("recorded", "host", "tree", "dirty_tree", "geometry", "reductions")
+    return {card: {**{k: data[k] for k in keep if k in data}, "cells": cells}}
+
 
 def ceilings_fingerprint() -> str:
     """A stable hash over every published ceiling, so moving any row is detectable.
@@ -1703,12 +1735,15 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     A partial run (--models) updates only the cells it measured and leaves the rest standing, so
     re-measuring one model does not silently erase the others' recorded results.
     """
-    prior = {}
-    if BASELINE.exists():
-        try:
-            prior = json.loads(BASELINE.read_text())
-        except ValueError:
-            prior = {}
+    card = (report.get("geometry") or {}).get("board_type")
+    if not card:
+        return ("NOT RECORDED: this run did not establish which board it measured, and the "
+                "baseline is per card. `geometry()` reads board_type from tt-smi and only does "
+                "so for a LOCAL worker, so a remote --workers leg lands here. Re-run the gate "
+                "locally on the card, or pass --card-type. Filing the cells under the wrong "
+                "board is how a p300c result ends up published as a p150a one.")
+    per_card = read_baseline()
+    prior = per_card.get(card, {})
     cells = prior.get("cells", {}) if partial else {}
     # A partial run must not carry cells measured at a DIFFERENT bar across into this baseline.
     # Measured: raising the bar 1504 -> 1536 and re-recording six cells left the two esmfold2
@@ -1741,17 +1776,24 @@ def record_baseline(report: dict, *, partial: bool) -> str:
         # baseline_stale(): a file-level stamp let a one-model record re-certify every cell.
         cells[r["model"]]["ceilings_fingerprint"] = fp
         cells[r["model"]]["tree"] = report["tree"]
-    BASELINE.write_text(json.dumps({
-        "bar_tokens": report["bar_tokens"],
+    per_card[card] = {
         "recorded": report["started"],
+        "host": (report.get("geometry") or {}).get("host"),
         "tree": report["tree"],
         "dirty_tree": report["dirty"],
         "geometry": report["geometry"],
         "reductions": report["reductions"],
         "cells": cells,
-        "note": "CAPACITY ONLY: allocates and completes. Not a correctness record.",
+    }
+    BASELINE.write_text(json.dumps({
+        "format": BASELINE_FORMAT,
+        "bar_tokens": report["bar_tokens"],
+        "note": "CAPACITY ONLY: allocates and completes. Not a correctness record. Per board "
+                "type, because p150a and p300c do not have the same L1 and a cell filed under "
+                "no card is a cell about no card.",
+        "cards": dict(sorted(per_card.items())),
     }, indent=1, default=str) + "\n")
-    msg = f"recorded {BASELINE} ({len(cells)} cells, ceilings {fp})"
+    msg = f"recorded {BASELINE} ({card}: {len(cells)} cells, ceilings {fp})"
     # Said out loud. A cell that silently did not update is indistinguishable from one that did,
     # and the whole point of keeping it is that the stronger result cost card time.
     if kept:
