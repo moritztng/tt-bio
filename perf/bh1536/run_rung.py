@@ -16,7 +16,7 @@ a co-tenant held card 0, so this rung measured nothing and has to be walked agai
 
 Appends one JSON object per rung to results.jsonl and one line to sweep.log.
 """
-import argparse, fcntl, json, os, re, resource, shutil, subprocess, sys, time
+import argparse, fcntl, json, os, re, resource, shutil, signal, subprocess, sys, time
 from pathlib import Path
 
 WT = Path(__file__).resolve().parents[2]
@@ -218,6 +218,82 @@ def _write(row):
     print(line)
 
 
+def _group_alive(pgid: int) -> bool:
+    """Is any NON-ZOMBIE process still in this group?
+
+    `os.killpg(pgid, 0)` is the obvious check and it is wrong here: a signalled child stays a
+    zombie until it is reaped, killpg succeeds on it, and the grace loop then spins the whole
+    10 s on a group that is already dead. Measured: it turned a 3 s stall detection into a 28 s
+    teardown, which eats the time the detector exists to save. Read the state out of
+    /proc/<pid>/stat instead.
+    """
+    for entry in os.scandir("/proc"):
+        if not entry.name.isdigit():
+            continue
+        try:
+            # `comm` can contain spaces and parentheses, so split on the LAST ')'.
+            fields = open(f"/proc/{entry.name}/stat").read().rpartition(")")[2].split()
+        except OSError:
+            continue
+        if len(fields) < 3:
+            continue
+        state, pgrp = fields[0], fields[2]
+        if pgrp == str(pgid) and state != "Z":
+            return True
+    return False
+
+
+def kill_tree(proc, grace: float = 10.0) -> None:
+    """Kill a fold and everything it spawned, and do not return while any of it lives.
+
+    `proc.kill()` alone kills the `tt_bio.main` parent and leaves its spawned WORKER, which is
+    the process that holds the chip and the card lease. That worker has PDEATHSIG armed, so in
+    the normal case the kernel SIGTERMs it -- but a frozen one cannot take a signal it never
+    reaches a check for, and its heartbeat backstop never fired either. Measured twice on this
+    ladder: opendde's worker lived 44 more minutes at 108 % CPU holding card 0's lease with
+    `"released": null`, and opendde-abag's lived 11 more minutes the same way, both after their
+    parent was gone. Each one blocked the rungs behind it.
+
+    So the fold gets its own process group (`start_new_session=True` at Popen) and the whole
+    group is signalled here: SIGTERM, then SIGKILL to whatever ignored it, which is what
+    actually clears a process wedged inside ttnn.
+    """
+    try:
+        pgid = os.getpgid(proc.pid)
+    except OSError:
+        return
+    # Refuse to signal our OWN group, whatever the caller did. Without this guard a proc that
+    # was started WITHOUT start_new_session shares this process's group, and the killpg below
+    # takes down the harness, the shell that launched it and anything else in that group. Which
+    # is not hypothetical: it killed a pytest session and the ssh around it the first time this
+    # function ran against a test subprocess created in the caller's group.
+    if pgid in (os.getpgrp(), 0, 1):
+        proc.kill()
+        try:
+            proc.wait(timeout=15)
+        except Exception:
+            pass
+        return
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(pgid, sig)
+        except OSError:
+            return
+        deadline = time.time() + (grace if sig == signal.SIGTERM else 15.0)
+        while time.time() < deadline:
+            if not _group_alive(pgid):
+                try:
+                    proc.wait(timeout=5)
+                except Exception:
+                    pass
+                return
+            time.sleep(0.5)
+    try:
+        proc.wait(timeout=5)
+    except Exception:
+        pass
+
+
 def watch(proc, log: Path, t0: float, *, budget: float, stall: float,
           peak_rss: int = 0, floor_avail: int = 1 << 62, poll: float = 2.0):
     """Watch a running fold; return (killed, stalled, peak_rss, floor_avail).
@@ -246,12 +322,10 @@ def watch(proc, log: Path, t0: float, *, budget: float, stall: float,
         if size != last_size:
             last_size, last_grew = size, time.time()
         if stall and time.time() - last_grew > stall:
-            proc.kill()
-            proc.wait()
+            kill_tree(proc)
             return True, True, peak_rss, floor_avail
         if time.time() - t0 > budget:
-            proc.kill()
-            proc.wait()
+            kill_tree(proc)
             return True, False, peak_rss, floor_avail
     proc.wait()
     return False, False, peak_rss, floor_avail
@@ -369,11 +443,18 @@ def main():
         # below stays the honest total, retries and all.
         t_attempt = time.time()
         with log.open("wb") as fh:
+            # Own process group, so kill_tree can take the fold AND its spawned worker as a
+            # unit. The finally is the backstop: if this harness dies for any other reason,
+            # it must not leave a worker holding the card behind it.
             proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT,
-                                    cwd=str(WT), env=env)
-            killed, stalled, peak_rss, floor_avail = watch(
-                proc, log, t_attempt, budget=a.budget, stall=a.stall,
-                peak_rss=peak_rss, floor_avail=floor_avail)
+                                    cwd=str(WT), env=env, start_new_session=True)
+            try:
+                killed, stalled, peak_rss, floor_avail = watch(
+                    proc, log, t_attempt, budget=a.budget, stall=a.stall,
+                    peak_rss=peak_rss, floor_avail=floor_avail)
+            finally:
+                if proc.poll() is None:
+                    kill_tree(proc)
         text = log.read_text(errors="replace")
         if not contended(proc.returncode, text) or killed or attempt == a.contention_retries:
             break

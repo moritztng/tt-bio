@@ -13,11 +13,20 @@ Host-only: no device, no model.
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
 
 HARNESS = Path(__file__).resolve().parents[1] / "perf" / "bh1536" / "run_rung.py"
 _spec = importlib.util.spec_from_file_location("bh1536_run_rung", HARNESS)
@@ -27,10 +36,17 @@ _spec.loader.exec_module(rr)
 
 
 def _run(script: str, log: Path, **kw):
-    """Start `script` with its output in `log` and hand it to the real watch()."""
+    """Start `script` with its output in `log` and hand it to the real watch().
+
+    `start_new_session=True` matches production and is NOT optional here: `kill_tree` signals
+    the process GROUP, and a subprocess left in the caller's group means that group is pytest's.
+    Learned the hard way -- the first run of this without it killed the test session and the ssh
+    around it. `kill_tree` now refuses to signal its own group as well, so the mistake is caught
+    from both ends.
+    """
     with log.open("wb") as fh:
         proc = subprocess.Popen(["/bin/sh", "-c", script], stdout=fh,
-                                stderr=subprocess.STDOUT)
+                                stderr=subprocess.STDOUT, start_new_session=True)
         return rr.watch(proc, log, time.time(), poll=0.2, **kw)
 
 
@@ -95,3 +111,40 @@ def test_stalled_counts_as_measured_but_contended_does_not():
     spec.loader.exec_module(m)
     assert "STALLED" in m.MEASURED
     assert "CONTENDED" not in m.MEASURED
+
+
+def test_kill_tree_reaches_a_child_that_ignores_sigterm():
+    """The whole point: a fold's spawned WORKER is what holds the chip, and a frozen one does
+    not take SIGTERM. Measured twice on this ladder -- opendde's worker lived 44 more minutes
+    holding card 0's lease after its parent was gone, opendde-abag's 11 more. The grandchild
+    here traps SIGTERM and sleeps, standing in for one wedged inside ttnn."""
+    with tempfile.TemporaryDirectory() as td:
+        log = Path(td) / "fold.log"
+        marker = Path(td) / "grandchild.pid"
+        script = (f"sh -c 'trap \"\" TERM; echo $$ > {marker}; sleep 300' & "
+                  f"echo parent; wait")
+        with log.open("wb") as fh:
+            proc = subprocess.Popen(["/bin/sh", "-c", script], stdout=fh,
+                                    stderr=subprocess.STDOUT, start_new_session=True)
+            for _ in range(100):
+                if marker.is_file() and marker.read_text().strip():
+                    break
+                time.sleep(0.1)
+            gpid = int(marker.read_text().strip())
+            assert _alive(gpid), "the SIGTERM-ignoring grandchild never started"
+            rr.kill_tree(proc, grace=2.0)
+
+        assert proc.poll() is not None, "the fold itself survived kill_tree"
+        assert not _alive(gpid), (
+            "the grandchild that ignores SIGTERM survived; this is the orphan that holds the card")
+
+
+def test_kill_tree_refuses_to_signal_its_own_process_group():
+    """The guard on the guard. A proc started WITHOUT start_new_session shares this process's
+    group, and signalling that group would take down the harness and its shell. It must fall
+    back to killing just that process."""
+    proc = subprocess.Popen(["/bin/sh", "-c", "sleep 60"])   # deliberately same group
+    assert os.getpgid(proc.pid) == os.getpgrp(), "test premise: same group"
+    rr.kill_tree(proc, grace=1.0)
+    assert proc.poll() is not None, "the target process was not killed"
+    # And we are still here, which is the assertion that matters.
