@@ -273,6 +273,9 @@ def test_no_download_tool_runs_without_a_timeout(tmp_path):
         assert "--max-tries=0" not in flat, name
         assert "timeout" in flat or "--speed-time" in flat, name
         assert any(t in flat for t in ("--max-tries=3", "--retry 3", "--tries=3")), name
+        if name == "aria2c":
+            # The watchdog reads the staging file's size, so nothing may preallocate it.
+            assert "--file-allocation=none" in flat
 
 
 def test_a_wrong_file_is_rejected_by_its_hash(tmp_path, monkeypatch):
@@ -311,6 +314,20 @@ def test_every_row_is_fetchable_by_the_one_path_that_exists():
             assert all(weights.source_host(s) for s in art.sources), art.key
         else:
             assert not art.sources, art.key
+
+
+def test_a_built_derived_output_is_not_re_downloaded(tmp_path, monkeypatch):
+    """`tt-bio weights` calls a row with a complete output `present`, so `--download`
+    must not then pull the archive again. It used to, for every row whose archive is
+    kept: 1.8 GB of CCD library on a host that already had it unpacked."""
+    monkeypatch.setattr(weights, "cache_root", lambda root=None: tmp_path)
+    monkeypatch.setattr(weights, "fetch_file",
+                        lambda *a, **k: pytest.fail("re-downloaded a built output"))
+    out = tmp_path / "mols"
+    out.mkdir()
+    (out / "LIG.pkl").write_bytes(b"x")
+    weights._marker(out).write_text("ok\n")
+    assert weights.fetch("mols", root=tmp_path) == out
 
 
 def test_unavailable_weights_say_what_to_do_next(tmp_path):

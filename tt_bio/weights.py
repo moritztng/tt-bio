@@ -664,6 +664,11 @@ def _tool_commands(url: str, dest: Path) -> list[tuple[str, list[str]]]:
         tools.append(("aria2c", [
             "aria2c", "--max-connection-per-server=8", "--split=8",
             "--continue=true", "--auto-file-renaming=false",
+            # The watchdog below reads the size of the staging file, so that size has
+            # to mean "bytes received". Preallocation sizes the file to the full 1.4 GB
+            # up front, which makes "not one byte has arrived" indistinguishable from
+            # "it is all here" and costs the 60 s no-start rule its only signal.
+            "--file-allocation=none",
             f"--connect-timeout={CONNECT_TIMEOUT}", "--timeout=60",
             "--max-tries=3", "--retry-wait=5", "--lowest-speed-limit=1K",
             "--summary-interval=15", "-o", dest.name, "-d", str(dest.parent), url]))
@@ -1173,13 +1178,16 @@ def fetch(key: str, *, root: str | Path | None = None, force: bool = False,
         raise ValueError(f"unknown source {art.source!r} for {key}")
 
     path = art.dest(root)
-    if art.derived and art.derived.discard_archive:
-        # The archive is deleted after extraction, so its absence is normal. Only
-        # fetch it when the derived output is not already good.
+    if art.derived:
+        # The derived output is what the model reads, so a complete one means there is
+        # nothing left to fetch. For RFD3 and the AF2 parameters the archive is deleted
+        # after extraction and its absence is normal; for the CCD library it is simply
+        # 1.8 GB nobody reads again. Skipping it here is also what makes `--download`
+        # agree with the table, which already calls such a row `present`.
         out = cache_root(root) / art.derived.subdir
         if not force and (_marker(out).exists() and out.is_dir() or _derived_ok(out, art.derived)):
             return ensure_derived(path, art.derived, root=root, quiet=quiet)
-        _echo(f"Downloading {art.key} checkpoint "
+        _echo(f"Downloading {art.key} "
               f"(~{art.approx_bytes / _GB:.1f} GiB, {source_host(art.sources[0])})", quiet)
     try:
         path = fetch_file(art.sources, path, sha256=art.sha256, force=force, quiet=quiet)
