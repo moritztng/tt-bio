@@ -15,6 +15,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import signal
 import subprocess
 import sys
 import time
@@ -30,6 +31,20 @@ def _load(name, path):
     return mod
 
 
+def _stop(proc, grace):
+    """SIGINT the fold's process group, give atexit `grace` seconds, then SIGKILL."""
+    for sig, wait in ((signal.SIGINT, grace), (signal.SIGTERM, 30), (signal.SIGKILL, 30)):
+        try:
+            os.killpg(proc.pid, sig)
+        except ProcessLookupError:
+            break
+        try:
+            return proc.wait(timeout=wait)
+        except subprocess.TimeoutExpired:
+            continue
+    return proc.poll() if proc.poll() is not None else -9
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--target-res", type=int, required=True)
@@ -41,6 +56,8 @@ def main():
     ap.add_argument("--work", type=pathlib.Path, default=ROOT / "perf" / "bgsdpa" / "work")
     ap.add_argument("--tag", default="")
     ap.add_argument("--env", action="append", default=[], help="K=V for the fold's process")
+    ap.add_argument("--grace", type=int, default=120,
+                    help="seconds after SIGINT for the fold's atexit hooks to write the census")
     args = ap.parse_args()
 
     ladder = _load("bh_ladder", ROOT / "perf" / "bhdesign" / "ladder.py")
@@ -90,12 +107,20 @@ def main():
         fh.write(f"# {' '.join(cmd)}\n# target_res={tres} target_atoms={atoms} "
                  f"card={args.card} timeout={args.timeout}s env={args.env}\n")
         fh.flush()
+        # SIGINT first, not SIGKILL. subprocess.run(timeout=) kills with SIGKILL, which skips
+        # every atexit hook -- including the route census this whole script exists to collect --
+        # and leaves the chip dirty for the next opener. SIGINT raises KeyboardInterrupt in the
+        # fold, atexit runs, the census lands, and the device closes itself. The group is the
+        # fold's own (start_new_session), so this signals the spawned design workers too and
+        # nothing outside this rung.
+        proc = subprocess.Popen(cmd, cwd=str(ROOT), env=env, stdout=fh,
+                                stderr=subprocess.STDOUT, start_new_session=True)
+        timed_out = False
         try:
-            rc = subprocess.run(cmd, cwd=str(ROOT), env=env, stdout=fh,
-                                stderr=subprocess.STDOUT, timeout=args.timeout).returncode
-            timed_out = False
+            rc = proc.wait(timeout=args.timeout)
         except subprocess.TimeoutExpired:
-            rc, timed_out = -9, True
+            timed_out = True
+            rc = _stop(proc, args.grace)
     wall = round(time.time() - t0, 1)
 
     ok, detail = ladder.check_artifact(("designcif", (args.binder, tres)), out_dir, "boltzgen")
