@@ -24,9 +24,12 @@ import pytest
 from tt_bio import tenstorrent as T
 
 TILE = 32
-# (cz, hidden) of the models that reach the DRAM trimul path.
+# (cz, hidden) of the models that reach the DRAM trimul path, for naming what a failure is.
 MODELS = [("boltzgen", 64, 32), ("boltz2", 128, 128), ("protenix-v2", 128, 128),
           ("openfold3", 128, 128), ("opendde", 384, 384), ("esmfold2", 128, 128)]
+# Swept rather than taken from MODELS, so a model ported after this test still gets covered: a
+# hardcoded list of the current ports is exactly what a new one slips past.
+HIDDENS = [32, 64, 128, 192, 256, 384, 512]
 
 
 @pytest.fixture(autouse=True)
@@ -42,10 +45,10 @@ def _width(seq, hidden):
 
 def test_the_footprint_cap_never_asks_for_a_sub_tile_slice():
     """The defect. Every one of these sizes was halved to 16 or 8 with nothing refused."""
-    for name, _cz, hidden in MODELS:
+    for hidden in HIDDENS:
         for seq in (2080, 2208, 2304, 3072, 4096):
             w = _width(seq, hidden)
-            assert w % TILE == 0, f"{name} at seq {seq} would slice {w} wide"
+            assert w % TILE == 0, f"hidden {hidden} at seq {seq} would slice {w} wide"
 
 
 def test_2048_is_the_boundary_and_the_shipped_width_is_unchanged_below_it():
@@ -55,9 +58,9 @@ def test_2048_is_the_boundary_and_the_shipped_width_is_unchanged_below_it():
     and 2080 the first it halved. Everything at or below it must keep the tuned width, because a
     narrower chunk is a different launch count for the same arithmetic.
     """
-    for _name, _cz, hidden in MODELS:
+    for name, _cz, hidden in MODELS:
         for seq in (1024, 1504, 1760, 1856, 2016, 2048):
-            assert _width(seq, hidden) == T.TRIANGLE_MULT_CHUNK_SIZE
+            assert _width(seq, hidden) == T.TRIANGLE_MULT_CHUNK_SIZE, (name, seq)
     assert 4 * TILE * 2048 ** 2 * 2 <= T._TRIMUL_INPROJ_FUSED_BYTES
     assert 4 * TILE * 2080 ** 2 * 2 > T._TRIMUL_INPROJ_FUSED_BYTES
 
@@ -89,8 +92,8 @@ def test_the_part_default_is_the_wedging_side():
 
 def test_the_group_never_puts_the_slice_back_below_a_tile():
     """The slice width is chunk * group, so the group may only ever widen it."""
-    for _name, _cz, hidden in MODELS:
+    for hidden in HIDDENS:
         for seq in (1024, 2048, 2208, 3072):
             chunk = _width(seq, hidden)
             group = T._trimul_inproj_group(seq, chunk, 1, hidden // chunk)
-            assert group >= 1 and (chunk * group) % TILE == 0
+            assert group >= 1 and (chunk * group) % TILE == 0, (hidden, seq, chunk, group)
