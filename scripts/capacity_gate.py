@@ -250,12 +250,18 @@ def baseline_gaps() -> list[str]:
     boltz2's PASS at 1536 was measured, written up in prose, and never recorded -- and its report
     lived in gitignored scratch inside a worktree fleet hygiene later removed, so the claim
     outlived its evidence. A verdict not folded into the baseline when it is measured is lost.
+
+    A cell the card never produced counts as a gap rather than as coverage: see `nothing_ran`.
+    Absence is reported loudly here, which is exactly why it beats a cell nothing downstream can
+    tell apart from a measured one.
     """
     per_card = read_baseline()
     if not per_card:
         return runnable()
-    return [f"{card}/{m}" for card, blk in sorted(per_card.items())
-            for m in runnable() if m not in (blk.get("cells") or {})]
+    cells_of = {card: (blk.get("cells") or {}) for card, blk in per_card.items()}
+    return [f"{card}/{m}" for card in sorted(cells_of)
+            for m in runnable()
+            if m not in cells_of[card] or nothing_ran(cells_of[card][m])]
 
 
 def baseline_stale() -> list[str]:
@@ -436,6 +442,24 @@ MECHANISM_PATTERNS = (
 #: model failed the bar" for three cells on qb2's p300c on 2026-09-10.
 NOTHING_RAN = {"contention": "CONTENDED", "card": "CARD_DIRTY"}
 NOTHING_RAN_VERDICTS = frozenset(NOTHING_RAN.values())
+
+
+def nothing_ran(cell: dict | None) -> bool:
+    """True when a recorded cell is one the card never produced: no model code ran at all.
+
+    Finding 9 classified these legs; this is the same rule applied to the file they end up in.
+    A CARD_DIRTY cell is not a weaker capacity result, it is the absence of one, so it must not
+    read as coverage. It did: `baseline_gaps` asked only whether a cell was present, and
+    `record_baseline`'s guard refused to overwrite a real cell with a non-measurement but
+    happily created one where no cell existed yet -- which is exactly the case a re-measure of a
+    dropped cell lands in. Recording opendde on 2026-09-10 took that branch and published
+    CARD_DIRTY, and the coverage check went green on a cell whose leg died at firmware init.
+
+    Scoped to NOTHING_RAN rather than to UNDECIDED on purpose. An INCONCLUSIVE screen ran the
+    model and is a legitimate thing to record; it is only barred from overwriting a stronger
+    verdict, which `_would_lose_evidence` already handles and still does.
+    """
+    return bool(cell) and cell.get("verdict") in NOTHING_RAN_VERDICTS
 
 #: Why the cell decided nothing, in the words of whatever stopped it.
 NOTHING_RAN_REASON = {
@@ -1877,12 +1901,20 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     # is exactly the run that would wipe every PASS.
     before = (prior.get("cells") or {})
     fp = ceilings_fingerprint()
-    kept = []
+    kept, dropped = [], []
     for r in report["results"]:
         if _would_lose_evidence(r, before.get(r["model"])):
             kept.append(f"{r['model']} ({before[r['model']]['verdict']} kept over "
                         f"{r['verdict']})")
             cells[r["model"]] = before[r["model"]]
+            continue
+        # Nothing to keep and nothing to write: a leg where the card never opened produced no
+        # cell at all. The branch above covers the case where a measurement already stands; this
+        # one is the case where none does, and writing here is how a non-measurement becomes the
+        # baseline's answer for the model.
+        if nothing_ran(r):
+            dropped.append(f"{r['model']} ({r['verdict']})")
+            cells.pop(r["model"], None)
             continue
         cells[r["model"]] = {k: r.get(k) for k in
                              ("verdict", "tokens_requested", "tokens_padded", "residues",
@@ -1920,6 +1952,10 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     if kept:
         msg += ("\n  this run decided nothing for these, so the recorded result stands: "
                 + "; ".join(kept))
+    if dropped:
+        msg += ("\n  the card never opened for these and nothing was recorded before, so no "
+                "cell was written and the coverage check will report them missing: "
+                + "; ".join(dropped))
     return msg
 
 

@@ -1474,6 +1474,54 @@ def test_a_card_that_was_never_available_does_not_erase_a_verdict(tmp_path, monk
             f"{dud} erased a measured FAIL and the ceiling the bisect spent hours on")
 
 
+def test_a_leg_that_never_opened_the_device_writes_no_cell(tmp_path, monkeypatch):
+    """The other half of the arm above, and the one that actually bit.
+
+    That arm covers a non-measurement arriving over a measurement. This is a non-measurement
+    arriving over NOTHING, which is what a re-measure of a dropped cell always is: chain7 re-ran
+    opendde on 2026-09-10, the leg died at firmware init in 27 min without running a line of
+    model code, and `--record` filed CARD_DIRTY as the model's cell. `_would_lose_evidence`
+    returns False when there is no prior cell, so the guard that exists for exactly this verdict
+    waved it through.
+    """
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    for dud in ("CONTENDED", "CARD_DIRTY"):
+        msg = cg.record_baseline(_cell_report("opendde", dud, "residency", wall_s=16.6),
+                                 partial=True)
+        assert "opendde" not in _cells(tmp_path / "baseline.json"), (
+            f"{dud} was written as opendde's cell; the card never opened, so this publishes the "
+            f"absence of a measurement where the coverage check reads a measurement")
+        assert "opendde" in msg and "no cell was written" in msg, (
+            f"the cell was dropped silently, which reads like it was recorded: {msg!r}")
+
+
+def test_a_cell_the_card_never_produced_is_not_coverage(tmp_path, monkeypatch):
+    """`baseline_gaps` asked whether a cell was PRESENT, so a CARD_DIRTY cell answered it.
+
+    Both directions, because a gap check that reports everything is as useless as one that
+    reports nothing: the model with a real PASS must stay out of the list.
+    """
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    monkeypatch.setattr(cg, "runnable", lambda: ["boltz2", "opendde"])
+    cg.record_baseline(_cell_report("boltz2", "PASS", "residency", wall_s=444.8), partial=True)
+    assert cg.baseline_gaps() == ["p150a/opendde"], (
+        f"a model with no cell at all is the case this check was built for: "
+        f"{cg.baseline_gaps()}")
+    # Now give opendde a cell the card never produced. Presence must not close the gap.
+    raw = json.loads((tmp_path / "baseline.json").read_text())
+    raw["cards"]["p150a"]["cells"]["opendde"] = {"verdict": "CARD_DIRTY",
+                                                 "tokens_requested": cg.TOKEN_BAR}
+    (tmp_path / "baseline.json").write_text(json.dumps(raw))
+    assert cg.baseline_gaps() == ["p150a/opendde"], (
+        "a CARD_DIRTY cell closed the coverage gap, so a model whose leg never opened the "
+        "device reads as measured")
+    # The control in the other direction: a real verdict there does close it.
+    raw["cards"]["p150a"]["cells"]["opendde"]["verdict"] = "FAIL"
+    (tmp_path / "baseline.json").write_text(json.dumps(raw))
+    assert cg.baseline_gaps() == [], \
+        "a measured FAIL is coverage and must not be reported as a gap"
+
+
 def test_a_real_verdict_still_replaces_whatever_stands(tmp_path, monkeypatch):
     """The control. Keeping the stronger cell must not turn the baseline read-only: a re-measured
     verdict, including one that goes PASS -> FAIL, has to land. Otherwise a model that regresses
