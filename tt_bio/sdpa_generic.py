@@ -175,9 +175,9 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
 #     TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)]
 #     grow to 4844032 B which is beyond max L1 size of 1572864 B
 #
-# and the figure it reports is `cb_bytes` plus a constant 109056 B, exact on all ten refusals in
-# `perf/bgsdpa/cb_model.MEASURED` (eight from a chunk-size probe, two from a live BoltzGen design
-# at 2208 padded tokens) and on the 3424768 B clash `tests/test_capacity_gate.py` already quotes.
+# and the figure it reports is `cb_bytes` plus a constant 109056 B, exact on all ten refusals
+# measured against it (eight from a chunk-size probe, two from a live BoltzGen design at 2208
+# padded tokens) and on the 3424768 B clash `tests/test_capacity_gate.py` already quotes.
 # 1.5 MiB is the per-core L1 on blackhole and on wormhole_b0 alike; `device->l1_size_per_core()`
 # is not exposed to Python, which is why it is a constant here rather than a query (the same gap
 # `softmax_generic` documents). `MAX_L1` is re-read from any refusal that names it, so a part with
