@@ -29,7 +29,9 @@ last one.
       the step that makes the verdict evidence instead of a sentence in a review comment: the run
       logs live in scratch that gets cleaned up, and the baseline is the only committed record.
       `tests/test_capacity_gate.py` fails while a runnable model has no cell, and while a cell
-      it does have was measured against a ceiling table this tree no longer ships.
+      it does have was measured against a ceiling table this tree no longer ships. A run whose
+      card never opened records no cell at all, so a `CARD_DIRTY` or `CONTENDED` result is a
+      re-run and not a result.
 - [ ] Re-record on the board type you ship on. Not for geometry: a stock p150a and a p300c chip
       both read 110 L1 banks on an 11x10 grid with 8 x 4278190016 B of DRAM. Record per board
       type because a p300 is a board PAIR for reset and dispatch, a single visible p300 chip
