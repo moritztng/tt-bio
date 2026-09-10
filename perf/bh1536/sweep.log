@@ -41,3 +41,15 @@
 2026-09-10T02:06:54Z esmfold2-fast    512tok WEDGED   wall=   20.3s engine=None cif_res=0/512 ntok=None rss=62.29G oom=-
 2026-09-10T02:11:58Z nesso1          1536tok PASS     wall=  150.6s engine=None cif_res=1536/1536 ntok=None rss=70.5G oom=l1_cb/l1_static_cb
 2026-09-10T02:16:40Z boltz2          1300tok PASS     wall=  275.0s engine=251.6 cif_res=1300/1300 ntok=None rss=68.56G oom=- breaks=0 worst_ca=4.05 clash=0.0023
+2026-09-10T03:14:18Z esmfold2        1300tok PASS     wall=  538.6s engine=493.4 cif_res=1300/1300 ntok=None rss=58.67G oom=dram/fragmentation breaks=0 worst_ca=4.44 clash=0.00182 ffn_fallback=YES
+2026-09-10T03:29:39Z esmfold2        1536tok OOM      wall=  592.4s engine=None cif_res=0/1536 ntok=None rss=96.35G oom=dram/fragmentation(fatal) ffn_fallback=YES
+2026-09-10T03:39:16Z esmfold2        1408tok PASS     wall=  566.6s engine=521.2 cif_res=1408/1408 ntok=None rss=79.39G oom=dram/fragmentation breaks=0 worst_ca=4.26 clash=0.00256 ffn_fallback=YES
+2026-09-10T03:55:24Z opendde         1536tok STALLED  wall=  964.3s engine=None cif_res=0/1536 ntok=None rss=66.24G oom=l1_cb/l1_static_cb(fatal)
+2026-09-10T04:12:20Z opendde         1536tok STALLED  wall=  969.0s engine=None cif_res=0/1536 ntok=None rss=51.29G oom=l1_cb/l1_static_cb(fatal)
+2026-09-10T04:12:43Z rf3             1536tok WEDGED   wall=   20.3s engine=None cif_res=0/1536 ntok=None rss=31.39G oom=-
+2026-09-10T04:13:06Z rf3             1536tok WEDGED   wall=   20.2s engine=None cif_res=0/1536 ntok=None rss=30.99G oom=-
+2026-09-10T04:23:39Z rf3             1536tok PASS     wall=  451.3s engine=430.5 cif_res=1536/1536 ntok=1536 rss=41.78G oom=- breaks=0 worst_ca=3.93 clash=0.36171
+2026-09-10T04:31:11Z rf3             1536tok PASS     wall=  442.5s engine=422.9 cif_res=1536/1536 ntok=1536 rss=39.69G oom=- breaks=0 worst_ca=3.93 clash=0.36171
+2026-09-10T04:40:24Z esmfold2        1536tok PASS     wall=  542.4s engine=499.2 cif_res=1536/1536 ntok=None rss=58.97G oom=dram/fragmentation breaks=0 worst_ca=4.43 clash=0.00146 ffn_fallback=YES
+2026-09-10T04:49:40Z esmfold2        1536tok PASS     wall=  546.3s engine=503.3 cif_res=1536/1536 ntok=None rss=65.06G oom=dram/fragmentation breaks=0 worst_ca=4.43 clash=0.00146 ffn_fallback=YES
+2026-09-10T05:37:05Z opendde         1536tok STALLED  wall=  711.9s engine=None cif_res=0/1536 ntok=None rss=54.64G oom=-

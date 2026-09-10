@@ -3997,6 +3997,50 @@ def pair_row_tile(L: int) -> int:
     return rows if rows < L else 0
 
 
+def row_block_after_refusal(memo, key, single, blocked, rows, tag, min_rows=32):
+    """Run `single()`; if DRAM refuses it, re-run the same math as `blocked(rows)`.
+
+    The one mechanism behind every "the chip would not serve this allocation, do it in row
+    blocks" route in the engine. Three ops grew their own copy of it -- the outer product mean,
+    the pair FFN and the diffusion pair transition -- and a fourth would have been a fourth.
+
+    Why after the refusal and never before it: a size that fits keeps running the single pass
+    its byte-identical output was measured on. Row-blocking is bit-exact for these ops by their
+    own row-independence, but "bit-exact by argument" is still a different program, and there is
+    no unblocked output to compare against at a size that does not fit anyway.
+
+    `memo[key] = rows` remembers what a shape settled at, so the second call at that shape skips
+    straight to the block instead of paying another failed multi-GiB allocation -- esmfold2 runs
+    48 pair transitions per recycle. `blocked` is halved (32-aligned) on each further refusal
+    down to `min_rows`, then the refusal is raised: past that the block is not what is too big.
+    Anything that is not an allocator refusal propagates untouched, or a real bug would be
+    retried row by row and reported as an OOM.
+    """
+    from tt_bio.size_limits import is_alloc_refusal
+
+    rows = memo.get(key) or rows
+    if key not in memo:
+        try:
+            return single()
+        except Exception as exc:
+            if not is_alloc_refusal(exc):
+                raise
+            print(f"[{tag}] DRAM refused the single pass at {key}; re-running it in "
+                  f"{rows}-row blocks", flush=True)
+    while True:
+        try:
+            out = blocked(rows)
+        except Exception as exc:
+            if not is_alloc_refusal(exc) or rows <= min_rows:
+                raise
+            rows = max(min_rows, (rows // 2 // 32) * 32)
+            memo[key] = rows
+            print(f"[{tag}] still refused; halving the block to {rows} rows", flush=True)
+            continue
+        memo[key] = rows
+        return out
+
+
 _device = None
 _trace_region_size = 0
 _device_lease = None

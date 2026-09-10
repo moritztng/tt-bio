@@ -42,8 +42,18 @@ def _stub(tmp_path: Path, body: str) -> Path:
 
 
 def _run(stub: Path, *specs: str):
-    env = {**os.environ, "PY": str(stub)}
-    r = subprocess.run(["bash", str(CHAIN), *specs], capture_output=True, text=True,
+    # Run a COPY, in tmp_path. chain.sh derives its worktree from its own location, so the copy
+    # takes its lock in tmp_path instead of the real `perf/bh1536/.card0.lock`, and
+    # CARD_USER_PATTERN takes it off the host-wide `pgrep` for a live run_rung.py. Without both,
+    # this test blocks on whatever real rung is walking the card and times out -- it did, on a
+    # campaign box, for exactly that reason.
+    here = stub.parent / "perf" / "bh1536"
+    here.mkdir(parents=True, exist_ok=True)
+    chain = here / "chain.sh"
+    chain.write_bytes(CHAIN.read_bytes())
+    chain.chmod(0o755)
+    env = {**os.environ, "PY": str(stub), "CARD_USER_PATTERN": "no-such-process-ykhqz"}
+    r = subprocess.run(["bash", str(chain), *specs], capture_output=True, text=True,
                        env=env, timeout=300)
     started = r.stdout.count("\n=== ") + r.stdout.startswith("=== ")
     return r, started
