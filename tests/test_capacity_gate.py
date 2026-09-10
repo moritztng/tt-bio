@@ -1083,7 +1083,8 @@ def test_a_leg_cannot_inherit_the_previous_runs_output_or_dram_peak(tmp_path):
         f"earlier run: {r['hook']}")
 
 
-def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None):
+def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None,
+                  screen_mechanism="dram"):
     """Drive _bisect with canned leg outcomes, so the rung bookkeeping is testable without
     spending a rung of real card time on it (a real rung is minutes to tens of minutes)."""
     screen_verdicts = screen_verdicts or {}
@@ -1096,7 +1097,8 @@ def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdic
         v = screen_verdicts.get(f)
         if v is None:
             v = "FAIL" if (screen_fail_above is not None and f > screen_fail_above) else "PASS"
-        return {"verdict": v, "mechanism": "alloc" if v == "FAIL" else None, "wall_s": 1.0}
+        return {"verdict": v, "mechanism": screen_mechanism if v == "FAIL" else None,
+                "wall_s": 1.0}
 
     def residency(worker, cell, f, work, hookdir, tokens):
         calls.append(("residency", tokens))
@@ -1119,6 +1121,30 @@ def test_a_bisect_that_completes_no_rung_still_reports_what_it_walked():
     assert "alloc_ceiling_note" in rec, "the walk recorded nothing at all"
     assert str(min(cg.BISECT_RUNGS)) in rec["alloc_ceiling_note"], (
         f"the note does not say how low the walk actually went: {rec['alloc_ceiling_note']}")
+
+
+def test_a_walk_where_the_allocator_never_refused_is_not_a_ceiling():
+    """A size wall is size-dependent. A walk that dies the same way at every rung has not found
+    one, and must not publish a bound below the lowest rung it burned.
+
+    Measured on esmfold2 on qb2's p300c, 2026-09-10: the Tier 1 truncation hook leaves a
+    downstream reshape inconsistent, so 1408, 1280, 1024, 896, 768, 640 and 512 all died in 4-6 s
+    with the identical `shape '[1, 1, 3, 1]' is invalid for input of size 81` and no allocator
+    message at all. The cell published "The ceiling is below 512 tokens if there is one at all"
+    for a model whose size ladder folds 768 on that same card in 96.6 s.
+
+    Third instrument breakage after _HOOK_BROKE and _UNEXPECTED_KEY, both of which are matched by
+    message. A fourth message would not match a fourth regex either, so this guard reads the
+    shape of the evidence: an error that does not change with size is not evidence about size.
+    """
+    _, rec, _ = _bisect_probe(screen_verdicts={t: "FAIL" for t in cg.BISECT_RUNGS},
+                              screen_mechanism=None)
+    note = rec["alloc_ceiling_note"]
+    assert "decided nothing" in note, (
+        f"a walk in which the allocator never refused published a ceiling anyway: {note}")
+    assert rec["alloc_ceiling_tokens"] is None
+    assert f"below {min(cg.BISECT_RUNGS)}" not in note, \
+        f"it still offers the lowest rung as a bound: {note}"
 
 
 def test_a_residency_failure_does_not_lower_the_allocation_ceiling():

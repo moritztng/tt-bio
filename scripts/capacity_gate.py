@@ -398,6 +398,11 @@ def geometry(worker) -> dict:
 
 #: Cheap host-side signals that a fold hit the device wall rather than anything else. Matched
 #: against the run log so a verdict names its own mechanism instead of just "exited nonzero".
+#: The mechanisms that mean THE ALLOCATOR REFUSED. A capacity ceiling is a statement about these
+#: and nothing else: every other way a run can die is a statement about the model, the fixture or
+#: the gate's own instrument.
+ALLOC_MECHANISMS = ("dram", "l1")
+
 MECHANISM_PATTERNS = (
     ("dram",          re.compile(r"Out of Memory: Not enough space to allocate.*DRAM", re.I)),
     ("l1",            re.compile(r"Out of Memory: Not enough space to allocate.*L1", re.I)),
@@ -1284,6 +1289,34 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
         # Nothing allocated at any rung walked. That IS the finding, and returning early without
         # recording it threw away the whole walk: seven rungs of card time came back as an empty
         # cell that reads as if the bisect had never run.
+        #
+        # BUT ONLY IF THE ALLOCATOR IS WHAT REFUSED. A size wall is size-dependent by
+        # definition, so a walk where the allocator never spoke has not found one, however many
+        # rungs it burned. Measured on esmfold2 on qb2's p300c, 2026-09-10: the Tier 1 hook
+        # truncates block lists, which leaves a downstream reshape inconsistent, so every rung
+        # from 1408 down to 512 died in 4-6 s with the identical
+        # `shape '[1, 1, 3, 1]' is invalid for input of size 81` and the cell published "the
+        # ceiling is below 512 tokens if there is one at all" -- for a model whose size ladder
+        # folds 768 on that same card in 96.6 s.
+        #
+        # This is the THIRD way the instrument has broken a model (_HOOK_BROKE was the first,
+        # _UNEXPECTED_KEY the second, both matched by message). A fourth message will not match
+        # a fourth regex either, so the guard here is on the shape of the evidence instead: an
+        # error that does not change with size is not evidence about size.
+        screens = [l for l in rec["legs"]
+                   if l.get("tier") == "screen" and l.get("tokens") in walked]
+        if walked and not any(l.get("mechanism") in ALLOC_MECHANISMS for l in screens):
+            why = next((l.get("mechanism") for l in screens if l.get("mechanism")), None)
+            rec["alloc_ceiling_tokens"] = None
+            rec["alloc_ceiling_note"] = (
+                f"the bisect decided nothing. Every rung walked "
+                f"({', '.join(str(r) for r in walked)}) failed without the allocator ever "
+                f"refusing"
+                + (f" (mechanism {why})" if why else "")
+                + ", so the failure does not depend on size and is not a capacity wall. "
+                  "Whatever killed these rungs has to be fixed before a ceiling can be read "
+                  "off them.")
+            return None
         rec["alloc_ceiling_tokens"] = None
         rec["alloc_ceiling_note"] = (
             f"shapes do not allocate at any size walked: {', '.join(str(r) for r in walked)}. "
