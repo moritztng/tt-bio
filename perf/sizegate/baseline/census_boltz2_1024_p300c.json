@@ -1,12 +1,12 @@
 {
-  "label": "esmfold2-512-rep0",
+  "label": "boltz2-1024-rep0",
   "cli": [
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/size512/fixtures/cdk2x2_512.yaml",
+    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/size512/fixtures/cdk2x2_1024.yaml",
     "--model",
-    "esmfold2",
+    "boltz2",
     "--single_sequence",
     "--sampling_steps",
     "6",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/sizegate/work/out_esmfold2-512-rep0"
+    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/sizegate/work/out_boltz2-1024-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -24,63 +24,63 @@
       "flag": "SPLIT_SWIGLU",
       "how": "stats",
       "counter": "tt_bio.esmc.SPLIT_STATS",
-      "resolved": "True",
-      "served": 538,
-      "declined": 87,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "SPLIT_SWIGLU_SMALL_GRID",
       "how": "stats-shared",
       "counter": "tt_bio.esmc.SPLIT_STATS",
-      "resolved": "True",
-      "served": 538,
-      "declined": 87,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_L1_FC1",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_FC1_STATS",
-      "resolved": "True",
-      "served": 17216,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_L1_LN",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_LN_STATS",
-      "resolved": "True",
-      "served": 8608,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_L1_SLICE",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_SLICE_STATS",
-      "resolved": "True",
-      "served": 538,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_FUSED_RESIDUAL",
       "how": "stats",
       "counter": "tt_bio.esmc.FUSED_RESID_STATS",
-      "resolved": "True",
-      "served": 538,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_FILL_ASSEMBLY",
       "how": "stats",
       "counter": "tt_bio.esmc.FILL_ASSEMBLY_STATS",
-      "resolved": "True",
-      "served": 538,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
@@ -88,7 +88,7 @@
       "how": "stats",
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
-      "served": 1084,
+      "served": 560,
       "declined": 0,
       "rejects": null
     },
@@ -97,7 +97,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
+      "served": 360,
       "declined": 0,
       "rejects": null
     },
@@ -115,7 +115,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
+      "served": 560,
       "declined": 0,
       "rejects": null
     },
@@ -125,24 +125,29 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 0,
-      "rejects": null
+      "declined": 1680,
+      "rejects": {
+        "k_tiles=4:(4,4)": 1120,
+        "k_tiles=4:(4,1)": 560
+      }
     },
     {
       "flag": "TRIMUL_TAIL_F1",
       "how": "stats",
       "counter": "tt_bio.trimul_tail.STATS",
       "resolved": "True",
-      "served": 1084,
-      "declined": 0,
-      "rejects": null
+      "served": 0,
+      "declined": 560,
+      "rejects": {
+        "k_tiles=4": 560
+      }
     },
     {
       "flag": "QKV_MM_CONFIG",
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
+      "served": 1120,
       "declined": 0,
       "rejects": null
     },
@@ -150,9 +155,9 @@
       "flag": "DEVICE_LM_HANDOFF",
       "how": "stats",
       "counter": "tt_bio.esmfold2_runtime.LM_HANDOFF_STATS",
-      "resolved": "True",
-      "served": 1,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
@@ -160,7 +165,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
-      "served": 16,
+      "served": 1120,
       "declined": 0,
       "rejects": null
     },
@@ -169,7 +174,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 1084,
+      "served": 560,
       "declined": 0,
       "rejects": null
     },
@@ -178,7 +183,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 2152,
+      "served": 0,
       "declined": 0,
       "rejects": null
     },
@@ -187,9 +192,12 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 0,
-      "rejects": null
+      "served": 560,
+      "declined": 1120,
+      "rejects": {
+        "l1_budget": 2,
+        "pm_over_l1": 1118
+      }
     },
     {
       "flag": "SDPA_WIDE_K",
@@ -223,7 +231,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.STATS",
       "resolved": "True",
-      "served": 0,
+      "served": 560,
       "declined": 0,
       "rejects": null
     },
@@ -232,7 +240,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 0,
+      "served": 560,
       "declined": 0,
       "rejects": null
     },
@@ -241,7 +249,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 0,
+      "served": 560,
       "declined": 0,
       "rejects": null
     },
@@ -250,7 +258,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
+      "served": 3,
       "declined": 0,
       "rejects": null
     },
@@ -259,7 +267,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
+      "served": 72,
       "declined": 0,
       "rejects": null
     },
@@ -278,7 +286,7 @@
       "counter": null,
       "resolved": "1.25",
       "served": 0,
-      "declined": 0,
+      "declined": 560,
       "rejects": null
     },
     {

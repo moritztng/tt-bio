@@ -7954,20 +7954,22 @@
       }
     },
     "p300c": {
-      "recorded": "2026-08-28",
+      "recorded": "2026-09-10",
       "host": "tt-quietbox2",
-      "commit": "6adf7e04",
+      "commit": "8e3a3e9e",
       "models": {
         "protenix-v1": {
           "grid": "11x10",
-          "recorded": "2026-08-27",
+          "recorded": "2026-09-10",
           "host": "tt-quietbox2",
-          "commit": "daa67027",
+          "commit": "8e3a3e9e",
           "runtime_s": {
-            "256": 4.5,
-            "512": 11.8,
-            "640": 18.2,
-            "768": 25.9
+            "256": 4.4,
+            "512": 11.7,
+            "640": 18.3,
+            "768": 26.0,
+            "896": 36.4,
+            "1024": 47.3
           },
           "levers": {
             "256": {
@@ -7977,7 +7979,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -7985,7 +7987,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -7993,7 +7995,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -8001,7 +8003,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -8009,7 +8011,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -8017,7 +8019,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -8025,7 +8027,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -8036,7 +8038,7 @@
                 "rejects": {
                   "memory": 848
                 },
-                "reason": "declines all 848 calls on memory: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at 256. It serves all 424 calls from 512 upward"
+                "reason": "declines all 848 calls on memory x848: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at 256. It serves all 424 calls from 512 upward"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -8051,7 +8053,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist"
+                "reason": "declines all 0 calls: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -8062,7 +8064,7 @@
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 424
                 },
-                "reason": "declines all 424 calls on l1_dest_is_faster:256x256x128: the pair tensor still fits L1 at this rung, so the guard keeps the L1 destination and TRANSPOSE_L1_RESIDENT serves all 424 instead. It serves every call at 768, where the pair buffer spills to DRAM"
+                "reason": "declines all 424 calls on l1_dest_is_faster:256x256x128 x424: the pair tensor still fits L1 at this rung, so the guard keeps the L1 destination and TRANSPOSE_L1_RESIDENT serves all 424 instead. It serves every call at 768, where the pair buffer spills to DRAM"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -8084,7 +8086,7 @@
                 "rejects": {
                   "k_tiles=4": 424
                 },
-                "reason": "declines all 424 calls on k_tiles=4: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs"
+                "reason": "declines all 424 calls on k_tiles=4 x424: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -8109,7 +8111,7 @@
                 "rejects": {
                   "window_BufferType.L1": 848
                 },
-                "reason": "declines all 848 calls on window_BufferType.L1: the channel-move window is in L1 at this rung and the ungated permute needs a DRAM window"
+                "reason": "declines all 848 calls on window_BufferType.L1 x848: the channel-move window is in L1 at this rung and the ungated permute needs a DRAM window"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -8117,7 +8119,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the move back only runs when a forward move fired, and at 256 neither the gated nor the ungated move did"
+                "reason": "declines all 0 calls: the move back only runs when a forward move fired, and at 256 neither the gated nor the ungated move did"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
@@ -8125,7 +8127,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: not offered at this rung; it serves all 848 calls from 512 upward"
+                "reason": "declines all 0 calls: not offered at this rung; it serves all 848 calls from 512 upward"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -8182,7 +8184,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module"
+                "reason": "declines all 0 calls: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -8190,7 +8192,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN"
+                "reason": "declines all 0 calls: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -8212,6 +8214,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "512": {
@@ -8221,7 +8237,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -8229,7 +8245,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -8237,7 +8253,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -8245,7 +8261,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -8253,7 +8269,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -8261,7 +8277,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -8269,7 +8285,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -8291,7 +8307,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist"
+                "reason": "declines all 0 calls: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -8302,7 +8318,7 @@
                 "rejects": {
                   "l1_dest_is_faster:512x512x128": 424
                 },
-                "reason": "declines all 424 calls on l1_dest_is_faster:512x512x128: the pair tensor still fits L1 at this rung, so the guard keeps the L1 destination and TRANSPOSE_L1_RESIDENT serves all 424 instead. It serves every call at 768, where the pair buffer spills to DRAM"
+                "reason": "declines all 424 calls on l1_dest_is_faster:512x512x128 x424: the pair tensor still fits L1 at this rung, so the guard keeps the L1 destination and TRANSPOSE_L1_RESIDENT serves all 424 instead. It serves every call at 768, where the pair buffer spills to DRAM"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -8324,7 +8340,7 @@
                 "rejects": {
                   "k_tiles=4": 424
                 },
-                "reason": "declines all 424 calls on k_tiles=4: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs"
+                "reason": "declines all 424 calls on k_tiles=4 x424: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -8346,7 +8362,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move serves this rung instead (REBLOCK_PERMUTE_GATED, 848 calls at 512, 640 and 768), so the ungated call site is not reached"
+                "reason": "declines all 0 calls: the gated channel move serves this rung instead (REBLOCK_PERMUTE_GATED, 848 calls at 512, 640 and 768), so the ungated call site is not reached"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -8417,7 +8433,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module"
+                "reason": "declines all 0 calls: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -8425,7 +8441,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN"
+                "reason": "declines all 0 calls: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -8447,6 +8463,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "640": {
@@ -8456,7 +8486,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -8464,7 +8494,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -8472,7 +8502,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -8480,7 +8510,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -8488,7 +8518,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -8496,7 +8526,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -8504,7 +8534,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -8526,7 +8556,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist"
+                "reason": "declines all 0 calls: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -8537,7 +8567,7 @@
                 "rejects": {
                   "l1_dest_is_faster:640x640x128": 424
                 },
-                "reason": "declines all 424 calls on l1_dest_is_faster:640x640x128: the pair tensor still fits L1 at this rung, so the guard keeps the L1 destination and TRANSPOSE_L1_RESIDENT serves all 424 instead. It serves every call at 768, where the pair buffer spills to DRAM"
+                "reason": "declines all 424 calls on l1_dest_is_faster:640x640x128 x424: the pair tensor still fits L1 at this rung, so the guard keeps the L1 destination and TRANSPOSE_L1_RESIDENT serves all 424 instead. It serves every call at 768, where the pair buffer spills to DRAM"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -8560,7 +8590,7 @@
                 "rejects": {
                   "k_tiles=4": 424
                 },
-                "reason": "declines all 424 calls on k_tiles=4: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs"
+                "reason": "declines all 424 calls on k_tiles=4 x424: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -8582,7 +8612,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move serves this rung instead (REBLOCK_PERMUTE_GATED, 848 calls at 512, 640 and 768), so the ungated call site is not reached"
+                "reason": "declines all 0 calls: the gated channel move serves this rung instead (REBLOCK_PERMUTE_GATED, 848 calls at 512, 640 and 768), so the ungated call site is not reached"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -8653,7 +8683,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module"
+                "reason": "declines all 0 calls: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -8661,7 +8691,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN"
+                "reason": "declines all 0 calls: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -8683,6 +8713,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "768": {
@@ -8692,7 +8736,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -8700,7 +8744,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -8708,7 +8752,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -8716,7 +8760,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -8724,7 +8768,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -8732,7 +8776,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -8740,7 +8784,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -8762,7 +8806,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist"
+                "reason": "declines all 0 calls: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -8792,7 +8836,7 @@
                 "rejects": {
                   "k_tiles=4": 424
                 },
-                "reason": "declines all 424 calls on k_tiles=4: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs"
+                "reason": "declines all 424 calls on k_tiles=4 x424: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -8814,7 +8858,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move serves this rung instead (REBLOCK_PERMUTE_GATED, 848 calls at 512, 640 and 768), so the ungated call site is not reached"
+                "reason": "declines all 0 calls: the gated channel move serves this rung instead (REBLOCK_PERMUTE_GATED, 848 calls at 512, 640 and 768), so the ungated call site is not reached"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -8889,7 +8933,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module"
+                "reason": "declines all 0 calls: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -8897,7 +8941,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN"
+                "reason": "declines all 0 calls: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -8912,7 +8956,7 @@
                 "declined": 424,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 424 calls at 768 aa: the 768x768x128 pair transpose no longer fits the L1 budget, so it goes through DRAM and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 424 calls instead. Exactly one of the two serves at every rung, and on this 11x10 grid the L1-residency boundary sits between 640 and 768"
+                "reason": "declines all 424 calls: the 768x768x128 pair transpose no longer fits the L1 budget, so it goes through DRAM and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 424 calls instead. Exactly one of the two serves at every rung, and on this 11x10 grid the L1-residency boundary sits between 640 and 768"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -8920,32 +8964,557 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "896": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 405,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1272,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 848,
+                  "k_tiles=4:(4,1)": 424
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 424,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=4": 424
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 848,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 848,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 424,
+                "frac": 0.5,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 423
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 424,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "1024": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 405,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1272,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 848,
+                  "k_tiles=4:(4,1)": 424
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 424,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=4": 424
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 848,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 848,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 848,
+                "frac": 0.3333333333333333,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 2,
+                  "pm_over_l1": 846
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 424,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0038,
+          "sigma_runtime_512": 0.0047,
           "exponents": {
             "256->512": {
-              "k": 1.391,
+              "k": 1.411,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.939,
+              "k": 1.969,
               "tol": 0.5
             }
+          },
+          "exponents_measured": {
+            "256->512": 1.411,
+            "512->640": 2.005,
+            "640->768": 1.926,
+            "768->896": 2.183,
+            "896->1024": 1.962
           }
         },
         "boltz2": {
           "grid": "11x10",
-          "recorded": "2026-08-27",
+          "recorded": "2026-09-10",
           "host": "tt-quietbox2",
-          "commit": "4b6bf0db",
+          "commit": "8e3a3e9e",
           "runtime_s": {
-            "256": 5.1,
-            "512": 17.6,
-            "640": 27.2,
-            "768": 38.8
+            "256": 5.2,
+            "512": 17.9,
+            "640": 27.8,
+            "768": 39.4,
+            "896": 55.8,
+            "1024": 72.7
           },
           "levers": {
             "256": {
@@ -9181,6 +9750,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "512": {
@@ -9407,6 +9990,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "640": {
@@ -9634,6 +10231,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "768": {
@@ -9854,7 +10465,7 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 560 calls at 768 aa: `_transpose_memory_config` is a static L1 budget with 1.25x headroom (tt_bio/tenstorrent.py TRANSPOSE_L1_HEADROOM), and this card's 11x10 grid has 110 cores of L1 against the 13x10 grid's 130, so boltz-2's 768x768x128 pair tensor no longer fits and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560. Exactly one of the two serves at every rung; the residency boundary sits between 640 and 768 here, where on 13x10 boltz-2 stays L1-resident through 768"
+                "reason": "declines all 560 calls: `_transpose_memory_config` is a static L1 budget with 1.25x headroom (tt_bio/tenstorrent.py TRANSPOSE_L1_HEADROOM), and this card's 11x10 grid has 110 cores of L1 against the 13x10 grid's 130, so boltz-2's 768x768x128 pair tensor no longer fits and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560. Exactly one of the two serves at every rung; the residency boundary sits between 640 and 768 here, where on 13x10 boltz-2 stays L1-resident through 768"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -9862,32 +10473,539 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "896": {
+              "SPLIT_SWIGLU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 360,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. boltz-2's SDPA bias is bf16, so the fp32 hoist is never reached at any size. [carried from tt-galaxy-wh l]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1680,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 1120,
+                  "k_tiles=4:(4,1)": 560
+                },
+                "reason": "structurally out of scope for this model at every size: `_pair_proj_minimal_matmul` is scoped to a single K block (k_tiles == 8, c_z 256), and boltz-2's c_z is 128, so k_tiles is 4. Reason reads `k_tiles=4` identically at all six rungs. Size-independent, so it biases no exponent. [carried from tt-galaxy-wh l]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 560,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=4": 560
+                },
+                "reason": "same structural k_tiles=4 refusal as PAIR_PROJ_MINIMAL_MATMUL: boltz-2's c_z=128 gives 4 K tiles where the lever needs 8. Identical at all six rungs, so size-independent. [carried from tt-galaxy-wh l]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on boltz-2's path. [carried from tt-galaxy-wh l]"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 560,
+                "frac": 0.5,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 559
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 3,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 72,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 560,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size. [carried from tt-galaxy-wh l]"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "1024": {
+              "SPLIT_SWIGLU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 360,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. boltz-2's SDPA bias is bf16, so the fp32 hoist is never reached at any size. [carried from tt-galaxy-wh l]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1680,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 1120,
+                  "k_tiles=4:(4,1)": 560
+                },
+                "reason": "structurally out of scope for this model at every size: `_pair_proj_minimal_matmul` is scoped to a single K block (k_tiles == 8, c_z 256), and boltz-2's c_z is 128, so k_tiles is 4. Reason reads `k_tiles=4` identically at all six rungs. Size-independent, so it biases no exponent. [carried from tt-galaxy-wh l]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 560,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=4": 560
+                },
+                "reason": "same structural k_tiles=4 refusal as PAIR_PROJ_MINIMAL_MATMUL: boltz-2's c_z=128 gives 4 K tiles where the lever needs 8. Identical at all six rungs, so size-independent. [carried from tt-galaxy-wh l]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on boltz-2's path. [carried from tt-galaxy-wh l]"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 1120,
+                "frac": 0.3333333333333333,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 2,
+                  "pm_over_l1": 1118
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 3,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 72,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 560,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size. [carried from tt-galaxy-wh l]"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.004,
+          "sigma_runtime_512": 0.0084,
           "exponents": {
             "256->512": {
-              "k": 1.787,
+              "k": 1.783,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.95,
+              "k": 1.946,
               "tol": 0.5
             }
+          },
+          "exponents_measured": {
+            "256->512": 1.783,
+            "512->640": 1.973,
+            "640->768": 1.913,
+            "768->896": 2.258,
+            "896->1024": 1.981
           }
         },
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-08-27",
+          "recorded": "2026-09-10",
           "host": "tt-quietbox2",
-          "commit": "4b6bf0db",
+          "commit": "8e3a3e9e",
           "runtime_s": {
             "256": 16.1,
-            "512": 40.1,
-            "640": 66.3,
-            "768": 96.6
+            "512": 39.2,
+            "640": 65.1,
+            "768": 94.8,
+            "896": 129.3,
+            "1024": 157.1
           },
           "levers": {
             "256": {
@@ -9911,7 +11029,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
+                "reason": "declines all 0 calls: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -9919,7 +11037,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
+                "reason": "declines all 0 calls: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -9927,7 +11045,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
+                "reason": "declines all 0 calls: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -9943,7 +11061,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
+                "reason": "declines all 0 calls: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -9962,7 +11080,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nothing in an esmfold2 fold calls the wrapped helper"
+                "reason": "declines all 0 calls: nothing in an esmfold2 fold calls the wrapped helper"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -9970,7 +11088,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2 does not take the hoisted-bias softmax path"
+                "reason": "declines all 0 calls: esmfold2 does not take the hoisted-bias softmax path"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -9978,7 +11096,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: _pair_transpose_impl is not called during an esmfold2 fold"
+                "reason": "declines all 0 calls: _pair_transpose_impl is not called during an esmfold2 fold"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -9986,7 +11104,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "reason": "declines all 0 calls: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -10001,7 +11119,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "reason": "declines all 0 calls: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -10027,7 +11145,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the move back only runs when the forward move fired, and it did not"
+                "reason": "declines all 0 calls: the move back only runs when the forward move fired, and it did not"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
@@ -10035,7 +11153,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is not offered on this model's pair track"
+                "reason": "declines all 0 calls: the gated channel move is not offered on this model's pair track"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -10043,7 +11161,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -10072,7 +11190,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -10080,7 +11198,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -10088,7 +11206,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: shares the tail counter, which esmfold2 never reaches"
+                "reason": "declines all 0 calls: shares the tail counter, which esmfold2 never reaches"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -10096,7 +11214,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; esmfold2 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; esmfold2 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -10104,7 +11222,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; esmfold2 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; esmfold2 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -10119,7 +11237,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: _transpose_memory_config is never called during an esmfold2 fold"
+                "reason": "declines all 0 calls: _transpose_memory_config is never called during an esmfold2 fold"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -10127,6 +11245,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "512": {
@@ -10192,7 +11324,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nothing in an esmfold2 fold calls the wrapped helper"
+                "reason": "declines all 0 calls: nothing in an esmfold2 fold calls the wrapped helper"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -10200,7 +11332,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2 does not take the hoisted-bias softmax path"
+                "reason": "declines all 0 calls: esmfold2 does not take the hoisted-bias softmax path"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -10208,7 +11340,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: _pair_transpose_impl is not called during an esmfold2 fold"
+                "reason": "declines all 0 calls: _pair_transpose_impl is not called during an esmfold2 fold"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -10216,7 +11348,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "reason": "declines all 0 calls: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -10231,7 +11363,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "reason": "declines all 0 calls: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -10267,7 +11399,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -10296,7 +11428,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -10304,7 +11436,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -10312,7 +11444,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: shares the tail counter, which esmfold2 never reaches"
+                "reason": "declines all 0 calls: shares the tail counter, which esmfold2 never reaches"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -10320,7 +11452,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; esmfold2 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; esmfold2 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -10328,7 +11460,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; esmfold2 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; esmfold2 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -10343,7 +11475,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: _transpose_memory_config is never called during an esmfold2 fold"
+                "reason": "declines all 0 calls: _transpose_memory_config is never called during an esmfold2 fold"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -10351,6 +11483,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "640": {
@@ -10416,7 +11562,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nothing in an esmfold2 fold calls the wrapped helper"
+                "reason": "declines all 0 calls: nothing in an esmfold2 fold calls the wrapped helper"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -10424,7 +11570,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2 does not take the hoisted-bias softmax path"
+                "reason": "declines all 0 calls: esmfold2 does not take the hoisted-bias softmax path"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -10432,7 +11578,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: _pair_transpose_impl is not called during an esmfold2 fold"
+                "reason": "declines all 0 calls: _pair_transpose_impl is not called during an esmfold2 fold"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -10497,7 +11643,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -10526,7 +11672,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -10534,7 +11680,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -10542,7 +11688,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: shares the tail counter, which esmfold2 never reaches"
+                "reason": "declines all 0 calls: shares the tail counter, which esmfold2 never reaches"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -10550,7 +11696,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; esmfold2 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; esmfold2 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -10558,7 +11704,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; esmfold2 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; esmfold2 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -10573,7 +11719,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: _transpose_memory_config is never called during an esmfold2 fold"
+                "reason": "declines all 0 calls: _transpose_memory_config is never called during an esmfold2 fold"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -10581,6 +11727,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "768": {
@@ -10646,7 +11806,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nothing in an esmfold2 fold calls the wrapped helper"
+                "reason": "declines all 0 calls: nothing in an esmfold2 fold calls the wrapped helper"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -10654,7 +11814,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2 does not take the hoisted-bias softmax path"
+                "reason": "declines all 0 calls: esmfold2 does not take the hoisted-bias softmax path"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -10662,7 +11822,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: _pair_transpose_impl is not called during an esmfold2 fold"
+                "reason": "declines all 0 calls: _pair_transpose_impl is not called during an esmfold2 fold"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -10673,7 +11833,7 @@
                 "rejects": {
                   "no_mm_block:(8,32)": 25823
                 },
-                "reason": "declines all 25823 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "declines all 25823 calls on no_mm_block:(8,32) x25823: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -10691,7 +11851,7 @@
                 "rejects": {
                   "no_mm_block:(8,32)": 25823
                 },
-                "reason": "declines all 25823 calls: no _MM_BLOCK entry for this shape; wrap-counted, so the failing clause is not recorded"
+                "reason": "declines all 25823 calls on no_mm_block:(8,32) x25823: no _MM_BLOCK entry for this shape; wrap-counted, so the failing clause is not recorded"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -10727,7 +11887,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -10756,7 +11916,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -10764,7 +11924,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+                "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -10772,7 +11932,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: shares the tail counter, which esmfold2 never reaches"
+                "reason": "declines all 0 calls: shares the tail counter, which esmfold2 never reaches"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -10780,7 +11940,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; esmfold2 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; esmfold2 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -10788,7 +11948,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; esmfold2 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; esmfold2 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -10803,7 +11963,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: _transpose_memory_config is never called during an esmfold2 fold"
+                "reason": "declines all 0 calls: _transpose_memory_config is never called during an esmfold2 fold"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -10811,20 +11971,529 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "896": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 87,
+                "frac": 0.8608,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 87,
+                "frac": 0.8608,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 30128,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 15064,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 2168,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "the equivalent optimisation is already done one level up, so this lever has nothing left to hoist. The counter wraps `tenstorrent.AdaLN.s_terms`; ESMFold2 uses `esmfold2.AdaLN`, whose conditioning `s` is genuinely per-step (`DiffusionModuleModel.step` recomputes `cond_single(s_inputs, n_raw)`, esmfold2.py:843) and so is not hoistable, while the step-INVARIANT half is already cached once per rollout by `prepare()` (esmfold2.py:834). [carried from tt-galaxy-wh l]"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The hoist fires only when an SDPA bias is fp32; ESMFold2's attention bias is bf16 at every size, so the fp32 branch is never reached. [carried from tt-galaxy-wh l]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The helper guards a 3-D pair transpose (tt_bio/tenstorrent.py:2683) that ESMFold2's trunk does not perform; its PairUpdateBlock transposes inside the trimul kernel instead. [carried from tt-galaxy-wh l]"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 30127,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(8,32)": 30127
+                },
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh l]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 1084,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 30127,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(8,32)": 30127
+                },
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh l]"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "True",
+                "served": 1,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 32,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 2168,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 4304,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path at any size: the persistent mask belongs to TriangleAttention's SDPA bias, and ESMFold2 constructs no TriangleAttention. [carried from tt-galaxy-wh l]"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path at any size: ESMFold2's trunk has no triangle attention. `PairUpdateBlock` (tt_bio/esmfold2.py:143) is tri_mul_out + tri_mul_in + pair transition and `tenstorrent.TriangleAttention` is never constructed, so the whole TRIATT_* family reads 0 served AND 0 declined at every rung. Independently established in wh-perf-esmfold2.md 0.1. [carried from tt-galaxy-wh l]"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path at any size: no triangle attention in ESMFold2's trunk (see TRIATT_HEAD_MAJOR_QKV), so this lever's op never runs. [carried from tt-galaxy-wh l]"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "no call site on this path at any size: no triangle attention in ESMFold2's trunk, so the tail this lever moves does not exist here. [carried from tt-galaxy-wh l]"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "structurally Boltz-2 only: the hoist returns early unless a `transformer` is passed (tt_bio/tenstorrent.py:8894), which is Boltz-2's token DiT. ESMFold2 has no such call site. [carried from tt-galaxy-wh l]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "structurally Boltz-2 only: the memo is consulted under `self.atom_level` (tt_bio/tenstorrent.py:7046) on `tenstorrent.AdaLN`, and ESMFold2's diffusion head uses its own `esmfold2.AdaLN` (tt_bio/esmfold2.py:226), a different class with no atom level. [carried from tt-galaxy-wh l]"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The lever routes a Pairformer output transpose to L1 (`_transpose_memory_config`, tt_bio/tenstorrent.py:2740); ESMFold2's trunk has no Pairformer and never calls it. [carried from tt-galaxy-wh l]"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "1024": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 87,
+                "frac": 0.8608,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 87,
+                "frac": 0.8608,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 68866,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 34433,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 2168,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "the equivalent optimisation is already done one level up, so this lever has nothing left to hoist. The counter wraps `tenstorrent.AdaLN.s_terms`; ESMFold2 uses `esmfold2.AdaLN`, whose conditioning `s` is genuinely per-step (`DiffusionModuleModel.step` recomputes `cond_single(s_inputs, n_raw)`, esmfold2.py:843) and so is not hoistable, while the step-INVARIANT half is already cached once per rollout by `prepare()` (esmfold2.py:834). [carried from tt-galaxy-wh l]"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The hoist fires only when an SDPA bias is fp32; ESMFold2's attention bias is bf16 at every size, so the fp32 branch is never reached. [carried from tt-galaxy-wh l]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The helper guards a 3-D pair transpose (tt_bio/tenstorrent.py:2683) that ESMFold2's trunk does not perform; its PairUpdateBlock transposes inside the trimul kernel instead. [carried from tt-galaxy-wh l]"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(8,32)": 2
+                },
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh l]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 1084,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 2,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(8,32)": 2
+                },
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh l]"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "True",
+                "served": 1,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 32,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 2168,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 4304,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path at any size: the persistent mask belongs to TriangleAttention's SDPA bias, and ESMFold2 constructs no TriangleAttention. [carried from tt-galaxy-wh l]"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path at any size: ESMFold2's trunk has no triangle attention. `PairUpdateBlock` (tt_bio/esmfold2.py:143) is tri_mul_out + tri_mul_in + pair transition and `tenstorrent.TriangleAttention` is never constructed, so the whole TRIATT_* family reads 0 served AND 0 declined at every rung. Independently established in wh-perf-esmfold2.md 0.1. [carried from tt-galaxy-wh l]"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path at any size: no triangle attention in ESMFold2's trunk (see TRIATT_HEAD_MAJOR_QKV), so this lever's op never runs. [carried from tt-galaxy-wh l]"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "no call site on this path at any size: no triangle attention in ESMFold2's trunk, so the tail this lever moves does not exist here. [carried from tt-galaxy-wh l]"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "structurally Boltz-2 only: the hoist returns early unless a `transformer` is passed (tt_bio/tenstorrent.py:8894), which is Boltz-2's token DiT. ESMFold2 has no such call site. [carried from tt-galaxy-wh l]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "structurally Boltz-2 only: the memo is consulted under `self.atom_level` (tt_bio/tenstorrent.py:7046) on `tenstorrent.AdaLN`, and ESMFold2's diffusion head uses its own `esmfold2.AdaLN` (tt_bio/esmfold2.py:226), a different class with no atom level. [carried from tt-galaxy-wh l]"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The lever routes a Pairformer output transpose to L1 (`_transpose_memory_config`, tt_bio/tenstorrent.py:2740); ESMFold2's trunk has no Pairformer and never calls it. [carried from tt-galaxy-wh l]"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0031,
+          "sigma_runtime_512": 0.0023,
           "exponents": {
             "256->512": {
-              "k": 1.317,
+              "k": 1.284,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.168,
+              "k": 2.178,
               "tol": 0.5
             }
+          },
+          "exponents_measured": {
+            "256->512": 1.284,
+            "512->640": 2.273,
+            "640->768": 2.061,
+            "768->896": 2.013,
+            "896->1024": 1.458
           }
         },
         "protenix-v2": {
