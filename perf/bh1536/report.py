@@ -82,22 +82,37 @@ if "--backfill" in sys.argv:
 
 rows = [r for r in rows if r.get("tag") != "harnesscheck"]
 
+# A row that never got a working card measured nothing, and printing it in the results table
+# reads as a ceiling. CONTENDED is a co-tenant holding the card; WEDGED is the card refusing every
+# open (firmware init) after a kill left it dirty. Both are kept in results.jsonl with their
+# original verdict in `reclassified_from`, and neither belongs in the table.
+NOT_MEASURED = {"CONTENDED", "WEDGED"}
+skipped = [r for r in rows if r["verdict"] in NOT_MEASURED]
+rows = [r for r in rows if r["verdict"] not in NOT_MEASURED]
+
 by_model = {}
 for r in rows:
     by_model.setdefault(r["model"], []).append(r)
 
-print("| model | tokens | verdict | wall s | engine s | atoms | CA breaks | worst CA-CA | clash frac | pLDDT | host RSS |")
-print("|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+print("| model | tokens | run | verdict | wall s | engine s | atoms | CA breaks | worst CA-CA "
+      "| clash frac | pLDDT | host RSS |")
+print("|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")
 for m in sorted(by_model):
     for r in sorted(by_model[m], key=lambda x: x["size"]):
         s = r.get("struct") or {}
         v = r["verdict"] + (f" ({r['oom']['mechanism']})" if r.get("oom") and r["verdict"] != "PASS" else "")
-        print(f"| {m} | {r['size']} | {v} | {r['wall_s']} | "
+        print(f"| {m} | {r['size']} | {r.get('tag') or 'shipped'} | {v} | {r['wall_s']} | "
               f"{r.get('engine_runtime_s') or s.get('runtime_s') or '-'} | "
               f"{s.get('n_atoms', '-')} | {s.get('ca_breaks', '-')} | "
               f"{s.get('worst_ca_ca', '-')} | {s.get('clash_frac', '-')} | "
               f"{r.get('plddt') or s.get('plddt') or r.get('affinity') or '-'} | "
               f"{r['peak_host_rss_gib']} |")
+
+if skipped:
+    print()
+    print(f"{len(skipped)} row(s) measured nothing and are left out of the table above "
+          f"({', '.join(sorted({r['verdict'] for r in skipped}))}): "
+          + ", ".join(f"{r['model']}:{r['size']}" for r in sorted(skipped, key=lambda x: x['when'])))
 
 print()
 for m in sorted(by_model):
