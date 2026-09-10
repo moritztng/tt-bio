@@ -1,7 +1,7 @@
 {
  "bar_tokens": 1536,
- "recorded": "2026-09-10T01:59:06Z",
- "tree": "9f319e9d008f37b54cc686c9b7c97e7f4620f8b6",
+ "recorded": "2026-09-10T02:03:24Z",
+ "tree": "1ab5391cb6c658113d4090e3886766311a50c3d6",
  "dirty_tree": false,
  "geometry": {
   "arch": "blackhole",
@@ -138,22 +138,22 @@
    "tree": "e2544021dde7b8713bc36efb5c9f8fccb6eb292d"
   },
   "esmfold2-fast": {
-   "verdict": "HOST_OOM",
+   "verdict": "PASS",
    "tokens_requested": 1536,
    "tokens_padded": 1536,
    "residues": 1536,
    "msa_rows_effective": 0,
-   "dram_peak_bytes": null,
-   "dram_total_bytes": null,
-   "wall_s": 89.6,
+   "dram_peak_bytes": 16572268544,
+   "dram_total_bytes": 34225520128,
+   "wall_s": 345.0,
    "mechanism": null,
-   "decided_by": "screen",
+   "decided_by": "residency",
    "ceiling_tokens": null,
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "2949b912fe9b0eae",
-   "tree": "e2544021dde7b8713bc36efb5c9f8fccb6eb292d"
+   "ceilings_fingerprint": "53d0207c94a2ea48",
+   "tree": "1ab5391cb6c658113d4090e3886766311a50c3d6"
   },
   "rf3": {
    "verdict": "PASS",
