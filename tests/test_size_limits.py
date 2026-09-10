@@ -111,18 +111,49 @@ def test_check_refuses_above_and_admits_at_the_cap():
 def test_unmeasured_and_unknown_arch_never_refuse():
     """Absence of a limit is not a limit -- the rule that keeps this guard from inventing ceilings."""
     sl.check("boltz2", 100_000, arch="wormhole_b0")     # measured-nothing model
-    sl.check("opendde", 100_000, arch="blackhole")      # no row on this arch
+    sl.check("boltz2", 100_000, arch="blackhole")       # no row on this arch
+    sl.check("opendde", 100_000, arch="grayskull")      # nor on an arch nobody measured
     sl.check("opendde", 100_000, arch=None)             # no card / no ttnn
     sl.check("a-model-that-does-not-exist", 100_000, arch="wormhole_b0")
 
 
-def test_no_blackhole_rows_are_asserted():
-    """Blackhole was never walked, and a fabricated row there is the failure the arch key prevents.
+def test_blackhole_rows_are_measured_on_blackhole_not_copied_across_the_arch_key():
+    """A Blackhole row is now allowed, but only with Blackhole provenance in it.
 
-    OpenDDE caps at 544 on Wormhole and folded every rung to 1024 aa on a Blackhole p150a, so a
-    Wormhole number copied across architectures would refuse work the chip does fine.
+    This started life as "there are no Blackhole rows", which was the honest state and the right
+    guard while nobody had walked a ladder there: OpenDDE caps at 544 on Wormhole and folds every
+    rung to 1024 aa on a p150a, so a Wormhole number copied across the arch key would refuse work
+    the chip does fine. The 1536 campaign walked that ladder on both boards, and the rows it
+    produced are the reason the guard changed shape rather than disappearing -- what it now
+    forbids is the same failure: a row on this arch whose evidence does not name a board on it.
     """
-    assert not [m for m, per_arch in sl.CEILINGS.items() if "blackhole" in per_arch]
+    boards = ("p150a", "p300c")
+    rows = [(m, c) for m, per_arch in sl.CEILINGS.items()
+            for a, c in per_arch.items() if a == "blackhole"]
+    for m, c in rows:
+        assert c.binds != sl.UNMEASURED, f"{m}: an unmeasured Blackhole row should not exist"
+        assert any(b in c.evidence for b in boards), (
+            f"{m}: a blackhole row must name the board it was measured on ({' or '.join(boards)}); "
+            f"a Wormhole ladder cites GWH02 and copying it here is what this guard is for")
+        assert c.fail_at is not None or c.binds == sl.LADDER_TOP, (
+            f"{m}: a Blackhole cap needs the failing size above it")
+
+
+def test_the_freeze_rows_refuse_1536_and_admit_the_size_that_folds():
+    """The rows exist to stop a specific 40-minute failure, so check they actually do.
+
+    OpenDDE at 1536 on Blackhole neither folds nor raises: it stops at trunk 9/10 with the CPU
+    still burning and leaves the chip unable to initialise firmware for the next job. A guard that
+    admitted it would be decoration.
+    """
+    for m in ("opendde", "opendde-abag"):
+        with pytest.raises(sl.SizeTooLargeError) as e:
+            sl.check(m, 1536, arch="blackhole")
+        msg = str(e.value).lower()
+        assert "1536" in msg and "1024" in msg, f"{m}: the refusal must name both sizes: {msg}"
+        assert "blackhole" in msg, (
+            f"{m}: the refusal must name the arch, because the same size folds elsewhere: {msg}")
+        sl.check(m, 1024, arch="blackhole")     # the size that folds is admitted, silently
 
 
 def test_alternatives_only_name_measured_models():
@@ -228,7 +259,7 @@ def test_check_input_refuses_a_real_file_before_any_device(tmp_path):
     with pytest.raises(sl.SizeTooLargeError) as e:
         sl.check_input(big, "opendde", arch="wormhole_b0")
     assert "big.yaml" in str(e.value)
-    sl.check_input(big, "opendde", arch="blackhole")   # unmeasured arch: silent
+    sl.check_input(big, "opendde", arch="grayskull")   # unmeasured arch: silent
     sl.check_input(big, "boltz2", arch="wormhole_b0")  # unmeasured model: silent
 
 
@@ -364,3 +395,21 @@ def test_the_hatch_is_off_by_default_and_named_in_the_message(monkeypatch):
     # The message must carry the way out, or the hatch may as well not exist.
     assert "TT_BIO_SIZE_LIMIT=0" in str(e.value)
     assert "single-sequence" in str(e.value)
+
+
+def test_a_refusal_on_a_mostly_unmeasured_arch_does_not_claim_nothing_fits():
+    """Absence of a row is not a hardware fact, and the refusal message must not say it is.
+
+    Blackhole carries two rows (the OpenDDE freeze) against nine models the 2026-09-10 ladder
+    measured folding 1536 without earning one. The "no model has a measured ceiling this high"
+    sentence would report those missing rows as "nothing else fits here".
+    """
+    with pytest.raises(sl.SizeTooLargeError) as e:
+        sl.check("opendde", 1536, arch="blackhole")
+    msg = str(e.value)
+    assert "No model has a measured ceiling this high" not in msg
+    assert "no measured ceiling on blackhole" in msg, msg
+    # and where every model IS measured the original sentence still has to be reachable
+    with pytest.raises(sl.SizeTooLargeError) as e2:
+        sl.check("opendde", 1200, arch="wormhole_b0")
+    assert "Models with a measured ceiling above 1200" in str(e2.value)
