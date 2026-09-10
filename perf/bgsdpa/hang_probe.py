@@ -44,8 +44,21 @@ def _patch():
         except Exception as e:                                        # noqa: BLE001
             return f"<{type(t).__name__}:{e}>"
 
+    sync = os.environ.get("MULTIPLY_SYNC")
+
     def wrapper(a, b, *args, **kw):
         n[0] += 1
+        # With SYNC on, drain the queue BEFORE logging the call. A ttnn op is an enqueue, so
+        # without it the host runs ahead of a wedged device and the call that blocks is wherever
+        # the run-ahead ran out, not the call the device is stuck in. Draining here makes
+        # "N drained" the last line when the wedge is upstream of call N, and "N ENTER" the last
+        # line when call N is itself the wedge.
+        if sync:
+            try:
+                m.synchronize_device(a.device())
+            except Exception as e:                                    # noqa: BLE001
+                fh.write(f"{n[0]} sync-failed {e}\\n")
+            fh.write(f"{n[0]} drained\\n")
         fh.write(f"{n[0]} ENTER a={desc(a)} b={desc(b)}\\n")
         r = orig(a, b, *args, **kw)
         fh.write(f"{n[0]} exit\\n")
@@ -66,6 +79,9 @@ def main():
     ap.add_argument("--card", default="2")
     ap.add_argument("--binder", type=int, default=80)
     ap.add_argument("--tag", default="hang")
+    ap.add_argument("--sync", action="store_true",
+                    help="drain the device queue before each wrapped call, so the stall "
+                         "names the op the device is stuck in and not the host run-ahead")
     args = ap.parse_args()
 
     spec = importlib.util.spec_from_file_location("bh_ladder", ROOT / "perf" / "bhdesign" / "ladder.py")
@@ -86,6 +102,8 @@ def main():
     env = dict(os.environ)
     env["PYTHONPATH"] = f"{hook}:{ROOT}"
     env["MULTIPLY_LOG"] = str(mlog)
+    if args.sync:
+        env["MULTIPLY_SYNC"] = "1"
     env["TT_VISIBLE_DEVICES"] = args.card
     env["TT_BIO_LEASE_CARDS"] = args.card
     env["TT_BIO_LEASE_HOLDER"] = os.environ.get("TT_BIO_LEASE_HOLDER", "worker:bh-boltzgen-sdpa-circbuf")
