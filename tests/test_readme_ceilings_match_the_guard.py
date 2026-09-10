@@ -84,6 +84,22 @@ def test_the_published_failure_is_the_measured_failure(row):
         # a non-integer fail_at (UNRECORDED) is a prose cell by construction; nothing to compare
 
 
+@pytest.mark.parametrize("row", _rows(), ids=lambda r: ",".join(r[0]))
+def test_a_token_wall_says_so_in_the_table(row):
+    """Where a ligand counts against the number, the cell publishing that number has to say so.
+
+    The limit reads as a residue count, and on these rows it is a residue count PLUS the ligand's
+    heavy atoms. A user comparing their sequence length against a bare "1024" would submit a
+    cocrystal the guard then refuses, which is the table telling them the wrong thing.
+    """
+    models, limit_cell, _ = row
+    for model in models:
+        if size_limits.ceiling(model, ARCH).token_bound:
+            assert "ligand" in limit_cell.lower(), (
+                f"{model}'s ceiling counts ligand atoms as tokens, and the table cell "
+                f"{limit_cell!r} does not say so.")
+
+
 def test_a_drifted_number_fails(monkeypatch):
     """The negative control. Without it a parser that found no rows would pass everything."""
     models, limit_cell, fail_cell = _rows()[0]

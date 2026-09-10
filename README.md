@@ -121,7 +121,7 @@ under 1024:
 | `openfold3` | 1024 | none found; top of the ladder |
 | `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
-| `protenix-v2` | 1024 | 1095 |
+| `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1057 |
 | `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1280 |
 | `rfd3` | 1024 (motif + designed) | none found; top of the ladder |
@@ -150,20 +150,20 @@ and refused nothing, including `boltzgen`, which designs against a 14786-atom ta
 The limits were measured with an MSA, which is the default for the models that take one, and at the
 deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you
 know your run is lighter than the ladder that set the limit, `TT_BIO_SIZE_LIMIT=0` turns the refusal
-into a warning and runs it anyway. `openbind` has its own ladder now, walked with a ligand
-bound: 960 residues fold and 1024 do not. Its limit counts residues, but ligand atoms count
-too as far as the hardware is concerned, so 960 holds for a ligand of roughly 64 atoms or
-fewer. A much larger ligand can fail below the published number, and a residue count cannot
-warn you about that.
+into a warning and runs it anyway.
 
-`esmfold2`'s limit was walked the same way, and it carries the same caveat more sharply. 1024
-residues fold and 1057 do not, and the wall is a token wall: a protein-only fold at 1057 tokens
-and a cocrystal at 1057 tokens are refused by the identical DRAM allocation, so a ligand costs
-exactly the tokens it adds and nothing more. Because 1024 is the wall rather than a rung below
-it, 1024 residues plus *any* ligand is already over -- the residue count cannot see those atoms,
-so that input is accepted here and fails on the chip. `esmfold2-fast` is the same architecture at
-half the trunk depth and is roomier, which is why it has its own row rather than sharing one:
-it folds 1152 residues and fails at 1280, where the full trunk already fails at 1057.
+A ligand counts against these limits. Its heavy atoms are tokens the model pays for exactly like
+residues, and on `esmfold2`, `esmfold2-fast`, `openbind` and `protenix-v2` the wall is on tokens,
+so a cocrystal is checked on residues plus ligand atoms rather than on the residue count alone.
+`esmfold2` folds 1024 residues, which leaves no room at all: 1024 residues plus any ligand is
+refused, and 991 residues with a 33-atom ligand folds. `openbind` was walked with a 35-atom
+ligand already bound, so its 960 has room for a ligand of 64 atoms and refuses 65. Either way the
+refusal names the token count and the wall, and it arrives before a device is opened instead of
+as an out-of-memory error part way through the fold.
+
+`esmfold2-fast` is the same architecture at half the trunk depth and is roomier, which is why it
+has its own row rather than sharing one: it folds 1152 residues and fails at 1280, where the full
+trunk already fails at 1057.
 
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
