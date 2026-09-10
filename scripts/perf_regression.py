@@ -154,13 +154,20 @@ caught.
 Usage::
 
     # run the whole gate on the card (one device context per model subprocess).
-    # `python3` must be the interpreter carrying the pinned ttnn runtime. A bare
-    # `python3` is the system one on some release hosts, where it has no numpy and
-    # the gate dies importing tt_bio before it ever opens a device.
-    TT_VISIBLE_DEVICES=0 PYTHONPATH=<worktree> python3 scripts/perf_regression.py
+    # NAME THE INTERPRETER. It must be the release venv carrying the pinned ttnn
+    # runtime (RELEASING.md builds one at /tmp/relvenv), and this is not only an
+    # import concern: a bare `python3` is the system one on some release hosts,
+    # where it has no numpy and the gate dies importing tt_bio before it ever opens
+    # a device, AND where it imports fine it still measures a different machine.
+    # On qb1 the same tree reads 63-64 s on the release venv (ttnn 0.68.0, torch
+    # 2.13.0) and 51 s under the system python: a ~25% swing on boltz2-affinity,
+    # larger than the 15% threshold, on identical code. Cells are seeded on the
+    # release venv, so judge them there too; a cell's note names its runtime.
+    TT_VISIBLE_DEVICES=0 PYTHONPATH=<worktree> /tmp/relvenv/bin/python3 \
+        scripts/perf_regression.py
 
-    # one model / a subset
-    python3 scripts/perf_regression.py --model boltz2 --model esmfold2
+    # one model / a subset (same interpreter, for the same reason)
+    /tmp/relvenv/bin/python3 scripts/perf_regression.py --model boltz2 --model esmfold2
 
     # seed / refresh baselines from the current warm runs (explicit, needs a note)
     python3 scripts/perf_regression.py --update-baseline --note "seed from 0.2.5 main"

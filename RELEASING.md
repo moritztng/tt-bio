@@ -136,8 +136,13 @@ TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_v
   PYTHONPATH="$PWD" \
   python3 scripts/full_parity_gate.py --workers pc:0
 
+# Name the interpreter for this one. The perf gate does not just need imports to
+# work, its numbers move with the runtime: on qb1 the same tree reads 63-64 s on the
+# release venv (ttnn 0.68.0, torch 2.13.0) and 51 s under the system python, a ~25%
+# swing on the boltz2-affinity leg alone. Cells are seeded on the release venv, so a
+# bare `python3` can hand you a 25% "regression" or "win" that is only the instrument.
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
-  python3 scripts/perf_regression.py
+  /tmp/relvenv/bin/python3 scripts/perf_regression.py
 
 # Size-generality arm: folds every structure model at 256/512/640/768/896/1024 aa,
 # plus a model's own top rung where it reaches past that (rf3 also folds 1088)
@@ -578,8 +583,11 @@ Update a baseline only for an intentional performance change:
 
 ```bash
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
-  python3 scripts/perf_regression.py --update-baseline --note "reason"
+  /tmp/relvenv/bin/python3 scripts/perf_regression.py --update-baseline --note "reason"
 ```
+
+Seed a cell with the same release-venv interpreter that measures it. A cell written
+under one runtime and judged under another compares two instruments, not two trees.
 
 The UX gate also carries an **input-contracts** leg: the three OpenFold3 inputs
 0.6.7 fixed, folded through the shipped CLI. A `cyclic: true` chain must be
