@@ -1,0 +1,1313 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-10T02:03:24Z",
+ "tree": "1ab5391cb6c658113d4090e3886766311a50c3d6",
+ "dirty": false,
+ "workers": [
+  "qb1:3"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=11,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 110,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 160793600
+  },
+  "board_type": "p150a",
+  "host": "qb1",
+  "card": 3
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "esmfold2",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 70.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.2,
+     "progress_events": 892,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 436525,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1233926,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "02:03:44  [tt-quietbox:tt3] loading model\u2026\n02:04:14  [tt-quietbox:tt3] cap_1536\n02:04:14  [tt-quietbox:tt3]   prep\n02:04:35  [tt-quietbox:tt3] \u2717 cap_1536 \u2014 21.3s\n\n1 failed:\n  \u2717 cap_1536: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2_1536/esmfold2_results_cap_1536/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 1,
+     "wall_s": 164.5,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 4.5,
+     "progress_events": 4827,
+     "block_calls": 83,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 428429,
+     "mechanism": "dram",
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2572804032,
+      "dram_peak_bytes": 13630439424,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1235118,
+      "samples": 83,
+      "truncated": []
+     },
+     "tail": "02:05:17  [tt-quietbox:tt3]   prep\n02:07:20  [tt-quietbox:tt3] \u2717 cap_1536 \u2014 122.1s\n\n1 failed:\n  \u2717 cap_1536: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\n      info:\n      Out of Memory: Not enough space to allocate 4831838208 B DRAM buffer across 8 banks, where each bank needs to store 603979776 B, but bank size is 4278190016 B (allocated: 3579670528 B, free: 698519488 B, largest free block: 504088512 B)\n      backtrace:\n       --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x69e427) [0x7c286be9e427]\n       --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n       --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n       --- tt::tt_metal::Buffer::allocate_impl()\n       --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_meta ... o-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1a29) [0x637e6a79cbd9]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x637e6a7b353c]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x8cf) [0x637e6a79ba7f]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x637e6a7b353c]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x8cf) [0x637e6a79ba7f]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x637e6a7b353c]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6d9) [0x637e6a79b889]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x637e6a7b353c]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x2a49) [0x637e6a79dbf9]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x637e6a7b353c]\n       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x8cf) [0x637e6a79ba7f]\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmfold2_1536/esmfold2_results_cap_1536/results.json",
+     "dram_peak_bytes": 13630439424,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2572804032,
+     "blocks_instrumented": 4,
+     "verdict": "FAIL",
+     "tier": "residency",
+     "tokens": 1536
+    },
+    {
+     "rc": 1,
+     "wall_s": 83.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.3,
+     "progress_events": 892,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 435311,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1238286,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "02:07:32  [tt-quietbox:tt3] loading model\u2026\n02:08:02  [tt-quietbox:tt3] cap_1408\n02:08:02  [tt-quietbox:tt3]   prep\n02:08:44  [tt-quietbox:tt3] \u2717 cap_1408 \u2014 42.3s\n\n1 failed:\n  \u2717 cap_1408: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2_1408/esmfold2_results_cap_1408/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1408
+    },
+    {
+     "rc": 1,
+     "wall_s": 83.7,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.7,
+     "progress_events": 892,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 425504,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1241263,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "02:08:57  [tt-quietbox:tt3] loading model\u2026\n02:09:28  [tt-quietbox:tt3] cap_1280\n02:09:28  [tt-quietbox:tt3]   prep\n02:10:09  [tt-quietbox:tt3] \u2717 cap_1280 \u2014 40.8s\n\n1 failed:\n  \u2717 cap_1280: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2_1280/esmfold2_results_cap_1280/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1280
+    },
+    {
+     "rc": 1,
+     "wall_s": 75.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.8,
+     "progress_events": 892,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 428603,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1245200,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "02:10:21  [tt-quietbox:tt3] loading model\u2026\n02:10:51  [tt-quietbox:tt3] cap_1024\n02:10:51  [tt-quietbox:tt3]   prep\n02:11:25  [tt-quietbox:tt3] \u2717 cap_1024 \u2014 34.0s\n\n1 failed:\n  \u2717 cap_1024: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2_1024/esmfold2_results_cap_1024/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1024
+    },
+    {
+     "rc": 1,
+     "wall_s": 83.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.3,
+     "progress_events": 889,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 431760,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1249310,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "02:11:38  [tt-quietbox:tt3] loading model\u2026\n02:12:08  [tt-quietbox:tt3] cap_896\n02:12:08  [tt-quietbox:tt3]   prep\n02:12:49  [tt-quietbox:tt3] \u2717 cap_896 \u2014 41.0s\n\n1 failed:\n  \u2717 cap_896: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2_896/esmfold2_results_cap_896/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 896
+    },
+    {
+     "rc": 1,
+     "wall_s": 73.7,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.7,
+     "progress_events": 889,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 434783,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1256366,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "02:13:02  [tt-quietbox:tt3] loading model\u2026\n02:13:32  [tt-quietbox:tt3] cap_768\n02:13:32  [tt-quietbox:tt3]   prep\n02:14:04  [tt-quietbox:tt3] \u2717 cap_768 \u2014 32.3s\n\n1 failed:\n  \u2717 cap_768: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2_768/esmfold2_results_cap_768/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 768
+    },
+    {
+     "rc": 1,
+     "wall_s": 74.4,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 4.4,
+     "progress_events": 889,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 435336,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1259853,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "02:14:16  [tt-quietbox:tt3] loading model\u2026\n02:14:46  [tt-quietbox:tt3] cap_640\n02:14:46  [tt-quietbox:tt3]   prep\n02:15:18  [tt-quietbox:tt3] \u2717 cap_640 \u2014 31.9s\n\n1 failed:\n  \u2717 cap_640: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2_640/esmfold2_results_cap_640/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 640
+    },
+    {
+     "rc": 1,
+     "wall_s": 76.9,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.9,
+     "progress_events": 889,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 428840,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1262545,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "02:15:32  [tt-quietbox:tt3] loading model\u2026\n02:16:03  [tt-quietbox:tt3] cap_512\n02:16:03  [tt-quietbox:tt3]   prep\n02:16:37  [tt-quietbox:tt3] \u2717 cap_512 \u2014 33.3s\n\n1 failed:\n  \u2717 cap_512: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2_512/esmfold2_results_cap_512/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 512
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "screen_unsafe": true,
+   "note": "the screen's depth cut is a candidate cause of its own FAIL (9 stacks cut, no capacity mechanism in the error), so it was not scored; this verdict comes from the un-truncated run. Tier 1 has no fast path for this model.",
+   "verdict": "FAIL",
+   "decided_by": "residency",
+   "mechanism": "dram",
+   "wall_s": 164.5,
+   "dram_peak_bytes": 13630439424,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2572804032,
+   "blocks_instrumented": 4,
+   "host_ram_floor_mb": 428429,
+   "alloc_ceiling_tokens": null,
+   "alloc_ceiling_note": "shapes do not allocate at any size walked: 1408, 1280, 1024, 896, 768, 640, 512. The ceiling is below 512 tokens if there is one at all.",
+   "ceiling_tokens": null
+  },
+  {
+   "model": "esmfold2-fast",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 63.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.2,
+     "progress_events": 892,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 416133,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1268203,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "02:16:50  [tt-quietbox:tt3] loading model\u2026\n02:17:22  [tt-quietbox:tt3] cap_1536\n02:17:22  [tt-quietbox:tt3]   prep\n02:17:41  [tt-quietbox:tt3] \u2717 cap_1536 \u2014 19.4s\n\n1 failed:\n  \u2717 cap_1536: shape '[1, 1, 3, 1]' is invalid for input of size 81\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2-fast_1536/esmfold2_results_cap_1536/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 345.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 9.9,
+     "progress_events": 16840,
+     "block_calls": 765,
+     "cpu_s_while_quiet": 42.5,
+     "host_ram_floor_mb": 390167,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 1833207744,
+      "dram_peak_bytes": 16572268544,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1270132,
+      "samples": 765,
+      "truncated": []
+     },
+     "tail": "02:22:58  [tt-quietbox:tt3]   diffusion 48/68\n02:22:59  [tt-quietbox:tt3]   diffusion 49/68\n02:22:59  [tt-quietbox:tt3]   diffusion 50/68\n02:23:00  [tt-quietbox:tt3]   diffusion 51/68\n02:23:00  [tt-quietbox:tt3]   diffusion 52/68\n02:23:00  [tt-quietbox:tt3]   diffusion 53/68\n02:23:01  [tt-quietbox:tt3]   diffusion 54/68\n02:23:02  [tt-quietbox:tt3]   diffusion 55/68\n02:23:02  [tt-quietbox:tt3]   diffusion 56/68\n02:23:03  [tt-quietbox:tt3]   diffusion 57/68\n02:23:03  [tt-quietbox:tt3]   diffusion 58/68\n02:23:04  [tt-quietbox:tt3]   diffusion 59/68\n02:23:04  [tt-quietbox:tt3]   diffusion 60/68\n02:23:04  [tt-quietbox:tt3]   diffusion 61/68\n02:23:05  [tt-quietbox:tt3]   diffusion 62/68\n02:23:05  [tt-quietbox:tt3]   diffusion 63/68\n02:23:06  [tt-quietbox:tt3]   diffusion 64/68\n02:23:06  [tt-quietbox:tt3]   diffusion 65/68\n02:23:07  [tt-quietbox:tt3]   diffusion 66/68\n02:23:08  [tt-quietbox:tt3]   diffusion 67/68\n02:23:09  [tt-quietbox:tt3]   confidence\n02:23:27  [tt-quietbox:tt3]   saving\n02:23:27  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 302.1s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmfold2-fast_1536/esmfold2_results_cap_1536/results.json",
+     "dram_peak_bytes": 16572268544,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 1833207744,
+     "blocks_instrumented": 3,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "screen_unsafe": true,
+   "note": "the screen's depth cut is a candidate cause of its own FAIL (8 stacks cut, no capacity mechanism in the error), so it was not scored; this verdict comes from the un-truncated run. Tier 1 has no fast path for this model.",
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 345.0,
+   "dram_peak_bytes": 16572268544,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 1833207744,
+   "blocks_instrumented": 3,
+   "host_ram_floor_mb": 390167
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 1,
+  "fail_like": 1,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}

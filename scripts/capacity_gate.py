@@ -55,6 +55,7 @@ while single-sequence it folds 768 in 301 s.
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import os
 import queue
@@ -420,6 +421,18 @@ MECHANISM_PATTERNS = (
     # whose spawned fold worker outlived the kill keeps the lease.
     ("contention",  re.compile(r"DeviceInUseError|device contention, nothing ran"
                                r"|is in use by", re.I)),
+    # The ENGINE declining the size, not the hardware failing to hold it. tt_bio.size_limits
+    # raises SizeTooLargeError when a request is above the model's measured ceiling for this
+    # arch, and once CEILINGS grew blackhole rows (2026-09-10) that became reachable at this
+    # gate's own 1536 bar: opendde and opendde-abag are capped at 1024 on blackhole because
+    # 1536 was measured to FREEZE the trunk, which costs the card and the next job on it.
+    # Classified LAST so a real allocator refusal above still wins, and classified at all so
+    # the cell says which kind of wall it hit -- "FAIL, mechanism None" is the ambiguity that
+    # let a broken bisect publish "the ceiling is below 512 tokens". A named mechanism also
+    # keeps screen_reduction_is_unsafe from discarding these screens: a guard refusal is
+    # decided before any block runs, so the depth cut cannot be its cause, and the refusals
+    # really do bound the walk.
+    ("size_guard",  re.compile(r"SizeTooLargeError|is measured to handle at most", re.I)),
 )
 
 
@@ -560,6 +573,68 @@ def parse_workers(spec: str) -> list[Worker]:
 # ---------------------------------------------------------------------------------------------
 
 
+#: Process groups of the legs running right now. A leg's fold gets its own session
+#: (start_new_session=True below), which is what stops `killpg` from taking the gate down with
+#: it -- and which also means a signal sent to the GATE never reaches the fold. Python runs no
+#: `finally` on a default-handled SIGTERM, so the per-leg teardown was skipped whenever a wrapper
+#: timed the gate out, and the fold survived with PPID 1, holding a card. Measured 2026-09-10:
+#: `timeout 2100` on a ten-model sweep left an opendde 1536 screen on a card for 17 idle minutes,
+#: and SIGKILLing it by hand left the chip needing a `tt-smi -r` before anything else would
+#: dispatch. Module level and lock-guarded because the sweep runs one thread per card, so the
+#: thread that owns a leg is not the thread a signal arrives on.
+_LIVE_LEGS: set[int] = set()
+_LIVE_LEGS_LOCK = threading.Lock()
+
+
+def _track_leg(pgid: int) -> None:
+    with _LIVE_LEGS_LOCK:
+        _LIVE_LEGS.add(pgid)
+
+
+def _untrack_leg(pgid: int) -> None:
+    with _LIVE_LEGS_LOCK:
+        _LIVE_LEGS.discard(pgid)
+
+
+def reap_live_legs() -> list[int]:
+    """SIGKILL every leg still running, from any thread. Returns the groups it signalled."""
+    with _LIVE_LEGS_LOCK:
+        pgids = sorted(_LIVE_LEGS)
+        _LIVE_LEGS.clear()
+    for pgid in pgids:
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    return pgids
+
+
+def install_teardown(*, exit_now=None) -> None:
+    """Make a SIGTERM or SIGHUP to the gate reach the fold it is running.
+
+    `os._exit` after reaping rather than an orderly shutdown, on purpose: a raised exception
+    only unwinds the thread the signal landed on, which is the one thread NOT running a leg.
+    Nothing is lost by exiting hard -- the report is written after every cell, so a killed sweep
+    keeps its finished cells and `--record-from` folds them in without touching a card.
+    """
+    exit_now = exit_now or os._exit
+    atexit.register(reap_live_legs)
+
+    def bail(signum, _frame):
+        left = reap_live_legs()
+        if left:
+            print(f"\nsignal {signum}: killed {len(left)} leg(s) still on a card "
+                  f"({', '.join(map(str, left))}). Finished cells are in the report; fold them "
+                  f"in with --record-from.", flush=True)
+        exit_now(128 + signum)
+
+    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        try:
+            signal.signal(sig, bail)
+        except (ValueError, OSError):
+            pass          # not the main thread, or no such signal here
+
+
 def hook_dir(work: Path) -> Path:
     """Scratch dir holding the sitecustomize that arms the hook, and a copy of the hook itself.
 
@@ -686,6 +761,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
     with open(log, "w") as fp:
         proc = subprocess.Popen(worker.cmd(argv, env), stdout=fp, stderr=subprocess.STDOUT,
                                 cwd=REPO_ROOT, start_new_session=True)
+    _track_leg(proc.pid)
 
     def progress() -> tuple[int, bool]:
         """(a monotonically growing progress counter, whether real work has started yet).
@@ -745,6 +821,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
             os.killpg(proc.pid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
             pass
+        _untrack_leg(proc.pid)
     wall = time.monotonic() - t0
     text = log.read_text(errors="replace") if log.exists() else ""
     return {"rc": proc.returncode, "wall_s": round(wall, 1), "stalled": stalled,
@@ -1266,6 +1343,8 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
     alloc_lo = None                 # largest size whose SHAPES allocate (a clean screen)
     alloc_hi = TOKEN_BAR            # smallest size whose shapes do NOT allocate
     walked = []                     # every rung actually screened, for the no-ceiling case
+    resid_walked = []               # rungs the UN-TRUNCATED run actually reached
+    screens_informative = True      # False once Tier 1 breaks this model by its own hand
     for rung in BISECT_RUNGS:
         try:
             f = fixture_for(cell, rung, work, depth)
@@ -1274,36 +1353,65 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=rung))
         walked.append(rung)
-        if scr["verdict"] in ("FAIL", "HOST_OOM"):
+        if screen_reduction_is_unsafe(scr):
+            # This rung learned NOTHING about allocation, so it may neither lower alloc_hi nor
+            # raise alloc_lo. run_cell already applies exactly this test to the screen at the bar;
+            # the bisect skipping it is how esmfold2 turned seven screens that all died of
+            # `shape '[1, 1, 3, 1]' is invalid for input of size 81` into "shapes do not allocate
+            # at any size walked ... the ceiling is below 512 tokens", while the same model folds
+            # 512 in 48.7 s. That is the gate inventing a capacity verdict out of its own
+            # instrument, which is the failure screen_reduction_is_unsafe exists to stop. Fall
+            # through to the un-truncated run, which reduces nothing and always measures.
+            rec["legs"][-1]["screen_unsafe"] = True
+            screens_informative = False
+        elif scr["verdict"] in ("FAIL", "HOST_OOM"):
             alloc_hi = rung
             settle(rec["legs"][-1])
             continue
-        # The screen is clean, so the shapes allocate at this size. That is true regardless of
-        # what the residency run below then does, and the two bounds are NOT the same bound: a
-        # residency failure here must not lower the ALLOCATION ceiling, because the allocation
-        # plainly succeeded. Conflating them discarded a measured screen result.
-        alloc_lo = rung if alloc_lo is None else max(alloc_lo, rung)
+        else:
+            # The screen is clean, so the shapes allocate at this size. That is true regardless of
+            # what the residency run below then does, and the two bounds are NOT the same bound: a
+            # residency failure here must not lower the ALLOCATION ceiling, because the allocation
+            # plainly succeeded. Conflating them discarded a measured screen result.
+            alloc_lo = rung if alloc_lo is None else max(alloc_lo, rung)
         res = _residency(worker, cell, f, work, hookdir, rung)
         rec["legs"].append(dict(res, tier="residency", tokens=rung))
+        resid_walked.append(rung)
         if res["verdict"] == "PASS":
             lo = rung
             break
         settle(rec["legs"][-1])
 
     if alloc_lo is None:
-        # Nothing allocated at any rung walked. That IS the finding, and returning early without
+        # No screen on the walk came back clean. That IS the finding, and returning early without
         # recording it threw away the whole walk: seven rungs of card time came back as an empty
         # cell that reads as if the bisect had never run.
+        #
+        # WHY it came back dirty decides what may be said. A screen that failed on capacity
+        # bounds the allocation ceiling; a screen that failed on Tier 1's own truncation bounds
+        # nothing, and the residency runs are then the only measurement this cell has. Returning
+        # `lo` rather than None matters for the same reason: with the truncation no longer
+        # blocking them, those runs happen, and a completing ceiling they found must not be
+        # discarded on the way out.
         rec["alloc_ceiling_tokens"] = None
-        rec["alloc_ceiling_note"] = (
-            f"shapes do not allocate at any size walked: {', '.join(str(r) for r in walked)}. "
-            f"The ceiling is below {min(walked)} tokens if there is one at all."
-            if walked else "no rung could be built, so nothing was walked.")
-        return None
+        if not walked:
+            rec["alloc_ceiling_note"] = "no rung could be built, so nothing was walked."
+        elif not screens_informative:
+            rec["alloc_ceiling_note"] = (
+                f"no allocation bound from this walk: Tier 1 cannot build this model, so the "
+                f"screens at {', '.join(str(r) for r in walked)} failed on the truncation and "
+                f"not on capacity. Only the un-truncated runs at "
+                f"{', '.join(str(r) for r in resid_walked) or 'no rung'} measured anything.")
+        else:
+            rec["alloc_ceiling_note"] = (
+                f"shapes do not allocate at any size walked: {', '.join(str(r) for r in walked)}. "
+                f"The ceiling is below {min(walked)} tokens if there is one at all.")
+        return lo
 
-    # Refine on screens. Every candidate is bucket-aligned, because the token axis buckets to a
-    # multiple of 32 and a size that is not is a size the hardware never saw.
-    while alloc_hi - alloc_lo > TOKEN_BUCKET:
+    # Refine on screens, and only while screens still mean something for this model: a walk whose
+    # screens die of the truncation cannot narrow anything, and looping on bounds it can never
+    # move just spends card time to re-derive the same broken error.
+    while screens_informative and alloc_hi - alloc_lo > TOKEN_BUCKET:
         mid = ((alloc_lo + alloc_hi) // 2 // TOKEN_BUCKET) * TOKEN_BUCKET
         if mid <= alloc_lo or mid >= alloc_hi:
             break
@@ -1313,7 +1421,10 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
             break
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=mid, phase="refine"))
-        if scr["verdict"] in ("FAIL", "HOST_OOM"):
+        if screen_reduction_is_unsafe(scr):
+            rec["legs"][-1]["screen_unsafe"] = True
+            screens_informative = False
+        elif scr["verdict"] in ("FAIL", "HOST_OOM"):
             alloc_hi = mid
             settle(rec["legs"][-1])
         else:
@@ -1322,7 +1433,10 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
     rec["alloc_ceiling_note"] = (
         f"{alloc_lo} is the largest bucket-aligned size whose shapes ALLOCATE (screen); "
         f"{alloc_hi} is the smallest that does not. A clean screen cannot rule out a Class B "
-        f"failure, so this is an upper bound on the completing ceiling, not a pass.")
+        f"failure, so this is an upper bound on the completing ceiling, not a pass."
+        + ("" if screens_informative else
+           " NOT REFINED between those bounds: a screen on this walk failed on Tier 1's own "
+           "truncation rather than on capacity, so the screens carry no information there."))
 
     # One residency run to try to promote the refined number to a completing ceiling. `lo` is
     # None when no rung completed, and that is exactly the case worth spending the run on.
@@ -1406,8 +1520,23 @@ def sweep(all_cells: list, workers: list, run_one, publish, retire=None) -> list
     threads = [threading.Thread(target=drain, args=(w,), name=repr(w)) for w in workers]
     for t in threads:
         t.start()
-    for t in threads:
-        t.join()
+    # Joined with a TIMEOUT rather than a bare join(), so the main thread returns to the eval
+    # loop twice a second and any pending Python signal handler gets to run there.
+    #
+    # HARDENING, not a proven fix for a known bug. On 2026-09-10 a gate ten cells into a sweep
+    # ignored two explicit SIGTERMs and had to be SIGKILLed from outside, wedging the card that
+    # install_teardown() exists to protect; /proc/PID/status showed SIGTERM caught and the main
+    # thread parked in futex_wait_queue, which points here. But that did NOT reproduce: a probe
+    # that arms the same handler and sits in this same sweep dies on SIGTERM correctly, both with
+    # and without ttnn imported (same SigCgt mask, 0000000100004003, as the process that hung).
+    # So the cause of that hang is still unknown, and this change is kept only because an
+    # interruptible wait is strictly better than an uninterruptible one and costs nothing.
+    # Until it is root-caused, the reliable way to stop a sweep is still: SIGTERM, VERIFY it
+    # died, then SIGKILL the gate and the fold's process group by explicit pid, then expect to
+    # need a tt-smi -r on the card.
+    while any(t.is_alive() for t in threads):
+        for t in threads:
+            t.join(timeout=0.5)
 
     unrun = []
     while True:
@@ -1469,6 +1598,7 @@ def render(report: dict) -> str:
 
 
 def main(argv=None) -> int:
+    install_teardown()
     global STALL_S, TOKEN_BAR
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--models", default=None,
@@ -1732,6 +1862,14 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     before = (prior.get("cells") or {})
     fp = ceilings_fingerprint()
     kept = []
+    # WHICH CARD each cell describes, per cell. `cells` is keyed by model alone and `geometry` is
+    # one block for the whole file, so a file holding a p150a run and a p300c run -- which is what
+    # two workers recording two card types produce, and they did on 2026-09-10 -- reads as if
+    # every cell came from whichever card recorded last. The verdicts differ by card: esmfold2
+    # FAILs 1536 on a 31.875 GiB p150a. This does not give the file a card axis (that is a schema
+    # change and a merge conflict with anyone recording the other card); it makes a mixed file
+    # say so instead of quietly averaging two machines.
+    geom = report.get("geometry") or {}
     for r in report["results"]:
         if _would_lose_evidence(r, before.get(r["model"])):
             kept.append(f"{r['model']} ({before[r['model']]['verdict']} kept over "
@@ -1751,6 +1889,9 @@ def record_baseline(report: dict, *, partial: bool) -> str:
         # baseline_stale(): a file-level stamp let a one-model record re-certify every cell.
         cells[r["model"]]["ceilings_fingerprint"] = fp
         cells[r["model"]]["tree"] = report["tree"]
+        cells[r["model"]]["board_type"] = geom.get("board_type")
+        cells[r["model"]]["measured_on"] = r.get("worker") or (
+            f"{geom.get('host')}:{geom.get('card')}" if geom.get("host") else None)
     BASELINE.write_text(json.dumps({
         "bar_tokens": report["bar_tokens"],
         "recorded": report["started"],

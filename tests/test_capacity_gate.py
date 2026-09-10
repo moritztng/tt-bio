@@ -11,8 +11,11 @@ new size and docs/capacity_gate_baseline.json re-recorded.
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
+import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -1076,9 +1079,15 @@ def test_a_leg_cannot_inherit_the_previous_runs_output_or_dram_peak(tmp_path):
         f"earlier run: {r['hook']}")
 
 
-def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None):
+def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None,
+                  screen_unsafe=False):
     """Drive _bisect with canned leg outcomes, so the rung bookkeeping is testable without
-    spending a rung of real card time on it (a real rung is minutes to tens of minutes)."""
+    spending a rung of real card time on it (a real rung is minutes to tens of minutes).
+
+    ``screen_unsafe`` makes every screen fail the way a screen fails when Tier 1's own
+    truncation broke the model: a FAIL naming NO capacity mechanism, on a leg where the cut was
+    applied. That is the exact triple screen_reduction_is_unsafe() reads.
+    """
     screen_verdicts = screen_verdicts or {}
     residency_verdicts = residency_verdicts or {}
     rec = {"legs": []}
@@ -1086,6 +1095,10 @@ def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdic
 
     def screen(worker, cell, f, work, hookdir):
         calls.append(("screen", f))
+        if screen_unsafe:
+            return {"verdict": "FAIL", "mechanism": None, "wall_s": 1.0,
+                    "stacks_truncated": [["tt_bio.esmfold2.FoldingTrunkModel", "blocks", 48]],
+                    "tail": "shape '[1, 1, 3, 1]' is invalid for input of size 81"}
         v = screen_verdicts.get(f)
         if v is None:
             v = "FAIL" if (screen_fail_above is not None and f > screen_fail_above) else "PASS"
@@ -1126,6 +1139,190 @@ def test_a_residency_failure_does_not_lower_the_allocation_ceiling():
     assert rec["alloc_ceiling_tokens"] == top, (
         f"the allocation ceiling came back {rec.get('alloc_ceiling_tokens')} even though the "
         f"screen at {top} allocated cleanly and only the residency failed")
+
+
+def test_a_screen_broken_by_its_own_truncation_cannot_bound_the_allocation_ceiling():
+    """esmfold2 on qb1's p150a, 2026-09-10. Its real wall at 1536 is a 4831838208 B DRAM refusal
+    that the RESIDENCY run found, but every Tier 1 screen dies of the truncation instead, with
+    "shape '[1, 1, 3, 1]' is invalid for input of size 81" -- a shape mismatch naming no capacity
+    mechanism, on legs where FoldingTrunkModel.blocks was cut 48 -> 1. The bisect walked seven of
+    those and recorded "shapes do not allocate at any size walked: 1408, 1280, 1024, 896, 768,
+    640, 512. The ceiling is below 512 tokens if there is one at all", for a model that folds 512
+    in 48.7 s in docs/size_ladder_baseline.json.
+
+    run_cell already refuses to score an unsafe screen and falls through to the un-truncated run.
+    The bisect has to refuse the same way, or the gate publishes a ceiling its own instrument
+    invented -- and does it in the one place whose whole output is a ceiling number.
+    """
+    passes_at = 1024
+    ceiling, rec, calls = _bisect_probe(
+        screen_unsafe=True,
+        residency_verdicts={t: ("PASS" if t == passes_at else "FAIL") for t in cg.BISECT_RUNGS})
+    assert ceiling == passes_at, (
+        f"the un-truncated run completed at {passes_at} and the walk returned {ceiling}: an "
+        f"unsafe screen has to fall through to the residency run, and its result has to survive "
+        f"the no-allocation-bound return")
+    assert rec.get("alloc_ceiling_tokens") is None, (
+        f"screens that failed on their own truncation bounded the allocation ceiling anyway: "
+        f"{rec.get('alloc_ceiling_tokens')}")
+    note = rec.get("alloc_ceiling_note") or ""
+    assert "truncation" in note, f"the note does not say why there is no bound: {note!r}"
+    assert "below" not in note, (
+        f"the note still invents an allocation bound out of broken screens: {note!r}")
+    for rung in [r for r in cg.BISECT_RUNGS if r >= passes_at]:
+        assert ("residency", rung) in calls, (
+            f"rung {rung} never reached the un-truncated run, so its unsafe screen still gated it")
+
+
+def _live_leg_in_its_own_session():
+    """A real child in its own process group, like every leg the gate runs."""
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"],
+                            start_new_session=True)
+    cg._track_leg(proc.pid)
+    return proc
+
+
+def test_a_signal_to_the_gate_reaches_the_fold_it_is_running():
+    """The orphan, measured 2026-09-10. Every leg's fold runs in its OWN session, so the
+    wrapper's SIGTERM lands on the gate and never on the fold, and Python runs no `finally` on a
+    default-handled SIGTERM -- so `timeout 2100` on a ten-model sweep left an opendde 1536 screen
+    holding a card with PPID 1 for 17 idle minutes. Killing it by hand then left the chip needing
+    a tt-smi -r before anything would dispatch, so the leak costs a card twice.
+    """
+    exits = []
+    prev = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)}
+    proc = _live_leg_in_its_own_session()
+    try:
+        cg.install_teardown(exit_now=exits.append)
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler), "SIGTERM is still on its default handler, which does not unwind"
+        handler(signal.SIGTERM, None)
+        assert exits == [128 + signal.SIGTERM], (
+            f"the handler did not exit with the signal's status: {exits}")
+        assert proc.wait(timeout=30) is not None, "the leg outlived the signal"
+        assert not cg._LIVE_LEGS, f"the registry still lists dead legs: {cg._LIVE_LEGS}"
+    finally:
+        for sig, h in prev.items():
+            signal.signal(sig, h)
+        if proc.poll() is None:
+            proc.kill()
+
+
+def test_every_leg_is_registered_so_a_teardown_can_find_it():
+    """The reaper can only kill what execute() told it about, and a leg added later that forgets
+    to register is invisible to it -- which is exactly the state the whole gate was in. Structural
+    because the alternative needs a card and half an hour."""
+    src = inspect.getsource(cg.execute)
+    assert "start_new_session=True" in src, "this test is pinned to the wrong function"
+    assert "_track_leg(proc.pid)" in src, (
+        "execute() opens a session for its fold and never registers it, so a signal to the gate "
+        "cannot reach it")
+    assert "_untrack_leg(proc.pid)" in src, (
+        "execute() never deregisters a finished leg, so the reaper signals stale pids")
+
+
+def test_every_cell_says_which_card_it_was_measured_on(tmp_path, monkeypatch):
+    """`cells` is keyed by model alone and `geometry` is one block for the whole file, so a
+    baseline holding a p150a run and a p300c run reads as if every cell came from whichever card
+    recorded last. That is not hypothetical: two workers recorded the two card types on
+    2026-09-10, and the verdicts genuinely differ -- esmfold2 FAILs 1536 on a 31.875 GiB p150a.
+    A partial record merges per cell, so the mixing is the normal case, not the edge one."""
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    report = {"bar_tokens": cg.TOKEN_BAR, "started": "2026-09-10T00:00:00Z", "tree": "deadbeef",
+              "dirty": False, "reductions": [],
+              "geometry": {"board_type": "p150a", "host": "qb1", "card": 3},
+              "results": [{"model": "esmfold2", "verdict": "FAIL", "worker": "qb1:3",
+                           "tokens_requested": cg.TOKEN_BAR, "mechanism": "dram"}]}
+    cg.record_baseline(report, partial=True)
+    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["esmfold2"]
+    assert cell["board_type"] == "p150a", (
+        f"the cell does not say which board type it describes: {cell}")
+    assert cell["measured_on"] == "qb1:3", (
+        f"the cell does not say which host and card measured it: {cell}")
+
+
+_SWEEP_UNDER_SIGNAL = """
+import sys, time, signal
+sys.path.insert(0, {scripts!r})
+import capacity_gate as cg
+cg.install_teardown()
+print("armed", flush=True)
+cg.sweep(["cell"], ["w"], lambda w, c: time.sleep(600), lambda i, r: None)
+"""
+
+
+def test_a_sweep_in_progress_can_actually_be_signalled():
+    """A sweep in progress must die on SIGTERM, because the alternative is SIGKILL from outside
+    and a wedged card.
+
+    This LOCKS THE PROPERTY; it is not a regression test. It passes on the bare `t.join()` too,
+    which is exactly why it is worth saying so here: on 2026-09-10 a real gate ten cells into a
+    sweep ignored two explicit SIGTERMs, and this test does not reproduce that. Whatever made
+    that process unreachable is still unknown, so what this guards is only the direction of
+    travel -- if someone later puts an uninterruptible wait in this call path and it DOES stop
+    signals landing, this fails.
+
+    End to end rather than a source check for `join(timeout=...)`, since the property is "a
+    signal lands", not "one particular call has a timeout argument".
+    """
+    src = _SWEEP_UNDER_SIGNAL.format(scripts=str(ROOT / "scripts"))
+    proc = subprocess.Popen([sys.executable, "-u", "-c", src],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            if (proc.stdout.readline() or "").startswith("armed"):
+                break
+        else:
+            pytest.fail("the child never armed its handler")
+        time.sleep(1.0)          # let it get into the join
+        proc.send_signal(signal.SIGTERM)
+        try:
+            rc = proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            pytest.fail("SIGTERM did not reach a sweep in progress: the main thread is parked in "
+                        "an uninterruptible wait, so the handler can never run")
+        assert rc == 128 + signal.SIGTERM, (
+            f"the sweep exited {rc}, not through install_teardown()'s handler")
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait(timeout=10)
+
+
+_GUARD_REFUSAL = (
+    "SizeTooLargeError This input has 1536 residues, and opendde is measured to handle at most "
+    "1024 on blackhole -- the largest size below the first measured failure.")
+
+
+def test_the_engine_declining_a_size_is_its_own_mechanism():
+    """Once CEILINGS grew blackhole rows, the gate's own 1536 bar started landing above a
+    model's measured ceiling: opendde and opendde-abag cap at 1024 on blackhole because 1536 was
+    measured to FREEZE the trunk. The engine then refuses before anything runs, and that is a
+    different fact from the hardware failing to hold the shape. Unnamed, it records as
+    "FAIL, mechanism None", which is exactly the ambiguity that let a broken bisect publish "the
+    ceiling is below 512 tokens"."""
+    assert cg.classify(_GUARD_REFUSAL) == "size_guard"
+    real_dram_refusal = (
+        "Not enough space to allocate 603979776 B DRAM buffer across 8 banks, where each bank "
+        "needs to store 603979776 B, but bank size is 4278190016 B (allocated: 4200000000 B, "
+        "free: 78190016 B, largest free block: 78190016 B)")
+    assert cg.classify(real_dram_refusal + "\n" + _GUARD_REFUSAL) == "dram", (
+        "a real allocator refusal has to outrank the guard text, or a genuine wall gets "
+        "relabelled as a policy decision")
+    assert cg.classify("shape '[1, 1, 3, 1]' is invalid for input of size 81") is None
+
+
+def test_a_guard_refusal_still_bounds_the_bisect():
+    """It names a mechanism, so screen_reduction_is_unsafe must NOT discard it. A guard refusal
+    is decided before a single block runs, so Tier 1's depth cut cannot be its cause and the
+    refusal really does bound the walk -- unlike the esmfold2 shape mismatch, which cannot."""
+    leg = {"verdict": "FAIL", "mechanism": cg.classify(_GUARD_REFUSAL),
+           "stacks_truncated": [["tt_bio.opendde.PairformerModel", "blocks", 48]],
+           "tail": _GUARD_REFUSAL}
+    assert not cg.screen_reduction_is_unsafe(leg), (
+        "a guard refusal was thrown away as an instrument artifact, so the bisect would re-walk "
+        "every rung the engine already told it no for")
 
 
 #: Quoted verbatim from a real nesso1 residency leg on pc's p150a, 2026-09-07.
