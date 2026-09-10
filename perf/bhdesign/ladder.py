@@ -383,6 +383,17 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
             elif _FATAL.search(log.read_text(errors="replace")):
                 ended = "FATAL: ended at the throw, not at the rung budget"
             if ended:
+                # This kill COSTS A CARD. A SIGKILL landing on a child that is inside a device
+                # op leaves the p300c chip unable to initialize firmware -- every later open
+                # dies with "Device 0 init: failed to initialize FW! Try resetting the board."
+                # (risc_firmware_initializer.cpp:1115), and on qb2 clearing it needs tt-smi -r
+                # on the whole board pair. Measured twice, on card 2 and on card 0, from the two
+                # different reasons a rung can end this way. SIGKILL is still the right signal:
+                # SIGINT sat unhandled on card 0's 2745 rung for 4.5 minutes because the child
+                # was inside a C++ region and never returned to the interpreter to take it. So
+                # the rule is not "kill more gently", it is: budget a board-pair reset for every
+                # rung that ends by kill, and prefer the _FATAL branch, which ends a refusing
+                # rung in seconds instead of holding the card for its whole budget first.
                 try:
                     os.killpg(proc.pid, signal.SIGKILL)
                 except ProcessLookupError:
