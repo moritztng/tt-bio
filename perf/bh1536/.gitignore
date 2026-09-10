@@ -1,0 +1,3 @@
+# Run outputs and the append lock: the evidence that ships is results.jsonl and sweep.log.
+runs/
+.results.lock
