@@ -76,6 +76,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import capacity_fixture                                                    # noqa: E402
 from tt_bio import device_lease                                             # noqa: E402
+from tt_bio import size_limits as sl                                        # noqa: E402
 
 # ---------------------------------------------------------------------------------------------
 # THE BAR
@@ -222,7 +223,6 @@ EXEMPT = {
 
 
 def roster() -> list[str]:
-    from tt_bio import size_limits as sl
     return sorted(sl.shipped_models())
 
 
@@ -399,31 +399,40 @@ def geometry(worker) -> dict:
 # path's allocation ORDER (ttnn.slice is not a view, and allocation order decides whether a block
 # big enough exists).
 
-#: Cheap host-side signals that a fold hit the device wall rather than anything else. Matched
-#: against the run log so a verdict names its own mechanism instead of just "exited nonzero".
+#: Cheap host-side signals for the failures the allocator does NOT describe in numbers. An
+#: allocator refusal is not in here on purpose: it is classified from its own figures by
+#: `size_limits.classify_device_oom`, and a substring list cannot do that job. Every refusal
+#: message carries the word DRAM (or L1) AND the phrase "largest free block" in one sentence, so
+#: first-match-wins made whichever arm was listed first swallow the others: the "fragmentation" arm
+#: that used to sit here was unreachable for any real log, and a fragmented chip was recorded as
+#: plain "dram". Those are different walls with different fixes and `size_limits` gives them two
+#: mechanism values for that reason.
 MECHANISM_PATTERNS = (
-    ("dram",          re.compile(r"Out of Memory: Not enough space to allocate.*DRAM", re.I)),
-    ("l1",            re.compile(r"Out of Memory: Not enough space to allocate.*L1", re.I)),
-    ("fragmentation", re.compile(r"largest free block", re.I)),
     # Statically allocated circular buffers live in L1, not DRAM, and tt-metal words this
     # "grow to N B which is BEYOND max L1 size of M B" -- so the old pattern (".*exceed",
     # labelled "dram") could never match the message it was written for, and would have named the
-    # wrong memory if it had. Quoted from a real nesso1 leg on a p150a.
-    ("l1",            re.compile(r"circular buffers.*(?:beyond|exceed).*L1 size", re.I)),
-    ("oom",           re.compile(r"Out of Memory|bad_alloc|std::bad_alloc", re.I)),
+    # wrong memory if it had. Quoted from a real nesso1 leg on a p150a. It carries no bank figures,
+    # which is why it stays a pattern.
+    (sl.L1_CLASH,   re.compile(r"circular buffers.*(?:beyond|exceed).*L1 size", re.I)),
+    ("oom",         re.compile(r"Out of Memory|bad_alloc|std::bad_alloc", re.I)),
     # Not a capacity result at all: another process holds the card. Scoring this as FAIL would
     # publish a ceiling that was never measured -- and it is easy to hit, because a killed leg
     # whose spawned fold worker outlived the kill keeps the lease.
-    ("contention",    re.compile(r"DeviceInUseError|device contention, nothing ran"
-                                 r"|is in use by", re.I)),
+    ("contention",  re.compile(r"DeviceInUseError|device contention, nothing ran"
+                               r"|is in use by", re.I)),
 )
 
 
 def classify(log_text: str) -> str | None:
-    for name, pat in MECHANISM_PATTERNS:
-        if pat.search(log_text):
-            return name
-    return None
+    """The mechanism this log names, in `size_limits.MECHANISMS`' own words.
+
+    The allocator's numbers first, because they are the only thing that separates a full chip from
+    a fragmented one, and the engine already reads them for the sentence it shows a user. Reusing
+    that means a cell recorded here and a CEILINGS row published from it cannot name the wall
+    differently.
+    """
+    return sl.classify_device_oom(log_text) or next(
+        (name for name, pat in MECHANISM_PATTERNS if pat.search(log_text)), None)
 
 
 def tree_cpu_s(pid: int) -> float:
@@ -1668,7 +1677,6 @@ def ceilings_fingerprint() -> str:
     not cost a re-record.
     """
     import hashlib
-    from tt_bio import size_limits as sl
     rows = []
     for model in sorted(sl.CEILINGS):
         for arch in sorted(sl.CEILINGS[model]):

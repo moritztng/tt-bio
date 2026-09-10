@@ -71,6 +71,7 @@ def _yaml(tmp_path, body, name="in.yaml"):
 
 
 def test_template_map_reads_per_chain_npz(tmp_path):
+    from tt_bio.main import _read_bio_chains
     from tt_bio.worker import _template_map
 
     npz = tmp_path / "tmpl.npz"
@@ -85,10 +86,11 @@ sequences:
       id: C
       sequence: ACGT
 """)
-    assert _template_map(p, "openfold3") == {"A": str(npz), "B": str(npz)}
+    assert _template_map(p, "openfold3", _read_bio_chains(p)) == {"A": str(npz), "B": str(npz)}
 
 
 def test_template_map_rejects_missing_file(tmp_path):
+    from tt_bio.main import _read_bio_chains
     from tt_bio.worker import _template_map
 
     p = _yaml(tmp_path, """version: 1
@@ -99,10 +101,11 @@ sequences:
       templates: /nonexistent/tmpl.npz
 """)
     with pytest.raises(RuntimeError, match="does not exist"):
-        _template_map(p, "openfold3")
+        _template_map(p, "openfold3", _read_bio_chains(p))
 
 
 def test_template_map_rejects_non_protein_chain(tmp_path):
+    from tt_bio.main import _read_bio_chains
     from tt_bio.worker import _template_map
 
     npz = tmp_path / "tmpl.npz"
@@ -115,17 +118,44 @@ sequences:
       templates: {npz}
 """)
     with pytest.raises(RuntimeError, match="only valid on protein chains"):
-        _template_map(p, "openfold3")
+        _template_map(p, "openfold3", _read_bio_chains(p))
+
+
+def test_template_map_refuses_a_template_for_a_chain_that_is_not_there(tmp_path):
+    """The unknown-id refusal, which used to be written out once per predict path.
+
+    Three call sites carried their own copy of it (protenix, opendde, the OF3 family) and a
+    fourth model gaining templates would have needed a fourth. It lives in `_template_map` now,
+    so a caller cannot forget it, and the check is what stops a mistyped chain id from folding
+    unconditioned while the template sits unread.
+    """
+    from tt_bio.main import _read_bio_chains
+    from tt_bio.worker import _template_map
+
+    npz = tmp_path / "tmpl.npz"
+    npz.write_bytes(b"stub")
+    p = _yaml(tmp_path, f"""version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MKVL
+      templates: {npz}
+""")
+    assert _template_map(p, "openfold3", _read_bio_chains(p)) == {"A": str(npz)}
+    # Same file, and the chain the caller actually parsed is called something else.
+    with pytest.raises(RuntimeError, match=r"unknown chain id\(s\) \['A'\]"):
+        _template_map(p, "openfold3", [("B", "MKVL", None, "protein", None)])
 
 
 def test_template_map_ignores_fasta_and_template_free_yaml(tmp_path):
+    from tt_bio.main import _read_bio_chains
     from tt_bio.worker import _template_map
 
     fa = tmp_path / "in.fasta"
     fa.write_text(">A|protein\nMKVL\n")
-    assert _template_map(fa, "openfold3") == {}
+    assert _template_map(fa, "openfold3", _read_bio_chains(fa)) == {}
     p = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MKVL\n")
-    assert _template_map(p, "openfold3") == {}
+    assert _template_map(p, "openfold3", _read_bio_chains(p)) == {}
 
 
 def test_of3_refuses_covalent_bonds_and_ligands_through_the_capability_table(tmp_path):

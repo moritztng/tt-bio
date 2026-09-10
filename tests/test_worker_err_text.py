@@ -23,8 +23,9 @@ def _failed_inside_tt_bio():
     """A real exception raised by a real tt_bio frame, not a callback defined in this file.
 
     `describe_device_oom` runs a regex over its argument, so None makes re.finditer raise from
-    inside size_limits.py. Monkeypatching a test-local function into a tt_bio module would put
-    the test file in the traceback instead and the assertions below would pass on nothing.
+    inside size_limits.py, in `_last_refusal` -- the frame that owns the pattern. Monkeypatching
+    a test-local function into a tt_bio module would put the test file in the traceback instead
+    and the assertions below would pass on nothing.
     """
     try:
         size_limits.describe_device_oom(None)
@@ -37,7 +38,7 @@ def test_origin_names_the_deepest_tt_bio_frame():
     origin = _origin_frame(_failed_inside_tt_bio())
     assert origin is not None
     assert origin.startswith("size_limits.py:")
-    assert " in describe_device_oom" in origin
+    assert " in _last_refusal" in origin
 
 
 def test_origin_is_none_when_no_tt_bio_frame_is_involved():

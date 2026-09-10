@@ -202,7 +202,7 @@ def _write_atom_array_structure(atom_array, coords, outpath, output_format,
         cf.write(str(outpath))
 
 
-def _template_map(path: Path, model: str) -> dict[str, str]:
+def _template_map(path: Path, model: str, chains) -> dict[str, str]:
     """Per-chain template alignment (npz) paths from a YAML input's `templates:` key.
 
     The shared chain reader has no template field, so the models that take one re-read the
@@ -211,6 +211,10 @@ def _template_map(path: Path, model: str) -> dict[str, str]:
     folds on the others. A template path on a non-protein chain, an unknown chain id, or a
     missing file is a hard error: silently dropping a user-supplied template would fold a
     different input than asked.
+
+    The unknown-id check lives HERE and not at the three call sites, which each carried their
+    own copy of it. It needs the parsed chain list, which is the only thing the caller has and
+    this function did not, so passing it in is what collapses the copies.
     """
     if path.suffix.lower() not in (".yml", ".yaml"):
         return {}
@@ -240,6 +244,10 @@ def _template_map(path: Path, model: str) -> dict[str, str]:
                        else str(ids).split(","))
             for c in id_list:
                 out[c.strip()] = str(tp)
+    unknown = sorted(set(out) - {c[0] for c in chains})
+    if unknown:
+        raise RuntimeError(
+            f"--model {model}: `templates:` given for unknown chain id(s) {unknown}.")
     return out
 
 
@@ -909,11 +917,7 @@ class _WorkerState:
         # protenix-v2 and opendde (a 2-block pairformer stack), and until now it only ever
         # saw dummy_template_features, so a template in the input reached the validator and
         # then nothing.
-        tmpl_map = _template_map(path, model)
-        unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt, _mo in chains})
-        if unknown_tmpl:
-            raise RuntimeError(
-                f"--model {model}: `templates:` given for unknown chain id(s) {unknown_tmpl}.")
+        tmpl_map = _template_map(path, model, chains)
         tmpl_dir = cfg.get("template_structures")
         if tmpl_map:
             _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
@@ -1023,11 +1027,7 @@ class _WorkerState:
         # protenix-v2 and opendde (a 2-block pairformer stack), and until now it only ever
         # saw dummy_template_features, so a template in the input reached the validator and
         # then nothing.
-        tmpl_map = _template_map(path, model)
-        unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt, _mo in chains})
-        if unknown_tmpl:
-            raise RuntimeError(
-                f"--model {model}: `templates:` given for unknown chain id(s) {unknown_tmpl}.")
+        tmpl_map = _template_map(path, model, chains)
         tmpl_dir = cfg.get("template_structures")
         if tmpl_map:
             _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
@@ -1362,12 +1362,7 @@ class _WorkerState:
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
         check_capabilities(path, chains, model)
-        tmpl_map = _template_map(path, model)
-        unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt, _mods in chains})
-        if unknown_tmpl:
-            raise RuntimeError(
-                f"--model {model}: `templates:` given for unknown chain id(s) "
-                f"{unknown_tmpl}.")
+        tmpl_map = _template_map(path, model, chains)
         msa_dir = Path(cfg["msa_dir"])
 
         _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA", "ligand": "LIGAND"}

@@ -25,25 +25,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ladder_paths                                   # noqa: E402  (same dir as this file)
 from tt_bio.device_lease import CONTENDED_EXIT_CODE  # noqa: E402  (75, not re-typed here)
 from tt_bio.main import AFFINITY_MODELS  # noqa: E402  (the registry, not a literal list here)
+from tt_bio.size_limits import ALLOC_REFUSAL  # noqa: E402  (tt-metal's format, once)
 OUTROOT = WT / "perf" / "bh1536"
 PY = "/home/ttuser/tt-bio-dev/env/bin/python3"
 
-# The refusals we classify. DRAM and L1 are different walls with different fixes.
-# The parenthetical is the whole classification and is captured on purpose. `free` vs
-# `largest free block` is what separates the two OOM classes the campaign asks to be told
-# apart: request > bank size is one oversized tensor, request < free but > largest free block
-# is fragmentation, and request > free is plain exhaustion. Dropping it (as a regex that stops
-# at "bank size is N B" does) makes all three look identical.
-_ALLOC = (r"Not enough space to allocate (?P<req>\d+) B {kind} buffer across (?P<banks>\d+) "
-          r"banks, where each bank needs to store (?P<per_bank>\d+) B, but bank size is "
-          r"(?P<bank_size>\d+) B\s*\(allocated: (?P<allocated>\d+) B, free: (?P<free>\d+) B, "
-          r"largest free block: (?P<largest>\d+) B\)")
-OOM_PATTERNS = [
-    (re.compile(_ALLOC.format(kind="DRAM")), "dram"),
-    (re.compile(_ALLOC.format(kind="L1")), "l1"),
-    (re.compile(r"grow to (?P<req>\d+) B .*?beyond max L1 size of (?P<bank_size>\d+) B", re.S),
-     "l1_cb"),
-]
+# The refusal the allocator words in numbers is parsed by the ENGINE's pattern
+# (`size_limits.ALLOC_REFUSAL`) and not by a copy of it here. The parenthetical is the whole
+# classification and has to survive the parse: `free` vs `largest free block` is what separates
+# the classes this campaign asks to be told apart, and a regex that stops at "bank size is N B"
+# makes all of them look identical. That pattern is tt-metal's message format, so a transcription
+# rots on somebody else's release schedule, and it is already written down once.
+#
+# The circular-buffer throw stays local: it carries no bank figures at all, so it is not an
+# allocator refusal in the sense `ALLOC_REFUSAL` matches, and the engine has nothing to share.
+_CB_OVERFLOW = re.compile(r"grow to (?P<req>\d+) B .*?beyond max L1 size of (?P<bank_size>\d+) B",
+                          re.S)
 
 
 def classify(g: dict) -> str:
@@ -170,13 +166,15 @@ def cif_residues(path: Path) -> int:
 
 def _oom_of(text):
     """The LAST refusal in the log, not the first: the blocking paths retry past an early one."""
-    for pat, kind in OOM_PATTERNS:
+    for pat, kind in ((ALLOC_REFUSAL, None), (_CB_OVERFLOW, "l1_cb")):
         ms = list(pat.finditer(text))
-        if ms:
-            m = ms[-1]
-            g = {k: int(v) for k, v in m.groupdict().items() if v is not None}
-            return {"class": kind, "mechanism": classify(g), "bytes": g,
-                    "text": m.group(0)[:400].replace("\n", " ")}
+        if not ms:
+            continue
+        g = {k: int(v) for k, v in ms[-1].groupdict().items()
+             if v is not None and k != "space"}
+        return {"class": kind or ms[-1].group("space").lower(),
+                "mechanism": classify(g), "bytes": g,
+                "text": ms[-1].group(0)[:400].replace("\n", " ")}
     return None
 
 

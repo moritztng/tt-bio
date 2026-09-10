@@ -1139,9 +1139,40 @@ def test_a_circular_buffer_overflow_is_recognised_and_named_l1():
     """The pattern for this was written as ".*exceed" and labelled "dram". tt-metal says "grow to
     N B which is BEYOND max L1 size", so it could never fire for the message it existed for, and
     a statically allocated circular buffer lives in L1 rather than DRAM anyway -- so it would have
-    named the wrong memory if it had."""
-    assert cg.classify(_NESSO1_CB_OVERFLOW) == "l1", (
-        f"the L1 circular-buffer wall classified as {cg.classify(_NESSO1_CB_OVERFLOW)!r}")
+    named the wrong memory if it had.
+
+    Named in `size_limits.MECHANISMS`' words, which is what a CEILINGS row records, so nobody
+    translates a measured mechanism into a published one by hand."""
+    got = cg.classify(_NESSO1_CB_OVERFLOW)
+    assert got == sl.L1_CLASH, f"the L1 circular-buffer wall classified as {got!r}"
+    assert got != sl.DRAM
+
+
+#: A real DRAM refusal, and the only difference between the two is `largest free block`. Quoted
+#: from the esmfold2 1536 leg perf/bh1536 recorded on 2026-09-10.
+_FRAGMENTED = (
+    "TT_FATAL @ bank_manager.cpp:439: Out of Memory: Not enough space to allocate 4831838208 B "
+    "DRAM buffer across 8 banks, where each bank needs to store 603979776 B, but bank size is "
+    "4278190016 B (allocated: 3579670528 B, free: 698519488 B, largest free block: 504088512 B)")
+_CHIP_FULL = _FRAGMENTED.replace("free: 698519488", "free: 178190016").replace(
+    "largest free block: 504088512", "largest free block: 178190016")
+
+
+def test_fragmentation_and_a_full_chip_are_told_apart():
+    """The arm that used to be unreachable.
+
+    `MECHANISM_PATTERNS` was matched first-hit-wins with "dram" above "fragmentation", and every
+    refusal message carries the word DRAM AND the phrase "largest free block" in one sentence --
+    so the fragmentation arm could not fire for any real log and a fragmented chip was recorded
+    as plain "dram". They are different walls: chunking the request is the answer to a full chip
+    and buys nothing against fragmentation, where the room exists and the allocator cannot hand
+    it over in one piece. Same two messages, one number apart.
+    """
+    assert cg.classify(_FRAGMENTED) == sl.FRAGMENTATION
+    assert cg.classify(_CHIP_FULL) == sl.DRAM
+    # And the gate agrees with the sentence the engine shows the user about the same text.
+    assert "fragmentation" in sl.describe_device_oom(_FRAGMENTED)
+    assert "The chip is full" in sl.describe_device_oom(_CHIP_FULL)
 
 
 def test_a_model_rejecting_its_input_is_not_a_failed_bar():
