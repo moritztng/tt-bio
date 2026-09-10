@@ -42,7 +42,9 @@ exec 9>"/tmp/tt_bio_ladder_card0.lock"
 # but the queue was gone. Stop after three in a row instead and let a relaunch pick the list up.
 nomeasure=0
 for spec in "$@"; do
-  IFS=: read -r model size tag <<< "$spec"
+  # model:size[:tag[:extra args]]. `extra` is passed through to run_rung.py word by
+  # word, which is how a rung at a non-default recycling count is queued.
+  IFS=: read -r model size tag extra <<< "$spec"
   if [ -z "$tag" ] && $PY perf/bh1536/measured.py "$model" "$size"; then
     echo "skip $model $size (already measured)"; continue
   fi
@@ -52,13 +54,23 @@ for spec in "$@"; do
   # also wait on the thing that actually opens the card. Keyed on run_rung.py, the card user
   # itself, not on a chain wrapper's cmdline -- that is the mistake chain3.sh sat in for 19
   # minutes. Inside the lock, any run_rung.py seen here belongs to a lock-blind chain.
-  while pgrep -f "bh1536/run_rung\.py" > /dev/null; do sleep 20; done
+  # Overridable for the same reason PY is: the breaker test drives the real script, and a
+  # host-wide pgrep makes it block for as long as a REAL rung is walking somewhere else on
+  # the box -- which is most of the time during a campaign, i.e. exactly when the suite
+  # runs. Production keeps the host-wide default: two chains in two worktrees still have
+  # to serialise on one card, and run_rung.py is invoked by a relative path, so its
+  # cmdline carries no worktree to scope the match with.
+  while pgrep -f "${CARD_USER_PATTERN:-bh1536/run_rung\.py}" > /dev/null; do sleep 20; done
   echo "=== $(date -u +%FT%TZ) $model $size ${tag:+tag=$tag} ==="
-  # A tagged rung is a deliberate re-walk of something already recorded, so it runs with
-  # --debug: that keeps the worker's stdout connected and is the only way an engine line
-  # (the pair-FFN fallback saying it fired) reaches fold.log and then the row.
+  # --debug is opt-in per rung, in `extra`, and NOT implied by the tag. It is the only way
+  # an engine line (the pair-FFN fallback saying it fired) reaches fold.log, and the price
+  # is that the fold then writes no progress lines at all: measured, `grep -c "tt0]"` is 0
+  # for every --debug rung this campaign ran and non-zero for every other one. The 900 s
+  # stall detector reads log growth, so under --debug it watches a stream the fold does not
+  # write and only tt-metal's compile chatter keeps alive. It killed a healthy opendde
+  # control at 969 s that py-spy had just shown advancing through three different frames.
   $PY perf/bh1536/run_rung.py --model "$model" --size "$size" --budget 2700 \
-      ${tag:+--tag "$tag" --debug}
+      ${tag:+--tag "$tag"} $extra
   rc=$?
   flock -u 9
   if [ "$rc" -eq 75 ]; then

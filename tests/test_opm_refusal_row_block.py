@@ -91,11 +91,24 @@ def test_a_refused_single_pass_is_re_run_in_row_blocks():
     assert len(opm.row_calls) == nblk, opm.row_calls
 
 
+def _through_the_helper(opm, L, rows=None):
+    """What `__call__` does after `pair_row_tile` returns 0: hand the single pass and the
+    row-blocked one to the shared fallback. The shrink loop lives there, not in `_row_blocked`,
+    so this is where the shrink is exercised."""
+    from tt_bio import tenstorrent
+
+    return tenstorrent.row_block_after_refusal(
+        E._OPM_ROWS_REFUSED, L,
+        lambda: opm._rows(_Slice(L), object(), _Slice(L), L, 8192),
+        lambda r: opm._row_blocked(_Slice(L), object(), _Slice(L), L, 8192, r),
+        rows=rows if rows is not None else E._opm_fallback_rows(L), tag="opm")
+
+
 def test_the_block_halves_on_a_further_refusal_and_stops_at_one_tile():
     L = 1024
     rows = E._opm_fallback_rows(L)              # 256
-    opm = _OPM(refuse_first=1)                  # first block refuses, then it fits
-    result = opm._row_blocked(_Slice(L), object(), _Slice(L), L, 8192, rows)
+    opm = _OPM(refuse_first=2)                  # single pass refuses, first block refuses
+    result = _through_the_helper(opm, L)
     assert E._OPM_ROWS_REFUSED[L] == rows // 2, E._OPM_ROWS_REFUSED
     assert result == f"concat:{-(-L // (rows // 2))}", result
 
@@ -104,9 +117,19 @@ def test_a_refusal_that_never_clears_is_raised_and_not_looped_forever():
     L = 1024
     opm = _OPM(refuse_first=10_000)
     with pytest.raises(RuntimeError) as info:
-        opm._row_blocked(_Slice(L), object(), _Slice(L), L, 8192, E._opm_fallback_rows(L))
+        _through_the_helper(opm, L)
     assert "4831838208" in str(info.value)
     assert E._OPM_ROWS_REFUSED.get(L, 32) == 32, "it must stop shrinking at one tile"
+
+
+def test_a_size_that_already_refused_skips_straight_to_the_block():
+    """48 pair ops per recycle: paying a failed multi-GiB allocation on each one is minutes of
+    wasted DRAM traffic, so the size is remembered."""
+    L = 1024
+    E._OPM_ROWS_REFUSED[L] = 128
+    opm = _OPM()
+    assert _through_the_helper(opm, L) == f"concat:{-(-L // 128)}"
+    assert len(opm.row_calls) == -(-L // 128), opm.row_calls
 
 
 def test_anything_that_is_not_an_allocator_refusal_propagates_untouched():

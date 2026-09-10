@@ -26,6 +26,7 @@ import json
 import os
 import pathlib
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -253,6 +254,18 @@ _MECH = [
 ]
 
 
+# A capacity refusal is DECIDED the moment the CLI prints it, but the process then spends tens of
+# minutes unwinding tt-metal: boltzgen at 3662 target residues threw at 310 s and was still
+# closing the device 19 minutes later. So a rung budget does not measure the ceiling, it measures
+# how long the operator was willing to watch a teardown, and every such row reads as a timeout no
+# matter how generous the budget is. Matching the terminal exception line ends the rung when the
+# answer is in, which also makes wall_s the time TO the failure rather than the time to give up.
+# Deliberately narrow: a traceback whose last line names a device capacity throw, nothing else.
+_FATAL = re.compile(
+    r"^\w[\w.]*(?:Error|Exception): .*(?:TT_THROW|TT_FATAL|tt::exception|Not enough space|"
+    r"out of memory)", re.M | re.I)
+
+
 def classify(text: str) -> str:
     for name, rx in _MECH:
         if rx.search(text):
@@ -350,14 +363,47 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         raise SystemExit(f"no fixture for {model}")
 
     t0 = time.time()
-    try:
-        p = subprocess.run(cmd, cwd=str(ROOT), env=env, capture_output=True, text=True,
-                           timeout=args.timeout)
-        rc, blob = p.returncode, (p.stdout or "") + (p.stderr or "")
-    except subprocess.TimeoutExpired as e:
-        rc = -9
-        blob = ((e.stdout or b"").decode(errors="replace") if isinstance(e.stdout, bytes)
-                else (e.stdout or "")) + "\nTIMEOUT"
+    # The child streams to a file, not a pipe. A design rung at this size runs for tens of
+    # minutes, and an absorbed throw is indistinguishable from slow progress unless the log can
+    # be read WHILE it happens -- boltzgen 3662 threw an L1 assert 143 s in and then held the
+    # card for the remaining 1057 s of its budget, and the pipe gave that up only after the
+    # kill. A file also keeps stderr, which the TimeoutExpired branch used to drop entirely.
+    log = work / f"log_{model}_{size}.txt"
+    ended = ""
+    with log.open("w") as fh:
+        # Own process group, so the kill reaches the model's dataloader workers too. Killing the
+        # outer pid alone leaves the engine holding the card, and the next rung then measures
+        # device contention instead of its own size.
+        proc = subprocess.Popen(cmd, cwd=str(ROOT), env=env, stdout=fh,
+                                stderr=subprocess.STDOUT, start_new_session=True)
+        deadline = t0 + args.timeout
+        while proc.poll() is None:
+            if time.time() >= deadline:
+                ended = "TIMEOUT"
+            elif _FATAL.search(log.read_text(errors="replace")):
+                ended = "FATAL: ended at the throw, not at the rung budget"
+            if ended:
+                # This kill COSTS A CARD. A SIGKILL landing on a child that is inside a device
+                # op leaves the p300c chip unable to initialize firmware -- every later open
+                # dies with "Device 0 init: failed to initialize FW! Try resetting the board."
+                # (risc_firmware_initializer.cpp:1115), and on qb2 clearing it needs tt-smi -r
+                # on the whole board pair. Measured twice, on card 2 and on card 0, from the two
+                # different reasons a rung can end this way. SIGKILL is still the right signal:
+                # SIGINT sat unhandled on card 0's 2745 rung for 4.5 minutes because the child
+                # was inside a C++ region and never returned to the interpreter to take it. So
+                # the rule is not "kill more gently", it is: budget a board-pair reset for every
+                # rung that ends by kill, and prefer the _FATAL branch, which ends a refusing
+                # rung in seconds instead of holding the card for its whole budget first.
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                fh.write(f"\n{ended}\n")
+                fh.flush()
+                break
+            time.sleep(5)
+        rc = proc.wait()
+    blob = log.read_text(errors="replace")
     wall = round(time.time() - t0, 1)
 
     rec = {"model": model, "size": size, "rc": rc, "wall_s": wall,

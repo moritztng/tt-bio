@@ -396,6 +396,12 @@ def main():
     ap.add_argument("--single_sequence", action="store_true", default=True)
     ap.add_argument("--msa", dest="single_sequence", action="store_false")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--strace", action="store_true",
+                    help="trace signal DELIVERY into the fold and its workers, and "
+                         "write it to signals.strace next to fold.log. rf3 lost a "
+                         "1536 rung to a signal nobody sent on purpose; a Python "
+                         "handler sees the number and not the sender, and si_pid is "
+                         "the whole question")
     ap.add_argument("--task", choices=("predict", "affinity"), default=None,
                     help="affinity scores a ligand and writes no structure, so it is judged on "
                          "its scalar rather than on a CIF. Derived from the model when omitted")
@@ -431,10 +437,19 @@ def main():
         cmd += ["--recycling_steps", str(a.recycling_steps)]
     if a.debug:
         cmd.append("--debug")
+    if a.strace:
+        # trace=none plus seccomp-bpf means no syscall stops at all: only the signal
+        # deliveries, which strace prints with the sender pid in si_pid.
+        cmd = ["strace", "-f", "--seccomp-bpf", "-e", "trace=none",
+               "-e", "signal=int,term,quit,hup,abrt,usr1,usr2",
+               "-o", str(out / "signals.strace")] + cmd
 
     env = dict(os.environ)
+    # The holder is this worktree's task. Pinned to a literal slug, a copy of the
+    # harness in a second worktree writes the wrong worker into the lease file and
+    # the fleet dispatcher stops seeing the task that actually holds the card.
     env.update(PYTHONPATH=str(WT), TT_VISIBLE_DEVICES="0", TT_BIO_LEASE_CARDS="0",
-               TT_BIO_LEASE_HOLDER="worker:bh-1536-structure")
+               TT_BIO_LEASE_HOLDER=f"worker:{WT.name}")
 
     # A co-tenant with the card is transient, so wait it out rather than burning the rung:
     # the sibling pytest that took card 0 tonight holds it for a test, not for the night.
