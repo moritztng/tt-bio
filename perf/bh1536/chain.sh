@@ -47,7 +47,13 @@ for spec in "$@"; do
   # also wait on the thing that actually opens the card. Keyed on run_rung.py, the card user
   # itself, not on a chain wrapper's cmdline -- that is the mistake chain3.sh sat in for 19
   # minutes. Inside the lock, any run_rung.py seen here belongs to a lock-blind chain.
-  while pgrep -f "bh1536/run_rung\.py" > /dev/null; do sleep 20; done
+  # Overridable for the same reason PY is: the breaker test drives the real script, and a
+  # host-wide pgrep makes it block for as long as a REAL rung is walking somewhere else on
+  # the box -- which is most of the time during a campaign, i.e. exactly when the suite
+  # runs. Production keeps the host-wide default: two chains in two worktrees still have
+  # to serialise on one card, and run_rung.py is invoked by a relative path, so its
+  # cmdline carries no worktree to scope the match with.
+  while pgrep -f "${CARD_USER_PATTERN:-bh1536/run_rung\.py}" > /dev/null; do sleep 20; done
   echo "=== $(date -u +%FT%TZ) $model $size ${tag:+tag=$tag} ==="
   # --debug is opt-in per rung, in `extra`, and NOT implied by the tag. It is the only way
   # an engine line (the pair-FFN fallback saying it fired) reaches fold.log, and the price
