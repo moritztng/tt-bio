@@ -124,15 +124,32 @@ def rfd3_fixture(work: pathlib.Path, total: int, binder: int, target: pathlib.Pa
 
 def pxdesign_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
                      binder: int = 80) -> pathlib.Path:
+    """A PXDesign target YAML conditioning on the first `target_res` residues of `target`.
+
+    The axis runs past any single chain on hand, so the crop SPILLS across chains in file
+    order: chain A whole, then as much of B as is left, and so on. `read_design_yaml` takes a
+    per-chain crop natively. Only the chains a rung actually wants are listed, because a chain
+    listed with no crop conditions on the whole thing and would put the rung above its own size.
+    """
+    remaining = target_res
+    lines = ["target:", f'  file: "{target}"', "  chains:"]
+    first = True
+    for cid, n in cif_chains(target).items():
+        if remaining <= 0:
+            break
+        take = min(n, remaining)
+        lines.append(f"    {cid}:")
+        lines.append(f'      crop: ["1-{take}"]')
+        if first:
+            mid = take // 2
+            lines.append(f"      hotspots: [{mid}, {mid + 1}, {mid + 2}]")
+            first = False
+        remaining -= take
+    if remaining > 0:
+        raise SystemExit(f"pxdesign_fixture: {target} holds {target_res - remaining} residues, "
+                         f"{target_res} asked for")
     p = work / f"px{target_res}.yaml"
-    p.write_text(
-        "target:\n"
-        f'  file: "{target}"\n'
-        "  chains:\n"
-        "    A:\n"
-        f"      crop: [\"1-{target_res}\"]\n"
-        "      hotspots: [%d, %d, %d]\n" % (target_res // 2, target_res // 2 + 1, target_res // 2 + 2)
-        + f"binder_length: {binder}\n")
+    p.write_text("\n".join(lines) + f"\nbinder_length: {binder}\n")
     return p
 
 
@@ -201,16 +218,18 @@ def boltzgen_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
     cif = work / f"bgt{target_res}.cif"
     _, atoms = crop_cif(target, target_res, cif)
     p = work / f"bg{target_res}.yaml"
+    # `include` defaults to "all" (`data/parse/schema.py`) and the crop above already holds
+    # exactly the residues this rung wants. Naming chain A explicitly drops every residue past
+    # the first chain the moment the ladder runs above one chain's length. The designed chain is
+    # `Z` so it cannot collide with a target chain id once the target carries more than one.
     p.write_text(
         "entities:\n"
         "  - protein:\n"
-        "      id: B\n"
+        "      id: Z\n"
         f"      sequence: {binder}\n"
         "  - file:\n"
         f"      path: {cif.name}\n"
-        "      include:\n"
-        "        - chain:\n"
-        "            id: A\n")
+        "      include: all\n")
     return p, atoms
 
 # --------------------------------------------------------------------------------------------
@@ -286,10 +305,14 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         checker = ("binder", args.binder)
     elif model == "boltzgen":
         fx, atoms = boltzgen_fixture(work, size, pathlib.Path(args.target), args.binder)
-        # --devices is a COUNT, not an id. 1 keeps the run in-process on the one card the
-        # ambient TT_VISIBLE_DEVICES leaves visible; 0 would mean "every card it can detect".
+        # `--devices` is an ALIAS FOR `--device_ids` on `tt-bio design` (main.py: the option
+        # carries both spellings and the dest is `devices`), so it is a comma-separated list of
+        # card IDs, not a count. Passing a literal "1" pins the run to card 1 whatever card the
+        # task was granted, and every other grant dies at startup with "Requested Tenstorrent
+        # device id(s) [1] not available". It reads as a count and only ever worked because the
+        # first pass held card 1.
         cmd = base + ["design", str(fx), "--model", "boltzgen", "--out_dir", str(out_dir),
-                      "--num_designs", "1", "--steps", "design", "--devices", "1",
+                      "--num_designs", "1", "--steps", "design", "--devices", str(args.card),
                       "--debug"]
         checker = ("designcif", args.binder)
         extra = {"target_atoms": atoms}
