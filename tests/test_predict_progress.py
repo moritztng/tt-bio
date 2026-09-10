@@ -306,5 +306,45 @@ def test_msa_endpoint_help_lists_exactly_the_models_that_read_it():
     assert "boltz2" not in help_text
 
 
+# -- 6. The step-count help matches what the models actually run ---------
+
+#: What a default `tt-bio predict` really executed, read off the live progress
+#: stream on qb1 card 3 (p150a, 20 aa, single-sequence): model -> (trunk cycles
+#: shown, diffusion steps shown). The help used to say "every other model 200"
+#: while rf3 ran 49, and named openfold3 as the only model running recycles+1
+#: while esmfold2 runs 11 cycles for a documented default of 10.
+OBSERVED_STEPS = {
+    "esmfold2":  (11, 68),   # runs E, F
+    "openfold3": (4, 200),   # run L
+    "rf3":       (10, 49),   # run M
+    "opendde":   (10, 200),  # run M
+}
+
+
+def test_step_count_help_matches_what_each_model_runs():
+    from tt_bio.main import (PREDICT_MODELS, TRUNK_CYCLES_PLUS_ONE,
+                             _resolve_recycling_steps, _resolve_sampling_steps, predict)
+
+    helps = {p.name: p.help for p in predict.params if getattr(p, "help", None)}
+
+    for model, (trunk_shown, diffusion_shown) in OBSERVED_STEPS.items():
+        recycles = _resolve_recycling_steps(None, model)
+        expected = recycles + 1 if model in TRUNK_CYCLES_PLUS_ONE else recycles
+        assert expected == trunk_shown, (model, expected, trunk_shown)
+        requested = _resolve_sampling_steps(None, model)
+        assert {100: 68, 50: 49}.get(requested, requested) == diffusion_shown, model
+
+    # Every model's real default appears in the help that claims to state it, so
+    # the two cannot drift the way the hand-written strings did.
+    for model in PREDICT_MODELS:
+        assert str(_resolve_recycling_steps(None, model)) in helps["recycling_steps"]
+        assert model in helps["recycling_steps"], model
+        assert str(_resolve_sampling_steps(None, model)) in helps["sampling_steps"]
+        assert model in helps["sampling_steps"], model
+    assert "recycles = N+1" in helps["recycling_steps"]
+    for model in TRUNK_CYCLES_PLUS_ONE:
+        assert model in helps["recycling_steps"].split("run one more trunk cycle")[0]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

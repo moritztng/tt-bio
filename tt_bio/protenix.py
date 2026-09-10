@@ -2198,6 +2198,8 @@ class Protenix:
         out = [coords[b:b + 1] for b in range(B)]
         if not return_confidence:
             return out
+        if progress_fn:
+            progress_fn("confidence")
         confs = [self._confidence_for(auxs[b], feats_list[b], out[b][0]) for b in range(B)]
         return out, confs
 
@@ -2353,6 +2355,8 @@ class Protenix:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
             coords = torch.stack(coords, 0)
         if return_confidence:
+            if progress_fn:
+                progress_fn("confidence")
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
             # (back-compat); n_sample>1 returns a list aligned with coords.
