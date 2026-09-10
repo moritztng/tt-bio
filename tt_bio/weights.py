@@ -27,6 +27,7 @@ from __future__ import annotations
 import os
 import shutil
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -92,17 +93,51 @@ class Artifact:
 
     key: str
     models: tuple[str, ...]              # CLI model names that load it
-    source: str                          # "hf-file" | "hf-repo" | "url" | "manual"
+    source: str                          # "file" | "hf-repo" | "manual"
     licence: str
-    repo: str | None = None              # HF repo id (hf-file, hf-repo)
+    repo: str | None = None              # HF repo id
     revision: str | None = None          # HF tag/commit to pin; None means the repo default
-    filename: str | None = None          # path within the repo (hf-file, hf-repo)
-    url: str | None = None               # direct download (url)
+    filename: str | None = None          # path within the repo, or the flat file's name
+    url: str | None = None               # direct download, tried after the hub
+    sha256: str | None = None            # of the finished file, when we have verified one
     subdir: str = ""                     # cache-relative dir for flat files
     approx_bytes: int = 0                # measured, for the size column and prefetch
     derived: Derived | None = None
     legacy_env: tuple[str, ...] = ()     # pre-registry overrides, still honoured
     note: str = ""
+
+    @property
+    def sources(self) -> tuple[str, ...]:
+        """Every place this file can be fetched from, best first.
+
+        A ``file`` row may name both a Hugging Face copy and a direct URL, and a row
+        that names both is why this is a list rather than a field: a checkpoint served
+        from one origin is a checkpoint that hangs for anyone who cannot route to that
+        origin. That cost a customer a day on ``protenix-v1``, whose only upstream is a
+        single bucket in Beijing. The hub copy leads because huggingface.co answers from
+        everywhere and is what the other twelve rows already use; upstream stays as the
+        fallback rather than the only door.
+
+        ``hf://<repo>/<file>`` is fetched by the hub client, anything else by the
+        download tools. One list of strings, so the fetch path walks it without a
+        second concept for "our copy" and an error can name what it tried."""
+        out = []
+        if self.source == "file" and self.repo and self.filename:
+            out.append(f"hf://{self.repo}/{self.filename}")
+        if self.url:
+            out.append(self.url)
+        return tuple(out)
+
+    @property
+    def probe_urls(self) -> tuple[str, ...]:
+        """URLs to test reachability against, one per host this row depends on.
+
+        A hub source is fetched by the hub client rather than by a URL of ours, so it
+        names the API endpoint for its repo: what a diagnosis needs is "can this machine
+        talk to that host", and the answer is per host, not per file."""
+        if self.source == "hf-repo" and self.repo:
+            return (_hf_api_url(self.repo),)
+        return tuple(_hf_api_url(hf[0]) if (hf := split_hf(s)) else s for s in self.sources)
 
     @property
     def env(self) -> str:
@@ -133,6 +168,36 @@ NESSO_REPO = "recursionpharma/nesso"
 NESSO_REVISION = "v1.0.0"      # not `main`: main carries only a config.json
 IPD_BASE = "https://files.ipd.uw.edu/pub"
 PXDESIGN_BASE = "https://pxdesign.tos-cn-beijing.volces.com"
+PROTENIX_V1_REPO = "moritztng/protenix-v0.5.0"
+
+_HF_SCHEME = "hf://"
+
+
+def split_hf(source: str) -> tuple[str, str] | None:
+    """``(repo, filename)`` for an ``hf://repo/file`` source, None for a plain URL."""
+    if not source.startswith(_HF_SCHEME):
+        return None
+    repo, _, filename = source[len(_HF_SCHEME):].rpartition("/")
+    return repo, filename
+
+
+def _hf_api_url(repo: str) -> str:
+    return f"https://huggingface.co/api/models/{repo}"
+
+
+def source_host(source: str) -> str:
+    """The host a source is fetched from, for a one-line "where is this coming from"."""
+    return "huggingface.co" if split_hf(source) else source.split("/")[2]
+
+
+def source_url(source: str) -> str:
+    """The source as a link a person can open.
+
+    The hub client takes a repo and a filename, but someone told to fetch a checkpoint
+    by hand needs a URL, so an error message shows them this instead of ``hf://``."""
+    if (hf := split_hf(source)) is not None:
+        return f"https://huggingface.co/{hf[0]}/resolve/main/{hf[1]}"
+    return source
 
 # Sizes come from the source of record (the HF repo's file metadata, or a populated
 # host for the IPD downloads), not from an estimate. They drive the size column, the
@@ -141,27 +206,34 @@ PXDESIGN_BASE = "https://pxdesign.tos-cn-beijing.volces.com"
 # so "measured locally" would have recorded the corruption as the expected size.
 _ROWS: tuple[Artifact, ...] = (
     # -- Boltz-2 + the shared CCD molecule library ------------------------------
-    Artifact("boltz2-conf", ("boltz2",), "hf-file", "MIT",
+    Artifact("boltz2-conf", ("boltz2",), "file", "MIT",
              repo=BOLTZ2_REPO, filename="boltz2_conf.ckpt", approx_bytes=2286561469),
-    Artifact("boltz2-aff", ("boltz2",), "hf-file", "MIT",
+    Artifact("boltz2-aff", ("boltz2",), "file", "MIT",
              repo=BOLTZ2_REPO, filename="boltz2_aff.ckpt", approx_bytes=2062139170,
              note="affinity head; only read for ligand affinity"),
-    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2"), "hf-file", "MIT",
+    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2"), "file", "MIT",
              repo=BOLTZ2_REPO, filename="mols.tar", approx_bytes=1855662080,
              derived=Derived("mols", "tar", min_entries=45227),
              note="CCD molecule library, extracted to <cache>/mols"),
 
     # -- Protenix ---------------------------------------------------------------
-    # v1 is upstream's own canonical v0.5.0 object, fetched from the URL
-    # `protenix/web_service/dependency_url.py` names at tag v0.5.0. The pxdesign bucket
-    # serves a byte-identical copy under another name (same ETag, same crc64), so there is
-    # nothing to mirror: point at the canonical source, as rf3 / rfd3 / pxdesign do.
-    Artifact("protenix-v1", ("protenix-v1",), "url", "Apache-2.0 (ByteDance)",
+    # v1 is upstream's own canonical v0.5.0 object. The `url` is what
+    # `protenix/web_service/dependency_url.py` names at tag v0.5.0; the pxdesign bucket
+    # serves the same bytes but sits in the same Volcengine region in Beijing, so "use
+    # the other one" is not a fallback at all, and a customer install sat at 0 bytes
+    # because of it. `moritztng/protenix-v0.5.0` on the hub is that file unmodified,
+    # published with upstream's LICENSE and a card naming this URL, and is tried first.
+    # The sha256 is of the finished file, measured on a fresh upstream download that
+    # compared byte for byte with what the hub now serves, so a truncated download is a
+    # named error rather than a crash inside torch.load three minutes later.
+    Artifact("protenix-v1", ("protenix-v1",), "file", "Apache-2.0 (ByteDance)",
+             repo=PROTENIX_V1_REPO, filename="model_v0.5.0.pt",
              url="https://af3-dev.tos-cn-beijing.volces.com/release_model/model_v0.5.0.pt",
+             sha256="9ea20b0aba42f2256711da1d0cd081510a4b291e64375bff6b70ced70b87a5f1",
              subdir="protenix", approx_bytes=1474265486,
              legacy_env=("PROTENIX_V1_CKPT",),
              note="ByteDance Protenix v0.5.0 base checkpoint"),
-    Artifact("protenix-v2", ("protenix-v2",), "hf-file", "Apache-2.0",
+    Artifact("protenix-v2", ("protenix-v2",), "file", "Apache-2.0",
              repo=PROTENIX_REPO, filename="protenix-v2.pt", approx_bytes=1859785497,
              legacy_env=("PROTENIX_CKPT",)),
 
@@ -217,30 +289,30 @@ _ROWS: tuple[Artifact, ...] = (
              note="CCD molecule dict, read by the host featurizer; $NESSO_CACHE also finds it"),
 
     # -- BoltzGen: six flat files under <cache>/boltzgen -----------------------
-    Artifact("boltzgen-diverse", ("boltzgen",), "hf-file", "MIT",
+    Artifact("boltzgen-diverse", ("boltzgen",), "file", "MIT",
              repo=BOLTZGEN_REPO, filename="boltzgen1_diverse.ckpt", subdir="boltzgen",
              approx_bytes=1930847192),
-    Artifact("boltzgen-adherence", ("boltzgen",), "hf-file", "MIT",
+    Artifact("boltzgen-adherence", ("boltzgen",), "file", "MIT",
              repo=BOLTZGEN_REPO, filename="boltzgen1_adherence.ckpt", subdir="boltzgen",
              approx_bytes=1930858014),
-    Artifact("boltzgen-ifold", ("boltzgen",), "hf-file", "MIT",
+    Artifact("boltzgen-ifold", ("boltzgen",), "file", "MIT",
              repo=BOLTZGEN_REPO, filename="boltzgen1_ifold.ckpt", subdir="boltzgen",
              approx_bytes=12582656),
-    Artifact("boltzgen-folding", ("boltzgen",), "hf-file", "MIT",
+    Artifact("boltzgen-folding", ("boltzgen",), "file", "MIT",
              repo=BOLTZGEN_REPO, filename="boltz2_conf_final.ckpt", subdir="boltzgen",
              approx_bytes=2087255089),
-    Artifact("boltzgen-affinity", ("boltzgen",), "hf-file", "MIT",
+    Artifact("boltzgen-affinity", ("boltzgen",), "file", "MIT",
              repo=BOLTZGEN_REPO, filename="boltz2_aff.ckpt", subdir="boltzgen",
              approx_bytes=2061914091),
-    Artifact("boltzgen-mols", ("boltzgen",), "hf-file", "MIT",
+    Artifact("boltzgen-mols", ("boltzgen",), "file", "MIT",
              repo=BOLTZGEN_REPO, filename="mols.zip", subdir="boltzgen",
              approx_bytes=391401102, note="read as a zip, not extracted"),
 
     # -- IPD direct downloads --------------------------------------------------
-    Artifact("rf3", ("rf3",), "url", "see files.ipd.uw.edu (Institute for Protein Design)",
+    Artifact("rf3", ("rf3",), "file", "see files.ipd.uw.edu (Institute for Protein Design)",
              url=f"{IPD_BASE}/rf3/rf3_foundry_01_24_latest_remapped.ckpt", subdir="rf3",
              approx_bytes=3038876446, legacy_env=("RF3_CKPT",)),
-    Artifact("rfd3", ("rfd3",), "url", "see files.ipd.uw.edu (Institute for Protein Design)",
+    Artifact("rfd3", ("rfd3",), "file", "see files.ipd.uw.edu (Institute for Protein Design)",
              url=f"{IPD_BASE}/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt", subdir="rfd3",
              approx_bytes=2690316669,
              derived=Derived("rfd3/weights", "rfd3", discard_archive=True, expect=(
@@ -256,7 +328,7 @@ _ROWS: tuple[Artifact, ...] = (
     # Only the generator is needed to run `tt-bio design --model pxdesign`. The Protenix
     # filter checkpoint and the CCD pair belong to the selection stages, which are not on
     # the CLI, so they are not listed as pxdesign artifacts and are not prefetched.
-    Artifact("pxdesign", ("pxdesign",), "url", "Apache-2.0 (ByteDance)",
+    Artifact("pxdesign", ("pxdesign",), "file", "Apache-2.0 (ByteDance)",
              url=f"{PXDESIGN_BASE}/release_model/pxdesign_v0.1.0.pt", subdir="pxdesign",
              approx_bytes=556554618, legacy_env=("PXDESIGN_CKPT",),
              note="PXDesign-d generator; the selection stages are not wired to the CLI"),
@@ -271,7 +343,7 @@ _ROWS: tuple[Artifact, ...] = (
     # Its own model key, not pxdesign's: the generator never loads these, only the AF2-IG
     # selection stage and the gate's two trunk legs do, so `tt-bio design --model pxdesign`
     # must not pull 4 GB on first use. `tt-bio weights --download af2ig` fetches it.
-    Artifact("af2-params", ("af2ig",), "url", "CC BY 4.0 (DeepMind)",
+    Artifact("af2-params", ("af2ig",), "file", "CC BY 4.0 (DeepMind)",
              url="https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar",
              subdir="af2", approx_bytes=4670017536, legacy_env=("AF2IG_PARAMS",),
              derived=Derived("af2/params", "af2-params", discard_archive=True,
@@ -381,126 +453,449 @@ def _echo(msg: str, quiet: bool = False) -> None:
 # The one fetch path: stage -> verify -> atomic rename
 # ---------------------------------------------------------------------------
 
-def fetch_hf_file(repo_id: str, filename: str, dest_dir: Path, *,
-                  force: bool = False, quiet: bool = False) -> Path:
-    """Fetch one file from a HF repo to ``dest_dir/<basename>``, atomically.
+def _bounded(fn, seconds: float, default):
+    """Run ``fn()`` but stop waiting after ``seconds``.
 
-    Re-fetches when the local copy is missing *or* corrupt. Trusting mere existence is
-    what lets a truncated file poison the cache permanently."""
-    import tempfile
-
-    dest_dir = Path(dest_dir)
-    result = dest_dir / Path(filename).name
-    if not force and result.exists() and artifact_intact(result):
-        return result
-    if result.exists() and not force:
-        _echo(f"Cached {result.name} is incomplete/corrupt, re-downloading", quiet)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    sweep_stale_staging(dest_dir)
-    _echo(f"Downloading {filename} from {repo_id}", quiet)
-
-    from huggingface_hub import hf_hub_download
-    staging = Path(tempfile.mkdtemp(dir=str(dest_dir), prefix=".dl-"))
+    urllib applies its timeout per resolved address, and this bucket answers with nine
+    A records, so a "15 second" HEAD against a host that drops packets takes 135 s of
+    silence. The socket work is left to finish in a daemon thread; what matters is that
+    nobody is still waiting on it."""
+    import concurrent.futures
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        tmp = Path(hf_hub_download(repo_id=repo_id, filename=filename,
-                                   local_dir=str(staging), force_download=True))
-        if not artifact_intact(tmp, result.name):
-            raise RuntimeError(
-                f"downloaded {filename} failed its integrity check (truncated/corrupt "
-                f"archive), refusing to cache it; please retry")
-        os.replace(tmp, result)
+        return pool.submit(fn).result(timeout=seconds)
+    except Exception:                                        # noqa: BLE001
+        return default
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
-    return result
+        pool.shutdown(wait=False)
 
 
-def remote_size(url: str, timeout: float = 15.0) -> int | None:
-    """Content-Length for ``url``, or None if the server will not say.
+def remote_size(url: str, timeout: float = 15.0, deadline: float = 30.0) -> int | None:
+    """Content-Length for ``url``, or None if the server will not say in time.
 
     A byte-exact size from the source of record is the strongest completeness check
     there is, and unlike the archive-structure check it works on any file type. That
     matters for the MSA database tarballs, which are far too large to scan."""
     import urllib.request
+
+    def ask():
+        try:
+            req = urllib.request.Request(url, method="HEAD")
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                n = resp.headers.get("Content-Length")
+                return int(n) if n else None
+        except Exception:                                    # noqa: BLE001
+            return None
+    return _bounded(ask, deadline, None)
+
+
+def probe(url: str, *, timeout: float = 10.0, deadline: float = 20.0,
+          sample_bytes: int = 1 << 20) -> dict:
+    """Can this host be reached from here, and how fast? One ranged GET, never a file.
+
+    The question that matters is not "does the name resolve" but "do bytes actually
+    arrive", because the failure this exists for is a host that completes the TCP
+    handshake and then sends nothing. So it asks for a megabyte and times it, and it
+    gives up at ``deadline`` so a diagnosis is not itself something you wait on."""
+    import urllib.error
+    import urllib.request
+    from urllib.parse import urlparse
+
+    host = urlparse(url).netloc
+    t0 = time.monotonic()
+
+    def ask():
+        try:
+            req = urllib.request.Request(url, headers={"Range": f"bytes=0-{sample_bytes - 1}"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.status, resp.read(sample_bytes), ""
+        except urllib.error.HTTPError as e:
+            return e.code, b"", f"HTTP {e.code}"
+        except Exception as e:                               # noqa: BLE001
+            return None, b"", f"{type(e).__name__}: {e}"
+
+    status, data, error = _bounded(ask, deadline,
+                                   (None, b"", f"no answer within {deadline:.0f}s"))
+    out = {"url": url, "host": host, "status": status, "bytes": len(data),
+           "ok": bool(data), "error": error,
+           "seconds": round(time.monotonic() - t0, 2), "mb_per_s": 0.0}
+    if out["bytes"] and out["seconds"]:
+        out["mb_per_s"] = round(out["bytes"] / out["seconds"] / _MB, 2)
+    if not out["ok"] and not out["error"]:
+        out["error"] = "connected but sent no data"
+    return out
+
+
+def sha256_of(path: Path) -> str:
+    """sha256 of a file, read in 4 MiB blocks (1.4 GiB in ~5 s)."""
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(1 << 22), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Downloading: bounded, mirror-first, and loud about what it tried
+# ---------------------------------------------------------------------------
+
+# A transfer that has not moved a byte for this long is dead, whatever the tool
+# believes. Every download tool has its own idea of a timeout and some of them
+# effectively have none, so the bound that actually holds is ours: watch the bytes
+# landing on disk and cut the tool off when they stop. Without it, a host that
+# accepts the connection and then sends nothing parks the caller forever. That is
+# exactly what a customer's portal did -- aria2c printing "0B/0B" against a
+# China-hosted bucket her network could not pull from, with aria2c's max-tries set
+# to zero, which is its word for "retry forever", inside a subprocess.run() with no
+# timeout.
+STALL_SECONDS = 120
+# A source that has not produced a single byte in this long is not going to. Kept well
+# under STALL_SECONDS because it is a different question: "this transfer has stopped"
+# deserves patience, "this host has never sent us anything" does not, and the whole
+# point is that she finds out in minutes instead of never.
+NO_START_SECONDS = 60
+CONNECT_TIMEOUT = 20
+
+_progress_hook = None
+
+
+@contextmanager
+def progress_to(fn):
+    """Report download progress to ``fn(name, done_bytes, total_bytes)`` in here.
+
+    A scoped module hook rather than an argument on every fetch: the portal's device
+    worker reaches a download four frames below ``_ensure_local_artifacts``, and
+    threading a callback through each of them to serve one caller is worse than one
+    hook that is set and unset around the call."""
+    global _progress_hook
+    previous = _progress_hook
+    _progress_hook = fn
     try:
-        req = urllib.request.Request(url, method="HEAD")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            n = resp.headers.get("Content-Length")
-            return int(n) if n else None
-    except Exception:
-        return None
+        yield
+    finally:
+        _progress_hook = previous
 
 
-def fetch_url(url: str, dest: Path, *, force: bool = False, quiet: bool = False,
-              check_archive: bool = True) -> Path:
-    """Download ``url`` to ``dest``, atomically, resuming across runs.
+def _report(name: str, done: int, total: int | None) -> None:
+    if _progress_hook is None:
+        return
+    # The watcher polls the staging file, but the person reading the UI is waiting for
+    # the checkpoint, so it is named ".model_v0.5.0.pt.part" here and model_v0.5.0.pt
+    # everywhere they can see.
+    if name.startswith(".") and name.endswith(".part"):
+        name = name[1:-len(".part")]
+    try:
+        _progress_hook(name, done, total)
+    except Exception:                                        # noqa: BLE001
+        pass          # a UI that cannot be told is never a reason to fail a download
+
+
+class DownloadFailed(RuntimeError):
+    """Every source for one file was tried and none delivered it.
+
+    Carries the attempt table, so the caller can say which host was tried, with what,
+    how far it got and what to do next. "Please retry" is what made the last one a
+    round of email."""
+
+    def __init__(self, name: str, attempts: list[tuple[str, str, str, int]]):
+        self.name = name
+        self.attempts = attempts
+        lines = [f"could not download {name}. Tried, in order:"]
+        for url, tool, reason, got in attempts:
+            lines.append(f"    {tool:<7} {source_url(url)}")
+            lines.append(f"            -> {reason}"
+                         f"{'' if got is None else f' after {got} byte(s)'}")
+        super().__init__("\n".join(lines))
+
+    @property
+    def bytes_received(self) -> int:
+        return max((got or 0) for _u, _t, _r, got in self.attempts) if self.attempts else 0
+
+
+class WeightsUnavailable(RuntimeError):
+    """One model's weights could not be obtained, said so that the next step is obvious.
+
+    The person reading this is on a machine we cannot log in to, so the message has to
+    carry everything the next action needs: which hosts were tried, whether any byte
+    arrived (a network problem, not a corrupt file), where to put the file by hand, how
+    big it is, its sha256, and the env var that points at a copy elsewhere."""
+
+    def __init__(self, art: Artifact, failure: DownloadFailed, root=None):
+        self.artifact = art
+        self.failure = failure
+        dest = art.dest(root)
+        got = failure.bytes_received
+        nothing = got == 0
+        lines = [
+            f"{art.key} weights are missing and no source would serve them.",
+            "",
+            str(failure),
+            "",
+            ("Not one byte arrived, so this is the network on this machine, not a "
+             "corrupt file." if nothing else
+             f"{got} byte(s) arrived and then the transfer died."),
+            "",
+            "What to do:",
+            f"  1. tt-bio preflight {art.models[0]}",
+            "     says which of those hosts this machine can actually reach, and how fast.",
+            "  2. If one is reachable, run it again: the download resumes where it stopped.",
+            "  3. If none is reachable from here, fetch it on a machine that can and copy it:",
+        ]
+        for src in art.sources:
+            lines.append(f"       {source_url(src)}")
+        lines += [
+            f"       {art.approx_bytes / _GB:.2f} GiB"
+            + (f", sha256 {art.sha256}" if art.sha256 else ""),
+            f"     put it at {dest}",
+            f"     or point ${art.env} at wherever you put it.",
+        ]
+        super().__init__("\n".join(lines))
+
+
+def _tool_commands(url: str, dest: Path) -> list[tuple[str, list[str]]]:
+    """The download commands to try for one URL, best first, each one bounded.
+
+    Bounded is the whole point. These ran with aria2c's max-tries set to zero, its
+    word for "forever", and with no connect or read timeout on curl or wget. The stall
+    watchdog below is the backstop that catches whatever they still ignore; these
+    flags keep a dead connection from spending the whole budget before it."""
+    tools: list[tuple[str, list[str]]] = []
+    if shutil.which("aria2c"):
+        tools.append(("aria2c", [
+            "aria2c", "--max-connection-per-server=8", "--split=8",
+            "--continue=true", "--auto-file-renaming=false",
+            # The watchdog below reads the size of the staging file, so that size has
+            # to mean "bytes received". Preallocation sizes the file to the full 1.4 GB
+            # up front, which makes "not one byte has arrived" indistinguishable from
+            # "it is all here" and costs the 60 s no-start rule its only signal.
+            "--file-allocation=none",
+            f"--connect-timeout={CONNECT_TIMEOUT}", "--timeout=60",
+            "--max-tries=3", "--retry-wait=5", "--lowest-speed-limit=1K",
+            "--summary-interval=15", "-o", dest.name, "-d", str(dest.parent), url]))
+    if shutil.which("curl"):
+        # -f, so an HTML 404 body from a mistyped mirror is a failure rather than a
+        # 500-byte "checkpoint" that dies later inside torch.load.
+        tools.append(("curl", [
+            "curl", "-fL", "--retry", "3", "--retry-delay", "5",
+            "--connect-timeout", str(CONNECT_TIMEOUT),
+            "--speed-limit", "1024", "--speed-time", "60",
+            "-C", "-", "--progress-bar", "-o", str(dest), url]))
+    if shutil.which("wget"):
+        tools.append(("wget", [
+            "wget", "-c", "--tries=3", "--waitretry=5",
+            f"--connect-timeout={CONNECT_TIMEOUT}", "--read-timeout=60",
+            "-O", str(dest), url]))
+    return tools
+
+
+def _run_tool(name: str, cmd: list[str], watch: Path, *, total: int | None,
+              quiet: bool) -> tuple[bool, str, int, bool]:
+    """Run one download command, killing it when the bytes stop arriving.
+
+    Returns (succeeded, reason, bytes on disk, source looks dead). The watchdog polls
+    the file rather than parsing the tool's progress output, so it works the same for
+    aria2c, curl, wget and anything added later. "Source looks dead" means not one
+    byte ever arrived, which is the caller's cue to stop trying this URL at all rather
+    than repeat the same silence with the next tool."""
+    import signal
+    import subprocess
+
+    def size() -> int:
+        try:
+            return watch.stat().st_size
+        except OSError:
+            return 0
+
+    start = last = size()
+    moved_at = time.monotonic()
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL if quiet else None,
+                            stderr=subprocess.STDOUT if quiet else None,
+                            start_new_session=True)
+    while True:
+        try:
+            rc = proc.wait(timeout=1.0)
+        except subprocess.TimeoutExpired:
+            rc = None
+        now = size()
+        if now != last:
+            last, moved_at = now, time.monotonic()
+            _report(watch.name, now, total)
+        if rc is not None:
+            return rc == 0, ("finished" if rc == 0 else f"exit code {rc}"), now, False
+        silent = now == start == 0
+        if time.monotonic() - moved_at > (NO_START_SECONDS if silent else STALL_SECONDS):
+            for sig in (signal.SIGTERM, signal.SIGKILL):
+                try:
+                    os.killpg(os.getpgid(proc.pid), sig)
+                except OSError:
+                    break
+                try:
+                    proc.wait(timeout=5)
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+            if silent:
+                return False, f"nothing arrived in {NO_START_SECONDS}s", 0, True
+            return False, f"no data for {STALL_SECONDS}s", now, False
+
+
+def _hf_download_to(repo: str, filename: str, dest: Path, *, quiet: bool,
+                    log: list) -> tuple[bool, bool]:
+    """Fetch one file out of a Hugging Face repo into ``dest``. Never a final path.
+
+    The hub client does its own staging and its own retries, and every request it makes
+    carries a 10 s read timeout (``huggingface_hub.constants.HF_HUB_DOWNLOAD_TIMEOUT``),
+    so a host that goes quiet mid-transfer raises here instead of parking us: this
+    source needs no stall watchdog of its own, only the same "one attempt, then the
+    next source" rule as the tools. It downloads into a scratch dir beside ``dest``
+    rather than the hub cache, so a flat row keeps one copy on disk rather than two."""
+    import tempfile
+
+    _echo(f"  Downloading {dest.name} from {repo} ...", quiet)
+    _report(dest.name, 0, None)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    sweep_stale_staging(dest.parent)
+    staging = Path(tempfile.mkdtemp(dir=str(dest.parent), prefix=".dl-"))
+    try:
+        from huggingface_hub import hf_hub_download
+        tmp = Path(hf_hub_download(repo_id=repo, filename=filename,
+                                   local_dir=str(staging), force_download=True))
+        os.replace(tmp, dest)
+        log.append((f"{_HF_SCHEME}{repo}/{filename}", "hf", "finished",
+                    dest.stat().st_size))
+        return True, False
+    except Exception as e:                                   # noqa: BLE001
+        log.append((f"{_HF_SCHEME}{repo}/{filename}", "hf", f"{type(e).__name__}: {e}", 0))
+        _echo(f"    hf: {type(e).__name__}: {e}", quiet)
+        return False, False
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def _download_to(source: str, dest: Path, *, quiet: bool = False,
+                 attempts: list | None = None) -> tuple[bool, bool]:
+    """Fetch one source into ``dest`` with tool fallback. Never called with a final path.
+
+    Returns (a tool reported success, this source is worth another try). Every attempt
+    is appended to ``attempts`` so a failure can say exactly what it tried."""
+    import urllib.request
+
+    log = attempts if attempts is not None else []
+    if (hf := split_hf(source)) is not None:
+        return _hf_download_to(*hf, dest, quiet=quiet, log=log)
+    url = source
+    total = remote_size(url, deadline=25.0)
+    _echo(f"  Downloading {dest.name} from {url.split('/')[2]} ...", quiet)
+    _report(dest.name, dest.stat().st_size if dest.exists() else 0, total)
+    tools = _tool_commands(url, dest)
+    if not tools:
+        _echo("    (no aria2c/curl/wget, using Python urllib, may be slow)", quiet)
+        try:
+            urllib.request.urlretrieve(url, dest)
+            return True, True
+        except Exception as e:                               # noqa: BLE001
+            log.append((url, "urllib", f"{type(e).__name__}: {e}", 0))
+            return False, False
+    for name, cmd in tools:
+        good, reason, got, dead = _run_tool(name, cmd, dest, total=total, quiet=quiet)
+        log.append((url, name, reason, got))
+        if good:
+            return True, True
+        _echo(f"    {name}: {reason}", quiet)
+        if dead:
+            # Silence is a property of the host, not of the tool. Handing the same
+            # dead URL to curl and then wget only spends the user's afternoon.
+            return False, False
+    return False, True
+
+
+def fetch_file(sources: tuple[str, ...], dest: Path, *, sha256: str | None = None,
+               force: bool = False, quiet: bool = False,
+               check_archive: bool = True) -> Path:
+    """Download the first of ``sources`` that delivers to ``dest``, atomically.
+
+    One path for every flat artifact, whatever transport it comes over: an
+    ``hf://repo/file`` source goes through the hub client, anything else through
+    aria2c/curl/wget. Sources are tried in order, so an origin this machine cannot
+    reach is a delay rather than a dead end.
 
     Staging is a stable ``.<name>.part`` next to the destination so an interrupted
     multi-GB download resumes instead of restarting, while the destination itself only
-    ever holds a verified file. A ``.part`` that fails verification is discarded and
-    retried once from scratch, since a mid-file corruption can never be fixed by
-    resuming. ``check_archive=False`` skips the structural check for a file too large
-    to scan (the MSA databases), leaving the byte-count check to carry it."""
-    dest = Path(dest)
-    expect = None
+    ever holds a verified file. ``check_archive=False`` skips the structural check for a
+    file too large to scan (the MSA databases), leaving the byte count to carry it.
 
-    def ok(path: Path) -> bool:
-        if expect is not None and path.stat().st_size != expect:
+    Raises ``DownloadFailed``, which names every source and tool that was tried."""
+    dest = Path(dest)
+    sources = tuple(s for s in sources if s)
+    if not sources:
+        raise ValueError(f"no source for {dest.name}")
+
+    def cached_ok(path: Path) -> bool:
+        """Is what is already on disk usable? No network: this runs before every
+        fold, and it used to cost a HEAD request to the origin each time."""
+        try:
+            if path.stat().st_size == 0:
+                return False
+        except OSError:
             return False
-        return artifact_intact(path, dest.name) if check_archive else path.stat().st_size > 0
+        if check_archive:
+            return artifact_intact(path, dest.name)
+        expect = next((remote_size(s) for s in sources if not split_hf(s)), None)
+        return expect is None or path.stat().st_size == expect
+
+    def fresh_ok(path: Path, source: str) -> tuple[bool, str]:
+        """Is what just arrived the file we asked for, and if not, in which way?
+
+        The strongest check we have, paid once per download rather than once per fold.
+        Each answer is a different failure and gets its own words, because this string
+        is what the person on the other machine reads."""
+        size = path.stat().st_size if path.exists() else 0
+        if size == 0:
+            return False, "nothing arrived"
+        if check_archive and not artifact_intact(path, dest.name):
+            return False, "truncated or not a readable archive"
+        if sha256:
+            got = sha256_of(path)
+            if got != sha256:
+                return False, f"sha256 {got[:16]}… != expected {sha256[:16]}…"
+            return True, ""
+        # No recorded hash: fall back to the server's own byte count. The hub client
+        # already checks the blob against the repo's etag, so there is nothing left to
+        # ask it.
+        expect = None if split_hf(source) else remote_size(source)
+        if expect is not None and size != expect:
+            return False, f"{size} bytes, server says {expect}"
+        return True, ""
 
     if not force and dest.exists():
-        expect = remote_size(url)
-        if ok(dest):
+        if cached_ok(dest):
             return dest
         _echo(f"Cached {dest.name} is incomplete/corrupt, re-downloading", quiet)
-    elif not force:
-        expect = remote_size(url)
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_name(f".{dest.name}.part")
 
-    for attempt in (1, 2):
-        _download_to(url, part, quiet=quiet)
-        if ok(part):
-            os.replace(part, dest)
-            return dest
-        part.unlink(missing_ok=True)
-        if attempt == 1:
-            _echo(f"{dest.name} failed its integrity check, retrying from scratch", quiet)
-    raise RuntimeError(
-        f"{dest.name} failed its integrity check twice (truncated/corrupt), refusing to "
-        f"cache it; please retry or download {url} by hand")
-
-
-def _download_to(url: str, dest: Path, *, max_retries: int = 5, quiet: bool = False) -> None:
-    """Fetch a large file with tool fallback and resume. Never called with a final path."""
-    import subprocess
-    import urllib.request
-
-    _echo(f"  Downloading {dest.name} ...", quiet)
-    tools = []
-    if shutil.which("aria2c"):
-        tools.append(("aria2c", ["aria2c", "--max-connection-per-server=8", "--split=8",
-                                 "--continue=true", "--auto-file-renaming=false",
-                                 "--retry-wait=5", "--max-tries=0",
-                                 "-o", dest.name, "-d", str(dest.parent), url]))
-    if shutil.which("curl"):
-        tools.append(("curl", ["curl", "-L", "--retry", "10", "--retry-delay", "5",
-                               "-C", "-", "--progress-bar", "-o", str(dest), url]))
-    if shutil.which("wget"):
-        tools.append(("wget", ["wget", "-c", "--tries=10", "--wait=5", "-O", str(dest), url]))
-    if not tools:
-        _echo("    (no aria2c/curl/wget, using Python urllib, may be slow)", quiet)
-        urllib.request.urlretrieve(url, dest)
-        return
-    for attempt in range(1, max_retries + 1):
-        for name, cmd in tools:
-            try:
-                subprocess.run(cmd, check=True, capture_output=quiet)
-                return
-            except subprocess.CalledProcessError:
-                _echo(f"    {name} failed (attempt {attempt}/{max_retries})", quiet)
-        time.sleep(5)
-    raise RuntimeError(f"could not download {url} after {max_retries} attempts")
+    attempts: list[tuple[str, str, str, int]] = []
+    for source in sources:
+        # Twice per source: a resume that lands on a mid-file corruption can never be
+        # fixed by resuming, so the second try starts from scratch.
+        for attempt in (1, 2):
+            got_it, worth_retrying = _download_to(source, part, quiet=quiet,
+                                                  attempts=attempts)
+            if got_it:
+                good, why = fresh_ok(part, source)
+                if good:
+                    os.replace(part, dest)
+                    return dest
+                attempts.append((source, "verify", why, part.stat().st_size
+                                 if part.exists() else 0))
+                _echo(f"    verify: {why}", quiet)
+            part.unlink(missing_ok=True)
+            if not worth_retrying:
+                break
+            if attempt == 1:
+                _echo(f"    retrying {dest.name} from scratch", quiet)
+    raise DownloadFailed(dest.name, attempts)
 
 
 def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | None = None,
@@ -780,22 +1175,25 @@ def fetch(key: str, *, root: str | Path | None = None, force: bool = False,
                              force=force, quiet=quiet)
         return snap / art.filename if art.filename else snap
 
-    if art.source == "hf-file":
-        path = fetch_hf_file(art.repo, art.filename, cache_root(root) / art.subdir,
-                             force=force, quiet=quiet)
-    elif art.source == "url":
-        path = art.dest(root)
-        if art.derived and art.derived.discard_archive:
-            # The archive is deleted after extraction, so its absence is normal. Only
-            # fetch it when the derived output is not already good.
-            out = cache_root(root) / art.derived.subdir
-            if not force and (_marker(out).exists() and out.is_dir() or _derived_ok(out, art.derived)):
-                return ensure_derived(path, art.derived, root=root, quiet=quiet)
-            _echo(f"Downloading {art.key} checkpoint "
-                  f"(~{art.approx_bytes / _GB:.1f} GiB, {art.url.split('/')[2]})", quiet)
-        path = fetch_url(art.url, path, force=force, quiet=quiet)
-    else:
+    if art.source != "file":
         raise ValueError(f"unknown source {art.source!r} for {key}")
+
+    path = art.dest(root)
+    if art.derived:
+        # The derived output is what the model reads, so a complete one means there is
+        # nothing left to fetch. For RFD3 and the AF2 parameters the archive is deleted
+        # after extraction and its absence is normal; for the CCD library it is simply
+        # 1.8 GB nobody reads again. Skipping it here is also what makes `--download`
+        # agree with the table, which already calls such a row `present`.
+        out = cache_root(root) / art.derived.subdir
+        if not force and (_marker(out).exists() and out.is_dir() or _derived_ok(out, art.derived)):
+            return ensure_derived(path, art.derived, root=root, quiet=quiet)
+        _echo(f"Downloading {art.key} "
+              f"(~{art.approx_bytes / _GB:.1f} GiB, {source_host(art.sources[0])})", quiet)
+    try:
+        path = fetch_file(art.sources, path, sha256=art.sha256, force=force, quiet=quiet)
+    except DownloadFailed as e:
+        raise WeightsUnavailable(art, e, root) from None
 
     if art.derived:
         return ensure_derived(path, art.derived, root=root, force=force, quiet=quiet)
@@ -818,6 +1216,20 @@ def fetch_models(*models: str, root: str | Path | None = None,
 # Disk audit: what is reclaimable, and what is not ours to touch
 # ---------------------------------------------------------------------------
 
+def model_ready(model: str, root: str | Path | None = None) -> tuple[bool, list[Status]]:
+    """Is every artifact this model loads present and intact, and what is not?
+
+    One predicate, so `tt-bio preflight`, the portal's submit check and diagnose.sh
+    cannot disagree about whether a model can run on this host."""
+    stats = [status(a.key, root) for a in artifacts_for(model)]
+    return all(s.state == "present" for s in stats), stats
+
+
+def models_known() -> tuple[str, ...]:
+    """Every model name the registry knows, sorted."""
+    return tuple(sorted(MODEL_ARTIFACTS))
+
+
 def artifact_paths(key: str, root: str | Path | None = None) -> list[Path]:
     """Everything on disk that belongs to one row: the archive, its derived output and
     the completion marker. Hub-cache rows return their snapshot dir, which is shared
@@ -825,7 +1237,7 @@ def artifact_paths(key: str, root: str | Path | None = None) -> list[Path]:
     rather than a plain unlink."""
     art = ARTIFACTS[key]
     out: list[Path] = []
-    if art.source in ("hf-file", "url", "manual"):
+    if art.source in ("file", "manual"):
         out.append(art.dest(root))
     if art.derived:
         d = art.derived_dest(root)

@@ -1754,7 +1754,7 @@ def get_artifact_path(
     with ``--cache``):
       * ``huggingface:<repo_id>:<filename>`` — fetched once from the Hugging
         Face Hub. Used by the ``ARTIFACTS`` defaults (the tt-bio weight repos).
-      * ``http(s)://...``  — fetched once via the shared downloader.
+      * ``http(s)://...``  — fetched once from that URL.
       * Anything else — treated as a local file path.
 
     The fetching itself lives in ``tt_bio.weights``: one implementation of
@@ -1769,10 +1769,14 @@ def get_artifact_path(
     force = bool(getattr(args, "force_download", False))
     if artifact.startswith("huggingface:"):
         _, repo_id, filename = artifact.split(":", 2)
-        result = weights.fetch_hf_file(repo_id, filename, cache, force=force)
+        source = f"hf://{repo_id}/{filename}"
     elif artifact.startswith(("http://", "https://")):
-        result = weights.fetch_url(
-            artifact, Path(cache) / artifact.rsplit("/", 1)[-1], force=force)
+        source = artifact
+    else:
+        source = None
+    if source:
+        result = weights.fetch_file(
+            (source,), Path(cache) / source.rsplit("/", 1)[-1], force=force)
     else:
         result = Path(artifact)
     if not result.exists():

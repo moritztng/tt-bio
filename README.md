@@ -336,17 +336,23 @@ Weights download on first use, so nothing here is required. `tt-bio weights` is 
 you want to see or move them:
 
 ```bash
+tt-bio preflight protenix-v1         # can this machine run it right now?
 tt-bio weights                       # every artifact: status, size, resolved path
 tt-bio weights --download            # prefetch everything (e.g. before going offline)
 tt-bio weights --download boltz2     # or just one model's set
 tt-bio weights --prune               # reclaim superseded revisions and leftovers
 ```
 
+`tt-bio preflight` answers before you submit a job, and exits non-zero when something is
+missing, so it works in a script. When weights are missing it also measures whether the
+hosts they come from can be reached from this machine.
+
 A full set is about 65 GiB. It lands in `~/.boltz` and the Hugging Face cache; set
 `TT_BIO_CACHE` to put both somewhere with more room. Each artifact also takes its own
 override, so `TT_BIO_BOLTZ2_CONF=/mnt/weights/boltz2_conf.ckpt` loads that file instead of
 downloading. Rows show as `corrupt` if a download was interrupted, and are re-fetched rather
-than loaded. See [docs/weights.md](docs/weights.md).
+than loaded. No download waits forever: a source that sends nothing is dropped for the next
+one, and the error names every host tried. See [docs/weights.md](docs/weights.md).
 
 ### Offline MSA (Optional)
 

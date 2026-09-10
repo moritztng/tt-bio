@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import tarfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -115,7 +116,7 @@ def test_intact_rejects_broken_json(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# fetch_hf_file: stage -> verify -> atomic rename
+# fetch_file: one staged, verified, atomically renamed path for every transport
 # --------------------------------------------------------------------------
 
 def _stub_hub(monkeypatch, produce):
@@ -128,11 +129,14 @@ def _stub_hub(monkeypatch, produce):
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", fake)
 
 
+HUB = "hf://repo/w.ckpt"
+
+
 def test_corrupt_cached_file_is_refetched(tmp_path, monkeypatch):
     dest = _truncate(_zip(tmp_path / "w.ckpt"))
     broken = dest.stat().st_size
     _stub_hub(monkeypatch, lambda d, f: _zip(d / f, n=8))
-    out = weights.fetch_hf_file("repo", "w.ckpt", tmp_path)
+    out = weights.fetch_file((HUB,), dest)
     assert out == dest
     assert weights.artifact_intact(out) and out.stat().st_size != broken
 
@@ -142,7 +146,9 @@ def test_intact_cached_file_is_not_refetched(tmp_path, monkeypatch):
     dest = _zip(tmp_path / "w.ckpt")
     before = dest.stat().st_mtime_ns
     _stub_hub(monkeypatch, lambda d, f: pytest.fail("re-downloaded an intact artifact"))
-    assert weights.fetch_hf_file("repo", "w.ckpt", tmp_path) == dest
+    monkeypatch.setattr(weights, "remote_size",
+                        lambda *a, **k: pytest.fail("asked the network about a cached file"))
+    assert weights.fetch_file((HUB,), dest) == dest
     assert dest.stat().st_mtime_ns == before
 
 
@@ -151,37 +157,35 @@ def test_truncated_download_never_reaches_the_final_path(tmp_path, monkeypatch):
     dest = _zip(tmp_path / "w.ckpt")
     keep = dest.read_bytes()
     _stub_hub(monkeypatch, lambda d, f: _truncate(_zip(d / f)))
-    with pytest.raises(RuntimeError, match="integrity check"):
-        weights.fetch_hf_file("repo", "w.ckpt", tmp_path, force=True)
+    with pytest.raises(weights.DownloadFailed, match="truncated"):
+        weights.fetch_file((HUB,), dest, force=True)
     assert dest.read_bytes() == keep
     assert not list(tmp_path.glob(".dl-*")), "staging left behind"
 
 
-# --------------------------------------------------------------------------
-# fetch_url: resumable staging, atomic rename
-# --------------------------------------------------------------------------
+def _stub_download(monkeypatch, produce, sizes=None, fail=()):
+    """Stand in for the network. ``fail`` sources deliver nothing, as a host that
+    cannot be reached from this machine does."""
+    monkeypatch.setattr(weights, "remote_size",
+                        lambda url, timeout=15.0, deadline=30.0: (sizes or {}).get(url))
 
-def _stub_download(monkeypatch, produce, sizes=None):
-    monkeypatch.setattr(weights, "remote_size", lambda url, timeout=15.0: (sizes or {}).get(url))
-    monkeypatch.setattr(weights, "_download_to",
-                        lambda url, dest, max_retries=5, quiet=False: produce(dest))
+    def download(source, dest, *, quiet=False, attempts=None):
+        if source in fail:
+            if attempts is not None:
+                attempts.append((source, "aria2c", "nothing arrived in 60s", 0))
+            return False, False
+        produce(dest)
+        return True, True
+
+    monkeypatch.setattr(weights, "_download_to", download)
 
 
 def test_url_download_is_staged_then_renamed(tmp_path, monkeypatch):
     dest = tmp_path / "ckpt.pt"
     _stub_download(monkeypatch, lambda d: _zip(d, n=6))
-    out = weights.fetch_url("https://x/ckpt.pt", dest)
+    out = weights.fetch_file(("https://x/ckpt.pt",), dest)
     assert out == dest and weights.artifact_intact(dest)
     assert not list(tmp_path.glob(".*.part")), "staging left behind"
-
-
-def test_url_truncated_result_raises_and_leaves_no_file(tmp_path, monkeypatch):
-    dest = tmp_path / "ckpt.pt"
-    _stub_download(monkeypatch, lambda d: _truncate(_zip(d)))
-    with pytest.raises(RuntimeError, match="integrity check twice"):
-        weights.fetch_url("https://x/ckpt.pt", dest)
-    assert not dest.exists()
-    assert not list(tmp_path.glob(".*.part"))
 
 
 def test_url_size_mismatch_is_rejected(tmp_path, monkeypatch):
@@ -192,9 +196,152 @@ def test_url_size_mismatch_is_rejected(tmp_path, monkeypatch):
     url = "https://x/db.tar.gz"
     _stub_download(monkeypatch, lambda d: d.write_bytes(b"z" * 100) and None,
                    sizes={url: 999})
-    with pytest.raises(RuntimeError, match="integrity check twice"):
-        weights.fetch_url(url, dest, check_archive=False)
+    with pytest.raises(weights.DownloadFailed, match="server says 999"):
+        weights.fetch_file((url,), dest, check_archive=False)
     assert not dest.exists()
+
+
+# --------------------------------------------------------------------------
+# A source that will not serve: bounded, ordered, and loud
+# --------------------------------------------------------------------------
+
+def test_a_source_that_delivers_nothing_falls_over_to_the_next_one(tmp_path, monkeypatch):
+    """The customer failure, in one test: the first host never sends a byte.
+
+    It has to cost a retry, not the install. Before this, the only source for the
+    Protenix checkpoint was a bucket in Beijing and the download waited on it forever."""
+    dest = tmp_path / "ckpt.pt"
+    dead, alive = "https://dead/ckpt.pt", "https://alive/ckpt.pt"
+    _stub_download(monkeypatch, lambda d: _zip(d, n=6), fail=(dead,))
+    assert weights.fetch_file((dead, alive), dest) == dest
+    assert weights.artifact_intact(dest)
+
+
+def test_a_hub_source_that_fails_falls_over_to_the_direct_url(tmp_path, monkeypatch):
+    """The two transports are one ordered list, so the fallback crosses between them.
+
+    This is the shape `protenix-v1` ships as: the hub copy first, upstream behind it."""
+    import huggingface_hub
+
+    dest = tmp_path / "w.ckpt"
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download",
+                        lambda **kw: (_ for _ in ()).throw(OSError("hub unreachable")))
+    monkeypatch.setattr(weights, "remote_size", lambda *a, **k: None)
+    monkeypatch.setattr(weights, "_tool_commands",
+                        lambda url, d: [("stub", ["cp", str(_zip(tmp_path / "src.ckpt", n=6)),
+                                                  str(d)])])
+    assert weights.fetch_file((HUB, "https://upstream/w.ckpt"), dest) == dest
+    assert weights.artifact_intact(dest)
+
+
+def test_when_no_source_serves_the_error_names_every_one_of_them(tmp_path, monkeypatch):
+    dest = tmp_path / "ckpt.pt"
+    urls = ("https://mirror/ckpt.pt", "https://upstream/ckpt.pt")
+    _stub_download(monkeypatch, lambda d: None, fail=urls)
+    with pytest.raises(weights.DownloadFailed) as e:
+        weights.fetch_file(urls, dest)
+    for url in urls:
+        assert url in str(e.value)
+    assert e.value.bytes_received == 0
+    assert not dest.exists() and not list(tmp_path.glob(".*.part"))
+
+
+def test_a_download_that_stops_moving_is_killed(tmp_path, monkeypatch):
+    """The bound that actually holds is ours: watch the bytes on disk, not the tool.
+
+    A tool asked to fetch from a host that accepts the connection and sends nothing
+    reports nothing and exits never, so the watchdog is what ends it. Driven here with
+    a command that simply sleeps, which is indistinguishable from that case on disk."""
+    monkeypatch.setattr(weights, "NO_START_SECONDS", 2)
+    t0 = time.monotonic()
+    good, reason, got, dead = weights._run_tool(
+        "sleep", ["sleep", "300"], tmp_path / "ckpt.pt", total=None, quiet=True)
+    assert not good and dead and got == 0
+    assert "nothing arrived" in reason
+    assert time.monotonic() - t0 < 20, "the watchdog did not fire"
+
+
+def test_no_download_tool_runs_without_a_timeout(tmp_path):
+    """--max-tries=0 is aria2's word for "retry forever", and it cost a customer a day.
+
+    Every tool this path can pick must carry a connect timeout and a give-up rule, so
+    the assertion is on the commands themselves rather than on one tool."""
+    cmds = weights._tool_commands("https://x/ckpt.pt", tmp_path / "ckpt.pt")
+    assert cmds, "no download tool found on this host"
+    for name, cmd in cmds:
+        flat = " ".join(cmd)
+        assert "--max-tries=0" not in flat, name
+        assert "timeout" in flat or "--speed-time" in flat, name
+        assert any(t in flat for t in ("--max-tries=3", "--retry 3", "--tries=3")), name
+        if name == "aria2c":
+            # The watchdog reads the staging file's size, so nothing may preallocate it.
+            assert "--file-allocation=none" in flat
+
+
+def test_a_wrong_file_is_rejected_by_its_hash(tmp_path, monkeypatch):
+    """A mirror can serve the wrong object with a perfectly valid archive in it."""
+    dest = tmp_path / "ckpt.pt"
+    _stub_download(monkeypatch, lambda d: _zip(d, n=6))
+    with pytest.raises(weights.DownloadFailed, match="sha256"):
+        weights.fetch_file(("https://x/ckpt.pt",), dest, sha256="00" * 32)
+    assert not dest.exists()
+
+
+def test_protenix_v1_prefers_the_hub_and_keeps_upstream():
+    """Order is the fix. Upstream stays: it is where the bytes came from."""
+    art = weights.ARTIFACTS["protenix-v1"]
+    assert art.sources == (f"hf://{art.repo}/{art.filename}", art.url)
+    assert art.repo.startswith("moritztng/")
+    assert "volces.com" in art.url
+    assert art.sha256 and len(art.sha256) == 64
+
+
+def test_no_row_names_a_bucket_we_no_longer_publish_to():
+    """The interim Protenix mirror lived in a GCS bucket that is now deleted. A row
+    still pointing at it would be a source that 404s on every install."""
+    for art in weights._ROWS:
+        for src in art.sources:
+            assert "tt-boltz-artifacts" not in src, art.key
+
+
+def test_every_row_is_fetchable_by_the_one_path_that_exists():
+    """One transport list per row, so `fetch` needs no per-row special case: a `file`
+    row has at least one source, and the other two kinds are the hub and by hand."""
+    for art in weights._ROWS:
+        assert art.source in ("file", "hf-repo", "manual"), art.key
+        if art.source == "file":
+            assert art.sources, art.key
+            assert all(weights.source_host(s) for s in art.sources), art.key
+        else:
+            assert not art.sources, art.key
+
+
+def test_a_built_derived_output_is_not_re_downloaded(tmp_path, monkeypatch):
+    """`tt-bio weights` calls a row with a complete output `present`, so `--download`
+    must not then pull the archive again. It used to, for every row whose archive is
+    kept: 1.8 GB of CCD library on a host that already had it unpacked."""
+    monkeypatch.setattr(weights, "cache_root", lambda root=None: tmp_path)
+    monkeypatch.setattr(weights, "fetch_file",
+                        lambda *a, **k: pytest.fail("re-downloaded a built output"))
+    out = tmp_path / "mols"
+    out.mkdir()
+    (out / "LIG.pkl").write_bytes(b"x")
+    weights._marker(out).write_text("ok\n")
+    assert weights.fetch("mols", root=tmp_path) == out
+
+
+def test_unavailable_weights_say_what_to_do_next(tmp_path):
+    """We cannot log in to her machine, so the exception has to carry the next step."""
+    art = weights.ARTIFACTS["protenix-v1"]
+    failure = weights.DownloadFailed("model_v0.5.0.pt",
+                                     [(s, "aria2c", "nothing arrived in 60s", 0)
+                                      for s in art.sources])
+    msg = str(weights.WeightsUnavailable(art, failure, tmp_path))
+    for expected in (art.repo, art.url, art.sha256, art.env,
+                     "tt-bio preflight", "Not one byte arrived"):
+        assert expected in msg
+    assert "hf://" not in msg, "an hf:// source is not a link a person can open"
+    assert str(art.dest(tmp_path)) in msg
 
 
 # --------------------------------------------------------------------------
