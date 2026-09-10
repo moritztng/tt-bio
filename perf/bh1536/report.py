@@ -94,7 +94,11 @@ for m in sorted(by_model):
     rs = sorted(by_model[m], key=lambda x: x["size"])
     top = max(rs, key=lambda x: (x["verdict"] == "PASS", x["size"]))
     passes = [r for r in rs if r["verdict"] == "PASS"]
-    fails = [r for r in rs if r["verdict"] != "PASS"]
+    # CONTENDED is not a failure: a co-tenant held card 0 and the rung measured nothing, so
+    # counting it here reports a wall at a size the model was never asked to fold. The same
+    # slip in run_rung.py published protenix-v1 as FAIL at 1536. Any instrument that reads
+    # these rows has to know it (verification-instrument-drift).
+    fails = [r for r in rs if r["verdict"] not in ("PASS", "CONTENDED")]
     hi = max((r["size"] for r in passes), default=None)
     lo = min((r["size"] for r in fails), default=None)
     print(f"{m}: pass<={hi} fail>={lo} rungs={[ (r['size'], r['verdict']) for r in rs ]}")
