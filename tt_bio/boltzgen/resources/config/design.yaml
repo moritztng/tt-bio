@@ -33,8 +33,6 @@ writer:
   backbone_only: ${data.cfg.backbone_only}
   write_native: false
 
-trainer:
-
 name: null
 output: null
 checkpoint: null

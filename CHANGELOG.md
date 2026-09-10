@@ -50,6 +50,47 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   from the table, and land before the weights download and the first device open. The published
   matrix is `docs/model-capabilities.md`, generated from the same table.
 
+- **`tt-bio saprot` takes `--foldseek`, and no longer prefers one machine's conda prefix.**
+  `_FOLDSEEK_BIN_CANDIDATES` listed `/home/ttuser/miniforge3/envs/foldseek/bin/foldseek` ahead of
+  PATH, so on any host where that path exists the shipped package silently ran that binary instead
+  of the one the user installed. Discovery is now `--foldseek`, then `FOLDSEEK_BIN`, then PATH, and
+  a path given explicitly has to be there: falling back to PATH after a bad `--foldseek` would run
+  a different binary than the one asked for. Same 3Di tokens either way, verified on a 118-residue
+  structure.
+
+- **RFD3's ligand, enzyme and symmetric-oligomer modes do run from a real PDB, and the docs said
+  they did not.** `docs/rfd3-design.md` marked all three "Not yet (`NotImplementedError`)" for real
+  `--from_pdb` input. Run from the port's own reference structures they all complete and write a
+  structure: `IAI.pdb` with `ligand: IAI` (873 atoms), `M0255_1mg5.pdb` with `ligand: "NAI,ACT"` and
+  four catalytic residues in `unindex` (898 atoms, the 48 ligand atoms placed at their input
+  geometry, one rigid shift, per-axis spread 0.0), `6t8h_C3.pdb` at `C3` (three 100-atom subunits
+  plus one copy each of the two `is_unsym_motif` DNA chains), `1j79_C2.pdb` at `C2` with
+  `ligand: "ORO,ZN"` (two subunits, each with its own 13-atom ligand chain). Two of those four
+  specs could not run at all: `allow_ligand_on_existing_chain`, an upstream passthrough field every
+  real enzyme and symmetric-with-ligand example sets, was refused as an unknown key. It is accepted
+  at `true`, which is what this port does anyway, and refused at `false`. A refusal that stays real
+  says so with the condition: a heteromeric symmetric input now reads "symmetry needs exactly one
+  protein entity with 2 identical-sequence chains in the input ...; this structure has entities of
+  [2, 2] chain(s)" instead of an internal function name and a pass number, and RFD3 refusals reach
+  the CLI as one `Error:` line rather than a traceback.
+
+- **A mistyped `--config` key for a BoltzGen step is refused instead of ignored.** `--config
+  design not_a_real_key=5` deep-merged the key into the step's YAML and ran the whole pipeline at
+  the default, because `Predict.__init__` keeps a `**kwargs` catch-all so old configs still load.
+  A correct key visibly lands (`sampling_steps=40` changed the written config from 500 to 40), so
+  from the outside a typo and a real override looked the same. The schema was already there: a
+  step config is a `_target_` tree and `instantiate` hands each node's keys to that class as
+  kwargs, so `check_overrides` validates every override against the constructor signature at its
+  node, names the key it thinks you meant, and lists what that level accepts. There is no key list
+  to maintain, and the pipeline's own internal overrides (a dozen per step, `data.cfg.multiplicity`
+  through the filter's `outdir`) go through the same check. Refusal lands at configure time, so a
+  typo in the `analysis` step costs nothing instead of the design and folding steps ahead of it.
+  Two dead knobs fell out of it: the `trainer` node, which nothing on Tenstorrent reads (upstream
+  drove Lightning DDP, tt-bio splits designs per card in the distributed path), and the two keys
+  the `--config` help text used as its example, `num_workers=4` and `trainer.devices=4`, neither of
+  which ever landed. BoltzGen CLI input errors also print `Error: <what>` and exit 1 now instead of
+  a traceback.
+
 - **A design spec key the model will not read is now an error, not a default.** An RFD3 spec with
   and without `select_hotspots` produced a byte-identical CIF at the same seed, and a PXDesign run
   with `hotspots: [9001, 9002]` produced coordinates byte-identical to a run with no hotspots
