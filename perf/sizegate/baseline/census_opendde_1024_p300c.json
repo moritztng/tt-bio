@@ -1,10 +1,10 @@
 {
-  "label": "opendde-640-rep0",
+  "label": "opendde-1024-rep0",
   "cli": [
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/size512/fixtures/cdk2x2_640.yaml",
+    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/size512/fixtures/cdk2x2_1024.yaml",
     "--model",
     "opendde",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/capacity-size-ladder-reseed-p300c/lwork-opendde/out_opendde-640-rep0"
+    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/capacity-size-ladder-reseed-p300c/lwork-opendde/out_opendde-1024-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -88,7 +88,7 @@
       "how": "stats",
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
-      "served": 2304,
+      "served": 3400,
       "declined": 0,
       "rejects": null
     },
@@ -115,10 +115,10 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 1056,
+      "served": 1108,
       "declined": 160,
       "rejects": {
-        "l1_dest_is_faster:640x640x64": 160
+        "l1_dest_is_faster:1024x1024x64": 160
       }
     },
     {
@@ -127,11 +127,12 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 3328,
+      "declined": 3840,
       "rejects": {
+        "k_tiles=2:(2,2)": 480,
         "k_tiles=2:(2,1)": 160,
-        "k_tiles=12:(12,12)": 2112,
-        "k_tiles=12:(12,1)": 1056
+        "k_tiles=12:(12,12)": 2096,
+        "k_tiles=12:(12,1)": 1104
       }
     },
     {
@@ -140,10 +141,10 @@
       "counter": "tt_bio.trimul_tail.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 1216,
+      "declined": 1208,
       "rejects": {
         "k_tiles=2": 160,
-        "k_tiles=12": 1056
+        "k_tiles=12": 1048
       }
     },
     {
@@ -151,7 +152,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 2272,
+      "served": 2368,
       "declined": 320,
       "rejects": {
         "no_mm_block:(2,6)": 320
@@ -171,7 +172,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
-      "served": 96,
+      "served": 192,
       "declined": 0,
       "rejects": null
     },
@@ -180,7 +181,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 2304,
+      "served": 3400,
       "declined": 0,
       "rejects": null
     },
@@ -189,7 +190,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 4512,
+      "served": 6608,
       "declined": 0,
       "rejects": null
     },
@@ -199,9 +200,11 @@
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
       "served": 1208,
-      "declined": 17,
+      "declined": 2585,
       "rejects": {
-        "fill_preconditions": 17
+        "l1_budget": 3,
+        "pm_over_l1": 2414,
+        "fill_preconditions": 168
       }
     },
     {
@@ -236,7 +239,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.STATS",
       "resolved": "True",
-      "served": 1056,
+      "served": 1104,
       "declined": 160,
       "rejects": {
         "no_mm_config": 160
@@ -247,7 +250,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 1056,
+      "served": 1104,
       "declined": 0,
       "rejects": null
     },
@@ -256,7 +259,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 1056,
+      "served": 1104,
       "declined": 0,
       "rejects": null
     },
@@ -293,7 +296,7 @@
       "counter": null,
       "resolved": "1.25",
       "served": 160,
-      "declined": 1056,
+      "declined": 1108,
       "rejects": null
     },
     {
