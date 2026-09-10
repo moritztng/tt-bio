@@ -1,0 +1,4 @@
+2026-09-10T00:13:41Z card1 boltz2          1536tok PASS     wall=  249.1s engine=238.0 cif_res=1536/1536 ntok=None rss=134.2G oom=- breaks=0 worst_ca=4.16 clash=0.00348
+2026-09-10T00:15:09Z card1 esmfold2        1536tok OOM      wall=   88.4s engine=None cif_res=0/1536 ntok=None rss=38.34G oom=dram/fragmentation(fatal)
+2026-09-10T00:18:05Z card1 protenix-v1     1536tok PASS     wall=  172.7s engine=156.5 cif_res=1536/1536 ntok=1536 rss=37.43G oom=- breaks=0 worst_ca=3.88 clash=0.50296
+2026-09-10T00:28:57Z card1 protenix-v2     1536tok PASS     wall=  648.3s engine=633.4 cif_res=1536/1536 ntok=1536 rss=87.67G oom=- breaks=0 worst_ca=3.88 clash=0.13115
