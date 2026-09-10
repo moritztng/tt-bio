@@ -1,7 +1,9 @@
 #!/bin/bash
 # The 1536 bar first, for every model in the registry. A model that clears it needs no ladder;
 # a model that does not gets one walked downward in a later pass.
-WT=/home/ttuser/.coworker/wt/bh-1536-structure
+# The worktree this script lives in. Hardcoding it made a copy in a second worktree
+# write its results into the first one.
+WT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd $WT || exit 1
 # Overridable so the circuit breaker below can be tested against a stub that returns a
 # chosen exit code, instead of needing a wedged card to reproduce.
@@ -33,7 +35,9 @@ exec 9>"$WT/perf/bh1536/.card0.lock"
 # but the queue was gone. Stop after three in a row instead and let a relaunch pick the list up.
 nomeasure=0
 for spec in "$@"; do
-  IFS=: read -r model size tag <<< "$spec"
+  # model:size[:tag[:extra args]]. `extra` is passed through to run_rung.py word by
+  # word, which is how a rung at a non-default recycling count is queued.
+  IFS=: read -r model size tag extra <<< "$spec"
   if [ -z "$tag" ] && $PY perf/bh1536/measured.py "$model" "$size"; then
     echo "skip $model $size (already measured)"; continue
   fi
@@ -49,7 +53,7 @@ for spec in "$@"; do
   # --debug: that keeps the worker's stdout connected and is the only way an engine line
   # (the pair-FFN fallback saying it fired) reaches fold.log and then the row.
   $PY perf/bh1536/run_rung.py --model "$model" --size "$size" --budget 2700 \
-      ${tag:+--tag "$tag" --debug}
+      ${tag:+--tag "$tag" --debug} $extra
   rc=$?
   flock -u 9
   if [ "$rc" -eq 75 ]; then

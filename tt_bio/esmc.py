@@ -598,7 +598,16 @@ class SwiGLUFFN(Module):
     def _ffn(self, x: ttnn.Tensor, split: bool = False, l1_gated: bool = False,
              out_mc=None) -> ttnn.Tensor:
         """`out_mc` is fc2's output memory config; `None` -- every caller but lever F -- leaves
-        the op byte-identical to the call that had no such keyword."""
+        the op byte-identical to the call that had no such keyword.
+
+        `split` is a request, not a promise: only a module that built the two fc1 halves
+        (`split_swiglu`) can serve it. `_row_blocked` asks for it unconditionally, which was
+        right while the only caller reaching it was ESMFold2's trunk transition, built with
+        `fuse_swiglu=True`. The DRAM-refusal fallback then routed the msa and pair transitions
+        down the same path; those are built unsplit, and they died on
+        `AttributeError: fc1_a_weight` the moment a refusal fired. The branch therefore reads
+        the layout this module actually holds instead of trusting the caller to know it.
+        """
         ck = self.compute_kernel_config
         ln = dict(weight=self.norm_weight, bias=self.norm_bias,
                   epsilon=1e-5, compute_kernel_config=ck)
@@ -623,7 +632,7 @@ class SwiGLUFFN(Module):
                 fuse_swiglu=True,
             )
             ttnn.deallocate(x_norm)
-        elif split:
+        elif split and self.split_swiglu:
             if l1_gated and _PAIR_FFN_L1_FC1:
                 L1_FC1_STATS[0] += 2
                 l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,

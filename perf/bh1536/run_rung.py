@@ -429,8 +429,11 @@ def main():
         cmd.append("--debug")
 
     env = dict(os.environ)
+    # The holder is this worktree's task. Pinned to a literal slug, a copy of the
+    # harness in a second worktree writes the wrong worker into the lease file and
+    # the fleet dispatcher stops seeing the task that actually holds the card.
     env.update(PYTHONPATH=str(WT), TT_VISIBLE_DEVICES="0", TT_BIO_LEASE_CARDS="0",
-               TT_BIO_LEASE_HOLDER="worker:bh-1536-structure")
+               TT_BIO_LEASE_HOLDER=f"worker:{WT.name}")
 
     # A co-tenant with the card is transient, so wait it out rather than burning the rung:
     # the sibling pytest that took card 0 tonight holds it for a test, not for the night.
