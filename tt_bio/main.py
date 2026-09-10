@@ -148,6 +148,7 @@ from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
 from tt_bio.cache import cached, publish_file, publish_text, seq_hash
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
+from tt_bio.data.pdb import write_atom_array
 from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
 from tt_bio.distributed import (
@@ -2308,7 +2309,6 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     Those residues are tokenized per atom and carry restype UNK, so without it the writer
     would name them "LIG" and a user who asked for SEP would read back a ligand."""
     import biotite.structure as struc
-    import biotite.structure.io.pdb as _pdb
     import biotite.structure.io.pdbx as _pdbx
 
     from tt_bio.data import const
@@ -2347,30 +2347,31 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
         arr.hetero[i] = is_lig_tok[t] or mod is not None
     outpath = Path(outpath)
     if output_format == "pdb":
-        pf = _pdb.PDBFile(); pf.set_structure(arr); pf.write(str(outpath))
+        write_atom_array(arr, outpath)
     else:
         cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cf.write(str(outpath))
 
 
 def _write_structure(complex_obj, outpath, output_format):
-    if output_format == "pdb" and hasattr(complex_obj, "to_pdb"):
-        outpath.write_text(complex_obj.to_pdb())
-        return
+    """Write a folded complex as mmCIF, or as PDB via the mmCIF the model already builds.
+
+    There is no ``to_pdb`` shortcut. The one that used to sit here called
+    ``complex_obj.to_pdb()`` with no arguments, which no class in the tree accepts (the ESM
+    ``ProteinComplex`` method takes a path and returns None), and it would have skipped the
+    column fitting below anyway.
+    """
     cif_text = complex_obj.to_mmcif()
     if output_format == "cif":
         outpath.write_text(cif_text)
         return
     import io
-    import biotite.structure.io.pdb as _pdb
     import biotite.structure.io.pdbx as _pdbx
     # extra_fields is required: without it get_structure drops the b_factor column,
     # and the PDB then carries 0.00 for every atom — the per-residue pLDDT the CIF
     # just wrote is silently lost (measured on esmfold2-fast, 2026-08-16 sweep).
     arr = _pdbx.get_structure(_pdbx.CIFFile.read(io.StringIO(cif_text)), model=1,
                               extra_fields=["b_factor", "occupancy"])
-    pf = _pdb.PDBFile()
-    pf.set_structure(arr)
-    pf.write(str(outpath))
+    write_atom_array(arr, outpath)
 
 
 def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,

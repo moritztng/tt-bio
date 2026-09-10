@@ -11,6 +11,7 @@ from rdkit import Chem
 from torch import Tensor
 
 from tt_bio.data import const
+from tt_bio.data.pdb import chain_map, remarks
 from tt_bio.data.types import Structure
 
 
@@ -333,6 +334,14 @@ def to_pdb(
     atom_index = 1
     atom_reindex_ter = []
 
+    # The chain column is one character wide and this writer used to drop the structure's own
+    # name into it with `{chain_tag:>1}`, which pads but never truncates: a chain named
+    # `sample_03` (a bare FASTA header id) shifted every column after it and the file was
+    # silently wrong. Relabel first; single-character names map to themselves, so an already
+    # legal structure is byte-identical.
+    chain_ids = chain_map(str(chain["name"]) for chain in structure.chains)
+    shortened_res_names: dict[str, str] = {}
+
     # Load periodic table for element mapping
     periodic_table = Chem.GetPeriodicTable()
 
@@ -346,16 +355,21 @@ def to_pdb(
 
     # Add all atom sites.
     for chain in structure.chains:
-        # We rename the chains in alphabetical order
         chain_idx = chain["asym_id"]
-        chain_tag = chain["name"]
+        chain_tag = chain_ids.get(str(chain["name"]), str(chain["name"]))
 
         res_start = chain["res_idx"]
         res_end = chain["res_idx"] + chain["res_num"]
 
+        # A non-polymer residue is written "LIG" whatever its code, so only a polymer's
+        # truncation is recoverable and only that one is worth a remark.
+        is_polymer = chain["mol_type"] != const.chain_type_ids["NONPOLYMER"]
+
         residues = structure.residues[res_start:res_end]
         for residue in residues:
             res_name = str(residue["name"])
+            if is_polymer and len(res_name) > 3:  # noqa: PLR2004 -- resName column is 3 wide
+                shortened_res_names[res_name] = res_name[:3]
             atom_start = residue["atom_idx"]
             atom_end = residue["atom_idx"] + residue["atom_num"]
             atoms = structure.atoms[atom_start:atom_end]
@@ -470,5 +484,6 @@ def to_pdb(
 
     pdb_lines.append("END")
     pdb_lines.append("")
+    pdb_lines = remarks(chain_ids, shortened_res_names) + pdb_lines
     pdb_lines = [line.ljust(80) for line in pdb_lines]
     return "\n".join(pdb_lines)
