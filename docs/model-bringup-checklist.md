@@ -30,6 +30,9 @@ last one.
       logs live in scratch that gets cleaned up, and the baseline is the only committed record.
       `tests/test_capacity_gate.py` fails while a runnable model has no cell, and while a cell
       it does have was measured against a ceiling table this tree no longer ships.
+- [ ] Re-record on the board type you ship on. The baseline is keyed by board type because the
+      answer is: a p150a has 130 L1 banks on a 13x10 grid and a p300c has 110 on 11x10, 15.4 %
+      less L1 against identical DRAM, so a cell recorded on one says nothing about the other.
 
 The capacity gate answers "does it allocate and complete". It cannot answer "is the output right",
 and it is meant to run on cards that miscompute. It does not substitute for the parity gate, and
