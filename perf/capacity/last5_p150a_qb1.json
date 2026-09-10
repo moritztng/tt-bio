@@ -1,0 +1,1121 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-10T04:25:59Z",
+ "tree": "0d96ebfbe943cb438d0d572d203363ef017ecbbd",
+ "dirty": false,
+ "workers": [
+  "qb1:3"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=11,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 110,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 160793600
+  },
+  "board_type": "p150a",
+  "host": "qb1",
+  "card": 3
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "openbind",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 170.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 10.7,
+     "progress_events": 1954,
+     "block_calls": 9,
+     "cpu_s_while_quiet": 1.2,
+     "host_ram_floor_mb": 455010,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.openfold3_msa_embedder.MSAModuleBlock.__call__",
+       "tt_bio.openfold3_diffusion_transformer._DiTBlock.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1532348,
+      "samples": 9,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.openfold3_template.TemplatePairStack",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.openfold3_msa_embedder.MSAModule",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.openfold3_diffusion_transformer.OF3DiffusionTransformer",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "04:26:11  [tt-quietbox:tt3] loading model\u2026\n04:26:17  [tt-quietbox:tt3] cap_1536\n04:26:17  [tt-quietbox:tt3]   prep\n04:27:46  [tt-quietbox:tt3]   trunk 0/2\n04:28:01  [tt-quietbox:tt3]   trunk 1/2\n04:28:12  [tt-quietbox:tt3]   diffusion 0/1\n04:28:15  [tt-quietbox:tt3]   confidence\n04:28:41  [tt-quietbox:tt3]   saving\n04:28:41  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 144.4s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_openbind_1536/openbind_results_cap_1536/results.json",
+     "stacks_truncated": 5,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.openfold3_template.TemplatePairStack",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.openfold3_msa_embedder.MSAModule",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.openfold3_diffusion_transformer.OF3DiffusionTransformer",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 722.1,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 11.9,
+     "progress_events": 42144,
+     "block_calls": 5032,
+     "cpu_s_while_quiet": 1.0,
+     "host_ram_floor_mb": 432593,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2285283264,
+      "dram_peak_bytes": 15867967488,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.openfold3_msa_embedder.MSAModuleBlock.__call__",
+       "tt_bio.openfold3_diffusion_transformer._DiTBlock.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1535374,
+      "samples": 5032,
+      "truncated": []
+     },
+     "tail": "04:40:09  [tt-quietbox:tt3]   diffusion 180/200\n04:40:10  [tt-quietbox:tt3]   diffusion 181/200\n04:40:10  [tt-quietbox:tt3]   diffusion 182/200\n04:40:11  [tt-quietbox:tt3]   diffusion 183/200\n04:40:11  [tt-quietbox:tt3]   diffusion 184/200\n04:40:12  [tt-quietbox:tt3]   diffusion 185/200\n04:40:12  [tt-quietbox:tt3]   diffusion 186/200\n04:40:12  [tt-quietbox:tt3]   diffusion 187/200\n04:40:13  [tt-quietbox:tt3]   diffusion 188/200\n04:40:13  [tt-quietbox:tt3]   diffusion 189/200\n04:40:13  [tt-quietbox:tt3]   diffusion 190/200\n04:40:14  [tt-quietbox:tt3]   diffusion 191/200\n04:40:14  [tt-quietbox:tt3]   diffusion 192/200\n04:40:15  [tt-quietbox:tt3]   diffusion 193/200\n04:40:15  [tt-quietbox:tt3]   diffusion 194/200\n04:40:16  [tt-quietbox:tt3]   diffusion 195/200\n04:40:16  [tt-quietbox:tt3]   diffusion 196/200\n04:40:16  [tt-quietbox:tt3]   diffusion 197/200\n04:40:17  [tt-quietbox:tt3]   diffusion 198/200\n04:40:17  [tt-quietbox:tt3]   diffusion 199/200\n04:40:18  [tt-quietbox:tt3]   confidence\n04:40:43  [tt-quietbox:tt3]   saving\n04:40:43  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 695.0s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_openbind_1536/openbind_results_cap_1536/results.json",
+     "dram_peak_bytes": 15867967488,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2285283264,
+     "blocks_instrumented": 3,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 722.1,
+   "dram_peak_bytes": 15867967488,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2285283264,
+   "blocks_instrumented": 3,
+   "host_ram_floor_mb": 432593
+  },
+  {
+   "model": "protenix-v2",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 130.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 9.9,
+     "progress_events": 1762,
+     "block_calls": 14,
+     "cpu_s_while_quiet": 55.7,
+     "host_ram_floor_mb": 433565,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1560024,
+      "samples": 14,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "04:41:08  [tt-quietbox:tt3] loading model\u2026\n04:41:20  [tt-quietbox:tt3] cap_1536\n04:41:20  [tt-quietbox:tt3]   prep\n04:42:01  [tt-quietbox:tt3]   trunk 0/1\n04:42:48  [tt-quietbox:tt3]   diffusion 0/1\n04:42:51  [tt-quietbox:tt3]   confidence\n04:43:07  [tt-quietbox:tt3]   saving\n04:43:07  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 107.4s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_protenix-v2_1536/protenix_results_cap_1536/results.json",
+     "stacks_truncated": 2,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 912.1,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.8,
+     "progress_events": 43312,
+     "block_calls": 604,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 414294,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2738388416,
+      "dram_peak_bytes": 10779406336,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1562083,
+      "samples": 604,
+      "truncated": []
+     },
+     "tail": "04:57:53  [tt-quietbox:tt3]   diffusion 180/200\n04:57:53  [tt-quietbox:tt3]   diffusion 181/200\n04:57:53  [tt-quietbox:tt3]   diffusion 182/200\n04:57:54  [tt-quietbox:tt3]   diffusion 183/200\n04:57:54  [tt-quietbox:tt3]   diffusion 184/200\n04:57:54  [tt-quietbox:tt3]   diffusion 185/200\n04:57:55  [tt-quietbox:tt3]   diffusion 186/200\n04:57:55  [tt-quietbox:tt3]   diffusion 187/200\n04:57:55  [tt-quietbox:tt3]   diffusion 188/200\n04:57:56  [tt-quietbox:tt3]   diffusion 189/200\n04:57:56  [tt-quietbox:tt3]   diffusion 190/200\n04:57:57  [tt-quietbox:tt3]   diffusion 191/200\n04:57:57  [tt-quietbox:tt3]   diffusion 192/200\n04:57:57  [tt-quietbox:tt3]   diffusion 193/200\n04:57:58  [tt-quietbox:tt3]   diffusion 194/200\n04:57:58  [tt-quietbox:tt3]   diffusion 195/200\n04:57:58  [tt-quietbox:tt3]   diffusion 196/200\n04:57:59  [tt-quietbox:tt3]   diffusion 197/200\n04:57:59  [tt-quietbox:tt3]   diffusion 198/200\n04:57:59  [tt-quietbox:tt3]   diffusion 199/200\n04:58:00  [tt-quietbox:tt3]   confidence\n04:58:19  [tt-quietbox:tt3]   saving\n04:58:19  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 890.5s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_protenix-v2_1536/protenix_results_cap_1536/results.json",
+     "dram_peak_bytes": 10779406336,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2738388416,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 912.1,
+   "dram_peak_bytes": 10779406336,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2738388416,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 414294
+  },
+  {
+   "model": "opendde",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 3.0,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.0,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 475613,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1580662,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1536.yaml' has 1536 residues, and opendde is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.0,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.0,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 475779,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1580786,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1408.yaml' has 1408 residues, and opendde is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1408 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1408
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.1,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.1,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 475855,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1580855,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1280.yaml' has 1280 residues, and opendde is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1280 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1280
+    },
+    {
+     "rc": 0,
+     "wall_s": 256.5,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.4,
+     "progress_events": 1761,
+     "block_calls": 15,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 461245,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1581102,
+      "samples": 15,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "04:58:42  [tt-quietbox:tt3] loading model\u2026\n04:58:55  [tt-quietbox:tt3] cap_1024\n04:58:55  [tt-quietbox:tt3]   prep\n04:59:34  [tt-quietbox:tt3]   trunk 0/1\n05:02:20  [tt-quietbox:tt3]   diffusion 0/1\n05:02:39  [tt-quietbox:tt3]   confidence\n05:02:50  [tt-quietbox:tt3]   saving\n05:02:50  [tt-quietbox:tt3] \u2713 cap_1024 \u2014 235.2s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_opendde_1024/opendde_results_cap_1024/results.json",
+     "stacks_truncated": 3,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1024
+    },
+    {
+     "rc": 0,
+     "wall_s": 546.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.1,
+     "progress_events": 43311,
+     "block_calls": 608,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 408025,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3170004416,
+      "dram_peak_bytes": 7507202048,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1597106,
+      "samples": 608,
+      "truncated": []
+     },
+     "tail": "05:11:39  [tt-quietbox:tt3]   diffusion 180/200\n05:11:39  [tt-quietbox:tt3]   diffusion 181/200\n05:11:39  [tt-quietbox:tt3]   diffusion 182/200\n05:11:39  [tt-quietbox:tt3]   diffusion 183/200\n05:11:39  [tt-quietbox:tt3]   diffusion 184/200\n05:11:40  [tt-quietbox:tt3]   diffusion 185/200\n05:11:40  [tt-quietbox:tt3]   diffusion 186/200\n05:11:40  [tt-quietbox:tt3]   diffusion 187/200\n05:11:40  [tt-quietbox:tt3]   diffusion 188/200\n05:11:40  [tt-quietbox:tt3]   diffusion 189/200\n05:11:41  [tt-quietbox:tt3]   diffusion 190/200\n05:11:41  [tt-quietbox:tt3]   diffusion 191/200\n05:11:41  [tt-quietbox:tt3]   diffusion 192/200\n05:11:41  [tt-quietbox:tt3]   diffusion 193/200\n05:11:41  [tt-quietbox:tt3]   diffusion 194/200\n05:11:42  [tt-quietbox:tt3]   diffusion 195/200\n05:11:42  [tt-quietbox:tt3]   diffusion 196/200\n05:11:42  [tt-quietbox:tt3]   diffusion 197/200\n05:11:42  [tt-quietbox:tt3]   diffusion 198/200\n05:11:42  [tt-quietbox:tt3]   diffusion 199/200\n05:11:42  [tt-quietbox:tt3]   confidence\n05:11:55  [tt-quietbox:tt3]   saving\n05:11:55  [tt-quietbox:tt3] \u2713 cap_1024 \u2014 525.5s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_opendde_1024/opendde_results_cap_1024/results.json",
+     "dram_peak_bytes": 7507202048,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 3170004416,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1024
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.1,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.1,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 480509,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1603191,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1152.yaml' has 1152 residues, and opendde is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1152 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1152,
+     "phase": "refine"
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.1,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.1,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 480702,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1603320,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1088.yaml' has 1088 residues, and opendde is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1088 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1088,
+     "phase": "refine"
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.1,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.1,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 480812,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1603398,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1056.yaml' has 1056 residues, and opendde is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1056 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1056,
+     "phase": "refine"
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "FAIL",
+   "decided_by": "screen",
+   "mechanism": "size_guard",
+   "wall_s": 3.0,
+   "alloc_ceiling_tokens": 1024,
+   "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
+   "ceiling_tokens": 1024
+  },
+  {
+   "model": "opendde-abag",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 3.1,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.1,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 481001,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1603476,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1536.yaml' has 1536 residues, and opendde-abag is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.1,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.1,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 481158,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1603654,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1408.yaml' has 1408 residues, and opendde-abag is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1408 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1408
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.1,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.1,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 481402,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1603770,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1280.yaml' has 1280 residues, and opendde-abag is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1280 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1280
+    },
+    {
+     "rc": 0,
+     "wall_s": 110.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.2,
+     "progress_events": 1759,
+     "block_calls": 15,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 462757,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1604133,
+      "samples": 15,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "05:12:32  [tt-quietbox:tt3] loading model\u2026\n05:12:44  [tt-quietbox:tt3] cap_1024\n05:12:44  [tt-quietbox:tt3]   prep\n05:13:07  [tt-quietbox:tt3]   trunk 0/1\n05:14:00  [tt-quietbox:tt3]   diffusion 0/1\n05:14:02  [tt-quietbox:tt3]   confidence\n05:14:13  [tt-quietbox:tt3]   saving\n05:14:13  [tt-quietbox:tt3] \u2713 cap_1024 \u2014 89.2s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_opendde-abag_1024/opendde_results_cap_1024/results.json",
+     "stacks_truncated": 3,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1024
+    },
+    {
+     "rc": 0,
+     "wall_s": 548.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 2.9,
+     "progress_events": 43311,
+     "block_calls": 608,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 446118,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3170004416,
+      "dram_peak_bytes": 7507202048,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1605622,
+      "samples": 608,
+      "truncated": []
+     },
+     "tail": "05:23:04  [tt-quietbox:tt3]   diffusion 180/200\n05:23:04  [tt-quietbox:tt3]   diffusion 181/200\n05:23:05  [tt-quietbox:tt3]   diffusion 182/200\n05:23:05  [tt-quietbox:tt3]   diffusion 183/200\n05:23:05  [tt-quietbox:tt3]   diffusion 184/200\n05:23:05  [tt-quietbox:tt3]   diffusion 185/200\n05:23:05  [tt-quietbox:tt3]   diffusion 186/200\n05:23:05  [tt-quietbox:tt3]   diffusion 187/200\n05:23:06  [tt-quietbox:tt3]   diffusion 188/200\n05:23:06  [tt-quietbox:tt3]   diffusion 189/200\n05:23:06  [tt-quietbox:tt3]   diffusion 190/200\n05:23:06  [tt-quietbox:tt3]   diffusion 191/200\n05:23:06  [tt-quietbox:tt3]   diffusion 192/200\n05:23:07  [tt-quietbox:tt3]   diffusion 193/200\n05:23:07  [tt-quietbox:tt3]   diffusion 194/200\n05:23:07  [tt-quietbox:tt3]   diffusion 195/200\n05:23:07  [tt-quietbox:tt3]   diffusion 196/200\n05:23:07  [tt-quietbox:tt3]   diffusion 197/200\n05:23:08  [tt-quietbox:tt3]   diffusion 198/200\n05:23:08  [tt-quietbox:tt3]   diffusion 199/200\n05:23:08  [tt-quietbox:tt3]   confidence\n05:23:21  [tt-quietbox:tt3]   saving\n05:23:21  [tt-quietbox:tt3] \u2713 cap_1024 \u2014 526.6s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_opendde-abag_1024/opendde_results_cap_1024/results.json",
+     "dram_peak_bytes": 7507202048,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 3170004416,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1024
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.0,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.0,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 479967,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1614753,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1152.yaml' has 1152 residues, and opendde-abag is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1152 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1152,
+     "phase": "refine"
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.0,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.0,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 480235,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1614836,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1088.yaml' has 1088 residues, and opendde-abag is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1088 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1088,
+     "phase": "refine"
+    },
+    {
+     "rc": 1,
+     "wall_s": 3.0,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 3.0,
+     "progress_events": 0,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 480459,
+     "mechanism": "size_guard",
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [],
+      "mode": "screen",
+      "pid": 1614971,
+      "samples": 0,
+      "truncated": []
+     },
+     "tail": "  File \"/usr/lib/python3.10/runpy.py\", line 196, in _run_module_as_main\n    return _run_code(code, main_globals, None,\n  File \"/usr/lib/python3.10/runpy.py\", line 86, in _run_code\n    exec(code, run_globals)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 4077, in <module>\n    cli()\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1524, in __call__\n    return self.main(*args, **kwargs)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1445, in main\n    rv = self.invoke(ctx)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 1613, in invoke\n    return super().invoke(ctx)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1912, in invoke\n    return _process_result(sub_ctx.command.invoke(sub_ctx))\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 1308, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/click/core.py\", line 877, in invoke\n    return callback(*args, **kwargs)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/main.py\", line 2797, in predict\n    size_limits.check_input(data, model)\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 1039, in check_input\n    check(model, n, arch=arch, where=f\"'{q.name}'\")\n  File \"/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/tt_bio/size_limits.py\", line 771, in check\n    raise SizeTooLargeError(\ntt_bio.size_limits.SizeTooLargeError: 'cap_1056.yaml' has 1056 residues, and opendde-abag is measured to handle at most 1024 on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1056 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+     "stacks_truncated": 0,
+     "truncated": [],
+     "hook_installed": true,
+     "note": "the hook installed but matched no block stack, so this leg ran at FULL depth. Not a screen.",
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1056,
+     "phase": "refine"
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "FAIL",
+   "decided_by": "screen",
+   "mechanism": "size_guard",
+   "wall_s": 3.1,
+   "alloc_ceiling_tokens": 1024,
+   "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
+   "ceiling_tokens": 1024
+  },
+  {
+   "model": "esmfold2",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 61.1,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.1,
+     "progress_events": 986,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 455900,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1615129,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.MSAEncoderModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "05:23:43  [tt-quietbox:tt3] loading model\u2026\n05:24:14  [tt-quietbox:tt3] cap_1536\n05:24:14  [tt-quietbox:tt3]   prep\n05:24:33  [tt-quietbox:tt3] \u2717 cap_1536 \u2014 19.6s\n\n1 failed:\n  \u2717 cap_1536: shape '[1, 1, 3, 1]' is invalid for input of size 81\n      [tt_bio origin: esmfold2.py:1015 in __call__]\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2_1536/esmfold2_results_cap_1536/results.json",
+     "stacks_truncated": 9,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.MSAEncoderModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 622.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 2.0,
+     "progress_events": 16840,
+     "block_calls": 1033,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 435452,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 1378365376,
+      "dram_peak_bytes": 20790165504,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmfold2.MSAEncoderBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1615845,
+      "samples": 1033,
+      "truncated": []
+     },
+     "tail": "05:34:31  [tt-quietbox:tt3]   diffusion 48/68\n05:34:32  [tt-quietbox:tt3]   diffusion 49/68\n05:34:32  [tt-quietbox:tt3]   diffusion 50/68\n05:34:32  [tt-quietbox:tt3]   diffusion 51/68\n05:34:33  [tt-quietbox:tt3]   diffusion 52/68\n05:34:33  [tt-quietbox:tt3]   diffusion 53/68\n05:34:34  [tt-quietbox:tt3]   diffusion 54/68\n05:34:34  [tt-quietbox:tt3]   diffusion 55/68\n05:34:34  [tt-quietbox:tt3]   diffusion 56/68\n05:34:35  [tt-quietbox:tt3]   diffusion 57/68\n05:34:35  [tt-quietbox:tt3]   diffusion 58/68\n05:34:36  [tt-quietbox:tt3]   diffusion 59/68\n05:34:36  [tt-quietbox:tt3]   diffusion 60/68\n05:34:36  [tt-quietbox:tt3]   diffusion 61/68\n05:34:37  [tt-quietbox:tt3]   diffusion 62/68\n05:34:37  [tt-quietbox:tt3]   diffusion 63/68\n05:34:38  [tt-quietbox:tt3]   diffusion 64/68\n05:34:38  [tt-quietbox:tt3]   diffusion 65/68\n05:34:38  [tt-quietbox:tt3]   diffusion 66/68\n05:34:39  [tt-quietbox:tt3]   diffusion 67/68\n05:34:39  [tt-quietbox:tt3]   confidence\n05:34:55  [tt-quietbox:tt3]   saving\n05:34:55  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 580.5s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmfold2_1536/esmfold2_results_cap_1536/results.json",
+     "dram_peak_bytes": 20790165504,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 1378365376,
+     "blocks_instrumented": 4,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "screen_unsafe": true,
+   "note": "the screen's depth cut is a candidate cause of its own FAIL (9 stacks cut, no capacity mechanism in the error), so it was not scored; this verdict comes from the un-truncated run. Tier 1 has no fast path for this model.",
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 622.2,
+   "dram_peak_bytes": 20790165504,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 1378365376,
+   "blocks_instrumented": 4,
+   "host_ram_floor_mb": 435452
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 3,
+  "fail_like": 2,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}
