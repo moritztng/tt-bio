@@ -195,6 +195,16 @@ class Ceiling:
     # only from the row's own evidence: it is what converts residue numbers into token numbers,
     # and a guessed value would refuse work nothing ever measured to fail.
     ladder_ligand_atoms: int | None = None
+    #: The SAME ceiling measured with block-fp8 weights, i.e. under ``--fast``. None means nobody
+    #: walked that arm and the row above speaks for both, which is the right default: for every
+    #: model whose chip is filled by ACTIVATIONS the weight dtype barely moves the wall.
+    #:
+    #: It moves it enormously where the WEIGHTS are what fills the chip. ESMC-6B in bf16 embeds
+    #: 1968 residues on a Galaxy chip and is refused at 1984 on a 30965760 B request with
+    #: 2525280 B free -- the wall is 31 MB of headroom behind ~12 GB of resident weights, not the
+    #: sequence. Under ``--fast`` the same chip does 8192. One number cannot be right for both,
+    #: and the one that shipped was refusing work the engine does.
+    fast: "Ceiling | None" = None
 
     @property
     def measured(self) -> bool:
@@ -746,16 +756,22 @@ def current_arch() -> str | None:
         return None
 
 
-def ceiling(model: str, arch: str | None = None) -> Ceiling:
+def ceiling(model: str, arch: str | None = None, *, fast: bool = False) -> Ceiling:
     """The ceiling for `model` on `arch`. Unknown model or unknown arch -> UNMEASURED, never a cap.
 
     Defaulting an unknown pair to "no limit" rather than to some other model's number is deliberate:
     every way of guessing is a way of refusing a fold the engine can do.
+
+    `fast` selects the block-fp8 arm where the row carries one. A row without a `fast` sibling
+    answers the same for both, so passing the flag can only ever raise the cap and never lower it
+    -- which is what makes threading it through safe for every model that has not been walked in
+    both dtypes.
     """
     arch = arch if arch is not None else current_arch()
     if arch is None:
         return _NO_ROW
-    return CEILINGS.get(model, {}).get(arch, _NO_ROW)
+    c = CEILINGS.get(model, {}).get(arch, _NO_ROW)
+    return c.fast if (fast and c.fast is not None) else c
 
 
 def padded_tokens(model: str, tokens: int) -> int:
@@ -790,7 +806,7 @@ def _verdict(model: str, c: Ceiling, residues: int, ligand_atoms: int):
 
 
 def models_accepting(residues: int, arch: str | None = None, exclude: str | None = None,
-                     ligand_atoms: int = 0) -> list[str]:
+                     ligand_atoms: int = 0, *, fast: bool = False) -> list[str]:
     """Models with a MEASURED ceiling that admits this input, so a refusal can point somewhere
     instead of only saying no.
 
@@ -815,7 +831,7 @@ def models_accepting(residues: int, arch: str | None = None, exclude: str | None
 
 
 def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None = None,
-          where: str = "This input") -> None:
+          fast: bool = False, where: str = "This input") -> None:
     """Refuse an input of `residues` plus `ligand_atoms` ligand heavy atoms on `model`, if a
     MEASURED ceiling says it will not fold. Otherwise silent.
 
@@ -827,7 +843,7 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
     been told something true and useless.
     """
     arch = arch if arch is not None else current_arch()
-    c = ceiling(model, arch)
+    c = ceiling(model, arch, fast=fast)
     refused, tokens, padded, wall = _verdict(model, c, residues, ligand_atoms)
     if not refused:
         return
@@ -850,7 +866,7 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
             f"{limit} on {arch}. TT_BIO_SIZE_LIMIT=0 is set, so this runs anyway and may "
             f"fail on the device.", stacklevel=2)
         return
-    alts = models_accepting(residues, arch, exclude=model, ligand_atoms=ligand_atoms)
+    alts = models_accepting(residues, arch, exclude=model, ligand_atoms=ligand_atoms, fast=fast)
     # "no model accepts this size" is only true where every model HAS a row. On an arch that is
     # mostly unmeasured -- blackhole, where two freeze rows exist and the other nine models were
     # measured folding 1536 by the 2026-09-10 ladder without earning a row -- the same sentence
@@ -1144,7 +1160,7 @@ def sizer_for(model: str):
     return _SIZERS.get(model, _DEFAULT_SIZER)
 
 
-def check_input(data, model: str, *, arch: str | None = None) -> None:
+def check_input(data, model: str, *, arch: str | None = None, fast: bool = False) -> None:
     """Refuse every oversized input in `data`: one file, a directory of them, or a bare sequence.
 
     THE call site for the CLI, and it runs before a device is opened -- which is the entire point.
@@ -1168,7 +1184,7 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
     arch = arch if arch is not None else current_arch()
     # The ligand is only counted where the ceiling's wall is measured on tokens. Anywhere else it
     # would load the CCD library and RDKit to produce a number nothing compares against.
-    tokenwise = ceiling(model, arch).token_bound
+    tokenwise = ceiling(model, arch, fast=fast).token_bound
     text = str(data).strip()
     p = Path(text).expanduser()
     try:
@@ -1177,7 +1193,7 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
         exists = False
     if not exists:
         if _BARE_SEQUENCE.match(text):
-            check(model, len(text), arch=arch, where="The input sequence")
+            check(model, len(text), arch=arch, fast=fast, where="The input sequence")
         return
     files = sorted(q for q in (p.glob("*") if p.is_dir() else [p])
                    if q.suffix.lower() in suffixes)
@@ -1188,7 +1204,7 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
             continue
         if n:
             check(model, n, ligand_atoms=scan_ligand_atoms(q) if tokenwise else 0,
-                  arch=arch, where=f"'{q.name}'")
+                  arch=arch, fast=fast, where=f"'{q.name}'")
 
 
 def shipped_models() -> set:

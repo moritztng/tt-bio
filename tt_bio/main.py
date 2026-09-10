@@ -3525,7 +3525,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
     # Before _require_ttnn and before any device open: esmc-6b has a measured DRAM ceiling
     # (its 6B weights nearly fill the chip), so an oversized sequence is refused here rather
     # than OOMing after the weights are resident.
-    size_limits.check_input(data, model)
+    size_limits.check_input(data, model, fast=fast)
     _require_ttnn()  # ESMC runs on the TT device only; fail clearly without the wheel
     if devices and "TT_VISIBLE_DEVICES" not in os.environ:
         _ids = [x for x in str(devices).split(",") if x.strip()]
@@ -3576,7 +3576,10 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
         else:
             ensure_p300_mesh_descriptor()
             click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
-            m = esmc.load_esmc(model, fast=fast)
+            # A trace region is reserved only where a captured trace could be replayed. It comes
+            # off every DRAM bank, so on a 12-bank Wormhole chip it costs 3 GiB and lowers the
+            # sequence ceiling -- see esmc.trace_pays.
+            m = esmc.load_esmc(model, fast=fast, trace=esmc.trace_pays(seqs))
             click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
             results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
                                            batch_size=batch_size)
@@ -3759,7 +3762,7 @@ def saprot_cmd(data, model, structure, foldseek_bin, out_dir, out_format, pool,
         embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
         manifest.json       # model/pool/shapes/dtype + which file holds each sequence
     """
-    size_limits.check_input(data, model)
+    size_limits.check_input(data, model, fast=fast)
     _require_ttnn()  # SaProt runs on the TT device only; fail clearly without the wheel
     from tt_bio import saprot, esmc
 
