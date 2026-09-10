@@ -14,6 +14,7 @@ HOLDER=${HOLDER:-worker:bh-1536}
 BUDGET=${BUDGET:-2400}
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
 LOCK=/tmp/tt_bio_ladder_card${CARD}.lock
+MARK=$(dirname "$0")/.card${CARD}.needs_reset
 
 for rung in "$@"; do
   IFS=: read -r model size tag <<< "$rung"
@@ -27,4 +28,30 @@ for rung in "$@"; do
       ${tag:+--tag "$tag"} \
       $( [ "$model" = nesso1 ] && echo --task affinity )
   echo "$(date -u +%FT%TZ) rung $model $size exit $?"
+
+  # Stop rather than hand the next rung a card the last one broke. A freeze (TIMEOUT) is known to
+  # leave the chip failing firmware init, and a wedged chip answers every device open in under a
+  # minute -- so one freeze turns the rest of the queue into false ceilings unless the chain looks
+  # back. It happened twice on 2026-09-10 (ten rungs, then three). The marker is what a later pass
+  # reads to know a reset is owed; clearing the card is deliberately NOT automatic, because
+  # `tt-smi -r` here resets the whole board PAIR and the other chip may be a sibling's live job.
+  read -r v w klass <<< "$(./last_rung.py "$OUT_TAG")"
+  if [ "$klass" = DEVOPEN ]; then
+    echo "$(date -u +%FT%TZ) STOP: $model $size never got a working card ($v after ${w}s, its log"\
+         "names the device open). Nothing after it would measure anything either." | tee -a "$MARK"
+    exit 3
+  fi
+  if [ "$v" = TIMEOUT ]; then
+    echo "$(date -u +%FT%TZ) STOP: $model $size timed out; a freeze wedges this chip, so the rest"         "of the queue would record false ceilings. Reset card $CARD and rerun." | tee -a "$MARK"
+    exit 3
+  fi
+  if [ "$v" = WEDGED ]; then
+    fast=$((${fast:-0} + 1))
+  else
+    fast=0
+  fi
+  if [ "${fast:-0}" -ge 2 ]; then
+    echo "$(date -u +%FT%TZ) STOP: two rungs in a row ended in under a minute ($v), which is the"         "device open failing and not a size. Reset card $CARD and rerun." | tee -a "$MARK"
+    exit 3
+  fi
 done

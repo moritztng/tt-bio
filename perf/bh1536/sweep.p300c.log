@@ -35,3 +35,8 @@
 2026-09-10T02:05:31Z card1 openbind        1536tok PASS     wall=  552.1s engine=530.2 cif_res=1536/1536 ntok=1536 rss=49.17G oom=- breaks=0 worst_ca=4.09 clash=0.0367
 2026-09-10T02:12:31Z card1 rf3             1536tok PASS     wall=  416.1s engine=403.1 cif_res=1536/1536 ntok=1536 rss=24.12G oom=- breaks=0 worst_ca=3.88 clash=0.3989
 2026-09-10T02:14:07Z card1 nesso1          1536tok PASS     wall=   96.4s engine=None cif_res=1536/1536 ntok=None rss=31.73G oom=l1_cb/l1_static_cb
+2026-09-10T02:54:17Z card1 opendde-abag    1536tok TIMEOUT  wall= 2410.1s engine=None cif_res=0/1536 ntok=None rss=218.72G oom=-
+2026-09-10T02:54:34Z card1 esmfold2        1300tok FAIL     wall=   16.1s engine=None cif_res=0/1300 ntok=None rss=39.05G oom=-
+2026-09-10T02:55:05Z card1 esmfold2        1024tok FAIL     wall=   18.1s engine=None cif_res=0/1024 ntok=None rss=25.51G oom=-
+2026-09-10T02:55:24Z card1 esmfold2        1408tok FAIL     wall=   18.1s engine=None cif_res=0/1408 ntok=None rss=28.5G oom=-
+2026-09-10T02:58:19Z card1 boltz2           298tok FAIL     wall=   16.1s engine=None cif_res=0/298 ntok=None rss=34.65G oom=-
