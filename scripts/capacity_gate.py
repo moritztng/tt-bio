@@ -55,6 +55,7 @@ while single-sequence it folds 768 in 301 s.
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import os
 import queue
@@ -551,6 +552,68 @@ def parse_workers(spec: str) -> list[Worker]:
 # ---------------------------------------------------------------------------------------------
 
 
+#: Process groups of the legs running right now. A leg's fold gets its own session
+#: (start_new_session=True below), which is what stops `killpg` from taking the gate down with
+#: it -- and which also means a signal sent to the GATE never reaches the fold. Python runs no
+#: `finally` on a default-handled SIGTERM, so the per-leg teardown was skipped whenever a wrapper
+#: timed the gate out, and the fold survived with PPID 1, holding a card. Measured 2026-09-10:
+#: `timeout 2100` on a ten-model sweep left an opendde 1536 screen on a card for 17 idle minutes,
+#: and SIGKILLing it by hand left the chip needing a `tt-smi -r` before anything else would
+#: dispatch. Module level and lock-guarded because the sweep runs one thread per card, so the
+#: thread that owns a leg is not the thread a signal arrives on.
+_LIVE_LEGS: set[int] = set()
+_LIVE_LEGS_LOCK = threading.Lock()
+
+
+def _track_leg(pgid: int) -> None:
+    with _LIVE_LEGS_LOCK:
+        _LIVE_LEGS.add(pgid)
+
+
+def _untrack_leg(pgid: int) -> None:
+    with _LIVE_LEGS_LOCK:
+        _LIVE_LEGS.discard(pgid)
+
+
+def reap_live_legs() -> list[int]:
+    """SIGKILL every leg still running, from any thread. Returns the groups it signalled."""
+    with _LIVE_LEGS_LOCK:
+        pgids = sorted(_LIVE_LEGS)
+        _LIVE_LEGS.clear()
+    for pgid in pgids:
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    return pgids
+
+
+def install_teardown(*, exit_now=None) -> None:
+    """Make a SIGTERM or SIGHUP to the gate reach the fold it is running.
+
+    `os._exit` after reaping rather than an orderly shutdown, on purpose: a raised exception
+    only unwinds the thread the signal landed on, which is the one thread NOT running a leg.
+    Nothing is lost by exiting hard -- the report is written after every cell, so a killed sweep
+    keeps its finished cells and `--record-from` folds them in without touching a card.
+    """
+    exit_now = exit_now or os._exit
+    atexit.register(reap_live_legs)
+
+    def bail(signum, _frame):
+        left = reap_live_legs()
+        if left:
+            print(f"\nsignal {signum}: killed {len(left)} leg(s) still on a card "
+                  f"({', '.join(map(str, left))}). Finished cells are in the report; fold them "
+                  f"in with --record-from.", flush=True)
+        exit_now(128 + signum)
+
+    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        try:
+            signal.signal(sig, bail)
+        except (ValueError, OSError):
+            pass          # not the main thread, or no such signal here
+
+
 def hook_dir(work: Path) -> Path:
     """Scratch dir holding the sitecustomize that arms the hook, and a copy of the hook itself.
 
@@ -677,6 +740,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
     with open(log, "w") as fp:
         proc = subprocess.Popen(worker.cmd(argv, env), stdout=fp, stderr=subprocess.STDOUT,
                                 cwd=REPO_ROOT, start_new_session=True)
+    _track_leg(proc.pid)
 
     def progress() -> tuple[int, bool]:
         """(a monotonically growing progress counter, whether real work has started yet).
@@ -736,6 +800,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
             os.killpg(proc.pid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
             pass
+        _untrack_leg(proc.pid)
     wall = time.monotonic() - t0
     text = log.read_text(errors="replace") if log.exists() else ""
     return {"rc": proc.returncode, "wall_s": round(wall, 1), "stalled": stalled,
@@ -1497,6 +1562,7 @@ def render(report: dict) -> str:
 
 
 def main(argv=None) -> int:
+    install_teardown()
     global STALL_S, TOKEN_BAR
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--models", default=None,

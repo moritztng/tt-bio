@@ -11,8 +11,11 @@ new size and docs/capacity_gate_baseline.json re-recorded.
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
+import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -1160,6 +1163,53 @@ def test_a_screen_broken_by_its_own_truncation_cannot_bound_the_allocation_ceili
     for rung in [r for r in cg.BISECT_RUNGS if r >= passes_at]:
         assert ("residency", rung) in calls, (
             f"rung {rung} never reached the un-truncated run, so its unsafe screen still gated it")
+
+
+def _live_leg_in_its_own_session():
+    """A real child in its own process group, like every leg the gate runs."""
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"],
+                            start_new_session=True)
+    cg._track_leg(proc.pid)
+    return proc
+
+
+def test_a_signal_to_the_gate_reaches_the_fold_it_is_running():
+    """The orphan, measured 2026-09-10. Every leg's fold runs in its OWN session, so the
+    wrapper's SIGTERM lands on the gate and never on the fold, and Python runs no `finally` on a
+    default-handled SIGTERM -- so `timeout 2100` on a ten-model sweep left an opendde 1536 screen
+    holding a card with PPID 1 for 17 idle minutes. Killing it by hand then left the chip needing
+    a tt-smi -r before anything would dispatch, so the leak costs a card twice.
+    """
+    exits = []
+    prev = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)}
+    proc = _live_leg_in_its_own_session()
+    try:
+        cg.install_teardown(exit_now=exits.append)
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler), "SIGTERM is still on its default handler, which does not unwind"
+        handler(signal.SIGTERM, None)
+        assert exits == [128 + signal.SIGTERM], (
+            f"the handler did not exit with the signal's status: {exits}")
+        assert proc.wait(timeout=30) is not None, "the leg outlived the signal"
+        assert not cg._LIVE_LEGS, f"the registry still lists dead legs: {cg._LIVE_LEGS}"
+    finally:
+        for sig, h in prev.items():
+            signal.signal(sig, h)
+        if proc.poll() is None:
+            proc.kill()
+
+
+def test_every_leg_is_registered_so_a_teardown_can_find_it():
+    """The reaper can only kill what execute() told it about, and a leg added later that forgets
+    to register is invisible to it -- which is exactly the state the whole gate was in. Structural
+    because the alternative needs a card and half an hour."""
+    src = inspect.getsource(cg.execute)
+    assert "start_new_session=True" in src, "this test is pinned to the wrong function"
+    assert "_track_leg(proc.pid)" in src, (
+        "execute() opens a session for its fold and never registers it, so a signal to the gate "
+        "cannot reach it")
+    assert "_untrack_leg(proc.pid)" in src, (
+        "execute() never deregisters a finished leg, so the reaper signals stale pids")
 
 
 #: Quoted verbatim from a real nesso1 residency leg on pc's p150a, 2026-09-07.
