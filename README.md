@@ -136,13 +136,14 @@ carry over. Six models have been walked to a failure on a p150a:
 | model | Blackhole limit | first measured failure |
 |---|---:|---:|
 | `saprot-35m` (embed) | 126976 (longest sequence) | 131072 |
-| `esmc-300m`, `esmc-600m`, `saprot-650m`, `saprot-1.3b` (embed) | 99999 (longest sequence) | 131072 |
+| `esmc-300m`, `esmc-600m`, `saprot-650m`, `saprot-1.3b` (embed) | 114688 (longest sequence) | 126976 |
 | `pxdesign` | 2500 (target residues) | 3000 |
 
 The embedding wall is one allocation: the model asks for the whole sequence-by-sequence attention
-matrix as a single 34.4 GB buffer, which does not fit a 31.9 GiB card. Everything else is
-unmeasured on Blackhole and refused nothing, including `boltzgen`, which designs against a
-14786-atom target there.
+matrix as a single buffer that grows with the square of the sequence length, 34.4 GB at 131072
+residues against a 31.9 GiB card. `saprot-35m` gets one rung further than the rest because its
+weights are the smallest and leave more room for it. Everything else is unmeasured on Blackhole
+and refused nothing, including `boltzgen`, which designs against a 14786-atom target there.
 
 The limits were measured with an MSA, which is the default for the models that take one, and at the
 deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you
