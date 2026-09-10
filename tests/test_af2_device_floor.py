@@ -37,6 +37,16 @@ def _committed() -> dict:
     return json.loads(COMMITTED.read_text())
 
 
+def _record_for(live: dict) -> dict:
+    """The committed record this live report is scored against, picked the way the scorer
+    picks it. A control harvested at a grid the file does not record cannot say anything
+    about the record that ships, so it skips rather than failing on the wrong comparison."""
+    record, why = df._select_record(_committed(), live)
+    if record is None:
+        pytest.skip("control harvested at a grid this floor does not record: %s" % why)
+    return record
+
+
 def _report(taps, scalars, **kw):
     """A minimal report in tap_gate's shape: (tap, verdict, envelope_ratio) triples."""
     rows = [{"tap": t, "verdict": v, "envelope_ratio": r} for t, v, r in taps]
@@ -122,10 +132,11 @@ def test_the_real_mutations_are_caught_by_every_condition(name):
     path = ARTIFACTS / f"{name}.json"
     if not path.exists():
         pytest.skip(f"{path.name} absent")
-    committed, live = _committed(), json.loads(path.read_text())
-    assert df.af2ig_device_floor_verdict(live, committed)[0] == "FAIL"
+    live = json.loads(path.read_text())
+    assert df.af2ig_device_floor_verdict(live, _committed())[0] == "FAIL"
 
-    floor_taps, floor_scalars = df._failing_taps(committed), df._failing_scalars(committed)
+    record = _record_for(live)
+    floor_taps, floor_scalars = df._failing_taps(record), df._failing_scalars(record)
     live_taps, live_scalars = df._failing_taps(live), df._failing_scalars(live)
     assert set(live_taps) - set(floor_taps), "no new failing tap: the name condition is silent"
     worst_ratio = max(live_taps[t] / floor_taps[t] for t in floor_taps
@@ -140,12 +151,12 @@ def test_a_second_card_reproduces_the_committed_floor():
     path = ARTIFACTS / "device_trunk_complex_card0.json"
     if not path.exists():
         pytest.skip(f"{path.name} absent")
-    committed, live = _committed(), json.loads(path.read_text())
-    assert df.af2ig_device_floor_verdict(live, committed)[0] == "GAP"
+    live = json.loads(path.read_text())
+    assert df.af2ig_device_floor_verdict(live, _committed())[0] == "GAP"
     # Bit-identical, which is why DEFAULT_TOL's floor of 1.10 is what binds rather than a
     # measured cross-card spread.
     rows = {r["tap"]: r for r in live["rows"]}
-    assert all(rows[r["tap"]].get("pcc") == r.get("pcc") for r in committed["rows"])
+    assert all(rows[r["tap"]].get("pcc") == r.get("pcc") for r in _record_for(live)["rows"])
 
 
 # --- the record is keyed on the Tensix compute grid ----------------------------------------

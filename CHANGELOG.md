@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [0.8.0] - 2026-09-09
+## [0.8.0] - 2026-09-10
 
 ### Added
 
@@ -237,6 +237,17 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **A PXDesign design at a given seed no longer depends on how many designs you asked for.**
+  `--num_designs 1 --seed 5` and design 0 of `--num_designs 3 --seed 5` were 42.2 A RMSD apart,
+  against 53.1 A for two genuinely independent seeds: a different design, not a drifted one. One
+  design went through a `seed + k` per-sample loop, several went through a single `edm_sample`
+  call that draws the whole batch from one stream. Design k now comes from `seed + k` either way.
+  **A run that pinned `--seed N` with `--num_designs > 1` returns different designs after this
+  release.** Design 0 is byte-identical between `--num_designs 2` and `3`, and 2.69 A from the
+  single-design run, which is 20 diffusion steps of a differently-shaped device forward on the
+  same trajectory; closing that last gap needs a batched forward bit-identical across the
+  multiplicity dimension, which is a kernel property.
+
 - **Protenix-v2's Wormhole ceiling is 1024 residues, up from 980.** Measured with the alignment
   depth the service actually serves, 8832 rows: 1024 tokens fold in 730.5 s and peak at 5.79 GiB,
   48% of a 12 GiB card. 1095 still runs the card out of DRAM. The row itself had said 1024 sat in
@@ -334,6 +345,32 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   dropped it and folded the chain straight, returning `status=ok`: `examples/cyclic_prot.yaml` came
   back with 21.8 A between the two ends it was asked to join. Such a job now fails with an error
   instead. For a cyclic peptide use `--model boltz2` or `--model rf3`, which honour the flag.
+
+### The release gate itself
+
+- **The AF2-IG device-trunk accuracy floor is re-recorded, and every record now names the Tensix
+  grid it was measured on.** The committed floor was taken on 2026-08-21 with the template pair
+  stack running in host torch bf16, six hours before that stack moved onto the card (24.302 s ->
+  1.412 s, 17.2x). Card firmware then moved 19.8.1.0 -> 19.15.0.0, which takes the p150a Tensix
+  grid from 13x10 to 11x10, and the leg is grid-sensitive exactly because the pair stack is now on
+  the card: the same board scores 8 failing taps at 13x10 and 13 at 11x10. So the gate had been
+  scoring an on-card 11x10 run against a host-arm 13x10 record and reporting the difference as an
+  accuracy regression of the port. The new record is the configuration tt-bio actually ships,
+  measured at 11x10, reproduced in two separate processes and on a second card. Running the leg
+  with `--template-host` reproduces the old host arm and FAILs against the new record, which is
+  what shows the floor still discriminates rather than having been widened until it accepts
+  everything. A report whose grid has no record is a FAIL and not a pass: an unmeasured grid is not
+  a blessed grid.
+
+- **The size ladder is short, and this is what it covers.** Rungs are 256, 512, 640, 768, 896 and
+  1024 residues. On p300c, esmfold2, opendde and protenix-v2 have all six; boltz2, nesso1,
+  openbind, openfold3, protenix-v1 and rf3 have 256 through 768 and no 896 or 1024. On p150a, rf3
+  has 256 through 1088 and esmfold2 and protenix-v2 have all six, while boltz2, nesso1, openbind,
+  opendde and openfold3 are recorded only at a 13x10 grid, which the cards in this fleet no longer
+  present after the firmware move above, so those cells are unmeasured at the grid that ships.
+  protenix-v1 has no p150a record at all, and esmfold2-fast has none on either card. A missing rung
+  is a cell nobody measured, not one that failed, so it is published here rather than held against
+  the release; closing them is tracked as `tt-bio-size-ladder-regrid-11x10`.
 
 ## [0.7.3] - 2026-09-04
 
