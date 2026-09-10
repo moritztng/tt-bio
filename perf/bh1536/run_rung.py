@@ -295,11 +295,17 @@ def main():
     t0 = time.time()
     peak_rss, floor_avail = 0, 1 << 62
     for attempt in range(a.contention_retries + 1):
+        # --budget is the FOLD's budget, so it restarts with each attempt. Measuring it from t0
+        # made a lease wait and its 180 s backoff eat the fold: opendde:1536 retried once and
+        # then folded on roughly 2230 of its nominal 2700 s. A rung recorded TIMEOUT because it
+        # started late is a ceiling that says more about the co-tenant than the silicon. `wall`
+        # below stays the honest total, retries and all.
+        t_attempt = time.time()
         with log.open("wb") as fh:
             proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT,
                                     cwd=str(WT), env=env)
             killed, stalled, peak_rss, floor_avail = watch(
-                proc, log, t0, budget=a.budget, stall=a.stall,
+                proc, log, t_attempt, budget=a.budget, stall=a.stall,
                 peak_rss=peak_rss, floor_avail=floor_avail)
         text = log.read_text(errors="replace")
         if not contended(proc.returncode, text) or killed or attempt == a.contention_retries:
@@ -309,6 +315,7 @@ def main():
               flush=True)
         time.sleep(a.contention_wait)
     wall = time.time() - t0
+    fold_wall = time.time() - t_attempt   # the judged attempt only, without any lease waiting
     was_contended = contended(proc.returncode, text)
 
     # --- judge the artifact, never the exit code -------------------------------------------
@@ -373,7 +380,8 @@ def main():
            "peak_host_rss_gib": round(peak_rss / 2**30, 2),
            "floor_memavail_gib": round(floor_avail / 2**30, 2),
            "oom": oom, "fatal_oom": bool(fatal_oom), "ffn_fallback": ffn_fallback,
-           "debug": a.debug, "stalled": stalled,
+           "debug": a.debug, "stalled": stalled, "fold_wall_s": round(fold_wall, 1),
+           "attempts": attempt + 1,
            # Where it stopped is the diagnosis for a stall, so keep the last line it wrote.
            "last_progress": (next((l for l in reversed(text.splitlines()) if l.strip()), "")
                              if stalled else None),
