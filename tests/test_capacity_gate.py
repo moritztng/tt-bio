@@ -1290,6 +1290,38 @@ def test_a_sweep_in_progress_can_actually_be_signalled():
         proc.wait(timeout=10)
 
 
+_GUARD_REFUSAL = (
+    "SizeTooLargeError This input has 1536 residues, and opendde is measured to handle at most "
+    "1024 on blackhole -- the largest size below the first measured failure.")
+
+
+def test_the_engine_declining_a_size_is_its_own_mechanism():
+    """Once CEILINGS grew blackhole rows, the gate's own 1536 bar started landing above a
+    model's measured ceiling: opendde and opendde-abag cap at 1024 on blackhole because 1536 was
+    measured to FREEZE the trunk. The engine then refuses before anything runs, and that is a
+    different fact from the hardware failing to hold the shape. Unnamed, it records as
+    "FAIL, mechanism None", which is exactly the ambiguity that let a broken bisect publish "the
+    ceiling is below 512 tokens"."""
+    assert cg.classify(_GUARD_REFUSAL) == "size_guard"
+    assert cg.classify("Out of Memory: Not enough space to allocate 4831838208 B DRAM buffer\n"
+                       + _GUARD_REFUSAL) == "dram", (
+        "a real allocator refusal has to outrank the guard text, or a genuine wall gets "
+        "relabelled as a policy decision")
+    assert cg.classify("shape '[1, 1, 3, 1]' is invalid for input of size 81") is None
+
+
+def test_a_guard_refusal_still_bounds_the_bisect():
+    """It names a mechanism, so screen_reduction_is_unsafe must NOT discard it. A guard refusal
+    is decided before a single block runs, so Tier 1's depth cut cannot be its cause and the
+    refusal really does bound the walk -- unlike the esmfold2 shape mismatch, which cannot."""
+    leg = {"verdict": "FAIL", "mechanism": cg.classify(_GUARD_REFUSAL),
+           "stacks_truncated": [["tt_bio.opendde.PairformerModel", "blocks", 48]],
+           "tail": _GUARD_REFUSAL}
+    assert not cg.screen_reduction_is_unsafe(leg), (
+        "a guard refusal was thrown away as an instrument artifact, so the bisect would re-walk "
+        "every rung the engine already told it no for")
+
+
 #: Quoted verbatim from a real nesso1 residency leg on pc's p150a, 2026-09-07.
 _NESSO1_CB_OVERFLOW = (
     "TT_THROW: Statically allocated circular buffers on core range "

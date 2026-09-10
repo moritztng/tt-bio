@@ -417,6 +417,18 @@ MECHANISM_PATTERNS = (
     # whose spawned fold worker outlived the kill keeps the lease.
     ("contention",    re.compile(r"DeviceInUseError|device contention, nothing ran"
                                  r"|is in use by", re.I)),
+    # The ENGINE declining the size, not the hardware failing to hold it. tt_bio.size_limits
+    # raises SizeTooLargeError when a request is above the model's measured ceiling for this
+    # arch, and once CEILINGS grew blackhole rows (2026-09-10) that became reachable at this
+    # gate's own 1536 bar: opendde and opendde-abag are capped at 1024 on blackhole because
+    # 1536 was measured to FREEZE the trunk, which costs the card and the next job on it.
+    # Classified LAST so a real allocator refusal above still wins, and classified at all so
+    # the cell says which kind of wall it hit -- "FAIL, mechanism None" is the ambiguity that
+    # let a broken bisect publish "the ceiling is below 512 tokens". A named mechanism also
+    # keeps screen_reduction_is_unsafe from discarding these screens: a guard refusal is
+    # decided before any block runs, so the depth cut cannot be its cause, and the refusals
+    # really do bound the walk.
+    ("size_guard",    re.compile(r"SizeTooLargeError|is measured to handle at most", re.I)),
 )
 
 
