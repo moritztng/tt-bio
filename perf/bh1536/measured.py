@@ -2,8 +2,9 @@
 """Exit 0 if (model, size) already has a MEASURED rung in results.jsonl, 1 otherwise.
 
 `chain.sh` calls this to decide whether to walk a rung again. Measured means the run reached
-the card and produced an outcome that says something about capacity: PASS, OOM, TIMEOUT or
-FAIL. CONTENDED does not count -- a co-tenant held card 0, nothing ran, and treating that row
+the card and produced an outcome that says something about capacity: PASS, OOM, STALLED,
+TIMEOUT or FAIL -- a stall is a result, the model did not complete at that size on this
+silicon, which is exactly what the ladder asks. CONTENDED does not count -- a co-tenant held card 0, nothing ran, and treating that row
 as a result retires the rung on the one outcome that carries no information.
 
 Only untagged rows (`tag: ""`) count, so a deliberate `--tag debug` re-run never retires the
@@ -13,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-MEASURED = {"PASS", "OOM", "TIMEOUT", "FAIL"}
+MEASURED = {"PASS", "OOM", "STALLED", "TIMEOUT", "FAIL"}
 
 
 def main() -> int:

@@ -9,9 +9,10 @@ folder before. Peak host RSS and MemAvailable floor are sampled while it runs,
 because a host OOM has taken one of these boxes down.
 
 Verdicts: PASS (artifact checked and scored), OOM (an allocator refusal the run did not
-survive), TIMEOUT (killed at --budget), FAIL (ran and produced no usable artifact), and
-CONTENDED, which is NOT a result -- a co-tenant held card 0, so this rung measured nothing
-and has to be walked again.
+survive), STALLED (stopped writing to its log for --stall seconds; the last line it wrote is
+kept, because where it stopped is the diagnosis), TIMEOUT (still writing, but killed at
+--budget), FAIL (ran and produced no usable artifact), and CONTENDED, which is NOT a result --
+a co-tenant held card 0, so this rung measured nothing and has to be walked again.
 
 Appends one JSON object per rung to results.jsonl and one line to sweep.log.
 """
@@ -158,6 +159,45 @@ def _write(row):
     print(line)
 
 
+def watch(proc, log: Path, t0: float, *, budget: float, stall: float,
+          peak_rss: int = 0, floor_avail: int = 1 << 62, poll: float = 2.0):
+    """Watch a running fold; return (killed, stalled, peak_rss, floor_avail).
+
+    Two ways to stop it. `budget` is the wall-clock cap. `stall` is the one that matters more:
+    a fold that stops WRITING has stopped folding, and waiting out the remaining budget on a
+    frozen process is dead card time -- opendde at 1536 froze at `trunk 9/10` and burned the
+    other 23 minutes of its 2700 s.
+
+    Liveness is read off the LOG and deliberately not off CPU or RSS. That stall sat at 111 %
+    CPU with two threads busy-polling and its RSS frozen to the byte, so "is it using the CPU"
+    answers yes on a run that is going nowhere. Kernel compilation, every stage line and every
+    warning land in this file, so growth is the honest signal and the generous default (900 s)
+    leaves room for a slow legitimate phase.
+    """
+    last_size, last_grew = -1, time.time()
+    while proc.poll() is None:
+        time.sleep(poll)
+        r, av = sample_host()
+        peak_rss = max(peak_rss, r)
+        floor_avail = min(floor_avail, av)
+        try:
+            size = log.stat().st_size
+        except OSError:
+            size = last_size
+        if size != last_size:
+            last_size, last_grew = size, time.time()
+        if stall and time.time() - last_grew > stall:
+            proc.kill()
+            proc.wait()
+            return True, True, peak_rss, floor_avail
+        if time.time() - t0 > budget:
+            proc.kill()
+            proc.wait()
+            return True, False, peak_rss, floor_avail
+    proc.wait()
+    return False, False, peak_rss, floor_avail
+
+
 def _judge_affinity(a, out, text, wall, proc, killed, peak_rss, floor_avail):
     """nesso1 writes no structure. The artifact is the scalar, so read it and require a number."""
     scores = sorted(out.rglob("*_affinity.json"))
@@ -177,7 +217,8 @@ def _judge_affinity(a, out, text, wall, proc, killed, peak_rss, floor_avail):
     oom = _oom_of(text)
     ok = value is not None
     verdict = ("PASS" if ok else "CONTENDED" if contended(proc.returncode, text)
-               else "TIMEOUT" if killed else "OOM" if oom else "FAIL")
+               else "STALLED" if stalled else "TIMEOUT" if killed
+               else "OOM" if oom else "FAIL")
     row = {"model": a.model, "size": a.size, "tag": a.tag, "task": "affinity",
            "verdict": verdict, "wall_s": round(wall, 1), "engine_runtime_s": None,
            "cif": str(scores[0]) if scores else None,
@@ -204,6 +245,10 @@ def main():
                          "never FAIL: nothing ran, so nothing was measured)")
     ap.add_argument("--contention_wait", type=int, default=180,
                     help="seconds between contention re-attempts")
+    ap.add_argument("--stall", type=int, default=900,
+                    help="seconds of NO growth in fold.log before the rung is called STALLED. "
+                         "opendde at 1536 froze at `trunk 9/10` and burned the remaining 23 min "
+                         "of its 2700 s budget without writing another byte. 0 disables.")
     ap.add_argument("--debug", action="store_true",
                     help="pass --debug to predict, so the worker keeps stdout/stderr and any "
                          "engine line (e.g. the pair-FFN fallback) reaches fold.log")
@@ -253,14 +298,9 @@ def main():
         with log.open("wb") as fh:
             proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT,
                                     cwd=str(WT), env=env)
-            killed = False
-            while proc.poll() is None:
-                time.sleep(2)
-                r, av = sample_host()
-                peak_rss = max(peak_rss, r); floor_avail = min(floor_avail, av)
-                if time.time() - t0 > a.budget:
-                    proc.kill(); killed = True; break
-            proc.wait()
+            killed, stalled, peak_rss, floor_avail = watch(
+                proc, log, t0, budget=a.budget, stall=a.stall,
+                peak_rss=peak_rss, floor_avail=floor_avail)
         text = log.read_text(errors="replace")
         if not contended(proc.returncode, text) or killed or attempt == a.contention_retries:
             break
@@ -321,7 +361,8 @@ def main():
     ok = bool(cifs) and nres == a.size
     # CONTENDED outranks OOM and FAIL: a run that never got the card cannot have found a wall.
     verdict = ("PASS" if ok else "CONTENDED" if was_contended
-               else "TIMEOUT" if killed else "OOM" if fatal_oom else "FAIL")
+               else "STALLED" if stalled else "TIMEOUT" if killed
+               else "OOM" if fatal_oom else "FAIL")
     row = {"model": a.model, "size": a.size, "tag": a.tag, "task": "predict",
            "verdict": verdict, "wall_s": round(wall, 1), "engine_runtime_s": runtime_s,
            "cif": str(cifs[0]) if cifs else None, "cif_residues": nres,
@@ -332,7 +373,10 @@ def main():
            "peak_host_rss_gib": round(peak_rss / 2**30, 2),
            "floor_memavail_gib": round(floor_avail / 2**30, 2),
            "oom": oom, "fatal_oom": bool(fatal_oom), "ffn_fallback": ffn_fallback,
-           "debug": a.debug,
+           "debug": a.debug, "stalled": stalled,
+           # Where it stopped is the diagnosis for a stall, so keep the last line it wrote.
+           "last_progress": (next((l for l in reversed(text.splitlines()) if l.strip()), "")
+                             if stalled else None),
            "tail": text[-1200:].replace("\n", " | ")[-1200:] if verdict != "PASS" else "",
            "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     _write(row)

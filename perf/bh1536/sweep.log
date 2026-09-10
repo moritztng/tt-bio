@@ -12,3 +12,4 @@
 # CONTENDED in results.jsonl by perf/bh1536/reclassify.py, from its own recorded tail: the whole
 # 130 s was a lease wait behind a sibling task unpinned pytest holding card 0. This log is
 # append-only, so the original line stays and this is the correction.
+2026-09-10T00:45:18Z opendde         1536tok TIMEOUT  wall= 2700.5s engine=None cif_res=0/1536 ntok=None rss=75.28G oom=-
