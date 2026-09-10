@@ -75,6 +75,47 @@ def contended(returncode: int, text: str) -> bool:
     return returncode == CONTENDED_EXIT_CODE or bool(_CONTENDED.search(text or ""))
 
 
+#: The card would not come up at all. Different cause from contention, same consequence: the fold
+#: never reached the model, so the rung measured nothing about capacity. opendde:1536 stalled and
+#: left the chip in a state where `risc_firmware_initializer.cpp:1115` threw on the next open, and
+#: opendde-abag AND protenix-v1 were both then recorded FAIL at 1536 -- two published Blackhole
+#: capacity results from a card that never executed an instruction. `tt-smi -r 0` cleared it.
+_WEDGED = re.compile(r"device open failed"
+                     r"|risc_firmware_initializer"
+                     r"|Timed out while waiting for active ethernet core"
+                     r"|contains only remote devices")
+
+
+#: SIGBUS in a worker means the memory-mapped card went out from under it, which is a card fault
+#: and not a capacity result. openfold3:512 was recorded FAIL at 14.2 s on `SpawnProcess-1 exit -7`
+#: because `tt-smi -r 0` cleared the wedge left by opendde while that rung had the chip mapped.
+#: SIGSEGV is deliberately NOT here: that one can be a real software bug and must stay visible.
+_WEDGED_SIGNALS = (-7, 135)
+
+
+def device_wedged(text: str, returncode: int = 0) -> bool:
+    return returncode in _WEDGED_SIGNALS or bool(_WEDGED.search(text or ""))
+
+
+def not_a_measurement(returncode: int, text: str) -> str | None:
+    """"CONTENDED" / "WEDGED" if this rung never reached the model, else None.
+
+    One predicate for the whole class, because it has now bitten twice with two different
+    causes. The question a rung has to answer is "what does this silicon do at this size", and
+    a run that never got a working card has not answered it either way -- recording FAIL there
+    publishes a ceiling nothing measured.
+    """
+    if contended(returncode, text):
+        return "CONTENDED"
+    # The dispatcher reports a worker's exit code in its own message, so a worker killed by a
+    # card fault is visible even though run_rung only ever sees the PARENT's return code.
+    if re.search(r"SpawnProcess-\d+ exit (?:-7|135)\b", text or ""):
+        return "WEDGED"
+    if device_wedged(text, returncode):
+        return "WEDGED"
+    return None
+
+
 def sample_host():
     rss = 0
     for p in Path("/proc").iterdir():
@@ -134,6 +175,23 @@ def _oom_of(text):
             return {"class": kind, "mechanism": classify(g), "bytes": g,
                     "text": m.group(0)[:400].replace("\n", " ")}
     return None
+
+
+def _tail(text: str, limit: int = 1600) -> str:
+    """Bounded log excerpt that keeps BOTH ends, so the diagnosis survives wherever it sits.
+
+    `text[-1200:]` kept only the trailing click frames. A device-open failure writes its fatal at
+    the TOP of the log -- `_report_fatal` goes to the launcher's real stderr before anything else
+    runs -- so the recorded tails for opendde-abag and protenix-v1 at 1536 contained no trace of
+    the wedged card that caused them, and the rows could not be re-judged from what they stored.
+    Same lesson `worker._err_text` already carries: when you do not know which end holds the
+    payload, keep both.
+    """
+    text = (text or "").replace("\n", " | ")
+    if len(text) <= limit:
+        return text
+    head = (limit - 5) // 2
+    return text[:head] + " ... " + text[-(limit - 5 - head):]
 
 
 def _write(row):
@@ -216,9 +274,9 @@ def _judge_affinity(a, out, text, wall, proc, killed, peak_rss, floor_avail):
             value = None
     oom = _oom_of(text)
     ok = value is not None
-    verdict = ("PASS" if ok else "CONTENDED" if contended(proc.returncode, text)
-               else "STALLED" if stalled else "TIMEOUT" if killed
-               else "OOM" if oom else "FAIL")
+    verdict = ("PASS" if ok else not_a_measurement(proc.returncode, text)
+               or ("STALLED" if stalled else "TIMEOUT" if killed
+                   else "OOM" if oom else "FAIL"))
     row = {"model": a.model, "size": a.size, "tag": a.tag, "task": "affinity",
            "verdict": verdict, "wall_s": round(wall, 1), "engine_runtime_s": None,
            "cif": str(scores[0]) if scores else None,
@@ -229,7 +287,7 @@ def _judge_affinity(a, out, text, wall, proc, killed, peak_rss, floor_avail):
            "peak_host_rss_gib": round(peak_rss / 2**30, 2),
            "floor_memavail_gib": round(floor_avail / 2**30, 2),
            "oom": oom, "fatal_oom": bool(oom and not ok),
-           "tail": text[-1200:].replace("\n", " | ") if verdict != "PASS" else "",
+           "tail": _tail(text) if verdict != "PASS" else "",
            "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     _write(row)
     return 0 if ok else 1
@@ -316,7 +374,7 @@ def main():
         time.sleep(a.contention_wait)
     wall = time.time() - t0
     fold_wall = time.time() - t_attempt   # the judged attempt only, without any lease waiting
-    was_contended = contended(proc.returncode, text)
+    no_measure = not_a_measurement(proc.returncode, text)
 
     # --- judge the artifact, never the exit code -------------------------------------------
     if a.task == "affinity":
@@ -366,10 +424,12 @@ def main():
             signal = {"scored": 0, "error": str(exc)[:200]}
 
     ok = bool(cifs) and nres == a.size
-    # CONTENDED outranks OOM and FAIL: a run that never got the card cannot have found a wall.
-    verdict = ("PASS" if ok else "CONTENDED" if was_contended
-               else "STALLED" if stalled else "TIMEOUT" if killed
-               else "OOM" if fatal_oom else "FAIL")
+    # CONTENDED/WEDGED outrank OOM and FAIL: a run that never got a working card cannot have
+    # found a wall. STALLED and TIMEOUT outrank OOM only because a surviving refusal that the
+    # run retried past is not what ended it.
+    verdict = ("PASS" if ok else no_measure
+               or ("STALLED" if stalled else "TIMEOUT" if killed
+                   else "OOM" if fatal_oom else "FAIL"))
     row = {"model": a.model, "size": a.size, "tag": a.tag, "task": "predict",
            "verdict": verdict, "wall_s": round(wall, 1), "engine_runtime_s": runtime_s,
            "cif": str(cifs[0]) if cifs else None, "cif_residues": nres,
@@ -385,7 +445,7 @@ def main():
            # Where it stopped is the diagnosis for a stall, so keep the last line it wrote.
            "last_progress": (next((l for l in reversed(text.splitlines()) if l.strip()), "")
                              if stalled else None),
-           "tail": text[-1200:].replace("\n", " | ")[-1200:] if verdict != "PASS" else "",
+           "tail": _tail(text) if verdict != "PASS" else "",
            "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     _write(row)
     return 0 if ok else 1

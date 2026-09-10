@@ -13,3 +13,7 @@
 # 130 s was a lease wait behind a sibling task unpinned pytest holding card 0. This log is
 # append-only, so the original line stays and this is the correction.
 2026-09-10T00:45:18Z opendde         1536tok TIMEOUT  wall= 2700.5s engine=None cif_res=0/1536 ntok=None rss=75.28G oom=-
+2026-09-10T00:50:55Z opendde-abag    1536tok FAIL     wall=  336.8s engine=None cif_res=0/1536 ntok=None rss=64.52G oom=-
+2026-09-10T00:51:18Z protenix-v1     1536tok FAIL     wall=   22.4s engine=None cif_res=0/1536 ntok=None rss=21.52G oom=-
+2026-09-10T00:51:39Z openfold3        512tok FAIL     wall=   14.2s engine=None cif_res=0/512 ntok=None rss=22.66G oom=-
+2026-09-10T00:54:51Z esmfold2        1536tok OOM      wall=  191.7s engine=None cif_res=0/1536 ntok=None rss=163.72G oom=dram/fragmentation(fatal)
