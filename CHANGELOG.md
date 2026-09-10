@@ -7,6 +7,23 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **A fold stopped by a signal now says so, instead of ending the run with `exit 0` and no
+  reason.** rf3 at 1536 tokens went from `trunk 3/10` to gone in 30 seconds after eight minutes
+  of folding, returned 0, wrote no results row and left `structures/` empty, and the CLI answered
+  "The worker's own traceback above says why" with nothing above it. The worker turned SIGTERM and
+  SIGINT into a `KeyboardInterrupt` and then swallowed it wherever it landed. That arm has to
+  exist, because sending SIGINT is how the CLI ends a run whose jobs are all done, but it could
+  not tell an idle worker being asked to stop from one being killed halfway through a fold. It
+  now tracks the job it is computing: between leases nothing changes, and mid-job it completes
+  that job as failed so the run reaches a terminal state instead of leaving the CLI polling a run
+  no worker will ever finish, names the signal on the launcher's real stderr, and exits
+  `128 + signum` (143 for SIGTERM, 130 for SIGINT) so a caller reading return codes can tell a
+  killed fold from a clean stop. Those two join the codes already in use: 75 for a card held by
+  another process, 70 for an orphaned worker. The dispatcher's message no longer promises a
+  traceback either, since a signalled worker prints one line and no trace; it names what each
+  exit code means instead. Who sent the signal in the rf3 case is not yet established, and the
+  next occurrence now reports it.
+
 - **Wormhole folds above 640 residues instead of hanging the chip.** Every target from 640 aa up
   split the Transition SwiGLU along the pair tensor's width, and that path wedged the card:
   protenix-v2 at 768 aa hung mid-fold on two different chips, at trunk recycle 6 and recycle 4, and
