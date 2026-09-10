@@ -350,14 +350,20 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         raise SystemExit(f"no fixture for {model}")
 
     t0 = time.time()
-    try:
-        p = subprocess.run(cmd, cwd=str(ROOT), env=env, capture_output=True, text=True,
-                           timeout=args.timeout)
-        rc, blob = p.returncode, (p.stdout or "") + (p.stderr or "")
-    except subprocess.TimeoutExpired as e:
-        rc = -9
-        blob = ((e.stdout or b"").decode(errors="replace") if isinstance(e.stdout, bytes)
-                else (e.stdout or "")) + "\nTIMEOUT"
+    # The child streams to a file, not a pipe. A design rung at this size runs for tens of
+    # minutes, and an absorbed throw is indistinguishable from slow progress unless the log can
+    # be read WHILE it happens -- boltzgen 3662 threw an L1 assert 143 s in and then held the
+    # card for the remaining 1057 s of its budget, and the pipe gave that up only after the
+    # kill. A file also keeps stderr, which the TimeoutExpired branch used to drop entirely.
+    log = work / f"log_{model}_{size}.txt"
+    with log.open("w") as fh:
+        try:
+            rc = subprocess.run(cmd, cwd=str(ROOT), env=env, stdout=fh,
+                                stderr=subprocess.STDOUT, timeout=args.timeout).returncode
+        except subprocess.TimeoutExpired:
+            rc = -9
+            fh.write("\nTIMEOUT\n")
+    blob = log.read_text(errors="replace")
     wall = round(time.time() - t0, 1)
 
     rec = {"model": model, "size": size, "rc": rc, "wall_s": wall,
