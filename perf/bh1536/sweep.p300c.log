@@ -32,3 +32,4 @@
 2026-09-10T01:43:39Z card1 esmfold2        1536tok PASS     wall=  487.9s engine=465.7 cif_res=1536/1536 ntok=None rss=61.68G oom=- breaks=0 worst_ca=4.28 clash=0.00316
 2026-09-10T01:46:46Z card1 protenix-v1     1300tok PASS     wall=  184.9s engine=167.0 cif_res=1300/1300 ntok=1300 rss=28.3G oom=- breaks=0 worst_ca=3.91 clash=0.3532
 2026-09-10T01:56:16Z card1 openfold3       1536tok PASS     wall=  566.4s engine=540.0 cif_res=1536/1536 ntok=1536 rss=40.96G oom=- breaks=0 worst_ca=3.92 clash=0.13812
+2026-09-10T02:05:31Z card1 openbind        1536tok PASS     wall=  552.1s engine=530.2 cif_res=1536/1536 ntok=1536 rss=49.17G oom=- breaks=0 worst_ca=4.09 clash=0.0367
