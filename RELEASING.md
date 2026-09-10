@@ -47,6 +47,13 @@ PYTHONPATH="$PWD" /tmp/relvenv/bin/python3 scripts/full_parity_gate.py ...
 `full_parity_gate.py`, `perf_regression.py` and `ux_regression.py` all spawn their
 folds and scorers as `sys.executable`, so the choice propagates to every leg.
 
+The three af2ig legs need their checkpoint named. Point `AF2IG_PARAMS` at the
+`params_model_1_ptm.npz` file (or the directory holding it) before running the gate:
+without it the legs resolve the cache root, find nothing, and report `checkpoint
+absent` as a GAP. That is not a failure and it is not a pass either -- it means the
+leg never ran, which reads the same as a leg that ran and had nothing to say. Check
+the log rather than the verdict for any leg you expected to open a card.
+
 ### The gate interpreter on the WH Galaxy
 
 `japanfold-ssh` (GWH02) has exactly one tt-bio env, `/home/cust-team/mthuening/tt-bio/env`, and
