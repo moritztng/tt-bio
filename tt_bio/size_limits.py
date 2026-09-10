@@ -203,7 +203,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "opendde": {
         "blackhole": Ceiling(
             residues=1024, pass_at=1024, fail_at=1536, binds=FREEZE, mechanism=TRUNK_FREEZE,
-            evidence="the first Blackhole row in this file, and it exists because the failure it "
+            evidence="the first Blackhole row in this file, measured via perf/bh1536/run_rung.py, and it exists because the failure it "
                      "guards costs a card. 1536 residues freezes: the trunk walks nine of its ten "
                      "recycles at a steady 91-93 s each and stops at `trunk 9/10` forever. "
                      "Measured on BOTH boards -- qb1 card 0 (p150a) 2026-09-10 and qb2 card 1 "
@@ -241,7 +241,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "opendde-abag": {
         "blackhole": Ceiling(
             residues=1024, pass_at=1024, fail_at=1536, binds=FREEZE, mechanism=TRUNK_FREEZE,
-            evidence="its OWN 1536 rung, not inherited from opendde by architecture "
+            evidence="its OWN 1536 rung (perf/bh1536/run_rung.py), not inherited from opendde by architecture "
                      "argument. 1536 residues freezes: the trunk walks nine of its ten "
                      "recycles at a steady 91-93 s each and stops at `trunk 9/10` forever. "
                      "Measured on BOTH boards -- qb1 card 0 (p150a) 2026-09-10 and qb2 card 1 "
