@@ -151,7 +151,8 @@ def _write(row):
             f"{'(fatal)' if row['fatal_oom'] else ''}"
             + (f" breaks={row['struct'].get('ca_breaks')} "
                f"worst_ca={row['struct'].get('worst_ca_ca')} "
-               f"clash={row['struct'].get('clash_frac')}" if row.get("struct") else ""))
+               f"clash={row['struct'].get('clash_frac')}" if row.get("struct") else "")
+            + (" ffn_fallback=YES" if row.get("ffn_fallback") else ""))
     with (OUTROOT / "sweep.log").open("a") as fh:
         fh.write(line + "\n")
     print(line)
@@ -203,6 +204,9 @@ def main():
                          "never FAIL: nothing ran, so nothing was measured)")
     ap.add_argument("--contention_wait", type=int, default=180,
                     help="seconds between contention re-attempts")
+    ap.add_argument("--debug", action="store_true",
+                    help="pass --debug to predict, so the worker keeps stdout/stderr and any "
+                         "engine line (e.g. the pair-FFN fallback) reaches fold.log")
     ap.add_argument("--sampling_steps", type=int, default=20)
     ap.add_argument("--recycling_steps", type=int, default=None)
     ap.add_argument("--single_sequence", action="store_true", default=True)
@@ -233,6 +237,8 @@ def main():
             cmd.append("--single_sequence")
     if a.recycling_steps is not None:
         cmd += ["--recycling_steps", str(a.recycling_steps)]
+    if a.debug:
+        cmd.append("--debug")
 
     env = dict(os.environ)
     env.update(PYTHONPATH=str(WT), TT_VISIBLE_DEVICES="0", TT_BIO_LEASE_CARDS="0",
@@ -293,6 +299,12 @@ def main():
     # that the run did not survive.
     fatal_oom = oom if (oom and nres == 0) else None
 
+    # Did the release-gated pair-FFN fallback serve this fold? A PASS that needed it is not a
+    # shipped-engine PASS, and only the engine's own line can say so: fragmentation is stateful,
+    # so a re-run of a rung that OOM'd once can pass on a tidier chip with nothing fixed.
+    # Only visible with --debug, hence None (not False) when the run could not have reported it.
+    ffn_fallback = ("[pair-ffn] DRAM refused" in text) if a.debug else None
+
     # A CIF that exists is not a fold. `perf/ceilings/struct_signal.py` is the repo's one
     # structural instrument (it imports the release gate's own thresholds), so a rung that
     # returns coordinates still has to show a continuous backbone before it counts as PASS.
@@ -319,7 +331,8 @@ def main():
            "recycling_steps": a.recycling_steps,
            "peak_host_rss_gib": round(peak_rss / 2**30, 2),
            "floor_memavail_gib": round(floor_avail / 2**30, 2),
-           "oom": oom, "fatal_oom": bool(fatal_oom),
+           "oom": oom, "fatal_oom": bool(fatal_oom), "ffn_fallback": ffn_fallback,
+           "debug": a.debug,
            "tail": text[-1200:].replace("\n", " | ")[-1200:] if verdict != "PASS" else "",
            "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     _write(row)

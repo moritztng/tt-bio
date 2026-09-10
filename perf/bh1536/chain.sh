@@ -37,8 +37,11 @@ for spec in "$@"; do
   # minutes. Inside the lock, any run_rung.py seen here belongs to a lock-blind chain.
   while pgrep -f "bh1536/run_rung\.py" > /dev/null; do sleep 20; done
   echo "=== $(date -u +%FT%TZ) $model $size ${tag:+tag=$tag} ==="
+  # A tagged rung is a deliberate re-walk of something already recorded, so it runs with
+  # --debug: that keeps the worker's stdout connected and is the only way an engine line
+  # (the pair-FFN fallback saying it fired) reaches fold.log and then the row.
   $PY perf/bh1536/run_rung.py --model "$model" --size "$size" --budget 2700 \
-      ${tag:+--tag "$tag"}
+      ${tag:+--tag "$tag" --debug}
   flock -u 9
 done
 echo "CHAIN DONE $(date -u +%FT%TZ)"

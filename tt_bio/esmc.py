@@ -854,6 +854,14 @@ class SwiGLUFFN(Module):
             _UNBLOCKED_REFUSED.add(tuple(x.padded_shape))
             WINDOW_FALLBACK_STATS[0] += 1
             WINDOW_FALLBACK_STATS[1] -= 1
+            # Say it once per shape, on stdout, which `predict --debug` leaves connected. A
+            # fold that only completed because the allocator refused first is a DIFFERENT
+            # result from one that fit, and fragmentation is stateful enough that re-running
+            # the same rung can pass by luck -- so without this line a PASS here cannot be
+            # attributed to the fallback rather than to a tidier chip.
+            print(f"[pair-ffn] DRAM refused the unblocked pair FFN at "
+                  f"{tuple(x.shape)}; re-running it in {_PAIR_FFN_ROW_BLOCK}-row blocks",
+                  flush=True)
             return self._row_blocked(x, _PAIR_FFN_ROW_BLOCK, residual=False)
 
 
