@@ -1,11 +1,13 @@
 """The pair row tile has to bound its transient on Blackhole too, not only on small grids.
 
-esmfold2 at 1536 tokens died on ONE tensor: OuterProductMean's product, [B, L*32, L*32] bf16,
-which is 2048*L^2 bytes -- 4.50 GiB at L=1536. The allocator refused it on both Blackhole
-boxes (4831838208 B requested, 603979776 B per bank, largest free block 504102848 B on qb2
-card 1 / p300c 2026-09-10, and the same to within 14336 B on qb1 card 0 / p150a). The op
-already knows how to walk it in row blocks; `pair_row_tile` was returning 0 (single pass) for
-every L because the budget was only ever set for grids smaller than Blackhole's.
+esmfold2 at 1536 tokens dies on one 4.50 GiB pair tensor. The widest pair tensors in the trunk
+are 1024 channels -- the pair transition's SwiGLU a/b projections and the triangle-multiplication
+projection bundle, both [B,L,L,1024] bf16, i.e. 2048*L^2 bytes -- and 2048*1536^2 is exactly the
+4831838208 B the allocator refused (603979776 B per bank against a 4278190016 B bank, largest
+free block 504102848 B, on qb2 card 1 / p300c 2026-09-10 and on qb1 card 0 / p150a to within
+14336 B). The transition already knows how to walk its rows in blocks; `pair_row_tile` was
+returning 0 (single pass) for every L because the budget was only ever set for grids smaller
+than Blackhole's.
 
 The two things this pins down: the sizes that already fold keep the exact single pass they
 folded with, and the sizes above them are bounded instead of growing with L^2.
@@ -66,6 +68,14 @@ def test_a_small_grid_budget_still_wins():
         tenstorrent.SMALL_GRID_PAIR_TILE_AREA = 0
 
 
+def test_three_of_these_transients_fit_the_free_bytes_at_the_refusal():
+    # The op holds a, b and their gated product at once, which is why the budget is not just
+    # "the largest tensor that would fit alone". 698533824 B free per bank at the refusal.
+    rows = tenstorrent.pair_row_tile(1536)
+    per_bank_each = PAIR_TRANSIENT_BYTES * rows * 1536 / 8
+    assert 3 * per_bank_each < 698533824
+
+
 def test_the_budget_is_a_module_constant_not_a_literal_in_the_helper():
     src = importlib.import_module("inspect").getsource(tenstorrent.pair_row_tile)
-    assert "BH_PAIR_TILE_AREA" in src and "1024 * 1024" not in src
+    assert "BH_PAIR_TILE_AREA" in src and "524288" not in src

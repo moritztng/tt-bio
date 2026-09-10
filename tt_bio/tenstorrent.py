@@ -3934,18 +3934,24 @@ def msa_depth_cap(num_residues: int, max_sequences: int) -> int:
     return max(1, min(max_sequences, WORMHOLE_MSA_AREA // num_residues))
 
 
-# The largest pair-op transient a SINGLE pass is MEASURED to survive on the Blackhole baseline
-# grid, as an area (rows*L; the transient scales as rows*L*width). At L=1024 the widest of these
-# ops -- OuterProductMean's product, 32*32 channels -- is 2.0 GiB and the chip serves it, which is
-# the whole ladder that has ever been walked here. The same tensor is 2048*L^2 bytes, so 4.50 GiB
-# at L=1536, and the allocator refuses it: 4831838208 B DRAM requested, 603979776 B per bank
-# against a 4278190016 B bank with only 504102848 B in the largest free block (esmfold2 at 1536,
-# qb2 card 1 / p300c and qb1 card 0 / p150a, which refuse it to within 14336 B of each other).
-# So the row blocking Wormhole has always done is not a small-grid speciality; Blackhole just has
-# a bigger budget. Setting that budget at exactly the measured single-pass top keeps every size
-# the ladder has proven (L <= 1024) on the identical single pass it took before, and bounds
-# everything above it instead of letting one tensor grow with L^2 until it is refused.
-BH_PAIR_TILE_AREA = 1024 * 1024
+# Blackhole's own pair-row budget. Two numbers, because they answer two different questions.
+#
+# BH_PAIR_SINGLE_PASS_MAX is the top of the ladder that has actually been walked on this silicon.
+# Every pair op below it runs in one pass today and folds, so blocking there would slow a shipped
+# size to protect nothing.
+#
+# BH_PAIR_TILE_AREA is what to do above it, as an area (rows*L; a pair transient is
+# rows*L*width). The widest of these tensors is 1024 channels -- the pair transition's SwiGLU
+# a/b projections and the triangle-multiplication projection bundle, both [B,L,L,1024] -- so a
+# transient is 2048*rows*L bytes and the whole tensor is 2048*L^2. That is 2.0 GiB at L=1024,
+# which the chip serves, and 4.50 GiB at L=1536, which it refuses: esmfold2 at 1536 asks for
+# 4831838208 B of DRAM, 603979776 B per bank against a 4278190016 B bank, with 698533824 B free
+# and only 504102848 B in the largest free block (qb2 card 1 / p300c, and qb1 card 0 / p150a to
+# within 14336 B on every figure). The op holds three of those at once (a, b and the gated
+# product), so the budget is set well under the free bytes rather than at the largest tensor
+# that would fit alone: 524288 gives a 1.0 GiB transient and a ~3 GiB peak at 1536.
+BH_PAIR_SINGLE_PASS_MAX = 1024
+BH_PAIR_TILE_AREA = 524288
 
 
 def pair_row_tile(L: int) -> int:
@@ -3955,8 +3961,12 @@ def pair_row_tile(L: int) -> int:
 
     One formula, two budgets: the small-grid one `_apply_grid_thresholds` fits to the part's
     L1, and the Blackhole baseline above, which is a measured ceiling rather than unbounded."""
-    area = SMALL_GRID_PAIR_TILE_AREA or BH_PAIR_TILE_AREA
-    if not area or L <= SMALL_GRID_SEQ_TILE:
+    area = SMALL_GRID_PAIR_TILE_AREA
+    if not area:
+        if L <= BH_PAIR_SINGLE_PASS_MAX:
+            return 0
+        area = BH_PAIR_TILE_AREA
+    if L <= SMALL_GRID_SEQ_TILE:
         return 0
     rows = max(32, (area // L // 32) * 32)
     return rows if rows < L else 0
