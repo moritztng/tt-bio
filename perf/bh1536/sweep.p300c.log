@@ -2,3 +2,16 @@
 2026-09-10T00:15:09Z card1 esmfold2        1536tok OOM      wall=   88.4s engine=None cif_res=0/1536 ntok=None rss=38.34G oom=dram/fragmentation(fatal)
 2026-09-10T00:18:05Z card1 protenix-v1     1536tok PASS     wall=  172.7s engine=156.5 cif_res=1536/1536 ntok=1536 rss=37.43G oom=- breaks=0 worst_ca=3.88 clash=0.50296
 2026-09-10T00:28:57Z card1 protenix-v2     1536tok PASS     wall=  648.3s engine=633.4 cif_res=1536/1536 ntok=1536 rss=87.67G oom=- breaks=0 worst_ca=3.88 clash=0.13115
+2026-09-10T01:08:58Z card1 opendde         1536tok TIMEOUT  wall= 2401.0s engine=None cif_res=0/1536 ntok=None rss=183.48G oom=-
+2026-09-10T01:14:26Z card1 esmfold2        1536tok FAIL     wall=  328.6s engine=None cif_res=0/1536 ntok=None rss=159.97G oom=-
+2026-09-10T01:14:44Z card1 esmfold2-fast   1536tok FAIL     wall=   18.1s engine=None cif_res=0/1536 ntok=None rss=89.48G oom=-
+2026-09-10T01:15:03Z card1 esmfold2        1024tok FAIL     wall=   18.1s engine=None cif_res=0/1024 ntok=None rss=46.56G oom=-
+2026-09-10T01:15:19Z card1 openfold3       1536tok FAIL     wall=   16.1s engine=None cif_res=0/1536 ntok=None rss=46.56G oom=-
+2026-09-10T01:15:35Z card1 esmfold2        1408tok FAIL     wall=   16.1s engine=None cif_res=0/1408 ntok=None rss=46.57G oom=-
+2026-09-10T01:15:51Z card1 openbind        1536tok FAIL     wall=   16.1s engine=None cif_res=0/1536 ntok=None rss=46.56G oom=-
+2026-09-10T01:16:07Z card1 esmfold2        1568tok FAIL     wall=   16.1s engine=None cif_res=0/1568 ntok=None rss=46.57G oom=-
+2026-09-10T01:16:29Z card1 rf3             1536tok FAIL     wall=   22.1s engine=None cif_res=0/1536 ntok=None rss=46.56G oom=-
+2026-09-10T01:16:47Z card1 boltz2          1568tok FAIL     wall=   18.1s engine=None cif_res=0/1568 ntok=None rss=46.56G oom=-
+2026-09-10T01:17:03Z card1 opendde-abag    1536tok FAIL     wall=   16.1s engine=None cif_res=0/1536 ntok=None rss=46.57G oom=-
+2026-09-10T01:17:31Z card1 nesso1          1536tok FAIL     wall=   28.1s engine=None cif_res=0/1536 ntok=None rss=58.58G oom=-
+2026-09-10T01:18:30Z card1 esmfold2        1536tok FAIL     wall=   16.1s engine=None cif_res=0/1536 ntok=None rss=46.57G oom=-
