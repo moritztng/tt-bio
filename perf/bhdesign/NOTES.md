@@ -75,3 +75,11 @@ writes an 80-residue, 321-atom binder, because the binder length is held at 80 w
 is what grows. The rungs are distinct: crops 1-256/1-512/1-768/1-1000 in the specs, wall times
 96.3/233.6/126.1/124.3 s, and four different md5s (7ee61bb9, 911270b6, 9651b533, c85b77b5). A
 run that ignored its target would have returned one md5 four times.
+
+A SECOND CO-TENANT, AND A SIBLING RATHER THAN A STRAY. At 00:16Z pid 1019222, a multiprocessing
+child of `tt_bio.main predict` with cwd `/home/ttuser/.coworker/wt/bh-1536-structure`, held an
+fd on `/dev/tenstorrent/1` for 11 minutes. That is this task's granted card. It was not killed
+and no reset was issued: another task's fold looks exactly like a stray from here. A per-task
+card grant is enforced at tt-bio's own device open, and it evidently does not stop a sibling
+process from opening a card it was not granted -- so the grant is an agreement between tasks,
+not a sandbox.
