@@ -21,3 +21,4 @@
 2026-09-10T01:06:58Z protenix-v1     1536tok PASS     wall=  203.8s engine=180.6 cif_res=1536/1536 ntok=1536 rss=184.84G oom=- breaks=0 worst_ca=3.88 clash=0.50296
 2026-09-10T01:11:32Z esmfold2        1536tok OOM      wall=  273.4s engine=None cif_res=0/1536 ntok=None rss=189.09G oom=dram/fragmentation(fatal) ffn_fallback=YES
 2026-09-10T01:17:26Z openfold3       1024tok PASS     wall=  350.4s engine=318.2 cif_res=1024/1024 ntok=1024 rss=155.49G oom=- breaks=0 worst_ca=3.97 clash=0.08642
+2026-09-10T01:46:55Z opendde-abag    1536tok STALLED  wall= 1769.1s engine=None cif_res=0/1536 ntok=None rss=256.0G oom=-
