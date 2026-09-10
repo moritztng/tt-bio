@@ -32,6 +32,7 @@ from __future__ import annotations
 import math
 
 import torch
+from pathlib import Path
 
 # standard AlphaFold restype order (index -> one-letter); index 7=G, 15=S (matches v2 golden)
 RESTYPE_ORDER = "ARNDCQEGHILKMFPSTWYV"
@@ -176,6 +177,27 @@ def _parse_a3m_to_msa(a3m: str, query: str):
     return torch.tensor(msa, dtype=torch.long), torch.tensor(delmat, dtype=torch.float32)
 
 
+def _msa_on_tokens(raw, msa_col, restype_idx):
+    """A per-RESIDUE alignment placed on a chain's TOKENS.
+
+    Identity when the chain has no modified residue (msa_col is then 0..n-1). A modified
+    residue is tokenized per atom and those atom tokens have no alignment column, so they
+    take GAP in every row and the token's own restype in the query row -- the same thing a
+    ligand's atom tokens already get from the query-only path below.
+    """
+    m, dm = raw
+    keep = msa_col >= 0
+    if bool(keep.all()):
+        return m, dm
+    cols = msa_col[keep]
+    out = torch.full((m.shape[0], msa_col.shape[0]), MSA_GAP_IDX, dtype=torch.long)
+    outd = torch.zeros((m.shape[0], msa_col.shape[0]))
+    out[:, keep] = m[:, cols]
+    outd[:, keep] = dm[:, cols]
+    out[0, ~keep] = restype_idx[~keep]
+    return out, outd
+
+
 def _parse_paired_a3m_to_msa(a3m: str, query: str):
     """Species-paired a3m -> (msa (M,n) long, deletion (M,n) float), NO dedup, rows kept in
     input order so cross-chain row j aligns by species/genome (ColabFold's pair endpoint and
@@ -242,27 +264,37 @@ def build_protein_features(sequence: str, a3m: str | None = None) -> dict:
 def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
     """Map a `bond` constraint endpoint (chain id, 1-indexed residue, atom name) to its
     global token index, using the per-chain placement recorded in build_complex_features.
-    Polymer chains are tokenized per residue (token = residue, atom name unused); ligand
-    chains per atom (token = the named atom)."""
+    A standard polymer residue is one token (atom name unused); a ligand and a MODIFIED
+    residue are tokenized per atom, so there the atom name picks the token and an unknown
+    name is an error rather than a bond quietly landing on the wrong atom."""
     cid = str(cid)
     if cid not in placement:
         raise ValueError(f"bond constraint references chain '{cid}', which is not in the input.")
-    start, mt, n, name_to_local = placement[cid]
-    if mt == "ligand":
-        if name_to_local is None or atom not in name_to_local:
+    p = placement[cid]
+    start = p["start"]
+    if p["mt"] == "ligand":
+        if p["atoms"] is None or atom not in p["atoms"]:
             raise ValueError(f"bond constraint references atom '{atom}' on ligand '{cid}', "
                              "which has no such atom.")
-        return start + name_to_local[atom]
-    local = int(res) - 1                                       # residues are 1-indexed
-    if not (0 <= local < n):
+        return start + p["atoms"][atom]
+    res = int(res)
+    if not (1 <= res <= p["n"]):
         raise ValueError(f"bond constraint references residue {res} on chain '{cid}', "
-                         f"which has only {n} residues.")
-    return start + local
+                         f"which has only {p['n']} residues.")
+    mod_atoms = p["res_atoms"].get(res)
+    if mod_atoms is not None:
+        if atom not in mod_atoms:
+            raise ValueError(f"bond constraint references atom '{atom}' on modified residue "
+                             f"{res} of chain '{cid}', which has no such atom.")
+        return start + mod_atoms[atom]
+    return start + p["res_tok"][res - 1]
 
 
 def build_complex_features(chains: list, mol_dir: str | None = None,
                            chain_ids: list | None = None, bonds: list | None = None,
-                           paired_a3ms: list | None = None, oxt: list | None = None) -> dict:
+                           paired_a3ms: list | None = None, oxt: list | None = None,
+                           modifications: list | None = None, templates: list | None = None,
+                           template_dir: str | None = None) -> dict:
     """Multi-chain biomolecular complex -> model-ready input_feature_dict.
 
     chains: list of (sequence, a3m_or_None[, mol_type]); mol_type is "protein" (default),
@@ -292,40 +324,59 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     chain_ids: per-chain id parallel to `chains`, needed only to resolve `bonds`.
     bonds: covalent `bond` constraints as ((chain, res, atom), (chain, res, atom)) pairs;
     each marks its two endpoint tokens as bonded in token_bonds (the only constraint signal
-    the trunk reads)."""
+    the trunk reads).
+    modifications: optional list parallel to `chains`, each the reader's
+    `[{"position": 1-indexed, "ccd": CODE}]` for that chain or None. A modified residue is
+    tokenized per atom from its CCD component (AF3 SI 2.6) by `polymer_chain_features`, so
+    the chain gains tokens but not residues; None everywhere reproduces the per-residue path
+    exactly.
+    templates: optional list parallel to `chains`, each a `templates:` alignment npz for that
+    protein chain or None, with the template coordinates under `template_dir`. Without one the
+    template features are `dummy_template_features` -- all-gap, zero geometry -- which is what
+    every fold got before, so an input with no templates is byte-identical."""
     norm = [(e[0], e[1], e[2] if len(e) > 2 else "protein") for e in chains]
     conformers = load_ref_conformers()
     # CCD codes needed from the `mols` library: nucleic-acid residues + CCD ligands.
     ccd_codes = {c for seq, _, mt in norm if mt in ("rna", "dna") for c in _na_res_codes(seq, mt)}
     ccd_codes |= {seq[4:] for seq, _, mt in norm if mt == "ligand" and seq.startswith("CCD_")}
+    ccd_codes |= {str(m["ccd"]).upper() for ms in (modifications or []) if ms for m in ms}
     mols = {}
     if ccd_codes:
         from .data.mol import load_molecules
-        mols = load_molecules(str(mol_dir or _default_mol_dir()), sorted(ccd_codes))
+        try:
+            mols = load_molecules(str(mol_dir or _default_mol_dir()), sorted(ccd_codes))
+        except FileNotFoundError as e:                # a typo'd ccd/modification code
+            code = Path(e.filename or "?").stem
+            raise ValueError(
+                f"{code!r} is not a CCD component this build knows; check the code in the "
+                "input's `ligand:` or `modifications:` block.") from e
 
     entity_of = {}                                   # (mol_type, sequence) -> entity_id
     sym_counter = {}                                 # entity_id -> next copy index
     restype, asym, entity, sym, resid, mol_type = [], [], [], [], [], []
-    atom_feats, lig_bonds = [], []                   # per-chain atom features; (tok_off, local_bonds)
+    atom_feats, block_bonds = [], []                 # per-chain atom features; (tok_off, local_bonds)
     tok_off, res_off = 0, 0                           # global token / residue-frame counters
-    per_chain_msa = []                               # (start_col, n_tok, raw_msa|None, restype_idx)
-    placement = {}                                    # chain_id -> (start_tok, mt, n_tok, ligand atom-name -> local idx)
+    per_chain_msa = []                               # (start_col, n_tok, raw_msa|None, restype_idx, seq, msa_col)
+    placement = {}                                    # chain_id -> how a bond endpoint resolves
+    tpl_blocks = []                                   # (tok_off, msa_col, aatype, pos, mask)
     for ci, (seq, a3m, mt) in enumerate(norm):
-        lig_names = None
+        lig_names, res_tok, res_atoms = None, None, {}
+        msa_col = None
         if mt == "ligand":
             af, n, lbonds, lig_names = ligand_atom_features(_ligand_mol(seq, mols))
             rt_idx = torch.full((n,), 20, dtype=torch.long)   # ligand atoms are restype UNK
             res_index = torch.ones(n, dtype=torch.long)       # all atoms share residue_index 1
             n_res = 1
-            lig_bonds.append((tok_off, lbonds))
+            block_bonds.append((tok_off, lbonds))
         else:
-            rt_idx = seq_to_restype(seq, mt)                  # polymer: 32-class indices (0..30)
+            mods_ci = modifications[ci] if modifications else None
+            af, rt_idx, res_index, mbonds, res_tok, res_atoms, msa_col = polymer_chain_features(
+                seq, mt, mods_ci, conformers, mols,
+                oxt=None if oxt is None else oxt[ci])
             n = rt_idx.shape[0]
-            res_index = torch.arange(1, n + 1, dtype=torch.long)
-            n_res = n
-            af = protein_atom_features(rt_idx, conformers,
-                                       oxt=None if oxt is None else oxt[ci]) \
-                if mt == "protein" else na_atom_features(_na_res_codes(seq, mt), mols)
+            n_res = len(res_tok)
+            if mbonds is not None:                            # modified residues: CCD bonds
+                block_bonds.append((tok_off, mbonds))         # + the backbone link, block-placed
         eid = entity_of.setdefault((mt, seq), len(entity_of))
         sid = sym_counter.get(eid, 0); sym_counter[eid] = sid + 1
         restype.append(torch.nn.functional.one_hot(rt_idx.clamp(max=RESTYPE_DIM - 1), RESTYPE_DIM).float())
@@ -338,10 +389,23 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
         af["ref_space_uid"] = af["ref_space_uid"] + res_off
         atom_feats.append(af)
         raw = _parse_a3m_to_msa(a3m, seq) if (mt == "protein" and a3m) else None
-        per_chain_msa.append((tok_off, n, raw, rt_idx, seq))
+        if raw is not None and msa_col is not None:
+            raw = _msa_on_tokens(raw, msa_col, rt_idx)
+        per_chain_msa.append((tok_off, n, raw, rt_idx, seq, msa_col))
+        tpl = templates[ci] if templates else None
+        if tpl and mt == "protein":
+            from .protenix_template import chain_template_arrays, read_alignment_entries
+            entries = read_alignment_entries(tpl)
+            if entries:
+                cols = msa_col if msa_col is not None else torch.arange(n)
+                tpl_blocks.append((tok_off, cols.tolist(),
+                                   *chain_template_arrays(len("".join(str(seq).split())),
+                                                          entries, template_dir)))
         if chain_ids is not None:
             name_to_local = {nm: i for i, nm in enumerate(lig_names)} if lig_names is not None else None
-            placement[str(chain_ids[ci])] = (tok_off, mt, n, name_to_local)
+            placement[str(chain_ids[ci])] = {"start": tok_off, "mt": mt, "n": n_res,
+                                             "atoms": name_to_local, "res_tok": res_tok,
+                                             "res_atoms": res_atoms}
         tok_off += n
         res_off += n_res
     N_tot = tok_off
@@ -358,7 +422,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # is unchanged (max_d == m, per-chain == whole).
     GAP = MSA_GAP_IDX
     chain_msa, chain_del, prof_parts, delmean_parts = [], [], [], []
-    for _start, n, raw, aatype, _seq in per_chain_msa:
+    for _start, n, raw, aatype, _seq, _col in per_chain_msa:
         if raw is None:
             m = aatype.unsqueeze(0).clone()                 # no MSA -> query only (1 row)
             dm = torch.zeros((1, n))
@@ -390,9 +454,11 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # query-only) get max_pd == 0 and byte-identical output to the unpaired-only path.
     paired_chain_msa = []
     pa_iter = iter(paired_a3ms) if paired_a3ms else None
-    for _start, n, _raw, aatype, seq in per_chain_msa:
+    for _start, n, _raw, aatype, seq, col in per_chain_msa:
         pa3m = next(pa_iter) if pa_iter is not None else None
         praw = _parse_paired_a3m_to_msa(pa3m, seq) if pa3m else None
+        if praw is not None and col is not None:
+            praw = _msa_on_tokens(praw, col, aatype)
         if praw is not None and praw[0].shape[0] > 1:
             pm, pdm = praw                            # keep all rows (incl. query) for alignment
         else:
@@ -430,7 +496,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     }
 
     token_bonds = torch.zeros(N_tot, N_tot)
-    for off, lb in lig_bonds:                                 # intra-ligand bonds, block-placed
+    for off, lb in block_bonds:              # intra-ligand and modified-residue bonds
         token_bonds[off:off + lb.shape[0], off:off + lb.shape[1]] = lb
 
     # User covalent `bond` constraints (e.g. a covalent inhibitor, or a glycan/crosslink):
@@ -457,7 +523,11 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # concat atom features across chains (atom_to_token_idx / ref_space_uid already offset)
     for k in atom_feats[0]:
         feats[k] = torch.cat([af[k] for af in atom_feats], 0)
-    feats.update(dummy_template_features(N_tot))
+    if tpl_blocks:
+        from .protenix_template import complex_template_features
+        feats.update(complex_template_features(tpl_blocks, N_tot))
+    else:
+        feats.update(dummy_template_features(N_tot))
     return feats
 
 
@@ -558,7 +628,7 @@ def _na_res_codes(seq: str, mol_type: str) -> list:
     return [("D" + c.upper()) if c.upper() in ("A", "G", "C", "T") else "DN" for c in seq]
 
 
-def na_atom_features(res_codes: list, mols: dict) -> dict:
+def na_atom_features(res_codes: list, mols: dict, first_res: bool = True) -> dict:
     """Atom-level features for one nucleic-acid chain (one CCD code per residue token).
 
     Mirrors protein_atom_features but sources heavy atoms (name / element / charge /
@@ -566,7 +636,9 @@ def na_atom_features(res_codes: list, mols: dict) -> dict:
     the v2 reference RES_ATOMS_DICT exactly (validated). The 5'-terminal phosphate oxygen
     OP3 is kept only on the first residue and dropped from the rest (the reference's chain
     convention, analogous to protein OXT). Distogram rep atom: C4 for purines, C2 for
-    pyrimidines, C1' for unknown (N/DN), per AF3 SI 4.4."""
+    pyrimidines, C1' for unknown (N/DN), per AF3 SI 4.4. ``first_res`` is False when this
+    call builds a SEGMENT of a chain rather than its start (a chain split around a modified
+    residue), so the 5'-terminal rule stays a property of the chain, not of the segment."""
     ref_pos, elem_idx, ref_charge, ref_mask = [], [], [], []
     a2t, ruid, tokatom, disto_rep, name_chars = [], [], [], [], []
     for t, code in enumerate(res_codes):
@@ -578,7 +650,7 @@ def na_atom_features(res_codes: list, mols: dict) -> dict:
             if a.GetAtomicNum() <= 1:                     # skip hydrogens (heavy atoms only)
                 continue
             nm = a.GetProp("name")
-            if nm == "OP3" and t > 0:                     # free 5'-phosphate O only on first residue
+            if nm == "OP3" and not (first_res and t == 0):  # free 5'-phosphate O only on residue 1
                 k += 1                                    # OP3 still occupies CCD slot 0 (atom_to_tokatom_idx)
                 continue
             p = conf.GetAtomPosition(a.GetIdx())
@@ -592,6 +664,121 @@ def na_atom_features(res_codes: list, mols: dict) -> dict:
             k += 1
     return _assemble_atom_features(torch.tensor(ref_pos, dtype=torch.float32), elem_idx,
                                    ref_charge, ref_mask, a2t, ruid, tokatom, disto_rep, name_chars)
+
+
+#: The atom that bonds a residue to the previous one, and the one that bonds it to the next.
+#: Used to link a modified residue's ATOM tokens into the chain, since only that residue is
+#: tokenized per atom and its neighbours are single residue tokens.
+_BACKBONE_LINK = {"protein": ("N", "C"), "rna": ("P", "O3'"), "dna": ("P", "O3'")}
+_MOL_UNK = {"protein": 20, "rna": 25, "dna": 30}
+
+
+def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dict,
+                           mols: dict, oxt=None):
+    """One polymer chain's atom and token features, tokenizing a modified residue PER ATOM.
+
+    AF3 gives a standard residue one token and a modified residue one token per atom
+    (SI 2.6), the same rule it applies to a ligand. So a chain carrying ``modifications:``
+    is its normal run of residue tokens with the CCD component's atom tokens spliced in at
+    each modified position. The residue FRAME is untouched: every atom token of a modified
+    residue shares one ``ref_space_uid`` and one ``residue_index``, so the relative-position
+    encoding still sees one residue there and the chain's numbering does not shift.
+
+    ``mods`` is the reader's ``[{"position": 1-indexed, "ccd": CODE}]`` or None; with None
+    this is the plain per-residue path and returns byte-identical features to the
+    protein_atom_features / na_atom_features call it replaces.
+
+    Returns ``(af, restype_idx, residue_index, bonds, res_tok, res_atoms, msa_col)``:
+      af           per-atom features, chain-local atom_to_token_idx / ref_space_uid
+      restype_idx  (n_tok,) restype per token; a modified residue's atoms are the
+                   modality's UNK, exactly as a ligand atom is
+      residue_index(n_tok,) the 1-indexed residue each token belongs to
+      bonds        (n_tok, n_tok) token adjacency, or None when the chain has no
+                   modification: the CCD's own heavy-atom bonds plus the backbone link to
+                   each neighbouring residue, so the covalent attachment is a signal the
+                   trunk reads rather than something inferred from numbering
+      res_tok      1-indexed residue -> chain-local first token
+      res_atoms    1-indexed residue -> {atom name: chain-local token}, modified residues only
+      msa_col      (n_tok,) alignment column each token reads, -1 for an atom token
+    """
+    seq = "".join(str(seq).split())
+    rt_all = seq_to_restype(seq, mt)
+    n_res = len(seq)
+    mod_ccd = {int(m["position"]): str(m["ccd"]).upper() for m in (mods or [])}
+    codes = _na_res_codes(seq, mt) if mt in ("rna", "dna") else None
+
+    def _standard(lo, hi):                       # residues [lo, hi) as one per-residue block
+        if mt == "protein":
+            run_oxt = torch.tensor([bool(oxt[k]) if oxt is not None else k == n_res - 1
+                                    for k in range(lo, hi)])
+            return protein_atom_features(rt_all[lo:hi], conformers, oxt=run_oxt)
+        return na_atom_features(codes[lo:hi], mols, first_res=(lo == 0))
+
+    parts, restype, resindex, msa_col = [], [], [], []
+    res_tok: list[int] = []
+    res_atoms: dict[int, dict] = {}
+    link_tok: dict[int, tuple[int, int]] = {}    # residue -> (token bonded to prev, to next)
+    local_bonds = []                             # (offset, intra-residue adjacency)
+    tok = 0
+    lo = 0
+    for stop in sorted(mod_ccd) + [n_res + 1]:   # split the chain at each modified residue
+        hi = stop - 1                            # residues [lo, hi) are standard
+        if hi > lo:
+            parts.append(_standard(lo, hi))
+            for k in range(lo, hi):
+                res_tok.append(tok)
+                link_tok[k + 1] = (tok, tok)     # a residue token is both ends of its links
+                restype.append(int(rt_all[k])); resindex.append(k + 1); msa_col.append(k)
+                tok += 1
+        if stop > n_res:
+            break
+        code = mod_ccd[stop]
+        # the leaving atoms the polymer bond consumes: a mid-chain residue has no free
+        # C-terminal carboxylate O, and only the 5' residue keeps OP3
+        if mt == "protein":
+            keep_end = bool(oxt[stop - 1]) if oxt is not None else stop == n_res
+            drop = () if keep_end else ("OXT", "HXT")
+        else:
+            drop = () if stop == 1 else ("OP3",)
+        af, n_atom, adj, names = ligand_atom_features(mols[code], drop_atoms=drop)
+        parts.append(af)
+        local_bonds.append((tok, adj))
+        res_tok.append(tok)
+        res_atoms[stop] = {nm: tok + i for i, nm in enumerate(names)}
+        prev_at, next_at = _BACKBONE_LINK[mt]
+        link_tok[stop] = (res_atoms[stop].get(prev_at, tok), res_atoms[stop].get(next_at, tok))
+        restype += [_MOL_UNK[mt]] * n_atom
+        resindex += [stop] * n_atom
+        msa_col += [-1] * n_atom
+        tok += n_atom
+        lo = stop
+
+    n_tok = tok
+    off = 0
+    for af in parts:                             # splice the segments into one chain
+        n_seg = int(af["atom_to_token_idx"].max()) + 1 if af["atom_to_token_idx"].numel() else 0
+        af["atom_to_token_idx"] = af["atom_to_token_idx"] + off
+        off += n_seg
+    merged = {k: torch.cat([af[k] for af in parts], 0) for k in parts[0]}
+    # ref_space_uid was written per segment (0-based within the segment for a standard run,
+    # the residue ordinal for a modified one) -- rebuild it from the token each atom belongs
+    # to so a residue frame is a residue frame across the whole chain.
+    merged["ref_space_uid"] = torch.tensor(resindex, dtype=torch.long)[
+        merged["atom_to_token_idx"]] - 1
+
+    bonds = None
+    if mod_ccd:
+        bonds = torch.zeros(n_tok, n_tok)
+        for start, adj in local_bonds:           # the CCD component's own heavy-atom bonds
+            bonds[start:start + adj.shape[0], start:start + adj.shape[1]] = adj
+        for pos in mod_ccd:                      # and its backbone link to each neighbour
+            for a, b in ((pos - 1, pos), (pos, pos + 1)):
+                if 1 <= a and b <= n_res:
+                    u, v = link_tok[a][1], link_tok[b][0]
+                    bonds[u, v] = bonds[v, u] = 1.0
+    return (merged, torch.tensor(restype, dtype=torch.long),
+            torch.tensor(resindex, dtype=torch.long), bonds, res_tok, res_atoms,
+            torch.tensor(msa_col, dtype=torch.long))
 
 
 def _default_mol_dir() -> str:
@@ -641,12 +828,17 @@ def _ligand_mol(spec: str, mols: dict):
     return _smiles_to_mol(spec)
 
 
-def ligand_atom_features(mol):
+def ligand_atom_features(mol, drop_atoms=()):
     """Atom-level features for one ligand, tokenized PER ATOM (AF3: each ligand atom is its
     own token). restype is UNK(20) per atom, distogram rep = every atom, atom_to_tokatom_idx
     = 0, ref_space_uid shared (one residue). Returns (af, n_token, token_bonds, names) where
     token_bonds is the (n_token, n_token) intra-ligand bond adjacency (heavy-atom bonds) and
-    names is the per-token atom name (token order) used to resolve covalent `bond` constraints."""
+    names is the per-token atom name (token order) used to resolve covalent `bond` constraints.
+
+    ``drop_atoms`` names atoms to leave out. A free ligand drops none; a MODIFIED RESIDUE
+    built from the same CCD component drops the leaving atoms the polymer bond consumes
+    (OXT mid-chain, OP3 off the 5' end), the same convention protein_atom_features and
+    na_atom_features already apply to standard residues."""
     conf = mol.GetConformer()
     ref_pos, elem_idx, ref_charge, ref_mask = [], [], [], []
     a2t, ruid, tokatom, disto_rep, name_chars, names = [], [], [], [], [], []
@@ -656,6 +848,8 @@ def ligand_atom_features(mol):
         if a.GetAtomicNum() <= 1:                                # heavy atoms only
             continue
         nm = a.GetProp("name") if a.HasProp("name") else (a.GetSymbol().upper() + str(j + 1))
+        if nm in drop_atoms:
+            continue
         p = conf.GetAtomPosition(a.GetIdx())
         ref_pos.append([p.x, p.y, p.z])
         elem_idx.append(a.GetAtomicNum() - 1)

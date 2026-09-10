@@ -137,6 +137,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import click
+from click.core import ParameterSource
 import numpy as np
 import torch
 from rdkit import Chem
@@ -1352,9 +1353,16 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                         raise DeviceInUseError(
                             f"every local worker exited at device open ({codes}); the card "
                             "is leased by another process, so nothing ran")
+                    # Do not promise a traceback: a worker stopped by a signal
+                    # mid-job prints one line and no trace (worker.run_worker_loop's
+                    # KeyboardInterrupt arm), and rf3 at 1536 tokens sent a reader
+                    # looking for a traceback that was never written. Name what each
+                    # code means instead, so the exit code alone is the diagnosis.
                     raise RuntimeError(
                         f"every local worker exited before the run finished ({codes}); "
-                        "no job can be served. The worker's own traceback above says why.")
+                        "no job can be served. Exit 130/143 means a signal stopped the "
+                        "worker mid-job, 70 that it was orphaned, -9/137 that the host "
+                        "OOM killer took it; any other code prints its own fatal above.")
                 all_dead_seen = True
             else:
                 all_dead_seen = False
@@ -1371,10 +1379,20 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
         # full message here so any actionable guidance (e.g. how to supply
         # MSAs) is readable once the live display is gone.
         click.echo(f"\n{len(failures)} failed:")
+        # An allocator refusal reaches here as a TT_FATAL whose first line names a tt-metal
+        # source file and the literal word "false", followed by twenty backtrace frames. The
+        # headline a user needs is the one sentence in the middle, so render that and keep the
+        # raw text for --debug. Every other failure prints exactly as before.
+        from tt_bio import size_limits
         for job_id, error in failures.items():
+            summary = size_limits.describe_device_oom(str(error))
+            if summary and not debug:
+                click.echo(f"  ✗ {job_id}: {summary}")
+                click.echo("      Re-run with --debug for the allocator trace.")
+                continue
             lines = str(error).splitlines() or [""]
-            click.echo(f"  ✗ {job_id}: {lines[0]}")
-            for extra in lines[1:]:
+            click.echo(f"  ✗ {job_id}: {summary or lines[0]}")
+            for extra in (lines if summary else lines[1:]):
                 click.echo(f"      {extra}")
     return failed
 
@@ -1638,7 +1656,15 @@ def _run_boltzgen_cli(prog: str, args) -> None:
 
     ensure_p300_mesh_descriptor()
 
-    _bg_main()
+    try:
+        _bg_main()
+    except ValueError as exc:
+        # BoltzGen's CLI raises ValueError for bad input: an unknown --config
+        # key, an invalid step or protocol name, a budget below 1. Those reached
+        # the user as a traceback. --debug still shows it.
+        if "--debug" in sys.argv:
+            raise
+        raise click.ClickException(str(exc)) from exc
 
 
 @cli.command(
@@ -2205,6 +2231,43 @@ def _read_bio_constraints(path):
     return bonds
 
 
+def cap_a3m_text(text, max_seqs):
+    """``text`` truncated to its first ``max_seqs`` alignment records (the query is record 0).
+
+    The ONE place ``--max_msa_seqs`` is applied to an a3m, so protenix-v1/v2, opendde and
+    rf3 cap depth the same way and the same way boltz2 already does it in
+    ``data/parse.py::_parse_a3m`` (rows counted from the top, query included). Returns
+    ``text`` unchanged when no cap was asked for or the file already fits, so an uncapped
+    run reads byte-identical input to before.
+    """
+    if not text or not max_seqs or max_seqs <= 0:
+        return text
+    out, kept = [], 0
+    for line in text.splitlines(keepends=True):
+        if line.startswith(">"):
+            kept += 1
+            if kept > max_seqs:
+                break
+        out.append(line)
+    return text if kept <= max_seqs else "".join(out)
+
+
+def cap_a3m_file(path, max_seqs, tmp_dir):
+    """A capped copy of the a3m at ``path`` under ``tmp_dir``, or ``path`` itself when it
+    already fits. For the callers that hand a PATH to a featurizer (rf3's per-component
+    ``msa_path``) rather than text."""
+    if not max_seqs or max_seqs <= 0:
+        return path
+    path = Path(path)
+    text = path.read_text()
+    capped = cap_a3m_text(text, max_seqs)
+    if capped is text:                                  # already under the cap
+        return path
+    out = Path(tmp_dir) / f"{path.stem}.cap{max_seqs}.a3m"
+    publish_text(out, capped)
+    return out
+
+
 def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     """Return the a3m file for a chain, or None for single-sequence folding. Tries an
     explicit a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in
@@ -2221,21 +2284,29 @@ def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     return None
 
 
-def _resolve_a3m_text(msa_spec, sequence, msa_dir):
+def _resolve_a3m_text(msa_spec, sequence, msa_dir, max_seqs=None):
     """The same resolution, as text: what the protenix featurizer takes. RF3's takes a
-    path (`msa_path` per component), which is why the path half is separate."""
+    path (`msa_path` per component), which is why the path half is separate.
+
+    ``max_seqs`` is the user's ``--max_msa_seqs``, applied here so protenix-v1/v2 and
+    opendde cap depth in the one place they already share."""
     p = _resolve_a3m_path(msa_spec, sequence, msa_dir)
-    return p.read_text() if p else None
+    return cap_a3m_text(p.read_text(), max_seqs) if p else None
 
 
-def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None):
+def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None,
+                              mod_names=None):
     """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
 
     Reconstructed entirely from the feature dict so it is modality- and chain-agnostic
     (proteins, complexes, nucleic acids, ligands): atom name from ref_atom_name_chars,
     element from ref_element, chain letter from asym_id, residue number from residue_index,
     residue name from restype. `aatype` is accepted for back-compat but unused. `b_factors`
-    (per-atom, e.g. pLDDT*100) is written to the B-factor column when given."""
+    (per-atom, e.g. pLDDT*100) is written to the B-factor column when given.
+
+    `mod_names` maps (asym_id, residue_index) -> CCD code for a `modifications:` residue.
+    Those residues are tokenized per atom and carry restype UNK, so without it the writer
+    would name them "LIG" and a user who asked for SEP would read back a ligand."""
     import biotite.structure as struc
     import biotite.structure.io.pdb as _pdb
     import biotite.structure.io.pdbx as _pdbx
@@ -2269,10 +2340,11 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
         t = a2t[i]
         arr.chain_id[i] = _chain_label(int(asym[t]))
         arr.res_id[i] = int(resid[t])
-        arr.res_name[i] = "LIG" if is_lig_tok[t] else resname[t]
+        mod = (mod_names or {}).get((int(asym[t]), int(resid[t])))
+        arr.res_name[i] = mod or ("LIG" if is_lig_tok[t] else resname[t])
         arr.atom_name[i] = names[i]
         arr.element[i] = z2sym.get(int(znum[i]), "C")
-        arr.hetero[i] = is_lig_tok[t]
+        arr.hetero[i] = is_lig_tok[t] or mod is not None
     outpath = Path(outpath)
     if output_format == "pdb":
         pf = _pdb.PDBFile(); pf.set_structure(arr); pf.write(str(outpath))
@@ -2799,14 +2871,21 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         for n, on in [("--use_potentials", use_potentials), ("--checkpoint", bool(checkpoint))]:
             if on:
                 click.secho(f"Note: --model {model} does not read {n}; ignoring it", fg="yellow")
+        # --max_msa_seqs left at its default means "the depth this model already uses", not
+        # 8192: protenix-v1/v2, opendde, rf3 and the OF3 family fold the resolved alignment
+        # whole, so applying the boltz2/esmfold2 default to them would quietly change every
+        # fold they have ever produced. The cap travels only when the user asked for one, and
+        # that same signal is what decides whether the "does not read it" note fires.
+        msa_cap = (max_msa_seqs if click.get_current_context()
+                   .get_parameter_source("max_msa_seqs") is not ParameterSource.DEFAULT
+                   else None)
         # Output and limit flags this model does not read, from the one table. --write_pae was
         # already called out for the OF3 family and was a silent no-op everywhere else it is
         # unread: esmfold2 and rf3 accepted it and wrote nothing, --write_pde did nothing on
-        # protenix (--write_pae writes both) and --max_msa_seqs did nothing on
-        # protenix/opendde/rf3, where the alignment reaches the featurizer uncapped.
+        # protenix (--write_pae writes both).
         for note in unread_flags(model, {"--write_pae": write_pae, "--write_pde": write_pde,
                                          "--write_embeddings": write_embeddings,
-                                         "--max_msa_seqs": max_msa_seqs != 8192}):
+                                         "--max_msa_seqs": msa_cap is not None}):
             click.secho(note, fg="yellow")
         # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
         # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
@@ -2879,6 +2958,11 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
+            # The cap the USER asked for, None when the flag was left alone. esmfold2 keeps
+            # reading max_msa_seqs (8192 is its shipped default); protenix, opendde, rf3 and
+            # the OF3 family read this one, so leaving the flag alone folds exactly the depth
+            # they folded before.
+            "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
         }
@@ -3518,6 +3602,9 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
                    "and a structure of a different sequence is refused. Omit for "
                    "sequence-only mode (3Di = '#', lower accuracy for 35M/650M; the 1.3B "
                    "works sequence-only).")
+@click.option("--foldseek", "foldseek_bin", default=None,
+              help="Path to the foldseek binary that computes the 3Di tokens for "
+                   "--structure. Default: $FOLDSEEK_BIN, else foldseek on PATH.")
 @click.option("--out_dir", default="./embeddings", show_default=True)
 @click.option("--format", "out_format", type=click.Choice(["npz", "parquet"]),
               default="npz", show_default=True,
@@ -3548,8 +3635,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 @click.option("--owner", default=None,
               help="Opaque fairness key the controller uses to fair-share workers across users. "
                    "Requires --controller.")
-def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast,
-               batch_size, devices, controller, owner):
+def saprot_cmd(data, model, structure, foldseek_bin, out_dir, out_format, pool,
+               return_logits, fast, batch_size, devices, controller, owner):
     """Compute SaProt structure-aware protein-language-model embeddings.
 
     SaProt is an ESM-2 encoder over a fused amino-acid + Foldseek-3Di
@@ -3574,7 +3661,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
             "--controller runs are sequence-only (structures stay on the submitting "
             "client and are never shipped to workers). Drop --structure or run locally.")
     try:
-        seqs = saprot.load_sequences_with_structure(data, structure)
+        seqs = saprot.load_sequences_with_structure(data, structure, foldseek_bin)
     except ValueError as e:
         raise click.ClickException(str(e))
 
@@ -3812,7 +3899,6 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     size_limits.check_input(inputs, model)
 
     ctx = click.get_current_context()
-    from click.core import ParameterSource
 
     def _explicit(name: str) -> bool:
         return ctx.get_parameter_source(name) == ParameterSource.COMMANDLINE
@@ -3948,7 +4034,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 num_designs=num_designs, batch_size=batch_size,
                 run_id=run_id, owner=owner, verbose=True,
             )
-        except (ValueError, TypeError, RuntimeError) as e:
+        except (ValueError, TypeError, RuntimeError, NotImplementedError) as e:
             raise click.ClickException(str(e))
         click.echo(f"Done — {len(results)} design(s) → {out_dir}")
         return
@@ -3977,7 +4063,10 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             batch_size=batch_size, devices=device_list, host_threads=host_threads,
             verbose=True,
         )
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, NotImplementedError) as e:
+        # RFD3 refuses a spec it cannot featurize with NotImplementedError, naming
+        # the condition. That is an answer about the input, not a crash, so it reads
+        # as one line like every other refusal.
         raise click.ClickException(str(e))
     click.echo(f"Done — {len(results)} design(s) → {out_dir}")
     for r in results:

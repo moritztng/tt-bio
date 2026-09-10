@@ -464,6 +464,23 @@ _FILL_ASSEMBLY_REFUSED = set()
 # this counter is what makes that visible instead of inferred.
 SPLIT_STATS = [0, 0]
 
+# A pair FFN shape the DRAM allocator refused UNBLOCKED, so the row block is taken straight
+# away on every later call at that shape instead of paying one refusal per call (48 pair
+# transitions x 10 trunk recycles on ESMFold2).
+_UNBLOCKED_REFUSED: set[tuple] = set()
+#: [served by the out-of-window fallback, ran unblocked]. Census, so "the fallback fired" is
+#: something a run can be asked rather than assumed.
+WINDOW_FALLBACK_STATS = [0, 0]
+
+
+def _is_alloc_refusal(exc: BaseException) -> bool:
+    """See ``size_limits.is_alloc_refusal``: one definition, shared with esmfold2's
+    OuterProductMean. Imported lazily; size_limits is a leaf module and this keeps esmc's
+    import graph unchanged."""
+    from tt_bio.size_limits import is_alloc_refusal
+
+    return is_alloc_refusal(exc)
+
 
 def set_split_swiglu(on: bool) -> bool:
     """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
@@ -662,6 +679,16 @@ class SwiGLUFFN(Module):
         blocked = split and len(x.shape) == 4 and rows and lo <= x.shape[1] <= hi
         return split, (rows if blocked else 0)
 
+    def _rows_after_refusal(self, x: ttnn.Tensor) -> int:
+        """Rows per block for a pair shape the allocator already refused unblocked, else 0.
+
+        Only ever non-zero after a real refusal at this exact padded shape, so it cannot pull a
+        size inside the parity window off the path its byte-identical output was measured on.
+        """
+        if len(x.shape) != 4 or not _PAIR_FFN_ROW_BLOCK:
+            return 0
+        return _PAIR_FFN_ROW_BLOCK if tuple(x.padded_shape) in _UNBLOCKED_REFUSED else 0
+
     def _row_blocked(self, x: ttnn.Tensor, rows: int, residual: bool) -> ttnn.Tensor:
         """The 4-D pair FFN over `rows`-row blocks, optionally with `x +` folded into each block.
 
@@ -775,6 +802,7 @@ class SwiGLUFFN(Module):
         `x + ffn(x)`. Does not free `x`; the caller does, as it did around the add it used to own.
         """
         split, rows = self._split_plan(x)
+        rows = rows or self._rows_after_refusal(x)
         if rows:
             SPLIT_STATS[0] += 1
             return self._row_blocked(x, rows, residual=True)
@@ -792,6 +820,7 @@ class SwiGLUFFN(Module):
         L = x.shape[1]
         split, rows = self._split_plan(x)
         SPLIT_STATS[0 if split else 1] += 1
+        rows = rows or self._rows_after_refusal(x)
         if rows:
             return self._row_blocked(x, rows, residual=False)
         if len(x.shape) == 4:
@@ -799,10 +828,38 @@ class SwiGLUFFN(Module):
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
             chunk = t if (t and L > t) else 0
-        if chunk:
-            parts = ttnn.chunk(x, -(-L // chunk), dim=1)
-            return ttnn.concat([self._ffn(p, split=split) for p in parts], dim=1)
-        return self._ffn(x, split=split)
+        try:
+            if chunk:
+                parts = ttnn.chunk(x, -(-L // chunk), dim=1)
+                return ttnn.concat([self._ffn(p, split=split) for p in parts], dim=1)
+            WINDOW_FALLBACK_STATS[1] += 1
+            return self._ffn(x, split=split)
+        except Exception as exc:
+            # Above PAIR_FFN_ROW_BLOCK_SEQ neither lever applies -- the row block is outside its
+            # measured byte-identical window and pair_row_tile returns 0 on a big grid -- so fc1
+            # allocates its whole 2*d_ff activation in one piece. On ESMFold2's pair transition
+            # at 1536 tokens that is [1,1536,1536,1024] bf16, 4831838208 B, which DRAM refused on
+            # a p150a with 26.67 of 31.875 GiB resident: room enough, no single block big enough.
+            # The window exists to stop a lever changing the last bf16 bit of a fold that ALREADY
+            # works. It cannot be protecting this one: there is no unblocked output here to be
+            # byte-identical to. So take the row block after the refusal, never before it, which
+            # leaves every size inside the window running exactly the path its parity was
+            # measured on and turns a dead fold above the window into a live one.
+            # Same shape as OpenFold3's refusal-narrowed OuterProductMean route.
+            if len(x.shape) != 4 or not _PAIR_FFN_ROW_BLOCK or not _is_alloc_refusal(exc):
+                raise
+            _UNBLOCKED_REFUSED.add(tuple(x.padded_shape))
+            WINDOW_FALLBACK_STATS[0] += 1
+            WINDOW_FALLBACK_STATS[1] -= 1
+            # Say it once per shape, on stdout, which `predict --debug` leaves connected. A
+            # fold that only completed because the allocator refused first is a DIFFERENT
+            # result from one that fit, and fragmentation is stateful enough that re-running
+            # the same rung can pass by luck -- so without this line a PASS here cannot be
+            # attributed to the fallback rather than to a tidier chip.
+            print(f"[pair-ffn] DRAM refused the unblocked pair FFN at "
+                  f"{tuple(x.shape)}; re-running it in {_PAIR_FFN_ROW_BLOCK}-row blocks",
+                  flush=True)
+            return self._row_blocked(x, _PAIR_FFN_ROW_BLOCK, residual=False)
 
 
 class Block(Module):

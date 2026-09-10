@@ -142,13 +142,30 @@ def test_predict_reports_a_contended_fan_out_as_contention_not_a_run_failure():
     else:
         raise AssertionError("a contended fan-out must raise DeviceInUseError")
 
-    # Any other dead-worker cause stays a run failure, and must NOT claim to know why.
+    # Any other dead-worker cause stays a run failure, and must not claim a diagnosis
+    # it does not have. This used to end "the worker's own traceback above says why",
+    # which is false for a worker stopped by a signal mid-job: that one prints a single
+    # line and no trace, and rf3 at 1536 tokens sent a reader hunting a traceback that
+    # was never written. The message names what each code means instead.
     try:
         run([_dead("SpawnProcess-1", 1)])
     except DeviceInUseError:
         raise AssertionError("exit 1 is not contention")
     except RuntimeError as exc:
-        assert "traceback above says why" in str(exc), exc
+        assert "every local worker exited before the run finished" in str(exc), exc
+        assert "SpawnProcess-1 exit 1" in str(exc), exc
+        assert "prints its own fatal above" in str(exc), exc
+
+    # 143 = 128 + SIGTERM, what a worker killed mid-fold now exits with
+    # (worker.run_worker_loop's KeyboardInterrupt arm). Still a run failure, not
+    # contention, and the message must say a signal did it rather than send the reader
+    # looking for a trace.
+    try:
+        run([_dead("SpawnProcess-1", 143)])
+    except DeviceInUseError:
+        raise AssertionError("exit 143 is not contention")
+    except RuntimeError as exc:
+        assert "signal stopped the worker mid-job" in str(exc), exc
 
 
 def test_worker_device_open_exits_on_the_code_only_for_contention():

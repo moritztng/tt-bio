@@ -410,8 +410,48 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     # --- No measured ceiling. Never refused. ---------------------------------------------------
     "boltz2": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
-    "esmfold2": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
-    "esmfold2-fast": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
+    "esmfold2": {
+        "wormhole_b0": Ceiling(
+            residues=1024, pass_at=1024, fail_at=1057, binds=MEMORY, mechanism=DRAM,
+            msa_rows=0,
+            evidence="its own ladder, walked 2026-09-09 on GWH02 card 1 by "
+                     "ws:esmfold2-cocrystal-everywhere at the settings a user gets: "
+                     "single-sequence, which is this model's default, and --fast, which "
+                     "tt_bio/main.py forces on Wormhole because ESMC-6B needs ~12.8 GB against "
+                     "a ~12 GB chip. 895 folds in 213 s, 960 in 273 s, 1024 in 287 s; 1057 does "
+                     "not fold. The failure is one DRAM allocation the chip cannot serve, and it "
+                     "is refused on BANK size rather than total memory: 588808192 B across 12 "
+                     "banks wants 49068032 B per bank against a 43118592 B largest free block. "
+                     "It is a TOKEN wall, not a polymer one -- a cocrystal at 1024 tokens (991 "
+                     "residues plus a 33-atom ligand) folds in 278 s and one at 1057 tokens is "
+                     "refused with the identical message, so a ligand costs nothing beyond the "
+                     "tokens it adds. This model read UNMEASURED until now because its published "
+                     "ladder (docs/size-generality.md, 2026-09-08) stopped at 1024, the "
+                     "platform's demo fence, and so never recorded a failing size above the cap: "
+                     "the ceiling was there, the negative control was not. CAVEAT, the same one "
+                     "openbind's row carries: this cap counts residues and scan_residues does "
+                     "not count ligand atoms, so 1024 residues plus any ligand at all is over "
+                     "the token wall, will be admitted here, and will fail on the chip",
+        ),
+    },
+    "esmfold2-fast": {
+        "wormhole_b0": Ceiling(
+            residues=1152, pass_at=1152, fail_at=1280, binds=MEMORY, mechanism=DRAM,
+            msa_rows=0,
+            evidence="its OWN ladder, walked 2026-09-09 on GWH02 card 1 by "
+                     "ws:esmfold2-cocrystal-everywhere, not inherited from esmfold2 by "
+                     "architecture argument -- and it had to be walked separately, because the "
+                     "two checkpoints do NOT share a ceiling. 960 folds in 202 s, 1024 in 214 s, "
+                     "1057 in 261 s, 1152 in 278 s; 1280 does not fold (838860800 B DRAM buffer "
+                     "across 12 banks, 69906432 B wanted per bank). 1057 is the rung that stops "
+                     "the full trunk and this checkpoint clears it, which is the expected "
+                     "direction: same architecture at half the trunk depth (24 blocks against "
+                     "48), so a smaller DRAM peak. Same settings as the esmfold2 row -- "
+                     "single-sequence (this checkpoint has no MSA encoder at all) and --fast, "
+                     "forced on Wormhole. Same residue-vs-token caveat as esmfold2 and openbind: "
+                     "ligand atoms are tokens the residue count cannot see",
+        ),
+    },
     "protenix-v1": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
     "nesso1": {
         "wormhole_b0": _unmeasured(
@@ -950,3 +990,73 @@ def shipped_models() -> set:
     from tt_bio import main as _main
     tuples = {n: getattr(_main, n) for n in dir(_main) if n.endswith("_MODELS")}
     return set().union(*tuples.values())
+
+
+# ---------------------------------------------------------------------------------------------
+# The refusal that arrives too late for the table above.
+# ---------------------------------------------------------------------------------------------
+
+# The allocator's message, with its closing parenthetical, which is the part that says which wall
+# was hit. Everything before it describes the request; only these three numbers describe the chip.
+_ALLOC_REFUSAL = re.compile(
+    r"Not enough space to allocate (?P<req>\d+) B (?P<space>DRAM|L1) buffer across "
+    r"(?P<banks>\d+) banks, where each bank needs to store (?P<per_bank>\d+) B, but bank size "
+    r"is (?P<bank_size>\d+) B\s*\(allocated: (?P<allocated>\d+) B, free: (?P<free>\d+) B, "
+    r"largest free block: (?P<largest>\d+) B\)")
+
+
+def _mib(n: int) -> str:
+    return f"{n / 2**30:.2f} GiB" if n >= 2**30 else f"{n / 2**20:.1f} MiB"
+
+
+def is_alloc_refusal(exc: BaseException) -> bool:
+    """Whether this exception is the device allocator refusing, and not any other failure.
+
+    The one predicate every retry path shares, so a circular-buffer throw or a shape error is
+    never quietly re-run through a fallback meant for an out-of-memory. Reads the same message
+    ``describe_device_oom`` renders, so the two can never disagree about what a refusal is.
+    """
+    return describe_device_oom(str(exc)) is not None
+
+
+def describe_device_oom(text: str) -> str | None:
+    """One sentence for an allocator refusal, or None if `text` is not one.
+
+    A user who asks for a size the chip cannot serve currently gets a C++ assertion line
+    (``TT_FATAL @ .../bank_manager.cpp:439: false``) followed by twenty backtrace frames, and the
+    one sentence that says what actually happened is buried in the middle. The assertion line is
+    the least informative thing in the message: it names a file in tt-metal and the literal word
+    "false".
+
+    The three cases below are genuinely different problems and want different answers, so the
+    sentence names which one it is instead of saying "out of memory" three ways:
+
+      * the request does not fit an EMPTY bank -- one oversized tensor, and no amount of freeing
+        would have helped. A smaller input is the only lever.
+      * it fits the free bytes but not any single free block -- fragmentation. The chip has the
+        room and cannot hand it over in one piece.
+      * it does not fit the free bytes -- the chip is full. Something else resident has to go.
+
+    The LAST refusal in the text, not the first: several paths in this engine catch a refusal and
+    retry with a smaller block, so an early one is routinely not the one that ended the run.
+    """
+    hits = list(_ALLOC_REFUSAL.finditer(text))
+    if not hits:
+        return None
+    g = {k: (v if k == "space" else int(v)) for k, v in hits[-1].groupdict().items()}
+    space, per_bank = g["space"], g["per_bank"]
+    if per_bank > g["bank_size"]:
+        why = (f"one allocation of {_mib(g['req'])} needs {_mib(per_bank)} in each of "
+               f"{g['banks']} {space} banks and a bank holds {_mib(g['bank_size'])}. No chip "
+               f"state would have served it, so this is the shape and not the load")
+    elif per_bank > g["free"]:
+        why = (f"{_mib(g['req'])} was requested, needing {_mib(per_bank)} per {space} bank, and "
+               f"only {_mib(g['free'])} is free. The chip is full")
+    elif per_bank > g["largest"]:
+        why = (f"{_mib(g['req'])} was requested, needing {_mib(per_bank)} per {space} bank. "
+               f"{_mib(g['free'])} is free but the largest single free block is "
+               f"{_mib(g['largest'])}, so the room exists and cannot be handed over in one "
+               f"piece: this is fragmentation, not a full chip")
+    else:
+        return None      # the numbers do not describe a refusal; say nothing rather than guess
+    return f"out of device {space}: {why}."

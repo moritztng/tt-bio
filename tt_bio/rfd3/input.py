@@ -338,6 +338,7 @@ class InputSpecification:
     plddt_enhanced: bool = True
     is_non_loopy: bool | None = None
     partial_t: float | None = None
+    allow_ligand_on_existing_chain: bool = True
     # keys the dataclass has no slot for. Nothing reads them, so validate() refuses them
     # rather than let a typo look like a design that ignored its own conditioning.
     extra_fields: dict = field(default_factory=dict)
@@ -371,6 +372,12 @@ class InputSpecification:
         "dialect": (2, "only input dialect 2 is implemented"),
         "cif_parser_args": (None, "the structure is read by this port's own parser"),
         "extra": (None, "the free-form extra block is not consumed"),
+        # Upstream needs this to pick up a ligand that shares a chain with protein
+        # (the real enzyme and symmetric examples all set it). This port always picks
+        # up every instance of the requested code wherever it sits, so `true` asks for
+        # what it already does and `false` is a restriction it does not implement.
+        "allow_ligand_on_existing_chain": (
+            True, "a ligand is picked up wherever it sits in the input structure"),
     }
 
     # Read for ligand atoms only (they become the ref_atomwise_rasa one-hot bin); on a
@@ -386,7 +393,7 @@ class InputSpecification:
             "input", "contig", "unindex", "length", "ligand", "cif_parser_args",
             "extra", "dialect", *cls._SELECT_FIELDS, "redesign_motif_sidechains",
             "symmetry", "ori_token", "infer_ori_strategy", "plddt_enhanced",
-            "is_non_loopy", "partial_t",
+            "is_non_loopy", "partial_t", "allow_ligand_on_existing_chain",
         )}
         spec = cls()
         spec.provided = dict(d)

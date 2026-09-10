@@ -16,7 +16,10 @@ dependencies.
 from __future__ import annotations
 
 import copy
+import difflib
+import functools
 import importlib
+import inspect
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -118,6 +121,66 @@ def dotlist_to_dict(dotlist: Iterable[str]) -> dict:
                 raise ValueError(f"Override key path collides with scalar: {item!r}")
         cursor[keys[-1]] = value
     return out
+
+
+_MISSING = object()
+
+
+@functools.lru_cache(maxsize=None)
+def target_kwargs(target: str) -> frozenset[str]:
+    """Keyword arguments the class named by a ``_target_`` string declares.
+
+    A ``**kwargs`` catch-all is deliberately NOT read as "accepts anything".
+    ``Predict.__init__`` has one so a config written by an older BoltzGen still
+    loads; letting it absorb a mistyped override is what made ``--config design
+    not_a_real_key=5`` a silent full-cost run at the default.
+    """
+    module_path, cls_name = target.rsplit(".", 1)
+    cls = getattr(importlib.import_module(module_path), cls_name)
+    try:
+        sig = inspect.signature(cls)
+    except (TypeError, ValueError):  # not introspectable
+        return frozenset()
+    return frozenset(
+        p.name
+        for p in sig.parameters.values()
+        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+    )
+
+
+def check_overrides(base: dict, overrides: dict, step: str | None = None) -> None:
+    """Refuse an override key the config's own schema cannot accept.
+
+    A step config is a ``_target_`` tree and :func:`instantiate` passes each
+    node's keys to that class as kwargs, so the schema is already there: the
+    constructor signature. There is no key list to hand-write or keep in sync.
+
+    A key the template already carries is accepted. A key it does not is
+    accepted only if the enclosing node's ``_target_`` declares it, which is
+    what makes adding a key the template leaves out (``debug=true``) work. A
+    node with no ``_target_`` is a free-form dict read by name at runtime
+    (``override``, ``metrics_override``) and is not checked.
+    """
+    def walk(node: Any, over: dict, path: str) -> None:
+        node = node if isinstance(node, dict) else {}
+        target = node.get("_target_")
+        accepted = target_kwargs(target) if isinstance(target, str) else None
+        for key, value in over.items():
+            here = f"{path}.{key}" if path else key
+            if node.get(key, _MISSING) is _MISSING and accepted is not None and key not in accepted:
+                known = sorted(accepted | {k for k in node if k != "_target_"})
+                where = f"step '{step}'" if step else "this config"
+                close = difflib.get_close_matches(key, known, n=1)
+                hint = f" Did you mean '{close[0]}'?" if close else ""
+                level = path or "the top level"
+                raise ValueError(
+                    f"Unknown config key '{here}' for {where}.{hint}"
+                    f" Accepted at {level}: " + (", ".join(known) if known else "(nothing)")
+                )
+            if isinstance(value, dict):
+                walk(node.get(key), value, here)
+
+    walk(base, overrides, "")
 
 
 def instantiate(cfg: dict) -> Any:
