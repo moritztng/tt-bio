@@ -252,6 +252,29 @@ def classify(text: str) -> str:
     return "unknown"
 
 
+# The lines a reader actually wants out of a failure. ttnn prints a ~200-frame backtrace after
+# every throw, so a fixed tail of the blob is backtrace and nothing else: the first pass's FAIL
+# rows carry 2500 characters of symbol names and not one word of what the allocator said. These
+# patterns pull the message itself out of wherever it landed.
+_SAY = re.compile(r"Not enough space to allocate|Out of Memory|TT_FATAL|TT_THROW|"
+                  r"^\w*(Error|Exception)\b|Traceback|RuntimeError|MemoryError|Killed", re.M)
+
+
+def throw_lines(text: str, keep: int = 12) -> list:
+    """The failure's own words, backtrace stripped. A row that only carries a backtrace cannot
+    say whether it hit a wall or a wedge, and those want opposite responses."""
+    out = []
+    for line in text.splitlines():
+        st = line.strip()
+        if not st or st.startswith("---") or st.startswith("["):
+            continue        # backtrace frames and the MPI-style per-signal dump
+        if _SAY.search(st) and st not in out:
+            out.append(st[:400])
+            if len(out) >= keep:
+                break
+    return out
+
+
 def dram_numbers(text: str) -> dict:
     """The allocator's own numbers out of an OOM throw, so a row can say how far short it was."""
     out = {}
@@ -343,6 +366,7 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         rec["verdict"] = "FAIL"
         rec["mechanism"] = classify(blob)
         rec.update(dram_numbers(blob))
+        rec["throw"] = throw_lines(blob)
         rec["tail"] = blob[-2500:]
     return rec
 
@@ -469,7 +493,9 @@ def main() -> int:
         print(f"[{rec['ts']}] {a.model} {size}: {rec['verdict']} "
               f"mech={rec['mechanism']} {rec['wall_s']}s {rec['artifact']}", flush=True)
         if rec["verdict"] != "PASS":
-            print(rec.get("tail", "")[-1200:], flush=True)
+            for line in rec.get("throw", []):
+                print(f"    ! {line}", flush=True)
+            print(rec.get("tail", "")[-600:], flush=True)
             if a.stop_on_fail:
                 break
     return 0
