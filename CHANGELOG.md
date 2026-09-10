@@ -3,6 +3,23 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Fixed
+
+- **A weights download can no longer wait forever, and no checkpoint has a single door.** The
+  stall watchdog now fires on a download that stops making progress instead of hanging the run,
+  aria2c no longer preallocates the file the watchdog is watching (which made a live download look
+  finished), and a checkpoint that is available from several sources falls back instead of failing
+  on the first one. Landed after v0.8.0 was tagged, so it ships in the next release; the same hang
+  is present in 0.7.x, so this is a fix arriving late, not a regression.
+- **The Protenix capstone test reports why it failed.** `scripts/protenix_fold_e2e.py` declared its
+  progress callback as `prog(stage, step, total)` while the repo-wide contract is
+  `fn(stage, step=0, total=0)`, so the confidence stage's one-argument call raised `TypeError`
+  after the fold had paid for all 10 trunk cycles and 200 diffusion steps. The test also discarded
+  the subprocess's stderr, which is why the reason sat unread through three release passes. No
+  shipped code path was affected: both production callbacks take the one-argument call.
+
 ## [0.8.0] - 2026-09-10
 
 ### Added

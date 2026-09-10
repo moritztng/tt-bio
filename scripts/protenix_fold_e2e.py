@@ -49,7 +49,7 @@ for k in ('distogram_rep_atom_mask','atom_to_tokatom_idx'):   # confidence head 
 
 dev=get_device(); ckc=ttnn.init_device_compute_kernel_config(dev.arch(),math_fidelity=ttnn.MathFidelity.HiFi4,fp32_dest_acc_en=True,packer_l1_acc=True)
 model=Protenix.load_from_checkpoint(CKPT, compute_kernel_config=ckc, device=dev)
-def prog(stage,step,total): print('  %s %d/%d'%(stage,step,total),flush=True)
+def prog(stage,step=0,total=0): print('  %s %d/%d'%(stage,step,total),flush=True)  # fn(stage, step=0, total=0) is the repo-wide contract (boltz2.py:5071); the confidence stage calls it with the stage alone
 N_STEP,N_SAMPLE=200,5
 coords,confs=model.fold(feats, n_step=N_STEP, n_sample=N_SAMPLE, seed=0, progress_fn=prog,
                         return_confidence=True)                                  # (S,N,3)
