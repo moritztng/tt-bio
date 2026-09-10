@@ -184,6 +184,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -262,6 +263,15 @@ SPECS: dict[str, dict] = {
     # structures/s sits on the same scale as protenix-v2 -- the 1:1 architectural
     # analogue and the fair in-house comparison.
     "openfold3":      dict(kind="fold", unit="structures/s", direction="higher"),
+    # OpenBind-0 is the OpenFold3 stack on the upstream v0.5.0 checkpoint
+    # (tt_bio/main.py::OF3_FAMILY), so the identical light TRPCAGE single-seq
+    # protocol applies and its structures/s is directly comparable to openfold3's.
+    # It shipped as a `predict --model` choice with no perf cell, covered only by a
+    # SPECS_EXEMPT note whose stated blocker (the parity legs) had already cleared --
+    # the same "shares a class with a covered model" reasoning that let the
+    # opendde-abag regression ship. A shared checkpoint loader is not shared perf
+    # coverage.
+    "openbind":       dict(kind="fold", unit="structures/s", direction="higher"),
     # opendde-abag loads a different checkpoint (opendde_abag.pt) through the exact
     # SAME OpenDDE class/diffusion path as "opendde" above (tt_bio/opendde.py — only
     # load_opendde_checkpoint's abag=True flag differs). It used to have NO entry
@@ -418,11 +428,6 @@ SPECS_EXEMPT: dict[str, str] = {
     # page's own note warns about. Seeding it is a warm run under benchlock (openbind
     # is the same stack as openfold3 and takes polymers, so the identical 1 recycle /
     # 10 steps / 1 sample protocol applies and the two cells are comparable).
-    "openbind": "shipped as `predict --model openbind`, parity-gated on two legs, but "
-                "no perf cell yet: needs a warm baseline measured under benchlock on "
-                "the shared TRPCAGE protocol, not its 512 aa ob_apo numbers. Add a "
-                "SPECS entry (kind=fold, structures/s, same protocol as openfold3) and "
-                "remove this entry when that baseline is seeded.",
     "saprot-35m": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
@@ -565,6 +570,21 @@ def _resolve_tt_smi() -> str | None:
     return None
 
 
+def _slug_board_type(board_type: str) -> str:
+    """Board type as a key that is safe in JSON and safe on a command line.
+
+    tt-smi reports a Galaxy board as ``tt-galaxy-wh L`` (trailing tray letter), and a
+    bare ``.lower()`` made the baseline key ``tt-galaxy-wh l``. A key with a space in
+    it also breaks the gate's own remediation message, which prints
+    ``--update-baseline`` with the card name unquoted, so the operator gets a command
+    the shell splits into two arguments. Runs of anything that is not a letter, digit
+    or dot collapse to a single ``-``. No-op for every board this repo already gates
+    on: ``p150a`` -> ``p150a``, ``p300c`` -> ``p300c``.
+    """
+    slug = re.sub(r"[^a-z0-9.]+", "-", str(board_type).strip().lower()).strip("-")
+    return slug or "unknown"
+
+
 def detect_card_type() -> str:
     """Canonical board-type key for the card this gate will run on ('p150a',
     'p300c', ...). This is the per-card baseline key in docs/perf_baselines.json.
@@ -589,7 +609,7 @@ def detect_card_type() -> str:
                 idx = min(int(visible), len(info) - 1) if visible.isdigit() else 0
                 bt = info[idx].get("board_info", {}).get("board_type")
                 if bt:
-                    return str(bt).lower()
+                    return _slug_board_type(bt)
         except Exception:
             pass
     else:
@@ -620,6 +640,41 @@ def detect_machine_id() -> str:
     worker-slot naming: ``socket.gethostname()``.
     """
     return socket.gethostname()
+
+
+def sample_host_load() -> dict:
+    """Host runnable-thread pressure, sampled around a measurement.
+
+    Every field this gate already records describes the CARD (board type, machine id,
+    driver and firmware). None of them describe how busy the HOST was, and at this
+    gate's fixture size that is the dominant term: trpcage is 20 aa, so a fold is
+    host-dispatch-bound, and the number moves with host CPU availability rather than
+    with the card. Measured on a 32-chip Wormhole Galaxy (j10glx02, 64 cores,
+    2026-09-11): boltz2 read 0.951 structures/s with the box idle and 0.065
+    structures/s -- 14.5x slower, same chip, same tree, same fixture -- with four
+    other jobs live and a 1-minute load average of 202. A cell seeded under the
+    second condition is not a slow baseline, it is a wrong one: it makes every
+    honest re-run look like a 14x improvement.
+
+    A single-tenant box (pc, qb1, qb2) sits far below 1.0 here even while running
+    this gate, because the fold's own processes spend their time blocked on the
+    device rather than runnable. The ratio is therefore about OTHER work on the
+    host, which is what has to be recorded.
+    """
+    try:
+        load1, load5, load15 = os.getloadavg()
+    except OSError:
+        return {"load1": None, "load5": None, "cpu_count": None, "ratio": None}
+    cpus = os.cpu_count() or 1
+    return {"load1": round(load1, 2), "load5": round(load5, 2), "cpu_count": cpus,
+            "ratio": round(load1 / cpus, 3)}
+
+
+#: A host with more runnable threads than cores was doing something else while the
+#: measurement ran. Warn at that point; REFUSE to seed a baseline from it (see
+#: ``_update_baselines``), because a gated run only misreads one verdict while a
+#: seeded cell misreads every future one.
+CONTENDED_RATIO = 1.0
 
 
 def detect_stack() -> dict:
@@ -1396,6 +1451,7 @@ def _run_measure(model: str) -> dict | None:
     per_rep = GEN_TIMEOUT_S if kind == "gen" else MEASURE_TIMEOUT_S
     reps = SINGLE_SHOT_REPEAT if kind in ("gen", "design", "affinity") else 1
     timeout = per_rep * reps + 300
+    load_before = sample_host_load()
     proc = subprocess.Popen(cmd, env=env, start_new_session=True)
     try:
         rc = proc.wait(timeout=timeout)
@@ -1413,10 +1469,27 @@ def _run_measure(model: str) -> dict | None:
         print(f"[{model}] measurement FAILED (exit {rc})", file=sys.stderr)
         return None
     try:
-        return json.loads(out.read_text())
+        row = json.loads(out.read_text())
     except Exception as e:
         print(f"[{model}] failed to parse result: {e}", file=sys.stderr)
         return None
+    # Sampled in the parent, not the child, so one place covers all five measurement
+    # kinds. The 1-minute average read the instant the child exits covers the timed
+    # region; the pre-launch sample is kept because it is the one the operator can act
+    # on (a high ratio BEFORE the run means don't trust what follows).
+    load_after = sample_host_load()
+    ratios = [x for x in (load_before.get("ratio"), load_after.get("ratio")) if x is not None]
+    row["host_load"] = {"before": load_before, "after": load_after,
+                        "peak_ratio": max(ratios) if ratios else None}
+    peak = row["host_load"]["peak_ratio"]
+    if peak is not None and peak > CONTENDED_RATIO:
+        row["contended"] = True
+        print(f"[{model}] WARNING: host load ratio {peak:.2f} (> {CONTENDED_RATIO:g}) "
+              f"during this measurement -- {load_after.get('load1')} runnable threads on "
+              f"{load_after.get('cpu_count')} cores. At 20 aa this gate is host-dispatch-"
+              f"bound, so this number describes the host, not the card. Measured 14.5x on "
+              f"a shared Galaxy. Do not seed a baseline from it.", file=sys.stderr)
+    return row
 
 
 def _delta_str(baseline: float, current: float, direction: str) -> tuple[float, str]:
@@ -1583,6 +1656,18 @@ def _update_baselines(rows: list[dict], args) -> int:
     models = m_entry.setdefault("models", {})
     any_ok = False
     measured: set[str] = set()
+    contended = [r["model"] for r in rows
+                 if not r.get("failed") and r.get("contended")]
+    if contended and not getattr(args, "allow_contended", False):
+        peaks = ", ".join(f"{r['model']} ratio {r['host_load']['peak_ratio']:.2f}"
+                          for r in rows if r.get("contended"))
+        sys.exit(f"REFUSING to seed a baseline: {len(contended)} of {len(rows)} "
+                 f"measurement(s) ran on a host with more runnable threads than cores "
+                 f"({peaks}). This gate's 20 aa fixture is host-dispatch-bound, so a "
+                 f"contended run records the host rather than the card -- measured 14.5x "
+                 f"on a shared Wormhole Galaxy, larger than any real regression this "
+                 f"threshold is meant to catch. Re-measure when the host is quiet, or "
+                 f"pass --allow-contended and say so in --note.")
     for r in rows:
         if r.get("failed"):
             print(f"[{r['model']}] FAILED — not updating its baseline", file=sys.stderr)
@@ -1604,7 +1689,7 @@ def _update_baselines(rows: list[dict], args) -> int:
             num_designs=r.get("num_designs"),
             warmup=r["warmup"], repeat=r["repeat"],
             hardware=r["hardware"], card_type=r.get("card_type", card_type),
-            machine_id=machine_id,
+            machine_id=machine_id, host_load=r.get("host_load"),
             tt_bio_version=r["tt_bio_version"], date=r["date"], note=args.note,
         )
     # The machine block's own date/tt_bio_version/note describe the whole block, so
@@ -1646,6 +1731,10 @@ def main() -> int:
     ap.add_argument("--update-baseline", action="store_true",
                     help="Refresh docs/perf_baselines.json from these warm runs instead of "
                          "gating. Requires --note. Use for an INTENTIONAL perf change only.")
+    ap.add_argument("--allow-contended", action="store_true",
+                    help="Seed a baseline even though the host had more runnable threads "
+                         "than cores while measuring. Records a host number, not a card "
+                         "number; say why in --note.")
     ap.add_argument("--note", default=None,
                     help="Required with --update-baseline: why this perf change is intended.")
     # internal: the per-model in-process measurement subprocess
