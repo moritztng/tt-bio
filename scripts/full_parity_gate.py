@@ -140,6 +140,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 import gate_guard  # noqa: E402  (card-grant + host-load guards, shared with release_gate.py)
+import perf_regression  # noqa: E402  (detect_stack: driver + card firmware, device-free)
 
 FIXTURE_ROOT = REPO / "docs" / "implementation-parity-data" / "ref-fixtures"
 FINGERPRINT_INDEX = REPO / "docs" / "implementation-parity-data" / "ref-fixture-fingerprints.json"
@@ -795,6 +796,18 @@ def preflight_check(legs: list) -> list:
                     f"{leg.id}: RF3 checkpoint not found at {ck} — `tt-bio weights fetch rf3` "
                     f"(3.0 GB from IPD) or point $RF3_CKPT at an existing copy; the cell "
                     f"otherwise ERRORs after paying for featurization")
+        if leg.kind == "abag":
+            # The DockQ scorer is a host package the runtime does not carry, and it is
+            # imported only AFTER the fold: a missing one turned a 298 s fold into an ERROR
+            # that reads as a gate failure. Card-free, it costs one subprocess.
+            dockq_py = _load_release_gate().OPENDDE_DOCKQ_PYTHON
+            rc = subprocess.run([dockq_py, "-c", "import DockQ.DockQ"],
+                                capture_output=True, text=True)
+            if rc.returncode != 0:
+                problems.append(
+                    f"{leg.id}: {dockq_py} cannot import DockQ — pip install DockQ==2.1.3 "
+                    f"into it, or point OPENDDE_DOCKQ_PYTHON at a venv that has it; the leg "
+                    f"otherwise ERRORs after paying for the fold")
         if leg.model == "openfold3":
             ckpt = os.environ.get("OF3_CKPT")
             if ckpt and not Path(ckpt).expanduser().exists():
@@ -1776,12 +1789,17 @@ def _capacity_verdict(report: dict) -> tuple[str, str]:
 def _af2ig_params() -> Path:
     """The AF2 monomer pTM parameters the two trunk legs score against.
 
-    An override rather than a hard-coded home directory: a release host that keeps the 373 MB
-    file anywhere else reported GAP with no way to say where it actually is, which reads as
-    "not covered" and is indistinguishable from "not installed".
+    Resolved through ``tt_bio.weights``, not a path this file keeps of its own. A second
+    resolver here is how all three af2ig legs reported "checkpoint absent" on a host that
+    loads the same file fine: the gate looked under ~/pxd_tool_weights while ``tt-bio
+    weights`` had unpacked it into the cache root, and a GAP reads as "not covered", which is
+    indistinguishable from "not installed". AF2IG_PARAMS still overrides, because weights
+    honours it as this row's legacy env, and may name either the file or its directory.
     """
-    return Path(os.path.expanduser(
-        os.environ.get("AF2IG_PARAMS", "~/pxd_tool_weights/af2/params_model_1_ptm.npz")))
+    from tt_bio import weights
+    art = weights.ARTIFACTS["af2-params"]
+    p = weights.resolve("af2-params") or art.derived_dest()
+    return (p / art.derived.expect[0]) if p.is_dir() else p
 
 
 def _port_gate_subprocess(argv: list[str], out_json: Path, mode: str,
@@ -2523,7 +2541,14 @@ def main() -> int:
               "total_wall_s": total_wall,
               "card_grant": None if grant is None else sorted(grant),
               "skipped_for_card_grant": [r["leg"] for r in skipped],
-              "workers": [f"{w.host}:{w.card}" for w in workers]}
+              "workers": [f"{w.host}:{w.card}" for w in workers],
+              # The driver and card firmware this run was measured under. A committed floor
+              # that does not carry them cannot be re-measured: the af2ig device floor was
+              # recorded on qb1 cards [3, 0] under card firmware 19.8.1.0, the same two cards
+              # under 19.15.0.0 report a Tensix grid of 11x10 instead of 13x10, and the leg
+              # then read as an accuracy FAIL of the port rather than as a floor measured on
+              # another stack (state doc 60.3, 60.4). Device-free, so it costs nothing.
+              "stack": perf_regression.detect_stack()}
     (workdir / "report.json").write_text(json.dumps(report, indent=2))
     if args.out:
         Path(args.out).write_text(json.dumps(report, indent=2))

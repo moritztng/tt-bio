@@ -120,6 +120,18 @@ python3 scripts/packaging_smoke.py
 # device turn is wasted on it. (It also runs automatically at the start of the gate below.)
 python3 scripts/full_parity_gate.py --check
 
+# When --check reports a leg "present but INCOMPLETE (reference CIFs missing)", the fetch it
+# suggests only helps if those binaries are actually IN the release asset. The asset is a
+# snapshot under the tag parity-fixtures-latest, and nothing refreshes it when new fixtures are
+# harvested, so a leg added since the last cut has nothing to fetch. Two are in that state
+# today: the 2026-07-27 asset carries no protenix-v1 tree at all, and for 9ncy only the staged
+# MSAs, so protenix-v1-prot-msa and protenix-9ncy-msa report BLOCKED-REF-REGEN-NEEDED. They do
+# NOT fail the gate. Closing one means harvesting its fp32 CPU references with
+# scripts/pharma_harvest_ref_fixtures.py, then re-tarring and re-cutting the release per the
+# recipe in the header of fetch_parity_fixtures.sh. Re-cut the asset whenever you harvest
+# fixtures, or the next release repeats this.
+scripts/fetch_parity_fixtures.sh   # restores the fixture binaries that ARE in the asset
+
 TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_venv/bin/python \
   PYTHONPATH="$PWD" \
   python3 scripts/full_parity_gate.py --workers pc:0

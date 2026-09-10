@@ -1,0 +1,8 @@
+# grep -iE "retry|TT_THROW.*circular" over each arm log
+
+## arm A (TT_BIO_FORCE_GRID=11,10): 2 matching lines
+1:2026-09-09 21:08:41.504 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 129 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1138688 and static circular buffer region ends at 1176064 (assert.hpp:104)
+2105:[tt-bio] trimul L1/circular-buffer clash at chunk width 128 (seq 208, 11x10 grid): retrying narrower. The tt-metal 'critical' line above is expected and handled; the result is unchanged.
+
+## arm B (TT_BIO_FORCE_GRID=10,10): 0 matching lines
+(none: the trimul entered at chunk width 128 and stayed there)
