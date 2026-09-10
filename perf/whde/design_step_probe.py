@@ -60,6 +60,7 @@ def main() -> int:
             return out
         return timed
 
+    n_token = None
     if args.model == "pxdesign":
         from tt_bio.main import ensure_p300_mesh_descriptor, ensure_pxdesign_weights
         from tt_bio.pxdesign.inputs import design_inputs_from_yaml
@@ -112,9 +113,13 @@ def main() -> int:
             device_visible=os.environ.get("TT_VISIBLE_DEVICES", "0"), verbose=False)
         total_s = time.perf_counter() - t_start
         load_s = None
-        n_token = int(getattr(rows[0], "n_atoms", 0) or 0)
+        # rfd3's size axis is atoms, not tokens; keeping them in one field would let a
+        # later reader compare an atom count against pxdesign's token count.
+        n_token = None
         extra = {"n_designs_out": len(rows),
-                 "cif_paths": [str(getattr(r, "cif", "")) for r in rows][:3]}
+                 "n_atoms": int(getattr(rows[0], "n_atoms", 0) or 0),
+                 "out_paths": [str(r.out_path) for r in rows][:3],
+                 "cif_exists": [Path(r.out_path).is_file() for r in rows][:3]}
 
     per_call = [b - a for a, b in stamps]
     trunk_s = (stamps[0][0] - t_start) if stamps else None
