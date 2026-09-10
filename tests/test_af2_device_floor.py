@@ -146,3 +146,69 @@ def test_a_second_card_reproduces_the_committed_floor():
     # measured cross-card spread.
     rows = {r["tap"]: r for r in live["rows"]}
     assert all(rows[r["tap"]].get("pcc") == r.get("pcc") for r in committed["rows"])
+
+
+# --- the record is keyed on the Tensix compute grid ----------------------------------------
+#
+# `de780ab7` moved the template pair stack onto the card and made the leg grid-sensitive with
+# it, so one record per grid, selected by the live report's own grid, and an unrecorded grid is
+# a loud FAIL rather than a silently gate-passing GAP.
+
+_GRID_A = [11, 10]
+_GRID_B = [13, 10]
+
+
+def _floor_rows(**kw):
+    return _report([("a", "FAIL", 4.0), ("b", "FAIL", 12.0), ("c", "PASS", None)],
+                   [("plddt", "FAIL", 0.0028), ("i_ptm", "PASS", 0.0026)], **kw)
+
+
+def _multi_record():
+    """Two records that differ in what they excuse, so picking the wrong one is visible."""
+    a = _floor_rows(compute_grid=_GRID_A)
+    b = _report([("a", "FAIL", 4.0), ("b", "PASS", None), ("c", "PASS", None)],
+                [("plddt", "FAIL", 0.0028), ("i_ptm", "PASS", 0.0026)], compute_grid=_GRID_B)
+    return {"records": [a, b]}
+
+
+def test_the_record_is_picked_by_the_reports_own_grid():
+    live = _floor_rows(compute_grid=_GRID_A)
+    assert df.af2ig_device_floor_verdict(live, _multi_record())[0] == "GAP"
+    # The same report against the other grid's record: `b` fails live and does not fail there.
+    verdict, detail = df.af2ig_device_floor_verdict(dict(live, compute_grid=_GRID_B),
+                                                    _multi_record())
+    assert verdict == "FAIL" and "new failing tap b" in detail
+
+
+def test_an_unrecorded_grid_fails_rather_than_gapping():
+    """A GAP that reproduces a committed GAP-evidenced record is gate-passing, so an
+    unmeasured grid must not be able to reach one."""
+    verdict, detail = df.af2ig_device_floor_verdict(_floor_rows(compute_grid=[12, 10]),
+                                                    _multi_record())
+    assert verdict == "FAIL"
+    assert "no committed floor for grid 12x10" in detail and "11x10" in detail
+
+
+def test_a_report_without_a_grid_fails_against_a_keyed_floor():
+    verdict, detail = df.af2ig_device_floor_verdict(_floor_rows(), _multi_record())
+    assert verdict == "FAIL" and "no compute_grid" in detail
+
+
+def test_a_legacy_single_record_file_is_still_scored_as_before():
+    """The file with no `records` list, and a report predating the field, both keep working."""
+    assert df.af2ig_device_floor_verdict(_floor_rows(), FLOOR)[0] == "GAP"
+    assert df.af2ig_device_floor_verdict(_floor_rows(compute_grid=_GRID_A), FLOOR)[0] == "GAP"
+
+
+def test_the_committed_file_carries_a_record_for_every_grid_it_names():
+    committed = _committed()
+    records = committed.get("records")
+    if records is None:
+        pytest.skip("committed floor is still a legacy single record")
+    grids = [tuple(r.get("compute_grid") or ()) for r in records]
+    assert all(len(g) == 2 for g in grids), "a record without a compute_grid can never be picked"
+    assert len(set(grids)) == len(grids), "two records claim the same grid"
+    for rec in records:
+        assert rec.get("rows"), "a record with no rows excuses nothing"
+        assert df.af2ig_device_floor_verdict(dict(rec), committed)[0] == "GAP", \
+            "a record does not reproduce itself"

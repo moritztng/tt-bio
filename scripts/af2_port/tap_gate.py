@@ -311,6 +311,21 @@ def tie_away_adds() -> None:
     ref.EvoformerBlock.forward = forward
 
 
+def _compute_grid(device: bool) -> list[int] | None:
+    """The Tensix grid the engine picked for this run. See the report field.
+
+    Read after the fold, so a `TT_BIO_FORCE_GRID` override and the grid the card actually
+    presented are both included. The same p150a board reports 13x10 on card firmware
+    19.8.1.0 and 11x10 on 19.15.0.0, and the trimul/matmul decomposition above the template
+    pair stack is chosen from this grid, so a numerics record that does not carry it cannot
+    be re-measured or compared.
+    """
+    if not device:
+        return None
+    from tt_bio import tenstorrent as TT
+    return list(TT.COMPUTE_GRID_MAIN)
+
+
 def _triatt_stats(device: bool) -> dict | None:
     """What the fused triangle attention actually served this run. See the report field."""
     if not device:
@@ -573,6 +588,8 @@ def main() -> int:
         # arm that names itself `all` and served nothing would read as a clean pass on the lever
         # while measuring the incumbent. The counts say which kernel actually ran.
         "triatt_fused_stats": _triatt_stats(args.device),
+        # The floor this report is scored against is keyed on the grid (device_floor.py).
+        "compute_grid": _compute_grid(args.device),
         "template_host": args.template_host,
         "tie_away_adds": args.tie_away_adds,
         "rne_residual": not args.ttnn_residual,
