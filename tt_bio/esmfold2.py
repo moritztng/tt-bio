@@ -422,11 +422,20 @@ class DiffusionTransformer(TorchWrapper):
 # ===========================================================================
 
 
+#: First block size tried after a refusal. 384 is the outer product's first rung, and the two
+#: transients are the same order, so it starts there rather than at a number of its own.
+_TRANSITION_FALLBACK_ROWS = 384
+
+
 class TransitionLayer(Module):
     """SwiGLU transition with separate a/b projections: out_proj(silu(a(LN(x)))*b(LN(x)))."""
 
     def __init__(self, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
+        # Rows a refused pair shape settled at. Per layer, because the pair transitions and
+        # the single ones carry different channel widths at the same shape, so what one
+        # settles at says nothing about another.
+        self._rows_refused: dict = {}
         self.norm_w = self.torch_to_tt("norm.weight")
         self.norm_b = self.torch_to_tt("norm.bias")
         self.a_w = self.torch_to_tt("a_proj.weight")
@@ -461,9 +470,21 @@ class TransitionLayer(Module):
             t = tenstorrent.SMALL_GRID_SEQ_TILE
             chunk = t if (t and L > t) else 0
         if chunk:
-            parts = ttnn.chunk(x, -(-L // chunk), dim=1)
-            return ttnn.concat([self._body(p) for p in parts], dim=1)
-        return self._body(x)
+            return self._tiled(x, chunk)
+        # Blackhole runs this in a single pass (`pair_row_tile` returns 0 on a big grid), which
+        # is right at every size that fits and is not at 1536: the a/b projections off a
+        # [1,1536,1536,512] pair are 2.25 GiB, and DRAM refused exactly that on a p150a with
+        # 288.0 MiB wanted per bank, 561.2 MiB free and a 264.2 MiB largest free block -- room
+        # enough, no single block big enough. Tiling is bit-exact here by the row-independence
+        # argument this op already relies on for the Wormhole path above.
+        return tenstorrent.row_block_after_refusal(
+            self._rows_refused, tuple(x.padded_shape),
+            lambda: self._body(x), lambda rows: self._tiled(x, rows),
+            rows=_TRANSITION_FALLBACK_ROWS, tag="transition")
+
+    def _tiled(self, x: ttnn.Tensor, chunk: int) -> ttnn.Tensor:
+        parts = ttnn.chunk(x, -(-x.shape[1] // chunk), dim=1)
+        return ttnn.concat([self._body(p) for p in parts], dim=1)
 
 
 class DiffusionConditioningModel(Module):
@@ -1153,53 +1174,36 @@ class OuterProductMean(Module):
         # tiling over the i (row) dim is bit-exact. Pair op -> area-bounded tile
         # (transient ~ rows*L). Single pass on Blackhole.
         from tt_bio import tenstorrent
-        chunk = tenstorrent.pair_row_tile(L) or _OPM_ROWS_REFUSED.get(L, 0)
+        chunk = tenstorrent.pair_row_tile(L)
         if chunk:
             return self._row_blocked(a, b2, recip_nvalid, L, M, chunk)
-        try:
-            return self._rows(a, b2, recip_nvalid, L, M)
-        except Exception as exc:
-            # `pair_row_tile` returns 0 on a big grid, so Blackhole runs this op in a single
-            # pass -- which was right at every size it was measured at and is not at 1536.
-            # `_rows` builds a [B, Bl*32, L*32] product, quadratic in L with a 32x blow-up on
-            # BOTH axes: at L=1536 that is 49152 x 49152 in bf16, 4831838208 B, and the permute
-            # on the next line needs a second one live at the same time. Measured on qb1
-            # card 0: DRAM refused exactly that, 603979776 B per bank against a 4278190016 B
-            # bank, with 698519488 B free and a 504088512 B largest block -- room enough, no
-            # single block big enough.
-            # Row-blocking is bit-exact here by this op's own argument, stated in the comment
-            # above: output row i depends only on a[i] and b, so tiling the i axis partitions
-            # independent rows and reassociates nothing. That is a stronger correctness story
-            # than the pair-FFN row block, which can move a bf16 bit through the matmul program
-            # ttnn derives -- nothing here changes a reduction.
-            # After the refusal, never before it, so every size that fits keeps its single pass.
-            from tt_bio.size_limits import is_alloc_refusal
-
-            if not is_alloc_refusal(exc):
-                raise
-            rows = _opm_fallback_rows(L)
-            _OPM_ROWS_REFUSED[L] = rows
-            print(f"[opm] DRAM refused the single-pass outer product at L={L}; "
-                  f"re-running it in {rows}-row blocks", flush=True)
-            return self._row_blocked(a, b2, recip_nvalid, L, M, rows)
+        # `pair_row_tile` returns 0 on a big grid, so Blackhole runs this op in a single
+        # pass -- which was right at every size it was measured at and is not at 1536.
+        # `_rows` builds a [B, Bl*32, L*32] product, quadratic in L with a 32x blow-up on
+        # BOTH axes: at L=1536 that is 49152 x 49152 in bf16, 4831838208 B, and the permute
+        # on the next line needs a second one live at the same time. Measured on qb1
+        # card 0: DRAM refused exactly that, 603979776 B per bank against a 4278190016 B
+        # bank, with 698519488 B free and a 504088512 B largest block -- room enough, no
+        # single block big enough.
+        # Row-blocking is bit-exact here by this op's own argument, stated in the comment
+        # above: output row i depends only on a[i] and b, so tiling the i axis partitions
+        # independent rows and reassociates nothing. That is a stronger correctness story
+        # than the pair-FFN row block, which can move a bf16 bit through the matmul program
+        # ttnn derives -- nothing here changes a reduction.
+        # After the refusal, never before it, so every size that fits keeps its single pass.
+        # The try/refuse/halve/remember loop itself is `tenstorrent.row_block_after_refusal`,
+        # shared with the pair transition rather than written out again here.
+        return tenstorrent.row_block_after_refusal(
+            _OPM_ROWS_REFUSED, L,
+            lambda: self._rows(a, b2, recip_nvalid, L, M),
+            lambda rows: self._row_blocked(a, b2, recip_nvalid, L, M, rows),
+            rows=_opm_fallback_rows(L), tag="opm")
 
     def _row_blocked(self, a, b2, recip_nvalid, L, M, chunk):
-        """`_rows` over `chunk`-row blocks. Shrinks on a further refusal, down to one tile."""
-        while True:
-            try:
-                outs = [self._rows(a[:, s:min(s + chunk, L), :, :], b2,
-                                   recip_nvalid[:, s:min(s + chunk, L), :, :], L, M)
-                        for s in range(0, L, chunk)]
-                break
-            except Exception as exc:
-                from tt_bio.size_limits import is_alloc_refusal
-
-                if not is_alloc_refusal(exc) or chunk <= 32:
-                    raise
-                chunk = max(32, (chunk // 2 // 32) * 32)
-                _OPM_ROWS_REFUSED[L] = chunk
-                print(f"[opm] still refused; halving the outer-product block to {chunk} rows",
-                      flush=True)
+        """`_rows` over `chunk`-row blocks. A further refusal is the caller's to shrink."""
+        outs = [self._rows(a[:, s:min(s + chunk, L), :, :], b2,
+                           recip_nvalid[:, s:min(s + chunk, L), :, :], L, M)
+                for s in range(0, L, chunk)]
         return ttnn.concat(outs, dim=1)
 
 
