@@ -543,14 +543,10 @@ def _record_trimul_inproj_oom(seq_len: int, hidden: int, batch: int, fused: int)
 
 # Narrowest channel chunk the in-projection may take. The channel loop consumes the fused
 # projection with a 4-way `ttnn.chunk` along the last axis, so the chunk width IS the slice width,
-# and a sub-tile slice off a large TILE-layout DRAM tensor is not a narrower version of the same
-# op, it is a broken one. Measured on a p150a at `[1, S, S, 4C]` bf16 DRAM
-# (perf/bgsdpa/repro_hang.py): 32-wide pieces come back in 17.4 ms at S=1856, and in 24.1 ms from
-# a 128-wide input, while 16-wide pieces take 77-870 ms at S=512-1664 and WEDGE THE DEVICE at
-# S=1536, 1792, 1856 and 2208 -- one core spinning, no timeout, only `tt-smi -r` clears it.
-# `reblock_permute.eligible_gated` has always required `slice_c % TILE_W == 0` for the fused gated
-# kernel, so a narrowed shape fell out of that kernel and into the stock four-way path, which had
-# no such guard.
+# and on the parts `_SUB_TILE_SLICE_WEDGES` names a sub-tile piece never comes back (measurements
+# there). `reblock_permute.eligible_gated` has always required `slice_c % TILE_W == 0` for the
+# fused gated kernel, so a narrowed shape fell out of that kernel and into the stock four-way
+# path, which had no such guard.
 #
 # This is what BoltzGen's "Blackhole capacity ceiling above 14786 atoms" was, and nothing about it
 # is BoltzGen's: every trimul-using model on the DRAM path is narrowed to a half tile the moment
@@ -558,7 +554,7 @@ def _record_trimul_inproj_oom(seq_len: int, hidden: int, batch: int, fused: int)
 # RoseTTAFold3 and Boltz-2 at their own large sizes. A 1831-residue design (padded 1856) folds in
 # 692 s; 2100 residues (padded 2208) hung, four for four.
 #
-# It is a floor on the footprint cap only, not on a refusal -- see `_trimul_inproj_chunk_cap`.
+# It floors the footprint cap only, not a refusal -- see `_trimul_inproj_chunk_cap`.
 _TRIMUL_MIN_CHUNK = _reblock.TILE_W
 
 
