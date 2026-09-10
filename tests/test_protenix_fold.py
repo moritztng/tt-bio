@@ -17,8 +17,11 @@ NEED = [os.path.expanduser(p) for p in (
     "~/protenix_ife_gold.pkl", "~/protenix_trunkin_gold.pkl", "~/protenix_ref_out.pkl",
     "~/protenix_traj.pkl", "~/protenix_ckpt/protenix-v2.pt")]
 
-pytestmark = pytest.mark.skipif(not all(os.path.exists(p) for p in NEED),
-                                reason="needs v2 golden feats pkls + ckpt")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not all(os.path.exists(p) for p in NEED),
+                       reason="needs v2 golden feats pkls + ckpt"),
+]
 
 
 def test_protenix_fold_end_to_end():

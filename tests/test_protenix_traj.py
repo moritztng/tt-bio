@@ -11,10 +11,13 @@ TRAJ = os.path.expanduser("~/protenix_traj.pkl")
 PRE = os.path.expanduser("~/protenix_denoiser_pre.pkl")
 CKPT = os.path.expanduser("~/protenix_ckpt/protenix-v2.pt")
 
-pytestmark = pytest.mark.skipif(
-    not (os.path.exists(TRAJ) and os.path.exists(PRE) and os.path.exists(CKPT)),
-    reason="needs ~/protenix_traj.pkl, ~/protenix_denoiser_pre.pkl, v2 ckpt (build via scripts/protenix_extract_traj.py)",
-)
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(
+        not (os.path.exists(TRAJ) and os.path.exists(PRE) and os.path.exists(CKPT)),
+        reason="needs ~/protenix_traj.pkl, ~/protenix_denoiser_pre.pkl, v2 ckpt (build via scripts/protenix_extract_traj.py)",
+    ),
+]
 
 
 def test_protenix_diffusion_trajectory_on_device():

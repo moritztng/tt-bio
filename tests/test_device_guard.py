@@ -68,15 +68,25 @@ def test_device_marker_is_registered():
 
 
 def test_backstop_signature_matches_what_ttnn_actually_aborts_with(tmp_path):
-    """`conftest._NO_CHIPS` is the one brittle string in the guard: the backstop that turns an
+    """`conftest._NO_CHIPS` is the brittle part of the guard: the backstop that turns an
     UNMARKED device test into a skip keys on it. Pin it against the installed ttnn rather than
     against memory, so a wheel that renames the abort shows up here instead of as 60 failures
-    nobody can read. Opens nothing -- with no chips visible there is no card to open."""
+    nobody can read. Opens nothing -- with no chips visible there is no card to open.
+
+    Both signatures are checked, and one of them has to be on stdout. tt-metal reports two
+    no-chips aborts and only `No chips detected in the cluster` reaches stdout; `num_chips > 0`
+    is stderr-only. A device test that forks a child and asserts on its captured *stdout*
+    therefore shows the backstop stdout alone, so keying on the stderr-only string made three
+    unmarked protenix tests read as FAIL on a card-free host instead of as skips."""
     child = "import ttnn; ttnn.open_device(device_id=0)"
     out = subprocess.run([sys.executable, "-c", child], cwd=REPO, capture_output=True, text=True,
                          env=dict(os.environ, TT_VISIBLE_DEVICES="",
                                   TT_BIO_LEASE_DIR=str(tmp_path)), timeout=900)
     assert out.returncode != 0, "ttnn opened a device with TT_VISIBLE_DEVICES empty"
-    assert conftest._NO_CHIPS in out.stdout + out.stderr, (
-        f"ttnn's no-chips abort no longer says {conftest._NO_CHIPS!r}:\n"
-        f"{(out.stdout + out.stderr)[-2000:]}")
+    both = out.stdout + out.stderr
+    stale = [sig for sig in conftest._NO_CHIPS if sig not in both]
+    assert not stale, (
+        f"ttnn's no-chips abort no longer says {stale!r}:\n{both[-2000:]}")
+    assert any(sig in out.stdout for sig in conftest._NO_CHIPS), (
+        "no signature reaches stdout, so the backstop cannot see a test that captures only "
+        f"stdout:\n{out.stdout[-2000:]}")

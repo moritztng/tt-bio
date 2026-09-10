@@ -9,8 +9,11 @@ NEED = [os.path.expanduser(p) for p in (
     "~/protenix_ref_out.pkl", "~/protenix_trunkin_gold.pkl", "~/protenix_trunk_gold.pkl",
     "~/protenix_ckpt/protenix-v2.pt")]
 
-pytestmark = pytest.mark.skipif(not all(os.path.exists(p) for p in NEED),
-                                reason="needs v2 trunk golden pkls + ckpt")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not all(os.path.exists(p) for p in NEED),
+                       reason="needs v2 trunk golden pkls + ckpt"),
+]
 
 
 def test_protenix_trunk_class_on_device():

@@ -171,9 +171,11 @@ def pytest_collection_modifyitems(config, items):
         item.add_marker(skip)
 
 
-#: ttnn's abort when the cluster comes up with no chips. This is what a device test that
-#: nobody marked dies of on a card-free host.
-_NO_CHIPS = "num_chips > 0"
+#: ttnn's aborts when the cluster comes up with no chips. This is what a device test that
+#: nobody marked dies of on a card-free host. tt-metal has two of these and reports whichever
+#: assert it reaches first, so both belong here: keying on one alone made three unmarked
+#: protenix tests read as FAIL under the pinned ttnn 0.68.0 where they had read as skips.
+_NO_CHIPS = ("num_chips > 0", "No chips detected in the cluster")
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -197,7 +199,15 @@ def pytest_runtest_makereport(item, call):
         return
     if item.get_closest_marker("device") is not None:
         return
-    if device_verdict()[0] != SKIP or _NO_CHIPS not in str(rep.longrepr):
+    # A failure in the guard FOR this backstop must not be converted BY it. That guard asserts
+    # on ttnn's own abort text, so its failure message carries the signature and the hook below
+    # would turn a red sentinel into a silent skip -- which is what it did when the set was
+    # narrowed back to one string as a control.
+    if item.path.name == "test_device_guard.py":
+        return
+    if device_verdict()[0] != SKIP:
+        return
+    if not any(abort in str(rep.longrepr) for abort in _NO_CHIPS):
         return
     rep.outcome = "skipped"
     rep.longrepr = (str(item.path), (item.location[1] or 0) + 1,
