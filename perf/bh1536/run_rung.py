@@ -22,6 +22,7 @@ from pathlib import Path
 WT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(WT))
 from tt_bio.device_lease import CONTENDED_EXIT_CODE  # noqa: E402  (75, not re-typed here)
+from tt_bio.main import AFFINITY_MODELS  # noqa: E402  (the registry, not a literal list here)
 OUTROOT = WT / "perf" / "bh1536"
 PY = "/home/ttuser/tt-bio-dev/env/bin/python3"
 
@@ -315,10 +316,18 @@ def main():
     ap.add_argument("--single_sequence", action="store_true", default=True)
     ap.add_argument("--msa", dest="single_sequence", action="store_false")
     ap.add_argument("--tag", default="")
-    ap.add_argument("--task", choices=("predict", "affinity"), default="predict",
+    ap.add_argument("--task", choices=("predict", "affinity"), default=None,
                     help="affinity scores a ligand and writes no structure, so it is judged on "
-                         "its scalar rather than on a CIF")
+                         "its scalar rather than on a CIF. Derived from the model when omitted")
     a = ap.parse_args()
+
+    # Which CLI verb this model takes, read off the registry rather than passed in by every
+    # caller. `chain.sh` does not know one model from another and passed none, so nesso1 -- the
+    # roster's only affinity model -- would have been handed to `predict`, whose --model choices
+    # do not include it: a click usage error recorded as a FAILED 1536 rung for a model that was
+    # never invoked. Same class as the CONTENDED and WEDGED rows, one layer earlier.
+    if a.task is None:
+        a.task = "affinity" if a.model in AFFINITY_MODELS else "predict"
 
     fixture = (WT / "perf" / "bh1536" / "fixtures" / f"aff_{a.size}.yaml" if a.task == "affinity"
                else WT / "perf" / "size512" / "fixtures" / f"cdk2x2_{a.size}.yaml")
