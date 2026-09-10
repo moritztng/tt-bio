@@ -208,8 +208,11 @@ def crop_cif(src: pathlib.Path, n_res: int, dst: pathlib.Path) -> tuple[int, int
     return res, atoms
 
 
+_BINDER_CHAIN = "Z"   # never collides with the crop, whose chains are labelled A..H
+
+
 def boltzgen_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
-                     binder: int = 80) -> tuple[pathlib.Path, int]:
+                     binder: int = 80) -> tuple[pathlib.Path, int, int]:
     """A BoltzGen design spec against the first `target_res` residues of `target`.
 
     Returns the YAML and the target's ATOM count -- the axis this model is sized on. BoltzGen
@@ -218,19 +221,24 @@ def boltzgen_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
     different parsers and the predict spelling is silently a different model's input.
     """
     cif = work / f"bgt{target_res}.cif"
-    _, atoms = crop_cif(target, target_res, cif)
+    res, atoms = crop_cif(target, target_res, cif)
+    # Include EVERY chain the crop produced. Naming one chain caps the axis at that chain's
+    # length and BoltzGen does not complain: a 3662-residue crop whose chain A is 1008 conditions
+    # on 1008 and still designs a perfectly good 80-residue binder, so the rung reads PASS at a
+    # size that never ran. Same cause as the pxdesign fixture, same fix.
+    chains = cif_chains(cif)
+    include = "".join(f"        - chain:\n            id: {cid}\n" for cid in sorted(chains))
     p = work / f"bg{target_res}.yaml"
     p.write_text(
         "entities:\n"
         "  - protein:\n"
-        "      id: B\n"
+        f"      id: {_BINDER_CHAIN}\n"
         f"      sequence: {binder}\n"
         "  - file:\n"
         f"      path: {cif.name}\n"
         "      include:\n"
-        "        - chain:\n"
-        "            id: A\n")
-    return p, atoms
+        + include)
+    return p, atoms, res
 
 # --------------------------------------------------------------------------------------------
 # Mechanism classification. Says WHY, not just WHERE -- the two OOM classes want different fixes.
@@ -328,7 +336,7 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
                       "--n_step", str(args.steps), "--num_designs", "1"]
         checker = ("binder", (args.binder, size))
     elif model == "boltzgen":
-        fx, atoms = boltzgen_fixture(work, size, pathlib.Path(args.target), args.binder)
+        fx, atoms, tres = boltzgen_fixture(work, size, pathlib.Path(args.target), args.binder)
         # `--devices` is an ID LIST, not a count: `--devices 1` means physical card 1, and it
         # only looked like a count on qb1 because the grant there happened to BE card 1. On any
         # other card it dies before the model loads with "Requested Tenstorrent device id(s) [1]
@@ -336,7 +344,7 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         # already narrowed that to the one this rung is pinned to.
         cmd = base + ["design", str(fx), "--model", "boltzgen", "--out_dir", str(out_dir),
                       "--num_designs", "1", "--steps", "design", "--debug"]
-        checker = ("designcif", args.binder)
+        checker = ("designcif", (args.binder, tres))
         extra = {"target_atoms": atoms}
     else:
         raise SystemExit(f"no fixture for {model}")
@@ -375,7 +383,7 @@ def rescore_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     """Re-verify a rung from the artifacts on disk. No subprocess, no device."""
     out_dir = work / f"out_{model}_{size}"
     checker = {"rfd3": ("cif", size), "pxdesign": ("binder", (args.binder, size)),
-               "boltzgen": ("designcif", args.binder)}.get(model, ("npz", size))
+               "boltzgen": ("designcif", (args.binder, size))}.get(model, ("npz", size))
     rec = {"model": model, "size": size, "rc": None, "wall_s": 0.0,
            "cmd": "(rescored from artifacts on disk)", "arch": "blackhole", "board": args.board,
            "host": os.uname().nodename, "card": args.card,
@@ -462,6 +470,13 @@ def check_artifact(checker, out_dir: pathlib.Path, model: str) -> tuple[bool, di
         # `expect` residues) NEXT TO it. So the check is "some chain is the designed one", not
         # "the file has `expect` residues" -- the latter rejects a run that in fact succeeded,
         # and "a .cif landed in out_dir" accepts the input copy.
+        # The designed chain alone is NOT enough, for the same reason it is not enough for
+        # pxdesign: the binder length does not depend on the target, so a run that conditioned
+        # on 1008 residues when the rung asked for 3662 writes the identical 80-residue chain.
+        # The rung therefore also sums the chains that are NOT the binder and requires that to
+        # be the size that was asked for. That is what makes this a measurement of the target
+        # axis rather than of the binder length.
+        nres, want_target = expect
         cifs = sorted(out_dir.rglob("*.cif"))
         if not cifs:
             return False, {"reason": "no design .cif written",
@@ -471,9 +486,23 @@ def check_artifact(checker, out_dir: pathlib.Path, model: str) -> tuple[bool, di
             chains = cif_chains(c)
             res, atoms = cif_stats(c)
             seen.append({"cif": c.name, "chains": chains})
-            if expect in chains.values() and len(chains) > 1 and atoms >= 3 * res:
-                return True, {"cif": c.name, "chains": chains, "residues": res, "atoms": atoms}
-        return False, {"reason": f"no .cif carries a designed chain of {expect} residues "
+            if nres not in chains.values() or len(chains) < 2 or atoms < 3 * res:
+                continue
+            # Exactly one chain is the binder; everything else is target.
+            rest, dropped = dict(chains), False
+            for cid, n in sorted(chains.items()):
+                if n == nres and not dropped:
+                    del rest[cid]
+                    dropped = True
+            got_target = sum(rest.values())
+            d = {"cif": c.name, "chains": chains, "residues": res, "atoms": atoms,
+                 "target_residues": got_target, "asked_target": want_target}
+            if got_target != want_target:
+                d["reason"] = (f"the binder is right but the target was not: conditioned on "
+                               f"{got_target} residues, rung asked for {want_target}")
+                return False, d
+            return True, d
+        return False, {"reason": f"no .cif carries a designed chain of {nres} residues "
                                  f"alongside the target", "saw": seen[:4]}
     files = [p for p in out_dir.rglob("*") if p.is_file() and p.stat().st_size > 0]
     return bool(files), {"files": len(files),
