@@ -7,3 +7,8 @@
 2026-09-09T23:33:08Z openfold3       1536tok PASS     wall=  716.3s engine=688.2 cif_res=1536/1536 ntok=1536 rss=71.59G oom=- breaks=0 worst_ca=3.94 clash=0.11714
 2026-09-09T23:43:10Z openbind        1536tok PASS     wall=  594.5s engine=553.9 cif_res=1536/1536 ntok=1536 rss=65.35G oom=- breaks=0 worst_ca=4.2 clash=0.08587
 2026-09-09T23:45:20Z protenix-v1     1536tok FAIL     wall=  130.2s engine=None cif_res=0/1536 ntok=None rss=39.69G oom=-
+2026-09-10T00:00:18Z protenix-v2     1536tok PASS     wall=  890.2s engine=746.7 cif_res=1536/1536 ntok=1536 rss=60.55G oom=- breaks=0 worst_ca=3.86 clash=0.13528
+# NOTE 2026-09-10T00:0xZ: the protenix-v1 1536 line above reads FAIL. It was reclassified
+# CONTENDED in results.jsonl by perf/bh1536/reclassify.py, from its own recorded tail: the whole
+# 130 s was a lease wait behind a sibling task unpinned pytest holding card 0. This log is
+# append-only, so the original line stays and this is the correction.
