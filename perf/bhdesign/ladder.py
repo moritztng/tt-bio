@@ -243,6 +243,8 @@ _MECH = [
     ("fragmentation", re.compile(r"largest free block", re.I)),
     ("shape", re.compile(r"shape|dimension|assert.*tile|must be a multiple", re.I)),
 ]
+# `timeout` is set directly by the runner, never matched here: the harness knows it killed the
+# run, and no log pattern can tell that from a throw the run recovered from.
 
 
 def classify(text: str) -> str:
@@ -343,12 +345,14 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         raise SystemExit(f"no fixture for {model}")
 
     t0 = time.time()
+    timed_out = False
     try:
         p = subprocess.run(cmd, cwd=str(ROOT), env=env, capture_output=True, text=True,
                            timeout=args.timeout)
         rc, blob = p.returncode, (p.stdout or "") + (p.stderr or "")
     except subprocess.TimeoutExpired as e:
         rc = -9
+        timed_out = True
         blob = ((e.stdout or b"").decode(errors="replace") if isinstance(e.stdout, bytes)
                 else (e.stdout or "")) + "\nTIMEOUT"
     wall = round(time.time() - t0, 1)
@@ -364,7 +368,14 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         rec["mechanism"] = "none"
     else:
         rec["verdict"] = "FAIL"
-        rec["mechanism"] = classify(blob)
+        # A run the harness killed on ITS OWN clock has no mechanism in the log, and classify()
+        # will happily label it off whatever allocator line the run printed and recovered from --
+        # boltzgen at 20171 atoms came back `l1` off an absorbed throw when what actually happened
+        # is that 3000 s ran out. The wall-clock budget is the ladder's choice, so it is named as
+        # such and not as a property of the model.
+        rec["mechanism"] = "timeout" if timed_out else classify(blob)
+        if timed_out:
+            rec["timeout_s"] = args.timeout
         rec.update(dram_numbers(blob))
         rec["throw"] = throw_lines(blob)
         rec["tail"] = blob[-2500:]

@@ -426,9 +426,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "than a gap: on qb1 p150a a 1831-residue / 14786-atom target designs an 80-residue "
             "binder in 692.0 s (task bh-1536-design-embed-p2, 2026-09-10), which is 3.2x the top "
             "of the Wormhole 3158-4651 atom band and 1.8x the 8095 atoms the first Blackhole pass "
-            "could reach with the largest single chain on hand. Nothing failed there, so there is "
-            "nothing to refuse on, and the number is atom-denominated anyway -- COUNTS carries no "
-            "atom unit, so writing it as residues would be a unit substitution",),
+            "could reach with the largest single chain on hand. The next rung, 20171 atoms, did "
+            "not fail either: it was killed at 3002.1 s by that ladder's own 3000 s budget with "
+            "no allocator throw in its output, so what binds up there is runtime, and a runtime "
+            "cap needs a budget somebody agrees to wait for rather than one harness timeout. The "
+            "axis is atom-denominated on top of that -- COUNTS carries no atom unit, so writing "
+            "it as residues would be a unit substitution",),
         "wormhole_b0": _unmeasured(
             "its measured cap is NOT residue-denominated and so cannot be expressed as a row here: "
             "wh-design-models-l1-budget-and-size-caps puts it between 3158 and 4651 ATOMS, in the "
