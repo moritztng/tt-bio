@@ -452,7 +452,9 @@ class TransitionLayer(Module):
         # Wormhole DRAM. The transition is row-independent over dim=1 (per-position
         # LayerNorm + matmuls + pointwise gate), so tiling is bit-exact. A pair
         # input (4D, transient ~ rows*L) uses the area-bounded tile; a single
-        # input (3D, per-token) uses the fixed row tile. Single pass on Blackhole.
+        # input (3D, per-token) uses the fixed row tile. Blackhole has its own, much
+        # larger, pair budget (tenstorrent.BH_PAIR_TILE_AREA): single pass to 1024, blocked
+        # above it, where one of these transients passes 4 GiB and gets refused.
         from tt_bio import tenstorrent
         L = x.shape[1]
         if len(x.shape) == 4:
@@ -1134,7 +1136,8 @@ class OuterProductMean(Module):
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
         # tiling over the i (row) dim is bit-exact. Pair op -> area-bounded tile
-        # (transient ~ rows*L). Single pass on Blackhole.
+        # (transient ~ rows*L). This is the tensor that ends a 1536 fold when it is not
+        # blocked: 2048*L^2 bytes, 4.50 GiB at L=1536.
         from tt_bio import tenstorrent
         chunk = tenstorrent.pair_row_tile(L)
         if chunk:

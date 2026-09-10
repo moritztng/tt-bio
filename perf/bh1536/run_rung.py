@@ -76,6 +76,23 @@ def contended(returncode: int, text: str) -> bool:
     return returncode == CONTENDED_EXIT_CODE or bool(_CONTENDED.search(text or ""))
 
 
+def code_state():
+    """Which tree this rung ran, so a ladder walked across a code change stays readable.
+
+    The rungs run `python -m tt_bio.main` out of this worktree, so a fix landed mid-sweep
+    applies to every rung started after it and to none before. Recording the commit and
+    whether the tree was dirty is the difference between a ladder and a mixed bag.
+    """
+    def _git(*args):
+        try:
+            return subprocess.run(("git",) + args, cwd=str(WT), capture_output=True,
+                                  text=True, timeout=30).stdout.strip()
+        except Exception:
+            return ""
+    return {"head": _git("rev-parse", "--short", "HEAD"),
+            "dirty": bool(_git("status", "--porcelain", "--", "tt_bio"))}
+
+
 def sample_host():
     rss = 0
     for p in Path("/proc").iterdir():
@@ -180,7 +197,7 @@ def _judge_affinity(a, out, text, wall, proc, killed, peak_rss, floor_avail):
     verdict = ("PASS" if ok else "CONTENDED" if contended(proc.returncode, text)
                else "TIMEOUT" if killed else "OOM" if oom else "FAIL")
     row = {"model": a.model, "size": a.size, "tag": a.tag, "task": "affinity",
-           "card": a.card, **ladder_paths.where(),
+           "card": a.card, **ladder_paths.where(), "code": code_state(),
            "verdict": verdict, "wall_s": round(wall, 1), "engine_runtime_s": None,
            "cif": str(scores[0]) if scores else None,
            "cif_residues": a.size if ok else 0, "n_tokens": None,
@@ -322,7 +339,7 @@ def main():
     verdict = ("PASS" if ok else "CONTENDED" if was_contended
                else "TIMEOUT" if killed else "OOM" if fatal_oom else "FAIL")
     row = {"model": a.model, "size": a.size, "tag": a.tag, "task": "predict",
-           "card": a.card, **ladder_paths.where(),
+           "card": a.card, **ladder_paths.where(), "code": code_state(),
            "verdict": verdict, "wall_s": round(wall, 1), "engine_runtime_s": runtime_s,
            "cif": str(cifs[0]) if cifs else None, "cif_residues": nres,
            "n_tokens": ntok, "plddt": plddt, "struct": signal,

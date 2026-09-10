@@ -579,7 +579,8 @@ SDPA_CHUNK_TILE = 32
 SDPA_CHUNK_MAX = 256
 # Tiling for row-independent blocks so their activations fit the 12 GB/chip DRAM
 # on small grids (Wormhole) while the 6B weights stay resident (no reload — batch
-# throughput preserved). 0 = single pass (Blackhole — ample DRAM). Bit-exact
+# throughput preserved). 0 here means "use the arch baseline budget" — for the pair tile that is
+# BH_PAIR_TILE_AREA, not an unbounded single pass. Bit-exact
 # (independent rows over dim=1). Two regimes, set by _apply_grid_thresholds:
 #   SMALL_GRID_SEQ_TILE  — per-TOKEN blocks (ESMC FFN on [B,L,d]): transient ~ rows
 #     (no L factor), so a fixed row count bounds it.
@@ -3933,11 +3934,28 @@ def msa_depth_cap(num_residues: int, max_sequences: int) -> int:
     return max(1, min(max_sequences, WORMHOLE_MSA_AREA // num_residues))
 
 
+# The largest pair-op transient a SINGLE pass is MEASURED to survive on the Blackhole baseline
+# grid, as an area (rows*L; the transient scales as rows*L*width). At L=1024 the widest of these
+# ops -- OuterProductMean's product, 32*32 channels -- is 2.0 GiB and the chip serves it, which is
+# the whole ladder that has ever been walked here. The same tensor is 2048*L^2 bytes, so 4.50 GiB
+# at L=1536, and the allocator refuses it: 4831838208 B DRAM requested, 603979776 B per bank
+# against a 4278190016 B bank with only 504102848 B in the largest free block (esmfold2 at 1536,
+# qb2 card 1 / p300c and qb1 card 0 / p150a, which refuse it to within 14336 B of each other).
+# So the row blocking Wormhole has always done is not a small-grid speciality; Blackhole just has
+# a bigger budget. Setting that budget at exactly the measured single-pass top keeps every size
+# the ladder has proven (L <= 1024) on the identical single pass it took before, and bounds
+# everything above it instead of letting one tensor grow with L^2 until it is refused.
+BH_PAIR_TILE_AREA = 1024 * 1024
+
+
 def pair_row_tile(L: int) -> int:
     """Rows per tile for a pair [B,L,L,*] row-independent op so the transient
-    (~rows*L*width) stays bounded as L grows. Returns 0 (single pass) on big
-    grids or when L is already small enough. 32-tile-aligned."""
-    area = SMALL_GRID_PAIR_TILE_AREA
+    (~rows*L*width) stays bounded as L grows. Returns 0 (single pass) when the whole
+    tensor is known to fit. 32-tile-aligned.
+
+    One formula, two budgets: the small-grid one `_apply_grid_thresholds` fits to the part's
+    L1, and the Blackhole baseline above, which is a measured ceiling rather than unbounded."""
+    area = SMALL_GRID_PAIR_TILE_AREA or BH_PAIR_TILE_AREA
     if not area or L <= SMALL_GRID_SEQ_TILE:
         return 0
     rows = max(32, (area // L // 32) * 32)
