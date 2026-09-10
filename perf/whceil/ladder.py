@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -82,7 +83,13 @@ def classify(stderr: str, rc: int, timed_out: bool) -> tuple[str, dict]:
 def run_rung(model: str, yaml_path: Path, device: int, out_root: Path, timeout_s: int,
              env_extra: dict[str, str], extra_args: list[str]) -> dict:
     out_dir = out_root / f"{model}_{yaml_path.stem}"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # Emptied, not reused. The PASS predicate is "a structure file exists", and the out dir is
+    # keyed by (model, rung) -- so a rerun of a rung that PASSED once and now fails would find
+    # the old .cif and report PASS. That is the exact shape of a check that cannot fail, and a
+    # relaunch of this ladder is a rerun by construction.
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True)
     env = dict(os.environ)
     # ttnn brings up every chip TT_VISIBLE_DEVICES makes visible, not just the one it computes
     # on, so the pin is what keeps this run inside its granted chip range.

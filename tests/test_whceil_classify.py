@@ -56,3 +56,24 @@ def test_a_timeout_is_a_runtime_wall_not_a_memory_one():
     assert classify(WRAPPED, 124, True)[0] == "TIMEOUT", (
         "a run killed by the clock is a runtime wall even if a refusal appeared earlier in "
         "its log; OpenDDE's 896 is exactly this distinction")
+
+
+def test_a_rerun_cannot_inherit_the_previous_attempts_structure(tmp_path, monkeypatch):
+    """The PASS predicate is 'a structure file exists' and the out dir is keyed by
+    (model, rung), so a rerun of a rung that passed once and now fails would read the old
+    .cif and report PASS. A relaunched ladder is a rerun by construction, so this is the
+    check that must be able to fail."""
+    import ladder as L
+
+    out_root = tmp_path / "runs"
+    stale = out_root / "m_r"
+    stale.mkdir(parents=True)
+    (stale / "old.cif").write_text("stale structure from a previous attempt")
+
+    class _P:
+        returncode, stdout, stderr = 1, "", "boom"
+
+    monkeypatch.setattr(L.subprocess, "run", lambda *a, **k: _P())
+    row = L.run_rung("m", tmp_path / "r.yaml", 0, out_root, 60, {}, [])
+    assert row["verdict"] != "PASS", "the stale structure was read as this run's output"
+    assert not (stale / "old.cif").exists()
