@@ -34,3 +34,8 @@
 2026-09-10T02:03:02Z esmfold2-fast   1300tok WEDGED   wall=   20.3s engine=None cif_res=0/1300 ntok=None rss=35.26G oom=-
 2026-09-10T02:03:25Z rf3             1300tok WEDGED   wall=   20.3s engine=None cif_res=0/1300 ntok=None rss=35.55G oom=-
 2026-09-10T02:03:46Z openfold3       1300tok WEDGED   wall=   18.3s engine=None cif_res=0/1300 ntok=None rss=36.53G oom=-
+2026-09-10T02:05:26Z nesso1          1536tok WEDGED   wall=   38.6s engine=None cif_res=0/1536 ntok=None rss=63.23G oom=-
+2026-09-10T02:05:47Z openfold3        512tok WEDGED   wall=   18.3s engine=None cif_res=0/512 ntok=None rss=62.62G oom=-
+2026-09-10T02:06:10Z boltz2           512tok WEDGED   wall=   20.3s engine=None cif_res=0/512 ntok=None rss=65.05G oom=-
+2026-09-10T02:06:31Z esmfold2-fast    512tok WEDGED   wall=   18.3s engine=None cif_res=0/512 ntok=None rss=62.29G oom=-
+2026-09-10T02:06:54Z esmfold2-fast    512tok WEDGED   wall=   20.3s engine=None cif_res=0/512 ntok=None rss=62.29G oom=-

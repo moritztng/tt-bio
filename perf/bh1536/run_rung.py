@@ -365,6 +365,8 @@ def _judge_affinity(a, out, text, wall, proc, killed, peak_rss, floor_avail):
            "tail": _tail(text) if verdict != "PASS" else "",
            "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     _write(row)
+    if verdict in ("CONTENDED", "WEDGED"):
+        return CONTENDED_EXIT_CODE
     return 0 if ok else 1
 
 
@@ -538,6 +540,11 @@ def main():
            "tail": _tail(text) if verdict != "PASS" else "",
            "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     _write(row)
+    # 75 (EX_TEMPFAIL, the same code tt_bio uses for a contended card) when this rung measured
+    # NOTHING, so a caller can tell "the model failed" from "the card was unusable" by return
+    # code. chain.sh counts these and stops rather than feeding a dead card its whole queue.
+    if verdict in ("CONTENDED", "WEDGED"):
+        return CONTENDED_EXIT_CODE
     return 0 if ok else 1
 
 
