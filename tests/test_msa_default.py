@@ -75,9 +75,25 @@ def test_explicit_sources_pass_through(model, tmp_path, capsys):
     _ready_db(tmp_path)  # present, but an explicit flag must win over auto-detect
     assert resolve(model, use_msa_server=True, cache=str(tmp_path)) == (True, None)
     assert resolve(model, msa_db_path="/db", cache=str(tmp_path)) == (False, "/db")
-    # msa_endpoint alone counts as an explicit source: stay off both server and DB
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("model", ["protenix-v2", "rf3", "openfold3", "opendde", "esmfold2"])
+def test_msa_endpoint_is_a_source_for_the_models_that_read_it(model, tmp_path, capsys):
+    """--msa_endpoint alone counts as an explicit source: stay off both server and DB."""
+    _ready_db(tmp_path)
     assert resolve(model, msa_endpoint="http://h:8765", cache=str(tmp_path)) == (False, None)
     assert capsys.readouterr().out == ""
+
+
+def test_msa_endpoint_is_refused_for_boltz2(tmp_path):
+    """boltz2 resolves MSAs through main.py, which has no endpoint client, so the flag
+    only suppressed the auto-detected local DB and the run then died mid-fold with
+    "Missing MSAs" -- blaming the user for supplying no source. It is refused up front."""
+    _ready_db(tmp_path)
+    with pytest.raises(click.BadParameter) as exc:
+        resolve("boltz2", msa_endpoint="http://h:8765", cache=str(tmp_path))
+    assert "--msa_db_path" in str(exc.value)
 
 
 @pytest.mark.parametrize("model", ["boltz2", "protenix-v2"])

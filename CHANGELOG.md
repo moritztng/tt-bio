@@ -60,6 +60,38 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   now quote that. `docs/boltzgen-design.md` showed `--steps analysis filtering`, which the CLI
   rejects; the option is comma-separated.
 
+- **Every fold model shows its confidence stage, and the step-count help matches what the models
+  run.** Only esmfold2 announced the confidence head; on the other five it displayed as the last
+  diffusion step (13 s of a 233 s cold openfold3 fold). `--sampling_steps` said "every other model
+  200" while rf3 has shipped 50 (49 executed) since its port, and `--recycling_steps` named
+  openfold3 as the only model running recycles+1 when esmfold2 and boltz2 do it too — esmfold2
+  shows "Trunk 0/11" for a documented default of 10. Both help strings are now generated from the
+  tables that decide the values. huggingface_hub's "Fetching 6 files:" progress bar no longer
+  writes carriage returns into a redirected log.
+
+- **`--msa_endpoint` is refused where it does nothing, and its help lists rf3.** The help string
+  was hand-written and omitted rf3, which reads the flag. Passing it with `--model boltz2`, which
+  has no endpoint client, was accepted, suppressed the auto-detected local ColabFold DB, and the
+  run then died after a full model load with "Missing MSAs" — telling the user they gave no source
+  when they had given one. One list now drives both the help and an up-front refusal, so boltz2
+  fails in 3 s at argument parsing instead of 24 s mid-run. The missing-MSA message also names
+  `--msa_db_path` and `--single_sequence`, the two ways out it used to leave off.
+
+- **The predict progress view no longer overstates what it knows.** Four things it got wrong,
+  all found by watching real folds against their own event stream. Its table was five fixed
+  columns totalling 88 cells, so in an 80-column terminal Rich clipped the bar and a finished
+  fold rendered identically to a 92% one; the columns are now sized from the terminal. Its stage
+  bands were a compiled-in table that fits no model: on a warm 20 aa esmfold2 fold prep is 43% of
+  the work and the table budgeted it 6%, so the bar sat at 15% for the first half of every fold.
+  It now charges each stage the seconds it takes and re-divides the bar from the first finished
+  target on. The header counted finished structures only, so a single fold read `0/1 (0%)` from
+  start to finish while its own bar was at 80%, and the ETA priced the one-off model load into
+  every remaining target: on a two-target run with one target a second from done it said 55 s
+  left. And every job announced an MSA stage, including single-sequence folds whose own
+  `results.json` recorded `"msa": false`, while OpenFold3 ran its real MSA search under a
+  `Featurize` label; the stage is now emitted where the search starts. Progress lines from a
+  redirected run also go to stderr rather than mixing into the result stream on stdout.
+
 - **Wormhole folds above 640 residues instead of hanging the chip.** Every target from 640 aa up
   split the Transition SwiGLU along the pair tensor's width, and that path wedged the card:
   protenix-v2 at 768 aa hung mid-fold on two different chips, at trunk recycle 6 and recycle 4, and

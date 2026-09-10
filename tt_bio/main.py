@@ -656,9 +656,10 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
                 compute_msa(to_gen, record.id, msa_dir, msa_url, msa_strategy, msa_user, msa_pass, api_key)
             elif to_gen:
                 raise RuntimeError(
-                    "Missing MSAs. Use one of:\n"
-                    "  1) Online:  --use_msa_server\n"
-                    "  2) Offline: tt-bio msa  (then rerun predict)"
+                    "No MSA for this target and no source to search one with. Use:\n"
+                    "  --use_msa_server        the online ColabFold server\n"
+                    "  --msa_db_path <dir>     a local ColabFold DB (`tt-bio msa` downloads one)\n"
+                    "  --single_sequence       fold without an MSA, at a large accuracy cost"
                 )
         finally:
             for lf in locks:
@@ -1599,6 +1600,20 @@ class _Cli(click.Group):
             raise click.ClickException(str(exc)) from exc
 
 
+def _quiet_download_bars() -> None:
+    """Silence huggingface_hub's tqdm bar when stderr is not a terminal.
+
+    It is the one progress bar tt-bio does not own, and it writes carriage
+    returns straight into a redirected log ("Fetching 6 files: 0%|..."), which is
+    exactly what the rest of the CLI switches to plain timestamped lines to
+    avoid. Set in the environment rather than through the library so the worker
+    subprocesses that do the actual downloading inherit it. A terminal keeps its
+    bar, and an explicit setting from the caller wins.
+    """
+    if not _sys.stderr.isatty():
+        os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+
+
 @click.group(cls=_Cli)
 def cli():
     """Run biomolecular prediction, design, and embedding on Tenstorrent."""
@@ -1606,6 +1621,7 @@ def cli():
     # CLI spawned us, die with it instead of polling or holding a card after it is gone.
     from tt_bio.device_lease import arm_orphan_guard
 
+    _quiet_download_bars()
     arm_orphan_guard()
 
 
@@ -2398,6 +2414,28 @@ RECYCLING_STEPS = {
 }
 RECYCLING_STEPS_DEFAULT = 3
 
+#: Models whose trunk runs --recycling_steps + 1 cycles rather than exactly N. Measured
+#: off the live progress stream, not asserted: esmfold2 shows "Trunk 0/11" at its default
+#: of 10, openfold3 "Trunk 0/4" at 3, while rf3 and opendde show 10/10 at 10. The help is
+#: built from this, because it used to name openfold3 alone.
+TRUNK_CYCLES_PLUS_ONE = ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind")
+
+#: Requested diffusion-sampling steps per model, and what the request executes where the
+#: two differ (see _resolve_sampling_steps for why). The help is built from this: it used
+#: to say "every other model 200" while rf3 has shipped 50 since its port.
+SAMPLING_STEPS = {"esmfold2": 100, "esmfold2-fast": 100, "rf3": 50}
+SAMPLING_STEPS_DEFAULT = 200
+SAMPLING_STEPS_EXECUTED = {100: 68, 50: 49}
+
+
+def _grouped_defaults(table, default, models):
+    """Render a per-model default table as "V: a, b; W: c", commonest value last."""
+    groups = {}
+    for m in models:
+        groups.setdefault(table.get(m, default), []).append(m)
+    ordered = sorted(groups.items(), key=lambda kv: (len(kv[1]), kv[0]))
+    return "; ".join(f"{v} for {', '.join(ms)}" for v, ms in ordered)
+
 
 def _resolve_recycling_steps(recycling_steps, model):
     """Per-model default trunk-recycling count when --recycling_steps is unset (None).
@@ -2432,11 +2470,7 @@ def _resolve_sampling_steps(sampling_steps, model):
     """
     if sampling_steps is not None:
         return sampling_steps
-    if model in ("esmfold2", "esmfold2-fast"):
-        return 100
-    if model == "rf3":
-        return 50
-    return 200
+    return SAMPLING_STEPS.get(model, SAMPLING_STEPS_DEFAULT)
 
 
 # The structure models that degrade sharply folded single-sequence, so `predict` resolves an
@@ -2447,6 +2481,16 @@ def _resolve_sampling_steps(sampling_steps, model):
 # actually used, instead of hand-listing the same set a second time.
 MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "openbind", "opendde", "opendde-abag",
                      "rf3")
+
+# The models whose worker path actually passes --msa_endpoint to its MSA search
+# (grep msa_endpoint in worker.py: _predict_esmfold2_one, _predict_opendde_one,
+# _protenix_inputs, _predict_rf3_one, _predict_openfold3_one). boltz2 resolves
+# MSAs through main.py's own path, which has no endpoint client. The option help
+# is built from this tuple so the two cannot drift: the help used to omit rf3,
+# and passing the flag with --model boltz2 was accepted and then died mid-run
+# with "Missing MSAs", blaming the user for supplying no source.
+MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2",
+                       "openfold3", "openbind", "opendde", "opendde-abag", "rf3")
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
@@ -2475,6 +2519,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
     """
+    if msa_endpoint and model not in MSA_ENDPOINT_MODELS:
+        raise click.BadParameter(
+            f"--msa_endpoint is not read by --model {model}; it applies to "
+            f"{', '.join(MSA_ENDPOINT_MODELS)}. Use --msa_db_path for a local "
+            "ColabFold DB or --use_msa_server for the online one.")
     if model not in MSA_DEFAULT_MODELS:
         return use_msa_server, msa_db_path
 
@@ -2518,13 +2567,17 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--checkpoint", type=click.Path(exists=True), default=None)
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
-              help="Trunk recycling iterations. Default: protenix-v2/opendde/esmfold2/rf3 use 10; "
-                   "protenix-v1 uses 4, its own upstream N_cycle; boltz2 and openfold3 use 3 "
-                   "(openfold3 runs recycles+1 = 4 trunk cycles).")
+              help="Trunk recycling iterations. Default: "
+                   + _grouped_defaults(RECYCLING_STEPS, RECYCLING_STEPS_DEFAULT, PREDICT_MODELS)
+                   + ". " + ", ".join(TRUNK_CYCLES_PLUS_ONE)
+                   + " run one more trunk cycle than they are asked for (N recycles = N+1 cycles), "
+                     "which is the count the progress view shows.")
 @click.option("--sampling_steps", default=None, type=int,
-              help="Requested diffusion sampling steps. Default: esmfold2/esmfold2-fast request "
-                   "100 (executes 68 after the sigma_max=256 schedule clip); every other model "
-                   "200. Explicit values are honored verbatim.")
+              help="Requested diffusion sampling steps. Default: "
+                   + _grouped_defaults(SAMPLING_STEPS, SAMPLING_STEPS_DEFAULT, PREDICT_MODELS)
+                   + ". A request of 100 executes 68 (the sigma_max=256 schedule clip) and 50 "
+                     "executes 49 (the rollout consumes consecutive schedule pairs). Explicit "
+                     "values are honored verbatim.")
 @click.option("--diffusion_samples", default=1, type=int)
 @click.option("--partial_t", default=0, type=int,
               help="RF3 only. Start the diffusion rollout at schedule index N instead of "
@@ -2562,7 +2615,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v1/protenix-v2/openfold3/"
                    "opendde (no local DB, no online server). Explicit opt-out for batch-screening "
                    "orphan sequences.")
-@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v1/protenix-v2/openfold3/openbind/opendde.")
+@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model " + "/".join(MSA_ENDPOINT_MODELS) + ".")
 @click.option("--msa_server_url", default="https://api.colabfold.com")
 @click.option("--msa_pairing_strategy", default="greedy")
 @click.option("--msa_server_username", default=None)
