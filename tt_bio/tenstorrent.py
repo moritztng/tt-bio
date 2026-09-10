@@ -15,7 +15,7 @@ from . import triatt_qkv as _triatt_qkv
 from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
-from .envflags import env_flag
+from .envflags import env_flag, env_int
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -3823,17 +3823,6 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     if _c:
         SEQ_LEN_MORE_CHUNKING = int(_c)
 
-    # The same screen hook, for the same reason, on the Transition's W-chunk gate. That gate is
-    # scaled to 640 above off per-core L1, and the resource it actually bounds is the per-chunk
-    # swiglu L1 -- which the row-height cap in Transition.__call__ already bounds through
-    # `w_eff`, per-core and tile-aware. So on this part every target from 672 aa up W-chunks and
-    # on Blackhole (threshold 1024) none below 1024 does, and no Wormhole baseline has ever
-    # measured that band against the unchunked path. Unset in production; the scaled value is
-    # unchanged.
-    _w = os.environ.get("TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD")
-    if _w:
-        TRANSITION_W_CHUNKING_THRESHOLD = int(_w)
-
 
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
     """Snap to a tuned 13x10 or 11x10 Blackhole grid when available; on smaller
@@ -6642,11 +6631,17 @@ class Transition(Module):
         # budget ONLY in proportion to the channel's excess over 128: c=256 -> half (h_chunk
         # 16->8, fits), c<=128 -> UNCHANGED (no Boltz-2/esmfold2 regression). Blackhole keeps
         # the full budget for every channel (no small-grid path).
-        transition_w_chunking_threshold = (
+        # Both W knobs, with their screen hooks, read in one place and on every part. The
+        # threshold hook used to live in _apply_grid_thresholds, which returns early on a
+        # full-size grid, so on Blackhole it silently did nothing and the unchunked arm was
+        # unreachable without editing the file.
+        transition_w_chunking_threshold = env_int(
+            "TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD",
             SEQ_LEN_MORE_CHUNKING
             if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
-            else TRANSITION_W_CHUNKING_THRESHOLD
+            else TRANSITION_W_CHUNKING_THRESHOLD,
         )
+        w_chunk = env_int("TT_BIO_TRANSITION_W_CHUNK_SIZE", TRANSITION_W_CHUNK_SIZE)
         # Whether to split the swiglu along W is not a token-count question. The row-height
         # budgets below already make the per-chunk footprint W-INVARIANT: both of them scale the
         # height as 1/w_eff, so h * w_eff * (c + 2*hidden) -- which IS the live L1 per chunk --
@@ -6704,7 +6699,7 @@ class Transition(Module):
             w_chunked = _rows_at(W) < 1.0
         else:
             w_chunked = W > transition_w_chunking_threshold
-        w_eff = min(W, TRANSITION_W_CHUNK_SIZE) if w_chunked else W
+        w_eff = min(W, w_chunk) if w_chunked else W
         transition_h_chunk_size = max(1, int(_base_h * min(1.0, _ref / (w_eff * x.shape[-1]))))
 
         # ...and raise it back where the compounded ratio above over-shrinks. That ratio divides by
@@ -6790,8 +6785,8 @@ class Transition(Module):
                     ttnn.deallocate(c)
                 else:
                     w_parts = []
-                    for w in range(0, W, TRANSITION_W_CHUNK_SIZE):
-                        cw = c[:, :, w:min(w + TRANSITION_W_CHUNK_SIZE, W), :]
+                    for w in range(0, W, w_chunk):
+                        cw = c[:, :, w:min(w + w_chunk, W), :]
                         w_parts.append(swiglu(cw))
                         ttnn.deallocate(cw)
                     ttnn.deallocate(c)
@@ -6805,7 +6800,7 @@ class Transition(Module):
         if not w_chunked:
             return ttnn.concat([swiglu(c) for c in chunks], dim=1)
         return ttnn.concat([
-            ttnn.concat([swiglu(c[:, :, w:min(w+TRANSITION_W_CHUNK_SIZE, W), :]) for w in range(0, W, TRANSITION_W_CHUNK_SIZE)], dim=2)
+            ttnn.concat([swiglu(c[:, :, w:min(w + w_chunk, W), :]) for w in range(0, W, w_chunk)], dim=2)
             for c in chunks
         ], dim=1)
 

@@ -88,7 +88,7 @@ def main():
     env["MULTIPLY_LOG"] = str(mlog)
     env["TT_VISIBLE_DEVICES"] = args.card
     env["TT_BIO_LEASE_CARDS"] = args.card
-    env["TT_BIO_LEASE_HOLDER"] = "worker:bh-boltzgen-sdpa-circbuf"
+    env["TT_BIO_LEASE_HOLDER"] = os.environ.get("TT_BIO_LEASE_HOLDER", "worker:bh-boltzgen-sdpa-circbuf")
     env["TT_BIO_SIZE_LIMIT"] = "0"
     env["TT_BIO_LEASE_TIMEOUT"] = str(args.timeout)
 
