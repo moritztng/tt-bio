@@ -77,3 +77,32 @@ def test_a_rerun_cannot_inherit_the_previous_attempts_structure(tmp_path, monkey
     row = L.run_rung("m", tmp_path / "r.yaml", 0, out_root, 60, {}, [])
     assert row["verdict"] != "PASS", "the stale structure was read as this run's output"
     assert not (stale / "old.cif").exists()
+
+
+# tt-metal puts the allocator's state LAST, in a parenthetical. It is the only part of the
+# refusal that distinguishes the brief's two wall classes, so these three cases are the point
+# of the classifier, not a detail of it. Bank size below is a real Wormhole Galaxy bank:
+# 1071480832 B, ~1.02 GiB, twelve of them against Blackhole's eight of 3.984 GiB.
+_HEAD = ("Out of Memory: Not enough space to allocate {req} B DRAM buffer across 12 banks,\n"
+         "  where each bank needs to store {per} B, but bank size is 1071480832 B "
+         "(allocated: {alloc} B, free: {free} B, largest free block: {run} B)")
+
+
+def test_a_share_that_does_not_fit_an_empty_bank_is_one_oversized_tensor():
+    t = _HEAD.format(req=34359738368, per=2863311530, alloc=0, free=1071480832, run=1071480832)
+    assert classify(t, 1, False)[1]["wall_kind"] == "ONE_OVERSIZED_TENSOR"
+
+
+def test_a_share_that_would_fit_an_empty_bank_but_not_this_one_is_residency():
+    t = _HEAD.format(req=2424307712, per=202027008, alloc=1000000000, free=71480832, run=40000000)
+    assert classify(t, 1, False)[1]["wall_kind"] == "CUMULATIVE_RESIDENCY"
+
+
+def test_enough_free_but_not_in_one_run_is_fragmentation_not_residency():
+    """Different fix -- compaction rather than holding less -- so it is a different name."""
+    t = _HEAD.format(req=1200000000, per=100000000, alloc=300000000, free=771480832, run=44520544)
+    assert classify(t, 1, False)[1]["wall_kind"] == "FRAGMENTATION"
+
+
+def test_a_refusal_with_no_allocator_state_says_so_rather_than_guessing():
+    assert classify(NO_PER_BANK, 1, False)[1]["wall_kind"] == "UNCLASSIFIED"

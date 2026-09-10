@@ -51,6 +51,10 @@ def main() -> int:
         if "request_bytes" in r:
             bits.append(f"refused {r['request_bytes']} B ({r['request_gib']} GiB) across "
                         f"{r['banks']} banks, {r['per_bank_mib']} MiB per bank")
+            if "bank_size_mib" in r:
+                bits.append(f"bank {r['bank_size_mib']} MiB, free {r['free_mib']} MiB, "
+                            f"largest run {r['largest_free_mib']} MiB")
+            bits.append(r.get("wall_kind", "UNCLASSIFIED"))
         if "structure" in r:
             bits.append(Path(r["structure"]).name)
         out.append("  ".join(bits))

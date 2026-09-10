@@ -49,6 +49,35 @@ _OOM = re.compile(
     r"across\s+(\d+) banks"
     r"(?:,\s*where each bank needs to store\s+(\d+) B)?", re.S)
 
+#: The parenthetical tt-metal puts LAST, and the only part of the refusal that says how full
+#: the chip was. Without it the two wall classes are indistinguishable: a per-bank need that
+#: exceeds the bank outright is one oversized tensor, and a small need refused with plenty free
+#: but no run to put it in is fragmentation. Optional, because not every refusal carries it.
+_OOM_STATE = re.compile(
+    r"bank size is\s+(\d+) B\s*\(allocated:\s*(\d+) B,\s*free:\s*(\d+) B,"
+    r"\s*largest free block:\s*(\d+) B\)", re.S)
+
+
+def _wall_kind(per_bank: int, bank_size: int | None, free: int | None,
+               largest_free: int | None) -> str:
+    """Which of the brief's two wall classes this refusal is.
+
+    ONE_OVERSIZED_TENSOR: the per-bank share does not fit an EMPTY bank. No amount of freeing
+    helps; the block's shape has to change.
+    CUMULATIVE_RESIDENCY: it would fit an empty bank, and there is not enough free.
+    FRAGMENTATION: there IS enough free, just not in one run. Kept apart from cumulative
+    residency because the fix is different -- compaction rather than holding less.
+    """
+    if bank_size is None:
+        return "UNCLASSIFIED"
+    if per_bank > bank_size:
+        return "ONE_OVERSIZED_TENSOR"
+    if free is not None and per_bank > free:
+        return "CUMULATIVE_RESIDENCY"
+    if largest_free is not None and per_bank > largest_free:
+        return "FRAGMENTATION"
+    return "UNCLASSIFIED"
+
 #: Written by the run itself. A rung counts as PASS only if a structure file exists, because a
 #: zero exit status has been wrong here before (a worker that swallowed its own child's failure
 #: still exited 0). The negative control for this check is any refused rung below: those write
@@ -70,11 +99,22 @@ def classify(stderr: str, rc: int, timed_out: bool) -> tuple[str, dict]:
         # Absent, the per-bank share is the interleaved split, which is what the allocator
         # refuses on. Derived rather than dropped, and flagged so a reader knows which it is.
         per_bank = int(m[4]) if m[4] else -(-total // banks)
-        return f"OOM_{space}", {
+        d = {
             "request_bytes": total, "banks": banks, "per_bank_bytes": per_bank,
             "per_bank_reported": m[4] is not None,
             "request_gib": round(total / 2**30, 3), "per_bank_mib": round(per_bank / 2**20, 1),
+            "wall_kind": "UNCLASSIFIED",
         }
+        st = _OOM_STATE.search(stderr[m.start():])
+        if st:
+            bank_size, alloc, free, largest = (int(st[i]) for i in (1, 2, 3, 4))
+            d.update(bank_size_bytes=bank_size, allocated_bytes=alloc, free_bytes=free,
+                     largest_free_block_bytes=largest,
+                     bank_size_mib=round(bank_size / 2**20, 1),
+                     free_mib=round(free / 2**20, 1),
+                     largest_free_mib=round(largest / 2**20, 1),
+                     wall_kind=_wall_kind(per_bank, bank_size, free, largest))
+        return f"OOM_{space}", d
     if rc != 0:
         return "ERROR", {}
     return "NO_STRUCTURE", {}
