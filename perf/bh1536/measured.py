@@ -9,21 +9,27 @@ held the card, or the card would not come up at all, so nothing ran; treating ei
 retires the rung on the one class of outcome that carries no information about capacity.
 
 Only untagged rows (`tag: ""`) count, so a deliberate `--tag debug` re-run never retires the
-rung it was investigating.
+rung it was investigating. A board-tagged evidence file (`--out_tag p300c`) is a distinct file
+of its own (ladder_paths), so this reads the file for the [out_tag] passed in, not always the
+untagged default.
 """
 import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ladder_paths  # noqa: E402
+
 MEASURED = {"PASS", "OOM", "STALLED", "TIMEOUT", "FAIL"}
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print(f"usage: {Path(sys.argv[0]).name} <model> <size>", file=sys.stderr)
+    if len(sys.argv) not in (3, 4):
+        print(f"usage: {Path(sys.argv[0]).name} <model> <size> [out_tag]", file=sys.stderr)
         return 2
     model, size = sys.argv[1], int(sys.argv[2])
-    jl = Path(__file__).resolve().parent / "results.jsonl"
+    jl = ladder_paths.results_path(ladder_paths.tag_from_env(
+        sys.argv[3] if len(sys.argv) == 4 else ""))
     if not jl.is_file():
         return 1
     for line in jl.read_text().splitlines():

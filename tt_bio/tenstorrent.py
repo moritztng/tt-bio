@@ -579,7 +579,8 @@ SDPA_CHUNK_TILE = 32
 SDPA_CHUNK_MAX = 256
 # Tiling for row-independent blocks so their activations fit the 12 GB/chip DRAM
 # on small grids (Wormhole) while the 6B weights stay resident (no reload — batch
-# throughput preserved). 0 = single pass (Blackhole — ample DRAM). Bit-exact
+# throughput preserved). 0 here means "use the arch baseline budget" — for the pair tile that is
+# BH_PAIR_TILE_AREA, not an unbounded single pass. Bit-exact
 # (independent rows over dim=1). Two regimes, set by _apply_grid_thresholds:
 #   SMALL_GRID_SEQ_TILE  — per-TOKEN blocks (ESMC FFN on [B,L,d]): transient ~ rows
 #     (no L factor), so a fixed row count bounds it.
@@ -3933,12 +3934,49 @@ def msa_depth_cap(num_residues: int, max_sequences: int) -> int:
     return max(1, min(max_sequences, WORMHOLE_MSA_AREA // num_residues))
 
 
+# Blackhole's own pair-row budget. Two numbers, because they answer two different questions.
+#
+# BH_PAIR_SINGLE_PASS_MAX is the top of the ladder that has actually been walked on this silicon.
+# Every pair op below it runs in one pass today and folds, so blocking there would slow a shipped
+# size to protect nothing.
+#
+# BH_PAIR_TILE_AREA is what to do above it, as an area (rows*L; a pair transient is
+# rows*L*width). The widest of these tensors is 1024 channels -- the pair transition's SwiGLU
+# a/b projections and the triangle-multiplication projection bundle, both [B,L,L,1024] -- so a
+# transient is 2048*rows*L bytes and the whole tensor is 2048*L^2. That is 2.0 GiB at L=1024,
+# which the chip serves, and 4.50 GiB at L=1536, which it refuses: esmfold2 at 1536 asks for
+# 4831838208 B of DRAM, 603979776 B per bank against a 4278190016 B bank, with 698533824 B free
+# and only 504102848 B in the largest free block (qb2 card 1 / p300c, and qb1 card 0 / p150a to
+# within 14336 B on every figure). The op holds three of those at once (a, b and the gated
+# product), so the budget is set well under the free bytes rather than at the largest tensor
+# that would fit alone: 524288 gives a 1.0 GiB transient and a ~3 GiB peak at 1536.
+BH_PAIR_SINGLE_PASS_MAX = 1024
+BH_PAIR_TILE_AREA = 524288
+# Screen hooks, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING: what the blocked
+# path costs against the single pass has to be measurable without editing a constant, and the sizes
+# where BOTH paths run are a narrow window (above 1024 the single pass grows as L^2 and by 1536 it
+# is refused). Setting SINGLE_PASS_MAX high forces the old unbounded behaviour for an A/B.
+# Read here and not in _apply_grid_thresholds, where the other hooks live: that function returns
+# early on any grid at or above the Blackhole baseline, so its own hooks are unreachable on the
+# card this one is for. Unset in production.
+BH_PAIR_SINGLE_PASS_MAX = int(os.environ.get("TT_BIO_BH_PAIR_SINGLE_PASS_MAX",
+                                             BH_PAIR_SINGLE_PASS_MAX))
+BH_PAIR_TILE_AREA = int(os.environ.get("TT_BIO_BH_PAIR_TILE_AREA", BH_PAIR_TILE_AREA))
+
+
 def pair_row_tile(L: int) -> int:
     """Rows per tile for a pair [B,L,L,*] row-independent op so the transient
-    (~rows*L*width) stays bounded as L grows. Returns 0 (single pass) on big
-    grids or when L is already small enough. 32-tile-aligned."""
+    (~rows*L*width) stays bounded as L grows. Returns 0 (single pass) when the whole
+    tensor is known to fit. 32-tile-aligned.
+
+    One formula, two budgets: the small-grid one `_apply_grid_thresholds` fits to the part's
+    L1, and the Blackhole baseline above, which is a measured ceiling rather than unbounded."""
     area = SMALL_GRID_PAIR_TILE_AREA
-    if not area or L <= SMALL_GRID_SEQ_TILE:
+    if not area:
+        if L <= BH_PAIR_SINGLE_PASS_MAX:
+            return 0
+        area = BH_PAIR_TILE_AREA
+    if L <= SMALL_GRID_SEQ_TILE:
         return 0
     rows = max(32, (area // L // 32) * 32)
     return rows if rows < L else 0

@@ -815,7 +815,8 @@ class SwiGLUFFN(Module):
         # row-independent over dim=1, so tiling it is bit-exact. 4D pair input
         # (ESMFold2 MSA-encoder pair_transition, [B,L,L,c]) has transient ~ rows*L
         # -> area-bounded tile; 3D per-token (ESMC LM FFN, [B,L,d]) -> fixed row
-        # tile. Single pass on Blackhole. See tenstorrent._apply_grid_thresholds.
+        # tile. See tenstorrent.pair_row_tile: Blackhole is single-pass to 1024 and
+        # row-blocked above it, on its own budget.
         from tt_bio import tenstorrent
         L = x.shape[1]
         split, rows = self._split_plan(x)

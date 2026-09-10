@@ -21,6 +21,8 @@ from pathlib import Path
 
 WT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(WT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ladder_paths                                   # noqa: E402  (same dir as this file)
 from tt_bio.device_lease import CONTENDED_EXIT_CODE  # noqa: E402  (75, not re-typed here)
 from tt_bio.main import AFFINITY_MODELS  # noqa: E402  (the registry, not a literal list here)
 OUTROOT = WT / "perf" / "bh1536"
@@ -197,9 +199,13 @@ def _tail(text: str, limit: int = 1600) -> str:
 
 def _write(row):
     OUTROOT.mkdir(parents=True, exist_ok=True)
+    # Two boards walk this same ladder (p150a untagged, p300c `--tag p300c`); ladder_paths keeps
+    # each on its own evidence file so a parallel writer on the other board can never interleave
+    # or collide with this one (sibling-perf-campaigns-need-namespaced-output-paths).
+    tag = ladder_paths.tag_from_env(row.get("tag") or "")
     # report.py --backfill rewrites this file whole, so an unlocked append can be dropped
     # (gate-mandated-write-to-single-owner-file-is-a-race). Both sides take the same lock.
-    with (OUTROOT / "results.jsonl").open("a") as fh:
+    with ladder_paths.results_path(tag).open("a") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         fh.write(json.dumps(row) + "\n")
         fcntl.flock(fh, fcntl.LOCK_UN)
@@ -213,7 +219,7 @@ def _write(row):
                f"worst_ca={row['struct'].get('worst_ca_ca')} "
                f"clash={row['struct'].get('clash_frac')}" if row.get("struct") else "")
             + (" ffn_fallback=YES" if row.get("ffn_fallback") else ""))
-    with (OUTROOT / "sweep.log").open("a") as fh:
+    with ladder_paths.sweep_path(tag).open("a") as fh:
         fh.write(line + "\n")
     print(line)
 

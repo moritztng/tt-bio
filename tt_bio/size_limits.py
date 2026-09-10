@@ -98,9 +98,12 @@ from pathlib import Path
 # different means.
 MEMORY = "memory"          # the engine does not fold at all: an OOM, an L1 throw, a wedge
 RUNTIME = "runtime"        # it folds, but past a wall-clock anybody would wait for
+FREEZE = "freeze"          # it neither folds nor fails: progress stops and never resumes, so
+#                            there is no answer AND no error. Distinct from MEMORY (which raises)
+#                            and from RUNTIME (which finishes, late).
 LADDER_TOP = "ladder_top"  # nothing failed; this is simply the largest size proven
 UNMEASURED = "unmeasured"  # nobody walked a ladder. Never refuses.
-BINDS = (MEMORY, RUNTIME, LADDER_TOP, UNMEASURED)
+BINDS = (MEMORY, RUNTIME, FREEZE, LADDER_TOP, UNMEASURED)
 
 # The named failure mechanism, so a row says WHY and not just WHERE. Raising a ceiling means
 # attacking one of these, and they do not yield to the same fix -- chunking is the answer for a DRAM
@@ -118,9 +121,12 @@ L1_BUDGET = "l1_budget"            # an L1 residency sized by a budget too optim
 DRAM = "dram"                      # a single allocation the chip cannot serve
 DRAM_MSA = "dram_msa"              # DRAM, in the MSA track, growing with tokens and depth
 FRAGMENTATION = "fragmentation"    # enough free DRAM, no block big enough
+TRUNK_FREEZE = "trunk_freeze"      # the trunk stops mid-recycle: CPU still burning, RSS flat to
+#                                    the byte, no log line, no allocator refusal, forever
 NO_FAILURE = "none"                # nothing broke
 UNKNOWN = "unknown"                # not diagnosed
-MECHANISMS = (L1_CLASH, L1_BUDGET, DRAM, DRAM_MSA, FRAGMENTATION, NO_FAILURE, UNKNOWN)
+MECHANISMS = (L1_CLASH, L1_BUDGET, DRAM, DRAM_MSA, FRAGMENTATION, TRUNK_FREEZE,
+              NO_FAILURE, UNKNOWN)
 
 # WHAT THE NUMBER COUNTS. Not decoration: the two design models were measured in DIFFERENT
 # denominators, and holding one against the other would be a silent unit substitution. RFD3's 704 is
@@ -195,6 +201,27 @@ _INHERITS_DEMO_FENCE = (
 # the evidence strings say so; a row re-measured later should say that instead.
 CEILINGS: dict[str, dict[str, Ceiling]] = {
     "opendde": {
+        "blackhole": Ceiling(
+            residues=1024, pass_at=1024, fail_at=1536, binds=FREEZE, mechanism=TRUNK_FREEZE,
+            evidence="the first Blackhole row in this file, measured via perf/bh1536/run_rung.py, and it exists because the failure it "
+                     "guards costs a card. 1536 residues freezes: the trunk walks nine of its ten "
+                     "recycles at a steady 91-93 s each and stops at `trunk 9/10` forever. "
+                     "Measured on BOTH boards -- qb1 card 0 (p150a) 2026-09-10 and qb2 card 1 "
+                     "(p300c) 2026-09-10, tasks bh-1536-structure and p300c-1536-structure -- and "
+                     "on BOTH checkpoints, which share every tensor shape. What it is not, from "
+                     "samples on the frozen process: not an OOM (no DRAM or L1 refusal anywhere "
+                     "in either log), not idle (110-160 % CPU, ticks advancing), not the 0 %-CPU "
+                     "wedge this repo already records, and not slow (RSS pinned to the byte and "
+                     "the log unchanged for 25 minutes). It also leaves the chip refusing every "
+                     "device open at risc_firmware_initializer.cpp:1115, so an unguarded attempt "
+                     "costs the next job on that card too. Both freezes were measured "
+                     "--single_sequence, i.e. in the roomiest configuration this engine has, so a "
+                     "cap set from them cannot be over-refusing on alignment depth. The cap is "
+                     "1024 because that is the largest size on record folding on this arch (the "
+                     "p150a ladder in state/sizes-recheck-opendde.md, cited in this module's own "
+                     "docstring); 1025-1535 is unmeasured and the convention caps below the FIRST "
+                     "failure rather than at the largest passing size",
+        ),
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             msa_rows=8192,
@@ -212,6 +239,27 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "opendde-abag": {
+        "blackhole": Ceiling(
+            residues=1024, pass_at=1024, fail_at=1536, binds=FREEZE, mechanism=TRUNK_FREEZE,
+            evidence="its OWN 1536 rung (perf/bh1536/run_rung.py), not inherited from opendde by architecture "
+                     "argument. 1536 residues freezes: the trunk walks nine of its ten "
+                     "recycles at a steady 91-93 s each and stops at `trunk 9/10` forever. "
+                     "Measured on BOTH boards -- qb1 card 0 (p150a) 2026-09-10 and qb2 card 1 "
+                     "(p300c) 2026-09-10, tasks bh-1536-structure and p300c-1536-structure -- and "
+                     "on BOTH checkpoints, which share every tensor shape. What it is not, from "
+                     "samples on the frozen process: not an OOM (no DRAM or L1 refusal anywhere "
+                     "in either log), not idle (110-160 % CPU, ticks advancing), not the 0 %-CPU "
+                     "wedge this repo already records, and not slow (RSS pinned to the byte and "
+                     "the log unchanged for 25 minutes). It also leaves the chip refusing every "
+                     "device open at risc_firmware_initializer.cpp:1115, so an unguarded attempt "
+                     "costs the next job on that card too. Both freezes were measured "
+                     "--single_sequence, i.e. in the roomiest configuration this engine has, so a "
+                     "cap set from them cannot be over-refusing on alignment depth. The cap is "
+                     "1024 because that is the largest size on record folding on this arch (the "
+                     "p150a ladder in state/sizes-recheck-opendde.md, cited in this module's own "
+                     "docstring); 1025-1535 is unmeasured and the convention caps below the FIRST "
+                     "failure rather than at the largest passing size",
+        ),
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             msa_rows=8192,
@@ -703,8 +751,17 @@ def check(model: str, residues: int, *, arch: str | None = None, where: str = "T
             f"fail on the device.", stacklevel=2)
         return
     alts = models_accepting(residues, arch, exclude=model)
+    # "no model accepts this size" is only true where every model HAS a row. On an arch that is
+    # mostly unmeasured -- blackhole, where two freeze rows exist and the other nine models were
+    # measured folding 1536 by the 2026-09-10 ladder without earning a row -- the same sentence
+    # would report missing rows as a hardware fact. Absence of a row means unmeasured, and this
+    # message must not turn that into "cannot".
+    unmeasured_here = [m for m in shipped_models() if not ceiling(m, arch).measured]
     hint = (f" Models with a measured ceiling above {residues} on this hardware: "
             f"{', '.join(alts)}." if alts else
+            f" {len(unmeasured_here)} of this engine's models have no measured ceiling on "
+            f"{arch} at all, so there is no answer here about what else fits; try a smaller "
+            f"construct or domain." if unmeasured_here else
             " No model has a measured ceiling this high on this hardware; try a smaller "
             "construct or domain.")
     depth = (f" (measured with alignments up to {c.msa_rows} rows)" if c.msa_rows else "")

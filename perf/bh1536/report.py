@@ -13,7 +13,17 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 WT = HERE.parents[1]
 PY = "/home/ttuser/tt-bio-dev/env/bin/python3"
-JL = HERE / "results.jsonl"
+sys.path.insert(0, str(HERE))
+import ladder_paths  # noqa: E402
+
+# `--tag p300c` reads the second card's evidence file. One reader for both ladders: a copy
+# would drift from the numbers it prints.
+TAG = ""
+if "--tag" in sys.argv:
+    TAG = sys.argv[sys.argv.index("--tag") + 1]
+TAG = ladder_paths.tag_from_env(TAG)
+JL = ladder_paths.results_path(TAG)
+RUNS = ladder_paths.runs_dir(TAG)
 rows = [json.loads(l) for l in JL.read_text().splitlines() if l.strip()]
 
 if "--backfill" in sys.argv:
@@ -29,7 +39,7 @@ if "--backfill" in sys.argv:
     rr = importlib.util.module_from_spec(spec); spec.loader.exec_module(rr)
     for r in rows:
         if r.get("oom") and "mechanism" not in r["oom"]:
-            log = HERE / "runs" / (f"{r['model']}_{r['size']}"
+            log = RUNS / (f"{r['model']}_{r['size']}"
                                    + (f"_{r['tag']}" if r.get("tag") else "")) / "fold.log"
             if log.is_file():
                 fresh_oom = rr._oom_of(log.read_text(errors="replace"))
@@ -40,7 +50,7 @@ if "--backfill" in sys.argv:
         if r.get("struct") or r["verdict"] != "PASS" or not r.get("cif"):
             continue
         run_dir = Path(r["cif"])
-        while run_dir.parent.name != "runs" and run_dir.parent != run_dir:
+        while run_dir.parent != RUNS and run_dir.parent != run_dir:
             run_dir = run_dir.parent
         out = subprocess.run([PY, str(WT / "perf/ceilings/struct_signal.py"), str(run_dir)],
                              capture_output=True, text=True, cwd=str(WT),

@@ -3,8 +3,13 @@
 ESMFold2 at 1536 tokens died on `Not enough space to allocate 4831838208 B DRAM buffer` with
 26.67 of 31.875 GiB resident on a p150a: room enough, no single free block big enough. That
 4831838208 B is [1,1536,1536,1024] bf16, fc1's whole 2*d_ff activation, allocated in one piece
-because both blocking levers are off above 1024 tokens -- `PAIR_FFN_ROW_BLOCK_SEQ` is (320, 1024)
-and `pair_row_tile` returns 0 on a big grid.
+because both blocking levers were off above 1024 tokens -- `PAIR_FFN_ROW_BLOCK_SEQ` is (320, 1024)
+and `pair_row_tile` returned 0 on a big grid at every L.
+
+`pair_row_tile` now has its own Blackhole budget (`BH_PAIR_SINGLE_PASS_MAX`), so 1536 itself is
+tiled directly and never reaches the unblocked path this file is testing -- the fallback below
+still matters for the window that remains, at or under that budget (1024), where the tensor is
+still small enough that the code tries the unblocked call first.
 
 The window is there to stop a lever changing the last bf16 bit of a fold that already works, so
 the fallback fires only AFTER a refusal. Inside the window nothing changes: the unblocked path is
@@ -84,7 +89,7 @@ def test_the_recorded_refusal_is_recognised_as_one():
 
 def test_a_refused_pair_ffn_falls_back_to_the_row_block():
     probe = _Probe(ffn_raises=RuntimeError(REFUSAL))
-    out = probe(_FakeTensor((1, 1536, 1536, 256)))
+    out = probe(_FakeTensor((1, 1024, 1024, 256)))
     assert out == "row-blocked-out", "the refusal was not caught; the fold dies as it did"
     assert probe.calls == ["unblocked", "row_blocked"], probe.calls
     assert probe.row_block_rows == E._PAIR_FFN_ROW_BLOCK
@@ -97,7 +102,7 @@ def test_the_unblocked_path_is_still_tried_first():
     the path its byte-identical output was measured on. A fallback that pre-empted the unblocked
     call would silently move every fold at every size onto the row block."""
     probe = _Probe()
-    assert probe(_FakeTensor((1, 1536, 1536, 256))) == "unblocked-out"
+    assert probe(_FakeTensor((1, 1024, 1024, 256))) == "unblocked-out"
     assert probe.calls == ["unblocked"], probe.calls
     assert E.WINDOW_FALLBACK_STATS == [0, 1], E.WINDOW_FALLBACK_STATS
     assert not E._UNBLOCKED_REFUSED, "nothing was refused, so nothing may be cached"
@@ -106,7 +111,7 @@ def test_the_unblocked_path_is_still_tried_first():
 def test_a_refused_shape_takes_the_row_block_without_a_second_refusal():
     """ESMFold2 runs 48 pair transitions per recycle. Paying one failed 4.5 GiB allocation each
     is minutes of wasted DRAM traffic, so the shape is remembered."""
-    shape = (1, 1536, 1536, 256)
+    shape = (1, 1024, 1024, 256)
     first = _Probe(ffn_raises=RuntimeError(REFUSAL))
     first(_FakeTensor(shape))
     second = _Probe(ffn_raises=RuntimeError(REFUSAL))
@@ -115,7 +120,7 @@ def test_a_refused_shape_takes_the_row_block_without_a_second_refusal():
         f"the second call refused again instead of reading the cache: {second.calls}")
     # A different length is a different shape and gets its own first attempt.
     other = _Probe()
-    other(_FakeTensor((1, 1024, 1024, 256)))
+    other(_FakeTensor((1, 768, 768, 256)))
     assert other.calls == ["unblocked"], other.calls
 
 
@@ -123,7 +128,7 @@ def test_anything_that_is_not_an_allocator_refusal_still_propagates():
     boom = RuntimeError("TT_THROW @ program.cpp:1052: circular buffer clash")
     probe = _Probe(ffn_raises=boom)
     with pytest.raises(RuntimeError) as info:
-        probe(_FakeTensor((1, 1536, 1536, 256)))
+        probe(_FakeTensor((1, 1024, 1024, 256)))
     assert info.value is boom
     assert probe.calls == ["unblocked"], "a real bug must not be retried row by row"
 

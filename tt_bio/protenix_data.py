@@ -706,6 +706,20 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
     n_res = len(seq)
     mod_ccd = {int(m["position"]): str(m["ccd"]).upper() for m in (mods or [])}
     codes = _na_res_codes(seq, mt) if mt in ("rna", "dna") else None
+    if mt == "protein":
+        # Only the 20 standard residues have a bundled reference conformer. A
+        # non-standard one is representable, but only through `mod_ccd`, which splices
+        # the CCD component's atoms in. Undeclared, the conformer lookup below died on a
+        # bare KeyError("UNK") several frames deep, naming neither the residue nor the fix.
+        bad = [f"{i + 1}{c}" for i, c in enumerate(seq)
+               if c.upper() not in _AA1_TO_IDX and i + 1 not in mod_ccd]
+        if bad:
+            shown = ", ".join(bad[:8]) + (f" (+{len(bad) - 8} more)" if len(bad) > 8 else "")
+            raise ValueError(
+                f"non-standard residue(s) at {shown}: only the 20 standard amino acids have "
+                "a reference conformer. Declare each one as a `modifications:` entry with "
+                "its CCD code (MSE for selenomethionine, SEP for phosphoserine), or "
+                "substitute a standard residue.")
 
     def _standard(lo, hi):                       # residues [lo, hi) as one per-residue block
         if mt == "protein":

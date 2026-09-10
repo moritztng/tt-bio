@@ -220,10 +220,11 @@ def test_a_baseline_from_a_different_bar_is_not_evidence():
 
 #: Real tools known to walk a Blackhole ceiling. `capacity_gate.py` is a fixed 1536-token
 #: pass/fail bar, not a ladder -- it cannot itself produce the CEILINGS numbers (often far above
-#: or below 1536), so a genuine ceiling walk on design/embed models runs through
-#: `perf/bhdesign/ladder.py` instead. Either is real, reproducible evidence -- the guard's job is
-#: ruling out a fabricated row, not preferring one real harness over another.
-_REAL_CAPACITY_TOOLS = ("capacity_gate", "perf/bhdesign/ladder.py")
+#: or below 1536), so a genuine ceiling walk runs through a dedicated ladder script instead:
+#: `perf/bhdesign/ladder.py` for design/embed models, `perf/bh1536/run_rung.py` for structure/
+#: affinity models. Any of these is real, reproducible evidence -- the guard's job is ruling out
+#: a fabricated row, not preferring one real harness over another.
+_REAL_CAPACITY_TOOLS = ("capacity_gate", "perf/bhdesign/ladder.py", "perf/bh1536/run_rung.py")
 
 
 @pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
