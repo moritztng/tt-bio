@@ -1333,8 +1333,34 @@ def _sdpa_pick(q_len, k_len, q_chunk, k_chunk, route: str):
 _SDPA_QK_OVER_L1: set = set()
 
 
+# K6: offer the fused K1/K2 kernel its OWN preference order, ahead of the stock ladder. OFF.
+#
+# `_tri_att_sdpa_at` below is built around the stock op -- q_chunks widest first, and the first
+# entry that RUNS on either route wins. Above 1024 padded tokens that is always the stock op,
+# because the fused kernel wants one q chunk per core while a wide q_chunk blows its persistent
+# mask CB (`seq * q_chunk / 1024` tiles, with no k_chunk term at all). Its pair is therefore the
+# WIDEST K against a NARROW q, and the stock ladder never offers that: `perf/bgsdpa/fused_reach.py`
+# counts 0 of the 50 padded lengths from 1024 to 2592 served fused today -- boltzgen's 2208 and
+# every model's 1536 among them -- and turning on the wide-k and narrow-q ladders does not fix it,
+# because the ladder accepts a stock config at a wider k before it tries the fused one below.
+#
+# Needs `TT_BIO_TRIATT_MASK_Q_SPLIT_MAX` raised past the shipped 1024 to do anything above it.
+# NOT bit-exact: k_chunk sets the online-softmax reduction order. Release-gated twice over, so
+# it ships off and the flag is how a fold A/B reaches it.
+_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", False)
+
+
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
     q_len, k_len = q.shape[2], k.shape[2]
+    if _SDPA_FUSED_LARGE_S and q_len == k_len and q_len % SDPA_CHUNK_TILE == 0:
+        cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+        for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
+                int(q_len), int(q.shape[1]), int(q.shape[3]), cores, bias.dtype):
+            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc)
+            if o is not None:
+                SDPA_K_CHUNK_STATS[0] += 1
+                _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
+                return o
     k_chunks = _tri_att_k_chunks(q_len, k_len)
     if len(k_chunks) > 1:
         # Only q_chunks that DIVIDE the padded sequence are offered against a wide k. The q ladder's
