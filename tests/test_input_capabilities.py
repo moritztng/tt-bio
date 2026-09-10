@@ -120,12 +120,11 @@ def test_cyclic_false_is_not_a_refusal(tmp_path, model):
 
 def test_every_refused_feature_is_named_at_once(tmp_path):
     """A user fixing one key should not have to run again to find the next."""
-    text = (_HEAD + "      cyclic: true\n      modifications:\n        - position: 5\n"
-            "          ccd: TPO\n")
+    text = _HEAD + "      cyclic: true\n      templates: /nonexistent/tmpl.npz\n"
     with pytest.raises(RuntimeError) as e:
         _check(tmp_path, text, "protenix-v2")
     msg = str(e.value)
-    assert "cyclic" in msg and "modifications" in msg
+    assert "cyclic" in msg and "templates" in msg
 
 
 def test_every_offending_chain_id_is_named_and_no_other(tmp_path):
@@ -210,19 +209,30 @@ def test_the_vendored_of3_tree_still_has_no_cyclic_field():
 
 
 def test_the_reader_still_drops_what_the_table_refuses():
-    """Why the cyclic and modifications rows are REFUSED rather than honoured: there is no
-    path from the key to the featurizer. Each of these failing means a port gained the
-    feature and its row is now wrong."""
+    """Why the cyclic rows are REFUSED rather than honoured: there is no path from the key to
+    the featurizer. This failing means a port gained the feature and its row is now wrong."""
+    assert "cyclic" not in inspect.getsource(_read_bio_chains), \
+        "the reader now carries `cyclic` -- revisit the cyclic rows"
+
+
+def test_modifications_reach_every_featurizer_that_honours_them():
+    """The other half of the same guard, now that the key is wired: a model whose row says
+    `yes` has to have a path from `modifications:` into its features."""
     from tt_bio.protenix_data import build_complex_features
     from tt_bio.worker import _WorkerState
 
-    assert "cyclic" not in inspect.getsource(_read_bio_chains), \
-        "the reader now carries `cyclic` -- revisit the cyclic rows"
-    assert "modifications" not in inspect.signature(build_complex_features).parameters, \
-        "build_complex_features now takes modifications -- revisit the Protenix/OpenDDE rows"
+    assert "modifications" in inspect.signature(build_complex_features).parameters
+    for name in ("_predict_opendde_one", "_protenix_inputs"):
+        assert "modifications=[mods" in inspect.getsource(getattr(_WorkerState, name)), \
+            f"{name} builds features without the chain's modifications"
     of3 = inspect.getsource(_WorkerState._predict_openfold3_one)
-    assert '"non_canonical_residues": None' in of3, \
-        "the OF3 query now carries non_canonical_residues -- revisit the OF3 modifications rows"
+    assert '"non_canonical_residues": ({m["position"]' in of3, \
+        "the OF3 query stopped carrying non_canonical_residues"
+    for model in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag", "openfold3",
+                  "openbind", "esmfold2"):
+        assert CAPABILITY[model]["modifications"] == HONOURED
+    assert CAPABILITY["rf3"]["modifications"] == REFUSED, \
+        "rf3 reads modified residues from its own JSON/CIF spec, not from this YAML"
 
 
 def test_the_nesso1_row_covers_the_command_that_is_not_predict():

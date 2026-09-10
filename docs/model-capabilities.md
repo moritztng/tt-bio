@@ -14,12 +14,12 @@ changing the structure. That prints a warning and the fold runs.
 | `boltz2` | yes | yes | yes | yes | yes | yes | yes | yes | yes |
 | `esmfold2` | yes | yes | yes | refused | yes | refused | refused | refused | ignored, warns |
 | `esmfold2-fast` | yes | yes | yes | refused | yes | refused | refused | refused | ignored, warns |
-| `protenix-v1` | yes | yes | yes | refused | refused | refused | yes | refused | ignored, warns |
-| `protenix-v2` | yes | yes | yes | refused | refused | refused | yes | refused | ignored, warns |
-| `openfold3` | refused | yes | yes | refused | refused | yes | refused | refused | ignored, warns |
-| `openbind` | yes | yes | yes | refused | refused | yes | refused | refused | ignored, warns |
-| `opendde` | yes | refused | refused | refused | refused | refused | yes | refused | ignored, warns |
-| `opendde-abag` | yes | refused | refused | refused | refused | refused | yes | refused | ignored, warns |
+| `protenix-v1` | yes | yes | yes | refused | yes | refused | yes | refused | ignored, warns |
+| `protenix-v2` | yes | yes | yes | refused | yes | refused | yes | refused | ignored, warns |
+| `openfold3` | refused | yes | yes | refused | yes | yes | refused | refused | ignored, warns |
+| `openbind` | yes | yes | yes | refused | yes | yes | refused | refused | ignored, warns |
+| `opendde` | yes | refused | refused | refused | yes | refused | yes | refused | ignored, warns |
+| `opendde-abag` | yes | refused | refused | refused | yes | refused | yes | refused | ignored, warns |
 | `rf3` | yes | yes | yes | refused | refused | refused | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
@@ -72,8 +72,9 @@ refused with the accepted set, because a dropped key used to cost a whole chain
 - **RNA / DNA** -- a nucleic-acid chain. `opendde` is protein and ligand only.
 - **cyclic** -- `cyclic: true` on a polymer chain. Only Boltz-2 closes the backbone. Express
   the cyclisation as a covalent `bond` constraint on the models that take one.
-- **modifications** -- a non-canonical residue substituted at a position. ESMFold2 folds the
-  modified chemistry; the others have no featurizer argument for it.
+- **modifications** -- a non-canonical residue substituted at a position, by CCD code. Every
+  model folds the modified chemistry except RF3, which carries modified residues through its
+  own JSON/CIF spec rather than through this YAML.
 - **templates** -- a precomputed template alignment per protein chain. There is no template
   *search*: you supply the file.
 - **bond constraint** -- a covalent bond between two named atoms (a covalent inhibitor, a

@@ -338,6 +338,16 @@ def _build_chain_specs(chains, msa_dir, cfg, protein_only: bool):
             for _cid, cseq, spec, mt, _mods in chains]
 
 
+def _modified_residue_names(chains) -> dict:
+    """(asym_id, residue_index) -> CCD code for every `modifications:` residue.
+
+    build_complex_features assigns asym_id by chain order and keeps a modified residue's own
+    1-indexed position, so this is the whole mapping the structure writer needs -- it does
+    not have to know how the residue was tokenized."""
+    return {(ci, int(m["position"])): str(m["ccd"]).upper()
+            for ci, (*_x, mods) in enumerate(chains) if mods for m in mods}
+
+
 def _protenix_family() -> tuple[str, ...]:
     """The --model ids the tt_bio.protenix implementation serves (v0.5.0 base and v2).
 
@@ -861,7 +871,8 @@ class _WorkerState:
 
         report_progress("prep")
         feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains],
-                                       bonds=bonds, paired_a3ms=paired_a3ms)
+                                       bonds=bonds, paired_a3ms=paired_a3ms,
+                                       modifications=[mods for *_x, mods in chains])
 
         # OpenDDE.fold rides the Protenix-v2 trunk + EDM sampler, so the same
         # progress_fn path reports trunk iterations and diffusion steps — no
@@ -896,7 +907,8 @@ class _WorkerState:
             r = rank_of[k]
             name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
             _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
-                                      b_factors=confs[k]["plddt_atom"] * 100.0)
+                                      b_factors=confs[k]["plddt_atom"] * 100.0,
+                                      mod_names=_modified_residue_names(chains))
 
         def _row(c):
             return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
@@ -958,7 +970,8 @@ class _WorkerState:
 
         report_progress("prep")
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
-                                       chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains], bonds=bonds)
+                                       chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains], bonds=bonds,
+                                       modifications=[mods for *_x, mods in chains])
         return feats, chains, chain_specs
 
     def _protenix_emit(self, path: Path, cfg: dict[str, Any], feats, chains, chain_specs,
@@ -990,7 +1003,8 @@ class _WorkerState:
             name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
             # per-atom pLDDT (0-1) -> B-factors (0-100), the AF/Boltz convention
             _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
-                                      b_factors=confs[k]["plddt_atom"] * 100.0)
+                                      b_factors=confs[k]["plddt_atom"] * 100.0,
+                                      mod_names=_modified_residue_names(chains))
 
         def _row(c):
             return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
@@ -1295,7 +1309,7 @@ class _WorkerState:
         report_progress("msa")
         _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA", "ligand": "LIGAND"}
 
-        def _query_chain(cid, cseq, spec, mt):
+        def _query_chain(cid, cseq, spec, mt, mods):
             """One upstream Chain dict. Ligands take smiles/ccd_codes and NO sequence.
 
             `_read_bio_chains` hands a ligand its spec in the sequence slot, using the
@@ -1303,9 +1317,16 @@ class _WorkerState:
             a CCD code becomes ccd_codes=[code], anything else is treated as SMILES.
             Upstream keys off exactly these two fields (inference_query_format.Chain),
             and a LIGAND chain with `sequence` set is not a thing upstream builds.
+
+            `modifications:` becomes non_canonical_residues, upstream's own {res_id: CCD}
+            field: structure_with_ref_mols_from_sequence builds that position from
+            atom_array_from_ccd_code instead of the standard residue, so the modified
+            residue's real atoms reach the featurizer. The field existed all along and this
+            port hardcoded it None, which is why the row was refused.
             """
             chain = {"molecule_type": _MT[mt], "chain_ids": [cid],
-                     "non_canonical_residues": None,
+                     "non_canonical_residues": ({m["position"]: str(m["ccd"]).upper()
+                                                 for m in mods} if mods else None),
                      "paired_msa_file_paths": None,
                      "template_alignment_file_path": None,
                      "template_entry_chain_ids": None,
@@ -1327,7 +1348,8 @@ class _WorkerState:
         query = {
             "query_name": path.stem, "use_msas": True, "use_paired_msas": False,
             "use_main_msas": True, "covalent_bonds": None,
-            "chains": [_query_chain(cid, cseq, spec, mt) for cid, cseq, spec, mt, _mods in chains],
+            "chains": [_query_chain(cid, cseq, spec, mt, mods)
+                       for cid, cseq, spec, mt, mods in chains],
         }
 
         report_progress("prep")

@@ -2253,14 +2253,19 @@ def _resolve_a3m_text(msa_spec, sequence, msa_dir, max_seqs=None):
     return cap_a3m_text(p.read_text(), max_seqs) if p else None
 
 
-def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None):
+def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None,
+                              mod_names=None):
     """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
 
     Reconstructed entirely from the feature dict so it is modality- and chain-agnostic
     (proteins, complexes, nucleic acids, ligands): atom name from ref_atom_name_chars,
     element from ref_element, chain letter from asym_id, residue number from residue_index,
     residue name from restype. `aatype` is accepted for back-compat but unused. `b_factors`
-    (per-atom, e.g. pLDDT*100) is written to the B-factor column when given."""
+    (per-atom, e.g. pLDDT*100) is written to the B-factor column when given.
+
+    `mod_names` maps (asym_id, residue_index) -> CCD code for a `modifications:` residue.
+    Those residues are tokenized per atom and carry restype UNK, so without it the writer
+    would name them "LIG" and a user who asked for SEP would read back a ligand."""
     import biotite.structure as struc
     import biotite.structure.io.pdb as _pdb
     import biotite.structure.io.pdbx as _pdbx
@@ -2294,10 +2299,11 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
         t = a2t[i]
         arr.chain_id[i] = _chain_label(int(asym[t]))
         arr.res_id[i] = int(resid[t])
-        arr.res_name[i] = "LIG" if is_lig_tok[t] else resname[t]
+        mod = (mod_names or {}).get((int(asym[t]), int(resid[t])))
+        arr.res_name[i] = mod or ("LIG" if is_lig_tok[t] else resname[t])
         arr.atom_name[i] = names[i]
         arr.element[i] = z2sym.get(int(znum[i]), "C")
-        arr.hetero[i] = is_lig_tok[t]
+        arr.hetero[i] = is_lig_tok[t] or mod is not None
     outpath = Path(outpath)
     if output_format == "pdb":
         pf = _pdb.PDBFile(); pf.set_structure(arr); pf.write(str(outpath))
