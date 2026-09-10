@@ -28,6 +28,20 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **`--output_format pdb` no longer fails on a chain id longer than one character.** A FASTA
+  with bare `>sample_03` headers folded to completion on device and then died in the writer with
+  "Some chain IDs exceed 1 character", after the whole fold had been paid for. The PDB chain
+  column is one character wide, and the three writers disagreed about that: the esmfold2 path
+  raised, while the boltz2 and BoltzGen writers dropped a long name into a one-wide field, which
+  pads but never truncates, and shifted every column after it without an error. Chain ids are now
+  rewritten `A`, `B`, `C`... in first-appearance order, a residue name longer than three
+  characters (a five-character CCD code, 1512 of them exist) is cut to three, and everything
+  renamed is listed in a `REMARK 999` block at the top of the file. A structure whose names
+  already fit is written exactly as before and carries no remark, and `cif` output does not
+  change at all: it has no width limit and keeps the names you submitted. Past 62 chains a PDB
+  cannot hold the ids at all, and the writer now says so and names `cif` instead of failing
+  inside biotite.
+
 - **A fold stopped by a signal now says so, instead of ending the run with `exit 0` and no
   reason.** rf3 at 1536 tokens went from `trunk 3/10` to gone in 30 seconds after eight minutes
   of folding, returned 0, wrote no results row and left `structures/` empty, and the CLI answered

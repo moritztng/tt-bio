@@ -90,6 +90,14 @@ Every structure model writes a ranked `.cif`/`.pdb` per sample and per-atom pLDD
 B-factor column. `--diffusion_samples N` draws N samples and writes all of them, best first.
 `--seed` makes a run reproducible: two runs at the same seed give byte-identical files.
 
+`--output_format pdb` has to fit the format's fixed columns, which mmCIF does not. The chain id
+gets one column, so chain names longer than one character are rewritten `A`, `B`, `C`... in the
+order the chains appear, and a residue name longer than three characters (a five-character CCD
+code) is cut to three. Everything renamed is listed in a `REMARK 999` block at the top of the
+file, so the names you submitted are still in it. A structure whose names already fit is written
+unchanged and carries no remark. A PDB holds at most 62 chains; past that, use `cif`, which has no
+width limit and never renames anything.
+
 `--write_pae` adds a token-token PAE and PDE matrix as `<name>_pae.npz` on `boltz2`,
 `protenix-v1`, `protenix-v2` and `opendde`. `rf3` writes pTM, ipTM and chain-pair PAE into
 `<name>_summary_confidences.json` instead. `openfold3` and `openbind` compute PAE logits but
