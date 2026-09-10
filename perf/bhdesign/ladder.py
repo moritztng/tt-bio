@@ -83,6 +83,17 @@ def _col(cols, *names):
     raise KeyError(names)
 
 
+def cif_chains(path: pathlib.Path) -> dict[str, int]:
+    """{chain id: residues} off the ATOM records."""
+    cols, rows = cif_atoms(path)
+    ch = _col(cols, "label_asym_id", "auth_asym_id")
+    sq = _col(cols, "label_seq_id", "auth_seq_id")
+    seen: dict[str, set] = {}
+    for r in rows:
+        seen.setdefault(r[ch], set()).add(r[sq])
+    return {k: len(v) for k, v in seen.items()}
+
+
 def cif_stats(path: pathlib.Path) -> tuple[int, int]:
     """(residues, atoms) of a CIF, counted off its ATOM records."""
     cols, rows = cif_atoms(path)
@@ -272,7 +283,7 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         fx = pxdesign_fixture(work, size, pathlib.Path(args.target), args.binder)
         cmd = base + ["design", str(fx), "--model", "pxdesign", "--out_dir", str(out_dir),
                       "--n_step", str(args.steps), "--num_designs", "1"]
-        checker = ("cif", size + args.binder)
+        checker = ("binder", args.binder)
     elif model == "boltzgen":
         fx, atoms = boltzgen_fixture(work, size, pathlib.Path(args.target), args.binder)
         # --devices is a COUNT, not an id. 1 keeps the run in-process on the one card the
@@ -313,6 +324,25 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     return rec
 
 
+def rescore_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
+    """Re-verify a rung from the artifacts on disk. No subprocess, no device."""
+    out_dir = work / f"out_{model}_{size}"
+    checker = {"rfd3": ("cif", size), "pxdesign": ("binder", args.binder),
+               "boltzgen": ("designcif", args.binder)}.get(model, ("npz", size))
+    rec = {"model": model, "size": size, "rc": None, "wall_s": 0.0,
+           "cmd": "(rescored from artifacts on disk)", "arch": "blackhole", "card": args.card,
+           "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "rescored": True}
+    if model == "boltzgen":
+        cif = work / f"bgt{size}.cif"
+        if cif.exists():
+            rec["target_atoms"] = cif_stats(cif)[1]
+    ok, detail = check_artifact(checker, out_dir, model)
+    rec["artifact"] = detail
+    rec["verdict"] = "PASS" if ok else "FAIL"
+    rec["mechanism"] = "none" if ok else "unknown"
+    return rec
+
+
 def check_artifact(checker, out_dir: pathlib.Path, model: str) -> tuple[bool, dict]:
     """The rung's real verdict. Every branch can FAIL -- that is what makes it a check."""
     kind, expect = checker
@@ -341,22 +371,43 @@ def check_artifact(checker, out_dir: pathlib.Path, model: str) -> tuple[bool, di
         res, atoms = cif_stats(cifs[0])
         detail = {"cif": cifs[0].name, "residues": res, "atoms": atoms}
         return (res == expect and atoms > 3 * res), detail
-    if kind == "designcif":
-        # BoltzGen's design step writes the DESIGNED chain, not the target: the artifact that
-        # proves the rung ran is a CIF whose residue count is the binder length. "some file
-        # landed in out_dir" would pass on a config dump, which is why it is not the check.
+    if kind == "binder":
+        # A designed BACKBONE: `expect` residues at ~4 atoms each. The atom floor is 3x rather
+        # than the 4x a pure backbone gives, so a run that writes a few sidechains still passes,
+        # while a stub or a copied single-residue file does not.
         cifs = sorted(out_dir.rglob("*.cif"))
         if not cifs:
-            return False, {"reason": "no design .cif written",
+            return False, {"reason": "no binder .cif written",
                            "saw": sorted(q.name for q in out_dir.rglob("*") if q.is_file())[:8]}
         for c in cifs:
             res, atoms = cif_stats(c)
             if res == expect and atoms >= 3 * res:
                 return True, {"cif": c.name, "residues": res, "atoms": atoms}
         res, atoms = cif_stats(cifs[0])
-        return False, {"reason": f"no .cif carries {expect} designed residues",
-                       "cif": cifs[0].name, "residues": res, "atoms": atoms,
-                       "n_cifs": len(cifs)}
+        return False, {"reason": f"no .cif is a {expect}-residue binder",
+                       "cif": cifs[0].name, "residues": res, "atoms": atoms}
+    if kind == "designcif":
+        # BoltzGen's design step writes the DESIGNED chain, not the target: the artifact that
+        # proves the rung ran is a CIF whose residue count is the binder length. "some file
+        # landed in out_dir" would pass on a config dump, which is why it is not the check.
+        # BoltzGen writes the COMPLEX, not the binder alone: out_dir/<id>.cif is a copy of the
+        # target, and out_dir/intermediate_designs/<id>.cif carries the designed chain (exactly
+        # `expect` residues) NEXT TO it. So the check is "some chain is the designed one", not
+        # "the file has `expect` residues" -- the latter rejects a run that in fact succeeded,
+        # and "a .cif landed in out_dir" accepts the input copy.
+        cifs = sorted(out_dir.rglob("*.cif"))
+        if not cifs:
+            return False, {"reason": "no design .cif written",
+                           "saw": sorted(q.name for q in out_dir.rglob("*") if q.is_file())[:8]}
+        seen = []
+        for c in cifs:
+            chains = cif_chains(c)
+            res, atoms = cif_stats(c)
+            seen.append({"cif": c.name, "chains": chains})
+            if expect in chains.values() and len(chains) > 1 and atoms >= 3 * res:
+                return True, {"cif": c.name, "chains": chains, "residues": res, "atoms": atoms}
+        return False, {"reason": f"no .cif carries a designed chain of {expect} residues "
+                                 f"alongside the target", "saw": seen[:4]}
     files = [p for p in out_dir.rglob("*") if p.is_file() and p.stat().st_size > 0]
     return bool(files), {"files": len(files),
                          "names": sorted(p.name for p in files)[:6]}
@@ -373,6 +424,8 @@ def main() -> int:
     ap.add_argument("--binder", type=int, default=80)
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--timeout", type=int, default=3600)
+    ap.add_argument("--rescore", action="store_true",
+                    help="do not run: re-check the artifacts a previous walk left in --work")
     ap.add_argument("--stop-on-fail", action="store_true",
                     help="stop the walk at the first FAIL (the ceiling is below it)")
     ap.add_argument("--work", type=pathlib.Path, default=ROOT / "perf" / "bhdesign" / "work")
@@ -381,7 +434,12 @@ def main() -> int:
     a.work.mkdir(parents=True, exist_ok=True)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     for size in [int(s) for s in a.sizes.split(",") if s.strip()]:
-        rec = run_rung(a.model, size, a, a.work)
+        if a.rescore:
+            # Re-read an artifact a previous run already left on disk. The device work is the
+            # expensive part; a checker defect should cost the re-read and not the card time.
+            rec = rescore_rung(a.model, size, a, a.work)
+        else:
+            rec = run_rung(a.model, size, a, a.work)
         line = json.dumps(rec)
         with a.out.open("a") as fh:
             fh.write(line + "\n")
