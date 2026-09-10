@@ -140,6 +140,20 @@ def ckc_from_env(spec=None):
 _CKC_OVERRIDE = ckc_from_env()
 
 
+def q_parallel_factor(S: int, H: int, q_chunk: int, cores: int) -> int:
+    """The q-chunk split `fill_preconditions` needs, or 1 when there is none.
+
+    The hoisted fill wants one q chunk per core, and the factory's own choice of `q_pf = 1` hands
+    every core all of them -- so above the size where the widest q_chunk still spans the whole
+    sequence, `q_per_core > 1` and this kernel declines every call. Pure, so
+    `perf/bgsdpa/fused_reach.py` can ask which sizes it reaches without a device.
+    """
+    if not _Q_SPLIT or S > _Q_SPLIT_MAX_S:
+        return 1
+    qnc = -(-S // q_chunk)
+    return qnc if qnc > 1 and cores // (H * qnc) >= 1 else 1
+
+
 def _reject(reason, shape):
     key = (reason, tuple(shape))
     REJECTS[key] = REJECTS.get(key, 0) + 1
@@ -188,11 +202,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     # gate then declines the whole fold (0 of 2424 calls served at 768, 0 of 2528 at 1024, all
     # `fill_preconditions`, all on this one term). Give the q chunks their own factor instead. Tiles
     # per core are unchanged: the batch factor shrinks by exactly the amount the q factor grows.
-    q_pf = 1
-    if _Q_SPLIT and shape[2] <= _Q_SPLIT_MAX_S:
-        qnc = -(-shape[2] // q_chunk)
-        if qnc > 1 and cores // (H * qnc) >= 1:
-            q_pf = qnc
+    q_pf = q_parallel_factor(shape[2], H, q_chunk, cores)
     split = (cores // (H * q_pf), H, q_pf)
 
     dev = q.device()
