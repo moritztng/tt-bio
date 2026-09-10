@@ -1,0 +1,52 @@
+{
+  "watchdog_s": 130,
+  "arms": "odde",
+  "rows": [
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        2016,
+        2016,
+        32
+      ],
+      "chunks": 4,
+      "arm": 0,
+      "verdict": "HANG",
+      "stage": "07:50:16 enqueued",
+      "note": "no result in 130s, killed",
+      "reset": true
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        2208,
+        2208,
+        32
+      ],
+      "chunks": 4,
+      "arm": 1,
+      "verdict": "HANG",
+      "stage": "07:52:32 enqueued",
+      "note": "no result in 130s, killed",
+      "reset": true
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        2016,
+        2016,
+        64
+      ],
+      "chunks": 4,
+      "arm": 2,
+      "verdict": "HANG",
+      "stage": "07:54:50 enqueued",
+      "note": "no result in 130s, killed",
+      "reset": true
+    }
+  ],
+  "ts": "2026-09-10T07:56:57Z"
+}
