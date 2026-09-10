@@ -1639,7 +1639,15 @@ def _run_boltzgen_cli(prog: str, args) -> None:
 
     ensure_p300_mesh_descriptor()
 
-    _bg_main()
+    try:
+        _bg_main()
+    except ValueError as exc:
+        # BoltzGen's CLI raises ValueError for bad input: an unknown --config
+        # key, an invalid step or protocol name, a budget below 1. Those reached
+        # the user as a traceback. --debug still shows it.
+        if "--debug" in sys.argv:
+            raise
+        raise click.ClickException(str(exc)) from exc
 
 
 @cli.command(
