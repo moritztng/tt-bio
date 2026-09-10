@@ -3952,6 +3952,16 @@ def msa_depth_cap(num_residues: int, max_sequences: int) -> int:
 # that would fit alone: 524288 gives a 1.0 GiB transient and a ~3 GiB peak at 1536.
 BH_PAIR_SINGLE_PASS_MAX = 1024
 BH_PAIR_TILE_AREA = 524288
+# Screen hooks, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING: what the blocked
+# path costs against the single pass has to be measurable without editing a constant, and the sizes
+# where BOTH paths run are a narrow window (above 1024 the single pass grows as L^2 and by 1536 it
+# is refused). Setting SINGLE_PASS_MAX high forces the old unbounded behaviour for an A/B.
+# Read here and not in _apply_grid_thresholds, where the other hooks live: that function returns
+# early on any grid at or above the Blackhole baseline, so its own hooks are unreachable on the
+# card this one is for. Unset in production.
+BH_PAIR_SINGLE_PASS_MAX = int(os.environ.get("TT_BIO_BH_PAIR_SINGLE_PASS_MAX",
+                                             BH_PAIR_SINGLE_PASS_MAX))
+BH_PAIR_TILE_AREA = int(os.environ.get("TT_BIO_BH_PAIR_TILE_AREA", BH_PAIR_TILE_AREA))
 
 
 def pair_row_tile(L: int) -> int:

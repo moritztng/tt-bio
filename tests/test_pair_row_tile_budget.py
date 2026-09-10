@@ -79,3 +79,17 @@ def test_three_of_these_transients_fit_the_free_bytes_at_the_refusal():
 def test_the_budget_is_a_module_constant_not_a_literal_in_the_helper():
     src = importlib.import_module("inspect").getsource(tenstorrent.pair_row_tile)
     assert "BH_PAIR_TILE_AREA" in src and "524288" not in src
+
+
+def test_the_screen_hooks_can_force_either_path(monkeypatch):
+    # The A/B this needs: forcing the single pass back on reproduces the unbounded behaviour, so
+    # the cost of blocking can be measured on one card instead of inferred across two.
+    import importlib
+    monkeypatch.setenv("TT_BIO_BH_PAIR_SINGLE_PASS_MAX", "100000")
+    reloaded = importlib.reload(tenstorrent)
+    try:
+        assert reloaded.pair_row_tile(1536) == 0
+    finally:
+        monkeypatch.delenv("TT_BIO_BH_PAIR_SINGLE_PASS_MAX")
+        importlib.reload(tenstorrent)
+    assert tenstorrent.pair_row_tile(1536) == 320
