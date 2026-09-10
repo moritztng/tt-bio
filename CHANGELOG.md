@@ -372,6 +372,28 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   is a cell nobody measured, not one that failed, so it is published here rather than held against
   the release; closing them is tracked as `tt-bio-size-ladder-regrid-11x10`.
 
+### What this release does not cover
+
+- **The protenix-v2 capstone on-device test does not run.** `scripts/protenix_fold_e2e.py` folds
+  ten trunk cycles and 200 diffusion steps and then dies on the progress callback: the confidence
+  stage added this cycle calls `progress_fn("confidence")`, while that script's own callback
+  declares `step` and `total` as required arguments. The contract everywhere else in the tree is
+  `fn(stage, step=0, total=0)` and both production callbacks honour it, so no fold a user runs is
+  affected; what broke is the fixture. It is fixed on `main` for 0.8.1, together with making the
+  test keep the subprocess's stderr, which is why a plain `TypeError` went unread across three
+  release passes. Tracked as `tt-bio-protenix-capstone-progress-arity`.
+
+- **`test_confidence_device_resident_parity` still fails**, at PCC 0.9807 against a >0.99 bar on
+  `pae`, deterministic and digit-identical on two different cards. It covers the opt-in
+  device-resident confidence path (`TT_PROTENIX_CONF_DEVICE=1`), which ships off, and it has
+  failed at this value since v0.5.0.
+
+- **The weights-download fixes are not in this tag.** Three commits landed on `main` after the
+  gate of record finished: no download waits forever, one checkpoint can have several sources, and
+  an aria2c preallocation no longer defeats the stall watchdog. Taking them in would mean tagging
+  900 lines the gate never scored, and the hang they fix is equally present in 0.7.x. They ship in
+  0.8.1.
+
 ## [0.7.3] - 2026-09-04
 
 ### Added
