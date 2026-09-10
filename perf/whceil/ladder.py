@@ -38,9 +38,15 @@ from pathlib import Path
 #: tt-metal's allocator refusal. Both the DRAM and the L1 form carry the total request, the
 #: number of banks it is spread over, and the per-bank share -- the three numbers that decide
 #: whether a wall is one tensor or the sum of everything resident.
+#: The per-bank clause is optional and the message WRAPS -- tt-metal prints "across 12 banks,"
+#: then a newline and indentation before "where each bank needs to store". A pattern that
+#: assumed one line matched nothing, which is worse than no classifier: every wall would have
+#: read as a plain ERROR and the ladder would have run for hours collecting nothing. Both real
+#: forms are in tests/test_whceil_classify.py.
 _OOM = re.compile(
-    r"Out of Memory: Not enough space to allocate (\d+) B (DRAM|L1) buffer "
-    r"across (\d+) banks, where each bank needs to store (\d+) B", re.S)
+    r"Out of Memory: Not enough space to allocate\s+(\d+) B (DRAM|L1) buffer\s+"
+    r"across\s+(\d+) banks"
+    r"(?:,\s*where each bank needs to store\s+(\d+) B)?", re.S)
 
 #: Written by the run itself. A rung counts as PASS only if a structure file exists, because a
 #: zero exit status has been wrong here before (a worker that swallowed its own child's failure
@@ -59,9 +65,13 @@ def classify(stderr: str, rc: int, timed_out: bool) -> tuple[str, dict]:
         return "TIMEOUT", {}
     m = _OOM.search(stderr)
     if m:
-        total, space, banks, per_bank = int(m[1]), m[2], int(m[3]), int(m[4])
+        total, space, banks = int(m[1]), m[2], int(m[3])
+        # Absent, the per-bank share is the interleaved split, which is what the allocator
+        # refuses on. Derived rather than dropped, and flagged so a reader knows which it is.
+        per_bank = int(m[4]) if m[4] else -(-total // banks)
         return f"OOM_{space}", {
             "request_bytes": total, "banks": banks, "per_bank_bytes": per_bank,
+            "per_bank_reported": m[4] is not None,
             "request_gib": round(total / 2**30, 3), "per_bank_mib": round(per_bank / 2**20, 1),
         }
     if rc != 0:

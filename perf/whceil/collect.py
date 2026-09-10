@@ -10,12 +10,34 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ladder import classify  # noqa: E402
+
+
+def reclassify(r: dict) -> dict:
+    """Name the wall from the saved log when the row does not carry one.
+
+    A ladder already walking cannot be re-patched, and the first version of the classifier
+    matched nothing because tt-metal wraps its refusal across two lines. The full stdout and
+    stderr of every rung is on disk, so the classification is recoverable after the fact --
+    which is the whole reason the driver saves it rather than a summary.
+    """
+    if r["verdict"] not in ("ERROR", "NO_STRUCTURE") or "request_bytes" in r:
+        return r
+    log = Path(r.get("log", ""))
+    if not log.is_file():
+        return r
+    verdict, detail = classify(log.read_text(errors="replace"), r["rc"], False)
+    if verdict.startswith("OOM"):
+        return {**r, "verdict": verdict, **detail, "reclassified": True}
+    return r
+
 
 def rows(root: Path):
     for p in sorted(root.glob("ladder_*.jsonl")) + sorted(root.glob("guard/ladder_*.jsonl")):
         for line in p.read_text().splitlines():
             if line.strip():
-                yield json.loads(line)
+                yield reclassify(json.loads(line))
 
 
 def main() -> int:
