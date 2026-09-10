@@ -7,6 +7,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **Every fold model shows its confidence stage, and the step-count help matches what the models
+  run.** Only esmfold2 announced the confidence head; on the other five it displayed as the last
+  diffusion step (13 s of a 233 s cold openfold3 fold). `--sampling_steps` said "every other model
+  200" while rf3 has shipped 50 (49 executed) since its port, and `--recycling_steps` named
+  openfold3 as the only model running recycles+1 when esmfold2 and boltz2 do it too — esmfold2
+  shows "Trunk 0/11" for a documented default of 10. Both help strings are now generated from the
+  tables that decide the values. huggingface_hub's "Fetching 6 files:" progress bar no longer
+  writes carriage returns into a redirected log.
+
 - **`--msa_endpoint` is refused where it does nothing, and its help lists rf3.** The help string
   was hand-written and omitted rf3, which reads the flag. Passing it with `--model boltz2`, which
   has no endpoint client, was accepted, suppressed the auto-detected local ColabFold DB, and the
