@@ -15,7 +15,7 @@ and has to be walked again.
 
 Appends one JSON object per rung to results.jsonl and one line to sweep.log.
 """
-import argparse, fcntl, json, os, re, resource, shutil, subprocess, sys, time
+import argparse, fcntl, json, os, re, resource, shutil, signal, subprocess, sys, time
 from pathlib import Path
 
 WT = Path(__file__).resolve().parents[2]
@@ -91,6 +91,43 @@ def code_state():
             return ""
     return {"head": _git("rev-parse", "--short", "HEAD"),
             "dirty": bool(_git("status", "--porcelain", "--", "tt_bio"))}
+
+
+def _group_alive(pgid: int) -> bool:
+    """Any process in `pgid` that is not already a zombie.
+
+    `os.killpg(pgid, 0)` is not the right question: a killed child stays in the group as a
+    zombie until it is waited for, so signal 0 keeps succeeding and the caller waits out its
+    whole grace period on a process that is already dead.
+    """
+    out = subprocess.run(["ps", "-o", "pid=,stat=", "-g", str(pgid)],
+                         capture_output=True, text=True)
+    return any(line.split()[1][0] != "Z" for line in out.stdout.splitlines() if line.split())
+
+
+def kill_group(pgid: int, grace=8):
+    """End the whole fold, not just the process that was launched.
+
+    Takes the GROUP id, not the Popen object: `start_new_session=True` makes the launched pid
+    the group leader, and reading the group back off that pid at kill time fails the moment the
+    leader is gone while its children are not -- which is the exact case this exists for.
+
+    SIGINT first, because tt-bio's worker loop is meant to release the device on it; then
+    SIGKILL, because it demonstrably does not always: the orphan this was written for ignored
+    two SIGINTs and a SIGTERM while inside a device op. Returns only once the group holds
+    nothing but zombies, so the flock this rung holds is never handed to the next rung while
+    the card is still busy.
+    """
+    for sig in (signal.SIGINT, signal.SIGKILL):
+        try:
+            os.killpg(pgid, sig)
+        except OSError:
+            return
+        deadline = time.time() + grace
+        while time.time() < deadline:
+            if not _group_alive(pgid):
+                return
+            time.sleep(0.5)
 
 
 def sample_host():
@@ -273,15 +310,20 @@ def main():
     peak_rss, floor_avail = 0, 1 << 62
     for attempt in range(a.contention_retries + 1):
         with log.open("wb") as fh:
+            # Own process group, so a budget kill can reach the fold's spawn worker. Without
+            # it, proc.kill() ends the CLI and the multiprocessing child keeps the card: measured
+            # 2026-09-10, opendde's 2401 s timeout left pid 392233 folding at 107 % CPU with
+            # card 1's lease for another 5 minutes, and the next two rungs recorded CONTENDED
+            # against a co-tenant that was this harness's own orphan.
             proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT,
-                                    cwd=str(WT), env=env)
+                                    cwd=str(WT), env=env, start_new_session=True)
             killed = False
             while proc.poll() is None:
                 time.sleep(2)
                 r, av = sample_host()
                 peak_rss = max(peak_rss, r); floor_avail = min(floor_avail, av)
                 if time.time() - t0 > a.budget:
-                    proc.kill(); killed = True; break
+                    kill_group(proc.pid); killed = True; break
             proc.wait()
         text = log.read_text(errors="replace")
         if not contended(proc.returncode, text) or killed or attempt == a.contention_retries:
