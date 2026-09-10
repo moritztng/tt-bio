@@ -10,11 +10,14 @@ Host-only — no device, no checkpoints.
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 import torch
 
 from tt_bio.data.parse import parse_boltz_schema
-from tt_bio.protenix_data import aatype_from_sequence, seq_to_restype
+from tt_bio.protenix_data import (aatype_from_sequence, build_complex_features,
+                                  seq_to_restype)
 
 
 def _fasta(tmp_path, txt):
@@ -194,3 +197,23 @@ def test_a_blank_sequence_is_refused_for_every_model_at_the_reader(tmp_path):
                  "  - protein: {id: B, sequence: '   '}\n")
     with pytest.raises(Exception, match="empty/whitespace"):
         _read_bio_chains(p)
+
+
+def test_undeclared_non_standard_residue_is_refused_by_name():
+    """A residue outside the 20 standard ones has no reference conformer.
+
+    Undeclared, the conformer lookup died on `KeyError('UNK')` eight frames into the
+    featurizer, naming neither the residue nor the fix. Reached from `predict` through
+    an X in a sequence and from `design --model pxdesign` through any target structure
+    carrying a modified residue (MSE is in most selenomethionine-phased entries).
+    """
+    with pytest.raises(ValueError, match=r"non-standard residue\(s\) at 6X"):
+        build_complex_features([("ACDEFXGHIK", None, "protein")])
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.expanduser("~/.boltz/mols/MSE.pkl")),
+                    reason="CCD mols not downloaded")
+def test_declaring_the_residue_as_a_modification_clears_the_refusal():
+    feats = build_complex_features([("ACDEFXGHIK", None, "protein")],
+                                   modifications=[[{"position": 6, "ccd": "MSE"}]])
+    assert feats["restype"].shape[0] == feats["residue_index"].shape[0]
