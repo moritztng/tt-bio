@@ -1067,9 +1067,15 @@ def test_a_leg_cannot_inherit_the_previous_runs_output_or_dram_peak(tmp_path):
         f"earlier run: {r['hook']}")
 
 
-def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None):
+def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None,
+                  screen_unsafe=False):
     """Drive _bisect with canned leg outcomes, so the rung bookkeeping is testable without
-    spending a rung of real card time on it (a real rung is minutes to tens of minutes)."""
+    spending a rung of real card time on it (a real rung is minutes to tens of minutes).
+
+    ``screen_unsafe`` makes every screen fail the way a screen fails when Tier 1's own
+    truncation broke the model: a FAIL naming NO capacity mechanism, on a leg where the cut was
+    applied. That is the exact triple screen_reduction_is_unsafe() reads.
+    """
     screen_verdicts = screen_verdicts or {}
     residency_verdicts = residency_verdicts or {}
     rec = {"legs": []}
@@ -1077,6 +1083,10 @@ def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdic
 
     def screen(worker, cell, f, work, hookdir):
         calls.append(("screen", f))
+        if screen_unsafe:
+            return {"verdict": "FAIL", "mechanism": None, "wall_s": 1.0,
+                    "stacks_truncated": [["tt_bio.esmfold2.FoldingTrunkModel", "blocks", 48]],
+                    "tail": "shape '[1, 1, 3, 1]' is invalid for input of size 81"}
         v = screen_verdicts.get(f)
         if v is None:
             v = "FAIL" if (screen_fail_above is not None and f > screen_fail_above) else "PASS"
@@ -1117,6 +1127,39 @@ def test_a_residency_failure_does_not_lower_the_allocation_ceiling():
     assert rec["alloc_ceiling_tokens"] == top, (
         f"the allocation ceiling came back {rec.get('alloc_ceiling_tokens')} even though the "
         f"screen at {top} allocated cleanly and only the residency failed")
+
+
+def test_a_screen_broken_by_its_own_truncation_cannot_bound_the_allocation_ceiling():
+    """esmfold2 on qb1's p150a, 2026-09-10. Its real wall at 1536 is a 4831838208 B DRAM refusal
+    that the RESIDENCY run found, but every Tier 1 screen dies of the truncation instead, with
+    "shape '[1, 1, 3, 1]' is invalid for input of size 81" -- a shape mismatch naming no capacity
+    mechanism, on legs where FoldingTrunkModel.blocks was cut 48 -> 1. The bisect walked seven of
+    those and recorded "shapes do not allocate at any size walked: 1408, 1280, 1024, 896, 768,
+    640, 512. The ceiling is below 512 tokens if there is one at all", for a model that folds 512
+    in 48.7 s in docs/size_ladder_baseline.json.
+
+    run_cell already refuses to score an unsafe screen and falls through to the un-truncated run.
+    The bisect has to refuse the same way, or the gate publishes a ceiling its own instrument
+    invented -- and does it in the one place whose whole output is a ceiling number.
+    """
+    passes_at = 1024
+    ceiling, rec, calls = _bisect_probe(
+        screen_unsafe=True,
+        residency_verdicts={t: ("PASS" if t == passes_at else "FAIL") for t in cg.BISECT_RUNGS})
+    assert ceiling == passes_at, (
+        f"the un-truncated run completed at {passes_at} and the walk returned {ceiling}: an "
+        f"unsafe screen has to fall through to the residency run, and its result has to survive "
+        f"the no-allocation-bound return")
+    assert rec.get("alloc_ceiling_tokens") is None, (
+        f"screens that failed on their own truncation bounded the allocation ceiling anyway: "
+        f"{rec.get('alloc_ceiling_tokens')}")
+    note = rec.get("alloc_ceiling_note") or ""
+    assert "truncation" in note, f"the note does not say why there is no bound: {note!r}"
+    assert "below" not in note, (
+        f"the note still invents an allocation bound out of broken screens: {note!r}")
+    for rung in [r for r in cg.BISECT_RUNGS if r >= passes_at]:
+        assert ("residency", rung) in calls, (
+            f"rung {rung} never reached the un-truncated run, so its unsafe screen still gated it")
 
 
 #: Quoted verbatim from a real nesso1 residency leg on pc's p150a, 2026-09-07.

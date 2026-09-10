@@ -1257,6 +1257,8 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
     alloc_lo = None                 # largest size whose SHAPES allocate (a clean screen)
     alloc_hi = TOKEN_BAR            # smallest size whose shapes do NOT allocate
     walked = []                     # every rung actually screened, for the no-ceiling case
+    resid_walked = []               # rungs the UN-TRUNCATED run actually reached
+    screens_informative = True      # False once Tier 1 breaks this model by its own hand
     for rung in BISECT_RUNGS:
         try:
             f = fixture_for(cell, rung, work, depth)
@@ -1265,36 +1267,65 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=rung))
         walked.append(rung)
-        if scr["verdict"] in ("FAIL", "HOST_OOM"):
+        if screen_reduction_is_unsafe(scr):
+            # This rung learned NOTHING about allocation, so it may neither lower alloc_hi nor
+            # raise alloc_lo. run_cell already applies exactly this test to the screen at the bar;
+            # the bisect skipping it is how esmfold2 turned seven screens that all died of
+            # `shape '[1, 1, 3, 1]' is invalid for input of size 81` into "shapes do not allocate
+            # at any size walked ... the ceiling is below 512 tokens", while the same model folds
+            # 512 in 48.7 s. That is the gate inventing a capacity verdict out of its own
+            # instrument, which is the failure screen_reduction_is_unsafe exists to stop. Fall
+            # through to the un-truncated run, which reduces nothing and always measures.
+            rec["legs"][-1]["screen_unsafe"] = True
+            screens_informative = False
+        elif scr["verdict"] in ("FAIL", "HOST_OOM"):
             alloc_hi = rung
             settle(rec["legs"][-1])
             continue
-        # The screen is clean, so the shapes allocate at this size. That is true regardless of
-        # what the residency run below then does, and the two bounds are NOT the same bound: a
-        # residency failure here must not lower the ALLOCATION ceiling, because the allocation
-        # plainly succeeded. Conflating them discarded a measured screen result.
-        alloc_lo = rung if alloc_lo is None else max(alloc_lo, rung)
+        else:
+            # The screen is clean, so the shapes allocate at this size. That is true regardless of
+            # what the residency run below then does, and the two bounds are NOT the same bound: a
+            # residency failure here must not lower the ALLOCATION ceiling, because the allocation
+            # plainly succeeded. Conflating them discarded a measured screen result.
+            alloc_lo = rung if alloc_lo is None else max(alloc_lo, rung)
         res = _residency(worker, cell, f, work, hookdir, rung)
         rec["legs"].append(dict(res, tier="residency", tokens=rung))
+        resid_walked.append(rung)
         if res["verdict"] == "PASS":
             lo = rung
             break
         settle(rec["legs"][-1])
 
     if alloc_lo is None:
-        # Nothing allocated at any rung walked. That IS the finding, and returning early without
+        # No screen on the walk came back clean. That IS the finding, and returning early without
         # recording it threw away the whole walk: seven rungs of card time came back as an empty
         # cell that reads as if the bisect had never run.
+        #
+        # WHY it came back dirty decides what may be said. A screen that failed on capacity
+        # bounds the allocation ceiling; a screen that failed on Tier 1's own truncation bounds
+        # nothing, and the residency runs are then the only measurement this cell has. Returning
+        # `lo` rather than None matters for the same reason: with the truncation no longer
+        # blocking them, those runs happen, and a completing ceiling they found must not be
+        # discarded on the way out.
         rec["alloc_ceiling_tokens"] = None
-        rec["alloc_ceiling_note"] = (
-            f"shapes do not allocate at any size walked: {', '.join(str(r) for r in walked)}. "
-            f"The ceiling is below {min(walked)} tokens if there is one at all."
-            if walked else "no rung could be built, so nothing was walked.")
-        return None
+        if not walked:
+            rec["alloc_ceiling_note"] = "no rung could be built, so nothing was walked."
+        elif not screens_informative:
+            rec["alloc_ceiling_note"] = (
+                f"no allocation bound from this walk: Tier 1 cannot build this model, so the "
+                f"screens at {', '.join(str(r) for r in walked)} failed on the truncation and "
+                f"not on capacity. Only the un-truncated runs at "
+                f"{', '.join(str(r) for r in resid_walked) or 'no rung'} measured anything.")
+        else:
+            rec["alloc_ceiling_note"] = (
+                f"shapes do not allocate at any size walked: {', '.join(str(r) for r in walked)}. "
+                f"The ceiling is below {min(walked)} tokens if there is one at all.")
+        return lo
 
-    # Refine on screens. Every candidate is bucket-aligned, because the token axis buckets to a
-    # multiple of 32 and a size that is not is a size the hardware never saw.
-    while alloc_hi - alloc_lo > TOKEN_BUCKET:
+    # Refine on screens, and only while screens still mean something for this model: a walk whose
+    # screens die of the truncation cannot narrow anything, and looping on bounds it can never
+    # move just spends card time to re-derive the same broken error.
+    while screens_informative and alloc_hi - alloc_lo > TOKEN_BUCKET:
         mid = ((alloc_lo + alloc_hi) // 2 // TOKEN_BUCKET) * TOKEN_BUCKET
         if mid <= alloc_lo or mid >= alloc_hi:
             break
@@ -1304,7 +1335,10 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
             break
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=mid, phase="refine"))
-        if scr["verdict"] in ("FAIL", "HOST_OOM"):
+        if screen_reduction_is_unsafe(scr):
+            rec["legs"][-1]["screen_unsafe"] = True
+            screens_informative = False
+        elif scr["verdict"] in ("FAIL", "HOST_OOM"):
             alloc_hi = mid
             settle(rec["legs"][-1])
         else:
@@ -1313,7 +1347,10 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
     rec["alloc_ceiling_note"] = (
         f"{alloc_lo} is the largest bucket-aligned size whose shapes ALLOCATE (screen); "
         f"{alloc_hi} is the smallest that does not. A clean screen cannot rule out a Class B "
-        f"failure, so this is an upper bound on the completing ceiling, not a pass.")
+        f"failure, so this is an upper bound on the completing ceiling, not a pass."
+        + ("" if screens_informative else
+           " NOT REFINED between those bounds: a screen on this walk failed on Tier 1's own "
+           "truncation rather than on capacity, so the screens carry no information there."))
 
     # One residency run to try to promote the refined number to a completing ceiling. `lo` is
     # None when no rung completed, and that is exactly the case worth spending the run on.
