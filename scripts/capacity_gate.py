@@ -1776,11 +1776,19 @@ BASELINE_FORMAT = 2
 def read_baseline() -> dict:
     """The baseline as ``{board_type: {..., "cells": {model: cell}}}``.
 
-    THE FILE IS PER CARD, because the answer is. p150a and p300c are both "blackhole" to ttnn and
-    they are not the same board: measured off the live allocator on the same tree, pc's p150a has
-    130 L1 banks on a (x=13,y=10) grid and qb2's p300c has 110 on (x=11,y=10), 15.4 % less L1
-    against identical DRAM. A gate that answers "does every model allocate and complete at 1536
-    tokens on this card" cannot file that answer under no card.
+    THE FILE IS PER CARD, because the answer is. p150a and p300c are both "blackhole" to ttnn,
+    and a gate that answers "does every model allocate and complete at 1536 tokens on this card"
+    cannot file that answer under no card.
+
+    Not because the L1 geometry differs. It does not: a stock p150a (qb1 card 3) and a p300c
+    (qb2 card 3) both read 110 L1 banks on an (x=11,y=10) grid against identical DRAM. An earlier
+    version of this docstring claimed 130 banks and 15.4 % more L1 for the p150a, from a
+    measurement taken on pc, which runs custom 130-core firmware. The CARD_PROBE comment below
+    already says every core count pc reports is a statement about pc.
+
+    What differs is everything around the chip. A p300 is a board PAIR, so reset and dispatch
+    granularity are two chips at a time, and a lone visible p300 chip is a CUSTOM topology that
+    will not open at all without a 1x1 mesh-graph descriptor. The recorded verdicts differ too.
 
     Format 1 had one flat `cells` block and one file-level `geometry`, so it could hold exactly
     one card and never said which. It held p150a: the probes opened ttnn bare and could not open a

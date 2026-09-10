@@ -948,8 +948,9 @@ def test_the_host_oom_corroboration_can_actually_read_the_kernel_log():
 
 def _cells(path, card="p150a"):
     """The recorded cells for one board. The file is keyed by board type: p150a and p300c are
-    both "blackhole" to ttnn and have 130 vs 110 L1 banks, so a cell filed under no card is a
-    cell about no card."""
+    both "blackhole" to ttnn, so a cell filed under no card is a cell about no card. Not on a
+    geometry difference: stock boards of both types read 110 L1 banks on an (x=11,y=10) grid.
+    The 130-bank figure this used to cite came from pc and its custom 130-core firmware."""
     return json.loads(Path(path).read_text())["cards"][card]["cells"]
 
 
