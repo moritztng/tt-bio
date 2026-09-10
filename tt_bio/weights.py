@@ -546,8 +546,9 @@ def sha256_of(path: Path) -> str:
 # landing on disk and cut the tool off when they stop. Without it, a host that
 # accepts the connection and then sends nothing parks the caller forever. That is
 # exactly what a customer's portal did -- aria2c printing "0B/0B" against a
-# China-hosted bucket her network could not pull from, under --max-tries=0, which
-# means "retry forever", inside a subprocess.run() with no timeout.
+# China-hosted bucket her network could not pull from, with aria2c's max-tries set
+# to zero, which is its word for "retry forever", inside a subprocess.run() with no
+# timeout.
 STALL_SECONDS = 120
 # A source that has not produced a single byte in this long is not going to. Kept well
 # under STALL_SECONDS because it is a different question: "this transfer has stopped"
@@ -655,8 +656,8 @@ class WeightsUnavailable(RuntimeError):
 def _tool_commands(url: str, dest: Path) -> list[tuple[str, list[str]]]:
     """The download commands to try for one URL, best first, each one bounded.
 
-    Bounded is the whole point. These ran with --max-tries=0 (aria2c's word for
-    "forever") and with no connect or read timeout on curl or wget. The stall
+    Bounded is the whole point. These ran with aria2c's max-tries set to zero, its
+    word for "forever", and with no connect or read timeout on curl or wget. The stall
     watchdog below is the backstop that catches whatever they still ignore; these
     flags keep a dead connection from spending the whole budget before it."""
     tools: list[tuple[str, list[str]]] = []
