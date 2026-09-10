@@ -373,9 +373,18 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         # boltzgen at 20171 atoms came back `l1` off an absorbed throw when what actually happened
         # is that 3000 s ran out. The wall-clock budget is the ladder's choice, so it is named as
         # such and not as a property of the model.
-        rec["mechanism"] = "timeout" if timed_out else classify(blob)
+        # rc -15 is an operator SIGTERM: somebody stopped the rung, the model did not end it.
+        # Without this the label comes from classify(), which reads whatever throw the run
+        # printed and recovered from -- so a rung stopped by hand at 30 minutes gets filed under
+        # the absorbed L1 message as if that had been terminal. Same conflation as the timeout
+        # case, different signal.
         if timed_out:
+            rec["mechanism"] = "timeout"
             rec["timeout_s"] = args.timeout
+        elif rc == -15:
+            rec["mechanism"] = "killed"
+        else:
+            rec["mechanism"] = classify(blob)
         rec.update(dram_numbers(blob))
         rec["throw"] = throw_lines(blob)
         rec["tail"] = blob[-2500:]
