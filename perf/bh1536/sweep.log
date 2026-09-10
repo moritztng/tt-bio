@@ -39,3 +39,4 @@
 2026-09-10T02:06:10Z boltz2           512tok WEDGED   wall=   20.3s engine=None cif_res=0/512 ntok=None rss=65.05G oom=-
 2026-09-10T02:06:31Z esmfold2-fast    512tok WEDGED   wall=   18.3s engine=None cif_res=0/512 ntok=None rss=62.29G oom=-
 2026-09-10T02:06:54Z esmfold2-fast    512tok WEDGED   wall=   20.3s engine=None cif_res=0/512 ntok=None rss=62.29G oom=-
+2026-09-10T02:11:58Z nesso1          1536tok PASS     wall=  150.6s engine=None cif_res=1536/1536 ntok=None rss=70.5G oom=l1_cb/l1_static_cb
