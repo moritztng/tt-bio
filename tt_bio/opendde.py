@@ -604,6 +604,8 @@ class OpenDDE:
         if "dit_z" in cond:
             ttnn.deallocate(cond["dit_z"])
         if return_confidence:
+            if progress_fn:
+                progress_fn("confidence")
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the
             # original residue-level dict -- identical call shape to Protenix.fold's.
