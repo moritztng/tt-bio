@@ -36,7 +36,7 @@ def summarize(gaps):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="pxdesign", choices=["pxdesign"])
+    ap.add_argument("--model", default="pxdesign", choices=["pxdesign", "rfd3"])
     ap.add_argument("--inputs", required=True)
     ap.add_argument("--n-step", type=int, default=40)
     ap.add_argument("--num-designs", type=int, default=1)
@@ -47,37 +47,74 @@ def main() -> int:
     args = ap.parse_args()
 
     import torch
-    from tt_bio.main import ensure_p300_mesh_descriptor, ensure_pxdesign_weights
-    from tt_bio.pxdesign.inputs import design_inputs_from_yaml
-    from tt_bio.pxdesign.model import ProtenixDesign
 
     torch.set_grad_enabled(False)
-    feats = design_inputs_from_yaml(Path(args.inputs))
-    feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
-             for k, v in feats.items()}
-    n_token = int(feats["restype"].shape[0])
-
-    ckpt = ensure_pxdesign_weights(Path(args.cache).expanduser())
-    ensure_p300_mesh_descriptor()
-
-    t0 = time.perf_counter()
-    model = ProtenixDesign.load_from_checkpoint(str(ckpt))
-    load_s = time.perf_counter() - t0
-
     stamps = []
-    original = model.diffusion.denoise
 
-    def timed_denoise(*a, **kw):
-        s = time.perf_counter()
-        out = original(*a, **kw)
-        stamps.append((s, time.perf_counter()))
-        return out
+    def stamp(call):
+        """Wrap a per-step callable so every invocation lands in ``stamps``."""
+        def timed(*a, **kw):
+            s = time.perf_counter()
+            out = call(*a, **kw)
+            stamps.append((s, time.perf_counter()))
+            return out
+        return timed
 
-    model.diffusion.denoise = timed_denoise
+    if args.model == "pxdesign":
+        from tt_bio.main import ensure_p300_mesh_descriptor, ensure_pxdesign_weights
+        from tt_bio.pxdesign.inputs import design_inputs_from_yaml
+        from tt_bio.pxdesign.model import ProtenixDesign
 
-    t_start = time.perf_counter()
-    coords = model.design(feats, n_step=args.n_step, n_sample=args.num_designs, seed=args.seed)
-    total_s = time.perf_counter() - t_start
+        feats = design_inputs_from_yaml(Path(args.inputs))
+        feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
+                 for k, v in feats.items()}
+        n_token = int(feats["restype"].shape[0])
+        ckpt = ensure_pxdesign_weights(Path(args.cache).expanduser())
+        ensure_p300_mesh_descriptor()
+
+        t0 = time.perf_counter()
+        model = ProtenixDesign.load_from_checkpoint(str(ckpt))
+        load_s = time.perf_counter() - t0
+
+        model.diffusion.denoise = stamp(model.diffusion.denoise)
+        t_start = time.perf_counter()
+        coords = model.design(feats, n_step=args.n_step, n_sample=args.num_designs,
+                              seed=args.seed)
+        total_s = time.perf_counter() - t_start
+        extra = {"coords_shape": list(coords.shape),
+                 "coords_finite": bool(torch.isfinite(coords).all())}
+    else:
+        # rfd3's sampler calls the diffusion module directly, so the hook goes on the
+        # builder's product rather than on a method of a loaded model. Same probe, same
+        # stamps list, no tt_bio change either way.
+        import json as _json
+
+        from tt_bio.main import ensure_rfd3_weights
+        from tt_bio.rfd3 import design as rfd3_design
+
+        specs = _json.loads(Path(args.inputs).read_text())
+        ckpt_dir = ensure_rfd3_weights(Path(args.cache).expanduser())
+        build = rfd3_design.build_diffusion_module
+
+        def build_timed(*a, **kw):
+            mod = build(*a, **kw)
+            inner = mod.__call__
+            wrapped = stamp(inner)
+            mod.__call__ = wrapped
+            return lambda *aa, **kk: wrapped(*aa, **kk)
+
+        rfd3_design.build_diffusion_module = build_timed
+        t0 = time.perf_counter()
+        t_start = t0
+        rows = rfd3_design.run_design(
+            specs, args.out + ".designs", checkpoint_dir=str(ckpt_dir), from_pdb=True,
+            num_timesteps=args.n_step, seed=args.seed, num_designs=args.num_designs,
+            device_visible=os.environ.get("TT_VISIBLE_DEVICES", "0"), verbose=False)
+        total_s = time.perf_counter() - t_start
+        load_s = None
+        n_token = int(getattr(rows[0], "n_atoms", 0) or 0)
+        extra = {"n_designs_out": len(rows),
+                 "cif_paths": [str(getattr(r, "cif", "")) for r in rows][:3]}
 
     per_call = [b - a for a, b in stamps]
     trunk_s = (stamps[0][0] - t_start) if stamps else None
@@ -91,12 +128,11 @@ def main() -> int:
         "denoise_calls": len(per_call),
         "host": os.uname().nodename, "device": os.environ.get("TT_VISIBLE_DEVICES"),
         "loadavg_1m": round(os.getloadavg()[0], 2),
-        "load_s": round(load_s, 1), "trunk_s": None if trunk_s is None else round(trunk_s, 2),
+        "load_s": None if load_s is None else round(load_s, 1), "trunk_s": None if trunk_s is None else round(trunk_s, 2),
         "total_design_s": round(total_s, 2),
         "cold_step_ms": round(per_call[0] * 1e3, 2) if per_call else None,
         "warm_step": summarize(warm),
-        "coords_shape": list(coords.shape),
-        "coords_finite": bool(torch.isfinite(coords).all()),
+        **extra,
         "warm_step_ms_all": [round(g * 1e3, 2) for g in warm],
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
