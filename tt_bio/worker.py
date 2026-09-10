@@ -96,6 +96,9 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
 
     cache = weights.cache_root()
     cache.mkdir(parents=True, exist_ok=True)
+    # One template-structure cache for every model that reads a `templates:` npz, so a CIF
+    # fetched for an OpenFold3 fold is reused by a Protenix or OpenDDE one.
+    cfg["template_structures"] = _template_structure_dir(cache)
     # Every checkpoint below resolves through tt_bio.weights: it honours the row's env
     # overrides, verifies whatever is already cached, and re-fetches only what is
     # missing or corrupt, so a truncated file from a killed download can never be
@@ -113,11 +116,6 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     if cfg.get("model") in _of3_family():
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
         cfg["of3_ckpt"] = str(weights.fetch(cfg["model"]))
-        tmpl_struct_dir = Path(
-            os.environ.get("OF3_TEMPLATE_STRUCTURES")
-            or str(cache / "of3_template_structures"))
-        tmpl_struct_dir.mkdir(parents=True, exist_ok=True)
-        cfg["of3_template_structures"] = str(tmpl_struct_dir)
         cfg["of3_max_msa_seqs"] = os.environ.get("OF3_MAX_MSA_SEQS")
         return
     # RF3: checkpoint from files.ipd.uw.edu (or $RF3_CKPT), MSA dir like the rest.
@@ -145,6 +143,19 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     cfg["aff_ckpt"] = str(weights.fetch("boltz2-aff"))
     cfg["mol_dir"] = str(weights.fetch("mols"))
     cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
+
+
+def _template_structure_dir(cache: Path) -> str:
+    """The shared cache the `templates:` CIFs are downloaded into.
+
+    One directory for every model that takes a template, so a template fetched for an
+    OpenFold3 fold is reused by a Protenix one. $OF3_TEMPLATE_STRUCTURES still names it, and
+    weights.py already keeps it off the prunable list under this name.
+    """
+    d = Path(os.environ.get("OF3_TEMPLATE_STRUCTURES")
+             or str(cache / "of3_template_structures"))
+    d.mkdir(parents=True, exist_ok=True)
+    return str(d)
 
 
 def _resolve_msa_dir(requested: str | None, cache: Path) -> str:
@@ -191,13 +202,15 @@ def _write_atom_array_structure(atom_array, coords, outpath, output_format,
         cf.write(str(outpath))
 
 
-def _openfold3_template_map(path: Path) -> dict[str, str]:
+def _template_map(path: Path, model: str) -> dict[str, str]:
     """Per-chain template alignment (npz) paths from a YAML input's `templates:` key.
 
-    OF3-only: the shared chain reader has no template field, so the OF3 path re-reads
-    the YAML for `{protein: {id: X, sequence: ..., templates: <npz>}}`. A template path
-    on a non-protein chain, an unknown chain id, or a missing file is a hard error —
-    silently dropping a user-supplied template would fold a different input than asked.
+    The shared chain reader has no template field, so the models that take one re-read the
+    YAML for `{protein: {id: X, sequence: ..., templates: <npz>}}`. One reader and one file
+    format for OpenFold3, OpenBind, Protenix and OpenDDE, so a template written for one
+    folds on the others. A template path on a non-protein chain, an unknown chain id, or a
+    missing file is a hard error: silently dropping a user-supplied template would fold a
+    different input than asked.
     """
     if path.suffix.lower() not in (".yml", ".yaml"):
         return {}
@@ -216,12 +229,12 @@ def _openfold3_template_map(path: Path) -> dict[str, str]:
                 continue
             if mt != "protein":
                 raise RuntimeError(
-                    f"--model openfold3: templates are only valid on protein chains, "
+                    f"--model {model}: templates are only valid on protein chains, "
                     f"not {mt} (chain entry {sub.get('id')!r}).")
             tp = Path(str(tmpl)).expanduser()
             if not tp.exists():
                 raise RuntimeError(
-                    f"--model openfold3: template file {tp} does not exist.")
+                    f"--model {model}: template file {tp} does not exist.")
             ids = sub.get("id", "A")
             id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
                        else str(ids).split(","))
@@ -230,7 +243,7 @@ def _openfold3_template_map(path: Path) -> dict[str, str]:
     return out
 
 
-def _prefetch_openfold3_template_structures(tmpl_map: dict[str, str],
+def _prefetch_template_structures(tmpl_map: dict[str, str],
                                             struct_dir: Path) -> None:
     # Download the raw template CIFs a `templates:` npz needs from RCSB. The npz
     # holds alignments only (index/release_date/idx_map per entry); coordinates
@@ -256,7 +269,7 @@ def _prefetch_openfold3_template_structures(tmpl_map: dict[str, str],
                 urllib.request.urlretrieve(url, tmp)
         except Exception as exc:
             raise RuntimeError(
-                f"--model openfold3: failed to fetch template structure {url}: {exc}")
+                f"failed to fetch template structure {url}: {exc}")
 
 
 def _err_text(exc: BaseException, limit: int = 2000) -> str:
@@ -806,10 +819,11 @@ class _WorkerState:
                                  _write_protenix_structure, cap_a3m_text)
         from tt_bio.protenix_data import build_complex_features
 
+        model = cfg.get("model", "opendde")
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein sequences")
-        check_capabilities(path, chains, cfg.get("model", "opendde"))
+        check_capabilities(path, chains, model)
         bonds = _read_bio_constraints(path)   # covalent bonds, resolved into token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
@@ -870,9 +884,23 @@ class _WorkerState:
                 paired_a3ms = None
 
         report_progress("prep")
+        # `templates:` -> real template features. The template embedder is always on for
+        # protenix-v2 and opendde (a 2-block pairformer stack), and until now it only ever
+        # saw dummy_template_features, so a template in the input reached the validator and
+        # then nothing.
+        tmpl_map = _template_map(path, model)
+        unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt, _mo in chains})
+        if unknown_tmpl:
+            raise RuntimeError(
+                f"--model {model}: `templates:` given for unknown chain id(s) {unknown_tmpl}.")
+        tmpl_dir = cfg.get("template_structures")
+        if tmpl_map:
+            _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
         feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains],
                                        bonds=bonds, paired_a3ms=paired_a3ms,
-                                       modifications=[mods for *_x, mods in chains])
+                                       modifications=[mods for *_x, mods in chains],
+                                       templates=[tmpl_map.get(cid) for cid, *_r in chains],
+                                       template_dir=tmpl_dir)
 
         # OpenDDE.fold rides the Protenix-v2 trunk + EDM sampler, so the same
         # progress_fn path reports trunk iterations and diffusion steps — no
@@ -942,10 +970,11 @@ class _WorkerState:
                                  _read_bio_constraints)
         from tt_bio.protenix_data import build_complex_features
 
+        model = cfg.get("model", "protenix-v2")
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
-        check_capabilities(path, chains, cfg.get("model", "protenix-v2"))
+        check_capabilities(path, chains, model)
         bonds = _read_bio_constraints(path)   # covalent bonds, resolved into token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
@@ -969,9 +998,23 @@ class _WorkerState:
         chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=True)
 
         report_progress("prep")
+        # `templates:` -> real template features. The template embedder is always on for
+        # protenix-v2 and opendde (a 2-block pairformer stack), and until now it only ever
+        # saw dummy_template_features, so a template in the input reached the validator and
+        # then nothing.
+        tmpl_map = _template_map(path, model)
+        unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt, _mo in chains})
+        if unknown_tmpl:
+            raise RuntimeError(
+                f"--model {model}: `templates:` given for unknown chain id(s) {unknown_tmpl}.")
+        tmpl_dir = cfg.get("template_structures")
+        if tmpl_map:
+            _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
                                        chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains], bonds=bonds,
-                                       modifications=[mods for *_x, mods in chains])
+                                       modifications=[mods for *_x, mods in chains],
+                                       templates=[tmpl_map.get(cid) for cid, *_r in chains],
+                                       template_dir=tmpl_dir)
         return feats, chains, chain_specs
 
     def _protenix_emit(self, path: Path, cfg: dict[str, Any], feats, chains, chain_specs,
@@ -1298,11 +1341,11 @@ class _WorkerState:
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
         check_capabilities(path, chains, model)
-        tmpl_map = _openfold3_template_map(path)
+        tmpl_map = _template_map(path, model)
         unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt, _mods in chains})
         if unknown_tmpl:
             raise RuntimeError(
-                f"--model openfold3: `templates:` given for unknown chain id(s) "
+                f"--model {model}: `templates:` given for unknown chain id(s) "
                 f"{unknown_tmpl}.")
         msa_dir = Path(cfg["msa_dir"])
 
@@ -1429,11 +1472,11 @@ class _WorkerState:
             of3_query.use_msas = False
             of3_query.use_main_msas = False
         if tmpl_map:
-            _prefetch_openfold3_template_structures(
-                tmpl_map, Path(cfg["of3_template_structures"]))
+            _prefetch_template_structures(
+                tmpl_map, Path(cfg["template_structures"]))
         features = build_openfold3_features(
             of3_query,
-            template_structures_directory=cfg["of3_template_structures"],
+            template_structures_directory=cfg["template_structures"],
             openbind=(model == "openbind"))
         # Default = the featurizer max_rows (16384), i.e. NO extra subsampling: the
         # CPU reference folds the full featurized MSA, so any lower cap is an input

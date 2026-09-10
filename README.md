@@ -75,12 +75,12 @@ Every command names its model with `--model`:
 
 - **`boltz2`**: folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
 - **`esmfold2`** / **`esmfold2-fast`**: fold complexes of proteins, DNA, RNA, and ligands (CCD code or SMILES) on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint). Modified residues are folded as the modified chemistry. Cyclic chains, templates and constraints are not supported and are refused.
-- **`protenix-v1`** / **`protenix-v2`**: fold complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emit a PAE/PDE matrix with `--write_pae`. `protenix-v1` is upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against `protenix-v2`'s 10, so it is the cheaper of the two. Covalent `bond` constraints are supported; cyclic chains, modified residues and templates are refused.
+- **`protenix-v1`** / **`protenix-v2`**: fold complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emit a PAE/PDE matrix with `--write_pae`. `protenix-v1` is upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against `protenix-v2`'s 10, so it is the cheaper of the two. Covalent `bond` constraints and modified residues are supported, and `protenix-v2` takes per-chain templates as a precomputed alignment `.npz`. `protenix-v1`'s checkpoint ships no template blocks, so it refuses templates; cyclic chains are refused on both.
 - **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only: ligands, covalent bonds, cyclic chains and modified residues are refused. Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
 - **`openbind`**: OpenBind-0, the same OpenFold3 stack on upstream's v0.5.0 checkpoint, tuned for protein-ligand co-folding. Takes ligands by SMILES or CCD code alongside protein, RNA and DNA chains; MSA-dependent (uses an MSA by default), with optional per-chain templates. Covalent bonds, cyclic chains and modified residues are refused. Weights are a separate file from `openfold3` and are not downloaded; point `TT_BIO_OPENBIND` at them (see [`docs/weights.md`](docs/weights.md)).
 - **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
 - **`nesso1`** (`tt-bio affinity`): protein-ligand binding affinity without a structure. Predicts a soft distogram and reads the affinity off that, so it is much cheaper than folding and it returns no coordinates. Proteins and ligands only.
-- **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein and ligand chains; nucleic acids are refused. Proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
+- **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein and ligand chains, with covalent `bond` constraints, modified residues and per-chain templates; nucleic acids and cyclic chains are refused. Proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
 - **`rf3`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, [RoseTTAFold3](https://github.com/RosettaCommons/foundry) from the Institute for Protein Design); MSA-dependent for proteins (uses an MSA by default). Writes AlphaFold3-style `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score) next to each structure. Non-canonical residues, covalent modifications and cyclic chains reach the model only through RF3's own JSON/CIF spec, which `featurize` reads directly; the YAML/FASTA input builds its spec from chains alone, so a `constraints:`, `modifications:`, `templates:` or `cyclic:` block is refused there rather than dropped. Weights download from the IPD on first use.
 
 ```bash
@@ -601,11 +601,12 @@ templates:
     threshold: 2.0           # Max deviation in Angstroms
 ```
 
-OpenFold3 takes templates per protein chain instead, as a precomputed alignment
-`.npz` (the format the upstream benchmark cache ships). There is no template
-search; the referenced structures are fetched from RCSB, and a missing one is a
-hard error rather than a silently dropped template. See
-`examples/7xi5_tmpl.yaml`.
+`openfold3`, `openbind`, `protenix-v2`, `opendde` and `opendde-abag` take
+templates per protein chain instead, as a precomputed alignment `.npz` (the
+format the upstream benchmark cache ships). It is one file format across all
+five. There is no template search; the referenced structures are fetched from
+RCSB, and a missing one is a hard error rather than a silently dropped
+template. See `examples/7xi5_tmpl.yaml`.
 
 ```yaml
 sequences:

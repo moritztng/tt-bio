@@ -293,7 +293,8 @@ def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
 def build_complex_features(chains: list, mol_dir: str | None = None,
                            chain_ids: list | None = None, bonds: list | None = None,
                            paired_a3ms: list | None = None, oxt: list | None = None,
-                           modifications: list | None = None) -> dict:
+                           modifications: list | None = None, templates: list | None = None,
+                           template_dir: str | None = None) -> dict:
     """Multi-chain biomolecular complex -> model-ready input_feature_dict.
 
     chains: list of (sequence, a3m_or_None[, mol_type]); mol_type is "protein" (default),
@@ -328,7 +329,11 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     `[{"position": 1-indexed, "ccd": CODE}]` for that chain or None. A modified residue is
     tokenized per atom from its CCD component (AF3 SI 2.6) by `polymer_chain_features`, so
     the chain gains tokens but not residues; None everywhere reproduces the per-residue path
-    exactly."""
+    exactly.
+    templates: optional list parallel to `chains`, each a `templates:` alignment npz for that
+    protein chain or None, with the template coordinates under `template_dir`. Without one the
+    template features are `dummy_template_features` -- all-gap, zero geometry -- which is what
+    every fold got before, so an input with no templates is byte-identical."""
     norm = [(e[0], e[1], e[2] if len(e) > 2 else "protein") for e in chains]
     conformers = load_ref_conformers()
     # CCD codes needed from the `mols` library: nucleic-acid residues + CCD ligands.
@@ -353,6 +358,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     tok_off, res_off = 0, 0                           # global token / residue-frame counters
     per_chain_msa = []                               # (start_col, n_tok, raw_msa|None, restype_idx, seq, msa_col)
     placement = {}                                    # chain_id -> how a bond endpoint resolves
+    tpl_blocks = []                                   # (tok_off, msa_col, aatype, pos, mask)
     for ci, (seq, a3m, mt) in enumerate(norm):
         lig_names, res_tok, res_atoms = None, None, {}
         msa_col = None
@@ -386,6 +392,15 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
         if raw is not None and msa_col is not None:
             raw = _msa_on_tokens(raw, msa_col, rt_idx)
         per_chain_msa.append((tok_off, n, raw, rt_idx, seq, msa_col))
+        tpl = templates[ci] if templates else None
+        if tpl and mt == "protein":
+            from .protenix_template import chain_template_arrays, read_alignment_entries
+            entries = read_alignment_entries(tpl)
+            if entries:
+                cols = msa_col if msa_col is not None else torch.arange(n)
+                tpl_blocks.append((tok_off, cols.tolist(),
+                                   *chain_template_arrays(len("".join(str(seq).split())),
+                                                          entries, template_dir)))
         if chain_ids is not None:
             name_to_local = {nm: i for i, nm in enumerate(lig_names)} if lig_names is not None else None
             placement[str(chain_ids[ci])] = {"start": tok_off, "mt": mt, "n": n_res,
@@ -508,7 +523,11 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # concat atom features across chains (atom_to_token_idx / ref_space_uid already offset)
     for k in atom_feats[0]:
         feats[k] = torch.cat([af[k] for af in atom_feats], 0)
-    feats.update(dummy_template_features(N_tot))
+    if tpl_blocks:
+        from .protenix_template import complex_template_features
+        feats.update(complex_template_features(tpl_blocks, N_tot))
+    else:
+        feats.update(dummy_template_features(N_tot))
     return feats
 
 

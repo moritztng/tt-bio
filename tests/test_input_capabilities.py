@@ -120,11 +120,12 @@ def test_cyclic_false_is_not_a_refusal(tmp_path, model):
 
 def test_every_refused_feature_is_named_at_once(tmp_path):
     """A user fixing one key should not have to run again to find the next."""
-    text = _HEAD + "      cyclic: true\n      templates: /nonexistent/tmpl.npz\n"
+    text = (_HEAD + "      cyclic: true\n"
+            + "constraints:\n  - pocket:\n      binder: A\n      contacts: [[A, 5]]\n")
     with pytest.raises(RuntimeError) as e:
         _check(tmp_path, text, "protenix-v2")
     msg = str(e.value)
-    assert "cyclic" in msg and "templates" in msg
+    assert "cyclic" in msg and "pocket" in msg
 
 
 def test_every_offending_chain_id_is_named_and_no_other(tmp_path):

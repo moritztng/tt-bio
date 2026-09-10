@@ -15,11 +15,11 @@ changing the structure. That prints a warning and the fold runs.
 | `esmfold2` | yes | yes | yes | refused | yes | refused | refused | refused | ignored, warns |
 | `esmfold2-fast` | yes | yes | yes | refused | yes | refused | refused | refused | ignored, warns |
 | `protenix-v1` | yes | yes | yes | refused | yes | refused | yes | refused | ignored, warns |
-| `protenix-v2` | yes | yes | yes | refused | yes | refused | yes | refused | ignored, warns |
+| `protenix-v2` | yes | yes | yes | refused | yes | yes | yes | refused | ignored, warns |
 | `openfold3` | refused | yes | yes | refused | yes | yes | refused | refused | ignored, warns |
 | `openbind` | yes | yes | yes | refused | yes | yes | refused | refused | ignored, warns |
-| `opendde` | yes | refused | refused | refused | yes | refused | yes | refused | ignored, warns |
-| `opendde-abag` | yes | refused | refused | refused | yes | refused | yes | refused | ignored, warns |
+| `opendde` | yes | refused | refused | refused | yes | yes | yes | refused | ignored, warns |
+| `opendde-abag` | yes | refused | refused | refused | yes | yes | yes | refused | ignored, warns |
 | `rf3` | yes | yes | yes | refused | refused | refused | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
@@ -44,7 +44,7 @@ sequences:
       modifications:              # 1-indexed position in this chain's sequence
         - position: 5
           ccd: TPO
-      templates: path/to.npz      # precomputed alignment, openfold3/openbind only
+      templates: path/to.npz      # precomputed alignment; boltz2 takes a cif block instead
       cyclic: true
   - rna:   {id: R, sequence: GAUC}
   - dna:   {id: D, sequence: GATC}

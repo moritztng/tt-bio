@@ -60,11 +60,14 @@ def _row(**overrides) -> dict[str, str]:
 #: ``modifications`` reaches the featurizer on every model except RF3, which reads its own
 #: JSON/CIF spec here. Protenix and OpenDDE tokenize a modified residue per atom from its CCD
 #: component (``protenix_data.polymer_chain_features``); the OF3 family passes it as
-#: ``non_canonical_residues``, upstream's own field. ``templates`` is REFUSED for
-#: Protenix/OpenDDE/RF3/ESMFold2: ``build_complex_features`` emits ``dummy_template_features``
-#: and no path leads from a YAML ``templates:`` key into it, even though the protenix-v2 and
-#: opendde checkpoints do ship a template pairformer stack. That one is still a porting gap,
-#: refused so it cannot be mistaken for support.
+#: ``non_canonical_residues``, upstream's own field.
+#:
+#: ``templates`` takes the same alignment npz on the OF3 family and on protenix-v2 / OpenDDE,
+#: whose template embedder used to run on ``dummy_template_features`` whatever the input said.
+#: It stays REFUSED on protenix-v1, whose v0.5.0 checkpoint ships an EMPTY template pairformer
+#: stack, so upstream returns literal 0 from the template embedder and a template could only
+#: be dropped (pinned by tests/test_protenix_template_gate.py); on ESMFold2, which has no
+#: template stack at all; and on RF3, which takes templates through its own JSON/CIF spec.
 CAPABILITY: dict[str, dict[str, str]] = {
     "boltz2": _row(),
     # ESMFold2 folds ligands, RNA and DNA and applies `modifications:` (one reader, one
@@ -75,15 +78,13 @@ CAPABILITY: dict[str, dict[str, str]] = {
                           affinity=NOTED),
     # Protenix honours covalent bonds (token_bonds is the only constraint signal its trunk
     # reads); pocket/contact need a constraint embedder no Protenix checkpoint ships.
-    "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED,
-                        pocket=REFUSED, affinity=NOTED),
-    "protenix-v2": _row(cyclic=REFUSED, templates=REFUSED,
-                        pocket=REFUSED, affinity=NOTED),
+    "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, pocket=REFUSED, affinity=NOTED),
+    "protenix-v2": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
     # OpenDDE is protein/ligand: nucleic-acid structural tokens are not ported.
     "opendde": _row(rna=REFUSED, dna=REFUSED, cyclic=REFUSED,
-                    templates=REFUSED, pocket=REFUSED, affinity=NOTED),
+                    pocket=REFUSED, affinity=NOTED),
     "opendde-abag": _row(rna=REFUSED, dna=REFUSED, cyclic=REFUSED,
-                         templates=REFUSED, pocket=REFUSED, affinity=NOTED),
+                         pocket=REFUSED, affinity=NOTED),
     # Ligands stay refused for OF3-preview2 and honoured for OpenBind, the checkpoint
     # upstream trained for co-folding. Templates are opt-in per protein chain (a precomputed
     # alignment npz); there is no template search.

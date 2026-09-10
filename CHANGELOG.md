@@ -5,6 +5,27 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- **`modifications:`, `templates:` and `--max_msa_seqs` reach the models that were dropping
+  them.** The capability pass below refused these rather than let them be dropped silently;
+  three of them are now honoured instead. A `modifications:` block folds as the modified
+  chemistry on protenix-v1/v2, opendde, opendde-abag, openfold3 and openbind: Protenix and
+  OpenDDE tokenize the modified residue per atom from its CCD component (AF3 SI 2.6), the OF3
+  family passes it as upstream's own `non_canonical_residues`. Folding a 53 aa chain with
+  `{position: 13, ccd: SEP}` writes a real phosphoserine, 10 atoms and one phosphorus, against
+  a plain fold with no phosphorus at all. `templates:` now builds real template features for
+  protenix-v2, opendde and opendde-abag, whose trained 2-block template pairformer stack had
+  only ever been handed all-gap dummy features; it takes the same precomputed alignment `.npz`
+  OpenFold3 already reads, so one template file works on all five. On upstream's own 1y57 case
+  a templated fold lands 5.52 A from the template against 21.69 A templateless (opendde) and
+  11.11 A against 19.26 A (protenix-v2). It stays refused on protenix-v1, whose v0.5.0
+  checkpoint ships an empty template stack and can only drop one. `--max_msa_seqs` caps the
+  alignment on protenix-v1/v2, opendde, opendde-abag and rf3, and on openfold3/openbind, which
+  read an env var and never the flag. Every MSA fold now writes the depth it actually used
+  (`msa_depth`) into `results.json`, where `msa: true` used to say only that an alignment
+  existed.
+
 ### Fixed
 
 - **An input a model cannot honour is now refused by name instead of dropped.** The one
