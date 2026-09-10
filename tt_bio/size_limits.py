@@ -501,7 +501,36 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "32 s, 1984 aa OOMs on DRAM. The 6B weights nearly fill the chip, so past the "
                      "ceiling the activation allocation has nowhere to go. This is an embed model: "
                      "the binding constraint is DRAM and not wall-clock, which is why its number is "
-                     "so much higher than any folding model's",
+                     "so much higher than any folding model's. RE-MEASURED 2026-09-11 on a QUIET "
+                     "j10glx02 Galaxy chip 5 by ws:wh-seqlen-design-embed and it reproduces exactly: "
+                     "512 aa 45.0 s, 1968 aa 45.0 s, 1984 aa throws in 30.9 s, 4096 aa throws in "
+                     "26.0 s. That matters because the original was taken on the shared serving "
+                     "pool, where a co-tenant's residency could have set the number; it did not. "
+                     "The allocator says why in one line -- 1984 dies on a 30965760 B request with "
+                     "'bank size is 1073741792 B (allocated: 1068605312 B, free: 5136480 B, largest "
+                     "free block: 2525280 B)'. 31 MB of headroom behind ~12 GB of resident weights, "
+                     "so the wall is the WEIGHTS and barely the sequence at all, which is exactly "
+                     "why this row needed a `fast` sibling",
+            fast=Ceiling(
+                residues=8192, pass_at=8192, fail_at=None, binds=LADDER_TOP,
+                mechanism=NO_FAILURE, counts=MAX_SEQUENCE,
+                evidence="its own ladder in the OTHER weight dtype, walked 2026-09-11 on j10glx02 "
+                         "Galaxy chip 6 by ws:wh-seqlen-design-embed through the shipped `tt-bio "
+                         "embed --model esmc-6b --fast` CLI: 1968 aa in 110.1 s, 4096 in 130.1 s, "
+                         "8192 in 180.2 s, every one to [L, 2560], finite, nonzero_frac 1.0. The "
+                         "bf16 arm on chip 5 the same day cannot do 4096 at all. Block-fp8 roughly "
+                         "halves the resident weights and this model is weight-bound, so the "
+                         "ceiling moves by at least 4.16x -- which is the whole reason this field "
+                         "exists: the 1968 above was being enforced against a configuration it "
+                         "never measured, refusing a 4096 aa --fast job that runs in 130 s. "
+                         "LADDER_TOP and not MEMORY because nothing above 8192 has failed: 16384 "
+                         "and up are the open rungs, so the real fast ceiling may be higher and "
+                         "this cap is the largest size PROVEN rather than the rung below a "
+                         "failure. Wall-clock is not free here either -- fp8 is SLOWER per call at "
+                         "equal length (110.1 s against bf16's 45.0 s at 1968 aa), so --fast on "
+                         "this model buys capacity and costs latency, which is the opposite of "
+                         "what its name suggests and is worth knowing before reaching for it",
+            ),
         ),
     },
     # --- No measured ceiling. Never refused. ---------------------------------------------------
@@ -633,7 +662,27 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "saprot-35m": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=73728, pass_at=73728, fail_at=77824, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Wormhole ladder, walked 2026-09-11 on the j10glx02 Galaxy chip 7 by "
+                "ws:wh-seqlen-design-embed with the same harness the Blackhole row below used "
+                "(perf/bhdesign/ladder.py, one rung per subprocess through the shipped CLI, "
+                "verdict read off the .npz). 65537 (90.1 s) and 73728 (100.1 s) residues embed to "
+                "[L, 480], finite, nonzero_frac 1.0; 77824 throws in 35.0 s. 65537 is deliberately "
+                "NOT a multiple of 32 and its npz carries exactly 65537 rows, so the pad tail the "
+                "token axis adds is masked at a length that exercises it. THE WALL IS NOT THE "
+                "BUFFER THE BLACKHOLE ROW BLAMES, and that is the finding: the padded_L^2 x 2 "
+                "attention matrix lands, and what fails is a LATER 298967040 B request with the "
+                "chip already full -- 'each bank needs to store 24913920 B, but bank size is "
+                "1073741792 B (allocated: 1055840384 B, free: 17901408 B, largest free block: "
+                "11671392 B)'. On a p150a, with 2.65x the memory, that same L^2 buffer IS the wall "
+                "and everything after it fits; on a 12.76 GB Galaxy chip the ceiling is cumulative "
+                "residency. So a chunked-attention fix would buy Blackhole a lot and Wormhole "
+                "comparatively little. This model reserves no trace region, so its number is "
+                "unaffected by the 3 GiB reservation that moved esmc-300m's",
+        ),
         "blackhole": Ceiling(
             residues=126976, pass_at=126976, fail_at=131072, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
@@ -659,7 +708,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "saprot-650m": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=65537, pass_at=65537, fail_at=73728, binds=MEMORY,
+            mechanism=DRAM, counts=MAX_SEQUENCE,
+            evidence="its own Wormhole ladder, walked 2026-09-11 on j10glx02 Galaxy chip 5 (rungs to 57344) and chip 7 (65537, 73728) by ws:wh-seqlen-design-embed, same harness as the Blackhole row below (perf/bhdesign/ladder.py, one rung per subprocess through the shipped CLI, verdict off the .npz). 32768 (65.1 s), 40960 (100.1 s), 49153 (145.2 s), 57344 (210.3 s) and 65537 (210.3 s) embed to [L, 1280], finite, nonzero_frac 0.9999; 73728 throws in 47.3 s. 49153 and 65537 are NOT multiples of 32 and their npz files carry exactly that many rows, so the token axis's pad tail is masked at lengths that exercise it. THE WALL IS NOT THE SINGLE padded_L^2 x 2 BUFFER THE BLACKHOLE ROW BLAMES: that buffer lands, and what fails is a LATER request with the chip already full. On a p150a, with 2.65x the memory (8 banks x 4278190016 B against 12 x 1073741792 B), the L^2 buffer IS the wall and everything after it fits; on a Galaxy chip the ceiling is cumulative residency. A chunked-attention fix therefore buys Blackhole a lot and Wormhole comparatively little. The failing line: 566476800 B wanted, 'each bank needs to store 47206400 B, but bank size is 1073741792 B (allocated: 1052934272 B, free: 20807520 B, largest free block: 20807520 B)' -- free and largest-free-block are EQUAL, so there is nothing to coalesce and this is residency rather than fragmentation. Reserves no trace region, so unaffected by the 3 GiB reservation that moved esmc-300m",
+        ),
         "blackhole": Ceiling(
             residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
@@ -686,7 +739,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "saprot-1.3b": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=57344, pass_at=57344, fail_at=65537, binds=MEMORY,
+            mechanism=DRAM, counts=MAX_SEQUENCE,
+            evidence="its own Wormhole ladder, walked 2026-09-11 on j10glx02 Galaxy chips 7 and 9 by ws:wh-seqlen-design-embed. 24576 (90.1 s), 32768 (115.1 s), 40961 (160.2 s), 49152 (210.2 s) and 57344 (230.3 s) embed to [L, 1280], finite, nonzero_frac 0.9999; 65537 throws in 52.5 s on 671416320 B, 'each bank needs to store 55951360 B, but bank size is 1073741792 B (allocated: 1026390144 B, free: 47351648 B, largest free block: 33363808 B)'. 40961 is not a multiple of 32 and comes back with exactly 40961 rows. THE WALL IS NOT THE SINGLE padded_L^2 x 2 BUFFER THE BLACKHOLE ROW BLAMES: that buffer lands, and what fails is a LATER request with the chip already full. On a p150a, with 2.65x the memory (8 banks x 4278190016 B against 12 x 1073741792 B), the L^2 buffer IS the wall and everything after it fits; on a Galaxy chip the ceiling is cumulative residency. A chunked-attention fix therefore buys Blackhole a lot and Wormhole comparatively little. The lowest Wormhole cap of the five, and the largest weights of the five, which is the same ordering the Blackhole ladder found and the reason the caps differ although the shape does not. Its Blackhole row notes it was one of the four models scripts/capacity_gate.EXEMPT skipped; on Wormhole it is measured now too",
+        ),
         "blackhole": Ceiling(
             residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
