@@ -23,12 +23,13 @@ anybody walked to a failure. Those models get an ``UNMEASURED`` row here and are
 absence of a limit is not a limit, and inventing one would refuse work the engine can do.
 
 *A number from the wrong chip is not a measurement either.* Every row is keyed by
-``ttnn.get_arch_name()``. The measured ceilings below are all Wormhole, from the GWH02 Galaxy pool,
-and they do not transfer: a Blackhole p150a has 2.7x the DRAM of a Galaxy chip and a 13x10 grid
-against 8x9, and OpenDDE -- capped at 544 on Wormhole -- folded every rung to 1024 aa on a p150a
-(``state/sizes-recheck-opendde.md``). So there are no Blackhole rows, and on Blackhole this module
-refuses nothing. That is the honest state, not an oversight; a fabricated BH number would be exactly
-the failure the arch key exists to prevent.
+``ttnn.get_arch_name()``, and a number measured on one part is never copied to another: a Blackhole
+p150a has 2.7x the DRAM of a Galaxy chip and a 13x10 grid against 8x9, and OpenDDE -- capped at 544
+on Wormhole -- folded every rung to 1024 aa on a p150a (``state/sizes-recheck-opendde.md``). Most
+rows here are still Wormhole-only, from the GWH02 Galaxy pool, and on Blackhole those models are
+refused nothing. The ``blackhole`` rows that do exist were each walked to a failure on a p150a with
+their own ladder, and the guard test asserts a Blackhole row names the part it was measured on and
+does not repeat the Wormhole numbers.
 
 WHY EVERY ROW CARRIES ITS NEGATIVE CONTROL
 ------------------------------------------
@@ -364,6 +365,26 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "pxdesign": {
+        "blackhole": Ceiling(
+            residues=2500, pass_at=2500, fail_at=3000, binds=MEMORY, mechanism=DRAM,
+            counts=DESIGN_TARGET,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2): 1536, 1831 and 2500 conditioned target residues each "
+                "design an 80-residue, 321-atom binder in 97.8, 177.1 and 208.2 s, and 3000 "
+                "throws on DRAM at 199.6 s. The target above 1008 residues is "
+                "perf/bhdesign/targets/big_7324.cif, real deposited chains placed side by side, "
+                "with the crop spilling across chains in file order. The throw is NOT the "
+                "single-oversized-tensor class the embedding rows carry: Not enough space to "
+                "allocate 9789767680 B DRAM buffer across 8 banks, where each bank needs to store "
+                "1223720960 B, but bank size is 4278190016 B (allocated: 3152167424 B, free: "
+                "1126022592 B, largest free block: 890649024 B). The request would fit an empty "
+                "card three times over; what fails is that 3.15 GB per bank is already resident, "
+                "leaving 1.13 GB against a 1.22 GB ask. Free and largest-free-block differ by 235 "
+                "MB, so there is some fragmentation on top, but the first-order cause is "
+                "cumulative residency and the lever is what stays live, not the layout. "
+                "Wormhole's 768 is a LADDER TOP from a different chip and does not bound this",
+        ),
         "wormhole_b0": Ceiling(
             residues=768, pass_at=768, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             counts=DESIGN_TARGET,
@@ -400,6 +421,14 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "refuse on"),
     },
     "boltzgen": {
+        "blackhole": _unmeasured(
+            "no residue-denominated ceiling on Blackhole either, and this row is a RECORD rather "
+            "than a gap: on qb1 p150a a 1831-residue / 14786-atom target designs an 80-residue "
+            "binder in 692.0 s (task bh-1536-design-embed-p2, 2026-09-10), which is 3.2x the top "
+            "of the Wormhole 3158-4651 atom band and 1.8x the 8095 atoms the first Blackhole pass "
+            "could reach with the largest single chain on hand. Nothing failed there, so there is "
+            "nothing to refuse on, and the number is atom-denominated anyway -- COUNTS carries no "
+            "atom unit, so writing it as residues would be a unit substitution",),
         "wormhole_b0": _unmeasured(
             "its measured cap is NOT residue-denominated and so cannot be expressed as a row here: "
             "wh-design-models-l1-budget-and-size-caps puts it between 3158 and 4651 ATOMS, in the "
@@ -409,9 +438,66 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "atom-denominated dimension this table does not yet carry"),
     },
     "esmc-300m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
-    "esmc-600m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
-    "saprot-35m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
-    "saprot-650m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
+    "esmc-600m": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=99999, pass_at=99999, fail_at=131072, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py, one rung per subprocess "
+                "through the shipped CLI, verdict read off the .npz and not off the exit code): "
+                "99999 residues embed to [99999, 1152], finite, nonzero_frac 1.0, in 186.7 s. "
+                "131072 throws on DRAM in 52.7 s. The throw is the SAME on every model in this "
+                "family and that is the point: it asks for 34376517632 B as ONE buffer, which is "
+                "131104^2 x 2 -- the full L x L attention matrix in bf16 at the token length "
+                "padded up to a multiple of 32. The card is 8 banks x 4278190016 B = 34225520128 "
+                "B, so that one allocation does not fit an EMPTY p150a and no packing, chunking "
+                "or defragmentation changes it. Oversized single tensor, shape-determined, not "
+                "cumulative residency. The Wormhole row above is UNMEASURED and this does not "
+                "fill it in: nobody walked this ladder on a Galaxy chip",
+        ),
+    },
+    "saprot-35m": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=99999, pass_at=99999, fail_at=131072, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py, one rung per subprocess "
+                "through the shipped CLI, verdict read off the .npz and not off the exit code): "
+                "99999 residues embed to [99999, 480], finite, nonzero_frac 1.0, in 160.6 s. "
+                "131072 throws on DRAM in 50.1 s. The throw is the SAME on every model in this "
+                "family and that is the point: it asks for 34376517632 B as ONE buffer, which is "
+                "131104^2 x 2 -- the full L x L attention matrix in bf16 at the token length "
+                "padded up to a multiple of 32. The card is 8 banks x 4278190016 B = 34225520128 "
+                "B, so that one allocation does not fit an EMPTY p150a and no packing, chunking "
+                "or defragmentation changes it. Oversized single tensor, shape-determined, not "
+                "cumulative residency. The Wormhole row above is UNMEASURED and this does not "
+                "fill it in: nobody walked this ladder on a Galaxy chip",
+        ),
+    },
+    "saprot-650m": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=99999, pass_at=99999, fail_at=131072, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py, one rung per subprocess "
+                "through the shipped CLI, verdict read off the .npz and not off the exit code): "
+                "99999 residues embed to [99999, 1280], finite, nonzero_frac 1.0, in 219.7 s. "
+                "131072 throws on DRAM in 56.8 s. The throw is the SAME on every model in this "
+                "family and that is the point: it asks for 34376517632 B as ONE buffer, which is "
+                "131104^2 x 2 -- the full L x L attention matrix in bf16 at the token length "
+                "padded up to a multiple of 32. The card is 8 banks x 4278190016 B = 34225520128 "
+                "B, so that one allocation does not fit an EMPTY p150a and no packing, chunking "
+                "or defragmentation changes it. Oversized single tensor, shape-determined, not "
+                "cumulative residency. The Wormhole row above is UNMEASURED and this does not "
+                "fill it in: nobody walked this ladder on a Galaxy chip",
+        ),
+    },
     "saprot-1.3b": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
 }
 

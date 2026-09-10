@@ -116,13 +116,27 @@ def test_unmeasured_and_unknown_arch_never_refuse():
     sl.check("a-model-that-does-not-exist", 100_000, arch="wormhole_b0")
 
 
-def test_no_blackhole_rows_are_asserted():
-    """Blackhole was never walked, and a fabricated row there is the failure the arch key prevents.
+def test_a_blackhole_row_was_measured_on_blackhole():
+    """The arch key exists to stop a Wormhole number being reused on a chip nobody walked.
 
-    OpenDDE caps at 544 on Wormhole and folded every rung to 1024 aa on a Blackhole p150a, so a
-    Wormhole number copied across architectures would refuse work the chip does fine.
+    This used to assert that no Blackhole row existed at all, which was true while nobody had
+    walked one and stopped being the right check the moment somebody did. The invariant it was
+    really protecting is narrower and survives: a measured Blackhole row must come from a
+    Blackhole ladder, so it may not repeat the Wormhole row's numbers and its evidence has to
+    name the part. OpenDDE caps at 544 on Wormhole and folds 1024 aa on a p150a, which is what a
+    copied number would have got wrong.
     """
-    assert not [m for m, per_arch in sl.CEILINGS.items() if "blackhole" in per_arch]
+    for model, per_arch in sl.CEILINGS.items():
+        bh = per_arch.get("blackhole")
+        if bh is None or not bh.measured:
+            continue
+        assert "blackhole" in bh.evidence.lower() or "p150a" in bh.evidence.lower(), (
+            f"{model}: a blackhole row must name the part it was measured on")
+        wh = per_arch.get("wormhole_b0")
+        if wh is not None and wh.measured:
+            assert (bh.residues, bh.pass_at, bh.fail_at) != (wh.residues, wh.pass_at, wh.fail_at), (
+                f"{model}: the blackhole row repeats the wormhole row exactly, which is what "
+                f"copying a number across architectures looks like")
 
 
 def test_alternatives_only_name_measured_models():
