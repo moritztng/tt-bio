@@ -130,9 +130,22 @@ under 1024:
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
 model, the limit and any model that does take the input. `rf3` is not in the table because
 it folds every rung to 1095 residues, the top of its ladder. `boltz2`,
-`boltzgen` and `nesso1` have no measured limit and are never refused. These numbers are
-Wormhole only; nothing is enforced on Blackhole, which has more memory per chip and where
-nobody has walked a ladder to a failure.
+`boltzgen` and `nesso1` have no measured limit and are never refused.
+
+Blackhole has more memory per chip, so it is a separate table and the Wormhole numbers do not
+carry over. Six models have been walked to a failure on a p150a:
+
+| model | Blackhole limit | first measured failure |
+|---|---:|---:|
+| `saprot-35m` (embed) | 126976 (longest sequence) | 131072 |
+| `esmc-300m`, `esmc-600m`, `saprot-650m`, `saprot-1.3b` (embed) | 114688 (longest sequence) | 126976 |
+| `pxdesign` | 2500 (target residues) | 3000 |
+
+The embedding wall is one allocation: the model asks for the whole sequence-by-sequence attention
+matrix as a single buffer that grows with the square of the sequence length, 34.4 GB at 131072
+residues against a 31.9 GiB card. `saprot-35m` gets one rung further than the rest because its
+weights are the smallest and leave more room for it. Everything else is unmeasured on Blackhole
+and refused nothing, including `boltzgen`, which designs against a 14786-atom target there.
 
 The limits were measured with an MSA, which is the default for the models that take one, and at the
 deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you

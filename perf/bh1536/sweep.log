@@ -1,0 +1,43 @@
+2026-09-09T22:51:50Z boltz2           298tok FAIL     wall=   40.7s engine=None cif_res=0/298 ntok=None rss=19.42G oom=-
+2026-09-09T22:54:54Z boltz2           298tok PASS     wall=  130.2s engine=None cif_res=298/298 ntok=None rss=20.76G oom=-
+2026-09-09T23:01:56Z esmfold2-fast   1536tok PASS     wall=  378.9s engine=None cif_res=1536/1536 ntok=None rss=50.43G oom=-
+2026-09-09T23:04:53Z esmfold2        1536tok OOM      wall=  177.3s engine=None cif_res=0/1536 ntok=None rss=62.96G oom=dram(fatal)
+2026-09-09T23:13:12Z boltz2          1536tok PASS     wall=  491.3s engine=337.3 cif_res=1536/1536 ntok=None rss=37.58G oom=- breaks=0 worst_ca=4.11 clash=0.00494
+2026-09-09T23:21:04Z rf3             1536tok FAIL     wall=  471.8s engine=None cif_res=0/1536 ntok=None rss=42.7G oom=-
+2026-09-09T23:33:08Z openfold3       1536tok PASS     wall=  716.3s engine=688.2 cif_res=1536/1536 ntok=1536 rss=71.59G oom=- breaks=0 worst_ca=3.94 clash=0.11714
+2026-09-09T23:43:10Z openbind        1536tok PASS     wall=  594.5s engine=553.9 cif_res=1536/1536 ntok=1536 rss=65.35G oom=- breaks=0 worst_ca=4.2 clash=0.08587
+2026-09-09T23:45:20Z protenix-v1     1536tok FAIL     wall=  130.2s engine=None cif_res=0/1536 ntok=None rss=39.69G oom=-
+2026-09-10T00:00:18Z protenix-v2     1536tok PASS     wall=  890.2s engine=746.7 cif_res=1536/1536 ntok=1536 rss=60.55G oom=- breaks=0 worst_ca=3.86 clash=0.13528
+# NOTE 2026-09-10T00:0xZ: the protenix-v1 1536 line above reads FAIL. It was reclassified
+# CONTENDED in results.jsonl by perf/bh1536/reclassify.py, from its own recorded tail: the whole
+# 130 s was a lease wait behind a sibling task unpinned pytest holding card 0. This log is
+# append-only, so the original line stays and this is the correction.
+2026-09-10T00:45:18Z opendde         1536tok TIMEOUT  wall= 2700.5s engine=None cif_res=0/1536 ntok=None rss=75.28G oom=-
+2026-09-10T00:50:55Z opendde-abag    1536tok FAIL     wall=  336.8s engine=None cif_res=0/1536 ntok=None rss=64.52G oom=-
+2026-09-10T00:51:18Z protenix-v1     1536tok FAIL     wall=   22.4s engine=None cif_res=0/1536 ntok=None rss=21.52G oom=-
+2026-09-10T00:51:39Z openfold3        512tok FAIL     wall=   14.2s engine=None cif_res=0/512 ntok=None rss=22.66G oom=-
+2026-09-10T00:54:51Z esmfold2        1536tok OOM      wall=  191.7s engine=None cif_res=0/1536 ntok=None rss=163.72G oom=dram/fragmentation(fatal)
+2026-09-10T01:03:27Z rf3             1536tok PASS     wall=  508.4s engine=487.2 cif_res=1536/1536 ntok=1536 rss=154.17G oom=l1_cb/l1_static_cb breaks=0 worst_ca=3.93 clash=0.36171
+2026-09-10T01:06:58Z protenix-v1     1536tok PASS     wall=  203.8s engine=180.6 cif_res=1536/1536 ntok=1536 rss=184.84G oom=- breaks=0 worst_ca=3.88 clash=0.50296
+2026-09-10T01:11:32Z esmfold2        1536tok OOM      wall=  273.4s engine=None cif_res=0/1536 ntok=None rss=189.09G oom=dram/fragmentation(fatal) ffn_fallback=YES
+2026-09-10T01:17:26Z openfold3       1024tok PASS     wall=  350.4s engine=318.2 cif_res=1024/1024 ntok=1024 rss=155.49G oom=- breaks=0 worst_ca=3.97 clash=0.08642
+2026-09-10T01:46:55Z opendde-abag    1536tok STALLED  wall= 1769.1s engine=None cif_res=0/1536 ntok=None rss=256.0G oom=-
+2026-09-10T01:59:08Z boltz2           512tok WEDGED   wall=  733.2s engine=None cif_res=0/512 ntok=None rss=30.21G oom=-
+2026-09-10T01:59:55Z nesso1          1536tok WEDGED   wall=   44.9s engine=None cif_res=0/1536 ntok=None rss=105.23G oom=-
+2026-09-10T02:00:23Z esmfold2-fast    512tok WEDGED   wall=   24.6s engine=None cif_res=0/512 ntok=None rss=135.56G oom=-
+2026-09-10T02:00:45Z openfold3        512tok WEDGED   wall=   18.2s engine=None cif_res=0/512 ntok=None rss=66.77G oom=-
+2026-09-10T02:01:08Z esmfold2        1408tok WEDGED   wall=   20.3s engine=None cif_res=0/1408 ntok=None rss=48.0G oom=-
+2026-09-10T02:01:32Z esmfold2        1300tok WEDGED   wall=   20.3s engine=None cif_res=0/1300 ntok=None rss=48.0G oom=-
+2026-09-10T02:01:53Z esmfold2        1152tok WEDGED   wall=   18.3s engine=None cif_res=0/1152 ntok=None rss=47.11G oom=-
+2026-09-10T02:02:16Z esmfold2        1024tok WEDGED   wall=   20.3s engine=None cif_res=0/1024 ntok=None rss=42.59G oom=-
+2026-09-10T02:02:39Z boltz2          1300tok WEDGED   wall=   20.4s engine=None cif_res=0/1300 ntok=None rss=43.54G oom=-
+2026-09-10T02:03:02Z esmfold2-fast   1300tok WEDGED   wall=   20.3s engine=None cif_res=0/1300 ntok=None rss=35.26G oom=-
+2026-09-10T02:03:25Z rf3             1300tok WEDGED   wall=   20.3s engine=None cif_res=0/1300 ntok=None rss=35.55G oom=-
+2026-09-10T02:03:46Z openfold3       1300tok WEDGED   wall=   18.3s engine=None cif_res=0/1300 ntok=None rss=36.53G oom=-
+2026-09-10T02:05:26Z nesso1          1536tok WEDGED   wall=   38.6s engine=None cif_res=0/1536 ntok=None rss=63.23G oom=-
+2026-09-10T02:05:47Z openfold3        512tok WEDGED   wall=   18.3s engine=None cif_res=0/512 ntok=None rss=62.62G oom=-
+2026-09-10T02:06:10Z boltz2           512tok WEDGED   wall=   20.3s engine=None cif_res=0/512 ntok=None rss=65.05G oom=-
+2026-09-10T02:06:31Z esmfold2-fast    512tok WEDGED   wall=   18.3s engine=None cif_res=0/512 ntok=None rss=62.29G oom=-
+2026-09-10T02:06:54Z esmfold2-fast    512tok WEDGED   wall=   20.3s engine=None cif_res=0/512 ntok=None rss=62.29G oom=-
+2026-09-10T02:11:58Z nesso1          1536tok PASS     wall=  150.6s engine=None cif_res=1536/1536 ntok=None rss=70.5G oom=l1_cb/l1_static_cb
+2026-09-10T02:16:40Z boltz2          1300tok PASS     wall=  275.0s engine=251.6 cif_res=1300/1300 ntok=None rss=68.56G oom=- breaks=0 worst_ca=4.05 clash=0.0023

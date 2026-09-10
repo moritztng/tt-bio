@@ -293,11 +293,32 @@ def _err_text(exc: BaseException, limit: int = 2000) -> str:
     the OOM parenthetical, the TT_THROW payload and the first backtrace frames.
     """
     s = str(exc)
-    if len(s) <= limit:
-        return s
-    keep = limit - 5                       # room for the " ... " elision marker
-    head = keep // 2
-    return s[:head] + " ... " + s[-(keep - head):]
+    if len(s) > limit:
+        keep = limit - 5                   # room for the " ... " elision marker
+        head = keep // 2
+        s = s[:head] + " ... " + s[-(keep - head):]
+    origin = _origin_frame(exc)
+    return f"{s}\n[tt_bio origin: {origin}]" if origin else s
+
+
+def _origin_frame(exc: BaseException) -> str | None:
+    """The deepest tt_bio frame in the traceback, i.e. which of our ops made the request.
+
+    An allocator refusal arrives as a RuntimeError whose text is a tt-metal message and a
+    C++ backtrace. Neither names a tt-bio op, and the Python traceback that does is thrown
+    away when the exception is turned into a job row -- so a recorded OOM says how many bytes
+    were refused and nothing about what asked for them. esmfold2 at 1536 tokens was refused
+    4831838208 B with no attributable site at all, which is a measurement that cannot be acted
+    on. Appended after the length budget rather than inside it, so it is never the part that
+    gets elided.
+    """
+    tb, deepest = exc.__traceback__, None
+    while tb is not None:
+        code = tb.tb_frame.f_code
+        if f"{os.sep}tt_bio{os.sep}" in code.co_filename:
+            deepest = f"{os.path.basename(code.co_filename)}:{tb.tb_lineno} in {code.co_name}"
+        tb = tb.tb_next
+    return deepest
 
 
 def _is_esmc_model(model_id: str) -> bool:
@@ -1702,9 +1723,23 @@ def _install_orphan_guard(dispatcher_pid: int) -> None:
     install_parent_death_guard(dispatcher_pid)
 
 
+class WorkerSignalled(KeyboardInterrupt):
+    """The signal that stopped this worker, carried to whoever handles it.
+
+    A subclass of KeyboardInterrupt so every existing ``except KeyboardInterrupt``
+    (this module's loop, the vendored atomworks transforms) behaves exactly as
+    before; the extra ``signum`` is what lets the loop name the signal instead of
+    reporting "an interrupt".
+    """
+
+    def __init__(self, signum: int):
+        super().__init__(f"worker received signal {signum}")
+        self.signum = int(signum)
+
+
 def _install_signal_handlers() -> None:
     def _raise(signum, _frame):
-        raise KeyboardInterrupt(f"worker received signal {signum}")
+        raise WorkerSignalled(signum)
 
     try:
         signal.signal(signal.SIGTERM, _raise)
@@ -1812,6 +1847,10 @@ def run_worker_loop(
     # The chip is ours. Only now does this worker exist as far as the fleet is
     # concerned, so `online_workers` counts devices we can actually compute on.
     threading.Thread(target=_heartbeat_loop, daemon=True).start()
+    # The job this worker is computing right now, or None between leases. The
+    # KeyboardInterrupt handler below reads it to tell an ordinary stop from a
+    # killed fold.
+    inflight: dict[str, Any] | None = None
     try:
         while True:
             if _dispatcher_pid and os.getppid() != _dispatcher_pid:
@@ -1882,9 +1921,37 @@ def run_worker_loop(
                 continue
 
             for job in jobs:
+                # Cleared only on the way OUT of a finished job, deliberately not in a
+                # finally: a finally runs before the exception reaches the handler
+                # below, which would hide the very case this exists to catch.
+                inflight = job
                 _execute_job(state, job, cfg, run_id, client, worker_id, meta)
-    except KeyboardInterrupt:
-        pass
+                inflight = None
+    except KeyboardInterrupt as exc:
+        # SIGINT between leases is how _stop_worker_processes ends a FINISHED run, so
+        # that case is an ordinary shutdown: it stays silent and exits 0, as before.
+        # A signal that lands mid-job is not. _execute_job never reaches its
+        # client.complete, so the job stays leased, the run never turns terminal, and
+        # the dispatcher's liveness check fires with "The worker's own traceback above
+        # says why" printed above nothing at all. The entire diagnosis this worker
+        # produced was `SpawnProcess-1 exit 0`. Measured on rf3 at 1536 tokens
+        # (2026-09-09 23:20Z): gone between `trunk 3/10` and `trunk 4/10` after eight
+        # minutes of folding, no results row, no traceback, empty structures/.
+        # So: complete the job as failed, name the signal on the launcher's real
+        # stderr, and exit 128+signum so a caller reading return codes can tell a
+        # killed fold from a clean stop.
+        if inflight is not None:
+            signum = getattr(exc, "signum", 0)
+            try:
+                name = signal.Signals(signum).name
+            except ValueError:
+                name = f"signal {signum}"
+            text = (f"worker {worker_info['label']} was stopped by "
+                    f"{name if signum else 'an interrupt'} while running job "
+                    f"{inflight.get('name') or inflight['id']}; the fold did not finish")
+            _complete_failure(client, run_id, worker_id, meta, [inflight], text)
+            _report_fatal(f"tt-bio {text}\n")
+            raise SystemExit(128 + signum if signum else 1) from None
     except BaseException:
         # Anything escaping the per-job handling above kills this worker, and with
         # stdout/stderr on /dev/null the traceback would otherwise vanish — the

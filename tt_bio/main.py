@@ -1353,9 +1353,16 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                         raise DeviceInUseError(
                             f"every local worker exited at device open ({codes}); the card "
                             "is leased by another process, so nothing ran")
+                    # Do not promise a traceback: a worker stopped by a signal
+                    # mid-job prints one line and no trace (worker.run_worker_loop's
+                    # KeyboardInterrupt arm), and rf3 at 1536 tokens sent a reader
+                    # looking for a traceback that was never written. Name what each
+                    # code means instead, so the exit code alone is the diagnosis.
                     raise RuntimeError(
                         f"every local worker exited before the run finished ({codes}); "
-                        "no job can be served. The worker's own traceback above says why.")
+                        "no job can be served. Exit 130/143 means a signal stopped the "
+                        "worker mid-job, 70 that it was orphaned, -9/137 that the host "
+                        "OOM killer took it; any other code prints its own fatal above.")
                 all_dead_seen = True
             else:
                 all_dead_seen = False
@@ -1372,10 +1379,20 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
         # full message here so any actionable guidance (e.g. how to supply
         # MSAs) is readable once the live display is gone.
         click.echo(f"\n{len(failures)} failed:")
+        # An allocator refusal reaches here as a TT_FATAL whose first line names a tt-metal
+        # source file and the literal word "false", followed by twenty backtrace frames. The
+        # headline a user needs is the one sentence in the middle, so render that and keep the
+        # raw text for --debug. Every other failure prints exactly as before.
+        from tt_bio import size_limits
         for job_id, error in failures.items():
+            summary = size_limits.describe_device_oom(str(error))
+            if summary and not debug:
+                click.echo(f"  ✗ {job_id}: {summary}")
+                click.echo("      Re-run with --debug for the allocator trace.")
+                continue
             lines = str(error).splitlines() or [""]
-            click.echo(f"  ✗ {job_id}: {lines[0]}")
-            for extra in lines[1:]:
+            click.echo(f"  ✗ {job_id}: {summary or lines[0]}")
+            for extra in (lines if summary else lines[1:]):
                 click.echo(f"      {extra}")
     return failed
 

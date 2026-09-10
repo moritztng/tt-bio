@@ -116,13 +116,44 @@ def test_unmeasured_and_unknown_arch_never_refuse():
     sl.check("a-model-that-does-not-exist", 100_000, arch="wormhole_b0")
 
 
-def test_no_blackhole_rows_are_asserted():
-    """Blackhole was never walked, and a fabricated row there is the failure the arch key prevents.
+def test_the_blackhole_rows_actually_refuse_on_blackhole_and_not_on_wormhole():
+    """The rows are new, so the guard needs its own negative control, not just the table's.
 
-    OpenDDE caps at 544 on Wormhole and folded every rung to 1024 aa on a Blackhole p150a, so a
-    Wormhole number copied across architectures would refuse work the chip does fine.
+    A row that is present but never consulted refuses nothing, and a row consulted on the wrong
+    arch refuses everything. Both are silent. saprot-35m embeds 126976 residues on a p150a and
+    throws at 131072, and on Wormhole nobody walked it at all.
     """
-    assert not [m for m, per_arch in sl.CEILINGS.items() if "blackhole" in per_arch]
+    c = sl.ceiling("saprot-35m", "blackhole")
+    assert c.residues == c.pass_at and c.fail_at is not None
+    sl.check("saprot-35m", c.pass_at, arch="blackhole")             # measured to work
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check("saprot-35m", c.fail_at, arch="blackhole")         # measured to throw
+    # The same size on the arch with no measured row must sail through, or a Blackhole ladder
+    # would have quietly become a Wormhole limit.
+    sl.check("saprot-35m", c.fail_at, arch="wormhole_b0")
+
+
+def test_a_blackhole_row_was_measured_on_blackhole():
+    """The arch key exists to stop a Wormhole number being reused on a chip nobody walked.
+
+    This used to assert that no Blackhole row existed at all, which was true while nobody had
+    walked one and stopped being the right check the moment somebody did. The invariant it was
+    really protecting is narrower and survives: a measured Blackhole row must come from a
+    Blackhole ladder, so it may not repeat the Wormhole row's numbers and its evidence has to
+    name the part. OpenDDE caps at 544 on Wormhole and folds 1024 aa on a p150a, which is what a
+    copied number would have got wrong.
+    """
+    for model, per_arch in sl.CEILINGS.items():
+        bh = per_arch.get("blackhole")
+        if bh is None or not bh.measured:
+            continue
+        assert "blackhole" in bh.evidence.lower() or "p150a" in bh.evidence.lower(), (
+            f"{model}: a blackhole row must name the part it was measured on")
+        wh = per_arch.get("wormhole_b0")
+        if wh is not None and wh.measured:
+            assert (bh.residues, bh.pass_at, bh.fail_at) != (wh.residues, wh.pass_at, wh.fail_at), (
+                f"{model}: the blackhole row repeats the wormhole row exactly, which is what "
+                f"copying a number across architectures looks like")
 
 
 def test_alternatives_only_name_measured_models():
@@ -364,3 +395,53 @@ def test_the_hatch_is_off_by_default_and_named_in_the_message(monkeypatch):
     # The message must carry the way out, or the hatch may as well not exist.
     assert "TT_BIO_SIZE_LIMIT=0" in str(e.value)
     assert "single-sequence" in str(e.value)
+
+
+# --- describe_device_oom: the refusal that arrives after the fold has started -----------------
+# One real message per class, so a rendering that collapses the three back into "out of memory"
+# fails here. The DRAM fragmentation case is verbatim from esmfold2 at 1536 tokens on qb1 card 0
+# (2026-09-09); the 32 GiB case is the bank-size probe from the pc Blackhole ladder; the L1 case
+# is the 128 MiB refusal every 1024-token run on that card opens with.
+
+_FRAGMENTED = (
+    "Not enough space to allocate 4831838208 B DRAM buffer across 8 banks, where each bank "
+    "needs to store 603979776 B, but bank size is 4278190016 B (allocated: 3579670528 B, "
+    "free: 698519488 B, largest free block: 504088512 B)")
+_OVERSIZED = (
+    "Not enough space to allocate 34359738368 B DRAM buffer across 8 banks, where each bank "
+    "needs to store 4294967296 B, but bank size is 4278190016 B (allocated: 0 B, "
+    "free: 4278190016 B, largest free block: 4278190016 B)")
+_FULL = (
+    "Not enough space to allocate 134217728 B L1 buffer across 130 banks, where each bank "
+    "needs to store 1034240 B, but bank size is 1461760 B (allocated: 1034240 B, "
+    "free: 427520 B, largest free block: 427520 B)")
+
+
+def test_oom_summary_separates_fragmentation_from_a_full_chip_and_an_oversized_tensor():
+    """The three cases want different fixes, so the sentence has to tell them apart."""
+    frag = sl.describe_device_oom(_FRAGMENTED)
+    assert "fragmentation" in frag and "not a full chip" in frag
+    assert "480.7 MiB" in frag and "666.2 MiB" in frag   # largest block and free, both shown
+
+    big = sl.describe_device_oom(_OVERSIZED)
+    assert "shape and not the load" in big and "fragmentation" not in big
+
+    full = sl.describe_device_oom(_FULL)
+    assert "chip is full" in full and "fragmentation" not in full
+    assert "L1" in full and "DRAM" not in full
+
+
+def test_oom_summary_is_silent_on_anything_that_is_not_an_allocator_refusal():
+    """The negative control. A summary that fires on every error would replace every traceback."""
+    assert sl.describe_device_oom("RuntimeError: no MSA found for chain A") is None
+    assert sl.describe_device_oom("") is None
+    # A truncated refusal is NOT a refusal this can classify: without the parenthetical there is
+    # no way to tell fragmentation from a full chip, and guessing is the failure being prevented.
+    assert sl.describe_device_oom(_FRAGMENTED.split(" (allocated")[0]) is None
+
+
+def test_oom_summary_reads_the_last_refusal_not_the_first():
+    """Several engine paths catch a refusal and retry smaller, so the first is routinely not the
+    one that ended the run."""
+    assert "chip is full" in sl.describe_device_oom(_FRAGMENTED + "\nretrying\n" + _FULL)
+    assert "fragmentation" in sl.describe_device_oom(_FULL + "\nretrying\n" + _FRAGMENTED)

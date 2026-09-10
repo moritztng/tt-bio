@@ -23,12 +23,13 @@ anybody walked to a failure. Those models get an ``UNMEASURED`` row here and are
 absence of a limit is not a limit, and inventing one would refuse work the engine can do.
 
 *A number from the wrong chip is not a measurement either.* Every row is keyed by
-``ttnn.get_arch_name()``. The measured ceilings below are all Wormhole, from the GWH02 Galaxy pool,
-and they do not transfer: a Blackhole p150a has 2.7x the DRAM of a Galaxy chip and a 13x10 grid
-against 8x9, and OpenDDE -- capped at 544 on Wormhole -- folded every rung to 1024 aa on a p150a
-(``state/sizes-recheck-opendde.md``). So there are no Blackhole rows, and on Blackhole this module
-refuses nothing. That is the honest state, not an oversight; a fabricated BH number would be exactly
-the failure the arch key exists to prevent.
+``ttnn.get_arch_name()``, and a number measured on one part is never copied to another: a Blackhole
+p150a has 2.7x the DRAM of a Galaxy chip and a 13x10 grid against 8x9, and OpenDDE -- capped at 544
+on Wormhole -- folded every rung to 1024 aa on a p150a (``state/sizes-recheck-opendde.md``). Most
+rows here are still Wormhole-only, from the GWH02 Galaxy pool, and on Blackhole those models are
+refused nothing. The ``blackhole`` rows that do exist were each walked to a failure on a p150a with
+their own ladder, and the guard test asserts a Blackhole row names the part it was measured on and
+does not repeat the Wormhole numbers.
 
 WHY EVERY ROW CARRIES ITS NEGATIVE CONTROL
 ------------------------------------------
@@ -364,6 +365,27 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "pxdesign": {
+        "blackhole": Ceiling(
+            residues=2500, pass_at=2500, fail_at=3000, binds=MEMORY, mechanism=DRAM,
+            counts=DESIGN_TARGET,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py): 1536, 1831 and 2500 "
+                "conditioned target residues each "
+                "design an 80-residue, 321-atom binder in 97.8, 177.1 and 208.2 s, and 3000 "
+                "throws on DRAM at 199.6 s. The target above 1008 residues is "
+                "perf/bhdesign/targets/big_7324.cif, real deposited chains placed side by side, "
+                "with the crop spilling across chains in file order. The throw is NOT the "
+                "single-oversized-tensor class the embedding rows carry: Not enough space to "
+                "allocate 9789767680 B DRAM buffer across 8 banks, where each bank needs to store "
+                "1223720960 B, but bank size is 4278190016 B (allocated: 3152167424 B, free: "
+                "1126022592 B, largest free block: 890649024 B). The request would fit an empty "
+                "card three times over; what fails is that 3.15 GB per bank is already resident, "
+                "leaving 1.13 GB against a 1.22 GB ask. Free and largest-free-block differ by 235 "
+                "MB, so there is some fragmentation on top, but the first-order cause is "
+                "cumulative residency and the lever is what stays live, not the layout. "
+                "Wormhole's 768 is a LADDER TOP from a different chip and does not bound this",
+        ),
         "wormhole_b0": Ceiling(
             residues=768, pass_at=768, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             counts=DESIGN_TARGET,
@@ -440,6 +462,17 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "refuse on"),
     },
     "boltzgen": {
+        "blackhole": _unmeasured(
+            "no residue-denominated ceiling on Blackhole either, and this row is a RECORD rather "
+            "than a gap: on qb1 p150a a 1831-residue / 14786-atom target designs an 80-residue "
+            "binder in 692.0 s (task bh-1536-design-embed-p2, 2026-09-10), which is 3.2x the top "
+            "of the Wormhole 3158-4651 atom band and 1.8x the 8095 atoms the first Blackhole pass "
+            "could reach with the largest single chain on hand. The next rung, 20171 atoms, did "
+            "not fail either: it was killed at 3002.1 s by that ladder's own 3000 s budget with "
+            "no allocator throw in its output, so what binds up there is runtime, and a runtime "
+            "cap needs a budget somebody agrees to wait for rather than one harness timeout. The "
+            "axis is atom-denominated on top of that -- COUNTS carries no atom unit, so writing "
+            "it as residues would be a unit substitution",),
         "wormhole_b0": _unmeasured(
             "its measured cap is NOT residue-denominated and so cannot be expressed as a row here: "
             "wh-design-models-l1-budget-and-size-caps puts it between 3158 and 4651 ATOMS, in the "
@@ -448,11 +481,133 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "composition, so converting that to residues would be a guess. Refusing on it needs an "
             "atom-denominated dimension this table does not yet carry"),
     },
-    "esmc-300m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
-    "esmc-600m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
-    "saprot-35m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
-    "saprot-650m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
-    "saprot-1.3b": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
+    "esmc-300m": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py: one rung per subprocess "
+                "through the shipped CLI, verdict read off the .npz and not off the exit "
+                "code). 99999 (157.0 s) and 114688 (179.5 s) residues all embed to [L, 960], "
+                "finite, nonzero_frac 1.0; 126976 throws in 52.4 s on the 32262064128 B buffer "
+                "itself, with 3924465472 B free in the largest bank. The failing allocation is "
+                "the same on all five models in this family and that is the finding: "
+                "padded_L^2 x 2, the full L x L attention matrix in bf16 at the token length "
+                "rounded up to a multiple of 32, as ONE DRAM buffer spread over 8 banks. At "
+                "131072 it asks for 34376517632 B (131104^2 x 2), which needs 4297066496 B per "
+                "bank against a 4278190016 B bank, so it does not fit an EMPTY card. At 126976 "
+                "it asks for 32262064128 B (127008^2 x 2), 4032758016 B per bank, which an "
+                "empty bank WOULD hold -- so that rung is decided by what else is resident, "
+                "which is why the five caps differ although the shape does not. The first pass "
+                "stopped this model at 65536 with nothing failing, and every sibling was then "
+                "held to that as the bar. The Wormhole row above is UNMEASURED and this does "
+                "not fill it in: nobody walked this ladder on a Galaxy chip.",
+        ),
+    },
+    "esmc-600m": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py: one rung per subprocess "
+                "through the shipped CLI, verdict read off the .npz and not off the exit "
+                "code). 65536 (110.8 s), 99999 (186.7 s) and 114688 (220.8 s) residues all "
+                "embed to [L, 1152], finite, nonzero_frac 1.0; 126976 throws in 55.2 s on the "
+                "32262064128 B buffer itself, with 3863293760 B free in the largest bank. The "
+                "failing allocation is the same on all five models in this family and that is "
+                "the finding: padded_L^2 x 2, the full L x L attention matrix in bf16 at the "
+                "token length rounded up to a multiple of 32, as ONE DRAM buffer spread over 8 "
+                "banks. At 131072 it asks for 34376517632 B (131104^2 x 2), which needs "
+                "4297066496 B per bank against a 4278190016 B bank, so it does not fit an "
+                "EMPTY card. At 126976 it asks for 32262064128 B (127008^2 x 2), 4032758016 B "
+                "per bank, which an empty bank WOULD hold -- so that rung is decided by what "
+                "else is resident, which is why the five caps differ although the shape does "
+                "not.  The Wormhole row above is UNMEASURED and this does not fill it in: "
+                "nobody walked this ladder on a Galaxy chip.",
+        ),
+    },
+    "saprot-35m": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=126976, pass_at=126976, fail_at=131072, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py: one rung per subprocess "
+                "through the shipped CLI, verdict read off the .npz and not off the exit "
+                "code). 65536 (78.2 s), 99999 (160.6 s), 114688 (149.6 s) and 126976 (176.1 s) "
+                "residues all embed to [L, 480], finite, nonzero_frac 1.0; 131072 throws in "
+                "50.1 s on the 34376517632 B buffer, the one that does not fit an empty card. "
+                "The failing allocation is the same on all five models in this family and that "
+                "is the finding: padded_L^2 x 2, the full L x L attention matrix in bf16 at "
+                "the token length rounded up to a multiple of 32, as ONE DRAM buffer spread "
+                "over 8 banks. At 131072 it asks for 34376517632 B (131104^2 x 2), which needs "
+                "4297066496 B per bank against a 4278190016 B bank, so it does not fit an "
+                "EMPTY card. At 126976 it asks for 32262064128 B (127008^2 x 2), 4032758016 B "
+                "per bank, which an empty bank WOULD hold -- so that rung is decided by what "
+                "else is resident, which is why the five caps differ although the shape does "
+                "not. This is the only model in the family that clears 126976, and it carries "
+                "the smallest weights, which is the whole reason the caps differ. The Wormhole "
+                "row above is UNMEASURED and this does not fill it in: nobody walked this "
+                "ladder on a Galaxy chip.",
+        ),
+    },
+    "saprot-650m": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py: one rung per subprocess "
+                "through the shipped CLI, verdict read off the .npz and not off the exit "
+                "code). 65536 (122.3 s), 99999 (219.7 s) and 114688 (236.0 s) residues all "
+                "embed to [L, 1280], finite, nonzero_frac 0.9999; 126976 throws in 50.9 s and "
+                "does it one allocation LATER than its siblings: the 32262064128 B buffer "
+                "lands, and a following 325140480 B request dies with 4247369856 B per bank "
+                "already allocated and 30820160 B free. Same wall, caught by the next "
+                "allocation instead of by that one. The failing allocation is the same on all "
+                "five models in this family and that is the finding: padded_L^2 x 2, the full "
+                "L x L attention matrix in bf16 at the token length rounded up to a multiple "
+                "of 32, as ONE DRAM buffer spread over 8 banks. At 131072 it asks for "
+                "34376517632 B (131104^2 x 2), which needs 4297066496 B per bank against a "
+                "4278190016 B bank, so it does not fit an EMPTY card. At 126976 it asks for "
+                "32262064128 B (127008^2 x 2), 4032758016 B per bank, which an empty bank "
+                "WOULD hold -- so that rung is decided by what else is resident, which is why "
+                "the five caps differ although the shape does not.  The Wormhole row above is "
+                "UNMEASURED and this does not fill it in: nobody walked this ladder on a "
+                "Galaxy chip.",
+        ),
+    },
+    "saprot-1.3b": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2, perf/bhdesign/ladder.py: one rung per subprocess "
+                "through the shipped CLI, verdict read off the .npz and not off the exit "
+                "code). 65536 (146.4 s), 99999 (278.6 s) and 114688 (326.7 s) residues all "
+                "embed to [L, 1280], finite, nonzero_frac 0.9999; 126976 throws in 53.5 s on "
+                "the 32262064128 B buffer itself, with 3943739200 B free in the largest bank. "
+                "The failing allocation is the same on all five models in this family and that "
+                "is the finding: padded_L^2 x 2, the full L x L attention matrix in bf16 at "
+                "the token length rounded up to a multiple of 32, as ONE DRAM buffer spread "
+                "over 8 banks. At 131072 it asks for 34376517632 B (131104^2 x 2), which needs "
+                "4297066496 B per bank against a 4278190016 B bank, so it does not fit an "
+                "EMPTY card. At 126976 it asks for 32262064128 B (127008^2 x 2), 4032758016 B "
+                "per bank, which an empty bank WOULD hold -- so that rung is decided by what "
+                "else is resident, which is why the five caps differ although the shape does "
+                "not. One of the four models scripts/capacity_gate.EXEMPT skips, now measured "
+                "rather than exempted. The Wormhole row above is UNMEASURED and this does not "
+                "fill it in: nobody walked this ladder on a Galaxy chip.",
+        ),
+    },
 }
 
 _NO_ROW = _unmeasured("no row for this architecture: nothing has been measured on it")
@@ -836,3 +991,73 @@ def shipped_models() -> set:
     from tt_bio import main as _main
     tuples = {n: getattr(_main, n) for n in dir(_main) if n.endswith("_MODELS")}
     return set().union(*tuples.values())
+
+
+# ---------------------------------------------------------------------------------------------
+# The refusal that arrives too late for the table above.
+# ---------------------------------------------------------------------------------------------
+
+# The allocator's message, with its closing parenthetical, which is the part that says which wall
+# was hit. Everything before it describes the request; only these three numbers describe the chip.
+_ALLOC_REFUSAL = re.compile(
+    r"Not enough space to allocate (?P<req>\d+) B (?P<space>DRAM|L1) buffer across "
+    r"(?P<banks>\d+) banks, where each bank needs to store (?P<per_bank>\d+) B, but bank size "
+    r"is (?P<bank_size>\d+) B\s*\(allocated: (?P<allocated>\d+) B, free: (?P<free>\d+) B, "
+    r"largest free block: (?P<largest>\d+) B\)")
+
+
+def _mib(n: int) -> str:
+    return f"{n / 2**30:.2f} GiB" if n >= 2**30 else f"{n / 2**20:.1f} MiB"
+
+
+def is_alloc_refusal(exc: BaseException) -> bool:
+    """Whether this exception is the device allocator refusing, and not any other failure.
+
+    The one predicate every retry path shares, so a circular-buffer throw or a shape error is
+    never quietly re-run through a fallback meant for an out-of-memory. Reads the same message
+    ``describe_device_oom`` renders, so the two can never disagree about what a refusal is.
+    """
+    return describe_device_oom(str(exc)) is not None
+
+
+def describe_device_oom(text: str) -> str | None:
+    """One sentence for an allocator refusal, or None if `text` is not one.
+
+    A user who asks for a size the chip cannot serve currently gets a C++ assertion line
+    (``TT_FATAL @ .../bank_manager.cpp:439: false``) followed by twenty backtrace frames, and the
+    one sentence that says what actually happened is buried in the middle. The assertion line is
+    the least informative thing in the message: it names a file in tt-metal and the literal word
+    "false".
+
+    The three cases below are genuinely different problems and want different answers, so the
+    sentence names which one it is instead of saying "out of memory" three ways:
+
+      * the request does not fit an EMPTY bank -- one oversized tensor, and no amount of freeing
+        would have helped. A smaller input is the only lever.
+      * it fits the free bytes but not any single free block -- fragmentation. The chip has the
+        room and cannot hand it over in one piece.
+      * it does not fit the free bytes -- the chip is full. Something else resident has to go.
+
+    The LAST refusal in the text, not the first: several paths in this engine catch a refusal and
+    retry with a smaller block, so an early one is routinely not the one that ended the run.
+    """
+    hits = list(_ALLOC_REFUSAL.finditer(text))
+    if not hits:
+        return None
+    g = {k: (v if k == "space" else int(v)) for k, v in hits[-1].groupdict().items()}
+    space, per_bank = g["space"], g["per_bank"]
+    if per_bank > g["bank_size"]:
+        why = (f"one allocation of {_mib(g['req'])} needs {_mib(per_bank)} in each of "
+               f"{g['banks']} {space} banks and a bank holds {_mib(g['bank_size'])}. No chip "
+               f"state would have served it, so this is the shape and not the load")
+    elif per_bank > g["free"]:
+        why = (f"{_mib(g['req'])} was requested, needing {_mib(per_bank)} per {space} bank, and "
+               f"only {_mib(g['free'])} is free. The chip is full")
+    elif per_bank > g["largest"]:
+        why = (f"{_mib(g['req'])} was requested, needing {_mib(per_bank)} per {space} bank. "
+               f"{_mib(g['free'])} is free but the largest single free block is "
+               f"{_mib(g['largest'])}, so the room exists and cannot be handed over in one "
+               f"piece: this is fragmentation, not a full chip")
+    else:
+        return None      # the numbers do not describe a refusal; say nothing rather than guess
+    return f"out of device {space}: {why}."
