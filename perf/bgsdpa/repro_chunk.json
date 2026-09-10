@@ -1,0 +1,90 @@
+{
+  "watchdog_s": 200,
+  "rows": [
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        1856,
+        1856,
+        64
+      ],
+      "chunks": 4,
+      "why": "control: the padded length a 1831-residue fold completes",
+      "arm": 0,
+      "verdict": "HANG",
+      "note": "no result in 200s, killed"
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        2208,
+        2208,
+        32
+      ],
+      "chunks": 4,
+      "why": "control: suspect length, half the channels, 8-wide windows",
+      "arm": 1,
+      "verdict": "error",
+      "note": "exited rc=1"
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        2208,
+        2208,
+        64
+      ],
+      "chunks": 2,
+      "why": "suspect length, tile-aligned 32-wide windows",
+      "arm": 2,
+      "verdict": "error",
+      "note": "exited rc=1"
+    },
+    {
+      "op": "slice",
+      "shape": [
+        1,
+        2208,
+        2208,
+        64
+      ],
+      "chunks": 4,
+      "why": "the four windows by hand, no chunk",
+      "arm": 3,
+      "verdict": "error",
+      "note": "exited rc=1"
+    },
+    {
+      "op": "multiply_",
+      "shape": [
+        1,
+        2208,
+        2208,
+        16
+      ],
+      "chunks": 0,
+      "why": "the op that follows the chunk, on a chunk-sized operand",
+      "arm": 4,
+      "verdict": "error",
+      "note": "exited rc=1"
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        2208,
+        2208,
+        64
+      ],
+      "chunks": 4,
+      "why": "THE SUSPECT: the fold's own call",
+      "arm": 5,
+      "verdict": "error",
+      "note": "exited rc=1"
+    }
+  ],
+  "ts": "2026-09-10T07:16:42Z"
+}

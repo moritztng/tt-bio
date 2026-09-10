@@ -525,25 +525,49 @@ def _record_trimul_inproj_oom(seq_len: int, hidden: int, batch: int, fused: int)
     _TRIMUL_INPROJ_FUSED_CAP[key] = max(1, cap // 2)
 
 
+# Narrowest channel chunk the in-projection may take. The channel loop consumes the fused
+# projection with a 4-way `ttnn.chunk` along the last axis, so the chunk width IS the slice width,
+# and a sub-tile slice off a large TILE-layout DRAM tensor is not a narrower version of the same
+# op, it is a broken one. Measured on a p150a at `[1, S, S, 4C]` bf16 DRAM
+# (perf/bgsdpa/repro_hang.py): 32-wide pieces come back in 17.4 ms at S=1856, and in 24.1 ms from
+# a 128-wide input, while 16-wide pieces take 77-870 ms at S=512-1664 and WEDGE THE DEVICE at
+# S=1536, 1792, 1856 and 2208 -- one core spinning, no timeout, only `tt-smi -r` clears it.
+# `reblock_permute.eligible_gated` has always required `slice_c % TILE_W == 0` for the fused gated
+# kernel, so a narrowed shape fell out of that kernel and into the stock four-way path, which had
+# no such guard.
+#
+# This is what BoltzGen's "Blackhole capacity ceiling above 14786 atoms" was, and nothing about it
+# is BoltzGen's: every trimul-using model on the DRAM path is narrowed to a half tile the moment
+# its padded token count passes 2048, so the same wedge waits for OpenFold3, Protenix-v2,
+# RoseTTAFold3, OpenDDE and Boltz-2 at their own large sizes. A 1831-residue design (padded 1856)
+# folds in 692 s; 2100 residues (padded 2208) hung, four for four.
+_TRIMUL_MIN_CHUNK = _reblock.TILE_W
+
+
 def _trimul_inproj_chunk_cap(seq_len: int, hidden: int, batch: int, chunk: int) -> int:
     """The widest channel chunk at or below `chunk` whose fused in-projection is inside this
     shape's recorded byte budget.
 
-    Only a shape DRAM has already refused has a budget below `_TRIMUL_INPROJ_FUSED_BYTES`, so
-    this returns `chunk` unchanged wherever the cap has never fired: a size that folds today
-    keeps its width, its launch count and its arithmetic. Where it has fired, this is what stops
-    every later pairformer block from re-probing the width that was just refused. Read the cap
-    only in the handler and the per-block ladder is: attempt the full width, get refused, halve
-    the budget, narrow to satisfy a budget one halving smaller than the last block's -- so the
-    budget walks to nothing over a fold and every block ends at chunk 1, i.e. `hidden` channel
-    passes. Measured at 4-5 minutes per block on OpenDDE's 2016-token trunk (a 1024-residue
-    fold), which is what put that fold past a 2400 s timeout rather than into an error.
+    This is what stops every later pairformer block from re-probing a width DRAM has just
+    refused. Read the cap only in the handler and the per-block ladder is: attempt the full
+    width, get refused, halve the budget, narrow to satisfy a budget one halving smaller than
+    the last block's -- so the budget walks down over a fold. Measured at 4-5 minutes per block
+    on OpenDDE's 2016-token trunk (a 1024-residue fold), which is what put that fold past a
+    2400 s timeout rather than into an error.
+
+    It does NOT only fire after a refusal, which this docstring used to claim: the budget
+    defaults to `_TRIMUL_INPROJ_FUSED_BYTES`, so any shape whose fused projection exceeds that
+    at the tuned width is narrowed here on the first block with nothing refused.
+    `4 * 32 * seq^2 * 2` crosses 1 GiB at exactly seq 2048, which is why the floor below is the
+    difference between a fold and a hang.
 
     Narrowing is bit-exact: the chunk is a partition of an independent-channel sum, the same
-    argument `_trimul_chunk_size` and `_trimul_inproj_group` make for their own widths.
+    argument `_trimul_chunk_size` and `_trimul_inproj_group` make for their own widths. That
+    holds only down to `_TRIMUL_MIN_CHUNK`; below one tile the loop's 4-way split stops
+    returning at all.
     """
     budget = _trimul_inproj_budget(seq_len, hidden, batch)
-    while (chunk > 1 and hidden % (chunk // 2) == 0
+    while (chunk > _TRIMUL_MIN_CHUNK and hidden % (chunk // 2) == 0
            and 4 * chunk * seq_len * seq_len * batch * 2 > budget):
         chunk //= 2
     return chunk

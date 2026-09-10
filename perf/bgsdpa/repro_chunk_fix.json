@@ -1,0 +1,61 @@
+{
+  "watchdog_s": 200,
+  "arms": "fix",
+  "rows": [
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        2208,
+        2208,
+        128
+      ],
+      "chunks": 4,
+      "arm": 0,
+      "verdict": "ok",
+      "ms": 27.982,
+      "out_shapes": [
+        [
+          1,
+          2208,
+          2208,
+          32
+        ],
+        [
+          1,
+          2208,
+          2208,
+          32
+        ],
+        [
+          1,
+          2208,
+          2208,
+          32
+        ],
+        [
+          1,
+          2208,
+          2208,
+          32
+        ]
+      ]
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        2208,
+        2208,
+        64
+      ],
+      "chunks": 4,
+      "arm": 1,
+      "verdict": "HANG",
+      "stage": "07:45:50 enqueued",
+      "note": "no result in 200s, killed",
+      "reset": true
+    }
+  ],
+  "ts": "2026-09-10T07:49:05Z"
+}

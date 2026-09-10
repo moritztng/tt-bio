@@ -1,0 +1,168 @@
+{
+  "watchdog_s": 150,
+  "arms": "ladder",
+  "rows": [
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        256,
+        256,
+        64
+      ],
+      "chunks": 4,
+      "arm": 0,
+      "verdict": "error",
+      "note": "TT_THROW @ /project/tt_metal/impl/device/firmware/risc_firmware_initializer.cpp:1115: tt::exception",
+      "reset": true
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        512,
+        512,
+        64
+      ],
+      "chunks": 4,
+      "arm": 1,
+      "verdict": "ok",
+      "ms": 810.629,
+      "out_shapes": [
+        [
+          1,
+          512,
+          512,
+          16
+        ],
+        [
+          1,
+          512,
+          512,
+          16
+        ],
+        [
+          1,
+          512,
+          512,
+          16
+        ],
+        [
+          1,
+          512,
+          512,
+          16
+        ]
+      ]
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        1024,
+        1024,
+        64
+      ],
+      "chunks": 4,
+      "arm": 2,
+      "verdict": "ok",
+      "ms": 77.246,
+      "out_shapes": [
+        [
+          1,
+          1024,
+          1024,
+          16
+        ],
+        [
+          1,
+          1024,
+          1024,
+          16
+        ],
+        [
+          1,
+          1024,
+          1024,
+          16
+        ],
+        [
+          1,
+          1024,
+          1024,
+          16
+        ]
+      ]
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        1408,
+        1408,
+        64
+      ],
+      "chunks": 4,
+      "arm": 3,
+      "verdict": "ok",
+      "ms": 776.45,
+      "out_shapes": [
+        [
+          1,
+          1408,
+          1408,
+          16
+        ],
+        [
+          1,
+          1408,
+          1408,
+          16
+        ],
+        [
+          1,
+          1408,
+          1408,
+          16
+        ],
+        [
+          1,
+          1408,
+          1408,
+          16
+        ]
+      ]
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        1856,
+        1856,
+        64
+      ],
+      "chunks": 4,
+      "arm": 4,
+      "verdict": "HANG",
+      "stage": "07:18:24 enqueued",
+      "note": "no result in 150s, killed",
+      "reset": true
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        2208,
+        2208,
+        64
+      ],
+      "chunks": 4,
+      "arm": 5,
+      "verdict": "HANG",
+      "stage": "07:21:02 enqueued",
+      "note": "no result in 150s, killed",
+      "reset": true
+    }
+  ],
+  "ts": "2026-09-10T07:23:27Z"
+}

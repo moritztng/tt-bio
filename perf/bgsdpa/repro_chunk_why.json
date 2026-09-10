@@ -1,0 +1,172 @@
+{
+  "watchdog_s": 150,
+  "arms": "why",
+  "rows": [
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        1856,
+        1856,
+        64
+      ],
+      "chunks": 2,
+      "arm": 0,
+      "verdict": "ok",
+      "ms": 17.4,
+      "out_shapes": [
+        [
+          1,
+          1856,
+          1856,
+          32
+        ],
+        [
+          1,
+          1856,
+          1856,
+          32
+        ]
+      ]
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        1856,
+        1856,
+        128
+      ],
+      "chunks": 4,
+      "arm": 1,
+      "verdict": "ok",
+      "ms": 24.051,
+      "out_shapes": [
+        [
+          1,
+          1856,
+          1856,
+          32
+        ],
+        [
+          1,
+          1856,
+          1856,
+          32
+        ],
+        [
+          1,
+          1856,
+          1856,
+          32
+        ],
+        [
+          1,
+          1856,
+          1856,
+          32
+        ]
+      ]
+    },
+    {
+      "op": "slice",
+      "shape": [
+        1,
+        1856,
+        1856,
+        64
+      ],
+      "chunks": 4,
+      "arm": 2,
+      "verdict": "HANG",
+      "stage": "07:24:41 enqueued",
+      "note": "no result in 150s, killed",
+      "reset": true
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        928,
+        3712,
+        64
+      ],
+      "chunks": 4,
+      "arm": 3,
+      "verdict": "HANG",
+      "stage": "07:27:17 enqueued",
+      "note": "no result in 150s, killed",
+      "reset": true
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        1536,
+        1536,
+        64
+      ],
+      "chunks": 4,
+      "arm": 4,
+      "verdict": "HANG",
+      "stage": "07:29:51 enqueued",
+      "note": "no result in 150s, killed",
+      "reset": true
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        1664,
+        1664,
+        64
+      ],
+      "chunks": 4,
+      "arm": 5,
+      "verdict": "ok",
+      "ms": 870.207,
+      "out_shapes": [
+        [
+          1,
+          1664,
+          1664,
+          16
+        ],
+        [
+          1,
+          1664,
+          1664,
+          16
+        ],
+        [
+          1,
+          1664,
+          1664,
+          16
+        ],
+        [
+          1,
+          1664,
+          1664,
+          16
+        ]
+      ]
+    },
+    {
+      "op": "chunk",
+      "shape": [
+        1,
+        1792,
+        1792,
+        64
+      ],
+      "chunks": 4,
+      "arm": 6,
+      "verdict": "HANG",
+      "stage": "07:32:38 enqueued",
+      "note": "no result in 150s, killed",
+      "reset": true
+    }
+  ],
+  "ts": "2026-09-10T07:35:05Z"
+}
