@@ -1,30 +1,8 @@
 import re
-import string
-from typing import Iterator
 
 from tt_bio.data import const
+from tt_bio.data.pdb import chain_id_at, remarks
 from tt_bio.boltzgen.data.data import Structure
-
-
-def generate_tags() -> Iterator[str]:
-    """Generate chain tags.
-
-    Yields
-    ------
-    str
-        The next chain tag
-
-    """
-    for i in range(1, 4):
-        for j in range(len(string.ascii_uppercase) ** i):
-            tag = ""
-            for k in range(i):
-                tag += string.ascii_uppercase[
-                    j
-                    // (len(string.ascii_uppercase) ** k)
-                    % len(string.ascii_uppercase)
-                ]
-            yield tag
 
 
 def to_pdb(structure: Structure) -> str:  # noqa: PLR0915
@@ -45,13 +23,19 @@ def to_pdb(structure: Structure) -> str:  # noqa: PLR0915
 
     atom_index = 1
     atom_reindex_ter = []
-    chain_tags = generate_tags()
+    shortened_res_names: dict[str, str] = {}
+    renamed_chains: dict[str, str] = {}
 
     # Add all atom sites.
-    for chain in structure.chains:
-        # We rename the chains in alphabetical order
+    for tag_index, chain in enumerate(structure.chains):
+        # We rename the chains in alphabetical order. The old generator ran A..Z then AA, AB,
+        # ... , and a two-character tag written as `{chain_tag:>1}` shifted every column after
+        # it: past 26 chains the file was silently malformed. chain_id_at stays one character
+        # for all 62 a PDB can hold and refuses the 63rd with a readable message.
         chain_idx = chain["asym_id"]
-        chain_tag = next(chain_tags)
+        chain_tag = chain_id_at(tag_index)
+        if str(chain["name"]) != chain_tag:
+            renamed_chains[str(chain["name"])] = chain_tag
 
         res_start = chain["res_idx"]
         res_end = chain["res_idx"] + chain["res_num"]
@@ -62,7 +46,9 @@ def to_pdb(structure: Structure) -> str:  # noqa: PLR0915
             atom_end = residue["atom_idx"] + residue["atom_num"]
             atoms = structure.atoms[atom_start:atom_end]
             atom_coords = atoms["coords"]
-            res_name = residue["name"]
+            res_name = str(residue["name"])
+            if len(res_name) > 3:  # noqa: PLR2004 -- the resName column is 3 wide
+                shortened_res_names[res_name] = res_name[:3]
             for i, atom in enumerate(atoms):
                 atom_reindex_ter.append(atom_index)
 
@@ -93,7 +79,7 @@ def to_pdb(structure: Structure) -> str:  # noqa: PLR0915
                 charge = ""
                 residue_index = residue["res_idx"] + 1
                 pos = atom_coords[i]
-                res_name_3 = "LIG" if record_type == "HETATM" else res_name
+                res_name_3 = "LIG" if record_type == "HETATM" else res_name[:3]
                 b_factor = 1.00
 
                 # PDB is a columnar format, every space matters here!
@@ -133,5 +119,6 @@ def to_pdb(structure: Structure) -> str:  # noqa: PLR0915
 
     pdb_lines.append("END")
     pdb_lines.append("")
+    pdb_lines = remarks(renamed_chains, shortened_res_names) + pdb_lines
     pdb_lines = [line.ljust(80) for line in pdb_lines]
     return "\n".join(pdb_lines)
