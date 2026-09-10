@@ -1191,6 +1191,27 @@ def _probe_with(body, **kw):
         capacity_gate._CARD_PROBE = real
 
 
+def test_both_device_probes_set_the_p300_mesh_descriptor_before_they_open():
+    """A lone p300 chip is a CUSTOM topology to tt-metal, and `ttnn.open_device` refuses it
+    outright without a 1x1 mesh-graph descriptor. Both probes here open ttnn directly instead of
+    through the CLI, so neither inherits the descriptor tt_bio sets per worker.
+
+    Measured on qb2 card 3, 2026-09-10: the health probe died after 1.0 s with "Custom fabric mesh
+    graph descriptor path must be specified for CUSTOM cluster type", the gate scored that as a
+    wedge and printed "Reset (tt-smi -r) and re-run". On a p300c that reset takes the BOARD PAIR
+    down and can kill a sibling worker's card, so a bare-open failure turned a question about one
+    healthy chip into a destructive instruction aimed at two. Every p300c cell in the baseline was
+    unreachable for the same reason, which is why the file still holds only p150a numbers.
+    """
+    for name, src in (("_CARD_PROBE", cg._CARD_PROBE), ("_GEOM_PROBE", cg._GEOM_PROBE)):
+        assert "ensure_p300_mesh_descriptor()" in src, (
+            f"{name} opens a device without asking tt_bio for the p300 descriptor, so it cannot "
+            f"run on a p300c at all and its failure there says nothing about the card")
+        assert src.index("ensure_p300_mesh_descriptor()") < src.index("open_device"), (
+            f"{name} sets the descriptor after the open, which is too late: the env is read when "
+            f"the device opens")
+
+
 def test_a_healthy_probe_reports_done_and_its_dispatch_cost():
     p = _probe_with("print('CARD_OPEN', flush=True)\nprint('CARD_HEALTHY', flush=True)\n")
     assert p and p.phase == "done", p

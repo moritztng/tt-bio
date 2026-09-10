@@ -349,6 +349,8 @@ def cells(models: list[str], *, depth=None, recycling=None) -> list[Cell]:
 
 _GEOM_PROBE = r"""
 import json, ttnn
+from tt_bio.main import ensure_p300_mesh_descriptor
+ensure_p300_mesh_descriptor()
 d = ttnn.open_device(device_id=0)
 o = {"arch": ttnn.get_arch_name(),
      "grid": str(d.compute_with_storage_grid_size())}
@@ -758,6 +760,8 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
 #: after it is the dispatch, which is the part a wedged chip never completes.
 _CARD_PROBE = (
     "import torch, ttnn\n"
+    "from tt_bio.main import ensure_p300_mesh_descriptor\n"
+    "ensure_p300_mesh_descriptor()\n"
     "d = ttnn.open_device(device_id=0)\n"
     "print('CARD_OPEN', flush=True)\n"
     "t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),\n"
