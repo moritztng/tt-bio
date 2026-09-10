@@ -25,6 +25,7 @@ That is the S4 gate.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import ttnn
@@ -168,6 +169,105 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
     )
 
 
+# Physical L1 per Tensix core, and the slice of it a program has already spent before its first
+# circular buffer. Both measured, on qb1 card 2 (p150a, ttnn 0.68.0):
+#
+#     TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)]
+#     grow to 4844032 B which is beyond max L1 size of 1572864 B
+#
+# and the figure it reports is `cb_bytes` plus a constant 109056 B, exact on all ten refusals in
+# `perf/bgsdpa/cb_model.MEASURED` (eight from a chunk-size probe, two from a live BoltzGen design
+# at 2208 padded tokens) and on the 3424768 B clash `tests/test_capacity_gate.py` already quotes.
+# 1.5 MiB is the per-core L1 on blackhole and on wormhole_b0 alike; `device->l1_size_per_core()`
+# is not exposed to Python, which is why it is a constant here rather than a query (the same gap
+# `softmax_generic` documents). `MAX_L1` is re-read from any refusal that names it, so a part with
+# a different L1 corrects the constant instead of being mispriced by it.
+L1_PER_CORE = 1572864
+PROGRAM_RESERVE = 109056
+
+
+class _ShapeOnly:
+    """Enough of a ttnn tensor for `plan`, which reads padded_shape, shape and dtype only.
+
+    So the CB surface can be priced on the host: `perf/bgsdpa/cb_model.py` enumerates it and
+    `triatt_sdpa.fused_pairs` picks from it without allocating anything.
+    """
+
+    def __init__(self, shape, dtype=None):
+        self.padded_shape = self.shape = list(shape)
+        self.dtype = dtype if dtype is not None else ttnn.bfloat16
+
+
+def plan_for_shape(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None,
+                   dtype=None):
+    """`plan` for a square triangle-attention call at `seq` padded tokens, without a device."""
+    qkv = _ShapeOnly([seq, heads, seq, head_dim], dtype)
+    bias = _ShapeOnly([1, heads, seq, seq], dtype)
+    ckc = (ttnn.MathFidelity.HiFi2, True, False, False)
+    return plan(qkv, qkv, qkv, bias, qkv, q_chunk, k_chunk, grid, ckc, 1.0, split)
+
+
+def chunk_divisors(seq, tile=TILE):
+    """The chunk sizes that DIVIDE `seq` and are themselves a multiple of the 32-row tile,
+    widest first. A chunk that does not divide sets `use_padded_mask`, which the fused kernel
+    declines outright and which makes the stock op read a mask padded past the sequence."""
+    return tuple(sorted({seq // n for n in range(1, seq // tile + 1)
+                         if seq % n == 0 and (seq // n) % tile == 0}, reverse=True))
+
+
+def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=None):
+    """(buffer index, tiles, page bytes, data format) for every CB the factory creates, :405-414.
+
+    `mask_cb_tiles` overrides `cb_mask_in`: K2 fronts the whole head's mask grid
+    (`k_num_chunks * Sq_chunk_t * Sk_chunk_t` tiles) where the stock op double-buffers one chunk.
+    """
+    im_df = stats_df = scalar_df = ttnn.bfloat16      # :651-653, always bf16
+    im_ts = stats_ts = scalar_ts = 2048
+    nmask = p["mask_tiles"] if mask_cb_tiles is None else mask_cb_tiles
+    return [
+        (0, p["q_tiles"], tile_bytes(q_dtype), q_dtype),
+        (1, p["k_tiles"], tile_bytes(k_dtype), k_dtype),
+        (2, p["v_tiles"], tile_bytes(v_dtype), v_dtype),
+        (3, nmask, tile_bytes(mask_dtype), mask_dtype),
+        (5, 1, scalar_ts, scalar_df),
+        (7, 1, scalar_ts, scalar_df),
+        (4, 1, im_ts, im_df),                         # c_recip_scratch, :746 (no attention sink)
+        (24, p["qk_tiles"], im_ts, im_df),
+        (25, p["out_im_tiles"], im_ts, im_df),
+        (26, p["out_im_tiles"], im_ts, im_df),
+        (27, p["statistics_tiles"], stats_ts, stats_df),
+        (28, p["statistics_tiles"], stats_ts, stats_df),
+        (29, p["statistics_tiles"], stats_ts, stats_df),
+        (30, p["statistics_tiles"], stats_ts, stats_df),
+        (31, p["statistics_tiles"], stats_ts, stats_df),
+        (16, p["out0_t"], tile_bytes(out_dtype), out_dtype),
+    ]
+
+
+def cb_bytes(p, q_dtype=ttnn.bfloat16, k_dtype=ttnn.bfloat16, v_dtype=ttnn.bfloat16,
+             mask_dtype=ttnn.bfloat16, out_dtype=ttnn.bfloat16, mask_cb_tiles=None) -> int:
+    """L1 the static circular buffers hold, per core."""
+    return sum(n * page for _i, n, page, _f in cb_table(
+        p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles))
+
+
+def cb_fits_l1(p, **kw) -> bool:
+    """Whether tt-metal will accept this config's CBs. `mask_cb_tiles` selects the fused kernel."""
+    return cb_bytes(p, **kw) + PROGRAM_RESERVE <= L1_PER_CORE
+
+
+_MAX_L1_RX = re.compile(r"max L1 size of (\d+) B")
+
+
+def note_l1_refusal(message: str) -> None:
+    """Take `L1_PER_CORE` from a refusal that names it, so a part whose per-core L1 is not
+    1.5 MiB is priced by its own number instead of by this file's constant."""
+    global L1_PER_CORE
+    m = _MAX_L1_RX.search(message)
+    if m:
+        L1_PER_CORE = int(m.group(1))
+
+
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2):
@@ -183,38 +283,13 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
 
-    q_ts = tile_bytes(q.dtype)
-    k_ts = tile_bytes(k.dtype)
-    v_ts = tile_bytes(v.dtype)
-    mask_ts = tile_bytes(mask.dtype)
-    out_ts = tile_bytes(out.dtype)
-    im_df, stats_df, scalar_df = ttnn.bfloat16, ttnn.bfloat16, ttnn.bfloat16   # :651-653, always bf16
-    im_ts = stats_ts = scalar_ts = 2048
 
-    def cb(idx, n_tiles, page, fmt):
-        f = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=fmt, page_size=page)
-        return ttnn.CBDescriptor(total_size=n_tiles * page, core_ranges=core_grid,
-                                 format_descriptors=[f])
-
-    nmask = p["mask_tiles"] if mask_cb_tiles is None else mask_cb_tiles
-    cbs = [
-        cb(0, p["q_tiles"], q_ts, q.dtype),
-        cb(1, p["k_tiles"], k_ts, k.dtype),
-        cb(2, p["v_tiles"], v_ts, v.dtype),
-        cb(3, nmask, mask_ts, mask.dtype),
-        cb(5, 1, scalar_ts, scalar_df),
-        cb(7, 1, scalar_ts, scalar_df),
-        cb(4, 1, im_ts, im_df),                       # c_recip_scratch, :746 (no attention sink)
-        cb(24, p["qk_tiles"], im_ts, im_df),
-        cb(25, p["out_im_tiles"], im_ts, im_df),
-        cb(26, p["out_im_tiles"], im_ts, im_df),
-        cb(27, p["statistics_tiles"], stats_ts, stats_df),
-        cb(28, p["statistics_tiles"], stats_ts, stats_df),
-        cb(29, p["statistics_tiles"], stats_ts, stats_df),
-        cb(30, p["statistics_tiles"], stats_ts, stats_df),
-        cb(31, p["statistics_tiles"], stats_ts, stats_df),
-        cb(16, p["out0_t"], out_ts, out.dtype),
-    ]
+    cbs = [ttnn.CBDescriptor(
+        total_size=n_tiles * page, core_ranges=core_grid,
+        format_descriptors=[ttnn.CBFormatDescriptor(buffer_index=idx, data_format=fmt,
+                                                    page_size=page)])
+        for idx, n_tiles, page, fmt in cb_table(
+            p, q.dtype, k.dtype, v.dtype, mask.dtype, out.dtype, mask_cb_tiles)]
 
     # Three semaphores, created for every non-causal call (:539), ids 0..2 in creation order.
     semaphores = [

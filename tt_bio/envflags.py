@@ -1,4 +1,4 @@
-"""One reader for the ``TT_BIO_*`` boolean gates.
+"""One reader for the ``TT_BIO_*`` gates.
 
 The gates are set by hand on the command line, by the release gate and by fleet
 scripts, so they have to answer the same way everywhere. Before this module they
@@ -37,3 +37,18 @@ def env_flag(name: str, default: bool) -> bool:
         f"{name}={raw!r} is not a boolean; use one of "
         f"{sorted(_TRUE)} / {sorted(_FALSE)}"
     )
+
+
+def env_int(name: str, default: int) -> int:
+    """Read an integer knob from the environment. Unset or empty means the default.
+
+    Same contract as ``env_flag``: an unparseable value raises rather than falling back to the
+    default, because a silently-ignored ``TT_BIO_X=1o24`` reads as "the lever did nothing".
+    """
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw.strip(), 10)
+    except ValueError:
+        raise ValueError(f"{name}={raw!r} is not an integer") from None

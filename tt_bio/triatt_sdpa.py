@@ -30,12 +30,13 @@ no padded mask, and bf16 interleaved DRAM throughout; anything else falls throug
 from __future__ import annotations
 
 import os
+from functools import lru_cache
 from pathlib import Path
 
 import ttnn
 
 from . import sdpa_generic as SG
-from .envflags import env_flag
+from .envflags import env_flag, env_int
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_sdpa"
 
@@ -57,7 +58,13 @@ _ENABLED = os.environ.get(
 # so the shipped split stays there; an L1 refusal at any size is caught and falls back to the
 # stock op. "0" forces off.
 _Q_SPLIT = env_flag("TT_BIO_TRIATT_MASK_Q_SPLIT", True)
-_Q_SPLIT_MAX_S = 1024
+# 1024 is where the persistent mask CB stopped being MEASURED, not where it stops fitting:
+# `sdpa_generic.cb_bytes` prices it exactly now (10 refusals, to the byte), so above the cap the
+# budget can decide instead of a number. Raising it is release-gated -- it changes which kernel a
+# path shared by five models takes at every length above 1024 -- so it ships at 1024 and
+# `TT_BIO_TRIATT_MASK_Q_SPLIT_MAX` is how an A/B lifts it. Nothing above the cap serves fused
+# today: `perf/bgsdpa/fused_reach.py` counts 0 of the 50 lengths from 1024 to 2592.
+_Q_SPLIT_MAX_S = env_int("TT_BIO_TRIATT_MASK_Q_SPLIT_MAX", 1024)
 
 # q_chunks whose PERSISTENT mask CB does not fit. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`: that set
 # is the wide-q ladder memo of q_chunks the STOCK op cannot fit, and `_tri_att_sdpa_at` filters its
@@ -140,6 +147,55 @@ def ckc_from_env(spec=None):
 _CKC_OVERRIDE = ckc_from_env()
 
 
+def q_parallel_factor(S: int, H: int, q_chunk: int, cores: int) -> int:
+    """The q-chunk split `fill_preconditions` needs, or 1 when there is none.
+
+    The hoisted fill wants one q chunk per core, and the factory's own choice of `q_pf = 1` hands
+    every core all of them -- so above the size where the widest q_chunk still spans the whole
+    sequence, `q_per_core > 1` and this kernel declines every call. Pure, so
+    `perf/bgsdpa/fused_reach.py` can ask which sizes it reaches without a device.
+    """
+    if not _Q_SPLIT or S > _Q_SPLIT_MAX_S:
+        return 1
+    qnc = -(-S // q_chunk)
+    return qnc if qnc > 1 and cores // (H * qnc) >= 1 else 1
+
+
+@lru_cache(maxsize=None)
+def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None) -> tuple:
+    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first.
+
+    Its two constraints pull in opposite directions, and neither is on the stock op's ladder:
+
+      * `fill_preconditions` wants one q chunk per core, which `q_parallel_factor` supplies only
+        while `seq // q_chunk <= cores // heads`.
+      * the persistent mask CB holds `k_num_chunks * Sq_chunk_t * Sk_chunk_t` tiles, which works
+        out to `seq * q_chunk / 1024` and carries NO k_chunk term. So a wide q is what breaks L1;
+        a wide k costs only the k and v CBs, 4 tiles per k tile-row.
+
+    Hence widest k first, and under each k the widest q that fits -- which is also the order K5
+    measured at padded 864, where the widest k was 3.588x the incumbent and the arm closest to a
+    torch fp32 reference, one k chunk needing no online-softmax rescale at all.
+
+    Empty when nothing fits, which is the answer at 1184, 1312, 1856 and every other padded
+    length whose only 32-aligned divisors are 32 and itself.
+    """
+    out = []
+    for kc in SG.chunk_divisors(seq):
+        for qc in SG.chunk_divisors(seq):
+            q_pf = q_parallel_factor(seq, heads, qc, cores)
+            p = SG.plan_for_shape(seq, heads, head_dim, qc, kc, split=(
+                max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
+            if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
+                continue
+            pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
+            if SG.cb_fits_l1(p, mask_cb_tiles=pers,
+                             **({} if mask_dtype is None else {"mask_dtype": mask_dtype})):
+                out.append((qc, kc))
+                break
+    return tuple(out)
+
+
 def _reject(reason, shape):
     key = (reason, tuple(shape))
     REJECTS[key] = REJECTS.get(key, 0) + 1
@@ -188,11 +244,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     # gate then declines the whole fold (0 of 2424 calls served at 768, 0 of 2528 at 1024, all
     # `fill_preconditions`, all on this one term). Give the q chunks their own factor instead. Tiles
     # per core are unchanged: the batch factor shrinks by exactly the amount the q factor grows.
-    q_pf = 1
-    if _Q_SPLIT and shape[2] <= _Q_SPLIT_MAX_S:
-        qnc = -(-shape[2] // q_chunk)
-        if qnc > 1 and cores // (H * qnc) >= 1:
-            q_pf = qnc
+    q_pf = q_parallel_factor(shape[2], H, q_chunk, cores)
     split = (cores // (H * q_pf), H, q_pf)
 
     dev = q.device()
