@@ -1,7 +1,7 @@
 {
  "bar_tokens": 1536,
- "recorded": "2026-09-10T02:03:24Z",
- "tree": "1ab5391cb6c658113d4090e3886766311a50c3d6",
+ "recorded": "2026-09-10T02:46:39Z",
+ "tree": "329c11477565b198f05095268ed69cd724c7e68e",
  "dirty_tree": false,
  "geometry": {
   "arch": "blackhole",
@@ -120,22 +120,22 @@
    "tree": "9f319e9d008f37b54cc686c9b7c97e7f4620f8b6"
   },
   "esmfold2": {
-   "verdict": "HOST_OOM",
+   "verdict": "FAIL",
    "tokens_requested": 1536,
    "tokens_padded": 1536,
    "residues": 1536,
    "msa_rows_effective": 0,
-   "dram_peak_bytes": null,
-   "dram_total_bytes": null,
-   "wall_s": 75.9,
-   "mechanism": null,
-   "decided_by": "screen",
-   "ceiling_tokens": null,
+   "dram_peak_bytes": 13630439424,
+   "dram_total_bytes": 34225520128,
+   "wall_s": 164.8,
+   "mechanism": "dram",
+   "decided_by": "residency",
+   "ceiling_tokens": 1024,
    "alloc_ceiling_tokens": null,
-   "alloc_ceiling_note": null,
+   "alloc_ceiling_note": "no allocation bound from this walk: Tier 1 cannot build this model, so the screens at 1408, 1280, 1024 failed on the truncation and not on capacity. Only the un-truncated runs at 1408, 1280, 1024 measured anything.",
    "reason": null,
-   "ceilings_fingerprint": "2949b912fe9b0eae",
-   "tree": "e2544021dde7b8713bc36efb5c9f8fccb6eb292d"
+   "ceilings_fingerprint": "53d0207c94a2ea48",
+   "tree": "329c11477565b198f05095268ed69cd724c7e68e"
   },
   "esmfold2-fast": {
    "verdict": "PASS",
