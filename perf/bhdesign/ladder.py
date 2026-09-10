@@ -32,7 +32,10 @@ import sys
 import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-PY = os.environ.get("BH_PY", "/home/ttuser/tt-bio-dev/env/bin/python3")
+# The interpreter a rung runs under. Defaults to the one running this walk, which is right
+# on every host; the old default was a qb1-only absolute path, so pointing the script at a
+# second machine meant editing it.
+PY = os.environ.get("LADDER_PY") or os.environ.get("BH_PY") or sys.executable
 
 # A real sequence rather than a homopolymer: a repeated single residue is not a workload any
 # attention block sees, and a degenerate input can take a different path through a tokenizer.
@@ -331,13 +334,15 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     if model.startswith("esmc"):
         fx = fasta_fixture(work, size)
         cmd = base + ["embed", str(fx), "--model", model, "--out_dir", str(out_dir),
-                      "--batch_size", "1"]
+                      "--batch_size", "1"] + (["--fast"] if args.fast else [])
         checker = ("npz", size)
+        extra = {"fast": bool(args.fast)}
     elif model.startswith("saprot"):
         fx = fasta_fixture(work, size)
         cmd = base + ["saprot", str(fx), "--model", model, "--out_dir", str(out_dir),
-                      "--batch_size", "1"]
+                      "--batch_size", "1"] + (["--fast"] if args.fast else [])
         checker = ("npz", size)
+        extra = {"fast": bool(args.fast)}
     elif model == "rfd3":
         fx = rfd3_fixture(work, size, args.binder, pathlib.Path(args.target))
         cmd = base + ["design", str(fx), "--model", "rfd3", "--from_pdb", "--out_dir", str(out_dir),
@@ -407,7 +412,7 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     wall = round(time.time() - t0, 1)
 
     rec = {"model": model, "size": size, "rc": rc, "wall_s": wall,
-           "cmd": " ".join(cmd[3:]), "arch": "blackhole", "board": args.board,
+           "cmd": " ".join(cmd[3:]), "arch": args.arch, "board": args.board,
            "host": os.uname().nodename, "card": args.card,
            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra}
 
@@ -431,7 +436,7 @@ def rescore_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     checker = {"rfd3": ("cif", size), "pxdesign": ("binder", (args.binder, size)),
                "boltzgen": ("designcif", (args.binder, size))}.get(model, ("npz", size))
     rec = {"model": model, "size": size, "rc": None, "wall_s": 0.0,
-           "cmd": "(rescored from artifacts on disk)", "arch": "blackhole", "board": args.board,
+           "cmd": "(rescored from artifacts on disk)", "arch": args.arch, "board": args.board,
            "host": os.uname().nodename, "card": args.card,
            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "rescored": True}
     if model == "boltzgen":
@@ -562,6 +567,15 @@ def main() -> int:
     ap.add_argument("--out", required=True, type=pathlib.Path)
     ap.add_argument("--card", default=os.environ.get("BH_CARD", "1"))
     ap.add_argument("--holder", default="worker:bh-1536-design-embed")
+    ap.add_argument("--arch", default=os.environ.get("LADDER_ARCH", "blackhole"),
+                    help="the part this walk ran on. A row that does not name it is not a "
+                         "measurement: a Wormhole Galaxy chip is 12 GiB over 12 DRAM banks "
+                         "against a p150a's 31.875 GiB over 8, and an interleaved allocation is "
+                         "refused on BANK size, so neither bounds the other")
+    ap.add_argument("--fast", action="store_true",
+                    help="pass --fast to the embed/saprot CLI (block-fp8 weights). Part of the "
+                         "configuration a ceiling is valid in rather than a detail: esmc-6b's "
+                         "bf16 weights are ~12.8 GB against the 12.76 GB a Wormhole chip holds")
     ap.add_argument("--board", default=os.environ.get("BH_BOARD", "p150a"),
                     help="which Blackhole board this walk ran on; a row without it cannot be "
                          "compared across machines")
