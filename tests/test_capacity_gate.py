@@ -1241,6 +1241,55 @@ def test_every_cell_says_which_card_it_was_measured_on(tmp_path, monkeypatch):
         f"the cell does not say which host and card measured it: {cell}")
 
 
+_SWEEP_UNDER_SIGNAL = """
+import sys, time, signal
+sys.path.insert(0, {scripts!r})
+import capacity_gate as cg
+cg.install_teardown()
+print("armed", flush=True)
+cg.sweep(["cell"], ["w"], lambda w, c: time.sleep(600), lambda i, r: None)
+"""
+
+
+def test_a_sweep_in_progress_can_actually_be_signalled():
+    """A sweep in progress must die on SIGTERM, because the alternative is SIGKILL from outside
+    and a wedged card.
+
+    This LOCKS THE PROPERTY; it is not a regression test. It passes on the bare `t.join()` too,
+    which is exactly why it is worth saying so here: on 2026-09-10 a real gate ten cells into a
+    sweep ignored two explicit SIGTERMs, and this test does not reproduce that. Whatever made
+    that process unreachable is still unknown, so what this guards is only the direction of
+    travel -- if someone later puts an uninterruptible wait in this call path and it DOES stop
+    signals landing, this fails.
+
+    End to end rather than a source check for `join(timeout=...)`, since the property is "a
+    signal lands", not "one particular call has a timeout argument".
+    """
+    src = _SWEEP_UNDER_SIGNAL.format(scripts=str(ROOT / "scripts"))
+    proc = subprocess.Popen([sys.executable, "-u", "-c", src],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            if (proc.stdout.readline() or "").startswith("armed"):
+                break
+        else:
+            pytest.fail("the child never armed its handler")
+        time.sleep(1.0)          # let it get into the join
+        proc.send_signal(signal.SIGTERM)
+        try:
+            rc = proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            pytest.fail("SIGTERM did not reach a sweep in progress: the main thread is parked in "
+                        "an uninterruptible wait, so the handler can never run")
+        assert rc == 128 + signal.SIGTERM, (
+            f"the sweep exited {rc}, not through install_teardown()'s handler")
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait(timeout=10)
+
+
 #: Quoted verbatim from a real nesso1 residency leg on pc's p150a, 2026-09-07.
 _NESSO1_CB_OVERFLOW = (
     "TT_THROW: Statically allocated circular buffers on core range "

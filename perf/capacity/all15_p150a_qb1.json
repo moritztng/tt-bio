@@ -1,0 +1,1328 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-10T03:21:36Z",
+ "tree": "4f5de79e7b368fb3950813a55d5aa7249cd307d0",
+ "dirty": false,
+ "workers": [
+  "qb1:3"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=11,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 110,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 160793600
+  },
+  "board_type": "p150a",
+  "host": "qb1",
+  "card": 3
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "esmc-300m",
+   "verb": "embed",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 10.9,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.9,
+     "progress_events": 0,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 442132,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1430388,
+      "samples": 1,
+      "truncated": [
+       [
+        "tt_bio.esmc.ESMCModel",
+        "blocks",
+        30
+       ]
+      ]
+     },
+     "tail": "Loading esmc-300m \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmc-300m_1536\nDone \u2014 1 sequence(s), d_model=960 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmc-300m_1536 (see manifest.json)",
+     "stacks_truncated": 1,
+     "truncated": [
+      [
+       "tt_bio.esmc.ESMCModel",
+       "blocks",
+       30
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 10.9,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.9,
+     "progress_events": 0,
+     "block_calls": 30,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 442794,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3922320192,
+      "dram_peak_bytes": 690308096,
+      "dram_total_bytes": 32078036480,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1430565,
+      "samples": 30,
+      "truncated": []
+     },
+     "tail": "Loading esmc-300m \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmc-300m_1536\nDone \u2014 1 sequence(s), d_model=960 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmc-300m_1536 (see manifest.json)",
+     "dram_peak_bytes": 690308096,
+     "dram_total_bytes": 32078036480,
+     "dram_largest_free_at_peak": 3922320192,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 10.9,
+   "dram_peak_bytes": 690308096,
+   "dram_total_bytes": 32078036480,
+   "dram_largest_free_at_peak": 3922320192,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 442794
+  },
+  {
+   "model": "esmc-600m",
+   "verb": "embed",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 11.5,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.5,
+     "progress_events": 0,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 444276,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1430938,
+      "samples": 1,
+      "truncated": [
+       [
+        "tt_bio.esmc.ESMCModel",
+        "blocks",
+        36
+       ]
+      ]
+     },
+     "tail": "Loading esmc-600m \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmc-600m_1536\nDone \u2014 1 sequence(s), d_model=1152 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmc-600m_1536 (see manifest.json)",
+     "stacks_truncated": 1,
+     "truncated": [
+      [
+       "tt_bio.esmc.ESMCModel",
+       "blocks",
+       36
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 11.2,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.2,
+     "progress_events": 0,
+     "block_calls": 36,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 446280,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3860766528,
+      "dram_peak_bytes": 1180894208,
+      "dram_total_bytes": 32078036480,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1431233,
+      "samples": 36,
+      "truncated": []
+     },
+     "tail": "Loading esmc-600m \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmc-600m_1536\nDone \u2014 1 sequence(s), d_model=1152 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmc-600m_1536 (see manifest.json)",
+     "dram_peak_bytes": 1180894208,
+     "dram_total_bytes": 32078036480,
+     "dram_largest_free_at_peak": 3860766528,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 11.2,
+   "dram_peak_bytes": 1180894208,
+   "dram_total_bytes": 32078036480,
+   "dram_largest_free_at_peak": 3860766528,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 446280
+  },
+  {
+   "model": "saprot-35m",
+   "verb": "saprot",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 6.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.3,
+     "progress_events": 0,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 446234,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.saprot.ESM2Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1431619,
+      "samples": 1,
+      "truncated": [
+       [
+        "tt_bio.saprot.SaprotModel",
+        "blocks",
+        12
+       ]
+      ]
+     },
+     "tail": "Loading saprot-35m \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_saprot-35m_1536\nDone \u2014 1 sequence(s), d_model=480 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_saprot-35m_1536 (see manifest.json)",
+     "stacks_truncated": 1,
+     "truncated": [
+      [
+       "tt_bio.saprot.SaprotModel",
+       "blocks",
+       12
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 6.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.3,
+     "progress_events": 0,
+     "block_calls": 12,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 445167,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 4267523904,
+      "dram_peak_bytes": 82314240,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.saprot.ESM2Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1431775,
+      "samples": 12,
+      "truncated": []
+     },
+     "tail": "Loading saprot-35m \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_saprot-35m_1536\nDone \u2014 1 sequence(s), d_model=480 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_saprot-35m_1536 (see manifest.json)",
+     "dram_peak_bytes": 82314240,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 4267523904,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 6.3,
+   "dram_peak_bytes": 82314240,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 4267523904,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 445167
+  },
+  {
+   "model": "saprot-650m",
+   "verb": "saprot",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 12.4,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 2.4,
+     "progress_events": 0,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 437826,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.saprot.ESM2Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1431935,
+      "samples": 1,
+      "truncated": [
+       [
+        "tt_bio.saprot.SaprotModel",
+        "blocks",
+        33
+       ]
+      ]
+     },
+     "tail": "Loading saprot-650m \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_saprot-650m_1536\nDone \u2014 1 sequence(s), d_model=1280 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_saprot-650m_1536 (see manifest.json)",
+     "stacks_truncated": 1,
+     "truncated": [
+      [
+       "tt_bio.saprot.SaprotModel",
+       "blocks",
+       33
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 12.5,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 2.5,
+     "progress_events": 0,
+     "block_calls": 33,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 442746,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 4108078912,
+      "dram_peak_bytes": 1352860672,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.saprot.ESM2Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1432371,
+      "samples": 33,
+      "truncated": []
+     },
+     "tail": "Loading saprot-650m \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_saprot-650m_1536\nDone \u2014 1 sequence(s), d_model=1280 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_saprot-650m_1536 (see manifest.json)",
+     "dram_peak_bytes": 1352860672,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 4108078912,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 12.5,
+   "dram_peak_bytes": 1352860672,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 4108078912,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 442746
+  },
+  {
+   "model": "esmc-6b",
+   "verb": "embed",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 39.9,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 4.9,
+     "progress_events": 0,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 433721,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1432657,
+      "samples": 1,
+      "truncated": [
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "Loading esmc-6b \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmc-6b_1536\nDone \u2014 1 sequence(s), d_model=2560 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmc-6b_1536 (see manifest.json)",
+     "stacks_truncated": 1,
+     "truncated": [
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 35.7,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.7,
+     "progress_events": 0,
+     "block_calls": 80,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 438423,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2676512576,
+      "dram_peak_bytes": 12789007360,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1433109,
+      "samples": 80,
+      "truncated": []
+     },
+     "tail": "Loading esmc-6b \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmc-6b_1536\nDone \u2014 1 sequence(s), d_model=2560 \u2192 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmc-6b_1536 (see manifest.json)",
+     "dram_peak_bytes": 12789007360,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2676512576,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 35.7,
+   "dram_peak_bytes": 12789007360,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2676512576,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 438423
+  },
+  {
+   "model": "esmfold2-fast",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 61.7,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.7,
+     "progress_events": 986,
+     "block_calls": 2,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 413597,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1434815,
+      "samples": 2,
+      "truncated": [
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.SWAAtomTransformerModel",
+        "blocks",
+        3
+       ],
+       [
+        "tt_bio.esmfold2.FoldingTrunkModel",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "tail": "03:24:37  [tt-quietbox:tt3] loading model\u2026\n03:25:07  [tt-quietbox:tt3] cap_1536\n03:25:07  [tt-quietbox:tt3]   prep\n03:25:26  [tt-quietbox:tt3] \u2717 cap_1536 \u2014 19.4s\n\n1 failed:\n  \u2717 cap_1536: shape '[1, 1, 3, 1]' is invalid for input of size 81\n      [tt_bio origin: esmfold2.py:1013 in __call__]\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_esmfold2-fast_1536/esmfold2_results_cap_1536/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.SWAAtomTransformerModel",
+       "blocks",
+       3
+      ],
+      [
+       "tt_bio.esmfold2.FoldingTrunkModel",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 339.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 4.2,
+     "progress_events": 16840,
+     "block_calls": 765,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 394303,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 1833207744,
+      "dram_peak_bytes": 16572268544,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmfold2.SWAAtomBlock.__call__",
+       "tt_bio.esmfold2.PairUpdateBlock.__call__",
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1439547,
+      "samples": 765,
+      "truncated": []
+     },
+     "tail": "03:30:41  [tt-quietbox:tt3]   diffusion 48/68\n03:30:42  [tt-quietbox:tt3]   diffusion 49/68\n03:30:42  [tt-quietbox:tt3]   diffusion 50/68\n03:30:43  [tt-quietbox:tt3]   diffusion 51/68\n03:30:43  [tt-quietbox:tt3]   diffusion 52/68\n03:30:44  [tt-quietbox:tt3]   diffusion 53/68\n03:30:44  [tt-quietbox:tt3]   diffusion 54/68\n03:30:44  [tt-quietbox:tt3]   diffusion 55/68\n03:30:45  [tt-quietbox:tt3]   diffusion 56/68\n03:30:45  [tt-quietbox:tt3]   diffusion 57/68\n03:30:46  [tt-quietbox:tt3]   diffusion 58/68\n03:30:46  [tt-quietbox:tt3]   diffusion 59/68\n03:30:46  [tt-quietbox:tt3]   diffusion 60/68\n03:30:47  [tt-quietbox:tt3]   diffusion 61/68\n03:30:47  [tt-quietbox:tt3]   diffusion 62/68\n03:30:48  [tt-quietbox:tt3]   diffusion 63/68\n03:30:48  [tt-quietbox:tt3]   diffusion 64/68\n03:30:48  [tt-quietbox:tt3]   diffusion 65/68\n03:30:49  [tt-quietbox:tt3]   diffusion 66/68\n03:30:49  [tt-quietbox:tt3]   diffusion 67/68\n03:30:50  [tt-quietbox:tt3]   confidence\n03:31:06  [tt-quietbox:tt3]   saving\n03:31:06  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 298.1s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_esmfold2-fast_1536/esmfold2_results_cap_1536/results.json",
+     "dram_peak_bytes": 16572268544,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 1833207744,
+     "blocks_instrumented": 3,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "screen_unsafe": true,
+   "note": "the screen's depth cut is a candidate cause of its own FAIL (8 stacks cut, no capacity mechanism in the error), so it was not scored; this verdict comes from the un-truncated run. Tier 1 has no fast path for this model.",
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 339.3,
+   "dram_peak_bytes": 16572268544,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 1833207744,
+   "blocks_instrumented": 3,
+   "host_ram_floor_mb": 394303
+  },
+  {
+   "model": "protenix-v1",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 98.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.8,
+     "progress_events": 1760,
+     "block_calls": 6,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 428708,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1454485,
+      "samples": 6,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "03:31:24  [tt-quietbox:tt3] loading model\u2026\n03:31:30  [tt-quietbox:tt3] cap_1536\n03:31:30  [tt-quietbox:tt3]   prep\n03:32:08  [tt-quietbox:tt3]   trunk 0/1\n03:32:36  [tt-quietbox:tt3]   diffusion 0/1\n03:32:39  [tt-quietbox:tt3]   confidence\n03:32:48  [tt-quietbox:tt3]   saving\n03:32:48  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 78.5s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_protenix-v1_1536/protenix_results_cap_1536/results.json",
+     "stacks_truncated": 2,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 314.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 4.7,
+     "progress_events": 42144,
+     "block_calls": 212,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 421286,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3365363136,
+      "dram_peak_bytes": 7255711744,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1460159,
+      "samples": 212,
+      "truncated": []
+     },
+     "tail": "03:37:44  [tt-quietbox:tt3]   diffusion 180/200\n03:37:45  [tt-quietbox:tt3]   diffusion 181/200\n03:37:45  [tt-quietbox:tt3]   diffusion 182/200\n03:37:45  [tt-quietbox:tt3]   diffusion 183/200\n03:37:46  [tt-quietbox:tt3]   diffusion 184/200\n03:37:46  [tt-quietbox:tt3]   diffusion 185/200\n03:37:47  [tt-quietbox:tt3]   diffusion 186/200\n03:37:47  [tt-quietbox:tt3]   diffusion 187/200\n03:37:47  [tt-quietbox:tt3]   diffusion 188/200\n03:37:48  [tt-quietbox:tt3]   diffusion 189/200\n03:37:48  [tt-quietbox:tt3]   diffusion 190/200\n03:37:48  [tt-quietbox:tt3]   diffusion 191/200\n03:37:49  [tt-quietbox:tt3]   diffusion 192/200\n03:37:49  [tt-quietbox:tt3]   diffusion 193/200\n03:37:49  [tt-quietbox:tt3]   diffusion 194/200\n03:37:50  [tt-quietbox:tt3]   diffusion 195/200\n03:37:50  [tt-quietbox:tt3]   diffusion 196/200\n03:37:50  [tt-quietbox:tt3]   diffusion 197/200\n03:37:51  [tt-quietbox:tt3]   diffusion 198/200\n03:37:51  [tt-quietbox:tt3]   diffusion 199/200\n03:37:52  [tt-quietbox:tt3]   confidence\n03:38:03  [tt-quietbox:tt3]   saving\n03:38:03  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 295.4s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_protenix-v1_1536/protenix_results_cap_1536/results.json",
+     "dram_peak_bytes": 7255711744,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 3365363136,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 314.8,
+   "dram_peak_bytes": 7255711744,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 3365363136,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 421286
+  },
+  {
+   "model": "boltz2",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 33.5,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 3.5,
+     "progress_events": 1245,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 446080,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.boltz2.DiffusionTransformerLayer.forward",
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.tenstorrent.MSALayer.__call__",
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1468283,
+      "samples": 0,
+      "truncated": [
+       [
+        "tt_bio.boltz2.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.tenstorrent.MSA",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        64
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        8
+       ]
+      ]
+     },
+     "tail": "03:38:16  [tt-quietbox:tt3] loading model\u2026\n03:38:28  [tt-quietbox:tt3] cap_1536\n03:38:33  [tt-quietbox:tt3]   prep\n03:38:37  [tt-quietbox:tt3]   trunk 0/2\n03:38:37  [tt-quietbox:tt3] \u2717 cap_1536 \u2014 10.1s\n\n1 failed:\n  \u2717 cap_1536: The size of tensor a (4) must match the size of tensor b (12) at non-singleton dimension 1\n      [tt_bio origin: boltz2.py:380 in forward]\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_boltz2_1536/boltz2_results_cap_1536/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.boltz2.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.tenstorrent.MSA",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       64
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       8
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 523.9,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 8.8,
+     "progress_events": 6575,
+     "block_calls": 6299,
+     "cpu_s_while_quiet": 54.0,
+     "host_ram_floor_mb": 429365,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3358756800,
+      "dram_peak_bytes": 6202785792,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.boltz2.DiffusionTransformerLayer.forward",
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.tenstorrent.MSALayer.__call__",
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1470557,
+      "samples": 6299,
+      "truncated": []
+     },
+     "tail": "03:43:04  [tt-quietbox:tt3]   diffusion 0/200\n03:43:47  [tt-quietbox:tt3]   diffusion 10/200\n03:43:58  [tt-quietbox:tt3]   diffusion 20/200\n03:44:10  [tt-quietbox:tt3]   diffusion 30/200\n03:44:22  [tt-quietbox:tt3]   diffusion 40/200\n03:44:33  [tt-quietbox:tt3]   diffusion 50/200\n03:44:43  [tt-quietbox:tt3]   diffusion 60/200\n03:44:53  [tt-quietbox:tt3]   diffusion 70/200\n03:45:03  [tt-quietbox:tt3]   diffusion 80/200\n03:45:14  [tt-quietbox:tt3]   diffusion 90/200\n03:45:25  [tt-quietbox:tt3]   diffusion 100/200\n03:45:35  [tt-quietbox:tt3]   diffusion 110/200\n03:45:46  [tt-quietbox:tt3]   diffusion 120/200\n03:45:55  [tt-quietbox:tt3]   diffusion 130/200\n03:46:05  [tt-quietbox:tt3]   diffusion 140/200\n03:46:16  [tt-quietbox:tt3]   diffusion 150/200\n03:46:25  [tt-quietbox:tt3]   diffusion 160/200\n03:46:35  [tt-quietbox:tt3]   diffusion 170/200\n03:46:44  [tt-quietbox:tt3]   diffusion 180/200\n03:46:52  [tt-quietbox:tt3]   diffusion 190/200\n03:47:01  [tt-quietbox:tt3]   confidence\n03:47:21  [tt-quietbox:tt3]   saving\n03:47:21  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 499.7s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_boltz2_1536/boltz2_results_cap_1536/results.json",
+     "dram_peak_bytes": 6202785792,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 3358756800,
+     "blocks_instrumented": 4,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "screen_unsafe": true,
+   "note": "the screen's depth cut is a candidate cause of its own FAIL (8 stacks cut, no capacity mechanism in the error), so it was not scored; this verdict comes from the un-truncated run. Tier 1 has no fast path for this model.",
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 523.9,
+   "dram_peak_bytes": 6202785792,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 3358756800,
+   "blocks_instrumented": 4,
+   "host_ram_floor_mb": 429365
+  },
+  {
+   "model": "rf3",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 124.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 4.8,
+     "progress_events": 1553,
+     "block_calls": 8,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 454617,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__",
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1481336,
+      "samples": 8,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.rf3.template.TemplateEmbedder",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "03:47:38  [tt-quietbox:tt3] loading model\u2026\n03:47:46  [tt-quietbox:tt3] cap_1536\n03:47:46  [tt-quietbox:tt3]   prep\n03:48:51  [tt-quietbox:tt3]   trunk 0/1\n03:49:22  [tt-quietbox:tt3]   confidence\n03:49:27  [tt-quietbox:tt3]   saving\n03:49:28  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 101.1s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_rf3_1536/rf3_results_cap_1536/results.json",
+     "stacks_truncated": 7,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.rf3.template.TemplateEmbedder",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 506.5,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.4,
+     "progress_events": 12985,
+     "block_calls": 2017,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 447766,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2991445440,
+      "dram_peak_bytes": 9606935552,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__",
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1485646,
+      "samples": 2017,
+      "truncated": []
+     },
+     "tail": "03:57:33  [tt-quietbox:tt3]   diffusion 29/49\n03:57:34  [tt-quietbox:tt3]   diffusion 30/49\n03:57:34  [tt-quietbox:tt3]   diffusion 31/49\n03:57:35  [tt-quietbox:tt3]   diffusion 32/49\n03:57:36  [tt-quietbox:tt3]   diffusion 33/49\n03:57:36  [tt-quietbox:tt3]   diffusion 34/49\n03:57:37  [tt-quietbox:tt3]   diffusion 35/49\n03:57:38  [tt-quietbox:tt3]   diffusion 36/49\n03:57:39  [tt-quietbox:tt3]   diffusion 37/49\n03:57:39  [tt-quietbox:tt3]   diffusion 38/49\n03:57:40  [tt-quietbox:tt3]   diffusion 39/49\n03:57:41  [tt-quietbox:tt3]   diffusion 40/49\n03:57:41  [tt-quietbox:tt3]   diffusion 41/49\n03:57:42  [tt-quietbox:tt3]   diffusion 42/49\n03:57:43  [tt-quietbox:tt3]   diffusion 43/49\n03:57:43  [tt-quietbox:tt3]   diffusion 44/49\n03:57:44  [tt-quietbox:tt3]   diffusion 45/49\n03:57:45  [tt-quietbox:tt3]   diffusion 46/49\n03:57:45  [tt-quietbox:tt3]   diffusion 47/49\n03:57:46  [tt-quietbox:tt3]   diffusion 48/49\n03:57:47  [tt-quietbox:tt3]   confidence\n03:57:54  [tt-quietbox:tt3]   saving\n03:57:54  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 488.2s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_rf3_1536/rf3_results_cap_1536/results.json",
+     "dram_peak_bytes": 9606935552,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2991445440,
+     "blocks_instrumented": 2,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 506.5,
+   "dram_peak_bytes": 9606935552,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2991445440,
+   "blocks_instrumented": 2,
+   "host_ram_floor_mb": 447766
+  },
+  {
+   "model": "openfold3",
+   "verb": "predict",
+   "worker": "qb1:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 239.3,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 14.2,
+     "progress_events": 1953,
+     "block_calls": 9,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 441806,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.openfold3_msa_embedder.MSAModuleBlock.__call__",
+       "tt_bio.openfold3_diffusion_transformer._DiTBlock.__call__"
+      ],
+      "mode": "screen",
+      "pid": 1495179,
+      "samples": 9,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.openfold3_template.TemplatePairStack",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.openfold3_msa_embedder.MSAModule",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.openfold3_diffusion_transformer.OF3DiffusionTransformer",
+        "blocks",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "tail": "03:58:05  [tt-quietbox:tt3] loading model\u2026\n03:58:13  [tt-quietbox:tt3] cap_1536\n03:58:13  [tt-quietbox:tt3]   prep\n04:00:24  [tt-quietbox:tt3]   trunk 0/2\n04:00:53  [tt-quietbox:tt3]   trunk 1/2\n04:01:05  [tt-quietbox:tt3]   diffusion 0/1\n04:01:08  [tt-quietbox:tt3]   confidence\n04:01:43  [tt-quietbox:tt3]   saving\n04:01:43  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 210.3s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_screen_openfold3_1536/openfold3_results_cap_1536/results.json",
+     "stacks_truncated": 5,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.openfold3_template.TemplatePairStack",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.openfold3_msa_embedder.MSAModule",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.openfold3_diffusion_transformer.OF3DiffusionTransformer",
+       "blocks",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 766.1,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 10.9,
+     "progress_events": 42143,
+     "block_calls": 5032,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 444008,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2306844608,
+      "dram_peak_bytes": 14661056512,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.openfold3_msa_embedder.MSAModuleBlock.__call__",
+       "tt_bio.openfold3_diffusion_transformer._DiTBlock.__call__"
+      ],
+      "mode": "residency",
+      "pid": 1502365,
+      "samples": 5032,
+      "truncated": []
+     },
+     "tail": "04:13:57  [tt-quietbox:tt3]   diffusion 180/200\n04:13:58  [tt-quietbox:tt3]   diffusion 181/200\n04:13:58  [tt-quietbox:tt3]   diffusion 182/200\n04:13:59  [tt-quietbox:tt3]   diffusion 183/200\n04:13:59  [tt-quietbox:tt3]   diffusion 184/200\n04:13:59  [tt-quietbox:tt3]   diffusion 185/200\n04:14:00  [tt-quietbox:tt3]   diffusion 186/200\n04:14:00  [tt-quietbox:tt3]   diffusion 187/200\n04:14:01  [tt-quietbox:tt3]   diffusion 188/200\n04:14:01  [tt-quietbox:tt3]   diffusion 189/200\n04:14:01  [tt-quietbox:tt3]   diffusion 190/200\n04:14:02  [tt-quietbox:tt3]   diffusion 191/200\n04:14:02  [tt-quietbox:tt3]   diffusion 192/200\n04:14:03  [tt-quietbox:tt3]   diffusion 193/200\n04:14:03  [tt-quietbox:tt3]   diffusion 194/200\n04:14:04  [tt-quietbox:tt3]   diffusion 195/200\n04:14:04  [tt-quietbox:tt3]   diffusion 196/200\n04:14:04  [tt-quietbox:tt3]   diffusion 197/200\n04:14:05  [tt-quietbox:tt3]   diffusion 198/200\n04:14:05  [tt-quietbox:tt3]   diffusion 199/200\n04:14:06  [tt-quietbox:tt3]   confidence\n04:14:29  [tt-quietbox:tt3]   saving\n04:14:29  [tt-quietbox:tt3] \u2713 cap_1536 \u2014 739.0s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p150a/perf/capacity/work/out_resid_openfold3_1536/openfold3_results_cap_1536/results.json",
+     "dram_peak_bytes": 14661056512,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2306844608,
+     "blocks_instrumented": 3,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 766.1,
+   "dram_peak_bytes": 14661056512,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2306844608,
+   "blocks_instrumented": 3,
+   "host_ram_floor_mb": 444008
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 10,
+  "fail_like": 0,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}

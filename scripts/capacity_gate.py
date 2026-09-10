@@ -1499,8 +1499,23 @@ def sweep(all_cells: list, workers: list, run_one, publish, retire=None) -> list
     threads = [threading.Thread(target=drain, args=(w,), name=repr(w)) for w in workers]
     for t in threads:
         t.start()
-    for t in threads:
-        t.join()
+    # Joined with a TIMEOUT rather than a bare join(), so the main thread returns to the eval
+    # loop twice a second and any pending Python signal handler gets to run there.
+    #
+    # HARDENING, not a proven fix for a known bug. On 2026-09-10 a gate ten cells into a sweep
+    # ignored two explicit SIGTERMs and had to be SIGKILLed from outside, wedging the card that
+    # install_teardown() exists to protect; /proc/PID/status showed SIGTERM caught and the main
+    # thread parked in futex_wait_queue, which points here. But that did NOT reproduce: a probe
+    # that arms the same handler and sits in this same sweep dies on SIGTERM correctly, both with
+    # and without ttnn imported (same SigCgt mask, 0000000100004003, as the process that hung).
+    # So the cause of that hang is still unknown, and this change is kept only because an
+    # interruptible wait is strictly better than an uninterruptible one and costs nothing.
+    # Until it is root-caused, the reliable way to stop a sweep is still: SIGTERM, VERIFY it
+    # died, then SIGKILL the gate and the fold's process group by explicit pid, then expect to
+    # need a tt-smi -r on the card.
+    while any(t.is_alive() for t in threads):
+        for t in threads:
+            t.join(timeout=0.5)
 
     unrun = []
     while True:
