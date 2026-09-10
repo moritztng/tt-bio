@@ -1096,6 +1096,23 @@ def _msa_transition_residual(m, ffn):
     return ttnn.concat(out, dim=1)
 
 
+#: L -> outer-product row block, once DRAM has refused the single pass at that L. Keyed on L
+#: because the refused shape is a function of L alone, and remembered so the 48 trunk blocks x
+#: 10 recycles do not each pay a failed 4.5 GiB allocation.
+_OPM_ROWS_REFUSED: dict[int, int] = {}
+
+
+def _opm_fallback_rows(L: int) -> int:
+    """Rows per block for a refused outer product, tile-aligned and at most a quarter of L.
+
+    The transient is rows*32 x L*32 and two are live at once across the permute, so the block
+    has to shrink with L rather than sit at a constant: a quarter keeps the pair inside the
+    504088512 B largest free block measured at L=1536 with room to spare, and `_row_blocked`
+    halves again if the chip disagrees.
+    """
+    return max(32, (max(32, L // 4) // 32) * 32)
+
+
 class OuterProductMean(Module):
     """MSA -> pair update via outer-product mean (d_hidden=32, tile-aligned -> full ttnn)."""
 
@@ -1139,13 +1156,54 @@ class OuterProductMean(Module):
         # (transient ~ rows*L). This is the tensor that ends a 1536 fold when it is not
         # blocked: 2048*L^2 bytes, 4.50 GiB at L=1536.
         from tt_bio import tenstorrent
-        chunk = tenstorrent.pair_row_tile(L)
+        chunk = tenstorrent.pair_row_tile(L) or _OPM_ROWS_REFUSED.get(L, 0)
         if chunk:
-            outs = [self._rows(a[:, s:min(s + chunk, L), :, :], b2,
-                               recip_nvalid[:, s:min(s + chunk, L), :, :], L, M)
-                    for s in range(0, L, chunk)]
-            return ttnn.concat(outs, dim=1)
-        return self._rows(a, b2, recip_nvalid, L, M)
+            return self._row_blocked(a, b2, recip_nvalid, L, M, chunk)
+        try:
+            return self._rows(a, b2, recip_nvalid, L, M)
+        except Exception as exc:
+            # `pair_row_tile` returns 0 on a big grid, so Blackhole runs this op in a single
+            # pass -- which was right at every size it was measured at and is not at 1536.
+            # `_rows` builds a [B, Bl*32, L*32] product, quadratic in L with a 32x blow-up on
+            # BOTH axes: at L=1536 that is 49152 x 49152 in bf16, 4831838208 B, and the permute
+            # on the next line needs a second one live at the same time. Measured on qb1
+            # card 0: DRAM refused exactly that, 603979776 B per bank against a 4278190016 B
+            # bank, with 698519488 B free and a 504088512 B largest block -- room enough, no
+            # single block big enough.
+            # Row-blocking is bit-exact here by this op's own argument, stated in the comment
+            # above: output row i depends only on a[i] and b, so tiling the i axis partitions
+            # independent rows and reassociates nothing. That is a stronger correctness story
+            # than the pair-FFN row block, which can move a bf16 bit through the matmul program
+            # ttnn derives -- nothing here changes a reduction.
+            # After the refusal, never before it, so every size that fits keeps its single pass.
+            from tt_bio.size_limits import is_alloc_refusal
+
+            if not is_alloc_refusal(exc):
+                raise
+            rows = _opm_fallback_rows(L)
+            _OPM_ROWS_REFUSED[L] = rows
+            print(f"[opm] DRAM refused the single-pass outer product at L={L}; "
+                  f"re-running it in {rows}-row blocks", flush=True)
+            return self._row_blocked(a, b2, recip_nvalid, L, M, rows)
+
+    def _row_blocked(self, a, b2, recip_nvalid, L, M, chunk):
+        """`_rows` over `chunk`-row blocks. Shrinks on a further refusal, down to one tile."""
+        while True:
+            try:
+                outs = [self._rows(a[:, s:min(s + chunk, L), :, :], b2,
+                                   recip_nvalid[:, s:min(s + chunk, L), :, :], L, M)
+                        for s in range(0, L, chunk)]
+                break
+            except Exception as exc:
+                from tt_bio.size_limits import is_alloc_refusal
+
+                if not is_alloc_refusal(exc) or chunk <= 32:
+                    raise
+                chunk = max(32, (chunk // 2 // 32) * 32)
+                _OPM_ROWS_REFUSED[L] = chunk
+                print(f"[opm] still refused; halving the outer-product block to {chunk} rows",
+                      flush=True)
+        return ttnn.concat(outs, dim=1)
 
 
 class MSAPairWeightedAveraging(Module):

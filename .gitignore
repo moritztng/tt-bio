@@ -132,3 +132,8 @@ perf/capacity/work*/
 perf/wchunk/
 perf/wchunk-p2/*.cif
 perf/wchunk-p2/*.results.json
+
+# bhdesign capacity ladder scratch: fixtures and per-rung output dirs. An embedding rung writes
+# an [L, dim] npz, so one 98304-residue esmc-6b rung alone is 300 MB and GitHub refuses the push
+# at 100 MB. The evidence is the jsonl row (shape, finite, nonzero_frac), not the array.
+perf/bhdesign/**/work/

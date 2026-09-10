@@ -129,9 +129,8 @@ def test_blackhole_rows_are_measured_on_blackhole_not_copied_across_the_arch_key
     """
     boards = ("p150a", "p300c")
     rows = [(m, c) for m, per_arch in sl.CEILINGS.items()
-            for a, c in per_arch.items() if a == "blackhole"]
+            for a, c in per_arch.items() if a == "blackhole" and c.measured]
     for m, c in rows:
-        assert c.binds != sl.UNMEASURED, f"{m}: an unmeasured Blackhole row should not exist"
         assert any(b in c.evidence for b in boards), (
             f"{m}: a blackhole row must name the board it was measured on ({' or '.join(boards)}); "
             f"a Wormhole ladder cites GWH02 and copying it here is what this guard is for")
@@ -154,6 +153,23 @@ def test_the_freeze_rows_refuse_1536_and_admit_the_size_that_folds():
         assert "blackhole" in msg, (
             f"{m}: the refusal must name the arch, because the same size folds elsewhere: {msg}")
         sl.check(m, 1024, arch="blackhole")     # the size that folds is admitted, silently
+
+
+def test_the_blackhole_rows_actually_refuse_on_blackhole_and_not_on_wormhole():
+    """The rows are new, so the guard needs its own negative control, not just the table's.
+
+    A row that is present but never consulted refuses nothing, and a row consulted on the wrong
+    arch refuses everything. Both are silent. saprot-35m embeds 126976 residues on a p150a and
+    throws at 131072, and on Wormhole nobody walked it at all.
+    """
+    c = sl.ceiling("saprot-35m", "blackhole")
+    assert c.residues == c.pass_at and c.fail_at is not None
+    sl.check("saprot-35m", c.pass_at, arch="blackhole")             # measured to work
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check("saprot-35m", c.fail_at, arch="blackhole")         # measured to throw
+    # The same size on the arch with no measured row must sail through, or a Blackhole ladder
+    # would have quietly become a Wormhole limit.
+    sl.check("saprot-35m", c.fail_at, arch="wormhole_b0")
 
 
 def test_alternatives_only_name_measured_models():
@@ -400,16 +416,74 @@ def test_the_hatch_is_off_by_default_and_named_in_the_message(monkeypatch):
 def test_a_refusal_on_a_mostly_unmeasured_arch_does_not_claim_nothing_fits():
     """Absence of a row is not a hardware fact, and the refusal message must not say it is.
 
-    Blackhole carries two rows (the OpenDDE freeze) against nine models the 2026-09-10 ladder
-    measured folding 1536 without earning one. The "no model has a measured ceiling this high"
-    sentence would report those missing rows as "nothing else fits here".
+    Blackhole now carries measured rows for the embed/design family reaching well past 1536
+    (esmc/saprot/pxdesign), so a 1536-residue OpenDDE refusal on blackhole correctly names those
+    as alternatives -- there IS something else that fits. Push past every measured Blackhole
+    ceiling instead (200000, above saprot-35m's 126976) to reach the case none of them cover: most
+    structure models still carry no Blackhole row at all, and the "no model has a measured
+    ceiling this high" sentence would report those missing rows as "nothing else fits here".
     """
     with pytest.raises(sl.SizeTooLargeError) as e:
         sl.check("opendde", 1536, arch="blackhole")
     msg = str(e.value)
     assert "No model has a measured ceiling this high" not in msg
-    assert "no measured ceiling on blackhole" in msg, msg
+    assert "Models with a measured ceiling above 1536" in msg, msg
+    with pytest.raises(sl.SizeTooLargeError) as e_unmeasured:
+        sl.check("opendde", 200_000, arch="blackhole")
+    msg_unmeasured = str(e_unmeasured.value)
+    assert "No model has a measured ceiling this high" not in msg_unmeasured
+    assert "no measured ceiling on blackhole" in msg_unmeasured, msg_unmeasured
     # and where every model IS measured the original sentence still has to be reachable
     with pytest.raises(sl.SizeTooLargeError) as e2:
         sl.check("opendde", 1200, arch="wormhole_b0")
     assert "Models with a measured ceiling above 1200" in str(e2.value)
+
+
+# --- describe_device_oom: the refusal that arrives after the fold has started -----------------
+# One real message per class, so a rendering that collapses the three back into "out of memory"
+# fails here. The DRAM fragmentation case is verbatim from esmfold2 at 1536 tokens on qb1 card 0
+# (2026-09-09); the 32 GiB case is the bank-size probe from the pc Blackhole ladder; the L1 case
+# is the 128 MiB refusal every 1024-token run on that card opens with.
+
+_FRAGMENTED = (
+    "Not enough space to allocate 4831838208 B DRAM buffer across 8 banks, where each bank "
+    "needs to store 603979776 B, but bank size is 4278190016 B (allocated: 3579670528 B, "
+    "free: 698519488 B, largest free block: 504088512 B)")
+_OVERSIZED = (
+    "Not enough space to allocate 34359738368 B DRAM buffer across 8 banks, where each bank "
+    "needs to store 4294967296 B, but bank size is 4278190016 B (allocated: 0 B, "
+    "free: 4278190016 B, largest free block: 4278190016 B)")
+_FULL = (
+    "Not enough space to allocate 134217728 B L1 buffer across 130 banks, where each bank "
+    "needs to store 1034240 B, but bank size is 1461760 B (allocated: 1034240 B, "
+    "free: 427520 B, largest free block: 427520 B)")
+
+
+def test_oom_summary_separates_fragmentation_from_a_full_chip_and_an_oversized_tensor():
+    """The three cases want different fixes, so the sentence has to tell them apart."""
+    frag = sl.describe_device_oom(_FRAGMENTED)
+    assert "fragmentation" in frag and "not a full chip" in frag
+    assert "480.7 MiB" in frag and "666.2 MiB" in frag   # largest block and free, both shown
+
+    big = sl.describe_device_oom(_OVERSIZED)
+    assert "shape and not the load" in big and "fragmentation" not in big
+
+    full = sl.describe_device_oom(_FULL)
+    assert "chip is full" in full and "fragmentation" not in full
+    assert "L1" in full and "DRAM" not in full
+
+
+def test_oom_summary_is_silent_on_anything_that_is_not_an_allocator_refusal():
+    """The negative control. A summary that fires on every error would replace every traceback."""
+    assert sl.describe_device_oom("RuntimeError: no MSA found for chain A") is None
+    assert sl.describe_device_oom("") is None
+    # A truncated refusal is NOT a refusal this can classify: without the parenthetical there is
+    # no way to tell fragmentation from a full chip, and guessing is the failure being prevented.
+    assert sl.describe_device_oom(_FRAGMENTED.split(" (allocated")[0]) is None
+
+
+def test_oom_summary_reads_the_last_refusal_not_the_first():
+    """Several engine paths catch a refusal and retry smaller, so the first is routinely not the
+    one that ended the run."""
+    assert "chip is full" in sl.describe_device_oom(_FRAGMENTED + "\nretrying\n" + _FULL)
+    assert "fragmentation" in sl.describe_device_oom(_FULL + "\nretrying\n" + _FRAGMENTED)

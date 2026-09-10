@@ -647,28 +647,32 @@ def embed(sequences, model: str = "saprot-650m", *, fast=False, return_logits=Fa
 # its `structureto3didescriptor` subcommand. It runs on CPU, off-device, and is
 # not a ttnn concern. The struc vocab is the 20 Foldseek 3Di states + "#" (unknown).
 
-_FOLDSEEK_BIN_CANDIDATES = (
-    os.environ.get("FOLDSEEK_BIN", ""),
-    "/home/ttuser/miniforge3/envs/foldseek/bin/foldseek",
-    "foldseek",
-)
+def find_foldseek(foldseek_bin: str | None = None) -> str:
+    """Locate the foldseek binary: ``--foldseek``, then ``FOLDSEEK_BIN``, then PATH.
 
+    A path given explicitly has to be there. Falling back to PATH after a bad
+    ``--foldseek`` would run a different binary than the one asked for.
+    """
+    import shutil
 
-def find_foldseek() -> str:
-    """Locate the foldseek binary (FOLDSEEK_BIN env, then PATH)."""
-    for cand in _FOLDSEEK_BIN_CANDIDATES:
+    explicit = [(foldseek_bin, "--foldseek"),
+                (os.environ.get("FOLDSEEK_BIN") or None, "FOLDSEEK_BIN")]
+    for cand, where in explicit:
         if not cand:
             continue
         p = os.path.expanduser(cand)
         if os.path.isfile(p) and os.access(p, os.X_OK):
             return p
-    import shutil
+        raise ValueError(
+            f"{where}={cand} is not an executable file. SaProt needs foldseek to turn "
+            "a structure into 3Di tokens.")
     found = shutil.which("foldseek")
     if found:
         return found
     raise ValueError(
-        "foldseek not found. Install it (e.g. `conda install -c bioconda foldseek`) "
-        "or set FOLDSEEK_BIN to its path. SaProt needs 3Di tokens from a structure.")
+        "foldseek not found on PATH. Install it (e.g. `conda install -c bioconda "
+        "foldseek`), or point --foldseek / FOLDSEEK_BIN at the binary. SaProt needs "
+        "3Di tokens from a structure.")
 
 
 def foldseek_3di(pdb_path: str, foldseek_bin: str | None = None, chains: list | None = None) -> dict:
@@ -679,7 +683,7 @@ def foldseek_3di(pdb_path: str, foldseek_bin: str | None = None, chains: list | 
     Foldseek 3Di states (lower-cased) plus ``#`` for masked/unknown residues.
     """
     import subprocess, tempfile
-    bin_ = foldseek_bin or find_foldseek()
+    bin_ = find_foldseek(foldseek_bin)
     if not os.path.isfile(pdb_path):
         raise ValueError(f"structure file not found: {pdb_path}")
     out = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False).name
@@ -733,7 +737,7 @@ def read_shard_yaml(path) -> dict:
     return out
 
 
-def load_sequences_with_structure(data, structure=None) -> dict:
+def load_sequences_with_structure(data, structure=None, foldseek_bin=None) -> dict:
     """Load {id: (aa, struc)} for the SaProt tokenizer.
 
     ``data`` is a FASTA file/dir/bare AA sequence (reuses ``esmc.load_sequences``).
@@ -754,7 +758,7 @@ def load_sequences_with_structure(data, structure=None) -> dict:
         return out
     spath = Path(structure).expanduser()
     if spath.is_file():
-        seqs = foldseek_3di(str(spath))
+        seqs = foldseek_3di(str(spath), foldseek_bin)
         first = next(iter(seqs.values()))
         if len(aas) == 1:
             sid = next(iter(aas))
@@ -775,7 +779,7 @@ def load_sequences_with_structure(data, structure=None) -> dict:
                 raise ValueError(
                     f"no structure file '{sid}.pdb/.cif' in {spath}; --structure dir "
                     "must contain one per FASTA id")
-            ch = foldseek_3di(str(cand))
+            ch = foldseek_3di(str(cand), foldseek_bin)
             first = next(iter(ch.values()))
             out[sid] = (aa, _map_3di(aa, first[0], first[1], cand))
         return out

@@ -5,7 +5,45 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- **`modifications:`, `templates:` and `--max_msa_seqs` reach the models that were dropping
+  them.** The capability pass below refused these rather than let them be dropped silently;
+  three of them are now honoured instead. A `modifications:` block folds as the modified
+  chemistry on protenix-v1/v2, opendde, opendde-abag, openfold3 and openbind: Protenix and
+  OpenDDE tokenize the modified residue per atom from its CCD component (AF3 SI 2.6), the OF3
+  family passes it as upstream's own `non_canonical_residues`. Folding a 53 aa chain with
+  `{position: 13, ccd: SEP}` writes a real phosphoserine, 10 atoms and one phosphorus, against
+  a plain fold with no phosphorus at all. `templates:` now builds real template features for
+  protenix-v2, opendde and opendde-abag, whose trained 2-block template pairformer stack had
+  only ever been handed all-gap dummy features; it takes the same precomputed alignment `.npz`
+  OpenFold3 already reads, so one template file works on all five. On upstream's own 1y57 case
+  a templated fold lands 5.52 A from the template against 21.69 A templateless (opendde) and
+  11.11 A against 19.26 A (protenix-v2). It stays refused on protenix-v1, whose v0.5.0
+  checkpoint ships an empty template stack and can only drop one. `--max_msa_seqs` caps the
+  alignment on protenix-v1/v2, opendde, opendde-abag and rf3, and on openfold3/openbind, which
+  read an env var and never the flag. Every MSA fold now writes the depth it actually used
+  (`msa_depth`) into `results.json`, where `msa: true` used to say only that an alignment
+  existed.
+
 ### Fixed
+
+- **A fold stopped by a signal now says so, instead of ending the run with `exit 0` and no
+  reason.** rf3 at 1536 tokens went from `trunk 3/10` to gone in 30 seconds after eight minutes
+  of folding, returned 0, wrote no results row and left `structures/` empty, and the CLI answered
+  "The worker's own traceback above says why" with nothing above it. The worker turned SIGTERM and
+  SIGINT into a `KeyboardInterrupt` and then swallowed it wherever it landed. That arm has to
+  exist, because sending SIGINT is how the CLI ends a run whose jobs are all done, but it could
+  not tell an idle worker being asked to stop from one being killed halfway through a fold. It
+  now tracks the job it is computing: between leases nothing changes, and mid-job it completes
+  that job as failed so the run reaches a terminal state instead of leaving the CLI polling a run
+  no worker will ever finish, names the signal on the launcher's real stderr, and exits
+  `128 + signum` (143 for SIGTERM, 130 for SIGINT) so a caller reading return codes can tell a
+  killed fold from a clean stop. Those two join the codes already in use: 75 for a card held by
+  another process, 70 for an orphaned worker. The dispatcher's message no longer promises a
+  traceback either, since a signalled worker prints one line and no trace; it names what each
+  exit code means instead. Who sent the signal in the rf3 case is not yet established, and the
+  next occurrence now reports it.
 
 - **An input a model cannot honour is now refused by name instead of dropped.** The one
   YAML/FASTA reader accepts more than any single model can use, and what each model did with a
@@ -28,6 +66,47 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   when it would only omit an output. Refusals name the models that do honour the key, derived
   from the table, and land before the weights download and the first device open. The published
   matrix is `docs/model-capabilities.md`, generated from the same table.
+
+- **`tt-bio saprot` takes `--foldseek`, and no longer prefers one machine's conda prefix.**
+  `_FOLDSEEK_BIN_CANDIDATES` listed `/home/ttuser/miniforge3/envs/foldseek/bin/foldseek` ahead of
+  PATH, so on any host where that path exists the shipped package silently ran that binary instead
+  of the one the user installed. Discovery is now `--foldseek`, then `FOLDSEEK_BIN`, then PATH, and
+  a path given explicitly has to be there: falling back to PATH after a bad `--foldseek` would run
+  a different binary than the one asked for. Same 3Di tokens either way, verified on a 118-residue
+  structure.
+
+- **RFD3's ligand, enzyme and symmetric-oligomer modes do run from a real PDB, and the docs said
+  they did not.** `docs/rfd3-design.md` marked all three "Not yet (`NotImplementedError`)" for real
+  `--from_pdb` input. Run from the port's own reference structures they all complete and write a
+  structure: `IAI.pdb` with `ligand: IAI` (873 atoms), `M0255_1mg5.pdb` with `ligand: "NAI,ACT"` and
+  four catalytic residues in `unindex` (898 atoms, the 48 ligand atoms placed at their input
+  geometry, one rigid shift, per-axis spread 0.0), `6t8h_C3.pdb` at `C3` (three 100-atom subunits
+  plus one copy each of the two `is_unsym_motif` DNA chains), `1j79_C2.pdb` at `C2` with
+  `ligand: "ORO,ZN"` (two subunits, each with its own 13-atom ligand chain). Two of those four
+  specs could not run at all: `allow_ligand_on_existing_chain`, an upstream passthrough field every
+  real enzyme and symmetric-with-ligand example sets, was refused as an unknown key. It is accepted
+  at `true`, which is what this port does anyway, and refused at `false`. A refusal that stays real
+  says so with the condition: a heteromeric symmetric input now reads "symmetry needs exactly one
+  protein entity with 2 identical-sequence chains in the input ...; this structure has entities of
+  [2, 2] chain(s)" instead of an internal function name and a pass number, and RFD3 refusals reach
+  the CLI as one `Error:` line rather than a traceback.
+
+- **A mistyped `--config` key for a BoltzGen step is refused instead of ignored.** `--config
+  design not_a_real_key=5` deep-merged the key into the step's YAML and ran the whole pipeline at
+  the default, because `Predict.__init__` keeps a `**kwargs` catch-all so old configs still load.
+  A correct key visibly lands (`sampling_steps=40` changed the written config from 500 to 40), so
+  from the outside a typo and a real override looked the same. The schema was already there: a
+  step config is a `_target_` tree and `instantiate` hands each node's keys to that class as
+  kwargs, so `check_overrides` validates every override against the constructor signature at its
+  node, names the key it thinks you meant, and lists what that level accepts. There is no key list
+  to maintain, and the pipeline's own internal overrides (a dozen per step, `data.cfg.multiplicity`
+  through the filter's `outdir`) go through the same check. Refusal lands at configure time, so a
+  typo in the `analysis` step costs nothing instead of the design and folding steps ahead of it.
+  Two dead knobs fell out of it: the `trainer` node, which nothing on Tenstorrent reads (upstream
+  drove Lightning DDP, tt-bio splits designs per card in the distributed path), and the two keys
+  the `--config` help text used as its example, `num_workers=4` and `trainer.devices=4`, neither of
+  which ever landed. BoltzGen CLI input errors also print `Error: <what>` and exit 1 now instead of
+  a traceback.
 
 - **A design spec key the model will not read is now an error, not a default.** An RFD3 spec with
   and without `select_hotspots` produced a byte-identical CIF at the same seed, and a PXDesign run
@@ -59,6 +138,38 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   a 37-residue sequence batched with a 200-residue one moves 3.1e-2, PCC 0.9987. Both help texts
   now quote that. `docs/boltzgen-design.md` showed `--steps analysis filtering`, which the CLI
   rejects; the option is comma-separated.
+
+- **Every fold model shows its confidence stage, and the step-count help matches what the models
+  run.** Only esmfold2 announced the confidence head; on the other five it displayed as the last
+  diffusion step (13 s of a 233 s cold openfold3 fold). `--sampling_steps` said "every other model
+  200" while rf3 has shipped 50 (49 executed) since its port, and `--recycling_steps` named
+  openfold3 as the only model running recycles+1 when esmfold2 and boltz2 do it too — esmfold2
+  shows "Trunk 0/11" for a documented default of 10. Both help strings are now generated from the
+  tables that decide the values. huggingface_hub's "Fetching 6 files:" progress bar no longer
+  writes carriage returns into a redirected log.
+
+- **`--msa_endpoint` is refused where it does nothing, and its help lists rf3.** The help string
+  was hand-written and omitted rf3, which reads the flag. Passing it with `--model boltz2`, which
+  has no endpoint client, was accepted, suppressed the auto-detected local ColabFold DB, and the
+  run then died after a full model load with "Missing MSAs" — telling the user they gave no source
+  when they had given one. One list now drives both the help and an up-front refusal, so boltz2
+  fails in 3 s at argument parsing instead of 24 s mid-run. The missing-MSA message also names
+  `--msa_db_path` and `--single_sequence`, the two ways out it used to leave off.
+
+- **The predict progress view no longer overstates what it knows.** Four things it got wrong,
+  all found by watching real folds against their own event stream. Its table was five fixed
+  columns totalling 88 cells, so in an 80-column terminal Rich clipped the bar and a finished
+  fold rendered identically to a 92% one; the columns are now sized from the terminal. Its stage
+  bands were a compiled-in table that fits no model: on a warm 20 aa esmfold2 fold prep is 43% of
+  the work and the table budgeted it 6%, so the bar sat at 15% for the first half of every fold.
+  It now charges each stage the seconds it takes and re-divides the bar from the first finished
+  target on. The header counted finished structures only, so a single fold read `0/1 (0%)` from
+  start to finish while its own bar was at 80%, and the ETA priced the one-off model load into
+  every remaining target: on a two-target run with one target a second from done it said 55 s
+  left. And every job announced an MSA stage, including single-sequence folds whose own
+  `results.json` recorded `"msa": false`, while OpenFold3 ran its real MSA search under a
+  `Featurize` label; the stage is now emitted where the search starts. Progress lines from a
+  redirected run also go to stderr rather than mixing into the result stream on stdout.
 
 - **Wormhole folds above 640 residues instead of hanging the chip.** Every target from 640 aa up
   split the Transition SwiGLU along the pair tensor's width, and that path wedged the card:

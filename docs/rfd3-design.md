@@ -12,19 +12,20 @@ upstream RosettaCommons code is vendored).
 Every mode shares the same `contig` mini-language (below); the mode is
 determined by what the spec asks for.
 
-| Mode | What it does | Real (`--from_pdb`) input support |
-|---|---|---|
-| Protein binder design | Design a protein that binds a target protein | Yes |
-| Motif scaffolding | Design a scaffold around a fixed structural motif | Yes |
-| Nucleic-acid binder design | Design a protein binder against a fixed DNA/RNA target | Yes |
-| Small-molecule binder design | Design a protein binder against a ligand | Not yet (`NotImplementedError`) |
-| Enzyme design | Design catalytic residue placement around one or more ligands | Not yet (`NotImplementedError`) |
-| Symmetric oligomer design | Design a cyclic/dihedral symmetric assembly | Not yet (`NotImplementedError`) |
+| Mode | What it does |
+|---|---|
+| Protein binder design | Design a protein that binds a target protein |
+| Motif scaffolding | Design a scaffold around a fixed structural motif |
+| Nucleic-acid binder design | Design a protein binder against a fixed DNA/RNA target |
+| Small-molecule binder design | Design a protein binder against a ligand |
+| Enzyme design | Design catalytic residue placement around one or more ligands |
+| Symmetric oligomer design | Design a cyclic (`C<n>`) or dihedral (`D<n>`) symmetric assembly |
 
-The last three modes run on-device and are value-parity-verified against a
-captured reference, but the host featurizer (the step that turns a real PDB +
-contig into device input) doesn't build their input yet — only `--from_pdb`
-runs against a real input for the first three.
+A symmetric design reads its subunit frames from the input structure, so the
+input needs one protein entity whose chain count matches the symmetry order
+(two identical chains for `C2`, three for `C3`). A heteromeric assembly, or
+subunits of unequal size, is refused by name. `C<n>` and `D<n>` are also the
+only groups upstream supports.
 
 ## Basic usage
 
@@ -59,8 +60,11 @@ spec can actually ask for are below.
 
 Honoured: `input`, `contig`, `length`, `unindex` (string and dict form),
 `select_fixed_atoms` (per-residue atom lists, and the `BKBN` shorthand for
-N/CA/C/O), `ligand`, `is_non_loopy`, `partial_t`, plus `select_buried` and
-`select_exposed` on a spec that names a `ligand`.
+N/CA/C/O), `ligand`, `symmetry`, `is_non_loopy`, `partial_t`, plus
+`select_buried` and `select_exposed` on a spec that names a `ligand`.
+`allow_ligand_on_existing_chain: true` is accepted because that is what this
+port does anyway: every instance of a requested ligand code is picked up
+wherever it sits in the input structure. `false` is refused.
 
 Refused, because the feature they would set is not built yet and a spec that
 asked for them used to run and quietly return an unconditioned design:
@@ -73,8 +77,11 @@ conditioning is the one most people want; there is no way to steer an RFD3 desig
 toward an epitope in this port today. `tt-bio design --model boltzgen` does have
 it, as `binding_types`.
 
-`symmetry` is accepted by the parser but the featurizer raises on it from a real
-PDB, like the ligand and enzyme modes in the table above.
+`symmetry` takes upstream's own block, e.g.
+`{"id": "C3", "is_symmetric_motif": true, "is_unsym_motif": "Y1-11,Z16-25"}`.
+Components named in `is_unsym_motif` stay as one copy instead of being
+replicated per subunit. Naming a ligand code there is not supported (a ligand is
+never replicated in the first place).
 
 Each design writes one `<id>.cif` to `--out_dir`. `--num_timesteps` controls
 the diffusion sampling steps (default 4, a fast smoke setting; the upstream

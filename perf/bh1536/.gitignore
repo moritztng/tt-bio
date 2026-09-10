@@ -1,5 +1,6 @@
 # Run outputs and the append lock: the evidence that ships is results.jsonl and sweep.log.
 runs/
 .results.lock
+.card0.lock
 # Operational marker written by ladder.sh when a rung breaks the card. Transient, not evidence.
 .card*.needs_reset

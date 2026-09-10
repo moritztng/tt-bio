@@ -410,6 +410,8 @@ class OpenFold3(Module):
 
         confidence = []
         if confidence_aux_host is not None:
+            if progress_fn is not None:
+                progress_fn("confidence", step=0, total=0)
             si_trunk = torch.Tensor(ttnn.to_torch(si_trunk_d)).float().reshape(n_token, -1)
             zij_trunk = torch.Tensor(ttnn.to_torch(zij_trunk_d)).float().reshape(n_token, n_token, -1)
             confidence = [

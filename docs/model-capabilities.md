@@ -14,12 +14,12 @@ changing the structure. That prints a warning and the fold runs.
 | `boltz2` | yes | yes | yes | yes | yes | yes | yes | yes | yes |
 | `esmfold2` | yes | yes | yes | refused | yes | refused | refused | refused | ignored, warns |
 | `esmfold2-fast` | yes | yes | yes | refused | yes | refused | refused | refused | ignored, warns |
-| `protenix-v1` | yes | yes | yes | refused | refused | refused | yes | refused | ignored, warns |
-| `protenix-v2` | yes | yes | yes | refused | refused | refused | yes | refused | ignored, warns |
-| `openfold3` | refused | yes | yes | refused | refused | yes | refused | refused | ignored, warns |
-| `openbind` | yes | yes | yes | refused | refused | yes | refused | refused | ignored, warns |
-| `opendde` | yes | refused | refused | refused | refused | refused | yes | refused | ignored, warns |
-| `opendde-abag` | yes | refused | refused | refused | refused | refused | yes | refused | ignored, warns |
+| `protenix-v1` | yes | yes | yes | refused | yes | refused | yes | refused | ignored, warns |
+| `protenix-v2` | yes | yes | yes | refused | yes | yes | yes | refused | ignored, warns |
+| `openfold3` | refused | yes | yes | refused | yes | yes | refused | refused | ignored, warns |
+| `openbind` | yes | yes | yes | refused | yes | yes | refused | refused | ignored, warns |
+| `opendde` | yes | refused | refused | refused | yes | yes | yes | refused | ignored, warns |
+| `opendde-abag` | yes | refused | refused | refused | yes | yes | yes | refused | ignored, warns |
 | `rf3` | yes | yes | yes | refused | refused | refused | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
@@ -44,7 +44,7 @@ sequences:
       modifications:              # 1-indexed position in this chain's sequence
         - position: 5
           ccd: TPO
-      templates: path/to.npz      # precomputed alignment, openfold3/openbind only
+      templates: path/to.npz      # precomputed alignment; boltz2 takes a cif block instead
       cyclic: true
   - rna:   {id: R, sequence: GAUC}
   - dna:   {id: D, sequence: GATC}
@@ -72,8 +72,9 @@ refused with the accepted set, because a dropped key used to cost a whole chain
 - **RNA / DNA** -- a nucleic-acid chain. `opendde` is protein and ligand only.
 - **cyclic** -- `cyclic: true` on a polymer chain. Only Boltz-2 closes the backbone. Express
   the cyclisation as a covalent `bond` constraint on the models that take one.
-- **modifications** -- a non-canonical residue substituted at a position. ESMFold2 folds the
-  modified chemistry; the others have no featurizer argument for it.
+- **modifications** -- a non-canonical residue substituted at a position, by CCD code. Every
+  model folds the modified chemistry except RF3, which carries modified residues through its
+  own JSON/CIF spec rather than through this YAML.
 - **templates** -- a precomputed template alignment per protein chain. There is no template
   *search*: you supply the file.
 - **bond constraint** -- a covalent bond between two named atoms (a covalent inhibitor, a
@@ -95,9 +96,15 @@ B-factor column. `--diffusion_samples N` draws N samples and writes all of them,
 their fold does not return the matrices, and `esmfold2` has no PAE head.
 
 An output flag a model does not read prints a note saying which model does read it, so it is
-never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both),
-`--write_embeddings` outside Boltz-2, and `--max_msa_seqs` on `protenix-*`, `opendde*` and
-`rf3`, where the resolved alignment reaches the featurizer uncapped.
+never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both) and
+`--write_embeddings` outside Boltz-2.
+
+`--max_msa_seqs` caps alignment depth on every model that folds from an MSA. Left alone it
+changes nothing: Boltz-2 and ESMFold-2 keep their shipped 8192 default, and `protenix-v1`,
+`protenix-v2`, `opendde`, `opendde-abag`, `rf3`, `openfold3` and `openbind` keep folding the
+resolved alignment whole, which is the depth their reference numbers were measured at. Set it
+and all of them cap. Every fold writes the depth it actually used as `msa_depth` in
+`results.json`.
 
 ## Keeping this honest
 

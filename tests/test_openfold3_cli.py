@@ -71,7 +71,7 @@ def _yaml(tmp_path, body, name="in.yaml"):
 
 
 def test_template_map_reads_per_chain_npz(tmp_path):
-    from tt_bio.worker import _openfold3_template_map
+    from tt_bio.worker import _template_map
 
     npz = tmp_path / "tmpl.npz"
     npz.write_bytes(b"stub")
@@ -85,11 +85,11 @@ sequences:
       id: C
       sequence: ACGT
 """)
-    assert _openfold3_template_map(p) == {"A": str(npz), "B": str(npz)}
+    assert _template_map(p, "openfold3") == {"A": str(npz), "B": str(npz)}
 
 
 def test_template_map_rejects_missing_file(tmp_path):
-    from tt_bio.worker import _openfold3_template_map
+    from tt_bio.worker import _template_map
 
     p = _yaml(tmp_path, """version: 1
 sequences:
@@ -99,11 +99,11 @@ sequences:
       templates: /nonexistent/tmpl.npz
 """)
     with pytest.raises(RuntimeError, match="does not exist"):
-        _openfold3_template_map(p)
+        _template_map(p, "openfold3")
 
 
 def test_template_map_rejects_non_protein_chain(tmp_path):
-    from tt_bio.worker import _openfold3_template_map
+    from tt_bio.worker import _template_map
 
     npz = tmp_path / "tmpl.npz"
     npz.write_bytes(b"stub")
@@ -115,17 +115,17 @@ sequences:
       templates: {npz}
 """)
     with pytest.raises(RuntimeError, match="only valid on protein chains"):
-        _openfold3_template_map(p)
+        _template_map(p, "openfold3")
 
 
 def test_template_map_ignores_fasta_and_template_free_yaml(tmp_path):
-    from tt_bio.worker import _openfold3_template_map
+    from tt_bio.worker import _template_map
 
     fa = tmp_path / "in.fasta"
     fa.write_text(">A|protein\nMKVL\n")
-    assert _openfold3_template_map(fa) == {}
+    assert _template_map(fa, "openfold3") == {}
     p = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MKVL\n")
-    assert _openfold3_template_map(p) == {}
+    assert _template_map(p, "openfold3") == {}
 
 
 def test_of3_refuses_covalent_bonds_and_ligands_through_the_capability_table(tmp_path):

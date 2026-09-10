@@ -357,6 +357,8 @@ class RF3(Module):
         if decision.get("mean_plddt") is not None:
             out["mean_plddt"] = decision["mean_plddt"]
         if self.confidence_head is not None and rep_atom_idxs is not None:
+            if progress_fn:
+                progress_fn("confidence")
             out.update(self.confidence(s_inputs, s, z, x_pred, rep_atom_idxs))
         return out
 
