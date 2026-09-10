@@ -437,7 +437,21 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "composition, so converting that to residues would be a guess. Refusing on it needs an "
             "atom-denominated dimension this table does not yet carry"),
     },
-    "esmc-300m": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE)},
+    "esmc-300m": {
+        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "blackhole": Ceiling(
+            residues=99999, pass_at=99999, fail_at=131072, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Blackhole ladder, walked 2026-09-10 on qb1 p150a (task "
+                "bh-1536-design-embed-p2): 99999 residues embed to [99999, 960], finite, "
+                "nonzero_frac 1.0, in 157.0 s, and 131072 throws on DRAM in 49.4 s asking for "
+                "34376517632 B as ONE buffer -- 131104^2 x 2, the L x L attention matrix in "
+                "bf16 at the token length padded to a multiple of 32, which needs 4297066496 B "
+                "per bank against a 4278190016 B bank. The first pass stopped this model at "
+                "65536 with nothing failing; this is where it actually breaks",
+        ),
+    },
     "esmc-600m": {
         "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
         "blackhole": Ceiling(
