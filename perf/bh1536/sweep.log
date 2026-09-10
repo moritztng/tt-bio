@@ -45,3 +45,6 @@
 2026-09-10T03:29:39Z esmfold2        1536tok OOM      wall=  592.4s engine=None cif_res=0/1536 ntok=None rss=96.35G oom=dram/fragmentation(fatal) ffn_fallback=YES
 2026-09-10T03:39:16Z esmfold2        1408tok PASS     wall=  566.6s engine=521.2 cif_res=1408/1408 ntok=None rss=79.39G oom=dram/fragmentation breaks=0 worst_ca=4.26 clash=0.00256 ffn_fallback=YES
 2026-09-10T03:55:24Z opendde         1536tok STALLED  wall=  964.3s engine=None cif_res=0/1536 ntok=None rss=66.24G oom=l1_cb/l1_static_cb(fatal)
+2026-09-10T04:12:20Z opendde         1536tok STALLED  wall=  969.0s engine=None cif_res=0/1536 ntok=None rss=51.29G oom=l1_cb/l1_static_cb(fatal)
+2026-09-10T04:12:43Z rf3             1536tok WEDGED   wall=   20.3s engine=None cif_res=0/1536 ntok=None rss=31.39G oom=-
+2026-09-10T04:13:06Z rf3             1536tok WEDGED   wall=   20.2s engine=None cif_res=0/1536 ntok=None rss=30.99G oom=-

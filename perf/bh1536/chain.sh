@@ -49,11 +49,15 @@ for spec in "$@"; do
   # minutes. Inside the lock, any run_rung.py seen here belongs to a lock-blind chain.
   while pgrep -f "bh1536/run_rung\.py" > /dev/null; do sleep 20; done
   echo "=== $(date -u +%FT%TZ) $model $size ${tag:+tag=$tag} ==="
-  # A tagged rung is a deliberate re-walk of something already recorded, so it runs with
-  # --debug: that keeps the worker's stdout connected and is the only way an engine line
-  # (the pair-FFN fallback saying it fired) reaches fold.log and then the row.
+  # --debug is opt-in per rung, in `extra`, and NOT implied by the tag. It is the only way
+  # an engine line (the pair-FFN fallback saying it fired) reaches fold.log, and the price
+  # is that the fold then writes no progress lines at all: measured, `grep -c "tt0]"` is 0
+  # for every --debug rung this campaign ran and non-zero for every other one. The 900 s
+  # stall detector reads log growth, so under --debug it watches a stream the fold does not
+  # write and only tt-metal's compile chatter keeps alive. It killed a healthy opendde
+  # control at 969 s that py-spy had just shown advancing through three different frames.
   $PY perf/bh1536/run_rung.py --model "$model" --size "$size" --budget 2700 \
-      ${tag:+--tag "$tag" --debug} $extra
+      ${tag:+--tag "$tag"} $extra
   rc=$?
   flock -u 9
   if [ "$rc" -eq 75 ]; then
