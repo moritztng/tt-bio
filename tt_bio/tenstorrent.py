@@ -5246,13 +5246,18 @@ class TriangleMultiplication(Module):
         # (perm_a = (0,3,2,1)). Only `a` is masked, so only perm_a matters. [1,1,S,S] bf16 is
         # 0.52 MB at 512 aa, 0.008 Z, against the 2 Z multiply it lets us keep and the 12 Z it
         # unblocks.
-        mask_moved = None
+        mask_moved = mask_moved_owned = None
         if mask_u is not None and _TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3:
+            # `unsqueeze` is a metadata VIEW over the caller's buffer, exactly as `mask_u` above
+            # is, so it must never be deallocated here: the pair mask is built once per fold and
+            # read by every trimul, and freeing it on the first one hands every later block a dead
+            # buffer. Measured: the ending trimul then returned the same bytes for an all-ones and
+            # a random mask, because both were reading freed memory. Only the transpose below is
+            # ours to free.
             mask_moved = ttnn.unsqueeze(mask, 1)
             if self.ending:
-                mv = ttnn.transpose(mask_moved, -2, -1)
-                ttnn.deallocate(mask_moved)
-                mask_moved = mv
+                mask_moved = ttnn.transpose(mask_moved, -2, -1)
+                mask_moved_owned = mask_moved
         # Collect the per-channel output chunks and concat them ONCE at the end. A
         # running concat copies the accumulator on every step (O(n_pairs^2)
         # channel-bytes moved); one concat of all chunks copies each chunk once.
@@ -5448,8 +5453,8 @@ class TriangleMultiplication(Module):
                     host_acc = _host_concat(x_in)
                     group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
                     gp_in_chunks = self._gp_in_chunks(chunk_size, group)
-        if mask_moved is not None:
-            ttnn.deallocate(mask_moved)
+        if mask_moved_owned is not None:
+            ttnn.deallocate(mask_moved_owned)
         if x_norm_in is not None and H > SEQ_LEN_MORE_CHUNKING:
             # x_norm_in is dead on the row-blocked tail path (both norms are
             # recomputed per row block from x_in). Freeing it before the concat
