@@ -58,6 +58,17 @@ _OOM_STATE = re.compile(
     r"\s*largest free block:\s*(\d+) B\)", re.S)
 
 
+#: The other refusal, and a different failure entirely: L1, not DRAM, and a CLASH rather than a
+#: shortage -- a statically allocated circular buffer region overlapping an L1 buffer. It is the
+#: class the ceiling table calls non-monotone (OpenDDE folds 544, throws at 576, folds 608),
+#: because what clashes depends on what else is resident rather than on the request's size. It
+#: does not carry bank numbers, so it can never be classified by the DRAM rule above.
+_L1_CLASH = re.compile(
+    r"Statically allocated circular buffers in program (\d+) clash with L1 buffers"
+    r"(?:.*?L1 buffer allocated at (\d+) and static circular buffer region ends at (\d+))?",
+    re.S)
+
+
 def _wall_kind(per_bank: int, bank_size: int | None, free: int | None,
                largest_free: int | None) -> str:
     """Which of the brief's two wall classes this refusal is.
@@ -93,6 +104,12 @@ def classify(stderr: str, rc: int, timed_out: bool) -> tuple[str, dict]:
     """Name the wall, and carry the numbers the name rests on."""
     if timed_out:
         return "TIMEOUT", {}
+    c = _L1_CLASH.search(stderr)
+    if c and not _OOM.search(stderr):
+        d = {"wall_kind": "L1_CB_CLASH", "program": int(c[1])}
+        if c[2]:
+            d.update(l1_buffer_at=int(c[2]), cb_region_ends=int(c[3]))
+        return "CLASH_L1", d
     m = _OOM.search(stderr)
     if m:
         total, space, banks = int(m[1]), m[2], int(m[3])
@@ -172,9 +189,12 @@ def run_rung(model: str, yaml_path: Path, device: int, out_root: Path, timeout_s
     # that the reactive narrowing is doing its job -- and it is invisible in a PASS row
     # otherwise. Counted for every outcome, named separately from the one that killed the run.
     hits = [int(m[1]) for m in _OOM.finditer(body)]
-    if hits and verdict == "PASS":
+    clashes = len(_L1_CLASH.findall(body))
+    if verdict == "PASS" and (hits or clashes):
         row["refusals_recovered"] = len(hits)
-        row["largest_recovered_bytes"] = max(hits)
+        row["clashes_recovered"] = clashes
+        if hits:
+            row["largest_recovered_bytes"] = max(hits)
     return row
 
 

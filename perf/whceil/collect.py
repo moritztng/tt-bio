@@ -65,9 +65,14 @@ def main() -> int:
             bits.append(r.get("wall_kind", "UNCLASSIFIED"))
         if r.get("log_superseded"):
             bits.append("[log overwritten by a later attempt; not reclassified]")
-        if r.get("refusals_recovered"):
-            bits.append(f"recovered from {r['refusals_recovered']} refusal(s), largest "
-                        f"{round(r['largest_recovered_bytes'] / 2**30, 2)} GiB")
+        if r.get("refusals_recovered") or r.get("clashes_recovered"):
+            parts = []
+            if r.get("refusals_recovered"):
+                parts.append(f"{r['refusals_recovered']} DRAM refusal(s), largest "
+                             f"{round(r['largest_recovered_bytes'] / 2**30, 2)} GiB")
+            if r.get("clashes_recovered"):
+                parts.append(f"{r['clashes_recovered']} L1 CB clash(es)")
+            bits.append("recovered from " + " + ".join(parts))
         if "structure" in r:
             bits.append(Path(r["structure"]).name)
         out.append("  ".join(bits))

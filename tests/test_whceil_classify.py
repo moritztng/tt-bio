@@ -148,3 +148,23 @@ def test_each_attempt_writes_its_own_log(tmp_path, monkeypatch):
     monkeypatch.setattr(L.time, "strftime", lambda f, t=None: "000002")
     b = L.run_rung("m", tmp_path / "r.yaml", 0, tmp_path / "runs", 60, {}, [])
     assert a["log"] != b["log"] and Path(a["log"]).is_file() and Path(b["log"]).is_file()
+
+
+CLASH = ("TT_THROW: Statically allocated circular buffers in program 188 clash with L1 buffers "
+         "on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 319488 and static "
+         "circular buffer region ends at 541984 (assert.hpp:104)")
+
+
+def test_an_l1_circular_buffer_clash_is_its_own_wall_not_a_dram_one():
+    """It is L1, not DRAM, and a clash rather than a shortage -- it carries no bank numbers, so
+    the DRAM rule can never classify it. It is also the non-monotone class: OpenDDE folds 544,
+    throws at 576 and folds 608, which is why a cap is the size below the FIRST failure."""
+    verdict, d = classify(CLASH, 1, False)
+    assert verdict == "CLASH_L1"
+    assert d["wall_kind"] == "L1_CB_CLASH"
+    assert (d["program"], d["l1_buffer_at"], d["cb_region_ends"]) == (188, 319488, 541984)
+
+
+def test_a_dram_refusal_in_the_same_log_wins_over_an_earlier_clash():
+    """The clash was recovered from; the refusal is what the run died on."""
+    assert classify(CLASH + "\n" + WRAPPED, 1, False)[0] == "OOM_DRAM"
