@@ -1,0 +1,53 @@
+{
+ "module_file": "/home/ttuser/.coworker/wt/b2x-host-residual/tt_bio/boltz2.py",
+ "patched": true,
+ "host": "tt-quietbox2",
+ "threads": 8,
+ "n_tokens": 1024,
+ "n_atoms": 8256,
+ "stages": {
+  "rel_pos": {
+   "sha": "0e9c27457128ccea231fb66c",
+   "shape": [
+    1,
+    1024,
+    1024,
+    128
+   ],
+   "s": 0.30126
+  },
+  "input_embedder": {
+   "sha": "4033656c29f75e53aa913ea1",
+   "shape": [
+    1,
+    1024,
+    384
+   ],
+   "s": 0.24369
+  },
+  "pairwise_conditioner": {
+   "sha": "43f6136382485a9cd5f6cbde",
+   "shape": [
+    1,
+    1024,
+    1024,
+    128
+   ],
+   "s": 1.98409
+  },
+  "diffusion_conditioning": {
+   "s": 5.18222,
+   "sha_q": "f6009d6bfa1046f583afb140",
+   "sha_c": "350724d2c9dfa28e36a268cf",
+   "sha_atom_enc_bias": "62a65b956592427cbd83a210",
+   "sha_atom_dec_bias": "f7fc119ce5526793749203bc",
+   "sha_token_trans_bias": "53c30421eb05834f305f89a8",
+   "shape_token_trans_bias": [
+    1,
+    1024,
+    1024,
+    384
+   ]
+  }
+ }
+}
