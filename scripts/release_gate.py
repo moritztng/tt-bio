@@ -613,7 +613,8 @@ CAPACITY_LEGS = [
 #     tol = max(0.50, 3 * sqrt(2) * sigma / ln(N2/N1))
 #
 # with sigma the measured relative noise of one rung's runtime_s (record mode
-# measures it with SIZE_LADDER_SIGMA_REPS reps at 512 aa; boltz2 reads 6.5% on
+# measures it with SIZE_LADDER_SIGMA_REPS reps at the middle gated rung
+# (_size_ladder_sigma_rung), 512 aa on the fold arm; boltz2 reads 6.5% on
 # pc card 0, giving tol 0.50 on 256->512 and 0.68 on 512->768 against a
 # measured cliff signal of 1.4-1.6). The 0.50 floor keeps a suspiciously quiet
 # model from getting an unfalsifiably tight band. Above sigma = 12% the arm
@@ -795,6 +796,14 @@ SIZE_LADDER_NESSO_TOKENS_BUDGET = 256
 # They stay OUT of SIZE_LADDER_MODELS: a release run would then pay 100-step rfd3 and 400-step
 # pxdesign folds at every rung, which is minutes per rung, and this arm is opt-in via
 # --size-ladder-models until somebody decides that cost is worth a release's wall-clock.
+# {target atoms: fixture stem in tests/fixtures/boltzgen/}. The pairs are verbatim the ones the
+# Wormhole ladder walked (md5-identical to its scratch output), and the atom counts are what the
+# shipped sizer reads back off them -- see the note under SIZE_LADDER_DESIGN.
+SIZE_LADDER_BOLTZGEN_FIXTURES = {
+    3225: "bg400", 4671: "bg580", 6180: "bg768",
+    8225: "bg1024", 10482: "bg1300", 14786: "bg1831",
+}
+
 SIZE_LADDER_DESIGN = {
     "pxdesign": {
         "axis": "target residues",
@@ -811,18 +820,25 @@ SIZE_LADDER_DESIGN = {
     },
     "boltzgen": {
         "axis": "atoms",
-        "rungs": (),      # no atom-denominated fixture ladder exists yet — see the note below
-        "exp_rungs": (),
-        "steps": (),
+        "rungs": tuple(sorted(SIZE_LADDER_BOLTZGEN_FIXTURES)),
+        "exp_rungs": (4671, 8225, 14786),
+        "steps": ("--steps", "design"),   # see below: the step the atom axis scales
     },
 }
-# boltzgen carries no rungs on purpose, and the reason is the fixtures rather than the axis. The
-# axis now exists: size_limits.py's boltzgen row is TARGET_ATOMS and its cap is 14786 atoms on a
-# Wormhole Galaxy chip, walked 3225 / 4671 / 6180 / 8225 / 10482 / 14786 by wh-seqlen-design-embed.
-# What this tree does not carry is a set of targets cut to those atom counts -- only the 3225-atom
-# one, in tests/fixtures/boltzgen/, which the sizer guard uses. Cutting a RESIDUE ladder and
-# labelling it an atom ladder would be a units substitution, because atoms per residue vary with
-# composition, so the rungs stay empty until the fixture set lands.
+# boltzgen's rungs are ATOM counts and its fixture files are named by the residue count they were
+# cut at, so the rung cannot be formatted into a path the way pxdesign's and rfd3's are. That is
+# what SIZE_LADDER_BOLTZGEN_FIXTURES is for, and `rungs` is read off it so a fixture and its rung
+# cannot drift apart. Every key is the number
+# ``tt_bio.size_limits.scan_boltzgen_target_atoms`` reads back off the committed pair, not the
+# number the file name suggests.
+#
+# `steps` is `--steps design`, which selects a pipeline step rather than a step COUNT, and that is
+# the measurement rather than a way to make the ladder cheap. The target is what this axis counts,
+# and only the design step sees it: inverse folding, design folding, affinity, analysis and
+# filtering all work on the 80-residue binder, which is the same size at every rung. It is also
+# the configuration the ladder behind these rungs ran, so the atom counts and the 14786 ceiling in
+# size_limits.py describe exactly what this leg re-measures. Sampling steps stay at the shipped
+# default; boltzgen has no --n_step/--num_timesteps and `run_boltzgen` does not set one either.
 
 
 # ---------------------------------------------------------------------------
@@ -2132,6 +2148,12 @@ def _size_ladder_fixture(model: str, rung: int) -> Path:
         return REPO_ROOT / "perf" / "pxdesign" / "targets" / f"ladder_{rung}.yaml"
     if model == "rfd3":
         return REPO_ROOT / "perf" / "ceilrfd3" / "targets" / f"ladder_{rung}.json"
+    if model == "boltzgen":
+        # The rung is an atom count and the file is named by residues, so this is a lookup
+        # rather than a format. The spec points at its .cif by a path relative to itself, so
+        # both halves of the pair have to be committed side by side.
+        return (REPO_ROOT / "tests" / "fixtures" / "boltzgen"
+                / f"{SIZE_LADDER_BOLTZGEN_FIXTURES[rung]}.yaml")
     return REPO_ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
 
 
@@ -2300,8 +2322,18 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
         runtime_s = _affinity_seconds(out_dir)
         where = "affinity.csv"
     elif model in SIZE_LADDER_DESIGN:
-        runtime_s = _design_seconds(out_dir)
-        where = "designs.json"
+        runtime_s, where = _design_seconds(out_dir), "designs.json"
+        if runtime_s is None:
+            # pxdesign is the only design model that writes a per-design manifest
+            # (tt_bio/pxdesign/design.py). rfd3 and boltzgen deliver CIFs and nothing
+            # carrying a time, so their rung is this process's own wall instead: the same
+            # trajectory plus one weight load and one device open. That is an OVER-estimate
+            # by a size-independent constant, which biases a fitted exponent DOWN — the safe
+            # direction, since it cannot manufacture a steeper scaling than the model has.
+            # Named here and in the entry so no reader mistakes a wall for a designs.json
+            # runtime_s, and both the record and the check read it the same way, so the band
+            # compares like with like.
+            runtime_s, where = wall, "the run's own wall (no designs.json)"
     else:
         results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
         where = results.name
@@ -2316,7 +2348,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                 runtime_s = None
     if runtime_s is None and need_runtime:
         return {"error": f"no runtime_s in {where} (fold ok but timing missing)"}
-    return {"levers": levers, "runtime_s": runtime_s, "wall": wall,
+    return {"levers": levers, "runtime_s": runtime_s, "wall": wall, "runtime_src": where,
             "census_json": census_json, "grid": census.get("grid")}
 
 
@@ -2622,11 +2654,12 @@ def _size_ladder_model_rungs(model: str, want=None) -> tuple:
 
 
 def _size_ladder_measure_model(model: str, rungs, workdir: Path,
-                               reps_512: int, reps_other: int) -> dict:
+                               reps_sigma: int, reps_other: int) -> dict:
     """Census-fold every rung, discarding the first fold AT EACH RUNG, then report.
 
     Returns {"levers": {rung: ...}, "runtime_s": {rung: median}, "sigma": relative
-    runtime noise at 512 | None, "census_jsons": {rung: path}} or {"error": ...}.
+    runtime noise at the sigma rung | None, "census_jsons": {rung: path}} or
+    {"error": ...}.
     "drift" lists any rep-to-rep difference the check's own comparator would call a finding.
 
     The discard is per rung, not one warm-up at the smallest rung, because the JIT
@@ -2639,9 +2672,10 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     one-size-fits-all mistake this whole arm exists to catch, in the arm itself.
     """
     levers, runtimes, census_jsons, refused = {}, {}, {}, {}
-    sigma, grid, drift = None, None, []
+    sigma, grid, drift, runtime_src = None, None, [], None
+    sigma_rung = _size_ladder_sigma_rung(model)
     for rung in rungs:
-        reps = reps_512 if rung == 512 else reps_other
+        reps = reps_sigma if rung == sigma_rung else reps_other
         runs = []
         guard = None
         for rep in range(reps + 1):
@@ -2663,6 +2697,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
             if rep == 0:
                 continue          # cold: kernels for this shape compile on this fold
             grid = grid or r.get("grid")
+            runtime_src = runtime_src or r.get("runtime_src")
             runs.append(r)
         if guard:
             # Rungs run ascending and a guard is monotone in size, so every rung above this
@@ -2690,13 +2725,14 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         census_jsons[str(rung)] = runs[0]["census_json"]
         ts = [r["runtime_s"] for r in runs]
         runtimes[str(rung)] = round(statistics.median(ts), 2)
-        if rung == 512 and len(ts) > 1:
+        if rung == sigma_rung and len(ts) > 1:
             sigma = statistics.stdev(ts) / statistics.mean(ts)
     if not runtimes and refused:
         return {"error": f"every rung requested ({','.join(map(str, rungs))}) is above this "
                          f"model's size guard: {next(iter(refused.values()))}",
                 "refused": refused}
     return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
+            "runtime_src": runtime_src,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
 
@@ -2718,14 +2754,41 @@ def _size_ladder_record_refusal(meas: dict) -> str | None:
     return None
 
 
-def _size_ladder_exponent_block(runtimes: dict, sigma):
+def _size_ladder_exp_rungs(model: str) -> tuple:
+    """The rungs this model's exponent band is gated over.
+
+    SIZE_LADDER_EXP_RUNGS is 256/512/768 RESIDUES. A design model walks its own axis, so for
+    boltzgen that names three rungs an atom ladder does not have and never will, and the arm
+    would record "no interval to exponent over" for a ladder that has five of them. Each
+    design entry carries its own; the fold arm keeps the shared set.
+    """
+    if model in SIZE_LADDER_DESIGN:
+        return tuple(SIZE_LADDER_DESIGN[model]["exp_rungs"])
+    return SIZE_LADDER_EXP_RUNGS
+
+
+def _size_ladder_sigma_rung(model: str):
+    """The rung the runtime noise floor is measured at: the MIDDLE gated rung, or None.
+
+    That is exactly 512 for the fold arm, which is where it was hardcoded. Stating it as a
+    position rather than a number is what carries it to a ladder in another unit, and it is
+    the reading the tolerance needs anyway: sigma sets the band for the intervals either side
+    of it, so it has to be measured inside them and not off one end.
+    """
+    exp = _size_ladder_exp_rungs(model)
+    return exp[len(exp) // 2] if exp else None
+
+
+def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
     """Baseline exponent entries per consecutive rung pair: k with a tolerance
     derived from the measured noise floor. Returns (block, skip_reason)."""
-    rungs = sorted(int(r) for r in runtimes if int(r) in SIZE_LADDER_EXP_RUNGS)
+    gated = _size_ladder_exp_rungs(model)
+    rungs = sorted(int(r) for r in runtimes if int(r) in gated)
     if len(rungs) < 2:
         return None, "single rung — no interval to exponent over"
     if sigma is None:
-        return None, "no noise measurement (rung 512 absent from the ladder)"
+        return None, (f"no noise measurement (rung {_size_ladder_sigma_rung(model)} absent "
+                      f"from the ladder)")
     reps, sigma_eff = 1, sigma
     if sigma > 0.12:
         # median-of-3, the repo's standing answer to single-shot noise
@@ -3399,8 +3462,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             err = _size_ladder_record_refusal(meas)
             block = skip = None
             if err is None:
-                block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
-                # Re-measure at the rep count the CHECK will use. Only rung 512 was repeated
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
+                # Re-measure at the rep count the CHECK will use. Only the sigma rung was repeated
                 # above, so a model noisy enough to need a median went into the baseline
                 # single-shot at the other three rungs while the check reads a median of three
                 # there. openfold3 recorded 15.8 s at 256 that way and checked at 7.3 s on the
@@ -3408,7 +3471,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # changed but how many folds the number came from.
                 reps = (block or {}).get("reps", 1)
                 if reps > reps_other:
-                    again = [r for r in ladders[m] if r != 512]
+                    again = [r for r in ladders[m] if r != _size_ladder_sigma_rung(m)]
                     print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
                           f"{','.join(map(str, again))} at {reps} reps", flush=True)
                     m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
@@ -3416,7 +3479,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     if err is None:
                         for k in ("levers", "runtime_s", "census_jsons"):
                             meas[k].update(m2[k])
-                        block, skip = _size_ladder_exponent_block(meas["runtime_s"],
+                        block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
                                                                   meas["sigma"])
             if err:
                 print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
@@ -3424,12 +3487,15 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 continue
             carried_rungs = _size_ladder_carry_rungs(meas, old_models.get(m), stamp)
             if carried_rungs:
-                block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
             todos += _size_ladder_fill_reasons(
                 meas["levers"], old_models.get(m, {}).get("levers"),
                 _size_ladder_other_card_levers(reasons_from, card, m))
             entry = {"grid": meas.get("grid"), **stamp,
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
+            if m in SIZE_LADDER_DESIGN:
+                entry["axis"] = SIZE_LADDER_DESIGN[m]["axis"]
+                entry["runtime_from"] = meas.get("runtime_src")
             if meas.get("refused"):
                 entry["refused"] = meas["refused"]
                 for rung, why in meas["refused"].items():
@@ -4224,17 +4290,32 @@ def main() -> int:
                              fragment=args.size_ladder_fragment)
         all_pass &= sl["gate"]
         rungs = sl.get("rungs") or list(_size_ladder_every_rung())
+        design = [l["model"] for l in sl["legs"] if l["model"] in SIZE_LADDER_DESIGN]
+        # The fold config belongs on the line only when a fold happened. A design-only run
+        # (--size-ladder-models boltzgen) has no single-sequence predict and no sampling
+        # steps, and printing them made the header describe a run that did not happen.
+        cfg = ("" if design and len(design) == len(sl["legs"]) else
+               f"{SIZE_LADDER_STEPS} steps / 1 sample, seed {SEED}, single-sequence, ")
         print(f"\n{'#'*78}\nRELEASE GATE — size-ladder (rungs "
-              f"{','.join(map(str, rungs))}, {SIZE_LADDER_STEPS} steps / 1 sample, "
-              f"seed {SEED}, single-sequence, card {sl.get('card', '?')})"
+              f"{','.join(map(str, rungs))}, {cfg}card {sl.get('card', '?')})"
               + ("  [RECORD]" if args.size_ladder_record else "") + f"\n{'#'*78}")
         # Exponent columns are the intervals the arm actually gates, i.e. consecutive
-        # pairs of SIZE_LADDER_EXP_RUNGS -- NOT of every rung. Pairing consecutive rungs
-        # printed a k512->640 / k640->768 that is never computed and left k512->768, the
-        # one interval with a real tolerance, without a column at all.
-        exp_rungs = [n for n in rungs if n in SIZE_LADDER_EXP_RUNGS]
-        intervals = list(zip(exp_rungs, exp_rungs[1:]))
-        hdr = f"{'model':<15}" + "".join(f"{str(n) + 'aa':>9}" for n in rungs)
+        # pairs of the model's own gated rungs -- NOT of every rung. Pairing consecutive
+        # rungs printed a k512->640 / k640->768 that is never computed and left k512->768,
+        # the one interval with a real tolerance, without a column at all. The union over
+        # the run's models, because a design model gates its own axis and a mixed run has
+        # no single set; a model with no column for an interval prints "-", the same way
+        # the rung cells already handle a ladder another model does not have.
+        intervals = []
+        for m in [l["model"] for l in sl["legs"]]:
+            e = [n for n in rungs if n in _size_ladder_exp_rungs(m)]
+            intervals += [iv for iv in zip(e, e[1:]) if iv not in intervals]
+        intervals.sort()
+        # No "aa" suffix once a design model is in the run: boltzgen's rungs are ATOMS, and
+        # a unit the column cannot vouch for is worse than none. The axis lines below name
+        # each design model's own.
+        unit = "" if design else "aa"
+        hdr = f"{'model':<15}" + "".join(f"{str(n) + unit:>9}" for n in rungs)
         hdr += "".join(f"{f'k{a}->{b}':>11}" for a, b in intervals)
         hdr += f"{'wall':>9}  result"
         print(hdr)
@@ -4252,6 +4333,9 @@ def main() -> int:
             print(f"{l['model']:<15}{cells}{wall:>9}  {verdict}")
             for f in (l.get("findings") or []):
                 print(f"    FAIL {f}")
+        for m in dict.fromkeys(design):
+            print(f"{m:<15}axis: {SIZE_LADDER_DESIGN[m]['axis']}, design run with "
+                  f"{' '.join(SIZE_LADDER_DESIGN[m]['steps'])}")
         if not sl["legs"] and sl.get("error"):
             print(f"    FAIL {sl['error']}")
         print(f"{'#'*78}")

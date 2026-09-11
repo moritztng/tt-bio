@@ -1,0 +1,11 @@
+entities:
+  - protein:
+      id: Z
+      sequence: 80
+  - file:
+      path: bgt1300.cif
+      include:
+        - chain:
+            id: A
+        - chain:
+            id: B

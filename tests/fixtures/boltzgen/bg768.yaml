@@ -1,0 +1,9 @@
+entities:
+  - protein:
+      id: Z
+      sequence: 80
+  - file:
+      path: bgt768.cif
+      include:
+        - chain:
+            id: A
