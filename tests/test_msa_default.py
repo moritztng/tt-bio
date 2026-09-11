@@ -24,9 +24,11 @@ URL = "https://api.colabfold.com"
 
 
 def resolve(model, use_msa_server=False, msa_db_path=None, msa_endpoint=None,
-            single_sequence=False, cache="/nonexistent", controller=None, msa_server_url=URL):
+            single_sequence=False, cache="/nonexistent", controller=None, msa_server_url=URL,
+            msa_cache_only=False, msa_dir=None):
     return _resolve(model, use_msa_server, msa_db_path, msa_endpoint,
-                    single_sequence, cache, controller, msa_server_url)
+                    single_sequence, cache, controller, msa_server_url,
+                    msa_cache_only, msa_dir)
 
 
 def _ready_db(cache):
@@ -121,3 +123,25 @@ def test_controller_skips_local_db(tmp_path, capsys):
     _ready_db(tmp_path)
     assert resolve("boltz2", cache=str(tmp_path), controller="http://host:8765") == (True, None)
     assert URL in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("model", ["boltz2", "protenix-v2"])
+def test_msa_dir_notice_does_not_claim_the_sequences_were_sent(model, tmp_path, capsys):
+    """With --msa_dir, the online server is a fallback, not what happens.
+
+    The resolver runs before any input is parsed, so it cannot know the cache covers every
+    chain and must still enable the server. But a fully-cached run then prints "sending input
+    sequences to the online MSA server" and sends nothing, and those fold logs are what a
+    reader audits a parity or privacy claim with. Behaviour is unchanged here; the sentence
+    is not. The no-msa_dir case below is the negative control: it must still read as the
+    unconditional send, or this test is asserting on nothing.
+    """
+    cached = tmp_path / "msa"
+    cached.mkdir()
+    assert resolve(model, cache=str(tmp_path), msa_dir=str(cached)) == (True, None)
+    out = capsys.readouterr().out
+    assert str(cached) in out and "--msa_cache_only" in out and URL in out
+    assert "sending input sequences" not in out
+
+    assert resolve(model, cache=str(tmp_path)) == (True, None)
+    assert "sending input sequences" in capsys.readouterr().out
