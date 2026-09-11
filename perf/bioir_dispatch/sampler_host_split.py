@@ -264,6 +264,26 @@ def main() -> int:
 
     # ---- phase 1: the timed A/B --------------------------------------------
     runs = []
+    if args.guidance_split:
+        # phase 5 stands alone: one discarded cold fold, then the four arms.
+        r0 = fold(False); r0["cold"] = True
+        print("[phase5] cold (discarded)", r0["fold_s"], flush=True)
+        OUT["phase5_cold"] = r0; dump()
+        sa = state.model.steering_args
+        gs = []
+        for lab, guid, tr in (("guidance_on_eager", True, False),
+                              ("guidance_off_eager", False, False),
+                              ("guidance_off_traced", False, True),
+                              ("guidance_on_eager_2", True, False)):
+            sa["contact_guidance_update"] = guid
+            r = fold(tr); r["arm"] = lab; r["guidance"] = guid
+            gs.append(r)
+            print("[phase5]", lab, r["fold_s"], r["stages_s"], r["cif"], flush=True)
+            OUT["phase5"] = gs; dump()
+        sa["contact_guidance_update"] = True
+        dump()
+        print("DONE", OUT_PATH, flush=True)
+        return 0
     print("[phase1] cold fold (discarded)", flush=True)
     r = fold(False); r["cold"] = True; runs.append(r)
     print("  cold", r["fold_s"], "s", flush=True)
