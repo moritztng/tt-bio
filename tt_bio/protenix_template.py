@@ -81,12 +81,6 @@ def read_alignment_entries(path, max_templates: int = MAX_TEMPLATES):
     return [(p, c, m) for _i, p, c, m in entries[:max_templates]]
 
 
-def template_pdb_ids(path) -> set[str]:
-    """The PDB ids a `templates:` npz needs coordinates for."""
-    with np.load(str(path), allow_pickle=True) as z:
-        return {str(k).split("_")[0] for k in z.files}
-
-
 def _template_chain_atoms(cif_path, chain_id):
     """{res_id: (res_name, {atom_name: xyz})} for one chain of a template mmCIF.
 
