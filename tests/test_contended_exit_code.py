@@ -109,11 +109,15 @@ def test_release_gate_labels_both_command_shapes():
 
 
 def _dead(name, exitcode):
-    """Stand-in for a multiprocessing.Process that has already exited."""
+    """Stand-in for a multiprocessing.Process that has already exited.
+
+    `pid` is None because no process stands behind this one, and the launcher reads it: a
+    dead worker's fd-2 capture file is keyed on pid (worker.worker_capture_path).
+    """
     class _P:
         pass
     proc = _P()
-    proc.name, proc.exitcode = name, exitcode
+    proc.name, proc.exitcode, proc.pid = name, exitcode, None
     proc.is_alive = lambda: False
     return proc
 

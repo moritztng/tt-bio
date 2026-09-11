@@ -1500,8 +1500,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
                     _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "stock")
                     return o
                 except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
-                    if "circular buffers" not in str(exc):
-                        raise
+                    absorb_l1_refusal("tri_att_sdpa/wide_k", exc)
                     _SDPA_QK_OVER_L1.add(cfg)
         SDPA_K_CHUNK_STATS[1] += 1
     k_chunk = k_chunks[-1]
@@ -1525,14 +1524,35 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
             _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "stock")
             return o
         except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
-            if "circular buffers" not in str(exc):
-                raise
+            absorb_l1_refusal("tri_att_sdpa/q_chunk", exc)
             _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk))
+    # The last rung, guarded like every rung above it. It used to be issued bare, so an L1
+    # refusal HERE was fatal where the identical refusal one rung up was absorbed -- and the
+    # last rung is the one a single-entry ladder leaves, which is what a padded length with a
+    # sparse divisor set gets: 736 tokens is 23 tiles, prime, so `_tri_att_q_chunks` offers
+    # 736 and 32 and nothing between. Measured on a p300c at 11x10 under the pinned ttnn
+    # 0.68.0: this ladder throws "circular buffers ... grow to 1765888 B which is beyond max
+    # L1 size of 1572864 B" at 672 padded tokens, byte for byte the throw in
+    # moritztng/tt-bio#14.
+    #
+    # Falling through hands the op to ttnn's own planner, which sizes the chunking against the
+    # part rather than against our table. That is a different chunking and so not bit-exact,
+    # which is why it is reached ONLY after the device has refused: a length that folds today
+    # never enters this branch and keeps its exact numbers.
+    try:
+        o = ttnn.transformer.scaled_dot_product_attention(
+            q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+            program_config=_sdpa_program_config(fits[-1], k_chunk),
+        )
+        _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
+        return o
+    except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
+        absorb_l1_refusal("tri_att_sdpa/last_q_chunk", exc)
+        _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1]))
+        _latch("sdpa_q_chunk", "refused", exc)
     o = ttnn.transformer.scaled_dot_product_attention(
-        q, k, v, attn_mask=bias, is_causal=False, scale=scale,
-        program_config=_sdpa_program_config(fits[-1], k_chunk),
-    )
-    _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
+        q, k, v, attn_mask=bias, is_causal=False, scale=scale)
+    _sdpa_pick(q_len, k_len, 0, k_chunk, "stock")
     return o
 
 
@@ -1776,8 +1796,7 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
                                           ckc_default=_TRIATT_FUSED_HIFI_CKC,
                                           kv_buffer_factor=kv_bf)
                 except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires this config only
-                    if "circular buffers" not in str(exc):
-                        raise
+                    absorb_l1_refusal("tri_att_sdpa/fused_hifi", exc)
                     o = None
                 if o is not None:
                     TRIATT_FUSED_HIFI_STATS["served"] += 1
@@ -1824,6 +1843,62 @@ def _batched_matmul_block_w(m_tiles: int, k_tiles: int, n_tiles: int) -> int:
     return 2 if narrow or n_tiles <= 4 else 1
 
 
+#: fp32 accumulation tile. The packer folds each output block's partial through a float32
+#: intermediate CB whatever the operand dtype, so it is a constant and not `elem_bytes`.
+_FP32_ACC_TILE = 4096
+#: Per-core headroom every plan keeps clear. Not a safety margin picked by taste: the two
+#: pricing sites that were fitted on hardware (`_pair_proj_program_config`,
+#: `_tri_att_qkv_l1_config`) were both fitted WITH this term, so it is part of the
+#: calibration and dropping it from a third site is what made that site more permissive
+#: than its siblings by exactly this much.
+_MATMUL_CB_SLACK = 128 << 10
+
+
+def _matmul_cb_bytes(in0_block_w: int, out_block_h: int, out_block_w: int, elem_bytes: int,
+                     *, buffered: bool = True, extra_tiles: int = 0) -> int:
+    """Static circular-buffer bytes ONE core needs for a reuse-multicast matmul plan.
+
+    in0 and in1 are held one K block at a time and the output block carries its own tile
+    plus the fp32 partial the packer accumulates into, so the footprint is a function of
+    `in0_block_w` and the drain block and of nothing else about the shape. `buffered` is
+    False for a plan whose `in0_block_w` is the WHOLE of K: there is one block, so there is
+    nothing to double-buffer against. `extra_tiles` carries anything ttnn allocates before
+    the program factory places a circular buffer, e.g. an L1-resident result.
+
+    One function because three call sites were each carrying their own copy of this
+    arithmetic and they had drifted apart -- see `_matmul_cb_budget` for the other half of
+    that drift. A plan that is priced in three places is priced in none.
+    """
+    tile = 1024 * elem_bytes
+    return ((2 if buffered else 1) * in0_block_w * (out_block_h + out_block_w) * tile
+            + out_block_h * out_block_w * (tile + _FP32_ACC_TILE)
+            + _MATMUL_CB_SLACK + extra_tiles * tile)
+
+
+def _matmul_cb_budget() -> int:
+    """Bytes of L1 one core may plan circular buffers into.
+
+    `_l1_bank_bytes`, i.e. what the ALLOCATOR reports, and deliberately not
+    `ttnn.get_max_worker_l1_unreserved_size()`: on Blackhole those read 1461760 and 1532448
+    (measured on qb1's p150a), and `_l1_bank_bytes`'s own docstring says why the larger one
+    admits configs that do not fit on an idle device. `_batched_matmul_search` was gating
+    against the larger number with no slack, so it was 201760 B per core more permissive
+    than the two sites beside it -- on the same part, for the same class of plan. That gap
+    is the shape of moritztng/tt-bio#14: a plan is admitted, and the circular buffers it
+    implies then overflow L1 at program creation.
+
+    Without a device this returns the static number instead of reaching for the allocator.
+    `_l1_bank_bytes` asks `get_device()`, which OPENS a chip rather than failing, and on a
+    QuietBox an unpinned open brings up all four; a budget lookup is not a reason to take
+    hardware. It would also poison the answer: `_l1_bank_bytes` caches, and the cache is
+    only cleared when the grid CHANGES, which on a part already at the module default it
+    never does -- so one pre-open call would pin the loose number for the whole process.
+    """
+    if _device is None:
+        return int(ttnn.get_max_worker_l1_unreserved_size())
+    return _l1_bank_bytes()
+
+
 @lru_cache(maxsize=None)
 def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int,
                            grid: tuple[int, int], l1: int, rung: int = 0):
@@ -1832,7 +1907,6 @@ def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int,
     if batch < 2 or batch * m_tiles < cores:
         return None
     block_w = _batched_matmul_block_w(m_tiles, k_tiles, n_tiles)
-    tile, acc_tile = 1024 * elem_bytes, 4096
     legal = []
     for p in range(1, m_tiles + 1):
         # This factory returns WRONG RESULTS, not just slow ones, whenever a core gets more than
@@ -1849,7 +1923,10 @@ def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int,
             continue
         # CB footprint, matmul_multicore_reuse_optimized_program_factory.cpp:286-306: in0 and in1
         # are double-buffered one K block at a time, the output and the fp32 accumulator are whole.
-        if 2 * (p + n_tiles) * block_w * tile + p * n_tiles * (tile + acc_tile) > l1:
+        # Priced by the one shared function, against the one shared budget: this gate used to
+        # carry its own copy of the arithmetic and gate it against a budget 201760 B per core
+        # looser than its two siblings used (see _matmul_cb_budget).
+        if _matmul_cb_bytes(block_w, p, n_tiles, elem_bytes) > l1:
             continue
         legal.append(p)
     if not legal:
@@ -1896,7 +1973,7 @@ def _batched_matmul_config(batch: int, m_tiles: int, k_tiles: int, n_tiles: int,
     `perf/bmm_reconcile/pcm_sweep_c0.json` and `width_probe_c0.json`.
     """
     try:
-        l1 = int(ttnn.get_max_worker_l1_unreserved_size())
+        l1 = _matmul_cb_budget()
     except Exception:
         return None
     return _batched_matmul_search(batch, m_tiles, k_tiles, n_tiles, elem_bytes,
@@ -1929,7 +2006,7 @@ _BMM_CFG_REFUSED: set = set()
 # all-or-nothing retirement that cost RF3 1.264x on the fp32-softmax tail at 1024 aa.
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
-                               "pair_bias_ln_l1", "bmm_cfg")}
+                               "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -2041,6 +2118,35 @@ _L1_TOP_SEEN: list = []
 
 def _worker_l1_top() -> int | None:
     return _L1_TOP_SEEN[0] if _L1_TOP_SEEN else None
+
+
+def format_l1_census(census: Mapping) -> str:
+    """The census as one line. One format, so a reader who has seen it once reads it anywhere."""
+    return "L1 census: " + " ".join(f"{k}={v}" for k, v in census.items())
+
+
+def absorb_l1_refusal(where: str, exc: BaseException) -> None:
+    """Absorb a device refusal of an L1 plan under `where`, or re-raise what is not one.
+
+    Every ladder that calls this retries a narrower plan when the device declines the wide one,
+    so the refusal is by design and the fold completes. tt-metal has already written its
+    TT_THROW to fd 2 by then, though, and that text reads like a crash: it is what
+    moritztng/tt-bio#14 was filed as, and a worker's captured stderr would otherwise hand it to
+    the launcher as a cause of death. So say on the same stream, right under the throw, that it
+    was absorbed. The census goes with it -- the ladder used to record the refused chunk in a
+    private set and never tell `L1_CLASH_CENSUS`, which is why this class stayed unattributable.
+    """
+    if "circular buffers" not in str(exc):
+        raise exc
+    census = note_l1_clash(where, exc)
+    line = (f"[tt-bio] {where}: device refused this L1 plan, retrying a narrower one "
+            "(expected, not a crash)")
+    if census:
+        line += "\n[tt-bio] " + format_l1_census(census)
+    try:
+        os.write(2, (line + "\n").encode("utf-8", "replace"))
+    except OSError:
+        pass
 
 
 def note_l1_clash(where: str, msg: object) -> dict | None:
@@ -3387,17 +3493,14 @@ def _tri_att_qkv_l1_config(
     )
     if not per_core_M or -(-m_tiles // per_core_M) > num_cores:
         return None
-    l1 = _l1_bank_bytes()
-    tile = 1024 * elem_bytes
-    # Output CB plus the fp32 accumulation CB are fixed; in0 and in1 scale with the K block. The
-    # result itself is L1-resident and ttnn allocates it BEFORE the program factory places a
+    l1 = _matmul_cb_budget()
+    # `in0_block_w` is the whole of K here, so there is one block and nothing to double-buffer.
+    # The result itself is L1-resident and ttnn allocates it BEFORE the program factory places a
     # single circular buffer, so its per-bank share comes off the budget too (E6).
-    fixed = per_core_M * n_tiles * (tile + 4096) + 128 * 1024
-    fixed += -(-(m_tiles * n_tiles) // num_cores) * tile
-    per_block = (per_core_M + n_tiles) * tile
-    if fixed + k_tiles * per_block > l1:
+    if _matmul_cb_bytes(k_tiles, per_core_M, n_tiles, elem_bytes, buffered=False,
+                        extra_tiles=-(-(m_tiles * n_tiles) // num_cores)) > l1:
         return None
-    if 2 * m_tiles * n_tiles * tile > 0.6 * num_cores * l1:
+    if 2 * m_tiles * n_tiles * 1024 * elem_bytes > 0.6 * num_cores * l1:
         return None
     out_subblock_w = max((w for w in range(min(4, n_tiles), 0, -1) if n_tiles % w == 0), default=1)
     return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
@@ -3481,16 +3584,11 @@ def _pair_proj_program_config(
     out_block_h, out_block_w = rungs[rung]
     sh = max(h for h in range(min(4, out_block_h), 0, -1) if out_block_h % h == 0)
     sw = max(w for w in range(min(4 // sh, out_block_w), 0, -1) if out_block_w % w == 0)
-    l1 = _l1_bank_bytes()
-    tile = 1024 * elem_bytes
-    # in0 and in1 are double-buffered per K block; the output block carries its bf16 tile plus
-    # the fp32 partial the packer accumulates into. An L1 output takes bank space on top of that
-    # and has to be subtracted here -- a program-config budget that forgets its output term is
-    # how a gate lets through a config the allocator then refuses at the real call site.
-    need = (2 * in0_block_w * (out_block_h + out_block_w) * tile
-            + out_block_h * out_block_w * (tile + 4096) + 128 * 1024
-            + (per_core_M * n_tiles * tile if out_l1 else 0))
-    if need > l1:
+    # An L1 output takes bank space on top of the plan's own buffers and has to be counted --
+    # a program-config budget that forgets its output term is how a gate lets through a config
+    # the allocator then refuses at the real call site.
+    if _matmul_cb_bytes(in0_block_w, out_block_h, out_block_w, elem_bytes,
+                        extra_tiles=(per_core_M * n_tiles if out_l1 else 0)) > _matmul_cb_budget():
         return None
     return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
@@ -3994,6 +4092,13 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     if _force:
         gx, gy = (int(v) for v in _force.split(","))
 
+    # Unconditionally, before the early return: this one is not a grid-derived tuning but a
+    # per-part capacity read, and a process that queried it before the chip was open cached
+    # the static fallback. On a part whose grid already equals the module default the early
+    # return below is taken, so a cache_clear that lives past it never runs and that stale
+    # answer is the one every program config is then priced against.
+    _l1_bank_bytes.cache_clear()
+
     if (gx, gy) == COMPUTE_GRID_MAIN:
         return
 
@@ -4004,7 +4109,6 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _sdpa_program_config_for_lengths.cache_clear()
     _triangle_mul_program_config.cache_clear()
     _tri_att_qkv_l1_config.cache_clear()
-    _l1_bank_bytes.cache_clear()
     _pair_proj_program_config.cache_clear()
     _attn_value_program_config.cache_clear()
     _fp32_softmax_core_grid.cache_clear()

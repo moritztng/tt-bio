@@ -17,11 +17,14 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tt_bio.distributed import ControllerClient, ControllerServer  # noqa: E402
 from tt_bio.main import _stream_run  # noqa: E402
 from tt_bio.worker import (  # noqa: E402
+    _cleanup_worker_capture,
     _install_orphan_guard,
     _report_fatal,
     _silence_subprocess_output,
@@ -110,6 +113,7 @@ def test_silence_subprocess_output_preserves_real_stderr():
             os.dup2(write_fd, 2)
             _silence_subprocess_output()
             _report_fatal("boom\n")
+            _cleanup_worker_capture()      # what run_worker_loop's finally does
         finally:
             os._exit(0)
     os.close(write_fd)
@@ -117,6 +121,55 @@ def test_silence_subprocess_output_preserves_real_stderr():
         got = pipe.read()
     os.waitpid(pid, 0)
     assert b"boom" in got, f"fatal was swallowed, read {got!r}"
+
+
+# The two native fatals this capture exists for. Both abort out of a library thread,
+# write to fd 2 and exit without unwinding, so no Python exception is ever raised and
+# _report_fatal never runs. On /dev/null the first left issue #12 as an opaque exit 14
+# and the second left #14 as a 0-byte log.
+NATIVE_FATALS = {
+    "mpi_init": b"*** An error occurred in MPI_Init_thread\n*** MPI_ERRORS_ARE_FATAL\n",
+    "l1_overflow": b"TT_THROW: Statically allocated circular buffers on core range "
+                   b"[(x=0,y=0) - (x=10,y=9)] grow to 1765888 B which is beyond max L1 "
+                   b"size of 1572864 B\n",
+}
+
+
+def _native_abort_worker(kind):
+    _silence_subprocess_output()
+    os.write(2, NATIVE_FATALS[kind])
+    os._exit(14)
+
+
+@pytest.mark.parametrize("kind", sorted(NATIVE_FATALS))
+def test_silenced_worker_native_abort_is_captured(kind):
+    from tt_bio.worker import read_worker_capture, worker_capture_path
+
+    proc = mp.get_context("spawn").Process(target=_native_abort_worker, args=(kind,))
+    proc.start()
+    proc.join(60)
+    assert proc.exitcode == 14
+    cap = read_worker_capture(proc.pid)
+    needle = NATIVE_FATALS[kind].split(b"\n")[0].decode()
+    assert needle in cap, f"native abort swallowed, read {cap!r}"
+    assert not worker_capture_path(proc.pid).exists(), "the tail must be consumed, not left in /tmp"
+
+
+def _clean_exit_worker():
+    _silence_subprocess_output()
+    from tt_bio.worker import _cleanup_worker_capture
+
+    _cleanup_worker_capture()
+
+
+def test_clean_worker_leaves_no_capture_file():
+    from tt_bio.worker import worker_capture_path
+
+    proc = mp.get_context("spawn").Process(target=_clean_exit_worker)
+    proc.start()
+    proc.join(60)
+    assert proc.exitcode == 0
+    assert not worker_capture_path(proc.pid).exists(), "clean exit littered /tmp"
 
 
 def _orphan_child():
