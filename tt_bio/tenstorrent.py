@@ -4941,6 +4941,40 @@ def set_trimul_mask_after_move(on: bool) -> bool:
     return prev
 
 
+# P4 step 2: compute the fused in-projection ONE ROW BLOCK AT A TIME into L1 and let the gated
+# channel move read it there, instead of materialising the whole [1, N, N, 4*slice_c] projection
+# in DRAM and reading it back.
+#
+# The projection is 4 Z and the gated move reads it once, so the round trip is 8 Z per trimul that
+# never has to exist. What it costs back is the row slice of the LN'd pair tensor -- ttnn.slice is
+# a copy, not a view -- which is one full read of that tensor, 1 Z, with the write landing in L1.
+# Net -7 Z per trimul on top of step 1, and it only pays if the DRAM round trip is worth more than
+# the dual-NOC drain `_in_proj_matmul` loses by going to L1 (mm_dualnoc.in_proj refuses a non-DRAM
+# memory_config). That is the measurement.
+#
+# Row width: `_build_gated`'s comment works its example at 64, but at 64 the extra dispatch eats
+# most of the step's marginal win (26 ops per trimul against step 1's 5), and 256 leaves 1192 kB
+# per core before the kernel's own 148 kB of circular buffers. 128 is the default.
+#
+# Requires `H % R == 0`: a ragged last block is a second descriptor and a tile-alignment argument
+# that is not worth making for a lever this size. Anything else falls back to the whole-tensor
+# projection, unchanged.
+TRIMUL_INPROJ_ROWBLOCK = False
+_TRIMUL_INPROJ_ROWBLOCK = os.environ.get(
+    "TT_BIO_TRIMUL_INPROJ_ROWBLOCK", "1" if TRIMUL_INPROJ_ROWBLOCK else "0") == "1"
+_TRIMUL_INPROJ_ROWBLOCK_R = int(os.environ.get("TT_BIO_TRIMUL_INPROJ_ROWBLOCK_R", "128"))
+
+
+def set_trimul_inproj_rowblock(on: bool, r: int | None = None) -> tuple[bool, int]:
+    """A/B switch for the paired harness. Returns the previous (on, row width)."""
+    global _TRIMUL_INPROJ_ROWBLOCK, _TRIMUL_INPROJ_ROWBLOCK_R
+    prev = (_TRIMUL_INPROJ_ROWBLOCK, _TRIMUL_INPROJ_ROWBLOCK_R)
+    _TRIMUL_INPROJ_ROWBLOCK = bool(on)
+    if r is not None:
+        _TRIMUL_INPROJ_ROWBLOCK_R = int(r)
+    return prev
+
+
 def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     """``permute(chunk, (0, 2, 3, 1))``, through the hand-written kernel where it wins.
 
@@ -5170,6 +5204,67 @@ class TriangleMultiplication(Module):
             ttnn.deallocate(rows)
         return _acc_concat(blocks, 1, host)
 
+    def _gated_rowblocked(self, x_norm_in, w, bias, H, slice_c, perm_a, perm_b, memory_config):
+        """`LN(z) @ w` in row blocks in L1, gated and moved straight into the full destination.
+
+        The whole-tensor path writes the fused projection to DRAM and the gated move reads it
+        back: 8 Z per trimul of round trip for a tensor that is consumed once. Here each row block
+        is projected into L1 and the move's reader takes its `p` and `g` slices from there, so the
+        projection never reaches DRAM at all. The destination index is absolute via `row_off`, so
+        the blocks partition `a` and `b` and the result is the whole-tensor one.
+
+        Bit-exact. layer_norm normalises over the last axis and the matmul contracts the last
+        axis, so output row r depends only on input row r -- the same partition argument
+        `_in_proj_rows` already makes, `torch.equal` at G=2/4/8. The move itself is the kernel
+        that is `torch.equal` at 24 shapes; an L1 source changes the TensorAccessor, not the
+        arithmetic.
+
+        Returns `(None, None)` if the block shape is not eligible, so the caller falls back to the
+        whole-tensor projection with nothing spent but the gate.
+        """
+        R = _TRIMUL_INPROJ_ROWBLOCK_R
+        if R % _reblock.TILE_H or H % R:
+            return None, None
+        l1 = ttnn.L1_MEMORY_CONFIG
+        cw = int(x_norm_in.shape[-1])
+        a = b = None
+        try:
+            for s_off in range(0, H, R):
+                rows = ttnn.slice(x_norm_in, [0, s_off, 0, 0], [1, s_off + R, H, cw],
+                                  memory_config=l1)
+                blk = ttnn.experimental.minimal_matmul(
+                    rows, w, bias_tensor=bias, memory_config=l1, dtype=_dtype(),
+                    compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(rows)
+                if a is None:
+                    if not _reblock.eligible_gated(blk, slice_c, memory_config):
+                        ttnn.deallocate(blk)
+                        return None, None
+                    a, b = [ttnn.allocate_tensor_on_device(
+                        ttnn.Shape([1, slice_c, H, H]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                        self.device, memory_config) for _ in range(2)]
+                _reblock.reblock_permute_gated(blk, 2 * slice_c, 0, slice_c, out=a, row_off=s_off)
+                _reblock.reblock_permute_gated(blk, 3 * slice_c, slice_c, slice_c, out=b,
+                                               row_off=s_off)
+                ttnn.deallocate(blk)
+        except RuntimeError:
+            # An L1 refusal here is a budget miss, not a wrong answer: drop what was allocated and
+            # let the caller run the whole-tensor projection.
+            for t in (a, b):
+                if t is not None:
+                    ttnn.deallocate(t)
+            return None, None
+        # The kernel moves (0, 3, 1, 2). The other variant is that move followed by a transpose,
+        # which is what `_transform_chunk_gated` does per chunk and what happens here once the
+        # whole destination is assembled.
+        if perm_a == (0, 3, 2, 1):
+            a, old = ttnn.transpose(a, -2, -1, memory_config=memory_config), a
+            ttnn.deallocate(old)
+        if perm_b == (0, 3, 2, 1):
+            b, old = ttnn.transpose(b, -2, -1, memory_config=memory_config), b
+            ttnn.deallocate(old)
+        return a, b
+
     def prewarm(self, H: int, batch: int = 1) -> None:
         """Build the fused input-weight cache this shape will use, before the call that uses it.
 
@@ -5284,59 +5379,71 @@ class TriangleMultiplication(Module):
                 gp_in_biases = self._gp_in_biases(chunk_size, group)
                 for i in range(n_pairs // group):
                     bias_i = None if gp_in_biases is None else gp_in_biases[i]
-                    gp_in_fused = (
-                        self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config, bias_i)
-                        if row_norm else
-                        _in_proj_matmul(x_norm_in, gp_in_chunks[i],
-                                        self.compute_kernel_config, memory_config, bias_i)
-                    )
                     perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
-                    slice_c = int(gp_in_fused.shape[-1]) // 4
-                    # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
-                    # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
-                    # ride inside the kernel too, so those keep the four-way split.
-                    # `mask_moved is not None` means the mask has been moved past the channel
-                    # move and no longer sits between the gate and it, so it no longer blocks the
-                    # fused pair. Without the flag this is the condition it always was.
-                    gated = (
-                        (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
-                        and (mask_u is None or mask_moved is not None)
-                        and not _FAST_MODE
-                        and not _TRIMUL_RAW_CHANNEL_MOVES
-                        and memory_config.buffer_type == ttnn.BufferType.DRAM
-                        and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
-                    )
-                    if gated:
-                        a_chunk = self._transform_chunk_gated(
-                            gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
-                            n_pairs // group > 1,
-                        )
-                        b_chunk = self._transform_chunk_gated(
-                            gp_in_fused, (3 * slice_c, slice_c, slice_c), perm_b, memory_config,
-                            n_pairs // group > 1,
-                        )
-                        ttnn.deallocate(gp_in_fused)
+                    a_chunk = b_chunk = None
+                    if (_TRIMUL_INPROJ_ROWBLOCK and not row_norm and not _FAST_MODE
+                            and not _TRIMUL_RAW_CHANNEL_MOVES
+                            and (mask_u is None or mask_moved is not None)
+                            and memory_config.buffer_type == ttnn.BufferType.DRAM):
+                        a_chunk, b_chunk = self._gated_rowblocked(
+                            x_norm_in, gp_in_chunks[i], bias_i, H,
+                            int(gp_in_chunks[i].shape[-1]) // 4, perm_a, perm_b, memory_config)
+                    if a_chunk is not None:
+                        gated = True
                     else:
-                        g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
-                        ttnn.deallocate(gp_in_fused)
-                        a_chunk = ttnn.multiply_(
-                            p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                        gp_in_fused = (
+                            self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config,
+                                               bias_i)
+                            if row_norm else
+                            _in_proj_matmul(x_norm_in, gp_in_chunks[i],
+                                            self.compute_kernel_config, memory_config, bias_i)
                         )
-                        b_chunk = ttnn.multiply_(
-                            p_in_b, g_in_b, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                        slice_c = int(gp_in_fused.shape[-1]) // 4
+                        # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
+                        # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
+                        # ride inside the kernel too, so those keep the four-way split.
+                        # `mask_moved is not None` means the mask has been moved past the channel
+                        # move and no longer sits between the gate and it, so it no longer blocks the
+                        # fused pair. Without the flag this is the condition it always was.
+                        gated = (
+                            (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
+                            and (mask_u is None or mask_moved is not None)
+                            and not _FAST_MODE
+                            and not _TRIMUL_RAW_CHANNEL_MOVES
+                            and memory_config.buffer_type == ttnn.BufferType.DRAM
+                            and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
                         )
-                        ttnn.deallocate(g_in_a)
-                        ttnn.deallocate(g_in_b)
-                        if mask_u is not None and mask_moved is None:
-                            a_chunk = ttnn.multiply_(a_chunk, mask_u)
+                        if gated:
+                            a_chunk = self._transform_chunk_gated(
+                                gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
+                                n_pairs // group > 1,
+                            )
+                            b_chunk = self._transform_chunk_gated(
+                                gp_in_fused, (3 * slice_c, slice_c, slice_c), perm_b, memory_config,
+                                n_pairs // group > 1,
+                            )
+                            ttnn.deallocate(gp_in_fused)
+                        else:
+                            g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
+                            ttnn.deallocate(gp_in_fused)
+                            a_chunk = ttnn.multiply_(
+                                p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                            )
+                            b_chunk = ttnn.multiply_(
+                                p_in_b, g_in_b, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                            )
+                            ttnn.deallocate(g_in_a)
+                            ttnn.deallocate(g_in_b)
+                            if mask_u is not None and mask_moved is None:
+                                a_chunk = ttnn.multiply_(a_chunk, mask_u)
 
-                        a_chunk = self._transform_chunk(
-                            a_chunk, perm_a, memory_config=memory_config, realloc=n_pairs // group > 1,
-                        )
-                        b_chunk = self._transform_chunk(
-                            b_chunk, perm_b, memory_config=memory_config, realloc=n_pairs // group > 1,
-                        )
+                            a_chunk = self._transform_chunk(
+                                a_chunk, perm_a, memory_config=memory_config, realloc=n_pairs // group > 1,
+                            )
+                            b_chunk = self._transform_chunk(
+                                b_chunk, perm_b, memory_config=memory_config, realloc=n_pairs // group > 1,
+                            )
                     if mask_moved is not None:
                         # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
                         # declines the in-place form for a broadcast operand, take `ttnn.multiply`

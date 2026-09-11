@@ -757,11 +757,18 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if not _ENABLED_GATED:
         return False
     shape = [int(d) for d in xw.shape]
-    if len(shape) != 4 or shape[0] != 1 or shape[1] != shape[2]:
+    # `xw` is either the whole [1, N, N, 4*slice_c] projection or ONE ROW BLOCK of it,
+    # [1, R, N, 4*slice_c] with R a whole number of tiles, which is the mode `_build_gated`'s
+    # `out`/`row_off` arguments exist for. N is the DESTINATION width in both cases, so it comes
+    # off axis 2 and never off axis 1. The whole-tensor case keeps its exact old window: any N,
+    # including the 298 that production runs and that is not a tile multiple.
+    if len(shape) != 4 or shape[0] != 1:
         return _reject("gated_shape", shape)
+    if shape[1] != shape[2] and not (shape[1] < shape[2] and shape[1] % TILE_H == 0):
+        return _reject("gated_rowblock", shape)
     if shape[3] != 4 * slice_c or slice_c % TILE_W:
         return _reject("gated_slice", shape)
-    N = shape[1]
+    N = shape[2]
     if xw.dtype != ttnn.bfloat16 or xw.layout != ttnn.TILE_LAYOUT:
         return _reject("gated_dtype_layout", shape)
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
@@ -772,6 +779,12 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"gated_window_{bt}", shape)
-    if _split_plan(xw.device(), ((N + TILE_H - 1) // TILE_H) ** 2) is None:
+    # Screen the group count the DESCRIPTOR actually builds -- Nrt * Nt * Ct, exactly as
+    # `_build_gated` computes it and asserts on. The old `Nt ** 2` is a different number, and a
+    # gate that screens a different number from the one the build uses can pass a shape the build
+    # then refuses (`pcc-gate-can-pass-without-the-op-it-names`).
+    nt = (N + TILE_H - 1) // TILE_H
+    nrt = (shape[1] + TILE_H - 1) // TILE_H
+    if _split_plan(xw.device(), nrt * nt * (slice_c // TILE_W)) is None:
         return _reject("gated_work_split", shape)
     return True
