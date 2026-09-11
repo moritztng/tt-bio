@@ -1,4 +1,4 @@
-# The 3.21x outlier was two sub-units spliced together. Measured apart, the pair-track Transition is 3.47x, and it is neither its bytes nor its cores.
+# The 3.21x outlier was two sub-units spliced together. Measured apart, the pair-track Transition is 3.47x, it is neither its bytes nor its cores, and the one lever it hands over is 1.0195x bit-exact.
 
 `ws:b2x-pairtrack-deficit`, R3 of `ws:boltz2-2x-orchestrator`. One card: **qb2 physical card 0**,
 one Blackhole processor of a p300c, 11x10 grid, ttnn 0.68.0, commit `d4561d80`. Every device
@@ -15,7 +15,7 @@ dispatch measurement. No model code changed.
 | DISCRIMINATOR | **MIXED**, and BYTES is falsified. A buffer-address recount of the isolated pair call gives **474.235 MB** -- the same number the campaign used -- which is 1.066 ms of 7.9455 at 445.0 GB/s. Both ownership rules agree exactly. |
 | CORE-UTIL | **64 of 110.** The body's fc1 saturates at 64 cores: 30.425 us at 8x8 against 28.237 us at 11x10. 1 core to 110 is 32.7x, 29.7 % parallel efficiency. |
 | DEFICIT-SECONDS | **1.661 s** of the campaign's 6.3 s, fully apportioned into four named mechanisms below. |
-| REACHABLE | **1.018x** bit-exact-candidate, **1.032x** with the gated silu unfuse. Not 1.5x: the two 4D Transitions are 2.364 s of the 23.710 s fold, so deleting them **entirely** is 1.11x. |
+| REACHABLE | **1.0195x, measured end-to-end and bit-exact** (23.955 -> 23.496 s, four paired deltas all negative, every fold `4f3995a69be5d610`), ~1.032x with the gated silu unfuse on top. Not 1.5x: the two 4D Transitions are 2.364 s of the 23.710 s fold, so deleting them **entirely** is 1.11x. |
 
 ## 1. The two tracks, each against its own bytes and its own op count
 
@@ -149,15 +149,26 @@ plus 0.823 ms/call of L1-only `multiply_` and 0.559 ms of `layer_norm` at 27 % o
 Transitions -- 280 x 5.6525 ms = 1.583 s pair, 16 x 4.882 ms = 0.078 s MSA -- and every second of
 it is now attributed to (a), (b), (c) or (d) above.
 
-**REACHABLE**, projected from the measured per-call deltas times the measured call counts, against
-the 23.710 s fold:
+**REACHABLE.** The row block was taken end-to-end rather than left as a projection.
+`hchunk_ab.py`, `tt_baseline.build_fold` driving the production `predict_one`, arms paired and
+interleaved in one process with the within-pair order alternating and a discarded cold fold per
+arm, 4 pairs:
 
-| arm | s/fold | fold | x |
+| arm | warm folds s | median s | within-arm spread |
 |---|---|---|---|
-| row block 16 -> 32 (pair) / 64 (MSA) | 0.415 | 23.295 | **1.0178** |
-| unfused silu, release-gated, not bit-exact | 0.451 | 23.259 | 1.0194 |
-| both | 0.728 | 22.982 | **1.0317** |
-| the 4D Transitions deleted entirely | 2.364 | 21.346 | 1.107 |
+| `TT_BIO_TRANSITION_H_CHUNK=32` | 23.541, 23.462, 23.529, 23.444 | **23.496** | 0.415 % |
+| `=16`, what production derives | 23.894, 23.948, 23.961, 23.995 | **23.955** | 0.420 % |
+
+**Paired deltas -0.353, -0.486, -0.431, -0.551 s, median -0.459 s, all four negative and the
+smallest 3.5x the within-arm spread. 1.0195x.** The per-call projection said 0.415 s, so it was
+9.6 % low -- the fold gains slightly more than the two tracks' device deltas alone predict.
+
+| arm | s/fold | fold | x | status |
+|---|---|---|---|---|
+| row block 16 -> 32 | **0.459** | **23.496** | **1.0195** | MEASURED, bit-exact |
+| unfused silu, not bit-exact | 0.451 | 23.259 | 1.0194 | projected, release-gated |
+| both (row block 32 + unfuse) | 0.728 | 22.982 | **1.0317** | projected |
+| the 4D Transitions deleted entirely | 2.364 | 21.346 | 1.107 | the ceiling of this sub-unit |
 
 The last row is the one that decides the round: **this sub-unit cannot produce 1.5x.** Even free,
 it is 1.11x. The 3.21x label made it look like the place where a multiple was hiding; measured
@@ -173,25 +184,40 @@ is 1.018x bit-exact-candidate plus a 1.019x arm that is already gated.
    need a release gate and a size ladder, not a self-merge. Pair track tops out at 32, MSA at 64,
    and the wall is documented non-monotonic in this height, so the arms have to be measured and
    not derived.
-2. **A fold-level A/B is still owed.** `hchunk_ab.py` here drives `tt_baseline.measure`'s paired
-   interleaved `--ab-env` A/B with per-fold CIF digests, which is the right instrument, and it
-   currently stops on `measure`'s `assert cold_metrics.get("msa")` in this worktree even though
-   the same `build_fold` seeds and folds correctly from `pairtrack.py`. Fix that assert path, run
-   `32,16` (arm `16` forces what production derives, so it doubles as the knob's own A/A), and the
-   0.415 s projection becomes a fold number with a digest. Row blocking is row-local by
-   construction -- the shipped comment says block boundaries do not change an output byte -- so
-   bit-exactness against `4f3995a69be5d610` is the expected result and the thing to check first.
-3. **Do not re-attack the bytes of this sub-unit.** `chunk` and `concat` are at 76-85 % of the
+2. **The fold number is taken; only the code change is owed.** 1.0195x, bit-exact, above. What is
+   left is landing the row block as a derivation instead of a forced environment variable, which
+   is item 1.
+3. **`tt_baseline.measure`'s `--ab-env` path cannot run a boltz-2 A/B at all**, which is a harness
+   bug worth fixing centrally. It asserts `cold_metrics.get("msa")`, but the boltz-2 branch of
+   `_WorkerState.predict_one` builds its metrics in `tt_bio.main.write_result`, which never sets
+   an `msa` key -- `worker.py` sets it itself on the esmfold2, opendde, protenix, rf3 and
+   openfold3 paths and the boltz-2 path was missed. So the assert is a **false negative for
+   boltz-2 specifically**, not a fold that ran without an MSA. `hchunk_ab.py` works around it by
+   proving the MSA with the thing that actually matters: arm `16` reproduces `4f3995a69be5d610`,
+   the published digest for this protocol with its MSA, which a single-sequence fold cannot. The
+   central fix is one line in the boltz-2 metrics dict, and it belongs to whoever next touches
+   `worker.py`.
+4. **Do not re-attack the bytes of this sub-unit.** `chunk` and `concat` are at 76-85 % of the
    measured roof and carry 85 % of its DRAM traffic.
 
 ## PARITY
 
-No model code changed, so there is nothing to be bit-exact about: every leg either replays
-unmodified shipped `Transition.__call__` with its own cloned argument, or rebuilds one of its ops
-in isolation with the module's own weights. The `TT_BIO_UNFUSED_SILU` and
-`TT_BIO_TRANSITION_H_CHUNK` arms are set on the module global and in the environment for the
-duration of a replay and restored after; both are shipped screen hooks, both default off/unset,
-and neither is committed as a default here.
+**The row-block arm is bit-exact, measured.** All **10 folds** of the A/B -- 2 cold and 8 warm,
+both arms -- wrote
+
+    4f3995a69be5d610  cdk2x2_512.cif
+
+byte-identical to `b2x-baseline-attrib`'s current-main reference. So `TT_BIO_TRANSITION_H_CHUNK=32`
+changes no output byte, which is what row-local blocking predicts, and no `cdk2x2_298` control is
+owed because a bit-identical arm has nothing to control against. The baseline arm reproducing the
+same digest is also the positive proof that these folds ran the published protocol **with** their
+MSA, which is the check `tt_baseline.measure` tries and cannot make on this model.
+
+No model code changed on this branch. Every measurement leg either replays unmodified shipped
+`Transition.__call__` with its own cloned argument, or rebuilds one of its ops in isolation with
+the module's own weights. The `TT_BIO_UNFUSED_SILU` and `TT_BIO_TRANSITION_H_CHUNK` arms are set
+on the module global and in the environment for the duration of a replay and restored after; both
+are shipped screen hooks, both default off/unset, and neither is committed as a default here.
 
 The fold this pass grabbed from ran in 25.028 s against the campaign's 23.710 s, because a sibling
 worker was folding on card 1 of the same box (loadavg 4.74 at start) and this pass did not hold
@@ -205,7 +231,8 @@ box, which is the instrument's own control.
 * `v1_msatrack_512_qb2c0.json`, `v1_msatrack.log`. The first pass, before the tracks were told
   apart: kept because reproducing the published 8.705 ms from a volume-based grab is the evidence
   for section 1.
-* `hchunk_ab.py`. The fold-level A/B driver, blocked as described in section 5.
+* `hchunk_ab.py` -> `hchunk_ab_512_qb2c0.json`, `hchunk_ab.log`. The fold-level paired A/B,
+  4 pairs, per-fold CIF digest and loadavg.
 
 Each is `TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:b2x-pairtrack-deficit
 python3 perf/b2x_pairtrack/<script>.py --out <json>` from the repo root with `PYTHONPATH` at the
