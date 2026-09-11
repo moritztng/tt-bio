@@ -71,7 +71,7 @@ def main() -> int:
         keys, xyz = read_atoms(cifs[0])
         assert len(keys[0]) == 4, f"expected 4 key columns, got {keys[0]}"
         seq = np.array([int(k[1]) for k in keys])
-        arm = d.name.split("_")[1]
+        arm = d.name.split("_", 1)[1]          # 512_base_0 -> base_0, so N per arm survive
         data[arm] = {"keys": keys, "xyz": xyz,
                      "d1": np.where(seq <= a.split)[0], "d2": np.where(seq > a.split)[0],
                      "ca": np.array([i for i, k in enumerate(keys) if k[2] == "CA"])}
@@ -98,12 +98,18 @@ def main() -> int:
         R1, r1 = kabsch(v["xyz"][v["d1"]], R["xyz"][R["d1"]])
         R2, r2 = kabsch(v["xyz"][v["d2"]], R["xyz"][R["d2"]])
         hinge = angle_between(R1, R2)
+        # the whole-molecule number with the hinge taken out: both domains on their own optimal
+        # superposition, pooled over the same atoms the whole-molecule column uses. This is the
+        # quantity an accuracy bar written for a single rigid body actually means.
+        n1, n2 = len(v["d1"]), len(v["d2"])
+        hinge_free = math.sqrt((n1 * r1 * r1 + n2 * r2 * r2) / (n1 + n2))
         artifact = max(r1, r2) < 1.5 and whole > 2.0 * max(r1, r2)
         out["arms"][arm] = {
             "whole_all_atom_A": round(whole, 5), "whole_ca_A": round(wca, 5),
             "domain1_all_atom_A": round(r1, 5), "domain2_all_atom_A": round(r2, 5),
+            "hinge_free_all_atom_A": round(hinge_free, 5),
             "hinge_deg": round(hinge, 3), "hinge_artifact_signature": bool(artifact)}
-        print(f"    {arm:5s} whole {whole:8.4f} A (CA {wca:7.4f})   "
+        print(f"    {arm:7s} whole {whole:8.4f} A (CA {wca:7.4f})   hinge-free {hinge_free:7.4f}   "
               f"domain1 {r1:7.4f}   domain2 {r2:7.4f}   hinge {hinge:7.2f} deg   "
               f"{'ARTIFACT' if artifact else 'not the artifact signature'}")
 

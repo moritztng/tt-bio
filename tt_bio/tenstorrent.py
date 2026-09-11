@@ -1078,13 +1078,31 @@ _SDPA_WIDE_Q = env_flag("TT_BIO_SDPA_WIDE_Q", True)
 # 160.53 us, pad in TILE 57.31 us (2.8011x). At the fold: -0.124 s at 512 aa, bit-exact.
 _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
 
-# Release-gated and OFF: it changes the K dim of the atom->token aggregation matmul
+# ON by default since 2026-09-11. It sizes the atom axis on the real atom count
+# (ceil(N/448)*448 = 4480 at 512 aa) instead of padded_seq * 14 = 7168, so the atom transformer
+# runs 140 windows where the token-derived pad ran 224. **1.0470x on the 512 aa fold**, 1.157x on
+# the diffusion sampler, 0.997 s, measured under benchlock on an idle card against a 0.19 % A/A
+# floor (n=3 per arm, perf/b2x-integrate/ab512.json).
+#
+# It changes the K dim of the atom->token aggregation matmul
 # ``ttnn.matmul(a, atom_to_token_normed, transpose_a=True)``, which is the one
 # op in the atom path that reduces OVER the atom axis rather than along it. Every other use of
 # the pad is masked (-1e9 on padded key columns), zero (padded atom_to_token rows), or sliced
-# away (``[:, :N, :]``), so the arm is bit-exact everywhere except through that one K change.
-# Predicted 1.026-1.035x on the 512 aa cell (perf/b2x-atom-padding/predict.json).
-_ATOM_AXIS_BUCKET = env_flag("TT_BIO_ATOM_AXIS_BUCKET", False)
+# away (``[:, :N, :]``), so the arm is bit-exact everywhere except through that one K change --
+# and that regrouping only happens at sizes where the two buckets differ. Byte-identical at
+# 298 aa (CIF sha256 71653ff72cbf01b0, plDDT 0.909487, both arms). At 512 aa it is not, and the
+# difference is the chimeric fixture's inter-domain hinge: both pseudo-domains superposed
+# separately are 1.3072 / 0.9596 A with a 62.88 deg rigid hinge between them, which is the same
+# signature and the same magnitude as the shipped default's own drift from the published
+# 2026-08-26 perf cell (1.3141 / 0.9970 A, 53.34 deg). perf/b2x-integrate/split512.json.
+#
+# It also closes a crash rather than risking one: padded_seq * 14 is a multiple of the 32-atom
+# attention window only because padded_seq is a multiple of 32, so with TT_BIO_TOKEN_BUCKET=0
+# a 298-token target asked for 4172 atoms and the window reshape could not partition it.
+# ceil(N/448)*448 is a multiple of 32 for any composition. TT_BIO_ATOM_AXIS_BUCKET=0 restores
+# the token-derived pad for an A/B.
+_ATOM_AXIS_BUCKET = env_flag("TT_BIO_ATOM_AXIS_BUCKET", True)
+ATOM_AXIS_BUCKET_STATS = [0, 0]      # [served, declined], one pair per fold
 
 # Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
 # DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
@@ -1107,10 +1125,21 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
-# NOT bit-exact: the fused kernel keeps the exponentiated scores in a bf16 circular buffer.
+# ON by default since 2026-09-11: **1.0522x on the 512 aa fold**, 1.170x on the diffusion
+# sampler, 1.100 s, same session and same floor as the atom bucket above.
+#
+# NOT bit-exact: the fused kernel keeps the exponentiated scores in a bf16 circular buffer, so it
+# carries the accuracy control the thresholds are written against (the 4649 decision: cdk2x2_298,
+# monomeric, no hinge, <=0.35 A CA passes). **CA RMSD 0.177490 A, all-atom 0.383745 A, against an
+# A/A structural floor of exactly 0.000000 A**, and plDDT goes UP, 0.909487 -> 0.913597.
+# perf/b2x-integrate/control298.json. At 512 aa it is 0.4916 / 0.3594 A per pseudo-domain with a
+# 2.52 deg hinge: 0.4412 A pooled with the hinge taken out, against a whole-molecule 0.6202 A that
+# is the hinge being read as error by a bar written for one rigid body.
+#
 # The trunk's 264 calls are deliberately NOT rerouted -- the trunk hands its pair bias over in
 # L1, where ttnn SDPA TT_FATALs, and the forced spill is what confounded the predecessor's arm.
-_B2_TOKEN_DIT_SDPA = env_flag("BOLTZ2_TOKEN_DIT_SDPA", False)
+_B2_TOKEN_DIT_SDPA = env_flag("BOLTZ2_TOKEN_DIT_SDPA", True)
+B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
 
 # C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
 # fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
@@ -5115,7 +5144,9 @@ _TRIMUL_TAIL_F1 = os.environ.get(
 # A/A floor -0.74 %), and 1.0543x re-measured against this default on qb2 card 3 when it landed
 # (22.843 s against 24.083 s with the flag forced off, 1.0612x paired per rep, 20 warm folds,
 # A/A floor +0.125 %, two sibling benchmarks co-tenanted on the host). Bit-exact in both: every
-# arm of every rep writes CIF sha256 4f3995a69be5d610 at plDDT 0.849627.
+# arm of every rep writes CIF sha256 4f3995a69be5d610 at plDDT 0.849627 (that digest was the
+# shipped default until the two b2x-integrate levers above landed; the default now writes
+# dd1c2a12f97772fb at plDDT 0.845488).
 # perf/b2x_trimul/fold_ab_512_landed_qb2c3.json, state/b2x-land-verified.md.
 #
 # Stays a runtime switch so the arms can still interleave in one process.
@@ -6928,6 +6959,13 @@ class AttentionPairBias(Module):
                 ttnn.deallocate(z)
                 z = ttnn.permute(zb, (0, 3, 1, 2))
                 ttnn.deallocate(zb)
+            # Named once so the census counter below cannot drift from the branch it counts.
+            token_dit_sdpa = (self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
+                              and seq_mask is None
+                              and not (self.dtype == ttnn.float32
+                                       and self.fp32_raw_matmul_attention))
+            if self.token_dit and _B2_TOKEN_DIT_SDPA:
+                B2_TOKEN_DIT_SDPA_STATS[0 if token_dit_sdpa else 1] += 1
             if self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention:
                 # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
                 # path computes attention as raw matmul. SDPA scales its additive mask
@@ -6948,8 +6986,7 @@ class AttentionPairBias(Module):
                                    compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(attn)
                 ttnn.deallocate(sc)
-            elif (self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
-                  and seq_mask is None):
+            elif token_dit_sdpa:
                 # S6. The bias is the token DiT's own rollout-invariant `bias_token`, already
                 # DRAM-resident, so nothing is spilled to reach the fused kernel. SDPA scales its
                 # additive mask along with QK, so scale=head_dim**-0.5 reproduces the unfused
@@ -9951,8 +9988,10 @@ class DiffusionModule(TorchWrapper):
             # Bucket on the real atom count. Covers any composition, so it needs no
             # nucleic-acid escape, and every value it can produce is already in the
             # token-derived set (see ATOM_BUCKET).
+            ATOM_AXIS_BUCKET_STATS[0] += 1
             N_padded = -(-N // ATOM_BUCKET) * ATOM_BUCKET
         else:
+            ATOM_AXIS_BUCKET_STATS[1] += 1
             N_padded = padded_seq * MAX_ATOMS_PER_TOKEN
             if N > N_padded:
                 # The protein-derived bucket (Trp=14 atoms/token) under-sizes targets with

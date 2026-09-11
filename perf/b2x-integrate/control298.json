@@ -1,0 +1,110 @@
+{
+ "cifdir": "perf/b2x-integrate/cif298",
+ "ref": "base_0",
+ "thresholds_A": {
+  "pass": 0.35,
+  "hold": 0.6,
+  "source": "state/answered/4649-decision.md"
+ },
+ "n_atoms": 2397,
+ "n_ca": 298,
+ "pairwise": [
+  {
+   "kind": "A/B",
+   "a": "AB_0",
+   "b": "A_0",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "AB_0",
+   "b": "B_0",
+   "all_atom_A": 0.383745,
+   "ca_A": 0.17749
+  },
+  {
+   "kind": "A/B",
+   "a": "AB_0",
+   "b": "base_0",
+   "all_atom_A": 0.383745,
+   "ca_A": 0.17749
+  },
+  {
+   "kind": "A/B",
+   "a": "AB_0",
+   "b": "base_1",
+   "all_atom_A": 0.383745,
+   "ca_A": 0.17749
+  },
+  {
+   "kind": "A/B",
+   "a": "A_0",
+   "b": "B_0",
+   "all_atom_A": 0.383745,
+   "ca_A": 0.17749
+  },
+  {
+   "kind": "A/B",
+   "a": "A_0",
+   "b": "base_0",
+   "all_atom_A": 0.383745,
+   "ca_A": 0.17749
+  },
+  {
+   "kind": "A/B",
+   "a": "A_0",
+   "b": "base_1",
+   "all_atom_A": 0.383745,
+   "ca_A": 0.17749
+  },
+  {
+   "kind": "A/B",
+   "a": "B_0",
+   "b": "base_0",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "B_0",
+   "b": "base_1",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_0",
+   "b": "base_1",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  }
+ ],
+ "vs_ref": {
+  "AB_0": {
+   "all_atom_A": 0.383745,
+   "ca_A": 0.17749,
+   "verdict_all_atom": "HOLD",
+   "verdict_ca": "PASS"
+  },
+  "A_0": {
+   "all_atom_A": 0.383745,
+   "ca_A": 0.17749,
+   "verdict_all_atom": "HOLD",
+   "verdict_ca": "PASS"
+  },
+  "B_0": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "base_1": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  }
+ },
+ "AA_structural_floor_A": 0.0
+}

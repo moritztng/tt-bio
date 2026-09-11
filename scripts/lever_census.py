@@ -94,7 +94,13 @@ LEVERS = [
     # what it replaces is 6000 per-step slices, which the counter cannot see.
     ("B2_BIAS_SLICE_HOIST", "tt_bio.tenstorrent", "_B2_BIAS_SLICE_HOIST", None, "wrap"),
     ("B2_ADALN_S_MEMO", "tt_bio.tenstorrent", "_B2_ADALN_S_MEMO", None, "wrap"),
-    ("B2_TOKEN_DIT_SDPA", "tt_bio.tenstorrent", "_B2_TOKEN_DIT_SDPA", None, "off-by-design"),
+    # Both default ON since 2026-09-11 (state/b2x-integrate.md). They were invisible here while
+    # they were off: S6 carried no counter and the atom bucket had no row at all, so the census
+    # could not have told a shipped-on lever from a dark one.
+    ("B2_TOKEN_DIT_SDPA", "tt_bio.tenstorrent", "_B2_TOKEN_DIT_SDPA",
+     "tt_bio.tenstorrent.B2_TOKEN_DIT_SDPA_STATS", "stats"),
+    ("ATOM_AXIS_BUCKET", "tt_bio.tenstorrent", "_ATOM_AXIS_BUCKET",
+     "tt_bio.tenstorrent.ATOM_AXIS_BUCKET_STATS", "stats"),
     # The two size-conditioned L1 gates that `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa`
     # root-caused alongside K2. K2 has a counter of its own (TRIATT_PERSISTENT_MASK); these two
     # had none, so a census built on the table above could see one third of that defect.

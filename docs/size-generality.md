@@ -176,20 +176,23 @@ were measured on the same model for that reason, and a size ladder is what separ
 `TT_BIO_PROTENIX_TOKEN_BUCKET` and `TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE` still work for that family
 and are ANDed with the global.
 
-One exception, and it bites the off-lattice rung this page recommends. `TT_BIO_TOKEN_BUCKET=0`
-fails on Boltz-2 at any token count that is not already a multiple of 32. The diffusion path sizes
-its atom axis as `padded_seq * 14`, so with the bucket off 298 tokens ask for 4172 atoms, the
-32-atom attention window cannot partition that, and the fold dies on `Invalid arguments to reshape`
-before the first sampling step. Confirmed on Blackhole at 298 aa, 2026-09-11. So the two things
-this page suggests -- an off-lattice rung and the fleet-wide off switch -- cannot be used together
-on Boltz-2. Use one or the other, or add `TT_BIO_ATOM_AXIS_BUCKET=1`.
+There used to be an exception here, and it bit the off-lattice rung this page recommends.
+`TT_BIO_TOKEN_BUCKET=0` failed on Boltz-2 at any token count that is not already a multiple of 32:
+the diffusion path sized its atom axis as `padded_seq * 14`, so with the bucket off 298 tokens
+asked for 4172 atoms, the 32-atom attention window could not partition that, and the fold died on
+`Invalid arguments to reshape` before the first sampling step. Confirmed on Blackhole at 298 aa,
+2026-09-11, and closed the same day by the lever below, which is now on by default. Turning
+`TT_BIO_ATOM_AXIS_BUCKET=0` back off together with `TT_BIO_TOKEN_BUCKET=0` reopens it.
 
-`TT_BIO_ATOM_AXIS_BUCKET` sizes the atom axis on the real atom count instead of assuming every
-token is a tryptophan, which is what the 14 above is. It is a multiple of 32 for any composition,
-so it closes that crash by construction, and at 512 aa it drops the axis from 7168 atoms to 4480.
-It is **off by default** and is not a shipped path: the shorter axis changes the contraction length
-of the one matmul that reduces over atoms, so the result is bit-exact at some sizes and not at
-others. Measurements and the accuracy control are in `perf/b2x-flag-levers/`.
+`TT_BIO_ATOM_AXIS_BUCKET` sizes the atom axis on the real atom count, `ceil(N/448)*448`, instead of
+assuming every token is a tryptophan, which is what the 14 above is. It is a multiple of 32 for any
+composition, so it closes that crash by construction, and at 512 aa it drops the axis from 7168
+atoms to 4480 and the atom transformer from 224 attention windows to 140. **On by default since
+2026-09-11**, worth 1.0470x on the 512 aa fold. The shorter axis changes the contraction length of
+the one matmul that reduces over atoms, so the answer is byte-identical at some sizes (298 aa, CIF
+sha256 `71653ff72cbf01b0` either way) and reassociated at others (512 aa). Measurements, the
+accuracy control and the domain-split reading of the 512 aa difference are in
+`perf/b2x-integrate/`; `TT_BIO_ATOM_AXIS_BUCKET=0` restores the token-derived pad for an A/B.
 
 Note what this does to the ladder. Every rung is a multiple of 64 and therefore of 32 too, so the
 residue axis pads to 0 at all four and the arm cannot price this lever on Protenix-v2. It still sees
