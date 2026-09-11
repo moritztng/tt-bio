@@ -2112,7 +2112,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called [carried from rung 768]"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -2120,7 +2120,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it [carried from rung 768]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -2142,7 +2142,7 @@
                   "k_tiles=4:(4,4)": 192,
                   "k_tiles=4:(4,1)": 576
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x192)"
+                "reason": "declines all 768 calls on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x192: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2153,7 +2153,7 @@
                 "rejects": {
                   "k_tiles=4": 576
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x576)"
+                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2192,7 +2192,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung [carried from rung 768]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2203,7 +2203,7 @@
                 "rejects": {
                   "fill_preconditions": 577
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on fill_preconditions x577)"
+                "reason": "declines all 577 calls on fill_preconditions x577: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung [carried from rung 768]"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -2253,7 +2253,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module [carried from rung 768]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -2261,7 +2261,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -2283,7 +2283,7 @@
                 "declined": 1,
                 "frac": 0.0,
                 "how": "setlen",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "overflow set holds 1 shape(s): one q_chunk overflows its per-core circular-buffer budget from 896 up, so _tri_att_q_chunks records that shape once and every later call skips straight to a narrower chunk that fits. The set is empty at 256, 512, 640 and 768 and holds the same one shape at 896 and 1024; opendde reads the same single shape on this card from 768 up. That is the L1 ceiling _tri_att_q_chunks documents as discovered rather than declared, not a lever left dark by a tuning choice. Recorded, not blessed: the arm gates this set size exactly, so any move either way is a finding, and getting it back to 0 is a real win someone should take"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -2366,7 +2366,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called [carried from rung 768]"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -2374,7 +2374,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it [carried from rung 768]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -2396,7 +2396,7 @@
                   "k_tiles=4:(4,4)": 192,
                   "k_tiles=4:(4,1)": 576
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x192)"
+                "reason": "declines all 768 calls on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x192: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2407,7 +2407,7 @@
                 "rejects": {
                   "k_tiles=4": 576
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x576)"
+                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2446,7 +2446,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung [carried from rung 768]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2457,7 +2457,7 @@
                 "rejects": {
                   "fill_preconditions": 673
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on fill_preconditions x673)"
+                "reason": "declines all 673 calls on fill_preconditions x673: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung [carried from rung 768]"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -2507,7 +2507,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module [carried from rung 768]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -2515,7 +2515,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -2537,7 +2537,7 @@
                 "declined": 1,
                 "frac": 0.0,
                 "how": "setlen",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "overflow set holds 1 shape(s): one q_chunk overflows its per-core circular-buffer budget from 896 up, so _tri_att_q_chunks records that shape once and every later call skips straight to a narrower chunk that fits. The set is empty at 256, 512, 640 and 768 and holds the same one shape at 896 and 1024; opendde reads the same single shape on this card from 768 up. That is the L1 ceiling _tri_att_q_chunks documents as discovered rather than declared, not a lever left dark by a tuning choice. Recorded, not blessed: the arm gates this set size exactly, so any move either way is a finding, and getting it back to 0 is a real win someone should take"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",

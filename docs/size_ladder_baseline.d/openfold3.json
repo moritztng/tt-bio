@@ -2074,7 +2074,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module [carried from rung 768]"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -2082,7 +2082,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -2090,7 +2090,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -2098,7 +2098,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -2106,7 +2106,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -2114,7 +2114,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -2122,7 +2122,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -2167,7 +2167,7 @@
                   "k_tiles=4:(4,4)": 848,
                   "k_tiles=4:(4,1)": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424, k_tiles=2:(2,2) x28)"
+                "reason": "declines all 1316 calls on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424, k_tiles=2:(2,2) x28, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2179,7 +2179,7 @@
                   "k_tiles=2": 16,
                   "k_tiles=4": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424, k_tiles=2 x16)"
+                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2215,7 +2215,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung [carried from rung 768]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2223,7 +2223,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from rung 768]"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -2276,7 +2276,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from rung 768]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -2284,7 +2284,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -2329,7 +2329,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module [carried from rung 768]"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -2337,7 +2337,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -2345,7 +2345,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -2353,7 +2353,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -2361,7 +2361,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -2369,7 +2369,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -2377,7 +2377,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module [carried from rung 768]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -2422,7 +2422,7 @@
                   "k_tiles=4:(4,4)": 848,
                   "k_tiles=4:(4,1)": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424, k_tiles=2:(2,2) x48)"
+                "reason": "declines all 1336 calls on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424, k_tiles=2:(2,2) x48, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2434,7 +2434,7 @@
                   "k_tiles=2": 16,
                   "k_tiles=4": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424, k_tiles=2 x16)"
+                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2470,7 +2470,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung [carried from rung 768]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2478,7 +2478,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from rung 768]"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -2531,7 +2531,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from rung 768]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -2539,7 +2539,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",

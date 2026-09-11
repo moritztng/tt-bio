@@ -1044,7 +1044,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -1052,7 +1052,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -1060,7 +1060,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -1068,7 +1068,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -1076,7 +1076,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -1084,7 +1084,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -1092,7 +1092,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -1114,7 +1114,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist [carried from rung 768]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -1133,7 +1133,7 @@
                   "k_tiles=4:(4,4)": 848,
                   "k_tiles=4:(4,1)": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424)"
+                "reason": "declines every call on k_tiles=4: protenix-v1 carries c_z 128, which is 4 tiles, and the guard admits an 8-tile weight K dim only. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs. Same k_tiles=4 refusal as TRIMUL_TAIL_F1; both guards were fitted to protenix-v2's c_z 256 [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1144,7 +1144,7 @@
                 "rejects": {
                   "k_tiles=4": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)"
+                "reason": "declines all 424 calls on k_tiles=4 x424: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1166,7 +1166,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated channel move serves this rung instead (REBLOCK_PERMUTE_GATED, 848 calls at 512, 640 and 768), so the ungated call site is not reached [carried from rung 768]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1241,7 +1241,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module [carried from rung 768]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1249,7 +1249,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -1264,7 +1264,7 @@
                 "declined": 424,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 424 calls: the 768x768x128 pair transpose no longer fits the L1 budget, so it goes through DRAM and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 424 calls instead. Exactly one of the two serves at every rung, and on this 11x10 grid the L1-residency boundary sits between 640 and 768 [carried from rung 768]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1295,7 +1295,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -1303,7 +1303,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -1311,7 +1311,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -1319,7 +1319,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -1327,7 +1327,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -1335,7 +1335,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -1343,7 +1343,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever (tt_bio/esmc.py); a protenix-v1 fold does not run that module [carried from rung 768]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -1365,7 +1365,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the lever is counted off FP32_SOFTMAX_STATS['calls'], which is 0 at every rung \u2014 protenix-v1's attention never enters the fp32-softmax path, so there is no per-call bias to hoist [carried from rung 768]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -1384,7 +1384,7 @@
                   "k_tiles=4:(4,4)": 848,
                   "k_tiles=4:(4,1)": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424)"
+                "reason": "declines every call on k_tiles=4: protenix-v1 carries c_z 128, which is 4 tiles, and the guard admits an 8-tile weight K dim only. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs. Same k_tiles=4 refusal as TRIMUL_TAIL_F1; both guards were fitted to protenix-v2's c_z 256 [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1395,7 +1395,7 @@
                 "rejects": {
                   "k_tiles=4": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)"
+                "reason": "declines all 424 calls on k_tiles=4 x424: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1417,7 +1417,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the gated channel move serves this rung instead (REBLOCK_PERMUTE_GATED, 848 calls at 512, 640 and 768), so the ungated call site is not reached [carried from rung 768]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1492,7 +1492,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: it lives in boltz-2's DiffusionModule._hoist_layer_bias, and protenix-v1 does not run that module [carried from rung 768]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1500,7 +1500,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: AdaLN.s_terms memoises only when self.atom_level, which is boltz-2's atom-level diffusion; protenix-v1 runs the token-level AdaLN [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -1515,7 +1515,7 @@
                 "declined": 424,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 424 calls: the 768x768x128 pair transpose no longer fits the L1 budget, so it goes through DRAM and PAIR_TRANSPOSE_VIA_ROW_MAJOR serves all 424 calls instead. Exactly one of the two serves at every rung, and on this 11x10 grid the L1-residency boundary sits between 640 and 768 [carried from rung 768]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",

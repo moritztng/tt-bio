@@ -2132,7 +2132,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module [carried from rung 768]"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -2140,7 +2140,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -2148,7 +2148,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -2156,7 +2156,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -2164,7 +2164,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -2172,7 +2172,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -2180,7 +2180,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -2202,7 +2202,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path [carried from rung 768]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -2226,7 +2226,7 @@
                   "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 1088
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1088, k_tiles=2:(2,2) x316)"
+                "reason": "declines all 3660 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1088, k_tiles=2:(2,2) x316, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2238,7 +2238,7 @@
                   "k_tiles=2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=12 x1048, k_tiles=2 x160)"
+                "reason": "declines all 1208 calls on k_tiles=12 x1048, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2341,7 +2341,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -2349,7 +2349,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -2371,7 +2371,7 @@
                 "declined": 1,
                 "frac": 0.0,
                 "how": "setlen",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "overflow set holds 1 shape(s): ONE shape overflows its per-core circular-buffer budget at this rung and silently takes the slow SDPA path; the set is empty at 256 and 512. This is the third gate of the 2026-08-13 above-640 defect, still open on opendde where it closed on boltz-2. Recorded, not blessed: the arm fails on ANY growth of this set, and shrinking it to 0 is a real win someone should take [carried from rung 768]"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -2395,7 +2395,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module [carried from rung 768]"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -2403,7 +2403,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -2411,7 +2411,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -2419,7 +2419,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -2427,7 +2427,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -2435,7 +2435,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -2443,7 +2443,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -2465,7 +2465,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path [carried from rung 768]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -2489,7 +2489,7 @@
                   "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 1104
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1104, k_tiles=2:(2,2) x480)"
+                "reason": "declines all 3840 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1104, k_tiles=2:(2,2) x480, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2501,7 +2501,7 @@
                   "k_tiles=2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=12 x1048, k_tiles=2 x160)"
+                "reason": "declines all 1208 calls on k_tiles=12 x1048, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2604,7 +2604,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -2612,7 +2612,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -2634,7 +2634,7 @@
                 "declined": 1,
                 "frac": 0.0,
                 "how": "setlen",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "overflow set holds 1 shape(s): ONE shape overflows its per-core circular-buffer budget at this rung and silently takes the slow SDPA path; the set is empty at 256 and 512. This is the third gate of the 2026-08-13 above-640 defect, still open on opendde where it closed on boltz-2. Recorded, not blessed: the arm fails on ANY growth of this set, and shrinking it to 0 is a real win someone should take [carried from rung 768]"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
