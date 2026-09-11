@@ -1,0 +1,2432 @@
+{
+ "env": {
+  "started": "2026-09-11T18:43:51+0000",
+  "card": "0",
+  "commit": "d4561d80",
+  "loadavg_at_start": [
+   "4.74",
+   "3.26",
+   "1.94"
+  ],
+  "size": 512,
+  "BW_eff_GBs": 445.0,
+  "t_fixed_us": 6.36,
+  "prior_subunit_ms": 8.705,
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "grid_str": "(x=11,y=10)",
+  "loadavg_at_end": [
+   "4.68",
+   "3.52",
+   "2.12"
+  ],
+  "ended": "2026-09-11T18:44:50+0000"
+ },
+ "fold_s": 25.028,
+ "transition_calls_per_fold": 960,
+ "transition_4d_shapes_per_fold": {
+  "(1, 1024, 512, 64)": 16,
+  "(1, 512, 512, 128)": 280
+ },
+ "tracks": {
+  "pair": {
+   "shape": {
+    "z": [
+     1,
+     512,
+     512,
+     128
+    ],
+    "H": 512,
+    "W": 512,
+    "C": 128,
+    "hidden": 512,
+    "h_chunk_shipped": 16,
+    "n_chunks_shipped": 32,
+    "z_MB": 67.109,
+    "dtype": "DataType.BFLOAT16",
+    "l1_per_core_B_at_h": {
+     "16": 171585,
+     "32": 343170,
+     "64": 686340,
+     "128": 1372681
+    }
+   },
+   "bytes": {
+    "stack": {
+     "floor_MB": 470.172,
+     "once_MB": 268.845,
+     "real_MB": 474.235,
+     "real_w_MB": 201.327,
+     "real_r_MB": 272.908,
+     "n_ops": 258,
+     "by_op_MB": {
+      "ttnn.concat": [
+       201.327,
+       67.109,
+       134.218,
+       1
+      ],
+      "ttnn.chunk": [
+       201.327,
+       67.109,
+       134.218,
+       1
+      ],
+      "ttnn.linear": [
+       71.303,
+       67.109,
+       4.194,
+       32
+      ]
+     }
+    },
+    "range": {
+     "floor_MB": 470.172,
+     "once_MB": 268.845,
+     "real_MB": 474.235,
+     "real_w_MB": 201.327,
+     "real_r_MB": 272.908,
+     "n_ops": 258,
+     "by_op_MB": {
+      "ttnn.concat": [
+       201.327,
+       67.109,
+       134.218,
+       1
+      ],
+      "ttnn.chunk": [
+       201.327,
+       67.109,
+       134.218,
+       1
+      ],
+      "ttnn.linear": [
+       71.303,
+       67.109,
+       4.194,
+       32
+      ]
+     }
+    },
+    "devops": {
+     "MatmulDeviceOperation": 96,
+     "SliceDeviceOperation": 32,
+     "LayerNormDeviceOperation": 32,
+     "BinaryNgDeviceOperation": 32,
+     "ConcatDeviceOperation": 1
+    },
+    "n_devops": 193,
+    "bytes_explain_ms": 1.0657,
+    "ops_explain_ms": 1.2275
+   },
+   "floor": {
+    "fused": {
+     "us": 7945.49,
+     "R": 1,
+     "all_us": [
+      7945.49,
+      7941.2775,
+      7940.1898,
+      7958.6092,
+      7956.5215
+     ],
+     "spread_pct": 0.23,
+     "host_us_per_call": 3.569,
+     "ms": 7.9455
+    },
+    "unfused": {
+     "us": 6423.0872,
+     "R": 1,
+     "all_us": [
+      6423.0872,
+      6427.6785,
+      6425.3025,
+      6422.4433,
+      6416.4138
+     ],
+     "spread_pct": 0.18,
+     "host_us_per_call": 3.088,
+     "ms": 6.4231
+    },
+    "unfuse_gain_x": 1.237
+   },
+   "ops": {
+    "8": {
+     "layer_norm": {
+      "us": 17.7666,
+      "R": 48,
+      "all_us": [
+       17.7666,
+       17.7602,
+       17.7704,
+       17.7502,
+       17.8128
+      ],
+      "spread_pct": 0.35,
+      "host_us_per_call": 0.034,
+      "dram_MB": 1.0486,
+      "GBs": 59.0,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc1_fused_silu": {
+      "us": 63.8457,
+      "R": 48,
+      "all_us": [
+       63.9451,
+       63.8457,
+       63.7935,
+       63.712,
+       63.9104
+      ],
+      "spread_pct": 0.37,
+      "host_us_per_call": 0.03,
+      "dram_MB": 0.1311,
+      "GBs": 2.1,
+      "GFLOP": 0.5369,
+      "TFLOPs": 8.41
+     },
+     "fc1_bare": {
+      "us": 11.9502,
+      "R": 48,
+      "all_us": [
+       11.9502,
+       11.9794,
+       12.1628,
+       11.9013,
+       11.9422
+      ],
+      "spread_pct": 2.19,
+      "host_us_per_call": 0.031,
+      "dram_MB": 0.1311,
+      "GBs": 11.0,
+      "GFLOP": 0.5369,
+      "TFLOPs": 44.93
+     },
+     "silu_standalone": {
+      "us": 21.1047,
+      "R": 48,
+      "all_us": [
+       21.2245,
+       21.2966,
+       21.0873,
+       21.1047,
+       21.098
+      ],
+      "spread_pct": 0.99,
+      "host_us_per_call": 0.028,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc2": {
+      "us": 11.9702,
+      "R": 48,
+      "all_us": [
+       12.1051,
+       11.9702,
+       12.0057,
+       11.969,
+       11.8975
+      ],
+      "spread_pct": 1.73,
+      "host_us_per_call": 0.026,
+      "dram_MB": 0.1311,
+      "GBs": 10.9,
+      "GFLOP": 0.5369,
+      "TFLOPs": 44.85
+     },
+     "multiply_": {
+      "us": 14.6905,
+      "R": 48,
+      "all_us": [
+       14.7362,
+       14.7026,
+       14.6905,
+       14.6519,
+       14.5913
+      ],
+      "spread_pct": 0.99,
+      "host_us_per_call": 0.029,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc3_dram": {
+      "us": 27.2628,
+      "R": 48,
+      "all_us": [
+       27.4033,
+       27.3666,
+       27.2413,
+       27.2609,
+       27.2628
+      ],
+      "spread_pct": 0.59,
+      "host_us_per_call": 0.029,
+      "dram_MB": 1.1796,
+      "GBs": 43.3,
+      "GFLOP": 0.5369,
+      "TFLOPs": 19.69
+     },
+     "_n_chunks": 64,
+     "_body_us_fused": 135.536,
+     "_body_us_unfused": 104.745,
+     "_sum_body_ms_fused": 8.6743,
+     "_sum_body_ms_unfused": 6.7037
+    },
+    "16": {
+     "layer_norm": {
+      "us": 23.6079,
+      "R": 35,
+      "all_us": [
+       23.6391,
+       23.6291,
+       23.6079,
+       23.5744,
+       23.5365
+      ],
+      "spread_pct": 0.43,
+      "host_us_per_call": 0.037,
+      "dram_MB": 2.0972,
+      "GBs": 88.8,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc1_fused_silu": {
+      "us": 114.5028,
+      "R": 35,
+      "all_us": [
+       114.8124,
+       114.5028,
+       114.7723,
+       114.282,
+       114.3562
+      ],
+      "spread_pct": 0.46,
+      "host_us_per_call": 0.072,
+      "dram_MB": 0.1311,
+      "GBs": 1.1,
+      "GFLOP": 1.0737,
+      "TFLOPs": 9.38
+     },
+     "fc1_bare": {
+      "us": 26.5383,
+      "R": 35,
+      "all_us": [
+       26.6406,
+       26.7142,
+       26.5383,
+       26.4458,
+       26.4911
+      ],
+      "spread_pct": 1.01,
+      "host_us_per_call": 0.035,
+      "dram_MB": 0.1311,
+      "GBs": 4.9,
+      "GFLOP": 1.0737,
+      "TFLOPs": 40.46
+     },
+     "silu_standalone": {
+      "us": 40.7814,
+      "R": 35,
+      "all_us": [
+       40.5357,
+       40.3951,
+       40.7814,
+       40.9521,
+       40.7889
+      ],
+      "spread_pct": 1.37,
+      "host_us_per_call": 0.036,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc2": {
+      "us": 27.0413,
+      "R": 35,
+      "all_us": [
+       27.2323,
+       27.2337,
+       27.0347,
+       27.0413,
+       26.9565
+      ],
+      "spread_pct": 1.03,
+      "host_us_per_call": 0.082,
+      "dram_MB": 0.1311,
+      "GBs": 4.8,
+      "GFLOP": 1.0737,
+      "TFLOPs": 39.71
+     },
+     "multiply_": {
+      "us": 26.6899,
+      "R": 35,
+      "all_us": [
+       26.8594,
+       26.7938,
+       26.6769,
+       26.6899,
+       26.6835
+      ],
+      "spread_pct": 0.68,
+      "host_us_per_call": 0.042,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc3_dram": {
+      "us": 35.9896,
+      "R": 35,
+      "all_us": [
+       35.977,
+       35.9896,
+       36.0369,
+       35.9896,
+       36.02
+      ],
+      "spread_pct": 0.17,
+      "host_us_per_call": 0.034,
+      "dram_MB": 2.2282,
+      "GBs": 61.9,
+      "GFLOP": 1.0737,
+      "TFLOPs": 29.83
+     },
+     "_n_chunks": 32,
+     "_body_us_fused": 227.832,
+     "_body_us_unfused": 180.648,
+     "_sum_body_ms_fused": 7.2906,
+     "_sum_body_ms_unfused": 5.7807
+    },
+    "32": {
+     "layer_norm": {
+      "us": 34.9298,
+      "R": 17,
+      "all_us": [
+       35.0224,
+       34.9298,
+       35.0937,
+       34.7417,
+       34.7476
+      ],
+      "spread_pct": 1.01,
+      "host_us_per_call": 0.089,
+      "dram_MB": 4.1943,
+      "GBs": 120.1,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc1_fused_silu": {
+      "us": 188.4038,
+      "R": 17,
+      "all_us": [
+       188.8444,
+       187.9504,
+       188.7452,
+       188.3749,
+       188.4038
+      ],
+      "spread_pct": 0.47,
+      "host_us_per_call": 0.087,
+      "dram_MB": 0.1311,
+      "GBs": 0.7,
+      "GFLOP": 2.1475,
+      "TFLOPs": 11.4
+     },
+     "fc1_bare": {
+      "us": 44.7564,
+      "R": 17,
+      "all_us": [
+       45.7529,
+       44.9155,
+       44.7564,
+       44.6278,
+       44.7351
+      ],
+      "spread_pct": 2.51,
+      "host_us_per_call": 0.101,
+      "dram_MB": 0.1311,
+      "GBs": 2.9,
+      "GFLOP": 2.1475,
+      "TFLOPs": 47.98
+     },
+     "silu_standalone": {
+      "us": 78.3265,
+      "R": 17,
+      "all_us": [
+       78.363,
+       78.3134,
+       78.2928,
+       78.3265,
+       78.3559
+      ],
+      "spread_pct": 0.09,
+      "host_us_per_call": 0.082,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc2": {
+      "us": 44.6567,
+      "R": 17,
+      "all_us": [
+       44.5158,
+       44.6567,
+       44.8259,
+       44.573,
+       44.7705
+      ],
+      "spread_pct": 0.69,
+      "host_us_per_call": 0.086,
+      "dram_MB": 0.1311,
+      "GBs": 2.9,
+      "GFLOP": 2.1475,
+      "TFLOPs": 48.09
+     },
+     "multiply_": {
+      "us": 51.4601,
+      "R": 17,
+      "all_us": [
+       51.9766,
+       51.5952,
+       51.4601,
+       51.3145,
+       51.3281
+      ],
+      "spread_pct": 1.29,
+      "host_us_per_call": 0.077,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc3_dram": {
+      "us": 52.6329,
+      "R": 17,
+      "all_us": [
+       52.4832,
+       52.6329,
+       52.9561,
+       52.6506,
+       52.5881
+      ],
+      "spread_pct": 0.9,
+      "host_us_per_call": 0.104,
+      "dram_MB": 4.3254,
+      "GBs": 82.2,
+      "GFLOP": 2.1475,
+      "TFLOPs": 40.8
+     },
+     "_n_chunks": 16,
+     "_body_us_fused": 372.083,
+     "_body_us_unfused": 306.762,
+     "_sum_body_ms_fused": 5.9533,
+     "_sum_body_ms_unfused": 4.9082
+    },
+    "64": {
+     "setup_error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "128": {
+     "setup_error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    }
+   },
+   "whole_tensor_ops": {
+    "chunk": {
+     "us": 397.6188,
+     "R": 1,
+     "all_us": [
+      398.6236,
+      396.5749,
+      397.8869,
+      397.0073,
+      397.6188
+     ],
+     "spread_pct": 0.52,
+     "host_us_per_call": 0.863,
+     "dram_MB": 134.218,
+     "GBs": 337.6,
+     "pct_roof": 75.9
+    },
+    "concat": {
+     "us": 356.3071,
+     "R": 1,
+     "all_us": [
+      355.5176,
+      356.97,
+      355.8686,
+      356.3071,
+      356.3184
+     ],
+     "spread_pct": 0.41,
+     "host_us_per_call": 0.611,
+     "dram_MB": 134.218,
+     "GBs": 376.7,
+     "pct_roof": 84.6
+    }
+   },
+   "grid": {
+    "_n_tiles": {
+     "M": 256,
+     "N": 16,
+     "K": 4
+    },
+    "1x1_bare": {
+     "us": 922.6169,
+     "R": 8,
+     "all_us": [
+      922.7834,
+      922.2998,
+      922.0454,
+      922.6169,
+      923.0454
+     ],
+     "spread_pct": 0.11,
+     "host_us_per_call": 0.214,
+     "cores": 1,
+     "TFLOPs": 1.164
+    },
+    "1x1_silu": {
+     "us": 9199.0301,
+     "R": 8,
+     "all_us": [
+      9199.6916,
+      9199.1041,
+      9198.5101,
+      9199.0301,
+      9198.5453
+     ],
+     "spread_pct": 0.01,
+     "host_us_per_call": 1.371,
+     "cores": 1,
+     "TFLOPs": 0.117
+    },
+    "2x2_bare": {
+     "us": 303.9165,
+     "R": 8,
+     "all_us": [
+      303.9165,
+      304.166,
+      303.6923,
+      303.9568,
+      303.4993
+     ],
+     "spread_pct": 0.22,
+     "host_us_per_call": 0.185,
+     "cores": 4,
+     "TFLOPs": 3.533
+    },
+    "2x2_silu": {
+     "us": 2342.8053,
+     "R": 8,
+     "all_us": [
+      2343.8866,
+      2343.4969,
+      2342.4808,
+      2342.5822,
+      2342.8053
+     ],
+     "spread_pct": 0.06,
+     "host_us_per_call": 0.932,
+     "cores": 4,
+     "TFLOPs": 0.458
+    },
+    "4x4_bare": {
+     "us": 80.9065,
+     "R": 8,
+     "all_us": [
+      81.5769,
+      80.9065,
+      83.123,
+      80.7611,
+      80.4154
+     ],
+     "spread_pct": 3.35,
+     "host_us_per_call": 0.268,
+     "cores": 16,
+     "TFLOPs": 13.271
+    },
+    "4x4_silu": {
+     "us": 595.2173,
+     "R": 8,
+     "all_us": [
+      596.8761,
+      595.2173,
+      595.1145,
+      593.8478,
+      600.8945
+     ],
+     "spread_pct": 1.18,
+     "host_us_per_call": 3.169,
+     "cores": 16,
+     "TFLOPs": 1.804
+    },
+    "6x6_bare": {
+     "us": 46.1611,
+     "R": 8,
+     "all_us": [
+      46.5796,
+      46.1611,
+      45.8955,
+      45.6461,
+      46.5407
+     ],
+     "spread_pct": 2.02,
+     "host_us_per_call": 0.175,
+     "cores": 36,
+     "TFLOPs": 23.261
+    },
+    "6x6_silu": {
+     "us": 297.2947,
+     "R": 8,
+     "all_us": [
+      297.2947,
+      297.1695,
+      297.4189,
+      296.6408,
+      297.2949
+     ],
+     "spread_pct": 0.26,
+     "host_us_per_call": 0.159,
+     "cores": 36,
+     "TFLOPs": 3.612
+    },
+    "8x8_bare": {
+     "us": 30.4248,
+     "R": 8,
+     "all_us": [
+      30.178,
+      30.3746,
+      30.4611,
+      30.4248,
+      30.5325
+     ],
+     "spread_pct": 1.17,
+     "host_us_per_call": 0.118,
+     "cores": 64,
+     "TFLOPs": 35.292
+    },
+    "8x8_silu": {
+     "us": 151.481,
+     "R": 8,
+     "all_us": [
+      151.8469,
+      151.8281,
+      151.481,
+      151.3945,
+      151.3419
+     ],
+     "spread_pct": 0.33,
+     "host_us_per_call": 0.145,
+     "cores": 64,
+     "TFLOPs": 7.088
+    },
+    "10x10_bare": {
+     "us": 27.7759,
+     "R": 8,
+     "all_us": [
+      27.4439,
+      27.3424,
+      27.8811,
+      27.7759,
+      27.806
+     ],
+     "spread_pct": 1.94,
+     "host_us_per_call": 0.145,
+     "cores": 100,
+     "TFLOPs": 38.657
+    },
+    "10x10_silu": {
+     "us": 116.0564,
+     "R": 8,
+     "all_us": [
+      116.3509,
+      116.277,
+      116.0564,
+      115.6391,
+      115.6892
+     ],
+     "spread_pct": 0.61,
+     "host_us_per_call": 0.111,
+     "cores": 100,
+     "TFLOPs": 9.252
+    },
+    "11x10_bare": {
+     "us": 28.237,
+     "R": 8,
+     "all_us": [
+      28.4261,
+      28.168,
+      28.2208,
+      28.237,
+      28.4575
+     ],
+     "spread_pct": 1.03,
+     "host_us_per_call": 0.111,
+     "cores": 110,
+     "TFLOPs": 38.026
+    },
+    "11x10_silu": {
+     "us": 115.8836,
+     "R": 8,
+     "all_us": [
+      116.7244,
+      115.9574,
+      115.8773,
+      115.8321,
+      115.8836
+     ],
+     "spread_pct": 0.77,
+     "host_us_per_call": 0.154,
+     "cores": 110,
+     "TFLOPs": 9.266
+    },
+    "4x10_bare": {
+     "us": 40.9671,
+     "R": 8,
+     "all_us": [
+      41.8493,
+      40.9671,
+      40.4985,
+      40.4648,
+      41.0022
+     ],
+     "spread_pct": 3.38,
+     "host_us_per_call": 1.225,
+     "cores": 40,
+     "TFLOPs": 26.21
+    },
+    "4x10_silu": {
+     "us": 260.0995,
+     "R": 8,
+     "all_us": [
+      260.3801,
+      260.0456,
+      260.6008,
+      260.0995,
+      259.7449
+     ],
+     "spread_pct": 0.33,
+     "host_us_per_call": 0.222,
+     "cores": 40,
+     "TFLOPs": 4.128
+    },
+    "8x10_bare": {
+     "us": 30.5098,
+     "R": 8,
+     "all_us": [
+      30.8681,
+      30.6537,
+      30.447,
+      30.5098,
+      30.506
+     ],
+     "spread_pct": 1.38,
+     "host_us_per_call": 0.111,
+     "cores": 80,
+     "TFLOPs": 35.193
+    },
+    "8x10_silu": {
+     "us": 151.6065,
+     "R": 8,
+     "all_us": [
+      151.852,
+      152.0763,
+      151.5764,
+      151.5739,
+      151.6065
+     ],
+     "spread_pct": 0.33,
+     "host_us_per_call": 0.21,
+     "cores": 80,
+     "TFLOPs": 7.082
+    },
+    "11x4_bare": {
+     "us": 46.2431,
+     "R": 8,
+     "all_us": [
+      46.7767,
+      46.2392,
+      46.1591,
+      46.2431,
+      46.2681
+     ],
+     "spread_pct": 1.34,
+     "host_us_per_call": 0.111,
+     "cores": 44,
+     "TFLOPs": 23.22
+    },
+    "11x4_silu": {
+     "us": 225.3442,
+     "R": 8,
+     "all_us": [
+      226.2239,
+      225.031,
+      224.9233,
+      225.5485,
+      225.3442
+     ],
+     "spread_pct": 0.58,
+     "host_us_per_call": 0.925,
+     "cores": 44,
+     "TFLOPs": 4.765
+    },
+    "11x8_bare": {
+     "us": 28.6778,
+     "R": 8,
+     "all_us": [
+      28.1089,
+      28.6977,
+      28.6125,
+      28.8455,
+      28.6778
+     ],
+     "spread_pct": 2.57,
+     "host_us_per_call": 0.162,
+     "cores": 88,
+     "TFLOPs": 37.442
+    },
+    "11x8_silu": {
+     "us": 116.5175,
+     "R": 8,
+     "all_us": [
+      117.2956,
+      117.4371,
+      116.5175,
+      116.0928,
+      115.7758
+     ],
+     "spread_pct": 1.43,
+     "host_us_per_call": 0.161,
+     "cores": 88,
+     "TFLOPs": 9.215
+    },
+    "2x10_bare": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "2x10_silu": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "11x2_bare": {
+     "us": 82.7625,
+     "R": 8,
+     "all_us": [
+      83.2386,
+      82.7625,
+      83.1184,
+      82.1649,
+      82.4794
+     ],
+     "spread_pct": 1.3,
+     "host_us_per_call": 0.248,
+     "cores": 22,
+     "TFLOPs": 12.974
+    },
+    "11x2_silu": {
+     "us": 443.2728,
+     "R": 8,
+     "all_us": [
+      444.8703,
+      444.3466,
+      443.0235,
+      443.2728,
+      443.0235
+     ],
+     "spread_pct": 0.42,
+     "host_us_per_call": 0.453,
+     "cores": 22,
+     "TFLOPs": 2.422
+    }
+   },
+   "hsweep": {
+    "fused_8": {
+     "us": 9646.0002,
+     "R": 1,
+     "all_us": [
+      9647.1855,
+      9646.0002,
+      9648.4035,
+      9645.6468,
+      9643.2962
+     ],
+     "spread_pct": 0.05,
+     "host_us_per_call": 0.722,
+     "ms": 9.646,
+     "n_chunks": 64
+    },
+    "fused_16": {
+     "us": 7944.9885,
+     "R": 1,
+     "all_us": [
+      7946.3593,
+      7930.4645,
+      7933.9778,
+      7946.9507,
+      7944.9885
+     ],
+     "spread_pct": 0.21,
+     "host_us_per_call": 0.844,
+     "ms": 7.945,
+     "n_chunks": 32
+    },
+    "fused_32": {
+     "us": 6574.5243,
+     "R": 1,
+     "all_us": [
+      6575.0883,
+      6574.5243,
+      6576.484,
+      6570.0313,
+      6568.841
+     ],
+     "spread_pct": 0.12,
+     "host_us_per_call": 0.859,
+     "ms": 6.5745,
+     "n_chunks": 16
+    },
+    "fused_64": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "fused_128": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "unfused_8": {
+     "us": 7661.1178,
+     "R": 1,
+     "all_us": [
+      7661.1178,
+      7661.5523,
+      7656.0683,
+      7669.169,
+      7661.0225
+     ],
+     "spread_pct": 0.17,
+     "host_us_per_call": 0.902,
+     "ms": 7.6611,
+     "n_chunks": 64
+    },
+    "unfused_16": {
+     "us": 6413.2258,
+     "R": 1,
+     "all_us": [
+      6414.5363,
+      6410.8205,
+      6420.8437,
+      6413.2258,
+      6409.823
+     ],
+     "spread_pct": 0.17,
+     "host_us_per_call": 0.862,
+     "ms": 6.4132,
+     "n_chunks": 32
+    },
+    "unfused_32": {
+     "us": 5513.4332,
+     "R": 1,
+     "all_us": [
+      5507.9625,
+      5506.7523,
+      5518.0615,
+      5513.4332,
+      5513.586
+     ],
+     "spread_pct": 0.21,
+     "host_us_per_call": 0.841,
+     "ms": 5.5134,
+     "n_chunks": 16
+    },
+    "unfused_64": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "unfused_128": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    }
+   },
+   "kmm": {
+    "K128": {
+     "us": 28.2964,
+     "R": 8,
+     "all_us": [
+      28.0783,
+      27.9166,
+      28.2964,
+      28.4016,
+      28.5331
+     ],
+     "spread_pct": 2.18,
+     "host_us_per_call": 0.143,
+     "M": 8192,
+     "K": 128,
+     "N": 512,
+     "GFLOP": 1.0737,
+     "TFLOPs": 37.946
+    },
+    "K256": {
+     "us": 19.9781,
+     "R": 8,
+     "all_us": [
+      20.1222,
+      19.9781,
+      19.9305,
+      19.9055,
+      20.0634
+     ],
+     "spread_pct": 1.08,
+     "host_us_per_call": 0.13,
+     "M": 4096,
+     "K": 256,
+     "N": 512,
+     "GFLOP": 1.0737,
+     "TFLOPs": 53.746
+    },
+    "K512": {
+     "us": 19.4444,
+     "R": 8,
+     "all_us": [
+      19.5432,
+      19.4444,
+      19.423,
+      19.9755,
+      19.4079
+     ],
+     "spread_pct": 2.92,
+     "host_us_per_call": 0.158,
+     "M": 2048,
+     "K": 512,
+     "N": 512,
+     "GFLOP": 1.0737,
+     "TFLOPs": 55.221
+    },
+    "K1024": {
+     "us": 20.7925,
+     "R": 8,
+     "all_us": [
+      20.7925,
+      20.6171,
+      20.607,
+      20.944,
+      21.0593
+     ],
+     "spread_pct": 2.18,
+     "host_us_per_call": 0.14,
+     "M": 1024,
+     "K": 1024,
+     "N": 512,
+     "GFLOP": 1.0737,
+     "TFLOPs": 51.641
+    },
+    "K2048": {
+     "us": 23.4661,
+     "R": 8,
+     "all_us": [
+      23.4661,
+      23.1666,
+      23.2068,
+      23.4774,
+      23.5865
+     ],
+     "spread_pct": 1.79,
+     "host_us_per_call": 0.148,
+     "M": 512,
+     "K": 2048,
+     "N": 512,
+     "GFLOP": 1.0737,
+     "TFLOPs": 45.757
+    }
+   }
+  },
+  "msa": {
+   "shape": {
+    "z": [
+     1,
+     1024,
+     512,
+     64
+    ],
+    "H": 1024,
+    "W": 512,
+    "C": 64,
+    "hidden": 256,
+    "h_chunk_shipped": 16,
+    "n_chunks_shipped": 64,
+    "z_MB": 67.109,
+    "dtype": "DataType.BFLOAT16",
+    "l1_per_core_B_at_h": {
+     "16": 85792,
+     "32": 171585,
+     "64": 343170,
+     "128": 686340
+    }
+   },
+   "bytes": {
+    "stack": {
+     "floor_MB": 604.086,
+     "once_MB": 335.651,
+     "real_MB": 606.151,
+     "real_w_MB": 268.435,
+     "real_r_MB": 337.715,
+     "n_ops": 514,
+     "by_op_MB": {
+      "ttnn.concat": [
+       335.544,
+       134.218,
+       201.327,
+       1
+      ],
+      "ttnn.chunk": [
+       201.327,
+       67.109,
+       134.218,
+       1
+      ],
+      "ttnn.linear": [
+       69.206,
+       67.109,
+       2.097,
+       64
+      ]
+     }
+    },
+    "range": {
+     "floor_MB": 604.086,
+     "once_MB": 335.651,
+     "real_MB": 606.151,
+     "real_w_MB": 268.435,
+     "real_r_MB": 337.715,
+     "n_ops": 514,
+     "by_op_MB": {
+      "ttnn.concat": [
+       335.544,
+       134.218,
+       201.327,
+       1
+      ],
+      "ttnn.chunk": [
+       201.327,
+       67.109,
+       134.218,
+       1
+      ],
+      "ttnn.linear": [
+       69.206,
+       67.109,
+       2.097,
+       64
+      ]
+     }
+    },
+    "devops": {
+     "MatmulDeviceOperation": 192,
+     "SliceDeviceOperation": 64,
+     "LayerNormDeviceOperation": 64,
+     "BinaryNgDeviceOperation": 64,
+     "ConcatDeviceOperation": 3
+    },
+    "n_devops": 387,
+    "bytes_explain_ms": 1.3621,
+    "ops_explain_ms": 2.4613
+   },
+   "floor": {
+    "fused": {
+     "us": 8704.6465,
+     "R": 1,
+     "all_us": [
+      8704.3032,
+      8706.9695,
+      8705.947,
+      8703.0175,
+      8704.6465
+     ],
+     "spread_pct": 0.05,
+     "host_us_per_call": 0.919,
+     "ms": 8.7046
+    },
+    "unfused": {
+     "us": 7184.395,
+     "R": 1,
+     "all_us": [
+      7184.395,
+      7182.3777,
+      7187.0237,
+      7186.0743,
+      7184.1142
+     ],
+     "spread_pct": 0.06,
+     "host_us_per_call": 0.879,
+     "ms": 7.1844
+    },
+    "unfuse_gain_x": 1.2116
+   },
+   "ops": {
+    "8": {
+     "layer_norm": {
+      "us": 14.8396,
+      "R": 48,
+      "all_us": [
+       14.9156,
+       14.8396,
+       14.8755,
+       14.8365,
+       14.8296
+      ],
+      "spread_pct": 0.58,
+      "host_us_per_call": 0.026,
+      "dram_MB": 0.5243,
+      "GBs": 35.3,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc1_fused_silu": {
+      "us": 39.1838,
+      "R": 48,
+      "all_us": [
+       39.2296,
+       39.1726,
+       39.1914,
+       39.1818,
+       39.1838
+      ],
+      "spread_pct": 0.15,
+      "host_us_per_call": 0.03,
+      "dram_MB": 0.0328,
+      "GBs": 0.8,
+      "GFLOP": 0.1342,
+      "TFLOPs": 3.43
+     },
+     "fc1_bare": {
+      "us": 9.2038,
+      "R": 48,
+      "all_us": [
+       9.2194,
+       9.3435,
+       9.2038,
+       9.1745,
+       9.1626
+      ],
+      "spread_pct": 1.97,
+      "host_us_per_call": 0.024,
+      "dram_MB": 0.0328,
+      "GBs": 3.6,
+      "GFLOP": 0.1342,
+      "TFLOPs": 14.58
+     },
+     "silu_standalone": {
+      "us": 11.9842,
+      "R": 48,
+      "all_us": [
+       12.0506,
+       11.9848,
+       11.9827,
+       11.9802,
+       11.9842
+      ],
+      "spread_pct": 0.59,
+      "host_us_per_call": 0.032,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc2": {
+      "us": 9.2545,
+      "R": 48,
+      "all_us": [
+       9.2338,
+       9.2566,
+       9.2683,
+       9.239,
+       9.2545
+      ],
+      "spread_pct": 0.37,
+      "host_us_per_call": 0.025,
+      "dram_MB": 0.0328,
+      "GBs": 3.5,
+      "GFLOP": 0.1342,
+      "TFLOPs": 14.5
+     },
+     "multiply_": {
+      "us": 9.0093,
+      "R": 48,
+      "all_us": [
+       8.936,
+       9.0244,
+       9.0093,
+       9.0248,
+       9.0093
+      ],
+      "spread_pct": 0.98,
+      "host_us_per_call": 0.032,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc3_dram": {
+      "us": 13.4739,
+      "R": 48,
+      "all_us": [
+       13.5009,
+       13.4896,
+       13.4739,
+       13.3962,
+       13.404
+      ],
+      "spread_pct": 0.78,
+      "host_us_per_call": 0.024,
+      "dram_MB": 0.5571,
+      "GBs": 41.3,
+      "GFLOP": 0.1342,
+      "TFLOPs": 9.96
+     },
+     "_n_chunks": 128,
+     "_body_us_fused": 85.761,
+     "_body_us_unfused": 67.765,
+     "_sum_body_ms_fused": 10.9774,
+     "_sum_body_ms_unfused": 8.6739
+    },
+    "16": {
+     "layer_norm": {
+      "us": 18.6432,
+      "R": 48,
+      "all_us": [
+       18.6702,
+       18.6364,
+       18.6675,
+       18.6234,
+       18.6432
+      ],
+      "spread_pct": 0.25,
+      "host_us_per_call": 0.028,
+      "dram_MB": 1.0486,
+      "GBs": 56.2,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc1_fused_silu": {
+      "us": 56.6057,
+      "R": 48,
+      "all_us": [
+       56.6021,
+       56.6157,
+       56.6082,
+       56.5936,
+       56.6057
+      ],
+      "spread_pct": 0.04,
+      "host_us_per_call": 0.027,
+      "dram_MB": 0.0328,
+      "GBs": 0.6,
+      "GFLOP": 0.2684,
+      "TFLOPs": 4.74
+     },
+     "fc1_bare": {
+      "us": 12.4448,
+      "R": 48,
+      "all_us": [
+       12.3906,
+       12.4501,
+       12.5814,
+       12.4448,
+       12.345
+      ],
+      "spread_pct": 1.9,
+      "host_us_per_call": 0.029,
+      "dram_MB": 0.0328,
+      "GBs": 2.6,
+      "GFLOP": 0.2684,
+      "TFLOPs": 21.57
+     },
+     "silu_standalone": {
+      "us": 21.1063,
+      "R": 48,
+      "all_us": [
+       21.2144,
+       21.1107,
+       21.0925,
+       21.0841,
+       21.1063
+      ],
+      "spread_pct": 0.62,
+      "host_us_per_call": 0.026,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc2": {
+      "us": 12.345,
+      "R": 48,
+      "all_us": [
+       12.3346,
+       12.345,
+       12.3248,
+       12.3575,
+       12.3778
+      ],
+      "spread_pct": 0.43,
+      "host_us_per_call": 0.026,
+      "dram_MB": 0.0328,
+      "GBs": 2.7,
+      "GFLOP": 0.2684,
+      "TFLOPs": 21.74
+     },
+     "multiply_": {
+      "us": 14.6203,
+      "R": 48,
+      "all_us": [
+       14.6978,
+       14.6203,
+       14.6675,
+       14.5815,
+       14.5878
+      ],
+      "spread_pct": 0.8,
+      "host_us_per_call": 0.027,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc3_dram": {
+      "us": 18.3043,
+      "R": 48,
+      "all_us": [
+       18.3313,
+       18.3131,
+       18.3043,
+       18.2342,
+       18.2264
+      ],
+      "spread_pct": 0.57,
+      "host_us_per_call": 0.024,
+      "dram_MB": 1.0813,
+      "GBs": 59.1,
+      "GFLOP": 0.2684,
+      "TFLOPs": 14.67
+     },
+     "_n_chunks": 64,
+     "_body_us_fused": 120.518,
+     "_body_us_unfused": 97.464,
+     "_sum_body_ms_fused": 7.7132,
+     "_sum_body_ms_unfused": 6.2377
+    },
+    "32": {
+     "layer_norm": {
+      "us": 25.7907,
+      "R": 35,
+      "all_us": [
+       25.8477,
+       25.8517,
+       25.7907,
+       25.7618,
+       25.7618
+      ],
+      "spread_pct": 0.35,
+      "host_us_per_call": 0.036,
+      "dram_MB": 2.0972,
+      "GBs": 81.3,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc1_fused_silu": {
+      "us": 91.5525,
+      "R": 35,
+      "all_us": [
+       91.622,
+       91.5794,
+       91.5408,
+       91.5525,
+       91.5454
+      ],
+      "spread_pct": 0.09,
+      "host_us_per_call": 0.038,
+      "dram_MB": 0.0328,
+      "GBs": 0.4,
+      "GFLOP": 0.5369,
+      "TFLOPs": 5.86
+     },
+     "fc1_bare": {
+      "us": 20.0057,
+      "R": 35,
+      "all_us": [
+       20.0057,
+       19.9883,
+       20.0595,
+       20.0263,
+       19.9295
+      ],
+      "spread_pct": 0.65,
+      "host_us_per_call": 0.035,
+      "dram_MB": 0.0328,
+      "GBs": 1.6,
+      "GFLOP": 0.5369,
+      "TFLOPs": 26.84
+     },
+     "silu_standalone": {
+      "us": 40.388,
+      "R": 35,
+      "all_us": [
+       40.5767,
+       40.4659,
+       40.388,
+       40.3826,
+       40.3863
+      ],
+      "spread_pct": 0.48,
+      "host_us_per_call": 0.037,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc2": {
+      "us": 20.0132,
+      "R": 35,
+      "all_us": [
+       20.0638,
+       20.0329,
+       19.9691,
+       20.002,
+       20.0132
+      ],
+      "spread_pct": 0.47,
+      "host_us_per_call": 0.033,
+      "dram_MB": 0.0328,
+      "GBs": 1.6,
+      "GFLOP": 0.5369,
+      "TFLOPs": 26.83
+     },
+     "multiply_": {
+      "us": 26.9699,
+      "R": 35,
+      "all_us": [
+       26.9837,
+       27.002,
+       26.9699,
+       26.8468,
+       26.7611
+      ],
+      "spread_pct": 0.89,
+      "host_us_per_call": 0.035,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc3_dram": {
+      "us": 26.6111,
+      "R": 35,
+      "all_us": [
+       26.6927,
+       26.6111,
+       26.5335,
+       26.6471,
+       26.5449
+      ],
+      "spread_pct": 0.6,
+      "host_us_per_call": 0.044,
+      "dram_MB": 2.1299,
+      "GBs": 80.0,
+      "GFLOP": 0.5369,
+      "TFLOPs": 20.17
+     },
+     "_n_chunks": 32,
+     "_body_us_fused": 190.937,
+     "_body_us_unfused": 159.779,
+     "_sum_body_ms_fused": 6.11,
+     "_sum_body_ms_unfused": 5.1129
+    },
+    "64": {
+     "layer_norm": {
+      "us": 42.5031,
+      "R": 17,
+      "all_us": [
+       42.3763,
+       42.2448,
+       42.5361,
+       42.7006,
+       42.5031
+      ],
+      "spread_pct": 1.07,
+      "host_us_per_call": 0.124,
+      "dram_MB": 4.1943,
+      "GBs": 98.7,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc1_fused_silu": {
+      "us": 180.7672,
+      "R": 17,
+      "all_us": [
+       180.7672,
+       180.7383,
+       180.2536,
+       181.1522,
+       181.9989
+      ],
+      "spread_pct": 0.97,
+      "host_us_per_call": 0.309,
+      "dram_MB": 0.0328,
+      "GBs": 0.2,
+      "GFLOP": 1.0737,
+      "TFLOPs": 5.94
+     },
+     "fc1_bare": {
+      "us": 36.5398,
+      "R": 17,
+      "all_us": [
+       36.7349,
+       36.364,
+       36.9159,
+       36.4513,
+       36.5398
+      ],
+      "spread_pct": 1.51,
+      "host_us_per_call": 0.347,
+      "dram_MB": 0.0328,
+      "GBs": 0.9,
+      "GFLOP": 1.0737,
+      "TFLOPs": 29.39
+     },
+     "silu_standalone": {
+      "us": 78.9036,
+      "R": 17,
+      "all_us": [
+       78.7504,
+       78.9036,
+       78.6371,
+       79.1866,
+       79.4042
+      ],
+      "spread_pct": 0.97,
+      "host_us_per_call": 0.106,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc2": {
+      "us": 37.0191,
+      "R": 17,
+      "all_us": [
+       36.9926,
+       37.0398,
+       37.2385,
+       37.0191,
+       36.9425
+      ],
+      "spread_pct": 0.8,
+      "host_us_per_call": 0.463,
+      "dram_MB": 0.0328,
+      "GBs": 0.9,
+      "GFLOP": 1.0737,
+      "TFLOPs": 29.01
+     },
+     "multiply_": {
+      "us": 52.7309,
+      "R": 17,
+      "all_us": [
+       51.9297,
+       53.9374,
+       55.8169,
+       52.7309,
+       51.4132
+      ],
+      "spread_pct": 8.35,
+      "host_us_per_call": 0.312,
+      "dram_MB": 0.0,
+      "GBs": null,
+      "GFLOP": null,
+      "TFLOPs": null
+     },
+     "fc3_dram": {
+      "us": 49.1645,
+      "R": 17,
+      "all_us": [
+       51.4079,
+       49.1645,
+       49.1084,
+       49.3236,
+       48.9262
+      ],
+      "spread_pct": 5.05,
+      "host_us_per_call": 0.09,
+      "dram_MB": 4.2271,
+      "GBs": 86.0,
+      "GFLOP": 1.0737,
+      "TFLOPs": 21.84
+     },
+     "_n_chunks": 16,
+     "_body_us_fused": 362.185,
+     "_body_us_unfused": 296.861,
+     "_sum_body_ms_fused": 5.795,
+     "_sum_body_ms_unfused": 4.7498
+    },
+    "128": {
+     "setup_error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    }
+   },
+   "whole_tensor_ops": {
+    "chunk": {
+     "us": 431.8289,
+     "R": 1,
+     "all_us": [
+      432.4855,
+      431.8289,
+      431.8364,
+      431.4567,
+      430.2389
+     ],
+     "spread_pct": 0.52,
+     "host_us_per_call": 2.756,
+     "dram_MB": 134.218,
+     "GBs": 310.8,
+     "pct_roof": 69.8
+    },
+    "concat": {
+     "us": 716.3035,
+     "R": 1,
+     "all_us": [
+      714.8602,
+      716.3512,
+      716.3035,
+      716.2059,
+      717.0177
+     ],
+     "spread_pct": 0.3,
+     "host_us_per_call": 3.766,
+     "dram_MB": 134.218,
+     "GBs": 187.4,
+     "pct_roof": 42.1
+    }
+   },
+   "grid": {
+    "_n_tiles": {
+     "M": 256,
+     "N": 8,
+     "K": 2
+    },
+    "1x1_bare": {
+     "us": 266.2761,
+     "R": 8,
+     "all_us": [
+      271.0234,
+      266.7484,
+      266.2761,
+      266.1133,
+      266.2035
+     ],
+     "spread_pct": 1.84,
+     "host_us_per_call": 0.657,
+     "cores": 1,
+     "TFLOPs": 1.008
+    },
+    "1x1_silu": {
+     "us": 4373.8896,
+     "R": 8,
+     "all_us": [
+      4377.196,
+      4373.8896,
+      4374.1101,
+      4373.6028,
+      4373.8334
+     ],
+     "spread_pct": 0.08,
+     "host_us_per_call": 0.22,
+     "cores": 1,
+     "TFLOPs": 0.061
+    },
+    "2x2_bare": {
+     "us": 95.1324,
+     "R": 8,
+     "all_us": [
+      96.1874,
+      95.269,
+      95.0296,
+      95.0321,
+      95.1324
+     ],
+     "spread_pct": 1.22,
+     "host_us_per_call": 0.342,
+     "cores": 4,
+     "TFLOPs": 2.822
+    },
+    "2x2_silu": {
+     "us": 1121.895,
+     "R": 8,
+     "all_us": [
+      1123.2581,
+      1119.4005,
+      1122.6994,
+      1121.895,
+      1119.4781
+     ],
+     "spread_pct": 0.34,
+     "host_us_per_call": 1.585,
+     "cores": 4,
+     "TFLOPs": 0.239
+    },
+    "4x4_bare": {
+     "us": 27.4813,
+     "R": 8,
+     "all_us": [
+      27.6616,
+      27.485,
+      27.2884,
+      27.4625,
+      27.4813
+     ],
+     "spread_pct": 1.36,
+     "host_us_per_call": 0.125,
+     "cores": 16,
+     "TFLOPs": 9.768
+    },
+    "4x4_silu": {
+     "us": 281.551,
+     "R": 8,
+     "all_us": [
+      282.5607,
+      282.4618,
+      281.5246,
+      281.5259,
+      281.551
+     ],
+     "spread_pct": 0.37,
+     "host_us_per_call": 0.218,
+     "cores": 16,
+     "TFLOPs": 0.953
+    },
+    "6x6_bare": {
+     "us": 18.2849,
+     "R": 8,
+     "all_us": [
+      18.5117,
+      18.1145,
+      18.0594,
+      18.2849,
+      18.32
+     ],
+     "spread_pct": 2.47,
+     "host_us_per_call": 0.197,
+     "cores": 36,
+     "TFLOPs": 14.681
+    },
+    "6x6_silu": {
+     "us": 143.4177,
+     "R": 8,
+     "all_us": [
+      143.5758,
+      143.4177,
+      143.5018,
+      143.3189,
+      143.4003
+     ],
+     "spread_pct": 0.18,
+     "host_us_per_call": 0.157,
+     "cores": 36,
+     "TFLOPs": 1.872
+    },
+    "8x8_bare": {
+     "us": 13.6355,
+     "R": 8,
+     "all_us": [
+      13.8396,
+      13.6429,
+      13.6241,
+      13.4036,
+      13.6355
+     ],
+     "spread_pct": 3.2,
+     "host_us_per_call": 0.147,
+     "cores": 64,
+     "TFLOPs": 19.687
+    },
+    "8x8_silu": {
+     "us": 74.7772,
+     "R": 8,
+     "all_us": [
+      75.6542,
+      74.9164,
+      74.7422,
+      74.7522,
+      74.7772
+     ],
+     "spread_pct": 1.22,
+     "host_us_per_call": 0.129,
+     "cores": 64,
+     "TFLOPs": 3.59
+    },
+    "10x10_bare": {
+     "us": 13.4938,
+     "R": 8,
+     "all_us": [
+      13.7143,
+      13.4938,
+      13.4814,
+      13.4224,
+      13.5415
+     ],
+     "spread_pct": 2.16,
+     "host_us_per_call": 0.106,
+     "cores": 100,
+     "TFLOPs": 19.893
+    },
+    "10x10_silu": {
+     "us": 58.398,
+     "R": 8,
+     "all_us": [
+      58.6811,
+      58.3479,
+      58.2728,
+      58.5233,
+      58.398
+     ],
+     "spread_pct": 0.7,
+     "host_us_per_call": 0.128,
+     "cores": 100,
+     "TFLOPs": 4.597
+    },
+    "11x10_bare": {
+     "us": 14.0013,
+     "R": 8,
+     "all_us": [
+      14.0964,
+      14.1866,
+      14.0013,
+      13.9474,
+      13.9586
+     ],
+     "spread_pct": 1.71,
+     "host_us_per_call": 0.139,
+     "cores": 110,
+     "TFLOPs": 19.172
+    },
+    "11x10_silu": {
+     "us": 58.5259,
+     "R": 8,
+     "all_us": [
+      58.6185,
+      58.4695,
+      58.5259,
+      58.4531,
+      58.6161
+     ],
+     "spread_pct": 0.28,
+     "host_us_per_call": 0.147,
+     "cores": 110,
+     "TFLOPs": 4.587
+    },
+    "4x10_bare": {
+     "us": 15.5599,
+     "R": 8,
+     "all_us": [
+      15.6551,
+      15.5599,
+      15.5761,
+      15.4445,
+      15.3906
+     ],
+     "spread_pct": 1.7,
+     "host_us_per_call": 0.109,
+     "cores": 40,
+     "TFLOPs": 17.252
+    },
+    "4x10_silu": {
+     "us": 126.0921,
+     "R": 8,
+     "all_us": [
+      126.3904,
+      126.0921,
+      126.849,
+      125.9681,
+      125.9255
+     ],
+     "spread_pct": 0.73,
+     "host_us_per_call": 0.149,
+     "cores": 40,
+     "TFLOPs": 2.129
+    },
+    "8x10_bare": {
+     "us": 13.6804,
+     "R": 8,
+     "all_us": [
+      13.5465,
+      14.1427,
+      13.6366,
+      13.7306,
+      13.6804
+     ],
+     "spread_pct": 4.36,
+     "host_us_per_call": 0.163,
+     "cores": 80,
+     "TFLOPs": 19.622
+    },
+    "8x10_silu": {
+     "us": 74.8523,
+     "R": 8,
+     "all_us": [
+      76.1652,
+      75.1241,
+      74.8523,
+      74.7481,
+      74.7256
+     ],
+     "spread_pct": 1.92,
+     "host_us_per_call": 0.185,
+     "cores": 80,
+     "TFLOPs": 3.586
+    },
+    "11x4_bare": {
+     "us": 20.3909,
+     "R": 8,
+     "all_us": [
+      21.0299,
+      20.3621,
+      20.3909,
+      20.4699,
+      20.2392
+     ],
+     "spread_pct": 3.88,
+     "host_us_per_call": 0.427,
+     "cores": 44,
+     "TFLOPs": 13.164
+    },
+    "11x4_silu": {
+     "us": 110.0296,
+     "R": 8,
+     "all_us": [
+      110.2626,
+      109.9519,
+      110.0296,
+      109.977,
+      111.4693
+     ],
+     "spread_pct": 1.38,
+     "host_us_per_call": 0.189,
+     "cores": 44,
+     "TFLOPs": 2.44
+    },
+    "11x8_bare": {
+     "us": 14.2956,
+     "R": 8,
+     "all_us": [
+      14.7115,
+      14.4785,
+      14.2956,
+      14.1101,
+      14.223
+     ],
+     "spread_pct": 4.21,
+     "host_us_per_call": 0.16,
+     "cores": 88,
+     "TFLOPs": 18.777
+    },
+    "11x8_silu": {
+     "us": 58.9903,
+     "R": 8,
+     "all_us": [
+      60.3371,
+      58.7785,
+      58.8612,
+      58.9903,
+      59.4614
+     ],
+     "spread_pct": 2.64,
+     "host_us_per_call": 0.185,
+     "cores": 88,
+     "TFLOPs": 4.551
+    },
+    "2x10_bare": {
+     "us": 22.5646,
+     "R": 8,
+     "all_us": [
+      22.5646,
+      22.6097,
+      22.5434,
+      23.0495,
+      22.4319
+     ],
+     "spread_pct": 2.74,
+     "host_us_per_call": 0.219,
+     "cores": 20,
+     "TFLOPs": 11.896
+    },
+    "2x10_silu": {
+     "us": 229.8424,
+     "R": 8,
+     "all_us": [
+      229.8424,
+      230.0102,
+      229.7634,
+      229.5091,
+      230.9599
+     ],
+     "spread_pct": 0.63,
+     "host_us_per_call": 0.218,
+     "cores": 20,
+     "TFLOPs": 1.168
+    },
+    "11x2_bare": {
+     "us": 34.7502,
+     "R": 8,
+     "all_us": [
+      35.0873,
+      35.3829,
+      34.7502,
+      34.685,
+      34.3905
+     ],
+     "spread_pct": 2.86,
+     "host_us_per_call": 0.165,
+     "cores": 22,
+     "TFLOPs": 7.725
+    },
+    "11x2_silu": {
+     "us": 215.0136,
+     "R": 8,
+     "all_us": [
+      216.4069,
+      214.5061,
+      214.1466,
+      215.2066,
+      215.0136
+     ],
+     "spread_pct": 1.05,
+     "host_us_per_call": 0.219,
+     "cores": 22,
+     "TFLOPs": 1.248
+    }
+   },
+   "hsweep": {
+    "fused_8": {
+     "us": 12206.77,
+     "R": 1,
+     "all_us": [
+      12204.9535,
+      12206.77,
+      12209.461,
+      12208.5438,
+      12205.3815
+     ],
+     "spread_pct": 0.04,
+     "host_us_per_call": 1.916,
+     "ms": 12.2068,
+     "n_chunks": 128
+    },
+    "fused_16": {
+     "us": 8707.8008,
+     "R": 1,
+     "all_us": [
+      8707.8008,
+      8707.3897,
+      8707.996,
+      8704.0545,
+      8708.7327
+     ],
+     "spread_pct": 0.05,
+     "host_us_per_call": 1.398,
+     "ms": 8.7078,
+     "n_chunks": 64
+    },
+    "fused_32": {
+     "us": 6760.6193,
+     "R": 1,
+     "all_us": [
+      6766.5128,
+      6760.4737,
+      6760.915,
+      6760.6193,
+      6757.502
+     ],
+     "spread_pct": 0.13,
+     "host_us_per_call": 0.852,
+     "ms": 6.7606,
+     "n_chunks": 32
+    },
+    "fused_64": {
+     "us": 6378.6643,
+     "R": 1,
+     "all_us": [
+      6390.797,
+      6376.2612,
+      6378.6643,
+      6382.285,
+      6378.5037
+     ],
+     "spread_pct": 0.23,
+     "host_us_per_call": 1.513,
+     "ms": 6.3787,
+     "n_chunks": 16
+    },
+    "fused_128": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "unfused_8": {
+     "us": 9819.8077,
+     "R": 1,
+     "all_us": [
+      9818.8555,
+      9822.8322,
+      9819.8077,
+      9816.628,
+      9822.2417
+     ],
+     "spread_pct": 0.06,
+     "host_us_per_call": 1.483,
+     "ms": 9.8198,
+     "n_chunks": 128
+    },
+    "unfused_16": {
+     "us": 7187.0033,
+     "R": 1,
+     "all_us": [
+      7188.121,
+      7189.6565,
+      7183.2448,
+      7180.6535,
+      7187.0033
+     ],
+     "spread_pct": 0.13,
+     "host_us_per_call": 0.831,
+     "ms": 7.187,
+     "n_chunks": 64
+    },
+    "unfused_32": {
+     "us": 5746.702,
+     "R": 1,
+     "all_us": [
+      5744.6345,
+      5746.702,
+      5747.3835,
+      5749.1447,
+      5743.0385
+     ],
+     "spread_pct": 0.11,
+     "host_us_per_call": 0.886,
+     "ms": 5.7467,
+     "n_chunks": 32
+    },
+    "unfused_64": {
+     "us": 5299.2398,
+     "R": 1,
+     "all_us": [
+      5288.3147,
+      5297.4958,
+      5310.185,
+      5312.889,
+      5299.2398
+     ],
+     "spread_pct": 0.46,
+     "host_us_per_call": 0.887,
+     "ms": 5.2992,
+     "n_chunks": 16
+    },
+    "unfused_128": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    }
+   },
+   "kmm": {
+    "K64": {
+     "us": 14.1764,
+     "R": 8,
+     "all_us": [
+      14.2328,
+      14.14,
+      14.1764,
+      14.1475,
+      14.749
+     ],
+     "spread_pct": 4.3,
+     "host_us_per_call": 0.15,
+     "M": 8192,
+     "K": 64,
+     "N": 256,
+     "GFLOP": 0.2684,
+     "TFLOPs": 18.935
+    },
+    "K128": {
+     "us": 13.709,
+     "R": 8,
+     "all_us": [
+      13.9946,
+      13.62,
+      13.5035,
+      14.1426,
+      13.709
+     ],
+     "spread_pct": 4.66,
+     "host_us_per_call": 0.16,
+     "M": 4096,
+     "K": 128,
+     "N": 256,
+     "GFLOP": 0.2684,
+     "TFLOPs": 19.581
+    },
+    "K256": {
+     "us": 11.801,
+     "R": 8,
+     "all_us": [
+      11.8059,
+      11.801,
+      12.0402,
+      11.3424,
+      11.4826
+     ],
+     "spread_pct": 5.91,
+     "host_us_per_call": 0.202,
+     "M": 2048,
+     "K": 256,
+     "N": 256,
+     "GFLOP": 0.2684,
+     "TFLOPs": 22.747
+    },
+    "K512": {
+     "us": 11.4701,
+     "R": 8,
+     "all_us": [
+      11.643,
+      12.1204,
+      11.3936,
+      11.4701,
+      11.4188
+     ],
+     "spread_pct": 6.34,
+     "host_us_per_call": 0.171,
+     "M": 1024,
+     "K": 512,
+     "N": 256,
+     "GFLOP": 0.2684,
+     "TFLOPs": 23.403
+    },
+    "K1024": {
+     "us": 12.6178,
+     "R": 8,
+     "all_us": [
+      13.8995,
+      12.6178,
+      12.5726,
+      12.6153,
+      12.7906
+     ],
+     "spread_pct": 10.52,
+     "host_us_per_call": 0.158,
+     "M": 512,
+     "K": 1024,
+     "N": 256,
+     "GFLOP": 0.2684,
+     "TFLOPs": 21.274
+    }
+   }
+  }
+ }
+}
