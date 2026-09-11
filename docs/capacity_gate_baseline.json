@@ -336,9 +336,9 @@
    }
   },
   "p300c": {
-   "recorded": "2026-09-11T09:12:00Z",
+   "recorded": "2026-09-11T09:14:09Z",
    "host": "tt-quietbox2",
-   "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
+   "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
    "dirty_tree": false,
    "geometry": {
     "arch": "blackhole",
@@ -363,8 +363,7 @@
     "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
     "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
     "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
-    "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only.",
-    "Not driven by this gate at all: boltzgen, nesso1, pxdesign, rfd3, saprot-1.3b (see EXEMPT for each reason). Reported SKIPPED, never PASS."
+    "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
    ],
    "cells": {
     "boltz2": {
@@ -462,22 +461,23 @@
      "measured_on": "tt-quietbox2:0"
     },
     "esmfold2": {
-     "verdict": "FAIL",
+     "verdict": "PASS",
      "tokens_requested": 1536,
      "tokens_padded": 1536,
      "residues": 1536,
      "msa_rows_effective": 0,
-     "dram_peak_bytes": 13630373888,
+     "dram_peak_bytes": 20789952512,
      "dram_total_bytes": 34225520128,
-     "wall_s": 78.3,
-     "mechanism": "dram",
+     "wall_s": 485.0,
+     "mechanism": null,
      "decided_by": "residency",
      "ceiling_tokens": null,
      "alloc_ceiling_tokens": null,
-     "alloc_ceiling_note": "the bisect decided nothing. Every rung walked (1408, 1280, 1024, 896, 768, 640, 512) failed without the allocator ever refusing, so the failure does not depend on size and is not a capacity wall. Whatever killed these rungs has to be fixed before a ceiling can be read off them.",
+     "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "53d0207c94a2ea48",
-     "tree": "8e3a3e9e3d52b1bbb621c727ef97a34b15c6711f"
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
+     "measured_on": "tt-quietbox2:0"
     },
     "esmfold2-fast": {
      "verdict": "PASS",
@@ -485,17 +485,18 @@
      "tokens_padded": 1536,
      "residues": 1536,
      "msa_rows_effective": 0,
-     "dram_peak_bytes": 16572088320,
+     "dram_peak_bytes": 16572317696,
      "dram_total_bytes": 34225520128,
-     "wall_s": 274.9,
+     "wall_s": 260.6,
      "mechanism": null,
      "decided_by": "residency",
      "ceiling_tokens": null,
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "53d0207c94a2ea48",
-     "tree": "f64c0dd5187e4aec6539116c68482ea2c6f2a330"
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
+     "measured_on": "tt-quietbox2:0"
     },
     "nesso1": {
      "verdict": "SKIPPED",
@@ -597,15 +598,16 @@
      "msa_rows_effective": 8832,
      "dram_peak_bytes": 9606689792,
      "dram_total_bytes": 34225520128,
-     "wall_s": 415.7,
+     "wall_s": 390.4,
      "mechanism": null,
      "decided_by": "residency",
      "ceiling_tokens": null,
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "53d0207c94a2ea48",
-     "tree": "f64c0dd5187e4aec6539116c68482ea2c6f2a330"
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
+     "measured_on": "tt-quietbox2:0"
     },
     "rfd3": {
      "verdict": "SKIPPED",
@@ -691,15 +693,16 @@
      "msa_rows_effective": 8832,
      "dram_peak_bytes": 7255351296,
      "dram_total_bytes": 34225520128,
-     "wall_s": 245.0,
+     "wall_s": 230.7,
      "mechanism": null,
      "decided_by": "residency",
      "ceiling_tokens": null,
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "53d0207c94a2ea48",
-     "tree": "5ab4194254827762d2141f8f5243add43f47964a"
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
+     "measured_on": "tt-quietbox2:0"
     }
    }
   }
