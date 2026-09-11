@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 OUT = Path(sys.argv[1] if len(sys.argv) > 1 else "perf/qb_livelock/out")
-ARMS = ["control", "arena", "trim", "both", "control2"]
+ARMS = ["control", "arena", "trim", "both", "control2", "reorder", "control3"]
 WATCHDOG_US = 10000     # the kernel's own "hogged CPU for >10000us" threshold
 
 EX = re.compile(r"EXITMMAP \d+ us=(\d+) map_count=(\d+) total_vm_kB=(\d+) comm=(\S+) pid=(\d+)")

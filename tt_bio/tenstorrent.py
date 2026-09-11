@@ -4911,6 +4911,14 @@ def cleanup():
         _device_lease = None
 
 
+def _drop_cycles_at_exit():
+    """Collect cycles while the device is still open. See runtime.drop_cycles."""
+    from . import runtime
+
+    if env_flag("TT_BIO_EXIT_TRIM", True):
+        runtime.drop_cycles()
+
+
 def _release_at_exit():
     """Give the fold's heap back to the kernel while we still own a sleepable context.
 
@@ -4947,11 +4955,12 @@ def _footprint_at_exit():
         pass
 
 
-# atexit runs its registrations in reverse, so read these bottom-up: close the device, then free
-# the heap, then record whatever is left over.
+# atexit runs its registrations in reverse, so read these bottom-up: collect cycles while the
+# chip is still open, close the device, hand the freed heap back, then record what is left.
 atexit.register(_footprint_at_exit)
 atexit.register(_release_at_exit)
 atexit.register(cleanup)
+atexit.register(_drop_cycles_at_exit)
 
 
 class WeightScope:

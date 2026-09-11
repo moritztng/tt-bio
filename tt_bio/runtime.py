@@ -392,17 +392,26 @@ def address_space() -> tuple[int, int]:
     return rss, vmas
 
 
-def release_address_space() -> tuple[int, int]:
-    """Free this process's heap back to the kernel now. Returns the footprint left behind.
+def drop_cycles() -> None:
+    """Run the cycle collector while the device is still open.
 
-    ``gc.collect()`` first, because the tensors sit in reference cycles nothing has walked yet,
-    and ``malloc_trim`` second, because glibc otherwise keeps every freed block in its arenas and
-    RSS does not move at all until the pages are handed back. The order is the whole point:
-    ``malloc_trim`` on its own finds nothing free to return.
+    Anything holding a device buffer expects to be finalised against a live device, so the
+    collection has to happen before the close, not after it -- an atexit ``gc.collect()`` placed
+    after ``ttnn.close_device()`` would run those finalisers against a closed chip.
     """
     import gc
 
     gc.collect()
+
+
+def release_address_space() -> tuple[int, int]:
+    """Give this process's freed heap back to the kernel. Returns the footprint left behind.
+
+    glibc keeps every block the fold freed in its arenas, so RSS does not move at all until
+    ``malloc_trim`` hands the pages back -- which is the step usually missed, and on a 512 aa fold
+    it is 517 MB of ``[heap]``. Pair it with ``drop_cycles`` before the device close; this half is
+    pure bookkeeping and safe to run last.
+    """
     libc = _libc()
     if libc is not None:
         libc.malloc_trim(0)
