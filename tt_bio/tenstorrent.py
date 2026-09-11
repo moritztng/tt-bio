@@ -5015,7 +5015,13 @@ class TriangleMultiplication(Module):
         super().__init__(state_dict, compute_kernel_config)
         self.ending = ending
         # Opt in to the fused chunk+gate forward move (E6). Per instance and not a global, because
-        # the same kernel wins on opendde's channel widths and loses on boltz2's call mix.
+        # the same kernel wins on opendde's channel widths and was recorded as losing on boltz2's
+        # call mix. That reading is wrong and is kept here only to say so: `gated` required
+        # `mask_u is None` and every boltz2 pairformer call site passes a pair mask, so E6 was
+        # ineligible on 100 % of boltz2's pairformer trimuls and never ran there at all. Move the
+        # mask past the channel move (_TRIMUL_MASK_AFTER_MOVE) and the same kernel is worth
+        # 1.2981x on the starting trimul and 1.3329x on the ending one at 512 aa, and 1.0555x on
+        # the fold, bit-exact. perf/b2x_trimul/, state/b2x-trimul-fusion-unlock.md.
         self.gated_move = gated_move
         self.in_norm_weight = self.torch_to_tt("norm_in.weight")
         self.in_norm_bias = self.torch_to_tt("norm_in.bias")

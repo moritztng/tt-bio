@@ -731,10 +731,14 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
 
 
 # Master switch for folding the trimul's chunk and its two sigmoid gates into the forward move.
-# ON, but every TriangleMultiplication still has to opt in (`gated_move=`), because the fused pair is
-# a measured LOSS on boltz2 (+0.373 s/fold at 512 aa, only 64 of 560 of its moves eligible) and a
-# measured 1.5046x on opendde's, `torch.equal` at both of its slice widths
-# (perf/odde512/screen3.json). The model decides; this only says whether the kernel exists at all.
+# ON, but every TriangleMultiplication still has to opt in (`gated_move=`). The recorded reason was
+# that the fused pair is a measured LOSS on boltz2 (+0.373 s/fold at 512 aa, only 64 of 560 of its
+# moves eligible) against 1.5046x on opendde's, `torch.equal` at both of its slice widths
+# (perf/odde512/screen3.json). The loss was COVERAGE, not the kernel: `eligible_gated`'s caller
+# required `mask_u is None` and boltz2 always passes a pair mask, so none of those 64 moves can
+# have been in the pairformer. With the mask moved past the channel move the same kernel is
+# 1.2981x / 1.3329x per trimul at 512 aa and 1.0555x on the fold, bit-exact
+# (perf/b2x_trimul/). The model decides; this only says whether the kernel exists at all.
 REBLOCK_PERMUTE_GATED = True
 _ENABLED_GATED = os.environ.get(
     "TT_BIO_REBLOCK_PERMUTE_GATED", "1" if REBLOCK_PERMUTE_GATED else "0") == "1"

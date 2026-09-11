@@ -69,7 +69,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--reps", type=int, default=3, help="warm folds per arm in phase 1")
-    ap.add_argument("--skip-census", action="store_true")
+    ap.add_argument("--arms", default="A,B,C,A2")
     ap.add_argument("--steps", type=int, default=SAMPLING_STEPS,
                     help="sampling steps; only lower it for a harness smoke test")
     ap.add_argument("--recycles", type=int, default=RECYCLING_STEPS)
@@ -258,7 +258,7 @@ def main() -> int:
     # ---- the timed A/B ------------------------------------------------------
     import tt_bio.trimul_tail as _F1
 
-    ARMS = ["A", "B", "C", "A2"]
+    ARMS = args.arms.split(",")
 
     def set_arm(name):
         from tt_bio.tenstorrent import set_trimul_mask_after_move
