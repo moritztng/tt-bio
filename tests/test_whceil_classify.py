@@ -193,7 +193,7 @@ def test_fragmentation_on_a_nearly_full_chip_is_named_apart():
     verdict, d = classify(full, 1, False)
     assert verdict == "OOM_DRAM"
     assert d["wall_kind"] == "FRAGMENTATION_ON_FULL_CHIP"
-    assert d["occupancy_pct"] == 98.0
+    assert d["occupancy_pct"] == 98.2   # 1052000000 of the 1071480832 B bank
 
     roomy = _HEAD.format(req=2424307712, per=202027008, alloc=856253280,
                          free=217488512, run=178813056)
