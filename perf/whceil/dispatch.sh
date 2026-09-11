@@ -13,14 +13,21 @@
 #   * The queue line is consumed BEFORE the launch, so a crash loses a job rather than running
 #     it twice on two chips.
 #
-# usage: dispatch.sh QUEUE_FILE CHIPS LOGDIR OUTROOT RUNGDIR
+# usage: dispatch.sh QUEUE_FILE CHIPS LOGDIR OUTROOT WORKTREE
+#
+# WORKTREE is explicit and NOT derived from $0. It used to be `dirname $0/../..`, which is
+# right when this runs from the checkout and wrong the moment you run a copy -- and running a
+# copy is the correct thing to do, because `git pull` rewriting a script bash is part-way
+# through executing is its own failure. The copy resolved the worktree to /home/mthuening and
+# every job it launched died instantly on "can't open file .../perf/whceil/ladder.py", taking
+# four queue entries with it.
 # queue line: <model>\t<command>\t<rung paths,csv>[\t<tt-bio args>[\t<KEY=VAL ...>]]
 # The optional fourth field is forwarded to tt-bio verbatim. ESMFold2 needs it:
 # its published ladder is single-sequence (msa_rows=0), so a rung carrying an a3m
 # would walk a different configuration and the numbers would not compare.
 set -u
-Q=$1; CHIPS=$2; LOGDIR=$3; OUTROOT=$4
-WT="$(cd "$(dirname "$0")/../.." && pwd)"
+Q=$1; CHIPS=$2; LOGDIR=$3; OUTROOT=$4; WT=$5
+[ -f "$WT/perf/whceil/ladder.py" ] || { echo "no ladder.py under WORKTREE=$WT"; exit 2; }
 PY=/home/mthuening/work/tt-bio/env/bin/python
 
 while [ -s "$Q" ]; do
