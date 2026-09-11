@@ -1,0 +1,121 @@
+{
+ "_what": "static per-op DRAM byte attribution of the tt-bio Boltz-2 pairformer block at 512 aa, c_z=128, counted off tt_bio/tenstorrent.py on the shipped path",
+ "Z_bytes": 67108864,
+ "N": 512,
+ "c_z": 128,
+ "measured_block_Z": 181.3,
+ "measured_block_GB": 12.17,
+ "measured_block_ms": 41.6326,
+ "measured_block_GBps": 292.3,
+ "measured_block_pct_of_roof": 68.0,
+ "attributed_Z": 146.7,
+ "attributed_pct_of_measured": 80.9,
+ "unattributed_Z": 34.7,
+ "phases_Z": {
+  "trimul_x2": 86,
+  "trimul_input_side_x2": 58,
+  "trimul_product_x2": 10,
+  "trimul_tail_x2": 18,
+  "triangle_attention_x2": 40.4,
+  "transition_z": 4.2,
+  "residual_adds_x5": 15,
+  "s_track_pair_bias": 1.1
+ },
+ "bioir_same_phases_Z": {
+  "trimul_x2": 26,
+  "triangle_attention_x2": 32,
+  "transition_z": 10,
+  "residual_adds_x5": 15,
+  "bioir_block_Z": 83
+ },
+ "per_op_trimul_start_Z": {
+  "layer_norm(z) -> x_norm_in": 2,
+  "_in_proj_matmul: x_norm_in @ [128,512] -> gp 4Z (mm_dualnoc)": 5,
+  "ttnn.chunk(gp, 4, -1) -> g_a|g_b|p_a|p_b": 8,
+  "multiply_(p_a, g_a, SIGMOID) -> a": 3,
+  "multiply_(p_b, g_b, SIGMOID) -> b": 3,
+  "multiply_(a, mask_u)": 2,
+  "_channel_move(a) (0,3,1,2), reblock_permute": 2,
+  "_channel_move(b) (0,3,1,2), reblock_permute": 2,
+  "ttnn.transpose(b, -2, -1)": 2,
+  "ttnn.matmul(a, b) -> x_chunk": 3,
+  "_channel_move_back(x_chunk), reblock_permute_back": 2,
+  "layer_norm(x_chunk) -> x_norm_out": 2,
+  "_trimul_out_proj(x_norm_out, Wp) -> p_out": 2,
+  "_trimul_out_proj(x_norm_in, Wg) -> g_out": 2,
+  "multiply_(p_out, g_out, SIGMOID)": 3
+ },
+ "per_op_triatt_start_Z": {
+  "layer_norm(z) -> x": 2,
+  "_pair_proj_linear(x, Wbias) -> triangle_bias": 1.031,
+  "permute(bias, (0,3,1,2))": 0.062,
+  "add(bias, attn_mask)": 0.062,
+  "_triatt_qkv.qkv_heads(x, Wqkv) -> q|k|v (3Z)": 4,
+  "_triatt_qkv.gate_proj(x, Wg) -> g": 2,
+  "_tri_att_sdpa(q,k,v,bias) -> o": 4.031,
+  "multiply_(o, g, SIGMOID)": 3,
+  "_triatt_qkv.out_proj(o, Wo)": 2
+ },
+ "design": {
+  "step1_mask_after_move_plus_E6": {
+   "deleted_Z_per_trimul": 12,
+   "deleted_GB_per_block": 1.611,
+   "block_ms_raw": 36.123,
+   "block_ratio_raw": 1.1525,
+   "fold_s_raw": 21.964,
+   "fold_ratio_raw": 1.0701,
+   "fold_s_lo": 22.534,
+   "fold_ratio_lo": 1.0431,
+   "fold_s_hi": 22.38,
+   "fold_ratio_hi": 1.0502
+  },
+  "step1_at_seq_pad_0_mask_dropped": {
+   "deleted_Z_per_trimul": 14,
+   "deleted_GB_per_block": 1.879,
+   "block_ms_raw": 35.204,
+   "block_ratio_raw": 1.1826,
+   "fold_s_raw": 21.707,
+   "fold_ratio_raw": 1.0828,
+   "fold_s_lo": 22.372,
+   "fold_ratio_lo": 1.0506,
+   "fold_s_hi": 22.193,
+   "fold_ratio_hi": 1.0591
+  },
+  "step1_2_L1_projection_into_gated_move": {
+   "deleted_Z_per_trimul": 20,
+   "deleted_GB_per_block": 2.684,
+   "block_ms_raw": 32.449,
+   "block_ratio_raw": 1.283,
+   "fold_s_raw": 20.938,
+   "fold_ratio_raw": 1.1226,
+   "fold_s_lo": 21.887,
+   "fold_ratio_lo": 1.0739,
+   "fold_s_hi": 21.63,
+   "fold_ratio_hi": 1.0866
+  },
+  "step1_2_3_plus_F1_at_4_4": {
+   "deleted_Z_per_trimul": 24,
+   "deleted_GB_per_block": 3.221,
+   "block_ms_raw": 30.613,
+   "block_ratio_raw": 1.36,
+   "fold_s_raw": 20.424,
+   "fold_ratio_raw": 1.1508,
+   "fold_s_lo": 21.564,
+   "fold_ratio_lo": 1.09,
+   "fold_s_hi": 21.256,
+   "fold_ratio_hi": 1.1058
+  },
+  "step1_2_3_at_seq_pad_0": {
+   "deleted_Z_per_trimul": 26,
+   "deleted_GB_per_block": 3.49,
+   "block_ms_raw": 29.694,
+   "block_ratio_raw": 1.402,
+   "fold_s_raw": 20.168,
+   "fold_ratio_raw": 1.1654,
+   "fold_s_lo": 21.402,
+   "fold_ratio_lo": 1.0982,
+   "fold_s_hi": 21.068,
+   "fold_ratio_hi": 1.1156
+  }
+ }
+}
