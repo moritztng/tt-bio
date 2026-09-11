@@ -407,15 +407,21 @@ _TEMPLATE_L1_NORM = True
 # bf16 output's own 2^-8 rounding step -- and it costs a fourth pass, 64 against 48 cycles per tile.
 # MEASURED at seven production shapes at N=512 against an fp32 reference computed from the same bf16
 # operands (perf/bigswing/fid_512_mm_qb2c0.json): HiFi3 costs 0.08% of relative RMS where storing the
-# result in bf16 already costs 1.8%, and is worth 1.071x time-weighted over 831.2 of the Pairformer's
-# 872.95 executed TFLOP at 512 aa. HiFi2 is a different question: 2.59x the relative RMS, genuinely
-# above the rounding floor, so it is a parity decision and not a free one.
+# result in bf16 already costs 1.8%.
+# The 1.071x that number used to be quoted with was a per-op cost times a TFLOP census, and the fold
+# REFUTES it: interleaved, 5 reps per arm on the 512 aa cell, HiFi3 buys 0.139 s of the trunk's
+# 12.876 s (1.011x) and 0.211 s of a 23.769 s fold (1.009x, inside that session's 4.1% A/A floor),
+# because only ~0.44 s of exposed FPU time is on the critical path, not the 1.6 s the census implies.
+# It also costs 0.355 A all-atom on the cdk2x2_298 control -- the hold band, not a pass -- and 1.02 /
+# 1.22 A per domain at 512 aa. NO-GO; perf/b2x-hifi3/FINDINGS.md has the table. HiFi2 removes a second
+# pass for only 0.083 s more, and is a parity decision anyway: 2.59x the relative RMS.
 # Deliberately NOT global. fp32 operands do need four passes, and Protenix's diffusion runs fp32 on
 # purpose (PROTENIX_DIFFUSION_FP32_DEVICE, and memory af3-diffusion-sampler-selective-fp32-boundary),
 # so the setting is scoped to the trunk, whose operands are bf16 and bf8 under --fast. Other models
 # opt in at their own construction site after their own envelope run -- a shared default across five
 # models is the shape that cost OpenDDE 60x once already.
-# Default hifi4 = production unchanged; the A/B and the envelope gate flip it.
+# Default hifi4 = production unchanged; the A/B and the envelope gate flip it. Boltz-2's trunk
+# wrappers pass trunk=True (boltz2.py); Protenix's Trunk takes it at its own construction site.
 _TRUNK_MATH_FIDELITY = os.environ.get("TT_BIO_TRUNK_MATH_FIDELITY", "hifi4").lower()
 _MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
 
@@ -9493,7 +9499,12 @@ class Diffusion(Module):
 
 
 class TorchWrapper(nn.Module):
-    def __init__(self):
+    def __init__(self, trunk: bool = False):
+        """``trunk=True`` puts this wrapper's matmuls on TT_BIO_TRUNK_MATH_FIDELITY.
+
+        Per instance, not per class: ``PairformerModule`` builds the trunk's 64-block stack AND
+        the confidence and template stacks, and only the trunk opts in.
+        """
         super().__init__()
         self.module = None
         self.tt_device = get_device()
@@ -9504,12 +9515,13 @@ class TorchWrapper(nn.Module):
             if self.tt_device.arch() == ttnn.Arch.WORMHOLE_B0
             else ttnn.types.BlackholeComputeKernelConfig
         )
-        self.compute_kernel_config = kernel_cls(
+        cfg = kernel_cls(
             math_fidelity=ttnn.MathFidelity.HiFi4,
             math_approx_mode=False,
             fp32_dest_acc_en=True,
             packer_l1_acc=True,
         )
+        self.compute_kernel_config = trunk_compute_kernel_config(cfg) if trunk else cfg
 
     def _from_torch(self, x: torch.Tensor, dtype=ttnn.bfloat16) -> ttnn.Tensor:
         return ttnn.from_torch(
@@ -9584,8 +9596,9 @@ class PairformerModule(TorchWrapper):
         transform_s: bool,
         affinity: bool = False,
         tri_att_sdpa_hifi: bool = False,
+        trunk: bool = False,
     ):
-        super().__init__()
+        super().__init__(trunk=trunk)
         self.n_blocks = n_blocks
         self.tri_att_head_dim = tri_att_head_dim
         self.tri_att_n_heads = tri_att_n_heads
@@ -10217,8 +10230,9 @@ class MSAModule(TorchWrapper):
         avg_n_heads: int,
         tri_att_head_dim: int,
         tri_att_n_heads: int,
+        trunk: bool = False,
     ):
-        super().__init__()
+        super().__init__(trunk=trunk)
         self.n_blocks = n_blocks
         self.avg_head_dim = avg_head_dim
         self.avg_n_heads = avg_n_heads

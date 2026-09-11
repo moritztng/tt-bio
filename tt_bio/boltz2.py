@@ -5164,6 +5164,7 @@ class Boltz2(nn.Module):
                 avg_n_heads=8,
                 tri_att_head_dim=32,
                 tri_att_n_heads=4,
+                trunk=True,
             )
             if use_tenstorrent
             else MSAModule_(
@@ -5185,6 +5186,7 @@ class Boltz2(nn.Module):
             else tenstorrent.PairformerModule(
                 64, 32, 4, 24, 16, True,
                 tri_att_sdpa_hifi=tenstorrent.triatt_sdpa_hifi_site("boltz2.trunk"),
+                trunk=True,
             )
             if use_tenstorrent
             else PairformerModule_(token_s, token_z, **pairformer_args)
