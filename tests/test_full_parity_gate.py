@@ -717,3 +717,35 @@ def test_timed_out_harness_reads_as_error_not_no_data():
         "cross": {"mean": 0.69}, "ref_floor": {"mean": 0.70}, "dev_floor": {"mean": 0.58}}}}}
     struct = next(l for l in mod.LEGS if l.kind == "structure")
     assert mod.extract_verdict(struct, ok)[0] == "PASS"
+
+
+def test_in_process_reference_legs_get_the_contended_host_budget():
+    """The fold-timeout floor is keyed on the mechanism, not on a model name.
+
+    esmfold2-cocrystal died at 2404 s inside its torch reference on a box carrying six
+    campaigns. The affinity legs already carry a 7200 s floor for the same reason from the
+    device side. A leg with no cached fixture computes its reference here, on this host, so it
+    gets the same budget — one rule, no `if leg.model == ...`.
+
+    Controls: a fixture leg must NOT be raised (its reference is read off disk, and a real
+    hang there should still fail in 40 minutes), and an explicit Leg.min_fold_timeout must
+    still win over the derived floor.
+    """
+    mod = _load()
+    cli = 2400.0
+
+    cocrystal = next(l for l in mod.LEGS if l.id == "esmfold2-cocrystal")
+    assert not cocrystal.fixture
+    assert mod.leg_fold_timeout(cocrystal, cli) == mod.HOST_REFERENCE_FOLD_TIMEOUT_S > 2404.0
+
+    for leg in mod.LEGS:
+        got = mod.leg_fold_timeout(leg, cli)
+        if leg.min_fold_timeout:
+            assert got == max(cli, leg.min_fold_timeout), leg.id
+        elif leg.fixture:
+            assert got == cli, (leg.id, got)          # cached reference: unchanged
+        else:
+            assert got == mod.HOST_REFERENCE_FOLD_TIMEOUT_S, (leg.id, got)
+
+    # a CLI value above every floor still wins
+    assert all(mod.leg_fold_timeout(l, 99999.0) == 99999.0 for l in mod.LEGS)

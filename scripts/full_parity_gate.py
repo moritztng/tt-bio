@@ -259,6 +259,24 @@ def _boltz2_struct_args(recycling=3, steps=200, samples=1, msa="none"):
 # regardless of the remaining budget.
 AFFINITY_FOLD_TIMEOUT_S = 7200.0
 
+# A leg with no cached fixture computes its reference IN-PROCESS, in torch, on the host. That
+# is the same mechanism the affinity floor above exists for, arriving from the other side: not
+# a heavy device fold, but a heavy HOST fold sharing a box with whatever else is running. On
+# 2026-09-11 esmfold2-cocrystal was killed at 2404 s still inside `ref seed=0`, on a Galaxy
+# carrying six campaigns at loadavg 110-367, and reported as if it had produced nothing to
+# score. Keying the floor on "no fixture" rather than on the model keeps it one rule: any leg
+# whose reference is computed here, now, gets the budget a contended host needs. Costs nothing
+# on success — the subprocess exits when the fold is done, whatever budget is left.
+HOST_REFERENCE_FOLD_TIMEOUT_S = 7200.0
+
+
+def leg_fold_timeout(leg: "Leg", cli_timeout: float) -> float:
+    """Effective per-fold timeout: the CLI value, raised to whatever floor the leg needs."""
+    floor = leg.min_fold_timeout
+    if floor is None:
+        floor = 0.0 if leg.fixture else HOST_REFERENCE_FOLD_TIMEOUT_S
+    return max(cli_timeout, floor)
+
 LEGS = [
     # --- deterministic encoders (in-process reference, fast, no fixture) ---
     Leg("esmc-300m", "esmc-300m", "esmc", "", committed_json="esmc-300m.json",
@@ -1332,7 +1350,7 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
             t0 = time.monotonic()
             try:
                 rc, timed_out = _run_local_fold(wrapped, out_dir, logf,
-                                                max(fold_timeout, leg.min_fold_timeout or 0.0))
+                                                leg_fold_timeout(leg, fold_timeout))
             finally:
                 logf.close()
             wall = time.monotonic() - t0
@@ -2193,7 +2211,9 @@ def main() -> int:
                    help="hard wall-clock timeout (s) per device fold / in-process harness. A fold "
                         "that never produces results.json within this window (e.g. a flaky MSA "
                         "server) is killed with a clear error instead of hanging the gate. Default "
-                        "2400. Legs can declare a higher floor (Leg.min_fold_timeout — the boltz2 "
+                        "2400, raised to 7200 for any leg whose reference is computed in-process on "
+                        "the host (no cached fixture). Legs can declare a higher floor "
+                        "(Leg.min_fold_timeout — the boltz2 "
                         "affinity legs get 7200s for their contention-fragile fp32 host trunk); "
                         "the effective timeout is max(this, the leg floor).")
     ap.add_argument("--load-ceiling", type=float, default=gate_guard.DEFAULT_LOAD_CEILING,
@@ -2374,7 +2394,7 @@ def main() -> int:
             continue
 
         seeds = seeds_override if seeds_override is not None else list(leg.seeds)
-        leg_timeout = max(args.fold_timeout, leg.min_fold_timeout or 0.0)
+        leg_timeout = leg_fold_timeout(leg, args.fold_timeout)
         # fingerprint check for fixture legs
         ref_status = "in-process"
         if leg.fixture:
