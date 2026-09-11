@@ -1210,7 +1210,8 @@ def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,
                 recent.append(now)
                 restarts[i] = recent
                 click.echo(f"[supervisor] {label} exited (code={proc.exitcode}); "
-                           f"respawning [{len(recent)}/{max_restarts}]", err=True)
+                           f"respawning [{len(recent)}/{max_restarts}]"
+                           + _dead_worker_stderr([proc]), err=True)
                 _spawn(i)
             # No slot holds a chip. Say so once, and keep retrying: the pool is the
             # only thing that would notice the chips coming back. Callers see the
@@ -1227,6 +1228,42 @@ def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,
     except KeyboardInterrupt:
         click.echo("\nStopping workers...")
         _stop_worker_processes(list(procs.values()))
+
+
+def _dead_worker_stderr(procs) -> str:
+    """The captured fd-2 tail of each dead worker, ready to append to an error line.
+
+    A worker silences itself to a capture file rather than /dev/null (see
+    worker._silence_subprocess_output) precisely so the fatals that never reach Python --
+    a tt-metal L1 circular-buffer overflow, an MPI_Init abort -- survive the process that
+    hit them. Without this the launcher can only report an exit code.
+    """
+    tails = []
+    for proc in procs:
+        cap = read_worker_capture(proc.pid) if proc.pid else ""
+        if cap:
+            tails.append(f"--- {proc.name} (exit {proc.exitcode}) stderr tail ---\n{cap}"
+                         + _l1_census_line(cap))
+    return ("\n" + "\n\n".join(tails)) if tails else ""
+
+
+def _l1_census_line(text: str) -> str:
+    """The allocation census an L1 throw in `text` implies, or "".
+
+    tt-metal reports an L1 failure as two raw addresses or as a byte count against a
+    ceiling, which reads like "out of memory at N" and is not what it says.
+    `describe_l1_clash` subtracts instead and names the grid, the shortfall and whether
+    a resident tensor is implicated at all. Rendering it here is the difference between
+    a user filing "it crashed" and filing the number we need.
+    """
+    try:
+        from tt_bio.tenstorrent import describe_l1_clash
+    except Exception:                                          # no ttnn on this host
+        return ""
+    census = describe_l1_clash(text)
+    if not census:
+        return ""
+    return "\n    L1 census: " + " ".join(f"{k}={v}" for k, v in census.items())
 
 
 def _parse_listen(listen: str | None) -> tuple[str, int]:
@@ -1355,29 +1392,22 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                             f"every local worker exited at device open ({codes}); the card "
                             "is leased by another process, so nothing ran")
                     # A worker fatal may never have reached Python at all: a C-level
-                    # abort (an MPI_Init failure, a tt-metal throw out of a device
+                    # abort (an MPI_Init failure, a tt-metal L1 throw out of a device
                     # thread) writes to fd 2 and exits without unwinding, so
                     # _report_fatal never runs. fd 2 is captured to a file for exactly
-                    # this moment (worker._silence_subprocess_output), so read the tail
-                    # back here rather than telling the reader to re-run with --debug.
-                    tails = []
-                    for proc in local_procs:
-                        cap = read_worker_capture(proc.pid, consume=True)
-                        if cap:
-                            tails.append(
-                                f"--- {proc.name} (exit {proc.exitcode}) stderr tail ---\n{cap}")
-                    # With nothing captured, do not promise a traceback: a worker stopped
-                    # by a signal mid-job prints one line and no trace
+                    # this moment (worker._silence_subprocess_output), so print the tail
+                    # rather than telling the reader to re-run with --debug. With
+                    # nothing captured, do not promise a traceback either: a worker
+                    # stopped by a signal mid-job prints one line and no trace
                     # (worker.run_worker_loop KeyboardInterrupt arm), and rf3 at 1536
                     # tokens sent a reader looking for a traceback that was never
                     # written. Name what each code means instead.
-                    detail = "\n\n".join(tails) if tails else (
-                        "Exit 130/143 means a signal stopped the worker mid-job, 70 that it "
-                        "was orphaned, -9/137 that the host OOM killer took it; any other "
-                        "code prints its own fatal above.")
                     raise RuntimeError(
                         f"every local worker exited before the run finished ({codes}); "
-                        f"no job can be served.\n{detail}")
+                        "no job can be served. Exit 130/143 means a signal stopped the "
+                        "worker mid-job, 70 that it was orphaned, -9/137 that the host "
+                        "OOM killer took it; any other code prints its own fatal above."
+                        + _dead_worker_stderr(local_procs))
                 all_dead_seen = True
             else:
                 all_dead_seen = False

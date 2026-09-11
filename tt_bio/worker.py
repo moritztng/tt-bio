@@ -45,11 +45,11 @@ def worker_capture_path(pid: int) -> Path:
     return Path(tempfile.gettempdir()) / f"tt-bio-worker-{pid}.stderr"
 
 
-def read_worker_capture(pid: int, max_bytes: int = 4000, *, consume: bool = False) -> str:
+def read_worker_capture(pid: int, max_bytes: int = 4000, *, consume: bool = True) -> str:
     """Return the tail of a dead worker's captured native stderr, or "".
 
-    ``consume`` unlinks the file after reading, so the launcher does not leave
-    one behind for every crashed worker.
+    Consumes the file by default, so a caller that never thinks about it still
+    leaves nothing in /tmp per crashed worker.
     """
     path = worker_capture_path(pid)
     try:
@@ -69,12 +69,12 @@ def _silence_subprocess_output() -> None:
 
     stdout is genuine per-op noise and goes to /dev/null. Native stderr (fd 2)
     goes to a per-worker capture *file*, not /dev/null, so a fatal that never
-    reaches Python -- a C-level abort such as an MPI_Init failure, which writes
-    to fd 2 and exits without unwinding -- survives for the launcher to read on
-    worker death. A plain /dev/null here is exactly what left an MPI_Init abort
-    invisible: no Python traceback reached ``_report_fatal`` and the C stderr
-    went to the void. A dup of the real stderr is still kept so ``_report_fatal``
-    can surface Python fatals to the terminal immediately.
+    reaches Python survives: a C-level abort such as an MPI_Init failure or a
+    tt-metal L1 circular-buffer throw writes to fd 2 and exits without
+    unwinding, so ``_report_fatal`` never runs and /dev/null turns it into a
+    0-byte log behind a run that just failed (#12, #14). A dup of the real
+    stderr is still kept so ``_report_fatal`` can surface Python fatals to the
+    terminal immediately.
     """
     global _REAL_STDERR_FD, _CAPTURE_PATH
     _REAL_STDERR_FD = os.dup(2)
@@ -93,11 +93,13 @@ def _cleanup_worker_capture() -> None:
     """Remove this worker's capture file on a clean or Python-level exit. A
     native abort skips this (it never unwinds), so its file is left for the
     launcher, which consumes it in ``read_worker_capture``."""
+    global _CAPTURE_PATH
     if _CAPTURE_PATH is not None:
         try:
             os.remove(_CAPTURE_PATH)
         except OSError:
             pass
+        _CAPTURE_PATH = None
 
 
 def _report_fatal(message: str) -> None:
