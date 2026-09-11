@@ -341,6 +341,116 @@ def test_the_card_being_recorded_is_not_its_own_inheritance_source(rg):
     assert rg._size_ladder_other_card_levers(reference, "p150a", "boltz2") == []
 
 
+SETLEN_DARK = {"resolved": "True", "served": 0, "declined": 1, "frac": 0.0, "how": "setlen"}
+
+
+def test_a_rung_added_at_the_top_carries_the_judgement_from_the_rung_below(rg):
+    """896 and 1024 joined the ladder on 2026-09-07 and no card had them, so the two carries
+    above had nothing to read and every dark lever on every recorded cell took a TODO: 124 of
+    them on p300c alone, each a judgement the same cell already states at 768."""
+    levers = {
+        "768": {"K2": {**DARK, "rejects": {"k_tiles=4": 8},
+                       "reason": "declines all 8 calls on k_tiles=4 x8: the tail block is one "
+                                 "tile wide at every size, so this route never applies"}},
+        "896": {"K2": {**DARK, "declined": 12, "rejects": {"k_tiles=4": 12}}},
+    }
+    assert rg._size_ladder_fill_reasons(levers, levers) == 0
+    reason = levers["896"]["K2"]["reason"]
+    assert "never applies" in reason
+    assert "[carried from rung 768]" in reason
+    # the evidence half is 896's own, not 768's eight calls
+    assert reason.startswith("declines all 12 calls on k_tiles=4 x12")
+
+
+def test_a_lever_that_only_goes_dark_at_the_new_rung_keeps_its_todo(rg):
+    """The refusal that matters. nesso1's SDPA_Q_CHUNK_FITS serves every call through 768 and
+    overflows one query shape from 896 up: a shape falling out of its per-core budget is a
+    finding, and carrying 768's judgement over it would bury exactly the thing this arm is
+    for."""
+    levers = {
+        "768": {"SDPA_Q_CHUNK_FITS": {**SETLEN_DARK, "declined": 0}},
+        "896": {"SDPA_Q_CHUNK_FITS": dict(SETLEN_DARK)},
+    }
+    assert rg._size_ladder_fill_reasons(levers, levers) == 1
+    assert levers["896"]["SDPA_Q_CHUNK_FITS"]["reason"].startswith("TODO")
+
+
+def test_a_new_decline_clause_at_the_new_rung_keeps_its_todo(rg):
+    """Same darkness, different reason for it. The judgement at 768 was written about the
+    clauses it declined on there, so it says nothing about a clause that is new at 896."""
+    levers = {
+        "768": {"K2": {**DARK, "rejects": {"k_tiles=4": 8},
+                       "reason": "declines all 8 calls on k_tiles=4 x8: never applies"}},
+        "896": {"K2": {**DARK, "rejects": {"l1_dest_is_faster": 8}}},
+    }
+    assert rg._size_ladder_fill_reasons(levers, levers) == 1
+    assert levers["896"]["K2"]["reason"].startswith("TODO")
+
+
+def test_a_judgement_carried_two_rungs_keeps_naming_where_it_was_written(rg):
+    """Otherwise 1024 reads `carried from rung 896` and the trail to the human who wrote it
+    gets one hop longer with every rung the ladder grows."""
+    levers = {
+        "768": {"K2": {**DARK, "reason": "declines all 8 calls: never applies"}},
+        "896": {"K2": dict(DARK)},
+        "1024": {"K2": dict(DARK)},
+    }
+    assert rg._size_ladder_fill_reasons(levers, levers) == 0
+    assert "[carried from rung 768]" in levers["1024"]["K2"]["reason"]
+    assert "rung 896" not in levers["1024"]["K2"]["reason"]
+
+
+def test_the_same_rung_always_beats_the_rung_below(rg):
+    """A judgement written about THIS size is better evidence than one carried up to it."""
+    old = {"768": {"K2": {**DARK, "reason": "declines all 8 calls: measured at 768"}},
+           "896": {"K2": {**DARK, "reason": "declines all 8 calls: measured at 896"}}}
+    levers = {
+        "768": {"K2": {**DARK, "reason": "declines all 8 calls: measured at 768"}},
+        "896": {"K2": dict(DARK)},
+    }
+    assert rg._size_ladder_fill_reasons(levers, old) == 0
+    assert "measured at 896" in levers["896"]["K2"]["reason"]
+    assert "carried from rung" not in levers["896"]["K2"]["reason"]
+
+
+def test_a_setlen_levers_evidence_is_shapes_not_calls(rg):
+    """`declined` on a setlen lever counts distinct shapes in an overflow set, not calls, so
+    regenerating its evidence half as "declines all 1 calls" would state something the entry
+    does not. Before this it was not regenerated at all: the head carried verbatim onto the
+    next record, numbers and all, which is what the split exists to stop."""
+    old = {"896": {"SDPA": {**SETLEN_DARK, "declined": 1,
+                            "reason": "overflow set holds 1 shape(s): one query shape "
+                                      "overflows its per-core budget and takes the slow path"}}}
+    levers = {"896": {"SDPA": {**SETLEN_DARK, "declined": 3}}}
+    assert rg._size_ladder_fill_reasons(levers, old) == 0
+    reason = levers["896"]["SDPA"]["reason"]
+    assert reason.startswith("overflow set holds 3 shape(s)")
+    assert "takes the slow path" in reason
+
+
+def test_fill_reasons_mode_writes_the_fragment_it_read(rg_fresh, tmp_path):
+    """The mode exists so a rung added at the top does not cost a full re-record per card. It
+    has to write back into the file the cell actually lives in: relocating a fragment row into
+    the monolith would leave the same cell in two files, and the fragment wins on read."""
+    base = tmp_path / "size_ladder_baseline.json"
+    base.write_text(json.dumps({"cards": {}}) + "\n")
+    frag = tmp_path / "size_ladder_baseline.d"
+    frag.mkdir()
+    cell = {"cards": {"p300c": {"models": {"boltz2": {"grid": "11x10", "levers": {
+        "768": {"K2": {**DARK, "reason": "declines all 8 calls: never applies"}},
+        "896": {"K2": dict(DARK)},
+    }}}}}}
+    (frag / "boltz2.json").write_text(json.dumps(cell) + "\n")
+
+    out = rg_fresh.run_size_ladder_fill_reasons(base)
+    assert out["gate"] and out["left"] == []
+    assert [l["filled"] for l in out["legs"]] == [1]
+    written = json.loads((frag / "boltz2.json").read_text())
+    reason = written["cards"]["p300c"]["models"]["boltz2"]["levers"]["896"]["K2"]["reason"]
+    assert "[carried from rung 768]" in reason
+    assert json.loads(base.read_text()) == {"cards": {}}       # monolith untouched
+
+
 def test_rf3_is_in_the_size_ladder(rg):
     """RF3 shipped as a `predict --model rf3` choice in v0.6.6 with no correctness coverage in
     either gate leg. It carries RF3-scoped perf levers and it has already had one L1 gate go

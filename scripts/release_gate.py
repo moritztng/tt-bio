@@ -2904,12 +2904,55 @@ def _size_ladder_other_card_levers(reference: dict, card: str, model: str) -> li
     return [(c, lv) for c, lv, _ in out]
 
 
+# The tag a judgement carried up the ladder gets, and the pattern that reads it back so a
+# chain of carries keeps naming the rung the judgement was actually written at.
+SIZE_LADDER_RUNG_TAG = re.compile(r"\s*\[carried from rung (\d+)\]")
+
+
+def _size_ladder_lower_rung_reason(levers: dict, rung: str, flag: str):
+    """(judgement, source rung) from the next rung down, when it is safe to reuse.
+
+    A rung added at the TOP of the ladder leaves a TODO on every dark lever of every cell
+    already recorded: the two carries above only look at the same rung, and a brand-new rung
+    exists on no card yet, so there is nothing to inherit. That is 124 TODOs across five
+    p300c cells from 896 and 1024 joining on 2026-09-07, every one of them a judgement the
+    same cell already states one rung down.
+
+    Reused only when the lever is dark at the next rung down AND declines on exactly the
+    same clause keys. That is stricter than the cross-card carry beside it, which carries on
+    flag identity alone. A guard that only starts declining at the new size, or declines for
+    a new reason, has no judgement to inherit and keeps its TODO: nesso1's SDPA_Q_CHUNK_FITS
+    serves every call through 768 and declines one from 896 up, and one query shape falling
+    out of its L1 budget is a finding, not paperwork.
+    """
+    lower = max((r for r in levers if int(r) < int(rung)), key=int, default=None)
+    if lower is None:
+        return None, None
+    cand = (levers[lower] or {}).get(flag) or {}
+    reason = str(cand.get('reason') or '').strip()
+    if not cand or not _size_ladder_dark(cand) or not reason or reason.startswith('TODO'):
+        return None, None
+    if set(cand.get('rejects') or {}) != set((levers[rung][flag].get('rejects') or {})):
+        return None, None
+    seen = SIZE_LADDER_RUNG_TAG.search(reason)
+    return SIZE_LADDER_RUNG_TAG.sub('', reason).strip(), (seen.group(1) if seen else lower)
+
+
+def _size_ladder_unreasoned(levers: dict) -> set:
+    """(rung, flag) of every dark lever with no exemption reason a human has written yet."""
+    return {(rung, flag) for rung, table in levers.items() for flag, e in table.items()
+            if _size_ladder_dark(e)
+            and (not str(e.get("reason") or "").strip()
+                 or str(e["reason"]).startswith("TODO"))}
+
+
 def _size_ladder_fill_reasons(levers: dict, old_levers: dict, inherited=()) -> int:
     """Carry exemption reasons forward from the previous baseline; newly dark
     levers get a TODO. Returns the number of dark levers still needing a reason."""
     todo = 0
-    for rung, table in levers.items():
-        for flag, e in table.items():
+    # Ascending, so a rung can carry from the one below it after that one has been filled.
+    for rung in sorted(levers, key=int):
+        for flag, e in levers[rung].items():
             if not _size_ladder_dark(e):
                 e.pop("reason", None)
                 continue
@@ -2920,6 +2963,10 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict, inherited=()) -> i
                     if cand and not cand.startswith("TODO"):
                         old = f"{cand} [carried from {other_card}]"
                         break
+            if not old or old.startswith("TODO"):
+                cand, src = _size_ladder_lower_rung_reason(levers, rung, flag)
+                if cand:
+                    old = f"{cand} [carried from rung {src}]"
             if old and not old.startswith("TODO"):
                 # Carry the EXPLANATION forward, re-measure the evidence. A reason opens with
                 # the counts and clause it was written against, and carrying that verbatim
@@ -3020,11 +3067,20 @@ def _size_ladder_clause_str(entry: dict, top: int = 0) -> str:
 # The openings a generated evidence half can have. `_size_ladder_fill_reasons` splits a
 # carried reason on the first of these and regenerates it, so the judgement survives a
 # re-record and the numbers never do.
-SIZE_LADDER_EVIDENCE_HEADS = ("declines all ", "never reached at this size")
+SIZE_LADDER_EVIDENCE_HEADS = ("declines all ", "never reached at this size",
+                              "overflow set holds ")
 
 
 def _size_ladder_reason_evidence(entry: dict) -> str:
-    """The measured half of an exemption reason, regenerated from the entry it annotates."""
+    """The measured half of an exemption reason, regenerated from the entry it annotates.
+
+    A setlen lever has no call counter: its `declined` is the size of an overflow set, a
+    count of distinct SHAPES that did not fit, and reading it out as "declines all 1 calls"
+    states something the entry does not say. Written in the lever's own units so the head
+    regenerates instead of being carried verbatim, which is the whole point of this split.
+    """
+    if entry.get("how") == "setlen":
+        return f"overflow set holds {entry.get('declined') or 0} shape(s)"
     clause = _size_ladder_clause_str(entry)
     return (f"declines all {entry.get('declined') or 0} calls"
             + (f" on {clause}" if clause else ""))
@@ -3036,6 +3092,54 @@ def _size_ladder_lever_todo(entry: dict) -> str:
     clause = _size_ladder_clause_str(entry, top=3)
     return ("TODO: say why this is legitimate at this size"
             + (f" (declines on {clause})" if clause else ""))
+
+
+def run_size_ladder_fill_reasons(baseline_path: Path, models=None) -> dict:
+    """Carry exemption reasons into the recorded baseline in place. No device, no folds.
+
+    A rung added at the top of the ladder leaves a TODO on every dark lever of every cell
+    already recorded, and the only way to clear one was a full re-record: hours of folds per
+    card type to re-derive judgements the file already holds one rung down. 896 and 1024
+    joined the ladder on 2026-09-07 and left 124 of them on p300c, which is the size-ladder
+    arm red on that card with nothing wrong with the card.
+
+    Runs exactly the carry a record pass runs, so nothing lands here that a re-record would
+    not have written, and names every dark lever it refused to carry to.
+    """
+    t0 = time.monotonic()
+    merged = _size_ladder_read_baseline(baseline_path)
+    frag_dir = _size_ladder_fragment_dir(baseline_path)
+    paths = ([baseline_path] if baseline_path.exists() else []) + (
+        sorted(frag_dir.glob("*.json")) if frag_dir.is_dir() else [])
+    legs, left = [], []
+    for path in paths:
+        data = json.loads(path.read_text())
+        before = json.dumps(data, indent=2, sort_keys=True)
+        for card, block in sorted((data.get("cards") or {}).items()):
+            for model, entry in sorted((block.get("models") or {}).items()):
+                if models and model not in models:
+                    continue
+                levers = entry.get("levers")
+                if not levers:
+                    continue
+                was = _size_ladder_unreasoned(levers)
+                if not was:
+                    continue
+                _size_ladder_fill_reasons(
+                    levers, levers, _size_ladder_other_card_levers(merged, card, model))
+                now = _size_ladder_unreasoned(levers)
+                legs.append({"model": f"{card}/{model}", "gate": not now, "error": None,
+                             "findings": [], "filled": len(was - now), "left": len(now)})
+                left += [f"{card}/{model} at {r}: {f} needs a reason, "
+                         f"{levers[r][f].get('reason')}"
+                         for r, f in sorted(now, key=lambda t: (int(t[0]), t[1]))]
+        # Written only when the carry actually changed something, so a no-op run leaves
+        # every mtime alone and a `git status` after it stays honest.
+        if json.dumps(data, indent=2, sort_keys=True) != before:
+            path.write_text(json.dumps(data, indent=2) + "\n")
+    return {"model": "size-ladder-fill-reasons", "seconds": time.monotonic() - t0,
+            "gate": not left, "card": "every recorded card", "error": None,
+            "legs": legs, "left": left}
 
 
 def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
@@ -3984,6 +4088,11 @@ def main() -> int:
                          "splice is refused unless every other lever still matches. For a "
                          "counter-only lever, which changes no behaviour and does not "
                          "justify discarding a good timing baseline.")
+    ap.add_argument("--size-ladder-fill-reasons", action="store_true",
+                    help="Carry exemption reasons into the recorded size-ladder baseline "
+                         "in place, and name every dark lever it refused to carry to. No "
+                         "device and no folds. For the TODOs a newly added rung leaves on "
+                         "every cell that was already recorded.")
     ap.add_argument("--size-ladder-record", action="store_true",
                     help="Re-record the size-ladder baseline for THIS card type instead "
                          "of checking against it. Explicit human action after an "
@@ -4282,7 +4391,24 @@ def main() -> int:
               if all(cr["gate"] for cr in rows) else
               "GATE FAIL — capacity regression at the largest supported input (see above)")
 
-    if want_size_ladder and args.size_ladder_record_lever:
+    if want_size_ladder and args.size_ladder_fill_reasons:
+        sl = run_size_ladder_fill_reasons(Path(args.size_ladder_baseline),
+                                          args.size_ladder_models.split(",")
+                                          if args.size_ladder_models else None)
+        rows.append(sl)
+        all_pass &= sl["gate"]
+        print(f"\n{'#'*78}\nRELEASE GATE — size-ladder fill-reasons\n{'#'*78}")
+        for l in sl["legs"]:
+            print(f"{l['model']:<24}{'PASS' if l['gate'] else 'FAIL':<6}"
+                  f"{l['filled']} carried, {l['left']} left")
+        for f in sl["left"]:
+            print(f"    FAIL {f}")
+        print(f"{'#'*78}")
+        print("REASONS CARRIED — re-run the arm without --size-ladder-fill-reasons"
+              if sl["gate"] else
+              "REASONS LEFT — each one above is a lever that went dark at this size or "
+              "declines on a new clause, so it is a human's judgement to write")
+    elif want_size_ladder and args.size_ladder_record_lever:
         sl = run_size_ladder_add_lever(args.size_ladder_record_lever, args.keep,
                                        Path(args.size_ladder_baseline),
                                        args.size_ladder_models.split(",")
