@@ -1,0 +1,405 @@
+{
+ "size": 512,
+ "started_utc": "2026-09-11T15:55:52Z",
+ "folds": [
+  {
+   "arm": "base",
+   "fold_s": 25.94,
+   "plddt": 0.849627,
+   "cif_sha256": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+  },
+  {
+   "arm": "A",
+   "fold_s": 25.347,
+   "plddt": 0.845709,
+   "cif_sha256": "d597d0ba59ec2e264b00133f4e1435477a2aa0306bf6b7ac8e8ca8b863381510"
+  },
+  {
+   "arm": "B",
+   "fold_s": 23.678,
+   "plddt": 0.868239,
+   "cif_sha256": "0918b3092da1b52780cb9295baaf7fd133e1ad08542ec9df8b1d15050feefdc0"
+  },
+  {
+   "arm": "AB",
+   "fold_s": 22.344,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+  }
+ ],
+ "capture": {
+  "calls": {
+   "difftx|1x512x768,1x512x768": {
+    "floor_MB": 127.893504,
+    "once_MB": 80.969728,
+    "real_MB": 198.934528,
+    "real_w_MB": 86.245376,
+    "real_r_MB": 112.689152,
+    "n_ops": 59,
+    "per_op_top": [
+     [
+      33554432,
+      "ttnn.add_",
+      16777216,
+      16777216
+     ],
+     [
+      16777216,
+      "ttnn.softmax",
+      8388608,
+      8388608
+     ],
+     [
+      16777216,
+      "ttnn.multiply_",
+      8388608,
+      8388608
+     ],
+     [
+      10485760,
+      "ttnn.matmul",
+      8388608,
+      2097152
+     ],
+     [
+      10485760,
+      "ttnn.matmul",
+      1048576,
+      9437184
+     ],
+     [
+      8847360,
+      "ttnn.linear",
+      3145728,
+      5701632
+     ],
+     [
+      6291456,
+      "ttnn.multiply_",
+      3145728,
+      3145728
+     ],
+     [
+      6291456,
+      "ttnn.multiply_",
+      3145728,
+      3145728
+     ],
+     [
+      6291456,
+      "ttnn.experimental.nlp_create_qkv_heads",
+      3145728,
+      3145728
+     ],
+     [
+      4718592,
+      "ttnn.linear",
+      1572864,
+      3145728
+     ],
+     [
+      4718592,
+      "ttnn.linear",
+      1572864,
+      3145728
+     ],
+     [
+      4718592,
+      "ttnn.linear",
+      1572864,
+      3145728
+     ]
+    ],
+    "inputs": [
+     {
+      "shape": [
+       1,
+       512,
+       768
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "mem": "BufferType.DRAM"
+     },
+     {
+      "shape": [
+       1,
+       512,
+       768
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "mem": "BufferType.DRAM"
+     },
+     {
+      "shape": [
+       1,
+       16,
+       512,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "mem": "BufferType.DRAM"
+     }
+    ]
+   },
+   "difftx|1x224x32x128,1x224x32x128": {
+    "floor_MB": 261.702656,
+    "once_MB": 136.922112,
+    "real_MB": 303.90784,
+    "real_w_MB": 150.470656,
+    "real_r_MB": 153.437184,
+    "n_ops": 65,
+    "per_op_top": [
+     [
+      44040192,
+      "ttnn.experimental.nlp_create_qkv_heads",
+      22020096,
+      22020096
+     ],
+     [
+      36700160,
+      "ttnn.permute",
+      14680064,
+      22020096
+     ],
+     [
+      25690112,
+      "ttnn.transformer.scaled_dot_product_attention",
+      1835008,
+      23855104
+     ],
+     [
+      22085632,
+      "ttnn.linear",
+      14680064,
+      7405568
+     ],
+     [
+      14680064,
+      "ttnn.multiply_",
+      7340032,
+      7340032
+     ],
+     [
+      14680064,
+      "ttnn.multiply_",
+      7340032,
+      7340032
+     ],
+     [
+      9626624,
+      "ttnn.matmul",
+      7340032,
+      2286592
+     ],
+     [
+      9175040,
+      "ttnn.pad",
+      7340032,
+      1835008
+     ],
+     [
+      9175040,
+      "ttnn.Tensor.__getitem__",
+      1835008,
+      7340032
+     ],
+     [
+      7340032,
+      "ttnn.reshape",
+      7340032,
+      0
+     ],
+     [
+      7340032,
+      "ttnn.multiply_",
+      3670016,
+      3670016
+     ],
+     [
+      7340032,
+      "ttnn.add",
+      1835008,
+      5505024
+     ]
+    ],
+    "inputs": [
+     {
+      "shape": [
+       1,
+       224,
+       32,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "mem": "BufferType.DRAM"
+     },
+     {
+      "shape": [
+       1,
+       224,
+       32,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "mem": "BufferType.DRAM"
+     },
+     {
+      "shape": [
+       224,
+       4,
+       32,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "mem": "BufferType.DRAM"
+     },
+     {
+      "shape": [
+       448,
+       1792
+      ],
+      "dtype": "DataType.BFLOAT4_B",
+      "mem": "BufferType.DRAM"
+     }
+    ]
+   },
+   "difftx|1x140x32x128,1x140x32x128": {
+    "floor_MB": 163.783872,
+    "once_MB": 85.763264,
+    "real_MB": 190.162112,
+    "real_w_MB": 94.076928,
+    "real_r_MB": 96.085184,
+    "n_ops": 65,
+    "per_op_top": [
+     [
+      27525120,
+      "ttnn.experimental.nlp_create_qkv_heads",
+      13762560,
+      13762560
+     ],
+     [
+      22937600,
+      "ttnn.permute",
+      9175040,
+      13762560
+     ],
+     [
+      16056320,
+      "ttnn.transformer.scaled_dot_product_attention",
+      1146880,
+      14909440
+     ],
+     [
+      13828096,
+      "ttnn.linear",
+      9175040,
+      4653056
+     ],
+     [
+      9175040,
+      "ttnn.multiply_",
+      4587520,
+      4587520
+     ],
+     [
+      9175040,
+      "ttnn.multiply_",
+      4587520,
+      4587520
+     ],
+     [
+      5948608,
+      "ttnn.matmul",
+      4587520,
+      1361088
+     ],
+     [
+      5734400,
+      "ttnn.pad",
+      4587520,
+      1146880
+     ],
+     [
+      5734400,
+      "ttnn.Tensor.__getitem__",
+      1146880,
+      4587520
+     ],
+     [
+      4587520,
+      "ttnn.reshape",
+      4587520,
+      0
+     ],
+     [
+      4587520,
+      "ttnn.multiply_",
+      2293760,
+      2293760
+     ],
+     [
+      4587520,
+      "ttnn.add",
+      1146880,
+      3440640
+     ]
+    ],
+    "inputs": [
+     {
+      "shape": [
+       1,
+       140,
+       32,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "mem": "BufferType.DRAM"
+     },
+     {
+      "shape": [
+       1,
+       140,
+       32,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "mem": "BufferType.DRAM"
+     },
+     {
+      "shape": [
+       140,
+       4,
+       32,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "mem": "BufferType.DRAM"
+     },
+     {
+      "shape": [
+       280,
+       1120
+      ],
+      "dtype": "DataType.BFLOAT4_B",
+      "mem": "BufferType.DRAM"
+     }
+    ]
+   }
+  },
+  "atom_delta": {
+   "off_sig": "difftx|1x224x32x128,1x224x32x128",
+   "on_sig": "difftx|1x140x32x128,1x140x32x128",
+   "windows_off": 224,
+   "windows_on": 140,
+   "window_ratio": 0.625,
+   "real_MB_off": 303.908,
+   "real_MB_on": 190.162,
+   "byte_ratio": 0.62572,
+   "deleted_MB_per_call": 113.746,
+   "n_ops_off": 65,
+   "n_ops_on": 65,
+   "modelled_byte_ratio": 0.6258
+  }
+ },
+ "finished_utc": "2026-09-11T15:58:17Z"
+}
