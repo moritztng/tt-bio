@@ -811,18 +811,21 @@ SIZE_LADDER_DESIGN = {
         "rungs": (128, 256, 512, 640, 768, 896),
         "exp_rungs": (256, 512, 768),
         "steps": ("--n_step", "400"),   # what an upstream run uses (main.py's own default)
+        "seeded": True,
     },
     "rfd3": {
         "axis": "contig total residues (target + binder)",
         "rungs": (256, 512, 640, 704, 768),
         "exp_rungs": (256, 512, 768),
         "steps": ("--num_timesteps", "100"),   # what the platform sends; see the block above
+        "seeded": True,
     },
     "boltzgen": {
         "axis": "atoms",
         "rungs": tuple(sorted(SIZE_LADDER_BOLTZGEN_FIXTURES)),
         "exp_rungs": (4671, 8225, 14786),
         "steps": ("--steps", "design"),   # see below: the step the atom axis scales
+        "seeded": False,                  # the vendored pipeline CLI has no --seed
     },
 }
 # boltzgen's rungs are ATOM counts and its fixture files are named by the residue count they were
@@ -2275,9 +2278,9 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
             "-m", "tt_bio.main", "design", str(fixture),
             "--model", model,
             "--num_designs", "1",
-            "--seed", str(SEED),
             "--out_dir", str(out_dir),
-        ] + list(SIZE_LADDER_DESIGN[model]["steps"])
+        ] + (["--seed", str(SEED)] if SIZE_LADDER_DESIGN[model]["seeded"] else []) \
+          + list(SIZE_LADDER_DESIGN[model]["steps"])
     else:
         cmd = census + [
             "-m", "tt_bio.main", "predict", str(fixture),
@@ -2863,7 +2866,8 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
 def _size_ladder_all_pair_exponents(runtimes: dict) -> dict:
     """``k`` for EVERY consecutive rung pair, report-only.
 
-    The gated set is ``SIZE_LADDER_EXP_RUNGS``, which is narrow on measured grounds: at
+    The gated set is the model's own (``_size_ladder_exp_rungs``), which is narrow on
+    measured grounds: at
     the noise floor a 3-sigma band over ln(640/512) is wider than the cliff it would be
     looking for. That is the right call for a pass/fail arm and the wrong one for a file
     whose own ``what`` line promises "runtime scaling exponents at every rung" — the
@@ -3358,12 +3362,25 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
 
     ladders = {m: _size_ladder_model_rungs(m, want) for m in models}
     shown = sorted({r for rs in ladders.values() for r in rs})
+    # One config line per arm the run actually walks. A design-only run has no predict fold
+    # and no nesso1 affinity, and printing theirs described a run that did not happen.
+    how = []
+    if [m for m in models if m not in SIZE_LADDER_DESIGN and m != "nesso1"]:
+        how.append(f"predict folds: {SIZE_LADDER_STEPS} steps, 1 sample, seed {SEED}, "
+                   f"single-sequence")
+    if "nesso1" in models:
+        how.append(f"nesso1: tt-bio affinity, bf16 trunk, {SIZE_LADDER_NESSO_RECYCLING} "
+                   f"recycles, {SIZE_LADDER_NESSO_TOKENS_BUDGET}-token crop")
+    for m in models:
+        if m in SIZE_LADDER_DESIGN:
+            d = SIZE_LADDER_DESIGN[m]
+            how.append(f"{m}: tt-bio design, 1 design, "
+                       + (f"seed {SEED}, " if d["seeded"] else "unseeded, ")
+                       + f"axis {d['axis']}, {' '.join(d['steps'])}")
     print(f"\n{'='*70}\n[size-ladder] {'RECORDING baseline' if record else 'checking'} "
           f"for card {card}: {', '.join(models)} at rungs "
-          f"{','.join(map(str, shown))}\n[size-ladder] predict folds: "
-          f"{SIZE_LADDER_STEPS} steps, 1 sample, seed {SEED}, single-sequence; "
-          f"nesso1: tt-bio affinity, bf16 trunk, {SIZE_LADDER_NESSO_RECYCLING} recycles, "
-          f"{SIZE_LADDER_NESSO_TOKENS_BUDGET}-token crop\n{'='*70}", flush=True)
+          f"{','.join(map(str, shown))}\n"
+          + "".join(f"[size-ladder] {h}\n" for h in how) + f"{'='*70}", flush=True)
     t0 = time.monotonic()
     legs = []
     if record:
