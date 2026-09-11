@@ -77,3 +77,23 @@ def test_note_learns_l1_top_from_the_overflow_form():
 def test_unrelated_message_is_not_a_clash():
     assert describe_l1_clash("Out of Memory: Not enough space to allocate 2015363072 B") is None
     assert note_l1_clash("x", "boom") is None
+
+
+def test_captured_worker_throw_renders_its_census():
+    """The launcher turns a worker's captured L1 throw into the census, not raw text.
+
+    issue #14's throw is the OVERFLOW form, so `resident_per_core` must read 0: the
+    program config alone does not fit an empty core and no tensor is implicated.
+    """
+    from tt_bio.main import _l1_census_line
+
+    line = _l1_census_line(
+        "TT_THROW: Statically allocated circular buffers on core range "
+        "[(x=0,y=0) - (x=10,y=9)] grow to 1765888 B which is beyond max L1 size "
+        "of 1572864 B (assert.hpp:104)")
+    assert "cb_need=1765888" in line
+    assert "l1_top=1572864" in line
+    assert "shortfall=193024" in line
+    assert "resident_per_core=0" in line
+    assert "cores=110" in line
+    assert _l1_census_line("worker exited with code 14") == ""
