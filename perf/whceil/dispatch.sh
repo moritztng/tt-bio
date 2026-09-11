@@ -7,8 +7,9 @@
 #
 # Two things it is careful about:
 #   * ONE ladder per chip. Occupancy is read from the running ladder's own argv ("--device N
-#     --rungs"), which is unambiguous and cannot match this script -- the launch line lives in a
-#     file, not in any process's cmdline, which is how the same check went wrong by hand.
+#     --rungs") AND the process has to be a python one. The argv match alone also hits any shell
+#     quoting the launch line: an ssh wrapper left behind by a timed-out connection did exactly
+#     that and would have blocked its chip for the rest of the night.
 #   * The queue line is consumed BEFORE the launch, so a crash loses a job rather than running
 #     it twice on two chips.
 #
@@ -25,7 +26,14 @@ PY=/home/mthuening/work/tt-bio/env/bin/python
 while [ -s "$Q" ]; do
   for dev in $CHIPS; do
     [ -s "$Q" ] || break
-    pgrep -f -- "--device $dev --rungs" >/dev/null && continue
+    # Only a PYTHON process counts as occupancy. A bare -f match also hits any shell whose
+    # command line quotes the launch -- an ssh wrapper left behind by a timed-out connection did
+    # exactly that, and would have blocked its chip for the rest of the night.
+    busy=
+    for pid in $(pgrep -f -- "--device $dev --rungs"); do
+      case "$(ps -o comm= -p "$pid" 2>/dev/null)" in python*) busy=1 ;; esac
+    done
+    [ -n "$busy" ] && continue
     job=$(head -1 "$Q"); sed -i 1d "$Q"
     [ -n "$job" ] || continue
     model=$(echo "$job" | cut -f1); cmd=$(echo "$job" | cut -f2); rungs=$(echo "$job" | cut -f3)
