@@ -1,0 +1,31 @@
+{
+  "tag": "B",
+  "flag": true,
+  "rc": 0,
+  "e6_moves": 0,
+  "plain_moves": 0,
+  "plain_rejects": 0,
+  "rejects": {},
+  "results": [
+    {
+      "id": "615",
+      "status": "ok",
+      "complex_plddt": 0.539534,
+      "plddt": 0.539534,
+      "ptm": 0.249074,
+      "iptm": 0.0,
+      "confidence_score": 0.148189,
+      "n_residues": 615,
+      "n_chains": 1,
+      "n_tokens": 615,
+      "msa": true,
+      "msa_depth": 2,
+      "n_atoms": 4757,
+      "samples": 1,
+      "runtime_s": 31.7
+    }
+  ],
+  "structures": {
+    "structures/615.cif": "475a2d42c76ca8fb3aa1df0c1585484eeefb1d75472c6d8a5df8edcace9c81f5"
+  }
+}
