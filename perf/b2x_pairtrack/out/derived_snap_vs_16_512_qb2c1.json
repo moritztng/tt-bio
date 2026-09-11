@@ -1,0 +1,210 @@
+{
+ "arms": [
+  "",
+  "16"
+ ],
+ "pairs": 4,
+ "knob": "TT_BIO_TRANSITION_H_CHUNK",
+ "ref_digest": "4f3995a69be5d610",
+ "started": "2026-09-11T19:56:23+0000",
+ "card": "1",
+ "commit": "17b73016",
+ "n_msa_seeded": 35,
+ "hardware": "blackhole",
+ "grid": [
+  11,
+  10
+ ],
+ "card_type": "p300c",
+ "recycling_steps": 3,
+ "folds": [
+  {
+   "arm": "",
+   "kind": "cold",
+   "s": 21.615,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "0.35",
+    "0.94",
+    "0.97"
+   ]
+  },
+  {
+   "arm": "16",
+   "kind": "cold",
+   "s": 21.695,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "1.61",
+    "1.18",
+    "1.05"
+   ]
+  },
+  {
+   "arm": "",
+   "kind": "warm0",
+   "s": 21.313,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "1.40",
+    "1.16",
+    "1.04"
+   ]
+  },
+  {
+   "arm": "16",
+   "kind": "warm0",
+   "s": 21.74,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "1.29",
+    "1.15",
+    "1.04"
+   ]
+  },
+  {
+   "arm": "16",
+   "kind": "warm1",
+   "s": 21.653,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "1.78",
+    "1.27",
+    "1.08"
+   ]
+  },
+  {
+   "arm": "",
+   "kind": "warm1",
+   "s": 21.353,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "2.08",
+    "1.36",
+    "1.12"
+   ]
+  },
+  {
+   "arm": "",
+   "kind": "warm2",
+   "s": 21.262,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "1.77",
+    "1.34",
+    "1.11"
+   ]
+  },
+  {
+   "arm": "16",
+   "kind": "warm2",
+   "s": 21.721,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "1.55",
+    "1.32",
+    "1.11"
+   ]
+  },
+  {
+   "arm": "16",
+   "kind": "warm3",
+   "s": 21.843,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "2.11",
+    "1.44",
+    "1.16"
+   ]
+  },
+  {
+   "arm": "",
+   "kind": "warm3",
+   "s": 21.282,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "loadavg": [
+    "1.73",
+    "1.41",
+    "1.15"
+   ]
+  }
+ ],
+ "summary": {
+  "warm_times_s": {
+   "": [
+    21.313433890999477,
+    21.353271081000457,
+    21.261978450000242,
+    21.281931522999912
+   ],
+   "16": [
+    21.740362352000375,
+    21.652553646999877,
+    21.72098017999997,
+    21.842763672999354
+   ]
+  },
+  "median_s": {
+   "": 21.298,
+   "16": 21.731
+  },
+  "within_arm_spread_pct": {
+   "": 0.429,
+   "16": 0.875
+  },
+  "paired_delta_s": [
+   -0.427,
+   -0.299,
+   -0.459,
+   -0.561
+  ],
+  "paired_delta_median_s": -0.443,
+  "speedup_x": 1.0203,
+  "digests_per_arm": {
+   "": [
+    "4f3995a69be5d610"
+   ],
+   "16": [
+    "4f3995a69be5d610"
+   ]
+  },
+  "baseline_arm_matches_ref": true,
+  "test_arm_bit_exact_vs_ref": true,
+  "note": "delta = TT_BIO_TRANSITION_H_CHUNK= minus 16; arm 16 forces what production derives, so it is the baseline and the knob's own A/A",
+  "loadavg_at_end": [
+   "2.08",
+   "1.50",
+   "1.18"
+  ]
+ }
+}
