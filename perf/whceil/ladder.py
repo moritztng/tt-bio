@@ -68,6 +68,14 @@ _L1_CLASH = re.compile(
     r"(?:.*?L1 buffer allocated at (\d+) and static circular buffer region ends at (\d+))?",
     re.S)
 
+#: The OTHER static-CB failure, and a different thing again: the region does not clash with a
+#: neighbour, it does not fit L1 at all. Seen on OpenDDE's 1088 rung, 2471200 B asked of a
+#: 1499136 B L1. Unlike the clash this one IS shape-determined -- it is an oversized tensor in
+#: L1 rather than in DRAM -- so it gets its own name instead of being folded into the clash.
+_L1_OVERSIZE = re.compile(
+    r"Statically allocated circular buffers on core range \[[^\]]*\] grow to (\d+) B "
+    r"which is beyond max L1 size of (\d+) B", re.S)
+
 
 def _wall_kind(per_bank: int, bank_size: int | None, free: int | None,
                largest_free: int | None) -> str:
@@ -104,6 +112,10 @@ def classify(stderr: str, rc: int, timed_out: bool) -> tuple[str, dict]:
     """Name the wall, and carry the numbers the name rests on."""
     if timed_out:
         return "TIMEOUT", {}
+    o = _L1_OVERSIZE.search(stderr)
+    if o and not _OOM.search(stderr):
+        return "OVERSIZE_L1", {"wall_kind": "ONE_OVERSIZED_TENSOR_L1",
+                               "request_bytes": int(o[1]), "l1_size_bytes": int(o[2])}
     c = _L1_CLASH.search(stderr)
     if c and not _OOM.search(stderr):
         d = {"wall_kind": "L1_CB_CLASH", "program": int(c[1])}
@@ -189,7 +201,7 @@ def run_rung(model: str, yaml_path: Path, device: int, out_root: Path, timeout_s
     # that the reactive narrowing is doing its job -- and it is invisible in a PASS row
     # otherwise. Counted for every outcome, named separately from the one that killed the run.
     hits = [int(m[1]) for m in _OOM.finditer(body)]
-    clashes = len(_L1_CLASH.findall(body))
+    clashes = len(_L1_CLASH.findall(body)) + len(_L1_OVERSIZE.findall(body))
     if verdict == "PASS" and (hits or clashes):
         row["refusals_recovered"] = len(hits)
         row["clashes_recovered"] = clashes

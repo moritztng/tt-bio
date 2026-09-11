@@ -24,7 +24,11 @@ def reclassify(r: dict) -> dict:
     stderr of every rung is on disk, so the classification is recoverable after the fact --
     which is the whole reason the driver saves it rather than a summary.
     """
-    if r["verdict"] not in ("ERROR", "NO_STRUCTURE") or "request_bytes" in r:
+    # Also enrich a row that already names a refusal but carries no allocator state: the
+    # driver that wrote it predates the state regex, and the state is the only thing that
+    # separates one oversized tensor from a chip that is simply full.
+    stale_oom = r["verdict"].startswith("OOM") and "bank_size_bytes" not in r
+    if not stale_oom and (r["verdict"] not in ("ERROR", "NO_STRUCTURE") or "request_bytes" in r):
         return r
     log = Path(r.get("log", ""))
     if not log.is_file():
@@ -36,7 +40,7 @@ def reclassify(r: dict) -> dict:
     if log.stat().st_mtime > row_end + 60:
         return {**r, "log_superseded": True}
     verdict, detail = classify(log.read_text(errors="replace"), r["rc"], False)
-    if verdict.startswith("OOM"):
+    if verdict.startswith("OOM") or verdict == "CLASH_L1":
         return {**r, "verdict": verdict, **detail, "reclassified": True}
     return r
 

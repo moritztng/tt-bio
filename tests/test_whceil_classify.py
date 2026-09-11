@@ -168,3 +168,18 @@ def test_an_l1_circular_buffer_clash_is_its_own_wall_not_a_dram_one():
 def test_a_dram_refusal_in_the_same_log_wins_over_an_earlier_clash():
     """The clash was recovered from; the refusal is what the run died on."""
     assert classify(CLASH + "\n" + WRAPPED, 1, False)[0] == "OOM_DRAM"
+
+
+OVERSIZE = ("TT_THROW: Statically allocated circular buffers on core range "
+            "[(x=0,y=0) - (x=7,y=8)] grow to 2471200 B which is beyond max L1 size of 1499136 B")
+
+
+def test_a_cb_region_that_does_not_fit_l1_is_an_oversized_tensor_not_a_clash():
+    """Different failure, different fix: the region does not collide with a neighbour, it does
+    not fit at all. Seen on OpenDDE's 1088 rung. Folding it into the clash class would say the
+    wall moves with what else is resident, and this one does not."""
+    verdict, d = classify(OVERSIZE, 1, False)
+    assert verdict == "OVERSIZE_L1"
+    assert d["wall_kind"] == "ONE_OVERSIZED_TENSOR_L1"
+    assert (d["request_bytes"], d["l1_size_bytes"]) == (2471200, 1499136)
+    assert classify(CLASH, 1, False)[0] == "CLASH_L1", "the two L1 messages must not collapse"
