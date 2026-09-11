@@ -86,6 +86,27 @@ def main():
     print(f"  remainder is all deletable bytes  {opt:7.3f} s = {dev / opt:.3f}x")
     print("So 2x is only on this axis if the remainder is almost entirely deletable bytes.")
     print("Attributing that 5 s is the single highest-value measurement left in the campaign.")
+    # --- how much of this survives the capture fold's per-call syncs ----------------
+    cap = d["fold_bytes_512_p300c_qb2"]["fold_s"]
+    cell = placed["cell_s"]
+    n_calls = sum(ph["calls"] for ph in placed["phases"].values())
+    per_call_ms = (cap - cell) / n_calls * 1e3
+    print()
+    print(f"Sync check: the capture fold ran {cap:.3f} s against the cell's {cell:.3f} s, ratio "
+          f"{cap / cell:.4f}.")
+    print(f"Spread uniformly that is {per_call_ms:.3f} ms over each of {n_calls} calls, which is the most")
+    print("generous correction available. Applying it:")
+    for phase, ph in sorted(placed["phases"].items(), key=lambda kv: -kv[1]["ms_per_call"]):
+        ms = ph["ms_per_call"]
+        adj = ms - per_call_ms
+        raw = 100 * CORRECTED_BYTES[phase] / (ms * 1e-3) / BW_ROOF
+        cor = 100 * CORRECTED_BYTES[phase] / (adj * 1e-3) / BW_ROOF if adj > 0 else float("inf")
+        flag = "  <-- impossible, so the uniform model is wrong" if cor > 100 else ""
+        print(f"  {phase:26} {raw:5.1f}% -> {cor:6.1f}%{flag}")
+    print("The impossible row bounds how far any sync correction can reach. Pairformer and MSA have")
+    print("few long calls and move under a point, so the central claim rests on phases it cannot")
+    print("touch; the two short-call phases' rows are lower bounds on efficiency.")
+
     print()
     print("What a realistic deletion buys, at the 79-93% marginal conversion measured at the trimul:")
     tot_b = sum(CORRECTED_BYTES[p] * placed["phases"][p]["calls"] for p in CORRECTED_BYTES)
