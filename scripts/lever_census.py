@@ -67,6 +67,15 @@ LEVERS = [
      "tt_bio.reblock_permute.STATS_BACK", "stats"),
     ("REBLOCK_PERMUTE_GATED", "tt_bio.reblock_permute", "_ENABLED_GATED",
      "tt_bio.reblock_permute.STATS_GATED", "stats"),
+    # Shares REBLOCK_PERMUTE_GATED's counter because it does not add moves of its own: it moves
+    # the trimul's pair mask past the channel move so the E6 fused pair stops being ineligible,
+    # and the moves it unlocks are counted as E6 moves. Default ON since the cross-model check
+    # (state/b2x-trimul-e6-crossmodel-parity.md): protenix-v2, openfold3, af2-ig, opendde and
+    # esmfold2 all bit-exact at the op, and openfold3/opendde/protenix-v2 bit-exact in a 615 aa
+    # fold. Inert at N <= TRIANGLE_MULT_L1_MAX_SEQ, where the trimul is on the L1 path and both
+    # E6 gates want a DRAM config.
+    ("TRIMUL_MASK_AFTER_MOVE", "tt_bio.tenstorrent", "_TRIMUL_MASK_AFTER_MOVE",
+     "tt_bio.reblock_permute.STATS_GATED", "stats-shared"),
     ("TRIATT_PERSISTENT_MASK", "tt_bio.triatt_sdpa", "_ENABLED",
      "tt_bio.triatt_sdpa.STATS", "stats"),
     ("SDPA_WIDE_K", "tt_bio.tenstorrent", "SDPA_WIDE_K",
