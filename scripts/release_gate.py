@@ -3269,10 +3269,20 @@ def _size_ladder_write_fragment(baseline_path: Path, card: str, stamp: dict,
 
 
 def _size_ladder_every_rung() -> tuple:
-    """Every rung any model on the ladder measures: the shared set plus each model's extras."""
+    """Every rung any model on the ladder measures: the shared set, each model's extras, and
+    each design model's own axis.
+
+    The design rungs belong here because this is what --size-ladder-rungs is validated
+    against, and without them `--size-ladder-models boltzgen --size-ladder-rungs 3225` was
+    rejected as "not on the ladder" against a list of residue counts boltzgen does not walk.
+    Nothing else widens: the models' own ladders are still taken one at a time from
+    _size_ladder_model_rungs, so a fold model never sees an atom rung.
+    """
     every = set(SIZE_LADDER_RUNGS)
     for extra in SIZE_LADDER_EXTRA_RUNGS.values():
         every |= set(extra)
+    for d in SIZE_LADDER_DESIGN.values():
+        every |= set(d["rungs"])
     return tuple(sorted(every))
 
 
@@ -3285,10 +3295,11 @@ def _size_ladder_arg_rungs(spec: str | None) -> tuple | None:
     unknown = [n for n in want if n not in every]
     if unknown:
         sys.exit(f"--size-ladder-rungs {spec}: {','.join(map(str, unknown))} is not on the "
-                 f"ladder ({','.join(map(str, every))}). A rung needs a "
-                 f"perf/size512/fixtures/cdk2x2_<N>.yaml and a place in SIZE_LADDER_RUNGS "
-                 f"(or in SIZE_LADDER_EXTRA_RUNGS, for one model's own top rung); "
-                 f"measuring a size the baseline has no column for records nothing.")
+                 f"ladder ({','.join(map(str, every))}). A rung needs a fixture "
+                 f"(_size_ladder_fixture) and a place in SIZE_LADDER_RUNGS, in "
+                 f"SIZE_LADDER_EXTRA_RUNGS for one model's own top rung, or in that design "
+                 f"model's SIZE_LADDER_DESIGN rungs; measuring a size the baseline has no "
+                 f"column for records nothing.")
     return tuple(n for n in every if n in want)   # always ascending
 
 
