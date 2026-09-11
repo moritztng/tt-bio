@@ -302,6 +302,16 @@ def install_regions(reg, state, T, boltz2):
     ok["randaug"] = reg.patch(boltz2, "compute_random_augmentation", "randaug")
     ok["digest"] = reg.patch(boltz2, "_write_sample_digest", "digest")
     ok["confidence"] = reg.patch(boltz2.ConfidenceModule, "forward", "confidence")
+    # --- the host stages between the trunk and the sampler ----------------------------------
+    # `predict_step` exclusive turned out to be the biggest single block of the fold's host
+    # path, and `DiffusionConditioning` is 60.7 % of it: 120 GFLOP of dense fp32 matmul with no
+    # ttnn implementation at all, running between the trunk and the first denoiser call. Give
+    # each of these its own row so the residual table has no glue remainder to hide in.
+    ok["rel_pos"] = reg.patch(boltz2.RelativePositionEncoder, "forward", "rel_pos")
+    ok["input_embedder"] = reg.patch(boltz2.InputEmbedder, "forward", "input_embedder")
+    ok["diffusion_cond"] = reg.patch(boltz2.DiffusionConditioning, "forward", "diffusion_cond")
+    ok["pairwise_cond"] = reg.patch(boltz2.PairwiseConditioning, "forward", "pairwise_cond")
+    ok["atom_encoder"] = reg.patch(boltz2.AtomEncoder, "forward", "atom_encoder")
     return ok
 
 
