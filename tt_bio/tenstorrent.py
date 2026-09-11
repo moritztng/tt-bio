@@ -673,9 +673,29 @@ ATOM_WINDOW = 32
 ATOM_DIM = 128
 ATOM_N_HEADS = 4
 ATOM_N_LAYERS = 3
+
 TOKEN_DIM = 2 * 384
 TOKEN_N_HEADS = 16
 TOKEN_N_LAYERS = 24
+
+# The atom axis, bucketed on the ATOM count instead of derived from the token count.
+#
+# padded_seq * MAX_ATOMS_PER_TOKEN assumes every token is a tryptophan. Protein is 8.04 heavy
+# atoms per token, measured with the production featuriser across the whole cdk2x2 ladder
+# (perf/b2x-atom-padding/atom_census.json: 128 aa -> 1568 aa, 1.74x of padded atoms at every
+# size, 4116 real atoms padded to 7168 at 512 aa). The atom transformer runs 224 windows where
+# 129 carry an atom, and the window index is the BATCH dim of a [1, 224, 32, 128] tensor, so
+# every padded window is dispatched, computed and moved across DRAM -- 0.620 TB of the fold's
+# 6.45 TB, of which 0.232 TB is padding.
+#
+# ATOM_BUCKET = MAX_ATOMS_PER_TOKEN * ATOM_WINDOW is the granularity the token-derived rule
+# ALREADY produces: padded_seq is a multiple of the 32 token bucket, so padded_seq * 14 is
+# always a multiple of 448. Bucketing the atom count to 448 therefore cannot introduce a shape
+# the fleet does not already compile -- it can only pick a smaller member of the same set --
+# and it subsumes _populate_diffusion_cache's nucleic-acid escape, because ceil(N/448)*448
+# >= N for any composition. It is also a multiple of 32 by construction, which padded_seq * 14
+# is not when the token bucket is switched off.
+ATOM_BUCKET = MAX_ATOMS_PER_TOKEN * ATOM_WINDOW
 
 COMPUTE_GRID_X_11 = 11
 COMPUTE_GRID_X_13 = 13
@@ -1048,6 +1068,14 @@ _SDPA_WIDE_Q = env_flag("TT_BIO_SDPA_WIDE_Q", True)
 # shape [1, 224, 32, 128] bf16, median of 7 after 2 warm, torch.equal against the chain: chain
 # 160.53 us, pad in TILE 57.31 us (2.8011x). At the fold: -0.124 s at 512 aa, bit-exact.
 _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+
+# Release-gated and OFF: it changes the K dim of the atom->token aggregation matmul
+# ``ttnn.matmul(a, atom_to_token_normed, transpose_a=True)``, which is the one
+# op in the atom path that reduces OVER the atom axis rather than along it. Every other use of
+# the pad is masked (-1e9 on padded key columns), zero (padded atom_to_token rows), or sliced
+# away (``[:, :N, :]``), so the arm is bit-exact everywhere except through that one K change.
+# Predicted 1.026-1.035x on the 512 aa cell (perf/b2x-atom-padding/predict.json).
+_ATOM_AXIS_BUCKET = env_flag("TT_BIO_ATOM_AXIS_BUCKET", False)
 
 # Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
 # DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
@@ -9608,15 +9636,21 @@ class DiffusionModule(TorchWrapper):
         seq_len = s_inputs.shape[1]
         token_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
         padded_seq = seq_len + token_pad
-        N_padded = padded_seq * MAX_ATOMS_PER_TOKEN
-        if N > N_padded:
-            # The protein-derived bucket (Trp=14 atoms/token) under-sizes targets with
-            # nucleic-acid tokens (up to 23 atoms) or large modified residues. Extend to
-            # the next window multiple that covers the real atom count — the padding is
-            # masked out, and the diffusion trace keys on N_padded, so this costs one
-            # recompile per new shape rather than a failure. Protein-only inputs never
-            # take this branch, so their shapes (and compiled caches) are unchanged.
-            N_padded = -(-N // ATOM_WINDOW) * ATOM_WINDOW
+        if _ATOM_AXIS_BUCKET:
+            # Bucket on the real atom count. Covers any composition, so it needs no
+            # nucleic-acid escape, and every value it can produce is already in the
+            # token-derived set (see ATOM_BUCKET).
+            N_padded = -(-N // ATOM_BUCKET) * ATOM_BUCKET
+        else:
+            N_padded = padded_seq * MAX_ATOMS_PER_TOKEN
+            if N > N_padded:
+                # The protein-derived bucket (Trp=14 atoms/token) under-sizes targets with
+                # nucleic-acid tokens (up to 23 atoms) or large modified residues. Extend to
+                # the next window multiple that covers the real atom count — the padding is
+                # masked out, and the diffusion trace keys on N_padded, so this costs one
+                # recompile per new shape rather than a failure. Protein-only inputs never
+                # take this branch, so their shapes (and compiled caches) are unchanged.
+                N_padded = -(-N // ATOM_WINDOW) * ATOM_WINDOW
         atom_pad = N_padded - N
         NW_padded = N_padded // ATOM_WINDOW
         K_padded = B * NW_padded
