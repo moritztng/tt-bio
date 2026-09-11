@@ -778,7 +778,8 @@ SIZE_LADDER_NESSO_TOKENS_BUDGET = 256
 #
 #   * EACH HAS ITS OWN AXIS. rfd3 counts the contig's total residues (target + binder),
 #     pxdesign the target chain's residues, boltzgen atoms. ``tt_bio.size_limits`` already keys
-#     them that way (DESIGN_TOTAL / DESIGN_TARGET), so this follows that grain instead of
+#     them that way (DESIGN_TOTAL / DESIGN_TARGET / TARGET_ATOMS), so this follows that grain
+#     instead of
 #     inventing a fourth reading of "size". ``axis`` is recorded beside the rows so a reader
 #     cannot mistake a pxdesign 768 for a boltz2 768.
 #   * EACH HAS ITS OWN RUNGS. A design ladder stops where its own target stops. pxdesign's
@@ -815,12 +816,13 @@ SIZE_LADDER_DESIGN = {
         "steps": (),
     },
 }
-# boltzgen carries no rungs on purpose. Its measured cap is atom-denominated (between 3158 and
-# 4651 atoms, in the trunk Pairformer's triangle attention -- wh-design-models-l1-budget-and-
-# size-caps) and atoms per residue vary with composition, so cutting a residue ladder and
-# labelling it an atom ladder would be a units substitution, the same mistake size_limits.py
-# refuses to make in its boltzgen row. It needs an atom-denominated fixture set walked on its
-# own axis, which is a task and not a line of config.
+# boltzgen carries no rungs on purpose, and the reason is the fixtures rather than the axis. The
+# axis now exists: size_limits.py's boltzgen row is TARGET_ATOMS and its cap is 14786 atoms on a
+# Wormhole Galaxy chip, walked 3225 / 4671 / 6180 / 8225 / 10482 / 14786 by wh-seqlen-design-embed.
+# What this tree does not carry is a set of targets cut to those atom counts -- only the 3225-atom
+# one, in tests/fixtures/boltzgen/, which the sizer guard uses. Cutting a RESIDUE ladder and
+# labelling it an atom ladder would be a units substitution, because atoms per residue vary with
+# composition, so the rungs stay empty until the fixture set lands.
 
 
 # ---------------------------------------------------------------------------
