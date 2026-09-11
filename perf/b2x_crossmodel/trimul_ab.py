@@ -102,8 +102,8 @@ def _sha(t: torch.Tensor) -> str:
     return hashlib.sha256(t.contiguous().view(torch.int16).numpy().tobytes()).hexdigest()[:16]
 
 
-def run(model: str, N: int, reps: int, mask_kind: str, seed: int):
-    tri, gated_move, label = LOADERS[model]()
+def run(model: str, N: int, reps: int, mask_kind: str, seed: int, loaded=None):
+    tri, gated_move, label = loaded or LOADERS[model]()
     dev = T.get_device()
     ckc = ttnn.init_device_compute_kernel_config(
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
@@ -177,20 +177,31 @@ def run(model: str, N: int, reps: int, mask_kind: str, seed: int):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, choices=sorted(LOADERS))
-    ap.add_argument("--n", type=int, default=256)
+    ap.add_argument("--n", type=int, nargs="+", default=[256])
     ap.add_argument("--reps", type=int, default=3)
-    ap.add_argument("--mask", default="ones", choices=["none", "ones", "ragged"])
+    ap.add_argument("--mask", nargs="+", default=["ones"],
+                    choices=["none", "ones", "ragged"])
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
-    r = run(a.model, a.n, a.reps, a.mask, a.seed)
-    print(json.dumps(r["verdict"], indent=2), flush=True)
-    if not any(v["B_fired_e6_per_call"] for v in r["verdict"].values()):
-        print("VACUOUS: the flag-on arm ran zero E6 moves, so this configuration does not "
-              "score the change. rejects: " + json.dumps(r["rejects"]), flush=True)
+    loaded = LOADERS[a.model]()
+    runs = []
+    for N in a.n:
+        for mk in a.mask:
+            r = run(a.model, N, a.reps, mk, a.seed, loaded=loaded)
+            fired = any(v["B_fired_e6_per_call"] for v in r["verdict"].values())
+            ok = all(v["A_eq_B"] for v in r["verdict"].values())
+            r["vacuous"] = not fired
+            print(f"== {a.model} N={N} mask={mk}: "
+                  f"{'BIT-EXACT' if ok else 'DIFFERS'}"
+                  f"{'' if fired else '  (VACUOUS: zero E6 moves in the flag-on arm)'}",
+                  flush=True)
+            if not fired:
+                print("   rejects: " + json.dumps(r["rejects"]), flush=True)
+            runs.append(r)
     if a.out:
         with open(a.out, "w") as f:
-            json.dump(r, f, indent=2)
+            json.dump(runs, f, indent=2)
         print(f"wrote {a.out}", flush=True)
 
 

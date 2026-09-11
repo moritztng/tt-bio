@@ -1,0 +1,121 @@
+{
+  "model": "opendde",
+  "label": "opendde refiner block 0 (c_z=384)",
+  "c_z": 384,
+  "hidden": 384,
+  "N": 512,
+  "gated_move": true,
+  "mask": "ragged",
+  "reps": 3,
+  "gated_stats": [
+    24,
+    0
+  ],
+  "rejects": {},
+  "arms": {
+    "start": {
+      "A": {
+        "sha": [
+          "a7e4aed3a1281d33",
+          "a7e4aed3a1281d33",
+          "a7e4aed3a1281d33"
+        ],
+        "ms": 28.297,
+        "e6_moves_per_call": 0.0
+      },
+      "B": {
+        "sha": [
+          "a7e4aed3a1281d33",
+          "a7e4aed3a1281d33",
+          "a7e4aed3a1281d33"
+        ],
+        "ms": 22.74,
+        "e6_moves_per_call": 2.0
+      },
+      "A2": {
+        "sha": [
+          "a7e4aed3a1281d33",
+          "a7e4aed3a1281d33",
+          "a7e4aed3a1281d33"
+        ],
+        "ms": 28.375,
+        "e6_moves_per_call": 0.0
+      },
+      "B2": {
+        "sha": [
+          "a7e4aed3a1281d33",
+          "a7e4aed3a1281d33",
+          "a7e4aed3a1281d33"
+        ],
+        "ms": 22.72,
+        "e6_moves_per_call": 2.0
+      }
+    },
+    "end": {
+      "A": {
+        "sha": [
+          "ebceb71b75ca08bb",
+          "ebceb71b75ca08bb",
+          "ebceb71b75ca08bb"
+        ],
+        "ms": 28.107,
+        "e6_moves_per_call": 0.0
+      },
+      "B": {
+        "sha": [
+          "ebceb71b75ca08bb",
+          "ebceb71b75ca08bb",
+          "ebceb71b75ca08bb"
+        ],
+        "ms": 22.613,
+        "e6_moves_per_call": 2.0
+      },
+      "A2": {
+        "sha": [
+          "ebceb71b75ca08bb",
+          "ebceb71b75ca08bb",
+          "ebceb71b75ca08bb"
+        ],
+        "ms": 28.031,
+        "e6_moves_per_call": 0.0
+      },
+      "B2": {
+        "sha": [
+          "ebceb71b75ca08bb",
+          "ebceb71b75ca08bb",
+          "ebceb71b75ca08bb"
+        ],
+        "ms": 22.687,
+        "e6_moves_per_call": 2.0
+      }
+    }
+  },
+  "verdict": {
+    "start": {
+      "B_fired_e6_per_call": 2.0,
+      "A_fired_e6_per_call": 0.0,
+      "A_A2_floor_bit_exact": true,
+      "B_B2_stable": true,
+      "A_eq_B": true,
+      "A_shas": [
+        "a7e4aed3a1281d33"
+      ],
+      "B_shas": [
+        "a7e4aed3a1281d33"
+      ]
+    },
+    "end": {
+      "B_fired_e6_per_call": 2.0,
+      "A_fired_e6_per_call": 0.0,
+      "A_A2_floor_bit_exact": true,
+      "B_B2_stable": true,
+      "A_eq_B": true,
+      "A_shas": [
+        "ebceb71b75ca08bb"
+      ],
+      "B_shas": [
+        "ebceb71b75ca08bb"
+      ]
+    }
+  }
+}
