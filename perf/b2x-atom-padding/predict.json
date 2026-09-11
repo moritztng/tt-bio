@@ -1,0 +1,66 @@
+{
+  "basis": {
+    "fixture": "cdk2x2_512",
+    "n_atom_real": 4116,
+    "n_atom_featurised": 4128,
+    "n_padded_today": 7168,
+    "windows_today": 224,
+    "calls_per_fold": 1200,
+    "per_call_MB": 517.06,
+    "weights_MB": 0.657,
+    "weights_share_of_call": 0.001271,
+    "per_window_MB": 2.3054,
+    "phase_TB": 0.6205,
+    "phase_s_instrumented": 2.124,
+    "phase_s_deflated": 1.797,
+    "achieved_GB_s": 292.2,
+    "rounds_today": 9
+  },
+  "arms": [
+    {
+      "arm": "ATOM_BUCKET=448 (14*32, the shape set is unchanged)",
+      "n_padded": 4480,
+      "windows": 140,
+      "per_call_MB": 323.41,
+      "phase_TB": 0.3881,
+      "phase_TB_deleted": 0.2324,
+      "byte_ratio": 0.6255,
+      "rounds": 6,
+      "round_ratio": 0.6667,
+      "fold_s_saved_lo": 0.599,
+      "fold_s_saved_hi": 0.795,
+      "speedup_lo": 1.0262,
+      "speedup_hi": 1.035
+    },
+    {
+      "arm": "tightest legal multiple of 32",
+      "n_padded": 4128,
+      "windows": 129,
+      "per_call_MB": 298.05,
+      "phase_TB": 0.3577,
+      "phase_TB_deleted": 0.2628,
+      "byte_ratio": 0.5764,
+      "rounds": 5,
+      "round_ratio": 0.5556,
+      "fold_s_saved_lo": 0.761,
+      "fold_s_saved_hi": 0.944,
+      "speedup_lo": 1.0335,
+      "speedup_hi": 1.0418
+    },
+    {
+      "arm": "ATOM_BUCKET=1024, must also be a multiple of 32",
+      "n_padded": 5120,
+      "windows": 160,
+      "per_call_MB": 369.52,
+      "phase_TB": 0.4434,
+      "phase_TB_deleted": 0.1771,
+      "byte_ratio": 0.7146,
+      "rounds": 6,
+      "round_ratio": 0.6667,
+      "fold_s_saved_lo": 0.513,
+      "fold_s_saved_hi": 0.708,
+      "speedup_lo": 1.0223,
+      "speedup_hi": 1.0311
+    }
+  ]
+}
