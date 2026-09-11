@@ -453,7 +453,7 @@ _TRIMUL_OUT_MOVE_DRAM = False
 # `_triangle_mul_memory_config` cannot express that difference: it is one sequence-length threshold
 # for the whole loop, which is the mistake `_TRIMUL_INPROJ_FUSED_BYTES` below already names. This
 # gate prices the tail on its own bytes instead.
-_TRIMUL_TAIL_L1 = os.environ.get("TT_BIO_TRIMUL_TAIL_L1", "0") == "1"
+_TRIMUL_TAIL_L1 = env_flag("TT_BIO_TRIMUL_TAIL_L1", False)
 # Live tail tensors at any moment: a_chunk, b_chunk and the matmul's result. Two of the three is
 # a real setting, not a fallback: with the product written straight to DRAM the tail still deletes
 # both operands' round trip, at two thirds of the L1 the full residency asks for.
