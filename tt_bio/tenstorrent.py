@@ -7286,7 +7286,7 @@ class Transition(Module):
             #
             # Snapped DOWN to a power of two, because the wall is not monotonic in the height and
             # the raw budget value lands on a bad point at both shipped shapes. Measured at 512 aa
-            # (perf/b2x_pairtrack/hsweep_fine_512_qb2c1.json, 22 heights, spread under 0.42 %): the
+            # (perf/b2x_pairtrack/out/hsweep_fine_512_qb2c1.json, 22 heights, spread under 0.42 %): the
             # cost is set by the CHUNK COUNT, so every height that rounds to the same count costs
             # the same (h=32/33/34 are 6.5699/6.5704/6.5721 ms) and the sawtooth between counts is
             # worth up to 5 %. The budget's raw 36 rows is a local WORST at 6.9254 ms against 32's
