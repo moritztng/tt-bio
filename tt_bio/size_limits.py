@@ -613,7 +613,33 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "atom-denominated dimension this table does not yet carry"),
     },
     "esmc-300m": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=69632, pass_at=69632, fail_at=73728, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Wormhole ladder, walked 2026-09-11 on j10glx02 Galaxy chips 5, 7 and 8 by "
+                "ws:wh-seqlen-design-embed (perf/bhdesign/ladder.py, one rung per subprocess "
+                "through the shipped CLI, verdict off the .npz). 65537 (160.2 s) and 69632 "
+                "(170.2 s) embed to [L, 960], finite, nonzero_frac 1.0; 73728 throws in 51.7 s on "
+                "424857600 B with a 24740448 B largest free block. 49153 and 65537 are NOT "
+                "multiples of 32 and their npz files carry exactly that many rows, so the token "
+                "axis's pad tail is masked at lengths that exercise it. THE WALL IS NOT THE SINGLE "
+                "padded_L^2 x 2 BUFFER the Blackhole row below blames: that buffer lands, and a "
+                "later, smaller request dies with the chip full. On a p150a, with 2.65x the memory "
+                "(8 banks x 4278190016 B against 12 x 1073741792 B), the L^2 buffer IS the wall "
+                "and everything after it fits, which is why one Blackhole ladder could read one "
+                "shape off five models and call it the cause. THIS NUMBER IS 1.13x WHAT THE ENGINE "
+                "HELD THIS MORNING, and the difference is a fix rather than a re-measurement: "
+                "before it, 61440 was the top rung and 65537 died in 25.0 s, because loading this "
+                "model reserved 268435456 B PER BANK for a ttnn trace region -- 3 GiB of a 12.8 GB "
+                "chip -- that a single long sequence can never replay, since the forward captures "
+                "only on the SECOND sighting of a bucketed shape. `esmc.trace_pays` now asks that "
+                "question before the device opens. Proven as a ONE-CHIP A/B rather than across "
+                "chips, because the first failure and the first pass landed on different cards and "
+                "that is a perfectly good alternative explanation: on card 7, same day, the "
+                "pre-fix tree (a detached worktree at 389adde1) fails 65537 in 44.2 s on the same "
+                "377671680 B request, and the post-fix tree passes it in 160.2 s",
+        ),
         "blackhole": Ceiling(
             residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,

@@ -71,6 +71,30 @@ def test_the_cli_and_the_library_both_ask(monkeypatch):
             f"reserves a trace region it can never replay")
 
 
+def test_the_serving_path_still_traces_unconditionally():
+    """The complement, and the reason no perf cell can move on any board.
+
+    A lost trace would show up as a perf regression, and the only place that is measured is
+    `scripts/perf_regression.py`'s `esmc-300m-single` leg. That leg does NOT go through the embed
+    CLI: it opens the chip itself with `get_device(trace_region_size=...)` and then loads through
+    `tt_bio.worker._WorkerState.load_model`, which calls `load_esmc` with `trace` at its default.
+    `get_device` caches the first open, so the reservation is already made by the time any model
+    code runs and `trace_pays` is never consulted on that path.
+
+    That is deliberate: a serving worker loads before any job arrives, so it cannot see a
+    sequence to decide on, and its shapes repeat by construction. Asserted here so the guarantee
+    cannot rot into a comment -- if someone wires trace_pays into the worker, the perf gate's
+    traced leg silently becomes an eager one and this fails first.
+    """
+    import inspect
+    from tt_bio import worker
+    src = inspect.getsource(worker._WorkerState.load_model)
+    assert "load_esmc(" in src, "the worker no longer loads ESM-C here; re-point this test"
+    assert "trace_pays" not in src, (
+        "the serving worker now asks trace_pays, but it loads before any job arrives -- it would "
+        "be deciding on an empty workload and the perf gate's traced leg would go eager")
+
+
 def test_the_predicate_can_say_no_which_is_what_makes_it_a_check():
     """The negative control: a `trace_pays` stubbed to always return True fails these tests.
 
