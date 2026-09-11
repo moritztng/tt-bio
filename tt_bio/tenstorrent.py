@@ -1500,8 +1500,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
                     _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "stock")
                     return o
                 except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
-                    if "circular buffers" not in str(exc):
-                        raise
+                    absorb_l1_refusal("tri_att_sdpa/wide_k", exc)
                     _SDPA_QK_OVER_L1.add(cfg)
         SDPA_K_CHUNK_STATS[1] += 1
     k_chunk = k_chunks[-1]
@@ -1525,8 +1524,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
             _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "stock")
             return o
         except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
-            if "circular buffers" not in str(exc):
-                raise
+            absorb_l1_refusal("tri_att_sdpa/q_chunk", exc)
             _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk))
     # The last rung, guarded like every rung above it. It used to be issued bare, so an L1
     # refusal HERE was fatal where the identical refusal one rung up was absorbed -- and the
@@ -1549,10 +1547,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
         _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
         return o
     except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
-        if "circular buffers" not in str(exc):
-            raise
+        absorb_l1_refusal("tri_att_sdpa/last_q_chunk", exc)
         _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1]))
-        note_l1_clash("tri_att_sdpa/last_q_chunk", exc)
         _latch("sdpa_q_chunk", "refused", exc)
     o = ttnn.transformer.scaled_dot_product_attention(
         q, k, v, attn_mask=bias, is_causal=False, scale=scale)
@@ -1800,8 +1796,7 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
                                           ckc_default=_TRIATT_FUSED_HIFI_CKC,
                                           kv_buffer_factor=kv_bf)
                 except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires this config only
-                    if "circular buffers" not in str(exc):
-                        raise
+                    absorb_l1_refusal("tri_att_sdpa/fused_hifi", exc)
                     o = None
                 if o is not None:
                     TRIATT_FUSED_HIFI_STATS["served"] += 1
@@ -2123,6 +2118,35 @@ _L1_TOP_SEEN: list = []
 
 def _worker_l1_top() -> int | None:
     return _L1_TOP_SEEN[0] if _L1_TOP_SEEN else None
+
+
+def format_l1_census(census: Mapping) -> str:
+    """The census as one line. One format, so a reader who has seen it once reads it anywhere."""
+    return "L1 census: " + " ".join(f"{k}={v}" for k, v in census.items())
+
+
+def absorb_l1_refusal(where: str, exc: BaseException) -> None:
+    """Absorb a device refusal of an L1 plan under `where`, or re-raise what is not one.
+
+    Every ladder that calls this retries a narrower plan when the device declines the wide one,
+    so the refusal is by design and the fold completes. tt-metal has already written its
+    TT_THROW to fd 2 by then, though, and that text reads like a crash: it is what
+    moritztng/tt-bio#14 was filed as, and a worker's captured stderr would otherwise hand it to
+    the launcher as a cause of death. So say on the same stream, right under the throw, that it
+    was absorbed. The census goes with it -- the ladder used to record the refused chunk in a
+    private set and never tell `L1_CLASH_CENSUS`, which is why this class stayed unattributable.
+    """
+    if "circular buffers" not in str(exc):
+        raise exc
+    census = note_l1_clash(where, exc)
+    line = (f"[tt-bio] {where}: device refused this L1 plan, retrying a narrower one "
+            "(expected, not a crash)")
+    if census:
+        line += "\n[tt-bio] " + format_l1_census(census)
+    try:
+        os.write(2, (line + "\n").encode("utf-8", "replace"))
+    except OSError:
+        pass
 
 
 def note_l1_clash(where: str, msg: object) -> dict | None:

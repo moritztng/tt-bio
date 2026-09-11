@@ -1256,14 +1256,16 @@ def _l1_census_line(text: str) -> str:
     a resident tensor is implicated at all. Rendering it here is the difference between
     a user filing "it crashed" and filing the number we need.
     """
+    if "L1 census:" in text:
+        return ""      # the process that hit it already rendered one, in the same format
     try:
-        from tt_bio.tenstorrent import describe_l1_clash
+        from tt_bio.tenstorrent import describe_l1_clash, format_l1_census
     except Exception:                                          # no ttnn on this host
         return ""
     census = describe_l1_clash(text)
     if not census:
         return ""
-    return "\n    L1 census: " + " ".join(f"{k}={v}" for k, v in census.items())
+    return "\n    " + format_l1_census(census)
 
 
 def _parse_listen(listen: str | None) -> tuple[str, int]:
