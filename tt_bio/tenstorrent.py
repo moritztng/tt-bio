@@ -5094,10 +5094,14 @@ _TRIMUL_TAIL_F1 = os.environ.get(
 # goes from 8 ops to 5, so this is transaction-positive as well.
 # state/b2x-fusion-boundary.md, perf/b2x_fusion_boundary/block_attrib.py.
 #
-# OFF by default and NOT YET RUN ON A DEVICE: written on a CPU host with no card, so nothing here
-# has been executed. It is the A/B switch the carded child measures with, and it has to stay a
-# runtime switch rather than an edit because the arms must interleave in one process.
-TRIMUL_MASK_AFTER_MOVE = False
+# ON by default since the cross-model check cleared it on qb2 card 1: protenix-v2, openfold3,
+# af2-ig and opendde, each through its own checkpoint and remap, N=512, pair mask both absent and
+# ragged, all eight rows bit-exact with a clean A/A floor and E6 provably firing (2 gated moves
+# per call on, 0 off). Measured 1.26-1.41x on the trimul itself; opendde unmasked is the control
+# that has to be flat and is, at 1.01x, because it already took E6 before the flag.
+# state/b2x-trimul-e6-crossmodel-parity.md, perf/b2x_crossmodel/.
+# Stays a runtime switch so the arms can still interleave in one process.
+TRIMUL_MASK_AFTER_MOVE = True
 _TRIMUL_MASK_AFTER_MOVE = os.environ.get(
     "TT_BIO_TRIMUL_MASK_AFTER_MOVE", "1" if TRIMUL_MASK_AFTER_MOVE else "0") == "1"
 
@@ -5627,12 +5631,12 @@ class TriangleMultiplication(Module):
                             if mask_u is not None and mask_moved is None:
                                 a_chunk = ttnn.multiply_(a_chunk, mask_u)
 
-                        a_chunk = self._transform_chunk(
-                            a_chunk, perm_a, memory_config=tail_mc, realloc=n_pairs // group > 1,
-                        )
-                        b_chunk = self._transform_chunk(
-                            b_chunk, perm_b, memory_config=tail_mc, realloc=n_pairs // group > 1,
-                        )
+                            a_chunk = self._transform_chunk(
+                                a_chunk, perm_a, memory_config=tail_mc, realloc=n_pairs // group > 1,
+                            )
+                            b_chunk = self._transform_chunk(
+                                b_chunk, perm_b, memory_config=tail_mc, realloc=n_pairs // group > 1,
+                            )
                     if mask_moved is not None:
                         # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
                         # declines the in-place form for a broadcast operand, take `ttnn.multiply`

@@ -1,0 +1,121 @@
+{
+  "model": "protenix-v2",
+  "label": "protenix-v2 pairformer block 0",
+  "c_z": 256,
+  "hidden": 256,
+  "N": 512,
+  "gated_move": false,
+  "mask": "ragged",
+  "reps": 3,
+  "gated_stats": [
+    24,
+    0
+  ],
+  "rejects": {},
+  "arms": {
+    "start": {
+      "A": {
+        "sha": [
+          "19b025ca82e1ee65",
+          "19b025ca82e1ee65",
+          "19b025ca82e1ee65"
+        ],
+        "ms": 17.772,
+        "e6_moves_per_call": 0.0
+      },
+      "B": {
+        "sha": [
+          "19b025ca82e1ee65",
+          "19b025ca82e1ee65",
+          "19b025ca82e1ee65"
+        ],
+        "ms": 14.236,
+        "e6_moves_per_call": 2.0
+      },
+      "A2": {
+        "sha": [
+          "19b025ca82e1ee65",
+          "19b025ca82e1ee65",
+          "19b025ca82e1ee65"
+        ],
+        "ms": 17.753,
+        "e6_moves_per_call": 0.0
+      },
+      "B2": {
+        "sha": [
+          "19b025ca82e1ee65",
+          "19b025ca82e1ee65",
+          "19b025ca82e1ee65"
+        ],
+        "ms": 14.317,
+        "e6_moves_per_call": 2.0
+      }
+    },
+    "end": {
+      "A": {
+        "sha": [
+          "1466cf00076ef9b2",
+          "1466cf00076ef9b2",
+          "1466cf00076ef9b2"
+        ],
+        "ms": 17.855,
+        "e6_moves_per_call": 0.0
+      },
+      "B": {
+        "sha": [
+          "1466cf00076ef9b2",
+          "1466cf00076ef9b2",
+          "1466cf00076ef9b2"
+        ],
+        "ms": 14.428,
+        "e6_moves_per_call": 2.0
+      },
+      "A2": {
+        "sha": [
+          "1466cf00076ef9b2",
+          "1466cf00076ef9b2",
+          "1466cf00076ef9b2"
+        ],
+        "ms": 17.764,
+        "e6_moves_per_call": 0.0
+      },
+      "B2": {
+        "sha": [
+          "1466cf00076ef9b2",
+          "1466cf00076ef9b2",
+          "1466cf00076ef9b2"
+        ],
+        "ms": 14.332,
+        "e6_moves_per_call": 2.0
+      }
+    }
+  },
+  "verdict": {
+    "start": {
+      "B_fired_e6_per_call": 2.0,
+      "A_fired_e6_per_call": 0.0,
+      "A_A2_floor_bit_exact": true,
+      "B_B2_stable": true,
+      "A_eq_B": true,
+      "A_shas": [
+        "19b025ca82e1ee65"
+      ],
+      "B_shas": [
+        "19b025ca82e1ee65"
+      ]
+    },
+    "end": {
+      "B_fired_e6_per_call": 2.0,
+      "A_fired_e6_per_call": 0.0,
+      "A_A2_floor_bit_exact": true,
+      "B_B2_stable": true,
+      "A_eq_B": true,
+      "A_shas": [
+        "1466cf00076ef9b2"
+      ],
+      "B_shas": [
+        "1466cf00076ef9b2"
+      ]
+    }
+  }
+}

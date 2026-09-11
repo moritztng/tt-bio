@@ -1,0 +1,121 @@
+{
+  "model": "af2",
+  "label": "af2-ig evoformer block 0 (biased trimul)",
+  "c_z": 128,
+  "hidden": 128,
+  "N": 512,
+  "gated_move": false,
+  "mask": "ragged",
+  "reps": 3,
+  "gated_stats": [
+    24,
+    0
+  ],
+  "rejects": {},
+  "arms": {
+    "start": {
+      "A": {
+        "sha": [
+          "f952da380940a0fb",
+          "f952da380940a0fb",
+          "f952da380940a0fb"
+        ],
+        "ms": 10.271,
+        "e6_moves_per_call": 0.0
+      },
+      "B": {
+        "sha": [
+          "f952da380940a0fb",
+          "f952da380940a0fb",
+          "f952da380940a0fb"
+        ],
+        "ms": 8.701,
+        "e6_moves_per_call": 2.0
+      },
+      "A2": {
+        "sha": [
+          "f952da380940a0fb",
+          "f952da380940a0fb",
+          "f952da380940a0fb"
+        ],
+        "ms": 10.234,
+        "e6_moves_per_call": 0.0
+      },
+      "B2": {
+        "sha": [
+          "f952da380940a0fb",
+          "f952da380940a0fb",
+          "f952da380940a0fb"
+        ],
+        "ms": 8.648,
+        "e6_moves_per_call": 2.0
+      }
+    },
+    "end": {
+      "A": {
+        "sha": [
+          "c0d78b085f1aaacc",
+          "c0d78b085f1aaacc",
+          "c0d78b085f1aaacc"
+        ],
+        "ms": 10.211,
+        "e6_moves_per_call": 0.0
+      },
+      "B": {
+        "sha": [
+          "c0d78b085f1aaacc",
+          "c0d78b085f1aaacc",
+          "c0d78b085f1aaacc"
+        ],
+        "ms": 8.693,
+        "e6_moves_per_call": 2.0
+      },
+      "A2": {
+        "sha": [
+          "c0d78b085f1aaacc",
+          "c0d78b085f1aaacc",
+          "c0d78b085f1aaacc"
+        ],
+        "ms": 10.252,
+        "e6_moves_per_call": 0.0
+      },
+      "B2": {
+        "sha": [
+          "c0d78b085f1aaacc",
+          "c0d78b085f1aaacc",
+          "c0d78b085f1aaacc"
+        ],
+        "ms": 8.639,
+        "e6_moves_per_call": 2.0
+      }
+    }
+  },
+  "verdict": {
+    "start": {
+      "B_fired_e6_per_call": 2.0,
+      "A_fired_e6_per_call": 0.0,
+      "A_A2_floor_bit_exact": true,
+      "B_B2_stable": true,
+      "A_eq_B": true,
+      "A_shas": [
+        "f952da380940a0fb"
+      ],
+      "B_shas": [
+        "f952da380940a0fb"
+      ]
+    },
+    "end": {
+      "B_fired_e6_per_call": 2.0,
+      "A_fired_e6_per_call": 0.0,
+      "A_A2_floor_bit_exact": true,
+      "B_B2_stable": true,
+      "A_eq_B": true,
+      "A_shas": [
+        "c0d78b085f1aaacc"
+      ],
+      "B_shas": [
+        "c0d78b085f1aaacc"
+      ]
+    }
+  }
+}
