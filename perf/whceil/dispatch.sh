@@ -38,7 +38,10 @@ if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
   echo "dispatcher $(cat "$PIDFILE") is already running"; exit 3
 fi
 echo $$ > "$PIDFILE"
-trap 'rm -f "$PIDFILE"' EXIT
+# Guarded by BASHPID, because the EXIT trap is inherited by the `( ... & )` subshell each
+# launch forks. Without the guard the first subshell to exit deletes the pidfile and the
+# singleton check above stops meaning anything.
+trap '[ "$BASHPID" = "$$" ] && rm -f "$PIDFILE"' EXIT
 PY=/home/mthuening/work/tt-bio/env/bin/python
 
 while [ -s "$Q" ]; do
@@ -60,12 +63,15 @@ while [ -s "$Q" ]; do
     envargs=""
     for kv in $envs; do envargs="$envargs --env $kv"; done
     echo "$(date -u +%H:%M) launching $model ($cmd) on chip $dev"
-    ( cd "$WT" && setsid nohup env PYTHONPATH="$WT" "$PY" perf/whceil/ladder.py \
+    # No wrapping subshell. `( ... & )` left one sleeping copy of this script under init per
+    # launch, and it inherited the EXIT trap above, so the first of them to exit would have
+    # deleted the pidfile and silently disarmed the singleton check.
+    setsid nohup env PYTHONPATH="$WT" "$PY" "$WT/perf/whceil/ladder.py" \
         --model "$model" --device "$dev" --rungs "$rungs" --command "$cmd" \
         --env TT_BIO_SIZE_LIMIT=0 $envargs \
         --out "$OUTROOT/ladder_$model.jsonl" --out-root "$OUTROOT/runs" --timeout 5400 \
         -- $extra \
-        </dev/null >"$LOGDIR/ladder_$model.log" 2>&1 & )
+        </dev/null >"$LOGDIR/ladder_$model.log" 2>&1 &
     sleep 20   # let the ladder's argv appear before this chip is tested again
   done
   sleep 60
