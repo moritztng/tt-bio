@@ -25,7 +25,8 @@ from torch.nn import Linear as TorchLinear, Module, ModuleList, Sequential
 from torch.nn.functional import one_hot, pad
 
 from tt_bio.data import const
-from tt_bio.envflags import env_flag
+from pathlib import Path
+from tt_bio.envflags import env_flag, env_int
 
 
 class _LazyTenstorrent:
@@ -1117,6 +1118,73 @@ class FourierEmbedding(Module):
         return torch.cos(2 * pi * rand_proj)
 
 
+# --- host-path row blocking -------------------------------------------------------------------
+# Between the trunk and the sampler, Boltz-2 runs a series of per-position ops over a
+# b*n*n*token_z tensor. At 512 tokens that tensor is 128 MB, so a stage that walks it once per
+# layer is bound by DRAM traffic rather than arithmetic: the 24 token-transformer bias
+# projections walk it 24 times and then concatenate 384 MB of output. Blocking over rows changes
+# only the loop order -- layer-norm statistics are per row and every matmul keeps its K -- so
+# the result is bit-identical, checked with torch.equal at fold shapes and pinned end to end by
+# the fold's CIF sha256.
+#
+# The budget is a working-set size read from the machine, not a row count and not a constant: one
+# block plus its outputs should fit in last-level cache. Measured on a 16 MB-L3 desktop at 512
+# tokens, the curve peaks exactly there (8 MB 1.74x, 16 MB 2.20x, 32 MB 1.90x, 128 MB 1.07x), and
+# it is broad enough that reading the real cache size beats picking one number for every host.
+def _llc_bytes(default: int = 8 << 20) -> int:
+    for idx in (3, 2, 1):
+        p = Path(f"/sys/devices/system/cpu/cpu0/cache/index{idx}/size")
+        try:
+            raw = p.read_text().strip()
+        except OSError:
+            continue
+        mult = {"K": 1 << 10, "M": 1 << 20, "G": 1 << 30}.get(raw[-1].upper())
+        try:
+            return int(raw[:-1]) * mult if mult else int(raw)
+        except (TypeError, ValueError):
+            continue
+    return default
+
+
+HOST_BLOCK_BYTES = env_int("TT_BIO_HOST_BLOCK_BYTES", 0) or _llc_bytes()
+
+
+# Read per call, not at import: an A/B that flips arms inside one process (one device open, one
+# program cache, interleaved legs) cannot see a module-level constant. Two or five reads per
+# fold of a dict lookup is not a measurable cost next to a 128 MB tensor pass.
+def _host_levers() -> bool:
+    return env_flag("TT_BIO_HOST_LEVERS", True)
+
+
+def _block_pairwise() -> bool:
+    return _host_levers() and env_flag("TT_BIO_HOST_BLOCK_PAIRWISE", False)
+
+
+def _row_block(bytes_per_row: int) -> int:
+    return max(1, HOST_BLOCK_BYTES // max(int(bytes_per_row), 1))
+
+
+def _bias_stack(layers, x):
+    """``cat([layer(x) for layer in layers], dim=-1)`` in one pass over ``x``.
+
+    Each layer is LayerNorm(C) + Linear(C, H, bias=False), so the shipped form reads ``x`` once
+    per layer and then copies every output again into the concatenation.
+    """
+    if not _host_levers():
+        return torch.cat([layer(x) for layer in layers], dim=-1)
+    c = x.shape[-1]
+    h = layers[0][1].out_features
+    w = h * len(layers)
+    flat = x.reshape(-1, c)
+    rows = _row_block(x.element_size() * (c + w))
+    out = flat.new_empty(flat.shape[0], w)
+    for s in range(0, flat.shape[0], rows):
+        blk = flat[s : s + rows]
+        for i, layer in enumerate(layers):
+            out[s : s + rows, i * h : (i + 1) * h] = layer(blk)
+    return out.reshape(*x.shape[:-1], w)
+
+
 class RelativePositionEncoder(Module):
     """Algorithm 3."""
 
@@ -1161,7 +1229,6 @@ class RelativePositionEncoder(Module):
         d_residue = torch.where(
             b_same_chain, d_residue, torch.zeros_like(d_residue) + 2 * self.r_max + 1
         )
-        a_rel_pos = one_hot(d_residue, 2 * self.r_max + 2)
 
         d_token = torch.clip(
             feats["token_index"][:, :, None]
@@ -1175,7 +1242,6 @@ class RelativePositionEncoder(Module):
             d_token,
             torch.zeros_like(d_token) + 2 * self.r_max + 1,
         )
-        a_rel_token = one_hot(d_token, 2 * self.r_max + 2)
 
         d_chain = torch.clip(
             feats["sym_id"][:, :, None] - feats["sym_id"][:, None, :] + self.s_max,
@@ -1188,19 +1254,35 @@ class RelativePositionEncoder(Module):
             d_chain,
         )
         # Note: added  | (~b_same_entity) based on observation of ProteinX manuscript
-        a_rel_chain = one_hot(d_chain, 2 * self.s_max + 2)
-
-        p = self.linear_layer(
-            torch.cat(
-                [
-                    a_rel_pos.float(),
-                    a_rel_token.float(),
-                    b_same_entity.unsqueeze(-1).float(),
-                    a_rel_chain.float(),
-                ],
-                dim=-1,
+        if not _host_levers():
+            a_rel_pos = one_hot(d_residue, 2 * self.r_max + 2)
+            a_rel_token = one_hot(d_token, 2 * self.r_max + 2)
+            a_rel_chain = one_hot(d_chain, 2 * self.s_max + 2)
+            return self.linear_layer(
+                torch.cat(
+                    [
+                        a_rel_pos.float(),
+                        a_rel_token.float(),
+                        b_same_entity.unsqueeze(-1).float(),
+                        a_rel_chain.float(),
+                    ],
+                    dim=-1,
+                )
             )
-        )
+
+        # Three of the four concatenated blocks are one-hot, so the projection reads four
+        # rows of the weight per (i, j) and multiplies 135 of its 139 channels by zero. Gather
+        # the rows instead of materialising a b*n*n*139 float tensor (139 MB at 512 tokens) to
+        # select from. Bit-identical, signed zeros included.
+        W = self.linear_layer.weight
+        n_pos = 2 * self.r_max + 2
+        n_chain = 2 * self.s_max + 2
+        o_tok, o_ent = n_pos, 2 * n_pos
+        o_chain = o_ent + 1
+        p = W[:, 0:n_pos].t()[d_residue]
+        p = p + W[:, o_tok:o_ent].t()[d_token]
+        p = p + b_same_entity.unsqueeze(-1).float() * W[:, o_ent]
+        p = p + W[:, o_chain : o_chain + n_chain].t()[d_chain]
         return p
 
 
@@ -1365,6 +1447,24 @@ class PairwiseConditioning(Module):
         z_trunk,  # Float['b n n tz'],
         token_rel_pos_feats,  # Float['b n n 3'],
     ):  # -> Float['b n n tz']:
+        if _block_pairwise():
+            # 1.87x, and NOT bit-exact: SiLU's vectorised path and its scalar tail disagree by
+            # ~1 ULP inside the transition's gate, and blocking moves that boundary (11351 of
+            # 33.5M elements, max 3.8e-6). Off by default; needs a parity control to turn on.
+            c = z_trunk.shape[-1]
+            zt = z_trunk.reshape(-1, c)
+            rp = token_rel_pos_feats.reshape(-1, c)
+            rows = _row_block(z_trunk.element_size() * 10 * c)
+            out = zt.new_empty(zt.shape)
+            for s in range(0, zt.shape[0], rows):
+                blk = self.dim_pairwise_init_proj(
+                    torch.cat((zt[s : s + rows], rp[s : s + rows]), dim=-1)
+                )
+                for transition in self.transitions:
+                    blk = transition(blk) + blk
+                out[s : s + rows] = blk
+            return out.reshape(z_trunk.shape)
+
         z = torch.cat((z_trunk, token_rel_pos_feats), dim=-1)
         z = self.dim_pairwise_init_proj(z)
 
@@ -2492,20 +2592,9 @@ class DiffusionConditioning(Module):
             z=z,  # Float['b n n tz'],
         )
 
-        atom_enc_bias = []
-        for layer in self.atom_enc_proj_z:
-            atom_enc_bias.append(layer(p))
-        atom_enc_bias = torch.cat(atom_enc_bias, dim=-1)
-
-        atom_dec_bias = []
-        for layer in self.atom_dec_proj_z:
-            atom_dec_bias.append(layer(p))
-        atom_dec_bias = torch.cat(atom_dec_bias, dim=-1)
-
-        token_trans_bias = []
-        for layer in self.token_trans_proj_z:
-            token_trans_bias.append(layer(z))
-        token_trans_bias = torch.cat(token_trans_bias, dim=-1)
+        atom_enc_bias = _bias_stack(self.atom_enc_proj_z, p)
+        atom_dec_bias = _bias_stack(self.atom_dec_proj_z, p)
+        token_trans_bias = _bias_stack(self.token_trans_proj_z, z)
 
         return q, c, to_keys, atom_enc_bias, atom_dec_bias, token_trans_bias
 

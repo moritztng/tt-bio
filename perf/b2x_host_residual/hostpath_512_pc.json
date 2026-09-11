@@ -1,0 +1,86 @@
+{
+ "env": {
+  "host": "pc",
+  "torch": "2.8.0+cpu",
+  "threads": 6,
+  "cpus": 12,
+  "size": 512,
+  "n_msa": 35,
+  "reps": 3,
+  "repo": "/home/moritz/tt-bio",
+  "started": "2026-09-11T20:09:34+0200",
+  "note": "CPU only, no device. s/z are synthetic at the model's shapes."
+ },
+ "shapes": {
+  "n_tokens": 512,
+  "n_atoms": 4128,
+  "msa_rows": [
+   35,
+   512
+  ]
+ },
+ "model_load_s": 16.685,
+ "probe": {
+  "token_s": 384,
+  "token_z": 128,
+  "s_inputs_w": 384
+ },
+ "stages_s": {
+  "prepare": 0.2893,
+  "to_batch": 7e-05,
+  "rel_pos": 0.07199,
+  "input_embedder": 0.13574,
+  "diffusion_conditioning": 1.08957,
+  "write_result": 0.11501
+ },
+ "stages_all_reps": {
+  "prepare": [
+   0.28552,
+   0.2893,
+   0.30277
+  ],
+  "to_batch": [
+   7e-05,
+   7e-05,
+   7e-05
+  ],
+  "rel_pos": [
+   0.07199,
+   0.07241,
+   0.07077
+  ],
+  "input_embedder": [
+   0.13875,
+   0.13529,
+   0.13574
+  ],
+  "diffusion_conditioning": [
+   1.13397,
+   1.08957,
+   1.08739
+  ],
+  "write_result": [
+   0.112,
+   0.12163,
+   0.11501
+  ]
+ },
+ "diffusion_conditioning_subtree": {
+  "atom_encoder": {
+   "calls": 5,
+   "incl_s": 0.898,
+   "excl_s": 0.898
+  },
+  "pairwise_conditioner": {
+   "calls": 5,
+   "incl_s": 2.10703,
+   "excl_s": 0.51027
+  },
+  "pairwise_conditioner/transition": {
+   "calls": 10,
+   "incl_s": 1.59676,
+   "excl_s": 1.59676
+  }
+ },
+ "sum_measured_s": 1.70168
+}

@@ -1,0 +1,1024 @@
+{
+ "env": {
+  "started": "2026-09-11T17:47:34+0000",
+  "card": "2",
+  "commit": "d4561d80",
+  "loadavg": [
+   "6.55",
+   "6.80",
+   "5.32"
+  ],
+  "size": 128,
+  "phases": [
+   "plain",
+   "attrib",
+   "sample"
+  ],
+  "torch_threads": 8,
+  "torch_interop_threads": 16,
+  "gc_thresholds": [
+   700,
+   10,
+   10
+  ],
+  "instruments": {
+   "brackets": "time.perf_counter wall, no synchronize_device",
+   "sampler": "1.0 ms sys._current_frames on the main thread",
+   "gc": "gc.callbacks start/stop timing"
+  },
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 2.78,
+  "n_msa": 35,
+  "card_type": "p300c",
+  "recycling_steps": 3,
+  "timed_region": "predict_one (featurize + fold + CIF write)"
+ },
+ "cold_s": 5.627,
+ "plain": {
+  "a0": {
+   "wall_s": 5.1162,
+   "plddt": null,
+   "loadavg": [
+    "6.25",
+    "6.71",
+    "5.32"
+   ],
+   "cif": {
+    "cdk2x2_128.cif": "5cdbb928757fbcbfb637dd5bb385a1ed595d8a646048a25f42ae066b98ceb3ee"
+   }
+  }
+ },
+ "attrib": {
+  "fold_wall_s": 4.9736,
+  "plddt": null,
+  "loadavg": [
+   "5.91",
+   "6.63",
+   "5.30"
+  ],
+  "patched": {
+   "prepare": true,
+   "to_batch": true,
+   "predict_step": true,
+   "write_result": true,
+   "trunk": true,
+   "denoise_device": true,
+   "pairformer_conf": true,
+   "sampler": true,
+   "denoiser": true,
+   "align": true,
+   "randaug": true,
+   "digest": true,
+   "confidence": true
+  },
+  "notes": [],
+  "tree": {
+   "predict_step": {
+    "calls": 1,
+    "incl_s": 4.91779,
+    "excl_s": 0.11446,
+    "ms_per_call": 4917.79112
+   },
+   "predict_step/confidence": {
+    "calls": 1,
+    "incl_s": 0.04961,
+    "excl_s": 0.01931,
+    "ms_per_call": 49.60562
+   },
+   "predict_step/confidence/pairformer_conf": {
+    "calls": 1,
+    "incl_s": 0.0303,
+    "excl_s": 0.0303,
+    "ms_per_call": 30.2987
+   },
+   "predict_step/sampler": {
+    "calls": 1,
+    "incl_s": 3.62226,
+    "excl_s": 0.05936,
+    "ms_per_call": 3622.26105
+   },
+   "predict_step/sampler/align": {
+    "calls": 200,
+    "incl_s": 0.06556,
+    "excl_s": 0.06556,
+    "ms_per_call": 0.32778
+   },
+   "predict_step/sampler/denoiser": {
+    "calls": 200,
+    "incl_s": 3.47903,
+    "excl_s": 0.01601,
+    "ms_per_call": 17.39517
+   },
+   "predict_step/sampler/denoiser/denoise_device": {
+    "calls": 200,
+    "incl_s": 3.46303,
+    "excl_s": 3.46303,
+    "ms_per_call": 17.31514
+   },
+   "predict_step/sampler/digest": {
+    "calls": 1,
+    "incl_s": 0.0,
+    "excl_s": 0.0,
+    "ms_per_call": 0.00347
+   },
+   "predict_step/sampler/randaug": {
+    "calls": 200,
+    "incl_s": 0.01831,
+    "excl_s": 0.01831,
+    "ms_per_call": 0.09155
+   },
+   "predict_step/trunk": {
+    "calls": 1,
+    "incl_s": 1.13146,
+    "excl_s": 1.13146,
+    "ms_per_call": 1131.46314
+   },
+   "prepare": {
+    "calls": 1,
+    "incl_s": 0.03937,
+    "excl_s": 0.03937,
+    "ms_per_call": 39.37478
+   },
+   "to_batch": {
+    "calls": 1,
+    "incl_s": 8e-05,
+    "excl_s": 8e-05,
+    "ms_per_call": 0.08077
+   },
+   "write_result": {
+    "calls": 1,
+    "incl_s": 0.01596,
+    "excl_s": 0.01596,
+    "ms_per_call": 15.96415
+   }
+  },
+  "top_level_incl_s": 4.9732,
+  "unattributed_s": 0.0004,
+  "cif": {
+   "cdk2x2_128.cif": "5cdbb928757fbcbfb637dd5bb385a1ed595d8a646048a25f42ae066b98ceb3ee"
+  }
+ },
+ "sample": {
+  "fold_wall_s": 5.0182,
+  "plddt": null,
+  "loadavg": [
+   "5.59",
+   "6.55",
+   "5.28"
+  ],
+  "tree": {
+   "predict_step": {
+    "calls": 1,
+    "incl_s": 4.95458,
+    "excl_s": 0.1175,
+    "ms_per_call": 4954.57805
+   },
+   "predict_step/confidence": {
+    "calls": 1,
+    "incl_s": 0.05452,
+    "excl_s": 0.02244,
+    "ms_per_call": 54.52037
+   },
+   "predict_step/confidence/pairformer_conf": {
+    "calls": 1,
+    "incl_s": 0.03208,
+    "excl_s": 0.03208,
+    "ms_per_call": 32.07663
+   },
+   "predict_step/sampler": {
+    "calls": 1,
+    "incl_s": 3.6511,
+    "excl_s": 0.06858,
+    "ms_per_call": 3651.10291
+   },
+   "predict_step/sampler/align": {
+    "calls": 200,
+    "incl_s": 0.07605,
+    "excl_s": 0.07605,
+    "ms_per_call": 0.38025
+   },
+   "predict_step/sampler/denoiser": {
+    "calls": 200,
+    "incl_s": 3.48426,
+    "excl_s": 0.01871,
+    "ms_per_call": 17.42131
+   },
+   "predict_step/sampler/denoiser/denoise_device": {
+    "calls": 200,
+    "incl_s": 3.46555,
+    "excl_s": 3.46555,
+    "ms_per_call": 17.32775
+   },
+   "predict_step/sampler/digest": {
+    "calls": 1,
+    "incl_s": 0.0,
+    "excl_s": 0.0,
+    "ms_per_call": 0.00356
+   },
+   "predict_step/sampler/randaug": {
+    "calls": 200,
+    "incl_s": 0.02221,
+    "excl_s": 0.02221,
+    "ms_per_call": 0.11106
+   },
+   "predict_step/trunk": {
+    "calls": 1,
+    "incl_s": 1.13145,
+    "excl_s": 1.13145,
+    "ms_per_call": 1131.45257
+   },
+   "prepare": {
+    "calls": 1,
+    "incl_s": 0.03937,
+    "excl_s": 0.03937,
+    "ms_per_call": 39.3695
+   },
+   "to_batch": {
+    "calls": 1,
+    "incl_s": 8e-05,
+    "excl_s": 8e-05,
+    "ms_per_call": 0.07608
+   },
+   "write_result": {
+    "calls": 1,
+    "incl_s": 0.02389,
+    "excl_s": 0.02389,
+    "ms_per_call": 23.89257
+   }
+  },
+  "top_level_incl_s": 5.0179,
+  "sampler": {
+   "period_s": 0.001,
+   "samples": 1322,
+   "overruns": 551,
+   "by_region": {
+    "predict_step/sampler/denoiser/denoise_device": 749,
+    "predict_step/trunk": 340,
+    "predict_step": 103,
+    "predict_step/sampler": 38,
+    "prepare": 26,
+    "predict_step/confidence": 23,
+    "predict_step/sampler/denoiser": 18,
+    "predict_step/sampler/randaug": 15,
+    "predict_step/confidence/pairformer_conf": 7,
+    "write_result": 2,
+    "(root)": 1
+   },
+   "by_repo_site": [
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:_to_torch:9523",
+     "n": 344,
+     "share_of_region": 0.4593
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8238",
+     "n": 30,
+     "share_of_region": 0.0401
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:7033",
+     "n": 26,
+     "share_of_region": 0.0347
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:5821",
+     "n": 24,
+     "share_of_region": 0.0706
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:5617",
+     "n": 22,
+     "share_of_region": 0.0647
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8405",
+     "n": 22,
+     "share_of_region": 0.0294
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:s_terms:8216",
+     "n": 20,
+     "share_of_region": 0.0267
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:s_terms:8190",
+     "n": 17,
+     "share_of_region": 0.0227
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:5667",
+     "n": 16,
+     "share_of_region": 0.0471
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:swiglu:7055",
+     "n": 16,
+     "share_of_region": 0.0471
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:1263",
+     "n": 15,
+     "share_of_region": 0.1456
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:swiglu:7074",
+     "n": 14,
+     "share_of_region": 0.0412
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:s_terms:8198",
+     "n": 14,
+     "share_of_region": 0.0187
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:s_terms:8184",
+     "n": 14,
+     "share_of_region": 0.0187
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:2507",
+     "n": 13,
+     "share_of_region": 0.1262
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8232",
+     "n": 13,
+     "share_of_region": 0.0174
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:swiglu:7083",
+     "n": 12,
+     "share_of_region": 0.0353
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8402",
+     "n": 12,
+     "share_of_region": 0.016
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8315",
+     "n": 11,
+     "share_of_region": 0.0147
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8233",
+     "n": 11,
+     "share_of_region": 0.0147
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:_pair_proj_linear:3789",
+     "n": 10,
+     "share_of_region": 0.0294
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:7394",
+     "n": 10,
+     "share_of_region": 0.0294
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:5641",
+     "n": 10,
+     "share_of_region": 0.0294
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:swiglu:7063",
+     "n": 10,
+     "share_of_region": 0.0294
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:6549",
+     "n": 10,
+     "share_of_region": 0.0294
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8279",
+     "n": 10,
+     "share_of_region": 0.0134
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8395",
+     "n": 9,
+     "share_of_region": 0.012
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8404",
+     "n": 9,
+     "share_of_region": 0.012
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8313",
+     "n": 9,
+     "share_of_region": 0.012
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:swiglu:7085",
+     "n": 8,
+     "share_of_region": 0.0235
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:7283",
+     "n": 8,
+     "share_of_region": 0.0235
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:5619",
+     "n": 8,
+     "share_of_region": 0.0235
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:6564",
+     "n": 8,
+     "share_of_region": 0.0235
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:batched_matmul:2207",
+     "n": 8,
+     "share_of_region": 0.0107
+    },
+    {
+     "region": "predict_step/sampler",
+     "at": "boltz2.py:sample:4236",
+     "n": 8,
+     "share_of_region": 0.2105
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:6950",
+     "n": 8,
+     "share_of_region": 0.0107
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:_from_torch:9515",
+     "n": 7,
+     "share_of_region": 0.0093
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8299",
+     "n": 7,
+     "share_of_region": 0.0093
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8223",
+     "n": 7,
+     "share_of_region": 0.0093
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:7028",
+     "n": 7,
+     "share_of_region": 0.0093
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8306",
+     "n": 7,
+     "share_of_region": 0.0093
+    },
+    {
+     "region": "predict_step/sampler",
+     "at": "boltz2.py:sample:4227",
+     "n": 7,
+     "share_of_region": 0.1842
+    },
+    {
+     "region": "predict_step/sampler/denoiser",
+     "at": "boltz2.py:c_in:4045",
+     "n": 7,
+     "share_of_region": 0.3889
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:7382",
+     "n": 6,
+     "share_of_region": 0.0176
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:6953",
+     "n": 6,
+     "share_of_region": 0.0176
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:7286",
+     "n": 6,
+     "share_of_region": 0.0176
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:_in_proj_matmul:5033",
+     "n": 6,
+     "share_of_region": 0.0176
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:5677",
+     "n": 6,
+     "share_of_region": 0.0176
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:_transform_chunk:5324",
+     "n": 6,
+     "share_of_region": 0.0176
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:_pair_proj_linear:3810",
+     "n": 6,
+     "share_of_region": 0.0176
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:5845",
+     "n": 6,
+     "share_of_region": 0.0176
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:1372",
+     "n": 6,
+     "share_of_region": 0.0583
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8222",
+     "n": 6,
+     "share_of_region": 0.008
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8237",
+     "n": 6,
+     "share_of_region": 0.008
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8285",
+     "n": 6,
+     "share_of_region": 0.008
+    },
+    {
+     "region": "predict_step/sampler",
+     "at": "boltz2.py:sample:4215",
+     "n": 6,
+     "share_of_region": 0.1579
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:batched_matmul:2181",
+     "n": 6,
+     "share_of_region": 0.008
+    },
+    {
+     "region": "predict_step/sampler/denoiser",
+     "at": "boltz2.py:c_skip:4039",
+     "n": 6,
+     "share_of_region": 0.3333
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:1546",
+     "n": 5,
+     "share_of_region": 0.0485
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:1574",
+     "n": 5,
+     "share_of_region": 0.0485
+    }
+   ],
+   "by_leaf_frame": [
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "decorators.py:__call__:473",
+     "n": 530,
+     "share_of_region": 0.7076
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "decorators.py:__call__:473",
+     "n": 299,
+     "share_of_region": 0.8794
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "decorators.py:__call__:490",
+     "n": 105,
+     "share_of_region": 0.1402
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:_to_torch:9523",
+     "n": 61,
+     "share_of_region": 0.0814
+    },
+    {
+     "region": "predict_step",
+     "at": "linear.py:forward:125",
+     "n": 43,
+     "share_of_region": 0.4175
+    },
+    {
+     "region": "predict_step/sampler",
+     "at": "functional.py:einsum:422",
+     "n": 21,
+     "share_of_region": 0.5526
+    },
+    {
+     "region": "predict_step",
+     "at": "functional.py:layer_norm:2905",
+     "n": 16,
+     "share_of_region": 0.1553
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "functional.py:pad:5290",
+     "n": 10,
+     "share_of_region": 0.0134
+    },
+    {
+     "region": "predict_step/sampler/denoiser",
+     "at": "_tensor.py:wrapped:39",
+     "n": 10,
+     "share_of_region": 0.5556
+    },
+    {
+     "region": "predict_step/confidence",
+     "at": "linear.py:forward:125",
+     "n": 10,
+     "share_of_region": 0.4348
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "decorators.py:__call__:455",
+     "n": 7,
+     "share_of_region": 0.0093
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "decorators.py:__call__:455",
+     "n": 6,
+     "share_of_region": 0.0176
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:1372",
+     "n": 6,
+     "share_of_region": 0.0583
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:batched_matmul:2181",
+     "n": 6,
+     "share_of_region": 0.008
+    },
+    {
+     "region": "predict_step/confidence/pairformer_conf",
+     "at": "decorators.py:__call__:473",
+     "n": 6,
+     "share_of_region": 0.8571
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "core.py:from_torch:340",
+     "n": 5,
+     "share_of_region": 0.0067
+    },
+    {
+     "region": "predict_step/sampler/randaug",
+     "at": "boltz2.py:quaternion_to_matrix:187",
+     "n": 5,
+     "share_of_region": 0.3333
+    },
+    {
+     "region": "predict_step",
+     "at": "functional.py:einsum:422",
+     "n": 4,
+     "share_of_region": 0.0388
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:_pair_proj_linear:3767",
+     "n": 4,
+     "share_of_region": 0.0118
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "trimul_tail.py:eligible:128",
+     "n": 4,
+     "share_of_region": 0.0118
+    },
+    {
+     "region": "predict_step/sampler",
+     "at": "boltz2.py:sample:4213",
+     "n": 4,
+     "share_of_region": 0.1053
+    },
+    {
+     "region": "prepare",
+     "at": "tokenize.py:compute_frame:125",
+     "n": 3,
+     "share_of_region": 0.1154
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:1546",
+     "n": 3,
+     "share_of_region": 0.0291
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:1263",
+     "n": 3,
+     "share_of_region": 0.0291
+    },
+    {
+     "region": "predict_step",
+     "at": "functional.py:einsum:432",
+     "n": 3,
+     "share_of_region": 0.0291
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:2508",
+     "n": 3,
+     "share_of_region": 0.0291
+    },
+    {
+     "region": "predict_step/sampler",
+     "at": "boltz2.py:sample:4218",
+     "n": 3,
+     "share_of_region": 0.0789
+    },
+    {
+     "region": "predict_step/sampler/denoiser",
+     "at": "boltz2.py:c_in:4045",
+     "n": 3,
+     "share_of_region": 0.1667
+    },
+    {
+     "region": "prepare",
+     "at": "__init__.py:_getRDKitItem:91",
+     "n": 2,
+     "share_of_region": 0.0769
+    },
+    {
+     "region": "prepare",
+     "at": "host_residual.py:cb:253",
+     "n": 2,
+     "share_of_region": 0.0769
+    },
+    {
+     "region": "prepare",
+     "at": "featurizer.py:process_atom_features:1402",
+     "n": 2,
+     "share_of_region": 0.0769
+    },
+    {
+     "region": "prepare",
+     "at": "featurizer.py:process_atom_features:1497",
+     "n": 2,
+     "share_of_region": 0.0769
+    },
+    {
+     "region": "prepare",
+     "at": "_tensor.py:__rsub__:1097",
+     "n": 2,
+     "share_of_region": 0.0769
+    },
+    {
+     "region": "prepare",
+     "at": "boltz2.py:center_random_augmentation:252",
+     "n": 2,
+     "share_of_region": 0.0769
+    },
+    {
+     "region": "predict_step",
+     "at": "boltz2.py:forward:1547",
+     "n": 2,
+     "share_of_region": 0.0194
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:_build_static:10668",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "core.py:from_torch:340",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:_narrow_proj_linear:3833",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "triatt_sdpa.py:<genexpr>:213",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:_l1_memory_config_if_it_fits:3386",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:swiglu:7055",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:<genexpr>:3634",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:_pair_proj_config:3628",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:7385",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "tenstorrent.py:__call__:6953",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "trimul_tail.py:eligible:122",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step/trunk",
+     "at": "envflags.py:env_int:42",
+     "n": 2,
+     "share_of_region": 0.0059
+    },
+    {
+     "region": "predict_step",
+     "at": "functional.py:silu:2375",
+     "n": 2,
+     "share_of_region": 0.0194
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8448",
+     "n": 2,
+     "share_of_region": 0.0027
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:batched_matmul:2188",
+     "n": 2,
+     "share_of_region": 0.0027
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8405",
+     "n": 2,
+     "share_of_region": 0.0027
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:batched_matmul:2207",
+     "n": 2,
+     "share_of_region": 0.0027
+    },
+    {
+     "region": "predict_step/sampler/randaug",
+     "at": "boltz2.py:quaternion_to_matrix:177",
+     "n": 2,
+     "share_of_region": 0.1333
+    },
+    {
+     "region": "predict_step/sampler",
+     "at": "boltz2.py:sample:4215",
+     "n": 2,
+     "share_of_region": 0.0526
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8273",
+     "n": 2,
+     "share_of_region": 0.0027
+    },
+    {
+     "region": "predict_step/sampler/denoiser",
+     "at": "boltz2.py:sample:4253",
+     "n": 2,
+     "share_of_region": 0.1111
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:__call__:8235",
+     "n": 2,
+     "share_of_region": 0.0027
+    },
+    {
+     "region": "predict_step/sampler/denoiser/denoise_device",
+     "at": "tenstorrent.py:s_terms:8166",
+     "n": 2,
+     "share_of_region": 0.0027
+    },
+    {
+     "region": "predict_step/sampler",
+     "at": "boltz2.py:sample:4227",
+     "n": 2,
+     "share_of_region": 0.0526
+    },
+    {
+     "region": "predict_step/sampler",
+     "at": "boltz2.py:sample:4236",
+     "n": 2,
+     "share_of_region": 0.0526
+    }
+   ]
+  },
+  "gc": {
+   "total_s": 0.00165,
+   "per_generation_s": {
+    "0": 0.00137,
+    "1": 0.00028
+   },
+   "per_generation_n": {
+    "0": 10,
+    "1": 1
+   },
+   "per_region_s": {
+    "predict_step/sampler/align": 0.00103,
+    "prepare": 0.00031,
+    "predict_step/sampler/denoiser/denoise_device": 0.0003
+   },
+   "objects_collected": 7335,
+   "thresholds": [
+    700,
+    10,
+    10
+   ],
+   "enabled": true
+  },
+  "notes": [],
+  "cif": {
+   "cdk2x2_128.cif": "5cdbb928757fbcbfb637dd5bb385a1ed595d8a646048a25f42ae066b98ceb3ee"
+  }
+ }
+}

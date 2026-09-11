@@ -1,0 +1,53 @@
+{
+ "module_file": "/tmp/b2xpatch/tt_bio/boltz2.py",
+ "patched": true,
+ "host": "pc",
+ "threads": 6,
+ "n_tokens": 512,
+ "n_atoms": 4128,
+ "stages": {
+  "rel_pos": {
+   "sha": "e94c0c6d241c252982e564a9",
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "s": 0.06963
+  },
+  "input_embedder": {
+   "sha": "b2ad739c8f232276ae2d66c6",
+   "shape": [
+    1,
+    512,
+    384
+   ],
+   "s": 0.11437
+  },
+  "pairwise_conditioner": {
+   "sha": "a8c4c577694faeaeb7617724",
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "s": 0.5859
+  },
+  "diffusion_conditioning": {
+   "s": 1.19881,
+   "sha_q": "a0e4b73153fe939c4e145d1c",
+   "sha_c": "cc73f301a0e551071f646246",
+   "sha_atom_enc_bias": "be1faedcf7ac3686d5bb3f64",
+   "sha_atom_dec_bias": "a51c7e44a3f31d93fbd87460",
+   "sha_token_trans_bias": "176d6baf23adf68de63cc1d9",
+   "shape_token_trans_bias": [
+    1,
+    512,
+    512,
+    384
+   ]
+  }
+ }
+}
