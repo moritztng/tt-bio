@@ -1,0 +1,234 @@
+{
+ "n": 512,
+ "c_z": 128,
+ "arms": [
+  {
+   "which": "start",
+   "group": 12,
+   "tail_l1": false,
+   "share": 0.5,
+   "label": "shipped",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 10.3718,
+   "series": [
+    10.056,
+    10.369,
+    10.372,
+    10.451,
+    10.395
+   ],
+   "dram_alloc_MB": 1091.27,
+   "ok": true
+  },
+  {
+   "which": "start",
+   "group": 12,
+   "tail_l1": true,
+   "share": 0.5,
+   "label": "shipped group, tail L1 share 0.5",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 10.3814,
+   "series": [
+    10.381,
+    10.3,
+    10.199,
+    10.393,
+    10.413
+   ],
+   "dram_alloc_MB": 1091.27,
+   "ok": true
+  },
+  {
+   "which": "start",
+   "group": 12,
+   "tail_l1": true,
+   "share": 0.85,
+   "label": "shipped group, tail L1 share 0.85",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 11.9652,
+   "series": [
+    11.862,
+    11.965,
+    11.865,
+    11.987,
+    12.025
+   ],
+   "dram_alloc_MB": 889.95,
+   "ok": true
+  },
+  {
+   "which": "start",
+   "group": 12,
+   "tail_l1": true,
+   "share": 0.95,
+   "label": "shipped group, tail L1 share 0.95",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 11.9265,
+   "series": [
+    11.908,
+    11.927,
+    11.905,
+    12.021,
+    11.975
+   ],
+   "dram_alloc_MB": 889.95,
+   "ok": true
+  },
+  {
+   "which": "start",
+   "group": 12,
+   "tail_l1": true,
+   "share": 1.0,
+   "label": "shipped group, tail L1 share 1.0",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 11.9552,
+   "series": [
+    11.983,
+    12.046,
+    11.936,
+    11.933,
+    11.955
+   ],
+   "dram_alloc_MB": 889.95,
+   "ok": true
+  },
+  {
+   "which": "start",
+   "group": 12,
+   "tail_l1": false,
+   "share": 0.5,
+   "label": "shipped, repeat (A/A floor)",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 12.8676,
+   "series": [
+    13.247,
+    12.863,
+    12.868,
+    12.868,
+    12.686
+   ],
+   "dram_alloc_MB": 1292.6,
+   "ok": true
+  },
+  {
+   "which": "end",
+   "group": 12,
+   "tail_l1": false,
+   "share": 0.5,
+   "label": "shipped",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 12.8147,
+   "series": [
+    12.815,
+    12.623,
+    12.788,
+    12.893,
+    12.821
+   ],
+   "dram_alloc_MB": 1292.6,
+   "ok": true
+  },
+  {
+   "which": "end",
+   "group": 12,
+   "tail_l1": true,
+   "share": 0.5,
+   "label": "shipped group, tail L1 share 0.5",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 12.0897,
+   "series": [
+    12.141,
+    12.09,
+    12.094,
+    11.908,
+    12.0
+   ],
+   "dram_alloc_MB": 957.05,
+   "ok": true
+  },
+  {
+   "which": "end",
+   "group": 12,
+   "tail_l1": true,
+   "share": 0.85,
+   "label": "shipped group, tail L1 share 0.85",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 12.0013,
+   "series": [
+    11.9,
+    12.519,
+    12.001,
+    11.874,
+    12.12
+   ],
+   "dram_alloc_MB": 889.95,
+   "ok": true
+  },
+  {
+   "which": "end",
+   "group": 12,
+   "tail_l1": true,
+   "share": 0.95,
+   "label": "shipped group, tail L1 share 0.95",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 11.9052,
+   "series": [
+    11.805,
+    11.905,
+    12.048,
+    11.867,
+    12.125
+   ],
+   "dram_alloc_MB": 889.95,
+   "ok": true
+  },
+  {
+   "which": "end",
+   "group": 12,
+   "tail_l1": true,
+   "share": 1.0,
+   "label": "shipped group, tail L1 share 1.0",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 11.8713,
+   "series": [
+    11.871,
+    11.979,
+    11.867,
+    11.79,
+    11.935
+   ],
+   "dram_alloc_MB": 889.95,
+   "ok": true
+  },
+  {
+   "which": "end",
+   "group": 12,
+   "tail_l1": false,
+   "share": 0.5,
+   "label": "shipped, repeat (A/A floor)",
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ms": 12.7365,
+   "series": [
+    12.575,
+    12.681,
+    12.839,
+    13.047,
+    12.736
+   ],
+   "dram_alloc_MB": 1292.6,
+   "ok": true
+  }
+ ]
+}

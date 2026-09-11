@@ -1,0 +1,46 @@
+{
+ "n": 512,
+ "c_z": 128,
+ "arms": [
+  {
+   "label": "shipped (group 4, tail DRAM)",
+   "tail_l1": false,
+   "share": 0.5,
+   "bit_exact": true,
+   "ms": 10.3559,
+   "series": [
+    10.388,
+    10.356,
+    10.297,
+    9.999,
+    10.399
+   ],
+   "dram_alloc_MB": 1091.27,
+   "ok": true
+  },
+  {
+   "label": "shipped group, tail operands L1 (share 0.95), refusal caught",
+   "tail_l1": true,
+   "share": 0.95,
+   "refusal": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 67108864 B L1 buffer across 110 banks, where each bank needs to store 610304 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so",
+   "ok": false,
+   "threw": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 67108864 B L1 buffer across 110 banks, where each bank needs to store 610304 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so"
+  },
+  {
+   "label": "shipped repeat, A/A floor",
+   "tail_l1": false,
+   "share": 0.5,
+   "bit_exact": true,
+   "ms": 11.0007,
+   "series": [
+    10.987,
+    11.002,
+    11.001,
+    11.001,
+    11.0
+   ],
+   "dram_alloc_MB": 1091.27,
+   "ok": true
+  }
+ ]
+}
