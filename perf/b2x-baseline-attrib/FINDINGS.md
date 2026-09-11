@@ -170,3 +170,100 @@ bar can still be the wrong knob.
     # parity against any reference CIF
     python3 perf/b2x-baseline-attrib/control_rmsd.py --ref ref/<a>.cif --arm <b>.cif --out <x>.json
     python3 perf/b2x-baseline-attrib/domain_rmsd.py --ref ref/<a>.cif --arm <b>.cif   # per-domain
+
+---
+
+# Update, 2026-09-11 18:0x CEST: the byte counter was wrong, and the fold is dispatch-bound
+
+Two corrections and one new result. Everything above section 6 that quotes a per-call byte figure
+is on the old counter and is superseded by `ROOF_DEFICIT.md` and by this section.
+
+## 7. Every byte figure in section 3 and section 5 is 1.1-3.1x high
+
+`b2x-diffusion-layer-bytes` found that the published counter dedupes DRAM reads by **tensor id**,
+and ttnn hands a reshape or an unsqueeze a fresh tensor id over the same buffer, so a free
+metadata view was charged a full DRAM read. My instrument reproduced the published per-call
+figures to six digits, which is exactly what a copy of the same rule does.
+
+Recounted from **my own 26 captures** with the corrected rule (`real_traffic.py`, dedupe on buffer
+address, views free, in-place charged a read and a write):
+
+| phase | this task, old rule | corrected | sibling's independent capture |
+|---|---|---|---|
+| pairformer block | 12 169 MB | **6 650.7 MB** | 6 651 MB |
+| MSA layer | 32 244 MB | **20 550.7 MB** | (not captured) |
+| token DiT layer | 214.4 MB | **198.9 MB** | 198.94 MB |
+| atom transformer layer | 517.1 MB | **303.9 MB** | 303.91 MB |
+
+Two harnesses, two cards, agreement to 0.005 % on all three shared phases. **The fold's
+instrumented traffic is 3.405 TB, not 5.386 TB and not 6.45 TB.**
+
+The section 3 conclusion survives the recount in structure: the remainder is still not 1.400 TB,
+the MSA layer is still 3.1x what the published "MSA block" row counted, and the fold still closes
+inside named modules. Only the magnitudes move.
+
+## 8. Nothing is bandwidth-bound. Nothing is compute-bound. The host is the fold.
+
+`ROOF_DEFICIT.md` has the full table. Every named phase, against both roofs measured on this part:
+
+| phase | ms/call | % of 429.9 GB/s | % of 85.96 TFLOP/s | ops/call | us/op | deficit s |
+|---|---|---|---|---|---|---|
+| pairformer block | 42.199 | 36.7 % | 13.9 % | 428 | 98.6 | **6.035** |
+| diffusion step | 40.263 | 38.1 % | 9.3 % | 1816 | 22.2 | **4.214** |
+| — token DiT layer | 1.078 | 42.9 % | 13.3 % | 60 | 18.0 | 2.398 |
+| — atom transformer layer | 1.957 | 36.1 % | 2.7 % | 66 | 29.7 | 1.288 |
+| MSA block | 122.781 | 38.9 % | 5.6 % | 1104 | 111.2 | **1.008** |
+
+(The two indented rows are inside the diffusion step, not additional to it.) Deficit is what the
+phase gives back if it ran at 80 % of the streaming roof, which is the ranking the campaign should
+be steered by. Of 21.159 s of phase time, **7.920 s is explained by moving those bytes at the
+streaming roof and 13.239 s is not**. The fold's whole 206.71 TFLOP is 2.405 s at the compute
+roof. **Delete every byte of every named phase and the fold is still 15.921 s = 1.497x.**
+
+So the diagnostic's third row fires everywhere, and the missing time has a name:
+
+**One fold issues 487 202 ttnn calls, and 21.846 s of a 26.037 s fold is main-thread CPU — 83.9 %.**
+
+Measured with `time.thread_time()` on the calling thread, which counts only the CPU that thread
+burns, in `host_dispatch_probe.py`. 19.747 s of the wall is spent *inside* ttnn entry points, at a
+mean 40.5 us per call. The probe ran co-tenanted at loadavg 6.5 so its wall is ~9 % above the
+benchlocked 23.841 s; the ratio is the result, not the wall.
+
+`process_time()` is 57.5 s on the same folds and is **not** the discriminator — tt-metal's
+completion thread busy-waits, so process CPU is near 2x the wall whatever the answer is. The
+calling thread is the one issuing work, and it is busy 84 % of the fold.
+
+The obvious alternative reading is that the calling thread spins on a full command queue, i.e.
+that this is the device's backpressure wearing a host costume. Three things argue against it.
+The device is at 37 % of one roof and 10 % of the other, so there is nothing to back up against.
+`ttnn.deallocate`, a host-only call with no device work, costs 0.6 us across 138 213 calls, so
+cheap calls are not stalling. And the expensive calls are the ones that build a program or a
+config: `ttnn.linear` is 7.025 s over 109 887 calls, 64 us each.
+
+**This also explains the co-tenancy sensitivity.** The published cell reads +10.7 % when the box is
+busy. A device-bound fold would not care what the host is doing. This one does, because the host
+is on the critical path.
+
+## 9. The 0.382 s vs 2.74 s question, answered
+
+They measure different things and neither describes the fold.
+
+* **0.382 s** (published cell; I measure 0.323 s this session) is host time *outside*
+  `model.predict_step`: featurisation 0.197 s, CIF write 0.058 s. It is correct, and it says
+  nothing whatever about what the host does during the fold.
+* **2.74 s** (`b2x-fusion-boundary`, derived from an op count) is an estimate of host issue cost
+  *inside* the fold. The right quantity, and low by 8x.
+* **21.8 s** is the measurement. Host issue is overlapped with device execution, so it is not a
+  separate 21.8 s of fold time, but it is on the critical path for most of the fold.
+
+## 10. What this means for the portfolio
+
+The byte-deleting bets are priced against 7.920 s of byte-explained phase time, not against the
+23.841 s fold. That is the ceiling the campaign has been hitting, and it is why every lever has
+landed at 1.05-1.15x.
+
+By bytes the pairformer is the target: 1.756 TB of 3.405 TB. **By op count the diffusion path is:
+363 200 of ~487 000 calls per fold, 74 %, for 1.320 TB, 39 %.** A lever that removes ops from the
+sampler is aimed at three quarters of the dispatch and nobody in the portfolio is holding one.
+The 22.2 us/op there is not a fixed cost yet — `b2x-op-cost-curve` is queued to establish whether
+it is — but the op *count* is measured and it is where the fold's calls are.
