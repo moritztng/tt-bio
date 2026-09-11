@@ -1,0 +1,16 @@
+{
+ "label": "main-drift-298-bfactor",
+ "ref": "perf/b2x-baseline-attrib/ref/published_388bd6db_cdk2x2_298.cif",
+ "arm": "perf/b2x-baseline-attrib/cifs/ctl298_cdk2x2_298.cif",
+ "n_matched": 2397,
+ "whole_allatom_rmsd_A": 0.218,
+ "mean_bfactor_ref": 91.1355,
+ "mean_bfactor_arm": 91.0217,
+ "per_chain": {
+  "A": {
+   "n_atoms": 2397,
+   "allatom_rmsd_A": 0.218,
+   "ca_rmsd_A": 0.0916
+  }
+ }
+}

@@ -1,0 +1,206 @@
+{
+ "env": {
+  "started": "2026-09-11T15:46:51+0000",
+  "loadavg_at_start": [
+   "5.13",
+   "6.38",
+   "5.64"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 3.12,
+  "n_msa": 35,
+  "card_type": "p300c"
+ },
+ "folds": [
+  {
+   "arm": "cold",
+   "wall_s": 26.369,
+   "main_thread_cpu_s": 21.355,
+   "process_cpu_s": 57.62,
+   "plddt": null,
+   "loadavg": [
+    "5.20",
+    "6.24",
+    "5.62"
+   ],
+   "main_thread_cpu_pct": 81.0
+  },
+  {
+   "arm": "warm0",
+   "wall_s": 26.128,
+   "main_thread_cpu_s": 21.97,
+   "process_cpu_s": 57.39,
+   "plddt": null,
+   "loadavg": [
+    "6.53",
+    "6.44",
+    "5.70"
+   ],
+   "main_thread_cpu_pct": 84.1
+  },
+  {
+   "arm": "warm1",
+   "wall_s": 25.946,
+   "main_thread_cpu_s": 21.721,
+   "process_cpu_s": 57.533,
+   "plddt": null,
+   "loadavg": [
+    "6.73",
+    "6.49",
+    "5.73"
+   ],
+   "main_thread_cpu_pct": 83.7
+  },
+  {
+   "arm": "census",
+   "wall_s": 25.199,
+   "main_thread_cpu_s": 20.974,
+   "process_cpu_s": 53.497,
+   "plddt": null,
+   "loadavg": [
+    "7.36",
+    "6.60",
+    "5.79"
+   ],
+   "main_thread_cpu_pct": 83.2
+  }
+ ],
+ "op_census": {
+  "n_ttnn_calls": 487202,
+  "s_inside_ttnn_calls": 19.747,
+  "s_outside_ttnn_calls": 5.452,
+  "us_per_call_wall": 40.53,
+  "main_thread_cpu_us_per_call": 43.05,
+  "top": [
+   [
+    138213,
+    "ttnn.deallocate",
+    0.083
+   ],
+   [
+    109887,
+    "ttnn.linear",
+    7.025
+   ],
+   [
+    48643,
+    "ttnn.multiply_",
+    2.445
+   ],
+   [
+    35325,
+    "ttnn.layer_norm",
+    2.437
+   ],
+   [
+    19422,
+    "ttnn.add_",
+    0.333
+   ],
+   [
+    19117,
+    "ttnn.reshape",
+    0.196
+   ],
+   [
+    15636,
+    "ttnn.to_memory_config",
+    0.057
+   ],
+   [
+    14949,
+    "ttnn.permute",
+    0.253
+   ],
+   [
+    13742,
+    "ttnn.add",
+    0.193
+   ],
+   [
+    12467,
+    "ttnn.multiply",
+    0.193
+   ],
+   [
+    12433,
+    "ttnn.matmul",
+    0.172
+   ],
+   [
+    6806,
+    "ttnn.slice",
+    0.178
+   ],
+   [
+    6552,
+    "ttnn.unsqueeze",
+    0.038
+   ],
+   [
+    6264,
+    "ttnn.experimental.nlp_create_qkv_heads",
+    0.086
+   ],
+   [
+    5624,
+    "ttnn.transpose",
+    0.078
+   ],
+   [
+    5600,
+    "ttnn.allocate_tensor_on_device",
+    0.012
+   ],
+   [
+    5192,
+    "ttnn.softmax",
+    0.101
+   ],
+   [
+    4480,
+    "ttnn.generic_op",
+    0.197
+   ],
+   [
+    1200,
+    "ttnn.transformer.scaled_dot_product_attention",
+    0.022
+   ],
+   [
+    1200,
+    "ttnn.squeeze",
+    0.003
+   ],
+   [
+    1200,
+    "ttnn.pad",
+    0.024
+   ],
+   [
+    1200,
+    "ttnn.experimental.nlp_concat_heads",
+    0.015
+   ],
+   [
+    856,
+    "ttnn.chunk",
+    0.445
+   ],
+   [
+    423,
+    "ttnn.from_torch",
+    1.001
+   ],
+   [
+    297,
+    "ttnn.concat",
+    0.042
+   ]
+  ]
+ }
+}

@@ -1,0 +1,2385 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "1",
+  "lease_cards": "1",
+  "git_head": "13604183bb92cd22cebb617706c31b9965b08179",
+  "ttnn": "0.68.0",
+  "torch": "2.8.0+cpu",
+  "fast": false,
+  "protocol": {
+   "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "timed_region": "predict_one (featurise + fold + CIF write)"
+  },
+  "started": "2026-09-11T15:11:33+0000",
+  "phases_requested": [
+   "baseline",
+   "control",
+   "attrib",
+   "census"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 2.99,
+  "n_msa": 35,
+  "card_type": "p300c",
+  "aiclk_mhz": "1350"
+ },
+ "cold_s": 26.855,
+ "baseline": [
+  {
+   "arm": "plain",
+   "rep": 0,
+   "fold_s": 23.841,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "loadavg": [
+    "2.31",
+    "3.71",
+    "4.93"
+   ]
+  },
+  {
+   "arm": "instr",
+   "rep": 0,
+   "fold_s": 23.677,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "loadavg": [
+    "2.74",
+    "3.71",
+    "4.91"
+   ],
+   "phase": {
+    "host": 0.255,
+    "device": 23.4192,
+    "transfer": 0.0001,
+    "total": 23.6775,
+    "residual": 0.0031,
+    "per_fn": {
+     "prepare": {
+      "s": 0.1971,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:to_batch": {
+      "s": 0.0001,
+      "n": 1,
+      "nested": 0
+     },
+     "model.predict_step": {
+      "s": 23.4192,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:write_result": {
+      "s": 0.058,
+      "n": 1,
+      "nested": 0
+     }
+    }
+   }
+  },
+  {
+   "arm": "plain",
+   "rep": 1,
+   "fold_s": 23.795,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "loadavg": [
+    "3.13",
+    "3.75",
+    "4.89"
+   ]
+  },
+  {
+   "arm": "instr",
+   "rep": 1,
+   "fold_s": 23.912,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "loadavg": [
+    "3.36",
+    "3.74",
+    "4.85"
+   ],
+   "phase": {
+    "host": 0.4427,
+    "device": 23.4651,
+    "transfer": 0.0001,
+    "total": 23.9119,
+    "residual": 0.0039,
+    "per_fn": {
+     "prepare": {
+      "s": 0.3836,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:to_batch": {
+      "s": 0.0001,
+      "n": 1,
+      "nested": 0
+     },
+     "model.predict_step": {
+      "s": 23.4651,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:write_result": {
+      "s": 0.0592,
+      "n": 1,
+      "nested": 0
+     }
+    }
+   }
+  },
+  {
+   "arm": "plain",
+   "rep": 2,
+   "fold_s": 24.2,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "loadavg": [
+    "4.34",
+    "3.89",
+    "4.87"
+   ]
+  },
+  {
+   "arm": "instr",
+   "rep": 2,
+   "fold_s": 24.445,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "loadavg": [
+    "6.07",
+    "4.32",
+    "4.99"
+   ],
+   "phase": {
+    "host": 0.3229,
+    "device": 24.119,
+    "transfer": 0.0002,
+    "total": 24.4454,
+    "residual": 0.0033,
+    "per_fn": {
+     "prepare": {
+      "s": 0.2624,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:to_batch": {
+      "s": 0.0002,
+      "n": 1,
+      "nested": 0
+     },
+     "model.predict_step": {
+      "s": 24.119,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:write_result": {
+      "s": 0.0605,
+      "n": 1,
+      "nested": 0
+     }
+    }
+   }
+  }
+ ],
+ "baseline_summary": {
+  "n": 3,
+  "plain_s": [
+   23.841,
+   23.795,
+   24.2
+  ],
+  "instr_s": [
+   23.677,
+   23.912,
+   24.445
+  ],
+  "plain_median_s": 23.841,
+  "instr_median_s": 23.912,
+  "aa_floor_s": 0.405,
+  "aa_floor_pct": 1.699,
+  "instr_delta_pct": 0.298,
+  "host_s": 0.3229,
+  "device_s": 23.4651,
+  "transfer_s": 0.0001,
+  "residual_s": 0.0033,
+  "plddt": [
+   0.849627
+  ],
+  "cif_sha256": [
+   "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+  ],
+  "cif_sha256_16": [
+   "4f3995a69be5d610"
+  ],
+  "bit_identical_across_folds": true
+ },
+ "control_298": {
+  "fold_s": 37.863,
+  "n_msa": 35,
+  "plddt": 0.909487,
+  "n_tokens": null,
+  "cifs": {
+   "cdk2x2_298.cif": "71653ff72cbf01b048cf24bfa3b3358b1044d1e2b309d312bb7a646c0c6c1c69"
+  }
+ },
+ "attrib": {
+  "instrumented_fold_s": 60.539,
+  "plddt": 0.849627,
+  "cifs": {
+   "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+  },
+  "n_classes": 30,
+  "classes": [
+   "AdaLN",
+   "AttentionPairBias",
+   "ConditionedTransitionBlock",
+   "Diffusion",
+   "DiffusionModule",
+   "DiffusionTransformer",
+   "DiffusionTransformerLayer",
+   "Fp32AttentionPairBias",
+   "Fp32Pairformer",
+   "Fp32PairformerLayer",
+   "Fp32PairformerModule",
+   "Fp32Transition",
+   "Fp32TriangleAttention",
+   "Fp32TriangleMultiplication",
+   "MSA",
+   "MSALayer",
+   "MSAModule",
+   "MiniTriangularUpdate",
+   "Miniformer",
+   "MiniformerLayer",
+   "MiniformerModule",
+   "OuterProductMean",
+   "PairWeightedAveraging",
+   "Pairformer",
+   "PairformerLayer",
+   "PairformerModule",
+   "Transition",
+   "TriangleAttention",
+   "TriangleMultiplication",
+   "TrunkModule"
+  ],
+  "tree": {
+   "DiffusionModule": {
+    "calls": 200,
+    "incl_s": 23.58496,
+    "excl_s": 0.93033,
+    "median_ms": 40.26266
+   },
+   "DiffusionModule/Diffusion": {
+    "calls": 200,
+    "incl_s": 22.65463,
+    "excl_s": 0.51948,
+    "median_ms": 39.37723
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer": {
+    "calls": 600,
+    "incl_s": 21.99499,
+    "excl_s": 0.17847,
+    "median_ms": 6.01248
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+    "calls": 6000,
+    "incl_s": 21.81651,
+    "excl_s": 1.94195,
+    "median_ms": 1.08337
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+    "calls": 6000,
+    "incl_s": 2.58064,
+    "excl_s": 2.58064,
+    "median_ms": 0.11682
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+    "calls": 6000,
+    "incl_s": 10.25355,
+    "excl_s": 10.25355,
+    "median_ms": 0.51774
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+    "calls": 6000,
+    "incl_s": 7.04036,
+    "excl_s": 4.08102,
+    "median_ms": 0.30582
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+    "calls": 6000,
+    "incl_s": 2.95934,
+    "excl_s": 2.95934,
+    "median_ms": 0.1181
+   },
+   "DiffusionModule/Diffusion/Transition": {
+    "calls": 400,
+    "incl_s": 0.14017,
+    "excl_s": 0.14017,
+    "median_ms": 0.13083
+   },
+   "PairformerModule": {
+    "calls": 1,
+    "incl_s": 0.49488,
+    "excl_s": 0.15044,
+    "median_ms": 494.88194
+   },
+   "PairformerModule/Pairformer": {
+    "calls": 1,
+    "incl_s": 0.34444,
+    "excl_s": 0.00049,
+    "median_ms": 344.44384
+   },
+   "PairformerModule/Pairformer/PairformerLayer": {
+    "calls": 8,
+    "incl_s": 0.34396,
+    "excl_s": 0.02054,
+    "median_ms": 43.02721
+   },
+   "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 8,
+    "incl_s": 0.00914,
+    "excl_s": 0.00914,
+    "median_ms": 1.13984
+   },
+   "PairformerModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_s": 0.06754,
+    "excl_s": 0.06754,
+    "median_ms": 4.17597
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 16,
+    "incl_s": 0.08308,
+    "excl_s": 0.08308,
+    "median_ms": 5.22065
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 16,
+    "incl_s": 0.16366,
+    "excl_s": 0.16366,
+    "median_ms": 10.28022
+   },
+   "TrunkModule": {
+    "calls": 1,
+    "incl_s": 31.92796,
+    "excl_s": 0.40166,
+    "median_ms": 31927.96267
+   },
+   "TrunkModule/MSA": {
+    "calls": 4,
+    "incl_s": 14.32153,
+    "excl_s": 0.08291,
+    "median_ms": 3142.94124
+   },
+   "TrunkModule/MSA/MSALayer": {
+    "calls": 16,
+    "incl_s": 14.23861,
+    "excl_s": 0.12861,
+    "median_ms": 122.78154
+   },
+   "TrunkModule/MSA/MSALayer/OuterProductMean": {
+    "calls": 16,
+    "incl_s": 0.69444,
+    "excl_s": 0.69444,
+    "median_ms": 41.21574
+   },
+   "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+    "calls": 16,
+    "incl_s": 1.2348,
+    "excl_s": 1.2348,
+    "median_ms": 30.71046
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer": {
+    "calls": 16,
+    "incl_s": 10.05848,
+    "excl_s": 0.07573,
+    "median_ms": 39.49864
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_s": 1.26699,
+    "excl_s": 1.26699,
+    "median_ms": 8.01436
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+    "calls": 32,
+    "incl_s": 4.37336,
+    "excl_s": 4.37336,
+    "median_ms": 5.78317
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+    "calls": 32,
+    "incl_s": 4.34238,
+    "excl_s": 4.34238,
+    "median_ms": 9.52417
+   },
+   "TrunkModule/MSA/MSALayer/Transition": {
+    "calls": 16,
+    "incl_s": 2.12229,
+    "excl_s": 2.12229,
+    "median_ms": 9.31025
+   },
+   "TrunkModule/Pairformer": {
+    "calls": 4,
+    "incl_s": 17.20477,
+    "excl_s": 0.04992,
+    "median_ms": 2779.8785
+   },
+   "TrunkModule/Pairformer/PairformerLayer": {
+    "calls": 256,
+    "incl_s": 17.15485,
+    "excl_s": 0.7636,
+    "median_ms": 42.19206
+   },
+   "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 256,
+    "incl_s": 0.41849,
+    "excl_s": 0.41849,
+    "median_ms": 1.06166
+   },
+   "TrunkModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 512,
+    "incl_s": 3.18264,
+    "excl_s": 3.18264,
+    "median_ms": 7.9426
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 512,
+    "incl_s": 5.1435,
+    "excl_s": 5.1435,
+    "median_ms": 5.77019
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 512,
+    "incl_s": 7.64662,
+    "excl_s": 7.64662,
+    "median_ms": 10.19444
+   }
+  },
+  "sigs": {
+   "AdaLN|1x224x32x128,1x224x32x128": {
+    "calls": 2400,
+    "median_ms": 0.0912,
+    "total_ms": 791.15
+   },
+   "AdaLN|1x512x768,1x512x768": {
+    "calls": 9600,
+    "median_ms": 0.11805,
+    "total_ms": 4748.839
+   },
+   "AttentionPairBias|1x224x32x128,224x4x32x128": {
+    "calls": 1200,
+    "median_ms": 1.29326,
+    "total_ms": 2843.766
+   },
+   "AttentionPairBias|1x512x384,1x512x512x128": {
+    "calls": 264,
+    "median_ms": 1.06387,
+    "total_ms": 427.634
+   },
+   "AttentionPairBias|1x512x768,1x16x512x512": {
+    "calls": 4800,
+    "median_ms": 0.51622,
+    "total_ms": 7409.787
+   },
+   "ConditionedTransitionBlock|1x224x32x128,1x224x32x128": {
+    "calls": 1200,
+    "median_ms": 0.41148,
+    "total_ms": 1294.303
+   },
+   "ConditionedTransitionBlock|1x512x768,1x512x768": {
+    "calls": 4800,
+    "median_ms": 0.30378,
+    "total_ms": 5746.061
+   },
+   "DiffusionModule|": {
+    "calls": 200,
+    "median_ms": 40.26266,
+    "total_ms": 23584.964
+   },
+   "DiffusionTransformerLayer|1x224x32x128,1x224x32x128": {
+    "calls": 1200,
+    "median_ms": 1.95734,
+    "total_ms": 4916.137
+   },
+   "DiffusionTransformerLayer|1x512x768,1x512x768": {
+    "calls": 4800,
+    "median_ms": 1.07803,
+    "total_ms": 16900.374
+   },
+   "DiffusionTransformer|1x224x32x128,1x224x32x128": {
+    "calls": 400,
+    "median_ms": 5.95424,
+    "total_ms": 4965.767
+   },
+   "DiffusionTransformer|1x512x768,1x512x768": {
+    "calls": 200,
+    "median_ms": 26.35886,
+    "total_ms": 17029.219
+   },
+   "Diffusion|1x7168x3,1": {
+    "calls": 200,
+    "median_ms": 39.37723,
+    "total_ms": 22654.629
+   },
+   "MSALayer|1x512x512x128,1x1024x512x64": {
+    "calls": 16,
+    "median_ms": 122.78154,
+    "total_ms": 14238.614
+   },
+   "MSA|1x512x512x128,1x1024x512x36": {
+    "calls": 4,
+    "median_ms": 3142.94124,
+    "total_ms": 14321.527
+   },
+   "OuterProductMean|1x1024x512x64,1024x1x1": {
+    "calls": 16,
+    "median_ms": 41.21574,
+    "total_ms": 694.435
+   },
+   "PairWeightedAveraging|1x1024x512x64,1x512x512x128": {
+    "calls": 16,
+    "median_ms": 30.71046,
+    "total_ms": 1234.803
+   },
+   "PairformerLayer|1x512x384,1x512x512x128": {
+    "calls": 264,
+    "median_ms": 42.19944,
+    "total_ms": 17498.806
+   },
+   "PairformerLayer|1x512x512x128": {
+    "calls": 16,
+    "median_ms": 39.49864,
+    "total_ms": 10058.475
+   },
+   "PairformerModule|1x512x384,1x512x512x128": {
+    "calls": 1,
+    "median_ms": 494.88194,
+    "total_ms": 494.882
+   },
+   "Pairformer|1x512x384,1x512x512x128": {
+    "calls": 5,
+    "median_ms": 2778.72853,
+    "total_ms": 17549.215
+   },
+   "Transition|1x1024x512x64": {
+    "calls": 16,
+    "median_ms": 9.31025,
+    "total_ms": 2122.29
+   },
+   "Transition|1x512x384": {
+    "calls": 264,
+    "median_ms": 0.11633,
+    "total_ms": 84.331
+   },
+   "Transition|1x512x512x128": {
+    "calls": 280,
+    "median_ms": 7.99309,
+    "total_ms": 4432.838
+   },
+   "Transition|1x512x768": {
+    "calls": 400,
+    "median_ms": 0.13083,
+    "total_ms": 140.166
+   },
+   "TriangleAttention|1x512x512x128": {
+    "calls": 32,
+    "median_ms": 5.78317,
+    "total_ms": 4373.362
+   },
+   "TriangleAttention|1x512x512x128,1x1x1x512": {
+    "calls": 528,
+    "median_ms": 5.77019,
+    "total_ms": 5226.579
+   },
+   "TriangleMultiplication|1x512x512x128": {
+    "calls": 32,
+    "median_ms": 9.52417,
+    "total_ms": 4342.384
+   },
+   "TriangleMultiplication|1x512x512x128,1x512x512": {
+    "calls": 528,
+    "median_ms": 10.19589,
+    "total_ms": 7810.282
+   },
+   "TrunkModule|1x512x384,1x512x384": {
+    "calls": 1,
+    "median_ms": 31927.96267,
+    "total_ms": 31927.963
+   }
+  },
+  "captures": {
+   "TriangleMultiplication|1x512x512x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_TriangleMultiplication__1x512x512x128.json.gz",
+    "nodes": 356
+   },
+   "TriangleAttention|1x512x512x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_TriangleAttention__1x512x512x128.json.gz",
+    "nodes": 343
+   },
+   "MSALayer|1x512x512x128,1x1024x512x64": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_MSALayer__1x512x512x128,1x1024x512x64.json.gz",
+    "nodes": 14350
+   },
+   "Transition|1x512x512x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_Transition__1x512x512x128.json.gz",
+    "nodes": 3351
+   },
+   "TriangleMultiplication|1x512x512x128,1x512x512": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_TriangleMultiplication__1x512x512x128,1x512x512.json.gz",
+    "nodes": 385
+   },
+   "TriangleAttention|1x512x512x128,1x1x1x512": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_TriangleAttention__1x512x512x128,1x1x1x512.json.gz",
+    "nodes": 360
+   },
+   "AttentionPairBias|1x512x384,1x512x512x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_AttentionPairBias__1x512x384,1x512x512x128.json.gz",
+    "nodes": 360
+   },
+   "Transition|1x512x384": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_Transition__1x512x384.json.gz",
+    "nodes": 87
+   },
+   "PairformerLayer|1x512x384,1x512x512x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_PairformerLayer__1x512x384,1x512x512x128.json.gz",
+    "nodes": 5342
+   },
+   "PairWeightedAveraging|1x1024x512x64,1x512x512x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_PairWeightedAveraging__1x1024x512x64,1x512x512x128.json.gz",
+    "nodes": 2561
+   },
+   "Transition|1x1024x512x64": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_Transition__1x1024x512x64.json.gz",
+    "nodes": 6705
+   },
+   "OuterProductMean|1x1024x512x64,1024x1x1": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_OuterProductMean__1x1024x512x64,1024x1x1.json.gz",
+    "nodes": 292
+   },
+   "PairformerLayer|1x512x512x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_PairformerLayer__1x512x512x128.json.gz",
+    "nodes": 4763
+   },
+   "AdaLN|1x224x32x128,1x224x32x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_AdaLN__1x224x32x128,1x224x32x128.json.gz",
+    "nodes": 169
+   },
+   "AdaLN|1x512x768,1x512x768": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_AdaLN__1x512x768,1x512x768.json.gz",
+    "nodes": 95
+   },
+   "DiffusionTransformerLayer|1x512x768,1x512x768": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_DiffusionTransformerLayer__1x512x768,1x512x768.json.gz",
+    "nodes": 677
+   },
+   "AttentionPairBias|1x512x768,1x16x512x512": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_AttentionPairBias__1x512x768,1x16x512x512.json.gz",
+    "nodes": 295
+   },
+   "ConditionedTransitionBlock|1x512x768,1x512x768": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_ConditionedTransitionBlock__1x512x768,1x512x768.json.gz",
+    "nodes": 219
+   },
+   "DiffusionTransformerLayer|1x224x32x128,1x224x32x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_DiffusionTransformerLayer__1x224x32x128,1x224x32x128.json.gz",
+    "nodes": 873
+   },
+   "AttentionPairBias|1x224x32x128,224x4x32x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_AttentionPairBias__1x224x32x128,224x4x32x128.json.gz",
+    "nodes": 346
+   },
+   "ConditionedTransitionBlock|1x224x32x128,1x224x32x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_ConditionedTransitionBlock__1x224x32x128,1x224x32x128.json.gz",
+    "nodes": 293
+   },
+   "Transition|1x512x768": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_Transition__1x512x768.json.gz",
+    "nodes": 87
+   },
+   "DiffusionTransformer|1x224x32x128,1x224x32x128": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_DiffusionTransformer__1x224x32x128,1x224x32x128.json.gz",
+    "nodes": 1966
+   },
+   "DiffusionTransformer|1x512x768,1x512x768": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_DiffusionTransformer__1x512x768,1x512x768.json.gz",
+    "nodes": 16227
+   },
+   "DiffusionModule|": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_DiffusionModule__.json.gz",
+    "nodes": 20870
+   },
+   "Diffusion|1x7168x3,1": {
+    "file": "perf/b2x-baseline-attrib/captures/cap_Diffusion__1x7168x3,1.json.gz",
+    "nodes": 20813
+   }
+  },
+  "note": "per-call device syncs serialise host and device; this fold's wall is a diagnostic, not a baseline"
+ },
+ "census": {
+  "instrumented_fold_s": 24.806,
+  "plddt": 0.849627,
+  "cifs": {
+   "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+  },
+  "ttnn_names_wrapped": 698,
+  "tree": {
+   "DiffusionModule": {
+    "calls": 200,
+    "incl_s": 7.31803,
+    "excl_s": 2.68038,
+    "median_ms": 33.42135
+   },
+   "DiffusionModule/Diffusion": {
+    "calls": 200,
+    "incl_s": 4.63765,
+    "excl_s": 0.13815,
+    "median_ms": 22.11445
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer": {
+    "calls": 600,
+    "incl_s": 4.45996,
+    "excl_s": 0.05382,
+    "median_ms": 2.73003
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+    "calls": 6000,
+    "incl_s": 4.40615,
+    "excl_s": 0.55106,
+    "median_ms": 0.67311
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+    "calls": 6000,
+    "incl_s": 0.57833,
+    "excl_s": 0.57833,
+    "median_ms": 0.09209
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+    "calls": 6000,
+    "incl_s": 1.87053,
+    "excl_s": 1.87053,
+    "median_ms": 0.26746
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+    "calls": 6000,
+    "incl_s": 1.40622,
+    "excl_s": 0.82755,
+    "median_ms": 0.22346
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+    "calls": 6000,
+    "incl_s": 0.57867,
+    "excl_s": 0.57867,
+    "median_ms": 0.09447
+   },
+   "DiffusionModule/Diffusion/Transition": {
+    "calls": 400,
+    "incl_s": 0.03953,
+    "excl_s": 0.03953,
+    "median_ms": 0.09286
+   },
+   "PairformerModule": {
+    "calls": 1,
+    "incl_s": 0.48309,
+    "excl_s": 0.36295,
+    "median_ms": 483.08546
+   },
+   "PairformerModule/Pairformer": {
+    "calls": 1,
+    "incl_s": 0.12014,
+    "excl_s": 0.00015,
+    "median_ms": 120.1357
+   },
+   "PairformerModule/Pairformer/PairformerLayer": {
+    "calls": 8,
+    "incl_s": 0.11998,
+    "excl_s": 0.00211,
+    "median_ms": 6.80112
+   },
+   "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 8,
+    "incl_s": 0.00451,
+    "excl_s": 0.00451,
+    "median_ms": 0.51607
+   },
+   "PairformerModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_s": 0.08955,
+    "excl_s": 0.08955,
+    "median_ms": 1.4953
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 16,
+    "incl_s": 0.01262,
+    "excl_s": 0.01262,
+    "median_ms": 0.74161
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 16,
+    "incl_s": 0.0112,
+    "excl_s": 0.0112,
+    "median_ms": 0.61948
+   },
+   "TrunkModule": {
+    "calls": 1,
+    "incl_s": 12.91874,
+    "excl_s": 0.58198,
+    "median_ms": 12918.74074
+   },
+   "TrunkModule/MSA": {
+    "calls": 4,
+    "incl_s": 1.64622,
+    "excl_s": 0.00134,
+    "median_ms": 463.92011
+   },
+   "TrunkModule/MSA/MSALayer": {
+    "calls": 16,
+    "incl_s": 1.64488,
+    "excl_s": 0.01124,
+    "median_ms": 120.04764
+   },
+   "TrunkModule/MSA/MSALayer/OuterProductMean": {
+    "calls": 16,
+    "incl_s": 0.08626,
+    "excl_s": 0.08626,
+    "median_ms": 4.26406
+   },
+   "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+    "calls": 16,
+    "incl_s": 0.2428,
+    "excl_s": 0.2428,
+    "median_ms": 11.68486
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer": {
+    "calls": 16,
+    "incl_s": 0.4091,
+    "excl_s": 0.00971,
+    "median_ms": 26.80886
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_s": 0.26975,
+    "excl_s": 0.26975,
+    "median_ms": 12.81386
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+    "calls": 32,
+    "incl_s": 0.03006,
+    "excl_s": 0.03006,
+    "median_ms": 0.77566
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+    "calls": 32,
+    "incl_s": 0.09959,
+    "excl_s": 0.09959,
+    "median_ms": 0.80739
+   },
+   "TrunkModule/MSA/MSALayer/Transition": {
+    "calls": 16,
+    "incl_s": 0.89548,
+    "excl_s": 0.89548,
+    "median_ms": 58.12546
+   },
+   "TrunkModule/Pairformer": {
+    "calls": 4,
+    "incl_s": 10.69054,
+    "excl_s": 0.00431,
+    "median_ms": 2672.42853
+   },
+   "TrunkModule/Pairformer/PairformerLayer": {
+    "calls": 256,
+    "incl_s": 10.68623,
+    "excl_s": 0.10112,
+    "median_ms": 41.42499
+   },
+   "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 256,
+    "incl_s": 0.25357,
+    "excl_s": 0.25357,
+    "median_ms": 0.83105
+   },
+   "TrunkModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 512,
+    "incl_s": 9.42203,
+    "excl_s": 9.42203,
+    "median_ms": 2.24667
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 512,
+    "incl_s": 0.42068,
+    "excl_s": 0.42068,
+    "median_ms": 0.75312
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 512,
+    "incl_s": 0.48885,
+    "excl_s": 0.48885,
+    "median_ms": 0.80392
+   }
+  },
+  "rows": [
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.multiply_",
+    "n": 2048,
+    "in_GB": 180.388626,
+    "out_GB": 103.079215
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.chunk",
+    "n": 512,
+    "in_GB": 137.438953,
+    "out_GB": 137.438953
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer",
+    "op": "ttnn.add_",
+    "n": 1792,
+    "in_GB": 120.661737,
+    "out_GB": 86.100673
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.reshape",
+    "n": 16800,
+    "in_GB": 90.911539,
+    "out_GB": 83.047219
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock",
+    "op": "ttnn.linear",
+    "n": 30000,
+    "in_GB": 87.175987,
+    "out_GB": 47.815066
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.add_",
+    "n": 4800,
+    "in_GB": 80.530637,
+    "out_GB": 40.265318
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.linear",
+    "n": 1024,
+    "in_GB": 68.753031,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.layer_norm",
+    "n": 1024,
+    "in_GB": 68.719477,
+    "out_GB": 68.719477
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.matmul",
+    "n": 512,
+    "in_GB": 68.719477,
+    "out_GB": 34.359738
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.multiply_",
+    "n": 512,
+    "in_GB": 68.719477,
+    "out_GB": 34.359738
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.linear",
+    "n": 19200,
+    "in_GB": 60.909158,
+    "out_GB": 46.871347
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock",
+    "op": "ttnn.multiply_",
+    "n": 18000,
+    "in_GB": 59.768832,
+    "out_GB": 29.884416
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.matmul",
+    "n": 10800,
+    "in_GB": 58.108723,
+    "out_GB": 54.106522
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.reshape",
+    "n": 1024,
+    "in_GB": 51.539608,
+    "out_GB": 51.539608
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.permute",
+    "n": 1024,
+    "in_GB": 42.949673,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.experimental.nlp_create_qkv_heads",
+    "n": 6000,
+    "in_GB": 41.52361,
+    "out_GB": 41.52361
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.multiply_",
+    "n": 4800,
+    "in_GB": 40.265318,
+    "out_GB": 40.265318
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.softmax",
+    "n": 4800,
+    "in_GB": 40.265318,
+    "out_GB": 40.265318
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.linear",
+    "n": 512,
+    "in_GB": 34.363933,
+    "out_GB": 8.589935
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.transpose",
+    "n": 512,
+    "in_GB": 34.359738,
+    "out_GB": 34.359738
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer",
+    "op": "ttnn.add",
+    "n": 12000,
+    "in_GB": 23.907533,
+    "out_GB": 11.953766
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.permute",
+    "n": 12000,
+    "in_GB": 22.020096,
+    "out_GB": 28.626125
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.linear",
+    "n": 512,
+    "in_GB": 21.477458,
+    "out_GB": 17.179869
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.transformer.scaled_dot_product_attention",
+    "n": 1200,
+    "in_GB": 19.818086,
+    "out_GB": 2.20201
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN",
+    "op": "ttnn.linear",
+    "n": 9612,
+    "in_GB": 18.874761,
+    "out_GB": 7.549747
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN",
+    "op": "ttnn.linear",
+    "n": 9612,
+    "in_GB": 18.874761,
+    "out_GB": 7.549747
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/OuterProductMean",
+    "op": "ttnn.to_layout",
+    "n": 64,
+    "in_GB": 18.253611,
+    "out_GB": 18.253611
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.layer_norm",
+    "n": 8448,
+    "in_GB": 17.280532,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.layer_norm",
+    "n": 512,
+    "in_GB": 17.179869,
+    "out_GB": 34.359738
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.chunk",
+    "n": 256,
+    "in_GB": 17.179869,
+    "out_GB": 17.179869
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.layer_norm",
+    "n": 256,
+    "in_GB": 17.179869,
+    "out_GB": 0.0
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.unsqueeze",
+    "n": 4800,
+    "in_GB": 15.099494,
+    "out_GB": 15.099494
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.add_",
+    "n": 112,
+    "in_GB": 15.032386,
+    "out_GB": 7.516193
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.is_tensor_storage_on_device",
+    "n": 6000,
+    "in_GB": 13.841203,
+    "out_GB": 0.0
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.slice",
+    "n": 6000,
+    "in_GB": 13.841203,
+    "out_GB": 7.235174
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.multiply",
+    "n": 6000,
+    "in_GB": 11.953766,
+    "out_GB": 5.976883
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer",
+    "op": "ttnn.multiply",
+    "n": 6000,
+    "in_GB": 11.953766,
+    "out_GB": 5.976883
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/OuterProductMean",
+    "op": "ttnn.reshape",
+    "n": 80,
+    "in_GB": 11.81116,
+    "out_GB": 11.81116
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/OuterProductMean",
+    "op": "ttnn.linear",
+    "n": 48,
+    "in_GB": 10.741744,
+    "out_GB": 2.147484
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN",
+    "op": "ttnn.multiply_",
+    "n": 6000,
+    "in_GB": 9.751757,
+    "out_GB": 3.774874
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN",
+    "op": "ttnn.add_",
+    "n": 6000,
+    "in_GB": 9.751757,
+    "out_GB": 3.774874
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN",
+    "op": "ttnn.multiply_",
+    "n": 6000,
+    "in_GB": 9.751757,
+    "out_GB": 3.774874
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN",
+    "op": "ttnn.add_",
+    "n": 6000,
+    "in_GB": 9.751757,
+    "out_GB": 3.774874
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/OuterProductMean",
+    "op": "ttnn.permute",
+    "n": 48,
+    "in_GB": 9.663676,
+    "out_GB": 9.663676
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer",
+    "op": "ttnn.linear",
+    "n": 4806,
+    "in_GB": 9.448391,
+    "out_GB": 3.785884
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/OuterProductMean",
+    "op": "ttnn.multiply_",
+    "n": 32,
+    "in_GB": 9.16036,
+    "out_GB": 9.126806
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.permute",
+    "n": 384,
+    "in_GB": 8.589935,
+    "out_GB": 8.589935
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.multiply_",
+    "n": 128,
+    "in_GB": 8.589935,
+    "out_GB": 4.294967
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.chunk",
+    "n": 32,
+    "in_GB": 8.589935,
+    "out_GB": 8.589935
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.multiply_",
+    "n": 96,
+    "in_GB": 8.589935,
+    "out_GB": 4.294967
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.unsqueeze",
+    "n": 512,
+    "in_GB": 8.589935,
+    "out_GB": 8.589935
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN",
+    "op": "ttnn.layer_norm",
+    "n": 10806,
+    "in_GB": 7.549747,
+    "out_GB": 7.549747
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN",
+    "op": "ttnn.layer_norm",
+    "n": 10806,
+    "in_GB": 7.549747,
+    "out_GB": 7.549747
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer",
+    "op": "ttnn.add_",
+    "n": 80,
+    "in_GB": 7.516193,
+    "out_GB": 5.368709
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer",
+    "op": "ttnn.add_",
+    "n": 48,
+    "in_GB": 6.442451,
+    "out_GB": 3.221225
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN",
+    "op": "ttnn.to_memory_config",
+    "n": 7218,
+    "in_GB": 5.987893,
+    "out_GB": 5.998903
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN",
+    "op": "ttnn.to_memory_config",
+    "n": 7218,
+    "in_GB": 5.987893,
+    "out_GB": 5.998903
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.multiply_",
+    "n": 64,
+    "in_GB": 5.637145,
+    "out_GB": 3.221225
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.matmul",
+    "n": 400,
+    "in_GB": 5.164237,
+    "out_GB": 0.524288
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.is_tensor_storage_on_device",
+    "n": 230,
+    "in_GB": 5.055709,
+    "out_GB": 0.0
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.transpose",
+    "n": 4800,
+    "in_GB": 5.033165,
+    "out_GB": 5.033165
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.slice",
+    "n": 30,
+    "in_GB": 4.963959,
+    "out_GB": 0.245367
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.linear",
+    "n": 64,
+    "in_GB": 4.297064,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.matmul",
+    "n": 128,
+    "in_GB": 4.294967,
+    "out_GB": 4.294967
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.layer_norm",
+    "n": 64,
+    "in_GB": 4.294967,
+    "out_GB": 4.294967
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.matmul",
+    "n": 32,
+    "in_GB": 4.294967,
+    "out_GB": 2.147484
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.multiply_",
+    "n": 32,
+    "in_GB": 4.294967,
+    "out_GB": 2.147484
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.chunk",
+    "n": 16,
+    "in_GB": 4.294967,
+    "out_GB": 4.294967
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.linear",
+    "n": 25344,
+    "in_GB": 4.127195,
+    "out_GB": 17.280532
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer",
+    "op": "ttnn.add_",
+    "n": 56,
+    "in_GB": 3.770679,
+    "out_GB": 2.690646
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.reshape",
+    "n": 48,
+    "in_GB": 3.221225,
+    "out_GB": 3.221225
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.reshape",
+    "n": 64,
+    "in_GB": 3.221225,
+    "out_GB": 3.221225
+   },
+   {
+    "path": "DiffusionModule/Diffusion/Transition",
+    "op": "ttnn.linear",
+    "n": 1200,
+    "in_GB": 2.831155,
+    "out_GB": 0.314573
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.permute",
+    "n": 64,
+    "in_GB": 2.684355,
+    "out_GB": 0.067109
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.add",
+    "n": 1200,
+    "in_GB": 2.578842,
+    "out_GB": 1.363149
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.matmul",
+    "n": 512,
+    "in_GB": 2.550137,
+    "out_GB": 2.281701
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.to_memory_config",
+    "n": 1200,
+    "in_GB": 2.20201,
+    "out_GB": 2.20201
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.pad",
+    "n": 1200,
+    "in_GB": 2.20201,
+    "out_GB": 8.808038
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.experimental.nlp_concat_heads",
+    "n": 1200,
+    "in_GB": 2.20201,
+    "out_GB": 2.20201
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.squeeze",
+    "n": 1200,
+    "in_GB": 2.20201,
+    "out_GB": 2.20201
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.add_",
+    "n": 512,
+    "in_GB": 2.155872,
+    "out_GB": 2.147484
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.linear",
+    "n": 32,
+    "in_GB": 2.148532,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.linear",
+    "n": 32,
+    "in_GB": 2.147746,
+    "out_GB": 0.536871
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.layer_norm",
+    "n": 32,
+    "in_GB": 2.147484,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.transpose",
+    "n": 32,
+    "in_GB": 2.147484,
+    "out_GB": 2.147484
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.multiply_",
+    "n": 256,
+    "in_GB": 2.147484,
+    "out_GB": 2.147484
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.softmax",
+    "n": 256,
+    "in_GB": 2.147484,
+    "out_GB": 2.147484
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.layer_norm",
+    "n": 32,
+    "in_GB": 2.147484,
+    "out_GB": 2.147484
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.matmul",
+    "n": 16,
+    "in_GB": 2.147484,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.multiply_",
+    "n": 16,
+    "in_GB": 2.147484,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.reshape",
+    "n": 32,
+    "in_GB": 1.610613,
+    "out_GB": 1.610613
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.linear",
+    "n": 1401,
+    "in_GB": 1.545748,
+    "out_GB": 2.858156
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.reshape",
+    "n": 801,
+    "in_GB": 1.469841,
+    "out_GB": 1.469841
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.permute",
+    "n": 32,
+    "in_GB": 1.342177,
+    "out_GB": 0.033554
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.add",
+    "n": 512,
+    "in_GB": 1.090519,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule",
+    "op": "ttnn.add",
+    "n": 12,
+    "in_GB": 1.076888,
+    "out_GB": 0.538444
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.linear",
+    "n": 16,
+    "in_GB": 1.073873,
+    "out_GB": 0.268435
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/Transition",
+    "op": "ttnn.chunk",
+    "n": 16,
+    "in_GB": 1.073742,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/Transition",
+    "op": "ttnn.layer_norm",
+    "n": 1024,
+    "in_GB": 1.073742,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/OuterProductMean",
+    "op": "ttnn.layer_norm",
+    "n": 16,
+    "in_GB": 1.073742,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/OuterProductMean",
+    "op": "ttnn.matmul",
+    "n": 16,
+    "in_GB": 1.073742,
+    "out_GB": 8.589935
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.layer_norm",
+    "n": 32,
+    "in_GB": 1.073742,
+    "out_GB": 2.147484
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/Transition",
+    "op": "ttnn.chunk",
+    "n": 16,
+    "in_GB": 1.073742,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/Transition",
+    "op": "ttnn.layer_norm",
+    "n": 512,
+    "in_GB": 1.073742,
+    "out_GB": 0.0
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.transpose",
+    "n": 16,
+    "in_GB": 1.073742,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.linear",
+    "n": 1024,
+    "in_GB": 0.757072,
+    "out_GB": 0.60398
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.layer_norm",
+    "n": 801,
+    "in_GB": 0.685638,
+    "out_GB": 0.685638
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.permute",
+    "n": 600,
+    "in_GB": 0.550502,
+    "out_GB": 0.550502
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.layer_norm",
+    "n": 264,
+    "in_GB": 0.540017,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.unsqueeze",
+    "n": 32,
+    "in_GB": 0.536871,
+    "out_GB": 0.536871
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.layer_norm",
+    "n": 16,
+    "in_GB": 0.536871,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.chunk",
+    "n": 8,
+    "in_GB": 0.536871,
+    "out_GB": 0.536871
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.layer_norm",
+    "n": 8,
+    "in_GB": 0.536871,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.unsqueeze",
+    "n": 256,
+    "in_GB": 0.402653,
+    "out_GB": 0.402653
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.experimental.nlp_create_qkv_heads",
+    "n": 256,
+    "in_GB": 0.402653,
+    "out_GB": 0.402653
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.permute",
+    "n": 5,
+    "in_GB": 0.32152,
+    "out_GB": 0.249496
+   },
+   {
+    "path": "DiffusionModule/Diffusion/Transition",
+    "op": "ttnn.layer_norm",
+    "n": 400,
+    "in_GB": 0.314573,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule",
+    "op": "ttnn.linear",
+    "n": 8,
+    "in_GB": 0.271319,
+    "out_GB": 0.270008
+   },
+   {
+    "path": "TrunkModule/MSA",
+    "op": "ttnn.linear",
+    "n": 8,
+    "in_GB": 0.270238,
+    "out_GB": 0.268698
+   },
+   {
+    "path": "TrunkModule",
+    "op": "ttnn.layer_norm",
+    "n": 8,
+    "in_GB": 0.270008,
+    "out_GB": 0.270008
+   },
+   {
+    "path": "TrunkModule/MSA",
+    "op": "ttnn.add_",
+    "n": 4,
+    "in_GB": 0.268698,
+    "out_GB": 0.268435
+   },
+   {
+    "path": "TrunkModule",
+    "op": "ttnn.clone",
+    "n": 4,
+    "in_GB": 0.268435,
+    "out_GB": 0.268435
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.unsqueeze",
+    "n": 512,
+    "in_GB": 0.268435,
+    "out_GB": 8.589935
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.unsqueeze",
+    "n": 16,
+    "in_GB": 0.268435,
+    "out_GB": 0.268435
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.multiply_",
+    "n": 3,
+    "in_GB": 0.245367,
+    "out_GB": 0.245367
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.permute",
+    "n": 768,
+    "in_GB": 0.234881,
+    "out_GB": 0.234881
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/Transition",
+    "op": "ttnn.linear",
+    "n": 1536,
+    "in_GB": 0.201327,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.multiply",
+    "n": 256,
+    "in_GB": 0.201327,
+    "out_GB": 0.100663
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.transpose",
+    "n": 256,
+    "in_GB": 0.134218,
+    "out_GB": 0.134218
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.is_tensor_storage_on_device",
+    "n": 256,
+    "in_GB": 0.134218,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.slice",
+    "n": 256,
+    "in_GB": 0.134218,
+    "out_GB": 0.134218
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.reshape",
+    "n": 256,
+    "in_GB": 0.134218,
+    "out_GB": 0.100663
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.linear",
+    "n": 792,
+    "in_GB": 0.128975,
+    "out_GB": 0.540017
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.reshape",
+    "n": 4,
+    "in_GB": 0.121569,
+    "out_GB": 0.120193
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/Transition",
+    "op": "ttnn.linear",
+    "n": 3072,
+    "in_GB": 0.100663,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer",
+    "op": "ttnn.layer_norm",
+    "n": 256,
+    "in_GB": 0.100663,
+    "out_GB": 0.100663
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.from_device",
+    "n": 200,
+    "in_GB": 0.09175,
+    "out_GB": 0.09175
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.to_torch",
+    "n": 200,
+    "in_GB": 0.09175,
+    "out_GB": 0.0
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.matmul",
+    "n": 16,
+    "in_GB": 0.079692,
+    "out_GB": 0.071303
+   },
+   {
+    "path": "TrunkModule",
+    "op": "ttnn.is_tensor_storage_on_device",
+    "n": 2,
+    "in_GB": 0.067502,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule",
+    "op": "ttnn.from_device",
+    "n": 2,
+    "in_GB": 0.067502,
+    "out_GB": 0.067502
+   },
+   {
+    "path": "TrunkModule",
+    "op": "ttnn.to_torch",
+    "n": 2,
+    "in_GB": 0.067502,
+    "out_GB": 0.0
+   },
+   {
+    "path": "PairformerModule",
+    "op": "ttnn.is_tensor_storage_on_device",
+    "n": 2,
+    "in_GB": 0.067502,
+    "out_GB": 0.0
+   },
+   {
+    "path": "PairformerModule",
+    "op": "ttnn.from_device",
+    "n": 2,
+    "in_GB": 0.067502,
+    "out_GB": 0.067502
+   },
+   {
+    "path": "PairformerModule",
+    "op": "ttnn.to_torch",
+    "n": 2,
+    "in_GB": 0.067502,
+    "out_GB": 0.0
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.add_",
+    "n": 16,
+    "in_GB": 0.067371,
+    "out_GB": 0.067109
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.multiply_",
+    "n": 8,
+    "in_GB": 0.067109,
+    "out_GB": 0.067109
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.softmax",
+    "n": 8,
+    "in_GB": 0.067109,
+    "out_GB": 0.067109
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.add_",
+    "n": 2,
+    "in_GB": 0.04771,
+    "out_GB": 0.04404
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.add",
+    "n": 16,
+    "in_GB": 0.034079,
+    "out_GB": 0.033554
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.linear",
+    "n": 32,
+    "in_GB": 0.023658,
+    "out_GB": 0.018874
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.is_tensor_storage_on_device",
+    "n": 512,
+    "in_GB": 0.013631,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.slice",
+    "n": 512,
+    "in_GB": 0.013631,
+    "out_GB": 0.002621
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.unsqueeze",
+    "n": 8,
+    "in_GB": 0.012583,
+    "out_GB": 0.012583
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.experimental.nlp_create_qkv_heads",
+    "n": 8,
+    "in_GB": 0.012583,
+    "out_GB": 0.012583
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.multiply",
+    "n": 3,
+    "in_GB": 0.011043,
+    "out_GB": 0.01101
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.unsqueeze",
+    "n": 400,
+    "in_GB": 0.01024,
+    "out_GB": 0.01024
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.unsqueeze",
+    "n": 16,
+    "in_GB": 0.008389,
+    "out_GB": 0.268435
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.sum",
+    "n": 1,
+    "in_GB": 0.00734,
+    "out_GB": 3.3e-05
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.permute",
+    "n": 24,
+    "in_GB": 0.00734,
+    "out_GB": 0.00734
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.multiply",
+    "n": 8,
+    "in_GB": 0.006291,
+    "out_GB": 0.003146
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.transpose",
+    "n": 8,
+    "in_GB": 0.004194,
+    "out_GB": 0.004194
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.is_tensor_storage_on_device",
+    "n": 8,
+    "in_GB": 0.004194,
+    "out_GB": 0.0
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.slice",
+    "n": 8,
+    "in_GB": 0.004194,
+    "out_GB": 0.004194
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.reshape",
+    "n": 8,
+    "in_GB": 0.004194,
+    "out_GB": 0.003146
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.multiply",
+    "n": 200,
+    "in_GB": 0.003277,
+    "out_GB": 0.003277
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.cos",
+    "n": 200,
+    "in_GB": 0.003277,
+    "out_GB": 0.003277
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer",
+    "op": "ttnn.layer_norm",
+    "n": 8,
+    "in_GB": 0.003146,
+    "out_GB": 0.003146
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.add",
+    "n": 2,
+    "in_GB": 0.001868,
+    "out_GB": 0.001868
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.matmul",
+    "n": 1,
+    "in_GB": 0.00091,
+    "out_GB": 0.001835
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.reciprocal",
+    "n": 1,
+    "in_GB": 3.3e-05,
+    "out_GB": 3.3e-05
+   },
+   {
+    "path": "TrunkModule",
+    "op": "ttnn.from_torch",
+    "n": 9,
+    "in_GB": 0.0,
+    "out_GB": 0.20516
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.get_max_worker_l1_unreserved_size",
+    "n": 16,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairWeightedAveraging",
+    "op": "ttnn.softmax",
+    "n": 128,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/Transition",
+    "op": "ttnn.multiply_",
+    "n": 1024,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/Transition",
+    "op": "ttnn.concat",
+    "n": 16,
+    "in_GB": 0.0,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.allocate_tensor_on_device",
+    "n": 128,
+    "in_GB": 0.0,
+    "out_GB": 15.032386
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.generic_op",
+    "n": 128,
+    "in_GB": 0.0,
+    "out_GB": 15.032386
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.allocate_tensor_on_device",
+    "n": 192,
+    "in_GB": 0.0,
+    "out_GB": 12.884902
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.generic_op",
+    "n": 128,
+    "in_GB": 0.0,
+    "out_GB": 8.589935
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.get_max_worker_l1_unreserved_size",
+    "n": 32,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/Transition",
+    "op": "ttnn.multiply_",
+    "n": 512,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/MSA/MSALayer/PairformerLayer/Transition",
+    "op": "ttnn.concat",
+    "n": 16,
+    "in_GB": 0.0,
+    "out_GB": 1.073742
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.allocate_tensor_on_device",
+    "n": 2048,
+    "in_GB": 0.0,
+    "out_GB": 240.518169
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.generic_op",
+    "n": 2048,
+    "in_GB": 0.0,
+    "out_GB": 240.518169
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.allocate_tensor_on_device",
+    "n": 3072,
+    "in_GB": 0.0,
+    "out_GB": 206.15843
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.generic_op",
+    "n": 2048,
+    "in_GB": 0.0,
+    "out_GB": 137.438953
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.get_max_worker_l1_unreserved_size",
+    "n": 512,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.multiply_",
+    "n": 8448,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.concat",
+    "n": 256,
+    "in_GB": 0.0,
+    "out_GB": 17.179869
+   },
+   {
+    "path": "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.get_max_worker_l1_unreserved_size",
+    "n": 768,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "DiffusionModule",
+    "op": "ttnn.from_torch",
+    "n": 410,
+    "in_GB": 0.0,
+    "out_GB": 0.423634
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "op": "ttnn.concat",
+    "n": 1,
+    "in_GB": 0.0,
+    "out_GB": 0.000786
+   },
+   {
+    "path": "DiffusionModule/Diffusion/Transition",
+    "op": "ttnn.multiply_",
+    "n": 400,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "op": "ttnn.get_max_worker_l1_unreserved_size",
+    "n": 9600,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "PairformerModule",
+    "op": "ttnn.from_torch",
+    "n": 4,
+    "in_GB": 0.0,
+    "out_GB": 0.068059
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.allocate_tensor_on_device",
+    "n": 64,
+    "in_GB": 0.0,
+    "out_GB": 7.516193
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "op": "ttnn.generic_op",
+    "n": 64,
+    "in_GB": 0.0,
+    "out_GB": 7.516193
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.allocate_tensor_on_device",
+    "n": 96,
+    "in_GB": 0.0,
+    "out_GB": 6.442451
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.generic_op",
+    "n": 64,
+    "in_GB": 0.0,
+    "out_GB": 4.294967
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "op": "ttnn.get_max_worker_l1_unreserved_size",
+    "n": 16,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.multiply_",
+    "n": 264,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/Transition",
+    "op": "ttnn.concat",
+    "n": 8,
+    "in_GB": 0.0,
+    "out_GB": 0.536871
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "op": "ttnn.get_max_worker_l1_unreserved_size",
+    "n": 24,
+    "in_GB": 0.0,
+    "out_GB": 0.0
+   }
+  ],
+  "total_in_GB": 2039.3471,
+  "total_out_GB": 2344.0029,
+  "note": "floor byte model: DRAM inputs read once, DRAM outputs written once"
+ },
+ "finished": "2026-09-11T15:16:32+0000"
+}

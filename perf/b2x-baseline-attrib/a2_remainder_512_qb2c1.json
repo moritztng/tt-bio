@@ -1,0 +1,135 @@
+{
+ "clean_phase_table": [
+  {
+   "phase": "TrunkModule (4 recycles: 256 pairformer + 16 MSA)",
+   "s_per_fold": 12.866,
+   "GB_per_fold": 2031.4,
+   "ops_per_fold": 83355,
+   "GBps": 157.9,
+   "pct_stream": 36.7,
+   "TFLOPs": 10.74,
+   "pct_compute": 12.5,
+   "us_per_op": 154.4,
+   "deficit_s": 6.959
+  },
+  {
+   "phase": "DiffusionModule (200 sampler steps)",
+   "s_per_fold": 7.217,
+   "GB_per_fold": 1320.1,
+   "ops_per_fold": 281574,
+   "GBps": 182.9,
+   "pct_stream": 42.5,
+   "TFLOPs": 8.93,
+   "pct_compute": 10.4,
+   "us_per_op": 25.6,
+   "deficit_s": 3.378
+  },
+  {
+   "phase": "PairformerModule (8 confidence blocks)",
+   "s_per_fold": 0.468,
+   "GB_per_fold": 53.2,
+   "ops_per_fold": 2242,
+   "GBps": 113.8,
+   "pct_stream": 26.5,
+   "TFLOPs": 8.6,
+   "pct_compute": 10.0,
+   "us_per_op": 208.6,
+   "deficit_s": 0.313
+  },
+  {
+   "phase": "residual: everything outside every device class",
+   "s_per_fold": 3.374,
+   "GB_per_fold": 0.0,
+   "ops_per_fold": 0,
+   "GBps": 0.0,
+   "pct_stream": 0.0,
+   "TFLOPs": 0.0,
+   "pct_compute": 0.0,
+   "us_per_op": null,
+   "deficit_s": 3.374
+  }
+ ],
+ "sync_inflation": {
+  "trunk_sum_of_synced_per_call_s": 12.768,
+  "trunk_clean_s": 12.8659,
+  "trunk_inflation_pct": -0.8,
+  "diffusion_step_synced_ms": 40.2627,
+  "diffusion_step_clean_ms": 33.24536,
+  "diffusion_step_inflation_pct": 21.1,
+  "diffusion_inner_sum_synced_ms": 37.616,
+  "deflation_factor_for_diffusion_layers": 0.8838,
+  "DiffusionTransformerLayer|1x512x768,1x512x768": {
+   "synced_ms": 1.078,
+   "clean_ms": 0.9528,
+   "pct_stream_synced": 42.9,
+   "pct_stream_clean": 48.6
+  },
+  "DiffusionTransformerLayer|1x224x32x128,1x224x32x128": {
+   "synced_ms": 1.9573,
+   "clean_ms": 1.7299,
+   "pct_stream_synced": 36.1,
+   "pct_stream_clean": 40.9
+  }
+ },
+ "pairformer_block": {
+  "block_ms": 42.1994,
+  "block_ops": 428,
+  "sub_units": [
+   {
+    "sub_unit": "TriangleMultiplication|1x512x512x128,1x512x512",
+    "per_block": 2,
+    "ms_per_block": 20.392,
+    "MB_per_block": 4229.4,
+    "ops_per_block": 62,
+    "pct_stream": 48.2,
+    "us_per_op": 328.9
+   },
+   {
+    "sub_unit": "TriangleAttention|1x512x512x128,1x1x1x512",
+    "per_block": 2,
+    "ms_per_block": 11.54,
+    "MB_per_block": 2231.8,
+    "ops_per_block": 54,
+    "pct_stream": 45.0,
+    "us_per_op": 213.7
+   },
+   {
+    "sub_unit": "Transition|1x512x512x128",
+    "per_block": 1,
+    "ms_per_block": 7.993,
+    "MB_per_block": 474.2,
+    "ops_per_block": 258,
+    "pct_stream": 13.8,
+    "us_per_op": 31.0
+   },
+   {
+    "sub_unit": "AttentionPairBias|1x512x384,1x512x512x128",
+    "per_block": 1,
+    "ms_per_block": 1.064,
+    "MB_per_block": 151.4,
+    "ops_per_block": 32,
+    "pct_stream": 33.1,
+    "us_per_op": 33.2
+   },
+   {
+    "sub_unit": "Transition|1x512x384",
+    "per_block": 1,
+    "ms_per_block": 0.116,
+    "MB_per_block": 4.8,
+    "ops_per_block": 8,
+    "pct_stream": 9.5,
+    "us_per_op": 14.5
+   }
+  ],
+  "accounted_ms": 41.105,
+  "accounted_ops": 414
+ },
+ "fold": {
+  "plain_median_s": 24.404,
+  "instrumented_s": 23.924,
+  "instrument_cost_pct": -1.97,
+  "n_ttnn_calls_charged": 367171,
+  "top_level_s": 20.55,
+  "residual_s": 3.374
+ }
+}

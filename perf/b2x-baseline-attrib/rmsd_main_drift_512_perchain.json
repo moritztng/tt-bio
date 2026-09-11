@@ -1,0 +1,16 @@
+{
+ "label": "published-2026-08-26 vs main-2026-09-11",
+ "ref": "perf/b2x-baseline-attrib/ref/published_fca25e32_cdk2x2_512.cif",
+ "arm": "perf/b2x-baseline-attrib/cifs/base_plain0_cdk2x2_512.cif",
+ "n_matched": 4116,
+ "whole_allatom_rmsd_A": 8.5966,
+ "mean_bfactor_ref": 86.943,
+ "mean_bfactor_arm": 85.0601,
+ "per_chain": {
+  "A": {
+   "n_atoms": 4116,
+   "allatom_rmsd_A": 8.5966,
+   "ca_rmsd_A": 8.4444
+  }
+ }
+}
