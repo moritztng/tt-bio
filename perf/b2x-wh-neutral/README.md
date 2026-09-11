@@ -44,8 +44,11 @@ Blackhole's: A 1.2146x against 1.170x, B 1.1592x against 1.157x, AB 1.4289x agai
   at 298 aa the files match byte for byte too. At 512 aa the files differ in the per-atom plDDT
   column alone (63.933 against 63.864) with every coordinate identical, which is the one size
   where Wormhole's L1 refusal ladder fires and memoises.
-* `leak/` — OpenFold3 and Protenix-v2 folded with both flags forced off, on and off again. Both
-  levers are Boltz-2-exclusive by construction and nothing in either guard reads the grid, so this
-  is a backstop for the static argument, not the argument.
+* `leak/shas.txt` — OpenFold3 and Protenix-v2 each folded `examples/615.yaml` with both flags
+  forced off, on and off again. One digest per model across all three arms, `ce6ffe152d8d0bf3` and
+  `95815f56ae090343`, so neither lever moves another model here. Both are Boltz-2-exclusive by
+  construction (`TT_BIO_ATOM_AXIS_BUCKET` is read only in `tenstorrent.DiffusionModule`, and the
+  SDPA branch needs `token_dit`, which only `DiffusionTransformerLayer` sets) and nothing in either
+  guard reads the grid, so this is a backstop for that argument rather than the argument.
 
 Full evidence and the verdict: `~/.coworker/state/b2x-integrate-wh-neutral.md`.
