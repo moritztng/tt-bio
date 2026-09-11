@@ -97,15 +97,25 @@ def _wall_kind(per_bank: int, bank_size: int | None, free: int | None,
         return "FRAGMENTATION"
     return "UNCLASSIFIED"
 
-#: Written by the run itself. A rung counts as PASS only if a structure file exists, because a
-#: zero exit status has been wrong here before (a worker that swallowed its own child's failure
-#: still exited 0). The negative control for this check is any refused rung below: those write
-#: no structure, and if this predicate ever passed one, it would be reading the wrong thing.
-_STRUCT = ("*.cif", "*.pdb")
+#: What each command writes ONLY when it produced an answer, and the argv shape it takes. A rung
+#: counts as PASS only if that artifact exists, because a zero exit status has been wrong here
+#: before (a worker that swallowed its own child's failure still exited 0). The negative control
+#: is any refused rung: those write none of these.
+#:
+#: `affinity` deliberately does NOT key on affinity.csv -- that file is written with an `error`
+#: column even when every input failed, so it would pass a rung that scored nothing. The
+#: per-input json is only written for an input that scored.
+_COMMANDS = {
+    "predict": (("*.cif", "*.pdb"),
+                lambda out: ["--out_dir", str(out), "--accelerator", "tenstorrent",
+                             "--override", "--debug"]),
+    "affinity": (("*_affinity.json",),
+                 lambda out: ["--out_dir", str(out), "--accelerator", "tenstorrent"]),
+}
 
 
-def _structures(out_dir: Path) -> list[Path]:
-    return [p for pat in _STRUCT for p in out_dir.rglob(pat)]
+def _artifacts(out_dir: Path, command: str) -> list[Path]:
+    return [p for pat in _COMMANDS[command][0] for p in out_dir.rglob(pat)]
 
 
 def classify(stderr: str, rc: int, timed_out: bool) -> tuple[str, dict]:
@@ -150,7 +160,7 @@ def classify(stderr: str, rc: int, timed_out: bool) -> tuple[str, dict]:
 
 
 def run_rung(model: str, yaml_path: Path, device: int, out_root: Path, timeout_s: int,
-             env_extra: dict[str, str], extra_args: list[str]) -> dict:
+             env_extra: dict[str, str], extra_args: list[str], command: str = "predict") -> dict:
     out_dir = out_root / f"{model}_{yaml_path.stem}"
     # Emptied, not reused. The PASS predicate is "a structure file exists", and the out dir is
     # keyed by (model, rung) -- so a rerun of a rung that PASSED once and now fails would find
@@ -166,9 +176,8 @@ def run_rung(model: str, yaml_path: Path, device: int, out_root: Path, timeout_s
     env["TT_BIO_LEASE_CARDS"] = str(device)
     env["TT_BIO_LEASE_HOLDER"] = "worker:wh-seqlen-structure"
     env.update(env_extra)
-    cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(yaml_path),
-           "--model", model, "--out_dir", str(out_dir), "--accelerator", "tenstorrent",
-           "--override", "--debug", *extra_args]
+    cmd = [sys.executable, "-m", "tt_bio.main", command, str(yaml_path), "--model", model,
+           *_COMMANDS[command][1](out_dir), *extra_args]
     t0 = time.time()
     timed_out = False
     try:
@@ -182,7 +191,7 @@ def run_rung(model: str, yaml_path: Path, device: int, out_root: Path, timeout_s
         if isinstance(err, bytes):
             err = err.decode(errors="replace")
     wall = round(time.time() - t0, 1)
-    structs = _structures(out_dir)
+    structs = _artifacts(out_dir, command)
     if structs and not timed_out and rc == 0:
         verdict, detail = "PASS", {"structure": str(structs[0])}
     else:
@@ -195,7 +204,7 @@ def run_rung(model: str, yaml_path: Path, device: int, out_root: Path, timeout_s
     log = out_root / f"{model}_{yaml_path.stem}_{time.strftime('%H%M%S', time.gmtime(t0))}.log"
     body = out + "\n===STDERR===\n" + err
     log.write_text(body)
-    row = {"model": model, "rung": yaml_path.stem, "device": device, "verdict": verdict,
+    row = {"model": model, "command": command, "rung": yaml_path.stem, "device": device, "verdict": verdict,
            "wall_s": wall, "rc": rc, "log": str(log), **detail}
     # A refusal the engine recovered from is not a wall, but it is the single best evidence
     # that the reactive narrowing is doing its job -- and it is invisible in a PASS row
@@ -220,6 +229,8 @@ def main() -> int:
     ap.add_argument("--timeout", type=int, default=5400)
     ap.add_argument("--stop-after-fail", type=int, default=1,
                     help="Stop the ladder after this many consecutive non-PASS rungs.")
+    ap.add_argument("--command", choices=sorted(_COMMANDS), default="predict",
+                    help="tt-bio subcommand. nesso1 scores through `affinity`, not `predict`.")
     ap.add_argument("--env", action="append", default=[], help="KEY=VALUE for the child.")
     ap.add_argument("extra", nargs="*", help="Extra args forwarded to tt-bio predict.")
     a = ap.parse_args()
@@ -230,7 +241,7 @@ def main() -> int:
     fails = 0
     for r in a.rungs.split(","):
         row = run_rung(a.model, Path(r), a.device, Path(a.out_root), a.timeout,
-                       env_extra, list(a.extra))
+                       env_extra, list(a.extra), command=a.command)
         row["ts"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         with out.open("a") as fh:
             fh.write(json.dumps(row) + "\n")
