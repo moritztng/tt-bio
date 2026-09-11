@@ -177,9 +177,8 @@ passed with random weights and failed with real ones.
 | `PairwiseConditioning` in row blocks | 472.4 | 253.2 | 1.87x | **no** | **off** |
 | **the two defaults, host stages end to end** | **1294.4** | **1017.8** | **1.27x** | **yes** | |
 
-277 ms off the host path, bit-exact. Against a 23.710 s fold that is 1.2 % if qb2's host scales
-like pc's, and qb2's residual is 3.212 s against pc's 1.855 s of named stages, so the honest
-range is 1.2-2.1 % pending the on-card A/B.
+277 ms off pc's host path, bit-exact. On card 2 the same two levers took 0.395 s off the fold
+end to end, 1.018x -- see the A/B section above, which is the number that counts.
 
 ### Why the pairwise lever is not bit-exact, exactly
 
