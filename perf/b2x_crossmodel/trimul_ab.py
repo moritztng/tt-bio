@@ -14,6 +14,7 @@ rank the models build.
 from __future__ import annotations
 
 import argparse
+import glob
 import hashlib
 import json
 import os
@@ -88,7 +89,42 @@ def load_af2():
     return out, False, "af2-ig evoformer block 0 (biased trimul)"
 
 
+def load_esmfold2():
+    """ESMFold2 folding-trunk block 0.
+
+    Not one of the task's four, but it reaches the flag: esmfold2.py builds these
+    gated_move=True AND calls them WITH a pair mask (esmfold2.py:169-170), so the flag newly
+    makes them E6-eligible the same way it does opendde's masked call. Read the two trimuls
+    straight out of the cached safetensors rather than building the model, which would pull the
+    whole 1.3 GB trunk to compare one op.
+    """
+    from safetensors import safe_open
+    hits = glob.glob(os.path.expanduser(
+        "~/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/*/model.safetensors"))
+    assert hits, "ESMFold2 safetensors not in the HF cache"
+    out = {}
+    with safe_open(hits[0], framework="pt") as f:
+        for which, key in (("start", "tri_mul_out"), ("end", "tri_mul_in")):
+            pre = f"folding_trunk.blocks.0.{key}._engine"
+            g = lambda k: f.get_tensor(f"{pre}.{k}").float()
+            pb = g("proj_bundle.weight")   # [4*latent, c_z]: signal | gate
+            half = pb.shape[0] // 2
+            # tt_bio/esmfold2.py:_remap_trimul, inlined.
+            out[which] = {
+                "norm_in.weight": g("norm_start.weight"),
+                "norm_in.bias": g("norm_start.bias"),
+                "norm_out.weight": g("norm_mix.weight"),
+                "norm_out.bias": g("norm_mix.bias"),
+                "p_in.weight": pb[:half],
+                "g_in.weight": pb[half:],
+                "p_out.weight": g("proj_emit.weight"),
+                "g_out.weight": g("proj_gate.weight"),
+            }
+    return out, True, "esmfold2 folding-trunk block 0 (gated_move=True, masked call site)"
+
+
 LOADERS = {
+    "esmfold2": load_esmfold2,
     "protenix-v2": load_protenix_v2,
     "openfold3": load_openfold3,
     "opendde": load_opendde,

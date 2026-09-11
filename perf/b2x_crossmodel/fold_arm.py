@@ -10,7 +10,7 @@ the CIF sha256, and a fold that reports 0 gated moves in the flag-on arm scores 
         predict examples/615.yaml --model openfold3 --single_sequence ...
 """
 from __future__ import annotations
-import argparse, hashlib, json, os, sys
+import argparse, glob, hashlib, json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -41,7 +41,18 @@ def main():
            "e6_moves": RB.STATS_GATED[0],
            "plain_moves": RB.STATS[0], "plain_rejects": RB.STATS[1],
            "rejects": {f"{k[0]}{list(k[1])}": v for k, v in RB.REJECTS.items()}}
-    res = json.load(open(a.results))
+    # The results dir is named after the ENGINE, not the --model string (protenix-v2 writes
+    # protenix_results_615), so accept a root and find the one results.json under it.
+    results = a.results
+    if not os.path.isfile(results):
+        root = results
+        while root and not os.path.isdir(root):
+            root = os.path.dirname(root)
+        hits = sorted(glob.glob(os.path.join(root, "**", "results.json"), recursive=True))
+        assert hits, f"no results.json under {root}"
+        results = hits[0]
+    a.results = results
+    res = json.load(open(results))
     rec["results"] = res
     root = os.path.dirname(a.results)
     for dirpath, _, names in os.walk(root):
