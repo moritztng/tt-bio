@@ -69,10 +69,19 @@ F1_BLOCK_KEYS = {(8, 8)}
 # against (8, 8)'s (4, 8, 1, 4, 1): same M_block, same subblock_h, same subblock_w, only K_block
 # halving, and kt = 4 still means exactly one K block, which is this kernel's stated precondition.
 # Neither of the two things that broke (12, 12) -- out_block doubling, subblock_h halving -- moves
-# here, so the hypothesis is that the entry is already correct and merely unvalidated.
+# here, so the entry itself is most likely correct.
 #
-# OFF by default, and it stays off: turning it on is a two-model flip (boltz2 AND openfold3 share
-# the key), which is release-gated and needs openfold3's own parity leg, not a one-line table swap.
+# It is still a loss, and now a measured one. `fused_tail` allocates its output in
+# DRAM_MEMORY_CONFIG, while the incumbent tail at c_z = 128 is `_pair_proj_linear(l1_out=True)` and
+# keeps both projections and their product in L1, so F1 at this key turns an L1-resident product
+# into a DRAM round trip: +2.000 Z per trimul for -2 ops, +2.019 ms/trimul, 1.066 s on a 512 aa
+# Boltz-2 fold. The general statement is the useful one: F1 deletes bytes wherever its incumbent is
+# DRAM-resident and ADDS them wherever the incumbent is L1-resident, and nothing in its eligibility
+# check looks at where the ops it replaces put their output.
+# perf/b2x_trimul/fold_ab_512_qb2c2.json, state/b2x-trimul-fusion-unlock.md.
+#
+# OFF by default, and it stays off, on both counts: it is slower here, and turning it on would be a
+# two-model flip (boltz2 AND openfold3 share the key) needing openfold3's own parity leg.
 def set_f1_cz128(on: bool) -> bool:
     """A/B switch for the paired harness. Returns the previous state."""
     global F1_BLOCK_KEYS

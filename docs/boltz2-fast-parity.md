@@ -39,6 +39,13 @@ rerun (MSA protein: Δconfidence_score −0.008 fast vs −0.003 repeat; Δplddt
 −0.020 vs −0.009). `--fast` is faster at no accuracy cost (NA 28.6→9.7 s, ligand
 49.4→32.0 s; small single-chain proteins are dispatch-bound so flat).
 
+The speed half is size-dependent, and it inverts. At 512 aa on a p300c `--fast`
+measured 25.201 s against the default 23.841 s, 0.95x, so it is 1.360 s slower
+there: the wider trimul L1 path fast mode takes stops paying at that size. Its
+accuracy is still inside the bar (0.294 Å all-atom on the cdk2x2_298 control),
+so this is a speed result, not a precision one. Numbers and the arm setup in
+`perf/b2x-baseline-attrib/FINDINGS.md` §6.
+
 ## Verdict
 
 For every chain across protein / MSA-protein / RNA / DNA / ligand, the `--fast`
