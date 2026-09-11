@@ -29,7 +29,18 @@ last one.
       the step that makes the verdict evidence instead of a sentence in a review comment: the run
       logs live in scratch that gets cleaned up, and the baseline is the only committed record.
       `tests/test_capacity_gate.py` fails while a runnable model has no cell, and while a cell
-      it does have was measured against a ceiling table this tree no longer ships.
+      it does have was measured against a ceiling table this tree no longer ships. A run whose
+      card never opened records no cell at all, so a `CARD_DIRTY` or `CONTENDED` result is a
+      re-run and not a result.
+- [ ] Re-record on the board type you ship on. Not for geometry: a stock p150a and a p300c chip
+      both read 110 L1 banks on an 11x10 grid with 8 x 4278190016 B of DRAM. Record per board
+      type because a p300 is a board PAIR for reset and dispatch, a single visible p300 chip
+      needs the 1x1 mesh-graph descriptor, and the two cards' recorded verdicts already
+      disagree: esmfold2 passes the 1536 bar on qb1's p150a and fails on qb2's p300c on a DRAM
+      fragmentation refusal. Those two cells were measured on different trees, so that last one
+      is a reason to record both cards, not yet a statement about the boards.
+- [ ] Do not read a 13x10 / 130-bank grid as a p150a reference. That is pc's custom 130-core
+      firmware, on a card that also miscomputes matmuls.
 
 The capacity gate answers "does it allocate and complete". It cannot answer "is the output right",
 and it is meant to run on cards that miscompute. It does not substitute for the parity gate, and

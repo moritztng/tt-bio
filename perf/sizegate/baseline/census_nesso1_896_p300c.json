@@ -1,86 +1,85 @@
 {
-  "label": "rf3-640-rep0",
+  "label": "nesso1-896-rep0",
   "cli": [
     "-m",
     "tt_bio.main",
-    "predict",
-    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/size512/fixtures/cdk2x2_640.yaml",
+    "affinity",
+    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/nesso1/inputs/ladder/aa896/cdk2_896.yaml",
     "--model",
-    "rf3",
-    "--single_sequence",
-    "--sampling_steps",
-    "6",
-    "--diffusion_samples",
-    "1",
-    "--seed",
-    "0",
+    "nesso1",
+    "--trunk",
+    "bf16",
+    "--recycling_steps",
+    "5",
+    "--tokens_budget",
+    "256",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/capacity-size-ladder-reseed-p300c/lwork-rf3/out_rf3-640-rep0"
+    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/sizegate/work/out_nesso1-896-rep0"
   ],
   "rc": 0,
-  "processes": 2,
+  "processes": 1,
   "rows": [
     {
       "flag": "SPLIT_SWIGLU",
       "how": "stats",
       "counter": "tt_bio.esmc.SPLIT_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "SPLIT_SWIGLU_SMALL_GRID",
       "how": "stats-shared",
       "counter": "tt_bio.esmc.SPLIT_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_L1_FC1",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_FC1_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_L1_LN",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_LN_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_L1_SLICE",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_SLICE_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_FUSED_RESIDUAL",
       "how": "stats",
       "counter": "tt_bio.esmc.FUSED_RESID_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
       "flag": "PAIR_FFN_FILL_ASSEMBLY",
       "how": "stats",
       "counter": "tt_bio.esmc.FILL_ASSEMBLY_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     },
     {
@@ -88,16 +87,18 @@
       "how": "stats",
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
-      "served": 1088,
-      "declined": 0,
-      "rejects": null
+      "served": 96,
+      "declined": 960,
+      "rejects": {
+        "memory": 960
+      }
     },
     {
       "flag": "ADALN_S_HOIST",
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 306,
+      "served": 0,
       "declined": 0,
       "rejects": null
     },
@@ -106,7 +107,7 @@
       "how": "stats-dict",
       "counter": "tt_bio.tenstorrent.FP32_SOFTMAX_STATS",
       "resolved": "True",
-      "served": 33,
+      "served": 0,
       "declined": 0,
       "rejects": null
     },
@@ -115,11 +116,10 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 563,
-      "declined": 526,
+      "served": 96,
+      "declined": 480,
       "rejects": {
-        "l1_dest_is_faster:640x640x64": 40,
-        "l1_dest_is_faster:640x640x128": 486
+        "l1_dest_is_faster:256x256x128": 480
       }
     },
     {
@@ -128,11 +128,10 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 3178,
+      "declined": 768,
       "rejects": {
-        "k_tiles=2:(2,1)": 40,
-        "k_tiles=4:(4,4)": 2090,
-        "k_tiles=4:(4,1)": 1048
+        "k_tiles=4:(4,4)": 192,
+        "k_tiles=4:(4,1)": 576
       }
     },
     {
@@ -141,10 +140,9 @@
       "counter": "tt_bio.trimul_tail.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 1088,
+      "declined": 576,
       "rejects": {
-        "k_tiles=2": 40,
-        "k_tiles=4": 1048
+        "k_tiles=4": 576
       }
     },
     {
@@ -152,12 +150,9 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 2096,
-      "declined": 120,
-      "rejects": {
-        "no_mm_block:(2,24)": 80,
-        "no_mm_block:(2,8)": 40
-      }
+      "served": 1152,
+      "declined": 0,
+      "rejects": null
     },
     {
       "flag": "DEVICE_LM_HANDOFF",
@@ -173,16 +168,18 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
-      "served": 240,
-      "declined": 0,
-      "rejects": null
+      "served": 192,
+      "declined": 960,
+      "rejects": {
+        "window_BufferType.L1": 960
+      }
     },
     {
       "flag": "REBLOCK_PERMUTE_BACK",
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 1088,
+      "served": 96,
       "declined": 0,
       "rejects": null
     },
@@ -191,7 +188,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 1936,
+      "served": 0,
       "declined": 0,
       "rejects": null
     },
@@ -200,11 +197,10 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 1088,
-      "declined": 1088,
+      "served": 0,
+      "declined": 577,
       "rejects": {
-        "l1_budget": 1,
-        "pm_over_l1": 1087
+        "fill_preconditions": 577
       }
     },
     {
@@ -239,18 +235,16 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.STATS",
       "resolved": "True",
-      "served": 1048,
-      "declined": 40,
-      "rejects": {
-        "head_dim_or_width": 40
-      }
+      "served": 576,
+      "declined": 0,
+      "rejects": null
     },
     {
       "flag": "TRIATT_HEAD_MAJOR_TAIL",
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 0,
+      "served": 576,
       "declined": 0,
       "rejects": null
     },
@@ -259,7 +253,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 0,
+      "served": 576,
       "declined": 0,
       "rejects": null
     },
@@ -277,7 +271,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 66,
+      "served": 0,
       "declined": 0,
       "rejects": null
     },
@@ -295,8 +289,8 @@
       "how": "wrap",
       "counter": null,
       "resolved": "1.25",
-      "served": 1088,
-      "declined": 0,
+      "served": 480,
+      "declined": 96,
       "rejects": null
     },
     {
@@ -305,7 +299,7 @@
       "counter": "tt_bio.tenstorrent._SDPA_Q_CHUNK_OVER_L1",
       "resolved": "True",
       "served": 0,
-      "declined": 0,
+      "declined": 1,
       "rejects": null
     },
     {

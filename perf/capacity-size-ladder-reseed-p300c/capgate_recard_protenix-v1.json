@@ -1,0 +1,161 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-10T10:08:50Z",
+ "tree": "5ab4194254827762d2141f8f5243add43f47964a",
+ "dirty": true,
+ "workers": [
+  "tt-quietbox2:3"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=11,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 110,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 160793600
+  },
+  "board_type": "p300c",
+  "host": "tt-quietbox2",
+  "card": 3
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "protenix-v1",
+   "verb": "predict",
+   "worker": "tt-quietbox2:3",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 50.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 0.8,
+     "progress_events": 1782,
+     "block_calls": 6,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 214723,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 17095,
+      "samples": 6,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "first_error": null,
+     "tail": "10:09:01  [tt-quietbox2:tt3] loading model\u2026\n10:09:04  [tt-quietbox2:tt3] cap_1536\n10:09:04  [tt-quietbox2:tt3]   prep\n10:09:20  [tt-quietbox2:tt3]   trunk 0/1\n10:09:37  [tt-quietbox2:tt3]   diffusion 0/1\n10:09:38  [tt-quietbox2:tt3]   confidence\n10:09:42  [tt-quietbox2:tt3]   saving\n10:09:42  [tt-quietbox2:tt3] \u2713 cap_1536 \u2014 38.2s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/capacity-size-ladder-reseed-p300c/work/out_screen_protenix-v1_1536/protenix_results_cap_1536/results.json",
+     "stacks_truncated": 2,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 245.0,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 5.0,
+     "progress_events": 42774,
+     "block_calls": 212,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 213573,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3365408192,
+      "dram_peak_bytes": 7255351296,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 17730,
+      "samples": 212,
+      "truncated": []
+     },
+     "first_error": null,
+     "tail": "10:13:34  [tt-quietbox2:tt3]   diffusion 180/200\n10:13:34  [tt-quietbox2:tt3]   diffusion 181/200\n10:13:34  [tt-quietbox2:tt3]   diffusion 182/200\n10:13:34  [tt-quietbox2:tt3]   diffusion 183/200\n10:13:35  [tt-quietbox2:tt3]   diffusion 184/200\n10:13:35  [tt-quietbox2:tt3]   diffusion 185/200\n10:13:35  [tt-quietbox2:tt3]   diffusion 186/200\n10:13:35  [tt-quietbox2:tt3]   diffusion 187/200\n10:13:36  [tt-quietbox2:tt3]   diffusion 188/200\n10:13:36  [tt-quietbox2:tt3]   diffusion 189/200\n10:13:36  [tt-quietbox2:tt3]   diffusion 190/200\n10:13:37  [tt-quietbox2:tt3]   diffusion 191/200\n10:13:37  [tt-quietbox2:tt3]   diffusion 192/200\n10:13:37  [tt-quietbox2:tt3]   diffusion 193/200\n10:13:38  [tt-quietbox2:tt3]   diffusion 194/200\n10:13:38  [tt-quietbox2:tt3]   diffusion 195/200\n10:13:38  [tt-quietbox2:tt3]   diffusion 196/200\n10:13:39  [tt-quietbox2:tt3]   diffusion 197/200\n10:13:39  [tt-quietbox2:tt3]   diffusion 198/200\n10:13:39  [tt-quietbox2:tt3]   diffusion 199/200\n10:13:39  [tt-quietbox2:tt3]   confidence\n10:13:46  [tt-quietbox2:tt3]   saving\n10:13:46  [tt-quietbox2:tt3] \u2713 cap_1536 \u2014 235.2s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/capacity-size-ladder-reseed-p300c/work/out_resid_protenix-v1_1536/protenix_results_cap_1536/results.json",
+     "dram_peak_bytes": 7255351296,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 3365408192,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 245.0,
+   "dram_peak_bytes": 7255351296,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 3365408192,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 213573
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 1,
+  "fail_like": 0,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}

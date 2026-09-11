@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "affinity",
-    "/home/ttuser/.coworker/wt/protenix-v1-sizeladder-baseline/perf/nesso1/inputs/ladder/aa256/cdk2_256.yaml",
+    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/nesso1/inputs/ladder/aa256/cdk2_256.yaml",
     "--model",
     "nesso1",
     "--trunk",
@@ -14,7 +14,7 @@
     "--tokens_budget",
     "256",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/protenix-v1-sizeladder-baseline/perf/sizegate/work/out_nesso1-256-rep0"
+    "/home/ttuser/.coworker/wt/capacity-size-ladder-reseed-p300c/perf/sizegate/work/out_nesso1-256-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -117,9 +117,10 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 316,
+      "declined": 576,
       "rejects": {
-        "l1_dest_is_faster:256x256x128": 316
+        "l1_dest_is_faster:288x288x128": 96,
+        "l1_dest_is_faster:256x256x128": 480
       }
     },
     {
@@ -128,9 +129,9 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 316,
+      "declined": 576,
       "rejects": {
-        "k_tiles=4:(4,1)": 316
+        "k_tiles=4:(4,1)": 576
       }
     },
     {
@@ -149,7 +150,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 632,
+      "served": 1152,
       "declined": 0,
       "rejects": null
     },
@@ -288,7 +289,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "1.25",
-      "served": 316,
+      "served": 576,
       "declined": 0,
       "rejects": null
     },
@@ -299,6 +300,24 @@
       "resolved": "True",
       "served": 0,
       "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "RFD3_SOFTMAX_PV_FUSED",
+      "how": "stats",
+      "counter": "tt_bio.softmax_generic.PVSTATS",
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
+      "rejects": null
+    },
+    {
+      "flag": "RFD3_FC1_SPLIT_SILU",
+      "how": "stats",
+      "counter": "tt_bio.rfd3.model.FC1STATS",
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null
     }
   ],

@@ -1009,20 +1009,22 @@
       }
     },
     "p300c": {
-      "recorded": "2026-08-28",
+      "recorded": "2026-09-10",
       "host": "tt-quietbox2",
-      "commit": "6adf7e04",
+      "commit": "1a2ba4f6",
       "models": {
         "nesso1": {
           "grid": "11x10",
-          "recorded": "2026-08-28",
+          "recorded": "2026-09-10",
           "host": "tt-quietbox2",
-          "commit": "6adf7e04",
+          "commit": "5ab41942",
           "runtime_s": {
             "256": 4.64,
-            "512": 8.07,
-            "640": 10.22,
-            "768": 13.64
+            "512": 8.03,
+            "640": 10.15,
+            "768": 13.64,
+            "896": 18.44,
+            "1024": 25.12
           },
           "levers": {
             "256": {
@@ -1092,7 +1094,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -1100,29 +1102,30 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 316,
+                "declined": 576,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 316
+                  "l1_dest_is_faster:288x288x128": 96,
+                  "l1_dest_is_faster:256x256x128": 480
                 },
-                "reason": "declines all 316 calls on l1_dest_is_faster:256x256x128 x316: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
+                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:288x288x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 316,
+                "declined": 576,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,1)": 316
+                  "k_tiles=4:(4,1)": 576
                 },
-                "reason": "declines all 316 calls on k_tiles=4:(4,1) x316: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 576 calls on k_tiles=4:(4,1) x576: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1137,7 +1140,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 632,
+                "served": 1152,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1165,7 +1168,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: _channel_move_back is only called on the large-L DRAM path, and at 276 tokens the chunk is L1-resident and keeps the single permute. It serves all 96 calls from 512 up"
+                "reason": "declines all 0 calls: _channel_move_back is only called on the large-L DRAM path, and at 276 tokens the chunk is L1-resident and keeps the single permute. It serves all 96 calls from 512 up"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
@@ -1173,7 +1176,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+                "reason": "declines all 0 calls: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1234,7 +1237,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1242,7 +1245,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -1253,7 +1256,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 316,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1264,6 +1267,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "512": {
@@ -1332,7 +1349,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -1340,30 +1357,31 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 534,
+                "declined": 576,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:544x544x128": 54,
+                  "l1_dest_is_faster:544x544x128": 96,
                   "l1_dest_is_faster:256x256x128": 480
                 },
-                "reason": "declines all 534 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:544x544x128 x54: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
+                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:544x544x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 534,
+                "declined": 578,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,1)": 534
+                  "k_tiles=4:(4,4)": 2,
+                  "k_tiles=4:(4,1)": 576
                 },
-                "reason": "declines all 534 calls on k_tiles=4:(4,1) x534: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 578 calls on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x2: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1378,7 +1396,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1068,
+                "served": 1152,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1413,7 +1431,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+                "reason": "declines all 0 calls: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1474,7 +1492,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1482,7 +1500,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -1493,7 +1511,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 534,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1504,6 +1522,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "640": {
@@ -1572,7 +1604,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -1580,7 +1612,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -1654,7 +1686,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+                "reason": "declines all 0 calls: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1715,7 +1747,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1723,7 +1755,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -1745,6 +1777,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "768": {
@@ -1813,7 +1859,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -1821,13 +1867,13 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 80,
+                "served": 96,
                 "declined": 480,
-                "frac": 0.14285714285714285,
+                "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 480
@@ -1836,14 +1882,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 720,
+                "declined": 768,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,4)": 160,
-                  "k_tiles=4:(4,1)": 560
+                  "k_tiles=4:(4,4)": 192,
+                  "k_tiles=4:(4,1)": 576
                 },
-                "reason": "declines all 720 calls on k_tiles=4:(4,1) x560, k_tiles=4:(4,4) x160: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 768 calls on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x192: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1858,7 +1904,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 1152,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1893,7 +1939,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+                "reason": "declines all 0 calls: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1954,7 +2000,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1962,7 +2008,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -1974,8 +2020,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 480,
-                "declined": 80,
-                "frac": 0.8571428571428571,
+                "declined": 96,
+                "frac": 0.8333333333333334,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -1984,20 +2030,549 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "896": {
+              "SPLIT_SWIGLU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 960,
+                "frac": 0.09090909090909091,
+                "how": "stats",
+                "rejects": {
+                  "memory": 960
+                }
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 480,
+                "frac": 0.16666666666666666,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x128": 480
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 768,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 192,
+                  "k_tiles=4:(4,1)": 576
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x192)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 576,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=4": 576
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x576)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 1152,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 960,
+                "frac": 0.16666666666666666,
+                "how": "stats",
+                "rejects": {
+                  "window_BufferType.L1": 960
+                }
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 577,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "fill_preconditions": 577
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on fill_preconditions x577)"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 480,
+                "declined": 96,
+                "frac": 0.8333333333333334,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1,
+                "frac": 0.0,
+                "how": "setlen",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "1024": {
+              "SPLIT_SWIGLU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 960,
+                "frac": 0.16666666666666666,
+                "how": "stats",
+                "rejects": {
+                  "memory": 960
+                }
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 480,
+                "frac": 0.16666666666666666,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x128": 480
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 768,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 192,
+                  "k_tiles=4:(4,1)": 576
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x192)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 576,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=4": 576
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x576)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 1152,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 384,
+                "declined": 960,
+                "frac": 0.2857142857142857,
+                "how": "stats",
+                "rejects": {
+                  "window_BufferType.L1": 960
+                }
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 673,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "fill_preconditions": 673
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on fill_preconditions x673)"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 480,
+                "declined": 96,
+                "frac": 0.8333333333333334,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1,
+                "frac": 0.0,
+                "how": "setlen",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0023,
+          "sigma_runtime_512": 0.0024,
           "exponents": {
             "256->512": {
-              "k": 0.798,
+              "k": 0.791,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.294,
+              "k": 1.307,
               "tol": 0.5
             }
+          },
+          "exponents_measured": {
+            "256->512": 0.791,
+            "512->640": 1.05,
+            "640->768": 1.621,
+            "768->896": 1.956,
+            "896->1024": 2.315
           }
         }
       }
