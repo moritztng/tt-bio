@@ -14,6 +14,8 @@ loaded model, so the same probe fits any model whose sampler calls a denoise mod
 Usage:
   TT_VISIBLE_DEVICES=<n> python3 perf/whde/design_step_probe.py --model pxdesign \
       --inputs perf/pxdesign/targets/laczc_512.yaml --n-step 40 --num-designs 1 --out r.json
+  TT_VISIBLE_DEVICES=<n> python3 perf/whde/design_step_probe.py --model boltzgen \
+      --inputs examples/binder.yaml --n-step 50 --num-designs 1 --out r.json
 """
 import argparse
 import json
@@ -36,7 +38,7 @@ def summarize(gaps):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="pxdesign", choices=["pxdesign", "rfd3"])
+    ap.add_argument("--model", default="pxdesign", choices=["pxdesign", "rfd3", "boltzgen"])
     ap.add_argument("--inputs", required=True)
     ap.add_argument("--n-step", type=int, default=40)
     ap.add_argument("--num-designs", type=int, default=1)
@@ -84,6 +86,34 @@ def main() -> int:
         total_s = time.perf_counter() - t_start
         extra = {"coords_shape": list(coords.shape),
                  "coords_finite": bool(torch.isfinite(coords).all())}
+    elif args.model == "boltzgen":
+        # BoltzGen runs its pipeline through a CLI, and one --device_ids chip runs it
+        # in-process, so the hook goes on the class rather than on an instance: every
+        # AtomDiffusion step calls TTScoreModelAdapter.forward exactly once.
+        import sys
+
+        from tt_bio.boltzgen import adapter as bg_adapter
+        from tt_bio.boltzgen.cli.boltzgen import main as bg_main
+        from tt_bio.main import ensure_p300_mesh_descriptor
+
+        bg_adapter.TTScoreModelAdapter.forward = stamp(
+            bg_adapter.TTScoreModelAdapter.forward)
+        ensure_p300_mesh_descriptor()
+
+        out_dir = Path(args.out).with_suffix(".bgout")
+        chip = os.environ.get("TT_VISIBLE_DEVICES", "0")
+        sys.argv = ["tt-bio design", "run", args.inputs,
+                    "--output", str(out_dir),
+                    "--num_designs", str(args.num_designs),
+                    "--device_ids", chip,
+                    "--steps", "design",
+                    "--config", "design", f"sampling_steps={args.n_step}"]
+        load_s = None
+        t_start = time.perf_counter()
+        bg_main()
+        total_s = time.perf_counter() - t_start
+        extra = {"out_dir": str(out_dir),
+                 "n_cif_out": len(list(out_dir.rglob("*.cif"))) + len(list(out_dir.rglob("*.pdb")))}
     else:
         # rfd3's sampler calls the diffusion module directly, so the hook goes on the
         # builder's product rather than on a method of a loaded model. Same probe, same
