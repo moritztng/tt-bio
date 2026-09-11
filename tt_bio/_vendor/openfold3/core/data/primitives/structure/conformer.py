@@ -75,36 +75,42 @@ def _get_strategy(name: str) -> ConformerStrategy:
 
 # The ETKDG seed is drawn per call from the global `random`, in residue order, so a caller
 # that wants to run the residues concurrently has to hand each one the seed the sequential
-# path would have given it. `pool_seed` does that for the calling thread. A second draw
-# inside the same residue means the generation retried, which in the sequential path would
-# have consumed the NEXT residue's seed -- that is recorded, not hidden, and the caller
-# recomputes sequentially.
+# path would have given it. `pool_seed` does that for the calling thread, and a second draw
+# inside the same residue -- an embedding that retried -- comes from a stream derived from
+# that residue's own seed.
+#
+# It used to come from the global stream instead, which made one retry move the whole
+# complex: the retry stole the seed the sequential path would have given to the NEXT
+# residue, so the caller threw the pooled result away and recomputed all 108 conformers off
+# a global stream position that depended on how many residues had retried. Measured on
+# `examples/fkg_ligand.yaml` (107 aa + SB3, 864 atoms): forcing a single pooled embedding to
+# time out moved every atom, RMSD 0.14-0.28 A against the canonical fold with the ligand
+# displaced 2-3x the protein, and each retry count produced its own structure. That is the
+# signature of the two folds that disagreed in production, and ref_pos is a model input, so
+# nothing in the log said anything was wrong. A residue's retry is now a function of that
+# residue alone.
 _POOL = threading.local()
-_POOL_DIVERGED = []
 
 
 def pool_seed(seed: int) -> None:
     _POOL.seed = seed
-    _POOL.active = True
+    _POOL.retries = None
 
 
 def pool_reset() -> None:
     _POOL.seed = None
-    _POOL.active = False
-    _POOL_DIVERGED.clear()
-
-
-def pool_diverged() -> bool:
-    return bool(_POOL_DIVERGED)
+    _POOL.retries = None
 
 
 def _etkdg_seed() -> int:
     seed = getattr(_POOL, "seed", None)
     if seed is not None:
         _POOL.seed = None
+        _POOL.retries = random.Random(seed)
         return seed
-    if getattr(_POOL, "active", False):
-        _POOL_DIVERGED.append(1)
+    retries = getattr(_POOL, "retries", None)
+    if retries is not None:
+        return retries.randint(0, 10**9)
     return random.randint(0, 10**9)
 
 
@@ -173,9 +179,22 @@ def _compute_conformer(
     # Disable overly verbose conformer generation warnings
     with rdBase.BlockLogs():
         if timeout:
-            conf_id = func_timeout(
-                timeout=timeout, func=AllChem.EmbedMolecule, args=(mol, strategy)
-            )
+            try:
+                conf_id = func_timeout(
+                    timeout=timeout, func=AllChem.EmbedMolecule, args=(mol, strategy)
+                )
+            except FunctionTimedOut:
+                # A residue embeds in about 3 ms, so a 30 s budget expires only when the
+                # host is starved. Falling straight through to the next strategy would make
+                # the reference geometry a function of the load; retry this strategy, with
+                # the seed already on it, before the chain gives up on it. Bounded at twice
+                # the budget: a second timeout falls through exactly as before.
+                logger.warning(
+                    f"Conformer strategy timed out after {timeout}s, retrying it once"
+                )
+                conf_id = func_timeout(
+                    timeout=timeout, func=AllChem.EmbedMolecule, args=(mol, strategy)
+                )
         else:
             conf_id = AllChem.EmbedMolecule(mol, strategy)
 
