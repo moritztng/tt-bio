@@ -6,11 +6,14 @@
 # usage: warm_step_chain.sh <model> <chip> <inputs> <n_step> <repeats> <outdir>
 set -u
 model=$1; chip=$2; inputs=$3; nstep=$4; reps=$5; outdir=$6
-WT=/home/mthuening/scratch/wt-wh-perf-design-embed-p2
-PY=/home/mthuening/work/tt-bio/env/bin/python
+# The checkout and the lease holder are per-pass: a concluded pass's worktree is torn
+# down by fleet hygiene, so hardcoding one here breaks the next run of this script.
+WT=${WHDE_WT:-$(cd "$(dirname "$0")/../.." && pwd)}
+PY=${WHDE_PY:-/home/mthuening/work/tt-bio/env/bin/python}
+HOLDER=${WHDE_HOLDER:-worker:$(basename "$WT")}
 export TT_METAL_LOGGER_LEVEL=FATAL PYTHONPATH=$WT OMP_NUM_THREADS=8
 export TT_VISIBLE_DEVICES=$chip TT_BIO_LEASE_CARDS=$chip
-export TT_BIO_LEASE_HOLDER=worker:wh-perf-design-embed-p2 TT_BIO_LEASE_TIMEOUT=3600
+export TT_BIO_LEASE_HOLDER=$HOLDER TT_BIO_LEASE_TIMEOUT=3600
 cd "$WT" || exit 2
 mkdir -p "$outdir"
 for i in $(seq 1 "$reps"); do
