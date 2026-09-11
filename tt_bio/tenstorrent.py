@@ -667,6 +667,14 @@ COMPUTE_GRID_Y = 10
 CORE_GRID_MAIN = ttnn.CoreGrid(y=COMPUTE_GRID_Y, x=COMPUTE_GRID_X_11)
 COMPUTE_GRID_MAIN = (CORE_GRID_MAIN.x, CORE_GRID_MAIN.y)
 
+# Whether COMPUTE_GRID_MAIN above is still the import-time guess or has been read off a real
+# device. The guess is a valid grid, not a sentinel, so nothing downstream could tell the two
+# apart: the lever census stamped 11x10 into a fold's provenance from a process that never
+# opened a device, and the joined result read "11x10/13x10" for a fold measured entirely on a
+# 13x10 card. A size-ladder cell carrying that string can never match a fresh census, and the
+# check refuses a cross-grid comparison outright.
+COMPUTE_GRID_MEASURED = False
+
 def _dtype(default=None):
     # Call sites that were hardcoded ttnn.bfloat16 before the fp32-affinity gate pass
     # their former constant as `default`: fast mode must NOT silently demote stored
@@ -3893,10 +3901,14 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     """Snap to a tuned 13x10 or 11x10 Blackhole grid when available; on smaller
     archs (e.g. Wormhole B0 8x8 with ETH dispatch) adopt the device's grid."""
     global CORE_GRID_MAIN, COMPUTE_GRID_MAIN, _SUB_TILE_SLICE_WEDGES
+    global COMPUTE_GRID_MEASURED
 
     # Before the two early returns below, not after: a hook placed past a `return` in this
     # family of functions has silently done nothing before (`_apply_grid_thresholds` returns
-    # on a full-size grid, which left the trimul W-chunk gate dead on Blackhole).
+    # on a full-size grid, which left the trimul W-chunk gate dead on Blackhole). The
+    # measured flag is the same trap: a device that already presents the guessed grid takes
+    # the early return, and that is exactly the case where the stamp must still say measured.
+    COMPUTE_GRID_MEASURED = True
     try:
         _SUB_TILE_SLICE_WEDGES = device.arch() != ttnn.Arch.WORMHOLE_B0
     except Exception:

@@ -282,13 +282,21 @@ def _install_wraps():
 def _compute_grid():
     """The main compute grid this process opened, as "13x10", or None before device open.
 
+    None really means none. COMPUTE_GRID_MAIN is a valid grid from import, 11x10, so reading
+    it straight stamped that on every process in the fold, including the ones that only
+    imported the module. The grids are unioned across processes, so one fold measured wholly
+    on a 13x10 card came out "11x10/13x10" and the two p150a cells carrying that string are as
+    unmeasured at today's grid as the ones that say 13x10.
+
     Recorded because a lever's fired/dark verdict is NOT machine-independent: the same board
     type can present a different grid after harvesting, and a guard sized against the grid
     flips with it (protenix-v2's K2 is admitted on 11x10 and refused on 13x10). A census
     compared across grids is a false alarm waiting to happen.
     """
     m = sys.modules.get("tt_bio.tenstorrent")
-    g = getattr(m, "COMPUTE_GRID_MAIN", None) if m is not None else None
+    if m is None or not getattr(m, "COMPUTE_GRID_MEASURED", False):
+        return None
+    g = getattr(m, "COMPUTE_GRID_MAIN", None)
     try:
         return f"{int(g[0])}x{int(g[1])}" if g else None
     except Exception:                                                    # noqa: BLE001

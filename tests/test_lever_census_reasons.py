@@ -115,5 +115,53 @@ def test_ttnn_is_not_left_stubbed():
         "run_checks() left its stand-in ttnn registered in sys.modules"
 
 
+def _lever_census():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "lever_census_under_test", WT + "/scripts/lever_census.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_the_grid_stamp_is_none_until_a_device_was_opened(monkeypatch):
+    """COMPUTE_GRID_MAIN is a valid grid from import, 11x10, not a sentinel, so reading it
+    straight stamped 11x10 on every process in the fold including the ones that only imported
+    the module. A fold's grids are unioned across its processes, so a fold measured wholly on a
+    13x10 card came out "11x10/13x10", and the size-ladder check refuses a cross-grid
+    comparison outright: two p150a cells carry that string and are as unmeasured at today's
+    grid as the ones that say 13x10.
+    """
+    lc = _lever_census()
+    stub = types.ModuleType("tt_bio.tenstorrent")
+    stub.COMPUTE_GRID_MAIN = (11, 10)
+    monkeypatch.setitem(sys.modules, "tt_bio.tenstorrent", stub)
+
+    stub.COMPUTE_GRID_MEASURED = False
+    assert lc._compute_grid() is None
+    stub.COMPUTE_GRID_MEASURED = True
+    assert lc._compute_grid() == "11x10"
+
+    # An older tt_bio with no flag at all must not stamp either; the census is run against
+    # whatever engine the fold imported.
+    del stub.COMPUTE_GRID_MEASURED
+    assert lc._compute_grid() is None
+
+
+def test_a_device_already_on_the_guessed_grid_still_counts_as_measured():
+    """_configure_active_compute_grid returns early when the device presents the grid the
+    module already holds, which is every p300c. A flag set after that return would mark the
+    one case it exists to cover as unmeasured."""
+    src = pathlib.Path(WT, "tt_bio", "tenstorrent.py").read_text()
+    body = src.split("def _configure_active_compute_grid(")[1]
+    body = body[:body.index("\ndef ")]
+    first_return = min(i for i, line in enumerate(body.splitlines())
+                       if line.strip() == "return")
+    set_at = min(i for i, line in enumerate(body.splitlines())
+                 if line.strip() == "COMPUTE_GRID_MEASURED = True")
+    assert set_at < first_return, \
+        "COMPUTE_GRID_MEASURED is set past an early return in _configure_active_compute_grid"
+
+
 if __name__ == "__main__":
     sys.exit(0 if run_checks() else 1)
