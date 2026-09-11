@@ -88,3 +88,43 @@ def test_timed_out_embedding_retries_the_same_strategy_and_seed():
     assert calls == [30.0, 30.0]
     assert conf_id == 0
     assert mol.GetNumConformers() == 1
+
+
+def test_retry_after_a_timeout_that_still_embedded_returns_conformer_zero():
+    """The timed-out embedding keeps running, and the retry must not inherit its conformer.
+
+    `func_timeout` cannot interrupt `AllChem.EmbedMolecule`: it is a C++ call that never
+    returns to the interpreter to receive the async exception, so it finishes and deposits
+    its conformer on the molecule anyway. `strategy.clearConfs` is False, so a retry on
+    that same molecule appends a SECOND conformer and returns conf_id 1 --
+    `assert conf_id == 0` in `processed_reference_molecule_from_mol` then kills the fold
+    with a bare AssertionError. Measured over fkg_ligand's 107-residue protein: 1 to 4
+    residues per fold returned conf_id 1 at every budget from 1 ms to 8 ms.
+
+    The sibling test above raises the timeout INSTEAD of embedding, which is why it could
+    not see this: a timeout double that skips the wrapped call cannot model the side effect
+    a real timeout leaves behind.
+    """
+    from func_timeout import FunctionTimedOut
+    from rdkit import Chem
+
+    calls = []
+
+    def timed_out_but_still_embedded(timeout, func, args=(), kwargs=None):
+        calls.append(args[1].randomSeed)
+        if len(calls) == 1:
+            func(*args, **(kwargs or {}))  # what the uninterruptible C++ call does anyway
+            raise FunctionTimedOut("test: budget expired while the embedding finished")
+        return func(*args, **(kwargs or {}))
+
+    C.pool_seed(99)
+    old = C.func_timeout
+    C.func_timeout = timed_out_but_still_embedded
+    try:
+        mol, conf_id = C._compute_conformer(Chem.MolFromSmiles("CCO"), timeout=120.0)
+    finally:
+        C.func_timeout = old
+
+    assert calls == [99, 99], calls          # same strategy, same seed, as before
+    assert conf_id == 0, f"retry inherited the timed-out attempt's conformer: {conf_id}"
+    assert mol.GetNumConformers() == 1
