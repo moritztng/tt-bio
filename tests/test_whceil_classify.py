@@ -183,3 +183,18 @@ def test_a_cb_region_that_does_not_fit_l1_is_an_oversized_tensor_not_a_clash():
     assert d["wall_kind"] == "ONE_OVERSIZED_TENSOR_L1"
     assert (d["request_bytes"], d["l1_size_bytes"]) == (2471200, 1499136)
     assert classify(CLASH, 1, False)[0] == "CLASH_L1", "the two L1 messages must not collapse"
+
+
+def test_fragmentation_on_a_nearly_full_chip_is_named_apart():
+    """Same refusal, different fix. Compaction can only hand back what is free, so at 98 %
+    occupancy it buys a few MiB and the lever is residency instead. Calling both plain
+    FRAGMENTATION would point the next person at the wrong one."""
+    full = _HEAD.format(req=117051392, per=9754282, alloc=1052000000, free=21741792, run=7025459)
+    verdict, d = classify(full, 1, False)
+    assert verdict == "OOM_DRAM"
+    assert d["wall_kind"] == "FRAGMENTATION_ON_FULL_CHIP"
+    assert d["occupancy_pct"] == 98.0
+
+    roomy = _HEAD.format(req=2424307712, per=202027008, alloc=856253280,
+                         free=217488512, run=178813056)
+    assert classify(roomy, 1, False)[1]["wall_kind"] == "FRAGMENTATION"

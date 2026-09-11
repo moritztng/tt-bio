@@ -94,6 +94,12 @@ def _wall_kind(per_bank: int, bank_size: int | None, free: int | None,
     if free is not None and per_bank > free:
         return "CUMULATIVE_RESIDENCY"
     if largest_free is not None and per_bank > largest_free:
+        # Fragmentation with room left and fragmentation on a chip that is 98 % full are the
+        # same refusal and NOT the same problem: compaction can only ever hand back what is
+        # free, so on a nearly full chip it buys a few MiB and the real lever is residency.
+        # Reporting both as plain FRAGMENTATION would point the next person at the wrong fix.
+        if free is not None and free < bank_size // 10:
+            return "FRAGMENTATION_ON_FULL_CHIP"
         return "FRAGMENTATION"
     return "UNCLASSIFIED"
 
@@ -152,6 +158,7 @@ def classify(stderr: str, rc: int, timed_out: bool) -> tuple[str, dict]:
                      bank_size_mib=round(bank_size / 2**20, 1),
                      free_mib=round(free / 2**20, 1),
                      largest_free_mib=round(largest / 2**20, 1),
+                     occupancy_pct=round(100.0 * alloc / bank_size, 1),
                      wall_kind=_wall_kind(per_bank, bank_size, free, largest))
         return f"OOM_{space}", d
     if rc != 0:
