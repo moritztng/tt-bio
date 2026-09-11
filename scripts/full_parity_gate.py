@@ -1962,6 +1962,14 @@ def _envelope_verdict_row(report: dict) -> tuple[str, str]:
 def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
     if report is None:
         return "ERROR", "scorer returned no report (see log)"
+    # A harness that timed out returns {"error": ...} and nothing else. Most per-kind
+    # extractors check for it, but they each have to remember to; the esmfold2 one did not,
+    # so a 2404 s timeout on Wormhole reported as "NO-DATA — no proteins in summary", which
+    # reads as a scorer shape problem and sends the reader to the wrong place. Handled here,
+    # once, before dispatch. Only an error-ONLY report is caught: several kinds deliberately
+    # carry an error alongside a partial reading and adjudicate it themselves.
+    if isinstance(report, dict) and report.get("error") and set(report) == {"error"}:
+        return "ERROR", str(report["error"])
     # Diffusion legs (structure/affinity) score with the integration-parity envelope; a resumed
     # or legacy R/D/X report (no 'mode') still reads through the old extractors (D-diagnostic).
     if isinstance(report, dict) and report.get("mode") == "integration_envelope":

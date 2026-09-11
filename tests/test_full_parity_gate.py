@@ -678,3 +678,42 @@ def test_a_truncated_report_is_still_nothing():
 def test_a_bare_list_report_is_not_mistaken_for_a_report():
     m = _load()
     assert m._report_from_stdout("[1, 2, 3]") is None
+
+
+def test_timed_out_harness_reads_as_error_not_no_data():
+    """A leg whose harness timed out must say so, for every kind.
+
+    `_run_inprocess_leg` returns `{"error": "... timed out after Ns"}` on a timeout. The
+    esmfold2 extractor did not look for it, so the 2026-09-11 Wormhole run reported a 2404 s
+    timeout on esmfold2-cocrystal as "NO-DATA — no proteins in summary": a scorer-shape
+    reading of a wall-clock failure, which sends the reader to the wrong file. The check now
+    sits in `extract_verdict` before dispatch, so no kind can forget it.
+
+    Both controls matter. A report that carries an error ALONGSIDE a reading (rf3_xtal,
+    af2ig) must still reach its own extractor, which decides whether the reading survives;
+    and a healthy report must be untouched.
+    """
+    mod = _load()
+    leg = next(l for l in mod.LEGS if l.kind == "esmfold2")
+
+    verdict, detail = mod.extract_verdict(leg, {"error": "esmfold2-cocrystal harness timed out after 2404s"})
+    assert verdict == "ERROR", (verdict, detail)
+    assert "timed out" in detail
+
+    # every kind, not just the one that was wrong
+    for kind_leg in {l.kind: l for l in mod.LEGS}.values():
+        v, d = mod.extract_verdict(kind_leg, {"error": "boom"})
+        assert v == "ERROR", (kind_leg.id, kind_leg.kind, v, d)
+
+    # negative control 1: error + a reading still goes to the kind's own extractor
+    xtal = next(l for l in mod.LEGS if l.kind == "rf3_xtal")
+    v, _ = mod.extract_verdict(xtal, {"error": "partial", "xtal_a": 1.2, "device_vs_xtal_A": 1.2,
+                                      "floor_A": 2.0})
+    assert v != "ERROR"
+
+    # negative control 2: a healthy report is unchanged
+    ok = {"mode": "structures", "targets": {"hsa": {"kabsch_rmsd": {
+        "metric": "kabsch_rmsd", "within_noise_floor": True,
+        "cross": {"mean": 0.69}, "ref_floor": {"mean": 0.70}, "dev_floor": {"mean": 0.58}}}}}
+    struct = next(l for l in mod.LEGS if l.kind == "structure")
+    assert mod.extract_verdict(struct, ok)[0] == "PASS"
