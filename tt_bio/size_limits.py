@@ -278,7 +278,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "101013504 B largest block). What ends the fold is not OuterProductMean "
                      "but the fused triangle-attention gate output, [tt_bio origin: "
                      "triatt_qkv.py:210 in gate_proj], one tensor of tokens^2 x 384 x 2 B. "
-                     "1024 itself re-folded here in 2706 s",
+                     "1024 itself re-folded here in 2706 s. "
+                     "1056 aa FOLDS, added the same day: 1791.7 s, and it survives two DRAM "
+                     "refusals (largest 2.13 GiB) and three L1 circular-buffer clashes on the "
+                     "way, which is the reactive narrowing doing its job. So the largest size "
+                     "below the first failure is 1056, not 1024, and this cap is 32 residues "
+                     "conservative. It is NOT raised here, for the same reason as the others: "
+                     "raising a cap accepts more work and restamps every capacity cell.",
         ),
     },
     "opendde-abag": {
@@ -325,7 +331,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "101013504 B largest block). What ends the fold is not OuterProductMean "
                      "but the fused triangle-attention gate output, [tt_bio origin: "
                      "triatt_qkv.py:210 in gate_proj], one tensor of tokens^2 x 384 x 2 B. "
-                     "1024 itself re-folded here in 2104 s",
+                     "1024 itself re-folded here in 2104 s. "
+                     "1056 aa FOLDS, added the same day: 1648.8 s, and it survives two DRAM "
+                     "refusals (largest 2.13 GiB) and three L1 circular-buffer clashes on the "
+                     "way, which is the reactive narrowing doing its job. So the largest size "
+                     "below the first failure is 1056, not 1024, and this cap is 32 residues "
+                     "conservative. It is NOT raised here, for the same reason as the others: "
+                     "raising a cap accepts more work and restamps every capacity cell.",
         ),
     },
     "openfold3": {
@@ -553,7 +565,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         "release decision. The measurement is here; the decision is not taken")},
     "esmfold2": {
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=1057, binds=MEMORY, mechanism=DRAM,
+            residues=1024, pass_at=1024, fail_at=1056, binds=MEMORY, mechanism=DRAM,
             msa_rows=0, ladder_ligand_atoms=0,
             evidence="its own ladder, walked 2026-09-09 on GWH02 card 1 by "
                      "ws:esmfold2-cocrystal-everywhere at the settings a user gets: "
@@ -574,7 +586,16 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "says the rungs above were walked apo, so the cap is 1024 tokens: 991 "
                      "residues + 33 atoms is admitted because it is the 1024 that folded, and "
                      "1024 residues plus any ligand at all is refused. It used to be admitted "
-                     "here and fail on the chip",
+                     "here and fail on the chip. "
+                     "TIGHTENED 2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, "
+                     "perf/whceil): the first failure is 1056, not 1057 -- 1024 folds "
+                     "single-sequence in 470 s and 1056 is refused on 570949632 B, 45.4 MiB "
+                     "per bank against a 1024.0 MiB bank, with 122.5 MiB per bank free and a "
+                     "largest free block of 38.5 MiB. Fragmentation, not one oversized tensor, "
+                     "and the cap of 1024 is unchanged because it was already the largest size "
+                     "below the first failure. An independent ladder landing one residue from "
+                     "the recorded number is the closest thing this table has to a "
+                     "reproduction",
         ),
     },
     "esmfold2-fast": {
