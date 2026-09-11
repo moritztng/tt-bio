@@ -1,0 +1,11 @@
+tag=control arenas=0 trim=0 rc=0
+wall_s=60.382542639
+ladder_reports=3->3  last_rung=7->7
+footprint(python hook): pid=250110 tag=control rss_kB=1305420 vmas=2523;pid=250071 tag=control rss_kB=496424 vmas=2342;
+cif_md5=
+--- teardowns of this fold's own pids ---
+EXITMMAP 12213486854120 us=36751 map_count=2460 total_vm_kB=5443492 comm=python3 pid=250110
+EXITMMAP 12214181669787 us=14976 map_count=2278 total_vm_kB=1393924 comm=jemalloc_bg_thd pid=250071
+EXITMMAP 12213461735880 us=11569 map_count=2298 total_vm_kB=2308168 comm=python3 pid=250169
+EXITMMAP 12213450574795 us=569 map_count=83 total_vm_kB=29268 comm=python3 pid=250114
+EXITMMAP 12214167176881 us=556 map_count=77 total_vm_kB=28800 comm=python3 pid=250072

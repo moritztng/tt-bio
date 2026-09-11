@@ -4938,6 +4938,13 @@ def _footprint_at_exit():
     with open(path, "a") as f:
         f.write(f"pid={os.getpid()} tag={os.environ.get('TT_BIO_EXIT_TAG', '-')} "
                 f"rss_kB={rss} vmas={vmas}\n")
+    # the same numbers broken down by mapping class, so a residual can be named rather than
+    # guessed at. perf/qb_livelock/vma_census.py reads it.
+    try:
+        with open("/proc/self/smaps", "rb") as src, open(f"{path}.smaps.{os.getpid()}", "wb") as dst:
+            dst.write(src.read())
+    except OSError:
+        pass
 
 
 # atexit runs its registrations in reverse, so read these bottom-up: close the device, then free

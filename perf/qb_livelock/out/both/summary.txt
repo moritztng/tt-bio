@@ -1,0 +1,5 @@
+tag=both arenas=2 trim=1 rc=0
+wall_s=55.990337116
+ladder_reports=3->3  last_rung=7->7
+footprint(python hook): pid=254933 tag=both rss_kB=764744 vmas=2457;pid=254895 tag=both rss_kB=493300 vmas=2330;
+cif_md5=0218f76e5743492157a45aca4f5eed85 
