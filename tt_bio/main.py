@@ -142,7 +142,7 @@ import numpy as np
 import torch
 from rdkit import Chem
 
-from tt_bio import size_limits, weights
+from tt_bio import __version__, size_limits, weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
@@ -1634,6 +1634,7 @@ def _quiet_download_bars() -> None:
 
 
 @click.group(cls=_Cli)
+@click.version_option(__version__, "--version", "-V", prog_name="tt-bio")
 def cli():
     """Run biomolecular prediction, design, and embedding on Tenstorrent."""
     # One place covers predict, design, embed and gen: if a gate driver or a parent

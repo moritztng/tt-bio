@@ -58,6 +58,7 @@ If you need to build from source, follow the [Tenstorrent Installation Guide](ht
 
 ### Verify Installation
 ```bash
+tt-bio --version   # or -V; prints the installed version
 tt-bio --help
 tt-bio predict --help
 tt-bio msa --help
