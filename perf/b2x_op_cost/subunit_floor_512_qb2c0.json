@@ -1,0 +1,87 @@
+{
+ "env": {
+  "started": "2026-09-11T16:36:46+0000",
+  "card": "0",
+  "commit": "072da10f",
+  "loadavg": [
+   "0.02",
+   "0.12",
+   "0.67"
+  ],
+  "size": 512,
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c"
+ },
+ "cold_s": 24.016,
+ "fold2_s": 23.67,
+ "class_call_counts_per_fold": {
+  "Transition": 960,
+  "TriangleMultiplication": 560,
+  "TriangleAttention": 560,
+  "AttentionPairBias": 6264
+ },
+ "grabbed": [
+  "AttentionPairBias",
+  "Transition",
+  "TriangleAttention",
+  "TriangleMultiplication"
+ ],
+ "floor": {
+  "TriangleMultiplication": {
+   "device_ms_per_call": 9.3975,
+   "all_ms": [
+    9.3724,
+    9.4224,
+    9.391,
+    9.3975,
+    9.4154
+   ],
+   "replay_issue_cpu_us_per_call": 1.009,
+   "calls_per_fold": 560,
+   "device_s_per_fold": 5.2626
+  },
+  "TriangleAttention": {
+   "device_ms_per_call": 4.391,
+   "all_ms": [
+    4.3958,
+    4.3633,
+    4.391,
+    4.3715,
+    4.4216
+   ],
+   "replay_issue_cpu_us_per_call": 0.814,
+   "calls_per_fold": 560,
+   "device_s_per_fold": 2.459
+  },
+  "Transition": {
+   "device_ms_per_call": 8.705,
+   "all_ms": [
+    8.7051,
+    8.7037,
+    8.7042,
+    8.7054,
+    8.705
+   ],
+   "replay_issue_cpu_us_per_call": 0.87,
+   "calls_per_fold": 960,
+   "device_s_per_fold": 8.3568
+  },
+  "AttentionPairBias": {
+   "device_ms_per_call": 1.016,
+   "all_ms": [
+    1.0167,
+    1.0159,
+    1.0162,
+    1.0151,
+    1.016
+   ],
+   "replay_issue_cpu_us_per_call": 0.795,
+   "calls_per_fold": 6264,
+   "device_s_per_fold": 6.3642
+  }
+ }
+}

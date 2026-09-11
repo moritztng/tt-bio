@@ -1,0 +1,152 @@
+{
+ "env": {
+  "started": "2026-09-11T16:25:49+0000",
+  "card": "0",
+  "commit": "49025ea2",
+  "loadavg": [
+   "0.11",
+   "0.42",
+   "1.23"
+  ],
+  "size": 512,
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c"
+ },
+ "cold_s": 23.954,
+ "fold2_s": 23.915,
+ "class_call_counts_per_fold": {
+  "MSALayer": 16,
+  "PairformerLayer": 280,
+  "Diffusion": 200
+ },
+ "grabbed": [
+  "Diffusion",
+  "MSALayer",
+  "PairformerLayer"
+ ],
+ "queue": [
+  {
+   "reps": 100,
+   "issue_wall_s": 0.0006,
+   "issue_cpu_s": 0.0006,
+   "total_wall_s": 0.0152,
+   "drain_s": 0.0146,
+   "cpu_over_issue_wall": 0.998,
+   "cpu_over_total_wall": 0.0426,
+   "apparent_host_us_per_call": 6.48,
+   "device_us_per_call": 152.13
+  },
+  {
+   "reps": 400,
+   "issue_wall_s": 0.0025,
+   "issue_cpu_s": 0.0025,
+   "total_wall_s": 0.0626,
+   "drain_s": 0.0601,
+   "cpu_over_issue_wall": 1.0001,
+   "cpu_over_total_wall": 0.0404,
+   "apparent_host_us_per_call": 6.32,
+   "device_us_per_call": 156.62
+  },
+  {
+   "reps": 1000,
+   "issue_wall_s": 0.0062,
+   "issue_cpu_s": 0.0062,
+   "total_wall_s": 0.164,
+   "drain_s": 0.1577,
+   "cpu_over_issue_wall": 1.0,
+   "cpu_over_total_wall": 0.0379,
+   "apparent_host_us_per_call": 6.22,
+   "device_us_per_call": 163.96
+  },
+  {
+   "reps": 2000,
+   "issue_wall_s": 0.0751,
+   "issue_cpu_s": 0.0751,
+   "total_wall_s": 0.3321,
+   "drain_s": 0.2571,
+   "cpu_over_issue_wall": 1.0,
+   "cpu_over_total_wall": 0.226,
+   "apparent_host_us_per_call": 37.53,
+   "device_us_per_call": 166.07
+  },
+  {
+   "reps": 5000,
+   "issue_wall_s": 0.5734,
+   "issue_cpu_s": 0.5734,
+   "total_wall_s": 0.8305,
+   "drain_s": 0.2571,
+   "cpu_over_issue_wall": 0.9999,
+   "cpu_over_total_wall": 0.6904,
+   "apparent_host_us_per_call": 114.67,
+   "device_us_per_call": 166.1
+  },
+  {
+   "reps": 12000,
+   "issue_wall_s": 1.7365,
+   "issue_cpu_s": 1.7364,
+   "total_wall_s": 1.9933,
+   "drain_s": 0.2568,
+   "cpu_over_issue_wall": 0.9999,
+   "cpu_over_total_wall": 0.8711,
+   "apparent_host_us_per_call": 144.7,
+   "device_us_per_call": 166.11
+  }
+ ],
+ "block_two_ways": {
+  "synced_each_call": {
+   "host_cpu_ms": 4.2314,
+   "wall_ms": 41.4938
+  },
+  "back_to_back": {
+   "reps": 16,
+   "apparent_host_cpu_ms_per_call": 28.018,
+   "issue_wall_ms_per_call": 28.0212,
+   "wall_ms_per_call": 41.3001
+  }
+ },
+ "floor": {
+  "PairformerLayer": {
+   "device_ms_per_call": 41.4152,
+   "all_ms": [
+    41.367,
+    41.333,
+    41.4152,
+    41.4513,
+    41.4811
+   ],
+   "replay_issue_cpu_us_per_call": 0.962,
+   "calls_per_fold": 280,
+   "device_s_per_fold": 11.5963
+  },
+  "MSALayer": {
+   "device_ms_per_call": 120.2894,
+   "all_ms": [
+    120.3543,
+    120.2894,
+    120.2944,
+    120.2513,
+    120.2648
+   ],
+   "replay_issue_cpu_us_per_call": 1.17,
+   "calls_per_fold": 16,
+   "device_s_per_fold": 1.9246
+  },
+  "Diffusion": {
+   "device_ms_per_call": 32.5179,
+   "all_ms": [
+    32.5197,
+    32.5175,
+    32.5159,
+    32.518,
+    32.5179
+   ],
+   "replay_issue_cpu_us_per_call": 1.063,
+   "calls_per_fold": 200,
+   "device_s_per_fold": 6.5036
+  }
+ }
+}

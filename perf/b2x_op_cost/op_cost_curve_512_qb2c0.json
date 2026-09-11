@@ -1,0 +1,320 @@
+{
+ "env": {
+  "started": "2026-09-11T16:29:23+0000",
+  "card": "0",
+  "commit": "49025ea2",
+  "grid": "(x=11,y=10)",
+  "arch": "blackhole",
+  "loadavg": [
+   "0.18",
+   "0.44",
+   "1.08"
+  ],
+  "stream_roof_GBs": 429.9
+ },
+ "points": [
+  {
+   "h": 128,
+   "w": 256,
+   "MB": 0.0655,
+   "bytes_per_operand": 65536,
+   "add": {
+    "R": 400,
+    "us_per_op": 6.3597,
+    "all_us": [
+     6.3725,
+     6.3555,
+     6.3597,
+     6.3499,
+     6.3639
+    ],
+    "moved_MB": 0.1966,
+    "GBs": 30.91,
+    "pct_roof": 7.19
+   },
+   "clone": {
+    "error": "TypeError: \nttnn.clone(): incompatible function arguments.\n\nCalled with:\n  clone(ttnn.Tensor, output_tensor=ttnn.Tensor([[-1.2188e+00,  1.2109e+00,  ..., -1.2656e+00,  2.8516e-01],\n             [ 8.0859e-01,  1.2344e+00,  ..., -3.5742e-01, -2.7344e-01],\n             ...,\n             [-5.9375e-01, -7.0703e-01,  ..., -1.4062e+00, -1.6250e+00],\n             [-8.0078e-01, -7.1875e-01,  ...,  1.4141e+00, -5.2734e-01]], shape=Shape([128, 256]), dtype=DataType::BFLOAT16, layout=Layout::TILE))\n\nAvailable signatures:\n  clone(input: ttnn.Tensor, *, dtype: ttnn.DataType | None = None, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)"
+   }
+  },
+  {
+   "h": 256,
+   "w": 256,
+   "MB": 0.1311,
+   "bytes_per_operand": 131072,
+   "add": {
+    "R": 400,
+    "us_per_op": 6.3648,
+    "all_us": [
+     6.384,
+     6.3645,
+     6.3641,
+     6.3648,
+     6.3656
+    ],
+    "moved_MB": 0.3932,
+    "GBs": 61.78,
+    "pct_roof": 14.37
+   }
+  },
+  {
+   "h": 256,
+   "w": 512,
+   "MB": 0.2621,
+   "bytes_per_operand": 262144,
+   "add": {
+    "R": 400,
+    "us_per_op": 6.3802,
+    "all_us": [
+     6.3802,
+     6.3641,
+     6.3779,
+     6.3943,
+     6.404
+    ],
+    "moved_MB": 0.7864,
+    "GBs": 123.26,
+    "pct_roof": 28.67
+   }
+  },
+  {
+   "h": 512,
+   "w": 512,
+   "MB": 0.5243,
+   "bytes_per_operand": 524288,
+   "add": {
+    "R": 400,
+    "us_per_op": 6.4653,
+    "all_us": [
+     6.4656,
+     6.4475,
+     6.4734,
+     6.4471,
+     6.4653
+    ],
+    "moved_MB": 1.5729,
+    "GBs": 243.28,
+    "pct_roof": 56.59
+   }
+  },
+  {
+   "h": 512,
+   "w": 1024,
+   "MB": 1.0486,
+   "bytes_per_operand": 1048576,
+   "add": {
+    "R": 400,
+    "us_per_op": 9.9329,
+    "all_us": [
+     9.945,
+     9.9209,
+     9.9394,
+     9.9248,
+     9.9329
+    ],
+    "moved_MB": 3.1457,
+    "GBs": 316.7,
+    "pct_roof": 73.67
+   }
+  },
+  {
+   "h": 1024,
+   "w": 1024,
+   "MB": 2.0972,
+   "bytes_per_operand": 2097152,
+   "add": {
+    "R": 400,
+    "us_per_op": 15.7042,
+    "all_us": [
+     15.7083,
+     15.6986,
+     15.6917,
+     15.7128,
+     15.7042
+    ],
+    "moved_MB": 6.2915,
+    "GBs": 400.62,
+    "pct_roof": 93.19
+   }
+  },
+  {
+   "h": 1024,
+   "w": 2048,
+   "MB": 4.1943,
+   "bytes_per_operand": 4194304,
+   "add": {
+    "R": 400,
+    "us_per_op": 30.1079,
+    "all_us": [
+     30.0988,
+     30.1126,
+     30.1079,
+     30.1264,
+     30.1014
+    ],
+    "moved_MB": 12.5829,
+    "GBs": 417.93,
+    "pct_roof": 97.22
+   }
+  },
+  {
+   "h": 2048,
+   "w": 2048,
+   "MB": 8.3886,
+   "bytes_per_operand": 8388608,
+   "add": {
+    "R": 400,
+    "us_per_op": 58.0408,
+    "all_us": [
+     58.0408,
+     58.0028,
+     58.0669,
+     58.0281,
+     58.0439
+    ],
+    "moved_MB": 25.1658,
+    "GBs": 433.59,
+    "pct_roof": 100.86
+   }
+  },
+  {
+   "h": 2048,
+   "w": 4096,
+   "MB": 16.7772,
+   "bytes_per_operand": 16777216,
+   "add": {
+    "R": 342,
+    "us_per_op": 114.6944,
+    "all_us": [
+     114.7016,
+     114.712,
+     114.6614,
+     114.6944,
+     114.6673
+    ],
+    "moved_MB": 50.3316,
+    "GBs": 438.83,
+    "pct_roof": 102.08
+   }
+  },
+  {
+   "h": 4096,
+   "w": 4096,
+   "MB": 33.5544,
+   "bytes_per_operand": 33554432,
+   "add": {
+    "R": 171,
+    "us_per_op": 226.4629,
+    "all_us": [
+     226.6551,
+     226.4629,
+     226.4192,
+     226.5028,
+     226.4374
+    ],
+    "moved_MB": 100.6633,
+    "GBs": 444.5,
+    "pct_roof": 103.4
+   }
+  },
+  {
+   "h": 4096,
+   "w": 8192,
+   "MB": 67.1089,
+   "bytes_per_operand": 67108864,
+   "add": {
+    "R": 85,
+    "us_per_op": 452.4386,
+    "all_us": [
+     452.235,
+     452.3419,
+     452.6968,
+     452.4386,
+     452.466
+    ],
+    "moved_MB": 201.3266,
+    "GBs": 444.98,
+    "pct_roof": 103.51
+   }
+  },
+  {
+   "h": 8192,
+   "w": 8192,
+   "MB": 134.2177,
+   "bytes_per_operand": 134217728,
+   "add": {
+    "R": 43,
+    "us_per_op": 908.724,
+    "all_us": [
+     908.724,
+     908.3933,
+     909.0865,
+     908.0319,
+     908.7578
+    ],
+    "moved_MB": 402.6532,
+    "GBs": 443.1,
+    "pct_roof": 103.07
+   }
+  }
+ ],
+ "clone_unsupported": "TypeError: \nttnn.clone(): incompatible function arguments.\n\nCalled with:\n  clone(ttnn.Tensor, output_tensor=ttnn.Tensor([[-1.2188e+00,  1.2109e+00,  ..., -1.2656e+00,  2.8516e-01],\n             [ 8.0859e-01,  1.2344e+00,  ..., -3.5742e-01, -2.7344e-01],\n             ...,\n             [-5.9375e-01, -7.0703e-01,  ..., -1.4062e+00, -1.6250e+00],\n             [-8.0078e-01, -7.1875e-01,  ...,  1.4141e+00, -5.2734e-01]], shape=Shape([128, 256]), dtype=DataType::BFLOAT16, layout=Layout::TILE))\n\nAvailable signatures:\n  clone(input: ttnn.Tensor, *, dtype: ttnn.DataType | None = None, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)",
+ "fits": {
+  "add": {
+   "le_2MB": {
+    "n_points": 5,
+    "fit_up_to_MB": 2,
+    "t_fixed_us": 5.636,
+    "BW_eff_GBs": 832.52,
+    "BW_eff_pct_roof": 193.65
+   },
+   "le_8MB": {
+    "n_points": 7,
+    "fit_up_to_MB": 8,
+    "t_fixed_us": 4.666,
+    "BW_eff_GBs": 513.19,
+    "BW_eff_pct_roof": 119.38
+   },
+   "le_32MB": {
+    "n_points": 9,
+    "fit_up_to_MB": 32,
+    "t_fixed_us": 3.859,
+    "BW_eff_GBs": 458.08,
+    "BW_eff_pct_roof": 106.56
+   },
+   "asymptote_GBs": 444.98,
+   "asymptote_pct_roof": 103.51,
+   "knee_MB_operand": 2.0972,
+   "nearest_15_5MB_point": {
+    "MB": 16.7772,
+    "R": 342,
+    "us_per_op": 114.6944,
+    "all_us": [
+     114.7016,
+     114.712,
+     114.6614,
+     114.6944,
+     114.6673
+    ],
+    "moved_MB": 50.3316,
+    "GBs": 438.83,
+    "pct_roof": 102.08
+   }
+  },
+  "clone": {
+   "le_2MB": null,
+   "le_8MB": null,
+   "le_32MB": null
+  }
+ },
+ "block_model": {
+  "t_fixed_us": 4.666,
+  "BW_eff_GBs": 513.19,
+  "ops": 428,
+  "bytes_GB": 6.651,
+  "fixed_part_ms": 1.997,
+  "byte_part_ms": 12.9601,
+  "predicted_ms": 14.9572,
+  "measured_ms": 41.4152,
+  "ratio": 0.3612
+ }
+}
