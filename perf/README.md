@@ -17,3 +17,10 @@ comment, the doc or the CHANGELOG entry it produced, and it gets deleted. The ru
 history and on the branch that made it.
 
 So: cite the artifact from the line it sets. An uncited directory is not protected by being useful.
+
+Census both spellings. A gate that opens a tree builds the path from segments -- the release gate
+reaches this one as `REPO_ROOT / "perf" / "ceilrfd3" / "targets"` -- and a census that greps for
+`perf/...` as one string reads those directories as uncited and deletes them. The 2026-09-11 tidy
+had `perf/ceilrfd3` and `perf/wh-parity` on its delete list for exactly that reason.
+`tests/test_perf_citations.py` now collects the joined form too, from `tests/` and `scripts/` as
+well as the three claim surfaces, so running it is the census.

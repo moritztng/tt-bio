@@ -489,14 +489,6 @@ def set_split_swiglu(on: bool) -> bool:
     return prev
 
 
-def set_split_swiglu_small_grid(on: bool) -> bool:
-    """A/B switch for the split-fc1 SwiGLU family on a small (< 110 core) grid. Returns the
-    previous state. Inert on Blackhole: the flag is only consulted when `_IS_SMALL_GRID`."""
-    global _SPLIT_SWIGLU_SMALL_GRID
-    prev, _SPLIT_SWIGLU_SMALL_GRID = _SPLIT_SWIGLU_SMALL_GRID, bool(on)
-    return prev
-
-
 def set_pair_ffn_l1_fc1(on: bool) -> bool:
     """A/B switch for the L1-resident fc1 inside the row-blocked pair FFN. Returns the previous state."""
     global _PAIR_FFN_L1_FC1

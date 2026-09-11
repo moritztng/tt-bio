@@ -608,21 +608,6 @@ def _trimul_inproj_chunk_cap(seq_len: int, hidden: int, batch: int, chunk: int) 
 SMALL_GRID_TRIMUL_L1_MAX_SEQ = 0
 SMALL_GRID_TRIMUL_BUDGET_SCALE = 1.0
 
-
-def set_small_grid_trimul_l1_max_seq(seq: int) -> int:
-    """A/B switch for the small-grid trimul L1 residency threshold. Returns the previous value.
-    Inert on Blackhole: read only when `_IS_SMALL_GRID`."""
-    global SMALL_GRID_TRIMUL_L1_MAX_SEQ
-    prev, SMALL_GRID_TRIMUL_L1_MAX_SEQ = SMALL_GRID_TRIMUL_L1_MAX_SEQ, int(seq)
-    return prev
-
-
-def set_small_grid_trimul_budget_scale(scale: float) -> float:
-    """A/B switch for the small-grid trimul chunk-width budget. Returns the previous value.
-    Inert on Blackhole: read only when `_IS_SMALL_GRID`."""
-    global SMALL_GRID_TRIMUL_BUDGET_SCALE
-    prev, SMALL_GRID_TRIMUL_BUDGET_SCALE = SMALL_GRID_TRIMUL_BUDGET_SCALE, float(scale)
-    return prev
 SDPA_CHUNK_TILE = 32
 SDPA_CHUNK_MAX = 256
 # Tiling for row-independent blocks so their activations fit the 12 GB/chip DRAM
