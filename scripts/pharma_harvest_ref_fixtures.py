@@ -616,10 +616,11 @@ def harvest(spec: FixtureSpec, skip_missing: bool = False) -> None:
         ),
     }
     # An envelope-scored fixture keeps its shared-draw cache key under "envelope", one level
-    # below this harvested provenance, and full_parity_gate.fixture_fingerprint reads that block
-    # in preference to the top level. Clobbering it here would change the fingerprint and send
-    # the leg to BLOCKED-REGEN on drift -- the mirror of the clobber regen_envelope_refs already
-    # avoids in the other direction. Carry it across.
+    # below this harvested provenance, and full_parity_gate.fixture_fingerprint prefers that
+    # block FIELD BY FIELD, falling back to the top level for anything the envelope does not
+    # carry. Clobbering it here would change the fingerprint for every field the envelope does
+    # override and send the leg to BLOCKED-REGEN on drift -- the mirror of the clobber
+    # regen_envelope_refs already avoids in the other direction. Carry it across.
     meta_path = base / "meta.json"
     if meta_path.exists():
         prior = json.loads(meta_path.read_text())
