@@ -22,6 +22,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from collect import reclassify  # noqa: E402
+
 BAR = 1024
 
 
@@ -37,7 +40,7 @@ def rows(root: Path):
     for p in sorted(root.glob("ladder_*.jsonl")):
         for line in p.read_text().splitlines():
             if line.strip():
-                r = json.loads(line)
+                r = reclassify(json.loads(line))
                 # A row whose log a later attempt overwrote cannot be classified, and a round-0
                 # row that never ran the model (a guard refusal, a missing shared library) is
                 # not a size measurement. Both are excluded by requiring a classified outcome.
@@ -71,13 +74,19 @@ def main() -> int:
             bits.append(f"largest below the first failure {cap} aa "
                         f"in {below[-1]['wall_s']:.0f} s")
         if first_fail:
-            k = first_fail.get("wall_kind", first_fail["verdict"])
+            k = first_fail.get("wall_kind", "UNCLASSIFIED")
             b = first_fail.get("request_bytes")
+            where = f" on {b} B" if b else ""
+            extra = ""
+            if "largest_free_mib" in first_fail:
+                extra = (f" ({first_fail['per_bank_mib']} MiB wanted per bank, bank "
+                         f"{first_fail['bank_size_mib']} MiB, free {first_fail['free_mib']} MiB, "
+                         f"largest run {first_fail['largest_free_mib']} MiB)")
             bits.append(f"first failure {_size(first_fail['rung'])} aa, "
-                        f"{first_fail['verdict']}"
-                        + (f" on {b} B, {k}" if b else f", {k}"))
+                        f"{first_fail['verdict']}{where}{extra}; cause {k}")
         else:
-            bits.append("no failure found; this is the top of the ladder, not a wall")
+            bits.append("no failure found, so this number is a floor and not a ceiling: "
+                        "the limit reached is the top of the ladder, not the chip")
         if any(r.get("env") for r in rs):
             envs = sorted({k for r in rs for k in (r.get("env") or {})
                            if k != "TT_BIO_SIZE_LIMIT"})

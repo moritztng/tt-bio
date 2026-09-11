@@ -56,7 +56,10 @@ def test_no_failure_anywhere_is_a_floor_and_says_so(tmp_path):
                            ("cdk2x2_1408_d8192", "PASS", {})])
     line, = _run(tmp_path)
     assert line.startswith("MODEL m: PARTIAL")
-    assert "top of the ladder, not a wall" in line
+    assert "floor and not a ceiling" in line
+    # The campaign's DONE_CHECK wants a stated cause next to any non-PASS verdict, and a line
+    # that only says "nothing failed" does not give one. This is that word.
+    assert "limit" in line
 
 
 def test_a_model_that_cannot_fold_the_bar_fails(tmp_path):
