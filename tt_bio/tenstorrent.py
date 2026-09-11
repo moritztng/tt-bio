@@ -7267,6 +7267,36 @@ class Transition(Module):
             # undo that measured raise.
             transition_h_chunk_size = min(transition_h_chunk_size,
                                           max(1, int(_l1_rows_at(w_eff))))
+        else:
+            # Full grid: raise the row block to what that same per-core budget allows at THIS
+            # shape. The height above is a constant fitted at the reference W=1024, c=128, and
+            # the ratio term only ever shrinks it, so every part NARROWER than the reference ran
+            # a chunk sized for a part up to four times its width and never looked at its own L1.
+            # Boltz-2's 512 aa pair track is the case that showed it: W=512, c=128, hidden=512
+            # puts 171,585 B/core live at the shipped 16 rows out of the 1,572,864 a Blackhole
+            # Tensix has, so the grid runs at 64 of 110 cores and the fc1 matmul at 40.5 TFLOP/s.
+            # The budget is the same 384 KiB/core the small-grid cap uses, and this part's own
+            # sweep brackets the Blackhole wall in the same place: on both the pair track
+            # (c=128) and the MSA track (c=64) the largest height that runs is 343,170 B/core
+            # and the next one up clashes at 686,340, so 393,216 sits inside the measured
+            # interval on this grid too rather than being carried over from the Wormhole fit.
+            # RAISE ONLY. Nothing that fits today gets a smaller chunk, so this cannot move a
+            # shape off a height it was tuned at, it only stops a narrow part from being bounded
+            # by the reference part's width.
+            #
+            # Snapped DOWN to a power of two, because the wall is not monotonic in the height and
+            # the raw budget value lands on a bad point at both shipped shapes. Measured at 512 aa
+            # (perf/b2x_pairtrack/hsweep_fine_512_qb2c1.json, 22 heights, spread under 0.42 %): the
+            # cost is set by the CHUNK COUNT, so every height that rounds to the same count costs
+            # the same (h=32/33/34 are 6.5699/6.5704/6.5721 ms) and the sawtooth between counts is
+            # worth up to 5 %. The budget's raw 36 rows is a local WORST at 6.9254 ms against 32's
+            # 6.5699; on the MSA track its raw 73 is 6.5231 against 64's 6.3727. A power of two
+            # divides the padded row axis exactly, so there is no ragged tail block, and it landed
+            # on a good point at both shapes. It is also conservative twice over: never above the
+            # byte budget, and never more than a factor of two below it.
+            _l1_h = max(1, int(_l1_rows_at(w_eff)))
+            transition_h_chunk_size = max(transition_h_chunk_size,
+                                          min(H, 1 << (_l1_h.bit_length() - 1)))
         # Screen hook, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING and
         # TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD above: the wall is documented NON-monotonic in
         # this height (h=7/8/9 all fit at W=512 and are all slower than h=6), and the derivation

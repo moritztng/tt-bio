@@ -1,0 +1,617 @@
+{
+ "env": {
+  "started": "2026-09-11T19:51:33+0000",
+  "card": "1",
+  "commit": "96974bd1",
+  "loadavg_at_start": [
+   "2.08",
+   "1.37",
+   "1.05"
+  ],
+  "size": 512,
+  "BW_eff_GBs": 445.0,
+  "t_fixed_us": 6.36,
+  "prior_subunit_ms": 8.705,
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "grid_str": "(x=11,y=10)",
+  "loadavg_at_end": [
+   "2.10",
+   "1.45",
+   "1.09"
+  ],
+  "ended": "2026-09-11T19:52:15+0000"
+ },
+ "fold_s": 21.753,
+ "transition_calls_per_fold": 960,
+ "transition_4d_shapes_per_fold": {
+  "(1, 1024, 512, 64)": 16,
+  "(1, 512, 512, 128)": 280
+ },
+ "tracks": {
+  "pair": {
+   "shape": {
+    "z": [
+     1,
+     512,
+     512,
+     128
+    ],
+    "H": 512,
+    "W": 512,
+    "C": 128,
+    "hidden": 512,
+    "h_chunk_shipped": 16,
+    "n_chunks_shipped": 32,
+    "z_MB": 67.109,
+    "dtype": "DataType.BFLOAT16",
+    "l1_per_core_B_at_h": {
+     "16": 171585,
+     "32": 343170,
+     "64": 686340,
+     "128": 1372681
+    }
+   },
+   "hsweep": {
+    "fused_16": {
+     "us": 7944.0268,
+     "R": 1,
+     "all_us": [
+      7942.1708,
+      7949.485,
+      7953.696,
+      7944.0268,
+      7941.4143
+     ],
+     "spread_pct": 0.15,
+     "host_us_per_call": 0.851,
+     "ms": 7.944,
+     "n_chunks": 32
+    },
+    "fused_24": {
+     "us": 7127.057,
+     "R": 1,
+     "all_us": [
+      7129.7473,
+      7134.7897,
+      7123.9408,
+      7127.057,
+      7118.2922
+     ],
+     "spread_pct": 0.23,
+     "host_us_per_call": 0.854,
+     "ms": 7.1271,
+     "n_chunks": 22
+    },
+    "fused_32": {
+     "us": 6570.212,
+     "R": 1,
+     "all_us": [
+      6576.402,
+      6570.212,
+      6568.569,
+      6568.083,
+      6575.1392
+     ],
+     "spread_pct": 0.13,
+     "host_us_per_call": 0.681,
+     "ms": 6.5702,
+     "n_chunks": 16
+    },
+    "fused_36": {
+     "us": 6908.79,
+     "R": 1,
+     "all_us": [
+      6910.4208,
+      6907.0565,
+      6906.4052,
+      6908.79,
+      6914.481
+     ],
+     "spread_pct": 0.12,
+     "host_us_per_call": 0.821,
+     "ms": 6.9088,
+     "n_chunks": 15
+    },
+    "fused_40": {
+     "us": 6343.9407,
+     "R": 1,
+     "all_us": [
+      6340.0808,
+      6343.9407,
+      6346.5358,
+      6340.6542,
+      6345.1755
+     ],
+     "spread_pct": 0.1,
+     "host_us_per_call": 0.937,
+     "ms": 6.3439,
+     "n_chunks": 13
+    },
+    "fused_48": {
+     "us": 6335.48,
+     "R": 1,
+     "all_us": [
+      6332.211,
+      6319.2202,
+      6335.48,
+      6335.7602,
+      6344.7083
+     ],
+     "spread_pct": 0.4,
+     "host_us_per_call": 1.283,
+     "ms": 6.3355,
+     "n_chunks": 11
+    },
+    "fused_56": {
+     "us": 6335.8273,
+     "R": 1,
+     "all_us": [
+      6340.316,
+      6327.4755,
+      6341.5612,
+      6324.0365,
+      6335.8273
+     ],
+     "spread_pct": 0.28,
+     "host_us_per_call": 1.232,
+     "ms": 6.3358,
+     "n_chunks": 10
+    },
+    "fused_64": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "fused_73": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "fused_80": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "unfused_16": {
+     "us": 6414.0335,
+     "R": 1,
+     "all_us": [
+      6407.0298,
+      6415.2585,
+      6416.6865,
+      6412.2403,
+      6414.0335
+     ],
+     "spread_pct": 0.15,
+     "host_us_per_call": 1.238,
+     "ms": 6.414,
+     "n_chunks": 32
+    },
+    "unfused_24": {
+     "us": 5914.7655,
+     "R": 1,
+     "all_us": [
+      5915.78,
+      5913.0295,
+      5895.8982,
+      5914.7655,
+      5920.334
+     ],
+     "spread_pct": 0.41,
+     "host_us_per_call": 1.262,
+     "ms": 5.9148,
+     "n_chunks": 22
+    },
+    "unfused_32": {
+     "us": 5512.1088,
+     "R": 1,
+     "all_us": [
+      5500.115,
+      5512.1088,
+      5511.5753,
+      5513.8195,
+      5512.3567
+     ],
+     "spread_pct": 0.25,
+     "host_us_per_call": 1.288,
+     "ms": 5.5121,
+     "n_chunks": 16
+    },
+    "unfused_36": {
+     "us": 5588.3772,
+     "R": 1,
+     "all_us": [
+      5587.5005,
+      5587.2773,
+      5591.631,
+      5592.8385,
+      5588.3772
+     ],
+     "spread_pct": 0.1,
+     "host_us_per_call": 0.837,
+     "ms": 5.5884,
+     "n_chunks": 15
+    },
+    "unfused_40": {
+     "us": 5369.6485,
+     "R": 1,
+     "all_us": [
+      5364.2612,
+      5367.0382,
+      5369.6485,
+      5371.7052,
+      5374.7035
+     ],
+     "spread_pct": 0.19,
+     "host_us_per_call": 0.822,
+     "ms": 5.3696,
+     "n_chunks": 13
+    },
+    "unfused_48": {
+     "us": 5363.018,
+     "R": 1,
+     "all_us": [
+      5370.2498,
+      5363.2938,
+      5356.535,
+      5363.018,
+      5361.6228
+     ],
+     "spread_pct": 0.26,
+     "host_us_per_call": 0.817,
+     "ms": 5.363,
+     "n_chunks": 11
+    },
+    "unfused_56": {
+     "us": 5292.2552,
+     "R": 1,
+     "all_us": [
+      5283.2975,
+      5303.7908,
+      5296.296,
+      5291.3737,
+      5292.2552
+     ],
+     "spread_pct": 0.39,
+     "host_us_per_call": 0.834,
+     "ms": 5.2923,
+     "n_chunks": 10
+    },
+    "unfused_64": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "unfused_73": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    "unfused_80": {
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    }
+   }
+  },
+  "msa": {
+   "shape": {
+    "z": [
+     1,
+     1024,
+     512,
+     64
+    ],
+    "H": 1024,
+    "W": 512,
+    "C": 64,
+    "hidden": 256,
+    "h_chunk_shipped": 16,
+    "n_chunks_shipped": 64,
+    "z_MB": 67.109,
+    "dtype": "DataType.BFLOAT16",
+    "l1_per_core_B_at_h": {
+     "16": 85792,
+     "32": 171585,
+     "64": 343170,
+     "128": 686340
+    }
+   },
+   "hsweep": {
+    "fused_16": {
+     "us": 8710.7452,
+     "R": 1,
+     "all_us": [
+      8712.6715,
+      8710.7452,
+      8710.9857,
+      8707.8522,
+      8710.179
+     ],
+     "spread_pct": 0.06,
+     "host_us_per_call": 1.348,
+     "ms": 8.7107,
+     "n_chunks": 64
+    },
+    "fused_24": {
+     "us": 7384.1187,
+     "R": 1,
+     "all_us": [
+      7384.129,
+      7377.939,
+      7387.4833,
+      7379.4625,
+      7384.1187
+     ],
+     "spread_pct": 0.13,
+     "host_us_per_call": 1.29,
+     "ms": 7.3841,
+     "n_chunks": 43
+    },
+    "fused_32": {
+     "us": 6757.8975,
+     "R": 1,
+     "all_us": [
+      6757.8975,
+      6756.0863,
+      6756.7153,
+      6759.7585,
+      6760.5302
+     ],
+     "spread_pct": 0.07,
+     "host_us_per_call": 1.317,
+     "ms": 6.7579,
+     "n_chunks": 32
+    },
+    "fused_36": {
+     "us": 6820.5598,
+     "R": 1,
+     "all_us": [
+      6826.9922,
+      6819.1293,
+      6826.406,
+      6820.5598,
+      6819.4625
+     ],
+     "spread_pct": 0.12,
+     "host_us_per_call": 1.252,
+     "ms": 6.8206,
+     "n_chunks": 29
+    },
+    "fused_40": {
+     "us": 6423.4305,
+     "R": 1,
+     "all_us": [
+      6416.8273,
+      6423.4305,
+      6424.7707,
+      6424.7882,
+      6420.6198
+     ],
+     "spread_pct": 0.12,
+     "host_us_per_call": 1.217,
+     "ms": 6.4234,
+     "n_chunks": 26
+    },
+    "fused_48": {
+     "us": 6421.2392,
+     "R": 1,
+     "all_us": [
+      6422.342,
+      6427.2362,
+      6421.2392,
+      6417.5423,
+      6415.6507
+     ],
+     "spread_pct": 0.18,
+     "host_us_per_call": 1.287,
+     "ms": 6.4212,
+     "n_chunks": 22
+    },
+    "fused_56": {
+     "us": 6318.7057,
+     "R": 1,
+     "all_us": [
+      6311.6745,
+      6316.5942,
+      6321.038,
+      6318.7057,
+      6324.6952
+     ],
+     "spread_pct": 0.21,
+     "host_us_per_call": 1.248,
+     "ms": 6.3187,
+     "n_chunks": 19
+    },
+    "fused_64": {
+     "us": 6372.7425,
+     "R": 1,
+     "all_us": [
+      6377.2415,
+      6376.8033,
+      6361.9863,
+      6372.7425,
+      6364.2208
+     ],
+     "spread_pct": 0.24,
+     "host_us_per_call": 0.812,
+     "ms": 6.3727,
+     "n_chunks": 16
+    },
+    "fused_73": {
+     "us": 6523.0825,
+     "R": 1,
+     "all_us": [
+      6518.6562,
+      6513.233,
+      6523.0825,
+      6526.877,
+      6523.9735
+     ],
+     "spread_pct": 0.21,
+     "host_us_per_call": 0.826,
+     "ms": 6.5231,
+     "n_chunks": 15
+    },
+    "fused_80": {
+     "us": 6290.125,
+     "R": 1,
+     "all_us": [
+      6288.8878,
+      6278.8027,
+      6290.125,
+      6302.422,
+      6308.6718
+     ],
+     "spread_pct": 0.47,
+     "host_us_per_call": 1.297,
+     "ms": 6.2901,
+     "n_chunks": 13
+    },
+    "unfused_16": {
+     "us": 7188.031,
+     "R": 1,
+     "all_us": [
+      7190.135,
+      7185.729,
+      7188.835,
+      7188.031,
+      7186.34
+     ],
+     "spread_pct": 0.06,
+     "host_us_per_call": 1.325,
+     "ms": 7.188,
+     "n_chunks": 64
+    },
+    "unfused_24": {
+     "us": 6212.261,
+     "R": 1,
+     "all_us": [
+      6199.383,
+      6212.261,
+      6184.4135,
+      6213.7015,
+      6214.13
+     ],
+     "spread_pct": 0.48,
+     "host_us_per_call": 1.29,
+     "ms": 6.2123,
+     "n_chunks": 43
+    },
+    "unfused_32": {
+     "us": 5745.56,
+     "R": 1,
+     "all_us": [
+      5742.614,
+      5740.084,
+      5746.2535,
+      5749.112,
+      5745.56
+     ],
+     "spread_pct": 0.16,
+     "host_us_per_call": 1.272,
+     "ms": 5.7456,
+     "n_chunks": 32
+    },
+    "unfused_36": {
+     "us": 5584.614,
+     "R": 1,
+     "all_us": [
+      5584.5415,
+      5585.353,
+      5586.5202,
+      5581.5055,
+      5584.614
+     ],
+     "spread_pct": 0.09,
+     "host_us_per_call": 1.19,
+     "ms": 5.5846,
+     "n_chunks": 29
+    },
+    "unfused_40": {
+     "us": 5446.8993,
+     "R": 1,
+     "all_us": [
+      5446.8993,
+      5442.6507,
+      5447.5455,
+      5447.0923,
+      5445.7092
+     ],
+     "spread_pct": 0.09,
+     "host_us_per_call": 1.272,
+     "ms": 5.4469,
+     "n_chunks": 26
+    },
+    "unfused_48": {
+     "us": 5468.319,
+     "R": 1,
+     "all_us": [
+      5468.319,
+      5464.8922,
+      5474.5713,
+      5465.7765,
+      5475.2477
+     ],
+     "spread_pct": 0.19,
+     "host_us_per_call": 1.297,
+     "ms": 5.4683,
+     "n_chunks": 22
+    },
+    "unfused_56": {
+     "us": 5368.081,
+     "R": 1,
+     "all_us": [
+      5374.3407,
+      5368.081,
+      5366.1495,
+      5365.6835,
+      5381.6053
+     ],
+     "spread_pct": 0.3,
+     "host_us_per_call": 1.253,
+     "ms": 5.3681,
+     "n_chunks": 19
+    },
+    "unfused_64": {
+     "us": 5295.1015,
+     "R": 1,
+     "all_us": [
+      5296.9675,
+      5295.1015,
+      5288.6163,
+      5301.692,
+      5291.825
+     ],
+     "spread_pct": 0.25,
+     "host_us_per_call": 1.297,
+     "ms": 5.2951,
+     "n_chunks": 16
+    },
+    "unfused_73": {
+     "us": 5386.1515,
+     "R": 1,
+     "all_us": [
+      5380.886,
+      5391.943,
+      5386.169,
+      5381.8905,
+      5386.1515
+     ],
+     "spread_pct": 0.21,
+     "host_us_per_call": 1.275,
+     "ms": 5.3862,
+     "n_chunks": 15
+    },
+    "unfused_80": {
+     "us": 5256.3415,
+     "R": 1,
+     "all_us": [
+      5264.5785,
+      5269.4808,
+      5256.284,
+      5256.1288,
+      5256.3415
+     ],
+     "spread_pct": 0.25,
+     "host_us_per_call": 1.303,
+     "ms": 5.2563,
+     "n_chunks": 13
+    }
+   }
+  }
+ }
+}
