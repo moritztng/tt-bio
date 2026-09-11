@@ -13,7 +13,10 @@
 #     it twice on two chips.
 #
 # usage: dispatch.sh QUEUE_FILE CHIPS LOGDIR OUTROOT RUNGDIR
-# queue line: <model>\t<command>\t<comma-separated rung paths>
+# queue line: <model>\t<command>\t<comma-separated rung paths>[\t<extra args>]
+# The optional fourth field is forwarded to tt-bio verbatim. ESMFold2 needs it:
+# its published ladder is single-sequence (msa_rows=0), so a rung carrying an a3m
+# would walk a different configuration and the numbers would not compare.
 set -u
 Q=$1; CHIPS=$2; LOGDIR=$3; OUTROOT=$4
 WT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -26,11 +29,13 @@ while [ -s "$Q" ]; do
     job=$(head -1 "$Q"); sed -i 1d "$Q"
     [ -n "$job" ] || continue
     model=$(echo "$job" | cut -f1); cmd=$(echo "$job" | cut -f2); rungs=$(echo "$job" | cut -f3)
+    extra=$(echo "$job" | cut -f4)
     echo "$(date -u +%H:%M) launching $model ($cmd) on chip $dev"
     ( cd "$WT" && setsid nohup env PYTHONPATH="$WT" "$PY" perf/whceil/ladder.py \
         --model "$model" --device "$dev" --rungs "$rungs" --command "$cmd" \
         --env TT_BIO_SIZE_LIMIT=0 \
         --out "$OUTROOT/ladder_$model.jsonl" --out-root "$OUTROOT/runs" --timeout 5400 \
+        -- $extra \
         </dev/null >"$LOGDIR/ladder_$model.log" 2>&1 & )
     sleep 20   # let the ladder's argv appear before this chip is tested again
   done
