@@ -1,0 +1,76 @@
+{
+  "model": "protenix-v2",
+  "n": 512,
+  "gated_move": true,
+  "rejects": {},
+  "arms": {
+    "start": {
+      "REF": {
+        "sha": "2fac2a4fb351581f",
+        "shape": [
+          1,
+          512,
+          512,
+          256
+        ],
+        "e6_moves": 0
+      },
+      "E6": {
+        "sha": "2fac2a4fb351581f",
+        "shape": [
+          1,
+          512,
+          512,
+          256
+        ],
+        "e6_moves": 2
+      },
+      "E6b": {
+        "sha": "2fac2a4fb351581f",
+        "shape": [
+          1,
+          512,
+          512,
+          256
+        ],
+        "e6_moves": 2
+      },
+      "E6_matches_REF": true,
+      "E6_stable": true
+    },
+    "end": {
+      "REF": {
+        "sha": "10f147f41d68fd9f",
+        "shape": [
+          1,
+          512,
+          512,
+          256
+        ],
+        "e6_moves": 0
+      },
+      "E6": {
+        "sha": "10f147f41d68fd9f",
+        "shape": [
+          1,
+          512,
+          512,
+          256
+        ],
+        "e6_moves": 2
+      },
+      "E6b": {
+        "sha": "10f147f41d68fd9f",
+        "shape": [
+          1,
+          512,
+          512,
+          256
+        ],
+        "e6_moves": 2
+      },
+      "E6_matches_REF": true,
+      "E6_stable": true
+    }
+  }
+}

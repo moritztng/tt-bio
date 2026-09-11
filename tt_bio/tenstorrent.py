@@ -5523,12 +5523,12 @@ class TriangleMultiplication(Module):
                             if mask_u is not None and mask_moved is None:
                                 a_chunk = ttnn.multiply_(a_chunk, mask_u)
 
-                        a_chunk = self._transform_chunk(
-                            a_chunk, perm_a, memory_config=tail_mc, realloc=n_pairs // group > 1,
-                        )
-                        b_chunk = self._transform_chunk(
-                            b_chunk, perm_b, memory_config=tail_mc, realloc=n_pairs // group > 1,
-                        )
+                            a_chunk = self._transform_chunk(
+                                a_chunk, perm_a, memory_config=tail_mc, realloc=n_pairs // group > 1,
+                            )
+                            b_chunk = self._transform_chunk(
+                                b_chunk, perm_b, memory_config=tail_mc, realloc=n_pairs // group > 1,
+                            )
                     if mask_moved is not None:
                         # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
                         # declines the in-place form for a broadcast operand, take `ttnn.multiply`

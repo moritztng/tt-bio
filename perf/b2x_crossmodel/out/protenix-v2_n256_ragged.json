@@ -1,0 +1,119 @@
+{
+  "model": "protenix-v2",
+  "label": "protenix-v2 pairformer block 0",
+  "c_z": 256,
+  "hidden": 256,
+  "N": 256,
+  "gated_move": false,
+  "mask": "ragged",
+  "reps": 3,
+  "gated_stats": [
+    0,
+    0
+  ],
+  "rejects": {
+    "window_BufferType.L1[1, 256, 256, 64]": 96
+  },
+  "arms": {
+    "start": {
+      "A": {
+        "sha": [
+          "beb3d80137ef0b6b",
+          "beb3d80137ef0b6b",
+          "beb3d80137ef0b6b"
+        ],
+        "ms": 4.709,
+        "e6_moves_per_call": 0.0
+      },
+      "B": {
+        "sha": [
+          "beb3d80137ef0b6b",
+          "beb3d80137ef0b6b",
+          "beb3d80137ef0b6b"
+        ],
+        "ms": 4.376,
+        "e6_moves_per_call": 0.0
+      },
+      "A2": {
+        "sha": [
+          "beb3d80137ef0b6b",
+          "beb3d80137ef0b6b",
+          "beb3d80137ef0b6b"
+        ],
+        "ms": 4.581,
+        "e6_moves_per_call": 0.0
+      },
+      "B2": {
+        "sha": [
+          "beb3d80137ef0b6b",
+          "beb3d80137ef0b6b",
+          "beb3d80137ef0b6b"
+        ],
+        "ms": 4.415,
+        "e6_moves_per_call": 0.0
+      }
+    },
+    "end": {
+      "A": {
+        "sha": [
+          "3e765eb60d609aa9",
+          "3e765eb60d609aa9",
+          "3e765eb60d609aa9"
+        ],
+        "ms": 4.591,
+        "e6_moves_per_call": 0.0
+      },
+      "B": {
+        "sha": [
+          "3e765eb60d609aa9",
+          "3e765eb60d609aa9",
+          "3e765eb60d609aa9"
+        ],
+        "ms": 4.355,
+        "e6_moves_per_call": 0.0
+      },
+      "A2": {
+        "sha": [
+          "3e765eb60d609aa9",
+          "3e765eb60d609aa9",
+          "3e765eb60d609aa9"
+        ],
+        "ms": 4.615,
+        "e6_moves_per_call": 0.0
+      },
+      "B2": {
+        "sha": [
+          "3e765eb60d609aa9",
+          "3e765eb60d609aa9",
+          "3e765eb60d609aa9"
+        ],
+        "ms": 4.411,
+        "e6_moves_per_call": 0.0
+      }
+    }
+  },
+  "verdict": {
+    "start": {
+      "A_A2_floor_bit_exact": true,
+      "B_B2_stable": true,
+      "A_eq_B": true,
+      "A_shas": [
+        "beb3d80137ef0b6b"
+      ],
+      "B_shas": [
+        "beb3d80137ef0b6b"
+      ]
+    },
+    "end": {
+      "A_A2_floor_bit_exact": true,
+      "B_B2_stable": true,
+      "A_eq_B": true,
+      "A_shas": [
+        "3e765eb60d609aa9"
+      ],
+      "B_shas": [
+        "3e765eb60d609aa9"
+      ]
+    }
+  }
+}

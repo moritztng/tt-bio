@@ -1,0 +1,58 @@
+{
+  "model": "protenix-v2",
+  "n": 512,
+  "gated_move": true,
+  "rejects": {
+    "shape[1, 256, 512, 512]": 8
+  },
+  "arms": {
+    "start": {
+      "REF": {
+        "sha": "2fac2a4fb351581f",
+        "shape": [
+          1,
+          512,
+          512,
+          256
+        ],
+        "e6_moves": 0
+      },
+      "E6": {
+        "sha": "THREW",
+        "e6_moves": 2,
+        "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/normalization/layernorm/device/layernorm_device_operation.cpp:72: a.padded_shape()[-1] == gamma.value().padded_shape()[-1]\ninfo:\n512 != 256"
+      },
+      "E6b": {
+        "sha": "THREW",
+        "e6_moves": 2,
+        "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/normalization/layernorm/device/layernorm_device_operation.cpp:72: a.padded_shape()[-1] == gamma.value().padded_shape()[-1]\ninfo:\n512 != 256"
+      },
+      "E6_matches_REF": false,
+      "E6_stable": true
+    },
+    "end": {
+      "REF": {
+        "sha": "10f147f41d68fd9f",
+        "shape": [
+          1,
+          512,
+          512,
+          256
+        ],
+        "e6_moves": 0
+      },
+      "E6": {
+        "sha": "THREW",
+        "e6_moves": 2,
+        "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/normalization/layernorm/device/layernorm_device_operation.cpp:72: a.padded_shape()[-1] == gamma.value().padded_shape()[-1]\ninfo:\n512 != 256"
+      },
+      "E6b": {
+        "sha": "THREW",
+        "e6_moves": 2,
+        "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/normalization/layernorm/device/layernorm_device_operation.cpp:72: a.padded_shape()[-1] == gamma.value().padded_shape()[-1]\ninfo:\n512 != 256"
+      },
+      "E6_matches_REF": false,
+      "E6_stable": true
+    }
+  }
+}
