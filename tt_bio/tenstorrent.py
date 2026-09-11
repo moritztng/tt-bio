@@ -1471,11 +1471,35 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
             if "circular buffers" not in str(exc):
                 raise
             _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk))
+    # The last rung, guarded like every rung above it. It used to be issued bare, so an L1
+    # refusal HERE was fatal where the identical refusal one rung up was absorbed -- and the
+    # last rung is the one a single-entry ladder leaves, which is what a padded length with a
+    # sparse divisor set gets: 736 tokens is 23 tiles, prime, so `_tri_att_q_chunks` offers
+    # 736 and 32 and nothing between. Measured on a p300c at 11x10 under the pinned ttnn
+    # 0.68.0: this ladder throws "circular buffers ... grow to 1765888 B which is beyond max
+    # L1 size of 1572864 B" at 672 padded tokens, byte for byte the throw in
+    # moritztng/tt-bio#14.
+    #
+    # Falling through hands the op to ttnn's own planner, which sizes the chunking against the
+    # part rather than against our table. That is a different chunking and so not bit-exact,
+    # which is why it is reached ONLY after the device has refused: a length that folds today
+    # never enters this branch and keeps its exact numbers.
+    try:
+        o = ttnn.transformer.scaled_dot_product_attention(
+            q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+            program_config=_sdpa_program_config(fits[-1], k_chunk),
+        )
+        _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
+        return o
+    except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
+        if "circular buffers" not in str(exc):
+            raise
+        _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1]))
+        note_l1_clash("tri_att_sdpa/last_q_chunk", exc)
+        _latch("sdpa_q_chunk", "refused", exc)
     o = ttnn.transformer.scaled_dot_product_attention(
-        q, k, v, attn_mask=bias, is_causal=False, scale=scale,
-        program_config=_sdpa_program_config(fits[-1], k_chunk),
-    )
-    _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
+        q, k, v, attn_mask=bias, is_causal=False, scale=scale)
+    _sdpa_pick(q_len, k_len, 0, k_chunk, "stock")
     return o
 
 
@@ -1930,7 +1954,7 @@ _BMM_CFG_REFUSED: set = set()
 # all-or-nothing retirement that cost RF3 1.264x on the fp32-softmax tail at 1024 aa.
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
-                               "pair_bias_ln_l1", "bmm_cfg")}
+                               "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
