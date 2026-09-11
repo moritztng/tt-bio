@@ -2675,7 +2675,7 @@ MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2"
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                          single_sequence, cache, controller, msa_server_url,
-                         msa_cache_only=False):
+                         msa_cache_only=False, msa_dir=None):
     """Resolve the MSA source for MSA-dependent structure models.
 
     These models degrade sharply folded single-sequence, so ``predict`` must
@@ -2733,10 +2733,21 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
         default_db = Path(cache).expanduser() / "msa_db"
         if (default_db / "UNIREF30_READY").exists():
             return use_msa_server, str(default_db)
-    click.secho(
-        f"MSA: no local database found; sending input sequences to the online MSA "
-        f"server ({msa_server_url}). Use --msa_db_path for an offline database, or "
-        f"--single_sequence to fold without an MSA.", fg="yellow")
+    if msa_dir:
+        # A cached chain is never sent anywhere, so the unconditional notice reads as a
+        # privacy claim the run does not make. Say what is actually true: the server is a
+        # fallback for whatever --msa_dir does not already hold. Which chains those are is
+        # not knowable here (no input has been parsed yet), which is what --msa_cache_only
+        # is for.
+        click.secho(
+            f"MSA: --msa_dir {msa_dir} is the first source; any chain it does not already "
+            f"hold is sent to the online MSA server ({msa_server_url}). Use "
+            f"--msa_cache_only to fail on a cache miss instead of searching.", fg="yellow")
+    else:
+        click.secho(
+            f"MSA: no local database found; sending input sequences to the online MSA "
+            f"server ({msa_server_url}). Use --msa_db_path for an offline database, or "
+            f"--single_sequence to fold without an MSA.", fg="yellow")
     return True, msa_db_path
 
 
@@ -2950,7 +2961,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # esmfold2-fast are single-sequence by design and pass through untouched.
     use_msa_server, msa_db_path = _resolve_msa_default(
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
-        controller, msa_server_url, msa_cache_only)
+        controller, msa_server_url, msa_cache_only, msa_dir_opt)
 
     from tt_bio.capabilities import check_capabilities, unread_flags
 
