@@ -1,0 +1,153 @@
+{
+ "card": "qb2 card 2 (p300c)",
+ "date": "2026-09-11",
+ "protocol": "cdk2x2_512.yaml + fixed 35-row a3m, 3 recycles, 4 sampling steps, seed 0, templates off; ttnn.graph capture of the 4th settled call of each shape. STRUCTURE ONLY -- no timing in this file.",
+ "default_arm": {
+  "pairformer|1x512x512x128": {
+   "published_instrument_MB": 11808.61,
+   "once_MB": 3260.219,
+   "roundtrip_MB": 6452.347,
+   "pre_existing_MB": 68.092,
+   "intermediates_MB": 3192.127,
+   "top_level_ttnn_ops": 4,
+   "dram_buffers": 139,
+   "distinct_tensor_ids": 644,
+   "distinct_addresses": 117,
+   "published_over_roundtrip_x": 1.83
+  },
+  "pairformer|1x512x384,1x512x512x128": {
+   "published_instrument_MB": 12169.659,
+   "once_MB": 3329.221,
+   "roundtrip_MB": 6583.869,
+   "pre_existing_MB": 74.572,
+   "intermediates_MB": 3254.649,
+   "top_level_ttnn_ops": 5,
+   "dram_buffers": 177,
+   "distinct_tensor_ids": 732,
+   "distinct_addresses": 140,
+   "published_over_roundtrip_x": 1.848
+  },
+  "difftx|1x512x768,1x512x768": {
+   "published_instrument_MB": 214.449,
+   "once_MB": 80.97,
+   "roundtrip_MB": 127.894,
+   "pre_existing_MB": 34.046,
+   "intermediates_MB": 46.924,
+   "top_level_ttnn_ops": 59,
+   "dram_buffers": 55,
+   "distinct_tensor_ids": 102,
+   "distinct_addresses": 34,
+   "published_over_roundtrip_x": 1.677
+  },
+  "difftx|1x224x32x128,1x224x32x128": {
+   "published_instrument_MB": 517.064,
+   "once_MB": 136.922,
+   "roundtrip_MB": 261.703,
+   "pre_existing_MB": 12.142,
+   "intermediates_MB": 124.781,
+   "top_level_ttnn_ops": 65,
+   "dram_buffers": 57,
+   "distinct_tensor_ids": 145,
+   "distinct_addresses": 45,
+   "published_over_roundtrip_x": 1.976
+  }
+ },
+ "token_dit_sdpa_arm": {
+  "pairformer|1x512x512x128": {
+   "published_instrument_MB": 11808.61,
+   "once_MB": 3260.219,
+   "roundtrip_MB": 6452.347,
+   "pre_existing_MB": 68.092,
+   "intermediates_MB": 3192.127,
+   "top_level_ttnn_ops": 4,
+   "dram_buffers": 139,
+   "distinct_tensor_ids": 644,
+   "distinct_addresses": 117,
+   "published_over_roundtrip_x": 1.83
+  },
+  "pairformer|1x512x384,1x512x512x128": {
+   "published_instrument_MB": 12169.659,
+   "once_MB": 3329.221,
+   "roundtrip_MB": 6583.869,
+   "pre_existing_MB": 74.572,
+   "intermediates_MB": 3254.649,
+   "top_level_ttnn_ops": 5,
+   "dram_buffers": 177,
+   "distinct_tensor_ids": 732,
+   "distinct_addresses": 140,
+   "published_over_roundtrip_x": 1.848
+  },
+  "difftx|1x512x768,1x512x768": {
+   "published_instrument_MB": 135.806,
+   "once_MB": 63.144,
+   "roundtrip_MB": 92.242,
+   "pre_existing_MB": 34.046,
+   "intermediates_MB": 29.098,
+   "top_level_ttnn_ops": 51,
+   "dram_buffers": 52,
+   "distinct_tensor_ids": 93,
+   "distinct_addresses": 32,
+   "published_over_roundtrip_x": 1.472
+  },
+  "difftx|1x224x32x128,1x224x32x128": {
+   "published_instrument_MB": 517.064,
+   "once_MB": 136.922,
+   "roundtrip_MB": 261.703,
+   "pre_existing_MB": 12.142,
+   "intermediates_MB": 124.781,
+   "top_level_ttnn_ops": 65,
+   "dram_buffers": 57,
+   "distinct_tensor_ids": 145,
+   "distinct_addresses": 45,
+   "published_over_roundtrip_x": 1.976
+  }
+ },
+ "bioir": {
+  "total_MB": 54.8,
+  "weights_MB": 23.6,
+  "pair_bias_MB": 8.39,
+  "token_tensors": 29,
+  "token_tensor_MB": 0.786,
+  "convention": "each tensor charged once (23.6+8.39+29*0.786=54.78)",
+  "roundtrip_equivalent_MB": 77.58
+ },
+ "byte_budget": {
+  "pairformer|1x512x384,1x512x512x128": {
+   "calls": 264,
+   "published_TB": 3.2128,
+   "roundtrip_TB": 1.7381
+  },
+  "pairformer|1x512x512x128": {
+   "calls": 16,
+   "published_TB": 0.1889,
+   "roundtrip_TB": 0.1032
+  },
+  "difftx|1x512x768,1x512x768": {
+   "calls": 4800,
+   "published_TB": 1.0294,
+   "roundtrip_TB": 0.6139
+  },
+  "difftx|1x224x32x128,1x224x32x128": {
+   "calls": 1200,
+   "published_TB": 0.6205,
+   "roundtrip_TB": 0.314
+  },
+  "instrumented_total": {
+   "published_TB": 5.0516,
+   "roundtrip_TB": 2.7692,
+   "instrumented_s_of_published_cell": 18.1,
+   "published_GBps": 279.1,
+   "roundtrip_GBps": 153.0,
+   "streaming_roof_GBps": 429.9,
+   "published_pct_of_roof": 64.9,
+   "roundtrip_pct_of_roof": 35.6
+  }
+ },
+ "ratio_to_bioir": {
+  "default_once": 1.478,
+  "default_roundtrip": 1.649,
+  "sdpa_once": 1.152,
+  "sdpa_roundtrip": 1.189,
+  "published_claim": 3.91
+ }
+}
