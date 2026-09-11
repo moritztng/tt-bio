@@ -33,25 +33,65 @@ from tt_bio.capabilities import check_capabilities
 
 
 _REAL_STDERR_FD: int | None = None
+_CAPTURE_PATH: Path | None = None
+
+
+def worker_capture_path(pid: int) -> Path:
+    """Where a silenced worker's fd 2 is captured. Keyed on pid, which is what the
+    launcher holds for each child it spawned."""
+    return Path(tempfile.gettempdir()) / f"tt-bio-worker-{pid}.stderr"
+
+
+def read_worker_capture(pid: int, max_bytes: int = 4000, *, consume: bool = True) -> str:
+    """Tail of a dead worker's captured fd 2, or "". Consumes the file by default so a
+    crashed worker leaves nothing in /tmp."""
+    path = worker_capture_path(pid)
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return ""
+    if consume:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+    return data[-max_bytes:].decode("utf-8", "replace").strip()
 
 
 def _silence_subprocess_output() -> None:
-    """Send stdout/stderr to /dev/null so kernel/library noise stays hidden.
+    """Hide per-op library noise without making a worker fatal unrecoverable.
 
-    Keeps one dup of the real stderr. A worker that dies before it has a run to
-    attach an event to has no other way to say why, and writing that fatal to
-    /dev/null is what left a device-open failure invisible for hours: the CLI
-    hung, the log was 0 bytes, and the traceback had already been discarded.
+    stdout is the noise and goes to /dev/null. fd 2 goes to a per-worker FILE, not
+    /dev/null, because the fatals that matter most here never reach Python: an L1
+    circular-buffer overflow or an MPI_Init failure aborts out of a tt-metal thread,
+    writes to fd 2 and exits without unwinding, so `_report_fatal` never runs. On
+    /dev/null that is a 0-byte log and a run that "just failed" (moritztng/tt-bio#12,
+    #14). A dup of the real stderr is still kept so a Python fatal reaches the
+    terminal immediately, as before.
     """
-    global _REAL_STDERR_FD
+    global _REAL_STDERR_FD, _CAPTURE_PATH
     _REAL_STDERR_FD = os.dup(2)
-    devnull = open(os.devnull, "w")
-    sys.stdout = devnull
-    sys.stderr = devnull
     dn_fd = os.open(os.devnull, os.O_WRONLY)
     os.dup2(dn_fd, 1)
-    os.dup2(dn_fd, 2)
     os.close(dn_fd)
+    _CAPTURE_PATH = worker_capture_path(os.getpid())
+    cap_fd = os.open(str(_CAPTURE_PATH), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.dup2(cap_fd, 2)
+    os.close(cap_fd)
+    sys.stdout = open(os.devnull, "w")
+    sys.stderr = os.fdopen(2, "w", buffering=1, closefd=False)
+
+
+def _cleanup_worker_capture() -> None:
+    """Drop this worker's capture file on any exit Python survives. A native abort
+    skips this by construction, which is exactly when the launcher wants the file."""
+    global _CAPTURE_PATH
+    if _CAPTURE_PATH is not None:
+        try:
+            os.remove(_CAPTURE_PATH)
+        except OSError:
+            pass
+        _CAPTURE_PATH = None
 
 
 def _report_fatal(message: str) -> None:
@@ -1967,6 +2007,7 @@ def run_worker_loop(
         raise
     finally:
         state.reset()
+        _cleanup_worker_capture()
 
 
 def _execute_job(

@@ -165,7 +165,7 @@ from tt_bio.runtime import (
     detect_tenstorrent_devices,
     discover_jobs,
 )
-from tt_bio.worker import SHARED_OUTPUT_PREFIX, run_worker_loop
+from tt_bio.worker import SHARED_OUTPUT_PREFIX, read_worker_capture, run_worker_loop
 
 # Every weight and data artifact tt-bio downloads is one row in tt_bio.weights.
 # ARTIFACTS: source, repo/URL, destination, licence and env override in one place,
@@ -1210,7 +1210,8 @@ def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,
                 recent.append(now)
                 restarts[i] = recent
                 click.echo(f"[supervisor] {label} exited (code={proc.exitcode}); "
-                           f"respawning [{len(recent)}/{max_restarts}]", err=True)
+                           f"respawning [{len(recent)}/{max_restarts}]"
+                           + _dead_worker_stderr([proc]), err=True)
                 _spawn(i)
             # No slot holds a chip. Say so once, and keep retrying: the pool is the
             # only thing that would notice the chips coming back. Callers see the
@@ -1227,6 +1228,22 @@ def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,
     except KeyboardInterrupt:
         click.echo("\nStopping workers...")
         _stop_worker_processes(list(procs.values()))
+
+
+def _dead_worker_stderr(procs) -> str:
+    """The captured fd-2 tail of each dead worker, ready to append to an error line.
+
+    A worker silences itself to a capture file rather than /dev/null (see
+    worker._silence_subprocess_output) precisely so the fatals that never reach Python --
+    a tt-metal L1 circular-buffer overflow, an MPI_Init abort -- survive the process that
+    hit them. Without this the launcher can only report an exit code.
+    """
+    tails = []
+    for proc in procs:
+        cap = read_worker_capture(proc.pid) if proc.pid else ""
+        if cap:
+            tails.append(f"--- {proc.name} (exit {proc.exitcode}) stderr tail ---\n{cap}")
+    return ("\n" + "\n\n".join(tails)) if tails else ""
 
 
 def _parse_listen(listen: str | None) -> tuple[str, int]:
@@ -1363,7 +1380,8 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                         f"every local worker exited before the run finished ({codes}); "
                         "no job can be served. Exit 130/143 means a signal stopped the "
                         "worker mid-job, 70 that it was orphaned, -9/137 that the host "
-                        "OOM killer took it; any other code prints its own fatal above.")
+                        "OOM killer took it; any other code prints its own fatal above."
+                        + _dead_worker_stderr(local_procs))
                 all_dead_seen = True
             else:
                 all_dead_seen = False
