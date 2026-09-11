@@ -204,8 +204,12 @@ def run_rung(model: str, yaml_path: Path, device: int, out_root: Path, timeout_s
     log = out_root / f"{model}_{yaml_path.stem}_{time.strftime('%H%M%S', time.gmtime(t0))}.log"
     body = out + "\n===STDERR===\n" + err
     log.write_text(body)
-    row = {"model": model, "command": command, "rung": yaml_path.stem, "device": device, "verdict": verdict,
-           "wall_s": wall, "rc": rc, "log": str(log), **detail}
+    # The env the child ran under, in the row. Two rows for the same model and rung differ only
+    # in this -- a lever measured with a flag on is not the same measurement as one without it,
+    # and a row that does not say which is not evidence for either.
+    row = {"model": model, "command": command, "rung": yaml_path.stem, "device": device,
+           "verdict": verdict, "wall_s": wall, "rc": rc, "log": str(log),
+           "env": dict(env_extra), **detail}
     # A refusal the engine recovered from is not a wall, but it is the single best evidence
     # that the reactive narrowing is doing its job -- and it is invisible in a PASS row
     # otherwise. Counted for every outcome, named separately from the one that killed the run.
