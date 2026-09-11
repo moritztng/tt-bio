@@ -148,7 +148,8 @@ FINGERPRINT_INDEX = REPO / "docs" / "implementation-parity-data" / "ref-fixture-
 # Release asset, so a fresh checkout or a new worktree has the provenance JSONs but
 # none of the binaries. Point at the restore path rather than at git.
 _FIXTURE_FETCH_HINT = ("run scripts/fetch_parity_fixtures.sh to restore the externalized "
-                       "reference binaries")
+                       "reference binaries; if it already ran clean, the release asset itself "
+                       "is missing them (scripts/full_parity_gate.py --verify-fixtures)")
 PARITY_DATA = REPO / "docs" / "implementation-parity-data"
 
 # The integration-parity envelope (see score_envelope) is the correctness criterion for every
@@ -708,6 +709,44 @@ def _incomplete_fixture_seeds(leg, seeds: list) -> list:
         if not (sd / "results.json").exists() or not (sd / "structures" / f"{leg.target_id}.cif").exists():
             bad.append(f"seed{s}")
     return bad
+
+
+def _verify_fixtures() -> int:
+    """Every structure leg's fixture, checked for the CIFs its scorer opens. Exit code is the
+    point: `fetch_parity_fixtures.sh` calls this after extracting, so a release asset that
+    ships a model's provenance JSONs without its structures fails there instead of surfacing
+    weeks later as a BLOCKED-REF-REGEN-NEEDED row that does not fail the gate and whose hint
+    is to re-run the very fetch that cannot fix it (protenix-v1-prot-msa and protenix-9ncy-msa,
+    Wormhole parity pass 2026-09-11: both fetched clean, both still had zero reference CIFs).
+    Reuses _incomplete_fixture_seeds so the fetcher and the gate cannot drift apart."""
+    seen, bad = set(), []
+    for leg in LEGS:
+        if leg.kind != "structure" or not leg.fixture or leg.fixture in seen:
+            continue
+        seen.add(leg.fixture)
+        # Ask each leg for the reference ITS scorer opens, the same split the run itself makes:
+        # an envelope leg reads ref_fp32/ref_bf16 and never touches a seed dir, so flagging its
+        # absent seed CIFs would condemn a fixture that scores fine (boltz2-9ncy-nomsa).
+        if _seeds_matched_against_fixture(leg, False):
+            missing = _incomplete_fixture_seeds(leg, list(leg.seeds))
+            missing = [f"{m} missing structures/*.cif" for m in missing]
+        else:
+            fp32_dir, bf16_dir = envelope_ref_dirs(leg)
+            missing = [f"{d} missing" for d, path
+                       in (("ref_fp32", fp32_dir), ("ref_bf16", bf16_dir)) if path is None]
+        if missing:
+            bad.append((leg.id, leg.fixture, missing))
+    if not bad:
+        print(f"fixtures OK — {len(seen)} structure fixtures carry every seed's reference CIF")
+        return 0
+    print(f"FIXTURES INCOMPLETE — {len(bad)} of {len(seen)} structure fixtures lack reference CIFs:")
+    for leg_id, fixture, missing in bad:
+        print(f"  - {leg_id}  ({fixture})")
+        print(f"      {', '.join(missing)}")
+    print("The provenance JSONs are committed but the CIFs are gitignored, so they reach a")
+    print("fresh host only through the release asset. Re-cut it with these targets included")
+    print("(see the header of scripts/fetch_parity_fixtures.sh); re-running the fetch cannot help.")
+    return 1
 
 
 def _fixture_known_seeds(spec: str) -> list[int]:
@@ -2200,6 +2239,12 @@ def main() -> int:
     ap.add_argument("--check", action="store_true",
                    help="run the card-free preflight self-check (leg yaml/fixture/committed-JSON/"
                         "target-id wiring) and exit. No device work. Use before trusting the gate.")
+    ap.add_argument("--verify-fixtures", action="store_true",
+                   help="check ONLY that every structure leg's reference fixture carries the CIFs "
+                        "its scorer reads, then exit 1 if any is incomplete. Card-free, worker-free, "
+                        "stdlib-only. This is what fetch_parity_fixtures.sh runs after extracting, "
+                        "so an asset that is missing a model's references fails loudly instead of "
+                        "leaving that leg permanently BLOCKED.")
     ap.add_argument("--dry-run", action="store_true",
                    help="preflight + inventory + fingerprint check only; run no device folds.")
     ap.add_argument("--fresh", action="store_true",
@@ -2240,6 +2285,9 @@ def main() -> int:
                    "from the current fixtures and exit (run once after harvesting a fixture; "
                    "commit the resulting index so future runs detect reference drift).")
     args = ap.parse_args()
+
+    if args.verify_fixtures:
+        return _verify_fixtures()
 
     workdir = Path(args.workdir)
     workdir.mkdir(parents=True, exist_ok=True)

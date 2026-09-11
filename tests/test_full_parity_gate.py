@@ -749,3 +749,44 @@ def test_in_process_reference_legs_get_the_contended_host_budget():
 
     # a CLI value above every floor still wins
     assert all(mod.leg_fold_timeout(l, 99999.0) == 99999.0 for l in mod.LEGS)
+
+
+def test_verify_fixtures_flags_a_missing_reference_and_clears_a_present_one(tmp_path, monkeypatch, capsys):
+    """--verify-fixtures must fail on the real defect and pass on the negative control.
+
+    Found on the Wormhole Galaxy 2026-09-11: four structure legs had committed provenance
+    JSONs and no reference CIFs, because the CIFs are gitignored and the release asset never
+    carried them. Nothing failed — the gate calls that BLOCKED-REF-REGEN-NEEDED, which does
+    not fail the gate, and told you to re-run the fetch that had just run clean. The check
+    only means something if it also passes a complete fixture, so both directions are pinned
+    here, and both leg kinds: an R/D/X leg reads seed CIFs, an envelope leg reads
+    ref_fp32/ref_bf16 and never opens a seed dir.
+    """
+    m = _load()
+    rdx = next(l for l in m.LEGS
+               if l.kind == "structure" and l.fixture and m._seeds_matched_against_fixture(l, False))
+    env = next(l for l in m.LEGS
+               if l.kind == "structure" and l.fixture and not m._seeds_matched_against_fixture(l, False))
+
+    complete = {rdx.fixture: [], env.fixture: []}
+    monkeypatch.setattr(m, "LEGS", [rdx, env])
+    monkeypatch.setattr(m, "_incomplete_fixture_seeds",
+                        lambda leg, seeds: complete.get(leg.fixture, []))
+    monkeypatch.setattr(m, "envelope_ref_dirs", lambda leg: (tmp_path, tmp_path))
+    assert m._verify_fixtures() == 0
+    assert "fixtures OK" in capsys.readouterr().out
+
+    # the R/D/X side: seed CIFs gone
+    complete[rdx.fixture] = ["seed0", "seed1"]
+    assert m._verify_fixtures() == 1
+    out = capsys.readouterr().out
+    assert rdx.id in out and "seed0 missing structures/*.cif" in out
+    assert env.id not in out
+
+    # the envelope side: shared-draw references gone, seed dirs irrelevant
+    complete[rdx.fixture] = []
+    monkeypatch.setattr(m, "envelope_ref_dirs", lambda leg: (None, None))
+    assert m._verify_fixtures() == 1
+    out = capsys.readouterr().out
+    assert env.id in out and "ref_fp32 missing" in out and "ref_bf16 missing" in out
+    assert rdx.id not in out
