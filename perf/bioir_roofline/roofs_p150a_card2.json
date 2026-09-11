@@ -1,0 +1,118 @@
+{
+ "host": "tt-quietbox (qb1)",
+ "card": "2",
+ "arch": "Blackhole p150a",
+ "grid": [
+  11,
+  10
+ ],
+ "source": "scripts/profiling/roofline_bh.py, --iters 10/8 --warmup 3, synced both sides, after tt-smi -r 2 cleared a dead ARC on this card",
+ "copy": [
+  {
+   "shape": [
+    4096,
+    4096
+   ],
+   "clone_ms": 0.174,
+   "copy_roof_GBps": 385.7
+  },
+  {
+   "shape": [
+    8192,
+    4096
+   ],
+   "clone_ms": 0.34,
+   "copy_roof_GBps": 394.5
+  },
+  {
+   "shape": [
+    8192,
+    8192
+   ],
+   "clone_ms": 0.675,
+   "copy_roof_GBps": 397.9
+  }
+ ],
+ "read": [
+  {
+   "shape": [
+    4096,
+    4096
+   ],
+   "add_ms": 0.232,
+   "rw_roof_GBps": 434.1
+  },
+  {
+   "shape": [
+    8192,
+    4096
+   ],
+   "add_ms": 0.462,
+   "rw_roof_GBps": 436.0
+  },
+  {
+   "shape": [
+    8192,
+    8192
+   ],
+   "add_ms": 0.918,
+   "rw_roof_GBps": 438.5
+  }
+ ],
+ "matmul": [
+  {
+   "N": 2048,
+   "fidelity": "LoFi",
+   "ms": 0.169,
+   "TFLOPs": 101.81
+  },
+  {
+   "N": 2048,
+   "fidelity": "HiFi2",
+   "ms": 0.191,
+   "TFLOPs": 90.14
+  },
+  {
+   "N": 2048,
+   "fidelity": "HiFi4",
+   "ms": 0.252,
+   "TFLOPs": 68.3
+  },
+  {
+   "N": 4096,
+   "fidelity": "LoFi",
+   "ms": 1.018,
+   "TFLOPs": 134.99
+  },
+  {
+   "N": 4096,
+   "fidelity": "HiFi2",
+   "ms": 1.218,
+   "TFLOPs": 112.86
+  },
+  {
+   "N": 4096,
+   "fidelity": "HiFi4",
+   "ms": 1.672,
+   "TFLOPs": 82.18
+  },
+  {
+   "N": 8192,
+   "fidelity": "LoFi",
+   "ms": 7.289,
+   "TFLOPs": 150.84
+  },
+  {
+   "N": 8192,
+   "fidelity": "HiFi2",
+   "ms": 9.016,
+   "TFLOPs": 121.95
+  },
+  {
+   "N": 8192,
+   "fidelity": "HiFi4",
+   "ms": 12.764,
+   "TFLOPs": 86.14
+  }
+ ]
+}
