@@ -2,3 +2,4 @@
 cifs/
 cifs_fast/
 __pycache__/
+.msa_*/

@@ -349,7 +349,7 @@ def main() -> int:
     fix = ROOT / "perf" / "size512" / "fixtures"
     tgt = fix / f"cdk2x2_{args.size}.yaml"
     a3m = fix / f"cdk2x2_{args.size}.a3m"
-    msa_dir = ROOT / f".msa_b2x_{args.size}"
+    msa_dir = Path(__file__).resolve().parent / f".msa_{args.size}"
 
     import importlib.metadata as im
     OUT["env"] = {
