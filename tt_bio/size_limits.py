@@ -664,7 +664,28 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "esmc-600m": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=69632, pass_at=69632, fail_at=73728, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Wormhole ladder, walked 2026-09-11 on j10glx02 Galaxy chip 9 by "
+                "ws:wh-seqlen-design-embed (perf/bhdesign/ladder.py, one rung per subprocess "
+                "through the shipped CLI, verdict off the .npz). 61440 (190.2 s), 65537 (230.4 s) "
+                "and 69632 (220.3 s) embed to [L, 1152], finite, nonzero_frac 1.0; 73728 throws in "
+                "47.3 s on 509829120 B with a 39219552 B largest free block. 65537 is not a "
+                "multiple of 32 and its npz carries exactly 65537 rows. Same mechanism as "
+                "esmc-300m and the same cause behind the same fix: the pre-fix engine capped this "
+                "model at 57344 and failed 61440 in 25.0 s, because loading it reserved "
+                "268435456 B PER BANK for a trace region a single long sequence can never replay "
+                "(see esmc.trace_pays); this number is 1.21x that. THE CAP BEING EQUAL TO "
+                "esmc-300m's IS A RESOLUTION ARTEFACT, NOT A CLAIM THAT THEY SHARE A WALL: this "
+                "ladder steps in 4096s, and one step near the top adds "
+                "(73728^2 - 69632^2) x 2 / 12 = 97 MB per bank, while the two models' resident "
+                "weights differ by only ~75 MB per bank (1.24 GB against 2.14 GB over 12 banks). "
+                "So the step is coarser than the difference, and a finer walk would be expected to "
+                "separate them. Not walked finer because the rungs cost 3-4 minutes each and a "
+                "1024-token refinement would not change what any user can ask for",
+        ),
         "blackhole": Ceiling(
             residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
