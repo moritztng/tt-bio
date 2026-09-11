@@ -1,0 +1,58 @@
+{
+ "size": 512,
+ "capture_steps": 8,
+ "prod_steps": 200,
+ "fold_s": 27.776,
+ "n_tokens": null,
+ "plddt": null,
+ "rows": [
+  {
+   "sig": "difftx|1x224x32x128,1x224x32x128",
+   "calls_in_capture_fold": 48,
+   "median_ms": 1.7698,
+   "total_ms": 617.49,
+   "dram_read": 392283904,
+   "dram_write": 124780544,
+   "l1_write": 25690112,
+   "n_ops": 66,
+   "n_tensors": 145,
+   "dram_total": 517064448
+  },
+  {
+   "sig": "difftx|1x512x768,1x512x768",
+   "calls_in_capture_fold": 192,
+   "median_ms": 0.9081,
+   "total_ms": 529.87,
+   "dram_read": 167525376,
+   "dram_write": 46923776,
+   "l1_write": 0,
+   "n_ops": 60,
+   "n_tensors": 102,
+   "dram_total": 214449152
+  },
+  {
+   "sig": "pairformer|1x512x384,1x512x512x128",
+   "calls_in_capture_fold": 264,
+   "median_ms": 41.6326,
+   "total_ms": 14384.47,
+   "dram_read": 8915010560,
+   "dram_write": 3254648832,
+   "l1_write": 1102446592,
+   "n_ops": 430,
+   "n_tensors": 732,
+   "dram_total": 12169659392
+  },
+  {
+   "sig": "pairformer|1x512x512x128",
+   "calls_in_capture_fold": 16,
+   "median_ms": 39.0606,
+   "total_ms": 6822.83,
+   "dram_read": 8616482304,
+   "dram_write": 3192127488,
+   "l1_write": 1006632960,
+   "n_ops": 378,
+   "n_tensors": 644,
+   "dram_total": 11808609792
+  }
+ ]
+}

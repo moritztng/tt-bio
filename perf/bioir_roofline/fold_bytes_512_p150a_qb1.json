@@ -1,0 +1,56 @@
+{
+ "_note": "The qb1 card 2 (p150a) capture of the same fold, reproduced from ~/.coworker/state/bioir-roofline/capture_rows.json after qb1 hard-hung with the file uncommitted. Rows carry median_ms but not total_ms, so fold_bytes_scale.py cannot compute its uninstrumented remainder from this file; the per-call medians and the byte counts are the qb1 measurement verbatim.",
+ "host": "tt-quietbox (qb1)",
+ "card": "2",
+ "board": "p150a",
+ "size": 512,
+ "capture_steps": 8,
+ "prod_steps": 200,
+ "fold_s": 44.0,
+ "rows": [
+  {
+   "sig": "pairformer|1x512x384,1x512x512x128",
+   "calls_in_capture_fold": 264,
+   "median_ms": 41.5596,
+   "dram_read": 8915010560,
+   "dram_write": 3254648832,
+   "l1_write": 1102446592,
+   "dram_total": 12169659392,
+   "n_ops": 430,
+   "n_tensors": 732
+  },
+  {
+   "sig": "pairformer|1x512x512x128",
+   "calls_in_capture_fold": 16,
+   "median_ms": 39.4441,
+   "dram_read": 8616482304,
+   "dram_write": 3192127488,
+   "l1_write": 1006632960,
+   "dram_total": 11808609792,
+   "n_ops": 378,
+   "n_tensors": 644
+  },
+  {
+   "sig": "difftx|1x512x768,1x512x768",
+   "calls_in_capture_fold": 192,
+   "median_ms": 1.0255,
+   "dram_read": 167525376,
+   "dram_write": 46923776,
+   "l1_write": 0,
+   "dram_total": 214449152,
+   "n_ops": 60,
+   "n_tensors": 102
+  },
+  {
+   "sig": "difftx|1x224x32x128,1x224x32x128",
+   "calls_in_capture_fold": 48,
+   "median_ms": 1.8559,
+   "dram_read": 392283904,
+   "dram_write": 124780544,
+   "l1_write": 25690112,
+   "dram_total": 517064448,
+   "n_ops": 66,
+   "n_tensors": 145
+  }
+ ]
+}

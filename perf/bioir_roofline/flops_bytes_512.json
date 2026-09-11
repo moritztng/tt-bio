@@ -1,0 +1,75 @@
+{
+ "tokens": 512,
+ "atoms": 7168,
+ "msa_depth": 35,
+ "recycles": 3,
+ "trunk_passes": 4,
+ "sampling_steps": 200,
+ "fold_flops": 206705568776192,
+ "fold_eager_bytes": 40751396123040,
+ "fold_resident_bytes": 220063240192,
+ "AI_eager_flop_per_byte": 5.072355512731131,
+ "AI_resident_flop_per_byte": 939.3007600717242,
+ "rows": [
+  {
+   "phase": "pairformer_block",
+   "per_call_flops": 502796386304,
+   "per_call_eager_bytes": 122384758272,
+   "per_call_aten_ops": 351,
+   "param_bytes": 12283392,
+   "calls_per_fold": 256,
+   "fold_flops": 128715874893824,
+   "fold_eager_bytes": 31330498117632,
+   "fold_resident_bytes": 3144548352,
+   "notes": "64 blocks x 4 trunk passes"
+  },
+  {
+   "phase": "msa_block",
+   "per_call_flops": 595167543296,
+   "per_call_eager_bytes": 141094130202,
+   "per_call_aten_ops": 381,
+   "param_bytes": 3180544,
+   "calls_per_fold": 16,
+   "fold_flops": 9522680692736,
+   "fold_eager_bytes": 2257506083232,
+   "fold_resident_bytes": 50888704,
+   "notes": "4 blocks x 4 trunk passes, msa depth 35"
+  },
+  {
+   "phase": "confidence_pairformer_block",
+   "per_call_flops": 502796386304,
+   "per_call_eager_bytes": 122384758272,
+   "per_call_aten_ops": 351,
+   "param_bytes": 12283392,
+   "calls_per_fold": 8,
+   "fold_flops": 4022371090432,
+   "fold_eager_bytes": 979078066176,
+   "fold_resident_bytes": 98267136,
+   "notes": "8 blocks once per fold, same block shape as the trunk"
+  },
+  {
+   "phase": "diffusion_token_layer",
+   "per_call_flops": 12280922112,
+   "per_call_eager_bytes": 1055192064,
+   "per_call_aten_ops": 122,
+   "param_bytes": 44848128,
+   "calls_per_fold": 4800,
+   "fold_flops": 58948426137600,
+   "fold_eager_bytes": 5064921907200,
+   "fold_resident_bytes": 215271014400,
+   "notes": "24 layers x 200 sampling steps"
+  },
+  {
+   "phase": "atom_transformer_layer",
+   "per_call_flops": 4580179968,
+   "per_call_eager_bytes": 932826624,
+   "per_call_aten_ops": 125,
+   "param_bytes": 1248768,
+   "calls_per_fold": 1200,
+   "fold_flops": 5496215961600,
+   "fold_eager_bytes": 1119391948800,
+   "fold_resident_bytes": 1498521600,
+   "notes": "3 encoder + 3 decoder layers x 200 steps, 224 windows of 32 queries; keys truncated to the 32-wide window, so the attention term alone is undercounted up to 4x"
+  }
+ ]
+}
