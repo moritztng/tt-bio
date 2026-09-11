@@ -57,7 +57,12 @@ def main() -> int:
     out = []
     for r in sorted(rows(root), key=lambda r: (r["model"], r["rung"])):
         aa = r["rung"].split("_")[1]
-        depth = r["rung"].split("_d")[-1] if "_d" in r["rung"] else "35"
+        # An affinity rung reads no alignment at all. Falling back to the structure fixtures'
+        # 35 rows would print a depth on a measurement that never had one.
+        if r.get("command") == "affinity":
+            depth = "none"
+        else:
+            depth = r["rung"].split("_d")[-1] if "_d" in r["rung"] else "35"
         bits = [f"{r['ts']}  chip {r['device']}  {r['model']:<13} {aa:>5} aa  depth {depth:>5}",
                 f"{r['verdict']:<12} {r['wall_s']:>8.1f} s"]
         if "request_bytes" in r:
