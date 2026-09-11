@@ -302,7 +302,16 @@ class SaprotModel(Module):
         self.norm_bias = self.torch_to_tt("norm.bias")
         self.head = SaprotLMHead(self.scope("head"), compute_kernel_config)
 
-    def __call__(self, tokens, attn_mask=None, key_valid=None, embed_mask=None):
+    def __call__(self, tokens, attn_mask=None, key_valid=None, embed_mask=None,
+                 want_logits: bool = True):
+        """With ``want_logits=False`` the MLM head is not run and ``logits`` is None.
+
+        The embedding path is finished before the head is reached, so dropping the head
+        cannot move ``emb`` by a bit. What it drops is the head's own work plus a
+        ``[B, L, 446]`` float copy back to the host, which the embed CLI throws away:
+        ``embed_sequences`` touches ``logits`` only when the caller asked for it. Same
+        shape of fix as ``ESMCHiddenStatesModel``'s ``last_hidden_only``.
+        """
         seq_len = tokens.shape[-1]
         head_dim = self.norm_weight.shape[-1] // self.n_heads
         cos, sin = rope_tables(seq_len, head_dim, device=self.device)
@@ -312,7 +321,7 @@ class SaprotModel(Module):
         emb = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias,
                               epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(x)
-        logits = self.head(emb)
+        logits = self.head(emb) if want_logits else None
         return logits, emb
 
 
@@ -401,17 +410,18 @@ class Saprot(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> SaprotModel:
         return SaprotModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
 
-    def forward(self, tokens, attn_mask=None, key_valid=None, embed_mask=None):
+    def forward(self, tokens, attn_mask=None, key_valid=None, embed_mask=None,
+                want_logits: bool = True):
         """Bucketed at the op boundary, not only in the batcher -- see esmc.bucket_token_axis.
         `_batch_saprot` has already bucketed on the CLI path, so there this is a no-op."""
         tokens, attn_mask, key_valid, embed_mask, L = bucket_token_axis(
             tokens, attn_mask, key_valid, embed_mask, pad_token=PAD)
-        logits, emb = self._dispatch(tokens, attn_mask, key_valid, embed_mask)
+        logits, emb = self._dispatch(tokens, attn_mask, key_valid, embed_mask, want_logits)
         if int(tokens.shape[1]) == L:
             return logits, emb
-        return logits[:, :L], emb[:, :L]
+        return (None if logits is None else logits[:, :L]), emb[:, :L]
 
-    def _dispatch(self, tokens, attn_mask, key_valid, embed_mask):
+    def _dispatch(self, tokens, attn_mask, key_valid, embed_mask, want_logits=True):
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
@@ -428,8 +438,8 @@ class Saprot(TorchWrapper):
             embed_mask.to(torch.bfloat16), device=self.tt_device,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
         )
-        logits, emb = self.module(tokens_tt, mask_tt, kv_tt, em_tt)
-        return self._to_torch(logits), self._to_torch(emb)
+        logits, emb = self.module(tokens_tt, mask_tt, kv_tt, em_tt, want_logits)
+        return (None if logits is None else self._to_torch(logits)), self._to_torch(emb)
 
 
 def load_saprot(name: str = "saprot-650m", *, fast: bool = False):
@@ -513,7 +523,7 @@ def embed_sequences(model, sequences, *, return_logits=False, pool="mean", batch
                 attn_mask[i, :, li:] = float("-inf")
                 key_valid[i, :, li:, :] = 0.0
                 embed_mask[i, li:, :] = 0.0
-        logits_b, emb_b = model(input_ids, attn_mask, key_valid, embed_mask)
+        logits_b, emb_b = model(input_ids, attn_mask, key_valid, embed_mask, return_logits)
         for row, (sid, (aa, struc)) in enumerate(batch):
             li = lens[row]
             emb = emb_b[row, :li].numpy().astype(np.float32)
