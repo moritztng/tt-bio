@@ -37,6 +37,16 @@ def _committed() -> dict:
     return json.loads(COMMITTED.read_text())
 
 
+def _record_for(live: dict) -> dict:
+    """The committed record this live report is scored against, picked the way the scorer
+    picks it. A control harvested at a grid the file does not record cannot say anything
+    about the record that ships, so it skips rather than failing on the wrong comparison."""
+    record, why = df._select_record(_committed(), live)
+    if record is None:
+        pytest.skip("control harvested at a grid this floor does not record: %s" % why)
+    return record
+
+
 def _report(taps, scalars, **kw):
     """A minimal report in tap_gate's shape: (tap, verdict, envelope_ratio) triples."""
     rows = [{"tap": t, "verdict": v, "envelope_ratio": r} for t, v, r in taps]
@@ -122,10 +132,11 @@ def test_the_real_mutations_are_caught_by_every_condition(name):
     path = ARTIFACTS / f"{name}.json"
     if not path.exists():
         pytest.skip(f"{path.name} absent")
-    committed, live = _committed(), json.loads(path.read_text())
-    assert df.af2ig_device_floor_verdict(live, committed)[0] == "FAIL"
+    live = json.loads(path.read_text())
+    assert df.af2ig_device_floor_verdict(live, _committed())[0] == "FAIL"
 
-    floor_taps, floor_scalars = df._failing_taps(committed), df._failing_scalars(committed)
+    record = _record_for(live)
+    floor_taps, floor_scalars = df._failing_taps(record), df._failing_scalars(record)
     live_taps, live_scalars = df._failing_taps(live), df._failing_scalars(live)
     assert set(live_taps) - set(floor_taps), "no new failing tap: the name condition is silent"
     worst_ratio = max(live_taps[t] / floor_taps[t] for t in floor_taps
@@ -140,9 +151,97 @@ def test_a_second_card_reproduces_the_committed_floor():
     path = ARTIFACTS / "device_trunk_complex_card0.json"
     if not path.exists():
         pytest.skip(f"{path.name} absent")
-    committed, live = _committed(), json.loads(path.read_text())
-    assert df.af2ig_device_floor_verdict(live, committed)[0] == "GAP"
+    live = json.loads(path.read_text())
+    assert df.af2ig_device_floor_verdict(live, _committed())[0] == "GAP"
     # Bit-identical, which is why DEFAULT_TOL's floor of 1.10 is what binds rather than a
     # measured cross-card spread.
     rows = {r["tap"]: r for r in live["rows"]}
-    assert all(rows[r["tap"]].get("pcc") == r.get("pcc") for r in committed["rows"])
+    assert all(rows[r["tap"]].get("pcc") == r.get("pcc") for r in _record_for(live)["rows"])
+
+
+# --- the record is keyed on the Tensix compute grid ----------------------------------------
+#
+# `de780ab7` moved the template pair stack onto the card and made the leg grid-sensitive with
+# it, so one record per grid, selected by the live report's own grid, and an unrecorded grid is
+# a loud FAIL rather than a silently gate-passing GAP.
+
+_GRID_A = [11, 10]
+_GRID_B = [13, 10]
+
+
+def _floor_rows(**kw):
+    return _report([("a", "FAIL", 4.0), ("b", "FAIL", 12.0), ("c", "PASS", None)],
+                   [("plddt", "FAIL", 0.0028), ("i_ptm", "PASS", 0.0026)], **kw)
+
+
+def _multi_record():
+    """Two records that differ in what they excuse, so picking the wrong one is visible."""
+    a = _floor_rows(compute_grid=_GRID_A)
+    b = _report([("a", "FAIL", 4.0), ("b", "PASS", None), ("c", "PASS", None)],
+                [("plddt", "FAIL", 0.0028), ("i_ptm", "PASS", 0.0026)], compute_grid=_GRID_B)
+    return {"records": [a, b]}
+
+
+def test_the_record_is_picked_by_the_reports_own_grid():
+    live = _floor_rows(compute_grid=_GRID_A)
+    assert df.af2ig_device_floor_verdict(live, _multi_record())[0] == "GAP"
+    # The same report against the other grid's record: `b` fails live and does not fail there.
+    verdict, detail = df.af2ig_device_floor_verdict(dict(live, compute_grid=_GRID_B),
+                                                    _multi_record())
+    assert verdict == "FAIL" and "new failing tap b" in detail
+
+
+def test_an_unrecorded_grid_fails_rather_than_gapping():
+    """A GAP that reproduces a committed GAP-evidenced record is gate-passing, so an
+    unmeasured grid must not be able to reach one."""
+    verdict, detail = df.af2ig_device_floor_verdict(_floor_rows(compute_grid=[12, 10]),
+                                                    _multi_record())
+    assert verdict == "FAIL"
+    assert "no committed floor for grid 12x10" in detail and "11x10" in detail
+
+
+def test_a_report_without_a_grid_fails_against_a_keyed_floor():
+    verdict, detail = df.af2ig_device_floor_verdict(_floor_rows(), _multi_record())
+    assert verdict == "FAIL" and "no compute_grid" in detail
+
+
+def test_a_legacy_single_record_file_is_still_scored_as_before():
+    """The file with no `records` list, and a report predating the field, both keep working."""
+    assert df.af2ig_device_floor_verdict(_floor_rows(), FLOOR)[0] == "GAP"
+    assert df.af2ig_device_floor_verdict(_floor_rows(compute_grid=_GRID_A), FLOOR)[0] == "GAP"
+
+
+def test_the_committed_file_carries_a_record_for_every_grid_it_names():
+    committed = _committed()
+    records = committed.get("records")
+    if records is None:
+        pytest.skip("committed floor is still a legacy single record")
+    grids = [tuple(r.get("compute_grid") or ()) for r in records]
+    assert all(len(g) == 2 for g in grids), "a record without a compute_grid can never be picked"
+    assert len(set(grids)) == len(grids), "two records claim the same grid"
+    for rec in records:
+        assert rec.get("rows"), "a record with no rows excuses nothing"
+        assert df.af2ig_device_floor_verdict(dict(rec), committed)[0] == "GAP", \
+            "a record does not reproduce itself"
+
+
+def test_the_gate_reads_this_floor_as_gap_evidenced():
+    """The grid-keyed rewrite dropped the file's top-level `verdict` and the gate went red.
+
+    `full_parity_gate._committed_verdict` reads the committed file's own top-level `verdict`
+    first and only falls back to scoring it as if it were a live report, which for this file
+    returns NO-DATA. A live GAP against a committed NO-DATA fails the gate, so the leg the
+    re-record was supposed to make green stayed red for a reason that had nothing to do with
+    the measurement (gate of record 2026-09-10, `l4.json`: verdict GAP, committed NO-DATA).
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "full_parity_gate", REPO / "scripts" / "full_parity_gate.py")
+    fpg = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = fpg
+    spec.loader.exec_module(fpg)
+    leg = next(l for l in fpg.LEGS if l.id == "af2ig-trunk-device")
+
+    assert fpg._committed_verdict(leg) == "GAP-evidenced"
+    assert fpg.finalize_leg(leg, "GAP", "", 0.0)[2], "a live GAP must pass the gate"
+    assert not fpg.finalize_leg(leg, "FAIL", "", 0.0)[2], "a live FAIL is excused by nothing"

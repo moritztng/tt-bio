@@ -17,18 +17,27 @@ NEED = [os.path.expanduser(p) for p in (
     "~/protenix_ife_gold.pkl", "~/protenix_trunkin_gold.pkl", "~/protenix_ref_out.pkl",
     "~/protenix_traj.pkl", "~/protenix_ckpt/protenix-v2.pt")]
 
-pytestmark = pytest.mark.skipif(not all(os.path.exists(p) for p in NEED),
-                                reason="needs v2 golden feats pkls + ckpt")
+pytestmark = [
+    pytest.mark.device,
+    pytest.mark.skipif(not all(os.path.exists(p) for p in NEED),
+                       reason="needs v2 golden feats pkls + ckpt"),
+]
 
 
 def test_protenix_fold_end_to_end():
-    out = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "protenix_fold_e2e.py")],
-                         cwd=ROOT, capture_output=True, text=True, timeout=900).stdout
-    assert "FOLD_E2E_DONE" in out, f"fold did not finish:\n{out[-2000:]}"
-    assert "finite=True" in out, f"non-finite coords:\n{out[-2000:]}"
+    proc = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "protenix_fold_e2e.py")],
+                          cwd=ROOT, capture_output=True, text=True, timeout=900)
+    out = proc.stdout
+    # Keep stderr. Discarding it hid a TypeError in the fixture's progress callback through three
+    # release passes: the fold paid for all 10 trunk cycles and 200 diffusion steps, died one line
+    # before writing its result, and every log said only "fold did not finish".
+    ctx = (f"rc={proc.returncode}\n--- stdout tail ---\n{out[-2000:]}"
+           f"\n--- stderr tail ---\n{proc.stderr[-2000:]}")
+    assert "FOLD_E2E_DONE" in out, f"fold did not finish:\n{ctx}"
+    assert "finite=True" in out, f"non-finite coords:\n{ctx}"
     def num(pat):
         m = re.search(pat, out)
-        assert m, f"capstone did not report /{pat}/:\n{out[-2000:]}"
+        assert m, f"capstone did not report /{pat}/:\n{ctx}"
         return float(m.group(1))
 
     rg, rg_max = num(r"Rg ([0-9.]+) A"), num(r"Rg max ([0-9.]+) A")

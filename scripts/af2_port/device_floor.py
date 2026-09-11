@@ -28,6 +28,9 @@ The two ratio bounds are what make the name allowlist honest. A mutation that on
 is exactly that shape: it zeroes the constant the dead extra-MSA track collapses to, which
 moves the trunk without adding a new failing tap.
 
+The committed file holds one record per Tensix compute grid and the live report is scored
+against the one that matches its own (`_select_record`). An unrecorded grid is a FAIL.
+
     PYTHONPATH=. python3 scripts/af2_port/device_floor.py --report live.json \
         --committed docs/implementation-parity-data/af2ig-trunk-device.json
 """
@@ -64,6 +67,41 @@ def _failing_scalars(report: dict) -> dict:
             for r in report.get("scalars", []) if r.get("verdict") not in _PASSING_ROW}
 
 
+def _select_record(committed: dict, report: dict) -> tuple[dict | None, str]:
+    """The committed record this report is scored against, chosen by Tensix compute grid.
+
+    The floor is grid-keyed because the leg is. With the template pair stack on the host the
+    tap set is grid-invariant, and `de780ab7` moved that stack onto the card, where the
+    trimul/matmul decomposition above it is chosen from the core grid: the same p150a board
+    scores 8 failing taps at 13x10 and 13 at 11x10, ten digits apart in `pcc_min`. This is the
+    convention `release_gate.py:2862` already applies to every size-ladder census -- record the
+    grid, and refuse a cross-grid comparison outright rather than reporting the difference as a
+    regression. Board type does not pin the grid, so the grid is what the record is keyed on.
+
+    A file with no ``records`` list is a legacy single record and is returned unchanged, so a
+    report predating the ``compute_grid`` field still scores exactly as it did.
+
+    An unrecorded grid is a FAIL, not a GAP: a GAP that reproduces a committed GAP-evidenced
+    record is gate-passing (`full_parity_gate._matches_committed`), so returning GAP here would
+    bless a grid nobody has ever measured.
+    """
+    records = committed.get("records")
+    if not records:
+        return committed, ""
+    have = [list(r.get("compute_grid") or []) for r in records]
+    live = report.get("compute_grid")
+    if not live:
+        return None, ("report carries no compute_grid, and the committed floor is keyed on it "
+                      "(recorded: %s)" % ", ".join("%dx%d" % tuple(g) for g in have if g))
+    live = list(live)
+    for rec, grid in zip(records, have):
+        if grid == live:
+            return rec, ""
+    return None, ("no committed floor for grid %s (recorded: %s)"
+                  % ("x".join(str(v) for v in live),
+                     ", ".join("%dx%d" % tuple(g) for g in have if g)))
+
+
 def af2ig_device_floor_verdict(report: dict, committed: dict,
                                tol: float = DEFAULT_TOL) -> tuple[str, str]:
     """(verdict, detail) for one live device-trunk report against the committed floor.
@@ -80,6 +118,9 @@ def af2ig_device_floor_verdict(report: dict, committed: dict,
     live_rows = report.get("rows") or []
     if not live_rows:
         return "NO-DATA", "no taps scored"
+    committed, why = _select_record(committed, report)
+    if committed is None:
+        return "FAIL", why
 
     reasons = []
     # 1. structural: same taps scored, none vanished.
