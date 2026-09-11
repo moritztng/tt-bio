@@ -26,7 +26,19 @@ _OVER_OPENDDE = sl.ceiling('opendde', 'wormhole_b0').residues + 1
 
 
 def _rows():
-    return [(m, arch, c) for m, per_arch in sl.CEILINGS.items() for arch, c in per_arch.items()]
+    """Every row, INCLUDING the nested block-fp8 siblings.
+
+    A `fast` sibling is a full Ceiling and refuses real users, so it has to satisfy every
+    invariant the row it hangs off does. Enumerating only the top level would have let a fast row
+    ship with no negative control -- the one thing this file exists to make impossible.
+    """
+    out = []
+    for m, per_arch in sl.CEILINGS.items():
+        for arch, c in per_arch.items():
+            out.append((m, arch, False, c))
+            if c.fast is not None:
+                out.append((m, arch, True, c.fast))
+    return out
 
 
 def test_every_shipped_model_has_a_row():
@@ -47,9 +59,10 @@ def test_no_row_for_a_model_that_is_not_shipped():
     assert not extra, f"ceiling rows for models no CLI --model choice reaches: {extra}"
 
 
-@pytest.mark.parametrize("model,arch,c", _rows(), ids=lambda v: v if isinstance(v, str) else "")
-def test_row_is_internally_consistent(model, arch, c):
-    who = f"{model}/{arch}"
+@pytest.mark.parametrize("model,arch,fast,c", _rows(),
+                         ids=lambda v: v if isinstance(v, str) else "")
+def test_row_is_internally_consistent(model, arch, fast, c):
+    who = f"{model}/{arch}{'+fast' if fast else ''}"
     assert c.binds in sl.BINDS, f"{who}: unknown binds {c.binds!r}"
     assert c.mechanism in sl.MECHANISMS, f"{who}: unknown mechanism {c.mechanism!r}"
     assert len(c.evidence.strip()) >= 40, (
@@ -88,17 +101,66 @@ def test_row_is_internally_consistent(model, arch, c):
             f"refusing a size measured to work")
 
 
+def test_a_fast_sibling_only_ever_raises_the_cap():
+    """`--fast` frees DRAM by halving the resident weights, so its ceiling cannot be LOWER.
+
+    The field exists because ESMC-6B on Wormhole is weight-bound: 1968 residues in bf16 against
+    8192 in block-fp8. A sibling below its parent would mean the flag makes capacity worse, and
+    since `ceiling(..., fast=True)` prefers the sibling, the guard would then refuse work the
+    default arm admits -- a relaxation flag that tightens. If a model ever genuinely reads lower
+    under --fast, this assertion is where that gets argued, not where it slips through.
+    """
+    for model, per_arch in sl.CEILINGS.items():
+        for arch, c in per_arch.items():
+            if c.fast is None:
+                continue
+            who = f"{model}/{arch}"
+            assert c.measured, (
+                f"{who}: an UNMEASURED row carries a fast sibling. The default arm refuses "
+                f"nothing, so the sibling can only ever ADD a refusal that no ladder justifies.")
+            assert c.fast.counts == c.counts, (
+                f"{who}: the fast sibling counts {c.fast.counts!r} against the parent's "
+                f"{c.counts!r}, so the two caps are in different units")
+            assert c.fast.residues >= c.residues, (
+                f"{who}: fast cap {c.fast.residues} is below the default arm's {c.residues}")
+
+
+def test_the_fast_arm_is_only_reachable_by_asking_for_it():
+    """`ceiling()` must default to the bf16 arm, and must not invent one where none was measured.
+
+    The negative control for the whole mechanism: if the lookup returned the fast sibling by
+    default, every caller that does not know about --fast would silently start admitting sizes
+    measured in a dtype it is not running.
+    """
+    fast_rows = [(m, a) for m, per in sl.CEILINGS.items() for a, c in per.items()
+                 if c.fast is not None]
+    assert fast_rows, ("no row carries a fast sibling any more -- delete Ceiling.fast and this "
+                       "test together rather than leaving an untested mechanism wired in")
+    for model, arch in fast_rows:
+        default, fast = sl.ceiling(model, arch), sl.ceiling(model, arch, fast=True)
+        assert default is not fast and fast.residues > default.residues, (
+            f"{model}/{arch}: ceiling(fast=True) did not select the fp8 sibling")
+        assert sl.ceiling(model, arch).residues == default.residues, "default arm moved"
+    # A row with NO sibling must answer identically in both, or threading the flag through would
+    # change behaviour for models nobody walked twice.
+    for model, per_arch in sl.CEILINGS.items():
+        for arch, c in per_arch.items():
+            if c.fast is None:
+                assert sl.ceiling(model, arch, fast=True) is c, (
+                    f"{model}/{arch}: no fast sibling, so both arms must give the same row")
+
+
 def test_ladder_top_publishes_the_size_it_proved():
     """A ladder-top cap must BE the top rung, not a rung below it held back for margin.
 
     Margin is not measurement. If a rung is untrustworthy the ladder should be re-walked, not
     discounted -- an undocumented safety factor is indistinguishable from a stale number later.
     """
-    for model, arch, c in _rows():
+    for model, arch, fast, c in _rows():
         if c.binds == sl.LADDER_TOP:
             assert c.pass_at == c.residues, (
-                f"{model}/{arch}: ladder-top cap {c.residues} differs from the top proven rung "
-                f"{c.pass_at}")
+                f"{model}/{arch}{'+fast' if fast else ''}: ladder-top cap {c.residues} differs "
+                f"from the top proven rung {c.pass_at}")
 
 
 def test_check_refuses_above_and_admits_at_the_cap():
@@ -163,21 +225,33 @@ def test_the_freeze_rows_refuse_1536_and_admit_the_size_that_folds():
         sl.check(m, 1024, arch="blackhole")     # the size that folds is admitted, silently
 
 
-def test_the_blackhole_rows_actually_refuse_on_blackhole_and_not_on_wormhole():
-    """The rows are new, so the guard needs its own negative control, not just the table's.
+def test_each_arch_refuses_on_its_own_number():
+    """A row that is present but never consulted refuses nothing, and a row consulted on the wrong
+    arch refuses everything. Both are silent, and saprot-35m now has a row on BOTH parts, which
+    makes it the sharpest available control: a p150a embeds 126976 residues and throws at 131072,
+    a Wormhole Galaxy chip embeds 73728 and throws at 77824. Same model, same code, 1.72x apart
+    because a p150a has 8 banks of 4278190016 B against 12 of 1073741792 B.
 
-    A row that is present but never consulted refuses nothing, and a row consulted on the wrong
-    arch refuses everything. Both are silent. saprot-35m embeds 126976 residues on a p150a and
-    throws at 131072, and on Wormhole nobody walked it at all.
+    This used to assert that the Blackhole failing size sailed through on Wormhole BECAUSE nobody
+    had walked Wormhole. That premise expired the day ws:wh-seqlen-design-embed walked it, and an
+    absence is a weak control anyway: it passes just as well if the arch key is ignored and the
+    table is simply empty. Asserting that each arch refuses on ITS OWN cap and admits the other's
+    proves the key is read.
     """
-    c = sl.ceiling("saprot-35m", "blackhole")
-    assert c.residues == c.pass_at and c.fail_at is not None
-    sl.check("saprot-35m", c.pass_at, arch="blackhole")             # measured to work
+    bh, wh = sl.ceiling("saprot-35m", "blackhole"), sl.ceiling("saprot-35m", "wormhole_b0")
+    assert bh.measured and wh.measured
+    assert wh.residues < bh.residues, "the smaller part must carry the smaller cap"
+    for arch, c in (("blackhole", bh), ("wormhole_b0", wh)):
+        assert c.residues == c.pass_at and c.fail_at is not None
+        sl.check("saprot-35m", c.pass_at, arch=arch)                # measured to work
+        with pytest.raises(sl.SizeTooLargeError) as e:
+            sl.check("saprot-35m", c.fail_at, arch=arch)            # measured to throw
+        assert arch in str(e.value) and str(c.residues) in str(e.value)
+    # The size the bigger part embeds must be admitted there and refused here. If the arch key
+    # were dropped, one of these two lines fails whichever row won.
+    sl.check("saprot-35m", bh.pass_at, arch="blackhole")
     with pytest.raises(sl.SizeTooLargeError):
-        sl.check("saprot-35m", c.fail_at, arch="blackhole")         # measured to throw
-    # The same size on the arch with no measured row must sail through, or a Blackhole ladder
-    # would have quietly become a Wormhole limit.
-    sl.check("saprot-35m", c.fail_at, arch="wormhole_b0")
+        sl.check("saprot-35m", bh.pass_at, arch="wormhole_b0")
 
 
 def test_alternatives_only_name_measured_models():
@@ -210,7 +284,7 @@ def test_scan_never_raises_on_junk():
 
 
 def test_every_row_names_what_it_counts():
-    for model, arch, c in _rows():
+    for model, arch, fast, c in _rows():
         assert c.counts in sl.COUNTS, f"{model}/{arch}: unknown denominator {c.counts!r}"
 
 
@@ -222,7 +296,7 @@ def test_sizer_and_row_agree_on_the_denominator():
     in the other is a units substitution that produces a plausible wrong answer rather than an
     error, so the two are held against each other here.
     """
-    for model, arch, c in _rows():
+    for model, arch, fast, c in _rows():
         counts, _, _ = sl.sizer_for(model)
         assert counts == c.counts, (
             f"{model}/{arch}: the row's cap is in {c.counts!r} but its sizer produces {counts!r}")
@@ -637,7 +711,8 @@ def test_a_refusal_on_a_mostly_unmeasured_arch_does_not_claim_nothing_fits():
 # directions: the cocrystals measured to FOLD stay admitted, and the ones measured to FAIL are
 # refused at submission.
 
-_TOKEN_ROWS = [(m, arch, c) for m, arch, c in _rows() if c.token_bound]
+_TOKEN_ROWS = [(m, arch, c) for m, arch, fast, c in _rows()
+               if c.token_bound and not fast]
 
 
 def test_at_least_one_row_declares_a_token_wall():
@@ -718,13 +793,13 @@ def test_a_ligand_free_input_is_checked_exactly_as_it_was():
     its token wall is 1024 -- and letting that wall speak for a ligand-free input would raise a
     published cap by 64 residues on the strength of no ladder at all.
     """
-    for model, arch, c in _rows():
+    for model, arch, fast, c in _rows():
         if not c.measured or c.residues is None:
             continue
         for n in (c.residues - 1, c.residues, c.residues + 1):
             refused = False
             try:
-                sl.check(model, n, arch=arch)
+                sl.check(model, n, arch=arch, fast=fast)
             except sl.SizeTooLargeError:
                 refused = True
             assert refused == (n > c.residues), (

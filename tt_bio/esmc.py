@@ -1555,9 +1555,39 @@ def load_sequences(data) -> dict[str, str]:
 
 
 # DRAM reserved for ttnn trace capture when an ESMC-300M/600M model is loaded
-# with tracing on (the default). Sized for _TRACE_CACHE_MAX concurrent captured
-# forwards; 256 MB leaves the device layout otherwise unchanged.
+# with tracing on. Sized for _TRACE_CACHE_MAX concurrent captured forwards.
+#
+# It does NOT leave the device layout otherwise unchanged, which this comment used to claim. The
+# reservation comes off EVERY DRAM BANK, so on a 12-bank Wormhole Galaxy chip it costs 12 x 256 MB
+# = 3 GiB of a 12.8 GiB part. Measured on j10glx02 chip 8 against chip 7 on the same day, off the
+# allocator's own refusal message: "bank size is 805306336 B" with the region reserved against
+# "1073741792 B" without it, a difference of exactly 268435456 B per bank. That is 24 % of the
+# chip, and on the sequence-length axis it is the difference between esmc-300m refusing 65537
+# residues and saprot-35m -- same code path, no reservation -- embedding 73728 on the same part.
 _ESMC_TRACE_REGION_SIZE = 1 << 28
+
+
+def trace_pays(sequences, bucket: int = BUCKET) -> bool:
+    """Whether reserving a trace region can pay for itself on this workload.
+
+    ``_dispatch`` captures a trace only on the SECOND sighting of a bucketed shape, on purpose:
+    "tracing pays only when a shape repeats ... a one-shot call stays pure eager and never pays
+    the capture cost". So on a workload where no bucketed width repeats, the region is reserved,
+    never captured into, and never replayed -- while still costing 3 GiB of the chip and 1.18x of
+    the sequence ceiling.
+
+    This is the same condition, asked one step earlier, where it can still be acted on: the
+    reservation has to happen at device OPEN and cannot be taken back once a capture turns out to
+    be worth it. Deliberately an OVER-approximation -- it ignores how ``_batch_tokens`` will group
+    rows, so it can say yes where the runtime would not capture. Saying yes is the old behaviour
+    and costs only memory; saying no where a trace WOULD have been replayed would cost speed, so
+    the error is pointed at the side that was already being paid.
+    """
+    seqs = ([sequences] if isinstance(sequences, str)
+            else list(sequences.values()) if isinstance(sequences, dict) else list(sequences))
+    widths = collections.Counter(
+        ((len(q) + 2 + bucket - 1) // bucket) * bucket for q in seqs)
+    return any(n >= 2 for n in widths.values())
 
 
 def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = True):
@@ -1779,7 +1809,8 @@ def _run_embed_shard(in_path: str, out_path: str) -> None:
     if req.get("cache_dir"):
         model = load_esmc6b_shared(req["cache_dir"], name=req["model"], fast=req["fast"])
     else:
-        model = load_esmc(req["model"], fast=req["fast"])
+        model = load_esmc(req["model"], fast=req["fast"],
+                          trace=trace_pays(req["sequences"]))
     _tlog(f"load_total {_time.perf_counter()-_t:.2f}s")
     results = embed_sequences(model, req["sequences"], return_logits=req["return_logits"],
                               pool=req["pool"], batch_size=req["batch_size"])
@@ -1921,7 +1952,7 @@ def embed(sequences, model: str = "esmc-300m", *, fast: bool = False,
     if devices and len(devices) > 1:
         return embed_multicard(sequences, model=model, devices=devices, fast=fast,
                                return_logits=return_logits, pool=pool, batch_size=batch_size)
-    m = load_esmc(model, fast=fast)
+    m = load_esmc(model, fast=fast, trace=trace_pays(sequences))
     return embed_sequences(m, sequences, return_logits=return_logits, pool=pool,
                            batch_size=batch_size)
 

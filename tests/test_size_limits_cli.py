@@ -155,6 +155,36 @@ def test_embed_refuses_an_oversized_bare_sequence(tmp_path, wormhole, no_device)
     assert not no_device
 
 
+def test_fast_admits_a_length_the_default_arm_refuses(tmp_path, wormhole, no_device, monkeypatch):
+    """`--fast` is part of the configuration a ceiling is valid in, and the CLI has to say so.
+
+    ESMC-6B on Wormhole is bound by its WEIGHTS: 1968 residues in bf16, 8192 in block-fp8. Before
+    the flag reached the guard, a `tt-bio embed --model esmc-6b --fast` job at 4096 residues was
+    refused by name for a wall it does not have -- measured on j10glx02, where that exact length
+    embeds in 130 s. Both directions are asserted, because a wiring change that simply stopped
+    refusing would pass a one-sided test.
+    """
+    c = sl.ceiling("esmc-6b", "wormhole_b0")
+    over = c.residues + 1                      # above bf16, below fp8
+    assert over <= sl.ceiling("esmc-6b", "wormhole_b0", fast=True).residues
+
+    res = CliRunner().invoke(main.cli, ["embed", "A" * over, "--model", "esmc-6b",
+                                        "--out_dir", str(tmp_path / "a")])
+    assert res.exit_code != 0, "the bf16 arm must still refuse the size its ladder failed at"
+    assert str(c.residues) in str(res.output) + str(res.exception)
+    assert not no_device
+
+    # With --fast the guard must let it through. Stop it right after, so the test stays a wiring
+    # check and never loads 12 GB of weights.
+    monkeypatch.setattr(main, "_require_ttnn", lambda *a, **k: (_ for _ in ()).throw(_PastTheGuard))
+    res = CliRunner().invoke(main.cli, ["embed", "A" * over, "--model", "esmc-6b", "--fast",
+                                        "--out_dir", str(tmp_path / "b")])
+    assert isinstance(res.exception, _PastTheGuard), (
+        f"--fast was refused at {over} residues although the fp8 ladder embedded 8192: "
+        f"{res.output}{res.exception!r}")
+    assert not no_device
+
+
 def test_every_wired_command_actually_calls_the_guard(monkeypatch, tmp_path):
     """The coverage assertion: every command that takes user input calls the guard.
 

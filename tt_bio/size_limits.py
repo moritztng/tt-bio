@@ -211,6 +211,16 @@ class Ceiling:
     # only from the row's own evidence: it is what converts residue numbers into token numbers,
     # and a guessed value would refuse work nothing ever measured to fail.
     ladder_ligand_atoms: int | None = None
+    #: The SAME ceiling measured with block-fp8 weights, i.e. under ``--fast``. None means nobody
+    #: walked that arm and the row above speaks for both, which is the right default: for every
+    #: model whose chip is filled by ACTIVATIONS the weight dtype barely moves the wall.
+    #:
+    #: It moves it enormously where the WEIGHTS are what fills the chip. ESMC-6B in bf16 embeds
+    #: 1968 residues on a Galaxy chip and is refused at 1984 on a 30965760 B request with
+    #: 2525280 B free -- the wall is 31 MB of headroom behind ~12 GB of resident weights, not the
+    #: sequence. Under ``--fast`` the same chip does 8192. One number cannot be right for both,
+    #: and the one that shipped was refusing work the engine does.
+    fast: "Ceiling | None" = None
 
     @property
     def measured(self) -> bool:
@@ -574,7 +584,36 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "32 s, 1984 aa OOMs on DRAM. The 6B weights nearly fill the chip, so past the "
                      "ceiling the activation allocation has nowhere to go. This is an embed model: "
                      "the binding constraint is DRAM and not wall-clock, which is why its number is "
-                     "so much higher than any folding model's",
+                     "so much higher than any folding model's. RE-MEASURED 2026-09-11 on a QUIET "
+                     "j10glx02 Galaxy chip 5 by ws:wh-seqlen-design-embed and it reproduces exactly: "
+                     "512 aa 45.0 s, 1968 aa 45.0 s, 1984 aa throws in 30.9 s, 4096 aa throws in "
+                     "26.0 s. That matters because the original was taken on the shared serving "
+                     "pool, where a co-tenant's residency could have set the number; it did not. "
+                     "The allocator says why in one line -- 1984 dies on a 30965760 B request with "
+                     "'bank size is 1073741792 B (allocated: 1068605312 B, free: 5136480 B, largest "
+                     "free block: 2525280 B)'. 31 MB of headroom behind ~12 GB of resident weights, "
+                     "so the wall is the WEIGHTS and barely the sequence at all, which is exactly "
+                     "why this row needed a `fast` sibling",
+            fast=Ceiling(
+                residues=8192, pass_at=8192, fail_at=None, binds=LADDER_TOP,
+                mechanism=NO_FAILURE, counts=MAX_SEQUENCE,
+                evidence="its own ladder in the OTHER weight dtype, walked 2026-09-11 on j10glx02 "
+                         "Galaxy chip 6 by ws:wh-seqlen-design-embed through the shipped `tt-bio "
+                         "embed --model esmc-6b --fast` CLI: 1968 aa in 110.1 s, 4096 in 130.1 s, "
+                         "8192 in 180.2 s, every one to [L, 2560], finite, nonzero_frac 1.0. The "
+                         "bf16 arm on chip 5 the same day cannot do 4096 at all. Block-fp8 roughly "
+                         "halves the resident weights and this model is weight-bound, so the "
+                         "ceiling moves by at least 4.16x -- which is the whole reason this field "
+                         "exists: the 1968 above was being enforced against a configuration it "
+                         "never measured, refusing a 4096 aa --fast job that runs in 130 s. "
+                         "LADDER_TOP and not MEMORY because nothing above 8192 has failed: 16384 "
+                         "and up are the open rungs, so the real fast ceiling may be higher and "
+                         "this cap is the largest size PROVEN rather than the rung below a "
+                         "failure. Wall-clock is not free here either -- fp8 is SLOWER per call at "
+                         "equal length (110.1 s against bf16's 45.0 s at 1968 aa), so --fast on "
+                         "this model buys capacity and costs latency, which is the opposite of "
+                         "what its name suggests and is worth knowing before reaching for it",
+            ),
         ),
     },
     # --- No measured ceiling. Never refused. ---------------------------------------------------
@@ -702,7 +741,33 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "without a device -- tests/test_size_limits.py holds the sizer to them"),
     },
     "esmc-300m": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=69632, pass_at=69632, fail_at=73728, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Wormhole ladder, walked 2026-09-11 on j10glx02 Galaxy chips 5, 7 and 8 by "
+                "ws:wh-seqlen-design-embed (perf/bhdesign/ladder.py, one rung per subprocess "
+                "through the shipped CLI, verdict off the .npz). 65537 (160.2 s) and 69632 "
+                "(170.2 s) embed to [L, 960], finite, nonzero_frac 1.0; 73728 throws in 51.7 s on "
+                "424857600 B with a 24740448 B largest free block. 49153 and 65537 are NOT "
+                "multiples of 32 and their npz files carry exactly that many rows, so the token "
+                "axis's pad tail is masked at lengths that exercise it. THE WALL IS NOT THE SINGLE "
+                "padded_L^2 x 2 BUFFER the Blackhole row below blames: that buffer lands, and a "
+                "later, smaller request dies with the chip full. On a p150a, with 2.65x the memory "
+                "(8 banks x 4278190016 B against 12 x 1073741792 B), the L^2 buffer IS the wall "
+                "and everything after it fits, which is why one Blackhole ladder could read one "
+                "shape off five models and call it the cause. THIS NUMBER IS 1.13x WHAT THE ENGINE "
+                "HELD THIS MORNING, and the difference is a fix rather than a re-measurement: "
+                "before it, 61440 was the top rung and 65537 died in 25.0 s, because loading this "
+                "model reserved 268435456 B PER BANK for a ttnn trace region -- 3 GiB of a 12.8 GB "
+                "chip -- that a single long sequence can never replay, since the forward captures "
+                "only on the SECOND sighting of a bucketed shape. `esmc.trace_pays` now asks that "
+                "question before the device opens. Proven as a ONE-CHIP A/B rather than across "
+                "chips, because the first failure and the first pass landed on different cards and "
+                "that is a perfectly good alternative explanation: on card 7, same day, the "
+                "pre-fix tree (a detached worktree at 389adde1) fails 65537 in 44.2 s on the same "
+                "377671680 B request, and the post-fix tree passes it in 160.2 s",
+        ),
         "blackhole": Ceiling(
             residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
@@ -727,7 +792,28 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "esmc-600m": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=69632, pass_at=69632, fail_at=73728, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Wormhole ladder, walked 2026-09-11 on j10glx02 Galaxy chip 9 by "
+                "ws:wh-seqlen-design-embed (perf/bhdesign/ladder.py, one rung per subprocess "
+                "through the shipped CLI, verdict off the .npz). 61440 (190.2 s), 65537 (230.4 s) "
+                "and 69632 (220.3 s) embed to [L, 1152], finite, nonzero_frac 1.0; 73728 throws in "
+                "47.3 s on 509829120 B with a 39219552 B largest free block. 65537 is not a "
+                "multiple of 32 and its npz carries exactly 65537 rows. Same mechanism as "
+                "esmc-300m and the same cause behind the same fix: the pre-fix engine capped this "
+                "model at 57344 and failed 61440 in 25.0 s, because loading it reserved "
+                "268435456 B PER BANK for a trace region a single long sequence can never replay "
+                "(see esmc.trace_pays); this number is 1.21x that. THE CAP BEING EQUAL TO "
+                "esmc-300m's IS A RESOLUTION ARTEFACT, NOT A CLAIM THAT THEY SHARE A WALL: this "
+                "ladder steps in 4096s, and one step near the top adds "
+                "(73728^2 - 69632^2) x 2 / 12 = 97 MB per bank, while the two models' resident "
+                "weights differ by only ~75 MB per bank (1.24 GB against 2.14 GB over 12 banks). "
+                "So the step is coarser than the difference, and a finer walk would be expected to "
+                "separate them. Not walked finer because the rungs cost 3-4 minutes each and a "
+                "1024-token refinement would not change what any user can ask for",
+        ),
         "blackhole": Ceiling(
             residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
@@ -751,7 +837,27 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "saprot-35m": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=73728, pass_at=73728, fail_at=77824, binds=MEMORY, mechanism=DRAM,
+            counts=MAX_SEQUENCE,
+            evidence=
+                "its own Wormhole ladder, walked 2026-09-11 on the j10glx02 Galaxy chip 7 by "
+                "ws:wh-seqlen-design-embed with the same harness the Blackhole row below used "
+                "(perf/bhdesign/ladder.py, one rung per subprocess through the shipped CLI, "
+                "verdict read off the .npz). 65537 (90.1 s) and 73728 (100.1 s) residues embed to "
+                "[L, 480], finite, nonzero_frac 1.0; 77824 throws in 35.0 s. 65537 is deliberately "
+                "NOT a multiple of 32 and its npz carries exactly 65537 rows, so the pad tail the "
+                "token axis adds is masked at a length that exercises it. THE WALL IS NOT THE "
+                "BUFFER THE BLACKHOLE ROW BLAMES, and that is the finding: the padded_L^2 x 2 "
+                "attention matrix lands, and what fails is a LATER 298967040 B request with the "
+                "chip already full -- 'each bank needs to store 24913920 B, but bank size is "
+                "1073741792 B (allocated: 1055840384 B, free: 17901408 B, largest free block: "
+                "11671392 B)'. On a p150a, with 2.65x the memory, that same L^2 buffer IS the wall "
+                "and everything after it fits; on a 12.76 GB Galaxy chip the ceiling is cumulative "
+                "residency. So a chunked-attention fix would buy Blackhole a lot and Wormhole "
+                "comparatively little. This model reserves no trace region, so its number is "
+                "unaffected by the 3 GiB reservation that moved esmc-300m's",
+        ),
         "blackhole": Ceiling(
             residues=126976, pass_at=126976, fail_at=131072, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
@@ -777,7 +883,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "saprot-650m": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=65537, pass_at=65537, fail_at=73728, binds=MEMORY,
+            mechanism=DRAM, counts=MAX_SEQUENCE,
+            evidence="its own Wormhole ladder, walked 2026-09-11 on j10glx02 Galaxy chip 5 (rungs to 57344) and chip 7 (65537, 73728) by ws:wh-seqlen-design-embed, same harness as the Blackhole row below (perf/bhdesign/ladder.py, one rung per subprocess through the shipped CLI, verdict off the .npz). 32768 (65.1 s), 40960 (100.1 s), 49153 (145.2 s), 57344 (210.3 s) and 65537 (210.3 s) embed to [L, 1280], finite, nonzero_frac 0.9999; 73728 throws in 47.3 s. 49153 and 65537 are NOT multiples of 32 and their npz files carry exactly that many rows, so the token axis's pad tail is masked at lengths that exercise it. THE WALL IS NOT THE SINGLE padded_L^2 x 2 BUFFER THE BLACKHOLE ROW BLAMES: that buffer lands, and what fails is a LATER request with the chip already full. On a p150a, with 2.65x the memory (8 banks x 4278190016 B against 12 x 1073741792 B), the L^2 buffer IS the wall and everything after it fits; on a Galaxy chip the ceiling is cumulative residency. A chunked-attention fix therefore buys Blackhole a lot and Wormhole comparatively little. The failing line: 566476800 B wanted, 'each bank needs to store 47206400 B, but bank size is 1073741792 B (allocated: 1052934272 B, free: 20807520 B, largest free block: 20807520 B)' -- free and largest-free-block are EQUAL, so there is nothing to coalesce and this is residency rather than fragmentation. Reserves no trace region, so unaffected by the 3 GiB reservation that moved esmc-300m",
+        ),
         "blackhole": Ceiling(
             residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
@@ -804,7 +914,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "saprot-1.3b": {
-        "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
+        "wormhole_b0": Ceiling(
+            residues=57344, pass_at=57344, fail_at=65537, binds=MEMORY,
+            mechanism=DRAM, counts=MAX_SEQUENCE,
+            evidence="its own Wormhole ladder, walked 2026-09-11 on j10glx02 Galaxy chips 7 and 9 by ws:wh-seqlen-design-embed. 24576 (90.1 s), 32768 (115.1 s), 40961 (160.2 s), 49152 (210.2 s) and 57344 (230.3 s) embed to [L, 1280], finite, nonzero_frac 0.9999; 65537 throws in 52.5 s on 671416320 B, 'each bank needs to store 55951360 B, but bank size is 1073741792 B (allocated: 1026390144 B, free: 47351648 B, largest free block: 33363808 B)'. 40961 is not a multiple of 32 and comes back with exactly 40961 rows. THE WALL IS NOT THE SINGLE padded_L^2 x 2 BUFFER THE BLACKHOLE ROW BLAMES: that buffer lands, and what fails is a LATER request with the chip already full. On a p150a, with 2.65x the memory (8 banks x 4278190016 B against 12 x 1073741792 B), the L^2 buffer IS the wall and everything after it fits; on a Galaxy chip the ceiling is cumulative residency. A chunked-attention fix therefore buys Blackhole a lot and Wormhole comparatively little. The lowest Wormhole cap of the five, and the largest weights of the five, which is the same ordering the Blackhole ladder found and the reason the caps differ although the shape does not. Its Blackhole row notes it was one of the four models scripts/capacity_gate.EXEMPT skipped; on Wormhole it is measured now too",
+        ),
         "blackhole": Ceiling(
             residues=114688, pass_at=114688, fail_at=126976, binds=MEMORY, mechanism=DRAM,
             counts=MAX_SEQUENCE,
@@ -874,16 +988,22 @@ def current_arch() -> str | None:
         return None
 
 
-def ceiling(model: str, arch: str | None = None) -> Ceiling:
+def ceiling(model: str, arch: str | None = None, *, fast: bool = False) -> Ceiling:
     """The ceiling for `model` on `arch`. Unknown model or unknown arch -> UNMEASURED, never a cap.
 
     Defaulting an unknown pair to "no limit" rather than to some other model's number is deliberate:
     every way of guessing is a way of refusing a fold the engine can do.
+
+    `fast` selects the block-fp8 arm where the row carries one. A row without a `fast` sibling
+    answers the same for both, so passing the flag can only ever raise the cap and never lower it
+    -- which is what makes threading it through safe for every model that has not been walked in
+    both dtypes.
     """
     arch = arch if arch is not None else current_arch()
     if arch is None:
         return _NO_ROW
-    return CEILINGS.get(model, {}).get(arch, _NO_ROW)
+    c = CEILINGS.get(model, {}).get(arch, _NO_ROW)
+    return c.fast if (fast and c.fast is not None) else c
 
 
 def padded_tokens(model: str, tokens: int) -> int:
@@ -918,7 +1038,8 @@ def _verdict(model: str, c: Ceiling, residues: int, ligand_atoms: int):
 
 
 def models_accepting(residues: int, arch: str | None = None, exclude: str | None = None,
-                     ligand_atoms: int = 0, counts: str = RESIDUES) -> list[str]:
+                     ligand_atoms: int = 0, counts: str = RESIDUES, *,
+                     fast: bool = False) -> list[str]:
     """Models with a MEASURED ceiling that admits this input, so a refusal can point somewhere
     instead of only saying no.
 
@@ -950,7 +1071,7 @@ def models_accepting(residues: int, arch: str | None = None, exclude: str | None
 
 
 def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None = None,
-          where: str = "This input") -> None:
+          fast: bool = False, where: str = "This input") -> None:
     """Refuse an input of `residues` plus `ligand_atoms` ligand heavy atoms on `model`, if a
     MEASURED ceiling says it will not fold. Otherwise silent.
 
@@ -962,7 +1083,7 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
     been told something true and useless.
     """
     arch = arch if arch is not None else current_arch()
-    c = ceiling(model, arch)
+    c = ceiling(model, arch, fast=fast)
     refused, tokens, padded, wall = _verdict(model, c, residues, ligand_atoms)
     if not refused:
         return
@@ -986,7 +1107,7 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
             f"fail on the device.", stacklevel=2)
         return
     alts = models_accepting(residues, arch, exclude=model, ligand_atoms=ligand_atoms,
-                            counts=c.counts)
+                            counts=c.counts, fast=fast)
     # "no model accepts this size" is only true where every model HAS a row. On an arch that is
     # mostly unmeasured -- blackhole, where two freeze rows exist and the other nine models were
     # measured folding 1536 by the 2026-09-10 ladder without earning a row -- the same sentence
@@ -1548,7 +1669,7 @@ def sizer_for(model: str):
     return _SIZERS.get(model, _DEFAULT_SIZER)
 
 
-def check_input(data, model: str, *, arch: str | None = None) -> None:
+def check_input(data, model: str, *, arch: str | None = None, fast: bool = False) -> None:
     """Refuse every oversized input in `data`: one file, a directory of them, or a bare sequence.
 
     THE call site for the CLI, and it runs before a device is opened -- which is the entire point.
@@ -1572,7 +1693,7 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
     arch = arch if arch is not None else current_arch()
     # The ligand is only counted where the ceiling's wall is measured on tokens. Anywhere else it
     # would load the CCD library and RDKit to produce a number nothing compares against.
-    tokenwise = ceiling(model, arch).token_bound
+    tokenwise = ceiling(model, arch, fast=fast).token_bound
     text = str(data).strip()
     p = Path(text).expanduser()
     try:
@@ -1581,7 +1702,7 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
         exists = False
     if not exists:
         if _BARE_SEQUENCE.match(text):
-            check(model, len(text), arch=arch, where="The input sequence")
+            check(model, len(text), arch=arch, fast=fast, where="The input sequence")
         return
     files = sorted(q for q in (p.glob("*") if p.is_dir() else [p])
                    if q.suffix.lower() in suffixes)
@@ -1594,7 +1715,7 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
             continue
         if n:
             check(model, n, ligand_atoms=scan_ligand_atoms(q) if tokenwise else 0,
-                  arch=arch, where=f"'{q.name}'")
+                  arch=arch, fast=fast, where=f"'{q.name}'")
 
 
 def shipped_models() -> set:
