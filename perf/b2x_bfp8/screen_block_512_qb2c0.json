@@ -1,0 +1,632 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "seq": 512,
+  "reps": 5,
+  "utc": "2026-09-11T15:47:31Z",
+  "tt_bio": "/home/ttuser/.coworker/wt/b2x-bfp8-pair-track/tt_bio/__init__.py",
+  "byte_counter": "perf/b2x_difflayer/real_traffic.py (buffer-address dedupe)",
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 3.94,
+ "pairformer_path": "pairformer_module",
+ "gate_targets": [
+  "reblock_permute.eligible",
+  "reblock_permute.eligible_back",
+  "reblock_permute.eligible_gated",
+  "softmax_generic.eligible",
+  "tenstorrent._pair_proj_minimal_matmul",
+  "trimul_tail.eligible"
+ ],
+ "arms": [
+  {
+   "arm": "b16",
+   "pair_b8": false,
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.04118,
+    0.0418,
+    0.04248,
+    0.04141,
+    0.0426
+   ],
+   "block_median_s": 0.0418,
+   "sub_median_s": {
+    "trimul_start": 0.01026,
+    "trimul_end": 0.01045,
+    "triatt_start": 0.00444,
+    "triatt_end": 0.00585,
+    "transition_z": 0.00796
+   },
+   "sub_sum_s": 0.03896,
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2114.683,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2114.683,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1115.906,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1115.906,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 6650.716,
+    "real_read_MB": 3396.329,
+    "real_write_MB": 3254.387,
+    "roundtrip_floor_MB": 6583.607,
+    "n_top_level_ops": 4,
+    "n_typecast": 0,
+    "top_ops_MB": [
+     [
+      6231.269,
+      "ttnn.generic_op"
+     ],
+     [
+      268.435,
+      "ttnn.allocate_tensor_on_device"
+     ],
+     [
+      134.234,
+      "ttnn.layer_norm"
+     ],
+     [
+      16.777,
+      "ttnn.unsqueeze"
+     ]
+    ],
+    "ops": {
+     "ttnn.layer_norm": 1,
+     "ttnn.unsqueeze": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 159.1,
+   "gates": {
+    "reblock_permute.eligible": {
+     "served": 48,
+     "declined": 0,
+     "reasons": {}
+    },
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0,
+     "reasons": {}
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24,
+     "reasons": {
+      "k_tiles=4": 24
+     }
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 24,
+     "reasons": {
+      "dtype_or_shape": 24
+     }
+    }
+   },
+   "order": 0
+  },
+  {
+   "arm": "b8",
+   "pair_b8": true,
+   "z_store": "DataType.BFLOAT8_B",
+   "block_s": [
+    0.04698,
+    0.04683,
+    0.04733,
+    0.04672,
+    0.04764
+   ],
+   "block_median_s": 0.04698,
+   "sub_median_s": {
+    "trimul_start": 0.01226,
+    "trimul_end": 0.01224,
+    "triatt_start": 0.00561,
+    "triatt_end": 0.00752,
+    "transition_z": 0.00696
+   },
+   "sub_sum_s": 0.04459,
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2559.279,
+     "n_typecast": 1
+    },
+    "trimul_end": {
+     "real_MB": 2559.279,
+     "n_typecast": 1
+    },
+    "triatt_start": {
+     "real_MB": 1428.382,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1562.599,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 254.034,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 7904.289,
+    "real_read_MB": 3965.444,
+    "real_write_MB": 3938.845,
+    "roundtrip_floor_MB": 7530.996,
+    "n_top_level_ops": 14,
+    "n_typecast": 1,
+    "top_ops_MB": [
+     [
+      6792.651,
+      "ttnn.generic_op"
+     ],
+     [
+      285.213,
+      "ttnn.chunk"
+     ],
+     [
+      178.389,
+      "ttnn.experimental.minimal_matmul"
+     ],
+     [
+      142.606,
+      "ttnn.multiply_"
+     ],
+     [
+      142.606,
+      "ttnn.multiply_"
+     ],
+     [
+      104.858,
+      "ttnn.multiply_"
+     ],
+     [
+      102.76,
+      "ttnn.typecast"
+     ],
+     [
+      71.32,
+      "ttnn.layer_norm"
+     ],
+     [
+      67.109,
+      "ttnn.allocate_tensor_on_device"
+     ],
+     [
+      16.777,
+      "ttnn.unsqueeze"
+     ]
+    ],
+    "ops": {
+     "ttnn.deallocate": 4,
+     "ttnn.multiply_": 3,
+     "ttnn.layer_norm": 1,
+     "ttnn.unsqueeze": 1,
+     "ttnn.experimental.minimal_matmul": 1,
+     "ttnn.chunk": 1,
+     "ttnn.typecast": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 168.2,
+   "gates": {
+    "reblock_permute.eligible": {
+     "served": 48,
+     "declined": 0,
+     "reasons": {}
+    },
+    "reblock_permute.eligible_back": {
+     "served": 0,
+     "declined": 24,
+     "reasons": {
+      "dtype_or_shape": 24
+     }
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24,
+     "reasons": {
+      "k_tiles=4": 24
+     }
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72,
+     "reasons": {
+      "dtype_or_shape": 72
+     }
+    }
+   },
+   "order": 1
+  },
+  {
+   "arm": "b16",
+   "pair_b8": false,
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.04151,
+    0.04148,
+    0.04128,
+    0.04152,
+    0.04145
+   ],
+   "block_median_s": 0.04148,
+   "sub_median_s": {
+    "trimul_start": 0.01007,
+    "trimul_end": 0.01051,
+    "triatt_start": 0.0044,
+    "triatt_end": 0.00581,
+    "transition_z": 0.00802
+   },
+   "sub_sum_s": 0.03881,
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2114.683,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2114.683,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1115.906,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1115.906,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 6650.716,
+    "real_read_MB": 3396.329,
+    "real_write_MB": 3254.387,
+    "roundtrip_floor_MB": 6583.607,
+    "n_top_level_ops": 4,
+    "n_typecast": 0,
+    "top_ops_MB": [
+     [
+      6231.269,
+      "ttnn.generic_op"
+     ],
+     [
+      268.435,
+      "ttnn.allocate_tensor_on_device"
+     ],
+     [
+      134.234,
+      "ttnn.layer_norm"
+     ],
+     [
+      16.777,
+      "ttnn.unsqueeze"
+     ]
+    ],
+    "ops": {
+     "ttnn.layer_norm": 1,
+     "ttnn.unsqueeze": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 160.3,
+   "gates": {
+    "reblock_permute.eligible": {
+     "served": 48,
+     "declined": 0,
+     "reasons": {}
+    },
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0,
+     "reasons": {}
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24,
+     "reasons": {
+      "k_tiles=4": 24
+     }
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 24,
+     "reasons": {
+      "dtype_or_shape": 24
+     }
+    }
+   },
+   "order": 2
+  },
+  {
+   "arm": "b8",
+   "pair_b8": true,
+   "z_store": "DataType.BFLOAT8_B",
+   "block_s": [
+    0.04717,
+    0.04669,
+    0.04669,
+    0.0466,
+    0.04668
+   ],
+   "block_median_s": 0.04669,
+   "sub_median_s": {
+    "trimul_start": 0.01207,
+    "trimul_end": 0.01208,
+    "triatt_start": 0.00565,
+    "triatt_end": 0.00749,
+    "transition_z": 0.00685
+   },
+   "sub_sum_s": 0.04414,
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2559.279,
+     "n_typecast": 1
+    },
+    "trimul_end": {
+     "real_MB": 2559.279,
+     "n_typecast": 1
+    },
+    "triatt_start": {
+     "real_MB": 1428.382,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1562.599,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 254.034,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 7904.289,
+    "real_read_MB": 3965.444,
+    "real_write_MB": 3938.845,
+    "roundtrip_floor_MB": 7530.996,
+    "n_top_level_ops": 14,
+    "n_typecast": 1,
+    "top_ops_MB": [
+     [
+      6792.651,
+      "ttnn.generic_op"
+     ],
+     [
+      285.213,
+      "ttnn.chunk"
+     ],
+     [
+      178.389,
+      "ttnn.experimental.minimal_matmul"
+     ],
+     [
+      142.606,
+      "ttnn.multiply_"
+     ],
+     [
+      142.606,
+      "ttnn.multiply_"
+     ],
+     [
+      104.858,
+      "ttnn.multiply_"
+     ],
+     [
+      102.76,
+      "ttnn.typecast"
+     ],
+     [
+      71.32,
+      "ttnn.layer_norm"
+     ],
+     [
+      67.109,
+      "ttnn.allocate_tensor_on_device"
+     ],
+     [
+      16.777,
+      "ttnn.unsqueeze"
+     ]
+    ],
+    "ops": {
+     "ttnn.deallocate": 4,
+     "ttnn.multiply_": 3,
+     "ttnn.layer_norm": 1,
+     "ttnn.unsqueeze": 1,
+     "ttnn.experimental.minimal_matmul": 1,
+     "ttnn.chunk": 1,
+     "ttnn.typecast": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 169.3,
+   "gates": {
+    "reblock_permute.eligible": {
+     "served": 48,
+     "declined": 0,
+     "reasons": {}
+    },
+    "reblock_permute.eligible_back": {
+     "served": 0,
+     "declined": 24,
+     "reasons": {
+      "dtype_or_shape": 24
+     }
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24,
+     "reasons": {
+      "k_tiles=4": 24
+     }
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72,
+     "reasons": {
+      "dtype_or_shape": 72
+     }
+    }
+   },
+   "order": 3
+  }
+ ],
+ "summary": {
+  "aa_floor_rel": 0.00768,
+  "block_ms_b16": 41.64,
+  "block_ms_b8": 46.835,
+  "MB_b16": 6650.7,
+  "MB_b8": 7904.3,
+  "byte_cut": -0.1885,
+  "time_cut": -0.1248,
+  "time_per_byte_realization": 0.6619,
+  "GBps_b16": 159.7,
+  "GBps_b8": 168.8,
+  "typecast_b16": 0,
+  "typecast_b8": 1,
+  "speedup": 0.8891,
+  "falsifier_b_fired": false
+ },
+ "per_sub": {
+  "trimul_start": {
+   "ms_b16": 10.165,
+   "ms_b8": 12.165,
+   "MB_b16": 2114.7,
+   "MB_b8": 2559.3,
+   "byte_cut": -0.2102,
+   "time_cut": -0.1968,
+   "realization": 0.936,
+   "GBps_b16": 208.0,
+   "GBps_b8": 210.4
+  },
+  "trimul_end": {
+   "ms_b16": 10.48,
+   "ms_b8": 12.16,
+   "MB_b16": 2114.7,
+   "MB_b8": 2559.3,
+   "byte_cut": -0.2102,
+   "time_cut": -0.1603,
+   "realization": 0.762,
+   "GBps_b16": 201.8,
+   "GBps_b8": 210.5
+  },
+  "triatt_start": {
+   "ms_b16": 4.42,
+   "ms_b8": 5.63,
+   "MB_b16": 1115.9,
+   "MB_b8": 1428.4,
+   "byte_cut": -0.28,
+   "time_cut": -0.2738,
+   "realization": 0.978,
+   "GBps_b16": 252.5,
+   "GBps_b8": 253.7
+  },
+  "triatt_end": {
+   "ms_b16": 5.83,
+   "ms_b8": 7.505,
+   "MB_b16": 1115.9,
+   "MB_b8": 1562.6,
+   "byte_cut": -0.4003,
+   "time_cut": -0.2873,
+   "realization": 0.718,
+   "GBps_b16": 191.4,
+   "GBps_b8": 208.2
+  },
+  "transition_z": {
+   "ms_b16": 7.99,
+   "ms_b8": 6.905,
+   "MB_b16": 474.2,
+   "MB_b8": 254.0,
+   "byte_cut": 0.4643,
+   "time_cut": 0.1358,
+   "realization": 0.292,
+   "GBps_b16": 59.4,
+   "GBps_b8": 36.8
+  }
+ },
+ "gates": {
+  "b16": {
+   "reblock_permute.eligible": {
+    "served": 48,
+    "declined": 0,
+    "reasons": {}
+   },
+   "reblock_permute.eligible_back": {
+    "served": 24,
+    "declined": 0,
+    "reasons": {}
+   },
+   "trimul_tail.eligible": {
+    "served": 0,
+    "declined": 24,
+    "reasons": {
+     "k_tiles=4": 24
+    }
+   },
+   "tenstorrent._pair_proj_minimal_matmul": {
+    "served": 0,
+    "declined": 24,
+    "reasons": {
+     "dtype_or_shape": 24
+    }
+   }
+  },
+  "b8": {
+   "reblock_permute.eligible": {
+    "served": 48,
+    "declined": 0,
+    "reasons": {}
+   },
+   "reblock_permute.eligible_back": {
+    "served": 0,
+    "declined": 24,
+    "reasons": {
+     "dtype_or_shape": 24
+    }
+   },
+   "trimul_tail.eligible": {
+    "served": 0,
+    "declined": 24,
+    "reasons": {
+     "k_tiles=4": 24
+    }
+   },
+   "tenstorrent._pair_proj_minimal_matmul": {
+    "served": 0,
+    "declined": 72,
+    "reasons": {
+     "dtype_or_shape": 72
+    }
+   }
+  }
+ }
+}
