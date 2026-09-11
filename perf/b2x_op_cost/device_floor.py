@@ -168,6 +168,8 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--phases", default="queue,grab,block,floor")
+    ap.add_argument("--grab", default="PairformerLayer,MSALayer,Diffusion",
+                    help="classes to grab one settled call of and trace-replay")
     a = ap.parse_args()
     OUT_PATH = a.out
     phases = [p for p in a.phases.split(",") if p]
@@ -205,6 +207,12 @@ def main() -> int:
     counts: dict[str, int] = {}
     originals = []
 
+    def _vol(sh):
+        v = 1
+        for d in sh:
+            v *= int(d)
+        return v
+
     def clone(x):
         return ttnn.clone(x) if isinstance(x, ttnn.Tensor) else x
 
@@ -215,7 +223,7 @@ def main() -> int:
 
         def w(self_obj, *args, **kw):
             counts[cname] = counts.get(cname, 0) + 1
-            if cname not in grabs and counts[cname] >= 3 and want(self_obj):
+            if cname not in grabs and counts[cname] >= 3 and want(self_obj, args):
                 grabs[cname] = {"obj": self_obj,
                                 "args": tuple(clone(x) for x in args),
                                 "kwargs": {k: clone(v) for k, v in kw.items()}}
@@ -227,10 +235,18 @@ def main() -> int:
     t, m = one_fold()
     OUT["cold_s"] = round(t, 3)
     dump()
+    targets = [c for c in a.grab.split(",") if c]
     if "grab" in phases:
-        arm("PairformerLayer", lambda o: getattr(o, "transform_s", False))
-        arm("MSALayer", lambda o: True)
-        arm("Diffusion", lambda o: True)
+        for cname in targets:
+            if cname == "PairformerLayer":
+                arm(cname, lambda o, ar: getattr(o, "transform_s", False))
+            elif cname == "Transition":
+                # the pair-track transition, not the single-track or diffusion one: pick it by
+                # the volume of its first tensor argument (z is 512x512x128 at 512 aa)
+                arm(cname, lambda o, ar: bool(ar) and hasattr(ar[0], "shape")
+                    and _vol(ar[0].shape) > 4_000_000)
+            else:
+                arm(cname, lambda o, ar: True)
     print("=== fold 2 (grabbing) ===", flush=True)
     t, m = one_fold()
     for cls, orig in originals:
@@ -265,7 +281,7 @@ def main() -> int:
     if "floor" in phases:
         print("=== device floor per phase by trace replay ===", flush=True)
         OUT["floor"] = {}
-        for cname in ("PairformerLayer", "MSALayer", "Diffusion"):
+        for cname in targets:
             if cname not in grabs:
                 OUT["floor"][cname] = {"error": "not grabbed"}
                 continue

@@ -14,7 +14,7 @@ run under benchlock on an idle box (loadavg 0.00-0.18 at acquisition). No model 
 | is `bioir-dispatch-graph` wrong? | No. Its 1.112x ceiling was right and it generalises: 1.05x. Its 32.526 ms/step device figure reproduces here at **32.518 ms**, on a different card class and a different ttnn. |
 | so where is the fold? | 12.527 s trunk device, 6.504 s sampler device, 0.331 s confidence device, 3.212 s serial host. |
 | is op count the device-side lever? | **No.** The per-op device fixed cost is **6.36 us**, and 428 of them is 2.7 ms of a 41.4 ms pairformer block. |
-| what is left, then? | The block costs **41.415 ms** against a cost model of **17.7 ms** from its bytes at the measured roof plus its op count at the measured fixed cost. **23.7 ms/block, 6.3 s of the fold, is neither.** That is the campaign's remaining quantity. |
+| what is left, then? | The block costs **41.415 ms** against a cost model of **17.7 ms** from its bytes at the measured roof plus its op count at the measured fixed cost. **23.7 ms/block, 6.3 s of the fold, is neither.** Per sub-unit the shortfall is 1.6-1.9x on the three byte-heavy ones and **3.21x** on the pair-track transition. That is the campaign's remaining quantity. |
 
 ## 1. Per-phase host CPU and per-phase device floor
 
@@ -170,22 +170,38 @@ buffer-address count from `b2x-diffusion-layer-bytes`), measured device time 41.
     measured                                              = 41.42 ms
     residual                                              = 23.75 ms, 57 %
 
-The model explains **42.7 %** of the block. Per sub-unit, using `b2x-baseline-attrib`'s synced A1
-table (valid as device time here, since the block is 99.9 % device):
+The model explains **42.7 %** of the block. The same instrument on each sub-unit, capturing and
+replaying one settled call of the shipped `TriangleMultiplication`, `TriangleAttention`,
+`Transition` (the pair-track one, selected by its input volume) and `AttentionPairBias`
+(`subunit_floor_512_qb2c0.json`), against the corrected per-sub-unit byte counts from
+`b2x-baseline-attrib`'s A1 table:
 
-| sub-unit | per block | ms/block | MB/block | ops/block | model ms | measured / model |
-|---|---|---|---|---|---|---|
-| TriangleMultiplication | 2 | 20.392 | 4229.4 | 62 | 9.90 | **2.06x** |
-| TriangleAttention | 2 | 11.540 | 2231.8 | 54 | 5.36 | **2.15x** |
-| Transition, pair track | 1 | 7.993 | 474.2 | 258 | 2.71 | **2.95x** |
-| AttentionPairBias | 1 | 1.064 | 151.4 | 32 | 0.54 | **1.96x** |
+| sub-unit | calls/block | device ms/call | device ms/block | MB/block | ops/block | model ms | measured / model |
+|---|---|---|---|---|---|---|---|
+| TriangleMultiplication | 2 | 9.3975 | 18.795 | 4229.4 | 62 | 9.89 | **1.90x** |
+| TriangleAttention | 2 | 4.3910 | 8.782 | 2231.8 | 54 | 5.35 | **1.64x** |
+| Transition, pair track | 1 | 8.7050 | 8.705 | 474.2 | 258 | 2.71 | **3.21x** |
+| AttentionPairBias | 1 | 1.0160 | 1.016 | 151.4 | 32 | 0.54 | **1.88x** |
+| everything else in the block | | | 4.117 | | | | |
+| **block** | | | **41.415** | 6651 | 428 | **17.67** | **2.34x** |
 
-The deficit is **uniform**, 2-3x everywhere, not localised in one sub-unit. That rules out both
-of the explanations this task was opened to choose between: it is not op size (a 1.8 MB op gets
-85 % of roof on the curve, and the pair transition's 1.8 MB ops get 13 %), and it is not per-op
-fixed cost (6.6 % of the block). It also rules out dependent-op serialisation as the whole story,
-because a serialisation penalty would fall hardest on the sub-unit with the most, smallest ops
-and the ratios are flat.
+The four sub-units plus 4.117 ms of block-level layer norms, adds and the single-track transition
+sum to the independently measured 41.4152 ms, so the decomposition closes on one instrument and
+one card.
+
+Read it two ways. The three byte-heavy sub-units sit at **1.6-1.9x** their model, tightly
+clustered, which is a per-op efficiency factor and not an op-count or op-size effect. The
+pair-track transition sits at **3.21x** and is the outlier, carrying 21 % of the block's time for
+7 % of its bytes. `b2x-baseline-attrib` pointed at that sub-unit and it was right to; the
+mechanism is different, because its 258 ops at the measured 6.36 us floor are **1.64 ms of its
+8.705 ms, 19 %**. Halving its op count is worth at most 0.8 ms/block, 0.22 s/fold. The other
+6.0 ms/block is neither its bytes, nor its op count, nor its host.
+
+One caution on that JSON: `Transition` and `AttentionPairBias` each serve several shapes in this
+model (single track, MSA, diffusion), so the per-fold products the script prints for those two
+rows, 960 and 6264 calls, are meaningless. Only the per-call figure is, and only at the shape it
+was captured on. `TriangleMultiplication` and `TriangleAttention` are 2 per pairformer block and
+560 per fold exactly, so those products hold.
 
 Two candidates survive, and they are distinguishable:
 
@@ -231,6 +247,8 @@ is. One card, one device open, no fold needed.
 * `device_floor.py` -> `device_floor_512_qb2c0.json`. The queue control, the block two ways, the
   three per-phase device floors.
 * `op_cost_curve.py` -> `op_cost_curve_512_qb2c0.json`. The size curve, the fits, the block model.
+* `device_floor.py --phases grab,floor --grab TriangleMultiplication,TriangleAttention,Transition,AttentionPairBias`
+  -> `subunit_floor_512_qb2c0.json`. The per-sub-unit device floors of section 4.
 * `phase_table.py <json> [out.md]` regenerates `TABLES.md`.
 
 Each is `TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:b2x-op-cost-curve
