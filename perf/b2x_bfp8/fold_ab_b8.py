@@ -15,12 +15,13 @@ from __future__ import annotations
 import argparse, hashlib, json, os, socket, statistics as st, sys, tempfile, time
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import prodcfg                                                              # noqa: E402
+from prodcfg import FIX, REPO, RECYCLES, SAMPLES, SEED, STEPS               # noqa: E402
+from prodcfg import assert_checkout                                         # noqa: E402
+
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "perf" / "other512"))
-FIX = REPO / "perf" / "size512" / "fixtures"
-
-RECYCLES, STEPS, SAMPLES, SEED = 3, 200, 1, 0
 
 #: arm -> (pair track in bfloat8_b, trunk matmul fidelity)
 ARMS = {
@@ -40,29 +41,6 @@ def dump():
         OUT_PATH.write_text(json.dumps(OUT, indent=1))
 
 
-def assert_checkout():
-    """Fail loudly if this ran the SHARED checkout instead of this worktree.
-
-    The venv installs `tt_bio` from /home/ttuser/tt-bio-dev, so an import that does not resolve
-    to REPO scores a branch that is not this one (memory
-    `parity-gate-scores-installed-package-not-checkout`).
-    """
-    import tt_bio
-    got = Path(tt_bio.__file__).resolve()
-    assert str(got).startswith(str(REPO) + "/"), f"imported {got}, not the worktree at {REPO}"
-    return str(got)
-
-
-def seed_msa(target: Path, a3m_text: str, msa_dir: Path) -> None:
-    from tt_bio.main import _read_bio_chains
-    chains = _read_bio_chains(target)
-    assert len(chains) == 1, f"{target} is not a monomer: {len(chains)} chains"
-    seq = chains[0][1]
-    assert a3m_text.split("\n")[1] == seq, "a3m query row does not match the target sequence"
-    msa_dir.mkdir(parents=True, exist_ok=True)
-    (msa_dir / f"{hashlib.sha256(seq.encode()).hexdigest()[:16]}.a3m").write_text(a3m_text)
-
-
 def main() -> int:
     global OUT_PATH
     ap = argparse.ArgumentParser()
@@ -79,7 +57,7 @@ def main() -> int:
     torch.set_grad_enabled(False)
     import ttnn
     from tt_bio import tenstorrent as T
-    from tt_bio.worker import _WorkerState, _ensure_local_artifacts
+    from tt_bio.worker import _WorkerState
     from tt_bio import esmfold2 as _E
     from cif_rmsd import read_atoms, kabsch_rmsd
     import numpy as np
@@ -107,44 +85,13 @@ def main() -> int:
     work = Path(tempfile.mkdtemp(prefix="b2x-bfp8-"))
     msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
     for n in ("cdk2x2_512", "cdk2x2_298"):
-        seed_msa(FIX / f"{n}.yaml", (FIX / f"{n}.a3m").read_text(), msa_dir)
+        prodcfg.seed_msa(FIX / f"{n}.yaml", (FIX / f"{n}.a3m").read_text(), msa_dir)
 
     def make_cfg(struct_dir: Path) -> dict:
-        return dict(
-            model="boltz2", fast=False, output_format="cif",
-            recycling_steps=RECYCLES, sampling_steps=args.steps,
-            diffusion_samples=SAMPLES, seed=SEED, trace=False,
-            msa_dir=str(msa_dir), struct_dir=str(struct_dir),
-            use_msa_server=False, msa_db_path=None, use_envdb=False, msa_endpoint=None,
-            single_sequence=False, msa_server_url="https://api.colabfold.com",
-            msa_pairing_strategy="greedy", msa_server_username=None,
-            msa_server_password=None, api_key_value=None, max_msa_seqs=8192,
-            write_pae=False, write_pde=False, write_embeddings=False, method=None,
-            conf_kwargs=dict(
-                predict_args={"recycling_steps": RECYCLES, "sampling_steps": args.steps,
-                              "diffusion_samples": SAMPLES, "max_parallel_samples": 5},
-                diffusion_process_args={
-                    "step_scale": 1.5, "gamma_0": 0.8, "gamma_min": 1.0,
-                    "noise_scale": 1.003, "rho": 7, "sigma_min": 0.0001,
-                    "sigma_max": 160.0, "sigma_data": 16.0, "P_mean": -1.2,
-                    "P_std": 1.5, "coordinate_augmentation": True,
-                    "alignment_reverse_diff": True, "synchronize_sigmas": True},
-                pairformer_args={"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True},
-                msa_args={"subsample_msa": False, "num_subsampled_msa": 1024,
-                          "use_paired_feature": True, "msa_s": 64, "msa_blocks": 4,
-                          "msa_dropout": 0.15, "z_dropout": 0.25,
-                          "pairwise_head_width": 32, "pairwise_num_heads": 4,
-                          "activation_checkpointing": True},
-                steering_args={"fk_steering": False, "physical_guidance_update": False,
-                               "contact_guidance_update": True, "num_particles": 3,
-                               "fk_lambda": 4.0, "fk_resampling_interval": 3,
-                               "num_gd_steps": 20},
-                use_kernels=True, use_tenstorrent=True, trace=False, diffusion_trace=True),
-        )
+        return prodcfg.build_cfg(msa_dir, struct_dir, steps=args.steps)
 
     struct_dir = work / "out"; struct_dir.mkdir(parents=True)
     cfg = make_cfg(struct_dir)
-    _ensure_local_artifacts(cfg)
     t0 = time.perf_counter()
     state = _WorkerState("tenstorrent")
     state.load_model(cfg)

@@ -1,0 +1,315 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "1",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "seq": 512,
+  "reps": 5,
+  "utc": "2026-09-11T15:43:03Z",
+  "tt_bio": "/home/ttuser/.coworker/wt/b2x-bfp8-pair-track/tt_bio/__init__.py",
+  "byte_counter": "perf/b2x_difflayer/real_traffic.py (buffer-address dedupe)",
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 5.09,
+ "pairformer_path": "pairformer_module",
+ "arms": [
+  {
+   "arm": "b16",
+   "pair_b8": false,
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.04155,
+    0.04199,
+    0.04136,
+    0.04162,
+    0.04162
+   ],
+   "block_median_s": 0.04162,
+   "sub_median_s": {
+    "trimul_start": 0.01011,
+    "trimul_end": 0.01016,
+    "triatt_start": 0.00441,
+    "triatt_end": 0.00582,
+    "transition_z": 0.00812
+   },
+   "sub_sum_s": 0.03862,
+   "graph": {
+    "real_MB": 6650.716,
+    "real_read_MB": 3396.329,
+    "real_write_MB": 3254.387,
+    "roundtrip_floor_MB": 6583.607,
+    "n_top_level_ops": 4,
+    "n_typecast": 0,
+    "top_ops_MB": [
+     [
+      6231.269,
+      "ttnn.generic_op"
+     ],
+     [
+      268.435,
+      "ttnn.allocate_tensor_on_device"
+     ],
+     [
+      134.234,
+      "ttnn.layer_norm"
+     ],
+     [
+      16.777,
+      "ttnn.unsqueeze"
+     ]
+    ],
+    "ops": {
+     "ttnn.layer_norm": 1,
+     "ttnn.unsqueeze": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 159.8,
+   "order": 0
+  },
+  {
+   "arm": "b8",
+   "pair_b8": true,
+   "z_store": "DataType.BFLOAT8_B",
+   "block_s": [
+    0.04667,
+    0.04658,
+    0.04665,
+    0.04671,
+    0.04666
+   ],
+   "block_median_s": 0.04666,
+   "sub_median_s": {
+    "trimul_start": 0.01206,
+    "trimul_end": 0.01202,
+    "triatt_start": 0.00565,
+    "triatt_end": 0.00753,
+    "transition_z": 0.00695
+   },
+   "sub_sum_s": 0.04421,
+   "graph": {
+    "real_MB": 7904.289,
+    "real_read_MB": 3965.444,
+    "real_write_MB": 3938.845,
+    "roundtrip_floor_MB": 7530.996,
+    "n_top_level_ops": 14,
+    "n_typecast": 1,
+    "top_ops_MB": [
+     [
+      6792.651,
+      "ttnn.generic_op"
+     ],
+     [
+      285.213,
+      "ttnn.chunk"
+     ],
+     [
+      178.389,
+      "ttnn.experimental.minimal_matmul"
+     ],
+     [
+      142.606,
+      "ttnn.multiply_"
+     ],
+     [
+      142.606,
+      "ttnn.multiply_"
+     ],
+     [
+      104.858,
+      "ttnn.multiply_"
+     ],
+     [
+      102.76,
+      "ttnn.typecast"
+     ],
+     [
+      71.32,
+      "ttnn.layer_norm"
+     ],
+     [
+      67.109,
+      "ttnn.allocate_tensor_on_device"
+     ],
+     [
+      16.777,
+      "ttnn.unsqueeze"
+     ]
+    ],
+    "ops": {
+     "ttnn.deallocate": 4,
+     "ttnn.multiply_": 3,
+     "ttnn.layer_norm": 1,
+     "ttnn.unsqueeze": 1,
+     "ttnn.experimental.minimal_matmul": 1,
+     "ttnn.chunk": 1,
+     "ttnn.typecast": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 169.4,
+   "order": 1
+  },
+  {
+   "arm": "b16",
+   "pair_b8": false,
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.04148,
+    0.04148,
+    0.04155,
+    0.04157,
+    0.04154
+   ],
+   "block_median_s": 0.04154,
+   "sub_median_s": {
+    "trimul_start": 0.01015,
+    "trimul_end": 0.01015,
+    "triatt_start": 0.00433,
+    "triatt_end": 0.00579,
+    "transition_z": 0.00796
+   },
+   "sub_sum_s": 0.03838,
+   "graph": {
+    "real_MB": 6650.716,
+    "real_read_MB": 3396.329,
+    "real_write_MB": 3254.387,
+    "roundtrip_floor_MB": 6583.607,
+    "n_top_level_ops": 4,
+    "n_typecast": 0,
+    "top_ops_MB": [
+     [
+      6231.269,
+      "ttnn.generic_op"
+     ],
+     [
+      268.435,
+      "ttnn.allocate_tensor_on_device"
+     ],
+     [
+      134.234,
+      "ttnn.layer_norm"
+     ],
+     [
+      16.777,
+      "ttnn.unsqueeze"
+     ]
+    ],
+    "ops": {
+     "ttnn.layer_norm": 1,
+     "ttnn.unsqueeze": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 160.1,
+   "order": 2
+  },
+  {
+   "arm": "b8",
+   "pair_b8": true,
+   "z_store": "DataType.BFLOAT8_B",
+   "block_s": [
+    0.04716,
+    0.04666,
+    0.04663,
+    0.0466,
+    0.04676
+   ],
+   "block_median_s": 0.04666,
+   "sub_median_s": {
+    "trimul_start": 0.01205,
+    "trimul_end": 0.01205,
+    "triatt_start": 0.00561,
+    "triatt_end": 0.00751,
+    "transition_z": 0.00689
+   },
+   "sub_sum_s": 0.04411,
+   "graph": {
+    "real_MB": 7904.289,
+    "real_read_MB": 3965.444,
+    "real_write_MB": 3938.845,
+    "roundtrip_floor_MB": 7530.996,
+    "n_top_level_ops": 14,
+    "n_typecast": 1,
+    "top_ops_MB": [
+     [
+      6792.651,
+      "ttnn.generic_op"
+     ],
+     [
+      285.213,
+      "ttnn.chunk"
+     ],
+     [
+      178.389,
+      "ttnn.experimental.minimal_matmul"
+     ],
+     [
+      142.606,
+      "ttnn.multiply_"
+     ],
+     [
+      142.606,
+      "ttnn.multiply_"
+     ],
+     [
+      104.858,
+      "ttnn.multiply_"
+     ],
+     [
+      102.76,
+      "ttnn.typecast"
+     ],
+     [
+      71.32,
+      "ttnn.layer_norm"
+     ],
+     [
+      67.109,
+      "ttnn.allocate_tensor_on_device"
+     ],
+     [
+      16.777,
+      "ttnn.unsqueeze"
+     ]
+    ],
+    "ops": {
+     "ttnn.deallocate": 4,
+     "ttnn.multiply_": 3,
+     "ttnn.layer_norm": 1,
+     "ttnn.unsqueeze": 1,
+     "ttnn.experimental.minimal_matmul": 1,
+     "ttnn.chunk": 1,
+     "ttnn.typecast": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 169.4,
+   "order": 3
+  }
+ ],
+ "summary": {
+  "aa_floor_rel": 0.00192,
+  "block_ms_b16": 41.58,
+  "block_ms_b8": 46.66,
+  "MB_b16": 6650.7,
+  "MB_b8": 7904.3,
+  "byte_cut": -0.1885,
+  "time_cut": -0.1222,
+  "time_per_byte_realization": 0.6482,
+  "GBps_b16": 159.9,
+  "GBps_b8": 169.4,
+  "typecast_b16": 0,
+  "typecast_b8": 1,
+  "speedup": 0.8911,
+  "falsifier_b_fired": false
+ }
+}
