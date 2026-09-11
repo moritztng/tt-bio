@@ -28,6 +28,17 @@
 set -u
 Q=$1; CHIPS=$2; LOGDIR=$3; OUTROOT=$4; WT=$5
 [ -f "$WT/perf/whceil/ladder.py" ] || { echo "no ladder.py under WORKTREE=$WT"; exit 2; }
+
+# Singleton, enforced by the dispatcher itself rather than by whoever launches it. Three of
+# these were live at once after two restarts, racing for the same queue and the same chips,
+# because the launcher captured the wrong pid both times. It writes its OWN pid, and refuses
+# to start while the recorded one is alive.
+PIDFILE="$OUTROOT/dispatch.pid"
+if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+  echo "dispatcher $(cat "$PIDFILE") is already running"; exit 3
+fi
+echo $$ > "$PIDFILE"
+trap 'rm -f "$PIDFILE"' EXIT
 PY=/home/mthuening/work/tt-bio/env/bin/python
 
 while [ -s "$Q" ]; do
