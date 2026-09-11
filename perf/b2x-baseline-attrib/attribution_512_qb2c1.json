@@ -1,0 +1,4512 @@
+{
+ "run": "perf/b2x-baseline-attrib/attrib_512_qb2c1.json",
+ "summary": {
+  "fold_GB_named_phases": 5379.3,
+  "fold_GB_glue": 6.3,
+  "fold_GB_total": 5385.6,
+  "fold_TB_total": 5.386,
+  "published_estimate_TB": 6.45,
+  "modelled_total_GB": 4383.4,
+  "modelled_glue_GB": 5.1,
+  "captured_over_modelled": 1.229,
+  "published_four_sigs_GB": 5051.4,
+  "remainder_GB": 334.2,
+  "remainder_named_GB": 327.9,
+  "remainder_attributed_pct": 98.1,
+  "named_share_of_fold_pct": 99.9,
+  "phase_s_of_fold": 21.16,
+  "baseline_fold_s": 23.841,
+  "phase_time_share_pct": 88.8,
+  "achieved_GBps_on_baseline": 225.9,
+  "stream_roof_GBps": 429.9
+ },
+ "phases": [
+  {
+   "phase": "TrunkModule/Pairformer/PairformerLayer",
+   "unit": "PairformerLayer",
+   "calls": 256,
+   "ms_per_call": 42.1994,
+   "s_per_fold": 10.803,
+   "GB_per_call": 12.169135,
+   "TB_per_fold": 3.1153,
+   "Z_per_call": 181.3,
+   "achieved_GBps": 288.4,
+   "pct_of_stream_roof": 67.1,
+   "sigs": [
+    "PairformerLayer|1x512x384,1x512x512x128"
+   ],
+   "in_published_budget": true
+  },
+  {
+   "phase": "DiffusionModule",
+   "unit": "DiffusionModule",
+   "calls": 200,
+   "ms_per_call": 40.2627,
+   "s_per_fold": 8.053,
+   "GB_per_call": 8.253652,
+   "TB_per_fold": 1.65073,
+   "Z_per_call": 123.0,
+   "achieved_GBps": 205.0,
+   "pct_of_stream_roof": 47.7,
+   "sigs": [
+    "DiffusionModule|"
+   ],
+   "in_published_budget": false
+  },
+  {
+   "phase": "TrunkModule/MSA/MSALayer",
+   "unit": "MSALayer",
+   "calls": 16,
+   "ms_per_call": 122.7815,
+   "s_per_fold": 1.965,
+   "GB_per_call": 32.243712,
+   "TB_per_fold": 0.5159,
+   "Z_per_call": 480.5,
+   "achieved_GBps": 262.6,
+   "pct_of_stream_roof": 61.1,
+   "sigs": [
+    "MSALayer|1x512x512x128,1x1024x512x64"
+   ],
+   "in_published_budget": false
+  },
+  {
+   "phase": "PairformerModule/Pairformer/PairformerLayer",
+   "unit": "PairformerLayer",
+   "calls": 8,
+   "ms_per_call": 42.1994,
+   "s_per_fold": 0.338,
+   "GB_per_call": 12.169135,
+   "TB_per_fold": 0.09735,
+   "Z_per_call": 181.3,
+   "achieved_GBps": 288.4,
+   "pct_of_stream_roof": 67.1,
+   "sigs": [
+    "PairformerLayer|1x512x384,1x512x512x128"
+   ],
+   "in_published_budget": true
+  }
+ ],
+ "published_four_sigs": [
+  {
+   "sig": "DiffusionTransformerLayer|1x224x32x128,1x224x32x128",
+   "calls": 1200,
+   "GB_per_call": 0.517064,
+   "median_ms": 1.95734,
+   "TB_per_fold": 0.62048
+  },
+  {
+   "sig": "DiffusionTransformerLayer|1x512x768,1x512x768",
+   "calls": 4800,
+   "GB_per_call": 0.214449,
+   "median_ms": 1.07803,
+   "TB_per_fold": 1.02936
+  },
+  {
+   "sig": "PairformerLayer|1x512x384,1x512x512x128",
+   "calls": 264,
+   "GB_per_call": 12.169135,
+   "median_ms": 42.19944,
+   "TB_per_fold": 3.21265
+  },
+  {
+   "sig": "PairformerLayer|1x512x512x128",
+   "calls": 16,
+   "GB_per_call": 11.808086,
+   "median_ms": 39.49864,
+   "TB_per_fold": 0.18893
+  }
+ ],
+ "glue": [
+  {
+   "path": "TrunkModule",
+   "n": 47,
+   "modelled_GB": 3.709
+  },
+  {
+   "path": "TrunkModule/MSA",
+   "n": 12,
+   "modelled_GB": 1.076
+  },
+  {
+   "path": "PairformerModule",
+   "n": 10,
+   "modelled_GB": 0.338
+  }
+ ],
+ "per_capture": {
+  "AdaLN|1x224x32x128,1x224x32x128": {
+   "nodes": 169,
+   "ttnn_ops": 11,
+   "dram_read": 12911104,
+   "dram_write": 5505024,
+   "dram_total": 18416128,
+   "l1_alloc": 12845056,
+   "GB_per_call": 0.018416,
+   "Z_per_call": 0.3,
+   "by_unit": {
+    "AdaLN": {
+     "read": 0.012911,
+     "write": 0.005505,
+     "l1": 0.012845,
+     "ops": 11
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.to_memory_config",
+     "read": 9175040,
+     "write": 5505024,
+     "l1": 3670016,
+     "n_tensor": 5,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 1835008,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 1835008,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.linear",
+     "read": 65792,
+     "write": 0,
+     "l1": 5505024,
+     "n_tensor": 3,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 256,
+     "write": 0,
+     "l1": 3670016,
+     "n_tensor": 1,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 12911104
+   },
+   "op_census": {
+    "ttnn.to_memory_config": 5,
+    "ttnn.layer_norm": 2,
+    "ttnn.linear": 2,
+    "ttnn.multiply_": 1,
+    "ttnn.add_": 1
+   }
+  },
+  "AdaLN|1x512x768,1x512x768": {
+   "nodes": 95,
+   "ttnn_ops": 9,
+   "dram_read": 11013120,
+   "dram_write": 3145728,
+   "dram_total": 14158848,
+   "l1_alloc": 0,
+   "GB_per_call": 0.014159,
+   "Z_per_call": 0.2,
+   "by_unit": {
+    "AdaLN": {
+     "read": 0.011013,
+     "write": 0.003146,
+     "l1": 0.0,
+     "ops": 9
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.linear",
+     "read": 4720128,
+     "write": 1572864,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 3147264,
+     "write": 1572864,
+     "l1": 0,
+     "n_tensor": 5,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 1572864,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 1572864,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 11013120
+   },
+   "op_census": {
+    "ttnn.layer_norm": 2,
+    "ttnn.linear": 2,
+    "ttnn.deallocate": 2,
+    "ttnn.multiply_": 1,
+    "ttnn.add_": 1,
+    "ttnn.to_memory_config": 1
+   }
+  },
+  "AttentionPairBias|1x224x32x128,224x4x32x128": {
+   "nodes": 346,
+   "ttnn_ops": 28,
+   "dram_read": 314753280,
+   "dram_write": 91750400,
+   "dram_total": 406503680,
+   "l1_alloc": 0,
+   "GB_per_call": 0.406504,
+   "Z_per_call": 6.1,
+   "by_unit": {
+    "AttentionPairBias": {
+     "read": 0.314753,
+     "write": 0.09175,
+     "l1": 0.0,
+     "ops": 28
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 146800640,
+     "write": 11010048,
+     "l1": 0,
+     "n_tensor": 24,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 44040192,
+     "write": 22020096,
+     "l1": 0,
+     "n_tensor": 5,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 29524224,
+     "write": 20185088,
+     "l1": 0,
+     "n_tensor": 11,
+     "n_alloc": 4
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 18350080,
+     "write": 16515072,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transformer.scaled_dot_product_attention",
+     "read": 25690112,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 5,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.pad",
+     "read": 16515072,
+     "write": 7340032,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 9977856,
+     "write": 7340032,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 11010048,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 5505024,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_concat_heads",
+     "read": 3670016,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.squeeze",
+     "read": 3670016,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 313950464,
+    "BFLOAT4_B": 802816
+   },
+   "op_census": {
+    "ttnn.reshape": 10,
+    "ttnn.linear": 4,
+    "ttnn.permute": 2,
+    "ttnn.deallocate": 2,
+    "ttnn.to_memory_config": 1,
+    "ttnn.matmul": 1,
+    "ttnn.pad": 1,
+    "ttnn.experimental.nlp_create_qkv_heads": 1,
+    "ttnn.Tensor.__getitem__": 1,
+    "ttnn.slice": 1,
+    "ttnn.transformer.scaled_dot_product_attention": 1,
+    "ttnn.experimental.nlp_concat_heads": 1,
+    "ttnn.squeeze": 1,
+    "ttnn.multiply": 1
+   }
+  },
+  "AttentionPairBias|1x512x384,1x512x512x128": {
+   "nodes": 360,
+   "ttnn_ops": 32,
+   "dram_read": 146350592,
+   "dram_write": 23986176,
+   "dram_total": 170336768,
+   "l1_alloc": 92274688,
+   "GB_per_call": 0.170337,
+   "Z_per_call": 2.5,
+   "by_unit": {
+    "AttentionPairBias": {
+     "read": 0.146351,
+     "write": 0.023986,
+     "l1": 0.092275,
+     "ops": 32
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.layer_norm",
+     "read": 67109376,
+     "write": 0,
+     "l1": 67108864,
+     "n_tensor": 3,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.softmax",
+     "read": 25165824,
+     "write": 8388608,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 18874368,
+     "write": 8912896,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.add_",
+     "read": 8389632,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply_",
+     "read": 8388608,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 4922368,
+     "write": 2359296,
+     "l1": 16777216,
+     "n_tensor": 10,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 3145728,
+     "write": 1572864,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 2359296,
+     "write": 917504,
+     "l1": 8388608,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.unsqueeze",
+     "read": 3145728,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 1441792,
+     "write": 524288,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transpose",
+     "read": 1048576,
+     "write": 524288,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 1179648,
+     "write": 393216,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 1179648,
+     "write": 393216,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 146350592
+   },
+   "op_census": {
+    "ttnn.deallocate": 11,
+    "ttnn.linear": 4,
+    "ttnn.permute": 3,
+    "ttnn.add_": 2,
+    "ttnn.matmul": 2,
+    "ttnn.unsqueeze": 1,
+    "ttnn.experimental.nlp_create_qkv_heads": 1,
+    "ttnn.layer_norm": 1,
+    "ttnn.transpose": 1,
+    "ttnn.multiply_": 1,
+    "ttnn.softmax": 1,
+    "ttnn.Tensor.__getitem__": 1,
+    "ttnn.slice": 1,
+    "ttnn.reshape": 1,
+    "ttnn.multiply": 1
+   }
+  },
+  "AttentionPairBias|1x512x768,1x16x512x512": {
+   "nodes": 295,
+   "ttnn_ops": 26,
+   "dram_read": 111679488,
+   "dram_write": 31195136,
+   "dram_total": 142874624,
+   "l1_alloc": 0,
+   "GB_per_call": 0.142875,
+   "Z_per_call": 2.1,
+   "by_unit": {
+    "AttentionPairBias": {
+     "read": 0.111679,
+     "write": 0.031195,
+     "l1": 0.0,
+     "ops": 26
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.softmax",
+     "read": 25165824,
+     "write": 8388608,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 20971520,
+     "write": 9437184,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 13375488,
+     "write": 4718592,
+     "l1": 0,
+     "n_tensor": 9,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.add_",
+     "read": 16777216,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 6291456,
+     "write": 3145728,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply_",
+     "read": 8388608,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 4718592,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.unsqueeze",
+     "read": 6291456,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 2883584,
+     "write": 1048576,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transpose",
+     "read": 2097152,
+     "write": 1048576,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 2359296,
+     "write": 786432,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 2359296,
+     "write": 786432,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 111679488
+   },
+   "op_census": {
+    "ttnn.deallocate": 9,
+    "ttnn.linear": 3,
+    "ttnn.matmul": 2,
+    "ttnn.permute": 2,
+    "ttnn.unsqueeze": 1,
+    "ttnn.experimental.nlp_create_qkv_heads": 1,
+    "ttnn.transpose": 1,
+    "ttnn.add_": 1,
+    "ttnn.multiply_": 1,
+    "ttnn.softmax": 1,
+    "ttnn.Tensor.__getitem__": 1,
+    "ttnn.slice": 1,
+    "ttnn.reshape": 1,
+    "ttnn.multiply": 1
+   }
+  },
+  "ConditionedTransitionBlock|1x224x32x128,1x224x32x128": {
+   "nodes": 293,
+   "ttnn_ops": 23,
+   "dram_read": 51741440,
+   "dram_write": 20185088,
+   "dram_total": 71926528,
+   "l1_alloc": 12845056,
+   "GB_per_call": 0.071927,
+   "Z_per_call": 1.1,
+   "by_unit": {
+    "ConditionedTransitionBlock": {
+     "read": 0.03883,
+     "write": 0.01468,
+     "l1": 0.0,
+     "ops": 12
+    },
+    "AdaLN": {
+     "read": 0.012911,
+     "write": 0.005505,
+     "l1": 0.012845,
+     "ops": 11
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.linear",
+     "read": 20480256,
+     "write": 14680064,
+     "l1": 0,
+     "n_tensor": 13,
+     "n_alloc": 5
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.multiply_",
+     "read": 18350080,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.to_memory_config",
+     "read": 9175040,
+     "write": 5505024,
+     "l1": 3670016,
+     "n_tensor": 5,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 1835008,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 1835008,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.linear",
+     "read": 65792,
+     "write": 0,
+     "l1": 5505024,
+     "n_tensor": 3,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 256,
+     "write": 0,
+     "l1": 3670016,
+     "n_tensor": 1,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 51741440
+   },
+   "op_census": {
+    "ttnn.linear": 7,
+    "ttnn.to_memory_config": 5,
+    "ttnn.multiply_": 4,
+    "ttnn.deallocate": 4,
+    "ttnn.layer_norm": 2,
+    "ttnn.add_": 1
+   }
+  },
+  "ConditionedTransitionBlock|1x512x768,1x512x768": {
+   "nodes": 219,
+   "ttnn_ops": 21,
+   "dram_read": 38146560,
+   "dram_write": 9437184,
+   "dram_total": 47583744,
+   "l1_alloc": 0,
+   "GB_per_call": 0.047584,
+   "Z_per_call": 0.7,
+   "by_unit": {
+    "ConditionedTransitionBlock": {
+     "read": 0.027133,
+     "write": 0.006291,
+     "l1": 0.0,
+     "ops": 12
+    },
+    "AdaLN": {
+     "read": 0.011013,
+     "write": 0.003146,
+     "l1": 0.0,
+     "ops": 9
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.linear",
+     "read": 19269120,
+     "write": 6291456,
+     "l1": 0,
+     "n_tensor": 13,
+     "n_alloc": 5
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.multiply_",
+     "read": 7864320,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.linear",
+     "read": 4720128,
+     "write": 1572864,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 3147264,
+     "write": 1572864,
+     "l1": 0,
+     "n_tensor": 5,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 1572864,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 1572864,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 38146560
+   },
+   "op_census": {
+    "ttnn.linear": 7,
+    "ttnn.deallocate": 6,
+    "ttnn.multiply_": 4,
+    "ttnn.layer_norm": 2,
+    "ttnn.add_": 1,
+    "ttnn.to_memory_config": 1
+   }
+  },
+  "DiffusionModule|": {
+   "nodes": 20870,
+   "ttnn_ops": 1816,
+   "dram_read": 6401881096,
+   "dram_write": 1851770880,
+   "dram_total": 8253651976,
+   "l1_alloc": 51904512,
+   "GB_per_call": 8.253652,
+   "Z_per_call": 123.0,
+   "by_unit": {
+    "AttentionPairBias": {
+     "read": 4.564813,
+     "write": 1.299186,
+     "l1": 0.0,
+     "ops": 792
+    },
+    "ConditionedTransitionBlock": {
+     "read": 0.88602,
+     "write": 0.239075,
+     "l1": 0.0,
+     "ops": 360
+    },
+    "AdaLN": {
+     "read": 0.578961,
+     "write": 0.173015,
+     "l1": 0.04404,
+     "ops": 492
+    },
+    "DiffusionTransformerLayer": {
+     "read": 0.256414,
+     "write": 0.108528,
+     "l1": 0.0,
+     "ops": 114
+    },
+    "Diffusion": {
+     "read": 0.098279,
+     "write": 0.029934,
+     "l1": 0.0,
+     "ops": 38
+    },
+    "Transition": {
+     "read": 0.017308,
+     "write": 0.001573,
+     "l1": 0.007864,
+     "ops": 16
+    },
+    "DiffusionModule": {
+     "read": 8.6e-05,
+     "write": 0.000461,
+     "l1": 0.0,
+     "ops": 4
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 937426944,
+     "write": 84934656,
+     "l1": 0,
+     "n_tensor": 216,
+     "n_alloc": 36
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 559169536,
+     "write": 270532608,
+     "l1": 0,
+     "n_tensor": 157,
+     "n_alloc": 54
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.linear",
+     "read": 587175424,
+     "write": 239075328,
+     "l1": 0,
+     "n_tensor": 391,
+     "n_alloc": 150
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.softmax",
+     "read": 603979776,
+     "write": 201326592,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 498157056,
+     "write": 234356736,
+     "l1": 0,
+     "n_tensor": 282,
+     "n_alloc": 96
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 415236096,
+     "write": 207618048,
+     "l1": 0,
+     "n_tensor": 126,
+     "n_alloc": 90
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.add_",
+     "read": 402653184,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 48,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 223346688,
+     "write": 143130624,
+     "l1": 0,
+     "n_tensor": 168,
+     "n_alloc": 60
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.linear",
+     "read": 226566144,
+     "write": 75497472,
+     "l1": 0,
+     "n_tensor": 288,
+     "n_alloc": 96
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.multiply_",
+     "read": 298844160,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 180,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply_",
+     "read": 201326592,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 24,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 113319936,
+     "write": 75497472,
+     "l1": 22020096,
+     "n_tensor": 192,
+     "n_alloc": 96
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.add",
+     "read": 119537664,
+     "write": 59768832,
+     "l1": 0,
+     "n_tensor": 120,
+     "n_alloc": 60
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 135266304,
+     "write": 36175872,
+     "l1": 0,
+     "n_tensor": 90,
+     "n_alloc": 30
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transformer.scaled_dot_product_attention",
+     "read": 154140672,
+     "write": 11010048,
+     "l1": 0,
+     "n_tensor": 30,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.unsqueeze",
+     "read": 150994944,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 48,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.pad",
+     "read": 99090432,
+     "write": 44040192,
+     "l1": 0,
+     "n_tensor": 18,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 89653248,
+     "write": 29884416,
+     "l1": 0,
+     "n_tensor": 90,
+     "n_alloc": 30
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.multiply",
+     "read": 89653248,
+     "write": 29884416,
+     "l1": 0,
+     "n_tensor": 90,
+     "n_alloc": 30
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 97517568,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 108,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 97517568,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 108,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transpose",
+     "read": 50331648,
+     "write": 25165824,
+     "l1": 0,
+     "n_tensor": 48,
+     "n_alloc": 24
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.linear",
+     "read": 47222784,
+     "write": 18874368,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.to_memory_config",
+     "read": 44040192,
+     "write": 22020096,
+     "l1": 22020096,
+     "n_tensor": 24,
+     "n_alloc": 12
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.linear",
+     "read": 21062658,
+     "write": 14286848,
+     "l1": 0,
+     "n_tensor": 22,
+     "n_alloc": 7
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_concat_heads",
+     "read": 22020096,
+     "write": 11010048,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 6
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.matmul",
+     "read": 28442624,
+     "write": 2621440,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.add",
+     "read": 16254464,
+     "write": 6815744,
+     "l1": 0,
+     "n_tensor": 15,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.squeeze",
+     "read": 22020096,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.linear",
+     "read": 15728640,
+     "write": 1572864,
+     "l1": 6291456,
+     "n_tensor": 8,
+     "n_alloc": 2
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.reshape",
+     "read": 14680064,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 8,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.permute",
+     "read": 11010048,
+     "write": 2752512,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 3
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.layer_norm",
+     "read": 6824448,
+     "write": 3424256,
+     "l1": 0,
+     "n_tensor": 16,
+     "n_alloc": 4
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.layer_norm",
+     "read": 1579008,
+     "write": 0,
+     "l1": 1572864,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "DiffusionModule",
+     "op": "ttnn.from_torch",
+     "read": 43010,
+     "write": 460800,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 2
+    },
+    {
+     "unit": "DiffusionModule",
+     "op": "ttnn.to_torch",
+     "read": 43008,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.multiply",
+     "read": 1024,
+     "write": 16384,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.cos",
+     "read": 1024,
+     "write": 16384,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.unsqueeze",
+     "read": 3076,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.multiply_",
+     "read": 0,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 6401078280,
+    "BFLOAT4_B": 802816
+   },
+   "op_census": {
+    "ttnn.deallocate": 458,
+    "ttnn.linear": 379,
+    "ttnn.multiply_": 176,
+    "ttnn.layer_norm": 114,
+    "ttnn.reshape": 88,
+    "ttnn.add_": 84,
+    "ttnn.to_memory_config": 78,
+    "ttnn.add": 66,
+    "ttnn.permute": 63,
+    "ttnn.multiply": 61,
+    "ttnn.matmul": 56,
+    "ttnn.experimental.nlp_create_qkv_heads": 30,
+    "ttnn.Tensor.__getitem__": 30,
+    "ttnn.slice": 30,
+    "ttnn.unsqueeze": 26,
+    "ttnn.transpose": 24,
+    "ttnn.softmax": 24,
+    "ttnn.pad": 6,
+    "ttnn.transformer.scaled_dot_product_attention": 6,
+    "ttnn.experimental.nlp_concat_heads": 6,
+    "ttnn.squeeze": 6,
+    "ttnn.from_torch": 2,
+    "ttnn.cos": 1,
+    "ttnn.to_torch": 1,
+    "ttnn.from_device": 1
+   }
+  },
+  "DiffusionTransformerLayer|1x224x32x128,1x224x32x128": {
+   "nodes": 873,
+   "ttnn_ops": 66,
+   "dram_read": 392283904,
+   "dram_write": 124780544,
+   "dram_total": 517064448,
+   "l1_alloc": 25690112,
+   "GB_per_call": 0.517064,
+   "Z_per_call": 7.7,
+   "by_unit": {
+    "AttentionPairBias": {
+     "read": 0.314753,
+     "write": 0.09175,
+     "l1": 0.0,
+     "ops": 28
+    },
+    "ConditionedTransitionBlock": {
+     "read": 0.03883,
+     "write": 0.01468,
+     "l1": 0.0,
+     "ops": 12
+    },
+    "AdaLN": {
+     "read": 0.023987,
+     "write": 0.01101,
+     "l1": 0.02569,
+     "ops": 22
+    },
+    "DiffusionTransformerLayer": {
+     "read": 0.014713,
+     "write": 0.00734,
+     "l1": 0.0,
+     "ops": 4
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 146800640,
+     "write": 11010048,
+     "l1": 0,
+     "n_tensor": 24,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 44040192,
+     "write": 22020096,
+     "l1": 0,
+     "n_tensor": 5,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 29524224,
+     "write": 20185088,
+     "l1": 0,
+     "n_tensor": 11,
+     "n_alloc": 4
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.linear",
+     "read": 20480256,
+     "write": 14680064,
+     "l1": 0,
+     "n_tensor": 13,
+     "n_alloc": 5
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 18350080,
+     "write": 16515072,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.to_memory_config",
+     "read": 16515072,
+     "write": 11010048,
+     "l1": 7340032,
+     "n_tensor": 9,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transformer.scaled_dot_product_attention",
+     "read": 25690112,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 5,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.pad",
+     "read": 16515072,
+     "write": 7340032,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.multiply_",
+     "read": 18350080,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 9977856,
+     "write": 7340032,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 11010048,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.add",
+     "read": 7340032,
+     "write": 3670016,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 5505024,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.multiply",
+     "read": 5505024,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_concat_heads",
+     "read": 3670016,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.linear",
+     "read": 1868032,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 3670016,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 3670016,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.squeeze",
+     "read": 3670016,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.linear",
+     "read": 131584,
+     "write": 0,
+     "l1": 11010048,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 512,
+     "write": 0,
+     "l1": 7340032,
+     "n_tensor": 2,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 391481088,
+    "BFLOAT4_B": 802816
+   },
+   "op_census": {
+    "ttnn.linear": 14,
+    "ttnn.to_memory_config": 11,
+    "ttnn.reshape": 10,
+    "ttnn.deallocate": 6,
+    "ttnn.multiply_": 5,
+    "ttnn.layer_norm": 4,
+    "ttnn.add_": 2,
+    "ttnn.permute": 2,
+    "ttnn.multiply": 2,
+    "ttnn.add": 2,
+    "ttnn.matmul": 1,
+    "ttnn.pad": 1,
+    "ttnn.experimental.nlp_create_qkv_heads": 1,
+    "ttnn.Tensor.__getitem__": 1,
+    "ttnn.slice": 1,
+    "ttnn.transformer.scaled_dot_product_attention": 1,
+    "ttnn.experimental.nlp_concat_heads": 1,
+    "ttnn.squeeze": 1
+   }
+  },
+  "DiffusionTransformerLayer|1x512x768,1x512x768": {
+   "nodes": 677,
+   "ttnn_ops": 60,
+   "dram_read": 167525376,
+   "dram_write": 46923776,
+   "dram_total": 214449152,
+   "l1_alloc": 0,
+   "GB_per_call": 0.214449,
+   "Z_per_call": 3.2,
+   "by_unit": {
+    "AttentionPairBias": {
+     "read": 0.111679,
+     "write": 0.031195,
+     "l1": 0.0,
+     "ops": 26
+    },
+    "ConditionedTransitionBlock": {
+     "read": 0.027133,
+     "write": 0.006291,
+     "l1": 0.0,
+     "ops": 12
+    },
+    "AdaLN": {
+     "read": 0.02124,
+     "write": 0.006291,
+     "l1": 0.0,
+     "ops": 18
+    },
+    "DiffusionTransformerLayer": {
+     "read": 0.007473,
+     "write": 0.003146,
+     "l1": 0.0,
+     "ops": 4
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.softmax",
+     "read": 25165824,
+     "write": 8388608,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 20971520,
+     "write": 9437184,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.linear",
+     "read": 19269120,
+     "write": 6291456,
+     "l1": 0,
+     "n_tensor": 13,
+     "n_alloc": 5
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 13375488,
+     "write": 4718592,
+     "l1": 0,
+     "n_tensor": 9,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.add_",
+     "read": 16777216,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.linear",
+     "read": 9440256,
+     "write": 3145728,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 4
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 6291456,
+     "write": 3145728,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 5508096,
+     "write": 3145728,
+     "l1": 0,
+     "n_tensor": 9,
+     "n_alloc": 4
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply_",
+     "read": 8388608,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.multiply_",
+     "read": 7864320,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 4718592,
+     "write": 1835008,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.unsqueeze",
+     "read": 6291456,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.add",
+     "read": 3145728,
+     "write": 1572864,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 2883584,
+     "write": 1048576,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 3145728,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 3145728,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transpose",
+     "read": 2097152,
+     "write": 1048576,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 2359296,
+     "write": 786432,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 2359296,
+     "write": 786432,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.multiply",
+     "read": 2359296,
+     "write": 786432,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.linear",
+     "read": 1967616,
+     "write": 786432,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 167525376
+   },
+   "op_census": {
+    "ttnn.deallocate": 17,
+    "ttnn.linear": 13,
+    "ttnn.multiply_": 6,
+    "ttnn.layer_norm": 4,
+    "ttnn.add_": 3,
+    "ttnn.to_memory_config": 2,
+    "ttnn.matmul": 2,
+    "ttnn.permute": 2,
+    "ttnn.multiply": 2,
+    "ttnn.add": 2,
+    "ttnn.unsqueeze": 1,
+    "ttnn.experimental.nlp_create_qkv_heads": 1,
+    "ttnn.transpose": 1,
+    "ttnn.softmax": 1,
+    "ttnn.Tensor.__getitem__": 1,
+    "ttnn.slice": 1,
+    "ttnn.reshape": 1
+   }
+  },
+  "DiffusionTransformer|1x224x32x128,1x224x32x128": {
+   "nodes": 1966,
+   "ttnn_ops": 159,
+   "dram_read": 1143555584,
+   "dram_write": 346816512,
+   "dram_total": 1490372096,
+   "l1_alloc": 22020096,
+   "GB_per_call": 1.490372,
+   "Z_per_call": 22.2,
+   "by_unit": {
+    "AttentionPairBias": {
+     "read": 0.942654,
+     "write": 0.275251,
+     "l1": 0.0,
+     "ops": 84
+    },
+    "ConditionedTransitionBlock": {
+     "read": 0.118326,
+     "write": 0.04404,
+     "l1": 0.0,
+     "ops": 36
+    },
+    "AdaLN": {
+     "read": 0.04404,
+     "write": 0.01101,
+     "l1": 0.02202,
+     "ops": 30
+    },
+    "DiffusionTransformerLayer": {
+     "read": 0.038535,
+     "write": 0.016515,
+     "l1": 0.0,
+     "ops": 9
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 440401920,
+     "write": 33030144,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 132120576,
+     "write": 66060288,
+     "l1": 0,
+     "n_tensor": 15,
+     "n_alloc": 9
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 88572672,
+     "write": 60555264,
+     "l1": 0,
+     "n_tensor": 33,
+     "n_alloc": 12
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.linear",
+     "read": 63275776,
+     "write": 44040192,
+     "l1": 0,
+     "n_tensor": 40,
+     "n_alloc": 15
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 55050240,
+     "write": 49545216,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transformer.scaled_dot_product_attention",
+     "read": 77070336,
+     "write": 5505024,
+     "l1": 0,
+     "n_tensor": 15,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.pad",
+     "read": 49545216,
+     "write": 22020096,
+     "l1": 0,
+     "n_tensor": 9,
+     "n_alloc": 3
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.multiply_",
+     "read": 55050240,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 18,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 28327936,
+     "write": 22020096,
+     "l1": 0,
+     "n_tensor": 7,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 33030144,
+     "write": 5505024,
+     "l1": 0,
+     "n_tensor": 9,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.to_memory_config",
+     "read": 22020096,
+     "write": 11010048,
+     "l1": 11010048,
+     "n_tensor": 12,
+     "n_alloc": 6
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.add",
+     "read": 22020096,
+     "write": 11010048,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 16515072,
+     "write": 5505024,
+     "l1": 0,
+     "n_tensor": 9,
+     "n_alloc": 3
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.multiply",
+     "read": 16515072,
+     "write": 5505024,
+     "l1": 0,
+     "n_tensor": 9,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_concat_heads",
+     "read": 11010048,
+     "write": 5505024,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 11010048,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 11010048,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.squeeze",
+     "read": 11010048,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 0,
+     "write": 0,
+     "l1": 11010048,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 1142752768,
+    "BFLOAT4_B": 802816
+   },
+   "op_census": {
+    "ttnn.reshape": 30,
+    "ttnn.linear": 27,
+    "ttnn.deallocate": 18,
+    "ttnn.to_memory_config": 15,
+    "ttnn.multiply_": 15,
+    "ttnn.layer_norm": 6,
+    "ttnn.add_": 6,
+    "ttnn.permute": 6,
+    "ttnn.multiply": 6,
+    "ttnn.add": 6,
+    "ttnn.matmul": 3,
+    "ttnn.pad": 3,
+    "ttnn.experimental.nlp_create_qkv_heads": 3,
+    "ttnn.Tensor.__getitem__": 3,
+    "ttnn.slice": 3,
+    "ttnn.transformer.scaled_dot_product_attention": 3,
+    "ttnn.experimental.nlp_concat_heads": 3,
+    "ttnn.squeeze": 3
+   }
+  },
+  "DiffusionTransformer|1x512x768,1x512x768": {
+   "nodes": 16227,
+   "ttnn_ops": 1440,
+   "dram_read": 4002521088,
+   "dram_write": 1126170624,
+   "dram_total": 5128691712,
+   "l1_alloc": 0,
+   "GB_per_call": 5.128692,
+   "Z_per_call": 76.4,
+   "by_unit": {
+    "AttentionPairBias": {
+     "read": 2.680308,
+     "write": 0.748683,
+     "l1": 0.0,
+     "ops": 624
+    },
+    "ConditionedTransitionBlock": {
+     "read": 0.651203,
+     "write": 0.150995,
+     "l1": 0.0,
+     "ops": 288
+    },
+    "AdaLN": {
+     "read": 0.491667,
+     "write": 0.150995,
+     "l1": 0.0,
+     "ops": 432
+    },
+    "DiffusionTransformerLayer": {
+     "read": 0.179343,
+     "write": 0.075497,
+     "l1": 0.0,
+     "ops": 96
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.softmax",
+     "read": 603979776,
+     "write": 201326592,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 503316480,
+     "write": 226492416,
+     "l1": 0,
+     "n_tensor": 144,
+     "n_alloc": 48
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.linear",
+     "read": 462458880,
+     "write": 150994944,
+     "l1": 0,
+     "n_tensor": 312,
+     "n_alloc": 120
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 321011712,
+     "write": 113246208,
+     "l1": 0,
+     "n_tensor": 216,
+     "n_alloc": 72
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.add_",
+     "read": 402653184,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 48,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.linear",
+     "read": 226566144,
+     "write": 75497472,
+     "l1": 0,
+     "n_tensor": 288,
+     "n_alloc": 96
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 150994944,
+     "write": 75497472,
+     "l1": 0,
+     "n_tensor": 96,
+     "n_alloc": 72
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply_",
+     "read": 201326592,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 24,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 114106368,
+     "write": 75497472,
+     "l1": 0,
+     "n_tensor": 193,
+     "n_alloc": 96
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.multiply_",
+     "read": 188743680,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 144,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 113246208,
+     "write": 44040192,
+     "l1": 0,
+     "n_tensor": 144,
+     "n_alloc": 48
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.unsqueeze",
+     "read": 150994944,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 48,
+     "n_alloc": 0
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.add",
+     "read": 75497472,
+     "write": 37748736,
+     "l1": 0,
+     "n_tensor": 96,
+     "n_alloc": 48
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 69206016,
+     "write": 25165824,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 75497472,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 96,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 75497472,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 96,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transpose",
+     "read": 50331648,
+     "write": 25165824,
+     "l1": 0,
+     "n_tensor": 48,
+     "n_alloc": 24
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 56623104,
+     "write": 18874368,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 56623104,
+     "write": 18874368,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.multiply",
+     "read": 56623104,
+     "write": 18874368,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.linear",
+     "read": 47222784,
+     "write": 18874368,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 4002521088
+   },
+   "op_census": {
+    "ttnn.deallocate": 408,
+    "ttnn.linear": 312,
+    "ttnn.multiply_": 144,
+    "ttnn.layer_norm": 96,
+    "ttnn.add_": 72,
+    "ttnn.to_memory_config": 48,
+    "ttnn.matmul": 48,
+    "ttnn.permute": 48,
+    "ttnn.multiply": 48,
+    "ttnn.add": 48,
+    "ttnn.unsqueeze": 24,
+    "ttnn.experimental.nlp_create_qkv_heads": 24,
+    "ttnn.transpose": 24,
+    "ttnn.softmax": 24,
+    "ttnn.Tensor.__getitem__": 24,
+    "ttnn.slice": 24,
+    "ttnn.reshape": 24
+   }
+  },
+  "Diffusion|1x7168x3,1": {
+   "nodes": 20813,
+   "ttnn_ops": 1812,
+   "dram_read": 6401795078,
+   "dram_write": 1851310080,
+   "dram_total": 8253105158,
+   "l1_alloc": 51904512,
+   "GB_per_call": 8.253105,
+   "Z_per_call": 123.0,
+   "by_unit": {
+    "AttentionPairBias": {
+     "read": 4.564813,
+     "write": 1.299186,
+     "l1": 0.0,
+     "ops": 792
+    },
+    "ConditionedTransitionBlock": {
+     "read": 0.88602,
+     "write": 0.239075,
+     "l1": 0.0,
+     "ops": 360
+    },
+    "AdaLN": {
+     "read": 0.578961,
+     "write": 0.173015,
+     "l1": 0.04404,
+     "ops": 492
+    },
+    "DiffusionTransformerLayer": {
+     "read": 0.256414,
+     "write": 0.108528,
+     "l1": 0.0,
+     "ops": 114
+    },
+    "Diffusion": {
+     "read": 0.098279,
+     "write": 0.029934,
+     "l1": 0.0,
+     "ops": 38
+    },
+    "Transition": {
+     "read": 0.017308,
+     "write": 0.001573,
+     "l1": 0.007864,
+     "ops": 16
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 937426944,
+     "write": 84934656,
+     "l1": 0,
+     "n_tensor": 216,
+     "n_alloc": 36
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 559169536,
+     "write": 270532608,
+     "l1": 0,
+     "n_tensor": 157,
+     "n_alloc": 54
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.linear",
+     "read": 587175424,
+     "write": 239075328,
+     "l1": 0,
+     "n_tensor": 391,
+     "n_alloc": 150
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.softmax",
+     "read": 603979776,
+     "write": 201326592,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 498157056,
+     "write": 234356736,
+     "l1": 0,
+     "n_tensor": 282,
+     "n_alloc": 96
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 415236096,
+     "write": 207618048,
+     "l1": 0,
+     "n_tensor": 126,
+     "n_alloc": 90
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.add_",
+     "read": 402653184,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 48,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 223346688,
+     "write": 143130624,
+     "l1": 0,
+     "n_tensor": 168,
+     "n_alloc": 60
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.linear",
+     "read": 226566144,
+     "write": 75497472,
+     "l1": 0,
+     "n_tensor": 288,
+     "n_alloc": 96
+    },
+    {
+     "unit": "ConditionedTransitionBlock",
+     "op": "ttnn.multiply_",
+     "read": 298844160,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 180,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply_",
+     "read": 201326592,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 24,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.layer_norm",
+     "read": 113319936,
+     "write": 75497472,
+     "l1": 22020096,
+     "n_tensor": 192,
+     "n_alloc": 96
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.add",
+     "read": 119537664,
+     "write": 59768832,
+     "l1": 0,
+     "n_tensor": 120,
+     "n_alloc": 60
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 135266304,
+     "write": 36175872,
+     "l1": 0,
+     "n_tensor": 90,
+     "n_alloc": 30
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transformer.scaled_dot_product_attention",
+     "read": 154140672,
+     "write": 11010048,
+     "l1": 0,
+     "n_tensor": 30,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.unsqueeze",
+     "read": 150994944,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 48,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.pad",
+     "read": 99090432,
+     "write": 44040192,
+     "l1": 0,
+     "n_tensor": 18,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 89653248,
+     "write": 29884416,
+     "l1": 0,
+     "n_tensor": 90,
+     "n_alloc": 30
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.multiply",
+     "read": 89653248,
+     "write": 29884416,
+     "l1": 0,
+     "n_tensor": 90,
+     "n_alloc": 30
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.multiply_",
+     "read": 97517568,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 108,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.add_",
+     "read": 97517568,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 108,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transpose",
+     "read": 50331648,
+     "write": 25165824,
+     "l1": 0,
+     "n_tensor": 48,
+     "n_alloc": 24
+    },
+    {
+     "unit": "DiffusionTransformerLayer",
+     "op": "ttnn.linear",
+     "read": 47222784,
+     "write": 18874368,
+     "l1": 0,
+     "n_tensor": 72,
+     "n_alloc": 24
+    },
+    {
+     "unit": "AdaLN",
+     "op": "ttnn.to_memory_config",
+     "read": 44040192,
+     "write": 22020096,
+     "l1": 22020096,
+     "n_tensor": 24,
+     "n_alloc": 12
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.linear",
+     "read": 21062658,
+     "write": 14286848,
+     "l1": 0,
+     "n_tensor": 22,
+     "n_alloc": 7
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_concat_heads",
+     "read": 22020096,
+     "write": 11010048,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 6
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.matmul",
+     "read": 28442624,
+     "write": 2621440,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.add",
+     "read": 16254464,
+     "write": 6815744,
+     "l1": 0,
+     "n_tensor": 15,
+     "n_alloc": 6
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.squeeze",
+     "read": 22020096,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.linear",
+     "read": 15728640,
+     "write": 1572864,
+     "l1": 6291456,
+     "n_tensor": 8,
+     "n_alloc": 2
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.reshape",
+     "read": 14680064,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 8,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.permute",
+     "read": 11010048,
+     "write": 2752512,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 3
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.layer_norm",
+     "read": 6824448,
+     "write": 3424256,
+     "l1": 0,
+     "n_tensor": 16,
+     "n_alloc": 4
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.layer_norm",
+     "read": 1579008,
+     "write": 0,
+     "l1": 1572864,
+     "n_tensor": 6,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.multiply",
+     "read": 1024,
+     "write": 16384,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.cos",
+     "read": 1024,
+     "write": 16384,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "Diffusion",
+     "op": "ttnn.unsqueeze",
+     "read": 3076,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.multiply_",
+     "read": 0,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 6400992262,
+    "BFLOAT4_B": 802816
+   },
+   "op_census": {
+    "ttnn.deallocate": 458,
+    "ttnn.linear": 379,
+    "ttnn.multiply_": 176,
+    "ttnn.layer_norm": 114,
+    "ttnn.reshape": 88,
+    "ttnn.add_": 84,
+    "ttnn.to_memory_config": 78,
+    "ttnn.add": 66,
+    "ttnn.permute": 63,
+    "ttnn.multiply": 61,
+    "ttnn.matmul": 56,
+    "ttnn.experimental.nlp_create_qkv_heads": 30,
+    "ttnn.Tensor.__getitem__": 30,
+    "ttnn.slice": 30,
+    "ttnn.unsqueeze": 26,
+    "ttnn.transpose": 24,
+    "ttnn.softmax": 24,
+    "ttnn.pad": 6,
+    "ttnn.transformer.scaled_dot_product_attention": 6,
+    "ttnn.experimental.nlp_concat_heads": 6,
+    "ttnn.squeeze": 6,
+    "ttnn.cos": 1
+   }
+  },
+  "MSALayer|1x512x512x128,1x1024x512x64": {
+   "nodes": 14350,
+   "ttnn_ops": 1104,
+   "dram_read": 23817175552,
+   "dram_write": 8426536704,
+   "dram_total": 32243712256,
+   "l1_alloc": 1820327936,
+   "GB_per_call": 32.243712,
+   "Z_per_call": 480.5,
+   "by_unit": {
+    "OuterProductMean": {
+     "read": 8.75798,
+     "write": 3.019899,
+     "l1": 0.0,
+     "ops": 24
+    },
+    "PairWeightedAveraging": {
+     "read": 5.70468,
+     "write": 1.946337,
+     "l1": 0.209715,
+     "ops": 187
+    },
+    "TriangleMultiplication": {
+     "read": 5.369104,
+     "write": 2.013266,
+     "l1": 0.268435,
+     "ops": 62
+    },
+    "TriangleAttention": {
+     "read": 2.709851,
+     "write": 0.977273,
+     "l1": 0.134218,
+     "ops": 54
+    },
+    "Transition": {
+     "read": 1.208452,
+     "write": 0.469762,
+     "l1": 1.20796,
+     "ops": 776
+    },
+    "MSALayer": {
+     "read": 0.067109,
+     "write": 0.0,
+     "l1": 0.0,
+     "ops": 1
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.generic_op",
+     "read": 4563796992,
+     "write": 1342177280,
+     "l1": 268435456,
+     "n_tensor": 72,
+     "n_alloc": 20
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.to_layout",
+     "read": 2281701376,
+     "write": 1140850688,
+     "l1": 0,
+     "n_tensor": 8,
+     "n_alloc": 4
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.permute",
+     "read": 2415919104,
+     "write": 603979776,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 3
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.permute",
+     "read": 2147483648,
+     "write": 536870912,
+     "l1": 4194304,
+     "n_tensor": 64,
+     "n_alloc": 16
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.reshape",
+     "read": 2013265920,
+     "write": 536870912,
+     "l1": 0,
+     "n_tensor": 11,
+     "n_alloc": 1
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.linear",
+     "read": 1409386496,
+     "write": 1073741824,
+     "l1": 134217728,
+     "n_tensor": 65,
+     "n_alloc": 24
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.generic_op",
+     "read": 1548025856,
+     "write": 402653184,
+     "l1": 67108864,
+     "n_tensor": 31,
+     "n_alloc": 6
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.matmul",
+     "read": 603979776,
+     "write": 536870912,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 536870912,
+     "write": 536870912,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 2
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.linear",
+     "read": 738468096,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 9,
+     "n_alloc": 3
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.matmul",
+     "read": 536870912,
+     "write": 268435456,
+     "l1": 0,
+     "n_tensor": 16,
+     "n_alloc": 8
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 402653184,
+     "write": 402653184,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 6
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.concat",
+     "read": 536870912,
+     "write": 201326592,
+     "l1": 0,
+     "n_tensor": 103,
+     "n_alloc": 4
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.multiply_",
+     "read": 570427392,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 0
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.multiply_",
+     "read": 536870912,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 16,
+     "n_alloc": 0
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.add_",
+     "read": 536870912,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 8,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.chunk",
+     "read": 402653184,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 194,
+     "n_alloc": 96
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.layer_norm",
+     "read": 268436480,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 8,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.layer_norm",
+     "read": 201327616,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 7,
+     "n_alloc": 2
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.reshape",
+     "read": 335544320,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 5,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.linear",
+     "read": 134709248,
+     "write": 134217728,
+     "l1": 1073741824,
+     "n_tensor": 102,
+     "n_alloc": 96
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.layer_norm",
+     "read": 201327360,
+     "write": 67108864,
+     "l1": 67108864,
+     "n_tensor": 7,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.reshape",
+     "read": 268435456,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.layer_norm",
+     "read": 134217984,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.linear",
+     "read": 138414080,
+     "write": 33554432,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.permute",
+     "read": 142606336,
+     "write": 4194304,
+     "l1": 67108864,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.layer_norm",
+     "read": 134218496,
+     "write": 0,
+     "l1": 134217728,
+     "n_tensor": 100,
+     "n_alloc": 0
+    },
+    {
+     "unit": "MSALayer",
+     "op": "ttnn.add_",
+     "read": 67108864,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.unsqueeze",
+     "read": 8388608,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 325120,
+     "write": 179968,
+     "l1": 0,
+     "n_tensor": 82,
+     "n_alloc": 46
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.softmax",
+     "read": 0,
+     "write": 0,
+     "l1": 4194304,
+     "n_tensor": 0,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.multiply_",
+     "read": 0,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 23817175552
+   },
+   "op_census": {
+    "ttnn.deallocate": 365,
+    "ttnn.linear": 329,
+    "ttnn.multiply_": 114,
+    "ttnn.layer_norm": 105,
+    "ttnn.Tensor.__getitem__": 32,
+    "ttnn.slice": 32,
+    "ttnn.permute": 31,
+    "ttnn.allocate_tensor_on_device": 20,
+    "ttnn.generic_op": 16,
+    "ttnn.add_": 15,
+    "ttnn.reshape": 12,
+    "ttnn.matmul": 11,
+    "ttnn.softmax": 8,
+    "ttnn.chunk": 4,
+    "ttnn.to_layout": 4,
+    "ttnn.concat": 2,
+    "ttnn.transpose": 2,
+    "ttnn.unsqueeze": 2
+   }
+  },
+  "OuterProductMean|1x1024x512x64,1024x1x1": {
+   "nodes": 292,
+   "ttnn_ops": 24,
+   "dram_read": 8757979648,
+   "dram_write": 3019898880,
+   "dram_total": 11777878528,
+   "l1_alloc": 0,
+   "GB_per_call": 11.777879,
+   "Z_per_call": 175.5,
+   "by_unit": {
+    "OuterProductMean": {
+     "read": 8.75798,
+     "write": 3.019899,
+     "l1": 0.0,
+     "ops": 24
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.to_layout",
+     "read": 2281701376,
+     "write": 1140850688,
+     "l1": 0,
+     "n_tensor": 8,
+     "n_alloc": 4
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.permute",
+     "read": 2415919104,
+     "write": 603979776,
+     "l1": 0,
+     "n_tensor": 12,
+     "n_alloc": 3
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.reshape",
+     "read": 2013265920,
+     "write": 536870912,
+     "l1": 0,
+     "n_tensor": 11,
+     "n_alloc": 1
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.matmul",
+     "read": 603979776,
+     "write": 536870912,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.linear",
+     "read": 738468096,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 9,
+     "n_alloc": 3
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.multiply_",
+     "read": 570427392,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 0
+    },
+    {
+     "unit": "OuterProductMean",
+     "op": "ttnn.layer_norm",
+     "read": 134217984,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 1
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 8757979648
+   },
+   "op_census": {
+    "ttnn.reshape": 5,
+    "ttnn.deallocate": 5,
+    "ttnn.to_layout": 4,
+    "ttnn.linear": 3,
+    "ttnn.permute": 3,
+    "ttnn.multiply_": 2,
+    "ttnn.layer_norm": 1,
+    "ttnn.matmul": 1
+   }
+  },
+  "PairWeightedAveraging|1x1024x512x64,1x512x512x128": {
+   "nodes": 2561,
+   "ttnn_ops": 187,
+   "dram_read": 5704679680,
+   "dram_write": 1946337024,
+   "dram_total": 7651016704,
+   "l1_alloc": 209715200,
+   "GB_per_call": 7.651017,
+   "Z_per_call": 114.0,
+   "by_unit": {
+    "PairWeightedAveraging": {
+     "read": 5.70468,
+     "write": 1.946337,
+     "l1": 0.209715,
+     "ops": 187
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.permute",
+     "read": 2147483648,
+     "write": 536870912,
+     "l1": 4194304,
+     "n_tensor": 64,
+     "n_alloc": 16
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.linear",
+     "read": 1409386496,
+     "write": 1073741824,
+     "l1": 134217728,
+     "n_tensor": 65,
+     "n_alloc": 24
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.matmul",
+     "read": 536870912,
+     "write": 268435456,
+     "l1": 0,
+     "n_tensor": 16,
+     "n_alloc": 8
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.multiply_",
+     "read": 536870912,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 16,
+     "n_alloc": 0
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.add_",
+     "read": 536870912,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 8,
+     "n_alloc": 0
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.reshape",
+     "read": 335544320,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 5,
+     "n_alloc": 0
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.layer_norm",
+     "read": 201327360,
+     "write": 67108864,
+     "l1": 67108864,
+     "n_tensor": 7,
+     "n_alloc": 1
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 325120,
+     "write": 179968,
+     "l1": 0,
+     "n_tensor": 82,
+     "n_alloc": 46
+    },
+    {
+     "unit": "PairWeightedAveraging",
+     "op": "ttnn.softmax",
+     "read": 0,
+     "write": 0,
+     "l1": 4194304,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 5704679680
+   },
+   "op_census": {
+    "ttnn.Tensor.__getitem__": 32,
+    "ttnn.slice": 32,
+    "ttnn.linear": 32,
+    "ttnn.deallocate": 31,
+    "ttnn.permute": 24,
+    "ttnn.softmax": 8,
+    "ttnn.matmul": 8,
+    "ttnn.multiply_": 8,
+    "ttnn.add_": 7,
+    "ttnn.reshape": 3,
+    "ttnn.layer_norm": 2
+   }
+  },
+  "PairformerLayer|1x512x384,1x512x512x128": {
+   "nodes": 5342,
+   "ttnn_ops": 428,
+   "dram_read": 8914748416,
+   "dram_write": 3254386688,
+   "dram_total": 12169135104,
+   "l1_alloc": 1102446592,
+   "GB_per_call": 12.169135,
+   "Z_per_call": 181.3,
+   "by_unit": {
+    "TriangleMultiplication": {
+     "read": 5.506992,
+     "write": 2.04682,
+     "l1": 0.268435,
+     "ops": 66
+    },
+    "TriangleAttention": {
+     "read": 2.718241,
+     "write": 0.981467,
+     "l1": 0.134218,
+     "ops": 56
+    },
+    "Transition": {
+     "read": 0.543166,
+     "write": 0.202113,
+     "l1": 0.607519,
+     "ops": 274
+    },
+    "AttentionPairBias": {
+     "read": 0.14635,
+     "write": 0.023986,
+     "l1": 0.092275,
+     "ops": 32
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.generic_op",
+     "read": 4699063296,
+     "write": 1342177280,
+     "l1": 268435456,
+     "n_tensor": 76,
+     "n_alloc": 20
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.generic_op",
+     "read": 1556415488,
+     "write": 406847488,
+     "l1": 67108864,
+     "n_tensor": 36,
+     "n_alloc": 8
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 536870912,
+     "write": 536870912,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 402653184,
+     "write": 402653184,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 6
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.layer_norm",
+     "read": 268436480,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 8,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.layer_norm",
+     "read": 201327616,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 7,
+     "n_alloc": 2
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.concat",
+     "read": 202900992,
+     "write": 67502080,
+     "l1": 0,
+     "n_tensor": 40,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.reshape",
+     "read": 268435456,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.chunk",
+     "read": 201326592,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 65,
+     "n_alloc": 32
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.linear",
+     "read": 138414080,
+     "write": 33554432,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.permute",
+     "read": 142606336,
+     "write": 4194304,
+     "l1": 67108864,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.linear",
+     "read": 71434240,
+     "write": 67502080,
+     "l1": 540016640,
+     "n_tensor": 39,
+     "n_alloc": 33
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.layer_norm",
+     "read": 67504128,
+     "write": 0,
+     "l1": 67502080,
+     "n_tensor": 37,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.layer_norm",
+     "read": 67109376,
+     "write": 0,
+     "l1": 67108864,
+     "n_tensor": 3,
+     "n_alloc": 0
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.unsqueeze",
+     "read": 2621440,
+     "write": 33554432,
+     "l1": 0,
+     "n_tensor": 5,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.softmax",
+     "read": 25165824,
+     "write": 8388608,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.matmul",
+     "read": 18874368,
+     "write": 8912896,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.unsqueeze",
+     "read": 8388608,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.add_",
+     "read": 8388608,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply_",
+     "read": 8388608,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.linear",
+     "read": 4922368,
+     "write": 2359296,
+     "l1": 16777216,
+     "n_tensor": 10,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "read": 3145728,
+     "write": 1572864,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 3
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.permute",
+     "read": 2359296,
+     "write": 917504,
+     "l1": 8388608,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.unsqueeze",
+     "read": 3145728,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.Tensor.__getitem__",
+     "read": 1441792,
+     "write": 524288,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.transpose",
+     "read": 1048576,
+     "write": 524288,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.reshape",
+     "read": 1179648,
+     "write": 393216,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "AttentionPairBias",
+     "op": "ttnn.multiply",
+     "read": 1179648,
+     "write": 393216,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.multiply_",
+     "read": 0,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 8914748416
+   },
+   "op_census": {
+    "ttnn.deallocate": 154,
+    "ttnn.linear": 109,
+    "ttnn.multiply_": 44,
+    "ttnn.layer_norm": 41,
+    "ttnn.allocate_tensor_on_device": 20,
+    "ttnn.generic_op": 16,
+    "ttnn.add_": 9,
+    "ttnn.permute": 7,
+    "ttnn.unsqueeze": 5,
+    "ttnn.reshape": 5,
+    "ttnn.matmul": 4,
+    "ttnn.chunk": 3,
+    "ttnn.transpose": 3,
+    "ttnn.add": 2,
+    "ttnn.concat": 1,
+    "ttnn.experimental.nlp_create_qkv_heads": 1,
+    "ttnn.softmax": 1,
+    "ttnn.Tensor.__getitem__": 1,
+    "ttnn.slice": 1,
+    "ttnn.multiply": 1
+   }
+  },
+  "PairformerLayer|1x512x512x128": {
+   "nodes": 4763,
+   "ttnn_ops": 376,
+   "dram_read": 8616220160,
+   "dram_write": 3191865344,
+   "dram_total": 11808085504,
+   "l1_alloc": 1006632960,
+   "GB_per_call": 11.808086,
+   "Z_per_call": 176.0,
+   "by_unit": {
+    "TriangleMultiplication": {
+     "read": 5.369104,
+     "write": 2.013266,
+     "l1": 0.268435,
+     "ops": 62
+    },
+    "TriangleAttention": {
+     "read": 2.709851,
+     "write": 0.977273,
+     "l1": 0.134218,
+     "ops": 54
+    },
+    "Transition": {
+     "read": 0.537265,
+     "write": 0.201327,
+     "l1": 0.60398,
+     "ops": 260
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.generic_op",
+     "read": 4563796992,
+     "write": 1342177280,
+     "l1": 268435456,
+     "n_tensor": 72,
+     "n_alloc": 20
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.generic_op",
+     "read": 1548025856,
+     "write": 402653184,
+     "l1": 67108864,
+     "n_tensor": 31,
+     "n_alloc": 6
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 536870912,
+     "write": 536870912,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 402653184,
+     "write": 402653184,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 6
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.layer_norm",
+     "read": 268436480,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 8,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.layer_norm",
+     "read": 201327616,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 7,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.reshape",
+     "read": 268435456,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.chunk",
+     "read": 201326592,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 65,
+     "n_alloc": 32
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.concat",
+     "read": 201326592,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 34,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.linear",
+     "read": 138414080,
+     "write": 33554432,
+     "l1": 0,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.permute",
+     "read": 142606336,
+     "write": 4194304,
+     "l1": 67108864,
+     "n_tensor": 6,
+     "n_alloc": 2
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.linear",
+     "read": 67502080,
+     "write": 67108864,
+     "l1": 536870912,
+     "n_tensor": 35,
+     "n_alloc": 32
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.layer_norm",
+     "read": 67109376,
+     "write": 0,
+     "l1": 67108864,
+     "n_tensor": 34,
+     "n_alloc": 0
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.unsqueeze",
+     "read": 8388608,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.multiply_",
+     "read": 0,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 8616220160
+   },
+   "op_census": {
+    "ttnn.deallocate": 137,
+    "ttnn.linear": 102,
+    "ttnn.multiply_": 40,
+    "ttnn.layer_norm": 38,
+    "ttnn.allocate_tensor_on_device": 20,
+    "ttnn.generic_op": 16,
+    "ttnn.add_": 5,
+    "ttnn.reshape": 4,
+    "ttnn.permute": 4,
+    "ttnn.chunk": 3,
+    "ttnn.transpose": 2,
+    "ttnn.matmul": 2,
+    "ttnn.unsqueeze": 2,
+    "ttnn.concat": 1
+   }
+  },
+  "Transition|1x1024x512x64": {
+   "nodes": 6705,
+   "ttnn_ops": 514,
+   "dram_read": 536969472,
+   "dram_write": 268435456,
+   "dram_total": 805404928,
+   "l1_alloc": 603979776,
+   "GB_per_call": 0.805405,
+   "Z_per_call": 12.0,
+   "by_unit": {
+    "Transition": {
+     "read": 0.536969,
+     "write": 0.268435,
+     "l1": 0.60398,
+     "ops": 514
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "Transition",
+     "op": "ttnn.concat",
+     "read": 201326592,
+     "write": 134217728,
+     "l1": 0,
+     "n_tensor": 67,
+     "n_alloc": 3
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.chunk",
+     "read": 201326592,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 129,
+     "n_alloc": 64
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.linear",
+     "read": 67207168,
+     "write": 67108864,
+     "l1": 536870912,
+     "n_tensor": 67,
+     "n_alloc": 64
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.layer_norm",
+     "read": 67109120,
+     "write": 0,
+     "l1": 67108864,
+     "n_tensor": 66,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.multiply_",
+     "read": 0,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 536969472
+   },
+   "op_census": {
+    "ttnn.linear": 192,
+    "ttnn.deallocate": 192,
+    "ttnn.layer_norm": 64,
+    "ttnn.multiply_": 64,
+    "ttnn.chunk": 1,
+    "ttnn.concat": 1
+   }
+  },
+  "Transition|1x512x384": {
+   "nodes": 87,
+   "ttnn_ops": 8,
+   "dram_read": 4326912,
+   "dram_write": 393216,
+   "dram_total": 4720128,
+   "l1_alloc": 3538944,
+   "GB_per_call": 0.00472,
+   "Z_per_call": 0.1,
+   "by_unit": {
+    "Transition": {
+     "read": 0.004327,
+     "write": 0.000393,
+     "l1": 0.003539,
+     "ops": 8
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "Transition",
+     "op": "ttnn.linear",
+     "read": 3932160,
+     "write": 393216,
+     "l1": 3145728,
+     "n_tensor": 4,
+     "n_alloc": 1
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.layer_norm",
+     "read": 394752,
+     "write": 0,
+     "l1": 393216,
+     "n_tensor": 3,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.multiply_",
+     "read": 0,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 4326912
+   },
+   "op_census": {
+    "ttnn.linear": 3,
+    "ttnn.deallocate": 3,
+    "ttnn.layer_norm": 1,
+    "ttnn.multiply_": 1
+   }
+  },
+  "Transition|1x512x512x128": {
+   "nodes": 3351,
+   "ttnn_ops": 258,
+   "dram_read": 470155776,
+   "dram_write": 201326592,
+   "dram_total": 671482368,
+   "l1_alloc": 603979776,
+   "GB_per_call": 0.671482,
+   "Z_per_call": 10.0,
+   "by_unit": {
+    "Transition": {
+     "read": 0.470156,
+     "write": 0.201327,
+     "l1": 0.60398,
+     "ops": 258
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "Transition",
+     "op": "ttnn.chunk",
+     "read": 201326592,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 65,
+     "n_alloc": 32
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.concat",
+     "read": 134217728,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 33,
+     "n_alloc": 1
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.linear",
+     "read": 67502080,
+     "write": 67108864,
+     "l1": 536870912,
+     "n_tensor": 35,
+     "n_alloc": 32
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.layer_norm",
+     "read": 67109376,
+     "write": 0,
+     "l1": 67108864,
+     "n_tensor": 34,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.multiply_",
+     "read": 0,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 470155776
+   },
+   "op_census": {
+    "ttnn.linear": 96,
+    "ttnn.deallocate": 96,
+    "ttnn.layer_norm": 32,
+    "ttnn.multiply_": 32,
+    "ttnn.chunk": 1,
+    "ttnn.concat": 1
+   }
+  },
+  "Transition|1x512x768": {
+   "nodes": 87,
+   "ttnn_ops": 8,
+   "dram_read": 8653824,
+   "dram_write": 786432,
+   "dram_total": 9440256,
+   "l1_alloc": 3932160,
+   "GB_per_call": 0.00944,
+   "Z_per_call": 0.1,
+   "by_unit": {
+    "Transition": {
+     "read": 0.008654,
+     "write": 0.000786,
+     "l1": 0.003932,
+     "ops": 8
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "Transition",
+     "op": "ttnn.linear",
+     "read": 7864320,
+     "write": 786432,
+     "l1": 3145728,
+     "n_tensor": 4,
+     "n_alloc": 1
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.layer_norm",
+     "read": 789504,
+     "write": 0,
+     "l1": 786432,
+     "n_tensor": 3,
+     "n_alloc": 0
+    },
+    {
+     "unit": "Transition",
+     "op": "ttnn.multiply_",
+     "read": 0,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 0,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 8653824
+   },
+   "op_census": {
+    "ttnn.linear": 3,
+    "ttnn.deallocate": 3,
+    "ttnn.layer_norm": 1,
+    "ttnn.multiply_": 1
+   }
+  },
+  "TriangleAttention|1x512x512x128": {
+   "nodes": 343,
+   "ttnn_ops": 26,
+   "dram_read": 1354925568,
+   "dram_write": 488636416,
+   "dram_total": 1843561984,
+   "l1_alloc": 134217728,
+   "GB_per_call": 1.843562,
+   "Z_per_call": 27.5,
+   "by_unit": {
+    "TriangleAttention": {
+     "read": 1.354926,
+     "write": 0.488636,
+     "l1": 0.134218,
+     "ops": 26
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.generic_op",
+     "read": 740458496,
+     "write": 201326592,
+     "l1": 67108864,
+     "n_tensor": 15,
+     "n_alloc": 3
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 201326592,
+     "write": 201326592,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 3
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.permute",
+     "read": 138412032,
+     "write": 2097152,
+     "l1": 67108864,
+     "n_tensor": 4,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.layer_norm",
+     "read": 67109376,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.reshape",
+     "read": 134217728,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.linear",
+     "read": 69207040,
+     "write": 16777216,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.unsqueeze",
+     "read": 4194304,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 1354925568
+   },
+   "op_census": {
+    "ttnn.deallocate": 7,
+    "ttnn.allocate_tensor_on_device": 6,
+    "ttnn.generic_op": 4,
+    "ttnn.permute": 3,
+    "ttnn.reshape": 2,
+    "ttnn.layer_norm": 1,
+    "ttnn.linear": 1,
+    "ttnn.unsqueeze": 1,
+    "ttnn.multiply_": 1
+   }
+  },
+  "TriangleAttention|1x512x512x128,1x1x1x512": {
+   "nodes": 360,
+   "ttnn_ops": 27,
+   "dram_read": 1359120896,
+   "dram_write": 490733568,
+   "dram_total": 1849854464,
+   "l1_alloc": 134217728,
+   "GB_per_call": 1.849854,
+   "Z_per_call": 27.6,
+   "by_unit": {
+    "TriangleAttention": {
+     "read": 1.359121,
+     "write": 0.490734,
+     "l1": 0.134218,
+     "ops": 27
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.generic_op",
+     "read": 744653824,
+     "write": 203423744,
+     "l1": 67108864,
+     "n_tensor": 18,
+     "n_alloc": 4
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 201326592,
+     "write": 201326592,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 3
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.permute",
+     "read": 138412032,
+     "write": 2097152,
+     "l1": 67108864,
+     "n_tensor": 4,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.layer_norm",
+     "read": 67109376,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.reshape",
+     "read": 134217728,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.linear",
+     "read": 69207040,
+     "write": 16777216,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleAttention",
+     "op": "ttnn.unsqueeze",
+     "read": 4194304,
+     "write": 0,
+     "l1": 0,
+     "n_tensor": 2,
+     "n_alloc": 0
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 1359120896
+   },
+   "op_census": {
+    "ttnn.deallocate": 7,
+    "ttnn.allocate_tensor_on_device": 6,
+    "ttnn.generic_op": 4,
+    "ttnn.permute": 3,
+    "ttnn.reshape": 2,
+    "ttnn.layer_norm": 1,
+    "ttnn.linear": 1,
+    "ttnn.unsqueeze": 1,
+    "ttnn.add": 1,
+    "ttnn.multiply_": 1
+   }
+  },
+  "TriangleMultiplication|1x512x512x128": {
+   "nodes": 356,
+   "ttnn_ops": 29,
+   "dram_read": 2684552192,
+   "dram_write": 1006632960,
+   "dram_total": 3691185152,
+   "l1_alloc": 134217728,
+   "GB_per_call": 3.691185,
+   "Z_per_call": 55.0,
+   "by_unit": {
+    "TriangleMultiplication": {
+     "read": 2.684552,
+     "write": 1.006633,
+     "l1": 0.134218,
+     "ops": 29
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.generic_op",
+     "read": 2281898496,
+     "write": 671088640,
+     "l1": 134217728,
+     "n_tensor": 36,
+     "n_alloc": 10
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 268435456,
+     "write": 268435456,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.layer_norm",
+     "read": 134218240,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 1
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 2684552192
+   },
+   "op_census": {
+    "ttnn.deallocate": 11,
+    "ttnn.allocate_tensor_on_device": 4,
+    "ttnn.generic_op": 4,
+    "ttnn.multiply_": 3,
+    "ttnn.layer_norm": 2,
+    "ttnn.linear": 2,
+    "ttnn.chunk": 1,
+    "ttnn.transpose": 1,
+    "ttnn.matmul": 1
+   }
+  },
+  "TriangleMultiplication|1x512x512x128,1x512x512": {
+   "nodes": 385,
+   "ttnn_ops": 31,
+   "dram_read": 2753758208,
+   "dram_write": 1023410176,
+   "dram_total": 3777168384,
+   "l1_alloc": 134217728,
+   "GB_per_call": 3.777168,
+   "Z_per_call": 56.3,
+   "by_unit": {
+    "TriangleMultiplication": {
+     "read": 2.753758,
+     "write": 1.02341,
+     "l1": 0.134218,
+     "ops": 31
+    }
+   },
+   "by_unit_op": [
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.generic_op",
+     "read": 2349531648,
+     "write": 671088640,
+     "l1": 134217728,
+     "n_tensor": 38,
+     "n_alloc": 10
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.allocate_tensor_on_device",
+     "read": 268435456,
+     "write": 268435456,
+     "l1": 0,
+     "n_tensor": 1,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.layer_norm",
+     "read": 134218240,
+     "write": 67108864,
+     "l1": 0,
+     "n_tensor": 4,
+     "n_alloc": 1
+    },
+    {
+     "unit": "TriangleMultiplication",
+     "op": "ttnn.unsqueeze",
+     "read": 1572864,
+     "write": 16777216,
+     "l1": 0,
+     "n_tensor": 3,
+     "n_alloc": 1
+    }
+   ],
+   "by_dtype_read_bytes": {
+    "BFLOAT16": 2753758208
+   },
+   "op_census": {
+    "ttnn.deallocate": 11,
+    "ttnn.allocate_tensor_on_device": 4,
+    "ttnn.generic_op": 4,
+    "ttnn.multiply_": 4,
+    "ttnn.layer_norm": 2,
+    "ttnn.linear": 2,
+    "ttnn.unsqueeze": 1,
+    "ttnn.chunk": 1,
+    "ttnn.transpose": 1,
+    "ttnn.matmul": 1
+   }
+  }
+ },
+ "baseline": {
+  "n": 3,
+  "plain_s": [
+   23.841,
+   23.795,
+   24.2
+  ],
+  "instr_s": [
+   23.677,
+   23.912,
+   24.445
+  ],
+  "plain_median_s": 23.841,
+  "instr_median_s": 23.912,
+  "aa_floor_s": 0.405,
+  "aa_floor_pct": 1.699,
+  "instr_delta_pct": 0.298,
+  "host_s": 0.3229,
+  "device_s": 23.4651,
+  "transfer_s": 0.0001,
+  "residual_s": 0.0033,
+  "plddt": [
+   0.849627
+  ],
+  "cif_sha256": [
+   "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+  ],
+  "cif_sha256_16": [
+   "4f3995a69be5d610"
+  ],
+  "bit_identical_across_folds": true
+ },
+ "control_298": {
+  "fold_s": 37.863,
+  "n_msa": 35,
+  "plddt": 0.909487,
+  "n_tokens": null,
+  "cifs": {
+   "cdk2x2_298.cif": "71653ff72cbf01b048cf24bfa3b3358b1044d1e2b309d312bb7a646c0c6c1c69"
+  }
+ },
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "1",
+  "lease_cards": "1",
+  "git_head": "13604183bb92cd22cebb617706c31b9965b08179",
+  "ttnn": "0.68.0",
+  "torch": "2.8.0+cpu",
+  "fast": false,
+  "protocol": {
+   "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "timed_region": "predict_one (featurise + fold + CIF write)"
+  },
+  "started": "2026-09-11T15:11:33+0000",
+  "phases_requested": [
+   "baseline",
+   "control",
+   "attrib",
+   "census"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 2.99,
+  "n_msa": 35,
+  "card_type": "p300c",
+  "aiclk_mhz": "1350"
+ }
+}

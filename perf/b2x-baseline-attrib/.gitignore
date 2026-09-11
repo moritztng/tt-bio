@@ -1,2 +1,4 @@
 *.log
 cifs/
+cifs_fast/
+__pycache__/

@@ -1,0 +1,17 @@
+{
+ "label": "main-drift-512",
+ "ref": "perf/b2x-baseline-attrib/ref/published_fca25e32_cdk2x2_512.cif",
+ "arm": "perf/b2x-baseline-attrib/cifs/base_plain0_cdk2x2_512.cif",
+ "n_atoms_ref": 4116,
+ "n_atoms_arm": 4116,
+ "n_matched": 4116,
+ "n_CA": 512,
+ "allatom_rmsd_A": 8.5966,
+ "ca_rmsd_A": 8.4444,
+ "bar": {
+  "pass_A": 0.35,
+  "hold_A": 0.6
+ },
+ "verdict": "reject",
+ "identical_bytes": false
+}

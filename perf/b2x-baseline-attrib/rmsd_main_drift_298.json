@@ -1,0 +1,17 @@
+{
+ "label": "main-drift-298-control",
+ "ref": "perf/b2x-baseline-attrib/ref/published_388bd6db_cdk2x2_298.cif",
+ "arm": "perf/b2x-baseline-attrib/cifs/ctl298_cdk2x2_298.cif",
+ "n_atoms_ref": 2397,
+ "n_atoms_arm": 2397,
+ "n_matched": 2397,
+ "n_CA": 298,
+ "allatom_rmsd_A": 0.218,
+ "ca_rmsd_A": 0.0916,
+ "bar": {
+  "pass_A": 0.35,
+  "hold_A": 0.6
+ },
+ "verdict": "pass",
+ "identical_bytes": false
+}
