@@ -196,13 +196,11 @@ def _pooled_reference_molecules(jobs: list) -> list:
     """Every job's reference molecule, computed on a thread pool.
 
     The seeds are pre-drawn in residue order and handed out one per residue, so residue i
-    embeds with exactly the seed the sequential loop would have drawn for it. If any
-    residue retried it consumed a seed the sequential path would have given to the next
-    one, and from there the two streams differ, so the whole sequence is recomputed
-    sequentially -- a valid conformer set, just not the same draw.
+    embeds with exactly the seed the sequential loop would have drawn for it, and a retry
+    inside residue i draws from that seed's own stream. No residue can reach another's
+    seed, so the pooled result is the sequential result.
     """
     seeds = [random.randint(0, 10**9) for _ in jobs]
-    conformer_mod.pool_reset()
 
     def one(i):
         conformer_mod.pool_seed(seeds[i])
@@ -210,13 +208,7 @@ def _pooled_reference_molecules(jobs: list) -> list:
         return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
 
     with ThreadPoolExecutor(max_workers=CONFORMER_THREADS) as ex:
-        out = list(ex.map(one, range(len(jobs))))
-    if conformer_mod.pool_diverged():
-        logger.warning("conformer pool: a residue redrew its seed, recomputing sequentially")
-        conformer_mod.pool_reset()
-        out = [processed_reference_molecule_from_atom_array(a, atoms_to_mask=l)
-               for a, l in jobs]
-    return out
+        return list(ex.map(one, range(len(jobs))))
 
 
 # One reference conformer per residue TYPE instead of one per residue. A 512-residue
