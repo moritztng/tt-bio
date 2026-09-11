@@ -4972,6 +4972,38 @@ TRIMUL_TAIL_F1 = True
 _TRIMUL_TAIL_F1 = os.environ.get(
     "TT_BIO_TRIMUL_TAIL_F1", "1" if TRIMUL_TAIL_F1 else "0") == "1"
 
+# P4 step 1: apply the trimul's pair mask on the FAR side of the channel move, so that it stops
+# making E6 (`reblock_permute_gated`) ineligible.
+#
+# `gated` requires `mask_u is None`, and every Boltz-2 pairformer call site passes a pair mask
+# (boltz2.py:4758 confidence, boltz2.py:5499 trunk, boltz2.py:4903 affinity; the resident trunk
+# builds pf_mask_tt unconditionally). So the fused chunk+gate+move is ineligible on 100 % of
+# Boltz-2's pairformer trimuls, which is what "loses on boltz2's call mix" actually was.
+#
+# The mask commutes with the move: the move is a pure index reordering, so
+# perm(bf16(t * m)) == bf16(perm(t) * perm(m)) elementwise -- the same two roundings on the same
+# values. BIT-EXACT, and that is the whole reason this is a legal reordering rather than a
+# precision trade.
+#
+# Predicted -12 Z per trimul (-14 Z where the mask is all ones and can be skipped outright), which
+# is 1.043-1.050x on the 512 aa cell against a byte model of 1.070x. The trimul input side also
+# goes from 8 ops to 5, so this is transaction-positive as well.
+# state/b2x-fusion-boundary.md, perf/b2x_fusion_boundary/block_attrib.py.
+#
+# OFF by default and NOT YET RUN ON A DEVICE: written on a CPU host with no card, so nothing here
+# has been executed. It is the A/B switch the carded child measures with, and it has to stay a
+# runtime switch rather than an edit because the arms must interleave in one process.
+TRIMUL_MASK_AFTER_MOVE = False
+_TRIMUL_MASK_AFTER_MOVE = os.environ.get(
+    "TT_BIO_TRIMUL_MASK_AFTER_MOVE", "1" if TRIMUL_MASK_AFTER_MOVE else "0") == "1"
+
+
+def set_trimul_mask_after_move(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_MASK_AFTER_MOVE
+    prev, _TRIMUL_MASK_AFTER_MOVE = _TRIMUL_MASK_AFTER_MOVE, bool(on)
+    return prev
+
 
 def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     """``permute(chunk, (0, 2, 3, 1))``, through the hand-written kernel where it wins.
@@ -5277,6 +5309,19 @@ class TriangleMultiplication(Module):
             x_norm_in = ttnn.reallocate(x_norm_in)
         # Unsqueeze mask once before chunk loop (mask is [1,S,S] or [1,S])
         mask_u = ttnn.unsqueeze(mask, -1) if mask is not None else None
+        # The same mask in the MOVED layout, for `_TRIMUL_MASK_AFTER_MOVE`. After perm_a the chunk
+        # is [1, C, S, S] indexed (c, i, j) and reads pre[x, y, c], so the mask it needs is
+        # m[i, j] for the starting variant (perm_a = (0,3,1,2)) and m[j, i] for the ending one
+        # (perm_a = (0,3,2,1)). Only `a` is masked, so only perm_a matters. [1,1,S,S] bf16 is
+        # 0.52 MB at 512 aa, 0.008 Z, against the 2 Z multiply it lets us keep and the 12 Z it
+        # unblocks.
+        mask_moved = None
+        if mask_u is not None and _TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3:
+            mask_moved = ttnn.unsqueeze(mask, 1)
+            if self.ending:
+                mv = ttnn.transpose(mask_moved, -2, -1)
+                ttnn.deallocate(mask_moved)
+                mask_moved = mv
         # Collect the per-channel output chunks and concat them ONCE at the end. A
         # running concat copies the accumulator on every step (O(n_pairs^2)
         # channel-bytes moved); one concat of all chunks copies each chunk once.
@@ -5324,9 +5369,12 @@ class TriangleMultiplication(Module):
                     # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
                     # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
                     # ride inside the kernel too, so those keep the four-way split.
+                    # `mask_moved is not None` means the mask has been moved past the channel
+                    # move and no longer sits between the gate and it, so it no longer blocks the
+                    # fused pair. Without the flag this is the condition it always was.
                     gated = (
-                        self.gated_move
-                        and mask_u is None
+                        (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
+                        and (mask_u is None or mask_moved is not None)
                         and not _FAST_MODE
                         and not _TRIMUL_RAW_CHANNEL_MOVES
                         and memory_config.buffer_type == ttnn.BufferType.DRAM
@@ -5353,7 +5401,7 @@ class TriangleMultiplication(Module):
                         )
                         ttnn.deallocate(g_in_a)
                         ttnn.deallocate(g_in_b)
-                        if mask_u is not None:
+                        if mask_u is not None and mask_moved is None:
                             a_chunk = ttnn.multiply_(a_chunk, mask_u)
 
                         a_chunk = self._transform_chunk(
@@ -5362,6 +5410,11 @@ class TriangleMultiplication(Module):
                         b_chunk = self._transform_chunk(
                             b_chunk, perm_b, memory_config=tail_mc, realloc=n_pairs // group > 1,
                         )
+                    if mask_moved is not None:
+                        # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
+                        # declines the in-place form for a broadcast operand, take `ttnn.multiply`
+                        # into a fresh tensor and deallocate -- same bytes, one more allocation.
+                        a_chunk = ttnn.multiply_(a_chunk, mask_moved)
                     x_chunk = ttnn.matmul(
                         a_chunk,
                         b_chunk,
@@ -5473,6 +5526,8 @@ class TriangleMultiplication(Module):
                     host_acc = _host_concat(x_in)
                     group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
                     gp_in_chunks = self._gp_in_chunks(chunk_size, group)
+        if mask_moved is not None:
+            ttnn.deallocate(mask_moved)
         if x_norm_in is not None and H > SEQ_LEN_MORE_CHUNKING:
             # x_norm_in is dead on the row-blocked tail path (both norms are
             # recomputed per row block from x_in). Freeing it before the concat
