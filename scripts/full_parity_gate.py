@@ -654,13 +654,30 @@ def fixture_fingerprint(spec: str) -> str | None:
     # to clobber the harvested provenance to update its own cache key. Fixtures with no
     # external harvest (envelope-native, e.g. boltz2 no-MSA) keep the identity flat at the
     # top level, same as before.
-    src = meta.get("envelope", meta)
+    #
+    # Per-field, not per-dict: an `envelope` sub-dict is allowed to carry only the fields it
+    # actually overrides, and protenix-v1's carries exactly one (`reference_impl`). Reading the
+    # whole identity out of it therefore fingerprinted "" for version, "" for commit, {} for
+    # settings and [] for seeds, so that leg's cache key was a single string and a re-harvest at
+    # a different version or seed set would have silently reused the stale cached verdict
+    # (Wormhole parity pass 4, 2026-09-11). Falling back to the top level field by field keeps
+    # the seven fixtures whose envelope carries all five bit-identical, and gives the degenerate
+    # one the provenance it records. An empty/absent envelope field means "not overridden".
+    env = meta.get("envelope") or {}
+    src = env if isinstance(env, dict) else {}
+
+    def _field(key, default):
+        v = src.get(key, None)
+        if v is None or v == "" or v == {} or v == []:
+            v = meta.get(key, None)
+        return default if v is None else v
+
     identity = {
-        "reference_impl": src.get("reference_impl", ""),
-        "reference_version": src.get("reference_version", ""),
-        "reference_commit": src.get("reference_commit", ""),
-        "settings": src.get("settings", {}),
-        "seeds": src.get("seeds", []),
+        "reference_impl": _field("reference_impl", ""),
+        "reference_version": _field("reference_version", ""),
+        "reference_commit": _field("reference_commit", ""),
+        "settings": _field("settings", {}),
+        "seeds": _field("seeds", []),
     }
     blob = json.dumps(identity, sort_keys=True, default=str).encode()
     return hashlib.sha256(blob).hexdigest()[:16]

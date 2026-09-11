@@ -158,6 +158,7 @@ def _compute_conformer(
         FunctionTimedOut:
             If the conformer generation exceeds the given timeout.
     """
+    mol_in = mol
     try:
         mol = Chem.AddHs(mol)
     except Exception as e:
@@ -184,14 +185,31 @@ def _compute_conformer(
                     timeout=timeout, func=AllChem.EmbedMolecule, args=(mol, strategy)
                 )
             except FunctionTimedOut:
-                # A residue embeds in about 3 ms, so a 30 s budget expires only when the
-                # host is starved. Falling straight through to the next strategy would make
-                # the reference geometry a function of the load; retry this strategy, with
-                # the seed already on it, before the chain gives up on it. Bounded at twice
-                # the budget: a second timeout falls through exactly as before.
+                # A residue embeds in about 3 ms, so the 120 s budget this path is called
+                # with (query.py) expires only when the host is starved. Falling straight
+                # through to the next strategy would make the reference geometry a function
+                # of the load; retry this strategy, with the seed already on it, before the
+                # chain gives up on it. Bounded at twice the budget: a second timeout falls
+                # through exactly as before.
+                #
+                # Retry on a CLEAN molecule, not on the one that just timed out.
+                # func_timeout cannot interrupt EmbedMolecule -- it is a C++ call that never
+                # returns to the interpreter to receive the async exception -- so the timed-out
+                # embedding keeps running and deposits its conformer on `mol` regardless.
+                # clearConfs is False, so a retry on that same object appends a SECOND
+                # conformer and returns conf_id 1, which `assert conf_id == 0` in
+                # processed_reference_molecule_from_mol turns into a bare AssertionError and a
+                # dead fold. Measured over the 107-residue fkg_ligand protein: 1-4 residues
+                # per fold hit conf_id 1 at every budget from 1 ms to 8 ms. Re-adding
+                # hydrogens costs microseconds against an embedding's milliseconds and makes
+                # the retry what the comment above says it is, the same attempt repeated.
                 logger.warning(
                     f"Conformer strategy timed out after {timeout}s, retrying it once"
                 )
+                try:
+                    mol = Chem.AddHs(mol_in)
+                except Exception:
+                    mol = mol_in
                 conf_id = func_timeout(
                     timeout=timeout, func=AllChem.EmbedMolecule, args=(mol, strategy)
                 )
