@@ -5,6 +5,34 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+
+- **Boltz-2 folds 1.105x faster at 512 residues, and its coordinates move.** Two diffusion levers
+  that shipped off are on by default. The token-level DiT attention runs as one fused SDPA instead
+  of materialising a 16x512x512 score matrix and reading it back, and the atom axis is sized on the
+  real atom count, 4480 at 512 aa, instead of assuming every token is a tryptophan, 7168 -- which
+  takes the atom transformer from 224 attention windows to 140, of which 95 never held an atom.
+  22.195 s to 20.079 s on the fold and 1.400x on the diffusion sampler, n=3 per arm interleaved in
+  one process on an idle card against an A/A floor of 0.19 %. The two are independent: worth
+  1.100 s and 0.997 s alone, 2.116 s together.
+
+  **A Boltz-2 prediction returns slightly different coordinates after this release.** The fused
+  SDPA holds its exponentiated scores in a bf16 buffer, so it is not bit-exact. On the monomeric
+  298-residue control it is 0.1775 A CA and 0.3837 A all-atom, inside the 0.35 A CA bar that was
+  fixed before the measurement, and plDDT goes up rather than down, 0.909487 to 0.913597. The atom
+  bucket is byte-identical at 298 aa and reassociates one matmul's contraction at 512 aa. Nothing
+  else moves: OpenFold3 and Protenix-v2 both fold byte-identically with the two flags forced on,
+  which is what the levers being Boltz-2-only predicts. `BOLTZ2_TOKEN_DIT_SDPA=0` and
+  `TT_BIO_ATOM_AXIS_BUCKET=0` restore the previous paths.
+
+- **`TT_BIO_TOKEN_BUCKET=0` no longer crashes Boltz-2 at an off-lattice token count.** With the
+  token bucket off the diffusion path asked for `tokens * 14` atoms, and 298 tokens give 4172,
+  which the 32-atom attention window cannot partition: the fold died on `Invalid arguments to
+  reshape` before the first sampling step. The atom bucket above is a multiple of 32 for any
+  composition and closes it by construction, so the two things `docs/size-generality.md`
+  recommends -- an off-lattice rung and the fleet-wide bucket off switch -- can now be used
+  together.
+
 ### Added
 
 - **A preflight warning when a host OpenMPI is set up to break the bundled one.** tt-metal ships

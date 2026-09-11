@@ -124,6 +124,9 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=RECYCLING_STEPS)
     ap.add_argument("--skip-512", action="store_true")
+    ap.add_argument("--keep-512", action="store_true",
+                    help="keep every 512 aa CIF under --cifdir as 512_<arm>_<n>/, so the "
+                         "domain-split diagnostic gets N per arm instead of one closing fold")
     ap.add_argument("--skip-defect", action="store_true")
     args = ap.parse_args()
     SAMPLING_STEPS, RECYCLING_STEPS, OUT_PATH = args.steps, args.recycles, args.out
@@ -172,8 +175,11 @@ def main() -> int:
         pass
     dump()
 
-    assert TT._B2_TOKEN_DIT_SDPA is False and TT._ATOM_AXIS_BUCKET is False, \
-        "both flags must be OFF in the environment; the arms are set in-process"
+    # Both levers ship ON since 2026-09-11, so the module value is no longer the thing to assert;
+    # what still has to hold is that the ENVIRONMENT does not pin either one, because the arms are
+    # set in-process and an env pin would silently make every arm the same arm.
+    assert not (set(os.environ) & {"BOLTZ2_TOKEN_DIT_SDPA", "TT_BIO_ATOM_AXIS_BUCKET"}), \
+        "neither flag may be pinned in the environment; the arms are set in-process"
 
     work = Path(tempfile.mkdtemp(prefix="b2x-flaglev-"))
     struct_dir = work / "out"; struct_dir.mkdir(parents=True)
@@ -282,9 +288,14 @@ def main() -> int:
             print(f"  warm {arm:4s} {r['fold_s']:7.3f}s shape={r['diffusion_shape']} "
                   f"cif {r['cif_sha256'][:16]}", flush=True)
             OUT["phase1"] = runs; dump()
+        kept: dict[str, int] = {}
         for i in range(args.reps):
             for arm in ORDER:
-                r = fold(arm, t512); r["warmup"] = False; r["rep"] = i; runs.append(r)
+                keep = None
+                if args.keep_512:
+                    n = kept[arm] = kept.get(arm, -1) + 1
+                    keep = args.cifdir / f"512_{arm}_{n}"
+                r = fold(arm, t512, keep=keep); r["warmup"] = False; r["rep"] = i; runs.append(r)
                 print(f"  rep{i} {arm:4s} {r['fold_s']:7.3f}s "
                       f"sampler {r['stages_s'].get('sampler')} "
                       f"{r['sampler_ms_per_step']}ms/step plddt {r['plddt']} "
