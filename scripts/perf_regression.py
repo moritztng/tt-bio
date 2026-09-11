@@ -418,16 +418,6 @@ DEFAULT_MODELS = list(SPECS)
 # _assert_full_model_coverage, which enforces that nothing falls through this
 # dict AND the SPECS dict silently.
 SPECS_EXEMPT: dict[str, str] = {
-    # The blocker this entry originally named (the featurizer and ligand legs landing)
-    # has cleared: both legs are gate-green in full_parity_gate.py (openbind-ubq-msa
-    # X 0.969, openbind-fkg-ligand-msa X 0.602). What is still missing is a MEASURED
-    # baseline on this gate's own light protocol. openbind's existing perf numbers
-    # (36.017 s at 512 aa) were measured on perf/openbind/inputs/ob_apo_512.*, not on
-    # the shared TRPCAGE single-seq fixture every fold cell here uses, so they cannot
-    # be dropped in as this cell -- that substitution is the protocol swap the perf
-    # page's own note warns about. Seeding it is a warm run under benchlock (openbind
-    # is the same stack as openfold3 and takes polymers, so the identical 1 recycle /
-    # 10 steps / 1 sample protocol applies and the two cells are comparable).
     "saprot-35m": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
