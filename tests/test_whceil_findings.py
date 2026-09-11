@@ -98,3 +98,19 @@ def test_an_affinity_rung_is_not_reported_at_a_depth_it_never_read(tmp_path):
     line, = _run(tmp_path)
     assert "reads no alignment" in line
     assert "depth 35" not in line
+
+
+def test_partial_says_the_bar_is_cleared_so_it_does_not_read_as_a_problem(tmp_path):
+    """PARTIAL is about the ceiling, never about the bar. Next to a model that folds 1536 the
+    bare word would read as something being wrong with the model."""
+    _write(tmp_path, "m", [("cdk2x2_1536_d8192", "PASS", {})])
+    line, = _run(tmp_path)
+    assert line.startswith("MODEL m: PARTIAL")
+    assert "clears the 1024 bar" in line
+
+
+def test_fail_says_the_bar_is_not_cleared(tmp_path):
+    _write(tmp_path, "m", [("cdk2x2_1024_d8192", "OOM_DRAM",
+                            {"request_bytes": 1, "wall_kind": "FRAGMENTATION"})])
+    line, = _run(tmp_path)
+    assert "does NOT clear the 1024 bar" in line

@@ -7,9 +7,12 @@ JSONL the ladder wrote.
 
 The verdict is against the campaign's Wormhole bar of 1024 residues:
 
-  PASS     the model folded 1024 or more, and its first failure (if any) is above 1024.
-  FAIL     the model does not fold 1024.
-  PARTIAL  1024 folded but the ladder has not reached a failure yet, so the ceiling is a floor.
+  PASS     folds the bar, and a first failure is on record, so the ceiling is BOUNDED.
+  FAIL     does not fold the bar.
+  PARTIAL  folds the bar, but nothing above it has failed yet: the bar is cleared and the
+           ceiling is not bounded. PARTIAL is about the ceiling, never about the bar, and the
+           line says so -- "PARTIAL" next to a model that folds 1536 would otherwise read as
+           a problem with the model.
 
 `pass_at` is the largest size below the FIRST failure, never merely the largest that folded --
 the L1 clash class is not monotone in residue count (OpenDDE folds 544, throws at 576, folds
@@ -77,7 +80,8 @@ def main() -> int:
             verdict = "PASS" if cap >= BAR else "FAIL"
             if verdict == "PASS" and first_fail is None:
                 verdict = "PARTIAL"
-        bits = [f"{len(passed)}/{len(rs)} rungs folded at depth {depth}"]
+        cleared = "clears the 1024 bar" if verdict != "FAIL" else "does NOT clear the 1024 bar"
+        bits = [f"{cleared}; {len(passed)}/{len(rs)} rungs folded at depth {depth}"]
         if cap:
             bits.append(f"largest below the first failure {cap} aa "
                         f"in {below[-1]['wall_s']:.0f} s")
