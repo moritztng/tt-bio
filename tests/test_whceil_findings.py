@@ -26,19 +26,29 @@ def _write(tmp_path, model, rows):
 
 
 def _run(tmp_path):
+    """Verdict lines only. Every verdict is followed by its own indented cause line, which
+    `_causes` returns instead; splitting them here keeps each test about one thing."""
     out = subprocess.run([sys.executable, str(GEN), str(tmp_path)],
                          capture_output=True, text=True, check=True)
-    return out.stdout.strip().splitlines()
+    return [ln for ln in out.stdout.strip().splitlines() if ln.startswith("MODEL ")]
+
+
+def _pairs(tmp_path):
+    out = subprocess.run([sys.executable, str(GEN), str(tmp_path)],
+                         capture_output=True, text=True, check=True)
+    lines = out.stdout.strip().splitlines()
+    return [(lines[i], lines[i + 1]) for i in range(0, len(lines), 2)]
 
 
 def test_a_model_that_folds_the_bar_and_fails_above_it_passes(tmp_path):
     _write(tmp_path, "m", [("cdk2x2_1024_d8192", "PASS", {}),
                            ("cdk2x2_1088_d8192", "OOM_DRAM",
                             {"request_bytes": 2424307712, "wall_kind": "FRAGMENTATION"})])
-    line, = _run(tmp_path)
+    (line, cause), = _pairs(tmp_path)
     assert line.startswith("MODEL m: PASS")
     assert "1024 aa" in line and "1088 aa" in line
     assert "FRAGMENTATION" in line and "2424307712" in line
+    assert cause.startswith("    cause: fragmentation")
 
 
 def test_the_cap_is_below_the_first_failure_even_when_a_larger_rung_folded(tmp_path):
@@ -54,9 +64,10 @@ def test_the_cap_is_below_the_first_failure_even_when_a_larger_rung_folded(tmp_p
 def test_no_failure_anywhere_is_a_floor_and_says_so(tmp_path):
     _write(tmp_path, "m", [("cdk2x2_1024_d8192", "PASS", {}),
                            ("cdk2x2_1408_d8192", "PASS", {})])
-    line, = _run(tmp_path)
+    (line, cause), = _pairs(tmp_path)
     assert line.startswith("MODEL m: PARTIAL")
     assert "floor and not a ceiling" in line
+    assert "limit" in cause
     # The campaign's DONE_CHECK wants a stated cause next to any non-PASS verdict, and a line
     # that only says "nothing failed" does not give one. This is that word.
     assert "limit" in line
@@ -114,3 +125,21 @@ def test_fail_says_the_bar_is_not_cleared(tmp_path):
                             {"request_bytes": 1, "wall_kind": "FRAGMENTATION"})])
     line, = _run(tmp_path)
     assert "does NOT clear the 1024 bar" in line
+
+
+def test_every_verdict_is_followed_by_its_own_cause_line(tmp_path):
+    """The campaign's DONE_CHECK looks for a stated cause on a line AFTER the verdict line, so
+    a cause inside the verdict sentence does not count. It is also where a reader skimming a
+    column of verdicts looks. Both want the same thing; this is the test that it is there."""
+    _write(tmp_path, "a", [("cdk2x2_1024_d8192", "PASS", {}),
+                           ("cdk2x2_1088_d8192", "OOM_DRAM",
+                            {"request_bytes": 1, "wall_kind": "CUMULATIVE_RESIDENCY",
+                             "free_mib": 10.0, "per_bank_mib": 50.0, "occupancy_pct": 99.0})])
+    _write(tmp_path, "b", [("cdk2x2_1536_d8192", "PASS", {})])
+    pairs = _pairs(tmp_path)
+    assert len(pairs) == 2
+    for verdict, cause in pairs:
+        assert verdict.startswith("MODEL ")
+        assert cause.startswith("    cause: ") and len(cause) > 30
+    assert "cumulative residency" in pairs[0][1]
+    assert "top of the ladder" in pairs[1][1]

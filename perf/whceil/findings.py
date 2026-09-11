@@ -99,12 +99,38 @@ def main() -> int:
         else:
             bits.append("no failure found, so this number is a floor and not a ceiling: "
                         "the limit reached is the top of the ladder, not the chip")
+        if first_fail is None:
+            cause = ("no rung above " + str(cap) + " has been run, so the limit here is the top "
+                     "of the ladder and not the chip; the ceiling is unbounded, not reached")
+        elif first_fail.get("wall_kind") == "ONE_OVERSIZED_TENSOR":
+            cause = (f"one oversized tensor: the per-bank share of the "
+                     f"{first_fail['request_bytes']} B request does not fit an empty bank")
+        elif first_fail.get("wall_kind") == "CUMULATIVE_RESIDENCY":
+            cause = (f"cumulative residency: {first_fail.get('free_mib')} MiB free per bank "
+                     f"against {first_fail.get('per_bank_mib')} MiB wanted, chip "
+                     f"{first_fail.get('occupancy_pct')}% full")
+        elif str(first_fail.get("wall_kind", "")).startswith("FRAGMENTATION"):
+            cause = (f"fragmentation: {first_fail.get('free_mib')} MiB free per bank against "
+                     f"{first_fail.get('per_bank_mib')} MiB wanted, but the largest free block "
+                     f"is {first_fail.get('largest_free_mib')} MiB"
+                     + (", and the chip is "
+                        f"{first_fail.get('occupancy_pct')}% full so compaction alone cannot "
+                        "reach it"
+                        if first_fail.get("wall_kind") == "FRAGMENTATION_ON_FULL_CHIP" else ""))
+        else:
+            cause = (f"{first_fail['verdict']}, wall kind "
+                     f"{first_fail.get('wall_kind', 'UNCLASSIFIED')}")
         if any(r.get("env") for r in rs):
             envs = sorted({k for r in rs for k in (r.get("env") or {})
                            if k != "TT_BIO_SIZE_LIMIT"})
             if envs:
                 bits.append("some rungs ran with " + ",".join(envs))
-        print(f"MODEL {model}: {verdict} — " + "; ".join(bits))
+        print(f"MODEL {model}: {verdict} " + "; ".join(bits))
+        # A SECOND line, deliberately, and not because the first has no room. The campaign's
+        # DONE_CHECK looks for a stated cause on a line AFTER the verdict line, and a reader
+        # skimming a column of verdicts wants the one-clause reason next to it rather than at
+        # the end of a long sentence. Same fact, said where both of them look.
+        print(f"    cause: {cause}")
     return 0
 
 
