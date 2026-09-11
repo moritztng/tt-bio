@@ -267,3 +267,82 @@ By bytes the pairformer is the target: 1.756 TB of 3.405 TB. **By op count the d
 sampler is aimed at three quarters of the dispatch and nobody in the portfolio is holding one.
 The 22.2 us/op there is not a fixed cost yet — `b2x-op-cost-curve` is queued to establish whether
 it is — but the op *count* is measured and it is where the fold's calls are.
+
+---
+
+# A1 and A2, after the 17:40-17:56 bulletins
+
+## 11. The instrument was the problem, and it costs nothing once you stop draining the pipe
+
+Pass 1 bracketed every device class and synced on both sides of every bracket: ~33 000 brackets,
+a 60.5 s fold, and per-call times that are upper bounds. `remainder_probe.py` keeps the same tree
+and syncs only at depth 1. Its instrumented fold is **23.924 s against a 23.906 s plain fold in
+the same process** — the accounting is free; only the draining was expensive.
+
+With that, the sync question is settled by measurement rather than by spreading an average:
+
+| phase | per-call synced | clean | inflation |
+|---|---|---|---|
+| trunk (256 pairformer + 16 MSA, summed) | 12.768 s | 12.866 s | **−0.8 %** |
+| diffusion step | 40.263 ms | 33.245 ms | **+21.1 %** |
+| — token DiT layer | 1.078 ms | 0.953 ms | +13.1 % |
+| — atom transformer layer | 1.957 ms | 1.730 ms | +13.1 % |
+
+So bulletin 9 was right that the pairformer and MSA rows are robust and right that the two
+short-call rows are not, and its uniform 0.680 ms/call correction was too big by 5x: the true
+figure is 0.125 ms and 0.227 ms per call. The corrected roof fractions are **token DiT 48.6 %**
+(not 42.9 %, and not the impossible 203 %) and **atom transformer 40.9 %**.
+
+## 12. A2: the remainder has no bytes and no ops. It is host Python.
+
+One fold, every class bracketed, every ttnn call charged to the bracket stack:
+
+| phase | s/fold | GB/fold | ttnn ops | GB/s | % of 429.9 GB/s | % of 85.96 TFLOP/s | us/op | deficit s |
+|---|---|---|---|---|---|---|---|---|
+| TrunkModule, 4 recycles | 12.866 | 2031.4 | 83 355 | 157.9 | 36.7 % | 12.5 % | 154.4 | **6.959** |
+| DiffusionModule, 200 steps | 7.217 | 1320.1 | 281 574 | 182.9 | 42.5 % | 10.4 % | 25.6 | **3.378** |
+| PairformerModule, 8 confidence blocks | 0.468 | 53.2 | 2 242 | 113.8 | 26.5 % | 10.0 % | 208.6 | 0.313 |
+| **residual, outside every device class** | **3.374** | **0.0** | **0** | — | — | — | — | **3.374** |
+
+**Every one of the fold's 367 171 charged ttnn calls is inside a named device class. The residual
+issues none.** It is 3.374 s of host Python: the sampler's own between-step work (already on
+record at 13.7 ms/step x 200 = 2.74 s, commit `d0183cc0`), featurisation 0.197 s and the CIF write
+0.058 s.
+
+That picks a row in bulletin 8's table, and it is the pessimistic one. The remainder is not
+inefficient device work and it is not deletable bytes; it is time no byte lever can reach. **The
+byte-axis ceiling is 23.841 − 7.920 = 15.921 s = 1.497x**, and the 2.161x row is dead. The 1.691x
+row is dead too: it assumed the remainder was device work running at the same efficiency as the
+phases, and the remainder runs no device work at all.
+
+### Correction to section 9
+
+Section 9 called the 2.74 s figure "the right quantity estimated 8x low". That was wrong, and the
+measurement above is why. There are three different real numbers, not two:
+
+* **0.382 s** host outside `model.predict_step` — featurisation and the CIF write.
+* **3.374 s** wall inside `predict_step` but outside every device class, of which the sampler's
+  2.74 s is the bulk. Serialised fold time with no device work under it.
+* **21.8 s** of main-thread CPU across the whole fold: op issue, overlapped with device execution
+  and not additive with either of the above.
+
+## 13. A1: the pairformer block is not 428 ops at 37 %. It is two efficient ops and a transition.
+
+| sub-unit | per block | ms/block | MB/block | ops/block | % of roof | us/op |
+|---|---|---|---|---|---|---|
+| TriangleMultiplication | 2 | 20.392 | 4229.4 | 62 | **48.2 %** | 328.9 |
+| TriangleAttention | 2 | 11.540 | 2231.8 | 54 | **45.0 %** | 213.7 |
+| **Transition (pair track)** | 1 | **7.993** | 474.2 | **258** | **13.8 %** | 31.0 |
+| AttentionPairBias | 1 | 1.064 | 151.4 | 32 | 33.1 % | 33.2 |
+| Transition (single track) | 1 | 0.116 | 4.8 | 8 | 9.5 % | 14.5 |
+| accounted | | 41.105 of 42.199 | | 414 of 428 | | |
+
+The block's 36.7 % is an average over two worlds. The triangle ops, which carry 88 % of the
+block's bytes, run at 45-48 % of the streaming roof and cost 214-329 us per op. The pair-track
+transition carries **60 % of the block's ops for 7 % of its bytes** and runs at **13.8 %**, and
+the single-track one at 9.5 %.
+
+That is the answer to which of the two worlds we are in, and it is neither: a handful of fat ops
+near half the roof, plus a chunked transition that is pure dispatch. If the transition ran at the
+trimul's 48.2 % it would take 2.30 ms instead of 7.99 ms, which is **1.50 s of the fold, 6.3 %**,
+for an op-count change and no new kernel. Nothing in the portfolio is pointed at it.
