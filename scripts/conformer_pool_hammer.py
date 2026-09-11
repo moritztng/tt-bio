@@ -31,6 +31,13 @@ Two knobs, and the difference between them matters:
                tell an RNG-stream defect from a different set of residues having stalled.
                Forcing by seed holds that set fixed, so the only thing left that can move
                the output is where the retry's seed came from.
+  --force-each Times out every pooled seed in turn, one per iteration, so the run covers
+               each residue exactly once. --force-n picks its victims by thread arrival
+               order, which is a race: 100 iterations at --force-n 1 may stall the same
+               few fast residues 100 times and say nothing about the other 106. This
+               enumerates the set instead of sampling it, which is what makes the result
+               a statement about the residues rather than about a rate. --iters is
+               ignored; the iteration count is the number of pooled seeds.
 
 Run it against two checkouts to get a negative control: the unfixed tree must report more
 than one hash under the same conditions, or the arm proves nothing.
@@ -107,6 +114,10 @@ def main() -> int:
     ap.add_argument("--force-n", type=int, default=0,
                     help="time out the first N distinct pooled seeds, once each, so the "
                          "retry set is identical every iteration")
+    ap.add_argument("--force-each", action="store_true",
+                    help="time out every pooled seed in turn, one per iteration: "
+                         "exhaustive over the residues instead of sampled by thread "
+                         "arrival order (ignores --iters)")
     ap.add_argument("--label", default="run")
     ap.add_argument("--out", default=None, help="write the per-iteration record here")
     args = ap.parse_args()
@@ -128,7 +139,17 @@ def main() -> int:
 
         Q.multistrategy_compute_conformer = scaled
 
-    if args.force_n:
+    # Every pooled seed this iteration handed out, so --force-each can enumerate them.
+    seen_seeds: list = []
+    orig_pool_seed = C.pool_seed
+
+    def recording_pool_seed(seed):
+        seen_seeds.append(seed)
+        return orig_pool_seed(seed)
+
+    C.pool_seed = recording_pool_seed
+
+    if args.force_n or args.force_each:
         # Verbatim in mechanism from wh-correctness-parity-p3's probe: raise the same
         # FunctionTimedOut func_timeout raises, from the same call, AFTER the pooled seed
         # has been consumed onto the strategy. Confined to the pool phase -- _POOL.retries
@@ -146,13 +167,18 @@ def main() -> int:
                       or getattr(C._POOL, "active", False))
             if seed is not None and pooled:
                 with flock:
-                    if seed not in forced and len(forced) < args_force_n[0]:
+                    # target is set: force that one seed and nothing else, which is what
+                    # makes the arm exhaustive rather than first-come.
+                    hit = (seed == target[0] if target[0] is not None
+                           else len(forced) < args_force_n[0])
+                    if seed not in forced and hit:
                         forced[seed] = 1
                         raise C.FunctionTimedOut(
                             f"hammer: forced ETKDG timeout on pooled seed {seed}")
             return orig_ft(timeout=timeout, func=func, args=args, kwargs=kwargs or {})
 
         args_force_n = [args.force_n]
+        target: list = [None]
         C.func_timeout = ft
 
     draws = {"n": 0}
@@ -166,19 +192,16 @@ def main() -> int:
 
     hashes: Counter = Counter()
     records = []
+    forcing = args.force_n or args.force_each
     t0 = time.time()
-    # Iteration -1 is the clean draw: the same seed with nothing forced. It is the baseline
-    # every later iteration is sized against, so "moved" means "moved away from the fold a
-    # host that never stalled would have produced" -- the quantity that matters -- and not
-    # "differs from whatever the first forced iteration happened to give".
-    baseline = None
-    for it in range(-1, args.iters):
-        force_this = args.force_n if it >= 0 else 0
-        if args.force_n:
-            args_force_n[0] = force_this
+
+    def run_once():
+        """One whole pool, from a re-seeded global RNG. The seed list is therefore the
+        same every iteration, so any difference in the output is the bug."""
         random.seed(args.seed)
         draws["n"] = 0
-        if args.force_n:
+        seen_seeds.clear()
+        if forcing:
             forced.clear()
         t1 = time.time()
         if args.ligand:
@@ -190,30 +213,52 @@ def main() -> int:
             swm = Q.structure_with_ref_mols_from_sequence(
                 FKG_SEQ, MoleculeType.PROTEIN, "A")
             mols = swm.processed_reference_mols
-        h = _hash_ref_mols(mols)
-        per = _per_mol_hashes(mols)
-        if baseline is None:
-            baseline = per
-            clean_hash = h
-            print(f"{args.label} clean-baseline hash={h} draws={draws['n']} "
-                  f"jobs={len(mols)}", flush=True)
-            continue
+        return (_hash_ref_mols(mols), _per_mol_hashes(mols), len(mols),
+                round(time.time() - t1, 3))
+
+    # The clean draw first: the same seed with nothing forced. It is the baseline every
+    # later iteration is sized against, so "moved" means "moved away from the fold a host
+    # that never stalled would have produced" -- the quantity that matters -- and not
+    # "differs from whatever the first forced iteration happened to give".
+    if forcing:
+        args_force_n[0] = 0
+    clean_hash, baseline, n_jobs, _ = run_once()
+    print(f"{args.label} clean-baseline hash={clean_hash} draws={draws['n']} "
+          f"jobs={n_jobs}", flush=True)
+
+    # One entry per iteration: the pooled seed to stall, or None to leave the victim to
+    # --force-n. --force-each takes its plan from the baseline's own seed list, so the
+    # run covers every residue once and the coverage is a count, not a hope.
+    if args.force_each:
+        plan = sorted(seen_seeds)
+        print(f"{args.label} force-each over {len(plan)} pooled seeds", flush=True)
+    else:
+        plan = [None] * args.iters
+    if forcing:
+        args_force_n[0] = args.force_n
+
+    for it, tgt in enumerate(plan):
+        if forcing:
+            target[0] = tgt
+        h, per, n_jobs, secs = run_once()
         hashes[h] += 1
         moved = sum(1 for a, b in zip(baseline, per) if a != b)
         records.append({"iter": it, "hash": h, "n_draws": draws["n"],
-                        "n_jobs": len(mols), "mols_moved_vs_clean": moved,
-                        "secs": round(time.time() - t1, 3)})
-        print(f"{args.label} it={it} hash={h} draws={draws['n']} jobs={len(mols)} "
-              f"moved={moved}/{len(mols)} {records[-1]['secs']}s", flush=True)
+                        "n_jobs": n_jobs, "mols_moved_vs_clean": moved,
+                        "forced_seed": tgt, "secs": secs})
+        print(f"{args.label} it={it} hash={h} draws={draws['n']} jobs={n_jobs} "
+              f"moved={moved}/{n_jobs} {secs}s", flush=True)
 
     retried = sum(1 for r in records if r["n_draws"] > r["n_jobs"])
     moved = [r["mols_moved_vs_clean"] for r in records]
     summary = {
-        "label": args.label, "iters": args.iters, "budget": args.budget,
+        "label": args.label, "iters": len(records), "budget": args.budget,
         "ligand": args.ligand, "seed": args.seed,
         "distinct_hashes": len(hashes), "hashes": hashes.most_common(),
         "iters_with_a_retry": retried,
-        "force_n": args.force_n,
+        "force_n": args.force_n, "force_each": args.force_each,
+        "seeds_covered": len({r["forced_seed"] for r in records
+                             if r["forced_seed"] is not None}),
         "clean_hash": clean_hash,
         "matches_clean": hashes.get(clean_hash, 0),
         "mols_moved_vs_clean": {"max": max(moved) if moved else 0,
