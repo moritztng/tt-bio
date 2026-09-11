@@ -126,12 +126,20 @@ under 1024:
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1057 |
 | `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1280 |
 | `rfd3` | 1024 (motif + designed) | none found; top of the ladder |
+| `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968 | 1984 |
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
 model, the limit and any model that does take the input. `rf3` is not in the table because
-it folds every rung to 1095 residues, the top of its ladder. `boltz2`,
-`boltzgen` and `nesso1` have no measured limit and are never refused.
+it folds every rung to 1095 residues, the top of its ladder. `boltz2` and `nesso1` have no
+measured limit and are never refused.
+
+`boltzgen` is the one model sized on atoms rather than residues, because its wall follows the
+target's atom count and atoms per residue vary with what the target is made of: the 14786-atom
+rung is 1831 residues of a deposited protein, and a lighter target reaches more residues in the
+same number of atoms. The designed binder is outside the number, which was 80 residues at every
+rung. tt-bio counts the atoms out of the structure file your `file:` entity points at, so the
+refusal still lands before a device opens.
 
 Blackhole has more memory per chip, so it is a separate table and the Wormhole numbers do not
 carry over. Six models have been walked to a failure on a p150a:

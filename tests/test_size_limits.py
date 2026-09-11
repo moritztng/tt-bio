@@ -275,6 +275,182 @@ def test_the_shipped_pxdesign_fixture_is_admitted():
         sl.check("pxdesign", n, arch="wormhole_b0")
 
 
+# --- BoltzGen: the one model whose denominator is not residues ---------------------------------
+# Its ceiling is in ATOMS and the atoms are in the structure file the spec POINTS at, by a path
+# relative to the spec, so this is the case the `sizer(text, path)` contract exists for. The
+# fixture below is verbatim the spec the Wormhole ladder walked -- holding the sizer to the number
+# a chip produced rather than to one this file made up is the whole point of committing it.
+
+#: `perf/bhdesign/ladder.py` recorded `target_atoms` for this exact pair of files.
+_BG400 = Path(__file__).parent / "fixtures" / "boltzgen" / "bg400.yaml"
+_BG400_ATOMS = 3225
+
+
+def _two(p):
+    """`(text, path)` for one spec file, so a sizer call reads as the call check_input makes."""
+    return p.read_text(), p
+
+
+def _cif(path, chains, models=1, element="C"):
+    """A minimal mmCIF. `chains` is {chain id: (residues, atoms per residue)}."""
+    cols = ["group_PDB", "id", "type_symbol", "label_asym_id", "label_seq_id",
+            "pdbx_PDB_model_num"]
+    lines = ["data_t", "loop_"] + [f"_atom_site.{c}" for c in cols]
+    n = 0
+    for model in range(1, models + 1):
+        for cid, (res, per) in chains.items():
+            for r in range(1, res + 1):
+                for _ in range(per):
+                    n += 1
+                    lines.append(f"ATOM {n} {element} {cid} {r} {model}")
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def _bg_spec(path, target, include=None, binder=80, **extra):
+    """A BoltzGen design spec at `path` pointing at `target`, written the way the docs document."""
+    import yaml
+    body = {"path": Path(target).name, **extra}
+    if include is not None:
+        body["include"] = [{"chain": {"id": c}} for c in include]
+    path.write_text(yaml.safe_dump(
+        {"entities": [{"protein": {"id": "Z", "sequence": binder}}, {"file": body}]}))
+    return path
+
+
+def test_boltzgen_is_sized_on_the_targets_atoms_off_the_file_it_points_at():
+    """The recorded rung, reproduced from the spec that produced it, with no device.
+
+    3225 is not a number chosen here: it is the `target_atoms` field of the ladder record for this
+    fixture. The atom count appears nowhere in the spec text, so a sizer without the path cannot
+    reach it -- which is exactly what the second argument is for.
+    """
+    assert sl.scan_boltzgen_target_atoms(_BG400.read_text(), _BG400) == _BG400_ATOMS
+    sl.check("boltzgen", _BG400_ATOMS, arch="wormhole_b0")      # far under the cap: admitted
+
+
+def test_the_boltzgen_row_is_in_atoms_and_the_top_rung_is_admitted():
+    c = sl.ceiling("boltzgen", "wormhole_b0")
+    assert c.counts == sl.TARGET_ATOMS and c.residues == 14786
+    sl.check("boltzgen", c.residues, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError) as e:
+        sl.check("boltzgen", c.residues + 1, arch="wormhole_b0")
+    # The unit has to be IN the message, or a design user reads 14786 as residues and concludes
+    # tt-bio refuses a 1900-residue target it would happily take.
+    assert "atoms in the target" in str(e.value), str(e.value)
+
+
+def test_a_residue_refusal_never_offers_the_atom_denominated_model():
+    """14786 atoms is about 1830 residues, so an unfiltered alternatives list reads BoltzGen as
+    having room for anything. Offering it to a 1200-residue refusal is a units substitution in the
+    one message the user is meant to act on."""
+    assert "boltzgen" not in sl.models_accepting(1200, "wormhole_b0")
+    assert "boltzgen" in sl.models_accepting(1200, "wormhole_b0", counts=sl.TARGET_ATOMS)
+    with pytest.raises(sl.SizeTooLargeError) as e:
+        sl.check("opendde", 1200, arch="wormhole_b0")
+    assert "boltzgen" not in str(e.value), str(e.value)
+
+
+def test_boltzgen_counts_only_the_chains_the_spec_includes(tmp_path):
+    """THE negative control for the include list: a spec naming one chain of a two-chain file must
+    score that chain, not the file. Getting this wrong is how the prior pass's ladder read a PASS
+    at a size that never ran -- BoltzGen conditions on what it is given and does not complain."""
+    t = _cif(tmp_path / "t.cif", {"A": (100, 8), "B": (50, 8)})
+    assert sl.structure_chains(t) == {"A": (100, 800), "B": (50, 400)}
+    assert sl.scan_boltzgen_target_atoms(*_two(_bg_spec(tmp_path / "a.yaml", t, ["A"]))) == 800
+    assert sl.scan_boltzgen_target_atoms(*_two(_bg_spec(tmp_path / "ab.yaml", t, ["A", "B"]))) == 1200
+    # No `include` at all means the whole file, which is what the engine defaults to.
+    assert sl.scan_boltzgen_target_atoms(*_two(_bg_spec(tmp_path / "all.yaml", t))) == 1200
+    # A chain the file does not carry scores 0 and refuses nothing; the engine rejects it by name.
+    assert sl.scan_boltzgen_target_atoms(*_two(_bg_spec(tmp_path / "z.yaml", t, ["Q"]))) == 0
+
+
+def test_the_atoms_are_the_ones_the_model_tokenises(tmp_path):
+    """Hydrogens and NMR models are both ways to count the same target two or twenty times over,
+    and an over-count refuses work the chip can do. The featurizers lay one token per HEAVY atom
+    and fold one model."""
+    heavy = _cif(tmp_path / "heavy.cif", {"A": (10, 8)})
+    assert sl.structure_chains(heavy)["A"] == (10, 80)
+    withh = _cif(tmp_path / "h.cif", {"A": (10, 8)}, element="H")
+    assert sl.structure_chains(withh) == {}
+    ensemble = _cif(tmp_path / "nmr.cif", {"A": (10, 8)}, models=20)
+    assert sl.structure_chains(ensemble)["A"] == (10, 80)
+
+
+def test_a_pdb_target_is_counted_like_a_cif_one(tmp_path):
+    """BoltzGen's own parser takes either, so a size guard that only read mmCIF would skip every
+    PDB target silently -- a skipped file looks exactly like a file that passed."""
+    pdb = tmp_path / "t.pdb"
+    rows = []
+    for r in range(1, 11):
+        for i, (name, el) in enumerate([(" N  ", "N"), (" CA ", "C"), (" HB2", "H")]):
+            rows.append(f"ATOM  {len(rows)+1:>5} {name} ALA A{r:>4}    "
+                        f"   0.000   0.000   0.000  1.00  0.00          {el:>2}")
+    pdb.write_text("\n".join(rows) + "\nEND\n")
+    assert sl.structure_chains(pdb) == {"A": (10, 20)}       # the hydrogen is not a token
+
+
+def test_an_unsizable_boltzgen_spec_refuses_nothing(tmp_path):
+    """Every way this cannot know the atom count has to score 0. A guard that guessed here would
+    refuse a design the chip can run, and unlike a crash the user cannot retry past it."""
+    t = _cif(tmp_path / "t.cif", {"A": (100, 8), "B": (50, 8)})
+    # `exclude` and `include_proximity` REMOVE part of what is named, by residue and by distance.
+    assert sl.scan_boltzgen_target_atoms(
+        *_two(_bg_spec(tmp_path / "x.yaml", t, ["A"], exclude=[{"chain": {"id": "A"}}]))) == 0
+    assert sl.scan_boltzgen_target_atoms(
+        *_two(_bg_spec(tmp_path / "p.yaml", t, ["A"], include_proximity=10))) == 0
+    # A target given as a SEQUENCE has no atoms written down anywhere.
+    seq = tmp_path / "s.yaml"
+    seq.write_text("entities:\n  - protein:\n      id: Z\n      sequence: 80\n"
+                   "  - protein:\n      id: A\n      sequence: " + "A" * 3000 + "\n")
+    assert sl.scan_boltzgen_target_atoms(*_two(seq)) == 0
+    # A file that is not on this host, the predict path's `sequences:` spelling, and junk.
+    missing = tmp_path / "m.yaml"
+    missing.write_text("entities:\n  - file:\n      path: nope.cif\n")
+    assert sl.scan_boltzgen_target_atoms(*_two(missing)) == 0
+    for junk in ("", "\x00\x01", "{{{not yaml", "entities: 5", "- a\n- b\n",
+                 "sequences:\n  - protein:\n      id: A\n      sequence: ACDEF\n"):
+        assert sl.scan_boltzgen_target_atoms(junk, tmp_path / "j.yaml") == 0
+    # And with no path at all it must not crash or resolve something it was not given.
+    assert sl.scan_boltzgen_target_atoms(_BG400.read_text()) == 0
+
+
+def test_a_perturbed_target_moves_the_number(tmp_path):
+    """The control that proves the count comes from the FILE. Deleting atoms from the structure
+    has to change the answer -- otherwise the sizer could be reading the file name, the spec text
+    or nothing at all, and every assertion above would pass anyway."""
+    import shutil
+    shutil.copy(_BG400, tmp_path / "bg400.yaml")
+    src = (_BG400.parent / "bgt400.cif").read_text().splitlines()
+    atoms = [l for l in src if l.startswith("ATOM")]
+    (tmp_path / "bgt400.cif").write_text(
+        "\n".join([l for l in src if not l.startswith("ATOM")] + atoms[:1000]) + "\n")
+    assert sl.scan_boltzgen_target_atoms(*_two(tmp_path / "bg400.yaml")) == 1000 != _BG400_ATOMS
+
+
+def test_the_shipped_boltzgen_example_is_admitted_by_its_own_guard():
+    f = Path(__file__).resolve().parent.parent / "examples" / "binder.yaml"
+    if f.exists():
+        n = sl.scan_boltzgen_target_atoms(f.read_text(), f)
+        assert n == 904, n
+        sl.check("boltzgen", n, arch="wormhole_b0")
+
+
+def test_pxdesign_reads_an_uncropped_chain_off_the_target_file():
+    """The same path, put to work on the other design model. A chain with no `crop` conditions on
+    the whole chain, and its length is only written down in `target.file` -- which used to make the
+    spec unsizable and refuse nothing. The shipped fixture is a `.cif.gz`, so this covers the
+    gzipped read too."""
+    y = Path(__file__).parent / "fixtures" / "pxdesign" / "PDL1.yaml"
+    if not y.exists():
+        pytest.skip("PXDesign fixture not present")
+    assert sl.scan_pxdesign_target(y.read_text(), y) == 116          # the crop still wins
+    uncropped = y.read_text().replace('      crop: ["1-116"]\n', "")
+    assert sl.scan_pxdesign_target(uncropped, y) == 129              # chain A whole, off the file
+    # Without a path there is nothing to resolve, which is exactly the old behaviour.
+    assert sl.scan_pxdesign_target(uncropped) == 0
+
+
 def test_check_input_refuses_a_real_file_before_any_device(tmp_path):
     """End to end through the CLI entry point's own call, on a file, with no device open."""
     big = tmp_path / "big.yaml"
@@ -379,7 +555,14 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
         ("rfd3", "spec.yaml", 'a:\n  input: t.pdb\n  contig: A1-2,4000\n'),
         ("pxdesign", "t.yaml",
          'target:\n  file: t.cif\n  chains:\n    A:\n      crop: ["1-900"]\n'),
+        # BoltzGen is sized off the file its spec points at, so its oversized case needs one on
+        # disk beside the spec -- written below, and named here as `big.cif`.
+        ("boltzgen", "bg.yaml", 'entities:\n  - protein:\n      id: Z\n      sequence: 80\n'
+                                '  - file:\n      path: big.cif\n'),
+        ("boltzgen", "bg.json", '{"entities": [{"protein": {"id": "Z", "sequence": 80}},'
+                                ' {"file": {"path": "big.cif"}}]}'),
     ]
+    _cif(tmp_path / "big.cif", {"A": (1900, 8)})     # 15200 atoms, over boltzgen's 14786
     for model, name, text in cases:
         f = tmp_path / name
         f.write_text(text)

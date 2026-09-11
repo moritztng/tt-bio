@@ -9,8 +9,12 @@ moved, which would have re-published 627 for rf3 after it went to 1095.
 The invariant is one-directional on purpose. Every row in the table must match the guard.
 The reverse is NOT required: rf3 has a measured ceiling and is deliberately absent from the
 table, because the prose under it says it folds every rung to the top of its ladder, and
-`boltz2`/`esmfold2`/`boltzgen`/`nesso1` are absent because they have no measured limit at all.
-Requiring a row for every ceiling would force those editorial calls into the table.
+`boltz2` and `nesso1` are absent because they have no measured limit at all. Requiring a row
+for every ceiling would force those editorial calls into the table.
+
+The published number carries its own UNIT, read off the row rather than assumed: boltzgen's
+14786 is atoms in the target, not residues, and a failure message that called it residues would
+send the reader looking for the wrong stale number.
 """
 from __future__ import annotations
 
@@ -60,8 +64,9 @@ def test_the_published_limit_is_the_enforced_limit(row):
     for model in models:
         c = size_limits.ceiling(model, ARCH)
         assert c is not None and c.residues is not None, f"{model}: no measured ceiling to publish"
+        unit = size_limits._COUNT_NAMES[c.counts]
         assert c.residues == published, (
-            f"README publishes {model} at {published} residues, size_limits enforces "
+            f"README publishes {model} at {published} {unit}, size_limits enforces "
             f"{c.residues}. One of them is stale.")
 
 

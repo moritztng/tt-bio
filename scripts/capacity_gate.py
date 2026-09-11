@@ -200,10 +200,10 @@ def _verbs() -> dict[str, str]:
 #: records what is NOT covered so the gap is readable, the same discipline as
 #: release_gate.SIZE_LADDER_EXEMPT. Anything here is reported SKIPPED with its reason.
 EXEMPT = {
-    "boltzgen": "design, not a fold: its input is a target plus a binder spec and its measured "
-                "cap is atom-denominated (between 3158 and 4651 atoms in the trunk Pairformer's "
-                "triangle attention), which a token bar cannot express. Needs an atom-denominated "
-                "cell of its own.",
+    "boltzgen": "design, not a fold: its input is a target plus a binder spec, so this gate's "
+                "polymer sequence fixture is not a valid input for it at any bar. Its cap is "
+                "atom-denominated as well (TARGET_ATOMS, 14786 atoms on a Wormhole Galaxy chip), "
+                "which a token bar cannot express. Needs an atom-denominated cell of its own.",
     "rfd3":     "design, not a fold: sized on DESIGN_TOTAL (motif plus designed) from a contig "
                 "spec, so the 1536-token fixture here is not a valid input. Its wall is "
                 "fragmentation rather than capacity and wants its own cell.",
