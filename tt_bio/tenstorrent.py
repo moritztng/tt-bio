@@ -686,6 +686,27 @@ def _dtype(default=None):
     return ttnn.bfloat8_b if _FAST_MODE else ttnn.bfloat16
 
 
+# P1: store the PAIR TRACK in bfloat8_b while weights, projections and the token track stay
+# bf16. A bf16 tile is 2048 B and a bfloat8_b tile is 1088 B (1024 mantissa bytes plus a 64-byte
+# shared exponent), so this is 0.531x the bytes at the same transaction count -- the next step on
+# the axis `_FAST_MODE` already takes for weights, applied to the activations nothing in the
+# shipped 512 aa path takes it for. Release-gated: not bit-exact, so it stays off until a fold
+# parity gate clears it. See state/b2x-bfp8-pair-track.md.
+_PAIR_B8 = env_flag("TT_BIO_PAIR_B8", False)
+
+
+def _pair_dtype(default=None):
+    """Storage dtype for a PAIR-SCALE activation: z and everything the trimul derives from it.
+
+    Distinct from `_dtype()`, which also governs weights: `_FAST_MODE` demoting stored weights
+    to bfloat8_b regressed esmfold2 confidence to NaN on Wormhole, so the two questions have to
+    stay separable. An explicit `_DTYPE_OVERRIDE` (the fp32 affinity trunk) still wins.
+    """
+    if _PAIR_B8 and _DTYPE_OVERRIDE is None:
+        return ttnn.bfloat8_b
+    return _dtype(default)
+
+
 def _no_host_pad(x: ttnn.Tensor, dtype, n: int, n_pad: int) -> ttnn.Tensor | None:
     """The device-side result of padding ``x`` from ``n`` to ``n_pad`` and casting it to
     ``dtype``, or None when a real host pad is needed.
@@ -4859,11 +4880,11 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None):
     """
     if bias is None:
         from . import mm_dualnoc as DN
-        out = DN.in_proj(x, w, ckc, _dtype(), memory_config)
+        out = DN.in_proj(x, w, ckc, _pair_dtype(), memory_config)
         if out is not None:
             return out
     return ttnn.experimental.minimal_matmul(
-        x, w, bias_tensor=bias, memory_config=memory_config, dtype=_dtype(),
+        x, w, bias_tensor=bias, memory_config=memory_config, dtype=_pair_dtype(),
         compute_kernel_config=ckc)
 
 
@@ -4880,14 +4901,14 @@ def _trimul_out_proj(
     """
     if _TRIMUL_MM_OUT:
         return ttnn.experimental.minimal_matmul(
-            x, weight, bias_tensor=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
-            compute_kernel_config=ckc,
+            x, weight, bias_tensor=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+            dtype=_pair_dtype(), compute_kernel_config=ckc,
         )
     # Both of a trimul's output projections take an L1 result: `multiply_` folds them together
     # in place and the layer's residual `add_` reads the product, so neither ever needs to reach
     # DRAM. Two live 48.82 MB L1 tensors is 750.9 kB of each bank's 1427.5 kB, which fits beside
     # this config's circular buffers and does not beside `core_grid=`'s.
-    return _pair_proj_linear(x, weight, ckc, _dtype(), l1_out=True, bias=bias)
+    return _pair_proj_linear(x, weight, ckc, _pair_dtype(), l1_out=True, bias=bias)
 
 
 # F1: the tail's two output projections and its gate in one `generic_op` (`tt_bio/trimul_tail.py`).
@@ -5058,7 +5079,16 @@ class TriangleMultiplication(Module):
             and memory_config.buffer_type == ttnn.BufferType.DRAM
             and not _TRIMUL_RAW_CHANNEL_MOVES
         )
-        ops = [(ttnn.typecast, ttnn.bfloat16)] if _FAST_MODE else []
+        # The channel move has no block-format reader: all three `reblock_permute.eligible*`
+        # gates reject a non-bf16 operand outright, so `_FAST_MODE`'s bfloat8_b chunk has always
+        # been widened either side of it. Read that off the CHUNK rather than off the mode, so
+        # `_PAIR_B8`'s bfloat8_b chunk takes the same widening and is restored to the dtype it
+        # arrived in. Byte-identical for every reachable config today: under `_FAST_MODE` the
+        # chunk is bfloat8_b on every path that reaches here (the fp32 affinity trunk has its own
+        # `Fp32TriangleMultiplication`), which is the one case the old spelling handled.
+        src_dtype = chunk.dtype
+        widen = src_dtype != ttnn.bfloat16
+        ops = [(ttnn.typecast, ttnn.bfloat16)] if widen else []
         if decompose:
             ops.append((_channel_move,))
             ops.append((ttnn.transpose, -2, -1))
@@ -5066,8 +5096,8 @@ class TriangleMultiplication(Module):
             ops.append((_channel_move,))
         else:
             ops.append((ttnn.permute, permute_dims))
-        if _FAST_MODE:
-            ops.append((ttnn.typecast, ttnn.bfloat8_b))
+        if widen:
+            ops.append((ttnn.typecast, src_dtype))
         # The reallocate compacts the chunk so the NEXT iteration's allocations find contiguous
         # space; with one iteration there is no next one and nothing to fragment. It is a full
         # round trip of the chunk through DRAM (134.2 MB each way at 512 aa, measured 0.711 ms for
@@ -5249,7 +5279,9 @@ class TriangleMultiplication(Module):
                     gated = (
                         self.gated_move
                         and mask_u is None
-                        and not _FAST_MODE
+                        # `eligible_gated` rejects a non-bf16 operand anyway; naming the dtype
+                        # here keeps `_FAST_MODE` and `_PAIR_B8` on one rule instead of two.
+                        and gp_in_fused.dtype == ttnn.bfloat16
                         and not _TRIMUL_RAW_CHANNEL_MOVES
                         and memory_config.buffer_type == ttnn.BufferType.DRAM
                         and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
@@ -5290,7 +5322,7 @@ class TriangleMultiplication(Module):
                         compute_kernel_config=self.compute_kernel_config,
                         memory_config=memory_config,
                         program_config=program_config,
-                        dtype=ttnn.bfloat16,
+                        dtype=_pair_dtype(ttnn.bfloat16),
                     )
                     ttnn.deallocate(a_chunk)
                     ttnn.deallocate(b_chunk)
@@ -6694,8 +6726,13 @@ class Transition(Module):
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        # A 4-D input is the PAIR transition ([1, S, S, c_z]); 3-D is the token transition, whose
+        # activations are three orders smaller and so have nothing to win from a narrower store.
+        pair_scale = len(x.shape) >= 4
+
         def swiglu(x):
-            dtype = self.dtype if self.dtype is not None else _dtype()
+            dtype = self.dtype if self.dtype is not None else (
+                _pair_dtype() if pair_scale else _dtype())
             x_norm = ttnn.layer_norm(
                 x,
                 weight=self.norm_weight,
@@ -7119,9 +7156,20 @@ class Pairformer(Module):
         # the MSA trunk's peak is floor + k*m_feat + pair_copies*z, and only a measurement
         # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
         dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
+        # `_PAIR_B8` stores the pair track in bfloat8_b for the whole stack. Cast once on the way
+        # in and once on the way out rather than per block, so the 64 residual `add_`s write into
+        # a bfloat8_b z and every consumer of it reads 0.531x the bytes, while the caller still
+        # gets the bf16 tensor it has always been handed.
+        z_in = z
+        if _PAIR_B8 and z.dtype == ttnn.bfloat16:
+            z = ttnn.typecast(z, ttnn.bfloat8_b)
         for i, block in enumerate(self.blocks):
             s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
             dram_peak(f"pairformer block {i} done")
+        if z.dtype != z_in.dtype:
+            out = ttnn.typecast(z, z_in.dtype)
+            ttnn.deallocate(z)
+            z = out
         return s, z
 
 
