@@ -1,153 +1,191 @@
 {
  "card": "qb2 card 2 (p300c)",
  "date": "2026-09-11",
- "protocol": "cdk2x2_512.yaml + fixed 35-row a3m, 3 recycles, 4 sampling steps, seed 0, templates off; ttnn.graph capture of the 4th settled call of each shape. STRUCTURE ONLY -- no timing in this file.",
+ "protocol": "cdk2x2_512.yaml + fixed 35-row a3m, 3 recycles, 4 sampling steps, seed 0, templates off; ttnn.graph capture of the 4th settled call of each shape. STRUCTURE ONLY -- no timing measured in this file.",
+ "counts_explained": {
+  "published": "fold_bytes_512.py rule: DRAM reads deduped by tensor id; charges a full read for every metadata view",
+  "once": "every distinct DRAM buffer charged once (the convention BioIR 54.8 MB is in)",
+  "floor": "inputs once + intermediates written and read (compulsory)",
+  "real": "per consuming op, views and deallocate charged nothing, in-place ops charged a read and a write; lower bound inside fused generic_op kernels"
+ },
  "default_arm": {
   "pairformer|1x512x512x128": {
-   "published_instrument_MB": 11808.61,
+   "published_MB": 11808.61,
    "once_MB": 3260.219,
-   "roundtrip_MB": 6452.347,
-   "pre_existing_MB": 68.092,
-   "intermediates_MB": 3192.127,
+   "floor_MB": 6452.347,
+   "real_MB": 6519.456,
    "top_level_ttnn_ops": 4,
-   "dram_buffers": 139,
    "distinct_tensor_ids": 644,
    "distinct_addresses": 117,
-   "published_over_roundtrip_x": 1.83
+   "published_over_real_x": 1.811
   },
   "pairformer|1x512x384,1x512x512x128": {
-   "published_instrument_MB": 12169.659,
+   "published_MB": 12169.659,
    "once_MB": 3329.221,
-   "roundtrip_MB": 6583.869,
-   "pre_existing_MB": 74.572,
-   "intermediates_MB": 3254.649,
+   "floor_MB": 6583.869,
+   "real_MB": 6650.978,
    "top_level_ttnn_ops": 5,
-   "dram_buffers": 177,
    "distinct_tensor_ids": 732,
    "distinct_addresses": 140,
-   "published_over_roundtrip_x": 1.848
+   "published_over_real_x": 1.83
   },
   "difftx|1x512x768,1x512x768": {
-   "published_instrument_MB": 214.449,
+   "published_MB": 214.449,
    "once_MB": 80.97,
-   "roundtrip_MB": 127.894,
-   "pre_existing_MB": 34.046,
-   "intermediates_MB": 46.924,
+   "floor_MB": 127.894,
+   "real_MB": 198.935,
    "top_level_ttnn_ops": 59,
-   "dram_buffers": 55,
    "distinct_tensor_ids": 102,
    "distinct_addresses": 34,
-   "published_over_roundtrip_x": 1.677
+   "published_over_real_x": 1.078
   },
   "difftx|1x224x32x128,1x224x32x128": {
-   "published_instrument_MB": 517.064,
+   "published_MB": 517.064,
    "once_MB": 136.922,
-   "roundtrip_MB": 261.703,
-   "pre_existing_MB": 12.142,
-   "intermediates_MB": 124.781,
+   "floor_MB": 261.703,
+   "real_MB": 303.908,
    "top_level_ttnn_ops": 65,
-   "dram_buffers": 57,
    "distinct_tensor_ids": 145,
    "distinct_addresses": 45,
-   "published_over_roundtrip_x": 1.976
+   "published_over_real_x": 1.701
   }
  },
  "token_dit_sdpa_arm": {
   "pairformer|1x512x512x128": {
-   "published_instrument_MB": 11808.61,
+   "published_MB": 11808.61,
    "once_MB": 3260.219,
-   "roundtrip_MB": 6452.347,
-   "pre_existing_MB": 68.092,
-   "intermediates_MB": 3192.127,
+   "floor_MB": 6452.347,
+   "real_MB": 6519.456,
    "top_level_ttnn_ops": 4,
-   "dram_buffers": 139,
    "distinct_tensor_ids": 644,
    "distinct_addresses": 117,
-   "published_over_roundtrip_x": 1.83
+   "published_over_real_x": 1.811
   },
   "pairformer|1x512x384,1x512x512x128": {
-   "published_instrument_MB": 12169.659,
+   "published_MB": 12169.659,
    "once_MB": 3329.221,
-   "roundtrip_MB": 6583.869,
-   "pre_existing_MB": 74.572,
-   "intermediates_MB": 3254.649,
+   "floor_MB": 6583.869,
+   "real_MB": 6650.978,
    "top_level_ttnn_ops": 5,
-   "dram_buffers": 177,
    "distinct_tensor_ids": 732,
    "distinct_addresses": 140,
-   "published_over_roundtrip_x": 1.848
+   "published_over_real_x": 1.83
   },
   "difftx|1x512x768,1x512x768": {
-   "published_instrument_MB": 135.806,
+   "published_MB": 135.806,
    "once_MB": 63.144,
-   "roundtrip_MB": 92.242,
-   "pre_existing_MB": 34.046,
-   "intermediates_MB": 29.098,
+   "floor_MB": 92.242,
+   "real_MB": 121.34,
    "top_level_ttnn_ops": 51,
-   "dram_buffers": 52,
    "distinct_tensor_ids": 93,
    "distinct_addresses": 32,
-   "published_over_roundtrip_x": 1.472
+   "published_over_real_x": 1.119
   },
   "difftx|1x224x32x128,1x224x32x128": {
-   "published_instrument_MB": 517.064,
+   "published_MB": 517.064,
    "once_MB": 136.922,
-   "roundtrip_MB": 261.703,
-   "pre_existing_MB": 12.142,
-   "intermediates_MB": 124.781,
+   "floor_MB": 261.703,
+   "real_MB": 303.908,
    "top_level_ttnn_ops": 65,
-   "dram_buffers": 57,
    "distinct_tensor_ids": 145,
    "distinct_addresses": 45,
-   "published_over_roundtrip_x": 1.976
+   "published_over_real_x": 1.701
   }
  },
  "bioir": {
   "total_MB": 54.8,
-  "weights_MB": 23.6,
-  "pair_bias_MB": 8.39,
-  "token_tensors": 29,
-  "token_tensor_MB": 0.786,
-  "convention": "each tensor charged once (23.6+8.39+29*0.786=54.78)",
-  "roundtrip_equivalent_MB": 77.58
+  "convention": "each tensor once: 23.6 weights + 8.39 bias + 29 x 0.786 = 54.78"
  },
- "byte_budget": {
+ "byte_budget_default": {
   "pairformer|1x512x384,1x512x512x128": {
    "calls": 264,
    "published_TB": 3.2128,
-   "roundtrip_TB": 1.7381
+   "real_TB": 1.7559,
+   "real_share_pct": 55.2
   },
   "pairformer|1x512x512x128": {
    "calls": 16,
    "published_TB": 0.1889,
-   "roundtrip_TB": 0.1032
+   "real_TB": 0.1043,
+   "real_share_pct": 3.3
   },
   "difftx|1x512x768,1x512x768": {
    "calls": 4800,
    "published_TB": 1.0294,
-   "roundtrip_TB": 0.6139
+   "real_TB": 0.9549,
+   "real_share_pct": 30.0
   },
   "difftx|1x224x32x128,1x224x32x128": {
    "calls": 1200,
    "published_TB": 0.6205,
-   "roundtrip_TB": 0.314
+   "real_TB": 0.3647,
+   "real_share_pct": 11.5
   },
   "instrumented_total": {
    "published_TB": 5.0516,
-   "roundtrip_TB": 2.7692,
+   "real_TB": 3.1797,
    "instrumented_s_of_published_cell": 18.1,
    "published_GBps": 279.1,
-   "roundtrip_GBps": 153.0,
+   "real_GBps": 175.7,
    "streaming_roof_GBps": 429.9,
    "published_pct_of_roof": 64.9,
-   "roundtrip_pct_of_roof": 35.6
+   "real_pct_of_roof": 40.9
   }
  },
- "ratio_to_bioir": {
-  "default_once": 1.478,
-  "default_roundtrip": 1.649,
-  "sdpa_once": 1.152,
-  "sdpa_roundtrip": 1.189,
+ "byte_budget_token_dit_sdpa": {
+  "pairformer|1x512x384,1x512x512x128": {
+   "calls": 264,
+   "published_TB": 3.2128,
+   "real_TB": 1.7559,
+   "real_share_pct": 62.5
+  },
+  "pairformer|1x512x512x128": {
+   "calls": 16,
+   "published_TB": 0.1889,
+   "real_TB": 0.1043,
+   "real_share_pct": 3.7
+  },
+  "difftx|1x512x768,1x512x768": {
+   "calls": 4800,
+   "published_TB": 0.6519,
+   "real_TB": 0.5824,
+   "real_share_pct": 20.7
+  },
+  "difftx|1x224x32x128,1x224x32x128": {
+   "calls": 1200,
+   "published_TB": 0.6205,
+   "real_TB": 0.3647,
+   "real_share_pct": 13.0
+  },
+  "instrumented_total": {
+   "published_TB": 4.6741,
+   "real_TB": 2.8073,
+   "instrumented_s_of_published_cell": 18.1,
+   "published_GBps": 258.2,
+   "real_GBps": 155.1,
+   "streaming_roof_GBps": 429.9,
+   "published_pct_of_roof": 60.1,
+   "real_pct_of_roof": 36.1
+  }
+ },
+ "ratio_to_bioir_once": {
+  "default": 1.478,
+  "sdpa": 1.152,
   "published_claim": 3.91
+ },
+ "token_dit_sdpa_lever": {
+  "real_MB_per_call_default": 198.935,
+  "real_MB_per_call_sdpa": 121.34,
+  "deleted_MB_per_call": 77.595,
+  "deleted_pct": 39.0,
+  "layer_measured_s_per_fold": 4.358,
+  "layer_real_GBps": 219.1,
+  "undiscounted_s_saved": 1.7,
+  "predicted_fold_x_after_63_73pct_realization": [
+   1.056,
+   1.048
+  ],
+  "note": "arithmetic only -- NOT measured on the fold, and accuracy-gated",
+  "deleted_TB_per_fold": 0.3725
  }
 }
