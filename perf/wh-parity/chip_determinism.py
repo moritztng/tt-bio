@@ -11,9 +11,17 @@ absolute coordinate delta after parsing. A hash match is bit-identical output; a
 mismatch with a small coordinate delta is a real but bounded numeric difference, which is a
 different (and much worse) claim than "deterministic".
 
-Every run also carries its own negative control: the same chip folded at a DIFFERENT seed.
-If that control does not differ, the comparison is reading something that does not depend on
-the computation (a stale out_dir, a cached result, a constant), and the run is void.
+Every run carries TWO controls, because a bare A-vs-B mismatch does not license blaming the
+chip:
+
+  * sensitivity — the same chip folded at a DIFFERENT seed. If that does not differ, the
+    comparison is reading something that does not depend on the computation (a stale out_dir,
+    a cached result, a constant), and the run is void.
+  * attribution — the same chip folded AGAIN at the SAME seed. If two runs on one chip
+    already disagree, the answer is not chip-dependent at all: it is run-to-run
+    nondeterminism, and a host-side step (a ligand conformer embedding, an unseeded shuffle)
+    explains it without any chip being involved. Without this control the harness reports
+    DIVERGENT and silently attributes the difference to the only axis it happened to vary.
 
 Anything after a bare `--` is passed through to `tt-bio predict` unchanged. It is a
 passthrough rather than a --predict-args string because argparse reads a lone value that
@@ -174,6 +182,10 @@ def main() -> int:
     ap.add_argument("--skip-control", action="store_true",
                     help="only for a model whose sampler is seed-independent; the run then "
                          "proves nothing about the comparison's sensitivity and says so")
+    ap.add_argument("--skip-repeat", action="store_true",
+                    help="drop the same-chip same-seed repeat. A mismatch then cannot be "
+                         "attributed to the chip rather than to run-to-run nondeterminism, "
+                         "and the verdict says UNATTRIBUTED instead of DIVERGENT")
     args, extra = parse_with_passthrough(ap, sys.argv[1:])
 
     cards = [int(c) for c in args.cards.split(",") if c.strip()]
@@ -184,22 +196,28 @@ def main() -> int:
 
     jobs = [(cards[0], args.seed, root / f"card{cards[0]}_seed{args.seed}"),
             (cards[1], args.seed, root / f"card{cards[1]}_seed{args.seed}")]
-    if not args.skip_control:
-        jobs.append((cards[0], ctrl_seed, root / f"card{cards[0]}_seed{ctrl_seed}"))
+    ctrl_job = (None if args.skip_control else
+                (cards[0], ctrl_seed, root / f"card{cards[0]}_seed{ctrl_seed}"))
+    # The repeat sits on card B so it can run beside the control on card A: one chip, one
+    # live context each. Comparing it to card B's own same-seed fold is what isolates the
+    # run-to-run axis from the chip axis.
+    rpt_job = (None if args.skip_repeat else
+               (cards[1], args.seed, root / f"card{cards[1]}_seed{args.seed}_repeat"))
 
     result = {"model": args.model, "input": args.input, "cards": cards, "seed": args.seed,
               "control_seed": None if args.skip_control else ctrl_seed,
               "predict_args": shlex.join(extra), "folds": []}
-    # The two same-seed folds go in parallel (different chips, one context each); the control
-    # runs on card A afterwards so it never shares a chip with a live fold.
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
-        futs = [ex.submit(fold, args.model, args.input, c, s, d, extra, args.python, args.timeout)
-                for c, s, d in jobs[:2]]
-        for f in futs:
-            result["folds"].append(f.result())
-    for c, s, d in jobs[2:]:
-        result["folds"].append(fold(args.model, args.input, c, s, d, extra, args.python,
-                                    args.timeout))
+    # The two same-seed folds go in parallel (different chips, one context each); the two
+    # controls follow afterwards so neither ever shares a chip with a live fold.
+    def _run(js):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+            futs = [ex.submit(fold, args.model, args.input, c, s, d, extra, args.python,
+                              args.timeout) for c, s, d in js]
+            for f in futs:
+                result["folds"].append(f.result())
+
+    _run(jobs)
+    _run([j for j in (ctrl_job, rpt_job) if j])
 
     bad = [f for f in result["folds"] if f["rc"] != 0]
     if bad:
@@ -209,12 +227,19 @@ def main() -> int:
     else:
         cross = compare(jobs[0][2], jobs[1][2])
         result["cross_chip"] = cross
-        if not args.skip_control:
-            ctrl = compare(jobs[0][2], jobs[2][2])
+        if ctrl_job:
+            ctrl = compare(jobs[0][2], ctrl_job[2])
             result["control_same_chip_other_seed"] = ctrl
             control_ok = ctrl.get("comparable") and not ctrl.get("all_sha_match")
         else:
             control_ok = None
+        if rpt_job:
+            rpt = compare(jobs[1][2], rpt_job[2])
+            result["control_same_chip_same_seed_repeat"] = rpt
+            repeat_stable = rpt.get("comparable") and rpt.get("all_sha_match")
+        else:
+            repeat_stable = None
+
         if not cross.get("comparable"):
             result["verdict"] = "ERROR"
             result["detail"] = cross["reason"]
@@ -223,14 +248,44 @@ def main() -> int:
             result["detail"] = ("negative control did not differ: seed "
                                 f"{ctrl_seed} on card {cards[0]} produced byte-identical "
                                 "structures, so this comparison cannot detect a difference")
+        elif rpt_job and not rpt.get("comparable"):
+            result["verdict"] = "ERROR"
+            result["detail"] = "repeat control: " + rpt["reason"]
         elif cross["all_sha_match"]:
-            result["verdict"] = "BIT-IDENTICAL"
-            result["detail"] = (f"card {cards[0]} vs {cards[1]}: every structure sha256-equal"
-                               + ("" if control_ok else "; NO negative control (--skip-control)"))
+            # A clean cross-chip match with an unstable repeat is a contradiction, not a pass:
+            # two runs that cannot reproduce themselves have no business agreeing across chips.
+            if repeat_stable is False:
+                result["verdict"] = "INCOHERENT"
+                result["detail"] = (
+                    f"card {cards[0]} vs {cards[1]} matched, but card {cards[1]} did not "
+                    f"reproduce itself at the same seed (max abs delta "
+                    f"{rpt['max_abs_delta']:.6g} A) — the comparison is not measuring what "
+                    "it claims")
+            else:
+                result["verdict"] = "BIT-IDENTICAL"
+                result["detail"] = (
+                    f"card {cards[0]} vs {cards[1]}: every structure sha256-equal"
+                    + ("" if control_ok else "; NO sensitivity control (--skip-control)")
+                    + ("" if repeat_stable else "; NOT attributed (--skip-repeat)"))
+        elif repeat_stable is False:
+            result["verdict"] = "NONDETERMINISTIC"
+            result["detail"] = (
+                f"NOT a chip difference: card {cards[1]} disagrees with ITSELF at the same "
+                f"seed by {rpt['max_abs_delta']:.6g} A, against {cross['max_abs_delta']:.6g} A "
+                f"across cards {cards[0]}/{cards[1]}. The run-to-run axis already explains "
+                "the cross-chip delta; look host-side before blaming the hardware")
+        elif repeat_stable is None:
+            result["verdict"] = "UNATTRIBUTED"
+            result["detail"] = (
+                f"card {cards[0]} vs {cards[1]}: sha differs, max abs coordinate delta "
+                f"{cross['max_abs_delta']:.6g} A — but --skip-repeat means run-to-run "
+                "nondeterminism was never ruled out, so the chip axis is not established")
         else:
             result["verdict"] = "DIVERGENT"
-            result["detail"] = (f"card {cards[0]} vs {cards[1]}: sha differs, max abs coordinate "
-                                f"delta {result['cross_chip']['max_abs_delta']:.6g} A")
+            result["detail"] = (
+                f"card {cards[0]} vs {cards[1]}: sha differs, max abs coordinate delta "
+                f"{cross['max_abs_delta']:.6g} A, while card {cards[1]} reproduces itself "
+                "exactly at the same seed — the difference IS chip-dependent")
 
     print(json.dumps(result, indent=2))
     if args.json:
