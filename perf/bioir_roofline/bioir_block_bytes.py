@@ -27,7 +27,9 @@ Cross-check that the model is the right shape: it predicts six layer_norm_transp
 pairformer block (two per trimul, one per triangle attention) plus three per diffusion token
 layer, so 6 x 264 + 3 x 4800 = 15984 per fold. The census counts 16005.
 """
+import argparse
 import json
+from pathlib import Path
 
 N, C_Z = 512, 128
 Z = N * N * C_Z * 2          # 67.11 MB, one bf16 pair tensor
@@ -67,13 +69,9 @@ DIT_ACT_A = (
     + 3    # a = a + transition
 )
 
-# Our side, measured: fold_bytes_512.json.
-OURS_BLOCK_BYTES = 12169659392        # pairformer block
-OURS_DIT_BYTES = 214449152            # diffusion token layer
-OUR_FOLD_TB = 6.23
-OUR_PF_TB, OUR_MSA_TB, OUR_DIT_TB, OUR_ATOM_TB = 3.213, 0.189, 1.029, 0.620
-OUR_REST_TB = OUR_FOLD_TB - (OUR_PF_TB + OUR_MSA_TB + OUR_DIT_TB + OUR_ATOM_TB)
-THEIR_DEVICE_S, H200_ROOF_TBS = 2.0695, 4.8
+# Our side comes from the placement JSON fold_bytes_scale.py writes, so the comparison follows
+# whichever card the capture was taken on rather than carrying a copy of its numbers.
+THEIR_DEVICE_S, H200_ROOF_TBS = 2.0695, 4.8      # arm C census, and the ASSERTED H200 roof
 
 
 def total(steps):
@@ -81,6 +79,20 @@ def total(steps):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ours", required=True, help="JSON written by fold_bytes_scale.py")
+    a = ap.parse_args()
+    ours_j = json.loads(Path(a.ours).read_text())
+    ph = ours_j["phases"]
+    OURS_BLOCK_BYTES = ph["pairformer_block"]["bytes_per_call"]
+    OURS_DIT_BYTES = ph["diffusion_token_layer"]["bytes_per_call"]
+    OUR_FOLD_TB = ours_j["whole_fold_bytes"] / 1e12
+    OUR_PF_TB = ph["pairformer_block"]["fold_bytes"] / 1e12
+    OUR_MSA_TB = ph["msa_block"]["fold_bytes"] / 1e12
+    OUR_DIT_TB = ph["diffusion_token_layer"]["fold_bytes"] / 1e12
+    OUR_ATOM_TB = ph["atom_transformer_layer"]["fold_bytes"] / 1e12
+    OUR_REST_TB = OUR_FOLD_TB - (OUR_PF_TB + OUR_MSA_TB + OUR_DIT_TB + OUR_ATOM_TB)
+
     tri_mul, tri_att, trans = total(TRIMUL), total(TRIATT), total(TRANSITION_Z)
     block = 2 * tri_mul + 2 * tri_att + trans + 3 * RESIDUALS
     ours = OURS_BLOCK_BYTES / Z
@@ -111,7 +123,10 @@ def main():
         "ratio_ttbio_over_bioir_dit": round(dit_ratio, 2),
         "their_fold_TB": [round(low, 2), round(high, 2)],
         "their_pct_of_h200_bandwidth_roof": [pct(low), pct(high)],
-        "our_pct_of_p150a_bandwidth_roof": 61,
+        "our_fold_TB": round(OUR_FOLD_TB, 2),
+        "our_card": "%s card %s (%s)" % (ours_j["host"], ours_j["card"], ours_j["board"]),
+        "our_pct_of_own_bandwidth_roof": round(100 * ours_j["achieved_GBps"]
+                                               / ours_j["bw_roof_GBps"]),
     }
     print(json.dumps(out, indent=1))
     for name, steps in (("tri_mul", TRIMUL), ("tri_att", TRIATT), ("transition_z", TRANSITION_Z)):

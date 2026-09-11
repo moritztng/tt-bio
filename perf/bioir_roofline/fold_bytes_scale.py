@@ -53,6 +53,7 @@ def main():
     fold_flops = fb["fold_flops"]
     board, host, card = rf["board"], rf["host"], rf["card"]
 
+    tab = {}
     L, w = [], lambda s: L.append(s)
     w("## What a 512 aa fold actually moves, measured on %s card %s (%s)\n" % (host, card, board))
     w("One real fold, every `PairformerLayer` and diffusion `DiffusionTransformerLayer` call")
@@ -77,6 +78,8 @@ def main():
         tot_s += n * t
         tot_b += n * b
         tot_f += n * flops[phase]
+        tab[phase] = {"calls": n, "ms_per_call": r["median_ms"], "bytes_per_call": b,
+                      "fold_s": n * t, "fold_bytes": n * b}
         w("| %s | %d | %.3f | %.3f | %.0f | %.0f %% | %.1f | %.1f %% |"
           % (label, n, r["median_ms"], b / 1e9, gbs / 1e9, 100 * gbs / bw_roof,
              tf / 1e12, 100 * tf / mm_roof))
@@ -113,6 +116,15 @@ def main():
       % (unfused / whole))
     w("and still **%.0fx more** than the compulsory minimum.\n" % (whole / resident))
     Path(a.out).write_text("\n".join(L))
+    Path(a.out).with_suffix(".json").write_text(json.dumps({
+        "host": host, "card": card, "board": board,
+        "bw_roof_GBps": bw_roof / 1e9, "matmul_hifi4_TFLOPs": mm_roof / 1e12,
+        "cell_s": a.cell_s, "cell_device_s": dev,
+        "instrumented_s": tot_s, "instrumented_bytes": tot_b,
+        "achieved_GBps": ach / 1e9, "achieved_TFLOPs": tot_f / tot_s / 1e12,
+        "capture_remainder_s": rest_capture, "whole_fold_bytes": whole,
+        "unfused_bytes_bf16": unfused, "resident_bytes_bf16": resident,
+        "phases": tab}, indent=1))
     print("\n".join(L))
 
 

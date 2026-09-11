@@ -1,0 +1,47 @@
+{
+ "host": "tt-quietbox2",
+ "card": "2",
+ "board": "p300c",
+ "bw_roof_GBps": 429.9,
+ "matmul_hifi4_TFLOPs": 85.96,
+ "cell_s": 23.504,
+ "cell_device_s": 23.122,
+ "instrumented_s": 18.098616,
+ "instrumented_bytes": 5051561103360.0,
+ "achieved_GBps": 279.11311579625755,
+ "achieved_TFLOPs": 11.421070471697504,
+ "capture_remainder_s": 5.421340000000001,
+ "whole_fold_bytes": 6453653463441.067,
+ "unfused_bytes_bf16": 20375698061520.0,
+ "resident_bytes_bf16": 110031620096.0,
+ "phases": {
+  "atom_transformer_layer": {
+   "calls": 1200,
+   "ms_per_call": 1.7698,
+   "bytes_per_call": 517064448,
+   "fold_s": 2.12376,
+   "fold_bytes": 620477337600
+  },
+  "diffusion_token_layer": {
+   "calls": 4800,
+   "ms_per_call": 0.9081,
+   "bytes_per_call": 214449152,
+   "fold_s": 4.35888,
+   "fold_bytes": 1029355929600
+  },
+  "pairformer_block": {
+   "calls": 264,
+   "ms_per_call": 41.6326,
+   "bytes_per_call": 12169659392,
+   "fold_s": 10.9910064,
+   "fold_bytes": 3212790079488
+  },
+  "msa_block": {
+   "calls": 16,
+   "ms_per_call": 39.0606,
+   "bytes_per_call": 11808609792,
+   "fold_s": 0.6249696,
+   "fold_bytes": 188937756672
+  }
+ }
+}

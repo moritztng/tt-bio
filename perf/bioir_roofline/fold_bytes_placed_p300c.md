@@ -19,8 +19,8 @@ The instrumented phases are **18.10 s of the 23.504 s published cell** (78 % of 
 23.12 s of device time) and carry **100.0 % of the fold's FLOPs**. The capture fold's own
 uninstrumented remainder is **5.42 s** (embedder, templates, recycling glue, confidence
 heads, diffusion conditioning), so the instrumented phases plus that remainder
-predict a **23.52 s** production fold against the **23.504 s** cell: the per-call syncs cost
-under 0 % and the scaling is sound.
+predict a **23.52 s** production fold against the **23.504 s** cell, **0.1 % apart**: the
+per-call syncs did not dominate and the per-shape scaling is sound.
 
 Charging the uninstrumented remainder of the fold the same achieved rate: **6.45 TB of
 DRAM traffic per fold**, against a **20.38 TB** unfused count and a **110.0 GB** fully
