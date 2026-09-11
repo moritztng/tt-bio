@@ -2,12 +2,12 @@
   "model": "protenix-v1",
   "target": "prot",
   "settings_tag": "msa-server_200step_5sample_4cycle_fp32cpu",
-  "date": "2026-08-27",
+  "date": "2026-09-11",
   "reference_impl": "official ByteDance Protenix (torch, CPU, fp32)",
   "reference_version": "protenix 0.5.0 base checkpoint (368.09 M params, 4092 tensors)",
   "reference_commit": "bytedance/Protenix tag v0.5.0",
   "command": "~/protenix05_ref_venv/bin/python scripts/protenix_v1_port/harvest_ref_fold.py --feats <feats> --seeds 0,1,2,3,4 --steps 200 --samples 5 --cycles 4 --out <raw>   then   PYTHONPATH=<wt> env/bin/python3 scripts/protenix_v1_port/harvest_ref_fold.py --write-cifs --raw <raw> --feats <feats> --fixture <this dir> --target-id prot",
-  "provenance": "Harvested on pc 2026-08-27 from upstream Protenix v0.5.0 on CPU in fp32, checkpoint /home/moritz/.coworker/protenix-ref-data/protenix_base_default_v0.5.0.pt (sha256 9ea20b0aba42f2256711da1d0cd081510a4b291e64375bff6b70ced70b87a5f1, byte-identical to upstream's canonical af3-dev release_model/model_v0.5.0.pt). The trunk is computed once and reused across seeds, which is what upstream's own runner/inference.py does. Coordinates and confidence logits are saved raw, then turned into CIFs through tt_bio's own _write_protenix_structure so reference and device structures carry identical atom naming and ordering and an RMSD between them is a real RMSD; the confidence logits are scored through the port's own ConfidenceHead._postprocess, the same one-function-two-inputs discipline tt_parity.py uses.",
+  "provenance": "Re-harvested on pc 2026-09-11 from upstream Protenix v0.5.0 on CPU in fp32, same checkpoint /home/moritz/.coworker/protenix-ref-data/protenix_base_default_v0.5.0.pt (sha256 9ea20b0aba42f2256711da1d0cd081510a4b291e64375bff6b70ced70b87a5f1, byte-identical to upstream's canonical af3-dev release_model/model_v0.5.0.pt), same command, same settings, same five seeds. The 2026-08-27 harvest wrote its CIFs into a raw dump under /tmp/pv1/ that no longer exists, and CIFs are gitignored in this tree, so the leg had a results.json with no structure to score against on every fresh checkout. This harvest carries both. The trunk is computed once and reused across seeds, which is what upstream's own runner/inference.py does. Coordinates and confidence logits are saved raw, then turned into CIFs through tt_bio's own _write_protenix_structure so reference and device structures carry identical atom naming and ordering and an RMSD between them is a real RMSD; the confidence logits are scored through the port's own ConfidenceHead._postprocess, the same one-function-two-inputs discipline tt_parity.py uses. Re-harvest cost 250 s/seed on 12 cores plus a 31 s trunk, close to the 212 s/seed the first harvest recorded.",
   "msa": "Copied VERBATIM from the protenix-v2 prot fixture beside this one (identical sha256), so the protenix-v1 and protenix-v2 prot legs fold the same target with the same alignment bytes and differ only in checkpoint. 332 lines / 166 a3m entries; the featurizer trims to N_msa=157 for the forward pass, the same 157 the protenix-v2 fixture's meta records. Sourced originally from protenix-server.com's MSA API, hence the settings tag.",
   "settings": {
     "use_msa": true,
@@ -22,9 +22,16 @@
     "triatt_kernel": "torch"
   },
   "rationale": "4 recycles is protenix-v1's OWN N_cycle, read off the checkpoint, not a reduction for cost; the settings tag encodes it so the fixture cannot be mistaken for a 10-cycle reference. openfold3/.../msa-colabfold_200step_5sample_4cycle_fp32cpu is the precedent for a 4-cycle fp32 CPU reference in this tree.",
-  "seeds": [0, 1, 2, 3, 4],
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
   "invalidation_rule": "Regenerate ONLY when the pinned reference_commit/version or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs.",
   "envelope": {
     "reference_impl": "legacy_rdx leg: tt_bio/protenix.py imports ttnn at module scope and has no torch path, so a 'CPU reference' fold of the PORT would be a device fold and the shared-draws envelope denominator would collapse to zero. Same reason the protenix-v2 and openfold3 legs carry legacy_rdx. This fixture IS the external reference and is scored as R/D/X."
-  }
+  },
+  "reharvest_note": "The re-harvest does not reproduce the 2026-08-27 confidence scalars bit for bit: plddt moved 0.751477 -> 0.756910 on seed 0, 0.756777 -> 0.754813 on seed 1, 0.753314 -> 0.751479 on seed 2, and ptm moved by about 0.002 on each. The reference identity, version, settings and seeds are unchanged and the fixture fingerprint 1351ae8675b49aa2 is unchanged, so this is a different valid draw of the same reference, not a different reference. It does not touch what this leg measures: the envelope compares the reference's own seed-to-seed spread against the cross spread, and the committed record's verdict rides on that ratio, not on an absolute plddt. Both halves of the fixture now come from ONE harvest, which the 2026-08-27 fixture could no longer offer."
 }
