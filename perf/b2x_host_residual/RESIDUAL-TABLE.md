@@ -17,11 +17,11 @@ these stages issue no ttnn calls at all.
 dispatch-queue room, so CPU time reads as host work when it is device wait -- the artifact that
 made a published verdict wrong on 2026-09-11. Wall clock is the honest instrument here.
 
-**Owed, and not in this file:** the same table taken inside a real fold on qb2 card 2, which is
-what converts these seconds into a percentage of that box's 3.212 s. qb2 hard-hung at 19:55 CEST
-on 2026-09-11 with all four cards in use and needs a physical power trip (`state/qb2-offline`,
-asks 7572 / 7670), so the on-card leg of this pass did not run. pc's cores are not qb2's; treat
-the shares as measured and the absolute seconds as pc's.
+The pc table below is the stage-by-stage screen: it times each stage on its own, so it ranks the
+stages and prices the levers, but its seconds are pc's cores. The fold-level table further down is
+the one taken inside a real fold on qb2 card 2, and it is where the attribution percentage comes
+from. The two agree on the ranking and disagree on the absolute seconds, as they should: qb2's
+host cores are faster than pc's on every row.
 
 ## The table
 
@@ -56,6 +56,53 @@ The sampler-loop row, per step at 4128 atoms (`sampler_host_cost.py`):
 | centre / centre denoised | 0.048 | 0.010 |
 | the EDM step arithmetic | 0.027 | 0.005 |
 | **per step** | **0.778** | **0.156** |
+
+## The on-card table (card 2, qb2, the one that turns shares into a percentage)
+
+Taken inside a real 512 aa fold on Blackhole card 2, `time.perf_counter` wall brackets over all of
+`predict_one`, no `synchronize_device` anywhere, no stack sampler running. Levers on (the shipped
+default after this branch). Fold 23.1107 s, benchlocked, A/A floor from the two plain folds of the
+same process 23.0814 / 23.0440 s = **0.16 %**.
+
+`b2x-op-cost-curve` bracketed by `tt_bio.tenstorrent` module class. Those three brackets are
+exactly three rows of this tree, and they reproduce: `TrunkModule` 12.9058 s (campaign 12.882),
+`DiffusionModule` 7.1539 s (campaign 7.151), the confidence pairformer 0.4653 s (campaign 0.465).
+The residual is the rest of the fold: **23.1107 - 12.9058 - 7.1539 - 0.4653 = 2.5857 s**.
+
+| row | s | share of residual | instrument |
+|---|---|---|---|
+| `diffusion_conditioning` total | **0.9198** | **35.6 %** | brackets |
+| ├ `pairwise_conditioner` | 0.5063 | 19.6 % | brackets |
+| ├ `atom_encoder` | 0.1870 | 7.2 % | brackets |
+| └ the 24+3+3 bias stacks (its own exclusive time) | 0.2266 | 8.8 % | brackets |
+| confidence head, host part | 0.5879 | 22.7 % | brackets |
+| `predict_step` glue (its own exclusive time) | 0.3153 | 12.2 % | brackets |
+| sampler loop host, 200 steps | 0.2444 | 9.5 % | brackets |
+| ├ `weighted_rigid_align` | 0.0963 | 3.7 % | brackets, 200 calls |
+| ├ loop body outside the called regions | 0.1021 | 3.9 % | brackets |
+| ├ `compute_random_augmentation` | 0.0248 | 1.0 % | brackets, 200 calls |
+| └ denoiser wrapper | 0.0212 | 0.8 % | brackets, 200 calls |
+| `prepare` (parse + MSA resolve + tokenize + featurize) | 0.1884 | 7.3 % | brackets |
+| `input_embedder` | 0.1040 | 4.0 % | brackets |
+| `rel_pos`, trunk | 0.0807 | 3.1 % | brackets |
+| `rel_pos`, confidence | 0.0840 | 3.2 % | brackets |
+| `write_result` (CIF write + metrics) | 0.0580 | 2.2 % | brackets |
+| `to_batch` | 0.0001 | 0.0 % | brackets |
+| **`unattributed`** | **0.0032** | **0.12 %** | fold wall minus the named rows |
+
+**RESIDUAL-ATTRIBUTED: 99.88 %.** The tree wraps every call `predict_one` makes, so the
+unattributed row is a measured remainder and not an inference.
+
+### The bias-stack row moves with box noise, and that is the finding under the lever
+
+Two attribution folds ran on card 2 with identical code. The unlocked one put the bias stacks at
+0.6790 s and `diffusion_conditioning` at 1.3636 s; the benchlocked one puts them at 0.2266 and
+0.9198. Every other row of the tree agrees to within a few ms, including `prepare`,
+`write_result` and all 200 sampler steps. A row that is 3x slower when the box is busy and stable
+when it is quiet is bandwidth bound, not arithmetic bound, which is what the blocking lever
+assumes and what the pc block-size curve already showed. It also means this row is the wrong
+place to read a small effect from a single unlocked fold; the A/B below is interleaved and
+benchlocked for that reason.
 
 ## Two predictions this falsifies
 
