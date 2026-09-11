@@ -165,7 +165,7 @@ from tt_bio.runtime import (
     detect_tenstorrent_devices,
     discover_jobs,
 )
-from tt_bio.worker import SHARED_OUTPUT_PREFIX, run_worker_loop
+from tt_bio.worker import SHARED_OUTPUT_PREFIX, read_worker_capture, run_worker_loop
 
 # Every weight and data artifact tt-bio downloads is one row in tt_bio.weights.
 # ARTIFACTS: source, repo/URL, destination, licence and env override in one place,
@@ -1354,16 +1354,30 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                         raise DeviceInUseError(
                             f"every local worker exited at device open ({codes}); the card "
                             "is leased by another process, so nothing ran")
-                    # Do not promise a traceback: a worker stopped by a signal
-                    # mid-job prints one line and no trace (worker.run_worker_loop's
-                    # KeyboardInterrupt arm), and rf3 at 1536 tokens sent a reader
-                    # looking for a traceback that was never written. Name what each
-                    # code means instead, so the exit code alone is the diagnosis.
+                    # A worker fatal may never have reached Python at all: a C-level
+                    # abort (an MPI_Init failure, a tt-metal throw out of a device
+                    # thread) writes to fd 2 and exits without unwinding, so
+                    # _report_fatal never runs. fd 2 is captured to a file for exactly
+                    # this moment (worker._silence_subprocess_output), so read the tail
+                    # back here rather than telling the reader to re-run with --debug.
+                    tails = []
+                    for proc in local_procs:
+                        cap = read_worker_capture(proc.pid, consume=True)
+                        if cap:
+                            tails.append(
+                                f"--- {proc.name} (exit {proc.exitcode}) stderr tail ---\n{cap}")
+                    # With nothing captured, do not promise a traceback: a worker stopped
+                    # by a signal mid-job prints one line and no trace
+                    # (worker.run_worker_loop KeyboardInterrupt arm), and rf3 at 1536
+                    # tokens sent a reader looking for a traceback that was never
+                    # written. Name what each code means instead.
+                    detail = "\n\n".join(tails) if tails else (
+                        "Exit 130/143 means a signal stopped the worker mid-job, 70 that it "
+                        "was orphaned, -9/137 that the host OOM killer took it; any other "
+                        "code prints its own fatal above.")
                     raise RuntimeError(
                         f"every local worker exited before the run finished ({codes}); "
-                        "no job can be served. Exit 130/143 means a signal stopped the "
-                        "worker mid-job, 70 that it was orphaned, -9/137 that the host "
-                        "OOM killer took it; any other code prints its own fatal above.")
+                        f"no job can be served.\n{detail}")
                 all_dead_seen = True
             else:
                 all_dead_seen = False

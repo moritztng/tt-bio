@@ -119,6 +119,28 @@ def test_silence_subprocess_output_preserves_real_stderr():
     assert b"boom" in got, f"fatal was swallowed, read {got!r}"
 
 
+def _native_abort_worker():
+    # Mimic a C-level abort (e.g. MPI_Init failure): after silencing, write to
+    # fd 2 and _exit nonzero WITHOUT raising, so the Python fatal path never
+    # runs and _report_fatal never fires. The bytes must survive on the capture
+    # file for the launcher to read.
+    _silence_subprocess_output()
+    os.write(2, b"NATIVE FATAL: MPI_Init failed\n")
+    os._exit(14)
+
+
+def test_silenced_worker_native_stderr_is_captured():
+    from tt_bio.worker import read_worker_capture, worker_capture_path
+
+    proc = mp.get_context("spawn").Process(target=_native_abort_worker)
+    proc.start()
+    proc.join(30)
+    assert proc.exitcode == 14
+    cap = read_worker_capture(proc.pid, consume=True)
+    assert "NATIVE FATAL: MPI_Init failed" in cap, f"native abort swallowed, read {cap!r}"
+    assert not worker_capture_path(proc.pid).exists(), "consume=True should unlink the file"
+
+
 def _orphan_child():
     # A pid that is not our parent, standing in for a dispatcher that already died.
     _install_orphan_guard(dispatcher_pid=os.getpid())
