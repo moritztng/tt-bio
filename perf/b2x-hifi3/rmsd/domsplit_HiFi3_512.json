@@ -1,0 +1,19 @@
+{
+ "label": "HiFi3_vs_HiFi4_512",
+ "ref": "perf/b2x-hifi3/cif/t0_HiFi4_cdk2x2_512.cif",
+ "arm": "perf/b2x-hifi3/cif/t0_HiFi3_cdk2x2_512.cif",
+ "n_matched": 4116,
+ "whole_allatom_rmsd_A": 12.7893,
+ "domains": {
+  "1-290": {
+   "n_atoms": 2330,
+   "allatom_rmsd_A": 1.0191,
+   "ca_rmsd_A": 0.8016
+  },
+  "301-512": {
+   "n_atoms": 1702,
+   "allatom_rmsd_A": 1.2234,
+   "ca_rmsd_A": 0.9777
+  }
+ }
+}

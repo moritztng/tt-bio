@@ -1,0 +1,50 @@
+{
+ "env": null,
+ "git_head": "8724bc1c42ea1c29e1b770fbdc30e911c1fc5633",
+ "card": "1",
+ "trunk_fidelity": [
+  "MathFidelity.HiFi4"
+ ],
+ "ckc_map": [
+  {
+   "name": "template_module.pairformer",
+   "class": "PairformerModule",
+   "n_blocks": 2,
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "name": "msa_module",
+   "class": "MSAModule",
+   "n_blocks": 4,
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "name": "pairformer_module",
+   "class": "PairformerModule",
+   "n_blocks": 64,
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "name": "structure_module.score_model",
+   "class": "DiffusionModule",
+   "n_blocks": null,
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "name": "confidence_module.pairformer_stack",
+   "class": "PairformerModule",
+   "n_blocks": 8,
+   "fidelity": "MathFidelity.HiFi4"
+  }
+ ],
+ "non_trunk_fidelity": [
+  "MathFidelity.HiFi4"
+ ],
+ "fold_s": 26.014,
+ "cif_sha256": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5",
+ "cif_sha256_16": "4f3995a69be5d610",
+ "expect_sha16": "4f3995a69be5d610",
+ "fidelity_ok": true,
+ "sha_ok": true,
+ "when": "2026-09-11T18:45:55+0000"
+}

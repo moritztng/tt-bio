@@ -1,0 +1,16 @@
+{
+ "label": "HiFi2_vs_HiFi4_512",
+ "ref": "perf/b2x-hifi3/cif/t0_HiFi4_cdk2x2_512.cif",
+ "arm": "perf/b2x-hifi3/cif/x_HiFi2_cdk2x2_512.cif",
+ "n_matched": 4116,
+ "whole_allatom_rmsd_A": 12.8522,
+ "mean_bfactor_ref": 85.0601,
+ "mean_bfactor_arm": 86.5851,
+ "per_chain": {
+  "A": {
+   "n_atoms": 4116,
+   "allatom_rmsd_A": 12.8522,
+   "ca_rmsd_A": 12.6463
+  }
+ }
+}

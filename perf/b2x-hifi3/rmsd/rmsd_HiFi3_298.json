@@ -1,0 +1,17 @@
+{
+ "label": "HiFi3_vs_HiFi4_298",
+ "ref": "perf/b2x-hifi3/cif/ctl298_HiFi4_cdk2x2_298.cif",
+ "arm": "perf/b2x-hifi3/cif/ctl298_HiFi3_cdk2x2_298.cif",
+ "n_atoms_ref": 2397,
+ "n_atoms_arm": 2397,
+ "n_matched": 2397,
+ "n_CA": 298,
+ "allatom_rmsd_A": 0.355,
+ "ca_rmsd_A": 0.1545,
+ "bar": {
+  "pass_A": 0.35,
+  "hold_A": 0.6
+ },
+ "verdict": "hold",
+ "identical_bytes": false
+}

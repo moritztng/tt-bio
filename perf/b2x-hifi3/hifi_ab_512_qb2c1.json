@@ -1,0 +1,627 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "1",
+  "lease_cards": "1",
+  "trunk_math_fidelity_env": null,
+  "git_head": "8724bc1c42ea1c29e1b770fbdc30e911c1fc5633",
+  "ttnn": "0.68.0",
+  "torch": "2.8.0+cpu",
+  "protocol": {
+   "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "timed_region": "predict_one (featurise + fold + CIF write)",
+   "interleave": [
+    "HiFi4",
+    "HiFi3"
+   ],
+   "reps": 5
+  },
+  "started": "2026-09-11T18:33:59+0000",
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 3.02,
+  "n_msa": 35,
+  "card_type": "p300c",
+  "aiclk_mhz": "1350"
+ },
+ "cold": {
+  "fold_s": 26.649,
+  "plddt": null,
+  "phase_s": {
+   "DiffusionModule": 7.2998,
+   "PairformerModule": 0.464,
+   "TrunkModule": 15.8354,
+   "calls": {
+    "DiffusionModule": 200,
+    "PairformerModule": 1,
+    "TrunkModule": 1
+   }
+  }
+ },
+ "ckc_map": [
+  {
+   "name": "template_module.pairformer",
+   "class": "PairformerModule",
+   "n_blocks": 2,
+   "ckc_id": 131262349528784,
+   "trunk": false,
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "name": "msa_module",
+   "class": "MSAModule",
+   "n_blocks": 4,
+   "ckc_id": 131262349526720,
+   "trunk": true,
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "name": "pairformer_module",
+   "class": "PairformerModule",
+   "n_blocks": 64,
+   "ckc_id": 131262349526528,
+   "trunk": true,
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "name": "structure_module.score_model",
+   "class": "DiffusionModule",
+   "n_blocks": null,
+   "ckc_id": 131262500369632,
+   "trunk": false,
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "name": "confidence_module.pairformer_stack",
+   "class": "PairformerModule",
+   "n_blocks": 8,
+   "ckc_id": 131262500368144,
+   "trunk": false,
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "name": "_tt_trunk",
+   "class": "TrunkModule",
+   "n_blocks": null,
+   "ckc_id": 131264379721392,
+   "trunk": false,
+   "fidelity": "MathFidelity.HiFi4"
+  }
+ ],
+ "flip_set": {
+  "n_objects": 2,
+  "n_excluded_objects": 4,
+  "excluded": [
+   "_tt_trunk:TrunkModule",
+   "confidence_module.pairformer_stack:PairformerModule",
+   "structure_module.score_model:DiffusionModule",
+   "template_module.pairformer:PairformerModule"
+  ]
+ },
+ "warmup": [
+  {
+   "arm": "HiFi4",
+   "tag": "warm_HiFi4",
+   "fold_s": 23.487,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1339,
+    "PairformerModule": 0.4621,
+    "TrunkModule": 12.8904,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "2.29",
+    "1.59",
+    "0.94"
+   ]
+  },
+  {
+   "arm": "HiFi3",
+   "tag": "warm_HiFi3",
+   "fold_s": 27.884,
+   "plddt": 0.869108,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "bf5455fb4977a142209a50d91aab478756d2c7399c5e083118f6b6a21edafa74"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.146,
+    "PairformerModule": 0.4668,
+    "TrunkModule": 17.1876,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "1.89",
+    "1.56",
+    "0.96"
+   ]
+  },
+  {
+   "arm": "HiFi2",
+   "tag": "warm_HiFi2",
+   "fold_s": 35.606,
+   "plddt": 0.86479,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "ebf57b0d18098c8333a36435086a5db5459f0554495322a94fb00e8fea767aad"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1524,
+    "PairformerModule": 0.4668,
+    "TrunkModule": 24.8283,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "1.70",
+    "1.56",
+    "0.98"
+   ]
+  }
+ ],
+ "runs": [
+  {
+   "arm": "HiFi4",
+   "tag": "t0_HiFi4",
+   "fold_s": 23.769,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1503,
+    "PairformerModule": 0.4661,
+    "TrunkModule": 12.8527,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "2.08",
+    "1.65",
+    "1.03"
+   ]
+  },
+  {
+   "arm": "HiFi3",
+   "tag": "t0_HiFi3",
+   "fold_s": 23.499,
+   "plddt": 0.869108,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "bf5455fb4977a142209a50d91aab478756d2c7399c5e083118f6b6a21edafa74"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1402,
+    "PairformerModule": 0.4677,
+    "TrunkModule": 12.7473,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "2.29",
+    "1.72",
+    "1.06"
+   ]
+  },
+  {
+   "arm": "HiFi4",
+   "tag": "t1_HiFi4",
+   "fold_s": 23.507,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1363,
+    "PairformerModule": 0.4656,
+    "TrunkModule": 12.8394,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "1.97",
+    "1.69",
+    "1.07"
+   ]
+  },
+  {
+   "arm": "HiFi3",
+   "tag": "t1_HiFi3",
+   "fold_s": 23.691,
+   "plddt": 0.869108,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "bf5455fb4977a142209a50d91aab478756d2c7399c5e083118f6b6a21edafa74"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1787,
+    "PairformerModule": 0.4982,
+    "TrunkModule": 12.7365,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "2.17",
+    "1.77",
+    "1.11"
+   ]
+  },
+  {
+   "arm": "HiFi4",
+   "tag": "t2_HiFi4",
+   "fold_s": 24.49,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.2875,
+    "PairformerModule": 0.4736,
+    "TrunkModule": 12.9702,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "3.10",
+    "2.03",
+    "1.22"
+   ]
+  },
+  {
+   "arm": "HiFi3",
+   "tag": "t2_HiFi3",
+   "fold_s": 23.767,
+   "plddt": 0.869108,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "bf5455fb4977a142209a50d91aab478756d2c7399c5e083118f6b6a21edafa74"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1743,
+    "PairformerModule": 0.4742,
+    "TrunkModule": 12.7516,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "3.02",
+    "2.07",
+    "1.25"
+   ]
+  },
+  {
+   "arm": "HiFi4",
+   "tag": "t3_HiFi4",
+   "fold_s": 23.858,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1754,
+    "PairformerModule": 0.4668,
+    "TrunkModule": 12.8789,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "2.33",
+    "1.99",
+    "1.24"
+   ]
+  },
+  {
+   "arm": "HiFi3",
+   "tag": "t3_HiFi3",
+   "fold_s": 23.558,
+   "plddt": 0.869108,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "bf5455fb4977a142209a50d91aab478756d2c7399c5e083118f6b6a21edafa74"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1645,
+    "PairformerModule": 0.467,
+    "TrunkModule": 12.7236,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "1.87",
+    "1.91",
+    "1.24"
+   ]
+  },
+  {
+   "arm": "HiFi4",
+   "tag": "t4_HiFi4",
+   "fold_s": 23.759,
+   "plddt": 0.849627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1644,
+    "PairformerModule": 0.4679,
+    "TrunkModule": 12.8755,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "1.57",
+    "1.83",
+    "1.23"
+   ]
+  },
+  {
+   "arm": "HiFi3",
+   "tag": "t4_HiFi3",
+   "fold_s": 23.42,
+   "plddt": 0.869108,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "bf5455fb4977a142209a50d91aab478756d2c7399c5e083118f6b6a21edafa74"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1728,
+    "PairformerModule": 0.4456,
+    "TrunkModule": 12.6905,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "2.56",
+    "2.02",
+    "1.30"
+   ]
+  },
+  {
+   "arm": "HiFi2",
+   "tag": "x_HiFi2",
+   "fold_s": 23.519,
+   "plddt": 0.86479,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "ebf57b0d18098c8333a36435086a5db5459f0554495322a94fb00e8fea767aad"
+   },
+   "phase_s": {
+    "DiffusionModule": 7.1934,
+    "PairformerModule": 0.4624,
+    "TrunkModule": 12.6533,
+    "calls": {
+     "DiffusionModule": 200,
+     "PairformerModule": 1,
+     "TrunkModule": 1
+    }
+   },
+   "loadavg": [
+    "2.16",
+    "1.97",
+    "1.31"
+   ]
+  }
+ ],
+ "summary": {
+  "HiFi4": {
+   "n": 5,
+   "fold_s": [
+    23.769,
+    23.507,
+    24.49,
+    23.858,
+    23.759
+   ],
+   "median_s": 23.769,
+   "min_s": 23.507,
+   "max_s": 24.49,
+   "spread_pct": 4.136,
+   "trunk_s": 12.8755,
+   "diffusion_s": 7.1644,
+   "plddt": [
+    0.849627
+   ],
+   "cif_sha256": [
+    "4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5"
+   ],
+   "cif_sha256_16": [
+    "4f3995a69be5d610"
+   ],
+   "bit_identical_within_arm": true,
+   "speedup_vs_HiFi4": 1.0,
+   "trunk_speedup_vs_HiFi4": 1.0
+  },
+  "HiFi3": {
+   "n": 5,
+   "fold_s": [
+    23.499,
+    23.691,
+    23.767,
+    23.558,
+    23.42
+   ],
+   "median_s": 23.558,
+   "min_s": 23.42,
+   "max_s": 23.767,
+   "spread_pct": 1.473,
+   "trunk_s": 12.7365,
+   "diffusion_s": 7.1728,
+   "plddt": [
+    0.869108
+   ],
+   "cif_sha256": [
+    "bf5455fb4977a142209a50d91aab478756d2c7399c5e083118f6b6a21edafa74"
+   ],
+   "cif_sha256_16": [
+    "bf5455fb4977a142"
+   ],
+   "bit_identical_within_arm": true,
+   "speedup_vs_HiFi4": 1.009,
+   "trunk_speedup_vs_HiFi4": 1.0109
+  },
+  "HiFi2": {
+   "n": 1,
+   "fold_s": [
+    23.519
+   ],
+   "median_s": 23.519,
+   "min_s": 23.519,
+   "max_s": 23.519,
+   "spread_pct": 0.0,
+   "trunk_s": 12.6533,
+   "diffusion_s": 7.1934,
+   "plddt": [
+    0.86479
+   ],
+   "cif_sha256": [
+    "ebf57b0d18098c8333a36435086a5db5459f0554495322a94fb00e8fea767aad"
+   ],
+   "cif_sha256_16": [
+    "ebf57b0d18098c83"
+   ],
+   "bit_identical_within_arm": true,
+   "speedup_vs_HiFi4": 1.0106,
+   "trunk_speedup_vs_HiFi4": 1.0176
+  },
+  "aa_floor_pct": 4.136,
+  "aa_floor_s": 0.983
+ },
+ "control": {
+  "n_msa": 35,
+  "runs": [
+   {
+    "arm": "HiFi4",
+    "tag": "ctl298_HiFi4",
+    "fold_s": 14.671,
+    "plddt": 0.909487,
+    "n_tokens": null,
+    "cifs": {
+     "cdk2x2_298.cif": "71653ff72cbf01b048cf24bfa3b3358b1044d1e2b309d312bb7a646c0c6c1c69"
+    },
+    "phase_s": {
+     "DiffusionModule": 4.9587,
+     "PairformerModule": 0.1902,
+     "TrunkModule": 8.3177,
+     "calls": {
+      "DiffusionModule": 200,
+      "PairformerModule": 1,
+      "TrunkModule": 1
+     }
+    },
+    "loadavg": [
+     "2.35",
+     "2.02",
+     "1.33"
+    ]
+   },
+   {
+    "arm": "HiFi3",
+    "tag": "ctl298_HiFi3",
+    "fold_s": 14.825,
+    "plddt": 0.911991,
+    "n_tokens": null,
+    "cifs": {
+     "cdk2x2_298.cif": "d99ac8192c9f0f5cbdfc5836e2c4f26b271c8eae457ebf411c104c8df5e55c9a"
+    },
+    "phase_s": {
+     "DiffusionModule": 4.7554,
+     "PairformerModule": 0.1872,
+     "TrunkModule": 8.6849,
+     "calls": {
+      "DiffusionModule": 200,
+      "PairformerModule": 1,
+      "TrunkModule": 1
+     }
+    },
+    "loadavg": [
+     "2.82",
+     "2.14",
+     "1.38"
+    ]
+   },
+   {
+    "arm": "HiFi2",
+    "tag": "ctl298_HiFi2",
+    "fold_s": 19.761,
+    "plddt": 0.910497,
+    "n_tokens": null,
+    "cifs": {
+     "cdk2x2_298.cif": "341919209cf9b96da921f67923489fda11f1effd2f895328380050a414444553"
+    },
+    "phase_s": {
+     "DiffusionModule": 4.7781,
+     "PairformerModule": 0.1886,
+     "TrunkModule": 13.5144,
+     "calls": {
+      "DiffusionModule": 200,
+      "PairformerModule": 1,
+      "TrunkModule": 1
+     }
+    },
+    "loadavg": [
+     "2.57",
+     "2.13",
+     "1.39"
+    ]
+   }
+  ]
+ },
+ "finished": "2026-09-11T18:41:06+0000"
+}
