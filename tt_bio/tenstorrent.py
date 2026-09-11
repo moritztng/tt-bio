@@ -4911,6 +4911,39 @@ def cleanup():
         _device_lease = None
 
 
+def _release_at_exit():
+    """Give the fold's heap back to the kernel while we still own a sleepable context.
+
+    Whatever drops the last reference to this address space afterwards may have to run the
+    unmapping as one work item on the bounded per-CPU system_wq, and a long one there is the
+    documented host livelock. See tt_bio.runtime.release_address_space for the mechanism.
+    """
+    from . import runtime
+
+    if env_flag("TT_BIO_EXIT_TRIM", True):
+        runtime.release_address_space()
+
+
+def _footprint_at_exit():
+    """Record what the kernel is left to unmap, when $TT_BIO_EXIT_FOOTPRINT names a file.
+
+    Measurement only, off unless asked for: the pair of numbers the teardown is paid by.
+    """
+    path = os.environ.get("TT_BIO_EXIT_FOOTPRINT")
+    if not path:
+        return
+    from . import runtime
+
+    rss, vmas = runtime.address_space()
+    with open(path, "a") as f:
+        f.write(f"pid={os.getpid()} tag={os.environ.get('TT_BIO_EXIT_TAG', '-')} "
+                f"rss_kB={rss} vmas={vmas}\n")
+
+
+# atexit runs its registrations in reverse, so read these bottom-up: close the device, then free
+# the heap, then record whatever is left over.
+atexit.register(_footprint_at_exit)
+atexit.register(_release_at_exit)
 atexit.register(cleanup)
 
 

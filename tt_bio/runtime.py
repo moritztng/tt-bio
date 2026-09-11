@@ -327,3 +327,83 @@ def build_local_workers(accelerator: str, jobs: list, devices: list[int]) -> lis
         ]
     return [WorkerSlot(worker_id=f"{host}:{accelerator}:0", host=host,
                        accelerator=accelerator, device_id=0)]
+
+
+# --- address space, and why a dying fold can freeze the host -------------------------------
+#
+# Only the task that drops the LAST reference to an address space gets to tear it down, and it
+# may be a task that cannot sleep there. The kernel then defers the whole teardown to one work
+# item on the bounded per-CPU system_wq (mmput_async_fn). A fold exits with ~4.7 GB anonymous
+# across ~2900 mappings, which makes that one work item long enough for the workqueue watchdog
+# to start printing
+#
+#     workqueue: mmput_async_fn hogged CPU for >10000us N times
+#
+# and a second long system_wq item landing while the queue is saturated is the documented host
+# livelock (MINFRA-1586, PCB-4609). We cannot choose who drops the reference or which workqueue
+# the kernel picks, so the lever is to make the teardown cheap: free in our own preemptible
+# context before exit and hand the pages back, so whatever runs mmput_async_fn afterwards finds
+# almost nothing left.
+
+M_ARENA_MAX = -8            # glibc malloc.h
+
+
+def _libc():
+    """glibc, or None where there is no glibc (musl, a non-Linux host)."""
+    import ctypes
+
+    try:
+        return ctypes.CDLL("libc.so.6")
+    except OSError:
+        return None
+
+
+def cap_malloc_arenas(arenas: int) -> bool:
+    """Cap the number of per-thread malloc arenas glibc may create. True if it took.
+
+    glibc hands any thread that contends on the main arena a fresh 64 MB heap of its own, so a
+    52-thread fold ends up with several hundred anonymous rw-p mappings that all have to be
+    unmapped again at exit. ``mallopt`` is the way in, not ``MALLOC_ARENA_MAX``: the environment
+    variable is read once when libc starts, long before Python could set it for itself, while
+    ``mallopt`` caps arenas that do not exist yet. So call this before torch spawns its thread
+    pools; arenas already created stay.
+
+    ``arenas <= 0`` leaves glibc's default (8 * cores) alone.
+    """
+    libc = _libc()
+    if arenas <= 0 or libc is None:
+        return False
+    return libc.mallopt(M_ARENA_MAX, int(arenas)) == 1
+
+
+def address_space() -> tuple[int, int]:
+    """This process's (resident kB, number of mapped regions).
+
+    The two numbers the teardown is paid by: pages to free, and VMAs to walk.
+    """
+    rss = 0
+    with open("/proc/self/status") as f:
+        for line in f:
+            if line.startswith("VmRSS:"):
+                rss = int(line.split()[1])
+                break
+    with open("/proc/self/maps") as f:
+        vmas = sum(1 for _ in f)
+    return rss, vmas
+
+
+def release_address_space() -> tuple[int, int]:
+    """Free this process's heap back to the kernel now. Returns the footprint left behind.
+
+    ``gc.collect()`` first, because the tensors sit in reference cycles nothing has walked yet,
+    and ``malloc_trim`` second, because glibc otherwise keeps every freed block in its arenas and
+    RSS does not move at all until the pages are handed back. The order is the whole point:
+    ``malloc_trim`` on its own finds nothing free to return.
+    """
+    import gc
+
+    gc.collect()
+    libc = _libc()
+    if libc is not None:
+        libc.malloc_trim(0)
+    return address_space()

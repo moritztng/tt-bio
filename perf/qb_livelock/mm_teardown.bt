@@ -1,0 +1,38 @@
+#!/usr/bin/env bpftrace
+/*
+ * Direct measurement of the livelock mechanism: how long mmput_async_fn runs on the
+ * bounded per-CPU system_wq, and which task queued it (i.e. who dropped the last mm
+ * reference asynchronously). The kernel only prints its "hogged CPU" ladder at
+ * cnt = 4,5,7,11,19,35,67,131, so the ladder is a log2-coarse cumulative counter;
+ * these probes give every event with its duration.
+ */
+BEGIN { printf("MMPROBE-START %lld\n", nsecs); }
+
+kprobe:mmput_async_fn { @t[tid] = nsecs; }
+
+kretprobe:mmput_async_fn /@t[tid]/ {
+    $d = (nsecs - @t[tid]) / 1000;
+    delete(@t[tid]);
+    @n = count();
+    @us_total = sum($d);
+    @us_hist = hist($d);
+    @us_max = max($d);
+    if ($d >= 10000) { @over_10ms = count(); }
+    printf("MMPUT %lld us=%lld\n", nsecs, $d);
+}
+
+/* who queues it: the async dropper we are told we cannot change, named */
+tracepoint:workqueue:workqueue_queue_work /args->function == kaddr("mmput_async_fn")/ {
+    @queued_by[comm] = count();
+    printf("QUEUE %lld by=%s pid=%d\n", nsecs, comm, pid);
+}
+
+/* the synchronous path, for contrast: same teardown, harmless context */
+kprobe:exit_mmap { @e[tid] = nsecs; }
+kretprobe:exit_mmap /@e[tid]/ {
+    $d = (nsecs - @e[tid]) / 1000;
+    delete(@e[tid]);
+    @exit_mmap_us_hist = hist($d);
+    @exit_mmap_n = count();
+    @exit_mmap_us_max = max($d);
+}
