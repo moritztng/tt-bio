@@ -117,7 +117,7 @@ under 1024:
 
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
-| `opendde`, `opendde-abag` | 1024 | none found; top of the ladder |
+| `opendde`, `opendde-abag` | 1024 | 1088 |
 | `openfold3` | 1024 | none found; top of the ladder |
 | `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |

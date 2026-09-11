@@ -44,7 +44,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:0"
@@ -64,7 +64,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:1"
@@ -84,7 +84,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:3"
@@ -104,7 +104,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:0"
@@ -124,7 +124,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:1"
@@ -144,7 +144,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:3"
@@ -164,7 +164,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:1"
@@ -184,7 +184,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:3"
@@ -204,7 +204,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:1"
@@ -224,7 +224,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:3"
@@ -244,7 +244,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:1"
@@ -264,7 +264,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:0"
@@ -284,7 +284,7 @@
    "alloc_ceiling_tokens": null,
    "alloc_ceiling_note": null,
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:0"
@@ -304,7 +304,7 @@
    "alloc_ceiling_tokens": 1024,
    "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:0"
@@ -324,7 +324,7 @@
    "alloc_ceiling_tokens": 1024,
    "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
    "reason": null,
-   "ceilings_fingerprint": "4b2918fe1ccfb70b",
+   "ceilings_fingerprint": "3abd0f045e426c80",
    "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
    "board_type": "p150a",
    "measured_on": "qb1:3"

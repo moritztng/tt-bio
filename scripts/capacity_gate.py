@@ -1803,16 +1803,24 @@ def ceilings_fingerprint() -> str:
     Every field that decides what a row ADMITS is in the hash, and `ladder_ligand_atoms` is one of
     them -- it converts a row's residue numbers into the token numbers a ligand-bearing input is
     checked against, so changing it changes the advertised size as surely as moving `residues`
-    would. Evidence prose is not, on purpose: rewording a row is not a new measurement and should
-    not cost a re-record.
+    would. `measured` is in for the same reason: an UNMEASURED row refuses nothing at all.
+
+    EVIDENCE IS OUT, and that now includes `pass_at`, `fail_at`, `binds` beyond the
+    measured/unmeasured bit, `mechanism` and `msa_rows`. None of them changes what a row admits;
+    they say how the row was established. The hash used to include `binds` and `mechanism`, which
+    made the one improvement this gate should most want to encourage -- walking a ladder past a
+    LADDER_TOP row and recording the failure that bounds it -- cost a multi-hour re-record of all
+    fifteen models for a cap that did not move by one residue. A gate that prices honest evidence
+    at hours of card time teaches people not to record it. Measured 2026-09-11: adding the 1088
+    failure to opendde and opendde-abag, with `residues` unchanged at 1024, marked every cell in
+    the baseline stale.
     """
     import hashlib
     rows = []
     for model in sorted(sl.CEILINGS):
         for arch in sorted(sl.CEILINGS[model]):
             c = sl.CEILINGS[model][arch]
-            rows.append([model, arch, c.residues, c.pass_at, c.binds, c.mechanism,
-                         c.msa_rows, c.counts, c.ladder_ligand_atoms])
+            rows.append([model, arch, c.residues, c.measured, c.counts, c.ladder_ligand_atoms])
     return hashlib.sha256(json.dumps(rows, default=str).encode()).hexdigest()[:16]
 
 

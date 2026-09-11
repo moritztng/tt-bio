@@ -254,7 +254,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "failure rather than at the largest passing size",
         ),
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1024, pass_at=1024, fail_at=1088, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=8192,
             evidence="its own ladder, re-measured 2026-09-08 on GWH02 at the platform's default "
                      "8192 alignment rows after the trimul in-projection re-probe fix: 128, 256, "
@@ -266,7 +266,19 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "had already refused being re-probed once per pairformer block, which "
                      "ratcheted a fold to the narrowest channel chunk. Parity is bit-exact against "
                      "the merge base at 128/256/512 and the row cap that fixes the clash is "
-                     "bit-exact at 512 with it forced off. See state/opendde-l1-clash-to-1024.md",
+                     "bit-exact at 512 with it forced off. See state/opendde-l1-clash-to-1024.md. "
+                     "NEGATIVE CONTROL, added 2026-09-11 on the j10glx02 Galaxy "
+                     "(ws:wh-seqlen-structure, perf/whceil): 1088 aa at the same 8192 rows "
+                     "FAILS, so this row is no longer the top of a ladder nobody walked past. "
+                     "The refusal is FRAGMENTATION and not one oversized tensor -- 2424307712 "
+                     "B wanted across 12 banks, 192.7 MiB per bank against a 1024.0 MiB bank, "
+                     "with 207.4 MiB per bank FREE and a largest free block of 170.5 MiB. More "
+                     "free memory than the request needs, in pieces. The engine narrows twice "
+                     "and the second attempt misses by 768 bytes (101014272 B wanted against a "
+                     "101013504 B largest block). What ends the fold is not OuterProductMean "
+                     "but the fused triangle-attention gate output, [tt_bio origin: "
+                     "triatt_qkv.py:210 in gate_proj], one tensor of tokens^2 x 384 x 2 B. "
+                     "1024 itself re-folded here in 2706 s",
         ),
     },
     "opendde-abag": {
@@ -292,7 +304,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "failure rather than at the largest passing size",
         ),
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1024, pass_at=1024, fail_at=1088, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=8192,
             evidence="its OWN rungs at 8192 alignment rows, 2026-09-08, not inherited from "
                      "opendde by architecture argument: 1024 folds 3/3 in separate processes, "
@@ -301,7 +313,19 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "checkpoints share the trunk, the refiner and every tensor shape and differ "
                      "only in weight values, which is why the same fix serves both -- but these "
                      "numbers are measured on this checkpoint. Same history as the opendde row: "
-                     "the old 544 cap was the re-probed in-projection width, not a capacity wall",
+                     "the old 544 cap was the re-probed in-projection width, not a capacity wall. "
+                     "NEGATIVE CONTROL, added 2026-09-11 on the j10glx02 Galaxy "
+                     "(ws:wh-seqlen-structure, perf/whceil): 1088 aa at the same 8192 rows "
+                     "FAILS, so this row is no longer the top of a ladder nobody walked past. "
+                     "The refusal is FRAGMENTATION and not one oversized tensor -- 2424307712 "
+                     "B wanted across 12 banks, 192.7 MiB per bank against a 1024.0 MiB bank, "
+                     "with 207.4 MiB per bank FREE and a largest free block of 170.5 MiB. More "
+                     "free memory than the request needs, in pieces. The engine narrows twice "
+                     "and the second attempt misses by 768 bytes (101014272 B wanted against a "
+                     "101013504 B largest block). What ends the fold is not OuterProductMean "
+                     "but the fused triangle-attention gate output, [tt_bio origin: "
+                     "triatt_qkv.py:210 in gate_proj], one tensor of tokens^2 x 384 x 2 B. "
+                     "1024 itself re-folded here in 2104 s",
         ),
     },
     "openfold3": {
