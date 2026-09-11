@@ -15,10 +15,17 @@ Every run also carries its own negative control: the same chip folded at a DIFFE
 If that control does not differ, the comparison is reading something that does not depend on
 the computation (a stale out_dir, a cached result, a constant), and the run is void.
 
+Anything after a bare `--` is passed through to `tt-bio predict` unchanged. It is a
+passthrough rather than a --predict-args string because argparse reads a lone value that
+starts with a dash as an option: --predict-args "--single_sequence" fails, while
+--predict-args "--single_sequence --recycling_steps 3" happens to work, since argparse only
+exempts a value containing a space. A flag whose correctness depends on how many words the
+caller passed is a trap, and it cost this campaign two determinism legs.
+
   PYTHONPATH=<checkout> python3 perf/wh-parity/chip_determinism.py \
       --model boltz2 --input examples/hsa_no_msa.yaml --cards 25,26 \
-      --predict-args "--single_sequence --sampling_steps 200 --recycling_steps 3" \
-      --out-dir /home/mthuening/scratch/det/boltz2-hsa --json out.json
+      --out-dir /home/mthuening/scratch/det/boltz2-hsa --json out.json \
+      -- --single_sequence --sampling_steps 200 --recycling_steps 3
 """
 from __future__ import annotations
 
@@ -138,6 +145,19 @@ def compare(a: Path, b: Path) -> dict:
             "missing_on_one_side": sorted(set(sa) ^ set(sb))}
 
 
+def parse_with_passthrough(ap: argparse.ArgumentParser, argv: list[str]):
+    """Split argv on the first bare `--`; everything after it is passed to the fold verbatim.
+
+    Doing the split before argparse sees the list is what makes a passthrough arg that starts
+    with a dash safe. argparse's own handling of such a value is length-dependent, so it works
+    until the day the caller passes a single flag.
+    """
+    if "--" in argv:
+        cut = argv.index("--")
+        return ap.parse_args(argv[:cut]), argv[cut + 1:]
+    return ap.parse_args(argv), []
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -147,7 +167,6 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--control-seed", type=int, default=None,
                     help="seed for the negative control on card A (default: --seed + 1)")
-    ap.add_argument("--predict-args", default="", help="extra `tt-bio predict` args, one string")
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--json", default="")
     ap.add_argument("--python", default=sys.executable)
@@ -155,12 +174,11 @@ def main() -> int:
     ap.add_argument("--skip-control", action="store_true",
                     help="only for a model whose sampler is seed-independent; the run then "
                          "proves nothing about the comparison's sensitivity and says so")
-    args = ap.parse_args()
+    args, extra = parse_with_passthrough(ap, sys.argv[1:])
 
     cards = [int(c) for c in args.cards.split(",") if c.strip()]
     if len(cards) != 2:
         raise SystemExit("--cards takes exactly two chip ids")
-    extra = shlex.split(args.predict_args)
     root = Path(args.out_dir)
     ctrl_seed = args.seed + 1 if args.control_seed is None else args.control_seed
 
@@ -171,7 +189,7 @@ def main() -> int:
 
     result = {"model": args.model, "input": args.input, "cards": cards, "seed": args.seed,
               "control_seed": None if args.skip_control else ctrl_seed,
-              "predict_args": args.predict_args, "folds": []}
+              "predict_args": shlex.join(extra), "folds": []}
     # The two same-seed folds go in parallel (different chips, one context each); the control
     # runs on card A afterwards so it never shares a chip with a live fold.
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
