@@ -166,9 +166,13 @@ def main() -> int:
         # must not reuse the other arm's fused input weights uploaded at the other dtype.
         for tm in (blk.triangle_multiplication_start, blk.triangle_multiplication_end):
             tm._gp_cache.clear(); tm._gp_bias_cache.clear()
-        res = {"pair_b8": pair_b8}
+        # The screen drives `PairformerLayer` directly, so the entry cast that
+        # `Pairformer.__call__` does for the whole stack has to be reproduced here: without it
+        # the arm would run the shipped bf16 z and score as an A/A.
+        zdt = ttnn.bfloat8_b if pair_b8 else ttnn.bfloat16
+        res = {"pair_b8": pair_b8, "z_store": str(zdt)}
 
-        z0 = tt(z_t); s0 = tt(s_t)
+        z0 = tt(z_t, zdt); s0 = tt(s_t)
         # warm: first call compiles every program at this shape and dtype
         s1, z1 = run_block(z0, s0)
         ttnn.deallocate(z1)
@@ -177,7 +181,7 @@ def main() -> int:
 
         walls = []
         for _ in range(args.reps):
-            z0 = tt(z_t); s0 = tt(s_t)
+            z0 = tt(z_t, zdt); s0 = tt(s_t)
             ttnn.synchronize_device(dev)
             t = time.perf_counter()
             s1, z1 = run_block(z0, s0)
@@ -190,8 +194,7 @@ def main() -> int:
         res["block_median_s"] = round(st.median(walls), 5)
 
         # per sub-module, on a z in this arm's storage dtype
-        zc = tt(z_t, ttnn.bfloat8_b if pair_b8 else ttnn.bfloat16)
-        res["z_dtype"] = str(zc.dtype)
+        zc = tt(z_t, zdt)
         subs = {}
         for label, sub in SUB:
             time_sub(zc, sub)                                # warm this shape+dtype
@@ -200,7 +203,7 @@ def main() -> int:
         res["sub_sum_s"] = round(sum(subs.values()), 5)
 
         # bytes + op census for one whole block
-        z0 = tt(z_t); s0 = tt(s_t)
+        z0 = tt(z_t, zdt); s0 = tt(s_t)
         ttnn.synchronize_device(dev)
         ttnn.graph.begin_graph_capture(ttnn.graph.RunMode.NORMAL)
         s1, z1 = run_block(z0, s0)
