@@ -66,7 +66,7 @@ for i, N in enumerate(a.sizes):
     ref = ttnn.multiply_(p, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
 
     try:
-        out = F1.fused_tail(xa, xb, wa, wb, MG.ckc_args(ckc), (gx, gy), T._mm_block_for(wa))
+        out = F1.fused_tail(xa, xb, wa, wb, MG.ckc_args(ckc), (gx, gy))
     except Exception as e:                                                # noqa: BLE001
         print(f"N={N:4d}  RAISED {type(e).__name__}: {str(e)[:400]}")
         fails += 1

@@ -18,12 +18,14 @@ today's three ops.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
 import ttnn
 
 from . import mm_generic as MG
+from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "trimul_tail"
 
@@ -61,6 +63,27 @@ SKIP_SIGMOID = 0
 #
 # A trimul tail's weights are square ([c_z, c_z]), so the key is always (kt, kt).
 F1_BLOCK_KEYS = {(8, 8)}
+
+# P7 step 3: (4, 4) is boltz2's and openfold3's key at c_z = 128, and it is the reason F1 ships on
+# by default while declining 100 % of both models' calls. `_MM_BLOCK` maps it to (4, 4, 1, 4, 1)
+# against (8, 8)'s (4, 8, 1, 4, 1): same M_block, same subblock_h, same subblock_w, only K_block
+# halving, and kt = 4 still means exactly one K block, which is this kernel's stated precondition.
+# Neither of the two things that broke (12, 12) -- out_block doubling, subblock_h halving -- moves
+# here, so the hypothesis is that the entry is already correct and merely unvalidated.
+#
+# OFF by default, and it stays off: turning it on is a two-model flip (boltz2 AND openfold3 share
+# the key), which is release-gated and needs openfold3's own parity leg, not a one-line table swap.
+def set_f1_cz128(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global F1_BLOCK_KEYS
+    prev = (4, 4) in F1_BLOCK_KEYS
+    F1_BLOCK_KEYS = {(8, 8), (4, 4)} if on else {(8, 8)}
+    _block_for.cache_clear()
+    return prev
+
+
+if env_flag("TT_BIO_TRIMUL_TAIL_F1_CZ128", False):
+    F1_BLOCK_KEYS = {(8, 8), (4, 4)}
 
 
 def _tiles(n):

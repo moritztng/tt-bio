@@ -25,8 +25,48 @@ import json
 from collections import defaultdict
 
 
-def top_level_spans(nodes):
-    """counter -> (op_index, op_name) for every node inside a top-level ttnn.* call."""
+def top_level_spans(nodes, rule="auto"):
+    """counter -> (op_index, op_name) for every node inside a top-level ttnn.* call.
+
+    Two ownership rules. STACK is the original: push on `function_start`, pop on `function_end`,
+    a ttnn.* name at depth zero opens an op. It is exact when the capture is balanced and it fails
+    silently when it is not -- a ttnn.* frame whose `function_end` never arrives leaves the stack
+    permanently non-empty, every later call reads as nested, and the per-op table collapses. A
+    512 aa trimul capture has 102 function_start against 93 function_end and the stack rule finds
+    4 ops in it where the device runs 19.
+
+    RANGE owns every node by the last ttnn.* `function_start` at or before it, which is immune to
+    a missing end. It is exact here because ttnn.* names do not nest inside one another in these
+    captures: a ttnn.linear's internals are `MatmulDeviceOperation` and `create_device_tensor`,
+    not another ttnn.*.
+
+    `rule="auto"` uses STACK when the capture is balanced and RANGE when it is not, so a balanced
+    capture keeps byte-for-byte the numbers it reported before.
+    """
+    if rule in ("auto", "range"):
+        n_start = sum(1 for n in nodes if n.get("node_type") == "function_start")
+        n_end = sum(1 for n in nodes if n.get("node_type") == "function_end")
+        if rule == "range" or n_start != n_end:
+            return _spans_by_range(nodes)
+    return _spans_by_stack(nodes)
+
+
+def _spans_by_range(nodes):
+    ops, owner, cur = [], {}, None
+    for n in nodes:
+        c = n["counter"]
+        if n.get("node_type") == "function_start":
+            name = str((n.get("params") or {}).get("name", ""))
+            if name.startswith("ttnn."):
+                cur = len(ops)
+                ops.append({"name": name, "start": c, "end": None})
+        if cur is not None:
+            owner[c] = cur
+            ops[cur]["end"] = c
+    return ops, owner
+
+
+def _spans_by_stack(nodes):
     owner = {}
     ops = []
     stack = []

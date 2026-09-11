@@ -1,0 +1,208 @@
+{
+ "n": 512,
+ "fast_runtime": false,
+ "negative_control": {
+  "starting": {
+   "ones/off": {
+    "sha": "2b7178159da7a723",
+    "absmax": 2.1875,
+    "mean": 0.00019278,
+    "nonfinite": 0
+   },
+   "ones/on": {
+    "sha": "2b7178159da7a723",
+    "absmax": 2.1875,
+    "mean": 0.00019278,
+    "nonfinite": 0
+   },
+   "random/off": {
+    "sha": "1bac9d88255e9f63",
+    "absmax": 2.28125,
+    "mean": 0.0001433,
+    "nonfinite": 0
+   },
+   "random/on": {
+    "sha": "1bac9d88255e9f63",
+    "absmax": 2.28125,
+    "mean": 0.0001433,
+    "nonfinite": 0
+   },
+   "mask_sensitive": true,
+   "bitexact_ones": true,
+   "bitexact_random": true
+  },
+  "ending": {
+   "ones/off": {
+    "sha": "e6277d9584e9214d",
+    "absmax": 2.171875,
+    "mean": 0.00010524,
+    "nonfinite": 0
+   },
+   "ones/on": {
+    "sha": "e6277d9584e9214d",
+    "absmax": 2.171875,
+    "mean": 0.00010524,
+    "nonfinite": 0
+   },
+   "random/off": {
+    "sha": "0dd63640acae55d3",
+    "absmax": 2.3125,
+    "mean": 1.67e-06,
+    "nonfinite": 0
+   },
+   "random/on": {
+    "sha": "0dd63640acae55d3",
+    "absmax": 2.3125,
+    "mean": 1.67e-06,
+    "nonfinite": 0
+   },
+   "mask_sensitive": true,
+   "bitexact_ones": true,
+   "bitexact_random": true
+  }
+ },
+ "bytes": {
+  "starting": {
+   "off": {
+    "real_MB": 2114.68288,
+    "real_w_MB": 1023.410176,
+    "real_r_MB": 1091.272704,
+    "n_ops": 4
+   },
+   "off_top": [
+    [
+     1694.712,
+     "ttnn.generic_op",
+     671.089,
+     1023.623
+    ],
+    [
+     268.435,
+     "ttnn.allocate_tensor_on_device",
+     268.435,
+     0.0
+    ],
+    [
+     134.234,
+     "ttnn.layer_norm",
+     67.109,
+     67.125
+    ],
+    [
+     16.777,
+     "ttnn.unsqueeze",
+     16.777,
+     0.0
+    ]
+   ],
+   "on": {
+    "real_MB": 1577.28768,
+    "real_w_MB": 754.97472,
+    "real_r_MB": 822.31296,
+    "n_ops": 5
+   },
+   "on_top": [
+    [
+     1141.064,
+     "ttnn.generic_op",
+     402.653,
+     738.41
+    ],
+    [
+     268.435,
+     "ttnn.allocate_tensor_on_device",
+     268.435,
+     0.0
+    ],
+    [
+     134.234,
+     "ttnn.layer_norm",
+     67.109,
+     67.125
+    ],
+    [
+     33.554,
+     "ttnn.unsqueeze",
+     16.777,
+     16.777
+    ]
+   ],
+   "deleted_MB": 537.395,
+   "deleted_Z": 8.008
+  },
+  "ending": {
+   "off": {
+    "real_MB": 2114.158592,
+    "real_w_MB": 1023.410176,
+    "real_r_MB": 1090.748416,
+    "n_ops": 4
+   },
+   "off_top": [
+    [
+     1694.712,
+     "ttnn.generic_op",
+     671.089,
+     1023.623
+    ],
+    [
+     268.435,
+     "ttnn.allocate_tensor_on_device",
+     268.435,
+     0.0
+    ],
+    [
+     134.234,
+     "ttnn.layer_norm",
+     67.109,
+     67.125
+    ],
+    [
+     16.777,
+     "ttnn.unsqueeze",
+     16.777,
+     0.0
+    ]
+   ],
+   "on": {
+    "real_MB": 1578.336256,
+    "real_w_MB": 755.499008,
+    "real_r_MB": 822.837248,
+    "n_ops": 7
+   },
+   "on_top": [
+    [
+     1141.588,
+     "ttnn.generic_op",
+     402.653,
+     738.935
+    ],
+    [
+     268.435,
+     "ttnn.allocate_tensor_on_device",
+     268.435,
+     0.0
+    ],
+    [
+     134.234,
+     "ttnn.layer_norm",
+     67.109,
+     67.125
+    ],
+    [
+     33.554,
+     "ttnn.unsqueeze",
+     16.777,
+     16.777
+    ],
+    [
+     0.524,
+     "ttnn.transpose",
+     0.524,
+     0.0
+    ]
+   ],
+   "deleted_MB": 535.822,
+   "deleted_Z": 7.984
+  }
+ }
+}
