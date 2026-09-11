@@ -1,0 +1,1851 @@
+{
+ "env": {
+  "started": "2026-09-11T18:37:10+0000",
+  "card": "0",
+  "commit": "d4561d80",
+  "loadavg_at_start": [
+   "1.98",
+   "1.70",
+   "1.08"
+  ],
+  "size": 512,
+  "BW_eff_GBs": 445.0,
+  "t_fixed_us": 6.36,
+  "shipped_ref_ms": 8.705,
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "grid_str": "(x=11,y=10)",
+  "loadavg_at_end": [
+   "3.10",
+   "2.03",
+   "1.22"
+  ],
+  "ended": "2026-09-11T18:37:58+0000"
+ },
+ "fold_s": 27.321,
+ "transition_calls_per_fold": 960,
+ "shape": {
+  "z": [
+   1,
+   1024,
+   512,
+   64
+  ],
+  "H": 1024,
+  "W": 512,
+  "C": 64,
+  "hidden": 256,
+  "h_chunk_shipped": 16,
+  "n_chunks_shipped": 64,
+  "dtype": "DataType.BFLOAT16",
+  "compute_kernel_config": "<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x7bb53aca3570>",
+  "core_grid_main": "ttnn.CoreGrid(x=11, y=10)",
+  "unfused_silu": false
+ },
+ "bytes": {
+  "stack": {
+   "floor_MB": 604.086,
+   "once_MB": 335.651,
+   "real_MB": 606.151,
+   "real_w_MB": 268.435,
+   "real_r_MB": 337.715,
+   "n_ops": 514,
+   "per_op_MB": [
+    [
+     335544320,
+     "ttnn.concat",
+     134217728,
+     201326592
+    ],
+    [
+     201326592,
+     "ttnn.chunk",
+     67108864,
+     134217728
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ]
+   ]
+  },
+  "range": {
+   "floor_MB": 604.086,
+   "once_MB": 335.651,
+   "real_MB": 606.151,
+   "real_w_MB": 268.435,
+   "real_r_MB": 337.715,
+   "n_ops": 514,
+   "per_op_MB": [
+    [
+     335544320,
+     "ttnn.concat",
+     134217728,
+     201326592
+    ],
+    [
+     201326592,
+     "ttnn.chunk",
+     67108864,
+     134217728
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ],
+    [
+     1081344,
+     "ttnn.linear",
+     1048576,
+     32768
+    ]
+   ]
+  },
+  "devops": {
+   "MatmulDeviceOperation": 192,
+   "SliceDeviceOperation": 64,
+   "LayerNormDeviceOperation": 64,
+   "BinaryNgDeviceOperation": 64,
+   "ConcatDeviceOperation": 3
+  },
+  "n_devops": 387,
+  "explains_ms_at_roof": 1.3621,
+  "counted_MB_prior": 474.2
+ },
+ "floor": {
+  "us": 8711.3805,
+  "R": 1,
+  "all_us": [
+   8711.666,
+   8711.3805,
+   8714.827,
+   8709.3493,
+   8707.5335
+  ],
+  "spread_pct": 0.08,
+  "host_us_per_call": 1.483,
+  "ms": 8.7114,
+  "vs_prior_ratio": 1.0007
+ },
+ "ops": {
+  "4": {
+   "slice": {
+    "us": 6.194,
+    "R": 64,
+    "all_us": [
+     6.2399,
+     6.1984,
+     6.1939,
+     6.194,
+     6.1934
+    ],
+    "spread_pct": 0.75,
+    "host_us_per_call": 0.015,
+    "dram_MB": 0.5243,
+    "GBs": 84.6,
+    "pct_bw_roof": 19.0,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "layer_norm": {
+    "us": 7.3226,
+    "R": 64,
+    "all_us": [
+     7.3414,
+     7.3394,
+     7.3226,
+     7.3194,
+     7.3175
+    ],
+    "spread_pct": 0.33,
+    "host_us_per_call": 0.014,
+    "dram_MB": 0.2621,
+    "GBs": 35.8,
+    "pct_bw_roof": 8.0,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc1_silu": {
+    "us": 18.2016,
+    "R": 64,
+    "all_us": [
+     18.2564,
+     18.2991,
+     18.1873,
+     18.2016,
+     18.193
+    ],
+    "spread_pct": 0.61,
+    "host_us_per_call": 0.016,
+    "dram_MB": 0.0328,
+    "GBs": 1.8,
+    "pct_bw_roof": 0.4,
+    "GFLOP": 0.0671,
+    "TFLOPs": 3.69
+   },
+   "linear_fc2": {
+    "us": 9.4947,
+    "R": 64,
+    "all_us": [
+     9.5323,
+     9.4922,
+     9.4881,
+     9.4947,
+     9.5047
+    ],
+    "spread_pct": 0.46,
+    "host_us_per_call": 0.016,
+    "dram_MB": 0.0328,
+    "GBs": 3.5,
+    "pct_bw_roof": 0.8,
+    "GFLOP": 0.0671,
+    "TFLOPs": 7.07
+   },
+   "multiply_": {
+    "us": 6.565,
+    "R": 64,
+    "all_us": [
+     6.565,
+     6.575,
+     6.5655,
+     6.5533,
+     6.5437
+    ],
+    "spread_pct": 0.48,
+    "host_us_per_call": 0.015,
+    "dram_MB": 0.0,
+    "GBs": null,
+    "pct_bw_roof": null,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc3_dram": {
+    "us": 11.5775,
+    "R": 64,
+    "all_us": [
+     11.5963,
+     11.5678,
+     11.5664,
+     11.5843,
+     11.5775
+    ],
+    "spread_pct": 0.26,
+    "host_us_per_call": 0.018,
+    "dram_MB": 0.2949,
+    "GBs": 25.5,
+    "pct_bw_roof": 5.7,
+    "GFLOP": 0.0671,
+    "TFLOPs": 5.8
+   },
+   "_body_us_per_chunk": 53.161,
+   "_slice_us_per_chunk": 6.194,
+   "_n_chunks": 256,
+   "_sum_body_ms": 13.6093
+  },
+  "8": {
+   "slice": {
+    "us": 6.2336,
+    "R": 64,
+    "all_us": [
+     6.2383,
+     6.2308,
+     6.2261,
+     6.2396,
+     6.2336
+    ],
+    "spread_pct": 0.22,
+    "host_us_per_call": 0.017,
+    "dram_MB": 1.0486,
+    "GBs": 168.2,
+    "pct_bw_roof": 37.8,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "layer_norm": {
+    "us": 14.7416,
+    "R": 64,
+    "all_us": [
+     14.7226,
+     14.7646,
+     14.7416,
+     14.7381,
+     14.7624
+    ],
+    "spread_pct": 0.28,
+    "host_us_per_call": 0.02,
+    "dram_MB": 0.5243,
+    "GBs": 35.6,
+    "pct_bw_roof": 8.0,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc1_silu": {
+    "us": 39.0591,
+    "R": 64,
+    "all_us": [
+     39.06,
+     39.0591,
+     39.0561,
+     39.0458,
+     39.1344
+    ],
+    "spread_pct": 0.23,
+    "host_us_per_call": 0.02,
+    "dram_MB": 0.0328,
+    "GBs": 0.8,
+    "pct_bw_roof": 0.2,
+    "GFLOP": 0.1342,
+    "TFLOPs": 3.44
+   },
+   "linear_fc2": {
+    "us": 9.1553,
+    "R": 64,
+    "all_us": [
+     9.1874,
+     9.1553,
+     9.1622,
+     9.1502,
+     9.1348
+    ],
+    "spread_pct": 0.57,
+    "host_us_per_call": 0.019,
+    "dram_MB": 0.0328,
+    "GBs": 3.6,
+    "pct_bw_roof": 0.8,
+    "GFLOP": 0.1342,
+    "TFLOPs": 14.66
+   },
+   "multiply_": {
+    "us": 8.803,
+    "R": 64,
+    "all_us": [
+     8.8036,
+     8.803,
+     8.8114,
+     8.7784,
+     8.7762
+    ],
+    "spread_pct": 0.4,
+    "host_us_per_call": 0.018,
+    "dram_MB": 0.0,
+    "GBs": null,
+    "pct_bw_roof": null,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc3_dram": {
+    "us": 13.3698,
+    "R": 64,
+    "all_us": [
+     13.3846,
+     13.3698,
+     13.3359,
+     13.388,
+     13.3346
+    ],
+    "spread_pct": 0.4,
+    "host_us_per_call": 0.019,
+    "dram_MB": 0.5571,
+    "GBs": 41.7,
+    "pct_bw_roof": 9.4,
+    "GFLOP": 0.1342,
+    "TFLOPs": 10.04
+   },
+   "_body_us_per_chunk": 85.129,
+   "_slice_us_per_chunk": 6.2336,
+   "_n_chunks": 128,
+   "_sum_body_ms": 10.8965
+  },
+  "16": {
+   "slice": {
+    "us": 6.7943,
+    "R": 64,
+    "all_us": [
+     6.8003,
+     6.7943,
+     6.8073,
+     6.7826,
+     6.7838
+    ],
+    "spread_pct": 0.36,
+    "host_us_per_call": 0.016,
+    "dram_MB": 2.0972,
+    "GBs": 308.7,
+    "pct_bw_roof": 69.4,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "layer_norm": {
+    "us": 18.4902,
+    "R": 64,
+    "all_us": [
+     18.4746,
+     18.478,
+     18.5196,
+     18.5096,
+     18.4902
+    ],
+    "spread_pct": 0.24,
+    "host_us_per_call": 0.015,
+    "dram_MB": 1.0486,
+    "GBs": 56.7,
+    "pct_bw_roof": 12.7,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc1_silu": {
+    "us": 56.4507,
+    "R": 64,
+    "all_us": [
+     56.4603,
+     56.4523,
+     56.4465,
+     56.4471,
+     56.4507
+    ],
+    "spread_pct": 0.02,
+    "host_us_per_call": 0.019,
+    "dram_MB": 0.0328,
+    "GBs": 0.6,
+    "pct_bw_roof": 0.1,
+    "GFLOP": 0.2684,
+    "TFLOPs": 4.76
+   },
+   "linear_fc2": {
+    "us": 12.2306,
+    "R": 64,
+    "all_us": [
+     12.2608,
+     12.2481,
+     12.219,
+     12.2306,
+     12.2173
+    ],
+    "spread_pct": 0.36,
+    "host_us_per_call": 0.02,
+    "dram_MB": 0.0328,
+    "GBs": 2.7,
+    "pct_bw_roof": 0.6,
+    "GFLOP": 0.2684,
+    "TFLOPs": 21.95
+   },
+   "multiply_": {
+    "us": 14.5659,
+    "R": 64,
+    "all_us": [
+     14.6453,
+     14.6353,
+     14.5659,
+     14.5471,
+     14.5269
+    ],
+    "spread_pct": 0.81,
+    "host_us_per_call": 0.019,
+    "dram_MB": 0.0,
+    "GBs": null,
+    "pct_bw_roof": null,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc3_dram": {
+    "us": 18.1412,
+    "R": 64,
+    "all_us": [
+     18.2748,
+     18.1625,
+     18.1163,
+     18.1412,
+     18.1161
+    ],
+    "spread_pct": 0.87,
+    "host_us_per_call": 0.018,
+    "dram_MB": 1.0813,
+    "GBs": 59.6,
+    "pct_bw_roof": 13.4,
+    "GFLOP": 0.2684,
+    "TFLOPs": 14.8
+   },
+   "_body_us_per_chunk": 119.879,
+   "_slice_us_per_chunk": 6.7943,
+   "_n_chunks": 64,
+   "_sum_body_ms": 7.6722
+  },
+  "32": {
+   "slice": {
+    "us": 12.67,
+    "R": 47,
+    "all_us": [
+     12.8849,
+     12.757,
+     12.67,
+     12.5444,
+     12.5263
+    ],
+    "spread_pct": 2.83,
+    "host_us_per_call": 0.044,
+    "dram_MB": 4.1943,
+    "GBs": 331.0,
+    "pct_bw_roof": 74.4,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "layer_norm": {
+    "us": 25.7524,
+    "R": 47,
+    "all_us": [
+     25.7524,
+     25.719,
+     25.791,
+     25.7675,
+     25.6985
+    ],
+    "spread_pct": 0.36,
+    "host_us_per_call": 0.024,
+    "dram_MB": 2.0972,
+    "GBs": 81.4,
+    "pct_bw_roof": 18.3,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc1_silu": {
+    "us": 91.6344,
+    "R": 47,
+    "all_us": [
+     91.3716,
+     91.7784,
+     91.9456,
+     91.6118,
+     91.6344
+    ],
+    "spread_pct": 0.63,
+    "host_us_per_call": 0.06,
+    "dram_MB": 0.0328,
+    "GBs": 0.4,
+    "pct_bw_roof": 0.1,
+    "GFLOP": 0.5369,
+    "TFLOPs": 5.86
+   },
+   "linear_fc2": {
+    "us": 20.1271,
+    "R": 47,
+    "all_us": [
+     20.2233,
+     20.1271,
+     20.0943,
+     20.0664,
+     20.1567
+    ],
+    "spread_pct": 0.78,
+    "host_us_per_call": 0.058,
+    "dram_MB": 0.0328,
+    "GBs": 1.6,
+    "pct_bw_roof": 0.4,
+    "GFLOP": 0.5369,
+    "TFLOPs": 26.67
+   },
+   "multiply_": {
+    "us": 26.6837,
+    "R": 47,
+    "all_us": [
+     26.903,
+     26.8516,
+     26.6837,
+     26.6037,
+     26.6363
+    ],
+    "spread_pct": 1.12,
+    "host_us_per_call": 0.028,
+    "dram_MB": 0.0,
+    "GBs": null,
+    "pct_bw_roof": null,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc3_dram": {
+    "us": 26.3576,
+    "R": 47,
+    "all_us": [
+     26.3874,
+     26.42,
+     26.3576,
+     26.3006,
+     26.1691
+    ],
+    "spread_pct": 0.95,
+    "host_us_per_call": 0.026,
+    "dram_MB": 2.1299,
+    "GBs": 80.8,
+    "pct_bw_roof": 18.2,
+    "GFLOP": 0.5369,
+    "TFLOPs": 20.37
+   },
+   "_body_us_per_chunk": 190.555,
+   "_slice_us_per_chunk": 12.67,
+   "_n_chunks": 32,
+   "_sum_body_ms": 6.0978
+  },
+  "64": {
+   "slice": {
+    "us": 24.8354,
+    "R": 23,
+    "all_us": [
+     23.9717,
+     24.8354,
+     25.2793,
+     25.3803,
+     24.6643
+    ],
+    "spread_pct": 5.67,
+    "host_us_per_call": 0.611,
+    "dram_MB": 8.3886,
+    "GBs": 337.8,
+    "pct_bw_roof": 75.9,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "layer_norm": {
+    "us": 42.6547,
+    "R": 23,
+    "all_us": [
+     42.9913,
+     42.7963,
+     42.6547,
+     42.477,
+     42.5846
+    ],
+    "spread_pct": 1.21,
+    "host_us_per_call": 0.504,
+    "dram_MB": 4.1943,
+    "GBs": 98.3,
+    "pct_bw_roof": 22.1,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc1_silu": {
+    "us": 181.0075,
+    "R": 23,
+    "all_us": [
+     180.6848,
+     180.9631,
+     182.9253,
+     182.4871,
+     181.0075
+    ],
+    "spread_pct": 1.24,
+    "host_us_per_call": 0.743,
+    "dram_MB": 0.0328,
+    "GBs": 0.2,
+    "pct_bw_roof": 0.0,
+    "GFLOP": 1.0737,
+    "TFLOPs": 5.93
+   },
+   "linear_fc2": {
+    "us": 35.5453,
+    "R": 23,
+    "all_us": [
+     36.0144,
+     35.3593,
+     35.8937,
+     35.5453,
+     35.4939
+    ],
+    "spread_pct": 1.84,
+    "host_us_per_call": 0.061,
+    "dram_MB": 0.0328,
+    "GBs": 0.9,
+    "pct_bw_roof": 0.2,
+    "GFLOP": 1.0737,
+    "TFLOPs": 30.21
+   },
+   "multiply_": {
+    "us": 51.2969,
+    "R": 23,
+    "all_us": [
+     50.8787,
+     51.0664,
+     51.4558,
+     51.4558,
+     51.2969
+    ],
+    "spread_pct": 1.13,
+    "host_us_per_call": 0.396,
+    "dram_MB": 0.0,
+    "GBs": null,
+    "pct_bw_roof": null,
+    "GFLOP": null,
+    "TFLOPs": null
+   },
+   "linear_fc3_dram": {
+    "us": 48.899,
+    "R": 23,
+    "all_us": [
+     50.6561,
+     49.8155,
+     48.6159,
+     48.6015,
+     48.899
+    ],
+    "spread_pct": 4.2,
+    "host_us_per_call": 0.091,
+    "dram_MB": 4.2271,
+    "GBs": 86.4,
+    "pct_bw_roof": 19.4,
+    "GFLOP": 1.0737,
+    "TFLOPs": 21.96
+   },
+   "_body_us_per_chunk": 359.403,
+   "_slice_us_per_chunk": 24.8354,
+   "_n_chunks": 16,
+   "_sum_body_ms": 5.7505
+  },
+  "128": {
+   "setup_error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 667 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 884736 and static circular buffer region ends at 1155584\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7bbe7b6d3f55]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x7bbe7d1c9d92]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfcbea9) [0x7bbe7d1cbea9]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail30create_and_cache_mesh_workloadITkNS0_22DeviceOperationConceptENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm+0x1a1) [0x7bbe7d1c97a1]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x583) [0x7bbe7d1c2b23]\n --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf7c318) [0x7bbe7d17c318]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6linearERKN2tt8tt_metal6TensorES6_RKSt8optionalIS5_EbbRKS7_IKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSJ_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x333) [0x7bbe7d17d3e3]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb59d) [0x7bbe7ddfb59d]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb30b) [0x7bbe7ddfb30b]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7bbe7dc6daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x3ab) [0x54aa6b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b0ac]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db13e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a84a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x548ffe]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa89) [0x5d6f09]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d544b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6085a2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b5033]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4d9a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4bcf]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bcc35]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc71d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7bbec1e2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7bbec1e2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657bc5]\n"
+  },
+  "256": {
+   "setup_error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 673 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 808960 and static circular buffer region ends at 1155584\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7bbe7b6d3f55]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x7bbe7d1c9d92]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfcbea9) [0x7bbe7d1cbea9]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail30create_and_cache_mesh_workloadITkNS0_22DeviceOperationConceptENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm+0x1a1) [0x7bbe7d1c97a1]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x583) [0x7bbe7d1c2b23]\n --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf7c318) [0x7bbe7d17c318]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6linearERKN2tt8tt_metal6TensorES6_RKSt8optionalIS5_EbbRKS7_IKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSJ_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x333) [0x7bbe7d17d3e3]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb59d) [0x7bbe7ddfb59d]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb30b) [0x7bbe7ddfb30b]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7bbe7dc6daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x3ab) [0x54aa6b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b0ac]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db13e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a84a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x548ffe]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa89) [0x5d6f09]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d544b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6085a2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b5033]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4d9a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4bcf]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bcc35]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc71d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7bbec1e2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7bbec1e2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657bc5]\n"
+  },
+  "512": {
+   "setup_error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 305152 B, free: 1156608 B, largest free block: 1156608 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7bbe7b6d2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::prim::MatmulDeviceOperation::create_output_tensors(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x33b) [0x7bbe7d1c28db]\n --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf7c318) [0x7bbe7d17c318]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6linearERKN2tt8tt_metal6TensorES6_RKSt8optionalIS5_EbbRKS7_IKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSJ_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x333) [0x7bbe7d17d3e3]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb59d) [0x7bbe7ddfb59d]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb30b) [0x7bbe7ddfb30b]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7bbe7dc6daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x3ab) [0x54aa6b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b0ac]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db13e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a84a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x548ffe]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa89) [0x5d6f09]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d544b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6085a2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b5033]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4d9a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4bcf]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bcc35]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc71d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7bbec1e2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7bbec1e2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657bc5]\n"
+  }
+ },
+ "whole_tensor_ops": {
+  "chunk": {
+   "us": 427.28,
+   "R": 1,
+   "all_us": [
+    427.28,
+    426.9458,
+    427.4465,
+    427.5293,
+    426.7779
+   ],
+   "spread_pct": 0.18,
+   "host_us_per_call": 0.694,
+   "dram_MB": 134.218,
+   "GBs": 314.1
+  },
+  "concat": {
+   "us": 709.6276,
+   "R": 1,
+   "all_us": [
+    708.4066,
+    708.106,
+    710.255,
+    710.7923,
+    709.6276
+   ],
+   "spread_pct": 0.38,
+   "host_us_per_call": 0.895,
+   "dram_MB": 134.218,
+   "GBs": 189.1
+  }
+ },
+ "grid": {
+  "1x1": {
+   "us": 4372.1111,
+   "R": 8,
+   "all_us": [
+    4372.4505,
+    4371.644,
+    4371.6566,
+    4372.1536,
+    4372.1111
+   ],
+   "spread_pct": 0.02,
+   "host_us_per_call": 0.356,
+   "cores": 1,
+   "TFLOPs": 0.061
+  },
+  "2x2": {
+   "us": 1116.2198,
+   "R": 8,
+   "all_us": [
+    1116.2198,
+    1115.5498,
+    1116.1484,
+    1118.425,
+    1117.0113
+   ],
+   "spread_pct": 0.26,
+   "host_us_per_call": 0.229,
+   "cores": 4,
+   "TFLOPs": 0.24
+  },
+  "3x3": {
+   "us": 508.2489,
+   "R": 8,
+   "all_us": [
+    509.1341,
+    508.2438,
+    508.1085,
+    508.7797,
+    508.2489
+   ],
+   "spread_pct": 0.2,
+   "host_us_per_call": 0.198,
+   "cores": 9,
+   "TFLOPs": 0.528
+  },
+  "4x4": {
+   "us": 281.3468,
+   "R": 8,
+   "all_us": [
+    281.6121,
+    281.3468,
+    281.3366,
+    281.3705,
+    281.3292
+   ],
+   "spread_pct": 0.1,
+   "host_us_per_call": 0.185,
+   "cores": 16,
+   "TFLOPs": 0.954
+  },
+  "5x5": {
+   "us": 195.4964,
+   "R": 8,
+   "all_us": [
+    195.7706,
+    196.1063,
+    195.4964,
+    195.4713,
+    195.4249
+   ],
+   "spread_pct": 0.35,
+   "host_us_per_call": 0.17,
+   "cores": 25,
+   "TFLOPs": 1.373
+  },
+  "6x6": {
+   "us": 143.4309,
+   "R": 8,
+   "all_us": [
+    143.8365,
+    143.4309,
+    143.4584,
+    143.3506,
+    143.3169
+   ],
+   "spread_pct": 0.36,
+   "host_us_per_call": 0.174,
+   "cores": 36,
+   "TFLOPs": 1.872
+  },
+  "7x7": {
+   "us": 108.9673,
+   "R": 8,
+   "all_us": [
+    109.3303,
+    109.0085,
+    108.9284,
+    108.9673,
+    108.9257
+   ],
+   "spread_pct": 0.37,
+   "host_us_per_call": 0.168,
+   "cores": 49,
+   "TFLOPs": 2.463
+  },
+  "8x8": {
+   "us": 74.496,
+   "R": 8,
+   "all_us": [
+    75.2149,
+    74.496,
+    74.4961,
+    74.4873,
+    74.4898
+   ],
+   "spread_pct": 0.98,
+   "host_us_per_call": 0.128,
+   "cores": 64,
+   "TFLOPs": 3.603
+  },
+  "9x9": {
+   "us": 74.6714,
+   "R": 8,
+   "all_us": [
+    75.0307,
+    74.6764,
+    74.6601,
+    74.6288,
+    74.6714
+   ],
+   "spread_pct": 0.54,
+   "host_us_per_call": 0.142,
+   "cores": 81,
+   "TFLOPs": 3.595
+  },
+  "10x10": {
+   "us": 58.3218,
+   "R": 8,
+   "all_us": [
+    58.8301,
+    58.5935,
+    58.3218,
+    58.2629,
+    58.2028
+   ],
+   "spread_pct": 1.08,
+   "host_us_per_call": 0.135,
+   "cores": 100,
+   "TFLOPs": 4.603
+  },
+  "11x10": {
+   "us": 58.6749,
+   "R": 8,
+   "all_us": [
+    58.7662,
+    58.69,
+    58.6749,
+    58.4533,
+    58.2942
+   ],
+   "spread_pct": 0.8,
+   "host_us_per_call": 0.126,
+   "cores": 110,
+   "TFLOPs": 4.575
+  }
+ },
+ "hsweep": {
+  "4": {
+   "us": 14377.9268,
+   "R": 1,
+   "all_us": [
+    14358.329,
+    14376.6697,
+    14386.4673,
+    14377.9268,
+    14383.3718
+   ],
+   "spread_pct": 0.2,
+   "host_us_per_call": 15.855,
+   "ms": 14.3779,
+   "n_chunks": 256,
+   "vs_shipped": 0.6054
+  },
+  "8": {
+   "us": 12204.42,
+   "R": 1,
+   "all_us": [
+    12213.469,
+    12204.42,
+    12207.0983,
+    12201.5535,
+    12199.2217
+   ],
+   "spread_pct": 0.12,
+   "host_us_per_call": 3.672,
+   "ms": 12.2044,
+   "n_chunks": 128,
+   "vs_shipped": 0.7133
+  },
+  "16": {
+   "us": 8711.4585,
+   "R": 1,
+   "all_us": [
+    8708.5785,
+    8711.4585,
+    8712.756,
+    8711.8395,
+    8703.7472
+   ],
+   "spread_pct": 0.1,
+   "host_us_per_call": 0.862,
+   "ms": 8.7115,
+   "n_chunks": 64,
+   "vs_shipped": 0.9993
+  },
+  "32": {
+   "us": 6774.7308,
+   "R": 1,
+   "all_us": [
+    6775.129,
+    6774.7308,
+    6779.1537,
+    6774.25,
+    6774.648
+   ],
+   "spread_pct": 0.07,
+   "host_us_per_call": 12.955,
+   "ms": 6.7747,
+   "n_chunks": 32,
+   "vs_shipped": 1.2849
+  },
+  "64": {
+   "us": 6367.985,
+   "R": 1,
+   "all_us": [
+    6380.5253,
+    6365.9938,
+    6367.985,
+    6360.191,
+    6377.7577
+   ],
+   "spread_pct": 0.32,
+   "host_us_per_call": 0.839,
+   "ms": 6.368,
+   "n_chunks": 16,
+   "vs_shipped": 1.367
+  },
+  "128": {
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 667 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 884736 and static circular buffer region ends at 1155584\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7bbe7b6d3f55]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x7bbe7d1c9d92]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail29handle_mesh_adapter_cache_hitITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm+0x15c) [0x7bbe7d1c959c]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x583) [0x7bbe7d1c2b23]\n --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf7c318) [0x7bbe7d17c318]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6linearERKN2tt8tt_metal6TensorES6_RKSt8optionalIS5_EbbRKS7_IKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSJ_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x333) [0x7bbe7d17d3e3]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb59d) [0x7bbe7ddfb59d]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb30b) [0x7bbe7ddfb30b]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7bbe7dc6daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x3ab) [0x54aa6b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b0ac]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db13e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a84a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x548ffe]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa89) [0x5d6f09]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0xc2) [0x54a782]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x75) [0x548f35]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa89) [0x5d6f09]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d544b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6085a2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b5033]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4d9a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4bcf]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bcc35]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc71d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7bbec1e2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7bbec1e2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657bc5]\n"
+  },
+  "256": {
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 673 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 808960 and static circular buffer region ends at 1155584\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7bbe7b6d3f55]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x7bbe7d1c9d92]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail29handle_mesh_adapter_cache_hitITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm+0x15c) [0x7bbe7d1c959c]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x583) [0x7bbe7d1c2b23]\n --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf7c318) [0x7bbe7d17c318]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6linearERKN2tt8tt_metal6TensorES6_RKSt8optionalIS5_EbbRKS7_IKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSJ_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x333) [0x7bbe7d17d3e3]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb59d) [0x7bbe7ddfb59d]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb30b) [0x7bbe7ddfb30b]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7bbe7dc6daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x3ab) [0x54aa6b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b0ac]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db13e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a84a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x548ffe]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa89) [0x5d6f09]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0xc2) [0x54a782]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x75) [0x548f35]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa89) [0x5d6f09]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d544b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6085a2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b5033]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4d9a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4bcf]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bcc35]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc71d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7bbec1e2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7bbec1e2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657bc5]\n"
+  },
+  "512": {
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 305152 B, free: 1156608 B, largest free block: 1156608 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7bbe7b6d2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::prim::MatmulDeviceOperation::create_output_tensors(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x33b) [0x7bbe7d1c28db]\n --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf7c318) [0x7bbe7d17c318]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6linearERKN2tt8tt_metal6TensorES6_RKSt8optionalIS5_EbbRKS7_IKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSJ_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x333) [0x7bbe7d17d3e3]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb59d) [0x7bbe7ddfb59d]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3fb30b) [0x7bbe7ddfb30b]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7bbe7dc6daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x3ab) [0x54aa6b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b0ac]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db13e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a84a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x548ffe]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa89) [0x5d6f09]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0xc2) [0x54a782]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a31b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x75) [0x548f35]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa89) [0x5d6f09]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d544b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6085a2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b5033]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4d9a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4bcf]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bcc35]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc71d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7bbec1e2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7bbec1e2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657bc5]\n"
+  }
+ },
+ "kmm": {
+  "K128": {
+   "us": 13.5145,
+   "R": 8,
+   "all_us": [
+    13.8776,
+    13.6171,
+    13.4142,
+    13.5145,
+    13.4694
+   ],
+   "spread_pct": 3.43,
+   "host_us_per_call": 0.162,
+   "M": 4096,
+   "K": 128,
+   "N": 256,
+   "GFLOP": 0.2684,
+   "TFLOPs": 19.863
+  },
+  "K256": {
+   "us": 11.4882,
+   "R": 8,
+   "all_us": [
+    11.7864,
+    11.4833,
+    11.4882,
+    11.4483,
+    11.5559
+   ],
+   "spread_pct": 2.94,
+   "host_us_per_call": 0.128,
+   "M": 2048,
+   "K": 256,
+   "N": 256,
+   "GFLOP": 0.2684,
+   "TFLOPs": 23.366
+  },
+  "K512": {
+   "us": 11.3305,
+   "R": 8,
+   "all_us": [
+    11.6936,
+    11.3305,
+    11.2502,
+    11.2427,
+    11.3343
+   ],
+   "spread_pct": 3.98,
+   "host_us_per_call": 0.134,
+   "M": 1024,
+   "K": 512,
+   "N": 256,
+   "GFLOP": 0.2684,
+   "TFLOPs": 23.691
+  },
+  "K1024": {
+   "us": 12.5952,
+   "R": 8,
+   "all_us": [
+    12.8433,
+    12.549,
+    12.5251,
+    12.5952,
+    12.6691
+   ],
+   "spread_pct": 2.53,
+   "host_us_per_call": 0.134,
+   "M": 512,
+   "K": 1024,
+   "N": 256,
+   "GFLOP": 0.2684,
+   "TFLOPs": 21.313
+  },
+  "K2048": {
+   "us": 16.6876,
+   "R": 8,
+   "all_us": [
+    16.9731,
+    16.6376,
+    16.6876,
+    16.62,
+    16.7679
+   ],
+   "spread_pct": 2.12,
+   "host_us_per_call": 0.178,
+   "M": 256,
+   "K": 2048,
+   "N": 256,
+   "GFLOP": 0.2684,
+   "TFLOPs": 16.086
+  }
+ }
+}
