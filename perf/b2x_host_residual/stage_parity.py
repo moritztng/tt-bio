@@ -15,7 +15,9 @@ import sys
 import time
 from pathlib import Path
 
-REPO = os.environ.get("B2X_REPO", "/home/moritz/tt-bio")
+# Default to the checkout this file lives in, so the script runs from any worktree on any
+# host. A hardcoded /home/moritz/tt-bio is a false negative waiting to happen.
+REPO = os.environ.get("B2X_REPO") or str(Path(__file__).resolve().parents[2])
 sys.path.insert(0, REPO)
 sys.path.insert(0, str(Path(REPO) / "scripts" / "gpu_vs_tt"))
 # B2X_OVERLAY holds a tt_bio package whose boltz2.py is the patched one; it has to win over
