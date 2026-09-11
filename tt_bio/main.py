@@ -2412,9 +2412,11 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     residue name from restype. `aatype` is accepted for back-compat but unused. `b_factors`
     (per-atom, e.g. pLDDT*100) is written to the B-factor column when given.
 
-    `mod_names` maps (asym_id, residue_index) -> CCD code for a `modifications:` residue.
-    Those residues are tokenized per atom and carry restype UNK, so without it the writer
-    would name them "LIG" and a user who asked for SEP would read back a ligand."""
+    `mod_names` maps (asym_id, residue_index) -> the CCD code for a token whose restype
+    cannot name it: a `modifications:` residue or a CCD ligand chain. Both are tokenized
+    per atom and carry restype UNK, so without it the writer names them "LIG" and a user
+    who asked for SEP reads back a ligand, or who asked for ATP reads back an unnamed
+    one."""
     import biotite.structure as struc
     import biotite.structure.io.pdbx as _pdbx
 
