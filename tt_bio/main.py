@@ -1154,6 +1154,12 @@ def _stop_worker_processes(procs: list) -> None:
             if proc.is_alive():
                 proc.kill()
                 proc.join(timeout=3)
+    # A worker that exits through Python removes its own capture file; one we had to kill
+    # cannot. By here the run is over and anything worth reading has already been read on
+    # the all-dead or respawn path, so consume what is left rather than keep it in /tmp.
+    for proc in procs:
+        if proc.pid:
+            read_worker_capture(proc.pid)
 
 
 def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,

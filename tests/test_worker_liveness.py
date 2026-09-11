@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tt_bio.distributed import ControllerClient, ControllerServer  # noqa: E402
 from tt_bio.main import _stream_run  # noqa: E402
 from tt_bio.worker import (  # noqa: E402
+    _cleanup_worker_capture,
     _install_orphan_guard,
     _report_fatal,
     _silence_subprocess_output,
@@ -112,6 +113,7 @@ def test_silence_subprocess_output_preserves_real_stderr():
             os.dup2(write_fd, 2)
             _silence_subprocess_output()
             _report_fatal("boom\n")
+            _cleanup_worker_capture()      # what run_worker_loop's finally does
         finally:
             os._exit(0)
     os.close(write_fd)
