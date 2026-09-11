@@ -724,7 +724,16 @@ def _verify_fixtures() -> int:
         if leg.kind != "structure" or not leg.fixture or leg.fixture in seen:
             continue
         seen.add(leg.fixture)
-        missing = _incomplete_fixture_seeds(leg, list(leg.seeds))
+        # Ask each leg for the reference ITS scorer opens, the same split the run itself makes:
+        # an envelope leg reads ref_fp32/ref_bf16 and never touches a seed dir, so flagging its
+        # absent seed CIFs would condemn a fixture that scores fine (boltz2-9ncy-nomsa).
+        if _seeds_matched_against_fixture(leg, False):
+            missing = _incomplete_fixture_seeds(leg, list(leg.seeds))
+            missing = [f"{m} missing structures/*.cif" for m in missing]
+        else:
+            fp32_dir, bf16_dir = envelope_ref_dirs(leg)
+            missing = [f"{d} missing" for d, path
+                       in (("ref_fp32", fp32_dir), ("ref_bf16", bf16_dir)) if path is None]
         if missing:
             bad.append((leg.id, leg.fixture, missing))
     if not bad:
@@ -733,7 +742,7 @@ def _verify_fixtures() -> int:
     print(f"FIXTURES INCOMPLETE — {len(bad)} of {len(seen)} structure fixtures lack reference CIFs:")
     for leg_id, fixture, missing in bad:
         print(f"  - {leg_id}  ({fixture})")
-        print(f"      {', '.join(missing)} missing structures/*.cif")
+        print(f"      {', '.join(missing)}")
     print("The provenance JSONs are committed but the CIFs are gitignored, so they reach a")
     print("fresh host only through the release asset. Re-cut it with these targets included")
     print("(see the header of scripts/fetch_parity_fixtures.sh); re-running the fetch cannot help.")
