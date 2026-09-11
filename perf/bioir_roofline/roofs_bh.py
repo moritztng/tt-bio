@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""The two roofs the BioIR roofline comparison is checked against, measured on THIS p150a.
+"""The two roofs the BioIR roofline comparison is checked against, measured on THIS card.
 
-A vendor peak is not a roof (memory `roofline-roof-must-be-measured-not-asserted`), so every
+A roof is a property of the part, not of the column heading, so the board type is recorded
+next to every number (argv[2]): the p150a numbers came from qb1 card 2, the p300c numbers
+from qb2 card 2.  A vendor peak is not a roof (memory `roofline-roof-must-be-measured-not-asserted`), so every
 denominator in FINDINGS.md comes from this file: a DRAM->DRAM copy roof and a DRAM read roof at
 the tensor shapes Boltz-2 actually moves at 512 tokens, and a dense bf16 matmul rate at each
 fidelity.  Median of 9 synced calls after 2 warm; every timed region syncs on both sides.
@@ -14,10 +16,12 @@ sys.path.insert(0, str(ROOT))
 import torch, ttnn                                                            # noqa: E402
 import tt_bio.tenstorrent as T                                                # noqa: E402
 
+BOARD = sys.argv[2] if len(sys.argv) > 2 else "unlabelled"
+
 dev = T.get_device()
 g = dev.compute_with_storage_grid_size()
 out = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
-       "arch": str(dev.arch()), "grid": [g.x, g.y],
+       "arch": str(dev.arch()), "board": BOARD, "grid": [g.x, g.y],
        "compute_grid_main": list(T.COMPUTE_GRID_MAIN), "copy": [], "read": [], "matmul": []}
 
 

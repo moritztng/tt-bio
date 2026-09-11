@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Place Boltz-2 512 aa on both platforms' rooflines and print the table for FINDINGS.md.
 
-Inputs: the per-phase FLOP/byte count from flops_bytes_boltz2.py, the p150a roofs measured on
-this card by roofs_p150a.py, and the wall/device times already measured elsewhere (each one
-cited in the table it prints). Nothing here is a datasheet number except the two H200 roofs,
-which are labelled ASSERTED because this task was not allowed to rent a GPU to measure them.
+Inputs: the per-phase FLOP/byte count from flops_bytes_boltz2.py, the roofs measured on the card
+under test by roofs_bh.py, the measured per-fold DRAM traffic from fold_bytes_scale.py, and the
+wall/device times already measured elsewhere (each one cited in the table it prints). Nothing
+here is a datasheet number except the two H200 roofs, which are labelled ASSERTED because this
+task was not allowed to rent a GPU to measure them.
 """
 import argparse
 import json
@@ -24,8 +25,10 @@ H200 = {
     # ASSERTED, not measured here: one H200 SXM.
     "bw_TBs": 4.8, "bf16_TFLOPs": 7916.0 / 8,
 }
-# p150a published cell: site/data/perf-512aa.json, boltz2.cells.p150a
-P150A = {"wall_s": 23.504, "host_s": 0.382}
+# Published 512 aa Boltz-2 cell: site/data/perf-512aa.json, boltz2.cells.p150a. The cell is
+# NAMED p150a but was measured on qb2 card 2, one Blackhole processor of a p300c board, which is
+# the same card this pass's roofs and traffic were measured on.
+CELL = {"wall_s": 23.504, "host_s": 0.382}
 
 
 def main():
@@ -53,7 +56,7 @@ def main():
     mm_roof = max(mm.values()) * 1e12
     hifi4 = mm.get("HiFi4", 0.0) * 1e12
 
-    p_dev = P150A["wall_s"] - P150A["host_s"]
+    p_dev = CELL["wall_s"] - CELL["host_s"]
     plat = [
         ("H200 boltz 2.2.1 (arm A)", H200["A_wall_s"], H200["A_device_s"],
          H200["bf16_TFLOPs"] * 1e12, H200["bw_TBs"] * 1e12,
@@ -61,15 +64,16 @@ def main():
         ("H200 BioIR 0.1.0 (arm C)", H200["C_wall_s"], H200["C_device_s"],
          H200["bf16_TFLOPs"] * 1e12, H200["bw_TBs"] * 1e12,
          H200["C_arith_ms"], H200["C_traffic_ms"]),
-        ("p150a tt-bio (published cell)", P150A["wall_s"], p_dev, hifi4 or mm_roof, bw_roof,
-         None, None),
+        ("%s tt-bio (published cell)" % rf["board"], CELL["wall_s"], p_dev,
+         hifi4 or mm_roof, bw_roof, None, None),
     ]
 
     L = []
     w = L.append
     w("# Boltz-2, 512 aa, on two rooflines\n")
     w("Work per fold, counted on the real modules (`flops_bytes_boltz2.py`), 3 recycles / 4 trunk")
-    w("passes / 200 sampling steps / 1 diffusion sample, 35-row MSA:\n")
+    w("passes / 200 sampling steps / 1 diffusion sample, %d padded atoms, %d-row MSA:\n"
+      % (fb["atoms"], fb["msa_depth"]))
     w("| phase | TFLOP/fold | share |")
     w("|---|---|---|")
     for r in fb["rows"]:
@@ -114,8 +118,8 @@ def main():
           % (name, ar, tr, rate / 1e12, 100 * rate / croof))
     w("")
     w("## Roofs\n")
-    w("p150a, measured on qb1 card 2 by `roofs_p150a.py`, %s, %dx%d grid:\n"
-      % (rf["arch"], rf["grid"][0], rf["grid"][1]))
+    w("%s, measured on %s card %s by `roofs_bh.py`, %s, %dx%d compute grid:\n"
+      % (rf["board"], rf["host"], rf["card"], rf["arch"], rf["grid"][0], rf["grid"][1]))
     w("- DRAM copy roof (read+write): **%.0f GB/s**" % (copy_roof / 1e9))
     w("- DRAM read+write roof (2 reads, 1 write): **%.0f GB/s**" % (rw_roof / 1e9))
     for k in ("LoFi", "HiFi2", "HiFi4"):
