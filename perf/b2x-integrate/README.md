@@ -31,4 +31,7 @@ A/A floor 0.19 % on the fold, trunk flat at 12.20-12.24 s in all four arms, 2.09
 * `verify_default.py` — the shipped default through the real CLI and its worker spawn, not through
   a module global the harness assigned. Run 2026-09-11 on card 0: rc=0, 29.248 s for the whole
   command, 4116 atoms, file digest `dd1c2a12f97772fb`, atom identity and coordinates both
-  identical to `cif512/512_AB_0`.
+  identical to `cif512/512_AB_0`. Re-run after merging `origin/main` (which had since gained
+  `wk/b2x-host-residual`): same digest, coordinates still identical. The two CLI walls, 29.248
+  and 29.227 s, are n=1 each and cannot resolve that merge's 0.395 s claim, so nothing is
+  claimed about it here -- the A/B timings above were taken at c7dab1dc, before it.
