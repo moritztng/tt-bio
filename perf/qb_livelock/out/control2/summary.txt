@@ -1,5 +1,0 @@
-tag=control2 arenas=0 trim=0 rc=0
-wall_s=55.955981328
-ladder_reports=3->3  last_rung=7->7
-footprint(python hook): pid=255737 tag=control2 rss_kB=1305856 vmas=2533;pid=255697 tag=control2 rss_kB=502024 vmas=2343;
-cif_md5=0218f76e5743492157a45aca4f5eed85 

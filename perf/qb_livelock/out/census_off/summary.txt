@@ -1,5 +1,0 @@
-tag=census_off arenas=0 trim=0 rc=0
-wall_s=61.832643431
-ladder_reports=3->3  last_rung=7->7
-footprint(python hook): pid=257914 tag=census_off rss_kB=1305012 vmas=2533;pid=257877 tag=census_off rss_kB=502392 vmas=2334;
-cif_md5=0218f76e5743492157a45aca4f5eed85 

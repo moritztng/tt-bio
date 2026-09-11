@@ -1,5 +1,0 @@
-tag=arena arenas=2 trim=0 rc=0
-wall_s=54.230383668
-ladder_reports=3->3  last_rung=7->7
-footprint(python hook): pid=252243 tag=arena rss_kB=1321480 vmas=2454;pid=252208 tag=arena rss_kB=496500 vmas=2339;
-cif_md5=0218f76e5743492157a45aca4f5eed85 
