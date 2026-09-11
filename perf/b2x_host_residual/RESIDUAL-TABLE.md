@@ -104,6 +104,39 @@ assumes and what the pc block-size curve already showed. It also means this row 
 place to read a small effect from a single unlocked fold; the A/B below is interleaved and
 benchlocked for that reason.
 
+## The A/B: what came off the fold
+
+Card 2, benchlocked, twelve ABAB pairs in one process with one device open, arms flipped through
+`TT_BIO_HOST_LEVERS` between folds.
+
+| arm | median | range over 12 folds |
+|---|---|---|
+| A, levers off (incumbent) | 23.7082 s | 23.491 - 23.992 |
+| B, levers on | 23.2864 s | 23.113 - 23.533 |
+
+Median ratio **1.0181x**. The paired statistic is the one to read, because it cancels the box's
+slow drift: **paired mean +0.3951 s**, sd 0.1066, se 0.0308, 95 % CI **[+0.335, +0.455]**,
+t = 12.84, **12 of 12 pairs positive**. **A/A floor 0.0407 s = 0.17 %**, the median absolute
+difference between consecutive repeats of the identical incumbent arm inside the same run, which
+agrees with the attribution run's two quiet plain folds (23.0814 / 23.0440 = 0.16 %). The effect
+is about ten times the floor.
+
+`RECOVERED: 0.395 s.` Against a residual of 2.981 s with the levers off, that is 13 % of the
+zero-device block and 1.018x end to end.
+
+A five-pair replicate ran earlier on a loaded box (a sibling campaign worker at 205 % CPU on
+card 3, loadavg reaching 6.7). Same effect — ratio 1.0189x, paired mean +0.4032 s — and
+unresolvable: its own A/A floor was **1.16 %** and one of five pairs came out negative. Both
+runs are committed. The floor has to be measured in the run that carries the claim.
+
+Every one of the 38 folds run on this branch — 17 A/B pairs across both runs, 2 plain, 2
+attribution — wrote the identical CIF, sha256
+`4f3995a69be5d6106f2b6a2aca57b29f8bb84810bf751e39a0258956b09d15e5`, the campaign reference.
+
+Bit-exactness is not pinned to 512 tokens: repeated at **1024 tokens / 8256 atoms** on qb2,
+host-only, all 12 recorded stage hashes are identical with the levers on and off
+(`stage_parity_1024_{,leversoff_}qb2.json`).
+
 ## Two predictions this falsifies
 
 **The residual is not the sampler loop.** `d0183cc0` put "13.7 ms/step of host in the sampler" on
