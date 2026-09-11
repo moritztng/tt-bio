@@ -1,0 +1,31 @@
+{
+  "tag": "A2",
+  "flag": false,
+  "rc": 0,
+  "e6_moves": 0,
+  "plain_moves": 0,
+  "plain_rejects": 0,
+  "rejects": {},
+  "results": [
+    {
+      "id": "615",
+      "status": "ok",
+      "complex_plddt": 0.5387,
+      "plddt": 0.5387,
+      "ptm": 0.24914,
+      "iptm": 0.0,
+      "confidence_score": 0.149015,
+      "n_residues": 615,
+      "n_chains": 1,
+      "n_tokens": 615,
+      "msa": true,
+      "msa_depth": 2,
+      "n_atoms": 4757,
+      "samples": 1,
+      "runtime_s": 34.2
+    }
+  ],
+  "structures": {
+    "structures/615.cif": "d4da7b0ee098cb056e74e035e6c77e1103f4c5009a8f7a8ee8cd78c7a2475c14"
+  }
+}

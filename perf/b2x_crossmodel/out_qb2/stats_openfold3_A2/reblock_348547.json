@@ -1,0 +1,13 @@
+{
+  "pid": 348547,
+  "gated_moves": 0,
+  "gated_rejects": 0,
+  "plain_moves": 448,
+  "plain_rejects": 8,
+  "back_moves": 216,
+  "back_rejects": 0,
+  "mask_after_move": false,
+  "rejects": {
+    "back_ragged[1, 128, 615, 615]": 8
+  }
+}
