@@ -1,0 +1,481 @@
+{
+ "tokens": 512,
+ "multiplicity": 1,
+ "atoms": 7168,
+ "module": "affinity_model_args2",
+ "token_s": 384,
+ "token_z": 128,
+ "pairformer_blocks": 4,
+ "head_blocks": 12,
+ "torch": "2.8.0+cpu",
+ "arms": {
+  "float32": {
+   "wall_s": 26.1224,
+   "weights_loaded": "186/186",
+   "aten_calls": 2779,
+   "by_out_dtype": {
+    "float32": {
+     "calls": 2747,
+     "secs": 25.8313,
+     "out_GB": 255.0678,
+     "TFLOP": 2.124
+    },
+    "int64": {
+     "calls": 1,
+     "secs": 0.0098,
+     "out_GB": 0.0021,
+     "TFLOP": 0.0
+    },
+    "bool": {
+     "calls": 31,
+     "secs": 0.0022,
+     "out_GB": 0.0165,
+     "TFLOP": 0.0
+    }
+   },
+   "top_ops": [
+    {
+     "op": "bmm",
+     "in": "float32",
+     "out": "float32",
+     "calls": 73,
+     "secs": 10.5325,
+     "out_GB": 19.3274
+    },
+    {
+     "op": "native_layer_norm",
+     "in": "float32",
+     "out": "float32",
+     "calls": 32,
+     "secs": 6.4858,
+     "out_GB": 4.4963
+    },
+    {
+     "op": "mm",
+     "in": "float32",
+     "out": "float32",
+     "calls": 222,
+     "secs": 3.5894,
+     "out_GB": 18.2877
+    },
+    {
+     "op": "add_",
+     "in": "float32",
+     "out": "float32",
+     "calls": 64,
+     "secs": 1.5773,
+     "out_GB": 34.3597
+    },
+    {
+     "op": "_softmax",
+     "in": "float32",
+     "out": "float32",
+     "calls": 32,
+     "secs": 1.2174,
+     "out_GB": 17.1799
+    },
+    {
+     "op": "mul",
+     "in": "float32",
+     "out": "float32",
+     "calls": 94,
+     "secs": 0.9893,
+     "out_GB": 11.4242
+    },
+    {
+     "op": "clone",
+     "in": "float32",
+     "out": "float32",
+     "calls": 134,
+     "secs": 0.3898,
+     "out_GB": 4.4439
+    },
+    {
+     "op": "sigmoid",
+     "in": "float32",
+     "out": "float32",
+     "calls": 48,
+     "secs": 0.3394,
+     "out_GB": 4.295
+    },
+    {
+     "op": "add",
+     "in": "float32",
+     "out": "float32",
+     "calls": 30,
+     "secs": 0.3242,
+     "out_GB": 3.3596
+    },
+    {
+     "op": "silu",
+     "in": "float32",
+     "out": "float32",
+     "calls": 6,
+     "secs": 0.1882,
+     "out_GB": 2.6844
+    },
+    {
+     "op": "copy_",
+     "in": "float32",
+     "out": "float32",
+     "calls": 32,
+     "secs": 0.0589,
+     "out_GB": 1.0737
+    },
+    {
+     "op": "new_zeros",
+     "in": "float32",
+     "out": "float32",
+     "calls": 8,
+     "secs": 0.0536,
+     "out_GB": 1.0737
+    },
+    {
+     "op": "div_",
+     "in": "float32",
+     "out": "float32",
+     "calls": 32,
+     "secs": 0.0324,
+     "out_GB": 1.0737
+    },
+    {
+     "op": "cat",
+     "in": "",
+     "out": "float32",
+     "calls": 1,
+     "secs": 0.0271,
+     "out_GB": 0.2684
+    },
+    {
+     "op": "sum",
+     "in": "bool",
+     "out": "int64",
+     "calls": 1,
+     "secs": 0.0098,
+     "out_GB": 0.0021
+    },
+    {
+     "op": "embedding",
+     "in": "float32|int64",
+     "out": "float32",
+     "calls": 1,
+     "secs": 0.0062,
+     "out_GB": 0.1342
+    },
+    {
+     "op": "_unsafe_view",
+     "in": "float32",
+     "out": "float32",
+     "calls": 414,
+     "secs": 0.006,
+     "out_GB": 40.8363
+    },
+    {
+     "op": "view",
+     "in": "float32",
+     "out": "float32",
+     "calls": 474,
+     "secs": 0.0027,
+     "out_GB": 44.6279
+    },
+    {
+     "op": "sum",
+     "in": "float32",
+     "out": "float32",
+     "calls": 2,
+     "secs": 0.0026,
+     "out_GB": 0.0
+    },
+    {
+     "op": "t",
+     "in": "float32",
+     "out": "float32",
+     "calls": 231,
+     "secs": 0.0018,
+     "out_GB": 0.0208
+    },
+    {
+     "op": "gt",
+     "in": "float32",
+     "out": "bool",
+     "calls": 1,
+     "secs": 0.0018,
+     "out_GB": 0.0165
+    },
+    {
+     "op": "slice",
+     "in": "float32",
+     "out": "float32",
+     "calls": 270,
+     "secs": 0.0014,
+     "out_GB": 7.0198
+    },
+    {
+     "op": "expand",
+     "in": "float32",
+     "out": "float32",
+     "calls": 168,
+     "secs": 0.0013,
+     "out_GB": 22.7143
+    },
+    {
+     "op": "sub",
+     "in": "float32",
+     "out": "float32",
+     "calls": 8,
+     "secs": 0.0007,
+     "out_GB": 0.0084
+    },
+    {
+     "op": "transpose",
+     "in": "float32",
+     "out": "float32",
+     "calls": 140,
+     "secs": 0.0007,
+     "out_GB": 5.3729
+    }
+   ],
+   "out_keys": [
+    "affinity_logits_binary",
+    "affinity_pred_value"
+   ]
+  },
+  "bfloat16": {
+   "wall_s": 18.7927,
+   "weights_loaded": "186/186",
+   "aten_calls": 3114,
+   "by_out_dtype": {
+    "bfloat16": {
+     "calls": 2477,
+     "secs": 13.3545,
+     "out_GB": 116.7474,
+     "TFLOP": 2.124
+    },
+    "float32": {
+     "calls": 605,
+     "secs": 5.2306,
+     "out_GB": 32.811,
+     "TFLOP": 0.0
+    },
+    "int64": {
+     "calls": 1,
+     "secs": 0.0097,
+     "out_GB": 0.0021,
+     "TFLOP": 0.0
+    },
+    "bool": {
+     "calls": 31,
+     "secs": 0.002,
+     "out_GB": 0.0165,
+     "TFLOP": 0.0
+    }
+   },
+   "top_ops": [
+    {
+     "op": "bmm",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 73,
+     "secs": 5.122,
+     "out_GB": 9.6637
+    },
+    {
+     "op": "native_layer_norm",
+     "in": "bfloat16|float32",
+     "out": "float32",
+     "calls": 11,
+     "secs": 4.0184,
+     "out_GB": 0.7613
+    },
+    {
+     "op": "add_",
+     "in": "bfloat16|float32",
+     "out": "bfloat16",
+     "calls": 32,
+     "secs": 3.1982,
+     "out_GB": 8.5899
+    },
+    {
+     "op": "add_",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 32,
+     "secs": 1.7985,
+     "out_GB": 8.5899
+    },
+    {
+     "op": "mm",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 222,
+     "secs": 1.1079,
+     "out_GB": 9.1438
+    },
+    {
+     "op": "_softmax",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 32,
+     "secs": 0.7154,
+     "out_GB": 8.5899
+    },
+    {
+     "op": "mul",
+     "in": "bfloat16|float32",
+     "out": "float32",
+     "calls": 24,
+     "secs": 0.5826,
+     "out_GB": 4.295
+    },
+    {
+     "op": "_to_copy",
+     "in": "float32",
+     "out": "bfloat16",
+     "calls": 332,
+     "secs": 0.5633,
+     "out_GB": 5.921
+    },
+    {
+     "op": "mul",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 54,
+     "secs": 0.319,
+     "out_GB": 3.4897
+    },
+    {
+     "op": "native_layer_norm",
+     "in": "float32",
+     "out": "float32",
+     "calls": 21,
+     "secs": 0.2643,
+     "out_GB": 2.9968
+    },
+    {
+     "op": "add",
+     "in": "float32",
+     "out": "float32",
+     "calls": 20,
+     "secs": 0.2006,
+     "out_GB": 2.0175
+    },
+    {
+     "op": "sigmoid",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 48,
+     "secs": 0.1581,
+     "out_GB": 2.1475
+    },
+    {
+     "op": "clone",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 129,
+     "secs": 0.1489,
+     "out_GB": 2.2146
+    },
+    {
+     "op": "add",
+     "in": "bfloat16|float32",
+     "out": "float32",
+     "calls": 5,
+     "secs": 0.1063,
+     "out_GB": 0.6711
+    },
+    {
+     "op": "silu",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 6,
+     "secs": 0.1042,
+     "out_GB": 1.3422
+    },
+    {
+     "op": "new_zeros",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 8,
+     "secs": 0.0315,
+     "out_GB": 0.5369
+    },
+    {
+     "op": "add",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 5,
+     "secs": 0.0297,
+     "out_GB": 0.3355
+    },
+    {
+     "op": "copy_",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 32,
+     "secs": 0.0287,
+     "out_GB": 0.5369
+    },
+    {
+     "op": "cat",
+     "in": "",
+     "out": "float32",
+     "calls": 1,
+     "secs": 0.0271,
+     "out_GB": 0.2684
+    },
+    {
+     "op": "div_",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 32,
+     "secs": 0.0171,
+     "out_GB": 0.5369
+    },
+    {
+     "op": "mul",
+     "in": "float32",
+     "out": "float32",
+     "calls": 16,
+     "secs": 0.0097,
+     "out_GB": 0.1499
+    },
+    {
+     "op": "sum",
+     "in": "bool",
+     "out": "int64",
+     "calls": 1,
+     "secs": 0.0097,
+     "out_GB": 0.0021
+    },
+    {
+     "op": "_to_copy",
+     "in": "bfloat16",
+     "out": "float32",
+     "calls": 3,
+     "secs": 0.0081,
+     "out_GB": 0.1342
+    },
+    {
+     "op": "embedding",
+     "in": "float32|int64",
+     "out": "float32",
+     "calls": 1,
+     "secs": 0.0062,
+     "out_GB": 0.1342
+    },
+    {
+     "op": "_unsafe_view",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 414,
+     "secs": 0.0043,
+     "out_GB": 20.4181
+    }
+   ],
+   "out_keys": [
+    "affinity_logits_binary",
+    "affinity_pred_value"
+   ]
+  }
+ }
+}
