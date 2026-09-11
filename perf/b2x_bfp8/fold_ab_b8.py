@@ -49,6 +49,10 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=STEPS)
     ap.add_argument("--arms", default=",".join(ARMS))
     ap.add_argument("--skip-parity", action="store_true")
+    ap.add_argument("--only-parity", action="store_true",
+                    help="skip the timed 512 aa phase and run the control folds only")
+    ap.add_argument("--cifdir", type=Path, default=None,
+                    help="where the kept per-arm control CIFs go; default is the temp workdir")
     args = ap.parse_args()
     OUT_PATH = args.out
     arms = [a for a in args.arms.split(",") if a]
@@ -136,39 +140,40 @@ def main() -> int:
                 "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
                 "cif": cifs[0].read_text()}
 
-    # ---- phase 1: timed 512 aa A/B -------------------------------------------------
-    set_arm("b16")
-    cold = fold(FIX / "cdk2x2_512.yaml", struct_dir)
-    OUT["cold_discarded_s"] = cold["fold_s"]
-    dump()
-    print(f"cold {cold['fold_s']:.3f} s (discarded)", flush=True)
+    if not args.only_parity:
+        # ---- phase 1: timed 512 aa A/B -------------------------------------------------
+        set_arm("b16")
+        cold = fold(FIX / "cdk2x2_512.yaml", struct_dir)
+        OUT["cold_discarded_s"] = cold["fold_s"]
+        dump()
+        print(f"cold {cold['fold_s']:.3f} s (discarded)", flush=True)
 
-    runs = []
-    for r in range(args.reps):
-        for name in arms:
-            set_arm(name)
-            f = fold(FIX / "cdk2x2_512.yaml", struct_dir)
-            f.pop("cif")
-            f.update(arm=name, rep=r)
-            runs.append(f)
-            OUT["runs_512"] = runs
-            dump()
-            print(f"  rep{r} {name:9s} {f['fold_s']:8.3f} s  sha {f['cif_sha256']}  "
-                  f"plddt {f['plddt']}", flush=True)
+        runs = []
+        for r in range(args.reps):
+            for name in arms:
+                set_arm(name)
+                f = fold(FIX / "cdk2x2_512.yaml", struct_dir)
+                f.pop("cif")
+                f.update(arm=name, rep=r)
+                runs.append(f)
+                OUT["runs_512"] = runs
+                dump()
+                print(f"  rep{r} {name:9s} {f['fold_s']:8.3f} s  sha {f['cif_sha256']}  "
+                      f"plddt {f['plddt']}", flush=True)
 
-    base = st.median([x["fold_s"] for x in runs if x["arm"] == "b16"])
-    OUT["timing_512"] = {
-        a: {"fold_s": [x["fold_s"] for x in runs if x["arm"] == a],
-            "median_s": round(st.median([x["fold_s"] for x in runs if x["arm"] == a]), 3),
-            "speedup_vs_b16": round(base / st.median(
-                [x["fold_s"] for x in runs if x["arm"] == a]), 4),
-            "cif_sha256": sorted({x["cif_sha256"] for x in runs if x["arm"] == a}),
-            "plddt": sorted({x["plddt"] for x in runs if x["arm"] == a})}
-        for a in arms}
-    b16s = [x["fold_s"] for x in runs if x["arm"] == "b16"]
-    OUT["aa_floor_s"] = round(max(b16s) - min(b16s), 3)
-    OUT["aa_floor_rel"] = round((max(b16s) - min(b16s)) / base, 5)
-    dump()
+        base = st.median([x["fold_s"] for x in runs if x["arm"] == "b16"])
+        OUT["timing_512"] = {
+            a: {"fold_s": [x["fold_s"] for x in runs if x["arm"] == a],
+                "median_s": round(st.median([x["fold_s"] for x in runs if x["arm"] == a]), 3),
+                "speedup_vs_b16": round(base / st.median(
+                    [x["fold_s"] for x in runs if x["arm"] == a]), 4),
+                "cif_sha256": sorted({x["cif_sha256"] for x in runs if x["arm"] == a}),
+                "plddt": sorted({x["plddt"] for x in runs if x["arm"] == a})}
+            for a in arms}
+        b16s = [x["fold_s"] for x in runs if x["arm"] == "b16"]
+        OUT["aa_floor_s"] = round(max(b16s) - min(b16s), 3)
+        OUT["aa_floor_rel"] = round((max(b16s) - min(b16s)) / base, 5)
+        dump()
 
     if args.skip_parity:
         print(json.dumps(OUT["timing_512"], indent=1))
@@ -176,21 +181,25 @@ def main() -> int:
 
     # ---- phase 2: cdk2x2_298 parity control, same process ---------------------------
     pdir = work / "parity"; pdir.mkdir(parents=True)
+    # `fold` clears its output directory on entry, so the kept per-arm CIF has to live
+    # somewhere else or arm N+1 deletes arm N's before the scorer ever opens it.
+    cifs = args.cifdir or (work / "cif298")
+    cifs.mkdir(parents=True, exist_ok=True)
     ctrl = {}
     for name in arms:
         set_arm(name)
         f = fold(FIX / "cdk2x2_298.yaml", pdir)
-        (pdir / f"{name}.cif").write_text(f.pop("cif"))
+        (cifs / f"{name}.cif").write_text(f.pop("cif"))
         ctrl[name] = f
         OUT["control_298"] = ctrl
         dump()
         print(f"  298 {name:9s} {f['fold_s']:7.3f} s  sha {f['cif_sha256']}", flush=True)
 
-    ref_keys, ref_xyz = read_atoms(pdir / f"{arms[0]}.cif")
+    ref_keys, ref_xyz = read_atoms(cifs / f"{arms[0]}.cif")
     ca = np.array([k[2] == "CA" for k in ref_keys]) if ref_keys and len(ref_keys[0]) > 2 else None
     parity = {}
     for name in arms:
-        keys, xyz = read_atoms(pdir / f"{name}.cif")
+        keys, xyz = read_atoms(cifs / f"{name}.cif")
         assert keys == ref_keys, f"atom identity differs in {name}: cannot compare by order"
         parity[name] = {
             "all_atom_rmsd_A": round(kabsch_rmsd(xyz, ref_xyz), 6),

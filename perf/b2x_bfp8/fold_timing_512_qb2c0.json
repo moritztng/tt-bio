@@ -1,0 +1,214 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "utc": "2026-09-11T15:50:18Z",
+  "tt_bio": "/home/ttuser/.coworker/wt/b2x-bfp8-pair-track/tt_bio/__init__.py",
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its 35-row a3m"
+  },
+  "arms": {
+   "b16": {
+    "pair_b8": false,
+    "trunk_fidelity": "HiFi4"
+   },
+   "b8": {
+    "pair_b8": true,
+    "trunk_fidelity": "HiFi4"
+   },
+   "hifi3": {
+    "pair_b8": false,
+    "trunk_fidelity": "HiFi3"
+   },
+   "b8_hifi3": {
+    "pair_b8": true,
+    "trunk_fidelity": "HiFi3"
+   }
+  },
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 3.66,
+ "trunk_ckc_default": "MathFidelity.HiFi4",
+ "cold_discarded_s": 25.718,
+ "runs_512": [
+  {
+   "fold_s": 25.495,
+   "cif_sha256": "4f3995a69be5d610",
+   "plddt": 0.849627,
+   "arm": "b16",
+   "rep": 0
+  },
+  {
+   "fold_s": 31.313,
+   "cif_sha256": "fd832ca074d20ca0",
+   "plddt": 0.81219,
+   "arm": "b8",
+   "rep": 0
+  },
+  {
+   "fold_s": 35.407,
+   "cif_sha256": "be5df77f7813b1bb",
+   "plddt": 0.867371,
+   "arm": "hifi3",
+   "rep": 0
+  },
+  {
+   "fold_s": 32.284,
+   "cif_sha256": "6d626f5e5b300baf",
+   "plddt": 0.807153,
+   "arm": "b8_hifi3",
+   "rep": 0
+  },
+  {
+   "fold_s": 24.87,
+   "cif_sha256": "4f3995a69be5d610",
+   "plddt": 0.849627,
+   "arm": "b16",
+   "rep": 1
+  },
+  {
+   "fold_s": 25.871,
+   "cif_sha256": "fd832ca074d20ca0",
+   "plddt": 0.81219,
+   "arm": "b8",
+   "rep": 1
+  },
+  {
+   "fold_s": 24.305,
+   "cif_sha256": "be5df77f7813b1bb",
+   "plddt": 0.867371,
+   "arm": "hifi3",
+   "rep": 1
+  },
+  {
+   "fold_s": 25.669,
+   "cif_sha256": "6d626f5e5b300baf",
+   "plddt": 0.807153,
+   "arm": "b8_hifi3",
+   "rep": 1
+  },
+  {
+   "fold_s": 24.638,
+   "cif_sha256": "4f3995a69be5d610",
+   "plddt": 0.849627,
+   "arm": "b16",
+   "rep": 2
+  },
+  {
+   "fold_s": 26.284,
+   "cif_sha256": "fd832ca074d20ca0",
+   "plddt": 0.81219,
+   "arm": "b8",
+   "rep": 2
+  },
+  {
+   "fold_s": 25.375,
+   "cif_sha256": "be5df77f7813b1bb",
+   "plddt": 0.867371,
+   "arm": "hifi3",
+   "rep": 2
+  },
+  {
+   "fold_s": 27.647,
+   "cif_sha256": "6d626f5e5b300baf",
+   "plddt": 0.807153,
+   "arm": "b8_hifi3",
+   "rep": 2
+  }
+ ],
+ "timing_512": {
+  "b16": {
+   "fold_s": [
+    25.495,
+    24.87,
+    24.638
+   ],
+   "median_s": 24.87,
+   "speedup_vs_b16": 1.0,
+   "cif_sha256": [
+    "4f3995a69be5d610"
+   ],
+   "plddt": [
+    0.849627
+   ]
+  },
+  "b8": {
+   "fold_s": [
+    31.313,
+    25.871,
+    26.284
+   ],
+   "median_s": 26.284,
+   "speedup_vs_b16": 0.9462,
+   "cif_sha256": [
+    "fd832ca074d20ca0"
+   ],
+   "plddt": [
+    0.81219
+   ]
+  },
+  "hifi3": {
+   "fold_s": [
+    35.407,
+    24.305,
+    25.375
+   ],
+   "median_s": 25.375,
+   "speedup_vs_b16": 0.9801,
+   "cif_sha256": [
+    "be5df77f7813b1bb"
+   ],
+   "plddt": [
+    0.867371
+   ]
+  },
+  "b8_hifi3": {
+   "fold_s": [
+    32.284,
+    25.669,
+    27.647
+   ],
+   "median_s": 27.647,
+   "speedup_vs_b16": 0.8996,
+   "cif_sha256": [
+    "6d626f5e5b300baf"
+   ],
+   "plddt": [
+    0.807153
+   ]
+  }
+ },
+ "aa_floor_s": 0.857,
+ "aa_floor_rel": 0.03446,
+ "control_298": {
+  "b16": {
+   "fold_s": 16.681,
+   "cif_sha256": "71653ff72cbf01b0",
+   "plddt": 0.909487
+  },
+  "b8": {
+   "fold_s": 17.988,
+   "cif_sha256": "c407f7601fe60fc2",
+   "plddt": 0.855054
+  },
+  "hifi3": {
+   "fold_s": 18.206,
+   "cif_sha256": "04c23fad65f8a8c8",
+   "plddt": 0.909202
+  },
+  "b8_hifi3": {
+   "fold_s": 15.344,
+   "cif_sha256": "2b2c481993135641",
+   "plddt": 0.85355
+  }
+ }
+}

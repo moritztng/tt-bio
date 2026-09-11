@@ -1,0 +1,105 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "utc": "2026-09-11T15:58:42Z",
+  "tt_bio": "/home/ttuser/.coworker/wt/b2x-bfp8-pair-track/tt_bio/__init__.py",
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its 35-row a3m"
+  },
+  "arms": {
+   "b16": {
+    "pair_b8": false,
+    "trunk_fidelity": "HiFi4"
+   },
+   "b8": {
+    "pair_b8": true,
+    "trunk_fidelity": "HiFi4"
+   },
+   "hifi3": {
+    "pair_b8": false,
+    "trunk_fidelity": "HiFi3"
+   },
+   "b8_hifi3": {
+    "pair_b8": true,
+    "trunk_fidelity": "HiFi3"
+   }
+  },
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 2.94,
+ "trunk_ckc_default": "MathFidelity.HiFi4",
+ "control_298": {
+  "b16": {
+   "fold_s": 13.115,
+   "cif_sha256": "71653ff72cbf01b0",
+   "plddt": 0.909487
+  },
+  "b8": {
+   "fold_s": 13.155,
+   "cif_sha256": "c407f7601fe60fc2",
+   "plddt": 0.855054
+  },
+  "hifi3": {
+   "fold_s": 12.618,
+   "cif_sha256": "04c23fad65f8a8c8",
+   "plddt": 0.909202
+  },
+  "b8_hifi3": {
+   "fold_s": 12.784,
+   "cif_sha256": "2b2c481993135641",
+   "plddt": 0.85355
+  }
+ },
+ "parity_298": {
+  "reference_arm": "b16",
+  "bar": "<=0.35 pass / 0.35-0.60 hold / >0.60 reject",
+  "arms": {
+   "b16": {
+    "all_atom_rmsd_A": 0.0,
+    "ca_rmsd_A": 0.0,
+    "n_atoms": 2397,
+    "n_ca": 298,
+    "cif_sha256": "71653ff72cbf01b0",
+    "plddt": 0.909487,
+    "bit_exact_vs_b16": true
+   },
+   "b8": {
+    "all_atom_rmsd_A": 1.496466,
+    "ca_rmsd_A": 1.081857,
+    "n_atoms": 2397,
+    "n_ca": 298,
+    "cif_sha256": "c407f7601fe60fc2",
+    "plddt": 0.855054,
+    "bit_exact_vs_b16": false
+   },
+   "hifi3": {
+    "all_atom_rmsd_A": 0.211807,
+    "ca_rmsd_A": 0.0912,
+    "n_atoms": 2397,
+    "n_ca": 298,
+    "cif_sha256": "04c23fad65f8a8c8",
+    "plddt": 0.909202,
+    "bit_exact_vs_b16": false
+   },
+   "b8_hifi3": {
+    "all_atom_rmsd_A": 1.4918,
+    "ca_rmsd_A": 1.084165,
+    "n_atoms": 2397,
+    "n_ca": 298,
+    "cif_sha256": "2b2c481993135641",
+    "plddt": 0.85355,
+    "bit_exact_vs_b16": false
+   }
+  }
+ }
+}
