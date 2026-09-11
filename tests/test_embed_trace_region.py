@@ -95,6 +95,32 @@ def test_the_serving_path_still_traces_unconditionally():
         "be deciding on an empty workload and the perf gate's traced leg would go eager")
 
 
+def test_a_multicard_shard_is_judged_on_its_own_share():
+    """The subtlest part of the change, so it gets a test rather than a comment.
+
+    Each card runs its own subprocess with its own device, and `_embed_shard_main` therefore asks
+    `trace_pays` about the SHARD's sequences, not the whole input. That is not a shortcut, it is
+    the accurate question: `_shard_by_length` sorts by length and stripes round-robin, so an input
+    whose buckets repeat GLOBALLY can hand each shard one of each bucket -- and a shard that sees
+    a shape once never captures it, so reserving the region on that card would cost 3 GiB for
+    nothing. Asserted against the real sharder, not a hand-built split.
+    """
+    items = [(f"s{i}", "A" * n) for i, n in enumerate([100, 100, 4000, 4000])]
+    shards = esmc._shard_by_length(items, 2)
+    assert all(shards), "the sharder left a card with no work; this fixture no longer tests it"
+    per_shard = [esmc.trace_pays(dict(sh)) for sh in shards]
+    whole = esmc.trace_pays(dict(items))
+    assert whole is True, "the whole input does repeat a bucket, so the global answer is yes"
+    assert per_shard == [False, False], (
+        f"each shard got one 100-residue and one 4000-residue sequence -- two shapes, each seen "
+        f"once, so neither card can replay a trace: {per_shard}")
+
+    # And the converse, so this is not just "shards always say no": when a shard's own share
+    # repeats a bucket, that shard must reserve.
+    items = [(f"s{i}", "A" * 100) for i in range(4)]
+    assert all(esmc.trace_pays(dict(sh)) for sh in esmc._shard_by_length(items, 2))
+
+
 def test_the_predicate_can_say_no_which_is_what_makes_it_a_check():
     """The negative control: a `trace_pays` stubbed to always return True fails these tests.
 
