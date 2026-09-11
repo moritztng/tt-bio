@@ -388,7 +388,20 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "its whole z matmul; openbind dedups its main MSA "
                      "(af3_spec_main_msa_dedup is keyed on the checkpoint), so the depth reaching "
                      "its model at a given alignment is not openfold3's and this ladder is its "
-                     "own. Single-sequence is roomier still and is not the default",
+                     "own. Single-sequence is roomier still and is not the default. "
+                     "STALE AS OF 2026-09-11 AND CONSERVATIVE: re-walked on the j10glx02 "
+                     "Galaxy (ws:wh-seqlen-structure, perf/whceil) at the SAME 14190 rows, "
+                     "apo, this checkpoint folds 1024 aa in 935 s and 1088 aa in 1104 s, and "
+                     "first fails at 1152 -- 1016856576 B, 80.8 MiB per bank against a 1024.0 "
+                     "MiB bank, 237.5 MiB free, largest block 62.1 MiB, fragmentation. 1088 "
+                     "apo is 1088 TOKENS, which is more than the 1088 tokens this row records "
+                     "as FAILING with a ligand, so the engine has moved since e9cb5b70, most "
+                     "likely the reactive DRAM narrowing. The 960 here is therefore refusing "
+                     "work the engine can do, which this module calls the worst thing a guard "
+                     "can do. It is NOT raised here: raising a cap accepts more work and "
+                     "restamps every capacity cell, so it is a release decision and not a "
+                     "measurement one. At 8192 rows the same ladder reaches 1152 and first "
+                     "fails at 1300",
         ),
     },
     "rf3": {
@@ -434,7 +447,15 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "with tokens x rows, and the ladder was walked with capacity_gate.py "
                      "--tokens. ladder_ligand_atoms=0 records that those rungs were apo, so 1024 "
                      "residues is 1024 tokens and a ligand's heavy atoms are counted against the "
-                     "same 1024 instead of being invisible to the residue count",
+                     "same 1024 instead of being invisible to the residue count. "
+                     "DOES NOT REPRODUCE AT 8192 ROWS, 2026-09-11 on the j10glx02 Galaxy "
+                     "(ws:wh-seqlen-structure, perf/whceil): 1024, 1088 and 1152 aa all fold "
+                     "(1215 s, 1452 s, 1626 s) and the first failure is 1300, not 1095 -- "
+                     "3493068800 B, 277.6 MiB per bank against a 1024.0 MiB bank, 296.0 MiB "
+                     "free, largest block 197.6 MiB, fragmentation. That ladder is apo at 8192 "
+                     "rows and this row was walked deeper, so the two are not the same "
+                     "configuration and the cap stays where it is; what no longer holds at "
+                     "this depth is the number above it",
         ),
     },
     "rfd3": {
@@ -519,7 +540,17 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     # --- No measured ceiling. Never refused. ---------------------------------------------------
-    "boltz2": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
+    "boltz2": {"wormhole_b0": _unmeasured(
+        _INHERITS_DEMO_FENCE + " "
+        "THE LADDER HAS NOW BEEN WALKED and this row still does not refuse on it: "
+        "2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, perf/whceil) "
+        "at 8192 alignment rows, 1024/1088/1152/1300/1408/1536/1664 all fold (586 "
+        "s to 1169 s, on a box at load 379) and 1792 FAILS -- 704643072 B across "
+        "12 banks, 56.0 MiB per bank against a 1024.0 MiB bank, 226.8 MiB per "
+        "bank free, largest free block 51.3 MiB: fragmentation, not one oversized "
+        "tensor. Giving this row residues=1664 would START refusing work that is "
+        "accepted today and would restamp every capacity cell, so that is a "
+        "release decision. The measurement is here; the decision is not taken")},
     "esmfold2": {
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=1057, binds=MEMORY, mechanism=DRAM,
