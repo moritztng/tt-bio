@@ -2104,6 +2104,15 @@ def _dram_oom(exc: BaseException) -> bool:
 #: falls 179 -> 101 -> 58 MiB. The second attempt was refused by **768 bytes** -- it needed
 #: 101014272 B per bank and the largest free block was 101013504 B, with 199 MiB per bank free.
 #: Nothing there is too big for a bank; the memory is present and not in one piece.
+#:
+#: MEASURED WITH IT ON, AND IT CHANGED NOTHING. The same rung with TT_BIO_NARROW_COMPACT=1
+#: failed byte-for-byte identically -- same three requests, same allocated/free/largest-run
+#: numbers. The reason is attribution, and the engine prints it: the exception that ends that
+#: fold carries `[tt_bio origin: triatt_qkv.py:210 in gate_proj]`. The 2.42 GiB OPM refusal is
+#: SURVIVED; the fold dies later, on the fused triangle-attention gate output, which is one
+#: tensor of tokens^2 x 384 x 2 B (909115392 B at 1088 tokens) and is not wired to narrow at
+#: all. So this hook is correct where it sits and is not the lever for that wall. It stays off
+#: and it is not evidence for anything until it is attached to a site that actually refuses.
 _NARROW_COMPACT = env_flag("TT_BIO_NARROW_COMPACT", False)
 
 
