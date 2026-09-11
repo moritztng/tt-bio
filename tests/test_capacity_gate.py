@@ -150,9 +150,11 @@ def test_a_moved_ceiling_re_runs_the_capacity_gate():
     1536 tokens. The sweep is hours of card time and has to run in stages, so the check that
     matters is the one that can be satisfied a stage at a time and says what is left.
     """
-    cells = json.loads(BASELINE.read_text()).get("cells") or {}
-    assert cells, "the baseline records no cells"
-    unstamped = sorted(m for m, c in cells.items() if not (c or {}).get("ceilings_fingerprint"))
+    per_card = cg.read_baseline()
+    assert per_card, "the baseline records no cells"
+    unstamped = sorted(f"{card}/{m}" for card, blk in per_card.items()
+                       for m, c in (blk.get("cells") or {}).items()
+                       if not (c or {}).get("ceilings_fingerprint"))
     assert not unstamped, (
         f"these cells record no ceiling fingerprint at all, so nothing can tell whether they are "
         f"current: {unstamped}. Re-measure and --record them.")
@@ -170,7 +172,9 @@ def _record_into_tmp(report, *, prior_cells, partial):
     import tempfile
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "baseline.json"
-        path.write_text(json.dumps({"bar_tokens": cg.TOKEN_BAR, "cells": prior_cells}))
+        path.write_text(json.dumps({
+            "bar_tokens": cg.TOKEN_BAR,
+            "cards": {"p150a": {"geometry": {"board_type": "p150a"}, "cells": prior_cells}}}))
         real, cg.BASELINE = cg.BASELINE, path
         try:
             cg.record_baseline(report, partial=partial)
@@ -185,15 +189,18 @@ def test_one_models_record_cannot_certify_another_models_cell():
     stale = {"verdict": "PASS", "tokens_requested": cg.TOKEN_BAR,
              "ceilings_fingerprint": "0000000000000000", "tree": "old"}
     report = {"bar_tokens": cg.TOKEN_BAR, "started": "now", "tree": "new", "dirty": False,
-              "geometry": {}, "reductions": [],
+              "geometry": {"board_type": "p150a"}, "reductions": [],
               "results": [{"model": "esmc-300m", "verdict": "PASS",
                            "tokens_requested": cg.TOKEN_BAR}]}
     written = _record_into_tmp(report, prior_cells={"esmc-6b": stale}, partial=True)
-    assert written["cells"]["esmc-6b"]["ceilings_fingerprint"] == "0000000000000000", \
+    cells = written["cards"]["p150a"]["cells"]
+    assert cells["esmc-6b"]["ceilings_fingerprint"] == "0000000000000000", \
         "a one-model record re-certified a cell it never measured"
-    assert written["cells"]["esmc-300m"]["ceilings_fingerprint"] == ceilings_fingerprint()
+    assert cells["esmc-300m"]["ceilings_fingerprint"] == ceilings_fingerprint()
     assert "ceilings_fingerprint" not in written, \
         "a file-level fingerprint is back; it is the thing that made the false green possible"
+    assert "ceilings_fingerprint" not in written["cards"]["p150a"], \
+        "a card-level fingerprint is the same false green one level down"
 
 
 @pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
@@ -211,7 +218,9 @@ def test_a_baseline_from_a_different_bar_is_not_evidence():
     # The file-level stamp alone is not enough: a PARTIAL re-record (--models) merges into the
     # prior file and stamps it with the new bar, so a cell measured at the old bar can sit inside
     # a correctly-stamped file. That is exactly what happened at 1504 -> 1536.
-    stale = {m: c.get("tokens_requested") for m, c in b.get("cells", {}).items()
+    stale = {f"{card}/{m}": c.get("tokens_requested")
+             for card, blk in cg.read_baseline().items()
+             for m, c in (blk.get("cells") or {}).items()
              if c.get("tokens_requested") not in (None, cg.TOKEN_BAR)}
     assert not stale, (
         f"these baseline cells were measured at a different bar and are not evidence for "
@@ -949,13 +958,21 @@ def test_the_host_oom_corroboration_can_actually_read_the_kernel_log():
 # ---------------------------------------------------------------------------------------------
 
 
+def _cells(path, card="p150a"):
+    """The recorded cells for one board. The file is keyed by board type: p150a and p300c are
+    both "blackhole" to ttnn, so a cell filed under no card is a cell about no card. Not on a
+    geometry difference: stock boards of both types read 110 L1 banks on an (x=11,y=10) grid.
+    The 130-bank figure this used to cite came from pc and its custom 130-core firmware."""
+    return json.loads(Path(path).read_text())["cards"][card]["cells"]
+
+
 def _bisect_report(bar=None, model="rf3"):
     """A report shaped like the one a bisect writes: no completing ceiling at any rung, so the
     alloc ceiling is the only number it produced."""
     return {
         "bar_tokens": cg.TOKEN_BAR if bar is None else bar,
         "started": "2026-09-07T00:00:00Z", "tree": "deadbeef", "dirty": False,
-        "geometry": {"dram_banks": 8}, "reductions": {},
+        "geometry": {"dram_banks": 8, "board_type": "p150a"}, "reductions": {},
         "results": [{"model": model, "verdict": "FAIL", "tokens_requested": cg.TOKEN_BAR,
                      "ceiling_tokens": None, "alloc_ceiling_tokens": 1344,
                      "alloc_ceiling_note": "1344 allocates, 1376 does not",
@@ -969,7 +986,7 @@ def test_the_baseline_keeps_the_only_ceiling_number_a_bisect_produced(tmp_path, 
     of a multi-hour bisect and left the cell reading as if nothing had been measured."""
     monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
     cg.record_baseline(_bisect_report(), partial=True)
-    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]
+    cell = _cells(tmp_path / "baseline.json")["rf3"]
     assert cell["alloc_ceiling_tokens"] == 1344, (
         "the baseline dropped alloc_ceiling_tokens, which for a model with no completing rung is "
         "the only ceiling the bisect measured")
@@ -983,7 +1000,7 @@ def test_a_finished_run_can_be_recorded_without_rerunning_it(tmp_path, monkeypat
     p = tmp_path / "report.json"
     p.write_text(json.dumps(_bisect_report()))
     assert cg._record_from(p) == 0
-    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]["verdict"] == "FAIL"
+    assert _cells(tmp_path / "baseline.json")["rf3"]["verdict"] == "FAIL"
 
 
 def test_recording_another_bars_report_is_refused(tmp_path, monkeypatch):
@@ -1080,16 +1097,20 @@ def test_a_leg_cannot_inherit_the_previous_runs_output_or_dram_peak(tmp_path):
 
 
 def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdicts=None,
-                  screen_unsafe=False):
+                  screen_unsafe=False, screen_mechanism="dram", screen_sequence=None):
     """Drive _bisect with canned leg outcomes, so the rung bookkeeping is testable without
     spending a rung of real card time on it (a real rung is minutes to tens of minutes).
 
     ``screen_unsafe`` makes every screen fail the way a screen fails when Tier 1's own
     truncation broke the model: a FAIL naming NO capacity mechanism, on a leg where the cut was
     applied. That is the exact triple screen_reduction_is_unsafe() reads.
+
+    `screen_sequence` maps a size to the verdicts its successive screens return, so a rung that
+    loses the card and is re-walked can be canned. The last entry repeats.
     """
     screen_verdicts = screen_verdicts or {}
     residency_verdicts = residency_verdicts or {}
+    seq = {k: list(v) for k, v in (screen_sequence or {}).items()}
     rec = {"legs": []}
     calls = []
 
@@ -1099,10 +1120,15 @@ def _bisect_probe(screen_fail_above=None, screen_verdicts=None, residency_verdic
             return {"verdict": "FAIL", "mechanism": None, "wall_s": 1.0,
                     "stacks_truncated": [["tt_bio.esmfold2.FoldingTrunkModel", "blocks", 48]],
                     "tail": "shape '[1, 1, 3, 1]' is invalid for input of size 81"}
+        if seq.get(f):
+            v = seq[f].pop(0) if len(seq[f]) > 1 else seq[f][0]
+            return {"verdict": v, "mechanism": {"CARD_DIRTY": "card"}.get(v, screen_mechanism)
+                    if v not in ("PASS", "INCONCLUSIVE") else None, "wall_s": 1.0}
         v = screen_verdicts.get(f)
         if v is None:
             v = "FAIL" if (screen_fail_above is not None and f > screen_fail_above) else "PASS"
-        return {"verdict": v, "mechanism": "alloc" if v == "FAIL" else None, "wall_s": 1.0}
+        return {"verdict": v, "mechanism": screen_mechanism if v == "FAIL" else None,
+                "wall_s": 1.0}
 
     def residency(worker, cell, f, work, hookdir, tokens):
         calls.append(("residency", tokens))
@@ -1125,6 +1151,30 @@ def test_a_bisect_that_completes_no_rung_still_reports_what_it_walked():
     assert "alloc_ceiling_note" in rec, "the walk recorded nothing at all"
     assert str(min(cg.BISECT_RUNGS)) in rec["alloc_ceiling_note"], (
         f"the note does not say how low the walk actually went: {rec['alloc_ceiling_note']}")
+
+
+def test_a_walk_where_the_allocator_never_refused_is_not_a_ceiling():
+    """A size wall is size-dependent. A walk that dies the same way at every rung has not found
+    one, and must not publish a bound below the lowest rung it burned.
+
+    Measured on esmfold2 on qb2's p300c, 2026-09-10: the Tier 1 truncation hook leaves a
+    downstream reshape inconsistent, so 1408, 1280, 1024, 896, 768, 640 and 512 all died in 4-6 s
+    with the identical `shape '[1, 1, 3, 1]' is invalid for input of size 81` and no allocator
+    message at all. The cell published "The ceiling is below 512 tokens if there is one at all"
+    for a model whose size ladder folds 768 on that same card in 96.6 s.
+
+    Third instrument breakage after _HOOK_BROKE and _UNEXPECTED_KEY, both of which are matched by
+    message. A fourth message would not match a fourth regex either, so this guard reads the
+    shape of the evidence: an error that does not change with size is not evidence about size.
+    """
+    _, rec, _ = _bisect_probe(screen_verdicts={t: "FAIL" for t in cg.BISECT_RUNGS},
+                              screen_mechanism=None)
+    note = rec["alloc_ceiling_note"]
+    assert "decided nothing" in note, (
+        f"a walk in which the allocator never refused published a ceiling anyway: {note}")
+    assert rec["alloc_ceiling_tokens"] is None
+    assert f"below {min(cg.BISECT_RUNGS)}" not in note, \
+        f"it still offers the lowest rung as a bound: {note}"
 
 
 def test_a_residency_failure_does_not_lower_the_allocation_ceiling():
@@ -1222,11 +1272,12 @@ def test_every_leg_is_registered_so_a_teardown_can_find_it():
 
 
 def test_every_cell_says_which_card_it_was_measured_on(tmp_path, monkeypatch):
-    """`cells` is keyed by model alone and `geometry` is one block for the whole file, so a
-    baseline holding a p150a run and a p300c run reads as if every cell came from whichever card
-    recorded last. That is not hypothetical: two workers recorded the two card types on
-    2026-09-10, and the verdicts genuinely differ -- esmfold2 FAILs 1536 on a 31.875 GiB p150a.
-    A partial record merges per cell, so the mixing is the normal case, not the edge one."""
+    """A baseline holding a p150a run and a p300c run must not read as if every cell came from
+    whichever card recorded last. That is not hypothetical: two workers recorded the two card
+    types on 2026-09-10, and the verdicts genuinely differ -- esmfold2 FAILs 1536 on a 31.875 GiB
+    p150a. Format 2 answers this structurally (`cards[board_type]["cells"]`, see `read_baseline`'s
+    docstring) rather than by stamping a redundant `board_type` onto each cell; `measured_on` is
+    still per-cell because a `--workers` fan-out can record several hosts under one board type."""
     monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
     report = {"bar_tokens": cg.TOKEN_BAR, "started": "2026-09-10T00:00:00Z", "tree": "deadbeef",
               "dirty": False, "reductions": [],
@@ -1234,9 +1285,8 @@ def test_every_cell_says_which_card_it_was_measured_on(tmp_path, monkeypatch):
               "results": [{"model": "esmfold2", "verdict": "FAIL", "worker": "qb1:3",
                            "tokens_requested": cg.TOKEN_BAR, "mechanism": "dram"}]}
     cg.record_baseline(report, partial=True)
-    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["esmfold2"]
-    assert cell["board_type"] == "p150a", (
-        f"the cell does not say which board type it describes: {cell}")
+    data = json.loads((tmp_path / "baseline.json").read_text())
+    cell = data["cards"]["p150a"]["cells"]["esmfold2"]
     assert cell["measured_on"] == "qb1:3", (
         f"the cell does not say which host and card measured it: {cell}")
 
@@ -1428,6 +1478,27 @@ def _probe_with(body, **kw):
         capacity_gate._CARD_PROBE = real
 
 
+def test_both_device_probes_set_the_p300_mesh_descriptor_before_they_open():
+    """A lone p300 chip is a CUSTOM topology to tt-metal, and `ttnn.open_device` refuses it
+    outright without a 1x1 mesh-graph descriptor. Both probes here open ttnn directly instead of
+    through the CLI, so neither inherits the descriptor tt_bio sets per worker.
+
+    Measured on qb2 card 3, 2026-09-10: the health probe died after 1.0 s with "Custom fabric mesh
+    graph descriptor path must be specified for CUSTOM cluster type", the gate scored that as a
+    wedge and printed "Reset (tt-smi -r) and re-run". On a p300c that reset takes the BOARD PAIR
+    down and can kill a sibling worker's card, so a bare-open failure turned a question about one
+    healthy chip into a destructive instruction aimed at two. Every p300c cell in the baseline was
+    unreachable for the same reason, which is why the file still holds only p150a numbers.
+    """
+    for name, src in (("_CARD_PROBE", cg._CARD_PROBE), ("_GEOM_PROBE", cg._GEOM_PROBE)):
+        assert "ensure_p300_mesh_descriptor()" in src, (
+            f"{name} opens a device without asking tt_bio for the p300 descriptor, so it cannot "
+            f"run on a p300c at all and its failure there says nothing about the card")
+        assert src.index("ensure_p300_mesh_descriptor()") < src.index("open_device"), (
+            f"{name} sets the descriptor after the open, which is too late: the env is read when "
+            f"the device opens")
+
+
 def test_a_healthy_probe_reports_done_and_its_dispatch_cost():
     p = _probe_with("print('CARD_OPEN', flush=True)\nprint('CARD_HEALTHY', flush=True)\n")
     assert p and p.phase == "done", p
@@ -1590,7 +1661,7 @@ def _cell_report(model, verdict, decided_by, bar=None, **kw):
     return {
         "bar_tokens": cg.TOKEN_BAR if bar is None else bar,
         "started": "2026-09-07T00:00:00Z", "tree": "deadbeef", "dirty": False,
-        "geometry": {"dram_banks": 8}, "reductions": {},
+        "geometry": {"dram_banks": 8, "board_type": "p150a"}, "reductions": {},
         "results": [dict({"model": model, "verdict": verdict, "decided_by": decided_by,
                           "tokens_requested": cg.TOKEN_BAR}, **kw)],
     }
@@ -1605,7 +1676,7 @@ def test_a_screen_sweep_does_not_overwrite_a_residency_pass(tmp_path, monkeypatc
                                     dram_peak_bytes=6203490304, wall_s=280.3), partial=True)
     msg = cg.record_baseline(_cell_report("openbind", "INCONCLUSIVE", "screen", wall_s=90.5),
                              partial=True)
-    cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["openbind"]
+    cell = _cells(tmp_path / "baseline.json")["openbind"]
     assert cell["verdict"] == "PASS", (
         "a screen cell overwrote a residency PASS; the run that decided nothing replaced the one "
         "that decided")
@@ -1621,8 +1692,8 @@ def test_a_full_roster_screen_record_does_not_wipe_every_pass(tmp_path, monkeypa
     cg.record_baseline(_cell_report("esmc-6b", "PASS", "residency", dram_peak_bytes=12789007360),
                        partial=True)
     cg.record_baseline(_cell_report("esmc-6b", "INCONCLUSIVE", "screen"), partial=False)
-    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["esmc-6b"]["verdict"] \
-        == "PASS", "a full-roster screen record wiped a residency PASS"
+    assert _cells(tmp_path / "baseline.json")["esmc-6b"]["verdict"] == "PASS", \
+        "a full-roster screen record wiped a residency PASS"
 
 
 def test_a_card_that_was_never_available_does_not_erase_a_verdict(tmp_path, monkeypatch):
@@ -1633,9 +1704,57 @@ def test_a_card_that_was_never_available_does_not_erase_a_verdict(tmp_path, monk
                                     alloc_ceiling_tokens=1088), partial=True)
     for dud in ("CONTENDED", "CARD_DIRTY"):
         cg.record_baseline(_cell_report("rf3", dud, "screen"), partial=True)
-        cell = json.loads((tmp_path / "baseline.json").read_text())["cells"]["rf3"]
+        cell = _cells(tmp_path / "baseline.json")["rf3"]
         assert cell["verdict"] == "FAIL" and cell["alloc_ceiling_tokens"] == 1088, (
             f"{dud} erased a measured FAIL and the ceiling the bisect spent hours on")
+
+
+def test_a_leg_that_never_opened_the_device_writes_no_cell(tmp_path, monkeypatch):
+    """The other half of the arm above, and the one that actually bit.
+
+    That arm covers a non-measurement arriving over a measurement. This is a non-measurement
+    arriving over NOTHING, which is what a re-measure of a dropped cell always is: chain7 re-ran
+    opendde on 2026-09-10, the leg died at firmware init in 27 min without running a line of
+    model code, and `--record` filed CARD_DIRTY as the model's cell. `_would_lose_evidence`
+    returns False when there is no prior cell, so the guard that exists for exactly this verdict
+    waved it through.
+    """
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    for dud in ("CONTENDED", "CARD_DIRTY"):
+        msg = cg.record_baseline(_cell_report("opendde", dud, "residency", wall_s=16.6),
+                                 partial=True)
+        assert "opendde" not in _cells(tmp_path / "baseline.json"), (
+            f"{dud} was written as opendde's cell; the card never opened, so this publishes the "
+            f"absence of a measurement where the coverage check reads a measurement")
+        assert "opendde" in msg and "no cell was written" in msg, (
+            f"the cell was dropped silently, which reads like it was recorded: {msg!r}")
+
+
+def test_a_cell_the_card_never_produced_is_not_coverage(tmp_path, monkeypatch):
+    """`baseline_gaps` asked whether a cell was PRESENT, so a CARD_DIRTY cell answered it.
+
+    Both directions, because a gap check that reports everything is as useless as one that
+    reports nothing: the model with a real PASS must stay out of the list.
+    """
+    monkeypatch.setattr(cg, "BASELINE", tmp_path / "baseline.json")
+    monkeypatch.setattr(cg, "runnable", lambda: ["boltz2", "opendde"])
+    cg.record_baseline(_cell_report("boltz2", "PASS", "residency", wall_s=444.8), partial=True)
+    assert cg.baseline_gaps() == ["p150a/opendde"], (
+        f"a model with no cell at all is the case this check was built for: "
+        f"{cg.baseline_gaps()}")
+    # Now give opendde a cell the card never produced. Presence must not close the gap.
+    raw = json.loads((tmp_path / "baseline.json").read_text())
+    raw["cards"]["p150a"]["cells"]["opendde"] = {"verdict": "CARD_DIRTY",
+                                                 "tokens_requested": cg.TOKEN_BAR}
+    (tmp_path / "baseline.json").write_text(json.dumps(raw))
+    assert cg.baseline_gaps() == ["p150a/opendde"], (
+        "a CARD_DIRTY cell closed the coverage gap, so a model whose leg never opened the "
+        "device reads as measured")
+    # The control in the other direction: a real verdict there does close it.
+    raw["cards"]["p150a"]["cells"]["opendde"]["verdict"] = "FAIL"
+    (tmp_path / "baseline.json").write_text(json.dumps(raw))
+    assert cg.baseline_gaps() == [], \
+        "a measured FAIL is coverage and must not be reported as a gap"
 
 
 def test_a_real_verdict_still_replaces_whatever_stands(tmp_path, monkeypatch):
@@ -1646,12 +1765,138 @@ def test_a_real_verdict_still_replaces_whatever_stands(tmp_path, monkeypatch):
     cg.record_baseline(_cell_report("protenix-v2", "PASS", "residency"), partial=True)
     cg.record_baseline(_cell_report("protenix-v2", "FAIL", "residency", mechanism="dram"),
                        partial=True)
-    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["protenix-v2"]["verdict"]\
-        == "FAIL", "the guard froze the cell instead of protecting it"
+    assert _cells(tmp_path / "baseline.json")["protenix-v2"]["verdict"] == "FAIL", \
+        "the guard froze the cell instead of protecting it"
     # And an INCONCLUSIVE over an INCONCLUSIVE is a legitimate refresh, not a downgrade.
     cg.record_baseline(_cell_report("openfold3", "INCONCLUSIVE", "screen", wall_s=87.3),
                        partial=True)
     cg.record_baseline(_cell_report("openfold3", "INCONCLUSIVE", "screen", wall_s=12.0),
                        partial=True)
-    assert json.loads((tmp_path / "baseline.json").read_text())["cells"]["openfold3"]["wall_s"] \
-        == 12.0, "a same-strength re-measurement was refused"
+    assert _cells(tmp_path / "baseline.json")["openfold3"]["wall_s"] == 12.0, \
+        "a same-strength re-measurement was refused"
+
+
+#: Quoted verbatim from work/resid_opendde_1536.log, qb2 card 3, 2026-09-10T02:31:24Z. The whole
+#: log is 73 lines: the banner and this throw at the top, then the outer CLI traceback.
+_P300C_FW_INIT_OPEN_FAIL = """tt-bio worker tt-quietbox2:tt3: device open failed
+Traceback (most recent call last):
+  File "tt_bio/worker.py", line 1793, in run_worker_loop
+    _get_device()
+  File "tt_bio/tenstorrent.py", line 4005, in _open_device_locked
+    dev = ttnn.open_device(device_id=device_id, **kwargs)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/device/firmware/risc_firmware_initializer.cpp:1115: tt::exception
+info:
+Device 0 init: failed to initialize FW! Try resetting the board.
+backtrace:
+ --- tt::tt_metal::RiscFirmwareInitializer::initialize_and_launch_firmware(int)
+RuntimeError: every local worker exited before the run finished (SpawnProcess-1 exit 1); no job can be served. The worker's own traceback above says why."""
+
+#: Same cause, different message: work/resid_protenix-v1_1536.log, 2026-09-10T04:35:08Z.
+_P300C_SYSMEM_PIN_OPEN_FAIL = """tt-bio worker tt-quietbox2:tt3: device open failed
+Traceback (most recent call last):
+  File "tt_bio/tenstorrent.py", line 4005, in _open_device_locked
+    dev = ttnn.open_device(device_id=device_id, **kwargs)
+RuntimeError: TT_THROW @ /project/tt_metal/third_party/umd/device/chip_helpers/silicon_sysmem_manager.cpp:326: tt::exception
+info:
+Proceeding could lead to undefined behavior
+backtrace:
+ --- tt::umd::SiliconSysmemManager::pin_or_map_iommu()
+ --- tt::umd::LocalChip::start_device()"""
+
+
+def test_a_leg_whose_worker_never_opened_the_device_decided_nothing():
+    """Three of the four p300c FAIL cells recorded on qb2 on 2026-09-10 were this: opendde,
+    opendde-abag and protenix-v1 all came back FAIL at the 1536 bar in 9.9-16.6 s with
+    mechanism null, 0 progress events and 0 blocks instrumented, and their logs say `device open
+    failed` on line 1. No model code ran at any of them.
+
+    The gate already had the right idea for this -- `contention` exists because "a killed leg
+    whose spawned fold worker outlived the kill keeps the lease" is not a capacity result -- but
+    it only knew the one message. A p300c whose previous leg was killed on the stall timeout does
+    not report a busy device; it throws out of ttnn.open_device at firmware init or at the sysmem
+    pin. So the arm matches the PHASE, which every future open-time error also has.
+    """
+    for name, log in (("firmware init", _P300C_FW_INIT_OPEN_FAIL),
+                      ("sysmem pin", _P300C_SYSMEM_PIN_OPEN_FAIL)):
+        assert cg.classify(log) == "card", (
+            f"a {name} failure at device open classified as {cg.classify(log)!r}, so the leg "
+            f"scores as a capacity FAIL and the cell publishes a wall nobody walked")
+        assert cg.classify(log) not in cg.ALLOC_MECHANISMS, \
+            f"a {name} failure at device open counts as an allocator refusal"
+    assert cg.NOTHING_RAN["card"] == "CARD_DIRTY"
+    assert cg.NOTHING_RAN_VERDICTS <= cg.UNDECIDED, (
+        "a verdict that means no model code ran is not in UNDECIDED, so it can still decide a "
+        "bar")
+
+
+def test_a_real_allocator_refusal_still_outranks_the_card_arm():
+    """The negative control the `card` arm needs. It must not swallow a leg that opened the card,
+    ran, and then hit the allocator -- which is the only thing a ceiling is allowed to be made
+    of. The arm sits after the allocator rows for exactly this reason."""
+    real = ("Out of Memory: Not enough space to allocate 4831838208 B DRAM buffer across 8 "
+            "banks, where each bank needs to store 603979776 B, but bank size is 4278190016 B "
+            "(allocated: 3579670528 B, free: 178190016 B, largest free block: 178190016 B)")
+    assert cg.classify(real) == "dram"
+    # And a log holding both -- a leg that opened, ran, and was killed after its refusal -- is
+    # still the allocator's statement, because that is the one that reached the model.
+    assert cg.classify(real + "\n" + _P300C_FW_INIT_OPEN_FAIL) == "dram", \
+        "a measured DRAM refusal was demoted to a card-dirty leg"
+
+
+def test_a_rung_that_lost_the_card_moves_neither_bisect_bound():
+    """opendde-abag's cell reported "1344 is the largest bucket-aligned size whose shapes ALLOCATE
+    (screen); 1376 is the smallest that does not". The 1376 screen ran 15.6 s and never opened
+    the device. The ceiling was read off a size the allocator was never asked about.
+
+    So: recover and re-walk the rung once, and if the card is still gone, walk past it. It must
+    not lower alloc_hi (a wall that was never measured) and must not raise alloc_lo (shapes that
+    were never allocated)."""
+    top = cg.BISECT_RUNGS[0]
+    below = cg.BISECT_RUNGS[1]
+    _, rec, calls = _bisect_probe(screen_sequence={top: ["CARD_DIRTY"]},
+                                  residency_verdicts={below: "PASS"})
+    assert [c for c in calls if c == ("screen", top)][1:], \
+        f"the rung that lost the card was never re-walked: {calls}"
+    note = rec["alloc_ceiling_note"]
+    assert f"{top} is the smallest that does not" not in note, (
+        f"a rung whose worker never opened the device was published as the wall: {note}")
+    assert rec["alloc_ceiling_tokens"] != top, (
+        f"a rung whose worker never opened the device was published as allocating: {note}")
+
+
+def test_a_rung_that_really_failed_to_allocate_is_still_the_wall():
+    """The other direction of the same guard: an identical walk where the top rung genuinely got
+    an allocator refusal must still name it. Otherwise the fix above just blinds the bisect."""
+    top = cg.BISECT_RUNGS[0]
+    below = cg.BISECT_RUNGS[1]
+    _, rec, _ = _bisect_probe(screen_sequence={top: ["FAIL"]},
+                              residency_verdicts={below: "PASS"}, screen_mechanism="dram")
+    assert f"{top} is the smallest that does not" in rec["alloc_ceiling_note"], (
+        f"a real allocator refusal at {top} stopped being the wall: "
+        f"{rec['alloc_ceiling_note']}")
+
+
+def test_a_failed_leg_records_the_first_error_it_threw():
+    """A leg that dies in the spawned fold worker records `mechanism: null` and a 25-line tail
+    holding only the outer click traceback, whose last line is literally "The worker's own
+    traceback above says why". The cause is on line 1 of the log and the report threw it away, so
+    all three of Finding 9's cells said FAIL without saying why.
+    """
+    fw = cg.first_error(_P300C_FW_INIT_OPEN_FAIL)
+    assert fw and "risc_firmware_initializer.cpp:1115" in fw, (
+        f"the firmware-init throw did not survive into the record: {fw!r}")
+    assert "failed to initialize FW" in fw, (
+        f"the sentence under `info:` is the human-readable half and was dropped: {fw!r}")
+    pin = cg.first_error(_P300C_SYSMEM_PIN_OPEN_FAIL)
+    assert pin and "silicon_sysmem_manager.cpp:326" in pin, (
+        f"the sysmem pin throw did not survive into the record: {pin!r}")
+    # It is the FIRST error, not the loudest or the last: the outer wrapper says nothing useful.
+    for got in (fw, pin):
+        assert "every local worker exited" not in got
+
+    # A capacity refusal is the case this must not garble, because that one becomes a ceiling.
+    oom = cg.first_error(
+        "RuntimeError: Out of Memory: Not enough space to allocate 4831838208 B DRAM buffer "
+        "across 8 banks")
+    assert oom and "4831838208 B DRAM" in oom, oom
+    assert cg.first_error("nothing was thrown here at all") is None

@@ -1019,20 +1019,22 @@
       }
     },
     "p300c": {
-      "recorded": "2026-08-28",
+      "recorded": "2026-09-10",
       "host": "tt-quietbox2",
-      "commit": "6adf7e04",
+      "commit": "1e66754c",
       "models": {
         "openfold3": {
           "grid": "11x10",
-          "recorded": "2026-08-28",
+          "recorded": "2026-09-10",
           "host": "tt-quietbox2",
-          "commit": "6adf7e04",
+          "commit": "1e66754c",
           "runtime_s": {
-            "256": 6.6,
-            "512": 27.8,
-            "640": 46.8,
-            "768": 77.7
+            "256": 6.7,
+            "512": 27.5,
+            "640": 45.1,
+            "768": 77.4,
+            "896": 121.4,
+            "1024": 167.0
           },
           "levers": {
             "256": {
@@ -1042,7 +1044,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -1050,7 +1052,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -1058,7 +1060,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -1066,7 +1068,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -1074,7 +1076,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -1082,7 +1084,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -1090,7 +1092,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -1184,7 +1186,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the move back only runs when a forward move fired, and none did here"
+                "reason": "declines all 0 calls: the move back only runs when a forward move fired, and none did here"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
@@ -1192,7 +1194,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is never offered on openfold3's pair track, at any rung"
+                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1200,7 +1202,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -1253,7 +1255,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1261,7 +1263,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -1283,6 +1285,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "512": {
@@ -1292,7 +1308,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -1300,7 +1316,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -1308,7 +1324,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -1316,7 +1332,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -1324,7 +1340,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -1332,7 +1348,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -1340,7 +1356,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -1433,7 +1449,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is never offered on openfold3's pair track, at any rung"
+                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1441,7 +1457,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -1494,7 +1510,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1502,7 +1518,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -1524,6 +1540,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "640": {
@@ -1533,7 +1563,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -1541,7 +1571,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -1549,7 +1579,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -1557,7 +1587,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -1565,7 +1595,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -1573,7 +1603,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -1581,7 +1611,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -1675,7 +1705,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is never offered on openfold3's pair track, at any rung"
+                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1683,7 +1713,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -1736,7 +1766,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1744,7 +1774,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -1766,6 +1796,20 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             },
             "768": {
@@ -1775,7 +1819,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -1783,7 +1827,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -1791,7 +1835,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -1799,7 +1843,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -1807,7 +1851,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -1815,7 +1859,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -1823,7 +1867,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openfold3 does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -1916,7 +1960,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is never offered on openfold3's pair track, at any rung"
+                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1924,7 +1968,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -1977,7 +2021,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -1985,7 +2029,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; openfold3 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "False",
@@ -2007,20 +2051,551 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "896": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 440,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 315,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 440,
+                "declined": 440,
+                "frac": 0.5,
+                "how": "stats-dict"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 439,
+                "declined": 2,
+                "frac": 0.9954648526077098,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:896x896x64": 2
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1316,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,2)": 28,
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,4)": 848,
+                  "k_tiles=4:(4,1)": 424
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424, k_tiles=2:(2,2) x28)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 440,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 16,
+                  "k_tiles=4": 424
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424, k_tiles=2 x16)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 896,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 880,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 440,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 16,
+                "frac": 0.9636363636363636,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 16
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 16,
+                "declined": 424,
+                "frac": 0.03636363636363636,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              }
+            },
+            "1024": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 440,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 315,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 440,
+                "declined": 440,
+                "frac": 0.5,
+                "how": "stats-dict"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 16,
+                "frac": 0.9636363636363636,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:1024x1024x64": 16
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1336,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,2)": 48,
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,4)": 848,
+                  "k_tiles=4:(4,1)": 424
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424, k_tiles=2:(2,2) x48)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 440,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 16,
+                  "k_tiles=4": 424
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424, k_tiles=2 x16)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 896,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 880,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 440,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 16,
+                "frac": 0.9636363636363636,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 16
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 424,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 16,
+                "declined": 424,
+                "frac": 0.03636363636363636,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0041,
+          "sigma_runtime_512": 0.004,
           "exponents": {
             "256->512": {
-              "k": 2.075,
+              "k": 2.037,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.535,
+              "k": 2.552,
               "tol": 0.5
             }
+          },
+          "exponents_measured": {
+            "256->512": 2.037,
+            "512->640": 2.217,
+            "640->768": 2.962,
+            "768->896": 2.92,
+            "896->1024": 2.388
           }
         }
       }

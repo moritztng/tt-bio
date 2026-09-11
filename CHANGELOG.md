@@ -5,6 +5,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- **`tt-bio --version`.** `-V` works too. Both print `tt-bio, version X.Y.Z` from the
+  installed package metadata and exit, without importing ttnn or opening a card.
+
 ### Fixed
 
 - **A weights download can no longer wait forever, and no checkpoint has a single door.** The

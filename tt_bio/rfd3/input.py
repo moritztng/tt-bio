@@ -178,6 +178,31 @@ _INDEXED_RE = re.compile(r"^([A-Za-z]+)(\d+)(?:-(\d+))?$")
 _CHAIN_BREAK = "/0"
 
 
+SYMMETRY_ID_RE = re.compile(r"^([CD])(\d+)$")
+
+
+def symmetry_id(sym_conf) -> str:
+    """The group id out of a spec's `symmetry:` block, checked at the door.
+
+    Upstream writes it as a mapping with an `id` (`docs/examples/symmetry.md`), and only
+    cyclic `C<n>` and dihedral `D<n>` groups exist there. Spelling it as the bare string
+    `"C3"` used to reach the featurizer and come back as
+    `AttributeError: 'str' object has no attribute 'get'`, which tells the user nothing
+    about their own spec. One reader for the gate and the featurizer, so the two cannot
+    disagree about what a symmetry block is.
+    """
+    if not isinstance(sym_conf, Mapping):
+        raise ValueError(
+            f"symmetry must be a mapping with an `id`, e.g. {{'id': 'C3'}}, got "
+            f"{type(sym_conf).__name__} {sym_conf!r}")
+    sym = str(sym_conf.get("id", "")).strip().upper()
+    if not SYMMETRY_ID_RE.match(sym):
+        raise NotImplementedError(
+            f"symmetry id {sym!r} not supported: only C<n> (cyclic) and D<n> "
+            "(dihedral), which is upstream's own scope too")
+    return sym
+
+
 def parse_contig(s: str, *, unindex: bool = False) -> List[ContigComponent]:
     """Parse a contig string into an ordered list of components.
 
@@ -437,6 +462,8 @@ class InputSpecification:
             raise ValueError(f"infer_ori_strategy must be com|hotspots, got {self.infer_ori_strategy!r}")
         if self.partial_t is not None and self.partial_t <= 0:
             raise ValueError(f"partial_t must be > 0, got {self.partial_t}")
+        if self.symmetry is not None:
+            symmetry_id(self.symmetry)
         for fld in ("select_buried", "select_partially_buried", "select_exposed"):
             v = getattr(self, fld)
             if isinstance(v, str):

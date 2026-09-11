@@ -486,7 +486,7 @@ import torch
 
 from .input import (
     InputSpecification, ChainBreak, Indexed, Designed, DesignedRange,
-    AtomSelection, _parse_atom_spec,
+    AtomSelection, SYMMETRY_ID_RE, _parse_atom_spec, symmetry_id,
 )
 
 # -- atom14 generic name template (rfd3.constants.ATOM14_ATOM_NAMES) --------
@@ -1064,7 +1064,7 @@ def _fresh_chain_letter(used: set[str]) -> str:
 # docstring's F5 grounding section). Each frame is a rigid (R[3,3], t[3])
 # transform; t is always the zero vector for both symmetry kinds (only
 # rotation about the origin, no translation).
-_SYMMETRY_ID_RE = re.compile(r"^([CD])(\d+)$")
+
 
 
 def _cyclic_frames(order: int) -> list[tuple[np.ndarray, np.ndarray]]:
@@ -1099,12 +1099,7 @@ def _symmetry_frames(sym_conf: Mapping) -> list[tuple[np.ndarray, np.ndarray]]:
     Only cyclic (``C<n>``) and dihedral (``D<n>``) groups are supported —
     matches the real reference's own stated scope ("only C and D symmetry
     types are supported currently", `docs/examples/symmetry.md`)."""
-    sym_id = str(sym_conf.get("id", "")).strip().upper()
-    m = _SYMMETRY_ID_RE.match(sym_id)
-    if not m:
-        raise NotImplementedError(
-            f"symmetry id {sym_id!r} not supported: only C<n> (cyclic) and D<n> "
-            "(dihedral), which is upstream's own scope too")
+    m = SYMMETRY_ID_RE.match(symmetry_id(sym_conf))
     kind, order = m.group(1), int(m.group(2))
     return _cyclic_frames(order) if kind == "C" else _dihedral_frames(order)
 

@@ -380,14 +380,24 @@ def _build_chain_specs(chains, msa_dir, cfg, protein_only: bool):
             for _cid, cseq, spec, mt, _mods in chains]
 
 
-def _modified_residue_names(chains) -> dict:
-    """(asym_id, residue_index) -> CCD code for every `modifications:` residue.
+def _artifact_residue_names(chains) -> dict:
+    """(asym_id, residue_index) -> the CCD code for every token `restype` cannot name.
 
-    build_complex_features assigns asym_id by chain order and keeps a modified residue's own
-    1-indexed position, so this is the whole mapping the structure writer needs -- it does
-    not have to know how the residue was tokenized."""
-    return {(ci, int(m["position"])): str(m["ccd"]).upper()
-            for ci, (*_x, mods) in enumerate(chains) if mods for m in mods}
+    build_complex_features assigns asym_id by chain order, so both kinds key the same way
+    and the structure writer does not have to know how either was tokenized.
+
+    A `modifications:` residue keeps its own 1-indexed position. A CCD ligand chain is
+    tokenized per atom with restype UNK and every atom on residue_index 1, so one entry
+    names the whole chain; without it the writer falls back to "LIG" and the artifact no
+    longer says which ligand was folded, while the same input through ESMFold2 reads back
+    as ATP. A SMILES ligand has no code to keep and stays "LIG"."""
+    names = {}
+    for ci, (_cid, seq, _spec, mol_type, mods) in enumerate(chains):
+        if mol_type == "ligand" and str(seq).upper().startswith("CCD_"):
+            names[(ci, 1)] = str(seq)[4:].upper()
+        for m in mods or ():
+            names[(ci, int(m["position"]))] = str(m["ccd"]).upper()
+    return names
 
 
 def _protenix_family() -> tuple[str, ...]:
@@ -961,7 +971,7 @@ class _WorkerState:
             name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
             _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
                                       b_factors=confs[k]["plddt_atom"] * 100.0,
-                                      mod_names=_modified_residue_names(chains))
+                                      mod_names=_artifact_residue_names(chains))
 
         def _row(c):
             return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
@@ -1068,7 +1078,7 @@ class _WorkerState:
             # per-atom pLDDT (0-1) -> B-factors (0-100), the AF/Boltz convention
             _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
                                       b_factors=confs[k]["plddt_atom"] * 100.0,
-                                      mod_names=_modified_residue_names(chains))
+                                      mod_names=_artifact_residue_names(chains))
 
         def _row(c):
             return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),

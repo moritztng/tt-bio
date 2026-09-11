@@ -152,7 +152,22 @@ RESIDUES = "residues"              # polymer residues in the input, summed over 
 DESIGN_TOTAL = "design_total"      # motif + designed, i.e. everything the model tokenises
 DESIGN_TARGET = "design_target"    # the conditioned target only; the binder is extra
 MAX_SEQUENCE = "max_sequence"      # residues in the LONGEST single sequence, not their sum
-COUNTS = (RESIDUES, DESIGN_TOTAL, DESIGN_TARGET, MAX_SEQUENCE)
+TARGET_ATOMS = "target_atoms"      # heavy atoms in the conditioned target; the binder is extra
+COUNTS = (RESIDUES, DESIGN_TOTAL, DESIGN_TARGET, MAX_SEQUENCE, TARGET_ATOMS)
+
+# The four residue denominators above are four ways of counting residues and they compare, loosely,
+# with each other. TARGET_ATOMS does not: a deposited protein carries about 8 heavy atoms per
+# residue, so 14786 atoms and 14786 residues differ by an order of magnitude. The dimension is what
+# keeps the refusal message honest -- ``models_accepting`` may only offer a model whose cap is in
+# the same dimension as the number being refused, or a 1200-residue refusal would name BoltzGen as
+# having room because its cap reads 14786.
+_COUNT_DIMENSION = {
+    RESIDUES: "residues",
+    DESIGN_TOTAL: "residues",
+    DESIGN_TARGET: "residues",
+    MAX_SEQUENCE: "residues",
+    TARGET_ATOMS: "atoms",
+}
 
 # How each denominator reads in a refusal. A message that just said "residues" for all three would
 # leave a design user unable to tell which number of theirs is too big.
@@ -161,6 +176,7 @@ _COUNT_NAMES = {
     DESIGN_TOTAL: "residues (motif + designed)",
     DESIGN_TARGET: "target residues",
     MAX_SEQUENCE: "residues in its longest sequence",
+    TARGET_ATOMS: "atoms in the target",
 }
 
 
@@ -648,25 +664,42 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "refuse on"),
     },
     "boltzgen": {
+        # The only atom-denominated rows in this table. Not a stylistic choice: the wall is in the
+        # trunk Pairformer's triangle attention, which is sized by the target's atoms, and atoms per
+        # residue vary with composition -- these ladders carry 8.06-8.08 per residue against a
+        # synthetic backbone's ~4, so a residue cap read off them would be wrong by a factor of two
+        # on the other kind of target. TARGET_ATOMS and scan_boltzgen_target_atoms exist for these
+        # two rows and nothing else.
         "blackhole": _unmeasured(
-            "no residue-denominated ceiling on Blackhole either, and this row is a RECORD rather "
-            "than a gap: on qb1 p150a a 2100-residue / 16948-atom target designs an 80-residue "
-            "binder in 805.3 s (task bh-boltzgen-sdpa-circbuf-p3, 2026-09-10), which is 3.6x the "
-            "top of the Wormhole 3158-4651 atom band and 2.1x the 8095 atoms the first Blackhole "
-            "pass could reach with the largest single chain on hand; 1831 residues / 14786 atoms "
-            "is 692.0 s. Above 16948 the ladder has to be re-walked before anything is claimed: "
-            "the rungs above it were read while the trimul in-projection wedged the card on a "
-            "sub-tile slice above 2048 padded tokens (_TRIMUL_MIN_CHUNK), so a rung that 'ran out "
-            "its 3000 s budget with no allocator throw' was a spinning card and bounds nothing. "
-            "The axis is atom-denominated on top of that -- COUNTS carries no atom unit, so "
-            "writing it as residues would be a unit substitution",),
-        "wormhole_b0": _unmeasured(
-            "its measured cap is NOT residue-denominated and so cannot be expressed as a row here: "
-            "wh-design-models-l1-budget-and-size-caps puts it between 3158 and 4651 ATOMS, in the "
-            "trunk Pairformer's triangle attention, at shipped settings -- the same 8x9 per-core L1 "
-            "wall that killed that task's chunk-width lever. Atoms per residue vary with "
-            "composition, so converting that to residues would be a guess. Refusing on it needs an "
-            "atom-denominated dimension this table does not yet carry"),
+            "no ceiling published on Blackhole, and this row is a RECORD rather than a gap: on qb1 "
+            "p150a a 2100-residue / 16948-atom target designs an 80-residue binder in 805.3 s "
+            "(task bh-boltzgen-sdpa-circbuf-p3, 2026-09-10), which is 2.1x the 8095 atoms the "
+            "first Blackhole pass could reach with the largest single chain on hand; 1831 residues "
+            "/ 14786 atoms is 692.0 s, 3.2x faster than the same target on a Galaxy chip. What "
+            "keeps 16948 off a published row is the ladder above it, not the unit: those rungs "
+            "were read while the trimul in-projection wedged the card on a sub-tile slice above "
+            "2048 padded tokens (_TRIMUL_MIN_CHUNK), so a rung that \'ran out its 3000 s budget "
+            "with no allocator throw\' was a spinning card and bounds nothing. Publishing 16948 as "
+            "a ladder top would refuse everything above it on the strength of a ladder whose top "
+            "rungs measured a wedge -- re-walk it post-fix first",
+            TARGET_ATOMS),
+        "wormhole_b0": Ceiling(
+            residues=14786, pass_at=14786, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            counts=TARGET_ATOMS,
+            evidence=
+                "its own Wormhole Galaxy ladder, walked 2026-09-11 on j10glx02 chips 5-8 (task "
+                "wh-seqlen-design-embed, perf/bhdesign/ladder.py: one rung per subprocess through "
+                "the shipped CLI at shipped settings, an 80-residue binder at every rung, verdict "
+                "read off the design\'s own CIF and not off the exit code). Six rungs, 3225 / 4671 "
+                "/ 6180 / 8225 / 10482 / 14786 target atoms, all design and none failed; nothing "
+                "above 14786 was tried, so the cap is the top of the ladder and not a wall. "
+                "14786 atoms (1831 target residues) takes 2242.9 s on chip 7; 10482 reproduces on "
+                "two chips (1336.7 s on 8, 1842.4 s on 6) and so does 8225 (575.7 s on 8, 801.0 s "
+                "on 5), so the top rung is one chip and the two below it are two. This SUPERSEDES "
+                "the 3158-4651 atom band wh-design-models-l1-budget-and-size-caps recorded: that "
+                "band was an L1 wall read at a chunk width this ladder does not use, and 14786 is "
+                "3.2x the top of it. The four smallest rungs are reproducible off the fixtures "
+                "without a device -- tests/test_size_limits.py holds the sizer to them"),
     },
     "esmc-300m": {
         "wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE, MAX_SEQUENCE),
@@ -885,7 +918,7 @@ def _verdict(model: str, c: Ceiling, residues: int, ligand_atoms: int):
 
 
 def models_accepting(residues: int, arch: str | None = None, exclude: str | None = None,
-                     ligand_atoms: int = 0) -> list[str]:
+                     ligand_atoms: int = 0, counts: str = RESIDUES) -> list[str]:
     """Models with a MEASURED ceiling that admits this input, so a refusal can point somewhere
     instead of only saying no.
 
@@ -894,16 +927,23 @@ def models_accepting(residues: int, arch: str | None = None, exclude: str | None
     A ligand-bearing input narrows it further, from ``capabilities.CAPABILITY`` rather than a
     second list here: OpenFold3 has plenty of room at these sizes and refuses a ligand by name, so
     naming it would send a cocrystal to a model that cannot take one.
+
+    ``counts`` is the denominator the caller's number is in, and only rows in the same DIMENSION
+    can answer (see ``_COUNT_DIMENSION``). Without it an atom-denominated row reads as enormous
+    against a residue count and gets offered as the roomy alternative to every refusal.
     """
     arch = arch if arch is not None else current_arch()
     if ligand_atoms > 0:
         from .capabilities import CAPABILITY, HONOURED
         folds_ligand = {m for m, row in CAPABILITY.items() if row.get("ligand") == HONOURED}
+    want = _COUNT_DIMENSION[counts]
     out = []
     for name in sorted(CEILINGS):
         if name == exclude or (ligand_atoms > 0 and name not in folds_ligand):
             continue
         c = ceiling(name, arch)
+        if _COUNT_DIMENSION[c.counts] != want:
+            continue
         if c.measured and c.residues is not None and not _verdict(name, c, residues, ligand_atoms)[0]:
             out.append(name)
     return out
@@ -945,7 +985,8 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
             f"{limit} on {arch}. TT_BIO_SIZE_LIMIT=0 is set, so this runs anyway and may "
             f"fail on the device.", stacklevel=2)
         return
-    alts = models_accepting(residues, arch, exclude=model, ligand_atoms=ligand_atoms)
+    alts = models_accepting(residues, arch, exclude=model, ligand_atoms=ligand_atoms,
+                            counts=c.counts)
     # "no model accepts this size" is only true where every model HAS a row. On an arch that is
     # mostly unmeasured -- blackhole, where two freeze rows exist and the other nine models were
     # measured folding 1536 by the 2026-09-10 ladder without earning a row -- the same sentence
@@ -975,6 +1016,16 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
 
 # ---------------------------------------------------------------------------------------------
 # The size of an input, read off the file. No device, no CCD, no weights.
+#
+# THE SIZER CONTRACT is ``sizer(text, path=None) -> int``. It was ``sizer(text) -> int``, and that
+# was enough while every denominator could be read out of the input text itself. BoltzGen's cannot:
+# its ceiling is in ATOMS, and the atoms live in the structure file its ``file:`` entity points at,
+# by a path that is relative to the spec. So the sizer needs to know where the spec came from.
+#
+# `path` is optional and every sizer takes it whether or not it reads it, rather than the table
+# carrying a per-model "needs a path" flag and `check_input` having two ways to call a sizer. One
+# call shape is one thing that can drift; two is a branch, and the branch would be on the model.
+# A sizer called without a path still returns a number where it can and 0 where it cannot.
 # ---------------------------------------------------------------------------------------------
 
 _NON_LETTER = re.compile(r"[^A-Za-z]")
@@ -998,7 +1049,7 @@ def _seq_residues(seq) -> int:
     return len(_NON_LETTER.sub("", s))
 
 
-def scan_residues(text: str) -> int:
+def scan_residues(text: str, path=None) -> int:
     """Residues in one YAML or FASTA input. Best effort and an UPPER bound; never raises.
 
     Never raising is deliberate. This runs ahead of the real parser purely to decide a refusal, and
@@ -1080,7 +1131,7 @@ def scan_ligand_atoms(path) -> int:
 _BARE_SEQUENCE = re.compile(r"^[A-Za-z]+$")
 
 
-def scan_rfd3_total(text: str) -> int:
+def scan_rfd3_total(text: str, path=None) -> int:
     """Motif + designed residues in one RFD3 spec file (DESIGN_TOTAL). 0 if it cannot be sized.
 
     Sized from the CONTIG and not from the pasted structure, because the contig is what decides how
@@ -1121,15 +1172,150 @@ def scan_rfd3_total(text: str) -> int:
     return largest
 
 
-def scan_pxdesign_target(text: str) -> int:
+# --- The structure a design spec POINTS at ----------------------------------------------------
+# Two of the design models are sized on something no amount of reading the spec text can produce:
+# PXDesign conditions on whole chains of a structure file when the chain carries no `crop`, and
+# BoltzGen's ceiling is denominated in the target's ATOMS. Both need the file the spec names, which
+# is why the sizer contract carries a path. One reader serves both, returning residues AND atoms
+# per chain, so the two denominators come off the same parse instead of two copies of it.
+
+
+def _resolve(name, base: Path) -> Path:
+    """A spec-relative file name to a path, the way the engines themselves resolve one.
+
+    Beside the spec if that exists, otherwise against the working directory -- the rule
+    ``pxdesign.inputs.read_design_yaml`` already applies, because upstream resolves against the
+    cwd while a committed fixture wants to resolve beside itself, and both have to work.
+    """
+    p = Path(str(name)).expanduser()
+    if p.is_absolute():
+        return p
+    beside = base / p
+    return beside if beside.exists() else p
+
+
+def _structure_text(path: Path) -> str:
+    """One structure file as text, gzipped or not. "" if it cannot be read, which refuses nothing.
+
+    Gzip because the repo's own PXDesign fixture is a ``.cif.gz``; a reader that only took plain
+    text would size the shipped quick-start at 0 and look like it was working.
+    """
+    try:
+        if path.suffix == ".gz":
+            import gzip
+            return gzip.decompress(path.read_bytes()).decode("utf-8", "replace")
+        return path.read_text(errors="replace")
+    except Exception:
+        return ""
+
+
+_HYDROGEN = ("H", "D")
+
+
+def structure_chains(path) -> dict:
+    """``{chain id: (residues, heavy atoms)}`` off one structure file's own ATOM records. {} if none.
+
+    mmCIF or PDB, and no parser dependency: this runs before a device is opened, on a host that may
+    have no CCD library and no gemmi, and it must cost milliseconds. The counts it produces are the
+    ones the ladders were recorded in -- ``perf/bhdesign/ladder.py:cif_stats`` counts exactly these
+    rows, which is what makes the BoltzGen row's atom numbers reproducible from the fixture files.
+
+    Three decisions that are all the conservative one, because over-counting refuses work the chip
+    can do:
+
+    *Heavy atoms only*, matching the ``GetAtomicNum() > 1`` filter the featurizers apply when they
+    lay one token per atom. A deposited structure with hydrogens would otherwise score about twice
+    its token count -- and the repo's PXDesign fixture is exactly that file, 1248 hydrogens kept on
+    purpose.
+
+    *The first model only.* An NMR ensemble carries the same atoms 20 times over and folds once.
+
+    *Chain ids are ``label_asym_id``*, the id both consumers name: BoltzGen's ``parse_mmcif`` names
+    a chain by its gemmi subchain, which IS the label asym id, and PXDesign's schema says
+    ``target.chains.<label_asym_id>`` out loud. A chain id the file does not carry scores 0 and
+    refuses nothing; the engine's own parser then rejects it by name, which is the better error.
+    """
+    text = _structure_text(Path(path))
+    if not text:
+        return {}
+    rows = _cif_atoms(text) if "_atom_site." in text else _pdb_atoms(text)
+    per: dict = {}
+    for chain, res, element in rows:
+        if element.upper() in _HYDROGEN:
+            continue
+        cell = per.setdefault(chain, [set(), 0])
+        cell[0].add(res)
+        cell[1] += 1
+    return {c: (len(seen), atoms) for c, (seen, atoms) in per.items()}
+
+
+def _cif_atoms(text: str):
+    """``(chain, residue key, element)`` per mmCIF ATOM/HETATM row of the first model.
+
+    The column order is READ, never assumed: biotite writes ``_atom_site.id`` last where the RCSB
+    order has it second, so a positional parser reads a residue number as a chain id on one of the
+    two families and silently produces a plausible wrong count.
+    """
+    cols: list = []
+    idx: dict = {}
+    model = None
+    for line in text.splitlines():
+        st = line.strip()
+        if st.startswith("_atom_site."):
+            cols.append(st.split(".", 1)[1].split()[0])
+            idx = {}
+        elif st.startswith(("ATOM", "HETATM")):
+            if not idx:
+                idx = {n: cols.index(n) for n in
+                       ("label_asym_id", "auth_asym_id", "label_seq_id", "auth_seq_id",
+                        "type_symbol", "pdbx_PDB_model_num", "pdbx_PDB_ins_code")
+                       if n in cols}
+            f = st.split()
+            if len(f) != len(cols):
+                continue
+            if "pdbx_PDB_model_num" in idx:
+                m = f[idx["pdbx_PDB_model_num"]]
+                if model is None:
+                    model = m
+                elif m != model:
+                    continue
+            chain = f[idx["label_asym_id"]] if "label_asym_id" in idx else (
+                f[idx["auth_asym_id"]] if "auth_asym_id" in idx else "?")
+            # `label_seq_id` is `.` for every non-polymer atom, so a chain of ligands would collapse
+            # to one residue on it alone. The author numbering is what separates them.
+            seq = f[idx["label_seq_id"]] if "label_seq_id" in idx else "."
+            if seq in (".", "?") and "auth_seq_id" in idx:
+                seq = f[idx["auth_seq_id"]]
+            ins = f[idx["pdbx_PDB_ins_code"]] if "pdbx_PDB_ins_code" in idx else ""
+            yield chain, (seq, ins), f[idx["type_symbol"]] if "type_symbol" in idx else ""
+
+
+def _pdb_atoms(text: str):
+    """The same, off PDB fixed columns. Stops at the first ``ENDMDL``: one model is enough."""
+    for line in text.splitlines():
+        if line.startswith("ENDMDL"):
+            return
+        if not line.startswith(("ATOM", "HETATM")):
+            continue
+        element = line[76:78].strip()
+        if not element:
+            # No element column. The atom NAME's first non-digit carries it -- ' HB2' is hydrogen,
+            # and a file without element columns is exactly the one whose hydrogens must still drop.
+            element = next((ch for ch in line[12:16] if ch.isalpha()), "")
+        yield line[21], (line[22:27].strip(), ""), element
+
+
+def scan_pxdesign_target(text: str, path=None) -> int:
     """Conditioned TARGET residues in one PXDesign target YAML (DESIGN_TARGET). 0 if unsizable.
 
-    Counted from the per-chain ``crop`` ranges, which is the only part of the spec that gives a
-    residue count without opening the structure file the YAML points at. A spec with no crop
-    conditions on the whole chain and returns 0, so it is NOT refused: sizing it needs the structure
-    parsed, and a guard that guessed there would refuse real work on a number it did not have. The
-    binder is deliberately excluded -- this model's ladder was walked in target residues with the
-    binder held at 80, so counting it in would compare against the wrong denominator.
+    Counted from the per-chain ``crop`` ranges where the spec gives them, and off the structure
+    file where it does not: a chain with no ``crop`` conditions on the whole chain, and the only
+    place its length is written down is ``target.file``. That case used to return 0 and refuse
+    nothing, because the sizer had the spec text and no way to reach the file -- with a path in
+    hand it is a read rather than a guess, and the permissive hole closes. It stays 0 where the
+    file is not on this host or does not carry the chain the spec names. The binder is deliberately
+    excluded -- this model's ladder was walked in target residues with the binder held at 80, so
+    counting it in would compare against the wrong denominator.
     """
     try:
         import yaml
@@ -1138,16 +1324,25 @@ def scan_pxdesign_target(text: str) -> int:
         return 0
     if not isinstance(data, dict):
         return 0
-    chains = (data.get("target") or {}).get("chains") if isinstance(data.get("target"), dict) else None
+    target = data.get("target") if isinstance(data.get("target"), dict) else None
+    chains = (target or {}).get("chains")
     if not isinstance(chains, dict):
         return 0
+    base = Path(path).expanduser().parent if path else Path(".")
+    on_disk = None
     total = 0
-    for body in chains.values():
+    for cid, body in chains.items():
         crop = (body or {}).get("crop") if isinstance(body, dict) else None
         if isinstance(crop, str):
             crop = [crop]
         if not isinstance(crop, (list, tuple)):
-            return 0          # one uncropped chain and the whole spec is unsizable from text alone
+            if on_disk is None:
+                on_disk = structure_chains(_resolve(target.get("file") or "", base))
+            whole = on_disk.get(str(cid), (0, 0))[0]
+            if not whole:
+                return 0      # nothing on disk to read it off, so the spec is still unsizable
+            total += whole
+            continue
         for rng in crop:
             m = re.match(r"^\s*(-?\d+)\s*-\s*(-?\d+)\s*$", str(rng))
             if not m:
@@ -1157,7 +1352,120 @@ def scan_pxdesign_target(text: str) -> int:
     return total
 
 
-def scan_longest_sequence(text: str) -> int:
+# A BoltzGen designed chain is given as a LENGTH -- `80`, or `80..120` to sample one per design --
+# where a target chain is given as a real sequence or as a structure file. That is what separates
+# the two, and it is the only thing that does.
+_LENGTH_SPEC = re.compile(r"^\d+(?:\.\.\d+)?$")
+
+
+def _file_entity_atoms(body, base: Path, hop: bool = True):
+    """Heavy atoms one BoltzGen ``file:`` entity contributes. None if it cannot be sized.
+
+    None and 0 are different answers and the caller treats them differently: 0 is "this entity adds
+    no atoms", None is "this spec has a target whose size I do not know", which makes the whole
+    spec unsizable and refuses nothing.
+    """
+    if not isinstance(body, dict):
+        return None
+    raw = body.get("path")
+    if isinstance(raw, list) or (isinstance(raw, str) and Path(raw).suffix in (".yaml", ".yml")):
+        # A `path:` that names YAML is an indirection to another spec's `file:` body, re-anchored on
+        # the directory of the file it names -- one hop, which is exactly what the engine's own
+        # `parse_file` does before it falls through. A LIST is a list of such specs that the engine
+        # picks one of at random, so the largest is the only safe reading, the same rule
+        # `_seq_residues` applies to a `low..high` binder.
+        if not hop:
+            return None
+        best = 0
+        for one in (raw if isinstance(raw, list) else [raw]):
+            q = _resolve(one, base)
+            try:
+                import yaml
+                nested = (yaml.safe_load(_structure_text(q)) or {}).get("file")
+            except Exception:
+                return None
+            n = _file_entity_atoms(nested, q.parent, hop=False)
+            if n is None:
+                return None
+            best = max(best, n)
+        return best
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    # `exclude` and `include_proximity` REMOVE part of what `include` names, by residue and by
+    # distance, and neither can be resolved from chain ids. Counting the named chains whole would
+    # over-count, and an over-count refuses work the chip can do, so the spec is simply unsizable.
+    if body.get("exclude") or body.get("include_proximity"):
+        return None
+    chains = structure_chains(_resolve(raw, base))
+    if not chains:
+        return None
+    include = body.get("include", "all")
+    if include is None or include == "all":
+        return sum(atoms for _, atoms in chains.values())
+    if not isinstance(include, list):
+        return None
+    total = 0
+    for item in include:
+        chain = (item or {}).get("chain") if isinstance(item, dict) else None
+        if not isinstance(chain, dict) or "id" not in chain:
+            return None
+        # A `smiles:` on an include entry supplies a ligand TEMPLATE for a chain that must already
+        # be in the file -- the engine raises if it is not -- so its atoms are counted off the file
+        # like every other chain's. Adding the SMILES would count them twice.
+        total += chains.get(str(chain["id"]), (0, 0))[1]
+    return total
+
+
+def scan_boltzgen_target_atoms(text: str, path=None) -> int:
+    """Heavy atoms in the TARGET of one BoltzGen design spec (TARGET_ATOMS). 0 if unsizable.
+
+    BoltzGen is the only model in this table whose ceiling is not denominated in residues. Its wall
+    is in the trunk Pairformer's triangle attention, which is sized by the target's atoms, and atoms
+    per residue vary with composition -- a deposited protein carries about 8, a synthetic backbone
+    about 4 -- so converting the ladder to residues would be a guess dressed as a measurement.
+    Which is why the sizer contract carries a path: the atoms are in the structure file the spec's
+    ``file:`` entity points at, by a name relative to the spec, and nothing in the spec text counts
+    them.
+
+    The designed binder is deliberately outside the number, exactly as PXDesign's target-only
+    denominator is: every rung of the ladder that set the cap held the binder at 80 residues, so
+    counting it in would compare against a denominator nobody measured.
+
+    Returns 0 rather than a guess wherever the spec names a target this cannot count -- a chain
+    given as a sequence instead of a file, an `exclude` that removes part of one, a structure file
+    that is not on this host. A guard that invented a number there would refuse real work, and that
+    is worse than not refusing at all.
+    """
+    try:
+        import yaml
+        data = yaml.safe_load(text)
+    except Exception:
+        return 0
+    if not isinstance(data, dict):
+        return 0
+    entries = data.get("entities")
+    if not isinstance(entries, list):
+        return 0
+    base = Path(path).expanduser().parent if path else Path(".")
+    total = 0
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for key, body in e.items():
+            k = str(key).lower()
+            if k == "file":
+                n = _file_entity_atoms(body, base)
+                if n is None:
+                    return 0
+                total += n
+            elif k in _POLYMER_KEYS:
+                seq = (body or {}).get("sequence") if isinstance(body, dict) else None
+                if not _LENGTH_SPEC.match(str(seq).strip()):
+                    return 0      # a target given as a sequence: no atoms to read, so no refusal
+    return total
+
+
+def scan_longest_sequence(text: str, path=None) -> int:
     """Residues in the LONGEST single sequence of an embed/saprot input (MAX_SEQUENCE).
 
     The MAX and not the sum, which is the whole point. `tt-bio embed` and `tt-bio saprot` take
@@ -1223,6 +1531,7 @@ _DESIGN_SUFFIXES = (".json", ".yml", ".yaml")
 _SIZERS: dict[str, tuple] = {
     "rfd3": (DESIGN_TOTAL, scan_rfd3_total, _DESIGN_SUFFIXES),
     "pxdesign": (DESIGN_TARGET, scan_pxdesign_target, _DESIGN_SUFFIXES),
+    "boltzgen": (TARGET_ATOMS, scan_boltzgen_target_atoms, _DESIGN_SUFFIXES),
     # Every embed / saprot model: independent sequences, so the longest one binds, not their sum.
     # FASTA is the common input here, so these keep the predict path's suffix list.
     **{m: (MAX_SEQUENCE, scan_longest_sequence, None) for m in
@@ -1278,7 +1587,9 @@ def check_input(data, model: str, *, arch: str | None = None) -> None:
                    if q.suffix.lower() in suffixes)
     for q in files:
         try:
-            n = sizer(q.read_text())
+            # The path as well as the text: a design spec's target lives in a file it names
+            # RELATIVE to itself, so a sizer that only ever saw the text could not reach it.
+            n = sizer(q.read_text(), q)
         except Exception:
             continue
         if n:

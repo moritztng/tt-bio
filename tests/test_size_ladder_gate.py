@@ -951,3 +951,49 @@ def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
         + "\n  ".join(short)
         + "\n\nRe-record on a card of that type: python3 scripts/release_gate.py "
           "--model size-ladder --size-ladder-record")
+
+
+# ---------------------------------------------------------------------------------------------
+# A failed fold's error must survive the loss of its own scratch tree. protenix-v2's ladder
+# crashed twice on 2026-09-10, at rung 256 both times, because perf/sizegate/work vanished
+# mid-fold (watched at 1 Hz: present 10:08:44Z, gone 10:08:45Z) and the rc != 0 branch read the
+# log with a bare read_text(). The FileNotFoundError came from inside the code collecting the
+# failure, so the gate reported its own traceback and the fold's error was unrecoverable -- the
+# log was the only copy of it. Whatever removes that directory is still open; this is the half
+# that makes the next occurrence diagnosable instead of a traceback in the error path.
+
+def test_a_fold_whose_log_vanished_reports_the_fold_not_the_error_path(rg_fresh, monkeypatch,
+                                                                      tmp_path):
+    import shutil
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    fixture = tmp_path / "cdk2x2_256.yaml"
+    fixture.write_text("sequences: []\n")
+    monkeypatch.setattr(rg_fresh, "_size_ladder_fixture", lambda m, r: fixture)
+
+    def vanish(cmd, timeout, **kw):
+        shutil.rmtree(workdir)  # what the 1 Hz watcher caught happening, mid-fold
+        return 1, False
+    monkeypatch.setattr(rg_fresh, "_run_fold", vanish)
+
+    out = rg_fresh._run_census_fold("protenix-v2", 256, workdir, "rep0")
+    assert "error" in out, f"the fold failed, so the leg owes an error: {out}"
+    assert "removed under the run" in out["error"], out["error"]
+
+
+def test_a_lost_log_says_the_tree_went_away_and_names_it(rg_fresh, tmp_path):
+    """The diagnosis has to name the file and survive _fold_error's 400-char cut."""
+    log = tmp_path / "protenix-v2-256-rep0.log"
+    text = rg_fresh._fold_log_text(log)
+    assert "removed under the run" in text
+    assert str(log) in text
+    assert "removed under the run" in rg_fresh._fold_error(text)
+
+
+def test_a_readable_fold_log_still_comes_through_verbatim(rg_fresh, tmp_path):
+    """The control in the other direction: guarding the read changes nothing about a log that
+    is there, so a real failure still reports the fold's own line."""
+    log = tmp_path / "f.log"
+    log.write_text("some chatter\n✗ protenix-v2: out of memory\ncensus table\n")
+    assert rg_fresh._fold_log_text(log) == log.read_text()
+    assert rg_fresh._fold_error(rg_fresh._fold_log_text(log)) == "✗ protenix-v2: out of memory"

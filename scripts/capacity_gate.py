@@ -200,10 +200,10 @@ def _verbs() -> dict[str, str]:
 #: records what is NOT covered so the gap is readable, the same discipline as
 #: release_gate.SIZE_LADDER_EXEMPT. Anything here is reported SKIPPED with its reason.
 EXEMPT = {
-    "boltzgen": "design, not a fold: its input is a target plus a binder spec and its measured "
-                "cap is atom-denominated (between 3158 and 4651 atoms in the trunk Pairformer's "
-                "triangle attention), which a token bar cannot express. Needs an atom-denominated "
-                "cell of its own.",
+    "boltzgen": "design, not a fold: its input is a target plus a binder spec, so this gate's "
+                "polymer sequence fixture is not a valid input for it at any bar. Its cap is "
+                "atom-denominated as well (TARGET_ATOMS, 14786 atoms on a Wormhole Galaxy chip), "
+                "which a token bar cannot express. Needs an atom-denominated cell of its own.",
     "rfd3":     "design, not a fold: sized on DESIGN_TOTAL (motif plus designed) from a contig "
                 "spec, so the 1536-token fixture here is not a valid input. Its wall is "
                 "fragmentation rather than capacity and wants its own cell.",
@@ -251,14 +251,18 @@ def baseline_gaps() -> list[str]:
     boltz2's PASS at 1536 was measured, written up in prose, and never recorded -- and its report
     lived in gitignored scratch inside a worktree fleet hygiene later removed, so the claim
     outlived its evidence. A verdict not folded into the baseline when it is measured is lost.
+
+    A cell the card never produced counts as a gap rather than as coverage: see `nothing_ran`.
+    Absence is reported loudly here, which is exactly why it beats a cell nothing downstream can
+    tell apart from a measured one.
     """
-    if not BASELINE.exists():
+    per_card = read_baseline()
+    if not per_card:
         return runnable()
-    try:
-        cells = json.loads(BASELINE.read_text()).get("cells", {})
-    except ValueError:
-        return runnable()
-    return [m for m in runnable() if m not in cells]
+    cells_of = {card: (blk.get("cells") or {}) for card, blk in per_card.items()}
+    return [f"{card}/{m}" for card in sorted(cells_of)
+            for m in runnable()
+            if m not in cells_of[card] or nothing_ran(cells_of[card][m])]
 
 
 def baseline_stale() -> list[str]:
@@ -275,14 +279,11 @@ def baseline_stale() -> list[str]:
     Naming the stale ones is also what makes the sweep resumable. It is hours of card time, it has
     to run in stages, and a stage that re-measured four models should be able to show it.
     """
-    if not BASELINE.exists():
-        return []
-    try:
-        cells = json.loads(BASELINE.read_text()).get("cells", {})
-    except ValueError:
-        return []
     fp = ceilings_fingerprint()
-    return sorted(m for m, c in cells.items() if (c or {}).get("ceilings_fingerprint") != fp)
+    return sorted(f"{card}/{m}"
+                  for card, blk in read_baseline().items()
+                  for m, c in (blk.get("cells") or {}).items()
+                  if (c or {}).get("ceilings_fingerprint") != fp)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -350,6 +351,8 @@ def cells(models: list[str], *, depth=None, recycling=None) -> list[Cell]:
 
 _GEOM_PROBE = r"""
 import json, ttnn
+from tt_bio.main import ensure_p300_mesh_descriptor
+ensure_p300_mesh_descriptor()
 d = ttnn.open_device(device_id=0)
 o = {"arch": ttnn.get_arch_name(),
      "grid": str(d.compute_with_storage_grid_size())}
@@ -400,14 +403,21 @@ def geometry(worker) -> dict:
 # path's allocation ORDER (ttnn.slice is not a view, and allocation order decides whether a block
 # big enough exists).
 
-#: Cheap host-side signals for the failures the allocator does NOT describe in numbers. An
-#: allocator refusal is not in here on purpose: it is classified from its own figures by
+#: Cheap host-side signals that a fold hit the device wall rather than anything else. Matched
+#: against the run log so a verdict names its own mechanism instead of just "exited nonzero".
+#: An allocator refusal is not in here on purpose: it is classified from its own figures by
 #: `size_limits.classify_device_oom`, and a substring list cannot do that job. Every refusal
 #: message carries the word DRAM (or L1) AND the phrase "largest free block" in one sentence, so
 #: first-match-wins made whichever arm was listed first swallow the others: the "fragmentation" arm
 #: that used to sit here was unreachable for any real log, and a fragmented chip was recorded as
 #: plain "dram". Those are different walls with different fixes and `size_limits` gives them two
 #: mechanism values for that reason.
+#:
+#: The mechanisms that mean THE ALLOCATOR REFUSED. A capacity ceiling is a statement about these
+#: and nothing else: every other way a run can die is a statement about the model, the fixture or
+#: the gate's own instrument.
+ALLOC_MECHANISMS = ("dram", "l1")
+
 MECHANISM_PATTERNS = (
     # Statically allocated circular buffers live in L1, not DRAM, and tt-metal words this
     # "grow to N B which is BEYOND max L1 size of M B" -- so the old pattern (".*exceed",
@@ -421,6 +431,16 @@ MECHANISM_PATTERNS = (
     # whose spawned fold worker outlived the kill keeps the lease.
     ("contention",  re.compile(r"DeviceInUseError|device contention, nothing ran"
                                r"|is in use by", re.I)),
+    # Same family as contention and the same consequence: no model code ran. But the aftermath of
+    # a killed leg does not always announce itself as a busy device. On qb2's p300c it comes back
+    # out of ttnn.open_device as a firmware-init throw (risc_firmware_initializer.cpp:1115,
+    # "failed to initialize FW! Try resetting the board") or as a sysmem pin throw
+    # (silicon_sysmem_manager.cpp:326, pin_or_map_iommu). Matching the PHASE rather than the error
+    # is the whole point: tt_bio's worker prints this banner and re-raises whenever get_device()
+    # fails, so the next open-time error nobody has seen yet lands on the arm that already exists.
+    # It sits AFTER the allocator rows deliberately. If the allocator spoke in this log, that is
+    # the stronger statement about the bar and it wins.
+    ("card",          re.compile(r"device open failed", re.I)),
     # The ENGINE declining the size, not the hardware failing to hold it. tt_bio.size_limits
     # raises SizeTooLargeError when a request is above the model's measured ceiling for this
     # arch, and once CEILINGS grew blackhole rows (2026-09-10) that became reachable at this
@@ -435,6 +455,38 @@ MECHANISM_PATTERNS = (
     ("size_guard",  re.compile(r"SizeTooLargeError|is measured to handle at most", re.I)),
 )
 
+#: Mechanisms that mean NO MODEL CODE RAN, and the verdict each one reports. Every retry and
+#: recovery site reads this instead of comparing against one verdict string. A second string
+#: sprayed across four call sites is exactly how "the card was gone" came to be scored as "the
+#: model failed the bar" for three cells on qb2's p300c on 2026-09-10.
+NOTHING_RAN = {"contention": "CONTENDED", "card": "CARD_DIRTY"}
+NOTHING_RAN_VERDICTS = frozenset(NOTHING_RAN.values())
+
+
+def nothing_ran(cell: dict | None) -> bool:
+    """True when a recorded cell is one the card never produced: no model code ran at all.
+
+    Finding 9 classified these legs; this is the same rule applied to the file they end up in.
+    A CARD_DIRTY cell is not a weaker capacity result, it is the absence of one, so it must not
+    read as coverage. It did: `baseline_gaps` asked only whether a cell was present, and
+    `record_baseline`'s guard refused to overwrite a real cell with a non-measurement but
+    happily created one where no cell existed yet -- which is exactly the case a re-measure of a
+    dropped cell lands in. Recording opendde on 2026-09-10 took that branch and published
+    CARD_DIRTY, and the coverage check went green on a cell whose leg died at firmware init.
+
+    Scoped to NOTHING_RAN rather than to UNDECIDED on purpose. An INCONCLUSIVE screen ran the
+    model and is a legitimate thing to record; it is only barred from overwriting a stronger
+    verdict, which `_would_lose_evidence` already handles and still does.
+    """
+    return bool(cell) and cell.get("verdict") in NOTHING_RAN_VERDICTS
+
+#: Why the cell decided nothing, in the words of whatever stopped it.
+NOTHING_RAN_REASON = {
+    "CONTENDED": "another process held the card; nothing was measured",
+    "CARD_DIRTY": "the worker never opened the device, so no model code ran and this size was "
+                  "not measured. Reset the card (tt-smi -r) and re-run this cell.",
+}
+
 
 def classify(log_text: str) -> str | None:
     """The mechanism this log names, in `size_limits.MECHANISMS`' own words.
@@ -446,6 +498,35 @@ def classify(log_text: str) -> str | None:
     """
     return sl.classify_device_oom(log_text) or next(
         (name for name, pat in MECHANISM_PATTERNS if pat.search(log_text)), None)
+
+
+#: A thrown error, at the start of a line: python's own, or tt-metal's macros.
+_FIRST_THROW = re.compile(r"^(?:\w*(?:Error|Exception):\s*\S.*|TT_(?:THROW|FATAL)\b.*)$")
+
+
+def first_error(log_text: str) -> str | None:
+    """The FIRST error the log threw, which for a leg that died in a spawned worker is the only
+    line that says why.
+
+    The 25-line tail cannot hold it. When the fold worker dies, tt-bio's outer error is
+    "every local worker exited before the run finished ... The worker's own traceback above says
+    why" -- and the outer click traceback is what fills those 25 lines, so `above` is exactly what
+    gets dropped. Finding 9 cost seven leg logs read off disk to recover a line the report had
+    already seen and discarded, and the work dir is scratch that hygiene eventually deletes.
+    """
+    lines = log_text.splitlines()
+    for i, line in enumerate(lines):
+        if not _FIRST_THROW.match(line.strip()):
+            continue
+        out = line.strip()
+        # tt-metal prints the human sentence on the line after a bare `info:`.
+        window = lines[i + 1:i + 4]
+        for j, nxt in enumerate(window):
+            if nxt.strip() == "info:" and j + 1 < len(window):
+                out += " | " + window[j + 1].strip()
+                break
+        return out[:400]
+    return None
 
 
 def tree_cpu_s(pid: int) -> float:
@@ -832,6 +913,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
             "cpu_s_while_quiet": round(max(0.0, cpu_now - cpu_at_quiet), 1),
             "host_ram_floor_mb": ram_floor, "mechanism": classify(text),
             "hook": hook_findings(hook_out),
+            "first_error": first_error(text),
             "tail": "\n".join(text.splitlines()[-25:])}
 
 
@@ -844,6 +926,8 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
 #: after it is the dispatch, which is the part a wedged chip never completes.
 _CARD_PROBE = (
     "import torch, ttnn\n"
+    "from tt_bio.main import ensure_p300_mesh_descriptor\n"
+    "ensure_p300_mesh_descriptor()\n"
     "d = ttnn.open_device(device_id=0)\n"
     "print('CARD_OPEN', flush=True)\n"
     "t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),\n"
@@ -1074,8 +1158,8 @@ def _screen(worker, cell, fixture, work, hookdir) -> dict:
         r["verdict"] = "INCONCLUSIVE"
         r["note"] = f"screen made no progress for {STALL_S}s; deferring to the residency run"
         return r
-    if r["mechanism"] == "contention":
-        r["verdict"] = "CONTENDED"
+    if r["mechanism"] in NOTHING_RAN:
+        r["verdict"] = NOTHING_RAN[r["mechanism"]]
         return r
     if r["hook_installed"] and (_HOOK_BROKE.search(r["tail"] or "")
                                 or _hook_cut_these_weights(r["tail"], trunc)):
@@ -1108,8 +1192,8 @@ def _residency(worker, cell, fixture, work, hookdir, tokens) -> dict:
     r["dram_total_bytes"] = h.get("dram_total_bytes")
     r["dram_largest_free_at_peak"] = h.get("dram_largest_free_at_peak")
     r["blocks_instrumented"] = len(h.get("instrumented") or [])
-    if r["mechanism"] == "contention":
-        r["verdict"] = "CONTENDED"
+    if r["mechanism"] in NOTHING_RAN:
+        r["verdict"] = NOTHING_RAN[r["mechanism"]]
     elif r["stalled"]:
         r["verdict"] = "STALL"
         r["stall_kind"] = ("compute-active" if r["cpu_s_while_quiet"] > 0.5 * STALL_S
@@ -1184,12 +1268,12 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
 
     scr = _screen(worker, cell, f, work, hookdir)
     rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR))
-    if scr["verdict"] == "CONTENDED" and wait_for_card(worker):
+    if scr["verdict"] in NOTHING_RAN_VERDICTS and wait_for_card(worker):
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR, retry=True))
-    if scr["verdict"] == "CONTENDED":
-        rec.update(verdict="CONTENDED", decided_by="screen", wall_s=scr["wall_s"],
-                   reason="another process held the card; nothing was measured")
+    if scr["verdict"] in NOTHING_RAN_VERDICTS:
+        rec.update(verdict=scr["verdict"], decided_by="screen", wall_s=scr["wall_s"],
+                   reason=NOTHING_RAN_REASON[scr["verdict"]])
         return rec
     if scr["verdict"] in ("FAIL", "HOST_OOM") and not screen_reduction_is_unsafe(scr):
         # Definitive: a shape that cannot allocate once cannot allocate ever.
@@ -1214,7 +1298,7 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
     # earlier killed fold accepts an open and then hangs, with all threads idle and no error --
     # indistinguishable from a model hang from the outside, and attributing it to the model would
     # publish a ceiling that is really a housekeeping bug.
-    if res["verdict"] in ("CONTENDED", "STALL") and not card_healthy(worker):
+    if res["verdict"] in (NOTHING_RAN_VERDICTS | {"STALL"}) and not card_healthy(worker):
         rec["legs"][-1]["card_unhealthy_after"] = True
         if wait_for_card(worker):
             res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
@@ -1224,7 +1308,7 @@ def run_cell(worker: Worker, cell: Cell, work: Path, hookdir: Path, *, depth,
                        reason="the card stopped dispatching and did not recover; nothing was "
                               "measured. Reset it (tt-smi -r) and re-run this cell.")
             return rec
-    elif res["verdict"] == "CONTENDED" and wait_for_card(worker):
+    elif res["verdict"] in NOTHING_RAN_VERDICTS and wait_for_card(worker):
         res = _residency(worker, cell, f, work, hookdir, TOKEN_BAR)
         rec["legs"].append(dict(res, tier="residency", tokens=TOKEN_BAR, retry=True))
     rec.update(verdict=res["verdict"], decided_by="residency", mechanism=res["mechanism"],
@@ -1332,7 +1416,8 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
         first failing one was running on a card the rung above may have wedged, so the ceiling
         those rungs report is exactly the kind of number that gets published without being walked.
         """
-        if recover is None or leg.get("verdict") not in ("FAIL", "HOST_OOM", "STALL", "ERROR"):
+        if recover is None or leg.get("verdict") not in (
+                {"FAIL", "HOST_OOM", "STALL", "ERROR"} | NOTHING_RAN_VERDICTS):
             return
         ok, how = recover(worker)
         leg["card_after"] = how
@@ -1352,6 +1437,18 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
             continue
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=rung))
+        if scr["verdict"] in NOTHING_RAN_VERDICTS:
+            # The card was gone, so this rung says nothing about shapes. Recover and re-walk it
+            # once; if it is still gone, the rung is not walked at all. Letting it fall through
+            # set alloc_hi and published a wall at a size the allocator was never asked about --
+            # measured on qb2's p300c 2026-09-10, where opendde (1280), opendde-abag (1344) and
+            # protenix-v1 (1376) each got their ceiling from the rung above, whose worker died
+            # inside ttnn.open_device after the previous leg was killed on the stall timeout.
+            settle(rec["legs"][-1])
+            scr = _screen(worker, cell, f, work, hookdir)
+            rec["legs"].append(dict(scr, tier="screen", tokens=rung, retry=True))
+            if scr["verdict"] in NOTHING_RAN_VERDICTS:
+                continue
         walked.append(rung)
         if screen_reduction_is_unsafe(scr):
             # This rung learned NOTHING about allocation, so it may neither lower alloc_hi nor
@@ -1393,6 +1490,36 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
         # `lo` rather than None matters for the same reason: with the truncation no longer
         # blocking them, those runs happen, and a completing ceiling they found must not be
         # discarded on the way out.
+        #
+        # BUT ONLY IF THE ALLOCATOR IS WHAT REFUSED, and only once truncation is ruled out. A
+        # size wall is size-dependent by definition, so a walk where the allocator never spoke
+        # has not found one, however many rungs it burned. Measured on esmfold2 on qb2's p300c,
+        # 2026-09-10: the Tier 1 hook truncates block lists, which leaves a downstream reshape
+        # inconsistent, so every rung from 1408 down to 512 died in 4-6 s with the identical
+        # `shape '[1, 1, 3, 1]' is invalid for input of size 81` and the cell published "the
+        # ceiling is below 512 tokens if there is one at all" -- for a model whose size ladder
+        # folds 768 on that same card in 96.6 s. That case is `not screens_informative`, handled
+        # below by falling through to the residency-only note instead of this guard.
+        #
+        # This is the THIRD way the instrument has broken a model (_HOOK_BROKE was the first,
+        # _UNEXPECTED_KEY the second, both matched by message). A fourth message will not match
+        # a fourth regex either, so the guard here is on the shape of the evidence instead: an
+        # error that does not change with size is not evidence about size.
+        if screens_informative:
+            screens = [l for l in rec["legs"]
+                       if l.get("tier") == "screen" and l.get("tokens") in walked]
+            if walked and not any(l.get("mechanism") in ALLOC_MECHANISMS for l in screens):
+                why = next((l.get("mechanism") for l in screens if l.get("mechanism")), None)
+                rec["alloc_ceiling_tokens"] = None
+                rec["alloc_ceiling_note"] = (
+                    f"the bisect decided nothing. Every rung walked "
+                    f"({', '.join(str(r) for r in walked)}) failed without the allocator ever "
+                    f"refusing"
+                    + (f" (mechanism {why})" if why else "")
+                    + ", so the failure does not depend on size and is not a capacity wall. "
+                      "Whatever killed these rungs has to be fixed before a ceiling can be read "
+                      "off them.")
+                return None
         rec["alloc_ceiling_tokens"] = None
         if not walked:
             rec["alloc_ceiling_note"] = "no rung could be built, so nothing was walked."
@@ -1421,6 +1548,19 @@ def _bisect(worker, cell, work, hookdir, depth, rec, recover=None) -> int | None
             break
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=mid, phase="refine"))
+        if scr["verdict"] in NOTHING_RAN_VERDICTS:
+            # Here it is worse than in the rung loop above: the else branch RAISES alloc_lo, so a
+            # rung where no model code ran would be published as a size whose shapes allocate.
+            # Recover and re-screen once, then stop: a walk that cannot reach the card cannot
+            # refine, and the bounds it already has are the honest answer.
+            settle(rec["legs"][-1])
+            scr = _screen(worker, cell, f, work, hookdir)
+            rec["legs"].append(dict(scr, tier="screen", tokens=mid, phase="refine", retry=True))
+            if scr["verdict"] in NOTHING_RAN_VERDICTS:
+                rec["refine_stopped"] = (
+                    f"the card was gone at {mid} on two consecutive attempts, so the bound was "
+                    f"not refined past {alloc_lo}")
+                break
         if screen_reduction_is_unsafe(scr):
             rec["legs"][-1]["screen_unsafe"] = True
             screens_informative = False
@@ -1609,6 +1749,9 @@ def main(argv=None) -> int:
     ap.add_argument("--work-dir", type=Path,
                     default=REPO_ROOT / "perf" / "capacity" / "work")
     ap.add_argument("--report", type=Path, default=None)
+    ap.add_argument("--card-type", default=None,
+                    help="board type to file the recorded cells under (p150a, p300c, ...). Read "
+                         "from tt-smi for a local worker; needed only for a remote one.")
     ap.add_argument("--depth", type=int, default=None,
                     help="truncate MSA depth (a NAMED reduction, written into the report)")
     ap.add_argument("--recycling", type=int, default=None,
@@ -1688,7 +1831,8 @@ def main(argv=None) -> int:
         "dirty": bool(subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT,
                                      capture_output=True, text=True).stdout.strip()),
         "workers": [repr(w) for w in workers],
-        "geometry": geometry(workers[0]),
+        "geometry": dict(geometry(workers[0]),
+                         **({"board_type": a.card_type} if a.card_type else {})),
         "coverage_gaps": coverage_gaps(),
         "reductions": reductions(a.depth, a.recycling, models),
         "results": [],
@@ -1792,6 +1936,47 @@ def main(argv=None) -> int:
 
 BASELINE = REPO_ROOT / "docs" / "capacity_gate_baseline.json"
 
+#: Bumped when the on-disk shape changes. 1 was a single flat `cells` block.
+BASELINE_FORMAT = 2
+
+
+def read_baseline() -> dict:
+    """The baseline as ``{board_type: {..., "cells": {model: cell}}}``.
+
+    THE FILE IS PER CARD, because the answer is. p150a and p300c are both "blackhole" to ttnn,
+    and a gate that answers "does every model allocate and complete at 1536 tokens on this card"
+    cannot file that answer under no card.
+
+    Not because the L1 geometry differs. It does not: a stock p150a (qb1 card 3) and a p300c
+    (qb2 card 3) both read 110 L1 banks on an (x=11,y=10) grid against identical DRAM. An earlier
+    version of this docstring claimed 130 banks and 15.4 % more L1 for the p150a, from a
+    measurement taken on pc, which runs custom 130-core firmware. The CARD_PROBE comment below
+    already says every core count pc reports is a statement about pc.
+
+    What differs is everything around the chip. A p300 is a board PAIR, so reset and dispatch
+    granularity are two chips at a time, and a lone visible p300 chip is a CUSTOM topology that
+    will not open at all without a 1x1 mesh-graph descriptor. The recorded verdicts differ too.
+
+    Format 1 had one flat `cells` block and one file-level `geometry`, so it could hold exactly
+    one card and never said which. It held p150a: the probes opened ttnn bare and could not open a
+    p300c at all, so no other card could ever have been recorded into it. A format 1 file is read
+    as the card its own geometry names, which is that card and no other.
+    """
+    if not BASELINE.exists():
+        return {}
+    try:
+        data = json.loads(BASELINE.read_text())
+    except ValueError:
+        return {}
+    if "cards" in data:
+        return data["cards"]
+    cells = data.get("cells") or {}
+    card = (data.get("geometry") or {}).get("board_type")
+    if not cells or not card:
+        return {}
+    keep = ("recorded", "host", "tree", "dirty_tree", "geometry", "reductions")
+    return {card: {**{k: data[k] for k in keep if k in data}, "cells": cells}}
+
 
 def ceilings_fingerprint() -> str:
     """A stable hash over every published ceiling, so moving any row is detectable.
@@ -1828,7 +2013,7 @@ def ceilings_fingerprint() -> str:
 # design is never a pass; CONTENDED and CARD_DIRTY are cells where the card was unavailable and
 # no model code ran at all. Each is a legitimate thing to report, and none of them is evidence
 # about the bar.
-UNDECIDED = frozenset(("INCONCLUSIVE", "CONTENDED", "CARD_DIRTY"))
+UNDECIDED = frozenset(("INCONCLUSIVE",)) | NOTHING_RAN_VERDICTS
 
 
 def _would_lose_evidence(new: dict, old: dict | None) -> bool:
@@ -1851,12 +2036,15 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     A partial run (--models) updates only the cells it measured and leaves the rest standing, so
     re-measuring one model does not silently erase the others' recorded results.
     """
-    prior = {}
-    if BASELINE.exists():
-        try:
-            prior = json.loads(BASELINE.read_text())
-        except ValueError:
-            prior = {}
+    card = (report.get("geometry") or {}).get("board_type")
+    if not card:
+        return ("NOT RECORDED: this run did not establish which board it measured, and the "
+                "baseline is per card. `geometry()` reads board_type from tt-smi and only does "
+                "so for a LOCAL worker, so a remote --workers leg lands here. Re-run the gate "
+                "locally on the card, or pass --card-type. Filing the cells under the wrong "
+                "board is how a p300c result ends up published as a p150a one.")
+    per_card = read_baseline()
+    prior = per_card.get(card, {})
     cells = prior.get("cells", {}) if partial else {}
     # A partial run must not carry cells measured at a DIFFERENT bar across into this baseline.
     # Measured: raising the bar 1504 -> 1536 and re-recording six cells left the two esmfold2
@@ -1869,20 +2057,28 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     # is exactly the run that would wipe every PASS.
     before = (prior.get("cells") or {})
     fp = ceilings_fingerprint()
-    kept = []
-    # WHICH CARD each cell describes, per cell. `cells` is keyed by model alone and `geometry` is
-    # one block for the whole file, so a file holding a p150a run and a p300c run -- which is what
-    # two workers recording two card types produce, and they did on 2026-09-10 -- reads as if
-    # every cell came from whichever card recorded last. The verdicts differ by card: esmfold2
-    # FAILs 1536 on a 31.875 GiB p150a. This does not give the file a card axis (that is a schema
-    # change and a merge conflict with anyone recording the other card); it makes a mixed file
-    # say so instead of quietly averaging two machines.
+    # WHICH CARD each cell describes, per cell within this call, beyond the file's own per-card
+    # bucket. `cards[card]["cells"]` already answers which board TYPE a cell belongs to -- that
+    # is the schema change this file went through so a p150a run and a p300c run stop reading as
+    # if whichever card recorded last owned every cell, which is what a flat `cells` dict keyed
+    # by model alone produced, and did on 2026-09-10. `measured_on` is finer than that: a
+    # `--workers` fan-out can record several cells in one call from different hosts, and only the
+    # per-result worker label says which one actually ran a given model.
     geom = report.get("geometry") or {}
+    kept, dropped = [], []
     for r in report["results"]:
         if _would_lose_evidence(r, before.get(r["model"])):
             kept.append(f"{r['model']} ({before[r['model']]['verdict']} kept over "
                         f"{r['verdict']})")
             cells[r["model"]] = before[r["model"]]
+            continue
+        # Nothing to keep and nothing to write: a leg where the card never opened produced no
+        # cell at all. The branch above covers the case where a measurement already stands; this
+        # one is the case where none does, and writing here is how a non-measurement becomes the
+        # baseline's answer for the model.
+        if nothing_ran(r):
+            dropped.append(f"{r['model']} ({r['verdict']})")
+            cells.pop(r["model"], None)
             continue
         cells[r["model"]] = {k: r.get(k) for k in
                              ("verdict", "tokens_requested", "tokens_padded", "residues",
@@ -1897,25 +2093,35 @@ def record_baseline(report: dict, *, partial: bool) -> str:
         # baseline_stale(): a file-level stamp let a one-model record re-certify every cell.
         cells[r["model"]]["ceilings_fingerprint"] = fp
         cells[r["model"]]["tree"] = report["tree"]
-        cells[r["model"]]["board_type"] = geom.get("board_type")
         cells[r["model"]]["measured_on"] = r.get("worker") or (
             f"{geom.get('host')}:{geom.get('card')}" if geom.get("host") else None)
-    BASELINE.write_text(json.dumps({
-        "bar_tokens": report["bar_tokens"],
+    per_card[card] = {
         "recorded": report["started"],
+        "host": (report.get("geometry") or {}).get("host"),
         "tree": report["tree"],
         "dirty_tree": report["dirty"],
         "geometry": report["geometry"],
         "reductions": report["reductions"],
         "cells": cells,
-        "note": "CAPACITY ONLY: allocates and completes. Not a correctness record.",
+    }
+    BASELINE.write_text(json.dumps({
+        "format": BASELINE_FORMAT,
+        "bar_tokens": report["bar_tokens"],
+        "note": "CAPACITY ONLY: allocates and completes. Not a correctness record. Per board "
+                "type, because p150a and p300c do not have the same L1 and a cell filed under "
+                "no card is a cell about no card.",
+        "cards": dict(sorted(per_card.items())),
     }, indent=1, default=str) + "\n")
-    msg = f"recorded {BASELINE} ({len(cells)} cells, ceilings {fp})"
+    msg = f"recorded {BASELINE} ({card}: {len(cells)} cells, ceilings {fp})"
     # Said out loud. A cell that silently did not update is indistinguishable from one that did,
     # and the whole point of keeping it is that the stronger result cost card time.
     if kept:
         msg += ("\n  this run decided nothing for these, so the recorded result stands: "
                 + "; ".join(kept))
+    if dropped:
+        msg += ("\n  the card never opened for these and nothing was recorded before, so no "
+                "cell was written and the coverage check will report them missing: "
+                + "; ".join(dropped))
     return msg
 
 
@@ -1962,7 +2168,7 @@ def _screen_only(worker, cell, work, hookdir, depth) -> dict:
                msa_rows_effective=f["effective_depth"] if cell.msa else 0)
     scr = _screen(worker, cell, f, work, hookdir)
     rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR))
-    if scr["verdict"] == "CONTENDED" and wait_for_card(worker):
+    if scr["verdict"] in NOTHING_RAN_VERDICTS and wait_for_card(worker):
         scr = _screen(worker, cell, f, work, hookdir)
         rec["legs"].append(dict(scr, tier="screen", tokens=TOKEN_BAR, retry=True))
     rec.update(verdict=scr["verdict"], decided_by="screen", mechanism=scr["mechanism"],

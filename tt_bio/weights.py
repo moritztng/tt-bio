@@ -24,6 +24,7 @@ one knob that relocates both. See ``docs/weights.md``.
 
 from __future__ import annotations
 
+import fcntl
 import os
 import shutil
 import time
@@ -1170,13 +1171,44 @@ def fetch(key: str, *, root: str | Path | None = None, force: bool = False,
                 f"or point ${art.env} at a good copy.")
         return dest
 
+    # Everything past here writes into the cache, and the cache is shared. Five tt-bio
+    # processes ran `weights --download` over one cache at once and interleaved:
+    # fetch_file stages into a stable `.<name>.part` so a multi-GB download resumes
+    # instead of restarting, which also means two downloaders of one artifact write the
+    # same file and each other's retry unlinks it, and sweep_stale_staging deletes
+    # staging older than an hour whoever owns it. One lock per artifact key closes both
+    # without giving up the resume: the waiter wakes to a finished file.
+    with _artifact_lock(key, root, quiet=quiet):
+        return _fetch_locked(art, root=root, force=force, quiet=quiet)
+
+
+@contextmanager
+def _artifact_lock(key: str, root, *, quiet: bool = False):
+    """Hold one artifact's download lock. Released by the kernel if the holder dies, so a
+    killed downloader cannot wedge every other process out of the cache."""
+    lock_dir = cache_root(root) / ".locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    with open(lock_dir / f"{key}.lock", "a+") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            _echo(f"Waiting for another process to finish downloading {key}", quiet)
+            fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def _fetch_locked(art, *, root, force: bool, quiet: bool) -> Path:
+    """The downloading half of `fetch`, run under that artifact's lock."""
     if art.source == "hf-repo":
         snap = fetch_hf_repo(art.repo, filename=art.filename, revision=art.revision,
                              force=force, quiet=quiet)
         return snap / art.filename if art.filename else snap
 
     if art.source != "file":
-        raise ValueError(f"unknown source {art.source!r} for {key}")
+        raise ValueError(f"unknown source {art.source!r} for {art.key}")
 
     path = art.dest(root)
     if art.derived:

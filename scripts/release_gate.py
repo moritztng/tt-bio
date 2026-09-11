@@ -778,7 +778,8 @@ SIZE_LADDER_NESSO_TOKENS_BUDGET = 256
 #
 #   * EACH HAS ITS OWN AXIS. rfd3 counts the contig's total residues (target + binder),
 #     pxdesign the target chain's residues, boltzgen atoms. ``tt_bio.size_limits`` already keys
-#     them that way (DESIGN_TOTAL / DESIGN_TARGET), so this follows that grain instead of
+#     them that way (DESIGN_TOTAL / DESIGN_TARGET / TARGET_ATOMS), so this follows that grain
+#     instead of
 #     inventing a fourth reading of "size". ``axis`` is recorded beside the rows so a reader
 #     cannot mistake a pxdesign 768 for a boltz2 768.
 #   * EACH HAS ITS OWN RUNGS. A design ladder stops where its own target stops. pxdesign's
@@ -815,12 +816,13 @@ SIZE_LADDER_DESIGN = {
         "steps": (),
     },
 }
-# boltzgen carries no rungs on purpose. Its measured cap is atom-denominated (between 3158 and
-# 4651 atoms, in the trunk Pairformer's triangle attention -- wh-design-models-l1-budget-and-
-# size-caps) and atoms per residue vary with composition, so cutting a residue ladder and
-# labelling it an atom ladder would be a units substitution, the same mistake size_limits.py
-# refuses to make in its boltzgen row. It needs an atom-denominated fixture set walked on its
-# own axis, which is a task and not a line of config.
+# boltzgen carries no rungs on purpose, and the reason is the fixtures rather than the axis. The
+# axis now exists: size_limits.py's boltzgen row is TARGET_ATOMS and its cap is 14786 atoms on a
+# Wormhole Galaxy chip, walked 3225 / 4671 / 6180 / 8225 / 10482 / 14786 by wh-seqlen-design-embed.
+# What this tree does not carry is a set of targets cut to those atom counts -- only the 3225-atom
+# one, in tests/fixtures/boltzgen/, which the sizer guard uses. Cutting a RESIDUE ladder and
+# labelling it an atom ladder would be a units substitution, because atoms per residue vary with
+# composition, so the rungs stay empty until the fixture set lands.
 
 
 # ---------------------------------------------------------------------------
@@ -1781,6 +1783,27 @@ def run_opendde_abag(keep: bool) -> dict:
     return row
 
 
+def _fold_log_text(log: Path) -> str:
+    """A fold log's text, or a sentence saying why it is not readable. Never raises.
+
+    The path that collects a failure must not be able to fail. When a fold dies because its
+    scratch tree went away under it, the log the error path reads is the very thing that
+    vanished, so an unguarded read_text() replaces the fold's own error with a FileNotFoundError
+    raised at the line collecting it -- and the fold's error is then gone for good, because the
+    only copy was in that file. protenix-v2's size ladder hit this twice on 2026-09-10, at rung
+    256 both times, and both crashes reported
+    `FileNotFoundError: perf/sizegate/work/protenix-v2-256-rep0.log` from this gate's own error
+    path instead of whatever the fold was actually complaining about.
+    """
+    try:
+        return log.read_text(errors="replace")
+    except OSError as e:
+        # A log missing AFTER the fold ran is a different fault from a fold that failed, so
+        # say which one this is. The diagnosis goes first because _fold_error truncates at 400.
+        return (f"[release-gate] the fold log is gone, so the scratch tree was removed under "
+                f"the run and the fold's own error is unrecoverable: {log} ({e})")
+
+
 def _fold_error(text: str) -> str:
     """A failed fold's OWN error line, not whatever happened to print last.
 
@@ -1985,7 +2008,7 @@ def run_capacity(keep: bool, leg) -> dict:
                                   stderr=subprocess.STDOUT,
                                   env={**os.environ, "TT_BIO_DRAM_PEAK": str(dram_log)})
     row["seconds"] = time.monotonic() - t0
-    text = log.read_text(errors="replace")
+    text = _fold_log_text(log)
     if timed_out:
         row["error"] = f"predict timed out after {FOLD_TIMEOUT_S}s"
         return row
@@ -2251,7 +2274,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     if timed_out:
         return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"}
     if rc != 0:
-        text = log.read_text(errors="replace")
+        text = _fold_log_text(log)
         refusal = _size_limit_refusal(text)
         if refusal:
             return {"refused": refusal}
@@ -2468,7 +2491,7 @@ def _rfd3_fusion_census_fold(spec: Path, label: str, workdir: Path) -> dict:
         return {"error": f"{label}: design timed out after {RFD3_FUSION_TIMEOUT_S}s"}
     if rc != 0:
         return {"error": f"{label}: design exited {rc}: "
-                         f"{_fold_error(log.read_text(errors='replace'))}"}
+                         f"{_fold_error(_fold_log_text(log))}"}
     # A design that wrote no structure censuses zero for reasons that have nothing to do with
     # either lever, so assert the fold happened before reading a single counter.
     if not sorted(out_dir.rglob("*.cif")):
@@ -3693,7 +3716,7 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, env=env,
                                   stdout=fh, stderr=subprocess.STDOUT)
     row["seconds"] = time.monotonic() - t0
-    text = log.read_text(errors="replace")
+    text = _fold_log_text(log)
     # Every clash tt-metal threw. The fix catches these and retries narrower, so a nonzero
     # count is not a failure -- an escaped one shows up as a nonzero exit code below.
     row["clashes"] = text.count("clash with L1 buffers")

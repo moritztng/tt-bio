@@ -249,8 +249,14 @@ class ProtenixDesign(Protenix):
         gamma_min 0.01. The design_token_mask half of the output is the designed binder;
         the rest reproduces the conditioned target.
 
-        Sample k comes from seed + k whether it was generated alone or in a batch, so
-        `--num_designs` changes how many designs come back and not which ones."""
+        Sample k is meant to come from seed + k whether it was generated alone or in a
+        batch, so that `--num_designs` changes how many designs come back and not which
+        ones. It does not hold across the n_sample == 1 boundary: measured on Wormhole
+        (9ck4 chain B, 60-residue binder, seed 42, 50 steps), n_sample 2 and 3 agree with
+        each other bit-for-bit on designs 0 and 1, and both differ from n_sample 1. The
+        device denoise is batch-invariant, so the difference is the seeding branch below,
+        where n_sample 1 takes the single-stream `member_seeds=None` path. Do not rely on
+        a design surviving a change of --num_designs until that is closed."""
         cond, aux = self._trunk_cond(feats, progress_fn=progress_fn)
         eta = DESIGN_ETA_SCHEDULE if eta_schedule is None else eta_schedule
         M = int(n_sample)

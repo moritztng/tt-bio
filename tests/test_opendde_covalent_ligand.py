@@ -87,3 +87,35 @@ def test_structural_tokens_follow_a_cropped_chains_oxt():
         n_atom = feats["atom_to_token_idx"].shape[0]
         assert st["atom_to_structural_token_idx"].shape[0] == n_atom, f"oxt={oxt}"
         assert st["atom_to_structural_tokatom_idx"].shape[0] == n_atom, f"oxt={oxt}"
+
+
+def test_modified_residue_structural_tokens():
+    """A `modifications:` residue is tokenized per atom, like a ligand.
+
+    build_complex_features atomizes SEP into one token per atom from its CCD component.
+    build_structural_token_features used to name every one of those slots from the
+    canonical `aatype`, which is UNK there, so it built a whole 5-atom UNK residue per
+    atom and asserted out (`408 atoms built vs 368 in feats`). The token's own atom count
+    is the signal: one atom means the token IS the atom.
+    """
+    chains = [(PROT, None, "protein")]
+    mods = [[{"position": 3, "ccd": "SEP"}]]
+    feats = build_complex_features(chains, mol_dir=_MOL_DIR, chain_ids=["A"],
+                                   modifications=mods)
+    n_atom = feats["atom_to_token_idx"].shape[0]
+    per_token = torch.bincount(feats["atom_to_token_idx"].long(),
+                               minlength=feats["restype"].shape[0])
+    atomized = (per_token == 1).nonzero(as_tuple=True)[0].tolist()
+    assert atomized, "SEP should be tokenized per atom; fixture did not atomize"
+
+    ifd = build_structural_token_features(feats)
+    role, parent = ifd["subtoken_role_id"], ifd["parent_residue_idx"]
+    assert ifd["atom_to_structural_token_idx"].shape[0] == n_atom
+    mod_st = [i for i, p in enumerate(parent.tolist()) if p in atomized]
+    assert len(mod_st) == len(atomized), "one structural token per atomized slot"
+    assert all(role[i].item() == STRUCTURAL_TOKEN_ROLES["atom"] for i in mod_st)
+    assert all(int(t) == -1 for t in ifd["twin_token_idx"][mod_st].tolist())
+    # negative control: the same chain without the modification has no atom-role token
+    plain = build_structural_token_features(
+        build_complex_features(chains, mol_dir=_MOL_DIR, chain_ids=["A"]))
+    assert STRUCTURAL_TOKEN_ROLES["atom"] not in plain["subtoken_role_id"].tolist()

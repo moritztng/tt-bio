@@ -72,3 +72,15 @@ tt-bio design examples/binder.yaml --out_dir existing/ --steps analysis,filterin
 | `--cache` | `~/.boltz/boltzgen` | Cache for downloaded weights |
 | `--debug` | `False` | Disable live display; show raw stage output |
 | `--debug --log` | `False` | Add per-stage progress markers |
+
+## Target size
+
+BoltzGen is sized on the target's atoms, not its residues, because the wall follows the atom
+count and atoms per residue depend on what the target is made of. On a Wormhole Galaxy chip the
+largest target measured to design is 14786 atoms, 1831 residues of a deposited protein, with an
+80-residue binder; nothing above it has been tried and nothing failed below it. tt-bio counts the
+atoms out of the structure file your `file:` entity names and refuses an oversized target before
+it opens a device. `TT_BIO_SIZE_LIMIT=0` turns that refusal into a warning.
+
+Blackhole is a separate and larger machine: a p150a designs against a 16948-atom target in 805 s,
+and nothing is refused there because the ladder above that size has not been re-walked.
