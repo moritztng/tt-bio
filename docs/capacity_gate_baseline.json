@@ -336,9 +336,9 @@
    }
   },
   "p300c": {
-   "recorded": "2026-09-11T09:14:09Z",
+   "recorded": "2026-09-11T09:40:00Z",
    "host": "tt-quietbox2",
-   "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
+   "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
    "dirty_tree": false,
    "geometry": {
     "arch": "blackhole",
@@ -374,15 +374,16 @@
      "msa_rows_effective": 8832,
      "dram_peak_bytes": 6202753024,
      "dram_total_bytes": 34225520128,
-     "wall_s": 444.8,
+     "wall_s": 275.0,
      "mechanism": null,
      "decided_by": "residency",
      "ceiling_tokens": null,
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "53d0207c94a2ea48",
-     "tree": "f64c0dd5187e4aec6539116c68482ea2c6f2a330"
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
+     "measured_on": "tt-quietbox2:0"
     },
     "boltzgen": {
      "verdict": "SKIPPED",
@@ -525,15 +526,16 @@
      "msa_rows_effective": 8832,
      "dram_peak_bytes": 15867672576,
      "dram_total_bytes": 34225520128,
-     "wall_s": 689.3,
+     "wall_s": 621.4,
      "mechanism": null,
      "decided_by": "residency",
      "ceiling_tokens": null,
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "53d0207c94a2ea48",
-     "tree": "f64c0dd5187e4aec6539116c68482ea2c6f2a330"
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
+     "measured_on": "tt-quietbox2:0"
     },
     "openfold3": {
      "verdict": "PASS",
@@ -543,15 +545,16 @@
      "msa_rows_effective": 8832,
      "dram_peak_bytes": 14660745216,
      "dram_total_bytes": 34225520128,
-     "wall_s": 682.0,
+     "wall_s": 618.6,
      "mechanism": null,
      "decided_by": "residency",
      "ceiling_tokens": null,
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "53d0207c94a2ea48",
-     "tree": "f64c0dd5187e4aec6539116c68482ea2c6f2a330"
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
+     "measured_on": "tt-quietbox2:0"
     },
     "protenix-v2": {
      "verdict": "PASS",
@@ -561,15 +564,16 @@
      "msa_rows_effective": 8832,
      "dram_peak_bytes": 10779160576,
      "dram_total_bytes": 34225520128,
-     "wall_s": 819.6,
+     "wall_s": 838.5,
      "mechanism": null,
      "decided_by": "residency",
      "ceiling_tokens": null,
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "53d0207c94a2ea48",
-     "tree": "f64c0dd5187e4aec6539116c68482ea2c6f2a330"
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
+     "measured_on": "tt-quietbox2:0"
     },
     "pxdesign": {
      "verdict": "SKIPPED",
