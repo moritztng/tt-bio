@@ -1242,8 +1242,28 @@ def _dead_worker_stderr(procs) -> str:
     for proc in procs:
         cap = read_worker_capture(proc.pid) if proc.pid else ""
         if cap:
-            tails.append(f"--- {proc.name} (exit {proc.exitcode}) stderr tail ---\n{cap}")
+            tails.append(f"--- {proc.name} (exit {proc.exitcode}) stderr tail ---\n{cap}"
+                         + _l1_census_line(cap))
     return ("\n" + "\n\n".join(tails)) if tails else ""
+
+
+def _l1_census_line(text: str) -> str:
+    """The allocation census an L1 throw in `text` implies, or "".
+
+    tt-metal reports an L1 failure as two raw addresses or as a byte count against a
+    ceiling, which reads like "out of memory at N" and is not what it says.
+    `describe_l1_clash` subtracts instead and names the grid, the shortfall and whether
+    a resident tensor is implicated at all. Rendering it here is the difference between
+    a user filing "it crashed" and filing the number we need.
+    """
+    try:
+        from tt_bio.tenstorrent import describe_l1_clash
+    except Exception:                                          # no ttnn on this host
+        return ""
+    census = describe_l1_clash(text)
+    if not census:
+        return ""
+    return "\n    L1 census: " + " ".join(f"{k}={v}" for k, v in census.items())
 
 
 def _parse_listen(listen: str | None) -> tuple[str, int]:
