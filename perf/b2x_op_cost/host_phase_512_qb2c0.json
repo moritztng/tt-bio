@@ -1,0 +1,1976 @@
+{
+ "env": {
+  "started": "2026-09-11T16:16:39+0000",
+  "card": "0",
+  "trace_region": true,
+  "commit": "6f150345",
+  "loadavg": [
+   "0.00",
+   "0.16",
+   "1.69"
+  ],
+  "size": 512,
+  "phases": [
+   "plain",
+   "table",
+   "census",
+   "block",
+   "control",
+   "slope"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 3.02,
+  "n_msa": 35,
+  "card_type": "p300c"
+ },
+ "cold_s": 26.873,
+ "plain": {
+  "a0": {
+   "wall_s": 23.7069,
+   "cpu_s": 18.897,
+   "plddt": null,
+   "loadavg": [
+    "1.24",
+    "0.43",
+    "1.69"
+   ],
+   "cpu_pct": 79.71
+  },
+  "a1": {
+   "wall_s": 23.6249,
+   "cpu_s": 18.8009,
+   "plddt": null,
+   "loadavg": [
+    "1.68",
+    "0.58",
+    "1.71"
+   ],
+   "cpu_pct": 79.58
+  }
+ },
+ "table": {
+  "fold_wall_s": 23.7096,
+  "fold_cpu_s": 18.9599,
+  "fold_cpu_pct": 79.97,
+  "classes_bracketed": 30,
+  "plddt": null,
+  "top_level_wall_s": 20.4978,
+  "top_level_cpu_s": 15.7545,
+  "loadavg": [
+   "1.85",
+   "0.73",
+   "1.73"
+  ],
+  "tree": {
+   "DiffusionModule": {
+    "calls": 200,
+    "incl_wall_s": 7.15136,
+    "excl_wall_s": 4.84568,
+    "incl_cpu_s": 2.85887,
+    "excl_cpu_s": 0.55675,
+    "median_ms": 33.06923
+   },
+   "DiffusionModule/Diffusion": {
+    "calls": 200,
+    "incl_wall_s": 2.30567,
+    "excl_wall_s": 0.06389,
+    "incl_cpu_s": 2.30212,
+    "excl_cpu_s": 0.06329,
+    "median_ms": 11.05442
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer": {
+    "calls": 600,
+    "incl_wall_s": 2.2238,
+    "excl_wall_s": 0.01085,
+    "incl_cpu_s": 2.22099,
+    "excl_cpu_s": 0.01078,
+    "median_ms": 1.14364
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+    "calls": 6000,
+    "incl_wall_s": 2.21295,
+    "excl_wall_s": 0.27875,
+    "incl_cpu_s": 2.2102,
+    "excl_cpu_s": 0.27687,
+    "median_ms": 0.35
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+    "calls": 6000,
+    "incl_wall_s": 0.27599,
+    "excl_wall_s": 0.27599,
+    "incl_cpu_s": 0.27595,
+    "excl_cpu_s": 0.27595,
+    "median_ms": 0.04458
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+    "calls": 6000,
+    "incl_wall_s": 0.98073,
+    "excl_wall_s": 0.98073,
+    "incl_cpu_s": 0.98012,
+    "excl_cpu_s": 0.98012,
+    "median_ms": 0.14657
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+    "calls": 6000,
+    "incl_wall_s": 0.67748,
+    "excl_wall_s": 0.39385,
+    "incl_cpu_s": 0.67726,
+    "excl_cpu_s": 0.39323,
+    "median_ms": 0.11156
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+    "calls": 6000,
+    "incl_wall_s": 0.28363,
+    "excl_wall_s": 0.28363,
+    "incl_cpu_s": 0.28402,
+    "excl_cpu_s": 0.28402,
+    "median_ms": 0.04667
+   },
+   "DiffusionModule/Diffusion/Transition": {
+    "calls": 400,
+    "incl_wall_s": 0.01798,
+    "excl_wall_s": 0.01798,
+    "incl_cpu_s": 0.01784,
+    "excl_cpu_s": 0.01784,
+    "median_ms": 0.04348
+   },
+   "PairformerModule": {
+    "calls": 1,
+    "incl_wall_s": 0.46473,
+    "excl_wall_s": 0.34349,
+    "incl_cpu_s": 0.24239,
+    "excl_cpu_s": 0.12115,
+    "median_ms": 464.73282
+   },
+   "PairformerModule/Pairformer": {
+    "calls": 1,
+    "incl_wall_s": 0.12125,
+    "excl_wall_s": 0.0001,
+    "incl_cpu_s": 0.12124,
+    "excl_cpu_s": 0.0001,
+    "median_ms": 121.24577
+   },
+   "PairformerModule/Pairformer/PairformerLayer": {
+    "calls": 8,
+    "incl_wall_s": 0.12114,
+    "excl_wall_s": 0.00143,
+    "incl_cpu_s": 0.12114,
+    "excl_cpu_s": 0.00142,
+    "median_ms": 5.09672
+   },
+   "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 8,
+    "incl_wall_s": 0.00396,
+    "excl_wall_s": 0.00396,
+    "incl_cpu_s": 0.00396,
+    "excl_cpu_s": 0.00396,
+    "median_ms": 0.34742
+   },
+   "PairformerModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_wall_s": 0.0959,
+    "excl_wall_s": 0.0959,
+    "incl_cpu_s": 0.0959,
+    "excl_cpu_s": 0.0959,
+    "median_ms": 0.92253
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 16,
+    "incl_wall_s": 0.01032,
+    "excl_wall_s": 0.01032,
+    "incl_cpu_s": 0.01033,
+    "excl_cpu_s": 0.01033,
+    "median_ms": 0.60276
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 16,
+    "incl_wall_s": 0.00953,
+    "excl_wall_s": 0.00953,
+    "incl_cpu_s": 0.00953,
+    "excl_cpu_s": 0.00953,
+    "median_ms": 0.46644
+   },
+   "TrunkModule": {
+    "calls": 1,
+    "incl_wall_s": 12.8817,
+    "excl_wall_s": 0.56021,
+    "incl_cpu_s": 12.65323,
+    "excl_cpu_s": 0.33783,
+    "median_ms": 12881.70339
+   },
+   "TrunkModule/MSA": {
+    "calls": 4,
+    "incl_wall_s": 1.64228,
+    "excl_wall_s": 0.00122,
+    "incl_cpu_s": 1.63865,
+    "excl_cpu_s": 0.00114,
+    "median_ms": 463.66392
+   },
+   "TrunkModule/MSA/MSALayer": {
+    "calls": 16,
+    "incl_wall_s": 1.64106,
+    "excl_wall_s": 0.01215,
+    "incl_cpu_s": 1.63751,
+    "excl_cpu_s": 0.01214,
+    "median_ms": 120.13724
+   },
+   "TrunkModule/MSA/MSALayer/OuterProductMean": {
+    "calls": 16,
+    "incl_wall_s": 0.0829,
+    "excl_wall_s": 0.0829,
+    "incl_cpu_s": 0.08246,
+    "excl_cpu_s": 0.08246,
+    "median_ms": 3.9445
+   },
+   "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+    "calls": 16,
+    "incl_wall_s": 0.23637,
+    "excl_wall_s": 0.23637,
+    "incl_cpu_s": 0.23566,
+    "excl_cpu_s": 0.23566,
+    "median_ms": 10.73456
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer": {
+    "calls": 16,
+    "incl_wall_s": 0.40341,
+    "excl_wall_s": 0.00897,
+    "incl_cpu_s": 0.40226,
+    "excl_cpu_s": 0.00893,
+    "median_ms": 26.758
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_wall_s": 0.27462,
+    "excl_wall_s": 0.27462,
+    "incl_cpu_s": 0.27404,
+    "excl_cpu_s": 0.27404,
+    "median_ms": 13.03785
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+    "calls": 32,
+    "incl_wall_s": 0.02304,
+    "excl_wall_s": 0.02304,
+    "incl_cpu_s": 0.02286,
+    "excl_cpu_s": 0.02286,
+    "median_ms": 0.59582
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+    "calls": 32,
+    "incl_wall_s": 0.09677,
+    "excl_wall_s": 0.09677,
+    "incl_cpu_s": 0.09643,
+    "excl_cpu_s": 0.09643,
+    "median_ms": 0.80781
+   },
+   "TrunkModule/MSA/MSALayer/Transition": {
+    "calls": 16,
+    "incl_wall_s": 0.90623,
+    "excl_wall_s": 0.90623,
+    "incl_cpu_s": 0.90499,
+    "excl_cpu_s": 0.90499,
+    "median_ms": 58.27392
+   },
+   "TrunkModule/Pairformer": {
+    "calls": 4,
+    "incl_wall_s": 10.67922,
+    "excl_wall_s": 0.00125,
+    "incl_cpu_s": 10.67675,
+    "excl_cpu_s": 0.00125,
+    "median_ms": 2669.87274
+   },
+   "TrunkModule/Pairformer/PairformerLayer": {
+    "calls": 256,
+    "incl_wall_s": 10.67797,
+    "excl_wall_s": 0.08267,
+    "incl_cpu_s": 10.6755,
+    "excl_cpu_s": 0.08193,
+    "median_ms": 41.3852
+   },
+   "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 256,
+    "incl_wall_s": 0.25724,
+    "excl_wall_s": 0.25724,
+    "incl_cpu_s": 0.25672,
+    "excl_cpu_s": 0.25672,
+    "median_ms": 0.85493
+   },
+   "TrunkModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 512,
+    "incl_wall_s": 9.51647,
+    "excl_wall_s": 9.51647,
+    "incl_cpu_s": 9.51536,
+    "excl_cpu_s": 9.51536,
+    "median_ms": 2.45734
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 512,
+    "incl_wall_s": 0.34176,
+    "excl_wall_s": 0.34176,
+    "incl_cpu_s": 0.3416,
+    "excl_cpu_s": 0.3416,
+    "median_ms": 0.60691
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 512,
+    "incl_wall_s": 0.47984,
+    "excl_wall_s": 0.47984,
+    "incl_cpu_s": 0.47989,
+    "excl_cpu_s": 0.47989,
+    "median_ms": 0.78566
+   }
+  },
+  "residual_wall_s": 3.2118,
+  "residual_cpu_s": 3.2054
+ },
+ "census": {
+  "fold_wall_s": 23.8498,
+  "fold_cpu_s": 19.4029,
+  "n_ttnn_entrypoints_wrapped": 701,
+  "plddt": null,
+  "totals": {
+   "n_calls": 504981,
+   "wall_in_ttnn_s": 19.5628,
+   "cpu_in_ttnn_s": 15.1422,
+   "us_per_call_cpu": 29.986
+  },
+  "by_phase": {
+   "(glue)": {
+    "calls": 79,
+    "cpu_s": 0.0001,
+    "wall_in_ttnn_s": 0.0001,
+    "us_per_call_cpu": 1.835
+   },
+   "DiffusionModule": {
+    "calls": 372778,
+    "cpu_s": 2.779,
+    "wall_in_ttnn_s": 6.7527,
+    "us_per_call_cpu": 7.455
+   },
+   "DiffusionModule/Diffusion": {
+    "calls": 372083,
+    "cpu_s": 2.2366,
+    "wall_in_ttnn_s": 2.2261,
+    "us_per_call_cpu": 6.011
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer": {
+    "calls": 361278,
+    "cpu_s": 2.1566,
+    "wall_in_ttnn_s": 2.1459,
+    "us_per_call_cpu": 5.969
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+    "calls": 361278,
+    "cpu_s": 2.1566,
+    "wall_in_ttnn_s": 2.1459,
+    "us_per_call_cpu": 5.969
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+    "calls": 49236,
+    "cpu_s": 0.2863,
+    "wall_in_ttnn_s": 0.2849,
+    "us_per_call_cpu": 5.815
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+    "calls": 168000,
+    "cpu_s": 0.929,
+    "wall_in_ttnn_s": 0.9242,
+    "us_per_call_cpu": 5.53
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+    "calls": 121236,
+    "cpu_s": 0.7051,
+    "wall_in_ttnn_s": 0.7013,
+    "us_per_call_cpu": 5.816
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+    "calls": 49236,
+    "cpu_s": 0.3001,
+    "wall_in_ttnn_s": 0.2983,
+    "us_per_call_cpu": 6.095
+   },
+   "DiffusionModule/Diffusion/Transition": {
+    "calls": 3200,
+    "cpu_s": 0.0184,
+    "wall_in_ttnn_s": 0.0184,
+    "us_per_call_cpu": 5.75
+   },
+   "PairformerModule": {
+    "calls": 3470,
+    "cpu_s": 0.2198,
+    "wall_in_ttnn_s": 0.4415,
+    "us_per_call_cpu": 63.343
+   },
+   "PairformerModule/Pairformer": {
+    "calls": 3464,
+    "cpu_s": 0.1083,
+    "wall_in_ttnn_s": 0.1082,
+    "us_per_call_cpu": 31.252
+   },
+   "PairformerModule/Pairformer/PairformerLayer": {
+    "calls": 3464,
+    "cpu_s": 0.1083,
+    "wall_in_ttnn_s": 0.1082,
+    "us_per_call_cpu": 31.252
+   },
+   "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 280,
+    "cpu_s": 0.0037,
+    "wall_in_ttnn_s": 0.0037,
+    "us_per_call_cpu": 13.142
+   },
+   "PairformerModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 2128,
+    "cpu_s": 0.0939,
+    "wall_in_ttnn_s": 0.0939,
+    "us_per_call_cpu": 44.133
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 432,
+    "cpu_s": 0.0035,
+    "wall_in_ttnn_s": 0.0034,
+    "us_per_call_cpu": 8.011
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 496,
+    "cpu_s": 0.006,
+    "wall_in_ttnn_s": 0.006,
+    "us_per_call_cpu": 12.168
+   },
+   "TrunkModule": {
+    "calls": 128654,
+    "cpu_s": 12.1433,
+    "wall_in_ttnn_s": 12.3685,
+    "us_per_call_cpu": 94.387
+   },
+   "TrunkModule/MSA": {
+    "calls": 17724,
+    "cpu_s": 1.6037,
+    "wall_in_ttnn_s": 1.6065,
+    "us_per_call_cpu": 90.482
+   },
+   "TrunkModule/MSA/MSALayer": {
+    "calls": 17712,
+    "cpu_s": 1.6027,
+    "wall_in_ttnn_s": 1.6055,
+    "us_per_call_cpu": 90.486
+   },
+   "TrunkModule/MSA/MSALayer/OuterProductMean": {
+    "calls": 384,
+    "cpu_s": 0.0831,
+    "wall_in_ttnn_s": 0.0835,
+    "us_per_call_cpu": 216.43
+   },
+   "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+    "calls": 3008,
+    "cpu_s": 0.2324,
+    "wall_in_ttnn_s": 0.233,
+    "us_per_call_cpu": 77.264
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer": {
+    "calls": 6048,
+    "cpu_s": 0.3771,
+    "wall_in_ttnn_s": 0.3779,
+    "us_per_call_cpu": 62.346
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+    "calls": 4128,
+    "cpu_s": 0.2724,
+    "wall_in_ttnn_s": 0.2729,
+    "us_per_call_cpu": 66.0
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+    "calls": 832,
+    "cpu_s": 0.0086,
+    "wall_in_ttnn_s": 0.0087,
+    "us_per_call_cpu": 10.291
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+    "calls": 928,
+    "cpu_s": 0.0922,
+    "wall_in_ttnn_s": 0.0924,
+    "us_per_call_cpu": 99.374
+   },
+   "TrunkModule/MSA/MSALayer/Transition": {
+    "calls": 8224,
+    "cpu_s": 0.8978,
+    "wall_in_ttnn_s": 0.8987,
+    "us_per_call_cpu": 109.174
+   },
+   "TrunkModule/Pairformer": {
+    "calls": 110853,
+    "cpu_s": 10.2714,
+    "wall_in_ttnn_s": 10.2715,
+    "us_per_call_cpu": 92.658
+   },
+   "TrunkModule/Pairformer/PairformerLayer": {
+    "calls": 110848,
+    "cpu_s": 10.2701,
+    "wall_in_ttnn_s": 10.2701,
+    "us_per_call_cpu": 92.651
+   },
+   "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 8960,
+    "cpu_s": 0.2416,
+    "wall_in_ttnn_s": 0.2418,
+    "us_per_call_cpu": 26.965
+   },
+   "TrunkModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 68096,
+    "cpu_s": 9.4525,
+    "wall_in_ttnn_s": 9.4533,
+    "us_per_call_cpu": 138.812
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 13824,
+    "cpu_s": 0.1366,
+    "wall_in_ttnn_s": 0.1362,
+    "us_per_call_cpu": 9.884
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 15872,
+    "cpu_s": 0.3637,
+    "wall_in_ttnn_s": 0.3633,
+    "us_per_call_cpu": 22.914
+   }
+  },
+  "by_op": [
+   {
+    "op": "ttnn.linear",
+    "n": 109887,
+    "cpu_s": 6.8529,
+    "us_per_call": 62.363
+   },
+   {
+    "op": "ttnn.layer_norm",
+    "n": 35325,
+    "cpu_s": 2.4617,
+    "us_per_call": 69.689
+   },
+   {
+    "op": "ttnn.multiply_",
+    "n": 48643,
+    "cpu_s": 2.3947,
+    "us_per_call": 49.23
+   },
+   {
+    "op": "ttnn.from_torch",
+    "n": 423,
+    "cpu_s": 0.8354,
+    "us_per_call": 1975.024
+   },
+   {
+    "op": "ttnn.chunk",
+    "n": 856,
+    "cpu_s": 0.5055,
+    "us_per_call": 590.516
+   },
+   {
+    "op": "ttnn.add_",
+    "n": 19422,
+    "cpu_s": 0.2903,
+    "us_per_call": 14.946
+   },
+   {
+    "op": "ttnn.permute",
+    "n": 14949,
+    "cpu_s": 0.2283,
+    "us_per_call": 15.27
+   },
+   {
+    "op": "ttnn.generic_op",
+    "n": 4480,
+    "cpu_s": 0.1716,
+    "us_per_call": 38.298
+   },
+   {
+    "op": "ttnn.reshape",
+    "n": 19117,
+    "cpu_s": 0.1702,
+    "us_per_call": 8.904
+   },
+   {
+    "op": "ttnn.multiply",
+    "n": 12467,
+    "cpu_s": 0.1622,
+    "us_per_call": 13.014
+   },
+   {
+    "op": "ttnn.add",
+    "n": 13742,
+    "cpu_s": 0.1573,
+    "us_per_call": 11.449
+   },
+   {
+    "op": "ttnn.slice",
+    "n": 6806,
+    "cpu_s": 0.1498,
+    "us_per_call": 22.01
+   },
+   {
+    "op": "ttnn.matmul",
+    "n": 12433,
+    "cpu_s": 0.1413,
+    "us_per_call": 11.367
+   },
+   {
+    "op": "ttnn.deallocate",
+    "n": 138213,
+    "cpu_s": 0.1123,
+    "us_per_call": 0.812
+   },
+   {
+    "op": "ttnn.softmax",
+    "n": 5192,
+    "cpu_s": 0.0808,
+    "us_per_call": 15.558
+   },
+   {
+    "op": "ttnn.transpose",
+    "n": 5624,
+    "cpu_s": 0.0715,
+    "us_per_call": 12.719
+   },
+   {
+    "op": "ttnn.experimental.nlp_create_qkv_heads",
+    "n": 6264,
+    "cpu_s": 0.0699,
+    "us_per_call": 11.162
+   },
+   {
+    "op": "ttnn.to_torch",
+    "n": 204,
+    "cpu_s": 0.0689,
+    "us_per_call": 337.969
+   },
+   {
+    "op": "ttnn.to_memory_config",
+    "n": 15636,
+    "cpu_s": 0.0477,
+    "us_per_call": 3.054
+   },
+   {
+    "op": "ttnn.concat",
+    "n": 297,
+    "cpu_s": 0.0403,
+    "us_per_call": 135.668
+   },
+   {
+    "op": "ttnn.unsqueeze",
+    "n": 6552,
+    "cpu_s": 0.0374,
+    "us_per_call": 5.716
+   },
+   {
+    "op": "ttnn.to_layout",
+    "n": 64,
+    "cpu_s": 0.0259,
+    "us_per_call": 404.788
+   },
+   {
+    "op": "ttnn.pad",
+    "n": 1200,
+    "cpu_s": 0.0141,
+    "us_per_call": 11.716
+   },
+   {
+    "op": "ttnn.transformer.scaled_dot_product_attention",
+    "n": 1200,
+    "cpu_s": 0.0133,
+    "us_per_call": 11.042
+   },
+   {
+    "op": "ttnn.allocate_tensor_on_device",
+    "n": 5600,
+    "cpu_s": 0.0113,
+    "us_per_call": 2.009
+   },
+   {
+    "op": "ttnn.experimental.nlp_concat_heads",
+    "n": 1200,
+    "cpu_s": 0.0105,
+    "us_per_call": 8.779
+   },
+   {
+    "op": "ttnn.get_max_worker_l1_unreserved_size",
+    "n": 10968,
+    "cpu_s": 0.0048,
+    "us_per_call": 0.438
+   },
+   {
+    "op": "ttnn.is_tensor_storage_on_device",
+    "n": 6806,
+    "cpu_s": 0.0046,
+    "us_per_call": 0.677
+   },
+   {
+    "op": "ttnn.cos",
+    "n": 200,
+    "cpu_s": 0.003,
+    "us_per_call": 14.948
+   },
+   {
+    "op": "ttnn.squeeze",
+    "n": 1200,
+    "cpu_s": 0.0021,
+    "us_per_call": 1.741
+   },
+   {
+    "op": "ttnn.clone",
+    "n": 9,
+    "cpu_s": 0.0017,
+    "us_per_call": 188.451
+   },
+   {
+    "op": "ttnn.sum",
+    "n": 1,
+    "cpu_s": 0.0004,
+    "us_per_call": 422.943
+   },
+   {
+    "op": "ttnn.reciprocal",
+    "n": 1,
+    "cpu_s": 0.0004,
+    "us_per_call": 381.816
+   }
+  ],
+  "tree": {
+   "DiffusionModule": {
+    "calls": 200,
+    "incl_wall_s": 7.16858,
+    "excl_wall_s": 4.55953,
+    "incl_cpu_s": 3.18015,
+    "excl_cpu_s": 0.57325,
+    "median_ms": 33.06469
+   },
+   "DiffusionModule/Diffusion": {
+    "calls": 200,
+    "incl_wall_s": 2.60905,
+    "excl_wall_s": 0.07074,
+    "incl_cpu_s": 2.60691,
+    "excl_cpu_s": 0.07018,
+    "median_ms": 12.53578
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer": {
+    "calls": 600,
+    "incl_wall_s": 2.51746,
+    "excl_wall_s": 0.01118,
+    "incl_cpu_s": 2.51599,
+    "excl_cpu_s": 0.01117,
+    "median_ms": 1.26992
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+    "calls": 6000,
+    "incl_wall_s": 2.50629,
+    "excl_wall_s": 0.29615,
+    "incl_cpu_s": 2.50483,
+    "excl_cpu_s": 0.29591,
+    "median_ms": 0.39807
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+    "calls": 6000,
+    "incl_wall_s": 0.3141,
+    "excl_wall_s": 0.3141,
+    "incl_cpu_s": 0.31381,
+    "excl_cpu_s": 0.31381,
+    "median_ms": 0.05107
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+    "calls": 6000,
+    "incl_wall_s": 1.12065,
+    "excl_wall_s": 1.12065,
+    "incl_cpu_s": 1.11995,
+    "excl_cpu_s": 1.11995,
+    "median_ms": 0.16946
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+    "calls": 6000,
+    "incl_wall_s": 0.77539,
+    "excl_wall_s": 0.44675,
+    "incl_cpu_s": 0.77516,
+    "excl_cpu_s": 0.4465,
+    "median_ms": 0.12767
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+    "calls": 6000,
+    "incl_wall_s": 0.32864,
+    "excl_wall_s": 0.32864,
+    "incl_cpu_s": 0.32866,
+    "excl_cpu_s": 0.32866,
+    "median_ms": 0.05458
+   },
+   "DiffusionModule/Diffusion/Transition": {
+    "calls": 400,
+    "incl_wall_s": 0.02085,
+    "excl_wall_s": 0.02085,
+    "incl_cpu_s": 0.02073,
+    "excl_cpu_s": 0.02073,
+    "median_ms": 0.04966
+   },
+   "PairformerModule": {
+    "calls": 1,
+    "incl_wall_s": 0.46507,
+    "excl_wall_s": 0.34334,
+    "incl_cpu_s": 0.24327,
+    "excl_cpu_s": 0.12154,
+    "median_ms": 465.07453
+   },
+   "PairformerModule/Pairformer": {
+    "calls": 1,
+    "incl_wall_s": 0.12173,
+    "excl_wall_s": 0.0001,
+    "incl_cpu_s": 0.12173,
+    "excl_cpu_s": 0.0001,
+    "median_ms": 121.73411
+   },
+   "PairformerModule/Pairformer/PairformerLayer": {
+    "calls": 8,
+    "incl_wall_s": 0.12163,
+    "excl_wall_s": 0.00135,
+    "incl_cpu_s": 0.12163,
+    "excl_cpu_s": 0.00135,
+    "median_ms": 5.63049
+   },
+   "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 8,
+    "incl_wall_s": 0.00422,
+    "excl_wall_s": 0.00422,
+    "incl_cpu_s": 0.00422,
+    "excl_cpu_s": 0.00422,
+    "median_ms": 0.38947
+   },
+   "PairformerModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_wall_s": 0.0951,
+    "excl_wall_s": 0.0951,
+    "incl_cpu_s": 0.0951,
+    "excl_cpu_s": 0.0951,
+    "median_ms": 0.96305
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 16,
+    "incl_wall_s": 0.01088,
+    "excl_wall_s": 0.01088,
+    "incl_cpu_s": 0.01088,
+    "excl_cpu_s": 0.01088,
+    "median_ms": 0.6304
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 16,
+    "incl_wall_s": 0.01008,
+    "excl_wall_s": 0.01008,
+    "incl_cpu_s": 0.01008,
+    "excl_cpu_s": 0.01008,
+    "median_ms": 0.49522
+   },
+   "TrunkModule": {
+    "calls": 1,
+    "incl_wall_s": 12.83446,
+    "excl_wall_s": 0.52049,
+    "incl_cpu_s": 12.6052,
+    "excl_cpu_s": 0.2982,
+    "median_ms": 12834.45822
+   },
+   "TrunkModule/MSA": {
+    "calls": 4,
+    "incl_wall_s": 1.64262,
+    "excl_wall_s": 0.0012,
+    "incl_cpu_s": 1.63922,
+    "excl_cpu_s": 0.00113,
+    "median_ms": 463.94529
+   },
+   "TrunkModule/MSA/MSALayer": {
+    "calls": 16,
+    "incl_wall_s": 1.64142,
+    "excl_wall_s": 0.01265,
+    "incl_cpu_s": 1.63809,
+    "excl_cpu_s": 0.01265,
+    "median_ms": 120.18584
+   },
+   "TrunkModule/MSA/MSALayer/OuterProductMean": {
+    "calls": 16,
+    "incl_wall_s": 0.08418,
+    "excl_wall_s": 0.08418,
+    "incl_cpu_s": 0.08374,
+    "excl_cpu_s": 0.08374,
+    "median_ms": 4.08232
+   },
+   "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+    "calls": 16,
+    "incl_wall_s": 0.23816,
+    "excl_wall_s": 0.23816,
+    "incl_cpu_s": 0.23743,
+    "excl_cpu_s": 0.23743,
+    "median_ms": 10.89012
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer": {
+    "calls": 16,
+    "incl_wall_s": 0.40322,
+    "excl_wall_s": 0.00412,
+    "incl_cpu_s": 0.40219,
+    "excl_cpu_s": 0.00411,
+    "median_ms": 26.71826
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_wall_s": 0.2753,
+    "excl_wall_s": 0.2753,
+    "incl_cpu_s": 0.27473,
+    "excl_cpu_s": 0.27473,
+    "median_ms": 13.31929
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+    "calls": 32,
+    "incl_wall_s": 0.02346,
+    "excl_wall_s": 0.02346,
+    "incl_cpu_s": 0.02327,
+    "excl_cpu_s": 0.02327,
+    "median_ms": 0.61418
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+    "calls": 32,
+    "incl_wall_s": 0.10033,
+    "excl_wall_s": 0.10033,
+    "incl_cpu_s": 0.10008,
+    "excl_cpu_s": 0.10008,
+    "median_ms": 0.80574
+   },
+   "TrunkModule/MSA/MSALayer/Transition": {
+    "calls": 16,
+    "incl_wall_s": 0.90321,
+    "excl_wall_s": 0.90321,
+    "incl_cpu_s": 0.90208,
+    "excl_cpu_s": 0.90208,
+    "median_ms": 58.31038
+   },
+   "TrunkModule/Pairformer": {
+    "calls": 4,
+    "incl_wall_s": 10.67135,
+    "excl_wall_s": 0.00284,
+    "incl_cpu_s": 10.66778,
+    "excl_cpu_s": 0.00272,
+    "median_ms": 2668.20227
+   },
+   "TrunkModule/Pairformer/PairformerLayer": {
+    "calls": 256,
+    "incl_wall_s": 10.66851,
+    "excl_wall_s": 0.08132,
+    "incl_cpu_s": 10.66506,
+    "excl_cpu_s": 0.08128,
+    "median_ms": 41.35383
+   },
+   "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 256,
+    "incl_wall_s": 0.25873,
+    "excl_wall_s": 0.25873,
+    "incl_cpu_s": 0.25826,
+    "excl_cpu_s": 0.25826,
+    "median_ms": 0.85645
+   },
+   "TrunkModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 512,
+    "incl_wall_s": 9.49223,
+    "excl_wall_s": 9.49223,
+    "incl_cpu_s": 9.48948,
+    "excl_cpu_s": 9.48948,
+    "median_ms": 2.22863
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 512,
+    "incl_wall_s": 0.35467,
+    "excl_wall_s": 0.35467,
+    "incl_cpu_s": 0.35462,
+    "excl_cpu_s": 0.35462,
+    "median_ms": 0.62979
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 512,
+    "incl_wall_s": 0.48156,
+    "excl_wall_s": 0.48156,
+    "incl_cpu_s": 0.48142,
+    "excl_cpu_s": 0.48142,
+    "median_ms": 0.78701
+   }
+  },
+  "loadavg": [
+   "1.56",
+   "0.75",
+   "1.71"
+  ],
+  "grabbed_block": true
+ },
+ "block": {
+  "note": "trace capture of one shipped PairformerLayer.__call__, replayed back-to-back",
+  "eager_synced_ms": 41.4546,
+  "eager_host_cpu_ms": 4.0663,
+  "replay_issue_cpu_us_per_block": 0.545,
+  "replay_device_ms_per_block": 41.4012,
+  "replay_all_ms": [
+   41.4046,
+   41.2888,
+   41.4012,
+   41.3483,
+   41.4703
+  ]
+ },
+ "slope": [
+  {
+   "spin_us": 0.0,
+   "fold_wall_s": 23.6611,
+   "fold_cpu_s": 19.2073,
+   "plddt": null,
+   "n_calls": 504976,
+   "cpu_in_ttnn_s": 15.1552,
+   "phases": {
+    "DiffusionModule": {
+     "wall_s": 7.16024,
+     "cpu_s": 3.16318,
+     "calls": 200
+    },
+    "PairformerModule": {
+     "wall_s": 0.46488,
+     "cpu_s": 0.24286,
+     "calls": 1
+    },
+    "TrunkModule": {
+     "wall_s": 12.852,
+     "cpu_s": 12.62368,
+     "calls": 1
+    }
+   },
+   "by_phase_calls": {
+    "(glue)": {
+     "calls": 79,
+     "cpu_s": 0.0001,
+     "wall_in_ttnn_s": 0.0001,
+     "us_per_call_cpu": 1.886
+    },
+    "DiffusionModule": {
+     "calls": 372778,
+     "cpu_s": 2.7651,
+     "wall_in_ttnn_s": 6.7474,
+     "us_per_call_cpu": 7.417
+    },
+    "DiffusionModule/Diffusion": {
+     "calls": 372083,
+     "cpu_s": 2.2315,
+     "wall_in_ttnn_s": 2.2218,
+     "us_per_call_cpu": 5.997
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer": {
+     "calls": 361278,
+     "cpu_s": 2.1514,
+     "wall_in_ttnn_s": 2.1415,
+     "us_per_call_cpu": 5.955
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+     "calls": 361278,
+     "cpu_s": 2.1514,
+     "wall_in_ttnn_s": 2.1415,
+     "us_per_call_cpu": 5.955
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+     "calls": 49236,
+     "cpu_s": 0.2848,
+     "wall_in_ttnn_s": 0.284,
+     "us_per_call_cpu": 5.784
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+     "calls": 168000,
+     "cpu_s": 0.9279,
+     "wall_in_ttnn_s": 0.9231,
+     "us_per_call_cpu": 5.523
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+     "calls": 121236,
+     "cpu_s": 0.7028,
+     "wall_in_ttnn_s": 0.6992,
+     "us_per_call_cpu": 5.797
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+     "calls": 49236,
+     "cpu_s": 0.2992,
+     "wall_in_ttnn_s": 0.2975,
+     "us_per_call_cpu": 6.077
+    },
+    "DiffusionModule/Diffusion/Transition": {
+     "calls": 3200,
+     "cpu_s": 0.0185,
+     "wall_in_ttnn_s": 0.0186,
+     "us_per_call_cpu": 5.79
+    },
+    "PairformerModule": {
+     "calls": 3470,
+     "cpu_s": 0.2196,
+     "wall_in_ttnn_s": 0.4415,
+     "us_per_call_cpu": 63.272
+    },
+    "PairformerModule/Pairformer": {
+     "calls": 3464,
+     "cpu_s": 0.1082,
+     "wall_in_ttnn_s": 0.1081,
+     "us_per_call_cpu": 31.235
+    },
+    "PairformerModule/Pairformer/PairformerLayer": {
+     "calls": 3464,
+     "cpu_s": 0.1082,
+     "wall_in_ttnn_s": 0.1081,
+     "us_per_call_cpu": 31.235
+    },
+    "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+     "calls": 280,
+     "cpu_s": 0.0036,
+     "wall_in_ttnn_s": 0.0036,
+     "us_per_call_cpu": 12.864
+    },
+    "PairformerModule/Pairformer/PairformerLayer/Transition": {
+     "calls": 2128,
+     "cpu_s": 0.094,
+     "wall_in_ttnn_s": 0.0939,
+     "us_per_call_cpu": 44.158
+    },
+    "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+     "calls": 432,
+     "cpu_s": 0.0034,
+     "wall_in_ttnn_s": 0.0034,
+     "us_per_call_cpu": 7.959
+    },
+    "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+     "calls": 496,
+     "cpu_s": 0.0057,
+     "wall_in_ttnn_s": 0.0057,
+     "us_per_call_cpu": 11.513
+    },
+    "TrunkModule": {
+     "calls": 128649,
+     "cpu_s": 12.1704,
+     "wall_in_ttnn_s": 12.3947,
+     "us_per_call_cpu": 94.602
+    },
+    "TrunkModule/MSA": {
+     "calls": 17724,
+     "cpu_s": 1.6014,
+     "wall_in_ttnn_s": 1.6044,
+     "us_per_call_cpu": 90.353
+    },
+    "TrunkModule/MSA/MSALayer": {
+     "calls": 17712,
+     "cpu_s": 1.6004,
+     "wall_in_ttnn_s": 1.6033,
+     "us_per_call_cpu": 90.355
+    },
+    "TrunkModule/MSA/MSALayer/OuterProductMean": {
+     "calls": 384,
+     "cpu_s": 0.0782,
+     "wall_in_ttnn_s": 0.0786,
+     "us_per_call_cpu": 203.523
+    },
+    "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+     "calls": 3008,
+     "cpu_s": 0.2333,
+     "wall_in_ttnn_s": 0.2339,
+     "us_per_call_cpu": 77.557
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer": {
+     "calls": 6048,
+     "cpu_s": 0.3755,
+     "wall_in_ttnn_s": 0.3763,
+     "us_per_call_cpu": 62.083
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+     "calls": 4128,
+     "cpu_s": 0.2694,
+     "wall_in_ttnn_s": 0.2699,
+     "us_per_call_cpu": 65.266
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+     "calls": 832,
+     "cpu_s": 0.0086,
+     "wall_in_ttnn_s": 0.0088,
+     "us_per_call_cpu": 10.326
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+     "calls": 928,
+     "cpu_s": 0.089,
+     "wall_in_ttnn_s": 0.0892,
+     "us_per_call_cpu": 95.944
+    },
+    "TrunkModule/MSA/MSALayer/Transition": {
+     "calls": 8224,
+     "cpu_s": 0.9,
+     "wall_in_ttnn_s": 0.9011,
+     "us_per_call_cpu": 109.434
+    },
+    "TrunkModule/Pairformer": {
+     "calls": 110848,
+     "cpu_s": 10.2795,
+     "wall_in_ttnn_s": 10.2775,
+     "us_per_call_cpu": 92.735
+    },
+    "TrunkModule/Pairformer/PairformerLayer": {
+     "calls": 110848,
+     "cpu_s": 10.2795,
+     "wall_in_ttnn_s": 10.2775,
+     "us_per_call_cpu": 92.735
+    },
+    "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+     "calls": 8960,
+     "cpu_s": 0.2422,
+     "wall_in_ttnn_s": 0.2422,
+     "us_per_call_cpu": 27.03
+    },
+    "TrunkModule/Pairformer/PairformerLayer/Transition": {
+     "calls": 68096,
+     "cpu_s": 9.4633,
+     "wall_in_ttnn_s": 9.4622,
+     "us_per_call_cpu": 138.97
+    },
+    "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+     "calls": 13824,
+     "cpu_s": 0.1321,
+     "wall_in_ttnn_s": 0.1317,
+     "us_per_call_cpu": 9.559
+    },
+    "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+     "calls": 15872,
+     "cpu_s": 0.3645,
+     "wall_in_ttnn_s": 0.3642,
+     "us_per_call_cpu": 22.968
+    }
+   },
+   "loadavg": [
+    "1.41",
+    "0.79",
+    "1.69"
+   ]
+  },
+  {
+   "spin_us": 10.0,
+   "fold_wall_s": 23.9311,
+   "fold_cpu_s": 22.9714,
+   "plddt": null,
+   "n_calls": 504976,
+   "cpu_in_ttnn_s": 18.9083,
+   "phases": {
+    "DiffusionModule": {
+     "wall_s": 7.44929,
+     "cpu_s": 6.94543,
+     "calls": 200
+    },
+    "PairformerModule": {
+     "wall_s": 0.46272,
+     "cpu_s": 0.24197,
+     "calls": 1
+    },
+    "TrunkModule": {
+     "wall_s": 12.83829,
+     "cpu_s": 12.6076,
+     "calls": 1
+    }
+   },
+   "by_phase_calls": {
+    "(glue)": {
+     "calls": 79,
+     "cpu_s": 0.0009,
+     "wall_in_ttnn_s": 0.0009,
+     "us_per_call_cpu": 11.946
+    },
+    "DiffusionModule": {
+     "calls": 372778,
+     "cpu_s": 6.5433,
+     "wall_in_ttnn_s": 7.0331,
+     "us_per_call_cpu": 17.553
+    },
+    "DiffusionModule/Diffusion": {
+     "calls": 372083,
+     "cpu_s": 6.0022,
+     "wall_in_ttnn_s": 5.9934,
+     "us_per_call_cpu": 16.131
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer": {
+     "calls": 361278,
+     "cpu_s": 5.8132,
+     "wall_in_ttnn_s": 5.8039,
+     "us_per_call_cpu": 16.091
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+     "calls": 361278,
+     "cpu_s": 5.8132,
+     "wall_in_ttnn_s": 5.8039,
+     "us_per_call_cpu": 16.091
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+     "calls": 49236,
+     "cpu_s": 0.7832,
+     "wall_in_ttnn_s": 0.782,
+     "us_per_call_cpu": 15.907
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+     "calls": 168000,
+     "cpu_s": 2.6333,
+     "wall_in_ttnn_s": 2.6292,
+     "us_per_call_cpu": 15.675
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+     "calls": 121236,
+     "cpu_s": 1.9302,
+     "wall_in_ttnn_s": 1.9268,
+     "us_per_call_cpu": 15.921
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+     "calls": 49236,
+     "cpu_s": 0.7984,
+     "wall_in_ttnn_s": 0.7969,
+     "us_per_call_cpu": 16.217
+    },
+    "DiffusionModule/Diffusion/Transition": {
+     "calls": 3200,
+     "cpu_s": 0.0507,
+     "wall_in_ttnn_s": 0.0507,
+     "us_per_call_cpu": 15.834
+    },
+    "PairformerModule": {
+     "calls": 3470,
+     "cpu_s": 0.2186,
+     "wall_in_ttnn_s": 0.4392,
+     "us_per_call_cpu": 63.001
+    },
+    "PairformerModule/Pairformer": {
+     "calls": 3464,
+     "cpu_s": 0.108,
+     "wall_in_ttnn_s": 0.1079,
+     "us_per_call_cpu": 31.18
+    },
+    "PairformerModule/Pairformer/PairformerLayer": {
+     "calls": 3464,
+     "cpu_s": 0.108,
+     "wall_in_ttnn_s": 0.1079,
+     "us_per_call_cpu": 31.18
+    },
+    "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+     "calls": 280,
+     "cpu_s": 0.0052,
+     "wall_in_ttnn_s": 0.0051,
+     "us_per_call_cpu": 18.397
+    },
+    "PairformerModule/Pairformer/PairformerLayer/Transition": {
+     "calls": 2128,
+     "cpu_s": 0.0834,
+     "wall_in_ttnn_s": 0.0833,
+     "us_per_call_cpu": 39.19
+    },
+    "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+     "calls": 432,
+     "cpu_s": 0.0076,
+     "wall_in_ttnn_s": 0.0076,
+     "us_per_call_cpu": 17.666
+    },
+    "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+     "calls": 496,
+     "cpu_s": 0.0096,
+     "wall_in_ttnn_s": 0.0096,
+     "us_per_call_cpu": 19.357
+    },
+    "TrunkModule": {
+     "calls": 128649,
+     "cpu_s": 12.1454,
+     "wall_in_ttnn_s": 12.3723,
+     "us_per_call_cpu": 94.407
+    },
+    "TrunkModule/MSA": {
+     "calls": 17724,
+     "cpu_s": 1.6023,
+     "wall_in_ttnn_s": 1.6053,
+     "us_per_call_cpu": 90.402
+    },
+    "TrunkModule/MSA/MSALayer": {
+     "calls": 17712,
+     "cpu_s": 1.6013,
+     "wall_in_ttnn_s": 1.6042,
+     "us_per_call_cpu": 90.409
+    },
+    "TrunkModule/MSA/MSALayer/OuterProductMean": {
+     "calls": 384,
+     "cpu_s": 0.0806,
+     "wall_in_ttnn_s": 0.081,
+     "us_per_call_cpu": 209.78
+    },
+    "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+     "calls": 3008,
+     "cpu_s": 0.2414,
+     "wall_in_ttnn_s": 0.2421,
+     "us_per_call_cpu": 80.262
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer": {
+     "calls": 6048,
+     "cpu_s": 0.385,
+     "wall_in_ttnn_s": 0.3859,
+     "us_per_call_cpu": 63.661
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+     "calls": 4128,
+     "cpu_s": 0.2651,
+     "wall_in_ttnn_s": 0.2656,
+     "us_per_call_cpu": 64.223
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+     "calls": 832,
+     "cpu_s": 0.0168,
+     "wall_in_ttnn_s": 0.017,
+     "us_per_call_cpu": 20.187
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+     "calls": 928,
+     "cpu_s": 0.0938,
+     "wall_in_ttnn_s": 0.094,
+     "us_per_call_cpu": 101.045
+    },
+    "TrunkModule/MSA/MSALayer/Transition": {
+     "calls": 8224,
+     "cpu_s": 0.8811,
+     "wall_in_ttnn_s": 0.882,
+     "us_per_call_cpu": 107.134
+    },
+    "TrunkModule/Pairformer": {
+     "calls": 110848,
+     "cpu_s": 10.2756,
+     "wall_in_ttnn_s": 10.2763,
+     "us_per_call_cpu": 92.699
+    },
+    "TrunkModule/Pairformer/PairformerLayer": {
+     "calls": 110848,
+     "cpu_s": 10.2756,
+     "wall_in_ttnn_s": 10.2763,
+     "us_per_call_cpu": 92.699
+    },
+    "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+     "calls": 8960,
+     "cpu_s": 0.238,
+     "wall_in_ttnn_s": 0.2381,
+     "us_per_call_cpu": 26.558
+    },
+    "TrunkModule/Pairformer/PairformerLayer/Transition": {
+     "calls": 68096,
+     "cpu_s": 9.3084,
+     "wall_in_ttnn_s": 9.3097,
+     "us_per_call_cpu": 136.695
+    },
+    "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+     "calls": 13824,
+     "cpu_s": 0.2535,
+     "wall_in_ttnn_s": 0.2531,
+     "us_per_call_cpu": 18.334
+    },
+    "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+     "calls": 15872,
+     "cpu_s": 0.3843,
+     "wall_in_ttnn_s": 0.384,
+     "us_per_call_cpu": 24.211
+    }
+   },
+   "loadavg": [
+    "1.81",
+    "0.92",
+    "1.71"
+   ]
+  },
+  {
+   "spin_us": 25.0,
+   "fold_wall_s": 28.9936,
+   "fold_cpu_s": 28.5084,
+   "plddt": null,
+   "n_calls": 504976,
+   "cpu_in_ttnn_s": 24.5298,
+   "phases": {
+    "DiffusionModule": {
+     "wall_s": 12.55968,
+     "cpu_s": 12.52395,
+     "calls": 200
+    },
+    "PairformerModule": {
+     "wall_s": 0.4688,
+     "cpu_s": 0.24915,
+     "calls": 1
+    },
+    "TrunkModule": {
+     "wall_s": 12.86176,
+     "cpu_s": 12.63516,
+     "calls": 1
+    }
+   },
+   "by_phase_calls": {
+    "(glue)": {
+     "calls": 79,
+     "cpu_s": 0.0021,
+     "wall_in_ttnn_s": 0.0021,
+     "us_per_call_cpu": 26.916
+    },
+    "DiffusionModule": {
+     "calls": 372778,
+     "cpu_s": 12.1263,
+     "wall_in_ttnn_s": 12.1474,
+     "us_per_call_cpu": 32.53
+    },
+    "DiffusionModule/Diffusion": {
+     "calls": 372083,
+     "cpu_s": 11.58,
+     "wall_in_ttnn_s": 11.5712,
+     "us_per_call_cpu": 31.122
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer": {
+     "calls": 361278,
+     "cpu_s": 11.23,
+     "wall_in_ttnn_s": 11.2208,
+     "us_per_call_cpu": 31.084
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+     "calls": 361278,
+     "cpu_s": 11.23,
+     "wall_in_ttnn_s": 11.2208,
+     "us_per_call_cpu": 31.084
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+     "calls": 49236,
+     "cpu_s": 1.5205,
+     "wall_in_ttnn_s": 1.5193,
+     "us_per_call_cpu": 30.882
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+     "calls": 168000,
+     "cpu_s": 5.1522,
+     "wall_in_ttnn_s": 5.1481,
+     "us_per_call_cpu": 30.668
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+     "calls": 121236,
+     "cpu_s": 3.7487,
+     "wall_in_ttnn_s": 3.7455,
+     "us_per_call_cpu": 30.921
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+     "calls": 49236,
+     "cpu_s": 1.5368,
+     "wall_in_ttnn_s": 1.5353,
+     "us_per_call_cpu": 31.213
+    },
+    "DiffusionModule/Diffusion/Transition": {
+     "calls": 3200,
+     "cpu_s": 0.0983,
+     "wall_in_ttnn_s": 0.0984,
+     "us_per_call_cpu": 30.732
+    },
+    "PairformerModule": {
+     "calls": 3470,
+     "cpu_s": 0.2255,
+     "wall_in_ttnn_s": 0.445,
+     "us_per_call_cpu": 64.976
+    },
+    "PairformerModule/Pairformer": {
+     "calls": 3464,
+     "cpu_s": 0.1116,
+     "wall_in_ttnn_s": 0.1115,
+     "us_per_call_cpu": 32.222
+    },
+    "PairformerModule/Pairformer/PairformerLayer": {
+     "calls": 3464,
+     "cpu_s": 0.1116,
+     "wall_in_ttnn_s": 0.1115,
+     "us_per_call_cpu": 32.222
+    },
+    "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+     "calls": 280,
+     "cpu_s": 0.009,
+     "wall_in_ttnn_s": 0.009,
+     "us_per_call_cpu": 32.299
+    },
+    "PairformerModule/Pairformer/PairformerLayer/Transition": {
+     "calls": 2128,
+     "cpu_s": 0.0672,
+     "wall_in_ttnn_s": 0.0672,
+     "us_per_call_cpu": 31.596
+    },
+    "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+     "calls": 432,
+     "cpu_s": 0.0142,
+     "wall_in_ttnn_s": 0.0142,
+     "us_per_call_cpu": 32.849
+    },
+    "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+     "calls": 496,
+     "cpu_s": 0.017,
+     "wall_in_ttnn_s": 0.017,
+     "us_per_call_cpu": 34.368
+    },
+    "TrunkModule": {
+     "calls": 128649,
+     "cpu_s": 12.1759,
+     "wall_in_ttnn_s": 12.3987,
+     "us_per_call_cpu": 94.645
+    },
+    "TrunkModule/MSA": {
+     "calls": 17724,
+     "cpu_s": 1.6011,
+     "wall_in_ttnn_s": 1.6043,
+     "us_per_call_cpu": 90.335
+    },
+    "TrunkModule/MSA/MSALayer": {
+     "calls": 17712,
+     "cpu_s": 1.6,
+     "wall_in_ttnn_s": 1.6032,
+     "us_per_call_cpu": 90.336
+    },
+    "TrunkModule/MSA/MSALayer/OuterProductMean": {
+     "calls": 384,
+     "cpu_s": 0.0849,
+     "wall_in_ttnn_s": 0.0854,
+     "us_per_call_cpu": 221.071
+    },
+    "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+     "calls": 3008,
+     "cpu_s": 0.2295,
+     "wall_in_ttnn_s": 0.2302,
+     "us_per_call_cpu": 76.284
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer": {
+     "calls": 6048,
+     "cpu_s": 0.3939,
+     "wall_in_ttnn_s": 0.3948,
+     "us_per_call_cpu": 65.122
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+     "calls": 4128,
+     "cpu_s": 0.2538,
+     "wall_in_ttnn_s": 0.2543,
+     "us_per_call_cpu": 61.485
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+     "calls": 832,
+     "cpu_s": 0.0292,
+     "wall_in_ttnn_s": 0.0293,
+     "us_per_call_cpu": 35.062
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+     "calls": 928,
+     "cpu_s": 0.1043,
+     "wall_in_ttnn_s": 0.1045,
+     "us_per_call_cpu": 112.353
+    },
+    "TrunkModule/MSA/MSALayer/Transition": {
+     "calls": 8224,
+     "cpu_s": 0.8789,
+     "wall_in_ttnn_s": 0.8798,
+     "us_per_call_cpu": 106.865
+    },
+    "TrunkModule/Pairformer": {
+     "calls": 110848,
+     "cpu_s": 10.2849,
+     "wall_in_ttnn_s": 10.2832,
+     "us_per_call_cpu": 92.784
+    },
+    "TrunkModule/Pairformer/PairformerLayer": {
+     "calls": 110848,
+     "cpu_s": 10.2849,
+     "wall_in_ttnn_s": 10.2832,
+     "us_per_call_cpu": 92.784
+    },
+    "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+     "calls": 8960,
+     "cpu_s": 0.3208,
+     "wall_in_ttnn_s": 0.3209,
+     "us_per_call_cpu": 35.799
+    },
+    "TrunkModule/Pairformer/PairformerLayer/Transition": {
+     "calls": 68096,
+     "cpu_s": 8.7949,
+     "wall_in_ttnn_s": 8.7938,
+     "us_per_call_cpu": 129.154
+    },
+    "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+     "calls": 13824,
+     "cpu_s": 0.456,
+     "wall_in_ttnn_s": 0.4557,
+     "us_per_call_cpu": 32.987
+    },
+    "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+     "calls": 15872,
+     "cpu_s": 0.5743,
+     "wall_in_ttnn_s": 0.574,
+     "us_per_call_cpu": 36.184
+    }
+   },
+   "loadavg": [
+    "1.86",
+    "1.03",
+    "1.73"
+   ]
+  },
+  {
+   "spin_us": 0.0,
+   "fold_wall_s": 23.6185,
+   "fold_cpu_s": 19.1406,
+   "plddt": null,
+   "n_calls": 504976,
+   "cpu_in_ttnn_s": 15.1199,
+   "phases": {
+    "DiffusionModule": {
+     "wall_s": 7.13664,
+     "cpu_s": 3.11662,
+     "calls": 200
+    },
+    "PairformerModule": {
+     "wall_s": 0.46502,
+     "cpu_s": 0.2427,
+     "calls": 1
+    },
+    "TrunkModule": {
+     "wall_s": 12.85435,
+     "cpu_s": 12.62483,
+     "calls": 1
+    }
+   },
+   "by_phase_calls": {
+    "(glue)": {
+     "calls": 79,
+     "cpu_s": 0.0001,
+     "wall_in_ttnn_s": 0.0001,
+     "us_per_call_cpu": 1.872
+    },
+    "DiffusionModule": {
+     "calls": 372778,
+     "cpu_s": 2.7282,
+     "wall_in_ttnn_s": 6.7333,
+     "us_per_call_cpu": 7.318
+    },
+    "DiffusionModule/Diffusion": {
+     "calls": 372083,
+     "cpu_s": 2.2114,
+     "wall_in_ttnn_s": 2.2009,
+     "us_per_call_cpu": 5.943
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer": {
+     "calls": 361278,
+     "cpu_s": 2.1334,
+     "wall_in_ttnn_s": 2.1226,
+     "us_per_call_cpu": 5.905
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+     "calls": 361278,
+     "cpu_s": 2.1334,
+     "wall_in_ttnn_s": 2.1226,
+     "us_per_call_cpu": 5.905
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+     "calls": 49236,
+     "cpu_s": 0.2822,
+     "wall_in_ttnn_s": 0.2808,
+     "us_per_call_cpu": 5.733
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+     "calls": 168000,
+     "cpu_s": 0.92,
+     "wall_in_ttnn_s": 0.9152,
+     "us_per_call_cpu": 5.476
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+     "calls": 121236,
+     "cpu_s": 0.6973,
+     "wall_in_ttnn_s": 0.6935,
+     "us_per_call_cpu": 5.752
+    },
+    "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+     "calls": 49236,
+     "cpu_s": 0.2969,
+     "wall_in_ttnn_s": 0.2951,
+     "us_per_call_cpu": 6.03
+    },
+    "DiffusionModule/Diffusion/Transition": {
+     "calls": 3200,
+     "cpu_s": 0.0178,
+     "wall_in_ttnn_s": 0.0178,
+     "us_per_call_cpu": 5.566
+    },
+    "PairformerModule": {
+     "calls": 3470,
+     "cpu_s": 0.2191,
+     "wall_in_ttnn_s": 0.4413,
+     "us_per_call_cpu": 63.134
+    },
+    "PairformerModule/Pairformer": {
+     "calls": 3464,
+     "cpu_s": 0.1082,
+     "wall_in_ttnn_s": 0.1084,
+     "us_per_call_cpu": 31.238
+    },
+    "PairformerModule/Pairformer/PairformerLayer": {
+     "calls": 3464,
+     "cpu_s": 0.1082,
+     "wall_in_ttnn_s": 0.1084,
+     "us_per_call_cpu": 31.238
+    },
+    "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+     "calls": 280,
+     "cpu_s": 0.0036,
+     "wall_in_ttnn_s": 0.0036,
+     "us_per_call_cpu": 12.923
+    },
+    "PairformerModule/Pairformer/PairformerLayer/Transition": {
+     "calls": 2128,
+     "cpu_s": 0.0938,
+     "wall_in_ttnn_s": 0.094,
+     "us_per_call_cpu": 44.056
+    },
+    "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+     "calls": 432,
+     "cpu_s": 0.0035,
+     "wall_in_ttnn_s": 0.0035,
+     "us_per_call_cpu": 8.026
+    },
+    "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+     "calls": 496,
+     "cpu_s": 0.006,
+     "wall_in_ttnn_s": 0.006,
+     "us_per_call_cpu": 12.106
+    },
+    "TrunkModule": {
+     "calls": 128649,
+     "cpu_s": 12.1725,
+     "wall_in_ttnn_s": 12.3979,
+     "us_per_call_cpu": 94.618
+    },
+    "TrunkModule/MSA": {
+     "calls": 17724,
+     "cpu_s": 1.6028,
+     "wall_in_ttnn_s": 1.6059,
+     "us_per_call_cpu": 90.432
+    },
+    "TrunkModule/MSA/MSALayer": {
+     "calls": 17712,
+     "cpu_s": 1.6018,
+     "wall_in_ttnn_s": 1.6049,
+     "us_per_call_cpu": 90.438
+    },
+    "TrunkModule/MSA/MSALayer/OuterProductMean": {
+     "calls": 384,
+     "cpu_s": 0.0807,
+     "wall_in_ttnn_s": 0.0811,
+     "us_per_call_cpu": 210.148
+    },
+    "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+     "calls": 3008,
+     "cpu_s": 0.2324,
+     "wall_in_ttnn_s": 0.233,
+     "us_per_call_cpu": 77.255
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer": {
+     "calls": 6048,
+     "cpu_s": 0.3776,
+     "wall_in_ttnn_s": 0.3784,
+     "us_per_call_cpu": 62.429
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+     "calls": 4128,
+     "cpu_s": 0.2729,
+     "wall_in_ttnn_s": 0.2734,
+     "us_per_call_cpu": 66.118
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+     "calls": 832,
+     "cpu_s": 0.0089,
+     "wall_in_ttnn_s": 0.0091,
+     "us_per_call_cpu": 10.75
+    },
+    "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+     "calls": 928,
+     "cpu_s": 0.0922,
+     "wall_in_ttnn_s": 0.0924,
+     "us_per_call_cpu": 99.353
+    },
+    "TrunkModule/MSA/MSALayer/Transition": {
+     "calls": 8224,
+     "cpu_s": 0.8961,
+     "wall_in_ttnn_s": 0.8972,
+     "us_per_call_cpu": 108.959
+    },
+    "TrunkModule/Pairformer": {
+     "calls": 110848,
+     "cpu_s": 10.2824,
+     "wall_in_ttnn_s": 10.2817,
+     "us_per_call_cpu": 92.761
+    },
+    "TrunkModule/Pairformer/PairformerLayer": {
+     "calls": 110848,
+     "cpu_s": 10.2824,
+     "wall_in_ttnn_s": 10.2817,
+     "us_per_call_cpu": 92.761
+    },
+    "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+     "calls": 8960,
+     "cpu_s": 0.241,
+     "wall_in_ttnn_s": 0.2412,
+     "us_per_call_cpu": 26.9
+    },
+    "TrunkModule/Pairformer/PairformerLayer/Transition": {
+     "calls": 68096,
+     "cpu_s": 9.4626,
+     "wall_in_ttnn_s": 9.4627,
+     "us_per_call_cpu": 138.96
+    },
+    "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+     "calls": 13824,
+     "cpu_s": 0.1344,
+     "wall_in_ttnn_s": 0.1341,
+     "us_per_call_cpu": 9.725
+    },
+    "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+     "calls": 15872,
+     "cpu_s": 0.3641,
+     "wall_in_ttnn_s": 0.3638,
+     "us_per_call_cpu": 22.942
+    }
+   },
+   "loadavg": [
+    "1.57",
+    "1.03",
+    "1.71"
+   ]
+  }
+ ],
+ "controls": {
+  "device_bound_4096_matmul": {
+   "reps": 400,
+   "issue_wall_s": 0.0026,
+   "issue_cpu_s": 0.0026,
+   "total_wall_s": 0.3779,
+   "cpu_over_issue_wall": 0.9998,
+   "cpu_over_total_wall": 0.0069,
+   "drain_s": 0.3753,
+   "us_per_call_cpu": 6.504,
+   "us_per_call_device": 944.784
+  },
+  "device_bound_2048_matmul": {
+   "reps": 800,
+   "issue_wall_s": 0.0049,
+   "issue_cpu_s": 0.0049,
+   "total_wall_s": 0.1266,
+   "cpu_over_issue_wall": 0.9996,
+   "cpu_over_total_wall": 0.0387,
+   "drain_s": 0.1217,
+   "us_per_call_cpu": 6.125,
+   "us_per_call_device": 158.287
+  },
+  "host_bound_1tile_add": {
+   "reps": 20000,
+   "issue_wall_s": 0.1679,
+   "issue_cpu_s": 0.1678,
+   "total_wall_s": 0.1679,
+   "cpu_over_issue_wall": 0.9991,
+   "cpu_over_total_wall": 0.999,
+   "drain_s": 0.0,
+   "us_per_call_cpu": 8.389,
+   "us_per_call_device": 8.397
+  }
+ }
+}
