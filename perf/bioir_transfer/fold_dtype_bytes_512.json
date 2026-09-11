@@ -1,0 +1,1897 @@
+{
+ "size": 512,
+ "sampling_steps": 200,
+ "fold_s": 53.001,
+ "meta": {
+  "confidence_score": 0.804932,
+  "ptm": 0.626153,
+  "iptm": 0.0,
+  "ligand_iptm": 0.0,
+  "protein_iptm": 0.0,
+  "complex_plddt": 0.849627,
+  "complex_iplddt": 0.849627,
+  "complex_pde": 0.639354,
+  "complex_ipde": 0.0
+ },
+ "ttnn_calls": 494297,
+ "dtype_out_tensors": {
+  "bfloat16": 379854,
+  "bfloat4_b": 1
+ },
+ "dtype_out_elements": {
+  "bfloat16": 1392748067088,
+  "bfloat4_b": 802816
+ },
+ "fp32_sites": {},
+ "call_sites": {
+  "ttnn.allocate_tensor_on_device": {
+   "mm_dualnoc.py:108": 560,
+   "reblock_permute.py:237": 1120,
+   "reblock_permute.py:480": 560,
+   "triatt_qkv.py:90": 1680,
+   "triatt_qkv.py:210": 560,
+   "triatt_sdpa.py:251": 560,
+   "triatt_qkv.py:226": 560
+  },
+  "ttnn.chunk": {
+   "tenstorrent.py:6927": 296,
+   "tenstorrent.py:5268": 560
+  },
+  "ttnn.concat": {
+   "tenstorrent.py:6930": 296,
+   "tenstorrent.py:8978": 1
+  },
+  "ttnn.generic_op": {
+   "mm_generic.py:359": 2240,
+   "reblock_permute.py:254": 1120,
+   "reblock_permute.py:497": 560,
+   "sdpa_generic.py:450": 560
+  },
+  "ttnn.layer_norm": {
+   "tenstorrent.py:9995": 8,
+   "tenstorrent.py:3188": 280,
+   "tenstorrent.py:8133": 16,
+   "tenstorrent.py:6699": 10648,
+   "tenstorrent.py:8397": 16,
+   "tenstorrent.py:5176": 560,
+   "tenstorrent.py:5465": 560,
+   "tenstorrent.py:5893": 560,
+   "tenstorrent.py:7045": 264,
+   "tenstorrent.py:8979": 1,
+   "tenstorrent.py:7867": 12000,
+   "tenstorrent.py:7828": 9612,
+   "tenstorrent.py:9036": 200,
+   "tenstorrent.py:9058": 200,
+   "tenstorrent.py:9088": 200,
+   "tenstorrent.py:9122": 200
+  },
+  "ttnn.matmul": {
+   "tenstorrent.py:8183": 128,
+   "tenstorrent.py:8589": 16,
+   "tenstorrent.py:5287": 560,
+   "tenstorrent.py:2029": 10128,
+   "tenstorrent.py:9620": 1,
+   "tenstorrent.py:6614": 1200,
+   "tenstorrent.py:9019": 200,
+   "tenstorrent.py:9104": 200
+  },
+  "ttnn.transpose": {
+   "tenstorrent.py:5079": 560,
+   "tenstorrent.py:6589": 5064
+  }
+ },
+ "per_op_dtype": {
+  "ttnn.Tensor.__getitem__": {
+   "calls": 6806,
+   "out": {
+    "bfloat16": 6806
+   },
+   "in": {
+    "bfloat16": 6806
+   }
+  },
+  "ttnn.add": {
+   "calls": 13742,
+   "out": {
+    "bfloat16": 13742
+   },
+   "in": {
+    "bfloat16": 27482
+   }
+  },
+  "ttnn.add_": {
+   "calls": 19422,
+   "out": {
+    "bfloat16": 19422
+   },
+   "in": {
+    "bfloat16": 38844
+   }
+  },
+  "ttnn.allocate_tensor_on_device": {
+   "calls": 5600,
+   "out": {
+    "bfloat16": 5600
+   },
+   "in": {}
+  },
+  "ttnn.chunk": {
+   "calls": 856,
+   "out": {
+    "bfloat16": 12224
+   },
+   "in": {
+    "bfloat16": 856
+   }
+  },
+  "ttnn.clone": {
+   "calls": 4,
+   "out": {
+    "bfloat16": 4
+   },
+   "in": {
+    "bfloat16": 4
+   }
+  },
+  "ttnn.concat": {
+   "calls": 297,
+   "out": {
+    "bfloat16": 297
+   },
+   "in": {
+    "bfloat16": 9986
+   }
+  },
+  "ttnn.cos": {
+   "calls": 200,
+   "out": {
+    "bfloat16": 200
+   },
+   "in": {
+    "bfloat16": 200
+   }
+  },
+  "ttnn.deallocate": {
+   "calls": 138134,
+   "out": {},
+   "in": {
+    "bfloat16": 138134
+   }
+  },
+  "ttnn.experimental.nlp_concat_heads": {
+   "calls": 1200,
+   "out": {
+    "bfloat16": 1200
+   },
+   "in": {
+    "bfloat16": 1200
+   }
+  },
+  "ttnn.experimental.nlp_create_qkv_heads": {
+   "calls": 6264,
+   "out": {
+    "bfloat16": 18792
+   },
+   "in": {
+    "bfloat16": 7464
+   }
+  },
+  "ttnn.from_device": {
+   "calls": 204,
+   "out": {
+    "bfloat16": 204
+   },
+   "in": {
+    "bfloat16": 204
+   }
+  },
+  "ttnn.from_torch": {
+   "calls": 587,
+   "out": {
+    "bfloat16": 586,
+    "bfloat4_b": 1
+   },
+   "in": {}
+  },
+  "ttnn.generic_op": {
+   "calls": 4480,
+   "out": {
+    "bfloat16": 4480
+   },
+   "in": {
+    "bfloat16": 14000
+   }
+  },
+  "ttnn.layer_norm": {
+   "calls": 35325,
+   "out": {
+    "bfloat16": 35325
+   },
+   "in": {
+    "bfloat16": 72363
+   }
+  },
+  "ttnn.linear": {
+   "calls": 109887,
+   "out": {
+    "bfloat16": 109887
+   },
+   "in": {
+    "bfloat16": 246673
+   }
+  },
+  "ttnn.matmul": {
+   "calls": 12433,
+   "out": {
+    "bfloat16": 12433
+   },
+   "in": {
+    "bfloat16": 23665,
+    "bfloat4_b": 1201
+   }
+  },
+  "ttnn.multiply": {
+   "calls": 12467,
+   "out": {
+    "bfloat16": 12467
+   },
+   "in": {
+    "bfloat16": 24732
+   }
+  },
+  "ttnn.multiply_": {
+   "calls": 48643,
+   "out": {
+    "bfloat16": 48643
+   },
+   "in": {
+    "bfloat16": 92203
+   }
+  },
+  "ttnn.pad": {
+   "calls": 1200,
+   "out": {
+    "bfloat16": 1200
+   },
+   "in": {
+    "bfloat16": 1200
+   }
+  },
+  "ttnn.permute": {
+   "calls": 14949,
+   "out": {
+    "bfloat16": 14949
+   },
+   "in": {
+    "bfloat16": 14949
+   }
+  },
+  "ttnn.reciprocal": {
+   "calls": 1,
+   "out": {
+    "bfloat16": 1
+   },
+   "in": {
+    "bfloat16": 1
+   }
+  },
+  "ttnn.reshape": {
+   "calls": 19117,
+   "out": {
+    "bfloat16": 19117
+   },
+   "in": {
+    "bfloat16": 19117
+   }
+  },
+  "ttnn.slice": {
+   "calls": 6806,
+   "out": {
+    "bfloat16": 6806
+   },
+   "in": {
+    "bfloat16": 6806
+   }
+  },
+  "ttnn.softmax": {
+   "calls": 5192,
+   "out": {
+    "bfloat16": 5192
+   },
+   "in": {
+    "bfloat16": 5192
+   }
+  },
+  "ttnn.squeeze": {
+   "calls": 1200,
+   "out": {
+    "bfloat16": 1200
+   },
+   "in": {
+    "bfloat16": 1200
+   }
+  },
+  "ttnn.sum": {
+   "calls": 1,
+   "out": {
+    "bfloat16": 1
+   },
+   "in": {
+    "bfloat16": 1
+   }
+  },
+  "ttnn.to_layout": {
+   "calls": 64,
+   "out": {
+    "bfloat16": 64
+   },
+   "in": {
+    "bfloat16": 64
+   }
+  },
+  "ttnn.to_memory_config": {
+   "calls": 15636,
+   "out": {
+    "bfloat16": 15636
+   },
+   "in": {
+    "bfloat16": 15636
+   }
+  },
+  "ttnn.to_torch": {
+   "calls": 204,
+   "out": {},
+   "in": {
+    "bfloat16": 204
+   }
+  },
+  "ttnn.transformer.scaled_dot_product_attention": {
+   "calls": 1200,
+   "out": {
+    "bfloat16": 1200
+   },
+   "in": {
+    "bfloat16": 4800
+   }
+  },
+  "ttnn.transpose": {
+   "calls": 5624,
+   "out": {
+    "bfloat16": 5624
+   },
+   "in": {
+    "bfloat16": 5624
+   }
+  },
+  "ttnn.unsqueeze": {
+   "calls": 6552,
+   "out": {
+    "bfloat16": 6552
+   },
+   "in": {
+    "bfloat16": 6552
+   }
+  }
+ },
+ "rows": [
+  {
+   "sig": "attnpairbias|1x224x32x128,224x4x32x128",
+   "calls_in_capture_fold": 1200,
+   "median_ms": 1.3051,
+   "dram_read": 314753280,
+   "dram_write": 91750400,
+   "l1_write": 0,
+   "n_ops": 28,
+   "n_tensors": 65,
+   "dram_total": 406503680,
+   "per_op": {
+    "ttnn.reshape": {
+     "calls": 10,
+     "dram_read": 146800640,
+     "dram_write": 11010048,
+     "dram_total": 157810688
+    },
+    "ttnn.experimental.nlp_create_qkv_heads": {
+     "calls": 1,
+     "dram_read": 44040192,
+     "dram_write": 22020096,
+     "dram_total": 66060288
+    },
+    "ttnn.linear": {
+     "calls": 4,
+     "dram_read": 29524224,
+     "dram_write": 20185088,
+     "dram_total": 49709312
+    },
+    "ttnn.permute": {
+     "calls": 2,
+     "dram_read": 18350080,
+     "dram_write": 16515072,
+     "dram_total": 34865152
+    },
+    "ttnn.transformer.scaled_dot_product_attention": {
+     "calls": 1,
+     "dram_read": 25690112,
+     "dram_write": 1835008,
+     "dram_total": 27525120
+    },
+    "ttnn.pad": {
+     "calls": 1,
+     "dram_read": 16515072,
+     "dram_write": 7340032,
+     "dram_total": 23855104
+    },
+    "ttnn.matmul": {
+     "calls": 1,
+     "dram_read": 9977856,
+     "dram_write": 7340032,
+     "dram_total": 17317888
+    },
+    "ttnn.slice": {
+     "calls": 1,
+     "dram_read": 11010048,
+     "dram_write": 1835008,
+     "dram_total": 12845056
+    },
+    "ttnn.multiply": {
+     "calls": 1,
+     "dram_read": 5505024,
+     "dram_write": 1835008,
+     "dram_total": 7340032
+    },
+    "ttnn.experimental.nlp_concat_heads": {
+     "calls": 1,
+     "dram_read": 3670016,
+     "dram_write": 1835008,
+     "dram_total": 5505024
+    },
+    "ttnn.squeeze": {
+     "calls": 1,
+     "dram_read": 3670016,
+     "dram_write": 0,
+     "dram_total": 3670016
+    },
+    "ttnn.to_memory_config": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.Tensor.__getitem__": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.deallocate": {
+     "calls": 2,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "attnpairbias|1x512x384,1x512x512x128",
+   "calls_in_capture_fold": 264,
+   "median_ms": 1.0856,
+   "dram_read": 146350592,
+   "dram_write": 23986176,
+   "l1_write": 92274688,
+   "n_ops": 32,
+   "n_tensors": 55,
+   "dram_total": 170336768,
+   "per_op": {
+    "ttnn.layer_norm": {
+     "calls": 1,
+     "dram_read": 67109376,
+     "dram_write": 0,
+     "dram_total": 67109376
+    },
+    "ttnn.softmax": {
+     "calls": 1,
+     "dram_read": 25165824,
+     "dram_write": 8388608,
+     "dram_total": 33554432
+    },
+    "ttnn.matmul": {
+     "calls": 2,
+     "dram_read": 18874368,
+     "dram_write": 8912896,
+     "dram_total": 27787264
+    },
+    "ttnn.add_": {
+     "calls": 2,
+     "dram_read": 8389632,
+     "dram_write": 0,
+     "dram_total": 8389632
+    },
+    "ttnn.multiply_": {
+     "calls": 1,
+     "dram_read": 8388608,
+     "dram_write": 0,
+     "dram_total": 8388608
+    },
+    "ttnn.linear": {
+     "calls": 4,
+     "dram_read": 4922368,
+     "dram_write": 2359296,
+     "dram_total": 7281664
+    },
+    "ttnn.experimental.nlp_create_qkv_heads": {
+     "calls": 1,
+     "dram_read": 3145728,
+     "dram_write": 1572864,
+     "dram_total": 4718592
+    },
+    "ttnn.permute": {
+     "calls": 3,
+     "dram_read": 2359296,
+     "dram_write": 917504,
+     "dram_total": 3276800
+    },
+    "ttnn.unsqueeze": {
+     "calls": 1,
+     "dram_read": 3145728,
+     "dram_write": 0,
+     "dram_total": 3145728
+    },
+    "ttnn.slice": {
+     "calls": 1,
+     "dram_read": 1441792,
+     "dram_write": 524288,
+     "dram_total": 1966080
+    },
+    "ttnn.transpose": {
+     "calls": 1,
+     "dram_read": 1048576,
+     "dram_write": 524288,
+     "dram_total": 1572864
+    },
+    "ttnn.reshape": {
+     "calls": 1,
+     "dram_read": 1179648,
+     "dram_write": 393216,
+     "dram_total": 1572864
+    },
+    "ttnn.multiply": {
+     "calls": 1,
+     "dram_read": 1179648,
+     "dram_write": 393216,
+     "dram_total": 1572864
+    },
+    "ttnn.deallocate": {
+     "calls": 11,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.Tensor.__getitem__": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "attnpairbias|1x512x768,1x16x512x512",
+   "calls_in_capture_fold": 4800,
+   "median_ms": 0.54,
+   "dram_read": 111679488,
+   "dram_write": 31195136,
+   "l1_write": 0,
+   "n_ops": 26,
+   "n_tensors": 44,
+   "dram_total": 142874624,
+   "per_op": {
+    "ttnn.softmax": {
+     "calls": 1,
+     "dram_read": 25165824,
+     "dram_write": 8388608,
+     "dram_total": 33554432
+    },
+    "ttnn.matmul": {
+     "calls": 2,
+     "dram_read": 20971520,
+     "dram_write": 9437184,
+     "dram_total": 30408704
+    },
+    "ttnn.linear": {
+     "calls": 3,
+     "dram_read": 13375488,
+     "dram_write": 4718592,
+     "dram_total": 18094080
+    },
+    "ttnn.add_": {
+     "calls": 1,
+     "dram_read": 16777216,
+     "dram_write": 0,
+     "dram_total": 16777216
+    },
+    "ttnn.experimental.nlp_create_qkv_heads": {
+     "calls": 1,
+     "dram_read": 6291456,
+     "dram_write": 3145728,
+     "dram_total": 9437184
+    },
+    "ttnn.multiply_": {
+     "calls": 1,
+     "dram_read": 8388608,
+     "dram_write": 0,
+     "dram_total": 8388608
+    },
+    "ttnn.permute": {
+     "calls": 2,
+     "dram_read": 4718592,
+     "dram_write": 1835008,
+     "dram_total": 6553600
+    },
+    "ttnn.unsqueeze": {
+     "calls": 1,
+     "dram_read": 6291456,
+     "dram_write": 0,
+     "dram_total": 6291456
+    },
+    "ttnn.slice": {
+     "calls": 1,
+     "dram_read": 2883584,
+     "dram_write": 1048576,
+     "dram_total": 3932160
+    },
+    "ttnn.transpose": {
+     "calls": 1,
+     "dram_read": 2097152,
+     "dram_write": 1048576,
+     "dram_total": 3145728
+    },
+    "ttnn.reshape": {
+     "calls": 1,
+     "dram_read": 2359296,
+     "dram_write": 786432,
+     "dram_total": 3145728
+    },
+    "ttnn.multiply": {
+     "calls": 1,
+     "dram_read": 2359296,
+     "dram_write": 786432,
+     "dram_total": 3145728
+    },
+    "ttnn.deallocate": {
+     "calls": 9,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.Tensor.__getitem__": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "difftx|1x224x32x128,1x224x32x128",
+   "calls_in_capture_fold": 1200,
+   "median_ms": 1.976,
+   "dram_read": 392283904,
+   "dram_write": 124780544,
+   "l1_write": 25690112,
+   "n_ops": 66,
+   "n_tensors": 145,
+   "dram_total": 517064448,
+   "per_op": {
+    "ttnn.reshape": {
+     "calls": 10,
+     "dram_read": 146800640,
+     "dram_write": 11010048,
+     "dram_total": 157810688
+    },
+    "ttnn.linear": {
+     "calls": 14,
+     "dram_read": 52004096,
+     "dram_write": 36700160,
+     "dram_total": 88704256
+    },
+    "ttnn.experimental.nlp_create_qkv_heads": {
+     "calls": 1,
+     "dram_read": 44040192,
+     "dram_write": 22020096,
+     "dram_total": 66060288
+    },
+    "ttnn.permute": {
+     "calls": 2,
+     "dram_read": 18350080,
+     "dram_write": 16515072,
+     "dram_total": 34865152
+    },
+    "ttnn.to_memory_config": {
+     "calls": 11,
+     "dram_read": 16515072,
+     "dram_write": 11010048,
+     "dram_total": 27525120
+    },
+    "ttnn.transformer.scaled_dot_product_attention": {
+     "calls": 1,
+     "dram_read": 25690112,
+     "dram_write": 1835008,
+     "dram_total": 27525120
+    },
+    "ttnn.pad": {
+     "calls": 1,
+     "dram_read": 16515072,
+     "dram_write": 7340032,
+     "dram_total": 23855104
+    },
+    "ttnn.multiply_": {
+     "calls": 5,
+     "dram_read": 22020096,
+     "dram_write": 0,
+     "dram_total": 22020096
+    },
+    "ttnn.matmul": {
+     "calls": 1,
+     "dram_read": 9977856,
+     "dram_write": 7340032,
+     "dram_total": 17317888
+    },
+    "ttnn.multiply": {
+     "calls": 2,
+     "dram_read": 11010048,
+     "dram_write": 3670016,
+     "dram_total": 14680064
+    },
+    "ttnn.slice": {
+     "calls": 1,
+     "dram_read": 11010048,
+     "dram_write": 1835008,
+     "dram_total": 12845056
+    },
+    "ttnn.add": {
+     "calls": 2,
+     "dram_read": 7340032,
+     "dram_write": 3670016,
+     "dram_total": 11010048
+    },
+    "ttnn.experimental.nlp_concat_heads": {
+     "calls": 1,
+     "dram_read": 3670016,
+     "dram_write": 1835008,
+     "dram_total": 5505024
+    },
+    "ttnn.add_": {
+     "calls": 2,
+     "dram_read": 3670016,
+     "dram_write": 0,
+     "dram_total": 3670016
+    },
+    "ttnn.squeeze": {
+     "calls": 1,
+     "dram_read": 3670016,
+     "dram_write": 0,
+     "dram_total": 3670016
+    },
+    "ttnn.layer_norm": {
+     "calls": 4,
+     "dram_read": 512,
+     "dram_write": 0,
+     "dram_total": 512
+    },
+    "ttnn.Tensor.__getitem__": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.deallocate": {
+     "calls": 6,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "difftx|1x512x768,1x512x768",
+   "calls_in_capture_fold": 4800,
+   "median_ms": 1.1531,
+   "dram_read": 167525376,
+   "dram_write": 46923776,
+   "l1_write": 0,
+   "n_ops": 60,
+   "n_tensors": 102,
+   "dram_total": 214449152,
+   "per_op": {
+    "ttnn.linear": {
+     "calls": 13,
+     "dram_read": 44052480,
+     "dram_write": 14942208,
+     "dram_total": 58994688
+    },
+    "ttnn.softmax": {
+     "calls": 1,
+     "dram_read": 25165824,
+     "dram_write": 8388608,
+     "dram_total": 33554432
+    },
+    "ttnn.matmul": {
+     "calls": 2,
+     "dram_read": 20971520,
+     "dram_write": 9437184,
+     "dram_total": 30408704
+    },
+    "ttnn.add_": {
+     "calls": 3,
+     "dram_read": 19922944,
+     "dram_write": 0,
+     "dram_total": 19922944
+    },
+    "ttnn.multiply_": {
+     "calls": 6,
+     "dram_read": 19398656,
+     "dram_write": 0,
+     "dram_total": 19398656
+    },
+    "ttnn.experimental.nlp_create_qkv_heads": {
+     "calls": 1,
+     "dram_read": 6291456,
+     "dram_write": 3145728,
+     "dram_total": 9437184
+    },
+    "ttnn.layer_norm": {
+     "calls": 4,
+     "dram_read": 5508096,
+     "dram_write": 3145728,
+     "dram_total": 8653824
+    },
+    "ttnn.permute": {
+     "calls": 2,
+     "dram_read": 4718592,
+     "dram_write": 1835008,
+     "dram_total": 6553600
+    },
+    "ttnn.unsqueeze": {
+     "calls": 1,
+     "dram_read": 6291456,
+     "dram_write": 0,
+     "dram_total": 6291456
+    },
+    "ttnn.multiply": {
+     "calls": 2,
+     "dram_read": 4718592,
+     "dram_write": 1572864,
+     "dram_total": 6291456
+    },
+    "ttnn.add": {
+     "calls": 2,
+     "dram_read": 3145728,
+     "dram_write": 1572864,
+     "dram_total": 4718592
+    },
+    "ttnn.slice": {
+     "calls": 1,
+     "dram_read": 2883584,
+     "dram_write": 1048576,
+     "dram_total": 3932160
+    },
+    "ttnn.transpose": {
+     "calls": 1,
+     "dram_read": 2097152,
+     "dram_write": 1048576,
+     "dram_total": 3145728
+    },
+    "ttnn.reshape": {
+     "calls": 1,
+     "dram_read": 2359296,
+     "dram_write": 786432,
+     "dram_total": 3145728
+    },
+    "ttnn.deallocate": {
+     "calls": 17,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.to_memory_config": {
+     "calls": 2,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.Tensor.__getitem__": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "pairformer|1x512x384,1x512x512x128",
+   "calls_in_capture_fold": 264,
+   "median_ms": 46.0623,
+   "dram_read": 8915010560,
+   "dram_write": 3254648832,
+   "l1_write": 1102446592,
+   "n_ops": 430,
+   "n_tensors": 732,
+   "dram_total": 12169659392,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 20,
+     "dram_read": 1744830464,
+     "dram_write": 1744830464,
+     "dram_total": 3489660928
+    },
+    "ttnn.generic_op": {
+     "calls": 16,
+     "dram_read": 2420703232,
+     "dram_write": 0,
+     "dram_total": 2420703232
+    },
+    "ttnn.chunk": {
+     "calls": 3,
+     "dram_read": 1275068416,
+     "dram_write": 603979776,
+     "dram_total": 1879048192
+    },
+    "ttnn.layer_norm": {
+     "calls": 41,
+     "dram_read": 873602048,
+     "dram_write": 403046400,
+     "dram_total": 1276648448
+    },
+    "ttnn.multiply_": {
+     "calls": 44,
+     "dram_read": 680525824,
+     "dram_write": 0,
+     "dram_total": 680525824
+    },
+    "ttnn.matmul": {
+     "calls": 4,
+     "dram_read": 421527552,
+     "dram_write": 143130624,
+     "dram_total": 564658176
+    },
+    "ttnn.linear": {
+     "calls": 109,
+     "dram_read": 349119488,
+     "dram_write": 103415808,
+     "dram_total": 452535296
+    },
+    "ttnn.transpose": {
+     "calls": 3,
+     "dram_read": 269484032,
+     "dram_write": 134742016,
+     "dram_total": 404226048
+    },
+    "ttnn.reshape": {
+     "calls": 5,
+     "dram_read": 336723968,
+     "dram_write": 393216,
+     "dram_total": 337117184
+    },
+    "ttnn.permute": {
+     "calls": 7,
+     "dram_read": 212074496,
+     "dram_write": 5111808,
+     "dram_total": 217186304
+    },
+    "ttnn.concat": {
+     "calls": 1,
+     "dram_read": 134217728,
+     "dram_write": 67108864,
+     "dram_total": 201326592
+    },
+    "ttnn.add_": {
+     "calls": 9,
+     "dram_read": 143392768,
+     "dram_write": 0,
+     "dram_total": 143392768
+    },
+    "ttnn.unsqueeze": {
+     "calls": 5,
+     "dram_read": 14155776,
+     "dram_write": 33554432,
+     "dram_total": 47710208
+    },
+    "ttnn.softmax": {
+     "calls": 1,
+     "dram_read": 25165824,
+     "dram_write": 8388608,
+     "dram_total": 33554432
+    },
+    "ttnn.add": {
+     "calls": 2,
+     "dram_read": 8389632,
+     "dram_write": 4194304,
+     "dram_total": 12583936
+    },
+    "ttnn.experimental.nlp_create_qkv_heads": {
+     "calls": 1,
+     "dram_read": 3145728,
+     "dram_write": 1572864,
+     "dram_total": 4718592
+    },
+    "ttnn.slice": {
+     "calls": 1,
+     "dram_read": 1441792,
+     "dram_write": 524288,
+     "dram_total": 1966080
+    },
+    "ttnn.multiply": {
+     "calls": 1,
+     "dram_read": 1179648,
+     "dram_write": 393216,
+     "dram_total": 1572864
+    },
+    "ttnn.from_torch": {
+     "calls": 2,
+     "dram_read": 262144,
+     "dram_write": 262144,
+     "dram_total": 524288
+    },
+    "ttnn.deallocate": {
+     "calls": 154,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.Tensor.__getitem__": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "pairformer|1x512x512x128",
+   "calls_in_capture_fold": 16,
+   "median_ms": 43.9916,
+   "dram_read": 8616482304,
+   "dram_write": 3192127488,
+   "l1_write": 1006632960,
+   "n_ops": 378,
+   "n_tensors": 644,
+   "dram_total": 11808609792,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 20,
+     "dram_read": 1744830464,
+     "dram_write": 1744830464,
+     "dram_total": 3489660928
+    },
+    "ttnn.generic_op": {
+     "calls": 16,
+     "dram_read": 2420703232,
+     "dram_write": 0,
+     "dram_total": 2420703232
+    },
+    "ttnn.chunk": {
+     "calls": 3,
+     "dram_read": 1275068416,
+     "dram_write": 603979776,
+     "dram_total": 1879048192
+    },
+    "ttnn.layer_norm": {
+     "calls": 38,
+     "dram_read": 805309952,
+     "dram_write": 402653184,
+     "dram_total": 1207963136
+    },
+    "ttnn.multiply_": {
+     "calls": 40,
+     "dram_read": 536870912,
+     "dram_write": 0,
+     "dram_total": 536870912
+    },
+    "ttnn.matmul": {
+     "calls": 2,
+     "dram_read": 402653184,
+     "dram_write": 134217728,
+     "dram_total": 536870912
+    },
+    "ttnn.linear": {
+     "calls": 102,
+     "dram_read": 340264960,
+     "dram_write": 100663296,
+     "dram_total": 440928256
+    },
+    "ttnn.transpose": {
+     "calls": 2,
+     "dram_read": 268435456,
+     "dram_write": 134217728,
+     "dram_total": 402653184
+    },
+    "ttnn.reshape": {
+     "calls": 4,
+     "dram_read": 335544320,
+     "dram_write": 0,
+     "dram_total": 335544320
+    },
+    "ttnn.permute": {
+     "calls": 4,
+     "dram_read": 209715200,
+     "dram_write": 4194304,
+     "dram_total": 213909504
+    },
+    "ttnn.concat": {
+     "calls": 1,
+     "dram_read": 134217728,
+     "dram_write": 67108864,
+     "dram_total": 201326592
+    },
+    "ttnn.add_": {
+     "calls": 5,
+     "dram_read": 134217728,
+     "dram_write": 0,
+     "dram_total": 134217728
+    },
+    "ttnn.unsqueeze": {
+     "calls": 2,
+     "dram_read": 8388608,
+     "dram_write": 0,
+     "dram_total": 8388608
+    },
+    "ttnn.from_torch": {
+     "calls": 2,
+     "dram_read": 262144,
+     "dram_write": 262144,
+     "dram_total": 524288
+    },
+    "ttnn.deallocate": {
+     "calls": 137,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "transition|1x1024x512x64",
+   "calls_in_capture_fold": 16,
+   "median_ms": 9.6421,
+   "dram_read": 536969472,
+   "dram_write": 268435456,
+   "l1_write": 603979776,
+   "n_ops": 514,
+   "n_tensors": 841,
+   "dram_total": 805404928,
+   "per_op": {
+    "ttnn.concat": {
+     "calls": 1,
+     "dram_read": 201326592,
+     "dram_write": 134217728,
+     "dram_total": 335544320
+    },
+    "ttnn.chunk": {
+     "calls": 1,
+     "dram_read": 201326592,
+     "dram_write": 67108864,
+     "dram_total": 268435456
+    },
+    "ttnn.linear": {
+     "calls": 192,
+     "dram_read": 67207168,
+     "dram_write": 67108864,
+     "dram_total": 134316032
+    },
+    "ttnn.layer_norm": {
+     "calls": 64,
+     "dram_read": 67109120,
+     "dram_write": 0,
+     "dram_total": 67109120
+    },
+    "ttnn.deallocate": {
+     "calls": 192,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.multiply_": {
+     "calls": 64,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "transition|1x512x384",
+   "calls_in_capture_fold": 264,
+   "median_ms": 0.1831,
+   "dram_read": 4326912,
+   "dram_write": 393216,
+   "l1_write": 3538944,
+   "n_ops": 8,
+   "n_tensors": 14,
+   "dram_total": 4720128,
+   "per_op": {
+    "ttnn.linear": {
+     "calls": 3,
+     "dram_read": 3932160,
+     "dram_write": 393216,
+     "dram_total": 4325376
+    },
+    "ttnn.layer_norm": {
+     "calls": 1,
+     "dram_read": 394752,
+     "dram_write": 0,
+     "dram_total": 394752
+    },
+    "ttnn.deallocate": {
+     "calls": 3,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.multiply_": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "transition|1x512x512x128",
+   "calls_in_capture_fold": 280,
+   "median_ms": 8.1223,
+   "dram_read": 470155776,
+   "dram_write": 201326592,
+   "l1_write": 603979776,
+   "n_ops": 258,
+   "n_tensors": 423,
+   "dram_total": 671482368,
+   "per_op": {
+    "ttnn.chunk": {
+     "calls": 1,
+     "dram_read": 201326592,
+     "dram_write": 67108864,
+     "dram_total": 268435456
+    },
+    "ttnn.concat": {
+     "calls": 1,
+     "dram_read": 134217728,
+     "dram_write": 67108864,
+     "dram_total": 201326592
+    },
+    "ttnn.linear": {
+     "calls": 96,
+     "dram_read": 67502080,
+     "dram_write": 67108864,
+     "dram_total": 134610944
+    },
+    "ttnn.layer_norm": {
+     "calls": 32,
+     "dram_read": 67109376,
+     "dram_write": 0,
+     "dram_total": 67109376
+    },
+    "ttnn.deallocate": {
+     "calls": 96,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.multiply_": {
+     "calls": 32,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "transition|1x512x768",
+   "calls_in_capture_fold": 400,
+   "median_ms": 0.1767,
+   "dram_read": 8653824,
+   "dram_write": 786432,
+   "l1_write": 3932160,
+   "n_ops": 8,
+   "n_tensors": 14,
+   "dram_total": 9440256,
+   "per_op": {
+    "ttnn.linear": {
+     "calls": 3,
+     "dram_read": 7864320,
+     "dram_write": 786432,
+     "dram_total": 8650752
+    },
+    "ttnn.layer_norm": {
+     "calls": 1,
+     "dram_read": 789504,
+     "dram_write": 0,
+     "dram_total": 789504
+    },
+    "ttnn.deallocate": {
+     "calls": 3,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.multiply_": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "triatt/False|1x512x512x128",
+   "calls_in_capture_fold": 16,
+   "median_ms": 4.5426,
+   "dram_read": 1287816704,
+   "dram_write": 488636416,
+   "l1_write": 0,
+   "n_ops": 24,
+   "n_tensors": 47,
+   "dram_total": 1776453120,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 6,
+     "dram_read": 402653184,
+     "dram_write": 402653184,
+     "dram_total": 805306368
+    },
+    "ttnn.generic_op": {
+     "calls": 4,
+     "dram_read": 472023040,
+     "dram_write": 0,
+     "dram_total": 472023040
+    },
+    "ttnn.layer_norm": {
+     "calls": 1,
+     "dram_read": 134218240,
+     "dram_write": 67108864,
+     "dram_total": 201327104
+    },
+    "ttnn.reshape": {
+     "calls": 2,
+     "dram_read": 201326592,
+     "dram_write": 0,
+     "dram_total": 201326592
+    },
+    "ttnn.linear": {
+     "calls": 1,
+     "dram_read": 69207040,
+     "dram_write": 16777216,
+     "dram_total": 85984256
+    },
+    "ttnn.permute": {
+     "calls": 1,
+     "dram_read": 4194304,
+     "dram_write": 2097152,
+     "dram_total": 6291456
+    },
+    "ttnn.unsqueeze": {
+     "calls": 1,
+     "dram_read": 4194304,
+     "dram_write": 0,
+     "dram_total": 4194304
+    },
+    "ttnn.deallocate": {
+     "calls": 7,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.multiply_": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "triatt/False|1x512x512x128,1x1x1x512",
+   "calls_in_capture_fold": 264,
+   "median_ms": 4.5474,
+   "dram_read": 1292012032,
+   "dram_write": 490733568,
+   "l1_write": 0,
+   "n_ops": 25,
+   "n_tensors": 50,
+   "dram_total": 1782745600,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 6,
+     "dram_read": 402653184,
+     "dram_write": 402653184,
+     "dram_total": 805306368
+    },
+    "ttnn.generic_op": {
+     "calls": 4,
+     "dram_read": 472023040,
+     "dram_write": 0,
+     "dram_total": 472023040
+    },
+    "ttnn.layer_norm": {
+     "calls": 1,
+     "dram_read": 134218240,
+     "dram_write": 67108864,
+     "dram_total": 201327104
+    },
+    "ttnn.reshape": {
+     "calls": 2,
+     "dram_read": 201326592,
+     "dram_write": 0,
+     "dram_total": 201326592
+    },
+    "ttnn.linear": {
+     "calls": 1,
+     "dram_read": 69207040,
+     "dram_write": 16777216,
+     "dram_total": 85984256
+    },
+    "ttnn.add": {
+     "calls": 1,
+     "dram_read": 4195328,
+     "dram_write": 2097152,
+     "dram_total": 6292480
+    },
+    "ttnn.permute": {
+     "calls": 1,
+     "dram_read": 4194304,
+     "dram_write": 2097152,
+     "dram_total": 6291456
+    },
+    "ttnn.unsqueeze": {
+     "calls": 1,
+     "dram_read": 4194304,
+     "dram_write": 0,
+     "dram_total": 4194304
+    },
+    "ttnn.deallocate": {
+     "calls": 7,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.multiply_": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "triatt/True|1x512x512x128",
+   "calls_in_capture_fold": 16,
+   "median_ms": 5.8208,
+   "dram_read": 1354925568,
+   "dram_write": 488636416,
+   "l1_write": 134217728,
+   "n_ops": 26,
+   "n_tensors": 55,
+   "dram_total": 1843561984,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 6,
+     "dram_read": 402653184,
+     "dram_write": 402653184,
+     "dram_total": 805306368
+    },
+    "ttnn.generic_op": {
+     "calls": 4,
+     "dram_read": 472023040,
+     "dram_write": 0,
+     "dram_total": 472023040
+    },
+    "ttnn.permute": {
+     "calls": 3,
+     "dram_read": 205520896,
+     "dram_write": 2097152,
+     "dram_total": 207618048
+    },
+    "ttnn.layer_norm": {
+     "calls": 1,
+     "dram_read": 67109376,
+     "dram_write": 67108864,
+     "dram_total": 134218240
+    },
+    "ttnn.reshape": {
+     "calls": 2,
+     "dram_read": 134217728,
+     "dram_write": 0,
+     "dram_total": 134217728
+    },
+    "ttnn.linear": {
+     "calls": 1,
+     "dram_read": 69207040,
+     "dram_write": 16777216,
+     "dram_total": 85984256
+    },
+    "ttnn.unsqueeze": {
+     "calls": 1,
+     "dram_read": 4194304,
+     "dram_write": 0,
+     "dram_total": 4194304
+    },
+    "ttnn.deallocate": {
+     "calls": 7,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.multiply_": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "triatt/True|1x512x512x128,1x1x1x512",
+   "calls_in_capture_fold": 264,
+   "median_ms": 5.8075,
+   "dram_read": 1359120896,
+   "dram_write": 490733568,
+   "l1_write": 134217728,
+   "n_ops": 27,
+   "n_tensors": 58,
+   "dram_total": 1849854464,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 6,
+     "dram_read": 402653184,
+     "dram_write": 402653184,
+     "dram_total": 805306368
+    },
+    "ttnn.generic_op": {
+     "calls": 4,
+     "dram_read": 472023040,
+     "dram_write": 0,
+     "dram_total": 472023040
+    },
+    "ttnn.permute": {
+     "calls": 3,
+     "dram_read": 205520896,
+     "dram_write": 2097152,
+     "dram_total": 207618048
+    },
+    "ttnn.layer_norm": {
+     "calls": 1,
+     "dram_read": 67109376,
+     "dram_write": 67108864,
+     "dram_total": 134218240
+    },
+    "ttnn.reshape": {
+     "calls": 2,
+     "dram_read": 134217728,
+     "dram_write": 0,
+     "dram_total": 134217728
+    },
+    "ttnn.linear": {
+     "calls": 1,
+     "dram_read": 69207040,
+     "dram_write": 16777216,
+     "dram_total": 85984256
+    },
+    "ttnn.add": {
+     "calls": 1,
+     "dram_read": 4195328,
+     "dram_write": 2097152,
+     "dram_total": 6292480
+    },
+    "ttnn.unsqueeze": {
+     "calls": 1,
+     "dram_read": 4194304,
+     "dram_write": 0,
+     "dram_total": 4194304
+    },
+    "ttnn.deallocate": {
+     "calls": 7,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    },
+    "ttnn.multiply_": {
+     "calls": 1,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "trimul/False|1x512x512x128",
+   "calls_in_capture_fold": 16,
+   "median_ms": 9.9887,
+   "dram_read": 2684552192,
+   "dram_write": 1006632960,
+   "l1_write": 134217728,
+   "n_ops": 29,
+   "n_tensors": 54,
+   "dram_total": 3691185152,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 4,
+     "dram_read": 469762048,
+     "dram_write": 469762048,
+     "dram_total": 939524096
+    },
+    "ttnn.chunk": {
+     "calls": 1,
+     "dram_read": 536870912,
+     "dram_write": 268435456,
+     "dram_total": 805306368
+    },
+    "ttnn.generic_op": {
+     "calls": 4,
+     "dram_read": 738328576,
+     "dram_write": 0,
+     "dram_total": 738328576
+    },
+    "ttnn.layer_norm": {
+     "calls": 2,
+     "dram_read": 268436480,
+     "dram_write": 134217728,
+     "dram_total": 402654208
+    },
+    "ttnn.multiply_": {
+     "calls": 3,
+     "dram_read": 268435456,
+     "dram_write": 0,
+     "dram_total": 268435456
+    },
+    "ttnn.matmul": {
+     "calls": 1,
+     "dram_read": 201326592,
+     "dram_write": 67108864,
+     "dram_total": 268435456
+    },
+    "ttnn.transpose": {
+     "calls": 1,
+     "dram_read": 134217728,
+     "dram_write": 67108864,
+     "dram_total": 201326592
+    },
+    "ttnn.linear": {
+     "calls": 2,
+     "dram_read": 67174400,
+     "dram_write": 0,
+     "dram_total": 67174400
+    },
+    "ttnn.deallocate": {
+     "calls": 11,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "trimul/False|1x512x512x128,1x512x512",
+   "calls_in_capture_fold": 264,
+   "median_ms": 10.3724,
+   "dram_read": 2753889280,
+   "dram_write": 1023541248,
+   "l1_write": 134217728,
+   "n_ops": 32,
+   "n_tensors": 62,
+   "dram_total": 3777430528,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 4,
+     "dram_read": 469762048,
+     "dram_write": 469762048,
+     "dram_total": 939524096
+    },
+    "ttnn.chunk": {
+     "calls": 1,
+     "dram_read": 536870912,
+     "dram_write": 268435456,
+     "dram_total": 805306368
+    },
+    "ttnn.generic_op": {
+     "calls": 4,
+     "dram_read": 738328576,
+     "dram_write": 0,
+     "dram_total": 738328576
+    },
+    "ttnn.layer_norm": {
+     "calls": 2,
+     "dram_read": 268436480,
+     "dram_write": 134217728,
+     "dram_total": 402654208
+    },
+    "ttnn.multiply_": {
+     "calls": 4,
+     "dram_read": 336068608,
+     "dram_write": 0,
+     "dram_total": 336068608
+    },
+    "ttnn.matmul": {
+     "calls": 1,
+     "dram_read": 201326592,
+     "dram_write": 67108864,
+     "dram_total": 268435456
+    },
+    "ttnn.transpose": {
+     "calls": 1,
+     "dram_read": 134217728,
+     "dram_write": 67108864,
+     "dram_total": 201326592
+    },
+    "ttnn.linear": {
+     "calls": 2,
+     "dram_read": 67174400,
+     "dram_write": 0,
+     "dram_total": 67174400
+    },
+    "ttnn.unsqueeze": {
+     "calls": 1,
+     "dram_read": 1572864,
+     "dram_write": 16777216,
+     "dram_total": 18350080
+    },
+    "ttnn.from_torch": {
+     "calls": 1,
+     "dram_read": 131072,
+     "dram_write": 131072,
+     "dram_total": 262144
+    },
+    "ttnn.deallocate": {
+     "calls": 11,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "trimul/True|1x512x512x128",
+   "calls_in_capture_fold": 16,
+   "median_ms": 9.7435,
+   "dram_read": 2684552192,
+   "dram_write": 1006632960,
+   "l1_write": 134217728,
+   "n_ops": 29,
+   "n_tensors": 54,
+   "dram_total": 3691185152,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 4,
+     "dram_read": 469762048,
+     "dram_write": 469762048,
+     "dram_total": 939524096
+    },
+    "ttnn.chunk": {
+     "calls": 1,
+     "dram_read": 536870912,
+     "dram_write": 268435456,
+     "dram_total": 805306368
+    },
+    "ttnn.generic_op": {
+     "calls": 4,
+     "dram_read": 738328576,
+     "dram_write": 0,
+     "dram_total": 738328576
+    },
+    "ttnn.layer_norm": {
+     "calls": 2,
+     "dram_read": 268436480,
+     "dram_write": 134217728,
+     "dram_total": 402654208
+    },
+    "ttnn.multiply_": {
+     "calls": 3,
+     "dram_read": 268435456,
+     "dram_write": 0,
+     "dram_total": 268435456
+    },
+    "ttnn.matmul": {
+     "calls": 1,
+     "dram_read": 201326592,
+     "dram_write": 67108864,
+     "dram_total": 268435456
+    },
+    "ttnn.transpose": {
+     "calls": 1,
+     "dram_read": 134217728,
+     "dram_write": 67108864,
+     "dram_total": 201326592
+    },
+    "ttnn.linear": {
+     "calls": 2,
+     "dram_read": 67174400,
+     "dram_write": 0,
+     "dram_total": 67174400
+    },
+    "ttnn.deallocate": {
+     "calls": 11,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  },
+  {
+   "sig": "trimul/True|1x512x512x128,1x512x512",
+   "calls_in_capture_fold": 264,
+   "median_ms": 10.3571,
+   "dram_read": 2753889280,
+   "dram_write": 1023541248,
+   "l1_write": 134217728,
+   "n_ops": 32,
+   "n_tensors": 62,
+   "dram_total": 3777430528,
+   "per_op": {
+    "ttnn.allocate_tensor_on_device": {
+     "calls": 4,
+     "dram_read": 469762048,
+     "dram_write": 469762048,
+     "dram_total": 939524096
+    },
+    "ttnn.chunk": {
+     "calls": 1,
+     "dram_read": 536870912,
+     "dram_write": 268435456,
+     "dram_total": 805306368
+    },
+    "ttnn.generic_op": {
+     "calls": 4,
+     "dram_read": 738328576,
+     "dram_write": 0,
+     "dram_total": 738328576
+    },
+    "ttnn.layer_norm": {
+     "calls": 2,
+     "dram_read": 268436480,
+     "dram_write": 134217728,
+     "dram_total": 402654208
+    },
+    "ttnn.multiply_": {
+     "calls": 4,
+     "dram_read": 336068608,
+     "dram_write": 0,
+     "dram_total": 336068608
+    },
+    "ttnn.matmul": {
+     "calls": 1,
+     "dram_read": 201326592,
+     "dram_write": 67108864,
+     "dram_total": 268435456
+    },
+    "ttnn.transpose": {
+     "calls": 1,
+     "dram_read": 134217728,
+     "dram_write": 67108864,
+     "dram_total": 201326592
+    },
+    "ttnn.linear": {
+     "calls": 2,
+     "dram_read": 67174400,
+     "dram_write": 0,
+     "dram_total": 67174400
+    },
+    "ttnn.unsqueeze": {
+     "calls": 1,
+     "dram_read": 1572864,
+     "dram_write": 16777216,
+     "dram_total": 18350080
+    },
+    "ttnn.from_torch": {
+     "calls": 1,
+     "dram_read": 131072,
+     "dram_write": 131072,
+     "dram_total": 262144
+    },
+    "ttnn.deallocate": {
+     "calls": 11,
+     "dram_read": 0,
+     "dram_write": 0,
+     "dram_total": 0
+    }
+   }
+  }
+ ]
+}
