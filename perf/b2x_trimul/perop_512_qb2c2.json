@@ -1,0 +1,960 @@
+{
+ "n": 512,
+ "host": "qb2",
+ "card": 2,
+ "Z_MB": 67.108864,
+ "ttnn": "0.68.0",
+ "date": "2026-09-11T16:05:08Z",
+ "arms": {
+  "starting": {
+   "A": {
+    "stack": {
+     "real_Z": 31.511,
+     "n_ops_attributed": 4,
+     "per_op_Z": [
+      [
+       25253173.8281,
+       "ttnn.generic_op",
+       10000000.0,
+       15253173.8281
+      ],
+      [
+       4000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       0.0
+      ],
+      [
+       2000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       1000244.1406
+      ],
+      [
+       250000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       0.0
+      ]
+     ]
+    },
+    "range": {
+     "real_Z": 37.761,
+     "n_ops_attributed": 13,
+     "per_op_Z": [
+      [
+       8000000.0,
+       "ttnn.chunk",
+       4000000.0,
+       4000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.multiply_",
+       2000000.0,
+       2000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.multiply_",
+       2000000.0,
+       2000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.matmul",
+       1000000.0,
+       3000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       0.0
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       2500000.0,
+       "ttnn.multiply_",
+       1250000.0,
+       1250000.0
+      ],
+      [
+       2000000.0,
+       "ttnn.transpose",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       250000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       0.0
+      ]
+     ]
+    },
+    "devops": {
+     "GenericOpDeviceOperation": 4,
+     "SliceDeviceOperation": 4,
+     "BinaryNgDeviceOperation": 4,
+     "MatmulDeviceOperation": 3,
+     "LayerNormDeviceOperation": 2,
+     "ReshapeViewDeviceOperation": 1,
+     "TransposeDeviceOperation": 1
+    },
+    "n_devops": 19
+   },
+   "B": {
+    "stack": {
+     "real_Z": 23.511,
+     "n_ops_attributed": 4,
+     "per_op_Z": [
+      [
+       17010986.3281,
+       "ttnn.generic_op",
+       6000000.0,
+       11010986.3281
+      ],
+      [
+       4000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       0.0
+      ],
+      [
+       2000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       1000244.1406
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ]
+     ]
+    },
+    "range": {
+     "real_Z": 25.519,
+     "n_ops_attributed": 10,
+     "per_op_Z": [
+      [
+       8000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       4000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.matmul",
+       1000000.0,
+       3000000.0
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       2015625.0,
+       "ttnn.multiply_",
+       1007812.5,
+       1007812.5
+      ],
+      [
+       2000000.0,
+       "ttnn.transpose",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ]
+     ]
+    },
+    "devops": {
+     "GenericOpDeviceOperation": 4,
+     "MatmulDeviceOperation": 3,
+     "LayerNormDeviceOperation": 2,
+     "BinaryNgDeviceOperation": 2,
+     "ReshapeViewDeviceOperation": 1,
+     "TransposeDeviceOperation": 1
+    },
+    "n_devops": 13
+   },
+   "C64": {
+    "stack": {
+     "real_Z": 15.511,
+     "n_ops_attributed": 5,
+     "per_op_Z": [
+      [
+       11010986.3281,
+       "ttnn.generic_op",
+       4000000.0,
+       7010986.3281
+      ],
+      [
+       2000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       1000244.1406
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ]
+     ]
+    },
+    "range": {
+     "real_Z": 17.519,
+     "n_ops_attributed": 9,
+     "per_op_Z": [
+      [
+       4000000.0,
+       "ttnn.matmul",
+       1000000.0,
+       3000000.0
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       2015625.0,
+       "ttnn.multiply_",
+       1007812.5,
+       1007812.5
+      ],
+      [
+       2000000.0,
+       "ttnn.transpose",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ]
+     ]
+    },
+    "devops": {
+     "GenericOpDeviceOperation": 17,
+     "SliceDeviceOperation": 8,
+     "MinimalMatmulDeviceOperation": 8,
+     "MatmulDeviceOperation": 3,
+     "LayerNormDeviceOperation": 2,
+     "BinaryNgDeviceOperation": 2,
+     "ReshapeViewDeviceOperation": 1,
+     "TransposeDeviceOperation": 1
+    },
+    "n_devops": 42
+   },
+   "D": {
+    "stack": {
+     "real_Z": 25.511,
+     "n_ops_attributed": 4,
+     "per_op_Z": [
+      [
+       19010986.3281,
+       "ttnn.generic_op",
+       7000000.0,
+       12010986.3281
+      ],
+      [
+       4000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       0.0
+      ],
+      [
+       2000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       1000244.1406
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ]
+     ]
+    },
+    "range": {
+     "real_Z": 27.519,
+     "n_ops_attributed": 11,
+     "per_op_Z": [
+      [
+       8000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       4000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.matmul",
+       1000000.0,
+       3000000.0
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       2015625.0,
+       "ttnn.multiply_",
+       1007812.5,
+       1007812.5
+      ],
+      [
+       2000000.0,
+       "ttnn.transpose",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       2000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ]
+     ]
+    },
+    "devops": {
+     "GenericOpDeviceOperation": 5,
+     "LayerNormDeviceOperation": 2,
+     "ReshapeViewDeviceOperation": 1,
+     "TransposeDeviceOperation": 1,
+     "BinaryNgDeviceOperation": 1,
+     "MatmulDeviceOperation": 1
+    },
+    "n_devops": 11
+   }
+  },
+  "ending": {
+   "A": {
+    "stack": {
+     "real_Z": 31.511,
+     "n_ops_attributed": 4,
+     "per_op_Z": [
+      [
+       25253173.8281,
+       "ttnn.generic_op",
+       10000000.0,
+       15253173.8281
+      ],
+      [
+       4000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       0.0
+      ],
+      [
+       2000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       1000244.1406
+      ],
+      [
+       250000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       0.0
+      ]
+     ]
+    },
+    "range": {
+     "real_Z": 37.761,
+     "n_ops_attributed": 13,
+     "per_op_Z": [
+      [
+       8000000.0,
+       "ttnn.chunk",
+       4000000.0,
+       4000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.multiply_",
+       2000000.0,
+       2000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.multiply_",
+       2000000.0,
+       2000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.matmul",
+       1000000.0,
+       3000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       0.0
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       2500000.0,
+       "ttnn.multiply_",
+       1250000.0,
+       1250000.0
+      ],
+      [
+       2000000.0,
+       "ttnn.transpose",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       250000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       0.0
+      ]
+     ]
+    },
+    "devops": {
+     "GenericOpDeviceOperation": 4,
+     "SliceDeviceOperation": 4,
+     "BinaryNgDeviceOperation": 4,
+     "MatmulDeviceOperation": 3,
+     "LayerNormDeviceOperation": 2,
+     "ReshapeViewDeviceOperation": 1,
+     "TransposeDeviceOperation": 1
+    },
+    "n_devops": 19
+   },
+   "B": {
+    "stack": {
+     "real_Z": 23.527,
+     "n_ops_attributed": 5,
+     "per_op_Z": [
+      [
+       17010986.3281,
+       "ttnn.generic_op",
+       6000000.0,
+       11010986.3281
+      ],
+      [
+       4000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       0.0
+      ],
+      [
+       2000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       1000244.1406
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ],
+      [
+       15625.0,
+       "ttnn.transpose",
+       7812.5,
+       7812.5
+      ]
+     ]
+    },
+    "range": {
+     "real_Z": 25.535,
+     "n_ops_attributed": 11,
+     "per_op_Z": [
+      [
+       8000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       4000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.matmul",
+       1000000.0,
+       3000000.0
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       2015625.0,
+       "ttnn.multiply_",
+       1007812.5,
+       1007812.5
+      ],
+      [
+       2000000.0,
+       "ttnn.transpose",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ],
+      [
+       15625.0,
+       "ttnn.transpose",
+       7812.5,
+       7812.5
+      ]
+     ]
+    },
+    "devops": {
+     "GenericOpDeviceOperation": 4,
+     "MatmulDeviceOperation": 3,
+     "LayerNormDeviceOperation": 2,
+     "TransposeDeviceOperation": 2,
+     "BinaryNgDeviceOperation": 2,
+     "ReshapeViewDeviceOperation": 1
+    },
+    "n_devops": 14
+   },
+   "C64": {
+    "stack": {
+     "real_Z": 15.527,
+     "n_ops_attributed": 6,
+     "per_op_Z": [
+      [
+       11010986.3281,
+       "ttnn.generic_op",
+       4000000.0,
+       7010986.3281
+      ],
+      [
+       2000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       1000244.1406
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ],
+      [
+       15625.0,
+       "ttnn.transpose",
+       7812.5,
+       7812.5
+      ]
+     ]
+    },
+    "range": {
+     "real_Z": 17.535,
+     "n_ops_attributed": 10,
+     "per_op_Z": [
+      [
+       4000000.0,
+       "ttnn.matmul",
+       1000000.0,
+       3000000.0
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       2015625.0,
+       "ttnn.multiply_",
+       1007812.5,
+       1007812.5
+      ],
+      [
+       2000000.0,
+       "ttnn.transpose",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ],
+      [
+       15625.0,
+       "ttnn.transpose",
+       7812.5,
+       7812.5
+      ]
+     ]
+    },
+    "devops": {
+     "GenericOpDeviceOperation": 17,
+     "SliceDeviceOperation": 8,
+     "MinimalMatmulDeviceOperation": 8,
+     "MatmulDeviceOperation": 3,
+     "LayerNormDeviceOperation": 2,
+     "TransposeDeviceOperation": 2,
+     "BinaryNgDeviceOperation": 2,
+     "ReshapeViewDeviceOperation": 1
+    },
+    "n_devops": 43
+   },
+   "D": {
+    "stack": {
+     "real_Z": 25.527,
+     "n_ops_attributed": 5,
+     "per_op_Z": [
+      [
+       19010986.3281,
+       "ttnn.generic_op",
+       7000000.0,
+       12010986.3281
+      ],
+      [
+       4000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       0.0
+      ],
+      [
+       2000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       1000244.1406
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ],
+      [
+       15625.0,
+       "ttnn.transpose",
+       7812.5,
+       7812.5
+      ]
+     ]
+    },
+    "range": {
+     "real_Z": 27.535,
+     "n_ops_attributed": 12,
+     "per_op_Z": [
+      [
+       8000000.0,
+       "ttnn.allocate_tensor_on_device",
+       4000000.0,
+       4000000.0
+      ],
+      [
+       4000000.0,
+       "ttnn.matmul",
+       1000000.0,
+       3000000.0
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       3000244.1406,
+       "ttnn.layer_norm",
+       1000000.0,
+       2000244.1406
+      ],
+      [
+       2015625.0,
+       "ttnn.multiply_",
+       1007812.5,
+       1007812.5
+      ],
+      [
+       2000000.0,
+       "ttnn.transpose",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       2000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       1000000.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       1000000.0,
+       "ttnn.allocate_tensor_on_device",
+       1000000.0,
+       0.0
+      ],
+      [
+       500000.0,
+       "ttnn.unsqueeze",
+       250000.0,
+       250000.0
+      ],
+      [
+       15625.0,
+       "ttnn.transpose",
+       7812.5,
+       7812.5
+      ]
+     ]
+    },
+    "devops": {
+     "GenericOpDeviceOperation": 5,
+     "LayerNormDeviceOperation": 2,
+     "TransposeDeviceOperation": 2,
+     "ReshapeViewDeviceOperation": 1,
+     "BinaryNgDeviceOperation": 1,
+     "MatmulDeviceOperation": 1
+    },
+    "n_devops": 12
+   }
+  }
+ }
+}
