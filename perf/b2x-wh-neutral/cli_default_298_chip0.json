@@ -1,0 +1,17 @@
+{
+ "arm": "default",
+ "fixture": "cdk2x2_298",
+ "rc": 0,
+ "wall_s": 45.761,
+ "tt_visible_devices": "0",
+ "levers_in_env": {
+  "BOLTZ2_TOKEN_DIT_SDPA": null,
+  "TT_BIO_ATOM_AXIS_BUCKET": null
+ },
+ "n_atoms": 2397,
+ "cif_sha256": "35467677530aaa0c09aabe24dab3090a926dc8d1dc8e391f2f819993aae4f450",
+ "ref": "/home/mthuening/work/wt/b2x-wh-neutral/perf/b2x-wh-neutral/cif298/298_AB_0/cdk2x2_298.cif",
+ "ref_sha256": "35467677530aaa0c09aabe24dab3090a926dc8d1dc8e391f2f819993aae4f450",
+ "atom_identity_identical": true,
+ "coordinates_identical": true
+}

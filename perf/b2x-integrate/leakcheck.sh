@@ -6,10 +6,12 @@
 #
 # Both arms set the flags EXPLICITLY, so this is immune to the default flip landing mid-sweep.
 set -u
-WT=/home/ttuser/.coworker/wt/b2x-integrate
+WT=${WT:-/home/ttuser/.coworker/wt/b2x-integrate}
 cd "$WT" || exit 1
-PY=/home/ttuser/tt-bio-dev/env/bin/python3
-OUT="$WT/perf/b2x-integrate/leak"
+PY=${PY:-/home/ttuser/tt-bio-dev/env/bin/python3}
+OUT=${OUT:-$WT/perf/b2x-integrate/leak}
+CHIP=${CHIP:-1}
+HOLDER=${HOLDER:-worker:b2x-integrate}
 mkdir -p "$OUT"
 COMMON="--single_sequence --seed 0 --recycling_steps 1 --sampling_steps 20 --diffusion_samples 1 --output_format cif"
 for model in "$@"; do
@@ -18,7 +20,7 @@ for model in "$@"; do
     d="$OUT/${model}_${tag}"
     rm -rf "$d"; mkdir -p "$d"
     echo "=== $model arm $tag flags=$flag start $(date -u +%H:%M:%S)"
-    TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=0,1 TT_BIO_LEASE_HOLDER=worker:b2x-integrate \
+    TT_VISIBLE_DEVICES="$CHIP" TT_BIO_LEASE_CARDS=0,"$CHIP" TT_BIO_LEASE_HOLDER="$HOLDER" \
     BOLTZ2_TOKEN_DIT_SDPA="$flag" TT_BIO_ATOM_AXIS_BUCKET="$flag" \
     PYTHONPATH="$WT" timeout 2400 "$PY" -m tt_bio.main \
       predict examples/615.yaml --model "$model" $COMMON --out_dir "$d" \

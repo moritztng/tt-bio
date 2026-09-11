@@ -1,0 +1,89 @@
+{
+ "root": "perf/b2x-wh-neutral/cif512",
+ "split_seq_id": 298,
+ "ref": "base_0",
+ "n_atoms": 4116,
+ "arms": {
+  "AB_0": {
+   "whole_all_atom_A": 0.80312,
+   "whole_ca_A": 0.67163,
+   "domain1_all_atom_A": 0.57007,
+   "domain2_all_atom_A": 0.3458,
+   "hinge_free_all_atom_A": 0.48908,
+   "hinge_deg": 4.423,
+   "hinge_artifact_signature": false
+  },
+  "AB_1": {
+   "whole_all_atom_A": 0.80312,
+   "whole_ca_A": 0.67163,
+   "domain1_all_atom_A": 0.57007,
+   "domain2_all_atom_A": 0.3458,
+   "hinge_free_all_atom_A": 0.48908,
+   "hinge_deg": 4.423,
+   "hinge_artifact_signature": false
+  },
+  "A_0": {
+   "whole_all_atom_A": 0.71348,
+   "whole_ca_A": 0.56118,
+   "domain1_all_atom_A": 0.56986,
+   "domain2_all_atom_A": 0.51916,
+   "hinge_free_all_atom_A": 0.54926,
+   "hinge_deg": 1.183,
+   "hinge_artifact_signature": false
+  },
+  "A_1": {
+   "whole_all_atom_A": 0.71348,
+   "whole_ca_A": 0.56118,
+   "domain1_all_atom_A": 0.56986,
+   "domain2_all_atom_A": 0.51916,
+   "hinge_free_all_atom_A": 0.54926,
+   "hinge_deg": 1.183,
+   "hinge_artifact_signature": false
+  },
+  "B_0": {
+   "whole_all_atom_A": 0.286,
+   "whole_ca_A": 0.22802,
+   "domain1_all_atom_A": 0.18477,
+   "domain2_all_atom_A": 0.19869,
+   "hinge_free_all_atom_A": 0.19071,
+   "hinge_deg": 1.494,
+   "hinge_artifact_signature": false
+  },
+  "B_1": {
+   "whole_all_atom_A": 0.286,
+   "whole_ca_A": 0.22802,
+   "domain1_all_atom_A": 0.18477,
+   "domain2_all_atom_A": 0.19869,
+   "hinge_free_all_atom_A": 0.19071,
+   "hinge_deg": 1.494,
+   "hinge_artifact_signature": false
+  },
+  "base_1": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "base_2": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "base_3": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  }
+ }
+}

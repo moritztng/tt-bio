@@ -1,0 +1,639 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "tt_visible_devices": "0",
+  "lease_cards": "0",
+  "grid": [
+   8,
+   9
+  ],
+  "torch": "2.14.0+cu130",
+  "arch": "Arch.WORMHOLE_B0",
+  "tt_bio_file": "/home/mthuening/work/wt/b2x-wh-neutral/tt_bio/__init__.py",
+  "started_utc": "2026-09-11T20:13:48Z",
+  "loadavg": [
+   2.75390625,
+   2.814453125,
+   2.9853515625
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "diffusion_trace": false,
+   "fixtures": [
+    "cdk2x2_512.yaml",
+    "cdk2x2_298.yaml"
+   ]
+  },
+  "flag_defaults": {
+   "BOLTZ2_TOKEN_DIT_SDPA": true,
+   "TT_BIO_ATOM_AXIS_BUCKET": true,
+   "ATOM_BUCKET": 448
+  },
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 6.234,
+ "phase1": [
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "atom_bucket": false,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    512,
+    4128,
+    7168
+   ],
+   "fold_s": 53.35,
+   "prepare_and_trunk_s": 34.1816,
+   "stages_s": {
+    "diffusion_conditioning": 1.2676,
+    "sampler": 15.5587,
+    "confidence": 2.3425
+   },
+   "sampler_ms_per_step": 78.4471,
+   "plddt": 0.847511,
+   "cif_sha256": "36f9a30ce5105c2c3d491243119a6ab2c4a97e03ca25b47674e91fe5116e13ec",
+   "loadavg1": 7.62,
+   "warmup": true
+  },
+  {
+   "arm": "A",
+   "target": "cdk2x2_512",
+   "atom_bucket": false,
+   "dit_sdpa": true,
+   "diffusion_shape": [
+    512,
+    4128,
+    7168
+   ],
+   "fold_s": 44.55,
+   "prepare_and_trunk_s": 27.922,
+   "stages_s": {
+    "diffusion_conditioning": 1.2468,
+    "sampler": 13.1728,
+    "confidence": 2.2085
+   },
+   "sampler_ms_per_step": 66.5454,
+   "plddt": 0.845586,
+   "cif_sha256": "47f81c6293dbcb51f7ed0f26565ddf6362931a64a97ebfbac27a0b847834558b",
+   "loadavg1": 17.71,
+   "warmup": true
+  },
+  {
+   "arm": "B",
+   "target": "cdk2x2_512",
+   "atom_bucket": true,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 53.185,
+   "prepare_and_trunk_s": 27.6182,
+   "stages_s": {
+    "diffusion_conditioning": 1.9741,
+    "sampler": 20.7039,
+    "confidence": 2.889
+   },
+   "sampler_ms_per_step": 102.8633,
+   "plddt": 0.848167,
+   "cif_sha256": "6dce58c09b274b3cd0e2eae073ed34e1ab12b5c0a6c6ee8f859f6eeb7dfded20",
+   "loadavg1": 41.81,
+   "warmup": true
+  },
+  {
+   "arm": "AB",
+   "target": "cdk2x2_512",
+   "atom_bucket": true,
+   "dit_sdpa": true,
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 41.729,
+   "prepare_and_trunk_s": 28.1523,
+   "stages_s": {
+    "diffusion_conditioning": 1.2525,
+    "sampler": 10.0837,
+    "confidence": 2.2405
+   },
+   "sampler_ms_per_step": 50.6924,
+   "plddt": 0.845317,
+   "cif_sha256": "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1",
+   "loadavg1": 29.62,
+   "warmup": true
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "atom_bucket": false,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    512,
+    4128,
+    7168
+   ],
+   "fold_s": 52.999,
+   "prepare_and_trunk_s": 27.6795,
+   "stages_s": {
+    "diffusion_conditioning": 1.8808,
+    "sampler": 20.8141,
+    "confidence": 2.6248
+   },
+   "sampler_ms_per_step": 104.2691,
+   "plddt": 0.847511,
+   "cif_sha256": "36f9a30ce5105c2c3d491243119a6ab2c4a97e03ca25b47674e91fe5116e13ec",
+   "loadavg1": 40.5,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "A",
+   "target": "cdk2x2_512",
+   "atom_bucket": false,
+   "dit_sdpa": true,
+   "diffusion_shape": [
+    512,
+    4128,
+    7168
+   ],
+   "fold_s": 43.265,
+   "prepare_and_trunk_s": 27.7914,
+   "stages_s": {
+    "diffusion_conditioning": 1.2316,
+    "sampler": 11.9252,
+    "confidence": 2.3164
+   },
+   "sampler_ms_per_step": 59.9709,
+   "plddt": 0.845586,
+   "cif_sha256": "47f81c6293dbcb51f7ed0f26565ddf6362931a64a97ebfbac27a0b847834558b",
+   "loadavg1": 21.57,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "atom_bucket": false,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    512,
+    4128,
+    7168
+   ],
+   "fold_s": 45.225,
+   "prepare_and_trunk_s": 27.5044,
+   "stages_s": {
+    "diffusion_conditioning": 1.1986,
+    "sampler": 14.2324,
+    "confidence": 2.2896
+   },
+   "sampler_ms_per_step": 71.489,
+   "plddt": 0.847511,
+   "cif_sha256": "36f9a30ce5105c2c3d491243119a6ab2c4a97e03ca25b47674e91fe5116e13ec",
+   "loadavg1": 16.72,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "B",
+   "target": "cdk2x2_512",
+   "atom_bucket": true,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 43.672,
+   "prepare_and_trunk_s": 27.6936,
+   "stages_s": {
+    "diffusion_conditioning": 1.1757,
+    "sampler": 12.4672,
+    "confidence": 2.3352
+   },
+   "sampler_ms_per_step": 62.5964,
+   "plddt": 0.848167,
+   "cif_sha256": "6dce58c09b274b3cd0e2eae073ed34e1ab12b5c0a6c6ee8f859f6eeb7dfded20",
+   "loadavg1": 11.78,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "AB",
+   "target": "cdk2x2_512",
+   "atom_bucket": true,
+   "dit_sdpa": true,
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 41.503,
+   "prepare_and_trunk_s": 27.7554,
+   "stages_s": {
+    "diffusion_conditioning": 1.2253,
+    "sampler": 10.2125,
+    "confidence": 2.3097
+   },
+   "sampler_ms_per_step": 51.3848,
+   "plddt": 0.845317,
+   "cif_sha256": "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1",
+   "loadavg1": 16.02,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "atom_bucket": false,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    512,
+    4128,
+    7168
+   ],
+   "fold_s": 45.359,
+   "prepare_and_trunk_s": 27.6136,
+   "stages_s": {
+    "diffusion_conditioning": 1.1991,
+    "sampler": 14.2282,
+    "confidence": 2.3179
+   },
+   "sampler_ms_per_step": 71.4608,
+   "plddt": 0.847511,
+   "cif_sha256": "36f9a30ce5105c2c3d491243119a6ab2c4a97e03ca25b47674e91fe5116e13ec",
+   "loadavg1": 10.16,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "A",
+   "target": "cdk2x2_512",
+   "atom_bucket": false,
+   "dit_sdpa": true,
+   "diffusion_shape": [
+    512,
+    4128,
+    7168
+   ],
+   "fold_s": 43.149,
+   "prepare_and_trunk_s": 27.8603,
+   "stages_s": {
+    "diffusion_conditioning": 1.1785,
+    "sampler": 11.8077,
+    "confidence": 2.3029
+   },
+   "sampler_ms_per_step": 59.368,
+   "plddt": 0.845586,
+   "cif_sha256": "47f81c6293dbcb51f7ed0f26565ddf6362931a64a97ebfbac27a0b847834558b",
+   "loadavg1": 11.54,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "atom_bucket": false,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    512,
+    4128,
+    7168
+   ],
+   "fold_s": 45.65,
+   "prepare_and_trunk_s": 27.6244,
+   "stages_s": {
+    "diffusion_conditioning": 1.1246,
+    "sampler": 14.5937,
+    "confidence": 2.3072
+   },
+   "sampler_ms_per_step": 73.3743,
+   "plddt": 0.847511,
+   "cif_sha256": "36f9a30ce5105c2c3d491243119a6ab2c4a97e03ca25b47674e91fe5116e13ec",
+   "loadavg1": 9.92,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "B",
+   "target": "cdk2x2_512",
+   "atom_bucket": true,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 43.688,
+   "prepare_and_trunk_s": 27.837,
+   "stages_s": {
+    "diffusion_conditioning": 1.1607,
+    "sampler": 12.4003,
+    "confidence": 2.2903
+   },
+   "sampler_ms_per_step": 62.2364,
+   "plddt": 0.848167,
+   "cif_sha256": "6dce58c09b274b3cd0e2eae073ed34e1ab12b5c0a6c6ee8f859f6eeb7dfded20",
+   "loadavg1": 8.0,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "AB",
+   "target": "cdk2x2_512",
+   "atom_bucket": true,
+   "dit_sdpa": true,
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 41.169,
+   "prepare_and_trunk_s": 27.6688,
+   "stages_s": {
+    "diffusion_conditioning": 1.2059,
+    "sampler": 9.9611,
+    "confidence": 2.3334
+   },
+   "sampler_ms_per_step": 50.0547,
+   "plddt": 0.845317,
+   "cif_sha256": "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1",
+   "loadavg1": 9.98,
+   "warmup": false,
+   "rep": 1
+  }
+ ],
+ "phase1_summary": {
+  "base": {
+   "n": 4,
+   "fold_s": 45.5045,
+   "folds": [
+    52.999,
+    45.225,
+    45.359,
+    45.65
+   ],
+   "sampler_s": 14.4131,
+   "ms_per_step": 72.4317,
+   "trunk_s": 27.619,
+   "confidence_s": 2.3125,
+   "shape": [
+    512,
+    4128,
+    7168
+   ],
+   "cif_sha256": [
+    "36f9a30ce5105c2c3d491243119a6ab2c4a97e03ca25b47674e91fe5116e13ec"
+   ],
+   "plddt": [
+    0.847511
+   ]
+  },
+  "A": {
+   "n": 2,
+   "fold_s": 43.207,
+   "folds": [
+    43.265,
+    43.149
+   ],
+   "sampler_s": 11.8665,
+   "ms_per_step": 59.6694,
+   "trunk_s": 27.8258,
+   "confidence_s": 2.3096,
+   "shape": [
+    512,
+    4128,
+    7168
+   ],
+   "cif_sha256": [
+    "47f81c6293dbcb51f7ed0f26565ddf6362931a64a97ebfbac27a0b847834558b"
+   ],
+   "plddt": [
+    0.845586
+   ],
+   "fold_speedup": 1.05317,
+   "step_speedup": 1.21388,
+   "sampler_speedup": 1.2146,
+   "sampler_saved_s": 2.5466,
+   "fold_saved_s": 2.2975
+  },
+  "B": {
+   "n": 2,
+   "fold_s": 43.68,
+   "folds": [
+    43.672,
+    43.688
+   ],
+   "sampler_s": 12.4337,
+   "ms_per_step": 62.4164,
+   "trunk_s": 27.7653,
+   "confidence_s": 2.3127,
+   "shape": [
+    512,
+    4128,
+    4480
+   ],
+   "cif_sha256": [
+    "6dce58c09b274b3cd0e2eae073ed34e1ab12b5c0a6c6ee8f859f6eeb7dfded20"
+   ],
+   "plddt": [
+    0.848167
+   ],
+   "fold_speedup": 1.04177,
+   "step_speedup": 1.16046,
+   "sampler_speedup": 1.1592,
+   "sampler_saved_s": 1.9794,
+   "fold_saved_s": 1.8245
+  },
+  "AB": {
+   "n": 2,
+   "fold_s": 41.336,
+   "folds": [
+    41.503,
+    41.169
+   ],
+   "sampler_s": 10.0868,
+   "ms_per_step": 50.7197,
+   "trunk_s": 27.7121,
+   "confidence_s": 2.3216,
+   "shape": [
+    512,
+    4128,
+    4480
+   ],
+   "cif_sha256": [
+    "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1"
+   ],
+   "plddt": [
+    0.845317
+   ],
+   "fold_speedup": 1.10084,
+   "step_speedup": 1.42808,
+   "sampler_speedup": 1.42891,
+   "sampler_saved_s": 4.3263,
+   "fold_saved_s": 4.1685
+  },
+  "additivity": {
+   "sum_of_separate_saved_s": 4.122,
+   "combined_saved_s": 4.1685
+  }
+ },
+ "phase1_AA_floor": {
+  "base_first_median_s": 49.179,
+  "base_second_median_s": 45.4375,
+  "fold_AA_ratio": 1.08234,
+  "step_first_ms": 87.8649,
+  "step_second_ms": 72.4317,
+  "step_AA_ratio": 1.21307,
+  "sampler_first_s": 17.5211,
+  "sampler_second_s": 14.4131,
+  "fold_spread_pct": 17.08
+ },
+ "phase2": [
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "atom_bucket": false,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    298,
+    2400,
+    4480
+   ],
+   "fold_s": 55.235,
+   "prepare_and_trunk_s": 33.7413,
+   "stages_s": {
+    "diffusion_conditioning": 0.402,
+    "sampler": 20.2241,
+    "confidence": 0.8679
+   },
+   "sampler_ms_per_step": 104.0296,
+   "plddt": 0.909305,
+   "cif_sha256": "3d7fb184a548f1a1256c1feed61c497bc646a3c5fc461679374df0788901c466",
+   "loadavg1": 8.72,
+   "tag": "base_0"
+  },
+  {
+   "arm": "A",
+   "target": "cdk2x2_298",
+   "atom_bucket": false,
+   "dit_sdpa": true,
+   "diffusion_shape": [
+    298,
+    2400,
+    4480
+   ],
+   "fold_s": 25.008,
+   "prepare_and_trunk_s": 12.0489,
+   "stages_s": {
+    "diffusion_conditioning": 0.4146,
+    "sampler": 11.709,
+    "confidence": 0.8355
+   },
+   "sampler_ms_per_step": 59.115,
+   "plddt": 0.907986,
+   "cif_sha256": "35467677530aaa0c09aabe24dab3090a926dc8d1dc8e391f2f819993aae4f450",
+   "loadavg1": 8.8,
+   "tag": "A_0"
+  },
+  {
+   "arm": "B",
+   "target": "cdk2x2_298",
+   "atom_bucket": true,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    298,
+    2400,
+    2688
+   ],
+   "fold_s": 34.318,
+   "prepare_and_trunk_s": 12.0339,
+   "stages_s": {
+    "diffusion_conditioning": 0.4002,
+    "sampler": 21.0366,
+    "confidence": 0.8477
+   },
+   "sampler_ms_per_step": 108.5227,
+   "plddt": 0.909305,
+   "cif_sha256": "3d7fb184a548f1a1256c1feed61c497bc646a3c5fc461679374df0788901c466",
+   "loadavg1": 5.71,
+   "tag": "B_0"
+  },
+  {
+   "arm": "AB",
+   "target": "cdk2x2_298",
+   "atom_bucket": true,
+   "dit_sdpa": true,
+   "diffusion_shape": [
+    298,
+    2400,
+    2688
+   ],
+   "fold_s": 22.259,
+   "prepare_and_trunk_s": 12.0149,
+   "stages_s": {
+    "diffusion_conditioning": 0.4142,
+    "sampler": 8.9692,
+    "confidence": 0.861
+   },
+   "sampler_ms_per_step": 44.9499,
+   "plddt": 0.907986,
+   "cif_sha256": "35467677530aaa0c09aabe24dab3090a926dc8d1dc8e391f2f819993aae4f450",
+   "loadavg1": 6.95,
+   "tag": "AB_0"
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "atom_bucket": false,
+   "dit_sdpa": false,
+   "diffusion_shape": [
+    298,
+    2400,
+    4480
+   ],
+   "fold_s": 23.078,
+   "prepare_and_trunk_s": 12.0248,
+   "stages_s": {
+    "diffusion_conditioning": 0.4085,
+    "sampler": 9.7964,
+    "confidence": 0.8487
+   },
+   "sampler_ms_per_step": 49.1077,
+   "plddt": 0.909305,
+   "cif_sha256": "3d7fb184a548f1a1256c1feed61c497bc646a3c5fc461679374df0788901c466",
+   "loadavg1": 13.86,
+   "tag": "base_1"
+  }
+ ],
+ "phase3": {
+  "token_bucket": "0",
+  "n_tokens": 298,
+  "padded_seq_times_14": 4172,
+  "is_multiple_of_32": false,
+  "base": {
+   "arm": "base",
+   "ok": false,
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:52: old_volume % new_volume == 0\ninfo:\nInvalid arguments to reshape\nbacktrace:\n --- /home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x72355b15d668]\n --- ttnn::operations::data_movement::detail::infer_dims_for_reshape(tt::tt_metal::Tensor const&, std::span<int const, 18446744073709551615ul>)\n --- ttnn::reshape(tt::tt_metal::Tensor const&, std::span<int const, 18446744073709551615ul>, std::optional<tt::tt_metal::MemoryConfig> const&, std::op",
+   "tb": "tion_Vectorcall+0x7c) [0x5bcbdfce5aec]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x807) [0x5bcbdfccfe07]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5bcbdfce5aec]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x5bcbdfccfcc0]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5bcbdfce5aec]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x5bcbdfccfcc0]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x25b036) [0x5bcbdfdb5036]\n --- /home/mthuening/work/tt-bio/env/bin/python3(PyEval_EvalCode+0x86) [0x5bcbdfdb4f06]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x281a88) [0x5bcbdfddba88]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x27c0df) [0x5bcbdfdd60df]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x281825) [0x5bcbdfddb825]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyRun_SimpleFileObject+0x1a8) [0x5bcbdfddad68]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyRun_AnyFileObject+0x47) [0x5bcbdfddaa47]\n --- /home/mthuening/work/tt-bio/env/bin/python3(Py_RunMain+0x2be) [0x5bcbdfdceeae]\n --- /home/mthuening/work/tt-bio/env/bin/python3(Py_BytesMain+0x2d) [0x5bcbdfda8f4d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x7236b9c29d90]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80) [0x7236b9c29e40]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_start+0x25) [0x5bcbdfda8e45]\n\n"
+  },
+  "B": {
+   "arm": "B",
+   "ok": true,
+   "fold_s": 23.839,
+   "shape": [
+    298,
+    2400,
+    2688
+   ],
+   "cif_sha256": "3d7fb184a548f1a1256c1feed61c497bc646a3c5fc461679374df0788901c466"
+  }
+ },
+ "finished_utc": "2026-09-11T20:28:09Z"
+}

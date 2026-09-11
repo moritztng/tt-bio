@@ -1,0 +1,12 @@
+{
+ "arm": "off",
+ "fixture": "cdk2x2_512",
+ "rc": 0,
+ "wall_s": 90.111,
+ "levers_in_env": {
+  "BOLTZ2_TOKEN_DIT_SDPA": "0",
+  "TT_BIO_ATOM_AXIS_BUCKET": "0"
+ },
+ "n_atoms": 4116,
+ "cif_sha256": "47ce81045fbb79cb3aed4c52f3e469ffac3856ff4e0cdbbf7b6ee74f8eeadac7"
+}

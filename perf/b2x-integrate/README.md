@@ -25,12 +25,16 @@ A/A floor 0.19 % on the fold, trunk flat at 12.20-12.24 s in all four arms, 2.09
 * `split512.json`, `cif512/` — each pseudo-domain superposed alone, plus the hinge and the pooled
   hinge-free RMSD. One CIF per arm is kept; the other two reps of each arm were bit-identical to it
   and their digests are in `ab512.json`.
-* `leakcheck.sh`, `leak/shas.txt` — the 4649 engine-leak requirement: OpenFold3 and Protenix-v2
+* `leakcheck.sh`, `leak/shas.txt` — the 4649 engine-leak requirement (`WT`/`PY`/`OUT`/`CHIP`/
+  `HOLDER` are env-overridable so another host can run it): OpenFold3 and Protenix-v2
   each fold byte-identically with both flags forced off, forced on, and off again. Three digests
   per model, one distinct value each: `d4da7b0ee098cb05` and `6744de383e0c3610`.
 * `verify_default.py` — the shipped default through the real CLI and its worker spawn, not through
-  a module global the harness assigned. Run 2026-09-11 on card 0: rc=0, 29.248 s for the whole
-  command, 4116 atoms, file digest `dd1c2a12f97772fb`, atom identity and coordinates both
+  a module global the harness assigned. `--arm off` runs the documented `BOLTZ2_TOKEN_DIT_SDPA=0
+  TT_BIO_ATOM_AXIS_BUCKET=0` escape hatch the same way, and `--ref`/`--fixture` keep it off one
+  card type's committed CIF, because coordinates only compare within a card type (see
+  `perf/b2x-wh-neutral/` for the Wormhole run). Run 2026-09-11 on card 0: rc=0, 29.248 s for the
+  whole command, 4116 atoms, file digest `dd1c2a12f97772fb`, atom identity and coordinates both
   identical to `cif512/512_AB_0`. Re-run after merging `origin/main` (which had since gained
   `wk/b2x-host-residual`): same digest, coordinates still identical. The two CLI walls, 29.248
   and 29.227 s, are n=1 each and cannot resolve that merge's 0.395 s claim, so nothing is
