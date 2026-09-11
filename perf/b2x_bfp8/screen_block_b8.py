@@ -30,6 +30,19 @@ def dump():
         OUT_PATH.write_text(json.dumps(OUT, indent=1))
 
 
+def assert_checkout():
+    """Fail loudly if this ran the SHARED checkout instead of this worktree.
+
+    The venv installs `tt_bio` from /home/ttuser/tt-bio-dev, so an import that does not resolve
+    to REPO scores a branch that is not this one (memory
+    `parity-gate-scores-installed-package-not-checkout`).
+    """
+    import tt_bio
+    got = Path(tt_bio.__file__).resolve()
+    assert str(got).startswith(str(REPO) + "/"), f"imported {got}, not the worktree at {REPO}"
+    return str(got)
+
+
 def graph_bytes(g):
     """DRAM bytes a captured region reads and writes, plus L1, plus the op census.
 
@@ -99,6 +112,7 @@ def main() -> int:
         "host": socket.gethostname(), "card": os.environ.get("TT_VISIBLE_DEVICES"),
         "grid": [g.x, g.y], "arch": str(dev.arch()), "seq": args.seq, "reps": args.reps,
         "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "tt_bio": assert_checkout(),
     }
     try:
         import importlib.metadata as _md

@@ -40,6 +40,19 @@ def dump():
         OUT_PATH.write_text(json.dumps(OUT, indent=1))
 
 
+def assert_checkout():
+    """Fail loudly if this ran the SHARED checkout instead of this worktree.
+
+    The venv installs `tt_bio` from /home/ttuser/tt-bio-dev, so an import that does not resolve
+    to REPO scores a branch that is not this one (memory
+    `parity-gate-scores-installed-package-not-checkout`).
+    """
+    import tt_bio
+    got = Path(tt_bio.__file__).resolve()
+    assert str(got).startswith(str(REPO) + "/"), f"imported {got}, not the worktree at {REPO}"
+    return str(got)
+
+
 def seed_msa(target: Path, a3m_text: str, msa_dir: Path) -> None:
     from tt_bio.main import _read_bio_chains
     chains = _read_bio_chains(target)
@@ -78,6 +91,7 @@ def main() -> int:
         "host": socket.gethostname(), "card": os.environ.get("TT_VISIBLE_DEVICES"),
         "grid": [g.x, g.y], "arch": str(dev.arch()),
         "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "tt_bio": assert_checkout(),
         "protocol": {"recycling_steps": RECYCLES, "sampling_steps": args.steps,
                      "diffusion_samples": SAMPLES, "seed": SEED,
                      "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its 35-row a3m"},
