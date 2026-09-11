@@ -1,0 +1,481 @@
+{
+ "tokens": 128,
+ "multiplicity": 1,
+ "atoms": 1792,
+ "module": "affinity_model_args1",
+ "token_s": 384,
+ "token_z": 128,
+ "pairformer_blocks": 8,
+ "head_blocks": 12,
+ "torch": "2.8.0+cpu",
+ "arms": {
+  "float32": {
+   "wall_s": 2.7959,
+   "weights_loaded": "334/334",
+   "aten_calls": 2575,
+   "by_out_dtype": {
+    "float32": {
+     "calls": 2527,
+     "secs": 2.7236,
+     "out_GB": 20.114,
+     "TFLOP": 0.1801
+    },
+    "bool": {
+     "calls": 47,
+     "secs": 0.001,
+     "out_GB": 0.001,
+     "TFLOP": 0.0
+    },
+    "int64": {
+     "calls": 1,
+     "secs": 0.0003,
+     "out_GB": 0.0001,
+     "TFLOP": 0.0
+    }
+   },
+   "top_ops": [
+    {
+     "op": "bmm",
+     "in": "float32",
+     "out": "float32",
+     "calls": 49,
+     "secs": 1.8058,
+     "out_GB": 0.8053
+    },
+    {
+     "op": "mm",
+     "in": "float32",
+     "out": "float32",
+     "calls": 194,
+     "secs": 0.3832,
+     "out_GB": 2.1854
+    },
+    {
+     "op": "native_layer_norm",
+     "in": "float32",
+     "out": "float32",
+     "calls": 60,
+     "secs": 0.2237,
+     "out_GB": 0.5196
+    },
+    {
+     "op": "mul",
+     "in": "float32",
+     "out": "float32",
+     "calls": 130,
+     "secs": 0.0909,
+     "out_GB": 1.3856
+    },
+    {
+     "op": "_softmax",
+     "in": "float32",
+     "out": "float32",
+     "calls": 16,
+     "secs": 0.0417,
+     "out_GB": 0.5369
+    },
+    {
+     "op": "add_",
+     "in": "float32",
+     "out": "float32",
+     "calls": 32,
+     "secs": 0.0378,
+     "out_GB": 1.0737
+    },
+    {
+     "op": "clone",
+     "in": "float32",
+     "out": "float32",
+     "calls": 70,
+     "secs": 0.0332,
+     "out_GB": 0.5462
+    },
+    {
+     "op": "sigmoid",
+     "in": "float32",
+     "out": "float32",
+     "calls": 48,
+     "secs": 0.03,
+     "out_GB": 0.5369
+    },
+    {
+     "op": "add",
+     "in": "float32",
+     "out": "float32",
+     "calls": 50,
+     "secs": 0.0288,
+     "out_GB": 0.3777
+    },
+    {
+     "op": "silu",
+     "in": "float32",
+     "out": "float32",
+     "calls": 10,
+     "secs": 0.0232,
+     "out_GB": 0.302
+    },
+    {
+     "op": "div_",
+     "in": "float32",
+     "out": "float32",
+     "calls": 16,
+     "secs": 0.004,
+     "out_GB": 0.1342
+    },
+    {
+     "op": "new_zeros",
+     "in": "float32",
+     "out": "float32",
+     "calls": 16,
+     "secs": 0.0039,
+     "out_GB": 0.1342
+    },
+    {
+     "op": "copy_",
+     "in": "float32",
+     "out": "float32",
+     "calls": 16,
+     "secs": 0.0037,
+     "out_GB": 0.1342
+    },
+    {
+     "op": "_unsafe_view",
+     "in": "float32",
+     "out": "float32",
+     "calls": 290,
+     "secs": 0.0028,
+     "out_GB": 3.3933
+    },
+    {
+     "op": "view",
+     "in": "float32",
+     "out": "float32",
+     "calls": 446,
+     "secs": 0.002,
+     "out_GB": 3.8664
+    },
+    {
+     "op": "cat",
+     "in": "",
+     "out": "float32",
+     "calls": 1,
+     "secs": 0.0018,
+     "out_GB": 0.0168
+    },
+    {
+     "op": "t",
+     "in": "float32",
+     "out": "float32",
+     "calls": 203,
+     "secs": 0.0014,
+     "out_GB": 0.0219
+    },
+    {
+     "op": "slice",
+     "in": "float32",
+     "out": "float32",
+     "calls": 270,
+     "secs": 0.0009,
+     "out_GB": 0.8797
+    },
+    {
+     "op": "rand",
+     "in": "",
+     "out": "float32",
+     "calls": 32,
+     "secs": 0.0009,
+     "out_GB": 0.0
+    },
+    {
+     "op": "ge",
+     "in": "float32",
+     "out": "bool",
+     "calls": 32,
+     "secs": 0.0007,
+     "out_GB": 0.0
+    },
+    {
+     "op": "expand",
+     "in": "float32",
+     "out": "float32",
+     "calls": 136,
+     "secs": 0.0007,
+     "out_GB": 1.2194
+    },
+    {
+     "op": "permute",
+     "in": "float32",
+     "out": "float32",
+     "calls": 112,
+     "secs": 0.0006,
+     "out_GB": 0.8095
+    },
+    {
+     "op": "unsqueeze",
+     "in": "float32",
+     "out": "float32",
+     "calls": 120,
+     "secs": 0.0004,
+     "out_GB": 0.2854
+    },
+    {
+     "op": "transpose",
+     "in": "float32",
+     "out": "float32",
+     "calls": 88,
+     "secs": 0.0003,
+     "out_GB": 0.6716
+    },
+    {
+     "op": "embedding",
+     "in": "float32|int64",
+     "out": "float32",
+     "calls": 1,
+     "secs": 0.0003,
+     "out_GB": 0.0084
+    }
+   ],
+   "out_keys": [
+    "affinity_logits_binary",
+    "affinity_pred_value"
+   ]
+  },
+  "bfloat16": {
+   "wall_s": 0.9101,
+   "weights_loaded": "334/334",
+   "aten_calls": 2970,
+   "by_out_dtype": {
+    "bfloat16": {
+     "calls": 1997,
+     "secs": 0.5985,
+     "out_GB": 8.7494,
+     "TFLOP": 0.1801
+    },
+    "float32": {
+     "calls": 925,
+     "secs": 0.2455,
+     "out_GB": 4.0435,
+     "TFLOP": 0.0
+    },
+    "bool": {
+     "calls": 47,
+     "secs": 0.0008,
+     "out_GB": 0.001,
+     "TFLOP": 0.0
+    },
+    "int64": {
+     "calls": 1,
+     "secs": 0.0003,
+     "out_GB": 0.0001,
+     "TFLOP": 0.0
+    }
+   },
+   "top_ops": [
+    {
+     "op": "native_layer_norm",
+     "in": "bfloat16|float32",
+     "out": "float32",
+     "calls": 19,
+     "secs": 0.1449,
+     "out_GB": 0.0822
+    },
+    {
+     "op": "bmm",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 49,
+     "secs": 0.1426,
+     "out_GB": 0.4027
+    },
+    {
+     "op": "mm",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 194,
+     "secs": 0.1337,
+     "out_GB": 1.0927
+    },
+    {
+     "op": "add_",
+     "in": "bfloat16|float32",
+     "out": "bfloat16",
+     "calls": 16,
+     "secs": 0.1027,
+     "out_GB": 0.2684
+    },
+    {
+     "op": "add_",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 16,
+     "secs": 0.0614,
+     "out_GB": 0.2684
+    },
+    {
+     "op": "_to_copy",
+     "in": "float32",
+     "out": "bfloat16",
+     "calls": 392,
+     "secs": 0.0508,
+     "out_GB": 0.7498
+    },
+    {
+     "op": "mul",
+     "in": "bfloat16|float32",
+     "out": "float32",
+     "calls": 48,
+     "secs": 0.0497,
+     "out_GB": 0.5369
+    },
+    {
+     "op": "mul",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 58,
+     "secs": 0.0317,
+     "out_GB": 0.4194
+    },
+    {
+     "op": "_softmax",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 16,
+     "secs": 0.0218,
+     "out_GB": 0.2684
+    },
+    {
+     "op": "add",
+     "in": "float32",
+     "out": "float32",
+     "calls": 36,
+     "secs": 0.0201,
+     "out_GB": 0.2603
+    },
+    {
+     "op": "native_layer_norm",
+     "in": "float32",
+     "out": "float32",
+     "calls": 41,
+     "secs": 0.0161,
+     "out_GB": 0.3577
+    },
+    {
+     "op": "clone",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 65,
+     "secs": 0.0153,
+     "out_GB": 0.2726
+    },
+    {
+     "op": "sigmoid",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 48,
+     "secs": 0.015,
+     "out_GB": 0.2684
+    },
+    {
+     "op": "silu",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 10,
+     "secs": 0.0111,
+     "out_GB": 0.151
+    },
+    {
+     "op": "add",
+     "in": "bfloat16|float32",
+     "out": "float32",
+     "calls": 9,
+     "secs": 0.0079,
+     "out_GB": 0.0755
+    },
+    {
+     "op": "div_",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 16,
+     "secs": 0.0023,
+     "out_GB": 0.0671
+    },
+    {
+     "op": "new_zeros",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 16,
+     "secs": 0.0018,
+     "out_GB": 0.0671
+    },
+    {
+     "op": "_unsafe_view",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 290,
+     "secs": 0.0017,
+     "out_GB": 1.6967
+    },
+    {
+     "op": "view",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 342,
+     "secs": 0.0016,
+     "out_GB": 1.6632
+    },
+    {
+     "op": "cat",
+     "in": "",
+     "out": "float32",
+     "calls": 1,
+     "secs": 0.0015,
+     "out_GB": 0.0168
+    },
+    {
+     "op": "t",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 203,
+     "secs": 0.0012,
+     "out_GB": 0.0109
+    },
+    {
+     "op": "copy_",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 16,
+     "secs": 0.0011,
+     "out_GB": 0.0671
+    },
+    {
+     "op": "rand",
+     "in": "",
+     "out": "float32",
+     "calls": 32,
+     "secs": 0.0008,
+     "out_GB": 0.0
+    },
+    {
+     "op": "slice",
+     "in": "float32",
+     "out": "float32",
+     "calls": 244,
+     "secs": 0.0008,
+     "out_GB": 0.7282
+    },
+    {
+     "op": "add",
+     "in": "bfloat16",
+     "out": "bfloat16",
+     "calls": 5,
+     "secs": 0.0007,
+     "out_GB": 0.021
+    }
+   ],
+   "out_keys": [
+    "affinity_logits_binary",
+    "affinity_pred_value"
+   ]
+  }
+ }
+}
