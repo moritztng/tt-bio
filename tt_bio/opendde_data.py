@@ -42,7 +42,7 @@ def _residue_atom_names(res, is_c_terminal):
     return atoms
 
 
-def _has_oxt(feats, aatype, mol_type, n_res):
+def _has_oxt(aatype, per_token, n_res):
     """Which residue tokens carry an OXT, read off the atom order in `feats` rather than
     re-derived. protein_atom_features decides this per residue: the last residue of a chain
     built from a sequence, or whatever the structure file said for a chain read out of one
@@ -50,10 +50,9 @@ def _has_oxt(feats, aatype, mol_type, n_res):
     with the atom order it has to index into, and a disagreement is silent -- it shows up as
     an atom_to_structural_token misalignment N atoms downstream, which is how the
     4969-vs-4967 failure on the 9dsg Fab+RBD read."""
-    per_token = torch.bincount(feats["atom_to_token_idx"].long(), minlength=n_res)
     out = []
     for r in range(n_res):
-        if int(mol_type[r]) == MOL_TYPE_LIGAND:
+        if int(per_token[r]) == 1:
             out.append(False)
             continue
         aa = int(aatype[r])
@@ -91,17 +90,25 @@ def build_structural_token_features(feats):
     res_id = feats["residue_index"]
     aatype = feats["restype"].argmax(-1)
     n_res = aatype.shape[0]
-    mol_type = feats["mol_type"]
     n_atom = feats["atom_to_token_idx"].shape[0]
-    is_c_term = _has_oxt(feats, aatype, mol_type, n_res)
+    # How many atoms each residue token actually owns, straight from the feats the loop has
+    # to index into. A token that owns exactly one atom was atomized upstream, and that is
+    # the only signal this loop needs: it is true of every ligand atom-token and of every
+    # slot of a `modifications:` residue, which build_complex_features also tokenizes per
+    # atom from its CCD component.
+    per_token = torch.bincount(feats["atom_to_token_idx"].long(), minlength=n_res)
+    is_c_term = _has_oxt(aatype, per_token, n_res)
 
     parent, role, twin = [], [], []
     atom_tok, atom_tokatom = [], []
     for r in range(n_res):
-        # Ligand atom-token: one "atom"-role structural token per ligand atom
-        # (upstream AtomArrayTokenizer._get_atom_token_from_parent). build_complex_features
-        # tokenizes a ligand PER ATOM, so this parent token IS the atom (1:1); tokatom=0.
-        if int(mol_type[r]) == MOL_TYPE_LIGAND:
+        # Atomized token: one "atom"-role structural token, because the token IS the atom
+        # (upstream AtomArrayTokenizer._get_atom_token_from_parent). Ligand chains get here
+        # because build_complex_features tokenizes a ligand per atom; a `modifications:`
+        # residue gets here because it is tokenized per atom from its CCD component, and
+        # naming its atoms from the canonical aatype instead used to build a whole UNK atom
+        # list per atom and assert out (one SEP: 10 atoms in, 50 built).
+        if int(per_token[r]) == 1:
             st_idx = len(parent)
             parent.append(r); role.append(STRUCTURAL_TOKEN_ROLES["atom"]); twin.append(-1)
             atom_tok.append(st_idx); atom_tokatom.append(0)
