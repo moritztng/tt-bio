@@ -6,8 +6,10 @@ which is the failure mode a hand-maintained log has.
 """
 from __future__ import annotations
 
+import calendar
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -27,6 +29,12 @@ def reclassify(r: dict) -> dict:
     log = Path(r.get("log", ""))
     if not log.is_file():
         return r
+    # Only this run's own log. Older rows share a log name with every later attempt at the same
+    # rung, so a log written well after the row finished belongs to a different run and its
+    # refusals are not this row's cause.
+    row_end = calendar.timegm(time.strptime(r["ts"], "%Y-%m-%dT%H:%M:%SZ"))
+    if log.stat().st_mtime > row_end + 60:
+        return {**r, "log_superseded": True}
     verdict, detail = classify(log.read_text(errors="replace"), r["rc"], False)
     if verdict.startswith("OOM"):
         return {**r, "verdict": verdict, **detail, "reclassified": True}
@@ -55,6 +63,11 @@ def main() -> int:
                 bits.append(f"bank {r['bank_size_mib']} MiB, free {r['free_mib']} MiB, "
                             f"largest run {r['largest_free_mib']} MiB")
             bits.append(r.get("wall_kind", "UNCLASSIFIED"))
+        if r.get("log_superseded"):
+            bits.append("[log overwritten by a later attempt; not reclassified]")
+        if r.get("refusals_recovered"):
+            bits.append(f"recovered from {r['refusals_recovered']} refusal(s), largest "
+                        f"{round(r['largest_recovered_bytes'] / 2**30, 2)} GiB")
         if "structure" in r:
             bits.append(Path(r["structure"]).name)
         out.append("  ".join(bits))

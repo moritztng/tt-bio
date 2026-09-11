@@ -159,10 +159,23 @@ def run_rung(model: str, yaml_path: Path, device: int, out_root: Path, timeout_s
     else:
         verdict, detail = classify(out + err, rc, timed_out)
         detail = dict(detail)
-    log = out_root / f"{model}_{yaml_path.stem}.log"
-    log.write_text(out + "\n===STDERR===\n" + err)
-    return {"model": model, "rung": yaml_path.stem, "device": device, "verdict": verdict,
-            "wall_s": wall, "rc": rc, "log": str(log), **detail}
+    # One log per ATTEMPT, not per (model, rung). Reusing the name let a later attempt at the
+    # same rung overwrite the log an earlier row points at, and the collector then read the
+    # NEW run's recovered-from refusal as the OLD run's cause of death -- which is how a guard
+    # refusal and a missing shared library both came back reported as a 2 GiB DRAM wall.
+    log = out_root / f"{model}_{yaml_path.stem}_{time.strftime('%H%M%S', time.gmtime(t0))}.log"
+    body = out + "\n===STDERR===\n" + err
+    log.write_text(body)
+    row = {"model": model, "rung": yaml_path.stem, "device": device, "verdict": verdict,
+           "wall_s": wall, "rc": rc, "log": str(log), **detail}
+    # A refusal the engine recovered from is not a wall, but it is the single best evidence
+    # that the reactive narrowing is doing its job -- and it is invisible in a PASS row
+    # otherwise. Counted for every outcome, named separately from the one that killed the run.
+    hits = [int(m[1]) for m in _OOM.finditer(body)]
+    if hits and verdict == "PASS":
+        row["refusals_recovered"] = len(hits)
+        row["largest_recovered_bytes"] = max(hits)
+    return row
 
 
 def main() -> int:

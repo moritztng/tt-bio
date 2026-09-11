@@ -106,3 +106,45 @@ def test_enough_free_but_not_in_one_run_is_fragmentation_not_residency():
 
 def test_a_refusal_with_no_allocator_state_says_so_rather_than_guessing():
     assert classify(NO_PER_BANK, 1, False)[1]["wall_kind"] == "UNCLASSIFIED"
+
+
+def test_a_pass_reports_the_refusals_the_engine_recovered_from(tmp_path, monkeypatch):
+    """A refusal the engine narrowed past is not a wall, but it is the only visible evidence
+    that the reactive narrowing ran at all -- and a PASS row hides it otherwise."""
+    import ladder as L
+
+    out_root = tmp_path / "runs"
+
+    class _P:
+        returncode = 0
+        stdout = ("Out of Memory: Not enough space to allocate 2147483648 B DRAM buffer "
+                  "across 12 banks\nretrying narrower\n")
+        stderr = ""
+
+    def _fake_run(*a, **k):
+        (out_root / "m_r").mkdir(parents=True, exist_ok=True)
+        (out_root / "m_r" / "x.cif").write_text("folded")
+        return _P()
+
+    monkeypatch.setattr(L.subprocess, "run", _fake_run)
+    row = L.run_rung("m", tmp_path / "r.yaml", 0, out_root, 60, {}, [])
+    assert row["verdict"] == "PASS"
+    assert row["refusals_recovered"] == 1
+    assert row["largest_recovered_bytes"] == 2147483648
+
+
+def test_each_attempt_writes_its_own_log(tmp_path, monkeypatch):
+    """Two attempts at the same rung must not share a log name: the collector reads the log to
+    classify a wall, and a shared name let a later run's recovered refusal be reported as an
+    earlier run's cause of death."""
+    import ladder as L
+
+    class _P:
+        returncode, stdout, stderr = 1, "", "boom"
+
+    monkeypatch.setattr(L.subprocess, "run", lambda *a, **k: _P())
+    monkeypatch.setattr(L.time, "strftime", lambda f, t=None: "000001")
+    a = L.run_rung("m", tmp_path / "r.yaml", 0, tmp_path / "runs", 60, {}, [])
+    monkeypatch.setattr(L.time, "strftime", lambda f, t=None: "000002")
+    b = L.run_rung("m", tmp_path / "r.yaml", 0, tmp_path / "runs", 60, {}, [])
+    assert a["log"] != b["log"] and Path(a["log"]).is_file() and Path(b["log"]).is_file()
