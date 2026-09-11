@@ -114,3 +114,14 @@ fi
 mkdir -p "${DEST}"
 tar xzf "${tmp}/${ASSET}" -C "$(dirname "${DEST}")"
 echo "done: fixtures extracted under ${DEST}"
+
+# A fetch that reports success while a model's references are absent is worse than a fetch
+# that fails: the gate then reports that leg BLOCKED-REF-REGEN-NEEDED, which does not fail
+# the gate, and tells you to re-run this script. Assert on what landed. The gate owns the
+# predicate (it is the code that opens these files), so ask it rather than re-globbing here.
+gate="$(dirname "$0")/full_parity_gate.py"
+if [[ -x "${gate}" || -f "${gate}" ]]; then
+  "${PYTHON:-python3}" "${gate}" --verify-fixtures
+else
+  echo "warn: ${gate} not found; fixture completeness unverified." >&2
+fi
