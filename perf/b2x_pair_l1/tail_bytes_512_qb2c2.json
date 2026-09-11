@@ -1,0 +1,176 @@
+{
+ "n": 512,
+ "c_z": 128,
+ "arms": [
+  {
+   "group": 4,
+   "tail_l1": false,
+   "share": 0.5,
+   "dram_alloc_MB": 1091.27,
+   "l1_alloc_MB": 134.22,
+   "ttnn_ops": 31,
+   "nodes": 383,
+   "took_l1": 0,
+   "refused": 0,
+   "node_kinds": {
+    "capture_start": 1,
+    "function_start": 102,
+    "tensor": 114,
+    "buffer": 24,
+    "buffer_allocate": 15,
+    "function_end": 93,
+    "circular_buffer_deallocate_all": 19,
+    "buffer_deallocate": 14,
+    "capture_end": 1
+   },
+   "top_ops": {
+    "ttnn.deallocate": 11,
+    "ttnn.allocate_tensor_on_device": 4,
+    "ttnn.generic_op": 4,
+    "ttnn.multiply_": 4,
+    "ttnn.layer_norm": 2,
+    "ttnn.linear": 2,
+    "ttnn.unsqueeze": 1,
+    "ttnn.chunk": 1
+   }
+  },
+  {
+   "group": 2,
+   "tail_l1": false,
+   "share": 0.5,
+   "dram_alloc_MB": 1292.6,
+   "l1_alloc_MB": 134.22,
+   "ttnn_ops": 65,
+   "nodes": 753,
+   "took_l1": 0,
+   "refused": 0,
+   "node_kinds": {
+    "capture_start": 1,
+    "function_start": 208,
+    "tensor": 221,
+    "buffer": 40,
+    "buffer_allocate": 30,
+    "function_end": 188,
+    "circular_buffer_deallocate_all": 35,
+    "buffer_deallocate": 29,
+    "capture_end": 1
+   },
+   "top_ops": {
+    "ttnn.deallocate": 26,
+    "ttnn.allocate_tensor_on_device": 8,
+    "ttnn.generic_op": 8,
+    "ttnn.multiply_": 7,
+    "ttnn.reallocate": 4,
+    "ttnn.layer_norm": 2,
+    "ttnn.chunk": 2,
+    "ttnn.transpose": 2
+   }
+  },
+  {
+   "group": 2,
+   "tail_l1": true,
+   "share": 0.75,
+   "dram_alloc_MB": 889.95,
+   "l1_alloc_MB": 469.76,
+   "ttnn_ops": 57,
+   "nodes": 643,
+   "took_l1": 4,
+   "refused": 0,
+   "node_kinds": {
+    "capture_start": 1,
+    "function_start": 176,
+    "tensor": 177,
+    "buffer": 38,
+    "buffer_allocate": 28,
+    "function_end": 164,
+    "circular_buffer_deallocate_all": 31,
+    "buffer_deallocate": 27,
+    "capture_end": 1
+   },
+   "top_ops": {
+    "ttnn.deallocate": 24,
+    "ttnn.multiply_": 7,
+    "ttnn.allocate_tensor_on_device": 4,
+    "ttnn.generic_op": 4,
+    "ttnn.permute": 4,
+    "ttnn.reallocate": 4,
+    "ttnn.layer_norm": 2,
+    "ttnn.chunk": 2
+   }
+  },
+  {
+   "group": 1,
+   "tail_l1": false,
+   "share": 0.5,
+   "dram_alloc_MB": 1292.6,
+   "l1_alloc_MB": 134.22,
+   "ttnn_ops": 121,
+   "nodes": 1387,
+   "took_l1": 0,
+   "refused": 0,
+   "node_kinds": {
+    "capture_start": 1,
+    "function_start": 388,
+    "tensor": 413,
+    "buffer": 66,
+    "buffer_allocate": 54,
+    "function_end": 348,
+    "circular_buffer_deallocate_all": 63,
+    "buffer_deallocate": 53,
+    "capture_end": 1
+   },
+   "top_ops": {
+    "ttnn.deallocate": 50,
+    "ttnn.allocate_tensor_on_device": 16,
+    "ttnn.generic_op": 16,
+    "ttnn.multiply_": 13,
+    "ttnn.reallocate": 8,
+    "ttnn.chunk": 4,
+    "ttnn.transpose": 4,
+    "ttnn.matmul": 4
+   }
+  },
+  {
+   "group": 1,
+   "tail_l1": true,
+   "share": 0.5,
+   "dram_alloc_MB": 889.95,
+   "l1_alloc_MB": 469.76,
+   "ttnn_ops": 105,
+   "nodes": 1167,
+   "took_l1": 8,
+   "refused": 0,
+   "node_kinds": {
+    "capture_start": 1,
+    "function_start": 324,
+    "tensor": 325,
+    "buffer": 62,
+    "buffer_allocate": 50,
+    "function_end": 300,
+    "circular_buffer_deallocate_all": 55,
+    "buffer_deallocate": 49,
+    "capture_end": 1
+   },
+   "top_ops": {
+    "ttnn.deallocate": 46,
+    "ttnn.multiply_": 13,
+    "ttnn.allocate_tensor_on_device": 8,
+    "ttnn.generic_op": 8,
+    "ttnn.permute": 8,
+    "ttnn.reallocate": 8,
+    "ttnn.chunk": 4,
+    "ttnn.matmul": 4
+   }
+  }
+ ],
+ "shard": {
+  "C32": {
+   "operands_sharded": false,
+   "error": "(16384, 110)"
+  },
+  "C64": {
+   "operands_sharded": false,
+   "error": "(32768, 110)"
+  }
+ }
+}

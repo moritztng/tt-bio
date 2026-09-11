@@ -446,6 +446,23 @@ def trunk_compute_kernel_config(base):
 # DRAM, and that costs more than the clone saves: 7.122 -> 7.431 (start) / 7.863 (end) ms per
 # trimul at 298 aa. Bit-exact either way, and still a loss.
 _TRIMUL_OUT_MOVE_DRAM = False
+# The trimul's per-chunk TAIL -- the two transformed operands and their product -- is the only part
+# of the channel loop whose footprint is set by the chunk width rather than by the whole pair
+# tensor. At 512 aa the loop's head, the fused in-projection and its four-way split, is 402.7 MB
+# and has to stay in DRAM; the tail at chunk 32 is three tensors of 16.78 MB.
+# `_triangle_mul_memory_config` cannot express that difference: it is one sequence-length threshold
+# for the whole loop, which is the mistake `_TRIMUL_INPROJ_FUSED_BYTES` below already names. This
+# gate prices the tail on its own bytes instead.
+_TRIMUL_TAIL_L1 = os.environ.get("TT_BIO_TRIMUL_TAIL_L1", "0") == "1"
+# Live tail tensors at any moment: a_chunk, b_chunk and the matmul's result. Two of the three is
+# a real setting, not a fallback: with the product written straight to DRAM the tail still deletes
+# both operands' round trip, at two thirds of the L1 the full residency asks for.
+_TRIMUL_TAIL_L1_LIVE = 3
+# Share of each bank the tail may claim. The rest is the triangle matmul's circular buffers and
+# whatever the enclosing Pairformer block still holds.
+_TRIMUL_TAIL_L1_SHARE = float(os.environ.get("TT_BIO_TRIMUL_TAIL_L1_SHARE", "0.5"))
+#: Census: tail calls that took L1, and tail calls the budget refused.
+TRIMUL_TAIL_L1_STATS = {"l1": 0, "dram": 0}
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -771,6 +788,25 @@ def _trimul_l1_max_seq() -> int:
             else TRIANGLE_MULT_L1_MAX_SEQ_FAST
         )
     return TRIANGLE_MULT_L1_MAX_SEQ
+
+
+def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int,
+                               tensors: int = _TRIMUL_TAIL_L1_LIVE) -> ttnn.MemoryConfig | None:
+    """L1 for the chunk tail when `tensors` of them fit the grid's banks at once, else None.
+
+    Priced on the tail's own bytes, per bank, the way `_FP32_SOFTMAX_L1_BYTES_PER_CORE` and
+    `_TRIMUL_INPROJ_FUSED_BYTES` are -- never on a sequence length.
+    """
+    if not _TRIMUL_TAIL_L1:
+        return None
+    ht = -(-int(H) // 32) * 32
+    gx, gy = COMPUTE_GRID_MAIN
+    live = tensors * batch * chunk_c * ht * ht * elem_bytes
+    if live <= _TRIMUL_TAIL_L1_SHARE * _l1_bank_bytes() * gx * gy:
+        TRIMUL_TAIL_L1_STATS["l1"] += 1
+        return ttnn.L1_MEMORY_CONFIG
+    TRIMUL_TAIL_L1_STATS["dram"] += 1
+    return None
 
 
 def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
@@ -5053,9 +5089,14 @@ class TriangleMultiplication(Module):
         # single permute is marginally faster (the extra op's launch overhead
         # outweighs the cheaper transpose), so keep it there.
         inner_swap = permute_dims == (0, 3, 2, 1)
+        # What makes the single permute expensive is the inner L,L transpose, and that is a
+        # function of L, not of where the result lands. The DRAM test above stands in for "L is
+        # large" only because `_triangle_mul_memory_config` sends every large L to DRAM. With the
+        # tail in L1 that stops being true, so read L directly.
         decompose = (
             inner_swap
-            and memory_config.buffer_type == ttnn.BufferType.DRAM
+            and (memory_config.buffer_type == ttnn.BufferType.DRAM
+                 or (_TRIMUL_TAIL_L1 and int(chunk.shape[1]) >= SEQ_LEN_MORE_CHUNKING // 4))
             and not _TRIMUL_RAW_CHANNEL_MOVES
         )
         ops = [(ttnn.typecast, ttnn.bfloat16)] if _FAST_MODE else []
@@ -5243,6 +5284,15 @@ class TriangleMultiplication(Module):
                     perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
                     slice_c = int(gp_in_fused.shape[-1]) // 4
+                    _eb = 4 if _dtype() == ttnn.float32 else 2
+                    # Two configs, because the tail's three tensors are not one decision. The two
+                    # operands are read twice each (the transform writes them, the matmul reads
+                    # them), the product once, so the operands are worth more L1 per byte -- and at
+                    # the shipped group width all three do not fit where two do.
+                    _full = _trimul_tail_memory_config(batch, slice_c, H, _eb, 3)
+                    tail_mc = _full or _trimul_tail_memory_config(batch, slice_c, H, _eb, 2) \
+                        or memory_config
+                    out_mc = _full or memory_config
                     # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
                     # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
                     # ride inside the kernel too, so those keep the four-way split.
@@ -5279,16 +5329,16 @@ class TriangleMultiplication(Module):
                             a_chunk = ttnn.multiply_(a_chunk, mask_u)
 
                         a_chunk = self._transform_chunk(
-                            a_chunk, perm_a, memory_config=memory_config, realloc=n_pairs // group > 1,
+                            a_chunk, perm_a, memory_config=tail_mc, realloc=n_pairs // group > 1,
                         )
                         b_chunk = self._transform_chunk(
-                            b_chunk, perm_b, memory_config=memory_config, realloc=n_pairs // group > 1,
+                            b_chunk, perm_b, memory_config=tail_mc, realloc=n_pairs // group > 1,
                         )
                     x_chunk = ttnn.matmul(
                         a_chunk,
                         b_chunk,
                         compute_kernel_config=self.compute_kernel_config,
-                        memory_config=memory_config,
+                        memory_config=out_mc,
                         program_config=program_config,
                         dtype=ttnn.bfloat16,
                     )
