@@ -50,7 +50,7 @@ tenstorrent = _LazyTenstorrent()
 def _get_pytorch_modules():
     from tt_bio.reference import (
         DiffusionModule,
-    PairformerModule,
+        PairformerModule,
         PairformerNoSeqModule,
         MSAModule,
     )
