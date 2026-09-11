@@ -367,3 +367,76 @@ EXITMMAP 12849251923138 us=114 map_count=240 total_vm_kB=15340 comm=sshd pid=258
 EXITMMAP 12849252519282 us=26 map_count=31 total_vm_kB=9948 comm=bash pid=258549
 EXITMMAP 12849252711631 us=24 map_count=24 total_vm_kB=8300 comm=cat pid=258549
 EXITMMAP 12849252874985 us=17 map_count=31 total_vm_kB=9948 comm=bash pid=258550
+EXITMMAP 12849284922681 us=97 map_count=58 total_vm_kB=116252 comm=git pid=258550
+EXITMMAP 12849285059423 us=19 map_count=31 total_vm_kB=9948 comm=bash pid=258565
+EXITMMAP 12849290810941 us=49 map_count=74 total_vm_kB=966228 comm=git pid=258594
+EXITMMAP 12849291359273 us=39 map_count=35 total_vm_kB=13108 comm=git pid=258594
+EXITMMAP 12849291558255 us=25 map_count=31 total_vm_kB=9948 comm=bash pid=258595
+EXITMMAP 12849292694336 us=18 map_count=35 total_vm_kB=13368 comm=git pid=258596
+EXITMMAP 12849293070167 us=18 map_count=35 total_vm_kB=13108 comm=git pid=258597
+QUEUE 12849334006101 by=swapper/4 pid=0
+EXITMMAP 12849334100863 us=86 map_count=74 total_vm_kB=966228 comm=kworker/4:2 pid=238496
+MMPUT 12849334111243 us=98
+EXITMMAP 12849559444338 us=494 map_count=193 total_vm_kB=105632 comm=git-remote-http pid=258597
+EXITMMAP 12849559587744 us=71 map_count=35 total_vm_kB=13108 comm=git pid=258596
+EXITMMAP 12849559699679 us=78 map_count=35 total_vm_kB=13368 comm=git pid=258595
+EXITMMAP 12849559841471 us=70 map_count=31 total_vm_kB=9948 comm=bash pid=258548
+EXITMMAP 12849562729313 us=300 map_count=240 total_vm_kB=15340 comm=sshd pid=258546
+EXITMMAP 12849563821559 us=142 map_count=132 total_vm_kB=13992 comm=sshd pid=258504
+EXITMMAP 12849618024214 us=82 map_count=25 total_vm_kB=8296 comm=sleep pid=258499
+EXITMMAP 12849618582676 us=33 map_count=31 total_vm_kB=9948 comm=bash pid=258608
+EXITMMAP 12849618583057 us=33 map_count=31 total_vm_kB=9948 comm=bash pid=258607
+EXITMMAP 12849923307309 us=128 map_count=132 total_vm_kB=23052 comm=journalctl pid=258607
+EXITMMAP 12849923371021 us=41 map_count=31 total_vm_kB=9284 comm=grep pid=258608
+EXITMMAP 12849923475251 us=40 map_count=31 total_vm_kB=9948 comm=bash pid=258606
+EXITMMAP 12849923920606 us=49 map_count=31 total_vm_kB=9948 comm=bash pid=258610
+EXITMMAP 12849923927599 us=40 map_count=31 total_vm_kB=9948 comm=bash pid=258611
+EXITMMAP 12849923931957 us=29 map_count=31 total_vm_kB=9948 comm=bash pid=258612
+EXITMMAP 12849923980871 us=26 map_count=31 total_vm_kB=9948 comm=bash pid=258613
+EXITMMAP 12850235626256 us=261 map_count=132 total_vm_kB=23052 comm=journalctl pid=258610
+EXITMMAP 12850235735846 us=75 map_count=31 total_vm_kB=9284 comm=grep pid=258611
+EXITMMAP 12850235790501 us=64 map_count=25 total_vm_kB=8328 comm=tail pid=258612
+EXITMMAP 12850235965627 us=87 map_count=41 total_vm_kB=9360 comm=sed pid=258613
+EXITMMAP 12850236136836 us=69 map_count=31 total_vm_kB=9948 comm=bash pid=258609
+EXITMMAP 12850236609974 us=26 map_count=31 total_vm_kB=9948 comm=bash pid=258616
+EXITMMAP 12850236911563 us=20 map_count=24 total_vm_kB=8300 comm=cat pid=258616
+EXITMMAP 12850237124822 us=26 map_count=31 total_vm_kB=9948 comm=bash pid=258617
+EXITMMAP 12850240085354 us=74 map_count=189 total_vm_kB=19656 comm=sudo pid=258618
+EXITMMAP 12850240314804 us=26 map_count=24 total_vm_kB=8284 comm=kill pid=258618
+EXITMMAP 12850240665918 us=138 map_count=105 total_vm_kB=18376 comm=sudo pid=258617
+EXITMMAP 12850240883936 us=24 map_count=31 total_vm_kB=9948 comm=bash pid=258619
+EXITMMAP 12850241066807 us=32 map_count=24 total_vm_kB=8312 comm=seq pid=258619
+EXITMMAP 12850241244929 us=26 map_count=31 total_vm_kB=9948 comm=bash pid=258620
+EXITMMAP 12850248663597 us=55 map_count=74 total_vm_kB=12484 comm=pgrep pid=258620
+EXITMMAP 12850248802634 us=19 map_count=31 total_vm_kB=9948 comm=bash pid=258621
+
+
+@async_n: 1
+@async_over_10ms: 0
+@async_us_hist: 
+[64, 128)              1 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+
+@async_us_max: 98
+
+
+@queued_by[swapper/4]: 1
+@sync_n: 407
+@sync_over_10ms: 3
+@sync_us_hist: 
+[8, 16)               67 |@@@@@@@@@@@@@@@@@@                                  |
+[16, 32)             190 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+[32, 64)              66 |@@@@@@@@@@@@@@@@@@                                  |
+[64, 128)             48 |@@@@@@@@@@@@@                                       |
+[128, 256)            17 |@@@@                                                |
+[256, 512)            11 |@@@                                                 |
+[512, 1K)              5 |@                                                   |
+[1K, 2K)               0 |                                                    |
+[2K, 4K)               0 |                                                    |
+[4K, 8K)               0 |                                                    |
+[8K, 16K)              2 |                                                    |
+[16K, 32K)             0 |                                                    |
+[32K, 64K)             1 |                                                    |
+
+@sync_us_max: 40331
+
+
