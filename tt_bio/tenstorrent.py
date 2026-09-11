@@ -2094,7 +2094,29 @@ def _dram_oom(exc: BaseException) -> bool:
     return "Out of Memory" in str(exc)
 
 
-def _with_dram_narrowing(run, blk: int, narrow):
+#: Compact the live operands between narrowing attempts. OFF by default, so this branch changes
+#: no number on any board until somebody turns it on: it is release-gated, because reallocation
+#: moves every later allocation and that is a perf question as much as a memory one.
+#:
+#: Measured on a Wormhole Galaxy chip, OpenDDE at 1088 tokens against a 8192-row alignment
+#: (perf/whceil, 2026-09-11). The retry ladder runs against a device each attempt leaves FULLER:
+#: allocated per bank 856 -> 874 -> 946 MiB across three attempts while the largest free run
+#: falls 179 -> 101 -> 58 MiB. The second attempt was refused by **768 bytes** -- it needed
+#: 101014272 B per bank and the largest free block was 101013504 B, with 199 MiB per bank free.
+#: Nothing there is too big for a bank; the memory is present and not in one piece.
+#:
+#: MEASURED WITH IT ON, AND IT CHANGED NOTHING. The same rung with TT_BIO_NARROW_COMPACT=1
+#: failed byte-for-byte identically -- same three requests, same allocated/free/largest-run
+#: numbers. The reason is attribution, and the engine prints it: the exception that ends that
+#: fold carries `[tt_bio origin: triatt_qkv.py:210 in gate_proj]`. The 2.42 GiB OPM refusal is
+#: SURVIVED; the fold dies later, on the fused triangle-attention gate output, which is one
+#: tensor of tokens^2 x 384 x 2 B (909115392 B at 1088 tokens) and is not wired to narrow at
+#: all. So this hook is correct where it sits and is not the lever for that wall. It stays off
+#: and it is not evidence for anything until it is attached to a site that actually refuses.
+_NARROW_COMPACT = env_flag("TT_BIO_NARROW_COMPACT", False)
+
+
+def _with_dram_narrowing(run, blk: int, narrow, compact=None):
     """Run ``run(blk)``, narrowing the row block and retrying while DRAM refuses it.
 
     Let the device have the last word on the block. Every byte budget in this file is a
@@ -2116,6 +2138,16 @@ def _with_dram_narrowing(run, blk: int, narrow):
             if blk <= 32 or not _dram_oom(exc):
                 raise
             blk = narrow(blk)
+            if compact is not None and _NARROW_COMPACT:
+                try:
+                    compact()
+                except RuntimeError:
+                    # Compaction is an optimisation, never a precondition. `reallocate` frees
+                    # its input before it allocates, so a refusal here has already destroyed the
+                    # operand -- let it surface rather than retrying against a half-freed set.
+                    raise
+                except BaseException:
+                    pass
 
 
 def _dram_narrow(cap: dict, key, blk: int, stats: dict) -> int:
@@ -8648,9 +8680,25 @@ class OuterProductMean(Module):
                 raise
             return z_acc
 
+        def compact():
+            """Move the surviving operands down before the narrower retry.
+
+            Pure data movement, so the retry computes the same numbers; what changes is where
+            they sit. The operands are the only large tensors this op still holds at a refusal
+            -- `run` gives its partial accumulator back before re-raising -- so compacting them
+            is what turns the free bytes the allocator reports into one run it can use."""
+            nonlocal a, b, depth_parts
+            if depth_parts is None:
+                a = ttnn.reallocate(a)
+                b = ttnn.reallocate(b)
+            else:
+                depth_parts = [(ttnn.reallocate(acp), ttnn.reallocate(bcp), Sc)
+                               for acp, bcp, Sc in depth_parts]
+
         z = _with_dram_narrowing(
             run, rows_blk,
-            lambda b: _dram_narrow(_OPM_DRAM_ROW_CAP, (I, C, D, J), b, OPM_ROW_STATS))
+            lambda b: _dram_narrow(_OPM_DRAM_ROW_CAP, (I, C, D, J), b, OPM_ROW_STATS),
+            compact=compact)
         if depth_parts is None:
             ttnn.deallocate(a)
             ttnn.deallocate(b)

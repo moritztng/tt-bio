@@ -118,13 +118,13 @@ under 1024:
 
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
-| `opendde`, `opendde-abag` | 1024 | none found; top of the ladder |
+| `opendde`, `opendde-abag` | 1024 | 1088 |
 | `openfold3` | 1024 | none found; top of the ladder |
 | `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 768 (target residues) | none found; top of the ladder |
 | `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
-| `esmfold2` | 1024 (residues; a ligand adds tokens) | 1057 |
-| `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1280 |
+| `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
+| `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
 | `rfd3` | 1024 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968 | 1984 |

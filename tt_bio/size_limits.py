@@ -270,7 +270,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "failure rather than at the largest passing size",
         ),
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1024, pass_at=1024, fail_at=1088, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=8192,
             evidence="its own ladder, re-measured 2026-09-08 on GWH02 at the platform's default "
                      "8192 alignment rows after the trimul in-projection re-probe fix: 128, 256, "
@@ -282,7 +282,25 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "had already refused being re-probed once per pairformer block, which "
                      "ratcheted a fold to the narrowest channel chunk. Parity is bit-exact against "
                      "the merge base at 128/256/512 and the row cap that fixes the clash is "
-                     "bit-exact at 512 with it forced off. See state/opendde-l1-clash-to-1024.md",
+                     "bit-exact at 512 with it forced off. See state/opendde-l1-clash-to-1024.md. "
+                     "NEGATIVE CONTROL, added 2026-09-11 on the j10glx02 Galaxy "
+                     "(ws:wh-seqlen-structure, perf/whceil): 1088 aa at the same 8192 rows "
+                     "FAILS, so this row is no longer the top of a ladder nobody walked past. "
+                     "The refusal is FRAGMENTATION and not one oversized tensor -- 2424307712 "
+                     "B wanted across 12 banks, 192.7 MiB per bank against a 1024.0 MiB bank, "
+                     "with 207.4 MiB per bank FREE and a largest free block of 170.5 MiB. More "
+                     "free memory than the request needs, in pieces. The engine narrows twice "
+                     "and the second attempt misses by 768 bytes (101014272 B wanted against a "
+                     "101013504 B largest block). What ends the fold is not OuterProductMean "
+                     "but the fused triangle-attention gate output, [tt_bio origin: "
+                     "triatt_qkv.py:210 in gate_proj], one tensor of tokens^2 x 384 x 2 B. "
+                     "1024 itself re-folded here in 2706 s. "
+                     "1056 aa FOLDS, added the same day: 1791.7 s, and it survives two DRAM "
+                     "refusals (largest 2.13 GiB) and three L1 circular-buffer clashes on the "
+                     "way, which is the reactive narrowing doing its job. So the largest size "
+                     "below the first failure is 1056, not 1024, and this cap is 32 residues "
+                     "conservative. It is NOT raised here, for the same reason as the others: "
+                     "raising a cap accepts more work and restamps every capacity cell.",
         ),
     },
     "opendde-abag": {
@@ -308,7 +326,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "failure rather than at the largest passing size",
         ),
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1024, pass_at=1024, fail_at=1088, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=8192,
             evidence="its OWN rungs at 8192 alignment rows, 2026-09-08, not inherited from "
                      "opendde by architecture argument: 1024 folds 3/3 in separate processes, "
@@ -317,7 +335,25 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "checkpoints share the trunk, the refiner and every tensor shape and differ "
                      "only in weight values, which is why the same fix serves both -- but these "
                      "numbers are measured on this checkpoint. Same history as the opendde row: "
-                     "the old 544 cap was the re-probed in-projection width, not a capacity wall",
+                     "the old 544 cap was the re-probed in-projection width, not a capacity wall. "
+                     "NEGATIVE CONTROL, added 2026-09-11 on the j10glx02 Galaxy "
+                     "(ws:wh-seqlen-structure, perf/whceil): 1088 aa at the same 8192 rows "
+                     "FAILS, so this row is no longer the top of a ladder nobody walked past. "
+                     "The refusal is FRAGMENTATION and not one oversized tensor -- 2424307712 "
+                     "B wanted across 12 banks, 192.7 MiB per bank against a 1024.0 MiB bank, "
+                     "with 207.4 MiB per bank FREE and a largest free block of 170.5 MiB. More "
+                     "free memory than the request needs, in pieces. The engine narrows twice "
+                     "and the second attempt misses by 768 bytes (101014272 B wanted against a "
+                     "101013504 B largest block). What ends the fold is not OuterProductMean "
+                     "but the fused triangle-attention gate output, [tt_bio origin: "
+                     "triatt_qkv.py:210 in gate_proj], one tensor of tokens^2 x 384 x 2 B. "
+                     "1024 itself re-folded here in 2104 s. "
+                     "1056 aa FOLDS, added the same day: 1648.8 s, and it survives two DRAM "
+                     "refusals (largest 2.13 GiB) and three L1 circular-buffer clashes on the "
+                     "way, which is the reactive narrowing doing its job. So the largest size "
+                     "below the first failure is 1056, not 1024, and this cap is 32 residues "
+                     "conservative. It is NOT raised here, for the same reason as the others: "
+                     "raising a cap accepts more work and restamps every capacity cell.",
         ),
     },
     "openfold3": {
@@ -380,7 +416,20 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "its whole z matmul; openbind dedups its main MSA "
                      "(af3_spec_main_msa_dedup is keyed on the checkpoint), so the depth reaching "
                      "its model at a given alignment is not openfold3's and this ladder is its "
-                     "own. Single-sequence is roomier still and is not the default",
+                     "own. Single-sequence is roomier still and is not the default. "
+                     "STALE AS OF 2026-09-11 AND CONSERVATIVE: re-walked on the j10glx02 "
+                     "Galaxy (ws:wh-seqlen-structure, perf/whceil) at the SAME 14190 rows, "
+                     "apo, this checkpoint folds 1024 aa in 935 s and 1088 aa in 1104 s, and "
+                     "first fails at 1152 -- 1016856576 B, 80.8 MiB per bank against a 1024.0 "
+                     "MiB bank, 237.5 MiB free, largest block 62.1 MiB, fragmentation. 1088 "
+                     "apo is 1088 TOKENS, which is more than the 1088 tokens this row records "
+                     "as FAILING with a ligand, so the engine has moved since e9cb5b70, most "
+                     "likely the reactive DRAM narrowing. The 960 here is therefore refusing "
+                     "work the engine can do, which this module calls the worst thing a guard "
+                     "can do. It is NOT raised here: raising a cap accepts more work and "
+                     "restamps every capacity cell, so it is a release decision and not a "
+                     "measurement one. At 8192 rows the same ladder reaches 1152 and first "
+                     "fails at 1300",
         ),
     },
     "rf3": {
@@ -403,7 +452,17 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "alignment walked, 27317 rows. Nothing above 1095 has been run, hence "
                      "LADDER_TOP: the real ceiling may be higher. The fix is on by default; "
                      "TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0, TT_BIO_RF3_MSA_FUSED_SDPA=0 or "
-                     "TT_BIO_RF3_GLN_ROW_FOLD=0 restore the old route and the old 627 wall with it",
+                     "TT_BIO_RF3_GLN_ROW_FOLD=0 restore the old route and the old 627 wall with it. "
+                     "A SHALLOWER LADDER, 2026-09-11 on the j10glx02 Galaxy "
+                     "(ws:wh-seqlen-structure, perf/whceil), and it does not fill in this "
+                     "row's fail_at because it is not this row's configuration: at 8192 "
+                     "alignment rows rather than 27317, rf3 folds 1024 through 1536 (393 s to "
+                     "1026 s) and first fails at 1600 -- 655360000 B, 52.1 MiB per bank "
+                     "against a 1024.0 MiB bank, 97.1 MiB free and a 50.3 MiB largest block on "
+                     "a chip 90 percent full. Fragmentation on a nearly full chip, so both "
+                     "residency and layout are in it. What this does establish is that nothing "
+                     "between 1095 and 1536 fails at the shallower depth, which is why this "
+                     "row stays LADDER_TOP rather than gaining a failure it did not measure",
         ),
     },
     "protenix-v2": {
@@ -426,7 +485,15 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "with tokens x rows, and the ladder was walked with capacity_gate.py "
                      "--tokens. ladder_ligand_atoms=0 records that those rungs were apo, so 1024 "
                      "residues is 1024 tokens and a ligand's heavy atoms are counted against the "
-                     "same 1024 instead of being invisible to the residue count",
+                     "same 1024 instead of being invisible to the residue count. "
+                     "DOES NOT REPRODUCE AT 8192 ROWS, 2026-09-11 on the j10glx02 Galaxy "
+                     "(ws:wh-seqlen-structure, perf/whceil): 1024, 1088 and 1152 aa all fold "
+                     "(1215 s, 1452 s, 1626 s) and the first failure is 1300, not 1095 -- "
+                     "3493068800 B, 277.6 MiB per bank against a 1024.0 MiB bank, 296.0 MiB "
+                     "free, largest block 197.6 MiB, fragmentation. That ladder is apo at 8192 "
+                     "rows and this row was walked deeper, so the two are not the same "
+                     "configuration and the cap stays where it is; what no longer holds at "
+                     "this depth is the number above it",
         ),
     },
     "rfd3": {
@@ -511,10 +578,20 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     # --- No measured ceiling. Never refused. ---------------------------------------------------
-    "boltz2": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
+    "boltz2": {"wormhole_b0": _unmeasured(
+        _INHERITS_DEMO_FENCE + " "
+        "THE LADDER HAS NOW BEEN WALKED and this row still does not refuse on it: "
+        "2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, perf/whceil) "
+        "at 8192 alignment rows, 1024/1088/1152/1300/1408/1536/1664 all fold (586 "
+        "s to 1169 s, on a box at load 379) and 1792 FAILS -- 704643072 B across "
+        "12 banks, 56.0 MiB per bank against a 1024.0 MiB bank, 226.8 MiB per "
+        "bank free, largest free block 51.3 MiB: fragmentation, not one oversized "
+        "tensor. Giving this row residues=1664 would START refusing work that is "
+        "accepted today and would restamp every capacity cell, so that is a "
+        "release decision. The measurement is here; the decision is not taken")},
     "esmfold2": {
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=1057, binds=MEMORY, mechanism=DRAM,
+            residues=1024, pass_at=1024, fail_at=1056, binds=MEMORY, mechanism=DRAM,
             msa_rows=0, ladder_ligand_atoms=0,
             evidence="its own ladder, walked 2026-09-09 on GWH02 card 1 by "
                      "ws:esmfold2-cocrystal-everywhere at the settings a user gets: "
@@ -535,12 +612,21 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "says the rungs above were walked apo, so the cap is 1024 tokens: 991 "
                      "residues + 33 atoms is admitted because it is the 1024 that folded, and "
                      "1024 residues plus any ligand at all is refused. It used to be admitted "
-                     "here and fail on the chip",
+                     "here and fail on the chip. "
+                     "TIGHTENED 2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, "
+                     "perf/whceil): the first failure is 1056, not 1057 -- 1024 folds "
+                     "single-sequence in 470 s and 1056 is refused on 570949632 B, 45.4 MiB "
+                     "per bank against a 1024.0 MiB bank, with 122.5 MiB per bank free and a "
+                     "largest free block of 38.5 MiB. Fragmentation, not one oversized tensor, "
+                     "and the cap of 1024 is unchanged because it was already the largest size "
+                     "below the first failure. An independent ladder landing one residue from "
+                     "the recorded number is the closest thing this table has to a "
+                     "reproduction",
         ),
     },
     "esmfold2-fast": {
         "wormhole_b0": Ceiling(
-            residues=1152, pass_at=1152, fail_at=1280, binds=MEMORY, mechanism=DRAM,
+            residues=1152, pass_at=1152, fail_at=1248, binds=MEMORY, mechanism=DRAM,
             msa_rows=0, ladder_ligand_atoms=0,
             evidence="its OWN ladder, walked 2026-09-09 on GWH02 card 1 by "
                      "ws:esmfold2-cocrystal-everywhere, not inherited from esmfold2 by "
@@ -557,7 +643,16 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "it is closed the same way rather than left as a caveat: "
                      "ladder_ligand_atoms=0 records apo rungs, so the cap is 1152 tokens and a "
                      "ligand is counted against it. The NUMBERS are still this checkpoint's own; "
-                     "only the denominator is shared",
+                     "only the denominator is shared. "
+                     "TIGHTENED 2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, "
+                     "perf/whceil), in the SAME single-sequence configuration this row was "
+                     "walked in: 1216 aa folds in 488 s and the first failure is 1248, not "
+                     "1280 -- 1594884096 B, 126.8 MiB per bank against a 1024.0 MiB bank, "
+                     "127.5 MiB per bank free and a largest free block of 104.7 MiB. It is "
+                     "refused while holding 0.7 MiB MORE free memory per bank than it asked "
+                     "for, which is fragmentation in its purest form. So the cap could be 1216 "
+                     "rather than 1152; it is not raised here, because raising a cap accepts "
+                     "more work and restamps every capacity cell",
         ),
     },
     "protenix-v1": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
