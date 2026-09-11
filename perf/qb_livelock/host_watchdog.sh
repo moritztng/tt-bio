@@ -94,3 +94,32 @@ for f in identity state timeout timeleft bootstatus; do
   printf '%s=%s\n' "$f" "$(cat "/sys/class/watchdog/watchdog0/$f" 2>/dev/null)"
 done
 echo "holder: $(lsof /dev/watchdog0 2>/dev/null | awk 'NR==2{print $1" pid "$2}')"
+
+# --- the boot splash, which is why the unit above is not ordered After=multi-user.target --------
+#
+# plymouth-quit.service runs `plymouth quit --retain-splash`, which keeps plymouthd alive. With no
+# display manager to take over, plymouth-quit-wait.service never finishes, and two things break:
+# multi-user.target is never reached, so any unit ordered after it never runs at all; and the
+# console loglevel plymouth clamped to 1 is never restored, so a netconsole witness delivers
+# nothing (ALERT is level 1 and the clamp needs level < 1, and every indicator still reads armed).
+# Measured on qb2: `systemctl list-jobs` showed multi-user.target waiting on plymouth-quit-wait,
+# `is-system-running` stuck at `starting`, and `kernel.printk` reading "1 4 1 7".
+cat > /etc/systemd/system/plymouth-quit-headless.service <<'EOF'
+[Unit]
+Description=Dismiss the boot splash on a headless host
+After=plymouth-quit.service systemd-user-sessions.service
+ConditionPathExists=/bin/plymouth
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=-/bin/plymouth quit
+ExecStartPost=/usr/bin/systemctl restart systemd-sysctl.service
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable plymouth-quit-headless.service
+systemctl start plymouth-quit-headless.service
+echo "system state: $(systemctl is-system-running)   printk: $(cat /proc/sys/kernel/printk)"
