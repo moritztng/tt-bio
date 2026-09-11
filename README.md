@@ -64,6 +64,17 @@ tt-bio predict --help
 tt-bio msa --help
 ```
 
+### Troubleshooting
+Single-host prediction needs no MPI setup of yours. tt-metal ships the OpenMPI it wants, and a
+system OpenMPI on the environment breaks that build instead of replacing it: with `OMPI_MCA_*` or
+`OPAL_PREFIX` set, or a foreign `libmpi` on `LD_LIBRARY_PATH`, `MPI_Init` aborts before the fold
+starts. tt-bio warns when it sees one and changes nothing for you. To clear it for the current
+shell:
+
+```bash
+unset OMPI_MCA_pml OMPI_MCA_plm OPAL_PREFIX LD_LIBRARY_PATH
+```
+
 ## Basic Usage
 
 ### Structure Prediction

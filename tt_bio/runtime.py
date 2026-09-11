@@ -21,6 +21,68 @@ HOST_THREAD_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"
                     "NUMEXPR_NUM_THREADS")
 
 
+# tt-metal ships the OpenMPI it wants (ttnn.libs/libmpi-*.so.40) and single-host prediction
+# needs no MPI setup of yours. A host OpenMPI on the environment does not replace that build, it
+# poisons it: OMPI_MCA_pml=ucx names a component the bundled build does not contain, so
+# MPI_Init_thread aborts on a NULL communicator before any Python runs. That is moritztng/tt-bio#12
+# -- a 4.1.6 under ~/opt/mpi-stack, exported from a shell rc, cost the reporter hours because the
+# abort went to a worker's /dev/null.
+#
+# So warn, and never scrub. The variables may belong to a job the user means to run in this shell,
+# and a tool that silently unsets someone's MPI configuration is worse than one that names it.
+MPI_UNSET_HINT = "unset OMPI_MCA_pml OMPI_MCA_plm OPAL_PREFIX LD_LIBRARY_PATH"
+
+
+def _bundled_mpi_root() -> Path | None:
+    """The ttnn package directory, whose libmpi is the one we want. None if ttnn is absent.
+
+    Found from the import spec rather than by importing: this runs on the CLI's host process,
+    where importing ttnn costs seconds and opens nothing we asked for.
+    """
+    try:
+        import importlib.util
+
+        spec = importlib.util.find_spec("ttnn")
+    except Exception:                                                  # noqa: BLE001
+        return None
+    origin = getattr(spec, "origin", None) if spec else None
+    return Path(origin).parent if origin else None
+
+
+def conflicting_mpi_env(env: dict | None = None) -> list[str]:
+    """Host OpenMPI settings in `env` that can abort tt-metal's bundled MPI, or []."""
+    env = os.environ if env is None else env
+    found = []
+    mca = sorted(k for k in env if k.startswith("OMPI_MCA_"))
+    if mca:
+        found.append(", ".join(f"{k}={env[k]}" for k in mca))
+    if env.get("OPAL_PREFIX"):
+        found.append(f"OPAL_PREFIX={env['OPAL_PREFIX']}")
+    bundled = _bundled_mpi_root()
+    for entry in env.get("LD_LIBRARY_PATH", "").split(os.pathsep):
+        if not entry:
+            continue
+        d = Path(entry)
+        if bundled is not None and (d == bundled or bundled in d.parents):
+            continue
+        try:
+            libs = sorted(p.name for p in d.glob("libmpi.so*"))
+        except OSError:
+            continue
+        if libs:
+            found.append(f"{libs[0]} on LD_LIBRARY_PATH at {d}")
+    return found
+
+
+def mpi_env_warning(found: list[str]) -> str:
+    """The warning `found` deserves. Names what was seen and what to run; changes nothing."""
+    return ("a host OpenMPI is configured here: " + "; ".join(found)
+            + ".\ntt-metal ships its own and single-host prediction needs none of yours; a "
+            "foreign one can abort MPI_Init before Python starts. If a fold dies at startup, "
+            "clear them for this shell:\n    " + MPI_UNSET_HINT
+            + "\nNothing has been changed for you.")
+
+
 def host_thread_cap(n_workers: int, host_threads: int | None = None) -> int:
     """Per-worker host thread budget for a process driving ``n_workers`` cards.
 

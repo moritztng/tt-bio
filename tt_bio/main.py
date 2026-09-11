@@ -162,6 +162,8 @@ from tt_bio.energy import DEFAULT_ENERGY_SAMPLE_HZ, PowerProfiler
 from tt_bio.progress import DebugDisplay, NullDisplay, ProgressDisplay
 from tt_bio.runtime import (
     build_local_workers,
+    conflicting_mpi_env,
+    mpi_env_warning,
     detect_tenstorrent_devices,
     discover_jobs,
 )
@@ -1060,11 +1062,27 @@ def _require_ttnn() -> None:
         )
 
 
+_MPI_WARNED = False
+
+
+def _warn_conflicting_mpi_env() -> list[str]:
+    """Say once per process if a host OpenMPI is set up to break the bundled one."""
+    global _MPI_WARNED
+    found = conflicting_mpi_env()
+    if found and not _MPI_WARNED:
+        _MPI_WARNED = True
+        click.secho("warning: " + mpi_env_warning(found), fg="yellow", err=True)
+    return found
+
+
 def _local_workers(accelerator: str, num_devices: int, device_ids: str | None, max_workers: int) -> list:
     """Build a list of WorkerSlot objects covering this host's accelerators."""
     if accelerator != "tenstorrent":
         return build_local_workers(accelerator, [object()], [0])
     _require_ttnn()
+    # Every local-worker path -- predict, design, controller, serve -- comes through here, so
+    # this is the one place the check belongs.
+    _warn_conflicting_mpi_env()
     devices = detect_tenstorrent_devices(device_ids, num_devices, max_workers=max_workers)
     if not devices:
         raise RuntimeError(
@@ -1773,6 +1791,7 @@ def preflight_cmd(models, download, cache):
     cache_dir = weights.cache_root(root)
     free = shutil.disk_usage(cache_dir if cache_dir.exists() else Path.home()).free
     click.echo(f"cache {cache_dir}  ({free / (1 << 30):.0f} GiB free)")
+    _warn_conflicting_mpi_env()
     click.echo()
 
     width = max(len(m) for m in names)

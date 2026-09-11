@@ -7,10 +7,40 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Added
 
+- **A preflight warning when a host OpenMPI is set up to break the bundled one.** tt-metal ships
+  the OpenMPI it wants and single-host prediction needs no MPI setup; `OMPI_MCA_*`, `OPAL_PREFIX`
+  or a foreign `libmpi` on `LD_LIBRARY_PATH` aborts it in `MPI_Init` before any Python runs. Every
+  local-worker path now names what it saw and points at the `unset` line, and changes nothing for
+  you. README gained the matching troubleshooting note. Reported in #12 by @ssiddhantsharma.
+
 - **`tt-bio --version`.** `-V` works too. Both print `tt-bio, version X.Y.Z` from the
   installed package metadata and exit, without importing ttnn or opening a card.
 
 ### Fixed
+
+- **A worker's native crash is no longer thrown away.** A spawned worker sent fd 2 to
+  `/dev/null`, so the fatals that never reach Python -- an `MPI_Init` abort, a tt-metal L1
+  circular-buffer throw -- left a 0-byte log and an opaque `SpawnProcess-1 exit 14`. fd 2 now
+  goes to a per-worker capture file and the launcher prints the tail when a worker dies, both
+  when the pool is empty and when the supervisor respawns one. From #13 by @ssiddhantsharma,
+  who also reported #12.
+
+- **A fold no longer dies on an L1 refusal its own ladder was built to absorb.** The
+  tri-attention SDPA ladder retries a narrower q_chunk when the device declines the wide one,
+  but the last rung was issued bare, so the identical refusal was survivable one rung up and
+  fatal on the final one. A padded length whose divisor set is sparse has nothing but the final
+  one: 736 tokens is 23 tiles, prime. That is the crash in #14.
+
+- **An absorbed L1 refusal says it was absorbed.** tt-metal writes its `TT_THROW` to fd 2 from
+  inside the failing op, so a by-design retry reads as a crash report. Every site that absorbs
+  one now labels it on the same stream and records its census, so it is attributable from inside
+  a fold instead of only from a private set.
+
+- **Matmul program configs are priced by one function against one budget.** Three sites carried
+  their own copy of the same circular-buffer arithmetic, and one was 201,760 B per core more
+  permissive than its neighbours on the same part. A plan one site admits and the allocator then
+  refuses is the shape of #14. Measured neutral first: 350 decisions in a protenix-v2 fold at
+  704 tokens, 8 distinct shapes, none moved, on a p300c 11x10 and a Wormhole 8x9.
 
 - **A weights download can no longer wait forever, and no checkpoint has a single door.** The
   stall watchdog now fires on a download that stops making progress instead of hanging the run,
