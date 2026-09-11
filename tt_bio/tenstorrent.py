@@ -453,6 +453,15 @@ _TRIMUL_OUT_MOVE_DRAM = False
 # `_triangle_mul_memory_config` cannot express that difference: it is one sequence-length threshold
 # for the whole loop, which is the mistake `_TRIMUL_INPROJ_FUSED_BYTES` below already names. This
 # gate prices the tail on its own bytes instead.
+#
+# MEASURED, AND IT LOSES, so it stays off. At 512 aa the pair tensor is 67.11 MB against 160.79 MB
+# of usable L1 and the channel loop peaks at 603.99 MB, so nothing holding `z` fits. The one
+# sub-chain that does is this tail, and only once the fused in-projection group narrows from the
+# shipped 4 to 2: residency then deletes 402.65 MB per trimul and returns 0.74-0.87 ms, while the
+# narrowing that bought the room costs 2.32-2.58 ms. Net 1.15-1.17x SLOWER than shipped, bit-exact.
+# The sharded variant is closed at the op contract rather than on bytes: the triangle matmul runs
+# `fuse_batch=False` because the channel chunk is its batch axis, and ttnn answers "Batch fusion is
+# required when input A is sharded". perf/b2x_pair_l1/README.md.
 _TRIMUL_TAIL_L1 = env_flag("TT_BIO_TRIMUL_TAIL_L1", False)
 # Live tail tensors at any moment: a_chunk, b_chunk and the matmul's result. Two of the three is
 # a real setting, not a fallback: with the product written straight to DRAM the tail still deletes
@@ -5095,11 +5104,20 @@ _TRIMUL_TAIL_F1 = os.environ.get(
 # state/b2x-fusion-boundary.md, perf/b2x_fusion_boundary/block_attrib.py.
 #
 # ON by default since the cross-model check cleared it on qb2 card 1: protenix-v2, openfold3,
-# af2-ig and opendde, each through its own checkpoint and remap, N=512, pair mask both absent and
-# ragged, all eight rows bit-exact with a clean A/A floor and E6 provably firing (2 gated moves
-# per call on, 0 off). Measured 1.26-1.41x on the trimul itself; opendde unmasked is the control
-# that has to be flat and is, at 1.01x, because it already took E6 before the flag.
-# state/b2x-trimul-e6-crossmodel-parity.md, perf/b2x_crossmodel/.
+# af2-ig, opendde and esmfold2, each through its own checkpoint and remap, N=512, pair mask both
+# absent and ragged, all ten rows bit-exact with a clean A/A floor and E6 provably firing (2 gated
+# moves per call on, 0 off). Measured 1.26-1.41x on the trimul itself; opendde and esmfold2
+# unmasked are the controls that have to be flat and are, at 1.01x and 1.00x, because they already
+# took E6 before the flag. openfold3, opendde and protenix-v2 are bit-exact end to end in a 615 aa
+# fold. state/b2x-trimul-e6-crossmodel-parity.md, perf/b2x_crossmodel/.
+#
+# On the Boltz-2 512 aa cell it is 1.0555x on the fold (1.045-1.066x per block, 16 warm folds,
+# A/A floor -0.74 %), and 1.0543x re-measured against this default on qb2 card 3 when it landed
+# (22.843 s against 24.083 s with the flag forced off, 1.0612x paired per rep, 20 warm folds,
+# A/A floor +0.125 %, two sibling benchmarks co-tenanted on the host). Bit-exact in both: every
+# arm of every rep writes CIF sha256 4f3995a69be5d610 at plDDT 0.849627.
+# perf/b2x_trimul/fold_ab_512_landed_qb2c3.json, state/b2x-land-verified.md.
+#
 # Stays a runtime switch so the arms can still interleave in one process.
 TRIMUL_MASK_AFTER_MOVE = True
 _TRIMUL_MASK_AFTER_MOVE = os.environ.get(
@@ -5131,6 +5149,17 @@ def set_trimul_mask_after_move(on: bool) -> bool:
 # Requires `H % R == 0`: a ragged last block is a second descriptor and a tile-alignment argument
 # that is not worth making for a lever this size. Anything else falls back to the whole-tensor
 # projection, unchanged.
+#
+# MEASURED, AND IT LOSES, so it stays off. At R = 64 on the 512 aa Boltz-2 cell it deletes a
+# further 8.000 Z per trimul on top of the mask-after-move win, adds 29 device ops and costs
+# +0.907 ms, giving back a third of that win. Dispatch is at most two thirds of the cost (29 ops
+# x 19.9 us = 0.577 ms); the rest is 9 Z of L1 traffic no DRAM byte counter sees, plus the
+# dual-NOC drain `mm_dualnoc.in_proj` refuses on a non-DRAM output. The default R = 128 does not
+# even run there: its 67.1 MB row block collides with the gated kernel's static circular buffers
+# on the 110-core grid, and R = 256's 134.2 MB is a flat L1 OOM. Since dispatch is only two thirds
+# of R = 64's cost, halving the op count cannot close a 0.907 ms gap with a 0.29 ms saving, so a
+# grid with more L1 does not rescue it either.
+# perf/b2x_trimul/step2_512_qb2c2.json, state/b2x-trimul-fusion-unlock.md.
 TRIMUL_INPROJ_ROWBLOCK = False
 _TRIMUL_INPROJ_ROWBLOCK = os.environ.get(
     "TT_BIO_TRIMUL_INPROJ_ROWBLOCK", "1" if TRIMUL_INPROJ_ROWBLOCK else "0") == "1"

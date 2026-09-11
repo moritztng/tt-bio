@@ -10,6 +10,8 @@ Arms, interleaved in one process on one device open, each fold through the produ
   C   step 1 + step 3: F1 (`dual_gemm_x0_x1`) allowed at the (4, 4) block key, which is
       boltz2's tail weight at c_z = 128 and which F1 declines today
   A2  the shipped default again, as this session's own A/A floor
+  DEF whatever the module ships as its default, with no A/B switch touched at all, so the
+      landed default is measured rather than the lever
 
 Step 2 is not an arm: it is a measured loss at the block level (perf/b2x_trimul/step2_512_qb2c2.json).
 
@@ -257,12 +259,24 @@ def main() -> int:
 
     # ---- the timed A/B ------------------------------------------------------
     import tt_bio.trimul_tail as _F1
+    from tt_bio import tenstorrent as _T
+
+    # Read before any arm has touched them, so DEF restores what the module ships rather than
+    # what this harness picked. Recorded, because "the default is on" is the claim under test.
+    DEF_MASK_AFTER_MOVE = _T._TRIMUL_MASK_AFTER_MOVE
+    DEF_F1_CZ128 = (4, 4) in _F1.F1_BLOCK_KEYS
+    OUT["defaults"] = {"trimul_mask_after_move": DEF_MASK_AFTER_MOVE,
+                       "trimul_tail_f1_cz128": DEF_F1_CZ128}
+    dump()
 
     ARMS = args.arms.split(",")
 
     def set_arm(name):
-        from tt_bio.tenstorrent import set_trimul_mask_after_move
-        set_trimul_mask_after_move(name in ("B", "C"))
+        if name == "DEF":
+            _T.set_trimul_mask_after_move(DEF_MASK_AFTER_MOVE)
+            _F1.set_f1_cz128(DEF_F1_CZ128)
+            return
+        _T.set_trimul_mask_after_move(name in ("B", "C"))
         _F1.set_f1_cz128(name == "C")
 
     runs = []
@@ -279,7 +293,7 @@ def main() -> int:
             print("  rep %d %-2s %8.3f s  plddt %s  cif %s"
                   % (i, nm, r["fold_s"], r["plddt"], list(r["cif"].values())), flush=True)
             OUT["runs"] = runs; dump()
-    set_arm("A")
+    set_arm("DEF")
 
     warm = [r for r in runs if not r["cold"]]
     med = {nm: round(st.median([r["fold_s"] for r in warm if r["arm"] == nm]), 4) for nm in ARMS}
