@@ -32,7 +32,15 @@ def _size(rung: str) -> int:
     return int(rung.split("_")[1])
 
 
-def _depth(rung: str) -> int:
+def _depth(r: dict) -> int | str:
+    """The alignment depth this rung actually carried.
+
+    Not a default: an affinity rung reads no alignment at all, and reporting it as the
+    structure fixtures' 35 rows would say Nesso-1 was measured at a depth it never saw.
+    """
+    if r.get("command") == "affinity":
+        return "none (affinity reads no alignment)"
+    rung = r["rung"]
     return int(rung.split("_d")[-1]) if "_d" in rung else 35
 
 
@@ -53,7 +61,7 @@ def main() -> int:
     root = Path(sys.argv[1])
     by = defaultdict(list)
     for r in rows(root):
-        by[(r["model"], _depth(r["rung"]))].append(r)
+        by[(r["model"], str(_depth(r)))].append(r)
 
     for (model, depth), rs in sorted(by.items()):
         rs.sort(key=lambda r: _size(r["rung"]))

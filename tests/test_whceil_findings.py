@@ -87,3 +87,14 @@ def test_depths_are_separate_measurements(tmp_path):
     assert len(lines) == 2, lines
     assert any("depth 8192" in ln and "PARTIAL" in ln for ln in lines)
     assert any("depth 14190" in ln and "FAIL" in ln for ln in lines)
+
+
+def test_an_affinity_rung_is_not_reported_at_a_depth_it_never_read(tmp_path):
+    """Nesso-1 scores a pair with no alignment. Falling back to the structure fixtures' 35 rows
+    would put a depth on a measurement that never had one."""
+    p = tmp_path / "ladder_nesso1.jsonl"
+    p.write_text(json.dumps({"model": "nesso1", "command": "affinity", "rung": "nesso1_1024",
+                             "verdict": "PASS", "wall_s": 1.0, "device": 0, "rc": 0}) + "\n")
+    line, = _run(tmp_path)
+    assert "reads no alignment" in line
+    assert "depth 35" not in line
