@@ -107,3 +107,20 @@ One forward-compat fix was needed to get that far and is on the branch:
 `binary_max_tile`'s vector-mode parameter became a scoped enum in 0.72, so
 `tt_bio/kernels/triatt_sdpa/compute/compute_common.hpp` now passes `VectorMode::C` instead of
 `static_cast<int>(VectorMode::C)`. Identical value under 0.68's unscoped enum.
+
+## The diffusion step is not censused, and why
+
+Two attempts, both on pc card 0. The census itself ran fine — `Diffusion` was grabbed on call 3 and
+replayed warm at **53.187 / 53.257 / 53.759 ms** per step under the profiler (qb2 measures 32.518 ms
+bare; the gap is profiler overhead plus a different part, not a finding). What fails is tracy's
+**host post-processing**: reaching a diffusion step needs the whole trunk first, ~25 000 dispatched
+programs even at `--recycles 1`, and the post-process is OOM-killed on pc's 30 GB host
+(`--op-support-count 150000` aborted, `40000` was `Killed`).
+
+So the 6.5 s/fold sampler is untouched by this pass. Note that it shares the
+`DiffusionTransformerLayer` op mix with the trunk's attention, which censuses at 100 % of the grid,
+so the prior is that it looks like the pairformer block — but that is a prior, not a measurement,
+and it is stated as one. Whoever picks this up should drain the profiler mid-run
+(`ttnn.ReadDeviceProfiler` + `ttnn.profiler.get_all_programs_perf_data()`, which exposes
+`core_count`/`num_available_cores` directly and never builds the giant host log) rather than raise
+the tracy budget again.
