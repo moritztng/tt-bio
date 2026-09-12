@@ -1,0 +1,122 @@
+{
+ "env": {
+  "started": "2026-09-12T20:43:47+0000",
+  "card": "1",
+  "mode": "fold",
+  "size": 512,
+  "label": "wh-c1-lever-on",
+  "commit": "4a9be929",
+  "profiler": "0",
+  "ttnn": "/home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/__init__.py",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "1",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-msa-layer-census",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "8.38",
+   "6.44",
+   "3.25"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "cold_fold_s": 88.6807,
+ "folds": [
+  {
+   "fold_s": 40.9956,
+   "msalayer_calls": 16,
+   "msalayer_ms": [
+    234.832,
+    230.364,
+    230.505,
+    230.73,
+    230.197,
+    230.315,
+    230.597,
+    230.033,
+    230.381,
+    230.276,
+    230.289,
+    230.581,
+    230.088,
+    230.374,
+    230.201,
+    230.464
+   ],
+   "msalayer_total_ms": 3690.226,
+   "msa_module_calls": 4,
+   "msa_module_total_ms": 3705.403,
+   "padded_rows": [
+    1024
+   ],
+   "track_pct_of_fold": 9.039
+  },
+  {
+   "fold_s": 40.3256,
+   "msalayer_calls": 16,
+   "msalayer_ms": [
+    235.275,
+    230.414,
+    230.244,
+    230.621,
+    230.183,
+    230.094,
+    230.037,
+    230.143,
+    230.069,
+    230.381,
+    230.561,
+    230.363,
+    230.8,
+    230.576,
+    230.273,
+    230.158
+   ],
+   "msalayer_total_ms": 3690.192,
+   "msa_module_calls": 4,
+   "msa_module_total_ms": 3705.242,
+   "padded_rows": [
+    1024
+   ],
+   "track_pct_of_fold": 9.188
+  },
+  {
+   "fold_s": 40.5219,
+   "msalayer_calls": 16,
+   "msalayer_ms": [
+    235.121,
+    230.635,
+    230.621,
+    230.367,
+    230.621,
+    230.305,
+    230.282,
+    230.393,
+    230.15,
+    230.297,
+    230.564,
+    230.125,
+    230.247,
+    230.202,
+    230.22,
+    230.268
+   ],
+   "msalayer_total_ms": 3690.419,
+   "msa_module_calls": 4,
+   "msa_module_total_ms": 3705.413,
+   "padded_rows": [
+    1024
+   ],
+   "track_pct_of_fold": 9.144
+  }
+ ],
+ "fold_median_s": 40.5219,
+ "track_median_s": 3.7054,
+ "track_pct_median": 9.144,
+ "layer_ms_median": 230.339
+}

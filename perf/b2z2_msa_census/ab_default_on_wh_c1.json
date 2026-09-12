@@ -1,0 +1,94 @@
+{
+ "env": {
+  "started": "2026-09-12T20:43:16+0000",
+  "card": "1",
+  "mode": "ab",
+  "size": 512,
+  "label": "wh-c1-default-on",
+  "commit": "4a9be929",
+  "profiler": "0",
+  "ttnn": "/home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/__init__.py",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "1",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-msa-layer-census",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "7.72",
+   "6.07",
+   "3.03"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "precursor_s": 2.927,
+ "msalayer_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   1024,
+   512,
+   64
+  ],
+  "None",
+  "None",
+  [
+   1024,
+   1,
+   1
+  ],
+  "35"
+ ],
+ "padded_rows": 1024,
+ "tokens": 512,
+ "ab": {
+  "reps": 4,
+  "blocks": 6,
+  "ms": {
+   "perhead": 238.7521,
+   "perhead#1": 238.6689,
+   "batchw": 230.1936
+  },
+  "all_ms": {
+   "perhead": [
+    239.8985,
+    238.7708,
+    238.7173,
+    238.7334,
+    238.8645,
+    238.609
+   ],
+   "perhead#1": [
+    238.7207,
+    238.6225,
+    238.6661,
+    238.58,
+    238.8444,
+    238.6718
+   ],
+   "batchw": [
+    230.1744,
+    229.9832,
+    230.2712,
+    230.2127,
+    230.3073,
+    230.1433
+   ]
+  },
+  "ratio_vs_base": {
+   "perhead": 1.0,
+   "perhead#1": 1.00035,
+   "batchw": 1.03718
+  }
+ }
+}
