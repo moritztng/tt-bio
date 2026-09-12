@@ -1,0 +1,104 @@
+{
+ "mode": "mesh",
+ "reps": 3,
+ "mesh_n": 2,
+ "atom_window_shard": false,
+ "card": "22,23",
+ "protocol": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0
+ },
+ "diffusion_trace": true,
+ "benchlocked": false,
+ "loadavg_at_start": [
+  "16.83",
+  "16.48",
+  "14.34"
+ ],
+ "model_load_s": 11.77,
+ "device": "MeshDevice(1x2 grid, 2 devices)",
+ "n_devices": 2,
+ "core_grid_main": "ttnn.CoreGrid(x=8, y=9)",
+ "shard_flag": false,
+ "trace_region_size": 536870912,
+ "cold_s": 75.241,
+ "reps_done": [
+  {
+   "fold_s": 41.5072,
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.8732,
+    "sampler_end": 10.5929,
+    "end": 2.2843,
+    "trunk_s": 27.7569
+   }
+  },
+  {
+   "fold_s": 43.3031,
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9154,
+    "sampler_end": 11.7237,
+    "end": 2.1654,
+    "trunk_s": 28.4988
+   }
+  },
+  {
+   "fold_s": 41.8166,
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.8929,
+    "sampler_end": 10.8942,
+    "end": 2.3099,
+    "trunk_s": 27.7198
+   }
+  }
+ ],
+ "summary": {
+  "median_s": 41.8166,
+  "min_s": 41.5072,
+  "max_s": 43.3031,
+  "plddt": [
+   null
+  ],
+  "cif_sha256": [
+   "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+  ],
+  "cif_sha256_16": [
+   "da476491dbb2a847"
+  ],
+  "bit_identical_across_reps": true,
+  "trunk_s_median": 27.7569
+ },
+ "shard_stats": [
+  0,
+  0,
+  0
+ ],
+ "config_rungs": {
+  "_L1_OUT_RUNG": 1,
+  "_BMM_CFG_RUNG": 0,
+  "_BMM_CFG_REFUSED": 0,
+  "_OPM_JOIN_REFUSED": 0
+ },
+ "config_rungs_detail": {
+  "_L1_OUT_RUNG": [
+   "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)"
+  ],
+  "_BMM_CFG_RUNG": [],
+  "_BMM_CFG_REFUSED": [],
+  "_OPM_JOIN_REFUSED": []
+ }
+}
