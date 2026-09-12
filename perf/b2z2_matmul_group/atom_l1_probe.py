@@ -85,4 +85,5 @@ def main():
     print("wrote", a.out, flush=True)
 
 
-main()
+if __name__ == "__main__":
+    main()
