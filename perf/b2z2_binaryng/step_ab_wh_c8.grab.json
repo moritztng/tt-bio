@@ -1,0 +1,29 @@
+{
+ "env": {
+  "started": "2026-09-12T19:30:42+0000",
+  "card": "8",
+  "mode": "step_ab",
+  "size": 512,
+  "commit": "13dcddaa",
+  "ttnn": "/home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/__init__.py",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "8",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-step-binaryng-fusion",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "15.49",
+   "12.64",
+   "9.03"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3
+ },
+ "precursor_s": 25.029,
+ "diffusion_calls_in_precursor": 2
+}

@@ -1,0 +1,144 @@
+{
+ "env": {
+  "started": "2026-09-12T19:33:52+0000",
+  "card": "8",
+  "mode": "step_ab",
+  "size": 512,
+  "commit": "533f3865",
+  "ttnn": "/home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/__init__.py",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "8",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-step-binaryng-fusion",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "13.85",
+   "14.73",
+   "10.62"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3
+ },
+ "n_adaln": 60,
+ "programs": {
+  "base": {
+   "mask": 0,
+   "top_level": 1590,
+   "dispatching": 1204,
+   "mac": 0
+  },
+  "adaln": {
+   "mask": 1,
+   "top_level": 1590,
+   "dispatching": 1144,
+   "mac": 60
+  },
+  "residual": {
+   "mask": 2,
+   "top_level": 1614,
+   "dispatching": 1174,
+   "mac": 30
+  },
+  "transition": {
+   "mask": 4,
+   "top_level": 1590,
+   "dispatching": 1174,
+   "mac": 30
+  },
+  "all": {
+   "mask": 7,
+   "top_level": 1614,
+   "dispatching": 1084,
+   "mac": 120
+  }
+ },
+ "parity": {
+  "adaln": {
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "residual": {
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "transition": {
+   "bit_exact": false,
+   "max_abs": 0.18554688
+  },
+  "all": {
+   "bit_exact": false,
+   "max_abs": 0.18554688
+  },
+  "ref_absmax": 1.1875,
+  "negative_control_differs": true
+ },
+ "step": {
+  "ms": {
+   "base": 41.5686,
+   "adaln": 41.8551,
+   "residual": 41.5505,
+   "transition": 42.0452,
+   "all": 42.2386
+  },
+  "all": {
+   "base": [
+    41.5881,
+    41.5655,
+    41.5552,
+    41.5795,
+    41.5441,
+    41.5533,
+    41.5886,
+    41.5378,
+    41.5623,
+    41.574,
+    41.5693,
+    41.5435,
+    41.5761,
+    41.5711,
+    41.5511,
+    41.5679,
+    41.5579,
+    41.5713,
+    41.5741,
+    41.5747
+   ],
+   "adaln": [
+    41.8601,
+    41.8611,
+    41.8492,
+    41.8501
+   ],
+   "residual": [
+    41.5245,
+    41.5309,
+    41.5748,
+    41.5701
+   ],
+   "transition": [
+    42.0476,
+    42.0495,
+    42.0197,
+    42.0428
+   ],
+   "all": [
+    42.2349,
+    42.2359,
+    42.2412,
+    42.2487
+   ]
+  },
+  "aa_floor_base": 1.00122,
+  "ratio": {
+   "adaln": 0.99315,
+   "residual": 1.00044,
+   "transition": 0.98866,
+   "all": 0.98414
+  }
+ }
+}
