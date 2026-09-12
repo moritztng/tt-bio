@@ -1,0 +1,118 @@
+{
+ "lease_cards": [
+  "0",
+  "1"
+ ],
+ "reps": 21,
+ "burst": 24,
+ "cases": [
+  {
+   "name": "a_token_track[1,512,768]",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "dim": 1,
+   "bytes": 786432,
+   "median_us": 114.17399946367368,
+   "min_us": 84.92200140608475,
+   "max_us": 3112.4879969866015,
+   "burst_us": 58.375458138471004,
+   "bitexact_chip0": true,
+   "bitexact_chip1": true,
+   "negctrl_rejected": true
+  },
+  {
+   "name": "kv_heads_one[1,16,512,64]",
+   "shape": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "dim": 2,
+   "bytes": 1048576,
+   "median_us": 113.72399603715166,
+   "min_us": 75.61600068584085,
+   "max_us": 3379.1570022003725,
+   "burst_us": 58.46937498669528,
+   "bitexact_chip0": true,
+   "bitexact_chip1": true,
+   "negctrl_rejected": true
+  },
+  {
+   "name": "kv_fused[1,512,2048]",
+   "shape": [
+    1,
+    512,
+    2048
+   ],
+   "dim": 1,
+   "bytes": 2097152,
+   "median_us": 114.7660004789941,
+   "min_us": 79.241995990742,
+   "max_us": 244.54799859086052,
+   "burst_us": 58.381291637488175,
+   "bitexact_chip0": true,
+   "bitexact_chip1": true,
+   "negctrl_rejected": true
+  },
+  {
+   "name": "qkv_full[1,512,3072]",
+   "shape": [
+    1,
+    512,
+    3072
+   ],
+   "dim": 1,
+   "bytes": 3145728,
+   "median_us": 131.54499902157113,
+   "min_us": 107.84400365082547,
+   "max_us": 284.80000037234277,
+   "burst_us": 82.56754153990187,
+   "bitexact_chip0": true,
+   "bitexact_chip1": true,
+   "negctrl_rejected": true
+  },
+  {
+   "name": "atom_track[1,7168,128]",
+   "shape": [
+    1,
+    7168,
+    128
+   ],
+   "dim": 1,
+   "bytes": 1835008,
+   "median_us": 115.73699885047972,
+   "min_us": 103.10499783372506,
+   "max_us": 146.75300189992413,
+   "burst_us": 58.383374986685034,
+   "bitexact_chip0": true,
+   "bitexact_chip1": true,
+   "negctrl_rejected": true
+  },
+  {
+   "name": "r_update[1,7168,32]",
+   "shape": [
+    1,
+    7168,
+    32
+   ],
+   "dim": 1,
+   "bytes": 458752,
+   "median_us": 115.47699978109449,
+   "min_us": 112.24099580431357,
+   "max_us": 202.69300148356706,
+   "burst_us": 60.86991652409779,
+   "bitexact_chip0": true,
+   "bitexact_chip1": true,
+   "negctrl_rejected": true
+  }
+ ],
+ "trace": {
+  "captured": true,
+  "replay_us": 37.18109983310569,
+  "bitexact": true
+ }
+}
