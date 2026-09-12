@@ -51,6 +51,7 @@ ARMS = {
     "K2":    (True,  False, False),
     "DST":   (False, True,  False),
     "MSA":   (False, False, True),
+    "K2DST": (True,  True,  False),
     "UNION": (True,  True,  True),
 }
 ORDER = ["base", "K2", "DST", "base", "MSA", "UNION"]
@@ -123,8 +124,16 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=RECYCLING_STEPS)
     ap.add_argument("--skip-298", action="store_true")
+    ap.add_argument("--order", default=None,
+                    help="comma-separated arm order per rep, overriding ORDER. Must contain at "
+                         "least two base positions or the A/A floor has nothing to pair.")
     args = ap.parse_args()
     SAMPLING_STEPS, RECYCLING_STEPS, OUT_PATH = args.steps, args.recycles, args.out
+    order = ORDER if not args.order else [a.strip() for a in args.order.split(",")]
+    assert order.count("base") >= 2, (
+        "two base positions per rep, minimum -- one gives no A/A pair at all, which is how wave 1 "
+        "got a null fold_AA_ratio")
+    assert set(order) <= set(ARMS), f"unknown arm in --order: {set(order) - set(ARMS)}"
 
     import torch
     torch.set_grad_enabled(False)
@@ -305,14 +314,14 @@ def main() -> int:
     # ---- phase 1: 512 aa timed A/B -----------------------------------------
     runs = []
     print("[phase1] warmup: one fold per arm, discarded", flush=True)
-    for arm in ("base", "K2", "DST", "MSA", "UNION"):
+    for arm in dict.fromkeys(order):
         r = fold(arm, t512); r["warmup"] = True; runs.append(r)
         print(f"  warm {arm:5s} {r['fold_s']:7.3f}s shape={r['diffusion_shape']} "
               f"cif {r['cif_sha256'][:16]} calls={r['calls']}", flush=True)
         OUT["phase1"] = runs; dump()
     kept: dict[str, int] = {}
     for i in range(args.reps):
-        for arm in ORDER:
+        for arm in order:
             n = kept[arm] = kept.get(arm, -1) + 1
             keep = args.cifdir / f"512_{arm}_{n}"
             r = fold(arm, t512, keep=keep); r["warmup"] = False; r["rep"] = i; runs.append(r)
@@ -324,7 +333,7 @@ def main() -> int:
 
     timed = [r for r in runs if not r["warmup"]]
     med = {}
-    for arm in ARMS:
+    for arm in dict.fromkeys(order):
         v = sorted(r["fold_s"] for r in timed if r["arm"] == arm)
         if v:
             med[arm] = {"n": len(v), "median": round(st.median(v), 3),
@@ -354,7 +363,7 @@ def main() -> int:
     # ---- phase 2: 298 aa monomeric control ---------------------------------
     if not args.skip_298:
         c = []
-        for arm in ("base", "K2", "DST", "MSA", "UNION", "base"):
+        for arm in list(dict.fromkeys(order)) + ["base"]:
             n = len([x for x in c if x["arm"] == arm])
             r = fold(arm, t298, keep=args.cifdir / f"298_{arm}_{n}")
             c.append(r)

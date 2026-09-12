@@ -1,0 +1,3 @@
+perf/b2z2_compose/out/cif/
+perf/b2z2_compose/out/cif_bitexact/
+perf/b2z2_compose/out/*.log
