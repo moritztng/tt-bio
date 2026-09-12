@@ -1,0 +1,35 @@
+{
+ "env": {
+  "started": "2026-09-12T19:49:38+0000",
+  "card": "14",
+  "host": "j10glx02",
+  "size": 298,
+  "msa_dir": "/home/tt-admin/wt/b2z2-conf-head-device/perf/b2z2_hostzero/.msa_298",
+  "commit": "ae49c395",
+  "recycling_steps": 3,
+  "sampling_steps": 200
+ },
+ "folds": [
+  {
+   "tag": "base_0",
+   "TT_BIO_DEVICE_CONFIDENCE": "0",
+   "wall_s": 22.5129,
+   "plddt": null,
+   "dir": "298_base_0"
+  },
+  {
+   "tag": "base_1",
+   "TT_BIO_DEVICE_CONFIDENCE": "0",
+   "wall_s": 22.4941,
+   "plddt": null,
+   "dir": "298_base_1"
+  },
+  {
+   "tag": "devconf_0",
+   "TT_BIO_DEVICE_CONFIDENCE": "1",
+   "wall_s": 26.144,
+   "plddt": null,
+   "dir": "298_devconf_0"
+  }
+ ]
+}
