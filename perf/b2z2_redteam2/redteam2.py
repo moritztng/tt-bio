@@ -171,7 +171,12 @@ def c1_rungs(dram: dict) -> dict:
             rest = sp["fold"] - sp["trunk"] - sp["sampler"]
             tf = held(sp["trunk"], k, HOST_TRUNK_S)
             sf = held(sp["sampler"], s_keep, HOST_SAMPLER_S)
+            # The rung the campaign calls "best supported": trunk at its floor, sampler given
+            # only the under-fill that has actually been measured on it (0.40-0.70 s).
+            samp_meas = sp["sampler"] - 0.55
             row[sname] = {
+                "best_supported_s": tf + samp_meas + rest,
+                "best_supported_x": sp["fold"] / (tf + samp_meas + rest),
                 "trunk_floor_s": tf,
                 "trunk_only_s": tf + sp["sampler"] + rest,
                 "trunk_only_x": sp["fold"] / (tf + sp["sampler"] + rest),
@@ -429,16 +434,32 @@ def main() -> int:
     print(f"\n  the fold rungs, rebuilt with DRAM as a co-binding constraint")
     print(f"  (sampler multiplier {rungs['sampler_movement_free_x']:.4f}x unchanged — DRAM does not"
           f" bind the step)")
-    print(f"    {'trunk treatment':<52}{'trunk only':>12}{'+ sampler':>12}")
+    print(f"    {'trunk treatment':<52}{'trunk only':>12}{'best-supp':>12}{'+ sampler':>12}")
     for kname, row in rungs["rungs"].items():
         r = row["measured base 20.188 s"]
-        print(f"    {kname:<52}{r['trunk_only_x']:>11.4f}x{r['both_x']:>11.4f}x")
+        print(f"    {kname:<52}{r['trunk_only_x']:>11.4f}x{r['best_supported_x']:>11.4f}x"
+              f"{r['both_x']:>11.4f}x")
     pub = rungs["rungs"]["movement-free (published)"]["measured base 20.188 s"]
     cor = rungs["rungs"]["DRAM roof, measured 390.7 (clone, matching mix)"]["measured base 20.188 s"]
     gen = rungs["rungs"]["DRAM roof, campaign's fitted 444.9"]["measured base 20.188 s"]
     print(f"\n    PUBLISHED bracket   {pub['trunk_only_x']:.2f}x - {pub['both_x']:.2f}x")
     print(f"    CORRECTED bracket   {cor['trunk_only_x']:.2f}x - {gen['both_x']:.2f}x"
           f"   (measured roof to the campaign's own fitted one)")
+
+    two = R["c1_two_processor"] = {
+        "per_chip_dram_GB": dram["PairformerLayer"]["dram_total_GB"] / 2,
+        "per_chip_floor_ms_at_390_7": dram["PairformerLayer"]["dram_total_GB"] / 2 / 390.7 * 1e3,
+        "movement_free_ms": dram["PairformerLayer"]["movement_free_ms"],
+    }
+    two["dram_binds_on_two_chips"] = bool(
+        two["per_chip_floor_ms_at_390_7"] > two["movement_free_ms"])
+    print(f"\n  and the constraint is PER PROCESSOR. Shard the trunk over the p300c pair and each"
+          f" chip moves {two['per_chip_dram_GB']:.4f} GB,")
+    print(f"  a {two['per_chip_floor_ms_at_390_7']:.4f} ms floor at the measured 390.7 GB/s roof"
+          f" against a {two['movement_free_ms']:.4f} ms movement-free block:"
+          f" DRAM {'still binds' if two['dram_binds_on_two_chips'] else 'no longer binds'}.")
+    print("  The correction below lowers the one-processor ceiling and leaves the two-processor"
+          " one alone.")
 
     print("\n" + "=" * 94)
     print("C2  \"THE TRUNK IS WELL EXPLORED AND ITS REMAINING LEVERS ARE SMALL AND HARD\"")

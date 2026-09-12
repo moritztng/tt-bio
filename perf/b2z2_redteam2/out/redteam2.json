@@ -96,6 +96,8 @@
   "rungs": {
    "DRAM roof, campaign's fitted 444.9": {
     "levered arm 18.594 s": {
+     "best_supported_s": 12.537059184046795,
+     "best_supported_x": 1.483122933938173,
      "both_s": 11.160989315246793,
      "both_x": 1.6659813458112651,
      "trunk_floor_s": 5.813959184046793,
@@ -103,6 +105,8 @@
      "trunk_only_x": 1.4207928411194322
     },
     "measured base 20.188 s": {
+     "best_supported_s": 13.589148366467285,
+     "best_supported_x": 1.4855971438074886,
      "both_s": 12.169939726467286,
      "both_x": 1.658841412015786,
      "trunk_floor_s": 6.351148366467287,
@@ -112,6 +116,8 @@
    },
    "DRAM roof, measured 390.7 (clone, matching mix)": {
     "levered arm 18.594 s": {
+     "best_supported_s": 13.294355287899714,
+     "best_supported_x": 1.3986387152541297,
      "both_s": 11.918285419099712,
      "both_x": 1.5601237381177402,
      "trunk_floor_s": 6.571255287899712,
@@ -119,6 +125,8 @@
      "trunk_only_x": 1.3430744598306854
     },
     "measured base 20.188 s": {
+     "best_supported_s": 14.420966235580483,
+     "best_supported_x": 1.3999061970057638,
      "both_s": 13.001757595580482,
      "both_x": 1.552713150632976,
      "trunk_floor_s": 7.182966235580484,
@@ -128,6 +136,8 @@
    },
    "DRAM roof, measured 429.9 (most generous measured)": {
     "levered arm 18.594 s": {
+     "best_supported_s": 12.727532288863499,
+     "best_supported_x": 1.4609273485221972,
      "both_s": 11.3514624200635,
      "both_x": 1.6380268296651759,
      "trunk_floor_s": 6.004432288863498,
@@ -135,6 +145,8 @@
      "trunk_only_x": 1.4004108290209678
     },
     "measured base 20.188 s": {
+     "best_supported_s": 13.79836498776761,
+     "best_supported_x": 1.4630718942350682,
      "both_s": 12.379156347767609,
      "both_x": 1.6308058023389127,
      "trunk_floor_s": 6.56036498776761,
@@ -144,6 +156,8 @@
    },
    "movement-free (published)": {
     "levered arm 18.594 s": {
+     "best_supported_s": 11.574010981790568,
+     "best_supported_x": 1.6065303574753822,
      "both_s": 10.197941112990568,
      "both_x": 1.823309214476065,
      "trunk_floor_s": 4.850910981790567,
@@ -151,6 +165,8 @@
      "trunk_only_x": 1.5336508708155174
     },
     "measured base 20.188 s": {
+     "best_supported_s": 12.531331352252653,
+     "best_supported_x": 1.6110020102828875,
      "both_s": 11.112122712252653,
      "both_x": 1.8167545952079827,
      "trunk_floor_s": 5.293331352252654,
@@ -167,6 +183,12 @@
    "DRAM roof, measured 429.9 (most generous measured)": 0.5151818171662607,
    "movement-free (published)": 0.40999014962662134
   }
+ },
+ "c1_two_processor": {
+  "dram_binds_on_two_chips": false,
+  "movement_free_ms": 14.9006,
+  "per_chip_dram_GB": 4.024651776,
+  "per_chip_floor_ms_at_390_7": 10.301130729459944
  },
  "c2": {
   "arch": "WH \u2014 72 cores, 85.2936 ms block. The cell is BH.",
