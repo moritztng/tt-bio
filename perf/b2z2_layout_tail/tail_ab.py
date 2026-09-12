@@ -70,13 +70,55 @@ def mode_parity(ttnn, torch, T, dev, g):
         t = ttnn.to_torch(out) if isinstance(out, ttnn.Tensor) else out
         return t.clone()
 
+    # One layer's own output, before 24 layers and 200 steps amplify it: hook the first token-DiT
+    # site and keep what it returned. A max-abs on the step's coordinates cannot tell a rounding
+    # difference from a wrong answer; a relative error on one block's output can.
+    block = {}
+    orig_call = T.AttentionPairBias.__call__
+
+    def hooked(self_obj, *aa, **kw):
+        out = orig_call(self_obj, *aa, **kw)
+        if getattr(self_obj, "pad_tail", False) and "first" not in block:
+            block["first"] = ttnn.to_torch(out).clone()
+        return out
+
+    def run_block(on):
+        block.pop("first", None)
+        T.AttentionPairBias.__call__ = hooked
+        try:
+            set_arm(T, on)
+            call()
+            ttnn.synchronize_device(dev)
+        finally:
+            T.AttentionPairBias.__call__ = orig_call
+        return block["first"]
+
+    b_off, b_on = run_block(False), run_block(True)
+    d = (b_off.float() - b_on.float()).abs()
+    rms = float(b_off.float().pow(2).mean().sqrt())
+    OUT["one_block"] = {
+        "shape": list(b_off.shape),
+        "max_abs": float(d.max()), "mean_abs": float(d.mean()),
+        "rms_of_output": round(rms, 6),
+        "max_rel_to_rms": float(d.max()) / rms,
+        "frac_elements_differing": float((d > 0).float().mean()),
+        "bf16_ulp_at_max": float(torch.tensor(
+            [float(b_off.float().abs().max())], dtype=torch.bfloat16).float().item()) * 2 ** -8,
+    }
+    dump()
+
     base = run(False)
     base2 = run(False)
     arm = run(True)
+    diff = (base.float() - arm.float()).abs()
     OUT["parity"] = {
         "aa_base_deterministic": bool(torch.equal(base, base2)),
         "bit_exact": bool(torch.equal(base, arm)),
-        "max_abs": float((base.float() - arm.float()).abs().max()),
+        "max_abs": float(diff.max()),
+        "mean_abs": float(diff.mean()),
+        "max_coord_abs": float(base.float().abs().max()),
+        "bf16_ulp_at_max_coord": float(base.float().abs().max()) * 2 ** -8,
+        "frac_elements_differing": float((diff > 0).float().mean()),
         "shape": list(base.shape),
     }
     dump()
