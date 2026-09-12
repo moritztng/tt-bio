@@ -556,6 +556,23 @@ void mul_block_bcast_scalar_inplace(uint32_t in0_cb) {
 /**
  * in0_cb += in1_cb
  */
+// One DST acquire per tile costs more than the add it guards. MEASURED on whglx card 3 (WH) by
+// ablation at the Boltz-2 512 aa triangle-attention shape (`perf/b2z_sdpa_floor/ablate_512.py`):
+// removing this one eltwise add took 1.373 ms off a 6.809 ms op -- 20.2 % -- while removing the
+// SFPU exponential over the SAME 128 tiles per chunk took 0.276 ms, 4.1 %. An add cannot cost 5x an
+// exp; what it costs is 14 592 acquire/release round-trips per core, each one a full math-to-pack
+// barrier that leaves the two threads with nothing to overlap. Every other block helper in this
+// file already batches (`STATS_GRANULARITY`, `SUB_EXP_GRANULARITY`, `MUL_BCAST_GRANULARITY`); this
+// one was the transcription's last per-tile loop.
+//
+// ADD_BLOCK_GRANULARITY is the number of tiles per acquire, priced by `sdpa_generic.valid_granularity`
+// against the same DST budget the other helpers use, so it cannot exceed what DST holds. 1 restores
+// the per-tile loop verbatim and is how the A/B reaches the incumbent. Bit-exact either way: the
+// same tiles are added in the same order and packed in the same order, only the barrier moves.
+#ifndef ADD_BLOCK_GRANULARITY
+#define ADD_BLOCK_GRANULARITY 1
+#endif
+
 template <bool pop_in1 = true>
 void add_block_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
                        uint32_t in1_base = 0) {
@@ -566,12 +583,33 @@ void add_block_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
     add_tiles_init(in0_cb, in1_cb);
     cb_wait_front(in0_cb, num_tiles);
     cb_wait_front(in1_cb, in1_base + num_tiles);
+#if ADD_BLOCK_GRANULARITY == 1
     for (uint32_t i = 0; i < num_tiles; i++) {
         acquire_dst();
         add_tiles(in0_cb, in1_cb, i, in1_base + i, 0);
         pack_tile(0, in0_cb);
         release_dst();
     }
+#else
+    // in0 is read and written in place, but a group reads tiles [i, i+n) and writes the same
+    // [i, i+n): the next group's unpack touches [i+n, i+2n), which this group's pack never wrote.
+    // So the pack of group g may overlap the unpack of group g+1 without a hazard, which is the
+    // whole point of splitting acquire from wait.
+    for (uint32_t i = 0; i < num_tiles; i += ADD_BLOCK_GRANULARITY) {
+        const uint32_t n = (num_tiles - i < ADD_BLOCK_GRANULARITY) ? (num_tiles - i)
+                                                                   : ADD_BLOCK_GRANULARITY;
+        tile_regs_acquire();
+        for (uint32_t j = 0; j < n; ++j) {
+            add_tiles(in0_cb, in1_cb, i + j, in1_base + i + j, j);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < n; ++j) {
+            pack_tile(j, in0_cb);
+        }
+        tile_regs_release();
+    }
+#endif
 
     cb_pop_front(in0_cb, num_tiles);
     if (pop_in1) {
