@@ -57,3 +57,29 @@ ratio at or below the WH ratio refutes the hop-count model.
 ## MEASURED
 
 (nothing yet)
+
+---
+
+## PREDICTED, the fan-out arm — added 2026-09-12 ~21:0x UTC, before its block number exists
+
+The multicast arm hung the chip twice and the root cause turned out not to be the multicast at all
+(see the state doc). The second arm, `MM_BCAST_FANOUT`, has the injector write the block to each
+receiver itself with only the two primitives the shipped kernel already issues.
+
+**It deletes a different subset of the term.** The chain costs 67.6 % handshakes + 15.2 % forward.
+Fan-out deletes the handshakes outright: no core waits on its predecessor, every core waits on the
+injector. It does NOT delete the bytes — the chain already moves N x B in total, one hop at a time,
+and the fan-out moves the same N x B — but it moves the **issue** of all N transactions onto the
+injector's single RISC, which the chain spread over N cores. The injector was measured spending
+6207.4 core-us issuing its DRAM read against 1516.3 waiting for it, so issue time is not free.
+
+**PREDICTED block ratio on WH, paired A/B, n>=5: 1.02x - 1.08x, point 1.03x.** Lower than the
+multicast's ceiling because the bytes stay; near the same point estimate because the bytes were
+0.63 % of the reader's time and the handshakes were 67.6 %.
+
+FALSIFIERS: **< 1.005x** says the serialisation is real but removing it buys nothing, which is the
+same kill the multicast arm faced. **Slower than the chain** says the injector's serial issue of N
+writes costs more than the N-hop chain it replaced, which would be a measurement of issue cost, not
+of the chain. Bit-exactness is `torch.equal` with the same negative control.
+
+(Written while the correctness smoke test was on the card; no block A/B number existed yet.)
