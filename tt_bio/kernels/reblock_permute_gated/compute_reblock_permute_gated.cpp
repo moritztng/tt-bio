@@ -18,6 +18,14 @@
 //     DST: 25.7 % of elements land one ulp low, on top of the ties. `mul_binary_tile` rounds, and
 //     matches ttnn on every element.
 //
+// VARIANT 1 (`dst_resident`, compile-time arg 6): the same three phases with the within-tile WH
+// transpose moved from the END of the chain to the two UNPACKS at its start. transpose_wh is a pure
+// index permutation, so transpose(p * sigmoid(g)) == transpose(p) * sigmoid(transpose(g)) element
+// for element -- same values, same order, same two roundings -- and the variant is BIT-EXACT with
+// the one above. What it deletes is the `mul_cb` round trip: the product is packed straight to
+// `out_cb` instead of being packed to L1 and unpacked again for the transpose. Per output tile that
+// is 3 packs + 4 unpacks -> 2 packs + 3 unpacks, and 3 DST acquires -> 2.
+//
 // The two knobs interact, which is why the config could not be found by sweeping either alone.
 // Packing the product from an fp32 DST instead is the third combination and it is also wrong, in a
 // way worth naming because it looks harmless: the packer breaks ties AWAY FROM ZERO where ttnn
@@ -41,12 +49,57 @@ void kernel_main() {
     // Diagnostic: drop the activation so the multiply can be compared on its own against
     // ttnn.multiply(p, g) with two generic bf16 operands. Never set in production.
     constexpr uint32_t skip_sigmoid = get_compile_time_arg_val(5);
+    // Keep the product in DST through to the pack by transposing on the way IN. See the header.
+    constexpr uint32_t dst_resident = get_compile_time_arg_val(6);
 
     const uint32_t num_tiles = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t onetile = 1;
 
-    binary_op_init_common(p_cb, sig_cb, mul_cb);
+    binary_op_init_common(p_cb, sig_cb, dst_resident ? out_cb : mul_cb);
+
+    if constexpr (dst_resident) {
+        transpose_wh_init(g_cb, sig_cb);
+        for (uint32_t i = 0; i < num_tiles; ++i) {
+            // sigmoid(transpose(g)) -> sig_cb. The pack to bf16 here is the rounding point the
+            // production sequence has and must be kept; it is the multiply's operand rounding.
+            cb_wait_front(g_cb, onetile);
+            cb_reserve_back(sig_cb, onetile);
+            transpose_wh_init_short(g_cb);
+            tile_regs_acquire();
+            transpose_wh_tile(g_cb, 0, 0);
+            if constexpr (!skip_sigmoid) {
+                sigmoid_tile_init();
+                sigmoid_tile(0);
+            }
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(0, sig_cb);
+            tile_regs_release();
+            cb_pop_front(g_cb, onetile);
+            cb_push_back(sig_cb, onetile);
+
+            // transpose(p) * sig -> out_cb, in one DST residency. mul_cb never exists.
+            cb_wait_front(p_cb, onetile);
+            cb_wait_front(sig_cb, onetile);
+            cb_reserve_back(out_cb, onetile);
+            tile_regs_acquire();
+            transpose_wh_init_short(p_cb);
+            transpose_wh_tile(p_cb, 0, 0);
+            copy_tile_to_dst_init_short(sig_cb);
+            copy_tile(sig_cb, 0, 1);
+            mul_binary_tile_init();
+            mul_binary_tile(0, 1, 0);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(0, out_cb);
+            tile_regs_release();
+            cb_pop_front(p_cb, onetile);
+            cb_pop_front(sig_cb, onetile);
+            cb_push_back(out_cb, onetile);
+        }
+        return;
+    }
 
     for (uint32_t i = 0; i < num_tiles; ++i) {
         // sigmoid(g) -> its own CB. binary_ng applies an input activation in PREPROCESS
