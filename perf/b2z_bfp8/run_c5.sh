@@ -6,6 +6,13 @@
 #
 # Card 5 on whglx is a Wormhole chip. Every number it produces is indicative for the Blackhole
 # cell and has to be re-confirmed on qb2 before anything lands.
+#
+# THERE IS NO PROBE IN FRONT OF THIS, AND THAT IS DELIBERATE. The first version opened the device
+# once to check the card was alive before spending 40 minutes on it. On this galaxy that guard is
+# self-defeating: a chip gives exactly ONE successful open after a reset, and the probe spends it.
+# Measured three times (state/b2z-bfp8-narrow.md): reset card 5, probe says "device ok", the run
+# two minutes later parks 130 threads in futex forever. Open the card once, from the process that
+# is going to use it.
 set -u
 cd "$(dirname "$0")/../.." || exit 1
 WT=$PWD
@@ -21,14 +28,6 @@ run() {
       "$PY" "$@" 2>&1 | grep -vE '^\s*$|DEBUG *\| ttnn|^Config\{'
   echo "=== $name rc=${PIPESTATUS[0]} $(date -u +%H:%M:%SZ) ==="
 }
-
-# A bricked chip throws on the first dispatch and a wedged one hangs; either way nothing below is
-# worth running, so probe once and bail loudly rather than leaving a 40-minute job to hang.
-if ! run probe -c 'from tt_bio import tenstorrent as T; T.get_device(); print("device ok")' \
-     | tee /dev/stderr | grep -q "device ok"; then
-  echo "card $CARD did not come up; run 'tt-smi -r $CARD' to completion (no external timeout)"
-  exit 2
-fi
 
 run screen perf/b2z_bfp8/site_screen.py \
     --out "perf/b2z_bfp8/site_screen_512_${TAG}.json" --seq 512 --reps 5
