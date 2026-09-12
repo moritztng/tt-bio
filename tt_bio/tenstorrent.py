@@ -3702,6 +3702,24 @@ def _pair_proj_program_config(
     )
 
 
+# Activation dtypes the tuned pair-projection config may be built for. The config is sized at
+# 2 bytes per element, so anything at most that wide is bounded by it: a bfloat8_b tile is 1088 B
+# against bf16's 2048, and the geometry that fits the wider tile fits the narrower one.
+#
+# Refusing the narrower activation does not leave the op safe, which is what the old
+# `x.dtype != ttnn.bfloat16` test assumed. It hands the op to `ttnn.linear`'s own config chooser,
+# which sizes its blocks for the narrower operand, enlarges them, and overflows L1:
+# `Statically allocated circular buffers ... grow to 1644960 B which is beyond max L1 size of
+# 1499136 B` on an 8x9 Wormhole grid. Wave 1 recorded that throw as three pair-track sites that
+# CANNOT RUN in bfloat8_b (`z`, `trimul_mm`, `triatt_qkv`, the three largest byte sites in the
+# block) and closed the byte axis with them unmeasured. All three reach the same
+# `ttnn.linear([1,512,512,128] bfloat8_b, [128,128] bf16)` and the same byte total.
+# `perf/b2z2_byte_axis/cb_repro.py` names it; `results/cb_repro_*.json` are the captures.
+#
+# fp32 stays out: at 4 bytes per element the 2-byte sizing is an under-estimate, not a bound.
+_PAIR_PROJ_ACT_DTYPES = (ttnn.bfloat16, ttnn.bfloat8_b)
+
+
 def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
                       out_l1: bool = False, block_w: int | None = None,
                       rung: int = 0) -> object | None:
@@ -3711,7 +3729,7 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
     `_NARROW_PROJ_BW` and the L1-output sites `_PAIR_PROJ_L1_BW`, so the three carry
     independent parity decisions."""
     cap = _PAIR_PROJ_BW if bw_cap == -1 else bw_cap
-    if cap is None or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+    if cap is None or x.dtype not in _PAIR_PROJ_ACT_DTYPES or w.dtype != ttnn.bfloat16:
         return None
     try:
         xs, ws = list(x.shape), list(w.shape)
@@ -4050,8 +4068,8 @@ def attn_value_matmul(attn, v, ckc, dtype):
 
 def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
     """_tri_att_qkv_l1_config for a concrete operand pair, or None if it does not apply."""
-    if dtype != ttnn.bfloat16:
-        return None  # the CB budget above is sized in bf16 tiles
+    if dtype not in _PAIR_PROJ_ACT_DTYPES:
+        return None  # the CB budget above is sized in bf16 tiles, which bounds anything narrower
     try:
         xs, ws = list(x.shape), list(w.shape)
         m = 1
