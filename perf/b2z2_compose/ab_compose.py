@@ -1,0 +1,422 @@
+#!/usr/bin/env python3
+"""Boltz-2 512 aa on Blackhole: the atom key gather elision, alone and composed.
+
+`b2z2-bh-compose-landed` composed wave 2's levers and got nothing measurable, but it ran
+before `wk/b2z2-layout-op-elision` was visible and recorded it as "empty diff against main".
+It is not empty: 122 lines of `tt_bio/tenstorrent.py`, the only wave-2 lever with a
+whole-fold number, and the only one in the sampler. This measures it on Blackhole.
+
+  ELI    tt_bio.tenstorrent._ATOM_SHIFT_GATHER_OFF   the atom key gather is four window-axis
+                                                     slices and a concat, not a one-hot matmul
+  K2     tt_bio.triatt_qkv._FUSED_ENABLED            [Wq|Wk|Wv|Wg]: one operand pass, not two
+  DST    TT_BIO_GATE_DST_RESIDENT                    the gated move keeps its product in DST
+  UNION  all three
+
+The MSA depth ladder is NOT an arm. It reads 0.9765 A all-atom at 512 aa against a 0.60 A
+kill line, disqualified by `b2z2-bh-compose-landed` and confirmed by its own branch's 0.8844 A
+on Wormhole. No union containing it is quoted.
+
+F1-direct (``trimul_tail.DIRECT_PACK``) is not an arm: ``F1_BLOCK_KEYS = {(8, 8)}`` and
+Boltz-2 keys (4, 4) at c_z=128, so the kernel declines every call this fixture makes. The
+harness counts its declines rather than asserting the point.
+
+Protocol is wave 1's, unchanged: ``perf/size512/fixtures/cdk2x2_512.yaml`` with its fixed
+35-row a3m, 3 recycles, 200 sampling steps, 1 sample, seed 0, templates off, timed at
+``predict_one``, cold fold per arm discarded. One process, one device open.
+
+Two base positions per rep, so the session's A/A floor comes out of the same data and
+``_L1_OUT_RUNG`` (tenstorrent.py, module-level, only grows) cannot rewrite the baseline
+under one arm without rewriting it under the base beside it.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import statistics as st
+import sys
+import tempfile
+import time
+import traceback
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+FIX = REPO / "perf" / "size512" / "fixtures"
+
+RECYCLING_STEPS = 3
+SAMPLING_STEPS = 200
+DIFFUSION_SAMPLES = 1
+SEED = 0
+
+# (k2, dst, eli)
+ARMS = {
+    "base":  (False, False, False),
+    "ELI":   (False, False, True),
+    "K2":    (True,  False, False),
+    "DST":   (False, True,  False),
+    "UNION": (True,  True,  True),
+}
+ORDER = ["base", "ELI", "base", "UNION"]
+
+OUT: dict = {}
+OUT_PATH: Path | None = None
+
+
+def dump():
+    if OUT_PATH:
+        OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        OUT_PATH.write_text(json.dumps(OUT, indent=1))
+
+
+def _seed_msa(target: Path, a3m_text: str, msa_dir: Path) -> None:
+    from tt_bio.main import _read_bio_chains
+    chains = _read_bio_chains(target)
+    seq = chains[0][1]
+    rows = a3m_text.split("\n")
+    assert rows[1] == seq, "a3m query row does not match the target sequence"
+    msa_dir.mkdir(parents=True, exist_ok=True)
+    h = hashlib.sha256(seq.encode()).hexdigest()[:16]
+    (msa_dir / f"{h}.a3m").write_text(a3m_text)
+
+
+def build_cfg(msa_dir: Path, struct_dir: Path) -> dict:
+    return dict(
+        model="boltz2", fast=False, output_format="cif",
+        recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
+        diffusion_samples=DIFFUSION_SAMPLES, seed=SEED, trace=False,
+        msa_dir=str(msa_dir), struct_dir=str(struct_dir),
+        use_msa_server=False, msa_db_path=None, use_envdb=False, msa_endpoint=None,
+        single_sequence=False, msa_server_url="https://api.colabfold.com",
+        msa_pairing_strategy="greedy", msa_server_username=None,
+        msa_server_password=None, api_key_value=None, max_msa_seqs=8192,
+        write_pae=False, write_pde=False, write_embeddings=False, method=None,
+        conf_kwargs=dict(
+            predict_args={"recycling_steps": RECYCLING_STEPS,
+                          "sampling_steps": SAMPLING_STEPS,
+                          "diffusion_samples": DIFFUSION_SAMPLES,
+                          "max_parallel_samples": 5},
+            diffusion_process_args={
+                "step_scale": 1.5, "gamma_0": 0.8, "gamma_min": 1.0,
+                "noise_scale": 1.003, "rho": 7, "sigma_min": 0.0001,
+                "sigma_max": 160.0, "sigma_data": 16.0, "P_mean": -1.2,
+                "P_std": 1.5, "coordinate_augmentation": True,
+                "alignment_reverse_diff": True, "synchronize_sigmas": True},
+            pairformer_args={"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True},
+            msa_args={"subsample_msa": False, "num_subsampled_msa": 1024,
+                      "use_paired_feature": True, "msa_s": 64, "msa_blocks": 4,
+                      "msa_dropout": 0.15, "z_dropout": 0.25,
+                      "pairwise_head_width": 32, "pairwise_num_heads": 4,
+                      "activation_checkpointing": True},
+            steering_args={"fk_steering": False, "physical_guidance_update": False,
+                           "contact_guidance_update": True, "num_particles": 3,
+                           "fk_lambda": 4.0, "fk_resampling_interval": 3,
+                           "num_gd_steps": 20},
+            use_kernels=True, use_tenstorrent=True, trace=False,
+            diffusion_trace=False,
+        ),
+    )
+
+
+def main() -> int:
+    global SAMPLING_STEPS, RECYCLING_STEPS, OUT_PATH
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--cifdir", type=Path, required=True)
+    ap.add_argument("--reps", type=int, default=5)
+    ap.add_argument("--steps", type=int, default=SAMPLING_STEPS)
+    ap.add_argument("--recycles", type=int, default=RECYCLING_STEPS)
+    ap.add_argument("--skip-298", action="store_true")
+    ap.add_argument("--order", default=None,
+                    help="comma-separated arm order per rep, overriding ORDER. Must contain at "
+                         "least two base positions or the A/A floor has nothing to pair.")
+    args = ap.parse_args()
+    SAMPLING_STEPS, RECYCLING_STEPS, OUT_PATH = args.steps, args.recycles, args.out
+    order = ORDER if not args.order else [a.strip() for a in args.order.split(",")]
+    assert order.count("base") >= 2, (
+        "two base positions per rep, minimum -- one gives no A/A pair at all, which is how wave 1 "
+        "got a null fold_AA_ratio")
+    assert set(order) <= set(ARMS), f"unknown arm in --order: {set(order) - set(ARMS)}"
+
+    import torch
+    torch.set_grad_enabled(False)
+    import ttnn
+    import tt_bio.tenstorrent as TT
+    import tt_bio.triatt_qkv as QKV
+    import tt_bio.reblock_permute as RP
+    import tt_bio.trimul_tail as TTAIL
+    from tt_bio.tenstorrent import get_device
+    from tt_bio.worker import _WorkerState, _ensure_local_artifacts
+    from tt_bio import esmfold2 as _E
+    _E.set_progress(lambda *a, **k: None)
+    import tt_bio as _TB
+    assert Path(_TB.__file__).resolve().is_relative_to(REPO), (
+        f"imported tt_bio from {_TB.__file__}, not this worktree "
+        "(memory parity-gate-scores-installed-package-not-checkout)")
+
+    # The arms are set in-process. An env pin would silently make every arm the same arm.
+    assert not (set(os.environ) & {"TT_BIO_TRIATT_QKV_GATE_FUSED", "TT_BIO_GATE_DST_RESIDENT",
+                                  "TT_BIO_MSA_DEPTH_LADDER", "TT_BIO_MSA_PAD_POISON",
+                                  "TT_BIO_ATOM_SHIFT_GATHER"}), \
+        "no lever may be pinned in the environment"
+    # Every lever this pass composes must be present in the imported tree. A missing attribute
+    # here means the merge did not bring the branch in and the arm would silently be its base.
+    for mod, attr in ((TT, "_ATOM_SHIFT_GATHER_OFF"), (TT, "ATOM_SHIFT_GATHER_STATS"),
+                      (QKV, "_FUSED_ENABLED"), (RP, "set_gate_dst_resident")):
+        assert hasattr(mod, attr), f"{mod.__name__}.{attr} missing -- lever not in this tree"
+
+    dev = get_device()
+    try:
+        g = dev.compute_with_storage_grid_size()
+        grid = [g.x, g.y]
+    except Exception:
+        grid = None
+    import socket
+    OUT["env"] = {
+        "host": socket.gethostname(),
+        "tt_visible_devices": os.environ.get("TT_VISIBLE_DEVICES"),
+        "lease_cards": os.environ.get("TT_BIO_LEASE_CARDS"),
+        "grid": grid, "torch": torch.__version__,
+        "arch": str(getattr(dev, "arch", lambda: "?")()),
+        "tt_bio_file": _TB.__file__,
+        "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "loadavg": os.getloadavg(),
+        "protocol": {"recycling_steps": RECYCLING_STEPS, "sampling_steps": SAMPLING_STEPS,
+                     "diffusion_samples": DIFFUSION_SAMPLES, "seed": SEED,
+                     "diffusion_trace": False,
+                     "fixtures": ["cdk2x2_512.yaml", "cdk2x2_298.yaml"]},
+        "lever_defaults": {"TRIATT_QKV_GATE_FUSED": QKV._FUSED_ENABLED,
+                           "TRIATT_HEAD_MAJOR_QKV": QKV._ENABLED,
+                           "GATE_DST_RESIDENT": RP.GATE_DST_RESIDENT,
+                           "ATOM_SHIFT_GATHER": not TT._ATOM_SHIFT_GATHER_OFF,
+                           "TRIMUL_TAIL_DIRECT_PACK": TTAIL.DIRECT_PACK,
+                           "F1_BLOCK_KEYS": sorted(str(k) for k in TTAIL.F1_BLOCK_KEYS)},
+    }
+    try:
+        import importlib.metadata as _md
+        OUT["env"]["ttnn"] = _md.version("ttnn")
+    except Exception:
+        pass
+    dump()
+
+    work = Path(tempfile.mkdtemp(prefix="b2z2-compose-"))
+    struct_dir = work / "out"; struct_dir.mkdir(parents=True)
+    msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
+    for name in ("cdk2x2_512", "cdk2x2_298"):
+        _seed_msa(FIX / f"{name}.yaml", (FIX / f"{name}.a3m").read_text(), msa_dir)
+
+    cfg = build_cfg(msa_dir, struct_dir)
+    _ensure_local_artifacts(cfg)
+
+    t_load = time.perf_counter()
+    state = _WorkerState("tenstorrent")
+    state.load_model(cfg)
+    state.bind_run("b2z2-bh-compose", cfg)
+    OUT["model_load_s"] = round(time.perf_counter() - t_load, 3)
+    dump()
+
+    diff_mod = state.model.structure_module.score_model
+    seen = {}
+    _orig_pop = diff_mod._populate_diffusion_cache
+
+    def _pop(*a, **k):
+        r = _orig_pop(*a, **k)
+        seen["shape"] = tuple(int(x) for x in r)
+        return r
+    diff_mod._populate_diffusion_cache = _pop
+
+    class Splitter:
+        def reset(self):
+            self.marks, self.loop, self.n_diff = [], [], 0
+
+        def __init__(self):
+            self.reset()
+
+        def _mark(self, label):
+            ttnn.synchronize_device(dev)
+            self.marks.append((label, time.perf_counter()))
+
+        def __call__(self, stage=None, step=0, total=0, *a, **k):
+            if stage == "diffusion":
+                self.n_diff += 1
+                if self.n_diff == 1:
+                    self._mark("diffusion_conditioning")
+                elif self.n_diff == 2:
+                    self._mark("sampler")
+                    self.loop.append((step, self.marks[-1][1]))
+                else:
+                    self.loop.append((step, time.perf_counter()))
+            elif stage == "confidence":
+                self._mark("confidence")
+
+        def close(self):
+            self._mark("end")
+            return {lab: round(t1 - t0, 4)
+                    for (lab, t0), (_l, t1) in zip(self.marks, self.marks[1:])}
+
+    def set_arm(arm: str):
+        k2, dst, eli = ARMS[arm]
+        QKV._FUSED_ENABLED = k2
+        RP.set_gate_dst_resident(dst)
+        # The gather decision is taken once per fold, when `_populate_diffusion_cache` classifies
+        # `keys_indexing`. `reset_static_cache()` below is what makes this toggle reach the fold;
+        # without it the arm would inherit the previous arm's cached sentinel. The per-fold
+        # counter check is what proves it did.
+        TT._ATOM_SHIFT_GATHER_OFF = not eli
+
+    def counters():
+        return {"k2_served": QKV.FUSED_STATS[0], "k2_declined": QKV.FUSED_STATS[1],
+                "headmajor_served": QKV.STATS[0], "headmajor_declined": QKV.STATS[1],
+                "gated_served": RP.STATS_GATED[0], "gated_declined": RP.STATS_GATED[1],
+                "f1_served": TTAIL.STATS[0], "f1_declined": TTAIL.STATS[1],
+                "eli_shift": TT.ATOM_SHIFT_GATHER_STATS[0],
+                "eli_matmul": TT.ATOM_SHIFT_GATHER_STATS[1]}
+
+    def fold(arm: str, target: Path, keep: Path | None = None) -> dict:
+        set_arm(arm)
+        before = counters()
+        try:
+            diff_mod.reset_static_cache()
+        except Exception:
+            pass
+        sp = Splitter()
+        state.pfn = sp
+        state.model.progress_fn = sp
+        for p in struct_dir.glob("*"):
+            p.unlink() if p.is_file() else shutil.rmtree(p)
+        seen.pop("shape", None)
+        ttnn.synchronize_device(dev)
+        t0 = time.perf_counter()
+        metrics, _b, _f = state.predict_one(target, cfg)
+        ttnn.synchronize_device(dev)
+        wall = time.perf_counter() - t0
+        stages = sp.close()
+        after = counters()
+        cifs = sorted(struct_dir.glob("*.cif"))
+        assert cifs, "no CIF written"
+        d = {k: after[k] - before[k] for k in after}
+        eli_on = ARMS[arm][2]
+        assert (d["eli_shift"] > 0) == eli_on and (d["eli_matmul"] > 0) != eli_on, (
+            f"{arm}: elision counters {d['eli_shift']}/{d['eli_matmul']} contradict eli={eli_on}")
+        assert (d["k2_served"] > 0) == ARMS[arm][0], (
+            f"{arm}: k2 served {d['k2_served']} contradicts k2={ARMS[arm][0]}")
+        ps = None
+        if len(sp.loop) > 2:
+            ps = round(1e3 * (sp.loop[-1][1] - sp.loop[0][1]) / (sp.loop[-1][0] - sp.loop[0][0]), 4)
+        if keep:
+            keep.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(cifs[0], keep / cifs[0].name)
+        return {
+            "arm": arm, "target": target.stem,
+            "levers": {"k2": ARMS[arm][0], "dst": ARMS[arm][1], "eli": ARMS[arm][2]},
+            "diffusion_shape": seen.get("shape"),
+            "fold_s": round(wall, 3),
+            "prepare_and_trunk_s": round(sp.marks[0][1] - t0, 4),
+            "stages_s": stages,
+            "sampler_ms_per_step": ps,
+            "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
+            "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest(),
+            "calls": {k: after[k] - before[k] for k in after},
+            "loadavg1": round(os.getloadavg()[0], 2),
+        }
+
+    t512, t298 = FIX / "cdk2x2_512.yaml", FIX / "cdk2x2_298.yaml"
+
+    # ---- phase 1: 512 aa timed A/B -----------------------------------------
+    runs = []
+    print("[phase1] warmup: one fold per arm, discarded", flush=True)
+    for arm in dict.fromkeys(order):
+        r = fold(arm, t512); r["warmup"] = True; runs.append(r)
+        print(f"  warm {arm:5s} {r['fold_s']:7.3f}s shape={r['diffusion_shape']} "
+              f"cif {r['cif_sha256'][:16]} calls={r['calls']}", flush=True)
+        OUT["phase1"] = runs; dump()
+    kept: dict[str, int] = {}
+    for i in range(args.reps):
+        for arm in order:
+            n = kept[arm] = kept.get(arm, -1) + 1
+            keep = args.cifdir / f"512_{arm}_{n}"
+            r = fold(arm, t512, keep=keep); r["warmup"] = False; r["rep"] = i; runs.append(r)
+            print(f"  rep{i} {arm:5s} {r['fold_s']:7.3f}s "
+                  f"trunk {r['prepare_and_trunk_s']:6.3f} "
+                  f"sampler {r['stages_s'].get('sampler')} "
+                  f"cif {r['cif_sha256'][:16]} load {r['loadavg1']}", flush=True)
+            OUT["phase1"] = runs; dump()
+
+    timed = [r for r in runs if not r["warmup"]]
+    med = {}
+    for arm in dict.fromkeys(order):
+        v = sorted(r["fold_s"] for r in timed if r["arm"] == arm)
+        if v:
+            med[arm] = {"n": len(v), "median": round(st.median(v), 3),
+                        "min": v[0], "max": v[-1],
+                        "spread_pct": round(100 * (v[-1] - v[0]) / st.median(v), 2)}
+    # A/A floor: the two base positions of each rep against each other.
+    aa = []
+    for i in range(args.reps):
+        b = [r["fold_s"] for r in timed if r["arm"] == "base" and r["rep"] == i]
+        if len(b) == 2:
+            aa.append(max(b) / min(b))
+    smed = {}
+    for arm in dict.fromkeys(order):
+        v = sorted(r["stages_s"]["sampler"] for r in timed
+                   if r["arm"] == arm and "sampler" in r["stages_s"])
+        if v:
+            smed[arm] = {"n": len(v), "median": round(st.median(v), 4),
+                         "min": v[0], "max": v[-1],
+                         "spread_pct": round(100 * (v[-1] - v[0]) / st.median(v), 2)}
+    saa = []
+    for i in range(args.reps):
+        b = [r["stages_s"]["sampler"] for r in timed
+             if r["arm"] == "base" and r["rep"] == i and "sampler" in r["stages_s"]]
+        if len(b) == 2:
+            saa.append(max(b) / min(b))
+
+    OUT["phase1_summary"] = {
+        "median_s": med,
+        "sampler_median_s": smed,
+        "sampler_AA_ratio": round(st.median(saa), 5) if saa else None,
+        "sampler_ratio_vs_base": {a: round(smed["base"]["median"] / smed[a]["median"], 5)
+                                  for a in smed if a != "base"},
+        "sampler_worst_rep_vs_base_median": {
+            a: round(smed["base"]["median"] / max(
+                r["stages_s"]["sampler"] for r in timed if r["arm"] == a), 5)
+            for a in smed if a != "base"},
+        "fold_AA_ratio": round(st.median(aa), 5) if aa else None,
+        "AA_pairs": len(aa),
+        "ratio_vs_base": {a: round(med["base"]["median"] / med[a]["median"], 5)
+                          for a in med if a != "base"},
+        "worst_rep_ratio_vs_base_median": {
+            a: round(med["base"]["median"] / max(r["fold_s"] for r in timed if r["arm"] == a), 5)
+            for a in med if a != "base"},
+        "cif_sha256_by_arm": {a: sorted({r["cif_sha256"] for r in timed if r["arm"] == a})
+                              for a in med},
+        "plddt_by_arm": {a: sorted({r["plddt"] for r in timed if r["arm"] == a}) for a in med},
+    }
+    dump()
+
+    # ---- phase 2: 298 aa monomeric control ---------------------------------
+    if not args.skip_298:
+        c = []
+        for arm in list(dict.fromkeys(order)) + ["base"]:
+            n = len([x for x in c if x["arm"] == arm])
+            r = fold(arm, t298, keep=args.cifdir / f"298_{arm}_{n}")
+            c.append(r)
+            print(f"  298 {arm:5s} {r['fold_s']:7.3f}s cif {r['cif_sha256'][:16]}", flush=True)
+            OUT["phase2_298"] = c; dump()
+
+    OUT["finished_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    dump()
+    print(json.dumps(OUT.get("phase1_summary", {}), indent=1), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:
+        traceback.print_exc()
+        OUT["error"] = traceback.format_exc()
+        dump()
+        sys.exit(1)
