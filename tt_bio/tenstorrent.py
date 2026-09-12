@@ -9731,13 +9731,23 @@ class PairformerModule(TorchWrapper):
     def forward(
         self,
         s: torch.Tensor | None,
-        z: torch.Tensor,
+        z: torch.Tensor | None,
         mask: torch.Tensor | None = None,
         pair_mask: torch.Tensor | None = None,
         use_kernels: bool = False,
+        z_device: "ttnn.Tensor | None" = None,
+        seq_len: int | None = None,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
-        seq_len = z.shape[1]
-        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
+        # `z_device` is an already-padded device tensor from a caller that built z where the
+        # previous stage left it (see ConfidencePairDevice): nothing to upload, nothing to pad.
+        # It is padded to this module's own multiple, which is what makes it substitutable --
+        # `seq_len` is the only thing that padding hid.
+        if z_device is not None:
+            assert seq_len is not None, "z_device needs the unpadded seq_len"
+            pad = int(z_device.shape[1]) - seq_len
+        else:
+            seq_len = z.shape[1]
+            pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
 
         required_cache_keys = ("mask_tt", "attn_mask_start_tt", "attn_mask_end_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -9745,7 +9755,8 @@ class PairformerModule(TorchWrapper):
             self._first_forward_pass = True
 
         if pad:
-            z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
+            if z is not None:
+                z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
             if s is not None:
                 s = torch.nn.functional.pad(s, (0, 0, 0, pad))
 
@@ -9769,7 +9780,7 @@ class PairformerModule(TorchWrapper):
                 if mask_1d is None:
                     mask_1d = (
                         torch.diagonal(pair_mask, dim1=-2, dim2=-1)
-                        if pair_mask is not None else z.new_ones(1, seq_len)
+                        if pair_mask is not None else torch.ones(1, seq_len)
                     )
                 if pad:
                     mask_1d = torch.nn.functional.pad(mask_1d, (0, pad))
@@ -9796,7 +9807,7 @@ class PairformerModule(TorchWrapper):
 
         s_out, z_out = self.module(
             self._from_torch(s) if s is not None else None,
-            self._from_torch(z),
+            z_device if z_device is not None else self._from_torch(z),
             self._cache_get("mask_tt"),
             self._cache_get("attn_mask_start_tt"),
             self._cache_get("attn_mask_end_tt"),
@@ -10505,6 +10516,52 @@ class TrunkRecycle:
         return s_out, z_out
 
 
+class RelPosGather:
+    """``RelativePositionEncoder`` as four table gathers, where the tensor is needed.
+
+    The encoder one-hots three integer maps, concatenates a boolean, and projects the result, so
+    the projection reads four rows of one weight matrix per ``(i, j)`` and multiplies 135 of its
+    139 channels by zero. What has to reach the device is therefore the four tables plus 4 MB of
+    indices, not the ``[1, n, n, token_z]`` tensor they add up to (134 MB at 512 tokens).
+
+    Boltz-2 has two independent ``RelativePositionEncoder`` instances -- the trunk/diffusion one
+    and the confidence head's -- with different weights, so each device consumer owns its own
+    gather.
+    """
+
+    def __init__(self, rel_pos):
+        self.rel_pos = rel_pos
+        device = get_device()
+        # ROW_MAJOR because that is what ttnn.embedding takes.
+        self.tables = [
+            ttnn.from_torch(t.detach().contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                            device=device, dtype=ttnn.bfloat16)
+            for t in rel_pos.tables()
+        ]
+
+    def __call__(self, feats, padded):
+        d_residue, d_token, d_chain, same_entity = self.rel_pos.index_features(feats)
+        out = None
+        for table, index in zip(self.tables,
+                                (d_residue, d_token, same_entity.long(), d_chain)):
+            index = index.reshape(index.shape[-2], index.shape[-1]).to(torch.int32)
+            pad = padded - index.shape[-1]
+            if pad:
+                index = torch.nn.functional.pad(index, (0, pad, 0, pad))
+            index_tt = ttnn.from_torch(index, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
+                                       dtype=ttnn.uint32)
+            rows = ttnn.embedding(index_tt, table, layout=ttnn.TILE_LAYOUT,
+                                  dtype=ttnn.bfloat16)
+            ttnn.deallocate(index_tt)
+            rows = ttnn.reshape(rows, (1, padded, padded, -1))
+            if out is None:
+                out = rows
+            else:
+                out = ttnn.add_(out, rows)
+                ttnn.deallocate(rows)
+        return out
+
+
 class PairConditioningDevice:
     """Boltz-2's diffusion-conditioning pair track, run where the trunk left the tensor.
 
@@ -10530,7 +10587,7 @@ class PairConditioningDevice:
     def __init__(self, pairwise_conditioner, bias_weight, bias_bias, bias_eps, z_to_p_trans,
                  rel_pos, compute_kernel_config):
         self.compute_kernel_config = compute_kernel_config
-        self.rel_pos = rel_pos
+        self.rel_pos = RelPosGather(rel_pos)
         device = get_device()
 
         def w(tensor, transpose=False):
@@ -10559,14 +10616,6 @@ class PairConditioningDevice:
         self.zp_norm_bias = w(z_to_p_trans[0].bias)
         self.zp_norm_eps = z_to_p_trans[0].eps
         self.zp_proj_weight = w(z_to_p_trans[1].weight, transpose=True)
-        # `RelativePositionEncoder` is four table gathers (see its `tables`), so what has to
-        # reach the device is the tables plus 4 MB of indices, not the 134 MB tensor they add up
-        # to. ROW_MAJOR because that is what ttnn.embedding takes.
-        self.rel_pos_tables = [
-            ttnn.from_torch(t.detach().contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
-                            device=device, dtype=ttnn.bfloat16)
-            for t in rel_pos.tables()
-        ]
 
     def _mark(self, label):
         """Wall seconds per stage, with an explicit device sync at each boundary.
@@ -10582,29 +10631,6 @@ class PairConditioningDevice:
         print(f"[paircond] {label:24s} {1e3 * (now - self._t0):8.2f} ms", flush=True)
         self._t0 = now
 
-    def _rel_pos_device(self, feats, padded):
-        """``RelativePositionEncoder.forward``, as four gathers where the tensor is needed."""
-        d_residue, d_token, d_chain, same_entity = self.rel_pos.index_features(feats)
-        out = None
-        for table, index in zip(self.rel_pos_tables,
-                                (d_residue, d_token, same_entity.long(), d_chain)):
-            index = index.reshape(index.shape[-2], index.shape[-1]).to(torch.int32)
-            pad = padded - index.shape[-1]
-            if pad:
-                index = torch.nn.functional.pad(index, (0, pad, 0, pad))
-            index_tt = ttnn.from_torch(index, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
-                                       dtype=ttnn.uint32)
-            rows = ttnn.embedding(index_tt, table, layout=ttnn.TILE_LAYOUT,
-                                  dtype=ttnn.bfloat16)
-            ttnn.deallocate(index_tt)
-            rows = ttnn.reshape(rows, (1, padded, padded, -1))
-            if out is None:
-                out = rows
-            else:
-                out = ttnn.add_(out, rows)
-                ttnn.deallocate(rows)
-        return out
-
     def _linear(self, x, weight, bias=None, activation=None):
         return ttnn.linear(
             x, weight, bias=bias, activation=activation,
@@ -10614,16 +10640,16 @@ class PairConditioningDevice:
     def __call__(self, z, feats, seq_len, seq_pad):
         """``(z_to_p, token_trans_bias)`` from the trunk's device pair tensor.
 
-        ``z`` is consumed (deallocated); ``z_to_p`` comes back as torch sliced to ``seq_len``,
+        ``z`` is NOT consumed -- the caller owns it, so the confidence head can read the same
+        buffer after the sampler. ``z_to_p`` comes back as torch sliced to ``seq_len``,
         ``token_trans_bias`` stays on the device padded, which is the shape the diffusion cache
         wants.
         """
         self._profile = env_flag("TT_BIO_DEVICE_CONDITIONING_PROFILE", False)
         self._t0 = time.perf_counter()
-        rel_pos_tt = self._rel_pos_device(feats, seq_len + seq_pad)
+        rel_pos_tt = self.rel_pos(feats, seq_len + seq_pad)
         self._mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
-        ttnn.deallocate(z)
         ttnn.deallocate(rel_pos_tt)
         x_norm = ttnn.layer_norm(
             x, weight=self.init_norm_weight, bias=self.init_norm_bias,
@@ -10676,6 +10702,211 @@ class PairConditioningDevice:
         ttnn.deallocate(z_to_p)
         self._mark("z_to_p download")
         return out, bias
+
+
+class ConfidencePairDevice:
+    """Boltz-2's confidence-head pair assembly, run where the trunk left the tensor.
+
+    Everything ``ConfidenceModule.forward`` does to ``z`` before its pairformer is a channel map
+    applied independently at each ``(i, j)``: ``z_norm``, ``+ rel_pos``, ``+ token_bonds``,
+    ``+ contact_conditioning``, the two ``s_to_z`` broadcasts and the distogram embedding. The
+    pairformer behind it is already device-resident and the trunk still holds the pair tensor, so
+    running the assembly here deletes the host passes AND the ``[1, n, n, token_z]`` upload that
+    used to feed the pairformer -- 134 MB of fp32 read at 512 tokens. What goes up instead is an
+    index map or an ``[n, c]`` vector: the rel_pos indices, the distogram bucket indices, the
+    bond and contact features.
+
+    ``supports`` is the gate. The head is configurable (``add_z_input_to_z``, ``bond_type_feature``,
+    ``add_s_to_z_prod``, ``no_update_s``) and the flags come from the checkpoint, so the device
+    path declares which shapes it computes and the caller falls back to torch for the rest. The
+    gate reads the module, never a model name.
+
+    Padding: the trunk's tensor is padded to the pairformer's own multiple, which is exactly the
+    padding ``PairformerModule`` would have applied, and every op here is per-``(i, j)``. The one
+    thing that is not automatic is that the host path pads with ZEROS while the trunk's padded
+    rows carry whatever the last block left there, so the pad is re-zeroed before the pairformer
+    sees it.
+    """
+
+    @staticmethod
+    def supports(conf) -> bool:
+        return (
+            getattr(conf, "add_z_input_to_z", False)
+            and not getattr(conf, "bond_type_feature", False)
+            and isinstance(getattr(conf, "pairformer_stack", None), PairformerModule)
+        )
+
+    def __init__(self, conf, compute_kernel_config):
+        self.compute_kernel_config = compute_kernel_config
+        self.conf = conf
+        device = get_device()
+
+        def w(tensor, transpose=False):
+            t = tensor.detach()
+            if transpose:
+                t = t.t().contiguous()
+            return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+        def row(tensor):
+            return ttnn.from_torch(tensor.detach().reshape(1, -1).contiguous(),
+                                   layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+        self.z_norm_weight = w(conf.z_norm.weight)
+        self.z_norm_bias = w(conf.z_norm.bias)
+        self.z_norm_eps = conf.z_norm.eps
+        self.rel_pos = RelPosGather(conf.rel_pos)
+        self.bonds_weight = w(conf.token_bonds.weight, transpose=True)
+
+        cc = conf.contact_conditioning
+        self.cutoff_min, self.cutoff_max = cc.cutoff_min, cc.cutoff_max
+        self.fourier_weight = w(cc.fourier_embedding.proj.weight, transpose=True)
+        self.fourier_bias = row(cc.fourier_embedding.proj.bias)
+        # encoder reads cat([contact 3ch, threshold 1ch, fourier token_z ch]); split its weight
+        # at that boundary so neither matmul needs a device concat of a sub-tile width.
+        n_small = cc.encoder.in_features - cc.fourier_embedding.proj.out_features
+        self.contact_weight = w(cc.encoder.weight[:, :n_small], transpose=True)
+        self.fourier_out_weight = w(cc.encoder.weight[:, n_small:], transpose=True)
+        self.contact_bias = row(cc.encoder.bias)
+        self.override_weight = w(
+            torch.stack([cc.encoding_unspecified, cc.encoding_unselected]))
+
+        self.s_to_z_weight = w(conf.s_to_z.weight, transpose=True)
+        self.s_to_z_t_weight = w(conf.s_to_z_transpose.weight, transpose=True)
+        self.prod = None
+        if getattr(conf, "add_s_to_z_prod", False):
+            self.prod = (w(conf.s_to_z_prod_in1.weight, transpose=True),
+                         w(conf.s_to_z_prod_in2.weight, transpose=True),
+                         w(conf.s_to_z_prod_out.weight, transpose=True))
+        # 64 rows of token_z: the distogram bucket is a gather, so the [1, n, n] bucket index
+        # goes up (1 MB) instead of the embedding it selects (134 MB).
+        self.dist_table = ttnn.from_torch(
+            conf.dist_bin_pairwise_embed.weight.detach().contiguous(),
+            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+    def _linear(self, x, weight, bias=None, activation=None):
+        return ttnn.linear(
+            x, weight, bias=bias, activation=activation,
+            compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
+        )
+
+    def _up(self, t, padded=None):
+        """Host ``[1, n, n, c]`` -> device bf16, zero-padded to ``padded`` on both token axes."""
+        t = t.float()
+        if padded is not None:
+            pad = padded - t.shape[-2]
+            if pad:
+                t = torch.nn.functional.pad(t, (0, 0, 0, pad, 0, pad))
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                               dtype=ttnn.bfloat16)
+
+    def _contact(self, feats, padded):
+        """``ContactConditioning.forward``, as device ops over 4 MB of uploaded features.
+
+        The host form builds the Fourier embedding of the contact threshold as a full
+        ``[1, n, n, token_z]`` tensor before it concatenates anything -- 134 MB at 512 tokens to
+        project one scalar per ``(i, j)``. Here the scalar goes up and the embedding is built
+        where it is consumed. The concatenation the encoder reads is split at the same place:
+        its first four input channels come from host features, its last ``token_z`` from the
+        Fourier block, so two matmuls over the split weight replace a device concat of a
+        sub-tile width.
+
+        The UNSPECIFIED/UNSELECTED override is an outer product of a ``[1, n, n, 2]`` indicator
+        with the two learned vectors, so it is one ``K = 2`` matmul rather than a broadcast.
+        """
+        cc = feats["contact_conditioning"].float()
+        thr = feats["contact_threshold"].float()
+        thr = (thr - self.cutoff_min) / (self.cutoff_max - self.cutoff_min)
+        thr = thr.reshape(cc.shape[0], cc.shape[1], cc.shape[2], 1)
+        sel = cc[..., 0:2]
+
+        thr_tt = self._up(thr, padded)
+        small_tt = self._up(torch.cat([cc[..., 2:], thr], dim=-1), padded)
+        sel_tt = self._up(sel, padded)
+        keep_tt = self._up(1.0 - sel.sum(dim=-1, keepdim=True), padded)
+
+        fourier = self._linear(thr_tt, self.fourier_weight, bias=self.fourier_bias)
+        ttnn.deallocate(thr_tt)
+        fourier = ttnn.cos(ttnn.multiply(fourier, 2 * pi))
+        out = self._linear(fourier, self.fourier_out_weight, bias=self.contact_bias)
+        ttnn.deallocate(fourier)
+        out = ttnn.add_(out, self._linear(small_tt, self.contact_weight))
+        ttnn.deallocate(small_tt)
+        out = ttnn.multiply_(out, keep_tt)
+        ttnn.deallocate(keep_tt)
+        out = ttnn.add_(out, self._linear(sel_tt, self.override_weight))
+        ttnn.deallocate(sel_tt)
+        return out
+
+    def __call__(self, z_tt, s_inputs, feats, dist_index, seq_len, seq_pad):
+        """The padded device ``z`` the confidence pairformer consumes.
+
+        ``z_tt`` is the trunk's padded pair tensor and is NOT consumed -- the caller owns it, so
+        one fold can feed both this and the diffusion conditioning from the same buffer.
+        ``s_inputs`` is the already-normalised host ``[1, n, token_s]``; ``dist_index`` the host
+        ``[1, n, n]`` distogram bucket index, which the head computes for its own heads anyway.
+        """
+        conf = self.conf
+        padded = seq_len + seq_pad
+        z = ttnn.layer_norm(z_tt, weight=self.z_norm_weight, bias=self.z_norm_bias,
+                            epsilon=self.z_norm_eps,
+                            compute_kernel_config=self.compute_kernel_config)
+
+        rel = self.rel_pos(feats, padded)
+        z = ttnn.add_(z, rel)
+        ttnn.deallocate(rel)
+
+        bonds = self._up(feats["token_bonds"].reshape(1, seq_len, seq_len, -1), padded)
+        bonds = self._linear(bonds, self.bonds_weight)
+        z = ttnn.add_(z, bonds)
+        ttnn.deallocate(bonds)
+
+        contact = self._contact(feats, padded)
+        z = ttnn.add_(z, contact)
+        ttnn.deallocate(contact)
+
+        s_in = torch.nn.functional.pad(s_inputs.float(), (0, 0, 0, seq_pad))
+        s_in = ttnn.from_torch(s_in, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                               dtype=ttnn.bfloat16)
+        a = self._linear(s_in, self.s_to_z_weight)
+        b = self._linear(s_in, self.s_to_z_t_weight)
+        z = ttnn.add(z, ttnn.unsqueeze(a, -2))
+        z = ttnn.add(z, ttnn.unsqueeze(b, -3))
+        ttnn.deallocate(a)
+        ttnn.deallocate(b)
+        if self.prod is not None:
+            w1, w2, wout = self.prod
+            p1 = self._linear(s_in, w1)
+            p2 = self._linear(s_in, w2)
+            p = ttnn.multiply(ttnn.unsqueeze(p1, -2), ttnn.unsqueeze(p2, -3))
+            ttnn.deallocate(p1)
+            ttnn.deallocate(p2)
+            p = self._linear(p, wout)
+            z = ttnn.add_(z, p)
+            ttnn.deallocate(p)
+        ttnn.deallocate(s_in)
+
+        index = dist_index.reshape(seq_len, seq_len).to(torch.int32)
+        if seq_pad:
+            index = torch.nn.functional.pad(index, (0, seq_pad, 0, seq_pad))
+        index_tt = ttnn.from_torch(index, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
+                                   dtype=ttnn.uint32)
+        dist = ttnn.embedding(index_tt, self.dist_table, layout=ttnn.TILE_LAYOUT,
+                              dtype=ttnn.bfloat16)
+        ttnn.deallocate(index_tt)
+        dist = ttnn.reshape(dist, (1, padded, padded, -1))
+        z = ttnn.add_(z, dist)
+        ttnn.deallocate(dist)
+
+        if seq_pad:
+            # The host path builds z unpadded and PairformerModule pads it with zeros; the
+            # trunk's padded rows carry whatever its last block left there, so re-zero them.
+            keep = torch.zeros(1, padded, padded, 1)
+            keep[:, :seq_len, :seq_len, :] = 1.0
+            keep_tt = ttnn.from_torch(keep, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                      dtype=ttnn.bfloat16)
+            z = ttnn.multiply_(z, keep_tt)
+            ttnn.deallocate(keep_tt)
+        return z
 
 
 class TemplateRecycle:
@@ -11156,7 +11387,9 @@ class TrunkModule(TorchWrapper):
     def pop_device_z(self):
         """``(padded pair tensor, seq_pad)`` kept by the last ``forward(keep_device_z=True)``.
 
-        Ownership moves to the caller: the conditioning consumes it. Returns ``None`` if the
+        Ownership moves to the caller, which frees it once every stage that reads it is done
+        -- the diffusion conditioning before the sampler, the confidence head after. Returns
+        ``None`` if the
         last forward did not keep one, so a caller that asks for it without having asked for it
         fails on the spot rather than reading a previous fold's buffer.
         """

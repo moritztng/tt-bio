@@ -1181,6 +1181,14 @@ def _device_conditioning() -> bool:
     return env_flag("TT_BIO_DEVICE_CONDITIONING", False)
 
 
+def _device_confidence() -> bool:
+    # Runs the confidence head's pair assembly on the device instead of in torch, reading the
+    # pair tensor the trunk already left there. Not bit-exact (bf16 device math against fp32
+    # torch), but it cannot move a coordinate: the head runs after the sampler and its outputs
+    # are scores. Read per call so an A/B can flip arms inside one process.
+    return env_flag("TT_BIO_DEVICE_CONFIDENCE", False)
+
+
 def _row_block(bytes_per_row: int) -> int:
     return max(1, HOST_BLOCK_BYTES // max(int(bytes_per_row), 1))
 
@@ -4842,6 +4850,26 @@ class ConfidenceModule(nn.Module):
             **confidence_args,
         )
 
+    def _tt_pair_device(self, z_device, multiplicity):
+        """The device pair assembly for this call, or ``None`` when torch still owns it.
+
+        Gated on the module, never on a model name: the trunk has to have left its pair tensor
+        on the card, the head has to be a configuration ``ConfidencePairDevice`` implements, and
+        one sample at a time -- the multi-sample path reaches here through its own sequential
+        recursion, and each recursion reads the same device tensor because the assembly does not
+        consume it.
+        """
+        if z_device is None or multiplicity != 1:
+            return None
+        if not tenstorrent.ConfidencePairDevice.supports(self):
+            return None
+        pair = getattr(self, "_tt_pair", None)
+        if pair is None:
+            pair = tenstorrent.ConfidencePairDevice(
+                self, self.pairformer_stack.compute_kernel_config)
+            self._tt_pair = pair
+        return pair
+
     def forward(
         self,
         s_inputs,  # Float['b n ts']
@@ -4853,6 +4881,7 @@ class ConfidenceModule(nn.Module):
         multiplicity=1,
         run_sequentially=False,
         use_kernels: bool = False,
+        z_device=None,
     ):
         if run_sequentially and multiplicity > 1:
             assert z.shape[0] == 1, "Not supported with batch size > 1"
@@ -4869,6 +4898,7 @@ class ConfidenceModule(nn.Module):
                         multiplicity=1,
                         run_sequentially=False,
                         use_kernels=use_kernels,
+                        z_device=z_device,
                     )
                 )
 
@@ -4896,32 +4926,9 @@ class ConfidenceModule(nn.Module):
         if self.add_s_input_to_s:
             s = s + self.s_input_to_s(s_inputs)
 
-        z = self.z_norm(z)
-
-        if self.add_z_input_to_z:
-            relative_position_encoding = self.rel_pos(feats)
-            z = z + relative_position_encoding
-            z = z + self.token_bonds(feats["token_bonds"].float())
-            if self.bond_type_feature:
-                z = z + self.token_bonds_type(feats["type_bonds"].long())
-            z = z + self.contact_conditioning(feats)
-
-        s = s.repeat_interleave(multiplicity, 0)
-
-        z = (
-            z
-            + self.s_to_z(s_inputs)[:, :, None, :]
-            + self.s_to_z_transpose(s_inputs)[:, None, :, :]
-        )
-        if self.add_s_to_z_prod:
-            z = z + self.s_to_z_prod_out(
-                self.s_to_z_prod_in1(s_inputs)[:, :, None, :]
-                * self.s_to_z_prod_in2(s_inputs)[:, None, :, :]
-            )
-
-        z = z.repeat_interleave(multiplicity, 0)
-        s_inputs = s_inputs.repeat_interleave(multiplicity, 0)
-
+        # Hoisted above the pair assembly. Nothing here reads z, both paths need `d` (the
+        # confidence heads read it) and the distogram bucket index it produces, and on the
+        # device path the index is what goes up instead of the embedding it selects.
         token_to_rep_atom = feats["token_to_rep_atom"]
         token_to_rep_atom = token_to_rep_atom.repeat_interleave(multiplicity, 0)
         if len(x_pred.shape) == 4:
@@ -4931,16 +4938,49 @@ class ConfidenceModule(nn.Module):
             BM, N, _ = x_pred.shape
         x_pred_repr = torch.bmm(token_to_rep_atom.float(), x_pred)
         d = torch.cdist(x_pred_repr, x_pred_repr)
-        distogram = (d.unsqueeze(-1) > self.boundaries).sum(dim=-1).long()
-        distogram = self.dist_bin_pairwise_embed(distogram)
-        z = z + distogram
+        dist_index = (d.unsqueeze(-1) > self.boundaries).sum(dim=-1).long()
 
         mask = feats["token_pad_mask"].repeat_interleave(multiplicity, 0)
         pair_mask = mask[:, :, None] * mask[:, None, :]
 
-        s_t, z_t = self.pairformer_stack(
-            s, z, mask=mask, pair_mask=pair_mask, use_kernels=use_kernels
-        )
+        seq_len = z.shape[1]
+        s = s.repeat_interleave(multiplicity, 0)
+
+        pair_device = self._tt_pair_device(z_device, multiplicity)
+        if pair_device is not None:
+            z_tt = pair_device(z_device[0], s_inputs, feats, dist_index, seq_len, z_device[1])
+            s_t, z_t = self.pairformer_stack(
+                s, None, mask=mask, pair_mask=pair_mask, use_kernels=use_kernels,
+                z_device=z_tt, seq_len=seq_len,
+            )
+        else:
+            z = self.z_norm(z)
+
+            if self.add_z_input_to_z:
+                relative_position_encoding = self.rel_pos(feats)
+                z = z + relative_position_encoding
+                z = z + self.token_bonds(feats["token_bonds"].float())
+                if self.bond_type_feature:
+                    z = z + self.token_bonds_type(feats["type_bonds"].long())
+                z = z + self.contact_conditioning(feats)
+
+            z = (
+                z
+                + self.s_to_z(s_inputs)[:, :, None, :]
+                + self.s_to_z_transpose(s_inputs)[:, None, :, :]
+            )
+            if self.add_s_to_z_prod:
+                z = z + self.s_to_z_prod_out(
+                    self.s_to_z_prod_in1(s_inputs)[:, :, None, :]
+                    * self.s_to_z_prod_in2(s_inputs)[:, None, :, :]
+                )
+
+            z = z.repeat_interleave(multiplicity, 0)
+            z = z + self.dist_bin_pairwise_embed(dist_index)
+
+            s_t, z_t = self.pairformer_stack(
+                s, z, mask=mask, pair_mask=pair_mask, use_kernels=use_kernels
+            )
 
         # AF3 has residual connections, we remove them
         s = s_t
@@ -5657,10 +5697,25 @@ class Boltz2(nn.Module):
             and not self.skip_run_structure
             and _device_conditioning()
         )
+        # Same argument one stage later: the confidence head's pair assembly is channel maps
+        # over the same tensor, and the pairformer that consumes the result is already on the
+        # device, so the [1, n, n, token_z] upload disappears with the host seconds.
+        device_confidence = (
+            use_resident_trunk
+            and self.confidence_prediction
+            and _device_confidence()
+            and tenstorrent.ConfidencePairDevice.supports(self.confidence_module)
+        )
+        device_z = None
         if use_resident_trunk:
             _trunk = self._tt_trunk_module()
             s, z = _trunk(s_inputs, s_init, z_init, feats, recycling_steps,
-                          progress_fn=_pfn, keep_device_z=device_conditioning)
+                          progress_fn=_pfn,
+                          keep_device_z=device_conditioning or device_confidence)
+            if device_conditioning or device_confidence:
+                # Taken once and owned here, because two stages read it: the diffusion
+                # conditioning before the sampler and the confidence head after it.
+                device_z = _trunk.pop_device_z()
         elif self.run_trunk_and_structure:
             for i in range(recycling_steps + 1):
                 if _pfn:
@@ -5722,9 +5777,8 @@ class Boltz2(nn.Module):
             if self.trace:
                 print("[boltz2] diffusion_conditioning")
             if device_conditioning:
-                z_device, seq_pad = _trunk.pop_device_z()
                 z_to_p, token_trans_bias = self._tt_cond_module()(
-                    z_device, feats, z.shape[1], seq_pad,
+                    device_z[0], feats, z.shape[1], device_z[1],
                 )
                 q, c, to_keys, atom_enc_bias, atom_dec_bias = (
                     self.diffusion_conditioning.forward_atoms(
@@ -5794,8 +5848,12 @@ class Boltz2(nn.Module):
                     multiplicity=diffusion_samples,
                     run_sequentially=run_confidence_sequentially,
                     use_kernels=self.use_kernels,
+                    z_device=device_z if device_confidence else None,
                 )
             )
+        if device_z is not None:
+            tenstorrent.ttnn.deallocate(device_z[0])
+            device_z = None
 
         if self.affinity_prediction:
             if self.trace:
