@@ -246,7 +246,7 @@ TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 # (domain 2) against a 0.60 A bar, while the same arm at a different seed moves 0.969-1.869 A, so
 # the lever's worst move is 2.3x below the sampler's own best. Native CA-lDDT against 1HCL is
 # -0.0009 and -0.0027 on the four-seed mean inside seed spreads of 0.029 and 0.030, with no
-# consistent sign. 298 aa monomeric control 0.429 A against a 1.251 A floor. It buys 1.02337x on
+# consistent sign. 298 aa control, the monomer, 0.190-0.429 A against a 0.795-1.251 A floor. It buys 1.02337x on
 # the 512 aa fold (19.684 -> 19.235 s, benchlock, n=10/5, A/A floor 0.99898x), 1.04333x on the
 # PairformerLayer block. perf/b2z2_silu/, state/b2z2-silu-bh-land.md.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", True)
