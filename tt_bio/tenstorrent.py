@@ -9745,6 +9745,20 @@ class MSA(Module):
         return z
 
 
+#: Shard the diffusion sampler's ATOM track across the mesh, one contiguous slab of atom windows
+#: per device. `b2z2-atom-axis-shard` measured the atom track at 90.1 % extensive in the atom
+#: count, so a row split divides nearly all of it; the token DiT is 56.3 % constant, which is why
+#: `b2z2-sharded-sampler`'s token-axis NO-GO did not transfer to this axis. Off by default -- it
+#: means nothing without a mesh, and the gate below is on mesh width and window count, never on a
+#: model name.
+_ATOM_ROW_SHARD = os.environ.get("TT_BIO_ATOM_ROW_SHARD", "0") == "1"
+#: Windows of halo a slab needs at each open edge. Window k attends to atoms [32k-48, 32k+80), so
+#: 48 rows either side, which is 2 windows of 32 once rounded to the window grid. The key source is
+#: the layer's own AdaLN output, not a rollout invariant, so the exchange is per layer and no
+#: amount of input replication removes it.
+_ATOM_HALO_W = 2
+
+
 class Diffusion(Module):
     def __init__(
         self,
@@ -9840,6 +9854,129 @@ class Diffusion(Module):
             "atom_attention_decoder.atom_feat_to_atom_pos_update.1.weight"
         )
 
+    def _atom_shard_n(self, q: "ttnn.Tensor") -> int:
+        """How many ways this atom window axis splits, 1 meaning not at all.
+
+        Gated on mesh width and window count only. `ttnn.mesh_partition` splits an axis evenly, so
+        an odd window count is not shardable that way; and a slab narrower than its own halo would
+        need rows from a chip that is not its neighbour, which this exchange does not do.
+        """
+        if not _ATOM_ROW_SHARD:
+            return 1
+        n = getattr(self.device, "get_num_devices", lambda: 1)()
+        NW = int(q.shape[1])
+        if n < 2 or NW % n or NW // n <= 2 * _ATOM_HALO_W:
+            return 1
+        return n
+
+    def _atom_local(self, key, src, build):
+        """Per-fold cache of the sharded form of a rollout invariant.
+
+        The conditioning, the attention bias and the key-index matrix are constant across all 200
+        denoise steps, so partitioning them once per fold rather than once per step is the same
+        hoist `_hoist_layer_bias` makes for the bias slices. Keyed by the source object's identity
+        so a new fold, which rebuilds them, cannot read a stale slab.
+        """
+        cache = self.__dict__.setdefault("_atom_shard_cache", {})
+        prev = cache.get(key)
+        if prev is None or prev[0] != id(src):
+            cache[key] = (id(src), build())
+        return cache[key][1]
+
+    def _atom_keys_indexing(self, n_dev: int, NW_loc: int, like: "ttnn.Tensor") -> "ttnn.Tensor":
+        """The local (2*(NW_loc+2*halo), 8*NW_loc) one-hot, IDENTICAL on every chip.
+
+        With 2 windows of left pad the local half-window index of window k's c-th key block is
+        2k + c + 1 on every chip, so the shard needs no per-device constant. The out-of-range edges
+        of the real atom axis are zero columns in the unsharded matrix and zero rows in the sharded
+        source: the same value by construction, not by luck.
+        """
+        import torch as _torch
+        h = _ATOM_HALO_W
+        m = _torch.zeros(2 * (NW_loc + 2 * h), 8 * NW_loc)
+        for k in range(NW_loc):
+            for c in range(8):
+                m[2 * k + c + 2 * h - 3, 8 * k + c] = 1.0
+        return ttnn.from_torch(
+            m, dtype=like.dtype, layout=ttnn.TILE_LAYOUT, device=self.device,
+            mesh_mapper=ttnn.replicate_tensor_to_mesh_mapper(self.device))
+
+    def _atom_key_source(self, n_dev: int, zeros_pad):
+        """`s -> s widened by its neighbours' edge windows`, installed on every atom layer.
+
+        One `all_gather` of the 4 edge windows per layer (32 KB, on the link's latency floor), then
+        a `mesh_partition` of the assembled halo columns so each chip takes its own. The slice is
+        the same op on every device, which is what SPMD requires, and still device-dependent in
+        effect.
+        """
+        h = _ATOM_HALO_W
+
+        def key_source(s):
+            pad = zeros_pad(s)
+            edge = ttnn.concat([s[:, :h], s[:, -h:]], dim=1)
+            allg = ttnn.all_gather(edge, dim=1, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            lefts, rights = [], []
+            for d in range(n_dev):
+                lefts.append(pad if d == 0 else
+                             allg[:, (2 * (d - 1) + 1) * h:(2 * (d - 1) + 2) * h])
+                rights.append(pad if d == n_dev - 1 else
+                              allg[:, 2 * (d + 1) * h:(2 * (d + 1) + 1) * h])
+            L = ttnn.mesh_partition(ttnn.concat(lefts, dim=1), 1)
+            R = ttnn.mesh_partition(ttnn.concat(rights, dim=1), 1)
+            return ttnn.concat([L, s, R], dim=1)
+
+        return key_source
+
+    def _atom_track(self, tf, q, c, bias, keys_indexing, large_seq_len):
+        """One atom-level DiffusionTransformer, over this chip's slab of the window axis.
+
+        Everything outside the transformer stays replicated: the slab is partitioned on the way in
+        and `all_gather`ed on the way out, so the token track, the atom-to-token pooling and the
+        host readback see exactly the tensor they saw before. That is what makes the shard a
+        partition of work rather than a change of arithmetic.
+        """
+        n = self._atom_shard_n(q)
+        if n == 1:
+            return tf(q, c, bias, keys_indexing, large_seq_len=large_seq_len)
+
+        NW = int(q.shape[1])
+        part = lambda t, d=1: ttnn.mesh_partition(t, d, memory_config=t.memory_config())
+        c_s = self._atom_local("c", c, lambda: part(c))
+        ki_s = self._atom_local("ki", keys_indexing,
+                                lambda: self._atom_keys_indexing(n, NW // n, keys_indexing))
+        if isinstance(bias, (list, tuple)):
+            b_s = self._atom_local("bias" + str(id(tf)), bias[0],
+                                   lambda: [part(b, 0) for b in bias])
+        else:
+            b_s = self._atom_local("bias" + str(id(tf)), bias, lambda: part(bias, 0))
+
+        # The pads outlive the call. Building one is a HOST WRITE, and a host write inside a
+        # captured trace is fatal ("Writes are not supported during trace capture"): the first
+        # wiring rebuilt them per call, which is invisible until the diffusion loop is traced,
+        # which is how the shipped fold runs the sampler. They are cached with the conditioning
+        # and dropped with it.
+        pads = self.__dict__.setdefault("_atom_shard_pads", {})
+
+        def zeros_pad(s):
+            key = (int(s.shape[0]), int(s.shape[2]), int(s.shape[3]), str(s.dtype))
+            if key not in pads:
+                import torch as _torch
+                pads[key] = ttnn.from_torch(
+                    _torch.zeros(key[0], _ATOM_HALO_W, key[1], key[2]), dtype=s.dtype,
+                    layout=ttnn.TILE_LAYOUT, device=self.device,
+                    mesh_mapper=ttnn.replicate_tensor_to_mesh_mapper(self.device))
+            return pads[key]
+
+        ks = self._atom_key_source(n, zeros_pad)
+        for layer in tf.layers:
+            layer.attn_pair_bias.key_source = ks
+        try:
+            o = tf(part(q), c_s, b_s, ki_s, large_seq_len=large_seq_len)
+        finally:
+            for layer in tf.layers:
+                layer.attn_pair_bias.key_source = None
+        return ttnn.all_gather(o, dim=1, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
     def __call__(
         self,
         r: ttnn.Tensor,
@@ -9876,6 +10013,8 @@ class Diffusion(Module):
             )
             ttnn.deallocate(s)
             self._c_reshaped = ttnn.reshape(c, (B, NW, ATOM_WINDOW, -1))
+            self.__dict__.pop("_atom_shard_cache", None)
+            self.__dict__.pop("_atom_shard_pads", None)
         r_to_q = ttnn.linear(
             r,
             self.r_to_q_weight,
@@ -9885,13 +10024,8 @@ class Diffusion(Module):
         q = ttnn.add(q, r_to_q)
         ttnn.deallocate(r_to_q)
         q = ttnn.reshape(q, (B, NW, ATOM_WINDOW, -1))
-        q = self.encoder(
-            q,
-            self._c_reshaped,
-            bias_encoder,
-            keys_indexing,
-            large_seq_len=large_seq_len,
-        )
+        q = self._atom_track(self.encoder, q, self._c_reshaped, bias_encoder,
+                             keys_indexing, large_seq_len)
         q = ttnn.reshape(q, (B, NW * ATOM_WINDOW, D))
         a = ttnn.linear(
             q,
@@ -9995,13 +10129,8 @@ class Diffusion(Module):
         q = ttnn.add(q, a_to_q)
         ttnn.deallocate(a_to_q)
         q = ttnn.reshape(q, (B, NW, ATOM_WINDOW, -1))
-        q = self.decoder(
-            q,
-            self._c_reshaped,
-            bias_decoder,
-            keys_indexing,
-            large_seq_len=large_seq_len,
-        )
+        q = self._atom_track(self.decoder, q, self._c_reshaped, bias_decoder,
+                             keys_indexing, large_seq_len)
         q = ttnn.reshape(q, (B, NW * ATOM_WINDOW, D))
         r_update = ttnn.layer_norm(
             q,
