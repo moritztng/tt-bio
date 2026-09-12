@@ -1,0 +1,71 @@
+{
+ "host": "j10glx02",
+ "card": "2",
+ "size": 512,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "commit": "6f5e7525",
+ "started": "2026-09-12T18:42:39+0000",
+ "runs": [
+  {
+   "rep": 0,
+   "arm": "base",
+   "flag": false,
+   "s": 42.406,
+   "cif": {
+    "cdk2x2_512.cif": "da476491dbb2a847"
+   }
+  },
+  {
+   "rep": 0,
+   "arm": "window",
+   "flag": true,
+   "s": 40.572,
+   "cif": {
+    "cdk2x2_512.cif": "da476491dbb2a847"
+   }
+  },
+  {
+   "rep": 0,
+   "arm": "base",
+   "flag": false,
+   "s": 40.876,
+   "cif": {
+    "cdk2x2_512.cif": "da476491dbb2a847"
+   }
+  },
+  {
+   "rep": 1,
+   "arm": "base",
+   "flag": false,
+   "s": 41.358,
+   "cif": {
+    "cdk2x2_512.cif": "da476491dbb2a847"
+   }
+  },
+  {
+   "rep": 1,
+   "arm": "window",
+   "flag": true,
+   "s": 40.732,
+   "cif": {
+    "cdk2x2_512.cif": "da476491dbb2a847"
+   }
+  },
+  {
+   "rep": 1,
+   "arm": "base",
+   "flag": false,
+   "s": 42.403,
+   "cif": {
+    "cdk2x2_512.cif": "da476491dbb2a847"
+   }
+  }
+ ],
+ "cold_s": 126.435,
+ "median_s": {
+  "base": 41.88,
+  "window": 40.652
+ },
+ "fold_ratio": 1.03022
+}

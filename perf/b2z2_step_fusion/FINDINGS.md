@@ -98,3 +98,27 @@ bit-exact and 308.17 us, 4x slower than the chain it would replace. Both in
 200 sampling steps, 3 recycles, the full 35-row MSA depth, seed 0 and `cdk2x2_512` are untouched.
 The window gathers the same atoms into the same tensor and removes no model work; the step count
 in every measurement here is the shipped one.
+
+## 6. On the fold
+
+`fold_ab.py --arms base,window,base --reps 2`, cold fold discarded, `base` at both ends of every
+rep. 200 sampling steps, 3 recycles, `cdk2x2_512`, commit `6f5e7525`.
+
+| | base | window |
+|---|---|---|
+| rep0 first / last | 42.406 / 40.876 s | 40.572 s |
+| rep1 first / last | 41.358 / 42.403 s | 40.732 s |
+| **median** | **41.880 s** | **40.652 s** |
+
+**FOLD-RATIO-WH 1.03022x** by the median rule the protocol uses. The base arm's own spread is
+**3.74 %** across four runs -- larger than the 1.23 s the ratio claims -- and base-first beats
+base-last in one rep and loses in the other, so that spread is noise rather than drift. The
+defensible bracket is **1.0075x min-to-min to 1.0302x median**, with the step measurement putting
+the honest middle at **1.01396x** (2.8824 ms/step x 200 = 0.5765 s). Every window fold is faster
+than every base fold (max window 40.732 < min base 40.876), the right direction at 1/15 by chance,
+but two runs against four cannot carry a landing claim. **The number this row stands behind is the
+step's 1.07444x**; the fold leg needs more reps before it can carry one of its own.
+
+**PARITY: the fold output is bit-identical in both arms and in all six runs**, CIF sha256 prefix
+`da476491dbb2a847`. The 0.03125 the two gathers differ by at the op does not reach the structure
+at this fixture. That is one fixture, not a gate: the lever stays off by default.
