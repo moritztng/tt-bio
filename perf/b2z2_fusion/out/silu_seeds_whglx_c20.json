@@ -1,0 +1,93 @@
+{
+ "doc": "The 512 aa folds the silu midpoints need, scored the way this fixture can be read.\n\n`b2z2-fused-twopass-loop` killed two activation arms on a whole-molecule RMSD bar of 0.60 A. That\nbar sits UNDER the fixture's own sampler noise: `b2z2-fusebias-512-parity` measured the same arm at\ndifferent seeds at 0.967-1.906 A per pseudo-domain and 6.80-17.36 A whole-molecule. So this run\nproduces what `perf/b2z2_fusebias/score.py` reads -- the arm under test and the incumbent fused\nkernel at the same seed, the incumbent at a second seed so the sampler's own spread is measured\nrather than assumed, and one repeat fold as the A/A floor.\n\n`score.py` is taken from `b2z2-fusebias-512-parity` UNMODIFIED, so its verdict cannot drift from\nthe one that row published. It names its two arms `off` (the reference) and `on` (the arm under\ntest), so this writes each candidate its own view of the same folds under exactly those names:\n\n    off = `swiglu`, the fused kernel as b2z2-fusion-rebuild left it (TRIMUL_TAIL_SILU 1)\n    on  = the candidate, one of the silu arms below\n\nThe folds themselves are shared: the incumbent is folded once per seed and every candidate view\nlinks to the same CIF, so N candidates cost N + 3 folds, not 3N.\n\n    silu_seeds.py --out <json> --cifdir <dir> --cands mid_b:7,mid_c:8 [--seeds 0,1] [--size 512]\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "torch": "2.14.0+cu130",
+  "tt_visible_devices": "20",
+  "tt_bio_file": "/home/tt-admin/wt-silu/tt_bio/__init__.py",
+  "commit": "",
+  "started_utc": "2026-09-12T18:47:31Z",
+  "loadavg": [
+   12.021484375,
+   12.970703125,
+   11.57421875
+  ],
+  "candidates": {
+   "mid_b": 7,
+   "mid_c": 8
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "seeds": [
+    0,
+    1
+   ],
+   "fused_grid": "main"
+  }
+ },
+ "runs": [
+  {
+   "silu": 1,
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 124.934,
+   "sha256": "bf474b1b01408294",
+   "served": 8960,
+   "declined": 1688,
+   "plddt": 0.797668,
+   "tag": "ref-s0"
+  },
+  {
+   "silu": 1,
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 40.555,
+   "sha256": "bf474b1b01408294",
+   "served": 8960,
+   "declined": 1688,
+   "plddt": 0.797668,
+   "tag": "ref-s0_r1"
+  },
+  {
+   "silu": 7,
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 40.763,
+   "sha256": "2b9d958f3020cca9",
+   "served": 8960,
+   "declined": 1688,
+   "plddt": 0.800618,
+   "tag": "mid_b-s0"
+  },
+  {
+   "silu": 8,
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 41.105,
+   "sha256": "5b5f3b56830fadf1",
+   "served": 8960,
+   "declined": 1688,
+   "plddt": 0.803415,
+   "tag": "mid_c-s0"
+  },
+  {
+   "silu": 1,
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 41.086,
+   "sha256": "3ded29c67c030754",
+   "served": 8960,
+   "declined": 1688,
+   "plddt": 0.814306,
+   "tag": "ref-s1"
+  }
+ ],
+ "model_load_s": 6.811,
+ "aa_floor_identical": true
+}

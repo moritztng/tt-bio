@@ -1,0 +1,80 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "torch": "2.14.0+cu130",
+  "tt_visible_devices": "20",
+  "tt_bio_file": "/home/tt-admin/wt-silu/tt_bio/__init__.py",
+  "commit": "",
+  "started_utc": "2026-09-12T18:47:31Z",
+  "loadavg": [
+   12.021484375,
+   12.970703125,
+   11.57421875
+  ],
+  "candidates": {
+   "mid_b": 7,
+   "mid_c": 8
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "seeds": [
+    0,
+    1
+   ],
+   "fused_grid": "main"
+  },
+  "view": "mid_b"
+ },
+ "runs": [
+  {
+   "silu": 1,
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 124.934,
+   "sha256": "bf474b1b01408294",
+   "served": 8960,
+   "declined": 1688,
+   "plddt": 0.797668,
+   "tag": "off-s0"
+  },
+  {
+   "silu": 1,
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 40.555,
+   "sha256": "bf474b1b01408294",
+   "served": 8960,
+   "declined": 1688,
+   "plddt": 0.797668,
+   "tag": "off-s0_r1"
+  },
+  {
+   "silu": 7,
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 40.763,
+   "sha256": "2b9d958f3020cca9",
+   "served": 8960,
+   "declined": 1688,
+   "plddt": 0.800618,
+   "tag": "on-s0"
+  },
+  {
+   "silu": 1,
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 41.086,
+   "sha256": "3ded29c67c030754",
+   "served": 8960,
+   "declined": 1688,
+   "plddt": 0.814306,
+   "tag": "off-s1"
+  }
+ ]
+}
