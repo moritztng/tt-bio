@@ -116,7 +116,12 @@ def main() -> int:
         print(f"  ! run raised {type(exc).__name__}: {str(exc)[:200]}")
         rc = 1
     cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
-    report(a.out, {"model": a.model, "input": a.input, "argv": argv, "rc": rc,
+    # The engine's own counter for the branch the lever lives on. A census that reads zero calls
+    # cannot tell "the model does not use this picker" from "the hook never ran", and this does.
+    stats = {"B2_TOKEN_DIT_SDPA_STATS(served,declined)": list(getattr(T, "B2_TOKEN_DIT_SDPA_STATS", [])),
+             "SDPA_K_CHUNK_STATS": list(getattr(T, "SDPA_K_CHUNK_STATS", []))}
+    print("  engine counters:", stats)
+    report(a.out, {"engine_counters": stats, "model": a.model, "input": a.input, "argv": argv, "rc": rc,
                    "grid": list(T.COMPUTE_GRID_MAIN), "cores": cores,
                    "seconds": round(time.time() - t0, 1),
                    "card": os.environ.get("TT_VISIBLE_DEVICES")})
