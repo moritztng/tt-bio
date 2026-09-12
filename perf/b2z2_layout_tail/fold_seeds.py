@@ -70,6 +70,8 @@ def main() -> int:
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
     ap.add_argument("--flag", default="TT_BIO_HEAD_PAD_TAIL")
     ap.add_argument("--attr", default="_HEAD_PAD_TAIL")
+    # `module:attribute` pairs set together as ONE arm, for a lever that lives in two modules.
+    ap.add_argument("--attrs", default="")
     args = ap.parse_args()
     seeds = [int(s) for s in args.seeds.split(",")]
     sizes = args.sizes.split(",")
@@ -84,10 +86,21 @@ def main() -> int:
     import tt_bio as _TB
     assert Path(_TB.__file__).resolve().is_relative_to(REPO), (
         f"imported tt_bio from {_TB.__file__}, not this worktree")
+    import importlib
     import tt_bio.tenstorrent as T
     assert args.flag not in os.environ, \
         "the arm under test may not be pinned in the environment; it is set per fold"
-    assert hasattr(T, args.attr), f"{args.attr} is not a tt_bio.tenstorrent global"
+    if args.attrs:
+        targets = []
+        for spec in args.attrs.split(","):
+            mod, _, attr = spec.partition(":")
+            m = importlib.import_module(mod)
+            assert hasattr(m, attr), f"{spec} does not exist"
+            targets.append((m, attr))
+    else:
+        assert hasattr(T, args.attr), f"{args.attr} is not a tt_bio.tenstorrent global"
+        targets = [(T, args.attr)]
+    out["env"]["arm_targets"] = [f"{m.__name__}:{a}" for m, a in targets]
 
     AB.SAMPLING_STEPS, AB.RECYCLING_STEPS = args.steps, args.recycles
     dev = get_device()
@@ -126,7 +139,8 @@ def main() -> int:
     dump()
 
     def fold(arm, seed, target, keep):
-        setattr(T, args.attr, arm == "on")
+        for _m, _a in targets:
+            setattr(_m, _a, arm == "on")
         cfg["seed"] = seed
         try:
             state.model.structure_module.score_model.reset_static_cache()
