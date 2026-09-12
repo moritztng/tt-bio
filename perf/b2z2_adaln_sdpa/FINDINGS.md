@@ -12,7 +12,9 @@ VERDICT: GO on one lever the brief did not name, REFUTED on both it did, and the
   named-not-built exactly as its falsifier requires. `TT_BIO_SDPA_GRID_Q_CHUNK` is **1.01831x on
   the diffusion step and bit-exact** — `torch.equal`, max abs 0.0 — with the arms not overlapping
   at all. It ships behind a flag defaulting OFF and the branch is not merged; the default flip is
-  the orchestrator's call and there is nothing accuracy-shaped to weigh, only a size ladder.
+  the orchestrator's call. The size ladder it needed is done (§6: never worse than shipped on any
+  of ten shapes, up to 2.2973x on the op, bit-exact at every rung); what is left is one Blackhole
+  run, not an accuracy question.
 BRANCH: wk/b2z2-step-adaln-sdpa (pushed, not merged), cut from
   `wk/b2z2-step-fusion-next-sites` @ `9cd6c2ff1` so `TT_BIO_ATOM_L1` is under every number here.
 CARD: whglx card 12, one Wormhole_B0 of the 32-chip mesh, **8x9 = 72 cores**, pinned
@@ -169,19 +171,62 @@ over 93 lengths x 6 head counts x 3 grids, off-device.
 (1.0176x) and the step returned 0.7479 ms, so for once the op screen **under**-priced by 4.6 %
 rather than over-pricing — the opposite of this block's usual 38 %.
 
-## 6. Why it is release-gated even though it is bit-exact
+## 6. The rule away from the point it was fitted at: 10 shapes, and it never loses
+
+`one-size-tuning-is-a-standing-defect-class` cuts both ways here — the shipped constant is the
+one-size defect, and a rule fitted at one shape is the next one. `rule_ladder.py` sweeps every
+valid `q_chunk` at five lengths x two head counts on synthetic operands of the shipped shapes and
+dtypes, checks `torch.equal` against the shipped config on every rung, and compares the rule's pick
+against the measured optimum. WH, 72 cores:
+
+| S | heads | shipped | rule | measured best | rule / shipped | best / shipped |
+|---|---|---|---|---|---|---|
+| 320 | 8 | 256 (365.80 us) | 64 (218.2) | **160 (154.50)** | 1.6764x | 2.3676x |
+| 320 | 16 | 256 (372.40) | **160 (162.10)** | 160 | **2.2973x** | 2.2973x |
+| 512 | 8 | 256 (111.80) | **64 (58.70)** | 64 | 1.9046x | 1.9046x |
+| 512 | 16 | 256 (127.50) | **128 (97.60)** | 128 | 1.3064x | 1.3064x |
+| 768 | 8 | 256 (219.90) | **96 (112.50)** | 96 | 1.9547x | 1.9547x |
+| 768 | 16 | 256 (256.80) | **192 (197.10)** | 192 | 1.3029x | 1.3029x |
+| 1024 | 8 | 256 (180.10) | **128 (140.80)** | 128 | 1.2791x | 1.2791x |
+| 1024 | 16 | 256 (257.50) | **256** | 256 | 1.0000x | 1.0000x |
+| 1536 | 8 | 256 (461.50) | **192 (322.20)** | 192 | 1.4323x | 1.4323x |
+| 1536 | 16 | 256 (668.00) | 256 | **192 (619.20)** | 1.0000x | 1.0788x |
+
+**The rule picks the measured optimum on 8 of 10 shapes, and its worst case against the shipped
+constant is 1.0000x — it never loses on any shape measured.** Every rung at every length is
+bit-exact, so the claim that partitioning q is free holds off 512 aa as well as on it. The 512/16
+row reproduces the grabbed-operand sweep (127.50 -> 97.60 against 125.40 -> 95.60) to 0.4 %, on
+synthetic operands, which is the check that the sweep was measuring the config and not the values.
+
+**Note the shape of the win: it is biggest at SMALL sizes.** 320 padded tokens (a 298 aa protein)
+reads 2.2973x on the op, against 1.3064x at 512. The shipped 256 constant is worst exactly where
+the sequence gives it the fewest chunks.
+
+The two misses are both conservative, and they are named rather than smoothed over. At 320/8 the
+rule takes the smallest chunk that fits one grid pass (64, 40 units) where 160 (16 units) is
+1.41x better; at 1536/16 nothing under the 256 cap fits one pass so it returns the shipped value,
+where 192 at two passes is 1.08x better. **The two point opposite ways** — one wants a wider chunk
+than "fill the grid" gives, the other a narrower one — so occupancy alone does not close it: a
+narrow chunk re-reads K and V once per chunk, and at some point that amortisation beats the extra
+cores. A two-term model that prices occupancy against the K/V re-read would capture both, and this
+row does not have the measurements to fit one. **What is committed is the conservative rule, and
+what it leaves on the table is 1.41x and 1.08x on two of ten shapes.**
+
+## 7. Why it is release-gated even though it is bit-exact
 
 It cannot change a value; `torch.equal` at max abs 0.0 settles that at the op and at the step. What
 it can do is pick a worse rung on a shape nobody has measured. The curve is **not monotonic** —
 q_chunk 32 is 0.893x, worse than shipped — so a rule that lands on the wrong side of the peak costs
 real time, and only the 512 aa / 16-head / 72-core point has been measured. `one-size-tuning-is-a-
 standing-defect-class` cuts both ways here: the shipped constant is the one-size defect, and a
-rule fitted at one point is the next one. `TT_BIO_SDPA_GRID_Q_CHUNK` therefore defaults **False**,
-the branch is not merged, and what the flip needs is a size ladder (298 / 512 / 1024 aa) and one
-Blackhole run at 11x10, where the rule picks 128 for 64 units of 110 cores and 64 (128 units, two
-passes) has never been tried. Not an accuracy check — there is nothing to check.
+rule fitted at one point is the next one. §6 is that size ladder and the rule
+survives it at 1.0000x worst case over ten shapes, so the remaining risk is **one architecture,
+not one size**: every number here is Wormhole at 72 cores, and on an 11x10 Blackhole the rule picks
+128 for 64 units of 110 cores where 64 (128 units, two passes) has never been tried.
+`TT_BIO_SDPA_GRID_Q_CHUNK` therefore defaults **False** and the branch is not merged. What the flip
+needs is one Blackhole run. Not an accuracy check — there is nothing to check.
 
-## 7. Disjointness
+## 8. Disjointness
 
 Neither site is touched by `TT_BIO_ATOM_L1`, `TT_BIO_ATOM_KEY_WINDOW` or `TT_BIO_ATOM_KV_PREPROJ`
 (all three are in the atom branch; this row's SDPA is the token DiT's and its norm site is
@@ -191,7 +236,7 @@ into the qkv matmul, which changes what feeds the SDPA but not how it is chunked
 that shares a *program* with this one is `b2z2-step-binaryng-fusion`'s `TT_BIO_MAC_FUSE`, which is
 NO-GO and off.
 
-## 8. Artifacts
+## 9. Artifacts
 
 `perf/b2z2_adaln_sdpa/` on `wk/b2z2-step-adaln-sdpa`:
 `PREDICTED.md` (committed at `c69f319c9`, before the first device run),
@@ -200,6 +245,7 @@ the SDPA bias-dtype screen, the step A/A floor),
 `chunk_screen.py` + `chunks_wh_c12.json` (the `q_chunk` sweep with per-rung `torch.equal`, and the
 4x-rows test that convicts the norm),
 `step_ab.py` + `step_ab_wh_c12.json` (the interleaved step A/B),
+`rule_ladder.py` + `ladder_wh_c12.json` (the 10-shape sweep in §6),
 `test_grid_q_chunk.py` (off-device). Model code: `tt_bio/tenstorrent.py` `_grid_q_chunk` and
 `_sdpa_program_config_for_lengths`, plus the `work` argument at all six call sites. Flag off.
 
