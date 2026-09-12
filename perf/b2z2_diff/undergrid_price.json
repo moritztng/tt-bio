@@ -1,0 +1,37 @@
+{
+ "dram_roof_gbs": 444.9,
+ "steps_per_fold": 200,
+ "sites": [
+  {
+   "site": "NlpCreateHeads 1x1x512x3072 -> 1x16x512x64",
+   "programs_per_step": 24,
+   "us_per_program": 42.56,
+   "cores": 16,
+   "tiles_in": 1536,
+   "tiles_out": 1536,
+   "datum_floor_us": 2.92,
+   "x_over_datum_floor": 14.6,
+   "MB": 6.29,
+   "achieved_gbs": 147.8,
+   "pct_of_dram_roof": 33.2,
+   "us_at_roof": 14.14,
+   "s_per_fold_if_at_roof": 0.136
+  },
+  {
+   "site": "LayerNorm 1x1x512x768",
+   "programs_per_step": 100,
+   "us_per_program": 15.94,
+   "cores": 16,
+   "tiles_in": 384,
+   "tiles_out": 384,
+   "datum_floor_us": 0.5,
+   "x_over_datum_floor": 31.9,
+   "MB": 1.57,
+   "achieved_gbs": 98.7,
+   "pct_of_dram_roof": 22.2,
+   "us_at_roof": 3.54,
+   "s_per_fold_if_at_roof": 0.248
+  }
+ ],
+ "total_s_per_fold_if_at_roof": 0.385
+}
