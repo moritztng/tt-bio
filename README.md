@@ -759,9 +759,12 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | Flag | Default | What it does |
 |------|---------|--------------|
 | `TT_BIO_ATOM_KEY_WINDOW` | on | Reads each atom's attention neighbourhood straight out of the atom sequence instead of selecting it with a matrix multiply. Same structure, bit for bit. |
+| `TT_BIO_UNFUSED_SILU` | on | Runs the SiLU activation in the transition blocks as its own step rather than folded into the matrix multiply before it, which is faster on Tenstorrent hardware. Moves the structure slightly. |
+| `TT_BIO_DEVICE_CONDITIONING` | on | Keeps Boltz-2's diffusion conditioning on the card next to the trunk output it reads, instead of pulling that tensor back to the host. Moves the structure slightly. |
 
-More on how these were measured, and what "same structure" means for each of them, in
-[`docs/tuning-flags.md`](docs/tuning-flags.md).
+"Moves the structure slightly" means the result is not bit-identical to the path it replaced.
+[`docs/tuning-flags.md`](docs/tuning-flags.md) gives the Angstrom figure for each one, measured
+against the same structure with the flag off.
 
 ### MSA Server Authentication
 
