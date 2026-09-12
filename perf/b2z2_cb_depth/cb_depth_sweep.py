@@ -49,16 +49,34 @@ def clear_generic_caches(mods):
                 d.clear()
 
 
-def arm_apply(name, G, T):
-    """Set the CB topology for one arm. Returns a dict describing what was set."""
+def arm_apply(name, G, RP):
+    """Set the CB topology for one arm.
+
+    An arm is a `+`-joined list of `<knob><value>` terms: `mm3` is depth 3 on the matmul
+    transcription's three pipeline CBs, `rp8` is depth 8 on the reblock kernels' working CBs,
+    `ks2` halves `K_block` so the contraction runs in two blocks instead of one, `bu1450` raises
+    the CB L1 budget to 1450 kB, and `mm4+rp8` is any combination. `base` is the shipped topology
+    and is re-applied before every other arm.
+    """
+    G.CB_DEPTH, RP.WORK_CB_DEPTH, G.K_SPLIT = 2, 2, 1
+    G.CB_L1_BUDGET = 1_300_000
+    G.CB_DEPTH_STATS.clear()
     if name == "base":
-        G.CB_DEPTH = 2
-        return {"cb_depth": 2}
-    if name.startswith("depth"):
-        d = int(name[len("depth"):])
-        G.CB_DEPTH = d
-        return {"cb_depth": d}
-    raise SystemExit(f"unknown arm {name}")
+        return {"mm": 2, "rp": 2, "ksplit": 1}
+    for term in name.split("+"):
+        knob, val = term[:2], int(term[2:])
+        if knob == "mm":
+            G.CB_DEPTH = val
+        elif knob == "rp":
+            RP.WORK_CB_DEPTH = val
+        elif knob == "ks":
+            G.K_SPLIT = val
+        elif knob == "bu":
+            G.CB_L1_BUDGET = val * 1000
+        else:
+            raise SystemExit(f"unknown knob {knob} in arm {name}")
+    return {"mm": G.CB_DEPTH, "rp": RP.WORK_CB_DEPTH, "ksplit": G.K_SPLIT,
+            "budget": G.CB_L1_BUDGET}
 
 
 def main() -> int:
@@ -68,7 +86,7 @@ def main() -> int:
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--reps", type=int, default=3, help="block calls timed per arm visit")
     ap.add_argument("--visits", type=int, default=5, help="interleaved visits per arm")
-    ap.add_argument("--arms", default="depth3,depth4")
+    ap.add_argument("--arms", default="mm3,mm4,rp4,rp8,mm4+rp8")
     a = ap.parse_args()
     OUT_PATH = a.out
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -178,6 +196,10 @@ def main() -> int:
     print("  generic-op census " + json.dumps(census), flush=True)
 
     # --- reference output, bit-exactness bar --------------------------------------------------
+    # The block writes through some of its own arguments, so calling it twice on the same device
+    # tensors does not produce the same answer twice and a naive A-then-B comparison reads as
+    # "not bit-exact" for arms that cannot possibly have changed the arithmetic. Every scored call
+    # therefore starts from the same host-side snapshot of the arguments.
     def run_once():
         return g["obj"](*g["args"], **g["kwargs"])
 
@@ -187,6 +209,17 @@ def main() -> int:
         if isinstance(o, (list, tuple)):
             return [t for x in o for t in to_host(x)]
         return []
+
+    pristine = [(i, ttnn.to_torch(x), x.dtype, x.layout, x.memory_config())
+                for i, x in enumerate(g["args"]) if isinstance(x, ttnn.Tensor)]
+
+    def fresh_run():
+        args = list(g["args"])
+        for i, host, dt, lay, mc in pristine:
+            args[i] = ttnn.from_torch(host, dtype=dt, layout=lay, device=dev, memory_config=mc)
+        out = to_host(g["obj"](*args, **g["kwargs"]))
+        ttnn.synchronize_device(dev)
+        return out
 
     ref = to_host(run_once())
     ttnn.synchronize_device(dev)
@@ -209,24 +242,46 @@ def main() -> int:
         for name in arms:
             order.append(name)
     OUT["arms"] = arms
+    dead = set()
+    base_ref: list = []
     for i, name in enumerate(order):
+        if name in dead:
+            continue
         T._L1_OUT_RUNG.clear()
         clear_generic_caches(mods)
-        setup[name] = arm_apply(name, G, T)
-        ms = timed(a.reps)
+        setup[name] = arm_apply(name, G, RP)
+        try:
+            ms = timed(a.reps)
+        except RuntimeError as e:
+            # A CB ring that does not fit L1 throws at program validation, before anything is
+            # enqueued. That is a result -- "the ceiling refuses this depth" -- not a crash.
+            OUT.setdefault("refused", {})[name] = str(e).split("\n")[0][:200]
+            dead.add(name)
+            print(f"  [{i+1}/{len(order)}] {name:10s} REFUSED {OUT['refused'][name]}", flush=True)
+            dump()
+            continue
         samples[name].append(round(ms, 4))
-        print(f"  [{i+1}/{len(order)}] {name:8s} {ms:8.4f} ms/block", flush=True)
+        setup[name]["mm_depths_built"] = dict(
+            (str(k), v) for k, v in sorted(G.CB_DEPTH_STATS.items()))
+        print(f"  [{i+1}/{len(order)}] {name:10s} {ms:8.4f} ms/block", flush=True)
         OUT["samples"] = samples
         dump()
-        if name != "base":
-            got = to_host(run_once())
-            ttnn.synchronize_device(dev)
-            eq = all(bool(torch.equal(x, y)) for x, y in zip(ref, got)) and len(got) == len(ref)
-            OUT.setdefault("bit_exact", {})[name] = eq
+        if name not in OUT.get("bit_exact", {}):
+            got = fresh_run()
+            if name == "base":
+                OUT["_base_ref"] = True
+                base_ref[:] = got
+                # base against base, through the same path: the floor the arms are read against
+                OUT.setdefault("bit_exact", {})["base"] = len(got) == len(base_ref) and all(
+                    bool(torch.equal(x, y)) for x, y in zip(base_ref, fresh_run()))
+            elif base_ref:
+                OUT.setdefault("bit_exact", {})[name] = len(got) == len(base_ref) and all(
+                    bool(torch.equal(x, y)) for x, y in zip(base_ref, got))
     T._L1_OUT_RUNG.clear()
     clear_generic_caches(mods)
-    arm_apply("base", G, T)
+    arm_apply("base", G, RP)
 
+    samples = {k: v for k, v in samples.items() if v}
     med = {k: round(st.median(v), 4) for k, v in samples.items()}
     OUT["setup"] = setup
     OUT["median_ms"] = med

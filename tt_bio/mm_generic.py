@@ -41,6 +41,36 @@ _TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
 #: clear `_CACHE` after changing it.
 CB_DEPTH = 2
 
+#: Bytes the three pipeline CBs plus the accumulator may occupy on one core. tt-metal's own ceiling
+#: is 1499136 B on both Wormhole and Blackhole, and it is a *hard* throw at program validation, not
+#: a fallback: at the 512 aa trimul in-projection the shipped depth-2 CBs are already 1030336 B, so
+#: a blanket depth 3 does not fit and takes the whole fold down. The margin below the ceiling is for
+#: the L1 tensors a call may have live at the same time.
+CB_L1_BUDGET = 1_300_000
+
+#: Divisor applied to the caller's `K_block` before the program is built, so one K block becomes
+#: `K_SPLIT` of them. 1 is the shipped value. Every block config the fold uses today contracts in a
+#: SINGLE K block, which means the math thread's `cb_wait_front` on `in0`/`in1` has nothing to
+#: overlap with: there is no next block for the reader to be fetching. Splitting K is the only way
+#: to give the ring something to prefetch, and it is NOT free -- the compute kernel accumulates
+#: across K blocks through the packer with L1 accumulation, so each extra block is an extra pack
+#: pass over the output block, and the contraction folds in a different order (not bit-exact).
+K_SPLIT = 1
+
+#: What depth each built program actually got, keyed by its block config. A clamped call and a
+#: deepened one time identically to a reader that only looks at `CB_DEPTH`, so a sweep has to be
+#: able to say which of its calls the ceiling refused.
+CB_DEPTH_STATS: dict = {}
+
+
+def _fit_depth(want, per_depth_bytes, fixed_bytes, key):
+    """The deepest ring <= `want` that fits `CB_L1_BUDGET`, never below the shipped 2."""
+    d = want
+    while d > 2 and d * per_depth_bytes + fixed_bytes > CB_L1_BUDGET:
+        d -= 1
+    CB_DEPTH_STATS[key] = d
+    return d
+
 
 def tile_bytes(dtype):
     """Bytes one tile occupies in `dtype`, for a CB page size or a runtime arg."""
@@ -174,6 +204,8 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     N = in1_shape[-1]
 
     M_tiles, K_tiles, N_tiles = M // TILE_HW, K // TILE_HW, N // TILE_HW
+    if K_SPLIT > 1 and K_block_tiles % K_SPLIT == 0 and K_block_tiles // K_SPLIT >= 1:
+        K_block_tiles //= K_SPLIT
     N_chunks = len(outs)
     N_tiles_per_chunk = N_tiles // N_chunks
 
@@ -208,10 +240,15 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in1_block = K_block_tiles * N_block_tiles
     out_block = M_block_tiles * N_block_tiles
 
+    depth = _fit_depth(
+        CB_DEPTH,
+        in0_block * in0_tile_size + in1_block * in1_tile_size + out_block * out_tile_size,
+        out_block * interm_tile_size,
+        (M_block_tiles, K_block_tiles, N_block_tiles, in0_tile_size, out_tile_size))
     cbs = [
-        _cb(0, core_grid, in0_tile_size, in0_block * CB_DEPTH, in0.dtype),
-        _cb(1, core_grid, in1_tile_size, in1_block * CB_DEPTH, in1.dtype),
-        _cb(2, core_grid, out_tile_size, out_block * CB_DEPTH, out.dtype),
+        _cb(0, core_grid, in0_tile_size, in0_block * depth, in0.dtype),
+        _cb(1, core_grid, in1_tile_size, in1_block * depth, in1.dtype),
+        _cb(2, core_grid, out_tile_size, out_block * depth, out.dtype),
         # The accumulation buffer, not a pipeline stage: the compute kernel reserves exactly one
         # out block into it and packs K_num_blocks times with L1 accumulation on top.
         _cb(3, core_grid, interm_tile_size, out_block, interm_fmt),

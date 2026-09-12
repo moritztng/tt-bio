@@ -41,6 +41,13 @@ IN_CB, OUT_CB, STAGE_CB = 0, 16, 24
 # only so a probe can report which path the wheel took.
 ADDR_WRITE_MODE = None
 
+#: Depth of the working circular buffers the reader fills and the compute thread drains, in tiles.
+#: 2 is double buffering, the shipped value. The group CBs (`c_16`, and the staging ring in
+#: `_build_back`) are NOT covered: their depth has to stay a multiple of `GROUP_TILES` or the
+#: writer's L1 window wraps mid-group and the op returns garbage at N >= 512. `perf/b2z2_cb_depth/`
+#: sweeps this; every entry is cached by shape, so clear the caches after changing it.
+WORK_CB_DEPTH = 2
+
 _CACHE: dict = {}
 _CACHE_BACK: dict = {}
 # Counters for the A/B harness: (eligible calls served, calls that fell through to ttnn.permute).
@@ -167,7 +174,8 @@ def _build(x, out, device, reader_ct, writer_ct):
         )
 
     # c_16 depth MUST be a multiple of the 32-tile group or the writer's L1 window wraps mid-group.
-    cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
+    cbs = [cb(IN_CB, WORK_CB_DEPTH), cb(OUT_CB, GROUP_TILES * 2),
+           cb(STAGE_CB, WORK_CB_DEPTH)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     start = 0
@@ -409,7 +417,8 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     # tiles from an address range that runs off the end of the buffer. That failure is silent -- it
     # passes at N=128 and N=256, where a group is the whole buffer, and produces garbage at N=512.
     # 64 is the smallest multiple that also double-buffers.
-    cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, GROUP_TILES * 2)]
+    cbs = [cb(IN_CB, WORK_CB_DEPTH), cb(OUT_CB, GROUP_TILES * 2),
+           cb(STAGE_CB, GROUP_TILES * 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     start = 0
@@ -615,8 +624,8 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # c_16 keeps the 32-tile group multiple the writer's L1 window needs. The four working CBs are
     # double-buffered singles: the compute kernel consumes and produces one tile at a time, and a
     # deeper ring would only hold more of a stream the writer is already the slow end of.
-    cbs = [cb(P_CB, 2), cb(G_CB, 2), cb(SIG_CB, 2), cb(MUL_CB, 2), cb(OUT_CB, GROUP_TILES * 2),
-           cb(STAGE_CB, 2)]
+    cbs = [cb(P_CB, WORK_CB_DEPTH), cb(G_CB, WORK_CB_DEPTH), cb(SIG_CB, WORK_CB_DEPTH),
+           cb(MUL_CB, WORK_CB_DEPTH), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, WORK_CB_DEPTH)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     start = 0
