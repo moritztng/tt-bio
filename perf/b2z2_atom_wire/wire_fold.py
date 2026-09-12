@@ -50,7 +50,8 @@ if MODE in ("mesh", "shard") and MESH_N > 1 and not os.environ.get("TT_MESH_GRAP
     # when ttnn loads, so this must run before the import below.
     sys.path.insert(0, str(ROOT / "perf" / "b2z2_shardscale"))
     import meshdesc  # noqa: E402
-    print(f"mesh descriptor: {meshdesc.install(MESH_N)}", flush=True)
+    # a private out_dir: /tmp/b2z2_meshdesc is owned by whichever worker made it first
+    print(f"mesh descriptor: {meshdesc.install(MESH_N, out_dir=f'/tmp/b2z2_meshdesc_{os.getuid()}')}", flush=True)
 if MODE == "shard":
     os.environ["TT_BIO_ATOM_WINDOW_SHARD"] = "1"
 
