@@ -99,3 +99,50 @@ picks the campaign's next lever.
 2. **The diffusion step.** `--phase step` is written and untested: its precursor needs the trunk,
    so it truncates the pairformer stacks and runs recycling 1 before grabbing.
 3. **The CIF sha256** of a fold run against the profiler-enabled build. Not run this pass.
+
+---
+
+# The diffusion step is the opposite block: 1066 tiny programs and the device starves between them
+
+Same card, same build, same harness, `--phase step`. The precursor for a settled `Diffusion` call
+needs the trunk to have run, so it runs at recycling 1 with the pairformer stacks truncated to two
+blocks and is aborted at the grab. Shapes are untouched; only the values entering the step differ.
+
+| | ms | % of span |
+|---|---|---|
+| span, eager dispatch | 45.5048 | 100 |
+| inside a kernel | 22.0152 | 48.4 |
+| in no kernel at all | 23.4895 | **51.6** |
+
+1066 dispatched programs, mean kernel time **20.7 us**, mean gap **22.1 us**. Per-RISC residency is
+half what the pairformer block shows: BRISC 48.3 %, NCRISC 35.6 %, TRISC1 33.4 %. Grid occupancy
+weighted by kernel time is **83.3 of 110 cores**, and 124 programs run on 16 cores.
+
+By op code: `Matmul` 387 programs = 9.07 ms = 19.9 %; `BinaryNg` 339 = 3.59 ms = 7.9 %;
+`SDPAOperation` 30 = 2.50 ms = 5.5 %; `LayerNorm` 114 = 1.74 ms = 3.8 %; `Permute` 12 = 1.47 ms =
+3.2 %; `NlpCreateHeads` 30 = 1.47 ms = 3.2 %; `ReshapeView` 36 = 1.36 ms = 3.0 %.
+
+## Read this gap fraction carefully — it is an eager number, not a traced one
+
+The census dispatches eagerly, so its "gap" is device idle from **any** cause, host dispatch
+included. That did not matter for the pairformer block: its ops average 133 us, the host stays far
+ahead, and the eager span is 0.7 % under the profiled wall. It matters here. The eager span is
+**45.5 ms against the 32.5179 ms trace-replay floor** `b2x-op-cost-curve` measured for this same
+step, so **about 13 ms of the 23.5 ms gap is host dispatch that trace replay already removes** —
+and `bioir-dispatch-graph` already priced trace on the fold at 1.013x, so that 13 ms is not money
+on the table, it is money already counted and rejected.
+
+What survives is an upper bound: under trace, the diffusion step's device-side gap is **at most
+~10.5 ms of a 32.5 ms step, ~32 %**, and possibly much less. Pinning it needs
+`--device-trace-profiler` against the trace-replay harness, which is the first thing the next pass
+should do. Until then the honest statement is:
+
+* **PairformerLayer, GAP-FRACTION 1.1 %** — solid. Eager already equals the span, so the traced
+  figure can only be smaller. Fewer-and-larger-programs is worth 1.1 % here, full stop.
+* **Diffusion step, GAP-FRACTION 51.6 % eager, <=32 % traced** — a real result with a bound on it,
+  not a measured traced number. Do not quote 51.6 % as a device figure.
+
+The mechanism is the same one either way: the diffusion step's programs are **6.4x smaller** than
+the pairformer block's (20.7 us against 133 us) and run on **83 of 110 cores** against 103.8. Two
+blocks of the same fold sit on opposite sides of the dispatch knee, which is why one number for
+"the fold" was never going to fit both.
