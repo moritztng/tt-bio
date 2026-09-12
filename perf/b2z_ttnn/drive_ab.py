@@ -22,15 +22,36 @@ import time
 from pathlib import Path
 
 
+# Every default-on tt-bio fused kernel, by its env gate.
+FUSED_KERNEL_FLAGS = (
+    "TT_BIO_TRIATT_PERSISTENT_MASK",
+    "TT_BIO_TRIATT_HEAD_MAJOR_QKV",
+    "TT_BIO_TRIATT_HEAD_MAJOR_TAIL",
+    "TT_BIO_REBLOCK_PERMUTE_BACK",
+    "TT_BIO_REBLOCK_PERMUTE_GATED",
+    "TT_BIO_TRIMUL_DUAL_NOC",
+)
+
+
 def run_arm(py: Path, script: Path, out: Path, arm: str, rnd: int, folds: int,
-            fixture: str, card: str, cifdir: Path | None, repo: Path, log: Path) -> int:
+            fixture: str, card: str, cifdir: Path | None, repo: Path, log: Path,
+            cache: Path) -> int:
     env = dict(os.environ)
     env.update({
         "TT_VISIBLE_DEVICES": card,
         "TT_BIO_LEASE_CARDS": card,
         "TT_BIO_LEASE_HOLDER": "worker:b2z-ttnn-upgrade",
         "PYTHONPATH": str(repo),
+        # one JIT cache per stack. The two stacks disagree about kernel flags and about which SFPI
+        # compiled them, and the default cache is shared with every other task on this box.
+        "TT_METAL_CACHE": str(cache),
     })
+    # tt-bio's own fused kernels are off in BOTH arms. They are written against 0.68's LLK headers
+    # and do not compile on 0.78 (VectorMode, RoundMode, InputClamping, PackMode and DataCopyType
+    # all became typed enums, `mm_block_init_short` and `_sfpu_reciprocal_` are gone), so the arms
+    # can only be compared on the stock op path. Turning them off on the OLD arm too is what keeps
+    # this an A/B of the stack rather than an A/B of the stack plus our kernels.
+    env.update(dict.fromkeys(FUSED_KERNEL_FLAGS, "0"))
     cmd = [str(py), str(script), "--out", str(out), "--arm", arm, "--round", str(rnd),
            "--folds", str(folds), "--fixture", fixture]
     if cifdir:
@@ -87,7 +108,8 @@ def main() -> int:
         for arm in order:
             t0 = time.time()
             rc = run_arm(pys[arm], script, args.out, arm, rnd, args.folds,
-                         args.fixture, args.card, args.cifdir, repo, log)
+                         args.fixture, args.card, args.cifdir, repo, log,
+                         args.base / f"cache-{'new' if arm == 'new' else 'old'}")
             print(f"round {rnd} arm {arm}: rc={rc} {time.time()-t0:.0f}s", flush=True)
             if rc != 0:
                 print(f"  !! arm {arm} failed, see {log}", flush=True)
