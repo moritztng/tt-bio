@@ -32,7 +32,10 @@ Phases:
   plain    N plain folds: wall, plDDT, CIF sha256. The A/A floor and the parity reference.
   attrib   one fold with the region tree installed. The seconds table.
   sample   one fold with the stack sampler + gc timing installed. The within-region shares.
-  ab       interleaved A/B of a lever, ABABAB, one process, one device open.
+  ab       interleaved A/B of a lever, ABABAB, one process, one device open. `--ab-env`
+           takes one name or a `+`-joined SET of names, which is how a UNION of levers is
+           measured: every name in the set is driven to the same value on every arm, so an
+           arm is the whole union and not a lever that happens to be last in the list.
 
 No model code is changed by `plain`/`attrib`/`sample`; every patch is a timing wrapper that
 forwards its arguments and returns its callee's value. `ab` toggles a lever through the env.
@@ -356,7 +359,8 @@ def main() -> int:
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--plain-n", type=int, default=2)
     ap.add_argument("--sample-period-ms", type=float, default=1.0)
-    ap.add_argument("--ab-env", default=None, help="env var toggled between arms")
+    ap.add_argument("--ab-env", default=None,
+                    help="env var toggled between arms; `A+B+C` drives a whole set together")
     ap.add_argument("--ab-values", default="1,0")
     ap.add_argument("--ab-pairs", type=int, default=3)
     ap.add_argument("--cacheclear-n", type=int, default=2)
@@ -501,25 +505,35 @@ def main() -> int:
 
     if "ab" in phases and a.ab_env:
         v_on, v_off = a.ab_values.split(",")
-        print(f"=== ab: {a.ab_env} {v_on} vs {v_off}, interleaved ===", flush=True)
+        names = [n for n in a.ab_env.split("+") if n]
+        print(f"=== ab: {'+'.join(names)} {v_on} vs {v_off}, interleaved ===", flush=True)
         rows = []
         for i in range(a.ab_pairs):
             for arm, val in (("A", v_on), ("B", v_off)):
-                os.environ[a.ab_env] = val
+                for n in names:
+                    os.environ[n] = val
                 t0 = time.perf_counter()
                 _t, m = one_fold()
                 w = time.perf_counter() - t0
                 rows.append({"i": i, "arm": arm, "env": val, "wall_s": round(w, 4),
                              "plddt": m.get("plddt"), "cif": cif_sha(struct_dir),
                              "loadavg": loadavg()})
-                print(f"  {arm}[{i}] {a.ab_env}={val} {w:.3f} s  "
+                print(f"  {arm}[{i}] {'+'.join(names)}={val} {w:.3f} s  "
                       f"{list(rows[-1]['cif'].values())[0][:16]}", flush=True)
-                OUT["ab"] = {"env": a.ab_env, "rows": rows}
+                OUT["ab"] = {"env": a.ab_env, "names": names, "rows": rows}
                 dump()
         for arm in ("A", "B"):
             ws = [r["wall_s"] for r in rows if r["arm"] == arm]
             OUT["ab"][f"median_{arm}"] = round(st.median(ws), 4)
         OUT["ab"]["speedup_B_over_A"] = round(OUT["ab"]["median_A"] / OUT["ab"]["median_B"], 4)
+        deltas = [b["wall_s"] - x["wall_s"]
+                  for i in range(a.ab_pairs)
+                  for x in [next(r for r in rows if r["i"] == i and r["arm"] == "A")]
+                  for b in [next(r for r in rows if r["i"] == i and r["arm"] == "B")]]
+        OUT["ab"]["paired_deltas_s"] = [round(d, 4) for d in deltas]
+        OUT["ab"]["paired_mean_s"] = round(st.mean(deltas), 4)
+        OUT["ab"]["pairs_positive"] = sum(1 for d in deltas if d > 0)
+        OUT["ab"]["n_pairs"] = len(deltas)
         dump()
 
     print("done", flush=True)
