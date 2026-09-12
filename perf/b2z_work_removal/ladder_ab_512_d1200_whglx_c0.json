@@ -1,0 +1,97 @@
+{
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "chip": "0",
+  "ttnn": "0.68.0",
+  "tokens": 512,
+  "sampling_steps": 40,
+  "a3m": "perf/b2z_work_removal/fixtures/cdk2x2_512_d1200.a3m",
+  "n_msa_true": 1200,
+  "recycling_steps": 3,
+  "n_msa": 1200,
+  "padded_depth_base": 2048,
+  "padded_depth_ladder": 2048,
+  "median_base_s": 36.1446,
+  "median_ladder_s": 36.1295,
+  "ratio": 1.0004,
+  "aa_floor_pct": 0.129,
+  "bit_exact": true,
+  "sha_base": [
+    "{\"cdk2x2_512.cif\": \"d58d06fbed83f5ba\"}"
+  ],
+  "sha_ladder": [
+    "{\"cdk2x2_512.cif\": \"d58d06fbed83f5ba\"}"
+  ],
+  "rows": [
+    {
+      "arm": "cold",
+      "wall_s": 43.3079,
+      "elapsed_s": 43.3079,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "d58d06fbed83f5ba"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 36.1336,
+      "elapsed_s": 36.1336,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "d58d06fbed83f5ba"
+      }
+    },
+    {
+      "arm": "ladder",
+      "wall_s": 36.0459,
+      "elapsed_s": 36.046,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "d58d06fbed83f5ba"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 36.1929,
+      "elapsed_s": 36.193,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "d58d06fbed83f5ba"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 36.1461,
+      "elapsed_s": 36.1462,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "d58d06fbed83f5ba"
+      }
+    },
+    {
+      "arm": "ladder",
+      "wall_s": 36.2131,
+      "elapsed_s": 36.2132,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "d58d06fbed83f5ba"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 36.1432,
+      "elapsed_s": 36.1432,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "d58d06fbed83f5ba"
+      }
+    }
+  ]
+}
