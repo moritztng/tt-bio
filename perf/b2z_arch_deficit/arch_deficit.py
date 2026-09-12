@@ -256,6 +256,74 @@ def trace_floor(ttnn, dev, fn, args, kwargs, reps=16, n_med=5):
             "replay_issue_cpu_us_per_call": round(1e6 * st.median(issue), 3)}
 
 
+def op_census(ttnn, dev, fn, args, kwargs, names=("matmul", "linear")):
+    """Per-matmul device time inside one real call of a sub-unit, with its real operands.
+
+    Each wrapped call is bracketed by a device sync, so what is timed is that op and nothing
+    else. The sync costs a few us per call against a block that runs for tens of ms, and the
+    same call is also timed unbracketed so the inflation is visible rather than assumed.
+    """
+    orig = {n: getattr(ttnn, n) for n in names}
+    rows: dict = {}
+
+    def wrap(name, op):
+        def w(*a, **k):
+            if len(a) < 2 or not hasattr(a[0], "shape") or not hasattr(a[1], "shape"):
+                return op(*a, **k)
+            ttnn.synchronize_device(dev)
+            t0 = time.perf_counter()
+            r = op(*a, **k)
+            ttnn.synchronize_device(dev)
+            dt = time.perf_counter() - t0
+            key = (name, tuple(int(x) for x in a[0].shape),
+                   tuple(int(x) for x in a[1].shape), str(a[0].dtype))
+            e = rows.setdefault(key, {"calls": 0, "s": 0.0})
+            e["calls"] += 1
+            e["s"] += dt
+            return r
+        return w
+
+    # unbracketed reference for the same call, so the census total has something to be a
+    # fraction OF that was measured the same way
+    for _ in range(2):
+        fn(*args, **kwargs)
+    ttnn.synchronize_device(dev)
+    t0 = time.perf_counter()
+    fn(*args, **kwargs)
+    ttnn.synchronize_device(dev)
+    plain_ms = 1e3 * (time.perf_counter() - t0)
+
+    for n in names:
+        setattr(ttnn, n, wrap(n, orig[n]))
+    try:
+        t0 = time.perf_counter()
+        fn(*args, **kwargs)
+        ttnn.synchronize_device(dev)
+        censused_ms = 1e3 * (time.perf_counter() - t0)
+    finally:
+        for n in names:
+            setattr(ttnn, n, orig[n])
+
+    out = []
+    for (name, sa, sb, dt), e in sorted(rows.items(), key=lambda kv: -kv[1]["s"]):
+        batch = 1
+        for d in sa[:-2]:
+            batch *= d
+        m, k, n2 = sa[-2], sa[-1], sb[-1]
+        nbytes = 2 * batch * (m * k + k * n2 + m * n2)
+        out.append({"op": name, "A": list(sa), "B": list(sb), "dtype": dt,
+                    "calls": e["calls"], "ms": round(1e3 * e["s"], 4),
+                    "ms_per_call": round(1e3 * e["s"] / e["calls"], 4),
+                    "bytes_MB": round(nbytes / 1e6, 3),
+                    "MB_total": round(e["calls"] * nbytes / 1e6, 3)})
+    return {"plain_ms": round(plain_ms, 4), "censused_ms": round(censused_ms, 4),
+            "sync_overhead_pct": round(100 * (censused_ms / plain_ms - 1), 2),
+            "matmul_calls": sum(r["calls"] for r in out),
+            "matmul_ms": round(sum(r["ms"] for r in out), 4),
+            "matmul_MB": round(sum(r["MB_total"] for r in out), 3),
+            "rows": out}
+
+
 def deficit_table(roofs, floors):
     """measured / (ops * t_fixed + bytes / BW_eff), this part's own roofs."""
     a = roofs.get("add")
@@ -291,7 +359,7 @@ def main() -> int:
     global OUT_PATH
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--phases", default="sweep,block")
+    ap.add_argument("--phases", default="sweep,block,census")
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--max-mb", type=float, default=256.0)
     ap.add_argument("--trace-mb", type=int, default=1024)
@@ -429,6 +497,25 @@ def main() -> int:
                 OUT["floors"][cname] = {"error": f"{type(e).__name__}: {e}"}
                 print(f"  {cname} FAILED {OUT['floors'][cname]['error']}", flush=True)
             dump()
+
+        if "census" in phases:
+            print("=== per-matmul census inside one real call ===", flush=True)
+            OUT["census"] = {}
+            for cname in targets:
+                if cname not in grabs:
+                    continue
+                g = grabs[cname]
+                try:
+                    c = op_census(ttnn, dev, g["obj"], g["args"], g["kwargs"])
+                    OUT["census"][cname] = c
+                    print(f"  {cname:24s} {c['matmul_calls']:4d} matmuls "
+                          f"{c['matmul_ms']:8.3f} ms of {c['plain_ms']:8.3f} ms "
+                          f"({100 * c['matmul_ms'] / c['plain_ms']:5.1f} %), "
+                          f"sync overhead {c['sync_overhead_pct']:+.1f} %", flush=True)
+                except Exception as e:                                      # noqa: BLE001
+                    OUT["census"][cname] = {"error": f"{type(e).__name__}: {e}"}
+                    print(f"  {cname} census FAILED {OUT['census'][cname]['error']}", flush=True)
+                dump()
 
     if OUT.get("roofs") and OUT.get("floors"):
         OUT["deficit"] = deficit_table(OUT["roofs"], OUT["floors"])

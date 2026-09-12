@@ -1,0 +1,627 @@
+{
+ "env": {
+  "started": "2026-09-12T10:44:48+0000",
+  "label": "WH whglx logical28",
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "card": "28",
+  "grid": [
+   8,
+   9
+  ],
+  "commit": "16979843",
+  "ttnn": "0.68.0",
+  "loadavg": [
+   "6.78",
+   "10.30",
+   "27.87"
+  ],
+  "size": 512,
+  "trace_region_MB": 256,
+  "hardware": "wormhole_b0",
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "bh_reference": {
+  "card": "qb2 card 0, one Blackhole processor of a p300c, 11x10, ttnn 0.68.0",
+  "t_fixed_us": 6.36,
+  "BW_eff_GBs": 445.0,
+  "PairformerLayer_ms": 41.4152,
+  "deficit": 2.34,
+  "source": "b2x-op-cost-curve, perf/b2x_op_cost/FINDINGS.md"
+ },
+ "points": [
+  {
+   "h": 128,
+   "w": 256,
+   "MB": 0.0655,
+   "bytes_per_operand": 65536,
+   "add": {
+    "R": 400,
+    "us_per_op": 5.3073,
+    "all_us": [
+     5.3057,
+     5.3073,
+     5.3023,
+     5.318,
+     5.312
+    ],
+    "moved_MB": 0.1966,
+    "GBs": 37.05
+   },
+   "matmul": {
+    "R": 200,
+    "us_per_op": 8.4359,
+    "all_us": [
+     8.4558,
+     8.4507,
+     8.4329,
+     8.4353,
+     8.4359
+    ],
+    "out_h": 128,
+    "out_w": 128,
+    "GFLOP": 0.0084,
+    "TFLOPs": 0.994,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 0.1638
+   }
+  },
+  {
+   "h": 256,
+   "w": 256,
+   "MB": 0.1311,
+   "bytes_per_operand": 131072,
+   "add": {
+    "R": 400,
+    "us_per_op": 5.3221,
+    "all_us": [
+     5.3139,
+     5.3221,
+     5.3255,
+     5.3235,
+     5.316
+    ],
+    "moved_MB": 0.3932,
+    "GBs": 73.88
+   },
+   "matmul": {
+    "R": 200,
+    "us_per_op": 10.8498,
+    "all_us": [
+     10.8362,
+     10.8498,
+     10.8772,
+     10.8554,
+     10.8473
+    ],
+    "out_h": 256,
+    "out_w": 256,
+    "GFLOP": 0.0336,
+    "TFLOPs": 3.093,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 0.3932
+   }
+  },
+  {
+   "h": 256,
+   "w": 512,
+   "MB": 0.2621,
+   "bytes_per_operand": 262144,
+   "add": {
+    "R": 400,
+    "us_per_op": 6.7955,
+    "all_us": [
+     6.7995,
+     6.7915,
+     6.8005,
+     6.7955,
+     6.7801
+    ],
+    "moved_MB": 0.7864,
+    "GBs": 115.73
+   },
+   "matmul": {
+    "R": 200,
+    "us_per_op": 11.2495,
+    "all_us": [
+     11.2813,
+     11.2495,
+     11.2303,
+     11.248,
+     11.2557
+    ],
+    "out_h": 256,
+    "out_w": 256,
+    "GFLOP": 0.0671,
+    "TFLOPs": 5.965,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 0.6554
+   }
+  },
+  {
+   "h": 512,
+   "w": 512,
+   "MB": 0.5243,
+   "bytes_per_operand": 524288,
+   "add": {
+    "R": 400,
+    "us_per_op": 14.0284,
+    "all_us": [
+     13.9183,
+     13.9888,
+     14.0421,
+     14.0284,
+     14.0496
+    ],
+    "moved_MB": 1.5729,
+    "GBs": 112.12
+   },
+   "matmul": {
+    "R": 200,
+    "us_per_op": 18.8636,
+    "all_us": [
+     18.7409,
+     18.7531,
+     18.8636,
+     18.9869,
+     19.0791
+    ],
+    "out_h": 512,
+    "out_w": 512,
+    "GFLOP": 0.2684,
+    "TFLOPs": 14.23,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 1.5729
+   }
+  },
+  {
+   "h": 512,
+   "w": 1024,
+   "MB": 1.0486,
+   "bytes_per_operand": 1048576,
+   "add": {
+    "R": 400,
+    "us_per_op": 15.7316,
+    "all_us": [
+     15.6446,
+     15.7074,
+     15.7542,
+     15.7507,
+     15.7316
+    ],
+    "moved_MB": 3.1457,
+    "GBs": 199.96
+   },
+   "matmul": {
+    "R": 200,
+    "us_per_op": 26.4627,
+    "all_us": [
+     26.4627,
+     26.554,
+     26.5638,
+     26.4049,
+     26.4316
+    ],
+    "out_h": 512,
+    "out_w": 512,
+    "GFLOP": 0.5369,
+    "TFLOPs": 20.288,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 2.6214
+   }
+  },
+  {
+   "h": 1024,
+   "w": 1024,
+   "MB": 2.0972,
+   "bytes_per_operand": 2097152,
+   "add": {
+    "R": 400,
+    "us_per_op": 30.19,
+    "all_us": [
+     30.2462,
+     30.192,
+     30.1644,
+     30.1329,
+     30.19
+    ],
+    "moved_MB": 6.2915,
+    "GBs": 208.4
+   },
+   "matmul": {
+    "R": 200,
+    "us_per_op": 66.6369,
+    "all_us": [
+     66.6674,
+     66.7254,
+     66.5522,
+     66.6071,
+     66.6369
+    ],
+    "out_h": 1024,
+    "out_w": 1024,
+    "GFLOP": 2.1475,
+    "TFLOPs": 32.227,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 6.2915
+   }
+  },
+  {
+   "h": 1024,
+   "w": 2048,
+   "MB": 4.1943,
+   "bytes_per_operand": 4194304,
+   "add": {
+    "R": 400,
+    "us_per_op": 60.7298,
+    "all_us": [
+     60.8748,
+     60.8091,
+     60.7023,
+     60.727,
+     60.7298
+    ],
+    "moved_MB": 12.5829,
+    "GBs": 207.2
+   },
+   "matmul": {
+    "R": 200,
+    "us_per_op": 104.7538,
+    "all_us": [
+     104.8846,
+     104.7538,
+     104.6437,
+     104.6885,
+     104.8577
+    ],
+    "out_h": 1024,
+    "out_w": 1024,
+    "GFLOP": 4.295,
+    "TFLOPs": 41.001,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 10.4858
+   }
+  },
+  {
+   "h": 2048,
+   "w": 2048,
+   "MB": 8.3886,
+   "bytes_per_operand": 8388608,
+   "add": {
+    "R": 400,
+    "us_per_op": 111.1583,
+    "all_us": [
+     111.1668,
+     111.2455,
+     111.1583,
+     111.1302,
+     111.1506
+    ],
+    "moved_MB": 25.1658,
+    "GBs": 226.4
+   },
+   "matmul": {
+    "R": 116,
+    "us_per_op": 296.5773,
+    "all_us": [
+     296.8556,
+     296.5773,
+     296.3575,
+     296.3879,
+     297.5492
+    ],
+    "out_h": 2048,
+    "out_w": 2048,
+    "GFLOP": 17.1799,
+    "TFLOPs": 57.927,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 25.1658
+   }
+  },
+  {
+   "h": 2048,
+   "w": 4096,
+   "MB": 16.7772,
+   "bytes_per_operand": 16777216,
+   "add": {
+    "R": 318,
+    "us_per_op": 222.2492,
+    "all_us": [
+     222.2492,
+     222.29,
+     222.2178,
+     222.1458,
+     222.3124
+    ],
+    "moved_MB": 50.3316,
+    "GBs": 226.46
+   },
+   "matmul": {
+    "R": 58,
+    "us_per_op": 475.4773,
+    "all_us": [
+     477.1187,
+     473.3325,
+     483.7427,
+     475.4773,
+     472.1837
+    ],
+    "out_h": 2048,
+    "out_w": 2048,
+    "GFLOP": 34.3597,
+    "TFLOPs": 72.264,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 41.943
+   }
+  },
+  {
+   "h": 4096,
+   "w": 4096,
+   "MB": 33.5544,
+   "bytes_per_operand": 33554432,
+   "add": {
+    "R": 159,
+    "us_per_op": 443.1092,
+    "all_us": [
+     442.8748,
+     443.5509,
+     442.8811,
+     443.2273,
+     443.1092
+    ],
+    "moved_MB": 100.6633,
+    "GBs": 227.17
+   },
+   "matmul": {
+    "R": 15,
+    "us_per_op": 1971.2876,
+    "all_us": [
+     1965.0436,
+     1984.2578,
+     1971.2876,
+     1975.3991,
+     1961.7159
+    ],
+    "out_h": 4096,
+    "out_w": 4096,
+    "GFLOP": 137.439,
+    "TFLOPs": 69.72,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 100.6633
+   }
+  },
+  {
+   "h": 4096,
+   "w": 8192,
+   "MB": 67.1089,
+   "bytes_per_operand": 67108864,
+   "add": {
+    "R": 79,
+    "us_per_op": 839.5368,
+    "all_us": [
+     839.5368,
+     839.1711,
+     839.0272,
+     839.5804,
+     840.2981
+    ],
+    "moved_MB": 201.3266,
+    "GBs": 239.81
+   },
+   "matmul": {
+    "R": 7,
+    "us_per_op": 5224.7661,
+    "all_us": [
+     5224.7661,
+     5185.6717,
+     5247.6476,
+     5235.7669,
+     5192.9069
+    ],
+    "out_h": 4096,
+    "out_w": 4096,
+    "GFLOP": 274.8779,
+    "TFLOPs": 52.611,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 167.7722
+   }
+  },
+  {
+   "h": 8192,
+   "w": 8192,
+   "MB": 134.2177,
+   "bytes_per_operand": 134217728,
+   "add": {
+    "R": 40,
+    "us_per_op": 1684.4022,
+    "all_us": [
+     1682.8602,
+     1682.6936,
+     1684.4022,
+     1684.8361,
+     1685.3845
+    ],
+    "moved_MB": 402.6532,
+    "GBs": 239.05
+   },
+   "matmul": {
+    "R": 3,
+    "us_per_op": 46526.9566,
+    "all_us": [
+     46526.9566,
+     46587.04,
+     46529.34,
+     46097.7687,
+     46145.998
+    ],
+    "out_h": 8192,
+    "out_w": 8192,
+    "GFLOP": 1099.5116,
+    "TFLOPs": 23.632,
+    "out_kwarg": "optional_output_tensor",
+    "moved_MB": 402.6532
+   }
+  }
+ ],
+ "roofs": {
+  "add": {
+   "t_fixed_us": 5.3073,
+   "flat_band_points": 2,
+   "flat_band_max_MB": 0.1311,
+   "flat_band_spread_pct": 0.28,
+   "BW_eff_GBs": 239.81,
+   "BW_eff_at_MB": 67.1089,
+   "knee_MB_per_operand": 8.3886,
+   "knee_MB_moved": 25.1658,
+   "lsq_le_2MB": {
+    "t_fixed_us": 4.665,
+    "BW_eff_GBs": 255.46
+   },
+   "lsq_le_8MB": {
+    "t_fixed_us": 3.9,
+    "BW_eff_GBs": 225.35
+   },
+   "lsq_le_32MB": {
+    "t_fixed_us": 4.129,
+    "BW_eff_GBs": 231.3
+   }
+  },
+  "matmul": {
+   "peak_TFLOPs": 72.264,
+   "peak_at_shape": [
+    2048,
+    4096
+   ],
+   "peak_at_MB": 16.7772,
+   "t_fixed_us": 8.4359
+  }
+ },
+ "cold_s": 49.314,
+ "fold2_s": 41.555,
+ "plddt": -1.0,
+ "class_call_counts_per_fold": {
+  "Transition": 960,
+  "PairformerLayer": 280,
+  "TriangleMultiplication": 560,
+  "TriangleAttention": 560,
+  "AttentionPairBias": 6264
+ },
+ "cif": {
+  "cdk2x2_512.cif": "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1"
+ },
+ "floors": {
+  "PairformerLayer": {
+   "device_ms_per_call": 86.083,
+   "all_ms": [
+    86.0922,
+    86.107,
+    86.0588,
+    86.0713,
+    86.083
+   ],
+   "replay_issue_cpu_us_per_call": 5.102
+  },
+  "TriangleMultiplication": {
+   "device_ms_per_call": 15.6028,
+   "all_ms": [
+    15.6079,
+    15.5843,
+    15.5859,
+    15.6028,
+    15.6046
+   ],
+   "replay_issue_cpu_us_per_call": 4.42
+  },
+  "TriangleAttention": {
+   "device_ms_per_call": 10.8631,
+   "all_ms": [
+    10.8681,
+    10.8604,
+    10.864,
+    10.8616,
+    10.8631
+   ],
+   "replay_issue_cpu_us_per_call": 3.373
+  },
+  "Transition": {
+   "device_ms_per_call": 20.98,
+   "all_ms": [
+    20.9783,
+    20.98,
+    20.9799,
+    20.9804,
+    20.9822
+   ],
+   "replay_issue_cpu_us_per_call": 5.051
+  },
+  "AttentionPairBias": {
+   "device_ms_per_call": 3.2867,
+   "all_ms": [
+    3.2862,
+    3.2871,
+    3.2867,
+    3.2882,
+    3.2852
+   ],
+   "replay_issue_cpu_us_per_call": 3.035
+  }
+ },
+ "deficit": {
+  "TriangleMultiplication": {
+   "calls_per_block": 2,
+   "device_ms_per_call": 15.6028,
+   "device_ms_per_block": 31.2056,
+   "MB_per_block": 4229.4,
+   "ops_per_block": 62,
+   "fixed_ms": 0.3291,
+   "byte_ms": 17.6365,
+   "model_ms": 17.9655,
+   "deficit": 1.737
+  },
+  "TriangleAttention": {
+   "calls_per_block": 2,
+   "device_ms_per_call": 10.8631,
+   "device_ms_per_block": 21.7262,
+   "MB_per_block": 2231.8,
+   "ops_per_block": 54,
+   "fixed_ms": 0.2866,
+   "byte_ms": 9.3065,
+   "model_ms": 9.5931,
+   "deficit": 2.2648
+  },
+  "Transition": {
+   "calls_per_block": 1,
+   "device_ms_per_call": 20.98,
+   "device_ms_per_block": 20.98,
+   "MB_per_block": 474.2,
+   "ops_per_block": 258,
+   "fixed_ms": 1.3693,
+   "byte_ms": 1.9774,
+   "model_ms": 3.3467,
+   "deficit": 6.2689
+  },
+  "AttentionPairBias": {
+   "calls_per_block": 1,
+   "device_ms_per_call": 3.2867,
+   "device_ms_per_block": 3.2867,
+   "MB_per_block": 151.4,
+   "ops_per_block": 32,
+   "fixed_ms": 0.1698,
+   "byte_ms": 0.6313,
+   "model_ms": 0.8012,
+   "deficit": 4.1024
+  },
+  "PairformerLayer": {
+   "calls_per_block": 1,
+   "device_ms_per_call": 86.083,
+   "device_ms_per_block": 86.083,
+   "MB_per_block": 6651.0,
+   "ops_per_block": 428,
+   "fixed_ms": 2.2715,
+   "byte_ms": 27.7345,
+   "model_ms": 30.006,
+   "deficit": 2.8689,
+   "pct_of_BW_roof": 32.22
+  }
+ }
+}
