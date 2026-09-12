@@ -1,0 +1,674 @@
+{
+ "env": {
+  "started": "2026-09-12T10:51:24+0000",
+  "label": "WH whglx logical28 census",
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "card": "28",
+  "grid": [
+   8,
+   9
+  ],
+  "commit": "16979843",
+  "ttnn": "0.68.0",
+  "loadavg": [
+   "9.20",
+   "10.96",
+   "22.46"
+  ],
+  "size": 512,
+  "trace_region_MB": 256,
+  "hardware": "wormhole_b0",
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "bh_reference": {
+  "card": "qb2 card 0, one Blackhole processor of a p300c, 11x10, ttnn 0.68.0",
+  "t_fixed_us": 6.36,
+  "BW_eff_GBs": 445.0,
+  "PairformerLayer_ms": 41.4152,
+  "deficit": 2.34,
+  "source": "b2x-op-cost-curve, perf/b2x_op_cost/FINDINGS.md"
+ },
+ "roofs": {
+  "add": {
+   "t_fixed_us": 5.3073,
+   "flat_band_points": 2,
+   "flat_band_max_MB": 0.1311,
+   "flat_band_spread_pct": 0.28,
+   "BW_eff_GBs": 239.81,
+   "BW_eff_at_MB": 67.1089,
+   "knee_MB_per_operand": 8.3886,
+   "knee_MB_moved": 25.1658,
+   "lsq_le_2MB": {
+    "t_fixed_us": 4.665,
+    "BW_eff_GBs": 255.46
+   },
+   "lsq_le_8MB": {
+    "t_fixed_us": 3.9,
+    "BW_eff_GBs": 225.35
+   },
+   "lsq_le_32MB": {
+    "t_fixed_us": 4.129,
+    "BW_eff_GBs": 231.3
+   }
+  },
+  "matmul": {
+   "peak_TFLOPs": 72.264,
+   "peak_at_shape": [
+    2048,
+    4096
+   ],
+   "peak_at_MB": 16.7772,
+   "t_fixed_us": 8.4359
+  }
+ },
+ "roofs_from": {
+  "file": "out/arch_deficit_wh28.json",
+  "env": {
+   "started": "2026-09-12T10:44:48+0000",
+   "label": "WH whglx logical28",
+   "host": "j10glx02",
+   "arch": "wormhole_b0",
+   "card": "28",
+   "grid": [
+    8,
+    9
+   ],
+   "commit": "16979843",
+   "ttnn": "0.68.0",
+   "loadavg": [
+    "6.78",
+    "10.30",
+    "27.87"
+   ],
+   "size": 512,
+   "trace_region_MB": 256,
+   "hardware": "wormhole_b0",
+   "card_type": "tt-galaxy-wh-l"
+  }
+ },
+ "cold_s": 44.351,
+ "fold2_s": 41.545,
+ "plddt": -1.0,
+ "class_call_counts_per_fold": {
+  "Transition": 960,
+  "PairformerLayer": 280,
+  "TriangleMultiplication": 560,
+  "TriangleAttention": 560,
+  "AttentionPairBias": 6264
+ },
+ "cif": {
+  "cdk2x2_512.cif": "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1"
+ },
+ "floors": {
+  "PairformerLayer": {
+   "device_ms_per_call": 86.0698,
+   "all_ms": [
+    86.0555,
+    86.0698,
+    86.0896,
+    86.0798,
+    86.0606
+   ],
+   "replay_issue_cpu_us_per_call": 5.044
+  },
+  "TriangleMultiplication": {
+   "device_ms_per_call": 15.5895,
+   "all_ms": [
+    15.6024,
+    15.5812,
+    15.5863,
+    15.5895,
+    15.6108
+   ],
+   "replay_issue_cpu_us_per_call": 4.012
+  },
+  "TriangleAttention": {
+   "device_ms_per_call": 10.8634,
+   "all_ms": [
+    10.8602,
+    10.8748,
+    10.8634,
+    10.8663,
+    10.86
+   ],
+   "replay_issue_cpu_us_per_call": 5.069
+  },
+  "Transition": {
+   "device_ms_per_call": 20.9818,
+   "all_ms": [
+    20.977,
+    20.9799,
+    20.9836,
+    20.9861,
+    20.9818
+   ],
+   "replay_issue_cpu_us_per_call": 5.047
+  },
+  "AttentionPairBias": {
+   "device_ms_per_call": 3.2878,
+   "all_ms": [
+    3.2865,
+    3.2906,
+    3.2878,
+    3.2913,
+    3.2863
+   ],
+   "replay_issue_cpu_us_per_call": 4.347
+  }
+ },
+ "census": {
+  "PairformerLayer": {
+   "plain_ms": 86.4496,
+   "censused_ms": 106.1419,
+   "sync_overhead_pct": 22.78,
+   "matmul_calls": 113,
+   "matmul_ms": 36.2513,
+   "matmul_MB": 2465.268,
+   "rows": [
+    {
+     "op": "linear",
+     "A": [
+      1,
+      16,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 64,
+     "ms": 16.5256,
+     "ms_per_call": 0.2582,
+     "bytes_MB": 12.583,
+     "MB_total": 805.306
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 4,
+     "ms": 6.3059,
+     "ms_per_call": 1.5765,
+     "bytes_MB": 150.995,
+     "MB_total": 603.98
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      16,
+      512,
+      512
+     ],
+     "B": [
+      512,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 32,
+     "ms": 5.0933,
+     "ms_per_call": 0.1592,
+     "bytes_MB": 12.583,
+     "MB_total": 402.653
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      128,
+      512,
+      512
+     ],
+     "B": [
+      1,
+      128,
+      512,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 3.7012,
+     "ms_per_call": 1.8506,
+     "bytes_MB": 201.327,
+     "MB_total": 402.653
+    },
+    {
+     "op": "linear",
+     "A": [
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      4
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 2.4843,
+     "ms_per_call": 1.2422,
+     "bytes_MB": 69.73,
+     "MB_total": 139.461
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      16
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 1.1505,
+     "ms_per_call": 1.1505,
+     "bytes_MB": 77.595,
+     "MB_total": 77.595
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      384
+     ],
+     "B": [
+      384,
+      1536
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 3,
+     "ms": 0.3777,
+     "ms_per_call": 0.1259,
+     "bytes_MB": 3.146,
+     "MB_total": 9.437
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      384
+     ],
+     "B": [
+      384,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 0.1856,
+     "ms_per_call": 0.0928,
+     "bytes_MB": 1.081,
+     "MB_total": 2.163
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      16,
+      512,
+      32
+     ],
+     "B": [
+      1,
+      16,
+      32,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.1725,
+     "ms_per_call": 0.1725,
+     "bytes_MB": 9.437,
+     "MB_total": 9.437
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      16,
+      512,
+      512
+     ],
+     "B": [
+      1,
+      16,
+      512,
+      32
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.1497,
+     "ms_per_call": 0.1497,
+     "bytes_MB": 9.437,
+     "MB_total": 9.437
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      1536
+     ],
+     "B": [
+      1536,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.105,
+     "ms_per_call": 0.105,
+     "bytes_MB": 3.146,
+     "MB_total": 3.146
+    }
+   ]
+  },
+  "TriangleMultiplication": {
+   "plain_ms": 15.7472,
+   "censused_ms": 16.8905,
+   "sync_overhead_pct": 7.26,
+   "matmul_calls": 3,
+   "matmul_ms": 5.0833,
+   "matmul_MB": 503.317,
+   "rows": [
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 3.2223,
+     "ms_per_call": 1.6111,
+     "bytes_MB": 150.995,
+     "MB_total": 301.99
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      128,
+      512,
+      512
+     ],
+     "B": [
+      1,
+      128,
+      512,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 1.861,
+     "ms_per_call": 1.861,
+     "bytes_MB": 201.327,
+     "MB_total": 201.327
+    }
+   ]
+  },
+  "TriangleAttention": {
+   "plain_ms": 11.0892,
+   "censused_ms": 11.5342,
+   "sync_overhead_pct": 4.01,
+   "matmul_calls": 1,
+   "matmul_ms": 1.1782,
+   "matmul_MB": 69.73,
+   "rows": [
+    {
+     "op": "linear",
+     "A": [
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      4
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 1.1782,
+     "ms_per_call": 1.1782,
+     "bytes_MB": 69.73,
+     "MB_total": 69.73
+    }
+   ]
+  },
+  "Transition": {
+   "plain_ms": 21.2832,
+   "censused_ms": 59.2743,
+   "sync_overhead_pct": 178.5,
+   "matmul_calls": 192,
+   "matmul_ms": 31.196,
+   "matmul_MB": 1107.297,
+   "rows": [
+    {
+     "op": "linear",
+     "A": [
+      1,
+      16,
+      512,
+      64
+     ],
+     "B": [
+      64,
+      256
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 128,
+     "ms": 21.5588,
+     "ms_per_call": 0.1684,
+     "bytes_MB": 5.767,
+     "MB_total": 738.198
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      16,
+      512,
+      256
+     ],
+     "B": [
+      256,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 64,
+     "ms": 9.6372,
+     "ms_per_call": 0.1506,
+     "bytes_MB": 5.767,
+     "MB_total": 369.099
+    }
+   ]
+  },
+  "AttentionPairBias": {
+   "plain_ms": 3.4394,
+   "censused_ms": 4.8611,
+   "sync_overhead_pct": 41.34,
+   "matmul_calls": 6,
+   "matmul_ms": 1.8379,
+   "matmul_MB": 101.778,
+   "rows": [
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      16
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 1.1581,
+     "ms_per_call": 1.1581,
+     "bytes_MB": 77.595,
+     "MB_total": 77.595
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      384
+     ],
+     "B": [
+      384,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 0.2259,
+     "ms_per_call": 0.113,
+     "bytes_MB": 1.081,
+     "MB_total": 2.163
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      16,
+      512,
+      32
+     ],
+     "B": [
+      1,
+      16,
+      32,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.1743,
+     "ms_per_call": 0.1743,
+     "bytes_MB": 9.437,
+     "MB_total": 9.437
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      16,
+      512,
+      512
+     ],
+     "B": [
+      1,
+      16,
+      512,
+      32
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.1598,
+     "ms_per_call": 0.1598,
+     "bytes_MB": 9.437,
+     "MB_total": 9.437
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      384
+     ],
+     "B": [
+      384,
+      1536
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.1198,
+     "ms_per_call": 0.1198,
+     "bytes_MB": 3.146,
+     "MB_total": 3.146
+    }
+   ]
+  }
+ },
+ "deficit": {
+  "TriangleMultiplication": {
+   "calls_per_block": 2,
+   "device_ms_per_call": 15.5895,
+   "device_ms_per_block": 31.179,
+   "MB_per_block": 4229.4,
+   "ops_per_block": 62,
+   "fixed_ms": 0.3291,
+   "byte_ms": 17.6365,
+   "model_ms": 17.9655,
+   "deficit": 1.7355
+  },
+  "TriangleAttention": {
+   "calls_per_block": 2,
+   "device_ms_per_call": 10.8634,
+   "device_ms_per_block": 21.7268,
+   "MB_per_block": 2231.8,
+   "ops_per_block": 54,
+   "fixed_ms": 0.2866,
+   "byte_ms": 9.3065,
+   "model_ms": 9.5931,
+   "deficit": 2.2648
+  },
+  "Transition": {
+   "calls_per_block": 1,
+   "device_ms_per_call": 20.9818,
+   "device_ms_per_block": 20.9818,
+   "MB_per_block": 474.2,
+   "ops_per_block": 258,
+   "fixed_ms": 1.3693,
+   "byte_ms": 1.9774,
+   "model_ms": 3.3467,
+   "deficit": 6.2694
+  },
+  "AttentionPairBias": {
+   "calls_per_block": 1,
+   "device_ms_per_call": 3.2878,
+   "device_ms_per_block": 3.2878,
+   "MB_per_block": 151.4,
+   "ops_per_block": 32,
+   "fixed_ms": 0.1698,
+   "byte_ms": 0.6313,
+   "model_ms": 0.8012,
+   "deficit": 4.1038
+  },
+  "PairformerLayer": {
+   "calls_per_block": 1,
+   "device_ms_per_call": 86.0698,
+   "device_ms_per_block": 86.0698,
+   "MB_per_block": 6651.0,
+   "ops_per_block": 428,
+   "fixed_ms": 2.2715,
+   "byte_ms": 27.7345,
+   "model_ms": 30.006,
+   "deficit": 2.8684,
+   "pct_of_BW_roof": 32.22
+  }
+ }
+}

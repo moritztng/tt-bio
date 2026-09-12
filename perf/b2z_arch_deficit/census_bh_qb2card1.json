@@ -1,0 +1,674 @@
+{
+ "env": {
+  "started": "2026-09-12T10:49:34+0000",
+  "label": "BH qb2 card1 census",
+  "host": "tt-quietbox2",
+  "arch": "blackhole",
+  "card": "1",
+  "grid": [
+   11,
+   10
+  ],
+  "commit": "86b9dc06",
+  "ttnn": "0.68.0",
+  "loadavg": [
+   "1.75",
+   "1.84",
+   "1.70"
+  ],
+  "size": 512,
+  "trace_region_MB": 1024,
+  "hardware": "blackhole",
+  "card_type": "p300c"
+ },
+ "bh_reference": {
+  "card": "qb2 card 0, one Blackhole processor of a p300c, 11x10, ttnn 0.68.0",
+  "t_fixed_us": 6.36,
+  "BW_eff_GBs": 445.0,
+  "PairformerLayer_ms": 41.4152,
+  "deficit": 2.34,
+  "source": "b2x-op-cost-curve, perf/b2x_op_cost/FINDINGS.md"
+ },
+ "roofs": {
+  "add": {
+   "t_fixed_us": 6.3883,
+   "flat_band_points": 4,
+   "flat_band_max_MB": 0.5243,
+   "flat_band_spread_pct": 1.14,
+   "BW_eff_GBs": 444.92,
+   "BW_eff_at_MB": 67.1089,
+   "knee_MB_per_operand": 2.0972,
+   "knee_MB_moved": 6.2916,
+   "lsq_le_2MB": {
+    "t_fixed_us": 5.685,
+    "BW_eff_GBs": 862.69
+   },
+   "lsq_le_8MB": {
+    "t_fixed_us": 4.667,
+    "BW_eff_GBs": 513.47
+   },
+   "lsq_le_32MB": {
+    "t_fixed_us": 3.869,
+    "BW_eff_GBs": 458.39
+   }
+  },
+  "matmul": {
+   "peak_TFLOPs": 178.613,
+   "peak_at_shape": [
+    4096,
+    8192
+   ],
+   "peak_at_MB": 67.1089,
+   "t_fixed_us": 7.0389
+  }
+ },
+ "roofs_from": {
+  "file": "out/arch_deficit_bh_card1.json",
+  "env": {
+   "started": "2026-09-12T09:28:28+0000",
+   "label": "BH qb2 card1",
+   "host": "tt-quietbox2",
+   "arch": "blackhole",
+   "card": "1",
+   "grid": [
+    11,
+    10
+   ],
+   "commit": "ca42bba4",
+   "ttnn": "0.68.0",
+   "loadavg": [
+    "1.70",
+    "6.40",
+    "3.69"
+   ],
+   "size": 512,
+   "trace_region_MB": 1024,
+   "hardware": "blackhole",
+   "card_type": "p300c"
+  }
+ },
+ "cold_s": 20.246,
+ "fold2_s": 19.738,
+ "plddt": -1.0,
+ "class_call_counts_per_fold": {
+  "Transition": 960,
+  "PairformerLayer": 280,
+  "TriangleMultiplication": 560,
+  "TriangleAttention": 560,
+  "AttentionPairBias": 6264
+ },
+ "cif": {
+  "cdk2x2_512.cif": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+ },
+ "floors": {
+  "PairformerLayer": {
+   "device_ms_per_call": 36.3984,
+   "all_ms": [
+    36.3701,
+    36.3984,
+    36.4434,
+    36.3942,
+    36.407
+   ],
+   "replay_issue_cpu_us_per_call": 0.882
+  },
+  "TriangleMultiplication": {
+   "device_ms_per_call": 6.9077,
+   "all_ms": [
+    6.9077,
+    6.9254,
+    6.9319,
+    6.8453,
+    6.888
+   ],
+   "replay_issue_cpu_us_per_call": 0.845
+  },
+  "TriangleAttention": {
+   "device_ms_per_call": 4.3746,
+   "all_ms": [
+    4.3509,
+    4.4022,
+    4.3932,
+    4.3746,
+    4.3579
+   ],
+   "replay_issue_cpu_us_per_call": 0.84
+  },
+  "Transition": {
+   "device_ms_per_call": 8.7116,
+   "all_ms": [
+    8.7135,
+    8.7124,
+    8.7111,
+    8.7116,
+    8.7101
+   ],
+   "replay_issue_cpu_us_per_call": 0.84
+  },
+  "AttentionPairBias": {
+   "device_ms_per_call": 1.0146,
+   "all_ms": [
+    1.0146,
+    1.0146,
+    1.0152,
+    1.0135,
+    1.015
+   ],
+   "replay_issue_cpu_us_per_call": 0.805
+  }
+ },
+ "census": {
+  "PairformerLayer": {
+   "plain_ms": 36.7061,
+   "censused_ms": 42.8139,
+   "sync_overhead_pct": 16.64,
+   "matmul_calls": 113,
+   "matmul_ms": 12.1478,
+   "matmul_MB": 2465.268,
+   "rows": [
+    {
+     "op": "linear",
+     "A": [
+      1,
+      16,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 64,
+     "ms": 6.0122,
+     "ms_per_call": 0.0939,
+     "bytes_MB": 12.583,
+     "MB_total": 805.306
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      16,
+      512,
+      512
+     ],
+     "B": [
+      512,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 32,
+     "ms": 1.894,
+     "ms_per_call": 0.0592,
+     "bytes_MB": 12.583,
+     "MB_total": 402.653
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      128,
+      512,
+      512
+     ],
+     "B": [
+      1,
+      128,
+      512,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 1.6657,
+     "ms_per_call": 0.8329,
+     "bytes_MB": 201.327,
+     "MB_total": 402.653
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 4,
+     "ms": 1.3809,
+     "ms_per_call": 0.3452,
+     "bytes_MB": 150.995,
+     "MB_total": 603.98
+    },
+    {
+     "op": "linear",
+     "A": [
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      4
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 0.6636,
+     "ms_per_call": 0.3318,
+     "bytes_MB": 69.73,
+     "MB_total": 139.461
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      16
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.1526,
+     "ms_per_call": 0.1526,
+     "bytes_MB": 77.595,
+     "MB_total": 77.595
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      384
+     ],
+     "B": [
+      384,
+      1536
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 3,
+     "ms": 0.1412,
+     "ms_per_call": 0.0471,
+     "bytes_MB": 3.146,
+     "MB_total": 9.437
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      384
+     ],
+     "B": [
+      384,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 0.0715,
+     "ms_per_call": 0.0357,
+     "bytes_MB": 1.081,
+     "MB_total": 2.163
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      16,
+      512,
+      32
+     ],
+     "B": [
+      1,
+      16,
+      32,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.066,
+     "ms_per_call": 0.066,
+     "bytes_MB": 9.437,
+     "MB_total": 9.437
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      16,
+      512,
+      512
+     ],
+     "B": [
+      1,
+      16,
+      512,
+      32
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.056,
+     "ms_per_call": 0.056,
+     "bytes_MB": 9.437,
+     "MB_total": 9.437
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      1536
+     ],
+     "B": [
+      1536,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.0441,
+     "ms_per_call": 0.0441,
+     "bytes_MB": 3.146,
+     "MB_total": 3.146
+    }
+   ]
+  },
+  "TriangleMultiplication": {
+   "plain_ms": 7.083,
+   "censused_ms": 7.3516,
+   "sync_overhead_pct": 3.79,
+   "matmul_calls": 3,
+   "matmul_ms": 1.5865,
+   "matmul_MB": 503.317,
+   "rows": [
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      128,
+      512,
+      512
+     ],
+     "B": [
+      1,
+      128,
+      512,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.8369,
+     "ms_per_call": 0.8369,
+     "bytes_MB": 201.327,
+     "MB_total": 201.327
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 0.7496,
+     "ms_per_call": 0.3748,
+     "bytes_MB": 150.995,
+     "MB_total": 301.99
+    }
+   ]
+  },
+  "TriangleAttention": {
+   "plain_ms": 4.326,
+   "censused_ms": 4.5846,
+   "sync_overhead_pct": 5.98,
+   "matmul_calls": 1,
+   "matmul_ms": 0.3168,
+   "matmul_MB": 69.73,
+   "rows": [
+    {
+     "op": "linear",
+     "A": [
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      4
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.3168,
+     "ms_per_call": 0.3168,
+     "bytes_MB": 69.73,
+     "MB_total": 69.73
+    }
+   ]
+  },
+  "Transition": {
+   "plain_ms": 8.9346,
+   "censused_ms": 17.7746,
+   "sync_overhead_pct": 98.94,
+   "matmul_calls": 192,
+   "matmul_ms": 10.2329,
+   "matmul_MB": 1107.297,
+   "rows": [
+    {
+     "op": "linear",
+     "A": [
+      1,
+      16,
+      512,
+      64
+     ],
+     "B": [
+      64,
+      256
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 128,
+     "ms": 7.5208,
+     "ms_per_call": 0.0588,
+     "bytes_MB": 5.767,
+     "MB_total": 738.198
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      16,
+      512,
+      256
+     ],
+     "B": [
+      256,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 64,
+     "ms": 2.7121,
+     "ms_per_call": 0.0424,
+     "bytes_MB": 5.767,
+     "MB_total": 369.099
+    }
+   ]
+  },
+  "AttentionPairBias": {
+   "plain_ms": 1.0427,
+   "censused_ms": 1.3537,
+   "sync_overhead_pct": 29.83,
+   "matmul_calls": 6,
+   "matmul_ms": 0.3764,
+   "matmul_MB": 101.778,
+   "rows": [
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      512,
+      128
+     ],
+     "B": [
+      128,
+      16
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.1541,
+     "ms_per_call": 0.1541,
+     "bytes_MB": 77.595,
+     "MB_total": 77.595
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      16,
+      512,
+      32
+     ],
+     "B": [
+      1,
+      16,
+      32,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.0627,
+     "ms_per_call": 0.0627,
+     "bytes_MB": 9.437,
+     "MB_total": 9.437
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      384
+     ],
+     "B": [
+      384,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 2,
+     "ms": 0.0613,
+     "ms_per_call": 0.0307,
+     "bytes_MB": 1.081,
+     "MB_total": 2.163
+    },
+    {
+     "op": "matmul",
+     "A": [
+      1,
+      16,
+      512,
+      512
+     ],
+     "B": [
+      1,
+      16,
+      512,
+      32
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.0534,
+     "ms_per_call": 0.0534,
+     "bytes_MB": 9.437,
+     "MB_total": 9.437
+    },
+    {
+     "op": "linear",
+     "A": [
+      1,
+      512,
+      384
+     ],
+     "B": [
+      384,
+      1536
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "calls": 1,
+     "ms": 0.0449,
+     "ms_per_call": 0.0449,
+     "bytes_MB": 3.146,
+     "MB_total": 3.146
+    }
+   ]
+  }
+ },
+ "deficit": {
+  "TriangleMultiplication": {
+   "calls_per_block": 2,
+   "device_ms_per_call": 6.9077,
+   "device_ms_per_block": 13.8154,
+   "MB_per_block": 4229.4,
+   "ops_per_block": 62,
+   "fixed_ms": 0.3961,
+   "byte_ms": 9.506,
+   "model_ms": 9.9021,
+   "deficit": 1.3952
+  },
+  "TriangleAttention": {
+   "calls_per_block": 2,
+   "device_ms_per_call": 4.3746,
+   "device_ms_per_block": 8.7492,
+   "MB_per_block": 2231.8,
+   "ops_per_block": 54,
+   "fixed_ms": 0.345,
+   "byte_ms": 5.0162,
+   "model_ms": 5.3612,
+   "deficit": 1.632
+  },
+  "Transition": {
+   "calls_per_block": 1,
+   "device_ms_per_call": 8.7116,
+   "device_ms_per_block": 8.7116,
+   "MB_per_block": 474.2,
+   "ops_per_block": 258,
+   "fixed_ms": 1.6482,
+   "byte_ms": 1.0658,
+   "model_ms": 2.714,
+   "deficit": 3.2099
+  },
+  "AttentionPairBias": {
+   "calls_per_block": 1,
+   "device_ms_per_call": 1.0146,
+   "device_ms_per_block": 1.0146,
+   "MB_per_block": 151.4,
+   "ops_per_block": 32,
+   "fixed_ms": 0.2044,
+   "byte_ms": 0.3403,
+   "model_ms": 0.5447,
+   "deficit": 1.8626
+  },
+  "PairformerLayer": {
+   "calls_per_block": 1,
+   "device_ms_per_call": 36.3984,
+   "device_ms_per_block": 36.3984,
+   "MB_per_block": 6651.0,
+   "ops_per_block": 428,
+   "fixed_ms": 2.7342,
+   "byte_ms": 14.9488,
+   "model_ms": 17.6829,
+   "deficit": 2.0584,
+   "pct_of_BW_roof": 41.07
+  }
+ }
+}
