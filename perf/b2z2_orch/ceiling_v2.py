@@ -113,6 +113,16 @@ def shard() -> dict:
 
 
 # Named, measured, NOT built. Sizes are each row's own, on its own basis.
+#
+# A note on how these were judged, because three of them nearly did not survive to be listed:
+# the campaign's ad-hoc kill instrument (perf/b2z2_compose/score.py) applies a fixed 0.60 A bar to
+# ONE whole-molecule Kabsch RMSD on a fixture whose own same-arm seed floor is 0.967-1.906 A per
+# pseudo-domain and 6.80-17.36 A whole-molecule (b2z2-fusebias-512-parity, 12 pairs, byte-identical
+# A/A repeat). That bar sits under the noise. The SHIPPED release gate does not have this defect --
+# scripts/pharma_parity.py:noise_floor_verdict compares the cross-implementation distance against
+# the reference's own INTER-SEED floor plus its spread, which is the correct construction. The
+# defect is local to this campaign's scorer, and it is worth saying so precisely rather than
+# letting "our parity bar is broken" travel further than the code it is true of.
 OPEN_LEVERS = {
     "diffusion step: fuse short programs":
         (0.246, "of the 26.400 ms step wall; 9.76 us x 934 programs = 62.9 % of its input wait "
@@ -120,9 +130,12 @@ OPEN_LEVERS = {
     "fused Pairformer two-pass loop at matmul parity":
         (0.0796, "on the block; the loop is 2.5x two standalone matmuls before it multiplies "
                  "anything, 0.14057 vs 0.0555 ms (b2z2-fusion-rebuild MODE 2)."),
-    "unfused silu":
+    "unfused silu (kill REFUTED, needs its BH four-seed read)":
         (0.02747, "on the fold; ttnn.linear(activation=silu) is 4.3x the same matmul without it. "
-                  "Killed at 0.805 A whole-molecule on a hinged fixture with no stochastic floor."),
+                  "The 0.805 A kill was one whole-molecule reading: the same committed BH CIFs "
+                  "read 0.3358/0.3576 A per pseudo-domain (b2z2-unfused-silu-recover). WH fold "
+                  "1.0308x, BH 1.02747x, 0.3 % apart. Falsifier fired at 1 seed of 4 (1.553 A, "
+                  "hinge basin), below the floor's worst 1.830 A."),
 }
 
 

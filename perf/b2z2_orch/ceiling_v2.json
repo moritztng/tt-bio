@@ -49,9 +49,9 @@
       "size": 0.0796,
       "basis": "on the block; the loop is 2.5x two standalone matmuls before it multiplies anything, 0.14057 vs 0.0555 ms (b2z2-fusion-rebuild MODE 2)."
     },
-    "unfused silu": {
+    "unfused silu (kill REFUTED, needs its BH four-seed read)": {
       "size": 0.02747,
-      "basis": "on the fold; ttnn.linear(activation=silu) is 4.3x the same matmul without it. Killed at 0.805 A whole-molecule on a hinged fixture with no stochastic floor."
+      "basis": "on the fold; ttnn.linear(activation=silu) is 4.3x the same matmul without it. The 0.805 A kill was one whole-molecule reading: the same committed BH CIFs read 0.3358/0.3576 A per pseudo-domain (b2z2-unfused-silu-recover). WH fold 1.0308x, BH 1.02747x, 0.3 % apart. Falsifier fired at 1 seed of 4 (1.553 A, hinge basin), below the floor's worst 1.830 A."
     }
   },
   "crosscheck": {
