@@ -70,11 +70,9 @@ def apply_arm(arm, T):
 
 def read_back(T):
     """What the tree actually believes, read from where the model reads it, after apply_arm."""
-    import tt_bio.boltz2 as B
     got = {}
     for flag, (kind, name) in FLAGS.items():
         got[flag] = bool(getattr(T, name)) if kind == "attr" else None
-    got["HOST"] = bool(B._device_conditioning())
     return got
 
 
