@@ -1,0 +1,133 @@
+"""The full Boltz-2 512 aa cell fold, run on BOTH Blackhole chips of the p300c.
+
+Before anything can be SHARDED across the pair, the whole model has to RUN on the pair. This is
+that step, and on its own it is the plumbing the sharded fold is a delta against:
+
+  mesh    a 1x2 MeshDevice over one p300c board, every tensor REPLICATED. Both chips execute the
+          identical fold in lockstep, so the wall clock is what one chip takes and the CIF must be
+          bit-identical to the single-chip run. Anything else means the mesh changed the math.
+  single  the ordinary one-chip path, same protocol, as the control.
+
+The device is injected at `_open_device_locked` rather than by assigning `tenstorrent._device`, so
+`get_device()` still runs its own lease, its eth-dispatch decision and `_assert_local_dispatch`.
+Skipping those would silently change the grid the model is tuned for, and the point of this run is
+that NOTHING changes except the chip count.
+
+Protocol is the published cell: cdk2x2_512.yaml + its fixed 35-row a3m, 3 recycles, 200 sampling
+steps, 1 sample, seed 0, timed at predict_one, cold fold discarded.
+"""
+
+import hashlib
+import json
+import os
+import statistics as st
+import sys
+import time
+from pathlib import Path
+
+MODE = sys.argv[1] if len(sys.argv) > 1 else "mesh"
+REPS = int(os.environ.get("FOLD_REPS", "5"))
+ROOT = Path("/home/ttuser/.coworker/wt/b2z2-dual-chip-fold")
+OUT_PATH = Path(os.environ.get("FOLD_OUT", f"/tmp/b2z2_fold_{MODE}.json"))
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
+
+import torch  # noqa: E402,F401
+import ttnn  # noqa: E402
+import tt_baseline as B  # noqa: E402
+from tt_bio import tenstorrent as T  # noqa: E402
+
+
+def log(m):
+    print(f"[{time.strftime('%H:%M:%S')}] {m}", flush=True)
+
+
+if MODE == "mesh":
+    _orig_open = T._open_device_locked
+
+    def _mesh_open(device_id, kwargs):
+        """Faithful `_open_device_locked`, with open_mesh_device swapped in for open_device.
+
+        It does three things, not one, and dropping any of them changes what is being measured:
+        the init lock serialises bring-up host-wide, `_configure_active_compute_grid` sets
+        CORE_GRID_MAIN from the device (the model is tuned against it), and
+        `enable_program_cache()` is what stops every op recompiling on every call. Replacing the
+        whole function with a bare open silently drops the last two.
+        """
+        with T._device_init_lock():
+            ttnn.set_fabric_config(ttnn.FabricConfig.FABRIC_1D)
+            log(f"opening 1x2 mesh, kwargs={kwargs}")
+            dev = ttnn.open_mesh_device(ttnn.MeshShape(1, 2), **kwargs)
+            T._configure_active_compute_grid(dev)
+            dev.enable_program_cache()
+            return dev
+
+    T._open_device_locked = _mesh_open
+
+fix = ROOT / "perf" / "size512" / "fixtures"
+tgt, a3m = fix / "cdk2x2_512.yaml", fix / "cdk2x2_512.a3m"
+msa_dir = Path(f"/tmp/b2z2_msa512_{MODE}")
+
+OUT = {"mode": MODE, "reps": REPS,
+       "protocol": {"fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+                    "sampling_steps": B.SAMPLING_STEPS, "samples": B.DIFFUSION_SAMPLES,
+                    "seed": B.SEED},
+       "card": os.environ.get("TT_VISIBLE_DEVICES")}
+
+
+def dump():
+    OUT_PATH.write_text(json.dumps(OUT, indent=1))
+
+
+t0 = time.perf_counter()
+one_fold, meta, state = B.build_fold("boltz2", msa_dir, tgt, a3m)
+OUT["load_s"] = round(time.perf_counter() - t0, 2)
+dev = T.get_device()
+OUT["device"] = str(dev)
+OUT["core_grid_main"] = str(T.CORE_GRID_MAIN)
+OUT["n_devices"] = int(dev.get_num_devices()) if hasattr(dev, "get_num_devices") else 1
+for k in ("hardware", "grid", "n_msa", "card_type", "aiclk_mhz"):
+    if k in meta:
+        OUT[k] = meta[k]
+log(f"device={OUT['device']} n_devices={OUT['n_devices']} grid={OUT.get('grid')} "
+    f"n_msa={OUT.get('n_msa')} load={OUT['load_s']}s")
+dump()
+
+struct_dir = Path(meta["struct_dir"])
+
+
+def cif_digests():
+    return sorted(hashlib.sha256(f.read_bytes()).hexdigest()
+                  for f in sorted(struct_dir.glob("*.cif")))
+
+
+cold_s, cold_m = one_fold()
+assert cold_m.get("msa") or meta.get("n_msa"), "fold ran without an MSA"
+OUT["cold_s"] = round(cold_s, 3)
+log(f"cold {cold_s:.3f}s plddt={cold_m.get('plddt')} (discarded)")
+dump()
+
+rows = []
+for i in range(REPS):
+    s, m = one_fold()
+    d = cif_digests()
+    rows.append({"fold_s": round(s, 4), "plddt": m.get("plddt"), "cif": d})
+    log(f"rep {i+1}/{REPS}  {s:.4f}s  plddt={m.get('plddt')}  cif={d[0][:16] if d else 'none'}")
+    OUT["reps_done"] = rows
+    dump()
+
+times = [r["fold_s"] for r in rows]
+digests = sorted({d for r in rows for d in r["cif"]})
+OUT["summary"] = {
+    "median_s": round(st.median(times), 4),
+    "min_s": min(times), "max_s": max(times),
+    "spread_pct": round((max(times) - min(times)) / st.median(times) * 100, 3),
+    "plddt": sorted({r["plddt"] for r in rows}),
+    "cif_sha256": digests,
+    "cif_sha256_16": sorted({d[:16] for d in digests}),
+    "bit_identical_across_reps": len(digests) == 1,
+}
+dump()
+log(json.dumps(OUT["summary"], indent=1))
+log(f"wrote {OUT_PATH}")
+os._exit(0)
