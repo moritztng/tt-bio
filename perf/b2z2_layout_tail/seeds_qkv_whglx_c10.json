@@ -1,0 +1,205 @@
+{
+ "doc": "Is `TT_BIO_HEAD_PAD_TAIL` safe at 512 aa? The folds that question needs.\n\n`b2z2-fusebias-512-parity`'s `fold_seeds.py`, taken as-is except that the arm is a module global\nrather than an env var, because this lever's flag is read at import. The flag it was written for is\nnamed in `--flag`; everything else -- the fixtures, the per-seed plan, the trailing A/A repeat -- is\nthat row's and is deliberately unchanged so the two levers are scored by one instrument.\n\nThe lever under test here: the diffusion tail carries the head split's zero pad lanes into the gate\nmultiply and the output projection instead of spending four programs stripping them. Exact in real\narithmetic; NOT bit-exact, because padding K from 768 to 1024 regroups the output projection's\npartial sums at tile granularity.\n\n\nThe flag is on by default on main and is NOT bit-exact: `_fuse_bias_stack` collapses a stack of\nLayerNorm(C)+Linear(C,H) into one affine-free LayerNorm plus one [C, H*len] Linear, which is exact\nin real arithmetic and 2e-7 mean / 2.1e-5 max relative in floating point. Its only accuracy\nevidence is 0.218 A on the 298-residue monomeric control. At 512 aa it has never been scored, and\nthree levers in this wave passed everything upstream and then failed at 512 aa.\n\nThe fixture cannot be read whole. `cdk2x2_512` is CDK2 fused to its own first 214 residues with no\ninter-domain interface, so the hinge between the two pseudo-domains saturates whole-molecule RMSD\nfor any reassociation (memory `cdk2x2-chimeric-fixture-cannot-score-non-bit-exact-parity`; the\nshipped default itself moves 8.60 A on it). So this run produces what a per-domain reading needs:\nthe SAME arm at several seeds, so the sampler's own spread is measured rather than assumed, and\nboth arms at each of those seeds, so the lever's move is priced against that spread.\n\nArms, in ONE process so they share a device, a program cache and a model load:\n\n    off   TT_BIO_FUSE_BIAS_STACKS=0, the per-layer stack\n    on    TT_BIO_FUSE_BIAS_STACKS=1, main's shipped default\n\nNothing else is touched: the two bit-exact levers that shipped with it stay at their defaults in\nboth arms, so the only difference between `off` and `on` is this flag. The flag is read per call\n(`boltz2._fuse_bias_stacks`) and changes no device program, so flipping it in-process is legal and\nneither arm can be served the other's compiled program.\n\nThe last fold repeats the first (`off`, first seed): that repeat is the A/A floor, and it must come\nback byte-identical or no other number here is interpretable.\n\n    fold_seeds.py --out <json> --cifdir <dir> [--seeds 0,1,2,3] [--sizes 512,298]\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "torch": "2.14.0+cu130",
+  "tt_visible_devices": "10",
+  "tt_bio_file": "/home/tt-admin/wt/b2z2-step-layout-elision/tt_bio/__init__.py",
+  "commit": "52d878374d41837366d88541a03ee03c173bd593",
+  "started_utc": "2026-09-12T20:21:25Z",
+  "loadavg": [
+   15.33349609375,
+   16.509765625,
+   14.22705078125
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "seeds": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "diffusion_trace": false,
+   "flag": "TT_BIO_HEAD_PAD_TAIL"
+  },
+  "arm_targets": [
+   "tt_bio.triatt_qkv:_WIDE_ENABLED"
+  ]
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 79.045,
+   "sha256": "da476491dbb2a847",
+   "plddt": 0.802815,
+   "tag": "off-s0"
+  },
+  {
+   "arm": "on",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 40.803,
+   "sha256": "a1be2a436a006023",
+   "plddt": 0.79776,
+   "tag": "on-s0"
+  },
+  {
+   "arm": "off",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 41.149,
+   "sha256": "9fa548f2b5da1f18",
+   "plddt": 0.814333,
+   "tag": "off-s1"
+  },
+  {
+   "arm": "on",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 40.984,
+   "sha256": "b1533309ef2f6485",
+   "plddt": 0.811549,
+   "tag": "on-s1"
+  },
+  {
+   "arm": "off",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 40.737,
+   "sha256": "56320896584783f4",
+   "plddt": 0.805309,
+   "tag": "off-s2"
+  },
+  {
+   "arm": "on",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 40.716,
+   "sha256": "3184e7efc77d96e0",
+   "plddt": 0.807328,
+   "tag": "on-s2"
+  },
+  {
+   "arm": "off",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 40.745,
+   "sha256": "e01352a8219147e6",
+   "plddt": 0.836459,
+   "tag": "off-s3"
+  },
+  {
+   "arm": "on",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 40.752,
+   "sha256": "41adad45864510f3",
+   "plddt": 0.836219,
+   "tag": "on-s3"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 40.428,
+   "sha256": "da476491dbb2a847",
+   "plddt": 0.802815,
+   "tag": "off-s0_r1"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 23.309,
+   "sha256": "8af5840b8f08fa44",
+   "plddt": 0.913019,
+   "tag": "off-s0"
+  },
+  {
+   "arm": "on",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 22.298,
+   "sha256": "95c9a639a7a54e0c",
+   "plddt": 0.91311,
+   "tag": "on-s0"
+  },
+  {
+   "arm": "off",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 22.202,
+   "sha256": "d1e107ab6c995775",
+   "plddt": 0.917371,
+   "tag": "off-s1"
+  },
+  {
+   "arm": "on",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 23.141,
+   "sha256": "5d6b6e313f537b64",
+   "plddt": 0.917923,
+   "tag": "on-s1"
+  },
+  {
+   "arm": "off",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 22.234,
+   "sha256": "1451e9f235d753a7",
+   "plddt": 0.911074,
+   "tag": "off-s2"
+  },
+  {
+   "arm": "on",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 21.929,
+   "sha256": "989b1967331887b9",
+   "plddt": 0.911702,
+   "tag": "on-s2"
+  },
+  {
+   "arm": "off",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 22.388,
+   "sha256": "54a7500175d3e986",
+   "plddt": 0.918799,
+   "tag": "off-s3"
+  },
+  {
+   "arm": "on",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 22.475,
+   "sha256": "6f612cc109f57106",
+   "plddt": 0.917707,
+   "tag": "on-s3"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 22.331,
+   "sha256": "8af5840b8f08fa44",
+   "plddt": 0.913019,
+   "tag": "off-s0_r1"
+  }
+ ],
+ "model_load_s": 5.681,
+ "aa_floor_identical": {
+  "512": true,
+  "298": true
+ }
+}
