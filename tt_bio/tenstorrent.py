@@ -6707,6 +6707,12 @@ class AttentionPairBias(Module):
         self.accurate_softmax = accurate_softmax
         self.head_dim = head_dim
         self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
+        # Atom-axis shard hook. The atom attention gathers its keys from the SAME tensor it
+        # projects its queries from, which is exactly what a window-slab shard cannot do: a
+        # slab's edge windows read key rows its neighbour owns. Set this to a callable
+        # `s -> s_widened` and the key gather reads the widened tensor while q, g and the
+        # output stay on the local slab. None everywhere in the shipped fold.
+        self.key_source = None
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
         self.n_heads = n_heads
         self.compute_pair_bias = compute_pair_bias
@@ -7082,9 +7088,15 @@ class AttentionPairBias(Module):
             o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
             o = ttnn.permute(o, (0, 2, 1))
         else:
+            s_keys = s if self.key_source is None else self.key_source(s)
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
-            s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
+            # `keys_indexing` is (2*K_src, 8*K): the source window count and the OUTPUT window
+            # count are independent, so a widened key source needs no other change here.
+            s_keys = s if self.key_source is None else ttnn.to_memory_config(
+                s_keys, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
+            K_src = s_keys.shape[1]
+            s_kv = ttnn.reshape(s_keys, (B, 2 * K_src, W // 2, -1))
             s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
             s_kv = ttnn.matmul(
                 s_kv,
