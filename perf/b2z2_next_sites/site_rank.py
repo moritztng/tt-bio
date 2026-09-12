@@ -35,11 +35,16 @@ SITES = {
     31:  ("atom gate projection", "b2z2-step-fusion-next-sites (TT_BIO_ATOM_L1)"),
     34:  ("atom out projection", "b2z2-step-fusion-next-sites (TT_BIO_ATOM_L1)"),
     # --- token DiT, 24 layers a step ------------------------------------------------------
-    300: ("AdaLN norm of a", ""),
+    # NOT one site: cost clustering cannot separate `AdaLN.s_terms`'s 48 norms (31.94 us) from
+    # `AdaLN.__call__`'s 48 (27.88 us) at the same [1, 512, 768]. The per-call join says 48 of
+    # these 97 belong to `b2z2-step-layernorm-fusion` and only 60 programs / 1.566 ms are free.
+    300: ("AdaLN norm of a (48 of these are s_terms, owned)",
+          "b2z2-step-adaln-sdpa (NAMED NOT BUILT: core-starved at 16 of 72 cores, no bit-exact fix)"),
     301: ("AdaLN s_scale / s_bias projections", "b2z2-step-matmul-group (N-stacking REFUTED)"),
     308: ("fused QKV projection", ""),
     310: ("token head split", "b2z2-step-layout-elision (arm B, screened not built)"),
-    312: ("token SDPA", ""),
+    312: ("token SDPA",
+          "b2z2-step-adaln-sdpa (TT_BIO_SDPA_GRID_Q_CHUNK, 1.3117x on the op, bit-exact)"),
     316: ("token attention epilogue", "b2z2-step-layout-elision (arm A, BUILT 1.02574x)"),
     320: ("attention out projection", ""),
     328: ("AdaLN conditioning norm of s", "b2z2-step-layernorm-fusion (BUILT 1.03932x)"),

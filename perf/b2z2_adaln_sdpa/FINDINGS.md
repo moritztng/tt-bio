@@ -39,11 +39,11 @@ PARITY: **BIT-EXACT, `torch.equal`, max abs 0.0**, on the real settled `Diffusio
   against the shipped config. No fold-level scoring is owed: `q_chunk` partitions independent
   query rows, the reduction order lives in `k_chunk`, and that one is untouched. The base arm
   reproduces two other rows' step wall on a third card to 0.19 % and 0.13 %.
-DEFICIT-SECONDS: **0.1496 s REMOVED on a WH fold** — 0.7479 ms/step x 200 steps, measured on the
+DEFICIT-SECONDS: 0.1496 s REMOVED on a WH fold — 0.7479 ms/step x 200 steps, measured on the
   step rather than projected off an op probe. That is 1.00361x on a 41.533 s WH fold. On the
   published Blackhole cell, **PROJECTED only**: the WH ratio on the committed 26.400 ms BH step is
   -0.4747 ms/step, 20.079 -> 19.984 s, **1.00475x**. This row holds no BH chip.
-TILE-MOVEMENT-DELTA: **+2.321 %, and the step still got 1.83 % faster.** Counted, not estimated: a
+TILE-MOVEMENT-DELTA: +2.321 % — and the step still got 1.83 % faster. Counted, not estimated: a
   narrower `q_chunk` re-reads K and V once per chunk, so 2 chunks per head become 4 and this op's
   tile passes go 7,168 -> 9,216 per call, +2,048 x 24 calls = +49,152 of the step's 2,117,676
   (`b2z2-step-binaryng-fusion`'s census). **This is the mirror of that row's result** — it removed
