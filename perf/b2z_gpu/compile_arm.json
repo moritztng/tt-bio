@@ -1,0 +1,73 @@
+{
+ "env": {
+  "gpu": "NVIDIA H100 80GB HBM3, 555.58.02, 1980 MHz, 406.25 W, 50, 24 %",
+  "compute_apps": "270058, 6194 MiB",
+  "own_pid": 3883
+ },
+ "torch": "2.6.0+cu124",
+ "eager": {
+  "census": {
+   "ops": 348,
+   "view_ops": 488,
+   "bytes_GB": 33.6385
+  },
+  "eager": {
+   "median_ms": 27.3674,
+   "all_ms": [
+    27.3788,
+    27.3614,
+    27.3674,
+    27.3835,
+    27.3516
+   ]
+  },
+  "kernel": {
+   "ms_per_call": 27.1193,
+   "cuda_events_per_call": 383.0
+  },
+  "graph": {
+   "median_ms": 26.7592,
+   "all_ms": [
+    26.7593,
+    26.7577,
+    26.7592,
+    26.7609,
+    26.7573
+   ],
+   "replays": 20
+  }
+ },
+ "compile_s": 19.7,
+ "inductor": {
+  "census": {
+   "ops": 348,
+   "view_ops": 488,
+   "bytes_GB": 33.6385
+  },
+  "eager": {
+   "median_ms": 27.3879,
+   "all_ms": [
+    27.5525,
+    27.4261,
+    27.3664,
+    27.3792,
+    27.3879
+   ]
+  },
+  "kernel": {
+   "ms_per_call": 27.025,
+   "cuda_events_per_call": 383.0
+  },
+  "graph": {
+   "median_ms": 26.7517,
+   "all_ms": [
+    26.7517,
+    26.7517,
+    26.7506,
+    26.7525,
+    26.7486
+   ],
+   "replays": 20
+  }
+ }
+}
