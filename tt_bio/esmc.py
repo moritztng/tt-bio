@@ -243,7 +243,7 @@ class Attention(Module):
 
         o = ttnn.transformer.scaled_dot_product_attention(
             q, k, v, attn_mask=attn_mask, is_causal=False, scale=head_dim**-0.5,
-            program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+            program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1]),
         )
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = self._merge_heads(o)  # [B, L, d_model]

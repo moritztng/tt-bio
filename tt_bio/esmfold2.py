@@ -91,12 +91,12 @@ def _sdpa_bf16(q, k, v, attn_mask, scale):
     if _DTYPE == ttnn.bfloat16:
         return ttnn.transformer.scaled_dot_product_attention(
             q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale,
-            program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]))
+            program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1]))
     qb, kb, vb = (ttnn.typecast(t, ttnn.bfloat16) for t in (q, k, v))
     mb = ttnn.typecast(attn_mask, ttnn.bfloat16) if attn_mask is not None else None
     ctx = ttnn.transformer.scaled_dot_product_attention(
         qb, kb, vb, attn_mask=mb, is_causal=False, scale=scale,
-        program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]))
+        program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1]))
     ctx = ttnn.typecast(ctx, _DTYPE)
     ttnn.deallocate(qb); ttnn.deallocate(kb); ttnn.deallocate(vb)
     return ctx
