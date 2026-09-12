@@ -9,6 +9,9 @@ change whatever the cause (memory `cdk2x2-chimeric-fixture-cannot-score-non-bit-
 `state/answered/4649-decision.md` are stated against it: <=0.35 A pass, 0.35-0.60 A hold,
 >0.60 A reject.
 
+`--flag` takes one name or a `+`-joined SET. A set is ONE arm, not one arm per flag: every name
+goes to the same value on the same fold, which is how a union of levers is scored as a union.
+
 Three folds in one process on one device open: base, base again, and the arm. The repeated base
 gives the A/A floor in the same session, which is what makes the arm's number readable -- a
 nonzero A/A would mean the comparison is measuring the box, not the change. Score with
@@ -34,11 +37,12 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--cifdir", type=Path, required=True)
     ap.add_argument("--size", type=int, default=298)
-    ap.add_argument("--flag", default="TT_BIO_DEVICE_CONDITIONING")
+    ap.add_argument("--flag", default="TT_BIO_DEVICE_CONDITIONING",
+                    help="one flag, or a `+`-joined SET driven together as one union arm")
     ap.add_argument("--arm", default=None, help="tag for the on fold; defaults from --flag")
     a = ap.parse_args()
-    FLAG = a.flag
-    arm = a.arm or FLAG.removeprefix("TT_BIO_").lower()
+    FLAGS = [f for f in a.flag.split("+") if f]
+    arm = a.arm or "_".join(f.removeprefix("TT_BIO_DEVICE_").lower() for f in FLAGS)
 
     import torch
     torch.set_grad_enabled(False)
@@ -53,7 +57,8 @@ def main() -> int:
     sys.path[:] = snap
     patch_boltz2_cfg()
 
-    assert FLAG not in os.environ, f"{FLAG} is set in the environment; this script owns it"
+    for f in FLAGS:
+        assert f not in os.environ, f"{f} is set in the environment; this script owns it"
     tgt, a3m = FIX / f"cdk2x2_{a.size}.yaml", FIX / f"cdk2x2_{a.size}.a3m"
     msa_dir = Path(__file__).resolve().parent / f".msa_{a.size}"
     one_fold, meta, _state = B.build_fold("boltz2", msa_dir, tgt, a3m)
@@ -71,18 +76,22 @@ def main() -> int:
     one_fold()
 
     for tag, val in (("base_0", "0"), ("base_1", "0"), (f"{arm}_0", "1")):
-        os.environ[FLAG] = val
+        for f in FLAGS:
+            os.environ[f] = val
         t0 = time.perf_counter()
         _t, m = one_fold()
         wall = time.perf_counter() - t0
         dest = a.cifdir / f"{a.size}_{tag}"
         shutil.rmtree(dest, ignore_errors=True)
         shutil.copytree(struct_dir, dest)
-        out["folds"].append({"tag": tag, FLAG: val, "wall_s": round(wall, 4),
+        out["folds"].append({"tag": tag, "flags": FLAGS, "value": val,
+                             "wall_s": round(wall, 4),
                              "plddt": m.get("plddt"), "dir": dest.name})
-        print(f"  {tag:10s} {FLAG}={val}  {wall:.3f} s  plddt {m.get('plddt')}", flush=True)
+        print(f"  {tag:22s} {'+'.join(FLAGS)}={val}  {wall:.3f} s  plddt {m.get('plddt')}",
+              flush=True)
         a.out.write_text(json.dumps(out, indent=1))
-    os.environ.pop(FLAG, None)
+    for f in FLAGS:
+        os.environ.pop(f, None)
     print("done", flush=True)
     return 0
 
