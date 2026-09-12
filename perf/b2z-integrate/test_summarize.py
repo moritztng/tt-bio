@@ -142,6 +142,38 @@ def test_parse_arm_rejects_unknown_cfg_lever():
     raise AssertionError("an unlisted protocol constant must be refused, not silently applied")
 
 
+class _FakeModel:
+    """Stands in for the loaded boltz-2 model: predict_step reads self.predict_args."""
+    def __init__(self):
+        self.predict_args = {"sampling_steps": 200, "recycling_steps": 3,
+                             "diffusion_samples": 1, "max_parallel_samples": 5}
+
+
+def test_set_cfg_writes_the_live_model():
+    """The one that matters. The boltz-2 path never reads cfg per fold -- predict_one calls
+    model.predict_step(batch) with no protocol args and predict_step reads model.predict_args.
+    The first version of this lever moved only cfg and was a silent no-op across 12 folds."""
+    cfg, model = _cfg_like(), _FakeModel()
+    AB._set_cfg(cfg, "sampling_steps", 50, model)
+    assert model.predict_args["sampling_steps"] == 50, \
+        "model.predict_args not moved -- the fold runs the default and the A/B reads 1.00x"
+
+
+def test_set_cfg_model_is_optional():
+    cfg = _cfg_like()
+    AB._set_cfg(cfg, "sampling_steps", 50)          # no model: must not raise
+    assert cfg["sampling_steps"] == 50
+
+
+def test_negative_control_cfg_only_setter_leaves_model_at_default():
+    """Prove the check above is not vacuous: a cfg-only setter must fail it."""
+    cfg, model = _cfg_like(), _FakeModel()
+    cfg["sampling_steps"] = 50
+    cfg["predict_args"]["sampling_steps"] = 50       # both cfg copies, as the old version did
+    assert model.predict_args["sampling_steps"] == 200, \
+        "the model still holds the default -- this is the bug the live-model write fixes"
+
+
 def _run_all() -> int:
     """Run main()'s summarize checks AND every test_* in this module.
 

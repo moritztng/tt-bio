@@ -136,19 +136,28 @@ def parse_arm(spec: str) -> tuple[str, list[tuple[str, str, object]]]:
     return name.strip(), levers
 
 
-def _set_cfg(cfg: dict, key: str, val) -> None:
-    """Set a protocol constant everywhere cfg keeps it.
+def _set_cfg(cfg: dict, key: str, val, model=None) -> None:
+    """Set a protocol constant everywhere it is actually read.
 
-    build_cfg stores sampling_steps/recycling_steps/diffusion_samples BOTH at the top level and
-    again inside cfg["predict_args"], and it is the nested copy the diffusion loop actually reads.
-    Setting only the top-level one runs the shipped 200 steps while reporting 50 -- a silent
-    no-op that would look like "the lever is worth nothing".
+    THREE places, and the third is the one that matters. `build_cfg` stores
+    sampling_steps/recycling_steps/diffusion_samples at the cfg top level and again inside
+    cfg["predict_args"]. The boltz-2 path reads NEITHER per fold: `predict_one` calls
+    `self.model.predict_step(batch)` with no protocol arguments, and `predict_step` reads
+    `self.predict_args["sampling_steps"]` off the MODEL, populated once at `load_model(cfg)`.
+
+    So mutating cfg alone is a silent no-op -- every arm folds at the shipped 200 steps while the
+    report says 50, and the A/B reads 1.00x for a lever worth ~1.28x. That is exactly what this
+    arm's first run did: 12 folds, base and arm identical to three decimals with the same CIF
+    digest. The observed-step assertion in fold() is what stops that recurring silently.
     """
     if key in cfg:
         cfg[key] = val
     pa = cfg.get("predict_args")
     if isinstance(pa, dict) and key in pa:
         pa[key] = val
+    mpa = getattr(model, "predict_args", None)
+    if isinstance(mpa, dict) and key in mpa:
+        mpa[key] = val
 
 
 def split_target(dotted: str) -> tuple[str, str]:
@@ -396,7 +405,7 @@ def main() -> int:
         """Restore every site to its shipped default, then apply this arm's overrides."""
         for key, default in sites.items():
             if key.startswith("cfg:"):
-                _set_cfg(cfg, key[4:], default)
+                _set_cfg(cfg, key[4:], default, state.model)
             elif key.startswith("env:"):
                 os.environ.pop(key[4:], None)
             else:
@@ -404,7 +413,7 @@ def main() -> int:
                 setattr(importlib.import_module(mod), attr, default)
         for kind, target, val in arms[name]:
             if kind == "cfg":
-                _set_cfg(cfg, target, val)
+                _set_cfg(cfg, target, val, state.model)
             elif kind == "env":
                 os.environ[target] = val
             else:
@@ -435,6 +444,20 @@ def main() -> int:
         if len(splitter.loop) > 2:
             ps = round(1e3 * (splitter.loop[-1][1] - splitter.loop[0][1]) /
                        (splitter.loop[-1][0] - splitter.loop[0][0]), 4)
+        # Did the fold run the protocol it was asked for? splitter.loop counts real progress
+        # callbacks out of the diffusion loop, so this is OBSERVED, not the requested number read
+        # back to itself. A protocol lever that never reaches the live model is otherwise
+        # invisible: the arm folds at the default, the ratio reads 1.00x, and a broken instrument
+        # is indistinguishable from a measured negative result.
+        want_steps = int(cfg.get("sampling_steps") or 0)
+        seen_steps = (splitter.loop[-1][0] + 1) if splitter.loop else 0
+        if want_steps and seen_steps and abs(seen_steps - want_steps) > 1:
+            raise SystemExit(
+                f"arm {arm!r} asked for {want_steps} sampling steps but the diffusion loop ran "
+                f"{seen_steps}. The protocol lever did not reach the live model -- "
+                f"model.predict_args is what predict_step reads. Refusing to report a ratio "
+                f"from a fold that did not run the protocol it claims.")
+        steps_observed = seen_steps
         if keep:
             keep.mkdir(parents=True, exist_ok=True)
             shutil.copy2(cifs[0], keep / cifs[0].name)
@@ -445,6 +468,7 @@ def main() -> int:
             "prepare_and_trunk_s": round(splitter.marks[0][1] - t0, 4),
             "stages_s": stages,
             "sampler_ms_per_step": ps,
+            "steps_observed": steps_observed,
             "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
             "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest(),
             "loadavg1": round(os.getloadavg()[0], 2),
