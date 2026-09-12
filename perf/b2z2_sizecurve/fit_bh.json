@@ -1,0 +1,227 @@
+{
+ "doc": "Fit both arms' size curves from whatever `size_curve.py` has written, and say where they part.\n\nThe deliverable of this row is a PAIR OF EXPONENTS with their fit quality, not a single ratio, so\nthe fit is the artifact and the per-size ratios are the supporting table. Three things this does\nthat a bare `polyfit` would not:\n\n  * **Every exponent comes with a standard error and the two arms are compared against it.** The\n    pre-registered falsifier is \"if the two arms' exponents agree within their fit error, the\n    768 aa screen was load noise\", and a slope without an error bar cannot fire it.\n  * **Each size's ratio is quoted beside the A/A floor of ITS OWN session**, and both are the same\n    estimator: a median over that size's own interleaved reps. Quoting a per-position floor beside\n    a median-of-n ratio is the mistake `CONTEXT.md` names; the floor here is the worst\n    base-position-vs-base-position median ratio inside the same process.\n  * **A LOCAL exponent per adjacent pair**, which is what a knee actually is. A global fit averages\n    a cliff away; `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa` found its cliff by comparing\n    N^2.03 on one interval against N^3.62 on the next, and that only shows per interval.\n\nRuns offline on the JSONs. Takes no device and asserts nothing about the box it runs on.\n",
+ "arch": "Arch.BLACKHOLE",
+ "host": "tt-quietbox2",
+ "grid": [
+  11,
+  10
+ ],
+ "sizes": [
+  {
+   "size": 512,
+   "arch": "Arch.BLACKHOLE",
+   "host": "tt-quietbox2",
+   "grid": [
+    11,
+    10
+   ],
+   "card": "3",
+   "aa_floor": 1.0156,
+   "aa_floor_per_position": {
+    "2": 1.0156
+   },
+   "reps_complete": 5,
+   "loadavg_1m_min_max": [
+    7.89,
+    18.9
+   ],
+   "arms": {
+    "L1": {
+     "n": 5,
+     "median_fold_s": 21.619,
+     "min_fold_s": 20.334,
+     "max_fold_s": 23.482,
+     "spread_pct": 14.56,
+     "median_step_s": 4.925,
+     "atom_l1_l1": [
+      1200
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "a91aa44441f0d9c5"
+     ]
+    },
+    "base": {
+     "n": 10,
+     "median_fold_s": 22.321,
+     "min_fold_s": 20.661,
+     "max_fold_s": 24.923,
+     "spread_pct": 19.09,
+     "median_step_s": 5.344,
+     "atom_l1_l1": [
+      0
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "a91aa44441f0d9c5"
+     ]
+    }
+   },
+   "ratio_vs_base": 1.03247,
+   "above_aa_floor": true,
+   "ratio_resolved": 1.03247,
+   "step_ratio_vs_base": 1.08508,
+   "bit_exact_vs_base": true,
+   "sha256": "a91aa44441f0d9c5",
+   "gate_declined": false,
+   "gate_took_l1_every_call": true,
+   "protocol_ok": true
+  },
+  {
+   "size": 1024,
+   "arch": "Arch.BLACKHOLE",
+   "host": "tt-quietbox2",
+   "grid": [
+    11,
+    10
+   ],
+   "card": "2",
+   "aa_floor": 1.01517,
+   "aa_floor_per_position": {
+    "2": 1.01517
+   },
+   "reps_complete": 2,
+   "loadavg_1m_min_max": [
+    12.98,
+    18.76
+   ],
+   "arms": {
+    "L1": {
+     "n": 2,
+     "median_fold_s": 77.113,
+     "min_fold_s": 75.171,
+     "max_fold_s": 79.054,
+     "spread_pct": 5.04,
+     "median_step_s": 9.061,
+     "atom_l1_l1": [
+      1200
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "d6ece9fab83c5ca3"
+     ]
+    },
+    "base": {
+     "n": 4,
+     "median_fold_s": 76.667,
+     "min_fold_s": 74.654,
+     "max_fold_s": 78.509,
+     "spread_pct": 5.03,
+     "median_step_s": 9.747,
+     "atom_l1_l1": [
+      0
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "d6ece9fab83c5ca3"
+     ]
+    }
+   },
+   "ratio_vs_base": 0.99422,
+   "above_aa_floor": false,
+   "ratio_resolved": 1.0,
+   "step_ratio_vs_base": 1.07571,
+   "bit_exact_vs_base": true,
+   "sha256": "d6ece9fab83c5ca3",
+   "gate_declined": false,
+   "gate_took_l1_every_call": true,
+   "protocol_ok": true
+  }
+ ],
+ "fits": {
+  "base": {
+   "exponent": 1.7802,
+   "stderr": null,
+   "r2": 1.0,
+   "n_points": 2,
+   "prefactor": 0.00033548
+  },
+  "L1": {
+   "exponent": 1.8347,
+   "stderr": null,
+   "r2": 1.0,
+   "n_points": 2,
+   "prefactor": 0.00023132
+  }
+ },
+ "local_exponents": {
+  "base": [
+   {
+    "interval": "512->1024",
+    "exponent": 1.7802,
+    "seconds": [
+     22.321,
+     76.667
+    ]
+   }
+  ],
+  "L1": [
+   {
+    "interval": "512->1024",
+    "exponent": 1.8347,
+    "seconds": [
+     21.619,
+     77.113
+    ]
+   }
+  ]
+ },
+ "gate": {
+  "512": {
+   "declined": false,
+   "l1": [
+    1200
+   ],
+   "dram": [
+    0
+   ]
+  },
+  "1024": {
+   "declined": false,
+   "l1": [
+    1200
+   ],
+   "dram": [
+    0
+   ]
+  }
+ },
+ "bit_exact": {
+  "512": true,
+  "1024": true
+ },
+ "ratio_curve": {
+  "512": {
+   "ratio": 1.03247,
+   "aa_floor": 1.0156,
+   "resolved": 1.03247,
+   "n": 5
+  },
+  "1024": {
+   "ratio": 0.99422,
+   "aa_floor": 1.01517,
+   "resolved": 1.0,
+   "n": 2
+  }
+ }
+}

@@ -7,9 +7,11 @@
 # script is the record of it.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-REMOTE=whglx-admin
-RDIR=/home/mthuening/work/wt/b2z2-atoml1-size-curve/perf/b2z2_sizecurve
-scp -q "$REMOTE:$RDIR/curve_*.json" "$HERE/" 2>/dev/null || echo "no curve JSONs yet"
 mkdir -p "$HERE/logs"
-scp -q "$REMOTE:$RDIR/logs/*.log" "$HERE/logs/" 2>/dev/null || echo "no logs yet"
+pull() {  # host remote-worktree-root
+  scp -q "$1:$2/perf/b2z2_sizecurve/curve_*.json" "$HERE/"       2>/dev/null || echo "$1: no curve JSONs yet"
+  scp -q "$1:$2/perf/b2z2_sizecurve/logs/*.log"   "$HERE/logs/"  2>/dev/null || echo "$1: no logs yet"
+}
+pull whglx-admin   /home/mthuening/work/wt/b2z2-atoml1-size-curve   # Wormhole, 8x9
+pull tt-quietbox2  /home/ttuser/.coworker/wt/b2z2-atoml1-size-curve # Blackhole, 11x10
 ls -la "$HERE"/curve_*.json 2>/dev/null || true
