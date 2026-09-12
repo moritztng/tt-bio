@@ -32,6 +32,9 @@ from tt_bio import reblock_permute as RP
 S = int(os.environ.get("AB_TOKENS", "512"))
 REPS = int(os.environ.get("AB_REPS", "7"))
 LEVERS = [x for x in os.environ.get("LEVERS", "gout").split(",") if x]
+# Levers held ON in both arms, so a lever that only exists on top of another is measured
+# marginally rather than as a stack.
+BASE = [x for x in os.environ.get("BASE", "").split(",") if x]
 OUT = os.environ.get("AB_OUT", f"/tmp/b2z2_round2_ab_{'_'.join(LEVERS)}_{S}.json")
 
 dev = tt.get_device()
@@ -53,16 +56,19 @@ f = lambda x: ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, d
 mask_tt, attn_tt = f(m1[:, :, None] * m1[:, None, :]), f((1 - m1).unsqueeze(1).unsqueeze(1) * -1e9)
 
 SET = {"gout": tt.set_trimul_fused_gout,
-       "qkvg": lambda on: setattr(K, "_QKVG_ENABLED", bool(on))}
-for name in LEVERS:
+       "qkvg": lambda on: setattr(K, "_QKVG_ENABLED", bool(on)),
+       "qkvgb": lambda on: setattr(K, "_QKVGB_ENABLED", bool(on))}
+for name in LEVERS + BASE:
     if name not in SET:
         raise SystemExit(f"unknown lever {name!r}; known: {sorted(SET)}")
+for name in BASE:                           # on in BOTH arms, so the A/B is marginal on top of it
+    SET[name](True)
 
 
 def census():
     return {"trimul_gout": list(tt.TRIMUL_GOUT_STATS), "qkvg": list(K.QKVG_STATS),
-            "qkv_heads": list(K.STATS), "tail": list(K.TAIL_STATS),
-            "trimul_tail_f1": list(tt._trimul_tail.STATS),
+            "qkvgb": list(K.QKVGB_STATS), "qkv_heads": list(K.STATS),
+            "tail": list(K.TAIL_STATS), "trimul_tail_f1": list(tt._trimul_tail.STATS),
             "reblock_gated": int(RP.STATS_GATED[0])}
 
 
@@ -85,7 +91,7 @@ def one(on):
 for on in (False, True):                    # compile both arms before anything is timed
     one(on)
 
-res = {"tokens": S, "reps": REPS, "levers": LEVERS, "arms": {}}
+res = {"tokens": S, "reps": REPS, "levers": LEVERS, "base_levers": BASE, "arms": {}}
 for leg, arms in (("AB", (False, True)), ("AA", (False, False))):
     t = {0: [], 1: []}
     digs = {0: set(), 1: set()}

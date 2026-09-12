@@ -6128,6 +6128,9 @@ _MM_BLOCK = {
     # whole contraction at kt=4 -- so every output element is accumulated in the order the two
     # separate matmuls accumulate it today.
     (4, 16): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv+gate at c_z=128
+    # ... and with the one-tile pair-bias projection on the end of it, so the normed pair tensor
+    # is read once instead of three times (`triatt_qkv.qkvgb_heads`). Same K_block again.
+    (4, 17): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv+gate+bias at c_z=128
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
     # opendde tri-att at c_z=384. These two are NOT bit-exact -- K_block = 12 folds the contraction
@@ -6395,11 +6398,24 @@ class TriangleAttention(Module):
         # tile per head, no zero padding in the head channels. `qkv_weight` and `g_weight` stay,
         # because every guard the fused call can fail falls back to them.
         self.qkvg_weight = None
+        # ... and the same four with the pair-bias projection's single tile on the end, which is
+        # the third reader of that tensor. The bias weight is taken back off the device rather
+        # than rebuilt from `self.weights`, because it has already been scaled by `_bias_scale`
+        # there IN bf16; scaling in fp32 and converting after rounds differently. bf16 -> float
+        # -> bf16 is exact, so this carries the shipped numbers.
+        self.qkvgb_weight = None
         if not self.subtile and _dtype() == ttnn.bfloat16:
+            qkvg_t = torch.cat([qkv_weight, self.weights["linear_g.weight"]], dim=0).t()
             self.qkvg_weight = ttnn.from_torch(
-                torch.cat([qkv_weight, self.weights["linear_g.weight"]], dim=0).t(),
-                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(),
+                qkvg_t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(),
             )
+            bias_t = ttnn.to_torch(self.bias_weight).float()
+            if bias_t.shape[-1] <= 32 and bias_t.shape[-2] == qkvg_t.shape[-2]:
+                self.qkvgb_weight = ttnn.from_torch(
+                    torch.cat([qkvg_t, torch.nn.functional.pad(
+                        bias_t, (0, 32 - bias_t.shape[-1]))], dim=-1),
+                    layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(),
+                )
         # RF3 and AF2-IG bias both the gate and the output projection; Boltz-2, Protenix-v2,
         # OpenFold3 and OpenDDE bias neither, and q/k/v carry no bias in any of them. Read them
         # only when the weights carry them: with no bias present every branch below is the one it
@@ -6435,6 +6451,27 @@ class TriangleAttention(Module):
             x, self.qkvg_weight, self.o_weight, self.compute_kernel_config,
             self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkvg_weight),
         ) or (None, None)
+
+    def _fused_qkvgb(self, x):
+        """`(q, k, v), gate, pair bias` from one pass, or `(None, None, None)`.
+
+        The pair-bias projection is the THIRD reader of the same normed tensor, one tile wide
+        against the other four's four. Asked at the BIAS site, which runs first, so the other
+        four ride down to the projection site rather than being recomputed.
+
+        `_qkv_l1_config` is consulted here because the L1 qkv projection is the one branch that
+        would not have gone through the head-major kernel at all, and a fused call has to decline
+        exactly where `_fused_qkvg` does.
+        """
+        if self.biased or self.qkvgb_weight is None:
+            return None, None, None
+        if _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None:
+            return None, None, None
+        return _triatt_qkv.qkvgb_heads(
+            x, self.qkvgb_weight, self.o_weight, self.compute_kernel_config,
+            self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkvgb_weight),
+            int(self.bias_weight.shape[-1]),
+        ) or (None, None, None)
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x = ttnn.reshape(x, tuple(x.shape)[1:])
@@ -6483,6 +6520,7 @@ class TriangleAttention(Module):
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
                 )
 
+            pre_qkv = pre_g = None          # the chunked path builds its bias row block by row block
             triangle_bias = _pair_bias_from_z(
                 x, self.layer_norm_weight, self.layer_norm_bias, self.bias_weight,
                 self.compute_kernel_config, chunk, self.ending)
@@ -6511,9 +6549,11 @@ class TriangleAttention(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
-            triangle_bias = _pair_proj_linear(
-                x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
-            )
+            pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
+            if triangle_bias is None:
+                triangle_bias = _pair_proj_linear(
+                    x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
+                )
             triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
             if self.ending and not self.transpose_bias:
@@ -6771,7 +6811,8 @@ class TriangleAttention(Module):
             del parts
         else:
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
-            qkv, g = self._fused_qkvg(x, qkv_cfg is None)
+            qkv, g = ((pre_qkv, pre_g) if pre_qkv is not None
+                      else self._fused_qkvg(x, qkv_cfg is None))
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
             qkv = qkv if qkv is not None else None if qkv_cfg is not None else _triatt_qkv.qkv_heads(

@@ -318,3 +318,98 @@ def out_proj(gated, w, ckc, dtype):
         G.ckc_args(ckc), {"HEAD_MAJOR_IN0_MT": pad[-2] // TILE}, KERNEL_DIR,
         m_k=(pad[0] * pad[-2], H * D))
     return out
+
+
+# --- R1b: the pair-bias projection rides the qkv+gate pass, so `x_norm` is read ONCE -------------
+#
+# `qkvg_heads` above deleted one of the tri-attention's three reads of its own normed pair tensor.
+# The third is the pair-BIAS projection, `c_z -> n_heads` -- one tile wide, and it reads all
+# 67.1 MB of the same allocation at 512 aa. That is rank 1's remaining 134.2 MB over two
+# attentions (`perf/b2z2_byte_floor/CENSUS.md`).
+#
+# It could not ride the same matmul until the split writer learned an unequal chunk: q, k, v and
+# the gate are 4 N tiles each and the bias is 1, and the writer divided N into EQUAL chunks.
+# `MM_SPLIT_LAST_TILES` gives the final chunk its own width (see
+# `tt_bio/kernels/triatt/matmul_dataflow_common.hpp`), and the head-major tile-id transform
+# reduces to the plain one at a width of a single tile, so the bias lands in an ordinary
+# [batch, seq, 32] result while its four siblings stay head-major. No second define, no second
+# kernel.
+#
+# Bit-exact by the same argument as `qkvg_heads`, plus one measured fact: the bias projection is a
+# `ttnn.linear` today, not a `minimal_matmul`, so this changes its op class. At c_z=128 both block
+# the whole 4-tile contraction at once and are `torch.equal` at max abs 0.0
+# (`perf/b2z2_byte_round2/probe_opclass.py`, run before any of this was built).
+#
+# Declines to exactly what `qkvg_heads` declines to, plus a bias weight that is not one tile wide.
+
+TRIATT_FUSED_QKVGB = False
+_QKVGB_ENABLED = os.environ.get(
+    "TT_BIO_TRIATT_FUSED_QKVGB", "1" if TRIATT_FUSED_QKVGB else "0") == "1"
+
+# (fused calls served, calls that left the bias projection where it was)
+QKVGB_STATS = [0, 0]
+QKVGB_REJECTS: dict = {}
+
+
+def _qkvgb_reject(reason, shape):
+    k = (reason, tuple(shape))
+    QKVGB_REJECTS[k] = QKVGB_REJECTS.get(k, 0) + 1
+    QKVGB_STATS[1] += 1
+    return None
+
+
+def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channels):
+    """`((q, k, v), gate, bias)` from ONE pass over `x`, or `None` to leave all three alone.
+
+    `w` is the qkv weight with the gate weight and the (tile-padded) bias weight concatenated on
+    its output axis, so the five destinations are five N chunks of one matmul -- four of four
+    tiles and one of one. Byte-identical to the three calls it replaces.
+    """
+    if not (_ENABLED and _TAIL_ENABLED and _QKVG_ENABLED and _QKVGB_ENABLED):
+        return None
+    shape = [int(d) for d in x.shape]
+    c = n_heads * head_dim
+    if head_dim != TILE or c * 4 + TILE != int(w.shape[-1]):
+        return _qkvgb_reject("head_dim_or_width", shape)
+    if not 0 < bias_channels <= TILE:
+        return _qkvgb_reject("bias_wider_than_a_tile", shape)
+    if not _common_ok(x, w, dtype) or mm_config is None:
+        return _qkvgb_reject("dtype_or_memory_or_config", shape)
+    if len(w_o.shape) != 2 or int(w_o.shape[-2]) // TILE != c // TILE:
+        return _qkvgb_reject("out_weight_shape", shape)
+
+    from .tenstorrent import (_mm_block_for, COMPUTE_GRID_MAIN, _PAIR_PROJ_L1_OUT, _L1_OUT_REFUSED,
+                              _PAIR_PROJ_MM, _MM_DEFAULT)
+    blk = _mm_block_for(w)
+    if blk is None or blk is _MM_DEFAULT:
+        return _qkvgb_reject("no_block_entry", shape)
+    # `gate_proj`'s guard set, because a fused call that served where the gate refused would move
+    # the tail off `out_proj` and change what the block computes.
+    if not _PAIR_PROJ_MM:
+        return _qkvgb_reject("pair_proj_mm_off", shape)
+    if _mm_block_for(w_o) is None or _mm_block_for(w_o) is _MM_DEFAULT:
+        return _qkvgb_reject("out_block_entry", shape)
+    if _PAIR_PROJ_L1_OUT and not _TAIL_OVER_L1:
+        key = (tuple(x.padded_shape), tuple(w_o.shape), str(dtype))
+        if key not in _L1_OUT_REFUSED:
+            return _qkvgb_reject("l1_out_leg_live", shape)
+
+    pad = [int(d) for d in x.padded_shape]
+    if pad[0] * pad[-2] <= int(w.shape[-1]):
+        return _qkvgb_reject("m_le_n", shape)
+
+    dev = x.device()
+    outs = [ttnn.allocate_tensor_on_device(
+        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+        dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
+    outs.append(ttnn.allocate_tensor_on_device(
+        ttnn.Shape([shape[0], shape[1], bias_channels]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+        dev, ttnn.DRAM_MEMORY_CONFIG))
+    G.generic_minimal_matmul(
+        dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
+        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, n_widths=[c // TILE] * 4 + [1])
+    QKVGB_STATS[0] += 1
+    QKVG_STATS[0] += 1
+    STATS[0] += 1
+    TAIL_STATS[0] += 1
+    return tuple(outs[:3]), outs[3], outs[4]
