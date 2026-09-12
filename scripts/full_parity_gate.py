@@ -761,8 +761,21 @@ def _verify_fixtures() -> int:
         print(f"  - {leg_id}  ({fixture})")
         print(f"      {', '.join(missing)}")
     print("The provenance JSONs are committed but the CIFs are gitignored, so they reach a")
-    print("fresh host only through the release asset. Re-cut it with these targets included")
-    print("(see the header of scripts/fetch_parity_fixtures.sh); re-running the fetch cannot help.")
+    print("fresh host only through the release asset.")
+    stamp = FIXTURE_ROOT / ".fetch-stamp.json"
+    if stamp.exists():
+        try:
+            st = json.loads(stamp.read_text())
+        except (ValueError, OSError):
+            st = {}
+        print(f"This tree holds asset {st.get('tag', '?')} from {st.get('repo', '?')} "
+              f"(fetched {st.get('fetched_utc', '?')}), so re-running the fetch cannot help:")
+        print("re-cut the asset with these targets included (see the header of")
+        print("scripts/fetch_parity_fixtures.sh).")
+    else:
+        print("This tree has NO fetch stamp, so it has never fetched the asset (or last fetched")
+        print("before the stamp existed). Run scripts/fetch_parity_fixtures.sh FIRST and re-check;")
+        print("only if a leg is still missing after that does the asset need re-cutting.")
     return 1
 
 
@@ -1391,26 +1404,36 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
             if resume and _envelope_ref_complete(_find_results_dir(out_dir), leg) is not None:
                 print(f"  {leg.id} ref_{dtype}: cached, skip")
                 continue
-            # A prior interrupted regen can leave a STALE, incomplete results.json in out_dir
-            # (e.g. results.json with no structures/*.cif). _run_local_fold's completion check
-            # is a bare _find_results_dir(out_dir) probe -- it would see that stale file the
-            # instant the fresh subprocess starts, believe the NEW fold already "folded", and
-            # reap it after the grace window without ever letting it run. Clear any leftover
-            # out_dir before starting so only the fresh subprocess's own output can satisfy it.
-            if out_dir.exists():
-                shutil.rmtree(out_dir)
-            out_dir.mkdir(parents=True, exist_ok=True)
-            cmd = device_cmd(leg, ENVELOPE_SEED, out_dir, workdir) + ["--accelerator", "cpu", "--no_kernels"]
+            # Generate into a sibling .partial dir and swap on success. out_dir must start
+            # empty (a prior interrupted regen can leave a STALE results.json with no
+            # structures/*.cif; _run_local_fold's completion check is a bare
+            # _find_results_dir probe, so it would see that stale file the instant the fresh
+            # subprocess starts, believe the NEW fold already "folded", and reap it after the
+            # grace window without ever letting it run) -- but clearing out_dir ITSELF before
+            # folding meant any failure deleted the leg's committed results.json provenance,
+            # which on a host holding the only copy is unrecoverable. Only the swap touches
+            # out_dir, and only after the fold produced a complete reference.
+            part = out_dir.parent / f".{out_dir.name}.partial"
+            if part.exists():
+                shutil.rmtree(part)
+            part.mkdir(parents=True, exist_ok=True)
+            cmd = device_cmd(leg, ENVELOPE_SEED, part, workdir) + ["--accelerator", "cpu", "--no_kernels"]
             wrapped = local.wrap(cmd, REPO, env)
             logf = open(log_dir / f"regen_{leg.id}_{dtype}.log", "w")
             t0 = time.monotonic()
             try:
-                rc, timed_out = _run_local_fold(wrapped, out_dir, logf,
+                rc, timed_out = _run_local_fold(wrapped, part, logf,
                                                 leg_fold_timeout(leg, fold_timeout))
             finally:
                 logf.close()
             wall = time.monotonic() - t0
-            ok = (rc == 0 and _envelope_ref_complete(_find_results_dir(out_dir), leg) is not None)
+            ok = (rc == 0 and _envelope_ref_complete(_find_results_dir(part), leg) is not None)
+            if ok:
+                if out_dir.exists():
+                    shutil.rmtree(out_dir)
+                part.rename(out_dir)
+            else:
+                shutil.rmtree(part, ignore_errors=True)
             print(f"  {leg.id} ref_{dtype}: {'OK' if ok else 'FAILED'} ({wall/60:.1f} min)"
                   + ("" if ok else f" rc={rc} timed_out={timed_out} — see regen_{leg.id}_{dtype}.log"))
             leg_ok &= ok
@@ -1468,8 +1491,12 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
             if fp:
                 idx[leg.id] = fp
     FINGERPRINT_INDEX.write_text(json.dumps(idx, indent=2, sort_keys=True))
-    print(f"regen complete: {n_ok} leg(s) with fp32+bf16 references; fingerprint index updated.")
-    return 0
+    n_want = sum(1 for l in legs if _is_envelope_leg(l) and l.fixture and not l.legacy_rdx)
+    print(f"regen complete: {n_ok} of {n_want} leg(s) with fp32+bf16 references; "
+          "fingerprint index updated.")
+    # Exit non-zero when a leg did not land. Printing "complete" after generating nothing is
+    # how a later gate run comes to trust a reference that was never written.
+    return 0 if n_ok == n_want else 1
 
 
 def _repo_commit() -> str:
@@ -2385,6 +2412,15 @@ def main() -> int:
         if not env_legs:
             print("--regen-refs: no envelope (structure/affinity) legs selected.")
             return 1
+        if args.dry_run:
+            # --dry-run used to be ignored here, so the one flag you reach for when you are
+            # unsure was the one that folded and overwrote the fixture tree anyway.
+            print(f"--regen-refs --dry-run: would regenerate fp32+bf16 CPU references for "
+                  f"{len(env_legs)} leg(s), ~2 CPU folds each:")
+            for l in env_legs:
+                print(f"  {l.id:<34} {l.fixture}")
+            print("Re-run without --dry-run to actually generate them.")
+            return 0
         print(f"--regen-refs: generating fp32+bf16 CPU references for {len(env_legs)} leg(s) "
               f"(serial; ~2 CPU folds/leg). margin default {args.margin}.")
         return regen_envelope_refs(env_legs, workdir, log_dir, args.fold_timeout, resume)

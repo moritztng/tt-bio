@@ -115,6 +115,14 @@ mkdir -p "${DEST}"
 tar xzf "${tmp}/${ASSET}" -C "$(dirname "${DEST}")"
 echo "done: fixtures extracted under ${DEST}"
 
+# Record which asset this tree holds. Without it, a checkout that simply never ran this
+# script and one whose references are genuinely absent from the asset look identical to
+# --verify-fixtures, and it told both of them "re-running the fetch cannot help" -- which
+# is false for the first and cost the 2026-09-12 boltz2 envelope pass a whole worker.
+printf '{\n  "tag": "%s",\n  "repo": "%s",\n  "sha256": "%s",\n  "fetched_utc": "%s"\n}\n' \
+  "${TAG}" "${REPO}" "${got:-unverified}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  > "${DEST}/.fetch-stamp.json"
+
 # A fetch that reports success while a model's references are absent is worse than a fetch
 # that fails: the gate then reports that leg BLOCKED-REF-REGEN-NEEDED, which does not fail
 # the gate, and tells you to re-run this script. Assert on what landed. The gate owns the
