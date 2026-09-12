@@ -96,7 +96,11 @@ void kernel_main() {
 
     bool slot_dirty[2] = {false, false};
 
-    const uint32_t NtNt = Nt * Nt;
+    // Tiles in ONE destination channel plane. The destination is [1, C, D1, N] and its two
+    // spatial axes are separate numbers: D1 is the permuted axis, N the last one. Nt*Nt is that
+    // product only when the move is square, which every whole-tensor move and every row block is
+    // and a row slab is not. Computed once, outside the loop.
+    const uint32_t plane_tiles = ((D1 + TILE_HEIGHT - 1) / TILE_HEIGHT) * Nt;
     const uint32_t NtCt = Nt * Ct;
     const uint32_t end_group = start_group + num_groups;
     for (uint32_t group = start_group; group < end_group; ++group) {
@@ -139,7 +143,7 @@ void kernel_main() {
         const uint32_t rows_hi = rows_valid > FACE_HEIGHT ? rows_valid - FACE_HEIGHT : 0;
 
         // Channel plane ct*32 + c lives at page (ct*32 + c) * Nt*Nt + it*Nt + jt.
-        uint32_t out_page = page_base + ct * TILE_HEIGHT * NtNt;
+        uint32_t out_page = page_base + ct * TILE_HEIGHT * plane_tiles;
         {
             cb_wait_front(cb_id_in, TILE_HEIGHT);
             const uint32_t group_l1_base = get_read_ptr(cb_id_in);
@@ -185,9 +189,9 @@ void kernel_main() {
                 noc_async_read_barrier();  // drain the L1->L1 gather before the DRAM write
 
                 // One aligned, contiguous 2KB tile write to DRAM page
-                //   page = (ct*32 + c) * Nt*Nt + it*Nt + jt, walked as an induction variable.
+                //   page = (ct*32 + c) * plane_tiles + it*Nt + jt, an induction variable.
                 noc_async_write(stage_base, s.get_noc_addr(out_page), tile_bytes);
-                out_page += NtNt;
+                out_page += plane_tiles;
                 slot_dirty[slot] = true;
             }
 

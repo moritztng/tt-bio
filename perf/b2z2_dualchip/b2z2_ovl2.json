@@ -1,0 +1,9 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "cores_compute": 88,
+  "cores_ccl": 22,
+  "error": "RuntimeError: No core coordinate found at location: (0, 16, TENSIX, LOGICAL)"
+}

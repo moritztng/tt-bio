@@ -1,0 +1,103 @@
+{
+ "mode": "mesh",
+ "reps": 5,
+ "card": "2,3",
+ "protocol": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0
+ },
+ "diffusion_trace": true,
+ "benchlocked": true,
+ "model_load_s": 3.36,
+ "device": "MeshDevice(1x2 grid, 2 devices)",
+ "n_devices": 2,
+ "core_grid_main": "ttnn.CoreGrid(x=11, y=10)",
+ "trace_region_size": 1073741824,
+ "cold_s": 21.239,
+ "reps_done": [
+  {
+   "fold_s": 19.3473,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9466,
+    "sampler_end": 5.5107,
+    "end": 1.1737,
+    "trunk_s": 11.7164
+   }
+  },
+  {
+   "fold_s": 19.7091,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9285,
+    "sampler_end": 5.6594,
+    "end": 1.4448,
+    "trunk_s": 11.6766
+   }
+  },
+  {
+   "fold_s": 19.6708,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9904,
+    "sampler_end": 5.6456,
+    "end": 1.2311,
+    "trunk_s": 11.8038
+   }
+  },
+  {
+   "fold_s": 19.775,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9826,
+    "sampler_end": 5.7602,
+    "end": 1.2227,
+    "trunk_s": 11.8096
+   }
+  },
+  {
+   "fold_s": 19.7693,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9823,
+    "sampler_end": 5.8226,
+    "end": 1.2279,
+    "trunk_s": 11.7366
+   }
+  }
+ ],
+ "summary": {
+  "median_s": 19.7091,
+  "min_s": 19.3473,
+  "max_s": 19.775,
+  "plddt": [
+   null
+  ],
+  "cif_sha256": [
+   "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+  ],
+  "cif_sha256_16": [
+   "dd1c2a12f97772fb"
+  ],
+  "bit_identical_across_reps": true,
+  "trunk_s_median": 11.7366
+ }
+}

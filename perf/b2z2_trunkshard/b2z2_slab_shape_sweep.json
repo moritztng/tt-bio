@@ -1,0 +1,1801 @@
+{
+  "arch": "Arch.WORMHOLE_B0",
+  "lengths": [
+    {
+      "S": 128,
+      "tiles": 4,
+      "slabs": [
+        [
+          0,
+          64
+        ],
+        [
+          64,
+          128
+        ]
+      ],
+      "slab_tiles": [
+        2,
+        2
+      ],
+      "balance_ceiling": 2.0,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.890625,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.21875,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 1.015625,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              0,
+              1
+            ],
+            "sdpa_picks": {
+              "(128, 128)": [
+                null,
+                [
+                  128,
+                  128,
+                  "stock"
+                ]
+              ]
+            },
+            "sdpa_routes": {
+              "stock": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              0,
+              2
+            ],
+            "sdpa_routes": {
+              "stock": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 1.0390625,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              0,
+              1
+            ],
+            "sdpa_routes": {
+              "stock": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              0,
+              2
+            ],
+            "sdpa_picks": {
+              "(64, 128)": [
+                null,
+                [
+                  64,
+                  128,
+                  "stock"
+                ]
+              ]
+            },
+            "sdpa_routes": {
+              "stock": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.828125,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": true
+    },
+    {
+      "S": 160,
+      "tiles": 5,
+      "slabs": [
+        [
+          0,
+          96
+        ],
+        [
+          96,
+          160
+        ]
+      ],
+      "slab_tiles": [
+        3,
+        2
+      ],
+      "balance_ceiling": 1.6666666666666667,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.75,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.84375,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.98046875,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(160, 160)": [
+                null,
+                [
+                  160,
+                  160,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              0,
+              2
+            ],
+            "sdpa_picks": {
+              "(160, 160)": [
+                [
+                  160,
+                  160,
+                  "fused"
+                ],
+                [
+                  160,
+                  160,
+                  "stock"
+                ]
+              ]
+            },
+            "sdpa_routes": {
+              "stock": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 1.1328125,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(160, 160)": [
+                [
+                  160,
+                  160,
+                  "stock"
+                ],
+                [
+                  160,
+                  160,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(96, 160)": [
+                null,
+                [
+                  96,
+                  160,
+                  "fused"
+                ]
+              ],
+              "(64, 160)": [
+                null,
+                [
+                  64,
+                  160,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.828125,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": true
+    },
+    {
+      "S": 192,
+      "tiles": 6,
+      "slabs": [
+        [
+          0,
+          96
+        ],
+        [
+          96,
+          192
+        ]
+      ],
+      "slab_tiles": [
+        3,
+        3
+      ],
+      "balance_ceiling": 2.0,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.375,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.96875,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.93359375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(192, 192)": [
+                null,
+                [
+                  192,
+                  192,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              0,
+              2
+            ],
+            "sdpa_picks": {
+              "(192, 192)": [
+                [
+                  192,
+                  192,
+                  "fused"
+                ],
+                [
+                  192,
+                  192,
+                  "stock"
+                ]
+              ]
+            },
+            "sdpa_routes": {
+              "stock": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.99609375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(192, 192)": [
+                [
+                  192,
+                  192,
+                  "stock"
+                ],
+                [
+                  192,
+                  192,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(96, 192)": [
+                null,
+                [
+                  96,
+                  192,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.828125,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": true
+    },
+    {
+      "S": 224,
+      "tiles": 7,
+      "slabs": [
+        [
+          0,
+          128
+        ],
+        [
+          128,
+          224
+        ]
+      ],
+      "slab_tiles": [
+        4,
+        3
+      ],
+      "balance_ceiling": 1.75,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.09375,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.46875,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.9609375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(224, 224)": [
+                null,
+                [
+                  224,
+                  224,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.90234375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(128, 224)": [
+                null,
+                [
+                  128,
+                  224,
+                  "fused"
+                ]
+              ],
+              "(96, 224)": [
+                null,
+                [
+                  96,
+                  224,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.828125,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": true
+    },
+    {
+      "S": 256,
+      "tiles": 8,
+      "slabs": [
+        [
+          0,
+          128
+        ],
+        [
+          128,
+          256
+        ]
+      ],
+      "slab_tiles": [
+        4,
+        4
+      ],
+      "balance_ceiling": 2.0,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.34375,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.21875,
+          "picks_whole": {},
+          "picks_slab": {}
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.859375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(256, 256)": [
+                null,
+                [
+                  256,
+                  256,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.8984375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(128, 256)": [
+                null,
+                [
+                  128,
+                  256,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.828125,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": true
+    },
+    {
+      "S": 288,
+      "tiles": 9,
+      "slabs": [
+        [
+          0,
+          160
+        ],
+        [
+          160,
+          288
+        ]
+      ],
+      "slab_tiles": [
+        5,
+        4
+      ],
+      "balance_ceiling": 1.8,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.40625,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.15625,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {}
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.94921875,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              0,
+              3
+            ],
+            "sdpa_picks": {
+              "(288, 288)": [
+                null,
+                [
+                  288,
+                  64,
+                  "stock"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "stock": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              0,
+              6
+            ],
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "stock": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": false,
+          "max_abs_diff": 0.50341796875,
+          "mean_abs_diff": 0.0012175394222140312,
+          "frac_differing": 0.8793044855565201,
+          "ref_abs_max": 0.93359375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              0,
+              3
+            ],
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "stock": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              0,
+              2
+            ],
+            "sdpa_picks": {
+              "(160, 288)": [
+                null,
+                [
+                  160,
+                  256,
+                  "stock"
+                ]
+              ],
+              "(128, 288)": [
+                null,
+                [
+                  128,
+                  256,
+                  "stock"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "stock": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.828125,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": false
+    },
+    {
+      "S": 320,
+      "tiles": 10,
+      "slabs": [
+        [
+          0,
+          160
+        ],
+        [
+          160,
+          320
+        ]
+      ],
+      "slab_tiles": [
+        5,
+        5
+      ],
+      "balance_ceiling": 2.0,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.34375,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.90625,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {}
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.93359375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(320, 320)": [
+                null,
+                [
+                  320,
+                  64,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": false,
+          "max_abs_diff": 0.013671875,
+          "mean_abs_diff": 0.0009390083723701537,
+          "frac_differing": 0.8469851684570312,
+          "ref_abs_max": 0.93359375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(160, 320)": [
+                null,
+                [
+                  160,
+                  160,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.828125,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": false
+    },
+    {
+      "S": 384,
+      "tiles": 12,
+      "slabs": [
+        [
+          0,
+          192
+        ],
+        [
+          192,
+          384
+        ]
+      ],
+      "slab_tiles": [
+        6,
+        6
+      ],
+      "balance_ceiling": 2.0,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.6875,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.375,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {}
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.90234375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(384, 384)": [
+                null,
+                [
+                  384,
+                  64,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": false,
+          "max_abs_diff": 1.003662109375,
+          "mean_abs_diff": 0.0009027458727359772,
+          "frac_differing": 0.8498122957017686,
+          "ref_abs_max": 0.8984375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(192, 384)": [
+                null,
+                [
+                  192,
+                  192,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.828125,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": false
+    },
+    {
+      "S": 448,
+      "tiles": 14,
+      "slabs": [
+        [
+          0,
+          224
+        ],
+        [
+          224,
+          448
+        ]
+      ],
+      "slab_tiles": [
+        7,
+        7
+      ],
+      "balance_ceiling": 2.0,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.59375,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.9375,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {}
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.875,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(448, 448)": [
+                null,
+                [
+                  448,
+                  224,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.81640625,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(224, 448)": [
+                null,
+                [
+                  224,
+                  224,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.828125,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": true
+    },
+    {
+      "S": 512,
+      "tiles": 16,
+      "slabs": [
+        [
+          0,
+          256
+        ],
+        [
+          256,
+          512
+        ]
+      ],
+      "slab_tiles": [
+        8,
+        8
+      ],
+      "balance_ceiling": 2.0,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.875,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.875,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.98828125,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(512, 512)": [
+                null,
+                [
+                  512,
+                  256,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 1.0546875,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(256, 512)": [
+                null,
+                [
+                  256,
+                  256,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.921875,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": true
+    },
+    {
+      "S": 576,
+      "tiles": 18,
+      "slabs": [
+        [
+          0,
+          288
+        ],
+        [
+          288,
+          576
+        ]
+      ],
+      "slab_tiles": [
+        9,
+        9
+      ],
+      "balance_ceiling": 2.0,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.84375,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.78125,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.88671875,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "sdpa_picks": {
+              "(576, 576)": [
+                null,
+                [
+                  576,
+                  192,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.99609375,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              0
+            ],
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(288, 576)": [
+                null,
+                [
+                  288,
+                  192,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.921875,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": true
+    },
+    {
+      "S": 640,
+      "tiles": 20,
+      "slabs": [
+        [
+          0,
+          320
+        ],
+        [
+          320,
+          640
+        ]
+      ],
+      "slab_tiles": [
+        10,
+        10
+      ],
+      "balance_ceiling": 2.0,
+      "ops": {
+        "trimul_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 4.75,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "trimul_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 14.1875,
+          "picks_whole": {
+            "_reblock": [
+              2,
+              0
+            ]
+          },
+          "picks_slab": {
+            "_reblock": [
+              4,
+              0
+            ]
+          }
+        },
+        "triatt_start": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 1.0546875,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              1
+            ],
+            "sdpa_picks": {
+              "(640, 640)": [
+                null,
+                [
+                  320,
+                  160,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              2
+            ],
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "triatt_end": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 0.9140625,
+          "picks_whole": {
+            "_triatt_sdpa": [
+              1,
+              1
+            ],
+            "_triatt_qkv": [
+              1,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 1
+            }
+          },
+          "picks_slab": {
+            "_triatt_sdpa": [
+              2,
+              0
+            ],
+            "sdpa_picks": {
+              "(320, 640)": [
+                null,
+                [
+                  320,
+                  160,
+                  "fused"
+                ]
+              ]
+            },
+            "_triatt_qkv": [
+              2,
+              0
+            ],
+            "sdpa_routes": {
+              "fused": 2
+            }
+          }
+        },
+        "transition_z": {
+          "bit_exact": true,
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "frac_differing": 0.0,
+          "ref_abs_max": 3.921875,
+          "picks_whole": {},
+          "picks_slab": {}
+        }
+      },
+      "all_bit_exact": true
+    }
+  ]
+}

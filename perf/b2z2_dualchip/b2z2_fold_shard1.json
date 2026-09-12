@@ -1,0 +1,120 @@
+{
+ "mode": "mesh",
+ "reps": 5,
+ "card": "2,3",
+ "protocol": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0
+ },
+ "diffusion_trace": true,
+ "benchlocked": true,
+ "loadavg_at_start": [
+  "3.14",
+  "5.99",
+  "7.70"
+ ],
+ "model_load_s": 4.72,
+ "device": "MeshDevice(1x2 grid, 2 devices)",
+ "n_devices": 2,
+ "core_grid_main": "ttnn.CoreGrid(x=11, y=10)",
+ "trace_region_size": 1073741824,
+ "cold_s": 21.988,
+ "reps_done": [
+  {
+   "fold_s": 20.8888,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.1301,
+    "sampler_end": 6.5083,
+    "end": 1.1801,
+    "trunk_s": 12.0704
+   }
+  },
+  {
+   "fold_s": 20.3131,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.2618,
+    "sampler_end": 5.7599,
+    "end": 1.4912,
+    "trunk_s": 11.8002
+   }
+  },
+  {
+   "fold_s": 21.5353,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.2355,
+    "sampler_end": 6.668,
+    "end": 1.516,
+    "trunk_s": 12.1167
+   }
+  },
+  {
+   "fold_s": 21.8033,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.314,
+    "sampler_end": 6.8802,
+    "end": 1.5063,
+    "trunk_s": 12.1028
+   }
+  },
+  {
+   "fold_s": 20.1173,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.0507,
+    "sampler_end": 5.5527,
+    "end": 1.3024,
+    "trunk_s": 12.2115
+   }
+  }
+ ],
+ "summary": {
+  "median_s": 20.8888,
+  "min_s": 20.1173,
+  "max_s": 21.8033,
+  "plddt": [
+   null
+  ],
+  "cif_sha256": [
+   "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+  ],
+  "cif_sha256_16": [
+   "dd1c2a12f97772fb"
+  ],
+  "bit_identical_across_reps": true,
+  "trunk_s_median": 12.1028
+ },
+ "config_rungs": {
+  "_L1_OUT_RUNG": 0,
+  "_BMM_CFG_RUNG": 0,
+  "_BMM_CFG_REFUSED": 0,
+  "_OPM_JOIN_REFUSED": 0
+ },
+ "config_rungs_detail": {
+  "_L1_OUT_RUNG": [],
+  "_BMM_CFG_RUNG": [],
+  "_BMM_CFG_REFUSED": [],
+  "_OPM_JOIN_REFUSED": []
+ }
+}
