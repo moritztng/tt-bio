@@ -1,0 +1,66 @@
+{
+ "graph_attn_pair_bias_512": {
+  "n_ops": 33,
+  "dram_r": 54212,
+  "dram_w": 20112,
+  "l1_r": 49152,
+  "l1_w": 53248,
+  "tile_passes": 176724
+ },
+ "graph_block_512": {
+  "n_ops": 418,
+  "dram_r": 1702428,
+  "dram_w": 1762640,
+  "l1_r": 640896,
+  "l1_w": 1039552,
+  "tile_passes": 5145516
+ },
+ "graph_transition_s_512": {
+  "n_ops": 8,
+  "dram_r": 2136,
+  "dram_w": 192,
+  "l1_r": 1920,
+  "l1_w": 3264,
+  "tile_passes": 7512
+ },
+ "graph_transition_z_512": {
+  "n_ops": 258,
+  "dram_r": 133256,
+  "dram_w": 98304,
+  "l1_r": 327680,
+  "l1_w": 557056,
+  "tile_passes": 1116296
+ },
+ "graph_tri_att_end_512": {
+  "n_ops": 27,
+  "dram_r": 272492,
+  "dram_w": 305152,
+  "l1_r": 65536,
+  "l1_w": 65536,
+  "tile_passes": 708716
+ },
+ "graph_tri_att_start_512": {
+  "n_ops": 25,
+  "dram_r": 272492,
+  "dram_w": 305152,
+  "l1_r": 0,
+  "l1_w": 0,
+  "tile_passes": 577644
+ },
+ "graph_tri_mul_end_512": {
+  "n_ops": 27,
+  "dram_r": 434800,
+  "dram_w": 401920,
+  "l1_r": 65536,
+  "l1_w": 131072,
+  "tile_passes": 1033328
+ },
+ "graph_tri_mul_start_512": {
+  "n_ops": 25,
+  "dram_r": 434544,
+  "dram_w": 401664,
+  "l1_r": 65536,
+  "l1_w": 131072,
+  "tile_passes": 1032816
+ }
+}

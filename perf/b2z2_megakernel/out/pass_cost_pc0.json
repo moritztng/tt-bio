@@ -1,0 +1,41 @@
+{
+ "grid": [
+  13,
+  10
+ ],
+ "cores": 130,
+ "reps": 20,
+ "ttnn": "0.68.0",
+ "when": "2026-09-12T16:46:32+0200",
+ "aa_floor_pct": 19.571,
+ "rows": [
+  {
+   "case": "multiply_ hid L1",
+   "ms": 0.0486,
+   "passes": 12288,
+   "ns_per_pass_per_core": 514.21,
+   "spread_pct": 127.3
+  },
+  {
+   "case": "multiply_ nar L1",
+   "ms": 0.0331,
+   "passes": 3072,
+   "ns_per_pass_per_core": 1402.26,
+   "spread_pct": 25.67
+  },
+  {
+   "case": "multiply_ hid DRAM",
+   "ms": 0.098,
+   "passes": 12288,
+   "ns_per_pass_per_core": 1036.43,
+   "spread_pct": 24.33
+  },
+  {
+   "case": "add_ z DRAM (residual)",
+   "ms": 0.4984,
+   "passes": 98304,
+   "ns_per_pass_per_core": 659.12,
+   "spread_pct": 2.24
+  }
+ ]
+}

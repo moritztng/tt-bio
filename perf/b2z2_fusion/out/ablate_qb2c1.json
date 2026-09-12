@@ -1,0 +1,83 @@
+{
+ "block": [
+  8,
+  2,
+  2,
+  2,
+  2
+ ],
+ "grid": [
+  11,
+  8
+ ],
+ "inner": 32,
+ "reps": 9,
+ "parts": {
+  "linear_silu": {
+   "ms": 0.11432,
+   "spread_pct": 0.64
+  },
+  "linear_plain": {
+   "ms": 0.02663,
+   "spread_pct": 1.46
+  },
+  "multiply_alone": {
+   "ms": 0.02692,
+   "spread_pct": 2.04
+  },
+  "generic_matmul": {
+   "ms": 0.02775,
+   "spread_pct": 0.91
+  }
+ },
+ "rows": [
+  {
+   "round": 2,
+   "mul_batch": 1,
+   "incumbent_ms": 0.16634,
+   "fused_ms": 0.1622,
+   "ratio": 1.0255,
+   "pcc": 0.9999982714653015,
+   "max_abs": 0.00390625,
+   "epilogue_upper_ms": 0.1067,
+   "spread_pct": 0.96,
+   "per_transition_call_delta_ms": 0.1324
+  },
+  {
+   "round": 2,
+   "mul_batch": 2,
+   "incumbent_ms": 0.16636,
+   "fused_ms": 0.16224,
+   "ratio": 1.0254,
+   "pcc": 0.9999982714653015,
+   "max_abs": 0.00390625,
+   "epilogue_upper_ms": 0.10674,
+   "spread_pct": 1.32,
+   "per_transition_call_delta_ms": 0.1317
+  },
+  {
+   "round": 0,
+   "mul_batch": 1,
+   "incumbent_ms": 0.16662,
+   "fused_ms": 0.14909,
+   "ratio": 1.1176,
+   "pcc": 0.9999982118606567,
+   "max_abs": 0.00390625,
+   "epilogue_upper_ms": 0.09359,
+   "spread_pct": 1.19,
+   "per_transition_call_delta_ms": 0.5611
+  },
+  {
+   "round": 0,
+   "mul_batch": 2,
+   "incumbent_ms": 0.16743,
+   "fused_ms": 0.14799,
+   "ratio": 1.1314,
+   "pcc": 0.9999982118606567,
+   "max_abs": 0.00390625,
+   "epilogue_upper_ms": 0.09249,
+   "spread_pct": 0.85,
+   "per_transition_call_delta_ms": 0.6222
+  }
+ ]
+}

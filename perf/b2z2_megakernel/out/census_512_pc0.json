@@ -1,0 +1,1951 @@
+{
+ "env": {
+  "started": "2026-09-12T16:42:34+0200",
+  "host": "pc",
+  "card": "0",
+  "commit": "b82a5f03",
+  "size": 512,
+  "sampling_steps": 4,
+  "ttnn": "0.68.0",
+  "hardware": "blackhole",
+  "grid": [
+   13,
+   10
+  ],
+  "card_type": "p150a"
+ },
+ "grabbed_on_call": 5,
+ "shapes": {
+  "s": [
+   1,
+   512,
+   384
+  ],
+  "z": [
+   1,
+   512,
+   512,
+   128
+  ],
+  "s_dtype": "DataType.BFLOAT16",
+  "z_dtype": "DataType.BFLOAT16",
+  "hidden_z": [
+   128,
+   512
+  ],
+  "hidden_s": [
+   384,
+   1536
+  ]
+ },
+ "stages": {
+  "block": {
+   "n_ops": 418,
+   "tiles_r": 1702428,
+   "tiles_w": 1762640,
+   "tile_passes": 3465068,
+   "MB": 7096.459,
+   "non_tile_bytes": 0,
+   "per_op": [
+    {
+     "i": 3,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 131072,
+     "tiles_w": 131072,
+     "tiles": 262144,
+     "MB": 536.871
+    },
+    {
+     "i": 31,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 131072,
+     "tiles_w": 131072,
+     "tiles": 262144,
+     "MB": 536.871
+    },
+    {
+     "i": 13,
+     "op": "ttnn.matmul",
+     "tiles_r": 98304,
+     "tiles_w": 32768,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 41,
+     "op": "ttnn.matmul",
+     "tiles_r": 98304,
+     "tiles_w": 32768,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 75,
+     "op": "ttnn.multiply_",
+     "tiles_r": 65536,
+     "tiles_w": 65536,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 81,
+     "op": "ttnn.add_",
+     "tiles_r": 65536,
+     "tiles_w": 65536,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 103,
+     "op": "ttnn.multiply_",
+     "tiles_r": 65536,
+     "tiles_w": 65536,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 370,
+     "op": "ttnn.add_",
+     "tiles_r": 65536,
+     "tiles_w": 65536,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 0,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 65544,
+     "tiles_w": 32768,
+     "tiles": 98312,
+     "MB": 201.343
+    },
+    {
+     "i": 19,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 65544,
+     "tiles_w": 32768,
+     "tiles": 98312,
+     "MB": 201.343
+    },
+    {
+     "i": 27,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 65544,
+     "tiles_w": 32768,
+     "tiles": 98312,
+     "MB": 201.343
+    },
+    {
+     "i": 48,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 65544,
+     "tiles_w": 32768,
+     "tiles": 98312,
+     "MB": 201.343
+    },
+    {
+     "i": 112,
+     "op": "ttnn.chunk",
+     "tiles_r": 65536,
+     "tiles_w": 32768,
+     "tiles": 98304,
+     "MB": 201.327
+    },
+    {
+     "i": 12,
+     "op": "ttnn.multiply_",
+     "tiles_r": 33024,
+     "tiles_w": 33024,
+     "tiles": 66048,
+     "MB": 135.266
+    },
+    {
+     "i": 40,
+     "op": "ttnn.multiply_",
+     "tiles_r": 33024,
+     "tiles_w": 33024,
+     "tiles": 66048,
+     "MB": 135.266
+    },
+    {
+     "i": 57,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 32776,
+     "tiles_w": 32768,
+     "tiles": 65544,
+     "MB": 134.234
+    },
+    {
+     "i": 9,
+     "op": "ttnn.transpose",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 25,
+     "op": "ttnn.add_",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 35,
+     "op": "ttnn.transpose",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 54,
+     "op": "ttnn.add_",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 61,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 62,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 63,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 89,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 90,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 91,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 105,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 110,
+     "op": "ttnn.add_",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 369,
+     "op": "ttnn.concat",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 58,
+     "op": "ttnn.linear",
+     "tiles_r": 32772,
+     "tiles_w": 8192,
+     "tiles": 40964,
+     "MB": 83.894
+    },
+    {
+     "i": 86,
+     "op": "ttnn.linear",
+     "tiles_r": 32772,
+     "tiles_w": 8192,
+     "tiles": 40964,
+     "MB": 83.894
+    },
+    {
+     "i": 85,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 8,
+     "tiles_w": 32768,
+     "tiles": 32776,
+     "MB": 67.125
+    },
+    {
+     "i": 5,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 7,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 16,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 33,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 37,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 44,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 65,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 69,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 77,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 93,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 97,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 1,
+     "op": "ttnn.unsqueeze",
+     "tiles_r": 8192,
+     "tiles_w": 8192,
+     "tiles": 16384,
+     "MB": 33.554
+    },
+    {
+     "i": 28,
+     "op": "ttnn.unsqueeze",
+     "tiles_r": 8192,
+     "tiles_w": 8192,
+     "tiles": 16384,
+     "MB": 33.554
+    },
+    {
+     "i": 60,
+     "op": "ttnn.permute",
+     "tiles_r": 8192,
+     "tiles_w": 1024,
+     "tiles": 9216,
+     "MB": 18.874
+    },
+    {
+     "i": 88,
+     "op": "ttnn.permute",
+     "tiles_r": 8192,
+     "tiles_w": 1024,
+     "tiles": 9216,
+     "MB": 18.874
+    },
+    {
+     "i": 386,
+     "op": "ttnn.add_",
+     "tiles_r": 4096,
+     "tiles_w": 4096,
+     "tiles": 8192,
+     "MB": 16.777
+    },
+    {
+     "i": 387,
+     "op": "ttnn.multiply_",
+     "tiles_r": 4096,
+     "tiles_w": 4096,
+     "tiles": 8192,
+     "MB": 16.777
+    },
+    {
+     "i": 388,
+     "op": "ttnn.softmax",
+     "tiles_r": 4096,
+     "tiles_w": 4096,
+     "tiles": 8192,
+     "MB": 16.777
+    },
+    {
+     "i": 384,
+     "op": "ttnn.matmul",
+     "tiles_r": 512,
+     "tiles_w": 4096,
+     "tiles": 4608,
+     "MB": 9.437
+    },
+    {
+     "i": 390,
+     "op": "ttnn.matmul",
+     "tiles_r": 4352,
+     "tiles_w": 256,
+     "tiles": 4608,
+     "MB": 9.437
+    },
+    {
+     "i": 68,
+     "op": "ttnn.add",
+     "tiles_r": 2064,
+     "tiles_w": 1024,
+     "tiles": 3088,
+     "MB": 6.324
+    },
+    {
+     "i": 96,
+     "op": "ttnn.add",
+     "tiles_r": 2064,
+     "tiles_w": 1024,
+     "tiles": 3088,
+     "MB": 6.324
+    },
+    {
+     "i": 373,
+     "op": "ttnn.linear",
+     "tiles_r": 816,
+     "tiles_w": 768,
+     "tiles": 1584,
+     "MB": 3.244
+    },
+    {
+     "i": 375,
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "tiles_r": 768,
+     "tiles_w": 768,
+     "tiles": 1536,
+     "MB": 3.146
+    },
+    {
+     "i": 119,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 127,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 135,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 143,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 151,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 159,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 167,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 175,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 183,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 191,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 199,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 207,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 215,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 223,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 231,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 239,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 247,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 255,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 263,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 271,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 279,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 287,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 295,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 303,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 311,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 319,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 327,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 335,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 343,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 351,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 359,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 367,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 397,
+     "op": "ttnn.permute",
+     "tiles_r": 512,
+     "tiles_w": 256,
+     "tiles": 768,
+     "MB": 1.573
+    },
+    {
+     "i": 406,
+     "op": "ttnn.add_",
+     "tiles_r": 384,
+     "tiles_w": 384,
+     "tiles": 768,
+     "MB": 1.573
+    },
+    {
+     "i": 414,
+     "op": "ttnn.linear",
+     "tiles_r": 576,
+     "tiles_w": 192,
+     "tiles": 768,
+     "MB": 1.573
+    },
+    {
+     "i": 416,
+     "op": "ttnn.add_",
+     "tiles_r": 384,
+     "tiles_w": 384,
+     "tiles": 768,
+     "MB": 1.573
+    },
+    {
+     "i": 401,
+     "op": "ttnn.multiply",
+     "tiles_r": 384,
+     "tiles_w": 192,
+     "tiles": 576,
+     "MB": 1.18
+    },
+    {
+     "i": 400,
+     "op": "ttnn.linear",
+     "tiles_r": 336,
+     "tiles_w": 192,
+     "tiles": 528,
+     "MB": 1.081
+    },
+    {
+     "i": 403,
+     "op": "ttnn.linear",
+     "tiles_r": 336,
+     "tiles_w": 192,
+     "tiles": 528,
+     "MB": 1.081
+    },
+    {
+     "i": 30,
+     "op": "ttnn.transpose",
+     "tiles_r": 256,
+     "tiles_w": 256,
+     "tiles": 512,
+     "MB": 1.049
+    },
+    {
+     "i": 383,
+     "op": "ttnn.transpose",
+     "tiles_r": 256,
+     "tiles_w": 256,
+     "tiles": 512,
+     "MB": 1.049
+    },
+    {
+     "i": 396,
+     "op": "ttnn.slice",
+     "tiles_r": 256,
+     "tiles_w": 256,
+     "tiles": 512,
+     "MB": 1.049
+    },
+    {
+     "i": 372,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 216,
+     "tiles_w": 192,
+     "tiles": 408,
+     "MB": 0.836
+    },
+    {
+     "i": 399,
+     "op": "ttnn.permute",
+     "tiles_r": 192,
+     "tiles_w": 192,
+     "tiles": 384,
+     "MB": 0.786
+    },
+    {
+     "i": 398,
+     "op": "ttnn.reshape",
+     "tiles_r": 0,
+     "tiles_w": 192,
+     "tiles": 192,
+     "MB": 0.393
+    },
+    {
+     "i": 382,
+     "op": "ttnn.add_",
+     "tiles_r": 16,
+     "tiles_w": 16,
+     "tiles": 32,
+     "MB": 0.066
+    }
+   ],
+   "by_op_name": {
+    "ttnn.allocate_tensor_on_device": {
+     "n": 20,
+     "tiles": 1343488
+    },
+    "ttnn.layer_norm": {
+     "n": 7,
+     "tiles": 491976
+    },
+    "ttnn.add_": {
+     "n": 9,
+     "tiles": 468512
+    },
+    "ttnn.multiply_": {
+     "n": 5,
+     "tiles": 402432
+    },
+    "ttnn.matmul": {
+     "n": 4,
+     "tiles": 271360
+    },
+    "ttnn.transpose": {
+     "n": 4,
+     "tiles": 132096
+    },
+    "ttnn.linear": {
+     "n": 38,
+     "tiles": 120152
+    },
+    "ttnn.chunk": {
+     "n": 1,
+     "tiles": 98304
+    },
+    "ttnn.concat": {
+     "n": 1,
+     "tiles": 65536
+    },
+    "ttnn.unsqueeze": {
+     "n": 2,
+     "tiles": 32768
+    },
+    "ttnn.permute": {
+     "n": 4,
+     "tiles": 19584
+    },
+    "ttnn.softmax": {
+     "n": 1,
+     "tiles": 8192
+    },
+    "ttnn.add": {
+     "n": 2,
+     "tiles": 6176
+    },
+    "ttnn.experimental.nlp_create_qkv_heads": {
+     "n": 1,
+     "tiles": 1536
+    },
+    "ttnn.multiply": {
+     "n": 1,
+     "tiles": 576
+    },
+    "ttnn.slice": {
+     "n": 1,
+     "tiles": 512
+    },
+    "ttnn.reshape": {
+     "n": 1,
+     "tiles": 192
+    }
+   },
+   "device_ms": 35.8512
+  },
+  "tri_mul_start": {
+   "n_ops": 25,
+   "tiles_r": 434544,
+   "tiles_w": 401664,
+   "tile_passes": 836208,
+   "MB": 1712.554,
+   "non_tile_bytes": 0,
+   "per_op": [
+    {
+     "i": 3,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 131072,
+     "tiles_w": 131072,
+     "tiles": 262144,
+     "MB": 536.871
+    },
+    {
+     "i": 13,
+     "op": "ttnn.matmul",
+     "tiles_r": 98304,
+     "tiles_w": 32768,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 0,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 65544,
+     "tiles_w": 32768,
+     "tiles": 98312,
+     "MB": 201.343
+    },
+    {
+     "i": 19,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 65544,
+     "tiles_w": 32768,
+     "tiles": 98312,
+     "MB": 201.343
+    },
+    {
+     "i": 12,
+     "op": "ttnn.multiply_",
+     "tiles_r": 33024,
+     "tiles_w": 33024,
+     "tiles": 66048,
+     "MB": 135.266
+    },
+    {
+     "i": 9,
+     "op": "ttnn.transpose",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 5,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 7,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 16,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 1,
+     "op": "ttnn.unsqueeze",
+     "tiles_r": 8192,
+     "tiles_w": 8192,
+     "tiles": 16384,
+     "MB": 33.554
+    }
+   ],
+   "by_op_name": {
+    "ttnn.allocate_tensor_on_device": {
+     "n": 4,
+     "tiles": 360448
+    },
+    "ttnn.layer_norm": {
+     "n": 2,
+     "tiles": 196624
+    },
+    "ttnn.matmul": {
+     "n": 1,
+     "tiles": 131072
+    },
+    "ttnn.multiply_": {
+     "n": 1,
+     "tiles": 66048
+    },
+    "ttnn.transpose": {
+     "n": 1,
+     "tiles": 65536
+    },
+    "ttnn.unsqueeze": {
+     "n": 1,
+     "tiles": 16384
+    }
+   },
+   "device_ms": 8.3525
+  },
+  "tri_mul_end": {
+   "n_ops": 27,
+   "tiles_r": 434800,
+   "tiles_w": 401920,
+   "tile_passes": 836720,
+   "MB": 1713.603,
+   "non_tile_bytes": 0,
+   "per_op": [
+    {
+     "i": 4,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 131072,
+     "tiles_w": 131072,
+     "tiles": 262144,
+     "MB": 536.871
+    },
+    {
+     "i": 14,
+     "op": "ttnn.matmul",
+     "tiles_r": 98304,
+     "tiles_w": 32768,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 0,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 65544,
+     "tiles_w": 32768,
+     "tiles": 98312,
+     "MB": 201.343
+    },
+    {
+     "i": 21,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 65544,
+     "tiles_w": 32768,
+     "tiles": 98312,
+     "MB": 201.343
+    },
+    {
+     "i": 13,
+     "op": "ttnn.multiply_",
+     "tiles_r": 33024,
+     "tiles_w": 33024,
+     "tiles": 66048,
+     "MB": 135.266
+    },
+    {
+     "i": 8,
+     "op": "ttnn.transpose",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 6,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 10,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 17,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 1,
+     "op": "ttnn.unsqueeze",
+     "tiles_r": 8192,
+     "tiles_w": 8192,
+     "tiles": 16384,
+     "MB": 33.554
+    },
+    {
+     "i": 3,
+     "op": "ttnn.transpose",
+     "tiles_r": 256,
+     "tiles_w": 256,
+     "tiles": 512,
+     "MB": 1.049
+    }
+   ],
+   "by_op_name": {
+    "ttnn.allocate_tensor_on_device": {
+     "n": 4,
+     "tiles": 360448
+    },
+    "ttnn.layer_norm": {
+     "n": 2,
+     "tiles": 196624
+    },
+    "ttnn.matmul": {
+     "n": 1,
+     "tiles": 131072
+    },
+    "ttnn.multiply_": {
+     "n": 1,
+     "tiles": 66048
+    },
+    "ttnn.transpose": {
+     "n": 2,
+     "tiles": 66048
+    },
+    "ttnn.unsqueeze": {
+     "n": 1,
+     "tiles": 16384
+    }
+   },
+   "device_ms": 8.3617
+  },
+  "tri_att_start": {
+   "n_ops": 25,
+   "tiles_r": 272492,
+   "tiles_w": 305152,
+   "tile_passes": 577644,
+   "MB": 1183.015,
+   "non_tile_bytes": 0,
+   "per_op": [
+    {
+     "i": 19,
+     "op": "ttnn.multiply_",
+     "tiles_r": 65536,
+     "tiles_w": 65536,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 1,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 32776,
+     "tiles_w": 32768,
+     "tiles": 65544,
+     "MB": 134.234
+    },
+    {
+     "i": 5,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 6,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 7,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 21,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 2,
+     "op": "ttnn.linear",
+     "tiles_r": 32772,
+     "tiles_w": 8192,
+     "tiles": 40964,
+     "MB": 83.894
+    },
+    {
+     "i": 9,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 13,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 4,
+     "op": "ttnn.permute",
+     "tiles_r": 8192,
+     "tiles_w": 1024,
+     "tiles": 9216,
+     "MB": 18.874
+    },
+    {
+     "i": 12,
+     "op": "ttnn.add",
+     "tiles_r": 2064,
+     "tiles_w": 1024,
+     "tiles": 3088,
+     "MB": 6.324
+    }
+   ],
+   "by_op_name": {
+    "ttnn.allocate_tensor_on_device": {
+     "n": 6,
+     "tiles": 327680
+    },
+    "ttnn.multiply_": {
+     "n": 1,
+     "tiles": 131072
+    },
+    "ttnn.layer_norm": {
+     "n": 1,
+     "tiles": 65544
+    },
+    "ttnn.linear": {
+     "n": 1,
+     "tiles": 40964
+    },
+    "ttnn.permute": {
+     "n": 1,
+     "tiles": 9216
+    },
+    "ttnn.add": {
+     "n": 1,
+     "tiles": 3088
+    }
+   },
+   "device_ms": 4.1414
+  },
+  "tri_att_end": {
+   "n_ops": 27,
+   "tiles_r": 272492,
+   "tiles_w": 305152,
+   "tile_passes": 577644,
+   "MB": 1183.015,
+   "non_tile_bytes": 0,
+   "per_op": [
+    {
+     "i": 20,
+     "op": "ttnn.multiply_",
+     "tiles_r": 65536,
+     "tiles_w": 65536,
+     "tiles": 131072,
+     "MB": 268.435
+    },
+    {
+     "i": 6,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 7,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 8,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 22,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 32768,
+     "tiles_w": 32768,
+     "tiles": 65536,
+     "MB": 134.218
+    },
+    {
+     "i": 3,
+     "op": "ttnn.linear",
+     "tiles_r": 32772,
+     "tiles_w": 8192,
+     "tiles": 40964,
+     "MB": 83.894
+    },
+    {
+     "i": 2,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 8,
+     "tiles_w": 32768,
+     "tiles": 32776,
+     "MB": 67.125
+    },
+    {
+     "i": 10,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 14,
+     "op": "ttnn.allocate_tensor_on_device",
+     "tiles_r": 0,
+     "tiles_w": 32768,
+     "tiles": 32768,
+     "MB": 67.109
+    },
+    {
+     "i": 5,
+     "op": "ttnn.permute",
+     "tiles_r": 8192,
+     "tiles_w": 1024,
+     "tiles": 9216,
+     "MB": 18.874
+    },
+    {
+     "i": 13,
+     "op": "ttnn.add",
+     "tiles_r": 2064,
+     "tiles_w": 1024,
+     "tiles": 3088,
+     "MB": 6.324
+    }
+   ],
+   "by_op_name": {
+    "ttnn.allocate_tensor_on_device": {
+     "n": 6,
+     "tiles": 327680
+    },
+    "ttnn.multiply_": {
+     "n": 1,
+     "tiles": 131072
+    },
+    "ttnn.linear": {
+     "n": 1,
+     "tiles": 40964
+    },
+    "ttnn.layer_norm": {
+     "n": 1,
+     "tiles": 32776
+    },
+    "ttnn.permute": {
+     "n": 1,
+     "tiles": 9216
+    },
+    "ttnn.add": {
+     "n": 1,
+     "tiles": 3088
+    }
+   },
+   "device_ms": 5.1388
+  },
+  "transition_z": {
+   "n_ops": 258,
+   "tiles_r": 133256,
+   "tiles_w": 98304,
+   "tile_passes": 231560,
+   "MB": 474.235,
+   "non_tile_bytes": 0,
+   "per_op": [
+    {
+     "i": 0,
+     "op": "ttnn.chunk",
+     "tiles_r": 65536,
+     "tiles_w": 32768,
+     "tiles": 98304,
+     "MB": 201.327
+    },
+    {
+     "i": 257,
+     "op": "ttnn.concat",
+     "tiles_r": 65536,
+     "tiles_w": 32768,
+     "tiles": 98304,
+     "MB": 201.327
+    },
+    {
+     "i": 7,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 15,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 23,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 31,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 39,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 47,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 55,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 63,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 71,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 79,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 87,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 95,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 103,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 111,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 119,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 127,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 135,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 143,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 151,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 159,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 167,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 175,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 183,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 191,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 199,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 207,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 215,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 223,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 231,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 239,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 247,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    },
+    {
+     "i": 255,
+     "op": "ttnn.linear",
+     "tiles_r": 64,
+     "tiles_w": 1024,
+     "tiles": 1088,
+     "MB": 2.228
+    }
+   ],
+   "by_op_name": {
+    "ttnn.chunk": {
+     "n": 1,
+     "tiles": 98304
+    },
+    "ttnn.concat": {
+     "n": 1,
+     "tiles": 98304
+    },
+    "ttnn.linear": {
+     "n": 32,
+     "tiles": 34816
+    }
+   },
+   "device_ms": 6.9705
+  },
+  "attn_pair_bias": {
+   "n_ops": 33,
+   "tiles_r": 54212,
+   "tiles_w": 20112,
+   "tile_passes": 74324,
+   "MB": 152.216,
+   "non_tile_bytes": 0,
+   "per_op": [
+    {
+     "i": 14,
+     "op": "ttnn.add_",
+     "tiles_r": 4096,
+     "tiles_w": 4096,
+     "tiles": 8192,
+     "MB": 16.777
+    },
+    {
+     "i": 15,
+     "op": "ttnn.multiply_",
+     "tiles_r": 4096,
+     "tiles_w": 4096,
+     "tiles": 8192,
+     "MB": 16.777
+    },
+    {
+     "i": 16,
+     "op": "ttnn.softmax",
+     "tiles_r": 4096,
+     "tiles_w": 4096,
+     "tiles": 8192,
+     "MB": 16.777
+    },
+    {
+     "i": 12,
+     "op": "ttnn.matmul",
+     "tiles_r": 512,
+     "tiles_w": 4096,
+     "tiles": 4608,
+     "MB": 9.437
+    },
+    {
+     "i": 18,
+     "op": "ttnn.matmul",
+     "tiles_r": 4352,
+     "tiles_w": 256,
+     "tiles": 4608,
+     "MB": 9.437
+    },
+    {
+     "i": 1,
+     "op": "ttnn.linear",
+     "tiles_r": 816,
+     "tiles_w": 768,
+     "tiles": 1584,
+     "MB": 3.244
+    },
+    {
+     "i": 3,
+     "op": "ttnn.experimental.nlp_create_qkv_heads",
+     "tiles_r": 768,
+     "tiles_w": 768,
+     "tiles": 1536,
+     "MB": 3.146
+    },
+    {
+     "i": 24,
+     "op": "ttnn.permute",
+     "tiles_r": 512,
+     "tiles_w": 256,
+     "tiles": 768,
+     "MB": 1.573
+    },
+    {
+     "i": 30,
+     "op": "ttnn.linear",
+     "tiles_r": 528,
+     "tiles_w": 192,
+     "tiles": 720,
+     "MB": 1.475
+    },
+    {
+     "i": 28,
+     "op": "ttnn.multiply",
+     "tiles_r": 384,
+     "tiles_w": 192,
+     "tiles": 576,
+     "MB": 1.18
+    },
+    {
+     "i": 27,
+     "op": "ttnn.linear",
+     "tiles_r": 336,
+     "tiles_w": 192,
+     "tiles": 528,
+     "MB": 1.081
+    },
+    {
+     "i": 11,
+     "op": "ttnn.transpose",
+     "tiles_r": 256,
+     "tiles_w": 256,
+     "tiles": 512,
+     "MB": 1.049
+    },
+    {
+     "i": 23,
+     "op": "ttnn.Tensor.__getitem__",
+     "tiles_r": 256,
+     "tiles_w": 256,
+     "tiles": 512,
+     "MB": 1.049
+    },
+    {
+     "i": 0,
+     "op": "ttnn.layer_norm",
+     "tiles_r": 216,
+     "tiles_w": 192,
+     "tiles": 408,
+     "MB": 0.836
+    },
+    {
+     "i": 26,
+     "op": "ttnn.permute",
+     "tiles_r": 192,
+     "tiles_w": 192,
+     "tiles": 384,
+     "MB": 0.786
+    },
+    {
+     "i": 25,
+     "op": "ttnn.reshape",
+     "tiles_r": 0,
+     "tiles_w": 192,
+     "tiles": 192,
+     "MB": 0.393
+    },
+    {
+     "i": 10,
+     "op": "ttnn.add_",
+     "tiles_r": 16,
+     "tiles_w": 16,
+     "tiles": 32,
+     "MB": 0.066
+    }
+   ],
+   "by_op_name": {
+    "ttnn.matmul": {
+     "n": 2,
+     "tiles": 9216
+    },
+    "ttnn.add_": {
+     "n": 2,
+     "tiles": 8224
+    },
+    "ttnn.multiply_": {
+     "n": 1,
+     "tiles": 8192
+    },
+    "ttnn.softmax": {
+     "n": 1,
+     "tiles": 8192
+    },
+    "ttnn.linear": {
+     "n": 3,
+     "tiles": 2832
+    },
+    "ttnn.experimental.nlp_create_qkv_heads": {
+     "n": 1,
+     "tiles": 1536
+    },
+    "ttnn.permute": {
+     "n": 2,
+     "tiles": 1152
+    },
+    "ttnn.multiply": {
+     "n": 1,
+     "tiles": 576
+    },
+    "ttnn.transpose": {
+     "n": 1,
+     "tiles": 512
+    },
+    "ttnn.Tensor.__getitem__": {
+     "n": 1,
+     "tiles": 512
+    },
+    "ttnn.layer_norm": {
+     "n": 1,
+     "tiles": 408
+    },
+    "ttnn.reshape": {
+     "n": 1,
+     "tiles": 192
+    }
+   },
+   "device_ms": 0.9708
+  },
+  "transition_s": {
+   "n_ops": 8,
+   "tiles_r": 2136,
+   "tiles_w": 192,
+   "tile_passes": 2328,
+   "MB": 4.768,
+   "non_tile_bytes": 0,
+   "per_op": [
+    {
+     "i": 6,
+     "op": "ttnn.linear",
+     "tiles_r": 768,
+     "tiles_w": 192,
+     "tiles": 960,
+     "MB": 1.966
+    }
+   ],
+   "by_op_name": {
+    "ttnn.linear": {
+     "n": 1,
+     "tiles": 960
+    }
+   },
+   "device_ms": 0.0741
+  }
+ }
+}

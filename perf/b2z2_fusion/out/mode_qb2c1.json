@@ -1,0 +1,55 @@
+{
+ "block": [
+  8,
+  2,
+  2,
+  2,
+  2
+ ],
+ "grid": [
+  11,
+  8
+ ],
+ "inner": 32,
+ "reps": 9,
+ "arms": {
+  "incumbent": {
+   "ms": 0.16672,
+   "ratio_vs_incumbent": 1.0,
+   "spread_pct": 0.81
+  },
+  "incumbent_aa": {
+   "ms": 0.16677,
+   "ratio_vs_incumbent": 0.9997,
+   "spread_pct": 0.5
+  },
+  "r2_b1_m0": {
+   "ms": 0.16299,
+   "ratio_vs_incumbent": 1.0229,
+   "spread_pct": 1.49,
+   "pcc": 0.9999982714653015,
+   "max_abs": 0.00390625
+  },
+  "r2_b2_m1": {
+   "ms": 0.15519,
+   "ratio_vs_incumbent": 1.0743,
+   "spread_pct": 1.39,
+   "pcc": 0.9999982714653015,
+   "max_abs": 0.00390625
+  },
+  "r2_b4_m1": {
+   "ms": 0.1552,
+   "ratio_vs_incumbent": 1.0742,
+   "spread_pct": 1.0,
+   "pcc": 0.9999982714653015,
+   "max_abs": 0.00390625
+  },
+  "r0_b4_m1": {
+   "ms": 0.14206,
+   "ratio_vs_incumbent": 1.1736,
+   "spread_pct": 1.08,
+   "pcc": 0.9999982118606567,
+   "max_abs": 0.00390625
+  }
+ }
+}

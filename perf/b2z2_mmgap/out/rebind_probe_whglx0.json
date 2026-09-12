@@ -1,0 +1,52 @@
+{
+ "block": [
+  8,
+  2,
+  1,
+  4,
+  1
+ ],
+ "grid": [
+  8,
+  8
+ ],
+ "inner": 32,
+ "reps": 9,
+ "pcc_checks": {
+  "rebuild": [
+   0.99999923,
+   0.99999923,
+   0.99999923,
+   0.99999923
+  ],
+  "mutate": [
+   0.99999923,
+   0.99999923,
+   0.99999923,
+   0.99999923
+  ]
+ },
+ "mutate_correct": true,
+ "arms": {
+  "linear": {
+   "ms": 0.07507,
+   "vs_linear": 1.0,
+   "spread_pct": 0.71
+  },
+  "stable_out": {
+   "ms": 0.06929,
+   "vs_linear": 1.0833,
+   "spread_pct": 2.25
+  },
+  "fresh_rebuild": {
+   "ms": 0.06968,
+   "vs_linear": 1.0773,
+   "spread_pct": 1.7
+  },
+  "fresh_mutate": {
+   "ms": 0.06985,
+   "vs_linear": 1.0746,
+   "spread_pct": 1.82
+  }
+ }
+}
