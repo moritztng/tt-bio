@@ -1,0 +1,166 @@
+{
+ "env": {
+  "started": "2026-09-12T19:23:09+0000",
+  "card": "10",
+  "mode": "both",
+  "size": 512,
+  "commit": "27413206",
+  "ttnn": "/home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/__init__.py",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "10",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-step-layout-elision",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "6.48",
+   "6.61",
+   "6.29"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3
+ },
+ "precursor_s": 21.423,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "eligible_sites": {
+  "n": 96,
+  "widths": {
+   "(16, 24, 32)": 72,
+   "(16, 48, 64)": 24
+  }
+ },
+ "parity": {
+  "aa_base_deterministic": true,
+  "bit_exact": false,
+  "max_abs": 0.234375,
+  "shape": [
+   1,
+   4480,
+   3
+  ],
+  "negative_control_differs": true,
+  "negative_control_max_abs": 0.234375
+ },
+ "ab": {
+  "ms_off": 41.5622,
+  "ms_on": 40.5192,
+  "ratio": 1.02574,
+  "delta_ms_per_step": 1.0429,
+  "aa_floor": 0.99998,
+  "spread_pct": {
+   "off": 0.067,
+   "on": 0.107
+  },
+  "walls": {
+   "off": [
+    41.5608,
+    41.5622,
+    41.5421,
+    41.57,
+    41.5622
+   ],
+   "on": [
+    40.5192,
+    40.5142,
+    40.5464,
+    40.503,
+    40.5316
+   ]
+  },
+  "order": [
+   [
+    "off",
+    41.5608
+   ],
+   [
+    "on",
+    40.5192
+   ],
+   [
+    "on",
+    40.5142
+   ],
+   [
+    "off",
+    41.5622
+   ],
+   [
+    "off",
+    41.5421
+   ],
+   [
+    "on",
+    40.5464
+   ],
+   [
+    "on",
+    40.503
+   ],
+   [
+    "off",
+    41.57
+   ],
+   [
+    "off",
+    41.5622
+   ],
+   [
+    "on",
+    40.5316
+   ]
+  ],
+  "reps": 10,
+  "blocks": 5
+ }
+}

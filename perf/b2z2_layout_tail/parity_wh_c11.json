@@ -1,0 +1,111 @@
+{
+ "env": {
+  "started": "2026-09-12T19:31:22+0000",
+  "card": "11",
+  "mode": "parity",
+  "size": 512,
+  "commit": "fef37c0e",
+  "ttnn": "/home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/__init__.py",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "10,11",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-step-layout-elision",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "16.51",
+   "13.20",
+   "9.36"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3
+ },
+ "precursor_s": 23.916,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "eligible_sites": {
+  "n": 24,
+  "widths": {
+   "(16, 48, 64)": 24
+  }
+ },
+ "one_block": {
+  "shape": [
+   1,
+   512,
+   768
+  ],
+  "max_abs": 0.001953125,
+  "mean_abs": 6.2703761614102405e-06,
+  "rms_of_output": 0.067074,
+  "max_rel_to_rms": 0.029118786373628962,
+  "frac_elements_differing": 0.0594838447868824,
+  "bf16_ulp_at_max": 0.00640869140625
+ },
+ "parity": {
+  "aa_base_deterministic": true,
+  "bit_exact": false,
+  "max_abs": 0.234375,
+  "mean_abs": 0.017304977402091026,
+  "max_coord_abs": 1.1875,
+  "bf16_ulp_at_max_coord": 0.004638671875,
+  "frac_elements_differing": 0.8829613327980042,
+  "shape": [
+   1,
+   4480,
+   3
+  ],
+  "negative_control_differs": true,
+  "negative_control_max_abs": 0.234375
+ }
+}
