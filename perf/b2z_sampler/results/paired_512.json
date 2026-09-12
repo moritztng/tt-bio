@@ -1,5 +1,336 @@
 {
- "runs": [],
+ "runs": [
+  {
+   "rep": 0,
+   "steps": 200,
+   "recycles": 3,
+   "fold_s": 42.434,
+   "loadavg": [
+    "22.05",
+    "48.67",
+    "101.36"
+   ]
+  },
+  {
+   "rep": 0,
+   "steps": 100,
+   "recycles": 3,
+   "fold_s": 36.903,
+   "loadavg": [
+    "24.45",
+    "46.04",
+    "98.25"
+   ]
+  },
+  {
+   "rep": 0,
+   "steps": 50,
+   "recycles": 3,
+   "fold_s": 34.756,
+   "loadavg": [
+    "24.16",
+    "43.46",
+    "95.45"
+   ]
+  },
+  {
+   "rep": 0,
+   "steps": 25,
+   "recycles": 3,
+   "fold_s": 33.554,
+   "loadavg": [
+    "16.55",
+    "39.77",
+    "92.57"
+   ]
+  },
+  {
+   "rep": 0,
+   "steps": 50,
+   "recycles": 2,
+   "fold_s": 28.114,
+   "loadavg": [
+    "13.79",
+    "36.94",
+    "89.95"
+   ]
+  },
+  {
+   "rep": 0,
+   "steps": 200,
+   "recycles": 2,
+   "fold_s": 34.776,
+   "loadavg": [
+    "9.72",
+    "33.36",
+    "86.79"
+   ]
+  },
+  {
+   "rep": 1,
+   "steps": 200,
+   "recycles": 3,
+   "fold_s": 41.96,
+   "loadavg": [
+    "14.03",
+    "31.41",
+    "83.87"
+   ]
+  },
+  {
+   "rep": 1,
+   "steps": 100,
+   "recycles": 3,
+   "fold_s": 36.698,
+   "loadavg": [
+    "12.65",
+    "28.81",
+    "80.78"
+   ]
+  },
+  {
+   "rep": 1,
+   "steps": 50,
+   "recycles": 3,
+   "fold_s": 34.586,
+   "loadavg": [
+    "12.46",
+    "26.89",
+    "78.21"
+   ]
+  },
+  {
+   "rep": 1,
+   "steps": 25,
+   "recycles": 3,
+   "fold_s": 33.479,
+   "loadavg": [
+    "11.20",
+    "25.20",
+    "76.01"
+   ]
+  },
+  {
+   "rep": 1,
+   "steps": 50,
+   "recycles": 2,
+   "fold_s": 28.338,
+   "loadavg": [
+    "10.15",
+    "23.59",
+    "73.86"
+   ]
+  },
+  {
+   "rep": 1,
+   "steps": 200,
+   "recycles": 2,
+   "fold_s": 34.699,
+   "loadavg": [
+    "11.12",
+    "22.24",
+    "71.54"
+   ]
+  },
+  {
+   "rep": 2,
+   "steps": 200,
+   "recycles": 3,
+   "fold_s": 41.269,
+   "loadavg": [
+    "13.66",
+    "21.51",
+    "69.22"
+   ]
+  },
+  {
+   "rep": 2,
+   "steps": 100,
+   "recycles": 3,
+   "fold_s": 37.845,
+   "loadavg": [
+    "20.42",
+    "21.79",
+    "67.27"
+   ]
+  },
+  {
+   "rep": 2,
+   "steps": 50,
+   "recycles": 3,
+   "fold_s": 35.972,
+   "loadavg": [
+    "19.55",
+    "21.19",
+    "65.37"
+   ]
+  },
+  {
+   "rep": 2,
+   "steps": 25,
+   "recycles": 3,
+   "fold_s": 33.629,
+   "loadavg": [
+    "24.16",
+    "21.99",
+    "64.00"
+   ]
+  },
+  {
+   "rep": 2,
+   "steps": 50,
+   "recycles": 2,
+   "fold_s": 29.321,
+   "loadavg": [
+    "19.46",
+    "21.11",
+    "62.59"
+   ]
+  },
+  {
+   "rep": 2,
+   "steps": 200,
+   "recycles": 2,
+   "fold_s": 34.535,
+   "loadavg": [
+    "15.17",
+    "19.93",
+    "60.67"
+   ]
+  },
+  {
+   "rep": 3,
+   "steps": 200,
+   "recycles": 3,
+   "fold_s": 41.806,
+   "loadavg": [
+    "12.49",
+    "18.63",
+    "58.30"
+   ]
+  },
+  {
+   "rep": 3,
+   "steps": 100,
+   "recycles": 3,
+   "fold_s": 113.881,
+   "loadavg": [
+    "160.85",
+    "66.83",
+    "70.83"
+   ]
+  },
+  {
+   "rep": 3,
+   "steps": 50,
+   "recycles": 3,
+   "fold_s": 111.479,
+   "loadavg": [
+    "193.51",
+    "107.56",
+    "85.10"
+   ]
+  },
+  {
+   "rep": 3,
+   "steps": 25,
+   "recycles": 3,
+   "fold_s": 52.904,
+   "loadavg": [
+    "167.20",
+    "115.01",
+    "88.89"
+   ]
+  },
+  {
+   "rep": 3,
+   "steps": 50,
+   "recycles": 2,
+   "fold_s": 74.022,
+   "loadavg": [
+    "159.27",
+    "124.20",
+    "94.12"
+   ]
+  },
+  {
+   "rep": 3,
+   "steps": 200,
+   "recycles": 2,
+   "fold_s": 43.222,
+   "loadavg": [
+    "96.25",
+    "113.19",
+    "91.87"
+   ]
+  },
+  {
+   "rep": 4,
+   "steps": 200,
+   "recycles": 3,
+   "fold_s": 49.416,
+   "loadavg": [
+    "58.26",
+    "100.25",
+    "88.59"
+   ]
+  },
+  {
+   "rep": 4,
+   "steps": 100,
+   "recycles": 3,
+   "fold_s": 36.73,
+   "loadavg": [
+    "40.85",
+    "91.24",
+    "86.00"
+   ]
+  },
+  {
+   "rep": 4,
+   "steps": 50,
+   "recycles": 3,
+   "fold_s": 34.372,
+   "loadavg": [
+    "26.95",
+    "82.25",
+    "83.19"
+   ]
+  },
+  {
+   "rep": 4,
+   "steps": 25,
+   "recycles": 3,
+   "fold_s": 33.326,
+   "loadavg": [
+    "25.27",
+    "75.54",
+    "80.90"
+   ]
+  },
+  {
+   "rep": 4,
+   "steps": 50,
+   "recycles": 2,
+   "fold_s": 28.013,
+   "loadavg": [
+    "21.66",
+    "70.66",
+    "79.14"
+   ]
+  },
+  {
+   "rep": 4,
+   "steps": 200,
+   "recycles": 2,
+   "fold_s": 34.914,
+   "loadavg": [
+    "22.11",
+    "65.27",
+    "77.02"
+   ]
+  }
+ ],
  "env": {
   "host": "j10glx02",
   "card": "7",
@@ -43,5 +374,62 @@
   "card_type": "tt-galaxy-wh-l",
   "aiclk_mhz": "1000"
  },
- "cold_s": 48.742
+ "cold_s": 48.742,
+ "summary": {
+  "incumbent": {
+   "steps": 200,
+   "recycles": 3,
+   "median_s": 41.96,
+   "s": [
+    42.434,
+    41.96,
+    41.269,
+    41.806,
+    49.416
+   ],
+   "aa_floor_pct": 19.416
+  },
+  "arms": [
+   {
+    "steps": 100,
+    "recycles": 3,
+    "n": 5,
+    "median_s": 36.903,
+    "speedup_x": 1.137,
+    "seconds_removed": 5.057
+   },
+   {
+    "steps": 50,
+    "recycles": 3,
+    "n": 5,
+    "median_s": 34.756,
+    "speedup_x": 1.2073,
+    "seconds_removed": 7.204
+   },
+   {
+    "steps": 25,
+    "recycles": 3,
+    "n": 5,
+    "median_s": 33.554,
+    "speedup_x": 1.2505,
+    "seconds_removed": 8.406
+   },
+   {
+    "steps": 50,
+    "recycles": 2,
+    "n": 5,
+    "median_s": 28.338,
+    "speedup_x": 1.4807,
+    "seconds_removed": 13.622
+   },
+   {
+    "steps": 200,
+    "recycles": 2,
+    "n": 5,
+    "median_s": 34.776,
+    "speedup_x": 1.2066,
+    "seconds_removed": 7.184
+   }
+  ]
+ }
 }
