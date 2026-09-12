@@ -4788,8 +4788,12 @@ def pwa_l1_row_block(depth: int, tokens: int, c_m: int) -> int:
 
     Returns ``depth`` when the whole tensor already fits (nothing to block, the single-shot path
     is L1-resident as it stands) and when the part will not report a budget. A property of the
-    shape and the grid, never of a model: `PairWeightedAveraging` is shared with protenix-v2 and
-    openfold3 and they get the same rule at their own shapes.
+    shape and the grid, never of a model: `PairWeightedAveraging` is shared with protenix-v2
+    (`protenix.py`) and openfold3 (`openfold3_msa_embedder.py`) and they get the same rule at
+    their own shapes. MEASURED over seven of those shapes (`perf/b2z2_msa_move/shared_class_leg.py`):
+    bit-exact on all seven, and it blocks on only two of them -- 1024 rows x 512 tokens, which is
+    where both boltz2 and openfold3 sit at 512 aa. At 384 or 768 tokens, or at 512 rows, the whole
+    normed tensor already fits and the rule returns ``depth``.
 
     MEASURED, Wormhole, 1024 padded rows x 512 tokens x c_m 64 (perf/b2z2_msa_move): the rule
     picks 512 rows, and 512 is the arm that wins a 7-arm sweep -- 1.02583x and 1.02634x on the
