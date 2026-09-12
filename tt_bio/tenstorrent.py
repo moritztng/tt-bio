@@ -1176,22 +1176,6 @@ _B2_BIAS_SLICE_HOIST = env_flag("BOLTZ2_BIAS_SLICE_HOIST", True)
 # whole rollout and clash with a later op's circular buffers.
 _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 
-# The AdaLN conditioning norm has a weight and no bias, so
-#
-#     layer_norm(s, weight=w) @ W  ==  layer_norm(s) @ (diag(w) W)
-#
-# exactly. Folding diag(w) into the s_scale / s_bias projections at load time makes every AdaLN
-# read the SAME unweighted norm of s, and a stack that hands all its AdaLNs one s (the diffusion
-# transformer does: 24 token layers, 2 AdaLNs each, one conditioning tensor) then computes that
-# norm once instead of 48 times. Measured on the committed step capture: 100 of the 114 LayerNorm
-# programs are [1,1,512,768], 30.21 us each, and they run on 16 cores of 72 -- one core per tile
-# row -- so each is nearly all launch. 48 of them are this norm.
-#
-# OFF by default: the fold is not bit-exact (it moves one bf16 rounding from `sn*w` onto `w*W`),
-# so it is an accuracy change and release-gated, even though the off-fold screen has it CLOSER to
-# an fp32 reference than the shipped path (0.003423 vs 0.003723 relative mean error).
-_B2_ADALN_S_NORM_FOLD = env_flag("BOLTZ2_ADALN_S_NORM_FOLD", False)
-
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
 # ON by default since 2026-09-11: **1.0522x on the 512 aa fold**, 1.170x on the diffusion
@@ -8349,18 +8333,11 @@ class AdaLN(Module):
         self._s_memo = None
         self._s_memo_src = None
         self.s_norm_weight = self.torch_to_tt("s_norm.weight", dtype=dtype)
-        # `s_norm` scales the normed s by w before either projection reads it, so w can live in
-        # the projection weights instead. Folded here, `s_terms` needs only an UNWEIGHTED norm of
-        # s, which is the same tensor for every AdaLN a stack hands the same s to.
-        self.s_norm_folded = _B2_ADALN_S_NORM_FOLD
-        fold = ((lambda w: (lambda W: W.t() * w[:, None]))(self.weights["s_norm.weight"].float())
-                if self.s_norm_folded else (lambda W: W.t()))
-        self.s_scale_weight = self.torch_to_tt("s_scale.weight", transform=fold, dtype=dtype)
+        self.s_scale_weight = self.torch_to_tt("s_scale.weight", dtype=dtype)
         self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
-        self.s_bias_weight = self.torch_to_tt("s_bias.weight", transform=fold, dtype=dtype)
+        self.s_bias_weight = self.torch_to_tt("s_bias.weight", dtype=dtype)
 
-    def s_terms(self, s: ttnn.Tensor, large_seq_len: bool = False,
-                s_normed: ttnn.Tensor | None = None):
+    def s_terms(self, s: ttnn.Tensor, large_seq_len: bool = False):
         """``(s_scale, s_bias)``: the conditioning half, a pure function of ``s``.
 
         Split out so a caller whose ``s`` is a loop invariant computes it once instead of
@@ -8376,18 +8353,14 @@ class AdaLN(Module):
         # circular buffers ... clash with L1 buffers` in the confidence stack downstream.
         s_src = s
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
-        if self.s_norm_folded and s_normed is not None:
-            # The caller already normed this s for the whole stack; w is in the weights below.
-            s = s_normed
-        else:
-            if self.atom_level:
-                s = ttnn.to_memory_config(s, memory_config=memory_config)
-            s = ttnn.layer_norm(
-                s,
-                epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
-                **({} if self.s_norm_folded else {"weight": self.s_norm_weight}),
-            )
+        if self.atom_level:
+            s = ttnn.to_memory_config(s, memory_config=memory_config)
+        s = ttnn.layer_norm(
+            s,
+            weight=self.s_norm_weight,
+            epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+        )
         s_scale = ttnn.linear(
             s,
             self.s_scale_weight,
@@ -8417,7 +8390,7 @@ class AdaLN(Module):
         return s_scale, s_bias
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
-                 s_terms=None, s_normed: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                 s_terms=None) -> ttnn.Tensor:
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
@@ -8426,7 +8399,7 @@ class AdaLN(Module):
         )
         own = s_terms is None
         if own:
-            s_terms = self.s_terms(s, large_seq_len, s_normed=s_normed)
+            s_terms = self.s_terms(s, large_seq_len)
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
@@ -8468,10 +8441,9 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
     def __call__(
-        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
-        s_normed: ttnn.Tensor | None = None,
+        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False
     ) -> ttnn.Tensor:
-        a = self.adaln(a, s, large_seq_len=large_seq_len, s_normed=s_normed)
+        a = self.adaln(a, s, large_seq_len=large_seq_len)
         a_swish = ttnn.linear(
             a,
             self.swish_weight,
@@ -8574,9 +8546,8 @@ class DiffusionTransformerLayer(Module):
         z: ttnn.Tensor,
         keys_indexing: ttnn.Tensor | None = None,
         large_seq_len: bool = False,
-        s_normed: ttnn.Tensor | None = None,
     ) -> ttnn.Tensor:
-        b = self.adaln(a, s, large_seq_len=large_seq_len, s_normed=s_normed)
+        b = self.adaln(a, s, large_seq_len=large_seq_len)
         if not self.atom_level:
             b = self.attn_pair_bias(b, z)
         else:
@@ -8599,11 +8570,11 @@ class DiffusionTransformerLayer(Module):
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
             # absorbs the attention output
-            a_t = self.transition(a, s, large_seq_len=large_seq_len, s_normed=s_normed)
+            a_t = self.transition(a, s, large_seq_len=large_seq_len)
             a = ttnn.add(ttnn.add(a, b), a_t)
         else:
             a = ttnn.add(a, b)
-            a_t = self.transition(a, s, large_seq_len=large_seq_len, s_normed=s_normed)
+            a_t = self.transition(a, s, large_seq_len=large_seq_len)
             a = ttnn.add(a, a_t)
         return a
 
@@ -8622,7 +8593,6 @@ class DiffusionTransformer(Module):
         fp32_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
-        self.atom_level = atom_level
         self.layers = [
             DiffusionTransformerLayer(
                 dim,
@@ -8645,38 +8615,22 @@ class DiffusionTransformer(Module):
         keys_indexing: ttnn.Tensor | None = None,
         large_seq_len: bool = False,
     ) -> ttnn.Tensor:
-        # Every layer's two AdaLNs norm the same `s`, and once diag(s_norm.weight) is folded into
-        # their projections that norm carries no per-layer weight, so the whole stack shares one.
-        # 2 * n_layers programs become 1.
-        # Not when the stack memoises its conditioning already (the atom encoder/decoder do: their
-        # `s` is t-independent, so `s_terms` runs once per FOLD). Norming there would add a program
-        # per step to save none.
-        share = _B2_ADALN_S_NORM_FOLD and not (self.atom_level and _B2_ADALN_S_MEMO)
-        s_normed = (ttnn.layer_norm(s, epsilon=1e-5,
-                                    compute_kernel_config=self.compute_kernel_config)
-                    if share else None)
-        try:
-            if isinstance(z, (list, tuple)):
-                # L7: the head-ranges were cut once per fold (AtomDiffusion._hoist_layer_bias),
-                # because z is constant across the whole denoise rollout.
-                for layer, z_layer in zip(self.layers, z):
-                    a = layer(a, s, z_layer, keys_indexing, large_seq_len=large_seq_len,
-                              s_normed=s_normed)
-                return a
-            dim = z.shape[1] // len(self.layers)
-            for i, layer in enumerate(self.layers):
-                a = layer(
-                    a,
-                    s,
-                    z[:, i * dim : (i + 1) * dim, :, :],
-                    keys_indexing,
-                    large_seq_len=large_seq_len,
-                    s_normed=s_normed,
-                )
+        if isinstance(z, (list, tuple)):
+            # L7: the head-ranges were cut once per fold (AtomDiffusion._hoist_layer_bias),
+            # because z is constant across the whole denoise rollout.
+            for layer, z_layer in zip(self.layers, z):
+                a = layer(a, s, z_layer, keys_indexing, large_seq_len=large_seq_len)
             return a
-        finally:
-            if s_normed is not None:
-                ttnn.deallocate(s_normed)
+        dim = z.shape[1] // len(self.layers)
+        for i, layer in enumerate(self.layers):
+            a = layer(
+                a,
+                s,
+                z[:, i * dim : (i + 1) * dim, :, :],
+                keys_indexing,
+                large_seq_len=large_seq_len,
+            )
+        return a
 
 
 class PairWeightedAveraging(Module):
