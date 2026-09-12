@@ -94,12 +94,52 @@ def main() -> int:
 
     dev, g = SP.grab_step(ttnn, T, B, a.size, a.keep_blocks)
     out["env"]["grid"] = str(T.CORE_GRID_MAIN)
-    ki = g["kwargs"].get("keys_indexing") or (g["args"][5] if len(g["args"]) > 5 else None)
-    out["env"]["shift_sentinel"] = isinstance(ki, T._AtomShiftGather)
+    ki = next((x for x in list(g["args"]) + list(g["kwargs"].values())
+               if isinstance(x, T._AtomShiftGather)), None)
+    out["env"]["shift_sentinel"] = ki is not None
     out["env"]["shift_windows"] = getattr(ki, "windows", None)
 
     def step():
         return g["obj"](*g["args"], **g["kwargs"])
+
+    if a.parity and ki is not None:
+        # Decisive: both constructions claim to BE the one-hot gather. Score each of the three
+        # against the gather written out in float32 from the very matrix the fold cached, at the
+        # production shape, so "bit-exact" is measured against the definition and not against
+        # whichever arm happened to run first.
+        m = ttnn.to_torch(ki.matrix).float()
+        while m.dim() > 2:
+            m = m[0]
+        rows, cols = m.shape
+        K, W, D = rows // 2, T.ATOM_WINDOW, T.ATOM_DIM
+        src = torch.randn(1, K, W, D // 2, dtype=torch.bfloat16)
+        ref = (src.reshape(1, 2 * K, W // 2, -1).permute(0, 2, 3, 1).float() @ m)
+        ref = ref.permute(0, 3, 1, 2).reshape(1, K, -1, src.shape[3])
+        st_ = ttnn.from_torch(src, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16, device=dev)
+        got = {}
+        plan = T._atom_window_plan(st_.shape, ki.matrix)
+        got["window"] = ttnn.to_torch(T._atom_window_gather(st_, plan)).float() if plan else None
+        got["shift"] = ttnn.to_torch(T._atom_shift_gather(st_, ki.windows)).float()
+        mm = ttnn.matmul(ttnn.permute(ttnn.reshape(st_, (1, 2 * K, W // 2, -1)), (0, 2, 3, 1)),
+                         ki.matrix, core_grid=T.CORE_GRID_MAIN)
+        got["onehot"] = ttnn.to_torch(
+            ttnn.reshape(ttnn.permute(mm, (0, 3, 1, 2)), (1, K, -1, src.shape[3]))).float()
+        gc = {"windows": int(ki.windows), "K": K, "windows_lt_K": int(ki.windows) < K,
+              "matrix_shape": [rows, cols], "plan": plan is not None}
+        for k, v in got.items():
+            if v is None:
+                gc[k] = None
+                continue
+            v = v[:, :, :ref.shape[2], :ref.shape[3]]
+            gc[k] = {"bit_exact_vs_definition": bool(torch.equal(v, ref)),
+                     "max_abs": float((v - ref).abs().max()),
+                     "n_differing_rows": int((v - ref).abs().amax(dim=(0, 3)).gt(0).sum()),
+                     "first_differing_window": (
+                         int((v - ref).abs().amax(dim=(0, 2, 3)).gt(0).nonzero()[0])
+                         if not torch.equal(v, ref) else None)}
+        out["gather_check"] = gc
+        print("GATHER_CHECK", json.dumps(gc, indent=1), flush=True)
+        a.out.write_text(json.dumps(out, indent=1))
 
     if a.parity:
         ref, stats = {}, {}
