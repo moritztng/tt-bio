@@ -5773,8 +5773,9 @@ class TriangleMultiplication(Module):
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
                     a_chunk = b_chunk = None
                     # `_gated_rowblocked` builds `a` AND `b` from one row pass over one weight,
-                    # which is the one thing a slab cannot do (they read different inputs), and it
-                    # ends in the same square-destination move `gated` declines below.
+                    # which is the one thing a slab cannot do: they read different inputs, so the
+                    # slab's two halves are two matmuls and a matmul takes one weight. The fused
+                    # move below is not the obstacle any more -- it serves a slab too.
                     if (_TRIMUL_INPROJ_ROWBLOCK and row_slab is None and not _FAST_MODE
                             and not row_norm
                             and not _TRIMUL_RAW_CHANNEL_MOVES
@@ -5815,22 +5816,25 @@ class TriangleMultiplication(Module):
                         # `mask_moved is not None` means the mask has been moved past the channel
                         # move and no longer sits between the gate and it, so it no longer blocks the
                         # fused pair. Without the flag this is the condition it always was.
+                        # A row slab used to decline the fused move outright, on two
+                        # preconditions that were both addressing and neither arithmetic: the
+                        # kernel wrote a SQUARE destination, and it read ONE four-role projection.
+                        # The destination is now [1, slice_c, src.shape[1], src.shape[2]], which is
+                        # the same square tensor for every whole-tensor call, and the reader always
+                        # took its two slices as tile offsets into a wide input of any width, so
+                        # [g | p] serves as well as [g_a | g_b | p_a | p_b]. Declining cost the
+                        # slab 1.30-1.33x of trimul and not a single output bit.
                         gated = (
-                            # The fused move writes a SQUARE destination ([1, slice_c, N, N],
-                            # with N read off `out.shape[2]`) and takes ONE four-role projection;
-                            # a slab has neither. Both are addressing rather than arithmetic, and
-                            # the kernel is `torch.equal` against the chunk + sigmoid + multiply
-                            # it replaces (perf/trimul_f2/e6_parity.py, 24 shapes), so declining
-                            # it here costs a slab speed and not a single output bit.
-                            row_slab is None
-                            and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
+                            (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                             and (mask_u is None or mask_moved is not None)
                             and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and memory_config.buffer_type == ttnn.BufferType.DRAM
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
+                            and (row_slab is None or _reblock.eligible_gated(
+                                gp_b_fused, slice_c, memory_config))
                         )
-                        if gated:
+                        if gated and row_slab is None:
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
                                 n_pairs // group > 1,
@@ -5840,6 +5844,24 @@ class TriangleMultiplication(Module):
                                 n_pairs // group > 1,
                             )
                             ttnn.deallocate(gp_in_fused)
+                        elif gated:
+                            # `_GP_A` is [g_a | p_a] and `_GP_B` is [g_b | p_b], the same four
+                            # column blocks in the same order as the four-role weight, arriving as
+                            # two tensors. So the gate slice is at 0 and the value slice at
+                            # slice_c in BOTH, where the four-role form puts `a` at (2, 0) and `b`
+                            # at (3, 1). Getting that pair the wrong way round is a silent
+                            # sigmoid-on-the-value error, which is what the negative control in
+                            # perf/b2z2_dualchip/slab_bitexact.py reads.
+                            a_chunk = self._transform_chunk_gated(
+                                gp_in_fused, (slice_c, 0, slice_c), perm_a, memory_config,
+                                n_pairs // group > 1,
+                            )
+                            ttnn.deallocate(gp_in_fused)
+                            b_chunk = self._transform_chunk_gated(
+                                gp_b_fused, (slice_c, 0, slice_c), perm_b, memory_config,
+                                n_pairs // group > 1,
+                            )
+                            ttnn.deallocate(gp_b_fused)
                         else:
                             if row_slab is None:
                                 g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(

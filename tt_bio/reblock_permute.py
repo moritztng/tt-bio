@@ -373,7 +373,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
     g = device.compute_with_storage_grid_size()
     return (
         device.id(),
-        int(x.shape[1]), int(x.shape[2]),
+        int(x.shape[1]), int(x.shape[2]), int(x.shape[3]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
         g.x, g.y,
@@ -382,13 +382,17 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
 
 
 def _build_back(x, out, device, reader_ct, writer_ct):
-    C, N = int(x.shape[1]), int(x.shape[2])
-    Nt, Ct = N // TILE_H, C // TILE_W
+    # `x` is [1, C, D1, N] and the two spatial axes are separate numbers. They are equal for every
+    # whole-tensor move, which is every call this had before a row slab existed, and they are not
+    # for the slab's product [1, slice_c, R, N]. `Nt` is the COLUMN tile count in both -- it is the
+    # destination's row stride -- and only the source's plane stride and the group count need D1.
+    C, D1, N = int(x.shape[1]), int(x.shape[2]), int(x.shape[3])
+    D1t, Nt, Ct = D1 // TILE_H, N // TILE_H, C // TILE_W
     # A group is (it, jt, ct) and owns 32 output tiles. Keeping `ct` INSIDE the group index rather
     # than looping over it per group is what makes the work split even: at 512 aa with C=256 that is
     # 2048 groups over 110 cores (19 and 18 per core, 5 % imbalance) where Nt*Nt groups would be 256
     # over 110 (3 and 2, 33 %).
-    num_groups = Nt * Nt * Ct
+    num_groups = D1t * Nt * Ct
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
@@ -417,7 +421,7 @@ def _build_back(x, out, device, reader_ct, writer_ct):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, Ct]
+                    reader_rt[cx][cy] = [start, per_core, Nt, Ct, D1t * Nt]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
                     writer_rt[cx][cy] = [start, per_core, Nt, Ct]
                     start += per_core
@@ -473,12 +477,16 @@ def _prepare_back(x, out, device):
 
 
 def reblock_permute_back(x, memory_config=None, device=None):
-    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE."""
+    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, D1, N]`` bf16 TILE.
+
+    ``D1 == N`` for every whole-tensor move. A trimul row slab's triangle product is
+    ``[1, slice_c, R, N]`` and is the only caller that is not square.
+    """
     device = device or x.device()
     mc = memory_config or x.memory_config()
-    C, N = int(x.shape[1]), int(x.shape[2])
+    C, D1, N = int(x.shape[1]), int(x.shape[2]), int(x.shape[3])
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([1, N, N, C]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+        ttnn.Shape([1, D1, N, C]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
     )
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
@@ -523,10 +531,14 @@ def eligible_back(x, memory_config) -> bool:
     if not _ENABLED_BACK:
         return False
     shape = [int(d) for d in x.shape]
-    if len(shape) != 4 or shape[0] != 1 or shape[2] != shape[3] or shape[1] % TILE_W:
+    if len(shape) != 4 or shape[0] != 1 or shape[1] % TILE_W:
         return _reject("back_shape", shape)
-    C, N = shape[1], shape[2]
-    if N % TILE_H:
+    # `D1` is the permuted axis, `N` the last one. Square is every whole-tensor move; a trimul row
+    # slab's product is [1, slice_c, R, N] and both of its axes have to be whole tiles for the same
+    # reason the square case does. This is a superset of the old `shape[2] != shape[3]` reject and
+    # identical on every shape that passed it.
+    C, D1, N = shape[1], shape[2], shape[3]
+    if N % TILE_H or D1 % TILE_H:
         return _reject("back_ragged", shape)
     if x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT:
         return _reject("back_dtype_layout", shape)
@@ -536,7 +548,7 @@ def eligible_back(x, memory_config) -> bool:
         return _reject("back_sharded_in", shape)
     if memory_config.buffer_type != ttnn.BufferType.DRAM or N < 256:
         return _reject(f"back_window_{memory_config.buffer_type}", shape)
-    if _split_plan(x.device(), (N // TILE_H) ** 2 * (C // TILE_W)) is None:
+    if _split_plan(x.device(), (D1 // TILE_H) * (N // TILE_H) * (C // TILE_W)) is None:
         return _reject("back_work_split", shape)
     return True
 
@@ -573,7 +585,8 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
     g = device.compute_with_storage_grid_size()
     return (
         device.id(),
-        int(x.shape[1]), int(x.shape[3]), int(out.shape[1]), int(out.shape[2]),
+        int(x.shape[1]), int(x.shape[2]), int(x.shape[3]),
+        int(out.shape[1]), int(out.shape[2]), int(out.shape[3]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
         g.x, g.y,
@@ -587,7 +600,15 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # Nrt off the source: the block is its own tensor and is addressed locally, while every
     # destination index is absolute via the `row_off` common arg. R == N is the whole-tensor move
     # and is byte-for-byte what it was.
-    N = int(out.shape[2])
+    #
+    # The destination's two spatial axes are TWO numbers, not one. `D1` is the permuted axis (the
+    # source's rows) and `N` is the destination's last axis (the source's columns). A whole-tensor
+    # move and a row block both have D1 == N and read exactly the indices they always did; a row
+    # SLAB of the trimul does not -- its `a` role moves [1, R, N, Cw] into [1, slice_c, R, N] and
+    # its `b` role, for the ending variant, moves [1, N, R, Cw] into [1, slice_c, N, R]. Forcing
+    # the two to be one number is the only thing that made the slab decline this kernel.
+    D1 = int(out.shape[2])
+    N = int(out.shape[3])
     Ctw = int(x.shape[3]) // TILE_W       # channel tiles of the wide input
     Ct = int(out.shape[1]) // TILE_W      # channel tiles of one slice
     Nt = (N + TILE_H - 1) // TILE_H
@@ -624,9 +645,9 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, N, Ct, Ctw]
+                    reader_rt[cx][cy] = [start, per_core, Nt, D1, Ct, Ctw]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
+                    writer_rt[cx][cy] = [start, per_core, Nt, D1, Ct]
                     start += per_core
     assert start == num_groups, (start, num_groups)
 
@@ -706,9 +727,12 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
     device = device or xw.device()
     if out is None:
         mc = memory_config or xw.memory_config()
-        N = int(xw.shape[1])
+        # `permute(_, (0,3,1,2))` sends axis 1 to axis 2 and axis 2 to axis 3, so the destination
+        # is [1, slice_c, xw.shape[1], xw.shape[2]]. That is the square [1, slice_c, N, N] for
+        # every whole-tensor call and the non-square slab destination for a row slab.
         out = ttnn.allocate_tensor_on_device(
-            ttnn.Shape([1, slice_c, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+            ttnn.Shape([1, slice_c, int(xw.shape[1]), int(xw.shape[2])]),
+            ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
         )
     assert row_off % TILE_H == 0, f"row_off {row_off} is not a tile boundary"
     entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC)
@@ -768,9 +792,18 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     # including the 298 that production runs and that is not a tile multiple.
     if len(shape) != 4 or shape[0] != 1:
         return _reject("gated_shape", shape)
-    if shape[1] != shape[2] and not (shape[1] < shape[2] and shape[1] % TILE_H == 0):
+    # Square is the whole-tensor move, at any N including the ragged 298 the trunk runs. Anything
+    # else is a row block or a row slab, and both address rows in whole tiles, so the row extent
+    # has to be a tile multiple. This is a strict superset of the window that admitted only
+    # shape[1] < shape[2]: the ending trimul's `a` role on a slab is [1, N, R, Cw], TALLER than it
+    # is wide, and it is the same kernel on the same indices.
+    if shape[1] != shape[2] and shape[1] % TILE_H:
         return _reject("gated_rowblock", shape)
-    if shape[3] != 4 * slice_c or slice_c % TILE_W:
+    # Two roles or four. The reader takes the value and gate slices as tile offsets into a wide
+    # input of `Ctw` channel tiles and never assumes which of them it is holding, so [g | p] is as
+    # addressable as [g_a | g_b | p_a | p_b]. A row slab has to project `a` and `b` separately --
+    # they read different inputs -- so two roles per tensor is the only form it can offer.
+    if shape[3] not in (2 * slice_c, 4 * slice_c) or slice_c % TILE_W:
         return _reject("gated_slice", shape)
     N = shape[2]
     if xw.dtype != ttnn.bfloat16 or xw.layout != ttnn.TILE_LAYOUT:
