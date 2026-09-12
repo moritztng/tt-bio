@@ -1,0 +1,36 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "grid": "8x9",
+ "fidelity": "HiFi4 fp32_dest_acc",
+ "rows": [
+  {
+   "case": "in_proj 262144x128x512",
+   "GFLOP": 34.359738368,
+   "median_ms": 5.978466011583805,
+   "TFLOPs_median": 5.747249930237118,
+   "TFLOPs_peak": 5.971017794555449
+  },
+  {
+   "case": "square 2048^3",
+   "GFLOP": 17.179869184,
+   "median_ms": 0.44407707173377275,
+   "TFLOPs_median": 38.686683635626764,
+   "TFLOPs_peak": 38.711181345282164
+  },
+  {
+   "case": "square 4096^3",
+   "GFLOP": 137.438953472,
+   "median_ms": 3.814626019448042,
+   "TFLOPs_median": 36.02946993264801,
+   "TFLOPs_peak": 53.93686494464083
+  },
+  {
+   "case": "tri 128x512x512x512",
+   "GFLOP": 34.359738368,
+   "median_ms": 2.442816970869899,
+   "TFLOPs_median": 14.065621279749147,
+   "TFLOPs_peak": 14.305500935733885
+  }
+ ],
+ "mm_roof_TFLOPs": 53.93686494464083
+}
