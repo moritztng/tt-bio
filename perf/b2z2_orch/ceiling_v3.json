@@ -14,70 +14,72 @@
   "sampler_token_axis_shards": false,
   "sampler_atom_axis_step": {
     "1": 1.0,
-    "2": 1.13353,
-    "4": 1.22779
+    "2": 1.096924907545676,
+    "4": 1.1616579349584095
   },
-  "sampler_atom_axis_step_cap": 1.3237,
-  "trunk_s": 10.22,
-  "split_A_trunk_rest": [
-    10.22,
-    7.600878595098438
+  "sampler_atom_axis_step_cap": 1.224649750171451,
+  "msa_axis_shards": false,
+  "trunk_s": 10.155,
+  "stack_split_trunk_sampler_rest": [
+    9.7008,
+    4.206001746687864,
+    3.914076848410575
   ],
-  "split_B_trunk_rest": [
-    9.744190865332984,
-    8.076687729765455
-  ],
+  "cap_fold": 1.7386601217088486,
+  "cap_fold_calibrated": 1.695677088456391,
+  "redteam3_cap": 1.7431,
+  "redteam3_cap_calibrated": 1.7021,
   "routes": [
     {
-      "route": "shard N=2 (WH block, measured)",
+      "route": "trunk shard N=2",
       "block_ratio": 1.3422,
-      "fold_lo": 1.3114420361271784,
-      "fold_hi": 1.321898040386673
+      "step_ratio": 1.0,
+      "fold": 1.3104967369661742
     },
     {
-      "route": "shard N=4 (WH block, measured)",
+      "route": "trunk shard N=4",
       "block_ratio": 1.6404,
-      "fold_lo": 1.4349190362978377,
-      "fold_hi": 1.4541901170128633
+      "step_ratio": 1.0,
+      "fold": 1.433187014784391
     },
     {
-      "route": "shard N=8 (WH block, measured)",
+      "route": "trunk shard N=8",
       "block_ratio": 1.9424,
-      "fold_lo": 1.5361338045700104,
-      "fold_hi": 1.563703759533194
+      "step_ratio": 1.0,
+      "fold": 1.5336678876733139
     },
     {
-      "route": "shard cap, measured link (any N)",
+      "route": "trunk shard cap, measured link",
       "block_ratio": 2.299,
-      "fold_lo": 1.6331935930960086,
-      "fold_hi": 1.6696427360977937
+      "step_ratio": 1.0,
+      "fold": 1.6299486787668374
     },
     {
-      "route": "shard cap, FREE link (any N)",
+      "route": "trunk shard cap, FREE link",
       "block_ratio": 2.99,
-      "fold_lo": 1.7743193459367854,
-      "fold_hi": 1.8253118900820047
+      "step_ratio": 1.0,
+      "fold": 1.7698105361947873
     },
     {
-      "route": "+ BOTH shards, N=2 (WH, PROJECTED)",
+      "route": "+ atom-axis sampler shard, N=2",
       "block_ratio": 1.3422,
-      "fold_lo": 1.3570987376563572,
-      "fold_hi": 1.3654749249344589
+      "step_ratio": 1.096924907545676,
+      "fold": 1.343018112490642
     },
     {
-      "route": "+ BOTH shards, N=4 (WH, PROJECTED)",
+      "route": "+ atom-axis sampler shard, N=4",
       "block_ratio": 1.6404,
-      "fold_lo": 1.5232271887182403,
-      "fold_hi": 1.5393007648228922
+      "step_ratio": 1.1616579349584095,
+      "fold": 1.4955632273859987
     },
     {
       "route": "+ BOTH shards at their caps (any N)",
       "block_ratio": 2.299,
-      "fold_lo": 1.7887698898403763,
-      "fold_hi": 1.8221112747573678
+      "step_ratio": 1.224649750171451,
+      "fold": 1.7386601217088486
     }
   ],
-  "wh_to_bh_shard_calibration": 1.0745320486447063,
+  "wh_to_bh_shard_calibration": 1.0694940285712538,
   "target_2x_s": 10.0565,
   "byte_target": {
     "block_ms_today": 36.3438,

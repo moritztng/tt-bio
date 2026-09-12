@@ -47,7 +47,8 @@ CELL_S = published_cell()
 
 # -- MEASURED inputs -------------------------------------------------------------------------
 # Trunk seconds in the fold: PairformerLayer device spans, CONTEXT §2-CORRECTION (BH).
-TRUNK_S = 10.22
+TRUNK_S = 10.155                  # redteam-v3, -0.64 %: 84.2 % of host contention lands in the
+                                  # remainder and only 5.4 % in the trunk
 # The single-chip stack on the cell: b2z2-bh-union-step, BH, paired against its own interleaved
 # base, A/A floor 1.01162x, n=10 stack / n=30 base, 65 warm folds in one process.
 STACK_RATIO = 1.12862
@@ -73,10 +74,36 @@ SHARD_FOLD_BH_N2 = 1.0857
 # the halo does not: t(N) = 1.24185 ms + 4.96906 ms/N, R2 0.998766 -> 19.995 % replicated.
 # Bit-exact (torch.equal, max abs 0.0) at four atom counts and at both mesh widths.
 SAMPLER_TOKEN_AXIS_SHARDS = False
-SAMPLER_S = 5.365                 # BH sampler stage wall, CONTEXT §1
-SAMPLER_STEP = {1: 1.0, 2: 1.13353, 4: 1.22779}   # atom shard composed onto the step, WH
-SAMPLER_STEP_CAP = 1.3237         # atom track capped at 5.0x by its 19.995 % time floor, composed
-                                  # onto a step in which the atom track is 12.340 of 40.366 ms
+# CORRECTED by b2z2-redteam-v3. This file previously composed the sampler shard onto a WORMHOLE step
+# census -- "the atom track is 12.340 of a 40.366 ms step" -- and applied it to BLACKHOLE sampler
+# seconds. A Blackhole census of the same 1066 programs already existed on disk and was never used
+# (b2z2-sharded-sampler's step_track_split.json, qb2 card 0, 11x10). On Blackhole the atom track is
+# 6.0538 of 22.0152 ms = 22.93 % of the 26.402 ms wall, because 16.62 % of that wall is EXPOSED
+# DISPATCH that a mesh shard cannot divide. Same mistake class as the MSA roof error: a Wormhole
+# number standing in for a Blackhole one that already existed.
+SAMPLER_S = 5.158                 # BH sampler stage, redteam-v3: 5.365 mixed a stage wall with a
+                                  # device-span trunk, a scope mix CONTEXT forbids (-3.85 %)
+ATOM_TRACK_FRAC_BH = 0.2293       # atom track as a fraction of the BH step wall
+ATOM_SHARD = {1: 1.0, 2: 1.62694, 4: 2.54386}     # MEASURED on the atom track, WH, bit-exact
+ATOM_SHARD_CAP = 5.0              # 19.995 % time-side replicated floor
+# MSA axis: measured NO-GO. b2z2-msa-axis-shard fits t = 136.5814 ms + 0.097335 ms/row, R2 0.996770
+# -> 57.812 % constant against a 45 % pre-registered bar. The MSA track is the token DiT's machine
+# (56.3 %), not the atom track's (9.893 %). Free link, perfect split, no collective is 1.2673x on the
+# track at two chips = 1.0199x on a WH fold, so it is excluded here rather than modelled.
+MSA_AXIS_SHARDS = False
+# The measured trunk give-up inside the headline stack. redteam-v3 read the per-fold `block_s` column
+# the headline session recorded and nobody had opened: the trunk gives up 0.4542 s, which settles the
+# A/B bracket this file used to carry as an assumption and REFUTES its split-A end (0.0000 s).
+STACK_TRUNK_GIVEUP_S = 0.4542
+# What redteam-v3 published, for this file to check itself against.
+REDTEAM3_CAP = 1.7431
+REDTEAM3_CAP_CALIBRATED = 1.7021
+
+
+def sampler_step(n_or_cap) -> float:
+    """Fold the atom-track shard into the Blackhole step wall."""
+    a = ATOM_SHARD_CAP if n_or_cap == "cap" else ATOM_SHARD[n_or_cap]
+    return 1.0 / ((1.0 - ATOM_TRACK_FRAC_BH) + ATOM_TRACK_FRAC_BH / a)
 # Single-processor bracket after the bandwidth intersection: b2z2-redteam-v2.
 ONE_CHIP_BRACKET = (1.35, 1.66)
 ONE_CHIP_BEST_SUPPORTED = (1.40, 1.49)
@@ -126,25 +153,29 @@ def byte_target() -> dict:
     }
 
 
-def split_stack() -> tuple[float, float, float, float]:
-    """Where the stack's seconds come off, as a bracket rather than an assumption.
+def stack_split() -> tuple[float, float, float]:
+    """Where the stack's seconds come off. MEASURED, not bracketed.
 
-    The composite depends on how much of the stack's saving is already inside the trunk, because
-    the shard then has less left to divide. Two ends, both defensible:
-      A  none of it is (every lever but silu is a sampler or host lever) -> trunk untouched
-      B  all of silu's fold saving is (silu is the one lever acting inside the block)
+    This used to return an A/B bracket over an assumption: does the stack's saving already come out
+    of the trunk or not. `b2z2-redteam-v3` settled it by opening the `block_s` column the headline
+    session had recorded per fold and nobody had read -- the trunk gives up STACK_TRUNK_GIVEUP_S, so
+    the old split-A end (trunk untouched) is REFUTED and the high end of every route this file used
+    to print was never an estimate.
+
+    Returns (trunk, sampler, rest) after the stack, in seconds.
     """
-    stacked_s = CELL_S / STACK_RATIO
-    saved = CELL_S - stacked_s
-    rest = CELL_S - TRUNK_S
-    silu_s = CELL_S - CELL_S / SILU_FOLD_RATIO
-    # A: all saving outside the trunk.  B: silu's share comes out of the trunk.
-    return (TRUNK_S, rest - saved, TRUNK_S - silu_s, rest - (saved - silu_s))
+    saved = CELL_S - CELL_S / STACK_RATIO
+    trunk = TRUNK_S - STACK_TRUNK_GIVEUP_S
+    rest_and_sampler = CELL_S - TRUNK_S                      # sampler + everything else, before
+    after = rest_and_sampler - (saved - STACK_TRUNK_GIVEUP_S)
+    frac = SAMPLER_S / rest_and_sampler                      # the sampler's share of it
+    return trunk, after * frac, after * (1.0 - frac)
 
 
-def composite(trunk_s: float, rest_s: float, block_ratio: float) -> float:
-    """Fold ratio for a stack that leaves `rest_s` alone and divides `trunk_s` by the shard."""
-    return CELL_S / (rest_s + trunk_s / block_ratio)
+def composite(trunk_s: float, sampler_s: float, rest_s: float,
+              block_ratio: float, step_ratio: float = 1.0) -> float:
+    """Fold ratio: divide the trunk by its shard, the sampler by its shard, leave the rest."""
+    return CELL_S / (rest_s + sampler_s / step_ratio + trunk_s / block_ratio)
 
 
 def main() -> int:
@@ -152,42 +183,28 @@ def main() -> int:
     ap.add_argument("--json")
     a = ap.parse_args()
 
-    tA, rA, tB, rB = split_stack()
+    trunk, samp, rest = stack_split()
     rows = []
-    for label, ratio in [
-        *[(f"shard N={n} (WH block, measured)", r) for n, r in SHARD_BLOCK.items() if n > 1],
-        ("shard cap, measured link (any N)", SHARD_CAP_MEASURED_LINK),
-        ("shard cap, FREE link (any N)", SHARD_CAP_FREE_LINK),
-    ]:
-        lo, hi = sorted((composite(tB, rB, ratio), composite(tA, rA, ratio)))
-        rows.append({"route": label, "block_ratio": ratio, "fold_lo": lo, "fold_hi": hi})
-
-    # The multi-chip route WITH the sampler's atom-axis shard. One extra assumption, stated: the
-    # sampler keeps its proportional share of whatever the stack left in `rest`. The overlap is real
-    # and it is why this is not simply the row above times a sampler factor -- three of the stack's
-    # five levers live in the sampler stage that this term divides.
-    srows = []
+    for label, br in [*[(f"trunk shard N={n}", r) for n, r in SHARD_BLOCK.items() if n > 1],
+                      ("trunk shard cap, measured link", SHARD_CAP_MEASURED_LINK),
+                      ("trunk shard cap, FREE link", SHARD_CAP_FREE_LINK)]:
+        rows.append({"route": label, "block_ratio": br, "step_ratio": 1.0,
+                     "fold": composite(trunk, samp, rest, br)})
     for n in (2, 4):
-        for lbl, (tr, rs) in (("A", (tA, rA)), ("B", (tB, rB))):
-            frac = SAMPLER_S / (CELL_S - TRUNK_S)
-            samp, other = rs * frac, rs * (1.0 - frac)
-            srows.append(CELL_S / (other + samp / SAMPLER_STEP[n] + tr / SHARD_BLOCK[n]))
-        lo, hi = sorted(srows[-2:])
-        rows.append({"route": f"+ BOTH shards, N={n} (WH, PROJECTED)",
-                     "block_ratio": SHARD_BLOCK[n], "fold_lo": lo, "fold_hi": hi})
-    caps = []
-    for tr, rs in ((tA, rA), (tB, rB)):
-        frac = SAMPLER_S / (CELL_S - TRUNK_S)
-        samp, other = rs * frac, rs * (1.0 - frac)
-        caps.append(CELL_S / (other + samp / SAMPLER_STEP_CAP + tr / SHARD_CAP_MEASURED_LINK))
-    rows.append({"route": "+ BOTH shards at their caps (any N)", "block_ratio": SHARD_CAP_MEASURED_LINK,
-                 "fold_lo": min(caps), "fold_hi": max(caps)})
+        sr = sampler_step(n)
+        rows.append({"route": f"+ atom-axis sampler shard, N={n}", "block_ratio": SHARD_BLOCK[n],
+                     "step_ratio": sr, "fold": composite(trunk, samp, rest, SHARD_BLOCK[n], sr)})
+    sr_cap = sampler_step("cap")
+    cap_fold = composite(trunk, samp, rest, SHARD_CAP_MEASURED_LINK, sr_cap)
+    rows.append({"route": "+ BOTH shards at their caps (any N)",
+                 "block_ratio": SHARD_CAP_MEASURED_LINK, "step_ratio": sr_cap, "fold": cap_fold})
 
-    # Calibration check: the WH block curve at N=2 against the BH fold measurement of the same
-    # shard. If they disagree, every larger-N row inherits the same transfer error.
-    n2_lo, n2_hi = rows[0]["fold_lo"], rows[0]["fold_hi"]
-    n2_marginal = ((n2_lo + n2_hi) / 2) / STACK_RATIO
+    # The WH->BH calibration this file used to print and never apply. redteam-v3's point: the WH
+    # block curve over-predicts the BH fold contribution of the same shard, so applying it is not
+    # optional once the number is quoted.
+    n2_marginal = rows[0]["fold"] / STACK_RATIO
     calib = n2_marginal / SHARD_FOLD_BH_N2
+    cap_calibrated = CELL_S / (rest + samp / sr_cap + trunk / (SHARD_CAP_MEASURED_LINK / calib))
 
     out = {
         "cell_s": CELL_S,
@@ -197,11 +214,13 @@ def main() -> int:
         "one_chip_bracket": ONE_CHIP_BRACKET,
         "one_chip_best_supported": ONE_CHIP_BEST_SUPPORTED,
         "sampler_token_axis_shards": SAMPLER_TOKEN_AXIS_SHARDS,
-        "sampler_atom_axis_step": SAMPLER_STEP,
-        "sampler_atom_axis_step_cap": SAMPLER_STEP_CAP,
+        "sampler_atom_axis_step": {str(n): sampler_step(n) for n in ATOM_SHARD},
+        "sampler_atom_axis_step_cap": sr_cap,
+        "msa_axis_shards": MSA_AXIS_SHARDS,
         "trunk_s": TRUNK_S,
-        "split_A_trunk_rest": [tA, rA],
-        "split_B_trunk_rest": [tB, rB],
+        "stack_split_trunk_sampler_rest": [trunk, samp, rest],
+        "cap_fold": cap_fold, "cap_fold_calibrated": cap_calibrated,
+        "redteam3_cap": REDTEAM3_CAP, "redteam3_cap_calibrated": REDTEAM3_CAP_CALIBRATED,
         "routes": rows,
         "wh_to_bh_shard_calibration": calib,
         "target_2x_s": CELL_S / 2.0,
@@ -214,20 +233,26 @@ def main() -> int:
           "   (b2z2-bh-union-step, BH, A/A floor 1.01162x)")
     print(f"one-processor ceiling          {ONE_CHIP_BRACKET[0]:.2f}x - {ONE_CHIP_BRACKET[1]:.2f}x"
           f"   (best supported {ONE_CHIP_BEST_SUPPORTED[0]:.2f}x - {ONE_CHIP_BEST_SUPPORTED[1]:.2f}x)")
-    print(f"trunk / rest of fold           {TRUNK_S:.3f} s / {CELL_S-TRUNK_S:.3f} s")
+    print(f"trunk / sampler / rest         {trunk:.3f} / {samp:.3f} / {rest:.3f} s  "
+          f"(after the stack; trunk give-up {STACK_TRUNK_GIVEUP_S:.4f} s MEASURED)")
     print()
     print("stack + shards. The TOKEN axis of the sampler does not shard; the ATOM axis does.")
-    print(f"  {'route':<36} {'block':>7}  {'fold ratio':>18}")
+    print(f"  {'route':<36} {'block':>7} {'step':>7}  {'fold':>9}  {'s':>7}")
     for r in rows:
-        print(f"  {r['route']:<36} {r['block_ratio']:>6.3f}x  "
-              f"{r['fold_lo']:>7.4f}x - {r['fold_hi']:.4f}x")
+        print(f"  {r['route']:<36} {r['block_ratio']:>6.3f}x {r['step_ratio']:>6.3f}x  "
+              f"{r['fold']:>8.4f}x  {CELL_S/r['fold']:>6.2f}")
     print()
-    print(f"WH-block -> BH-fold shard calibration at N=2: {calib:.3f}x")
-    print("  (>1 means the WH block curve OVER-predicts the BH fold contribution of the same")
-    print("   shard, so every larger-N row above is an upper bound, not an estimate)")
+    print(f"WH-block -> BH-fold shard calibration at N=2: {calib:.3f}x, NOW APPLIED")
+    print(f"  cap route {cap_fold:.4f}x uncalibrated -> **{cap_calibrated:.4f}x = "
+          f"{CELL_S/cap_calibrated:.2f} s** calibrated")
+    print(f"  redteam-v3 published {REDTEAM3_CAP:.4f}x / {REDTEAM3_CAP_CALIBRATED:.4f}x calibrated;"
+          f" this file reproduces to {abs(cap_fold/REDTEAM3_CAP-1)*100:.2f} % / "
+          f"{abs(cap_calibrated/REDTEAM3_CAP_CALIBRATED-1)*100:.2f} %")
+    if max(abs(cap_fold/REDTEAM3_CAP-1), abs(cap_calibrated/REDTEAM3_CAP_CALIBRATED-1)) > 0.02:
+        print("  !! DIVERGES from redteam-v3 by more than 2 % -- one of the two is wrong, "
+              "and theirs re-derives host-only in perf/b2z2_redteam3/redteam3.py")
     print()
     bt = byte_target()
-    tA, rA, tB, rB = split_stack()
     print("the trunk's own floor, once the bandwidth roof is applied:")
     print(f"  block today                  {bt['block_ms_today']:.4f} ms "
           f"at {bt['block_gbps_today']:.1f} GB/s")
@@ -245,14 +270,14 @@ def main() -> int:
           f"-> floor {bt['block_floor_ms_after']:.4f} ms = "
           f"{bt['block_ratio_at_floor_after']:.4f}x on the block")
     print("  => the roof still binds after every redundant byte in the block is deleted.")
-    mf_A = composite(tA, rA, BLOCK_MS_TODAY / BLOCK_MS_MOVEMENT_FREE)
-    mf_B = composite(tB, rB, BLOCK_MS_TODAY / BLOCK_MS_MOVEMENT_FREE)
+    mf = composite(trunk, samp, rest, BLOCK_MS_TODAY / BLOCK_MS_MOVEMENT_FREE)
     print(f"  and even a FULLY movement-free trunk, on ONE processor, with the measured stack, is "
-          f"{min(mf_A, mf_B):.4f}x - {max(mf_A, mf_B):.4f}x")
+          f"{mf:.4f}x")
     print()
-    best = max(r["fold_hi"] for r in rows)
-    print(f"BEST NAMEABLE, unlimited processors, free link: {best:.4f}x = {CELL_S/best:.3f} s")
+    print(f"BEST NAMEABLE, unlimited processors: {cap_calibrated:.4f}x = "
+          f"{CELL_S/cap_calibrated:.3f} s (calibrated)")
     print(f"2x needs {CELL_S/2:.3f} s. It is not in this table.")
+    print("MSA axis excluded: measured NO-GO, 57.812 % constant (b2z2-msa-axis-shard).")
 
     if a.json:
         Path(a.json).write_text(json.dumps(out, indent=2) + "\n")
