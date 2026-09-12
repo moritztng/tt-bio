@@ -1,0 +1,445 @@
+{
+ "cifdir": "perf/b2z2_union/cif298",
+ "split_seq_id": 298,
+ "gt": "1hcl.cif",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "ttnn": "?",
+  "tt_visible_devices": "1",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-bh-union-clean/tt_bio/__init__.py",
+  "commit": "6d5c06c4f09e0333df6403ce2cc52a14ba24adf9",
+  "started_utc": "2026-09-12T19:39:13Z",
+  "loadavg_at_start": [
+   0.64453125,
+   1.595703125,
+   1.552734375
+  ],
+  "occupancy_at_start": {
+   "pids": [
+    "922434"
+   ],
+   "nodes": [
+    "/dev/tenstorrent/1"
+   ]
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "mode": "parity",
+   "order": "base,HOST,base,SILU,base,AKW,base,UNION,base,UNION",
+   "reps": 5,
+   "diffusion_trace": false
+  }
+ },
+ "sizes": {
+  "298": {
+   "n_atoms": 2397,
+   "arms": [
+    "AKW-s0",
+    "HOST-s0",
+    "SILU-s0",
+    "UNION-s0",
+    "base-s0",
+    "base-s0_r1"
+   ],
+   "seeds": [
+    0
+   ],
+   "plddt": {
+    "AKW-s0": 0.917809,
+    "HOST-s0": 0.915052,
+    "SILU-s0": 0.914272,
+    "UNION-s0": 0.915273,
+    "base-s0": 0.917809,
+    "base-s0_r1": 0.917809
+   },
+   "sha256": {
+    "AKW-s0": "0cf1b879dca3c0d5",
+    "HOST-s0": "0a61b8dc24adc512",
+    "SILU-s0": "28069f414bd046c1",
+    "UNION-s0": "babb5c7cb2fd22be",
+    "base-s0": "0cf1b879dca3c0d5",
+    "base-s0_r1": "0cf1b879dca3c0d5"
+   },
+   "fold_s": {
+    "AKW-s0": 12.223,
+    "HOST-s0": 11.944,
+    "SILU-s0": 12.133,
+    "UNION-s0": 11.426,
+    "base-s0": 14.827,
+    "base-s0_r1": 12.247
+   },
+   "aa_floor": {
+    "whole_all_atom_A": 0.0,
+    "whole_ca_A": 0.0,
+    "domain1_all_atom_A": 0.0,
+    "domain1_ca_A": 0.0,
+    "hinge_deg": 0.0,
+    "hinge_free_all_atom_A": 0.0,
+    "lddt_ca": 1.0,
+    "lddt_ca_domain1": 1.0
+   },
+   "aa_floor_bitexact": true,
+   "lever": {
+    "HOST seed0": {
+     "whole_all_atom_A": 0.39376,
+     "whole_ca_A": 0.18065,
+     "domain1_all_atom_A": 0.39376,
+     "domain1_ca_A": 0.18065,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 0.39376,
+     "lddt_ca": 0.99817,
+     "lddt_ca_domain1": 0.99817
+    },
+    "SILU seed0": {
+     "whole_all_atom_A": 0.42868,
+     "whole_ca_A": 0.20092,
+     "domain1_all_atom_A": 0.42868,
+     "domain1_ca_A": 0.20092,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 0.42868,
+     "lddt_ca": 0.99741,
+     "lddt_ca_domain1": 0.99741
+    },
+    "AKW seed0": {
+     "whole_all_atom_A": 0.0,
+     "whole_ca_A": 0.0,
+     "domain1_all_atom_A": 0.0,
+     "domain1_ca_A": 0.0,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 0.0,
+     "lddt_ca": 1.0,
+     "lddt_ca_domain1": 1.0
+    },
+    "UNION seed0": {
+     "whole_all_atom_A": 0.35882,
+     "whole_ca_A": 0.16034,
+     "domain1_all_atom_A": 0.35882,
+     "domain1_ca_A": 0.16034,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 0.35882,
+     "lddt_ca": 0.99839,
+     "lddt_ca_domain1": 0.99839
+    }
+   },
+   "seed_floor": {},
+   "native": {
+    "AKW-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.77665,
+      "lddt_ca": 0.96543
+     }
+    },
+    "HOST-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.78009,
+      "lddt_ca": 0.96739
+     }
+    },
+    "SILU-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.80456,
+      "lddt_ca": 0.9635
+     }
+    },
+    "UNION-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.76431,
+      "lddt_ca": 0.96884
+     }
+    },
+    "base-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.77665,
+      "lddt_ca": 0.96543
+     }
+    },
+    "base-s0_r1": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.77665,
+      "lddt_ca": 0.96543
+     }
+    }
+   },
+   "summary": {
+    "domain1_all_atom_A": {
+     "HOST": {
+      "n": 1,
+      "min": 0.39376,
+      "max": 0.39376,
+      "mean": 0.39376
+     },
+     "SILU": {
+      "n": 1,
+      "min": 0.42868,
+      "max": 0.42868,
+      "mean": 0.42868
+     },
+     "AKW": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "UNION": {
+      "n": 1,
+      "min": 0.35882,
+      "max": 0.35882,
+      "mean": 0.35882
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "hinge_free_all_atom_A": {
+     "HOST": {
+      "n": 1,
+      "min": 0.39376,
+      "max": 0.39376,
+      "mean": 0.39376
+     },
+     "SILU": {
+      "n": 1,
+      "min": 0.42868,
+      "max": 0.42868,
+      "mean": 0.42868
+     },
+     "AKW": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "UNION": {
+      "n": 1,
+      "min": 0.35882,
+      "max": 0.35882,
+      "mean": 0.35882
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "domain1_ca_A": {
+     "HOST": {
+      "n": 1,
+      "min": 0.18065,
+      "max": 0.18065,
+      "mean": 0.18065
+     },
+     "SILU": {
+      "n": 1,
+      "min": 0.20092,
+      "max": 0.20092,
+      "mean": 0.20092
+     },
+     "AKW": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "UNION": {
+      "n": 1,
+      "min": 0.16034,
+      "max": 0.16034,
+      "mean": 0.16034
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "lddt_ca": {
+     "HOST": {
+      "n": 1,
+      "min": 0.99817,
+      "max": 0.99817,
+      "mean": 0.99817
+     },
+     "SILU": {
+      "n": 1,
+      "min": 0.99741,
+      "max": 0.99741,
+      "mean": 0.99741
+     },
+     "AKW": {
+      "n": 1,
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "UNION": {
+      "n": 1,
+      "min": 0.99839,
+      "max": 0.99839,
+      "mean": 0.99839
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "lddt_ca_domain1": {
+     "HOST": {
+      "n": 1,
+      "min": 0.99817,
+      "max": 0.99817,
+      "mean": 0.99817
+     },
+     "SILU": {
+      "n": 1,
+      "min": 0.99741,
+      "max": 0.99741,
+      "mean": 0.99741
+     },
+     "AKW": {
+      "n": 1,
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "UNION": {
+      "n": 1,
+      "min": 0.99839,
+      "max": 0.99839,
+      "mean": 0.99839
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "whole_all_atom_A": {
+     "HOST": {
+      "n": 1,
+      "min": 0.39376,
+      "max": 0.39376,
+      "mean": 0.39376
+     },
+     "SILU": {
+      "n": 1,
+      "min": 0.42868,
+      "max": 0.42868,
+      "mean": 0.42868
+     },
+     "AKW": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "UNION": {
+      "n": 1,
+      "min": 0.35882,
+      "max": 0.35882,
+      "mean": 0.35882
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "hinge_deg": {
+     "HOST": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "SILU": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "AKW": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "UNION": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    }
+   },
+   "native_summary": {
+    "base whole ca_rmsd_A": {
+     "n": 1,
+     "min": 0.77665,
+     "max": 0.77665,
+     "mean": 0.77665
+    },
+    "base whole lddt_ca": {
+     "n": 1,
+     "min": 0.96543,
+     "max": 0.96543,
+     "mean": 0.96543
+    },
+    "HOST whole ca_rmsd_A": {
+     "n": 1,
+     "min": 0.78009,
+     "max": 0.78009,
+     "mean": 0.78009
+    },
+    "HOST whole lddt_ca": {
+     "n": 1,
+     "min": 0.96739,
+     "max": 0.96739,
+     "mean": 0.96739
+    },
+    "SILU whole ca_rmsd_A": {
+     "n": 1,
+     "min": 0.80456,
+     "max": 0.80456,
+     "mean": 0.80456
+    },
+    "SILU whole lddt_ca": {
+     "n": 1,
+     "min": 0.9635,
+     "max": 0.9635,
+     "mean": 0.9635
+    },
+    "AKW whole ca_rmsd_A": {
+     "n": 1,
+     "min": 0.77665,
+     "max": 0.77665,
+     "mean": 0.77665
+    },
+    "AKW whole lddt_ca": {
+     "n": 1,
+     "min": 0.96543,
+     "max": 0.96543,
+     "mean": 0.96543
+    },
+    "UNION whole ca_rmsd_A": {
+     "n": 1,
+     "min": 0.76431,
+     "max": 0.76431,
+     "mean": 0.76431
+    },
+    "UNION whole lddt_ca": {
+     "n": 1,
+     "min": 0.96884,
+     "max": 0.96884,
+     "mean": 0.96884
+    }
+   }
+  }
+ }
+}
