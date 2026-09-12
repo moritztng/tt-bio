@@ -6299,6 +6299,11 @@ _MM_BLOCK = {
     (8, 8): (4, 8, 1, 4, 1),    # protenix-v2 gate + pair  -- unchanged
     (4, 12): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv   at c_z=128
     (4, 4): (4, 4, 1, 4, 1),    # boltz2 / openfold3 gate  at c_z=128
+    # qkv and gate fused on the output axis, so the normed pair tensor is read once instead of
+    # twice (`triatt_qkv.qkvg_heads`). Same K_block as the two entries above it -- which is the
+    # whole contraction at kt=4 -- so every output element is accumulated in the order the two
+    # separate matmuls accumulate it today.
+    (4, 16): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv+gate at c_z=128
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
     # opendde tri-att at c_z=384. These two are NOT bit-exact -- K_block = 12 folds the contraction
@@ -6561,6 +6566,16 @@ class TriangleAttention(Module):
             dtype=_dtype(),
         )
         self.g_weight = self.torch_to_tt("linear_g.weight", dtype=_dtype())
+        # q, k, v and the gate are four projections of one tensor, so they are one matmul with four
+        # output chunks. Built only where `qkvg_heads` could take the call at all: same dtype, one
+        # tile per head, no zero padding in the head channels. `qkv_weight` and `g_weight` stay,
+        # because every guard the fused call can fail falls back to them.
+        self.qkvg_weight = None
+        if not self.subtile and _dtype() == ttnn.bfloat16:
+            self.qkvg_weight = ttnn.from_torch(
+                torch.cat([qkv_weight, self.weights["linear_g.weight"]], dim=0).t(),
+                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(),
+            )
         # RF3 and AF2-IG bias both the gate and the output projection; Boltz-2, Protenix-v2,
         # OpenFold3 and OpenDDE bias neither, and q/k/v carry no bias in any of them. Read them
         # only when the weights carry them: with no bias present every branch below is the one it
@@ -6579,6 +6594,23 @@ class TriangleAttention(Module):
             if "linear_o.bias" in self.weights else None
         )
         self.biased = self.g_bias is not None or self.o_bias is not None
+
+    def _fused_qkvg(self, x, wanted):
+        """`(q, k, v), gate` from one pass over the normed pair tensor, or `(None, None)`.
+
+        q, k, v and the gate are four projections of the same tensor, and the two matmuls that
+        produce them each read all of it: 67.1 MB at 512 aa, 134.2 MB per block over the two
+        triangle attentions, which is 1.67 % of everything the block moves
+        (`perf/b2z2_byte_floor/CENSUS.md`). One matmul over the concatenated weight reads it once
+        and writes the same four buffers, bit-exactly -- `qkvg_heads` carries the argument and the
+        guards, this only decides whether to ask.
+        """
+        if self.biased or self.qkvg_weight is None or not wanted:
+            return None, None
+        return _triatt_qkv.qkvg_heads(
+            x, self.qkvg_weight, self.o_weight, self.compute_kernel_config,
+            self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkvg_weight),
+        ) or (None, None)
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x = ttnn.reshape(x, tuple(x.shape)[1:])
@@ -6796,8 +6828,9 @@ class TriangleAttention(Module):
             for s in range(0, S, chunk):
                 end = min(s + chunk, S)
                 x_chunk = normed_rows(s, end)
+                qkv_chunk, g_chunk = self._fused_qkvg(x_chunk, True)
                 qkv_cfg_chunk = _qkv_mm_config(x_chunk, self.qkv_weight)
-                qkv_chunk = _triatt_qkv.qkv_heads(
+                qkv_chunk = qkv_chunk if qkv_chunk is not None else _triatt_qkv.qkv_heads(
                     x_chunk, self.qkv_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), qkv_cfg_chunk,
                 )
@@ -6810,8 +6843,7 @@ class TriangleAttention(Module):
                         config=qkv_cfg_chunk,
                     )
                 g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
-                g_chunk = None
-                if isinstance(qkv_chunk, tuple) and not self.biased:
+                if g_chunk is None and isinstance(qkv_chunk, tuple) and not self.biased:
                     g_chunk = _triatt_qkv.gate_proj(
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
                         self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
@@ -6915,9 +6947,10 @@ class TriangleAttention(Module):
             del parts
         else:
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
+            qkv, g = self._fused_qkvg(x, qkv_cfg is None)
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
-            qkv = None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
+            qkv = qkv if qkv is not None else None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
                 self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
             )
@@ -6939,8 +6972,7 @@ class TriangleAttention(Module):
                         dtype=_dtype(),
                         config=_qkv_mm_config(x, self.qkv_weight),
                     )
-            g = None
-            if isinstance(qkv, tuple) and not self.biased:
+            if g is None and isinstance(qkv, tuple) and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
