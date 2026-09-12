@@ -7689,16 +7689,15 @@ _ROW_SHARD_FOLD = os.environ.get("TT_BIO_ROW_SHARD_FOLD", "0") == "1"
 #: Which ops of the chain to shard, so a block-level parity failure can be bisected to
 #: one op instead of guessed at. Every op is individually bit-exact on a 1x2 mesh; the
 #: composition is what broke, and that is only findable one op at a time.
-#: Default is the subset PROVED bit-exact end to end on a real fold, not the subset that is
-#: fastest. The four-op chain is measurably faster (trunk 11.45 s against 12.35) and produces the
-#: WRONG structure: CIF 5e7a351dc2d88a8f against the reference dd1c2a12f97772fb, stable across
-#: reps, with the cold fold differing again at 105086f0fad498b7. Bisected one op at a time:
-#: `transition_z` alone is bit-exact, `triatt_start` alone is not. Ruled out so far, each by a
-#: fold that did not change the digest: the rank-3 `mesh_partition` defect (fixed anyway in
-#: row_shard.py, it is real and bites elsewhere), freeing the gather's input before its result is
-#: consumed, and sharding the MSA and confidence Pairformers as well as the trunk.
+#: Default is the subset proved bit-exact END TO END on a real fold. All four are, now that every
+#: op is handed the whole z plus `row_slab` instead of a pre-sliced input: an op picks its kernel
+#: configs from the shape it is given, so a 256-row input selected a different blocking than the
+#: 512-row tensor and a config that sets reduction order is not bit-exact across picks. That one
+#: change took the fold from CIF 5e7a351dc2d88a8f to the reference dd1c2a12f97772fb.
+#: `triangle_attention_end` is absent because it refuses a mesh slab by its own guard.
 _ROW_SHARD_OPS = set(filter(None, os.environ.get(
-    "TT_BIO_ROW_SHARD_OPS", "transition_z").split(",")))
+    "TT_BIO_ROW_SHARD_OPS",
+    "trimul_start,trimul_end,triatt_start,transition_z").split(",")))
 
 
 class PairformerLayer(Module):
@@ -7834,14 +7833,17 @@ class PairformerLayer(Module):
 
         def apply(op, extra, needs_full_z):
             nonlocal z
-            if needs_full_z:
-                u = to_dram(op(z, *extra, row_slab=slab))
-            else:
-                rows = to_dram(slab.take(z, 1))
-                try:
-                    u = to_dram(op(rows, *extra))
-                finally:
-                    ttnn.deallocate(rows)
+            # EVERY op is handed the WHOLE z plus `row_slab`, including the row-local ones that
+            # would be satisfied by their own rows. Pre-slicing them looks equivalent and is not:
+            # an op picks its kernel configs FROM THE SHAPE IT IS GIVEN, so a 256-row input selects
+            # a different blocking than the 512-row tensor, and a config that sets reduction order
+            # is not bit-exact across picks. `perf/b2z2_dualchip/slab_bitexact.py` passes because it
+            # calls `op(z, ..., row_slab=slab)` and the op slices internally with its configs still
+            # chosen from 512; this chain used to pre-slice, and `triatt_start` alone was then
+            # enough to move the fold's CIF to e2a4bf01b924d95f. Same lesson as
+            # `shard-must-pin-shape-routed-kernel-config`: let the config see the unsharded extent.
+            u = to_dram(op(z, *extra, row_slab=slab))
+            _ = needs_full_z
             # The gather is full-height and z is already full, so at the peak this holds z, the
             # slab update and the gathered update at once. Left to default that lands in L1 and
             # clashes with the next program's static circular buffers ("L1 buffer allocated at
