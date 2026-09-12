@@ -1,0 +1,57 @@
+origin/wk/b2z2-bh-union-step: 499 changed lines in 2 file(s), 16 hunk context(s)
+origin/wk/b2z2-sampler-union-wh: 336 changed lines in 1 file(s), 6 hunk context(s)
+origin/wk/b2z2-step-fusion-next-sites: 174 changed lines in 1 file(s), 2 hunk context(s)
+origin/wk/b2z2-atom-window-next: 138 changed lines in 1 file(s), 2 hunk context(s)
+
+=== origin/wk/b2z2-bh-union-step  vs  origin/wk/b2z2-sampler-union-wh
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 75 line(s), e.g. [1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+    class DiffusionModule(TorchWrapper):
+    class DiffusionTransformer(Module):
+    class DiffusionTransformerLayer(Module):
+
+=== origin/wk/b2z2-bh-union-step  vs  origin/wk/b2z2-step-fusion-next-sites
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 73 line(s), e.g. [1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-bh-union-step  vs  origin/wk/b2z2-atom-window-next
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 84 line(s), e.g. [1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-sampler-union-wh  vs  origin/wk/b2z2-step-fusion-next-sites
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 132 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-sampler-union-wh  vs  origin/wk/b2z2-atom-window-next
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 102 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-step-fusion-next-sites  vs  origin/wk/b2z2-atom-window-next
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 107 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+6 of 6 pair(s) are not independent.
