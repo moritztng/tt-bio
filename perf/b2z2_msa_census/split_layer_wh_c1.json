@@ -1,0 +1,1745 @@
+{
+ "label": "MSALayer-WH-c1",
+ "arch": "WH",
+ "csv": "perf/b2z2_msa_census/src/ops_perf_msalayer_whglx_c1.csv.gz",
+ "reps": 3,
+ "programs_per_call": 782,
+ "padded_rows": 1024,
+ "tokens": 512,
+ "commit": "f4041585",
+ "armed_ms_per_call": 239.3492,
+ "whole": {
+  "programs": 782,
+  "compute_programs": 647,
+  "zero_residency_programs": 135,
+  "zero_residency_kernel_ms": 14.371841,
+  "kernel_ms": 235.296783,
+  "trisc1_ms": 202.57817,
+  "wait_in_ms": 135.76872135341193,
+  "wait_out_ms": 30.70265658235207,
+  "compute_ms": 36.10679206423598,
+  "mean_compute_program_us": 341.4604976816074,
+  "arrivals_pc": 307196.6666666667,
+  "datum_rate_ms": 21.903122333333332,
+  "bytes_MB": {
+   "dram_rd": 9901.105152,
+   "dram_wr": 7998.693376,
+   "l1_rd": 1744.830464,
+   "l1_wr": 1610.612736
+  },
+  "n_sites": 45,
+  "fits": {
+   "tile arrivals only": {
+    "r2": -0.7137698103339452,
+    "coef": [
+     24.697820888103355
+    ]
+   },
+   "DRAM bytes only": {
+    "r2": 0.3888643747670736,
+    "coef": [
+     0.010339991571866653
+    ]
+   },
+   "DRAM + L1 bytes": {
+    "r2": 0.40880121920589574,
+    "coef": [
+     0.010318391386201616,
+     0.003586385082529515
+    ]
+   },
+   "DRAM + L1 + per-program": {
+    "r2": 0.4215501920639477,
+    "coef": [
+     0.010115870136044454,
+     0.0007727464363175434,
+     18270.69014391785
+    ]
+   }
+  },
+  "spearman": {
+   "bytes delivered (DRAM + L1 read)": 0.6177865612648221,
+   "DRAM bytes read": 0.6231884057971014,
+   "CB tile arrivals per core": 0.5511198945981555,
+   "programs in the site": 0.14808959156785242
+  },
+  "decomposition_ms": {
+   "DRAM bytes": 100.15829392095269,
+   "L1 bytes": 1.3483115230342857,
+   "per-program": 11.821136523114848,
+   "per_program_ns": 18270.69014391785
+  },
+  "top_sites": [
+   {
+    "n": 18.0,
+    "arrivals_pc": 8208.0,
+    "macs_pc": 8172.0,
+    "dram_rd": 1208033280.0,
+    "dram_wr": 603979776.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 17015233.888888888,
+    "kernel_ns": 23956398.0,
+    "trisc1_ns": 18209756.0,
+    "op": "MatmulDeviceOperation",
+    "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+    "inputs": [
+     "1x1024x512x64",
+     "1x1x64x32"
+    ],
+    "output": "1x1024x512x32",
+    "cores": 72
+   },
+   {
+    "n": 1.0,
+    "arrivals_pc": 16608.0,
+    "macs_pc": 114688.0,
+    "dram_rd": 67108864.0,
+    "dram_wr": 536870912.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 6144602.472222222,
+    "kernel_ns": 14548678.0,
+    "trisc1_ns": 14309455.0,
+    "op": "MatmulDeviceOperation",
+    "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+    "inputs": [
+     "1x1x16384x1024",
+     "1x1x16384x1024"
+    ],
+    "output": "1x1x16384x16384",
+    "cores": 72
+   },
+   {
+    "n": 8.0,
+    "arrivals_pc": 3840.0,
+    "macs_pc": 28672.0,
+    "dram_rd": 272629760.0,
+    "dram_wr": 268435456.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 7073427.898550724,
+    "kernel_ns": 12480981.0,
+    "trisc1_ns": 10199482.0,
+    "op": "MatmulDeviceOperation",
+    "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+    "inputs": [
+     "1x1024x32x512",
+     "1x1x512x512"
+    ],
+    "output": "1x1024x32x512",
+    "cores": 69
+   },
+   {
+    "n": 64.0,
+    "arrivals_pc": 5120.0,
+    "macs_pc": 16384.0,
+    "dram_rd": 8388608.0,
+    "dram_wr": 0.0,
+    "l1_rd": 134217728.0,
+    "l1_wr": 536870912.0,
+    "wait_ns": 603482.1875,
+    "kernel_ns": 12092956.0,
+    "trisc1_ns": 10893446.0,
+    "op": "MatmulDeviceOperation",
+    "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+    "inputs": [
+     "1x16x512x128",
+     "1x1x128x512"
+    ],
+    "output": "1x16x512x512",
+    "cores": 64
+   },
+   {
+    "n": 14.0,
+    "arrivals_pc": 0.388888888888889,
+    "macs_pc": 0.388888888888889,
+    "dram_rd": 57344.0,
+    "dram_wr": 28672.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 10679225.986111112,
+    "kernel_ns": 11596020.0,
+    "trisc1_ns": 11567863.0,
+    "op": "BinaryNgDeviceOperation",
+    "kernel_src": "eltwise_binary_no_bcast",
+    "inputs": [
+     "1x1x32x32",
+     "1x1x32x32"
+    ],
+    "output": "1x1x32x32",
+    "cores": 72
+   },
+   {
+    "n": 128.0,
+    "arrivals_pc": 3072.0,
+    "macs_pc": 8192.0,
+    "dram_rd": 4194304.0,
+    "dram_wr": 0.0,
+    "l1_rd": 134217728.0,
+    "l1_wr": 536870912.0,
+    "wait_ns": 554832.9375,
+    "kernel_ns": 11525900.0,
+    "trisc1_ns": 10147741.0,
+    "op": "MatmulDeviceOperation",
+    "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+    "inputs": [
+     "1x16x512x64",
+     "1x1x64x256"
+    ],
+    "output": "1x16x512x256",
+    "cores": 64
+   },
+   {
+    "n": 8.0,
+    "arrivals_pc": 1832.0,
+    "macs_pc": 3632.0,
+    "dram_rd": 268468224.0,
+    "dram_wr": 536870912.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 7464512.958333334,
+    "kernel_ns": 11239078.0,
+    "trisc1_ns": 7711552.0,
+    "op": "MatmulDeviceOperation",
+    "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+    "inputs": [
+     "1x1024x512x32",
+     "1x1x32x64"
+    ],
+    "output": "1x1024x512x64",
+    "cores": 72
+   },
+   {
+    "n": 10.0,
+    "arrivals_pc": 4560.0,
+    "macs_pc": 4520.0,
+    "dram_rd": 671170560.0,
+    "dram_wr": 167772160.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 9978234.708333334,
+    "kernel_ns": 10550497.0,
+    "trisc1_ns": 10498345.0,
+    "op": "MatmulDeviceOperation",
+    "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+    "inputs": [
+     "1x512x512x128",
+     "1x1x128x32"
+    ],
+    "output": "1x512x512x32",
+    "cores": 72
+   },
+   {
+    "n": 12.0,
+    "arrivals_pc": 5461.333333333335,
+    "macs_pc": 5461.333333333335,
+    "dram_rd": 805306368.0,
+    "dram_wr": 402653184.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 8752368.625,
+    "kernel_ns": 9918706.0,
+    "trisc1_ns": 9911148.0,
+    "op": "BinaryNgDeviceOperation",
+    "kernel_src": "eltwise_binary_sfpu_no_bcast",
+    "inputs": [
+     "1x1024x512x32",
+     "1x1024x512x32"
+    ],
+    "output": "1x1024x512x32",
+    "cores": 72
+   },
+   {
+    "n": 1.0,
+    "arrivals_pc": 3748.0,
+    "macs_pc": 14464.0,
+    "dram_rd": 537141248.0,
+    "dram_wr": 67108864.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 6770581.263888889,
+    "kernel_ns": 8672372.0,
+    "trisc1_ns": 8283806.0,
+    "op": "MatmulDeviceOperation",
+    "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+    "inputs": [
+     "1x512x512x1024",
+     "1x1x1024x128",
+     "1x1x32x128"
+    ],
+    "output": "1x512x512x128",
+    "cores": 72
+   },
+   {
+    "n": 2.0,
+    "arrivals_pc": 3640.8888888888887,
+    "macs_pc": 3640.8888888888887,
+    "dram_rd": 406847488.0,
+    "dram_wr": 134217728.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 1236894.8472222222,
+    "kernel_ns": 6627387.0,
+    "trisc1_ns": 6622713.0,
+    "op": "GenericOpDeviceOperation",
+    "kernel_src": "sdpa",
+    "inputs": [
+     "512x4x512x32",
+     "512x4x512x32",
+     "512x4x512x32",
+     "1x4x512x512"
+    ],
+    "output": "512x4x512x32",
+    "cores": 72
+   },
+   {
+    "n": 7.0,
+    "arrivals_pc": 3241.7777777777783,
+    "macs_pc": 3241.7777777777783,
+    "dram_rd": 402767872.0,
+    "dram_wr": 469762048.0,
+    "l1_rd": 67108864.0,
+    "l1_wr": 0.0,
+    "wait_ns": 4734742.611111112,
+    "kernel_ns": 6485761.0,
+    "trisc1_ns": 6471808.0,
+    "op": "LayerNormDeviceOperation",
+    "kernel_src": "layernorm",
+    "inputs": [
+     "1x512x512x128",
+     "1x1x32x128",
+     "1x1x32x128"
+    ],
+    "output": "1x512x512x128",
+    "cores": 72
+   },
+   {
+    "n": 2.0,
+    "arrivals_pc": 7537.777777777777,
+    "macs_pc": 7537.777777777777,
+    "dram_rd": 134479872.0,
+    "dram_wr": 536870912.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 2701910.888888889,
+    "kernel_ns": 6198026.0,
+    "trisc1_ns": 6197120.0,
+    "op": "GenericOpDeviceOperation",
+    "kernel_src": "compute",
+    "inputs": [
+     "1x512x512x128",
+     "1x1x128x512"
+    ],
+    "output": "1x512x512x512",
+    "cores": 72
+   },
+   {
+    "n": 4.0,
+    "arrivals_pc": 1820.4444444444443,
+    "macs_pc": 1820.4444444444443,
+    "dram_rd": 1073741824.0,
+    "dram_wr": 268435456.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 4550658.361111111,
+    "kernel_ns": 5809749.0,
+    "trisc1_ns": 5587469.0,
+    "op": "GenericOpDeviceOperation",
+    "kernel_src": "compute_reblock_permute_gated",
+    "inputs": [
+     "1x512x512x512"
+    ],
+    "output": "1x128x512x512",
+    "cores": 72
+   },
+   {
+    "n": 4.0,
+    "arrivals_pc": 1872.0,
+    "macs_pc": 7232.0,
+    "dram_rd": 268566528.0,
+    "dram_wr": 268435456.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 5133480.263888888,
+    "kernel_ns": 5789260.0,
+    "trisc1_ns": 5577520.0,
+    "op": "MatmulDeviceOperation",
+    "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+    "inputs": [
+     "1x512x512x128",
+     "1x1x128x128"
+    ],
+    "output": "1x512x512x128",
+    "cores": 72
+   },
+   {
+    "n": 1.0,
+    "arrivals_pc": 3640.8888888888887,
+    "macs_pc": 3640.8888888888887,
+    "dram_rd": 536870912.0,
+    "dram_wr": 536870912.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 4876124.986111111,
+    "kernel_ns": 5444954.0,
+    "trisc1_ns": 5443365.0,
+    "op": "TransposeDeviceOperation",
+    "kernel_src": "transpose_wh",
+    "inputs": [
+     "1x512x1024x512"
+    ],
+    "output": "1x512x512x1024",
+    "cores": 72
+   },
+   {
+    "n": 1.0,
+    "arrivals_pc": 4096.0,
+    "macs_pc": 4096.0,
+    "dram_rd": 536870912.0,
+    "dram_wr": 536870912.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 1245208.6875,
+    "kernel_ns": 5379792.0,
+    "trisc1_ns": 5361495.0,
+    "op": "UntilizeDeviceOperation",
+    "kernel_src": "untilize_wh",
+    "inputs": [
+     "1x1x16384x16384"
+    ],
+    "output": "1x1x16384x16384",
+    "cores": 64
+   },
+   {
+    "n": 1.0,
+    "arrivals_pc": 0.05555555555555555,
+    "macs_pc": 0.05555555555555555,
+    "dram_rd": 8192.0,
+    "dram_wr": 4096.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 3387610.763888889,
+    "kernel_ns": 5039951.0,
+    "trisc1_ns": 5039293.0,
+    "op": "BinaryNgDeviceOperation",
+    "kernel_src": "eltwise_binary_sfpu_scalar",
+    "inputs": [
+     "1x1x64x32",
+     "1x1x64x32"
+    ],
+    "output": "1x1x64x32",
+    "cores": 72
+   },
+   {
+    "n": 1.0,
+    "arrivals_pc": 3640.8888888888887,
+    "macs_pc": 3640.8888888888887,
+    "dram_rd": 536870912.0,
+    "dram_wr": 536870912.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 3305620.472222222,
+    "kernel_ns": 4885710.0,
+    "trisc1_ns": 4879094.0,
+    "op": "TilizeDeviceOperation",
+    "kernel_src": "tilize",
+    "inputs": [
+     "1x512x1024x512"
+    ],
+    "output": "1x512x1024x512",
+    "cores": 72
+   },
+   {
+    "n": 2.0,
+    "arrivals_pc": 2012.4444444444443,
+    "macs_pc": 2012.4444444444443,
+    "dram_rd": 134414336.0,
+    "dram_wr": 402653184.0,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0,
+    "wait_ns": 3491752.638888889,
+    "kernel_ns": 4215550.0,
+    "trisc1_ns": 4213667.0,
+    "op": "GenericOpDeviceOperation",
+    "kernel_src": "compute",
+    "inputs": [
+     "1x512x512x128",
+     "1x1x128x384"
+    ],
+    "output": "512x4x512x32",
+    "cores": 72
+   }
+  ]
+ },
+ "subunits": {
+  "pair_weighted_averaging": {
+   "programs": 136,
+   "compute_programs": 104,
+   "zero_residency_programs": 32,
+   "zero_residency_kernel_ms": 0.055786,
+   "kernel_ms": 73.987167,
+   "trisc1_ms": 62.739503,
+   "wait_in_ms": 54.52091399577294,
+   "wait_out_ms": 7.402808920893717,
+   "compute_ms": 0.8157800833333395,
+   "mean_compute_program_us": 710.8786634615384,
+   "arrivals_pc": 24891.111111111113,
+   "datum_rate_ms": 1.7747362222222223,
+   "bytes_MB": {
+    "dram_rd": 3498.385408,
+    "dram_wr": 2424.438784,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0
+   },
+   "n_sites": 14,
+   "fits": {
+    "tile arrivals only": {
+     "r2": 0.7372770676453679,
+     "coef": [
+      1947.4201754523597
+     ]
+    },
+    "DRAM bytes only": {
+     "r2": 0.6873042197753393,
+     "coef": [
+      0.013721539668480798
+     ]
+    }
+   },
+   "spearman": {
+    "bytes delivered (DRAM + L1 read)": 0.7582417582417582,
+    "DRAM bytes read": 0.7582417582417582,
+    "CB tile arrivals per core": 0.7670329670329671,
+    "programs in the site": 0.6791208791208792
+   },
+   "decomposition_ms": {},
+   "top_sites": [
+    {
+     "n": 16.0,
+     "arrivals_pc": 7296.0,
+     "macs_pc": 7264.0,
+     "dram_rd": 1073807360.0,
+     "dram_wr": 536870912.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 15122238.944444444,
+     "kernel_ns": 21292149.0,
+     "trisc1_ns": 16184011.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x1024x512x64",
+      "1x1x64x32"
+     ],
+     "output": "1x1024x512x32",
+     "cores": 72
+    },
+    {
+     "n": 8.0,
+     "arrivals_pc": 3840.0,
+     "macs_pc": 28672.0,
+     "dram_rd": 272629760.0,
+     "dram_wr": 268435456.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 7073427.898550724,
+     "kernel_ns": 12480981.0,
+     "trisc1_ns": 10199482.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x1024x32x512",
+      "1x1x512x512"
+     ],
+     "output": "1x1024x32x512",
+     "cores": 69
+    },
+    {
+     "n": 8.0,
+     "arrivals_pc": 1832.0,
+     "macs_pc": 3632.0,
+     "dram_rd": 268468224.0,
+     "dram_wr": 536870912.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 7464512.958333334,
+     "kernel_ns": 11239078.0,
+     "trisc1_ns": 7711552.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x1024x512x32",
+      "1x1x32x64"
+     ],
+     "output": "1x1024x512x64",
+     "cores": 72
+    },
+    {
+     "n": 8.0,
+     "arrivals_pc": 3648.0,
+     "macs_pc": 3616.0,
+     "dram_rd": 536936448.0,
+     "dram_wr": 134217728.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 7940446.055555556,
+     "kernel_ns": 8436212.0,
+     "trisc1_ns": 8396247.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x512x512x128",
+      "1x1x128x32"
+     ],
+     "output": "1x512x512x32",
+     "cores": 72
+    },
+    {
+     "n": 8.0,
+     "arrivals_pc": 0.22222222222222227,
+     "macs_pc": 0.22222222222222227,
+     "dram_rd": 32768.0,
+     "dram_wr": 16384.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 6097410.319444446,
+     "kernel_ns": 6608553.0,
+     "trisc1_ns": 6592491.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_no_bcast",
+     "inputs": [
+      "1x1x32x32",
+      "1x1x32x32"
+     ],
+     "output": "1x1x32x32",
+     "cores": 72
+    },
+    {
+     "n": 8.0,
+     "arrivals_pc": 3640.8888888888896,
+     "macs_pc": 3640.8888888888896,
+     "dram_rd": 536870912.0,
+     "dram_wr": 268435456.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 4421255.291666667,
+     "kernel_ns": 5044793.0,
+     "trisc1_ns": 5039865.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_sfpu_no_bcast",
+     "inputs": [
+      "1x1024x512x32",
+      "1x1024x512x32"
+     ],
+     "output": "1x1024x512x32",
+     "cores": 72
+    },
+    {
+     "n": 8.0,
+     "arrivals_pc": 1820.4444444444448,
+     "macs_pc": 1820.4444444444448,
+     "dram_rd": 268435456.0,
+     "dram_wr": 268435456.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 2013915.444444444,
+     "kernel_ns": 2645781.0,
+     "trisc1_ns": 2632415.0,
+     "op": "TransposeDeviceOperation",
+     "kernel_src": "transpose_wh",
+     "inputs": [
+      "1x1024x512x32"
+     ],
+     "output": "1x1024x32x512",
+     "cores": 72
+    },
+    {
+     "n": 8.0,
+     "arrivals_pc": 1820.4444444444448,
+     "macs_pc": 1820.4444444444448,
+     "dram_rd": 268435456.0,
+     "dram_wr": 268435456.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 2038865.625,
+     "kernel_ns": 2631175.0,
+     "trisc1_ns": 2618067.0,
+     "op": "TransposeDeviceOperation",
+     "kernel_src": "transpose_wh",
+     "inputs": [
+      "1x1024x32x512"
+     ],
+     "output": "1x1024x512x32",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 459.1111111111111,
+     "macs_pc": 459.1111111111111,
+     "dram_rd": 67117056.0,
+     "dram_wr": 67108864.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 960486.125,
+     "kernel_ns": 1307825.0,
+     "trisc1_ns": 1306585.0,
+     "op": "LayerNormDeviceOperation",
+     "kernel_src": "layernorm",
+     "inputs": [
+      "1x1024x512x64",
+      "1x1x32x64",
+      "1x1x32x64"
+     ],
+     "output": "1x1024x512x64",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 463.1111111111111,
+     "macs_pc": 463.1111111111111,
+     "dram_rd": 67125248.0,
+     "dram_wr": 67108864.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 678092.4444444445,
+     "kernel_ns": 927720.0,
+     "trisc1_ns": 925871.0,
+     "op": "LayerNormDeviceOperation",
+     "kernel_src": "layernorm",
+     "inputs": [
+      "1x512x512x128",
+      "1x1x32x128",
+      "1x1x32x128"
+     ],
+     "output": "1x512x512x128",
+     "cores": 72
+    },
+    {
+     "n": 8.0,
+     "arrivals_pc": 28.44444444444445,
+     "macs_pc": 28.44444444444445,
+     "dram_rd": 134217728.0,
+     "dram_wr": 4194304.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 624795.625,
+     "kernel_ns": 736121.0,
+     "trisc1_ns": 705266.0,
+     "op": "PermuteDeviceOperation",
+     "kernel_src": "transpose_wh",
+     "inputs": [
+      "1x512x512x32"
+     ],
+     "output": "1x1x512x512",
+     "cores": 72
+    },
+    {
+     "n": 8.0,
+     "arrivals_pc": 28.44444444444445,
+     "macs_pc": 28.44444444444445,
+     "dram_rd": 4194304.0,
+     "dram_wr": 4194304.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 47719.01388888889,
+     "kernel_ns": 442649.0,
+     "trisc1_ns": 418501.0,
+     "op": "SoftmaxDeviceOperation",
+     "kernel_src": "softmax",
+     "inputs": [
+      "1x1x512x512"
+     ],
+     "output": "1x1x512x512",
+     "cores": 72
+    },
+    {
+     "n": 7.0,
+     "arrivals_pc": 7.0,
+     "macs_pc": 7.0,
+     "dram_rd": 57344.0,
+     "dram_wr": 57344.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 3337.25,
+     "kernel_ns": 90017.0,
+     "trisc1_ns": 2045.0,
+     "op": "UntilizeWithUnpaddingDeviceOperation",
+     "kernel_src": "untilize",
+     "inputs": [
+      "1x1x128x32"
+     ],
+     "output": "1x1x128x8",
+     "cores": 4
+    },
+    {
+     "n": 7.0,
+     "arrivals_pc": 7.0,
+     "macs_pc": 7.0,
+     "dram_rd": 57344.0,
+     "dram_wr": 57344.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 34411.0,
+     "kernel_ns": 48327.0,
+     "trisc1_ns": 7105.0,
+     "op": "TilizeWithValPaddingDeviceOperation",
+     "kernel_src": "tilize",
+     "inputs": [
+      "1x1x128x1"
+     ],
+     "output": "1x1x128x32",
+     "cores": 4
+    }
+   ]
+  },
+  "msa_transition": {
+   "programs": 388,
+   "compute_programs": 321,
+   "zero_residency_programs": 67,
+   "zero_residency_kernel_ms": 1.949474,
+   "kernel_ms": 21.517968,
+   "trisc1_ms": 16.777966,
+   "wait_in_ms": 5.333590630208331,
+   "wait_out_ms": 1.4844838802083329,
+   "compute_ms": 9.959891489583336,
+   "mean_compute_program_us": 60.961040498442365,
+   "arrivals_pc": 10496.027777777772,
+   "datum_rate_ms": 0.7483667805555552,
+   "bytes_MB": {
+    "dram_rd": 73.928704,
+    "dram_wr": 67.110912,
+    "l1_rd": 939.524096,
+    "l1_wr": 872.415232
+   },
+   "n_sites": 5,
+   "fits": {
+    "tile arrivals only": {
+     "r2": -2.706252583153855,
+     "coef": [
+      355.4603514571801
+     ]
+    },
+    "DRAM bytes only": {
+     "r2": -6.2955212744067275,
+     "coef": [
+      0.021103377184440983
+     ]
+    },
+    "DRAM + L1 bytes": {
+     "r2": -0.5118050468623221,
+     "coef": [
+      0.020374551654516578,
+      0.002975266535729982
+     ]
+    },
+    "DRAM + L1 + per-program": {
+     "r2": -0.4331884368078518,
+     "coef": [
+      0.01826903519907028,
+      0.0026151900318069432,
+      2016.7265775384535
+     ]
+    }
+   },
+   "spearman": {
+    "bytes delivered (DRAM + L1 read)": 0.2,
+    "DRAM bytes read": 0.1,
+    "CB tile arrivals per core": 0.2,
+    "programs in the site": -0.4
+   },
+   "decomposition_ms": {
+    "DRAM bytes": 1.3506060955976478,
+    "L1 bytes": 2.4570340505016297,
+    "per-program": 0.6473692313898436,
+    "per_program_ns": 2016.7265775384535
+   },
+   "top_sites": [
+    {
+     "n": 128.0,
+     "arrivals_pc": 3072.0,
+     "macs_pc": 8192.0,
+     "dram_rd": 4194304.0,
+     "dram_wr": 0.0,
+     "l1_rd": 134217728.0,
+     "l1_wr": 536870912.0,
+     "wait_ns": 554832.9375,
+     "kernel_ns": 11525900.0,
+     "trisc1_ns": 10147741.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x16x512x64",
+      "1x1x64x256"
+     ],
+     "output": "1x16x512x256",
+     "cores": 64
+    },
+    {
+     "n": 64.0,
+     "arrivals_pc": 3072.0,
+     "macs_pc": 4096.0,
+     "dram_rd": 2097152.0,
+     "dram_wr": 67108864.0,
+     "l1_rd": 268435456.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1315458.859375,
+     "kernel_ns": 2839589.0,
+     "trisc1_ns": 1539495.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x16x512x256",
+      "1x1x256x64"
+     ],
+     "output": "1x16x512x64",
+     "cores": 64
+    },
+    {
+     "n": 64.0,
+     "arrivals_pc": 711.1111111111102,
+     "macs_pc": 711.1111111111102,
+     "dram_rd": 67633152.0,
+     "dram_wr": 0.0,
+     "l1_rd": 0.0,
+     "l1_wr": 67108864.0,
+     "wait_ns": 1358905.6805555555,
+     "kernel_ns": 2224183.0,
+     "trisc1_ns": 2148868.0,
+     "op": "LayerNormDeviceOperation",
+     "kernel_src": "layernorm",
+     "inputs": [
+      "1x16x512x64",
+      "1x1x32x64",
+      "1x1x32x64"
+     ],
+     "output": "1x16x512x64",
+     "cores": 72
+    },
+    {
+     "n": 64.0,
+     "arrivals_pc": 3640.8888888888837,
+     "macs_pc": 3640.8888888888837,
+     "dram_rd": 0.0,
+     "dram_wr": 0.0,
+     "l1_rd": 536870912.0,
+     "l1_wr": 268435456.0,
+     "wait_ns": 1342791.8194444447,
+     "kernel_ns": 2155452.0,
+     "trisc1_ns": 2120534.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_sfpu_no_bcast",
+     "inputs": [
+      "1x16x512x256",
+      "1x16x512x256"
+     ],
+     "output": "1x16x512x256",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 0.027777777777777776,
+     "macs_pc": 0.027777777777777776,
+     "dram_rd": 4096.0,
+     "dram_wr": 2048.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 761601.3333333334,
+     "kernel_ns": 823370.0,
+     "trisc1_ns": 821328.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_no_bcast",
+     "inputs": [
+      "1x1x32x32",
+      "1x1x32x32"
+     ],
+     "output": "1x1x32x32",
+     "cores": 72
+    }
+   ]
+  },
+  "outer_product_mean": {
+   "programs": 16,
+   "compute_programs": 15,
+   "zero_residency_programs": 1,
+   "zero_residency_kernel_ms": 8.121019,
+   "kernel_ms": 61.400856,
+   "trisc1_ms": 51.940676,
+   "wait_in_ms": 32.61995679513889,
+   "wait_out_ms": 14.638981097222223,
+   "compute_ms": 4.68173810763889,
+   "mean_compute_program_us": 3551.9891333333335,
+   "arrivals_pc": 34527.194444444445,
+   "datum_rate_ms": 2.4617889638888886,
+   "bytes_MB": {
+    "dram_rd": 2586.087424,
+    "dram_wr": 2516.588544,
+    "l1_rd": 0.0,
+    "l1_wr": 0.0
+   },
+   "n_sites": 14,
+   "fits": {
+    "tile arrivals only": {
+     "r2": 0.08852181838790762,
+     "coef": [
+      493.9473775571496
+     ]
+    },
+    "DRAM bytes only": {
+     "r2": 0.011185614734139482,
+     "coef": [
+      0.008042721489115848
+     ]
+    }
+   },
+   "spearman": {
+    "bytes delivered (DRAM + L1 read)": 0.4901098901098901,
+    "DRAM bytes read": 0.4901098901098901,
+    "CB tile arrivals per core": 0.5164835164835165,
+    "programs in the site": 0.512087912087912
+   },
+   "decomposition_ms": {},
+   "top_sites": [
+    {
+     "n": 1.0,
+     "arrivals_pc": 16608.0,
+     "macs_pc": 114688.0,
+     "dram_rd": 67108864.0,
+     "dram_wr": 536870912.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 6144602.472222222,
+     "kernel_ns": 14548678.0,
+     "trisc1_ns": 14309455.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x1x16384x1024",
+      "1x1x16384x1024"
+     ],
+     "output": "1x1x16384x16384",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 3748.0,
+     "macs_pc": 14464.0,
+     "dram_rd": 537141248.0,
+     "dram_wr": 67108864.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 6770581.263888889,
+     "kernel_ns": 8672372.0,
+     "trisc1_ns": 8283806.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x512x512x1024",
+      "1x1x1024x128",
+      "1x1x32x128"
+     ],
+     "output": "1x512x512x128",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 3640.8888888888887,
+     "macs_pc": 3640.8888888888887,
+     "dram_rd": 536870912.0,
+     "dram_wr": 536870912.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 4876124.986111111,
+     "kernel_ns": 5444954.0,
+     "trisc1_ns": 5443365.0,
+     "op": "TransposeDeviceOperation",
+     "kernel_src": "transpose_wh",
+     "inputs": [
+      "1x512x1024x512"
+     ],
+     "output": "1x512x512x1024",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 4096.0,
+     "macs_pc": 4096.0,
+     "dram_rd": 536870912.0,
+     "dram_wr": 536870912.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1245208.6875,
+     "kernel_ns": 5379792.0,
+     "trisc1_ns": 5361495.0,
+     "op": "UntilizeDeviceOperation",
+     "kernel_src": "untilize_wh",
+     "inputs": [
+      "1x1x16384x16384"
+     ],
+     "output": "1x1x16384x16384",
+     "cores": 64
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 0.05555555555555555,
+     "macs_pc": 0.05555555555555555,
+     "dram_rd": 8192.0,
+     "dram_wr": 4096.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 3387610.763888889,
+     "kernel_ns": 5039951.0,
+     "trisc1_ns": 5039293.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_sfpu_scalar",
+     "inputs": [
+      "1x1x64x32",
+      "1x1x64x32"
+     ],
+     "output": "1x1x64x32",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 3640.8888888888887,
+     "macs_pc": 3640.8888888888887,
+     "dram_rd": 536870912.0,
+     "dram_wr": 536870912.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 3305620.472222222,
+     "kernel_ns": 4885710.0,
+     "trisc1_ns": 4879094.0,
+     "op": "TilizeDeviceOperation",
+     "kernel_src": "tilize",
+     "inputs": [
+      "1x512x1024x512"
+     ],
+     "output": "1x512x1024x512",
+     "cores": 72
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 912.0,
+     "macs_pc": 908.0,
+     "dram_rd": 134225920.0,
+     "dram_wr": 67108864.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1892994.9444444445,
+     "kernel_ns": 2664249.0,
+     "trisc1_ns": 2025745.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x1024x512x64",
+      "1x1x64x32"
+     ],
+     "output": "1x1024x512x32",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 227.55555555555554,
+     "macs_pc": 227.55555555555554,
+     "dram_rd": 33554432.0,
+     "dram_wr": 33554432.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1271888.1805555555,
+     "kernel_ns": 1900899.0,
+     "trisc1_ns": 1889280.0,
+     "op": "PermuteDeviceOperation",
+     "kernel_src": "transpose_xw_tiled",
+     "inputs": [
+      "1x1024x512x32"
+     ],
+     "output": "1x32x512x1024",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 227.55555555555554,
+     "macs_pc": 227.55555555555554,
+     "dram_rd": 33554432.0,
+     "dram_wr": 33554432.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1231377.9583333333,
+     "kernel_ns": 1624138.0,
+     "trisc1_ns": 1613472.0,
+     "op": "PermuteDeviceOperation",
+     "kernel_src": "transpose_xw_tiled",
+     "inputs": [
+      "1x1024x512x32"
+     ],
+     "output": "1x512x32x1024",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 459.1111111111111,
+     "macs_pc": 459.1111111111111,
+     "dram_rd": 67117056.0,
+     "dram_wr": 67108864.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 961394.5833333334,
+     "kernel_ns": 1308833.0,
+     "trisc1_ns": 1307487.0,
+     "op": "LayerNormDeviceOperation",
+     "kernel_src": "layernorm",
+     "inputs": [
+      "1x1024x512x64",
+      "1x1x32x64",
+      "1x1x32x64"
+     ],
+     "output": "1x1024x512x64",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 0.027777777777777776,
+     "macs_pc": 0.027777777777777776,
+     "dram_rd": 4096.0,
+     "dram_wr": 2048.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 775540.6527777778,
+     "kernel_ns": 855594.0,
+     "trisc1_ns": 853509.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_no_bcast",
+     "inputs": [
+      "1x1x32x32",
+      "1x1x32x32"
+     ],
+     "output": "1x1x32x32",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 256.0,
+     "macs_pc": 256.0,
+     "dram_rd": 33554432.0,
+     "dram_wr": 33554432.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 215876.34375,
+     "kernel_ns": 326782.0,
+     "trisc1_ns": 320280.0,
+     "op": "TilizeDeviceOperation",
+     "kernel_src": "tilize",
+     "inputs": [
+      "1x1x16384x1024"
+     ],
+     "output": "1x1x16384x1024",
+     "cores": 64
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 256.0,
+     "macs_pc": 256.0,
+     "dram_rd": 33554432.0,
+     "dram_wr": 33554432.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 282061.0,
+     "kernel_ns": 321360.0,
+     "trisc1_ns": 308560.0,
+     "op": "UntilizeDeviceOperation",
+     "kernel_src": "untilize_variable_num_blocks",
+     "inputs": [
+      "1x32x512x1024"
+     ],
+     "output": "1x32x512x1024",
+     "cores": 64
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 455.1111111111111,
+     "macs_pc": 455.1111111111111,
+     "dram_rd": 35651584.0,
+     "dram_wr": 33554432.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 259074.48611111112,
+     "kernel_ns": 306525.0,
+     "trisc1_ns": 305835.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_sfpu",
+     "inputs": [
+      "1x1024x512x32",
+      "1x1024x32x32"
+     ],
+     "output": "1x1024x512x32",
+     "cores": 72
+    }
+   ]
+  },
+  "pairformer_layer": {
+   "programs": 238,
+   "compute_programs": 203,
+   "zero_residency_programs": 35,
+   "zero_residency_kernel_ms": 4.245562,
+   "kernel_ms": 78.38105,
+   "trisc1_ms": 71.112606,
+   "wait_in_ms": 43.29269793229167,
+   "wait_out_ms": 7.1762956840277745,
+   "compute_ms": 20.64361238368056,
+   "mean_compute_program_us": 365.19944827586204,
+   "arrivals_pc": 237278.3333333333,
+   "datum_rate_ms": 16.917945166666666,
+   "bytes_MB": {
+    "dram_rd": 3742.695424,
+    "dram_wr": 2990.546944,
+    "l1_rd": 805.306368,
+    "l1_wr": 738.197504
+   },
+   "n_sites": 20,
+   "fits": {
+    "tile arrivals only": {
+     "r2": -2.1338893404431896,
+     "coef": [
+      13.19427545483986
+     ]
+    },
+    "DRAM bytes only": {
+     "r2": -0.36970405452601707,
+     "coef": [
+      0.006639818417907922
+     ]
+    },
+    "DRAM + L1 bytes": {
+     "r2": -0.2509836132405425,
+     "coef": [
+      0.006552426815214277,
+      0.005324384688259104
+     ]
+    },
+    "DRAM + L1 + per-program": {
+     "r2": -0.23536897427626347,
+     "coef": [
+      0.006472172107905286,
+      0.003185330994907617,
+      14040.652718537185
+     ]
+    }
+   },
+   "spearman": {
+    "bytes delivered (DRAM + L1 read)": 0.44360902255639095,
+    "DRAM bytes read": 0.6345864661654136,
+    "CB tile arrivals per core": 0.21353383458646616,
+    "programs in the site": 0.08421052631578947
+   },
+   "decomposition_ms": {
+    "DRAM bytes": 24.22336893159755,
+    "L1 bytes": 2.5651673343868797,
+    "per-program": 2.8502525018630482,
+    "per_program_ns": 14040.652718537185
+   },
+   "top_sites": [
+    {
+     "n": 64.0,
+     "arrivals_pc": 5120.0,
+     "macs_pc": 16384.0,
+     "dram_rd": 8388608.0,
+     "dram_wr": 0.0,
+     "l1_rd": 134217728.0,
+     "l1_wr": 536870912.0,
+     "wait_ns": 603482.1875,
+     "kernel_ns": 12092956.0,
+     "trisc1_ns": 10893446.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x16x512x128",
+      "1x1x128x512"
+     ],
+     "output": "1x16x512x512",
+     "cores": 64
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 3640.8888888888887,
+     "macs_pc": 3640.8888888888887,
+     "dram_rd": 406847488.0,
+     "dram_wr": 134217728.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1236894.8472222222,
+     "kernel_ns": 6627387.0,
+     "trisc1_ns": 6622713.0,
+     "op": "GenericOpDeviceOperation",
+     "kernel_src": "sdpa",
+     "inputs": [
+      "512x4x512x32",
+      "512x4x512x32",
+      "512x4x512x32",
+      "1x4x512x512"
+     ],
+     "output": "512x4x512x32",
+     "cores": 72
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 7537.777777777777,
+     "macs_pc": 7537.777777777777,
+     "dram_rd": 134479872.0,
+     "dram_wr": 536870912.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 2701910.888888889,
+     "kernel_ns": 6198026.0,
+     "trisc1_ns": 6197120.0,
+     "op": "GenericOpDeviceOperation",
+     "kernel_src": "compute",
+     "inputs": [
+      "1x512x512x128",
+      "1x1x128x512"
+     ],
+     "output": "1x512x512x512",
+     "cores": 72
+    },
+    {
+     "n": 4.0,
+     "arrivals_pc": 1820.4444444444443,
+     "macs_pc": 1820.4444444444443,
+     "dram_rd": 1073741824.0,
+     "dram_wr": 268435456.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 4550658.361111111,
+     "kernel_ns": 5809749.0,
+     "trisc1_ns": 5587469.0,
+     "op": "GenericOpDeviceOperation",
+     "kernel_src": "compute_reblock_permute_gated",
+     "inputs": [
+      "1x512x512x512"
+     ],
+     "output": "1x128x512x512",
+     "cores": 72
+    },
+    {
+     "n": 4.0,
+     "arrivals_pc": 1872.0,
+     "macs_pc": 7232.0,
+     "dram_rd": 268566528.0,
+     "dram_wr": 268435456.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 5133480.263888888,
+     "kernel_ns": 5789260.0,
+     "trisc1_ns": 5577520.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x512x512x128",
+      "1x1x128x128"
+     ],
+     "output": "1x512x512x128",
+     "cores": 72
+    },
+    {
+     "n": 6.0,
+     "arrivals_pc": 2778.666666666667,
+     "macs_pc": 2778.666666666667,
+     "dram_rd": 335642624.0,
+     "dram_wr": 402653184.0,
+     "l1_rd": 67108864.0,
+     "l1_wr": 0.0,
+     "wait_ns": 4056650.1666666665,
+     "kernel_ns": 5558041.0,
+     "trisc1_ns": 5545937.0,
+     "op": "LayerNormDeviceOperation",
+     "kernel_src": "layernorm",
+     "inputs": [
+      "1x512x512x128",
+      "1x1x32x128",
+      "1x1x32x128"
+     ],
+     "output": "1x512x512x128",
+     "cores": 72
+    },
+    {
+     "n": 4.0,
+     "arrivals_pc": 1820.4444444444443,
+     "macs_pc": 1820.4444444444443,
+     "dram_rd": 268435456.0,
+     "dram_wr": 134217728.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 4331113.333333334,
+     "kernel_ns": 4873913.0,
+     "trisc1_ns": 4871283.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_sfpu_no_bcast",
+     "inputs": [
+      "1x1024x512x32",
+      "1x1024x512x32"
+     ],
+     "output": "1x1024x512x32",
+     "cores": 72
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 2012.4444444444443,
+     "macs_pc": 2012.4444444444443,
+     "dram_rd": 134414336.0,
+     "dram_wr": 402653184.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 3491752.638888889,
+     "kernel_ns": 4215550.0,
+     "trisc1_ns": 4213667.0,
+     "op": "GenericOpDeviceOperation",
+     "kernel_src": "compute",
+     "inputs": [
+      "1x512x512x128",
+      "1x1x128x384"
+     ],
+     "output": "512x4x512x32",
+     "cores": 72
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 196608.0,
+     "macs_pc": 2097152.0,
+     "dram_rd": 268435456.0,
+     "dram_wr": 134217728.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 2141043.140625,
+     "kernel_ns": 3364050.0,
+     "trisc1_ns": 3356540.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x128x512x512",
+      "1x128x512x512"
+     ],
+     "output": "1x128x512x512",
+     "cores": 64
+    },
+    {
+     "n": 4.0,
+     "arrivals_pc": 0.1111111111111111,
+     "macs_pc": 0.1111111111111111,
+     "dram_rd": 16384.0,
+     "dram_wr": 8192.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 3044673.680555556,
+     "kernel_ns": 3308503.0,
+     "trisc1_ns": 3300535.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_no_bcast",
+     "inputs": [
+      "1x1x32x32",
+      "1x1x32x32"
+     ],
+     "output": "1x1x32x32",
+     "cores": 72
+    },
+    {
+     "n": 32.0,
+     "arrivals_pc": 4096.0,
+     "macs_pc": 8192.0,
+     "dram_rd": 4194304.0,
+     "dram_wr": 67108864.0,
+     "l1_rd": 268435456.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1351377.1875,
+     "kernel_ns": 2903997.0,
+     "trisc1_ns": 1665929.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x16x512x512",
+      "1x1x512x128"
+     ],
+     "output": "1x16x512x128",
+     "cores": 64
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 912.0,
+     "macs_pc": 904.0,
+     "dram_rd": 134234112.0,
+     "dram_wr": 33554432.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 2037788.6527777778,
+     "kernel_ns": 2114285.0,
+     "trisc1_ns": 2102098.0,
+     "op": "MatmulDeviceOperation",
+     "kernel_src": "bmm_large_block_zm_fused_bias_activation",
+     "inputs": [
+      "1x512x512x128",
+      "1x1x128x32"
+     ],
+     "output": "1x512x512x32",
+     "cores": 72
+    },
+    {
+     "n": 32.0,
+     "arrivals_pc": 1820.444444444445,
+     "macs_pc": 1820.444444444445,
+     "dram_rd": 0.0,
+     "dram_wr": 0.0,
+     "l1_rd": 268435456.0,
+     "l1_wr": 134217728.0,
+     "wait_ns": 1316749.5694444445,
+     "kernel_ns": 1928159.0,
+     "trisc1_ns": 1911018.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_sfpu_no_bcast",
+     "inputs": [
+      "1x16x512x256",
+      "1x16x512x256"
+     ],
+     "output": "1x16x512x256",
+     "cores": 72
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 1884.4444444444443,
+     "macs_pc": 1884.4444444444443,
+     "dram_rd": 134283264.0,
+     "dram_wr": 134217728.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1542382.861111111,
+     "kernel_ns": 1910896.0,
+     "trisc1_ns": 1909998.0,
+     "op": "GenericOpDeviceOperation",
+     "kernel_src": "compute",
+     "inputs": [
+      "1x512x512x128",
+      "1x1x128x128"
+     ],
+     "output": "512x4x512x32",
+     "cores": 72
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 1884.4444444444443,
+     "macs_pc": 1884.4444444444443,
+     "dram_rd": 134283264.0,
+     "dram_wr": 134217728.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1508016.5416666665,
+     "kernel_ns": 1877388.0,
+     "trisc1_ns": 1876518.0,
+     "op": "GenericOpDeviceOperation",
+     "kernel_src": "compute",
+     "inputs": [
+      "512x4x512x32",
+      "1x1x128x128"
+     ],
+     "output": "1x512x512x128",
+     "cores": 72
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 910.2222222222222,
+     "macs_pc": 910.2222222222222,
+     "dram_rd": 134217728.0,
+     "dram_wr": 134217728.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1507065.2916666667,
+     "kernel_ns": 1867017.0,
+     "trisc1_ns": 1858463.0,
+     "op": "GenericOpDeviceOperation",
+     "kernel_src": "compute_reblock_permute",
+     "inputs": [
+      "1x128x512x512"
+     ],
+     "output": "1x512x512x128",
+     "cores": 72
+    },
+    {
+     "n": 32.0,
+     "arrivals_pc": 711.1111111111107,
+     "macs_pc": 711.1111111111107,
+     "dram_rd": 67633152.0,
+     "dram_wr": 0.0,
+     "l1_rd": 0.0,
+     "l1_wr": 67108864.0,
+     "wait_ns": 905948.0833333334,
+     "kernel_ns": 1466240.0,
+     "trisc1_ns": 1409233.0,
+     "op": "LayerNormDeviceOperation",
+     "kernel_src": "layernorm",
+     "inputs": [
+      "1x16x512x128",
+      "1x1x32x128",
+      "1x1x32x128"
+     ],
+     "output": "1x16x512x128",
+     "cores": 72
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 910.2222222222222,
+     "macs_pc": 910.2222222222222,
+     "dram_rd": 134217728.0,
+     "dram_wr": 134217728.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 1085351.7916666665,
+     "kernel_ns": 1343737.0,
+     "trisc1_ns": 1340448.0,
+     "op": "TransposeDeviceOperation",
+     "kernel_src": "transpose_wh",
+     "inputs": [
+      "1x128x512x512"
+     ],
+     "output": "1x128x512x512",
+     "cores": 72
+    },
+    {
+     "n": 1.0,
+     "arrivals_pc": 910.2222222222222,
+     "macs_pc": 910.2222222222222,
+     "dram_rd": 67108864.0,
+     "dram_wr": 67108864.0,
+     "l1_rd": 67108864.0,
+     "l1_wr": 0.0,
+     "wait_ns": 500650.5416666667,
+     "kernel_ns": 605384.0,
+     "trisc1_ns": 603588.0,
+     "op": "BinaryNgDeviceOperation",
+     "kernel_src": "eltwise_binary_no_bcast",
+     "inputs": [
+      "1x512x512x128",
+      "1x512x512x128"
+     ],
+     "output": "1x512x512x128",
+     "cores": 72
+    },
+    {
+     "n": 2.0,
+     "arrivals_pc": 28.444444444444443,
+     "macs_pc": 28.444444444444443,
+     "dram_rd": 33554432.0,
+     "dram_wr": 4194304.0,
+     "l1_rd": 0.0,
+     "l1_wr": 0.0,
+     "wait_ns": 245707.90277777775,
+     "kernel_ns": 280950.0,
+     "trisc1_ns": 269083.0,
+     "op": "PermuteDeviceOperation",
+     "kernel_src": "transpose_wh",
+     "inputs": [
+      "1x512x512x32"
+     ],
+     "output": "1x4x512x512",
+     "cores": 72
+    }
+   ]
+  }
+ }
+}

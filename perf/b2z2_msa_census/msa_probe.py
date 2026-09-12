@@ -17,6 +17,10 @@ Modes:
   prof   the same replay, laid out for a profiler-armed capture: warm, sync, fence, exactly
          `--reps` calls, sync, fence. `stall_split.py` windows on the last two fence runs and
          divides by `--reps`, so this mode must not run any other device work in between.
+  ab     paired interleaved arms in ONE process, each arm an env setting, base re-timed inside
+         every block so the ratio never spans a drift and the A/A floor is measured, not assumed.
+         `_L1_OUT_RUNG` is cleared between arms: it is a module-level dict that only grows
+         (`tenstorrent.py:3690`) and would otherwise carry one arm's demotions into the next.
   fold   a real fold at the full protocol (200 sampling steps, 3 recycles, full MSA depth), with
          every `MSALayer.__call__` and every `MSA.__call__` bracketed by a device sync. This is
          what settles the CONTESTED fit: the padded row count the fixture actually carries and the
@@ -248,6 +252,60 @@ def mode_ops(ttnn, dev, g):
         print(f"    {v:5d}  {k}", flush=True)
 
 
+ARMS = {                       # name -> env overrides. `base` is the shipped setting.
+    "base": {},
+    "h24": {"TT_BIO_TRANSITION_H_CHUNK": "24"},
+    "h32": {"TT_BIO_TRANSITION_H_CHUNK": "32"},
+    "h64": {"TT_BIO_TRANSITION_H_CHUNK": "64"},
+}
+
+
+def mode_ab(ttnn, T, dev, g, arms, reps, blocks):
+    """Interleave the arms inside every block, so an arm's ratio never spans a drift."""
+    fence = make_fence(ttnn, dev)
+
+    def arm(name):
+        keep = {}
+        for k, v in ARMS[name].items():
+            keep[k] = os.environ.get(k)
+            os.environ[k] = v
+        T._L1_OUT_RUNG.clear()
+        return keep
+
+    def unarm(keep):
+        for k, v in keep.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    walls = {a: [] for a in arms}
+    for a in arms:                              # warm every arm's programs before timing any
+        keep = arm(a)
+        replay(g, 2)
+        unarm(keep)
+    ttnn.synchronize_device(dev)
+    fence()
+    for _ in range(blocks):
+        for a in arms:
+            keep = arm(a)
+            t0 = time.perf_counter()
+            replay(g, reps)
+            ttnn.synchronize_device(dev)
+            walls[a].append((time.perf_counter() - t0) / reps)
+            unarm(keep)
+    fence()
+    med = {a: 1e3 * st.median(v) for a, v in walls.items()}
+    base = med[arms[0]]
+    OUT["ab"] = {"reps": reps, "blocks": blocks,
+                 "ms": {a: round(v, 4) for a, v in med.items()},
+                 "all_ms": {a: [round(1e3 * x, 4) for x in v] for a, v in walls.items()},
+                 "ratio_vs_base": {a: round(base / v, 5) for a, v in med.items()}}
+    for a in arms:
+        print(f"  {a:8s} {med[a]:9.4f} ms/call  {base/med[a]:.5f}x  "
+              f"{[round(1e3*x,2) for x in walls[a]]}", flush=True)
+
+
 def mode_fold(ttnn, T, B, size, folds, recycles):
     """A real fold at the full protocol, with the MSA track bracketed by device syncs."""
     dev_box = {}
@@ -323,7 +381,10 @@ def main() -> int:
     global OUT_PATH
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--mode", required=True, choices=("ops", "time", "prof", "fold"))
+    ap.add_argument("--mode", required=True, choices=("ops", "time", "prof", "fold", "ab"))
+    ap.add_argument("--arms", default="base,base,h24,h32",
+                    help="comma-separated arm names; the FIRST is the ratio denominator and "
+                         "repeating it gives the A/A floor")
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--blocks", type=int, default=5)
@@ -365,6 +426,15 @@ def main() -> int:
             mode_ops(ttnn, dev, g)
         elif a.mode == "time":
             mode_time(ttnn, dev, g, a.reps, a.blocks)
+        elif a.mode == "ab":
+            names = a.arms.split(",")
+            seen, arms = set(), []
+            for i, n in enumerate(names):            # a repeated arm gets its own slot
+                nm = n if n not in seen else f"{n}#{i}"
+                seen.add(n)
+                arms.append(nm)
+                ARMS.setdefault(nm, ARMS[n])
+            mode_ab(ttnn, T, dev, g, arms, a.reps, a.blocks)
         else:
             mode_prof(ttnn, dev, g, a.reps)
     dump()

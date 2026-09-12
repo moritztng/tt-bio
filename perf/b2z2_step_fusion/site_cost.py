@@ -45,8 +45,20 @@ EXPECT = {
     "ttnn.cos": ("UnaryNg", "Unary"),
     "ttnn.sigmoid": ("UnaryNg", "Unary"), "ttnn.silu": ("UnaryNg", "Unary"),
     "ttnn.clone": "Clone",
+    # --- the MSA track's own vocabulary (b2z2-msa-layer-census) --------------------------
+    "ttnn.slice": "Slice",
+    "ttnn.concat": "Concat",
+    "ttnn.to_layout": ("ToLayout", "Tilize", "Untilize"),
+    "ttnn.exp": ("UnaryNg", "Unary"),
+    "ttnn.generic_op": ("Generic", "compute", "sdpa"),
 }
-NEVER = {"ttnn.deallocate"}          # dispatches nothing, ever
+NEVER = {"ttnn.deallocate", "ttnn.allocate_tensor_on_device"}   # dispatch nothing, ever
+
+# A python-level wrapper that is followed immediately by the ttnn call it delegates to does not
+# dispatch a second program. `ttnn.Tensor.__getitem__` is top-level in its own right on the
+# diffusion step, where it IS the slice; on the MSA track it is followed by `ttnn.slice` and the
+# pair dispatches one Slice between them. Keying on the successor keeps both readings correct.
+WRAPPED_BY = {"ttnn.Tensor.__getitem__": "ttnn.slice"}
 
 
 def short(code):
@@ -96,6 +108,8 @@ def align(ttnn_seq, dev_codes):
         if j >= len(dev_codes):
             break
         if name in NEVER:
+            continue
+        if WRAPPED_BY.get(name) == (ttnn_seq[i + 1] if i + 1 < len(ttnn_seq) else None):
             continue
         want = EXPECT.get(name)
         if want is None:

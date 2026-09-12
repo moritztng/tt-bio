@@ -1,0 +1,62 @@
+{
+ "env": {
+  "started": "2026-09-12T20:25:03+0000",
+  "card": "1",
+  "mode": "prof",
+  "size": 512,
+  "label": "wh-c1-armed",
+  "commit": "f4041585",
+  "profiler": "1",
+  "ttnn": "/home/mthuening/work/b2z2-profiler/tt-metal/ttnn/ttnn/__init__.py",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "1",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-msa-layer-census",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "10.21",
+   "13.05",
+   "13.28"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "reps": 3
+ },
+ "precursor_s": 45.409,
+ "msalayer_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   1024,
+   512,
+   64
+  ],
+  "None",
+  "None",
+  [
+   1024,
+   1,
+   1
+  ],
+  "35"
+ ],
+ "padded_rows": 1024,
+ "tokens": 512,
+ "marked": [
+  "pair_weighted_averaging",
+  "msa_transition",
+  "outer_product_mean",
+  "pairformer_layer"
+ ],
+ "armed_ms_per_call": 239.3492
+}
