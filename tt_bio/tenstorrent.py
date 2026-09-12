@@ -732,6 +732,64 @@ def _dtype(default=None):
     return ttnn.bfloat8_b if _FAST_MODE else ttnn.bfloat16
 
 
+# The pair track's storage precision, one SITE at a time.
+#
+# `b2x-bfp8-pair-track` flipped the whole track to bfloat8_b in one step and measured 1.496 A on
+# the cdk2x2_298 control against a 0.60 A reject line, and 0.949x on the fold. Both halves of that
+# are per-site facts read as a single number. The error is dominated by whichever site the 64-block
+# stack amplifies most, and the slowdown comes from hand-tuned kernels that decline a block-format
+# operand: the caller then falls back to a stock op that moves MORE than the narrower format saves.
+#
+# So the dtype is chosen per SITE, and a site is a tensor ROLE -- a shape/dtype/position property,
+# never a model name. `TT_BIO_PAIR_B8_SITES` takes a comma-separated subset of `PAIR_B8_SITES`;
+# `all` is every site, which reproduces the predecessor's arm. Empty (the default) is bf16
+# everywhere and byte-identical to the shipped path. Release-gated: not bit-exact.
+PAIR_B8_SITES = (
+    "z",             # the pair residual stream itself, cast once at the stack entry
+    "trimul_in",     # the trimul's fused input projection result (the a/b operands)
+    "trimul_mm",     # the trimul's per-channel einsum result
+    "trimul_out",    # the trimul's output projection result
+    "triatt_qkv",    # triangle attention's q/k/v projection result
+    "triatt_gate",   # triangle attention's gate projection result
+    "triatt_bias",   # the [1, heads, S, S] pair bias handed to the SDPA
+    "triatt_out",    # triangle attention's output projection result
+    "transition",    # the PAIR transition's expansion chunks
+)
+
+
+def _parse_pair_b8_sites(raw: str) -> frozenset:
+    raw = (raw or "").strip().lower()
+    if not raw or raw in ("0", "off", "none"):
+        return frozenset()
+    if raw in ("1", "all", "on"):
+        return frozenset(PAIR_B8_SITES)
+    names = [n.strip() for n in raw.replace(" ", ",").split(",") if n.strip()]
+    unknown = [n for n in names if n not in PAIR_B8_SITES]
+    assert not unknown, (
+        f"TT_BIO_PAIR_B8_SITES: unknown site(s) {unknown}; known: {list(PAIR_B8_SITES)}")
+    return frozenset(names)
+
+
+_PAIR_B8_SITES = _parse_pair_b8_sites(os.environ.get("TT_BIO_PAIR_B8_SITES", ""))
+
+
+def _pair_b8(site: str) -> bool:
+    """Whether this SITE stores its pair-scale result in bfloat8_b."""
+    return site in _PAIR_B8_SITES and _DTYPE_OVERRIDE is None
+
+
+def _pair_dtype(site: str, default=None):
+    """Storage dtype for a PAIR-SCALE activation at a named site.
+
+    Distinct from `_dtype()`, which also governs weights: `_FAST_MODE` demoting stored weights to
+    bfloat8_b regressed esmfold2 confidence to NaN on Wormhole, so the two questions stay
+    separable. An explicit `_DTYPE_OVERRIDE` (the fp32 affinity trunk) still wins over both.
+    """
+    if _pair_b8(site):
+        return ttnn.bfloat8_b
+    return _dtype(default)
+
+
 def _no_host_pad(x: ttnn.Tensor, dtype, n: int, n_pad: int) -> ttnn.Tensor | None:
     """The device-side result of padding ``x`` from ``n`` to ``n_pad`` and casting it to
     ``dtype``, or None when a real host pad is needed.
@@ -1358,7 +1416,8 @@ def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
 
 
 def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
-    if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
+    if (_TRIATT_BIAS_B8 or _pair_b8("triatt_bias")) and bias is not None \
+            and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
             return _tri_att_sdpa_at(q, k, v, b8, scale, ckc)
@@ -5065,12 +5124,12 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None):
     """
     if bias is None:
         from . import mm_dualnoc as DN
-        out = DN.in_proj(x, w, ckc, _dtype(), memory_config)
+        out = DN.in_proj(x, w, ckc, _pair_dtype("trimul_in"), memory_config)
         if out is not None:
             return out
     return ttnn.experimental.minimal_matmul(
-        x, w, bias_tensor=bias, memory_config=memory_config, dtype=_dtype(),
-        compute_kernel_config=ckc)
+        x, w, bias_tensor=bias, memory_config=memory_config,
+        dtype=_pair_dtype("trimul_in"), compute_kernel_config=ckc)
 
 
 def _trimul_out_proj(
@@ -5086,14 +5145,14 @@ def _trimul_out_proj(
     """
     if _TRIMUL_MM_OUT:
         return ttnn.experimental.minimal_matmul(
-            x, weight, bias_tensor=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
-            compute_kernel_config=ckc,
+            x, weight, bias_tensor=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+            dtype=_pair_dtype("trimul_out"), compute_kernel_config=ckc,
         )
     # Both of a trimul's output projections take an L1 result: `multiply_` folds them together
     # in place and the layer's residual `add_` reads the product, so neither ever needs to reach
     # DRAM. Two live 48.82 MB L1 tensors is 750.9 kB of each bank's 1427.5 kB, which fits beside
     # this config's circular buffers and does not beside `core_grid=`'s.
-    return _pair_proj_linear(x, weight, ckc, _dtype(), l1_out=True, bias=bias)
+    return _pair_proj_linear(x, weight, ckc, _pair_dtype("trimul_out"), l1_out=True, bias=bias)
 
 
 # F1: the tail's two output projections and its gate in one `generic_op` (`tt_bio/trimul_tail.py`).
@@ -5367,7 +5426,16 @@ class TriangleMultiplication(Module):
                  or (_TRIMUL_TAIL_L1 and int(chunk.shape[1]) >= SEQ_LEN_MORE_CHUNKING // 4))
             and not _TRIMUL_RAW_CHANNEL_MOVES
         )
-        ops = [(ttnn.typecast, ttnn.bfloat16)] if _FAST_MODE else []
+        # The channel move has no block-format reader: all three `reblock_permute.eligible*`
+        # gates reject a non-bf16 operand outright, so `_FAST_MODE`'s bfloat8_b chunk has always
+        # been widened either side of it. Read that off the CHUNK instead of off the mode, so a
+        # bfloat8_b chunk from any site takes the same widening and is restored to the dtype it
+        # arrived in. Byte-identical for every config reachable today: under `_FAST_MODE` the
+        # chunk is bfloat8_b on every path that gets here (the fp32 affinity trunk has its own
+        # `Fp32TriangleMultiplication`), which is the one case the old spelling handled.
+        src_dtype = chunk.dtype
+        widen = src_dtype != ttnn.bfloat16
+        ops = [(ttnn.typecast, ttnn.bfloat16)] if widen else []
         if decompose:
             ops.append((_channel_move,))
             ops.append((ttnn.transpose, -2, -1))
@@ -5375,8 +5443,8 @@ class TriangleMultiplication(Module):
             ops.append((_channel_move,))
         else:
             ops.append((ttnn.permute, permute_dims))
-        if _FAST_MODE:
-            ops.append((ttnn.typecast, ttnn.bfloat8_b))
+        if widen:
+            ops.append((ttnn.typecast, src_dtype))
         # The reallocate compacts the chunk so the NEXT iteration's allocations find contiguous
         # space; with one iteration there is no next one and nothing to fragment. It is a full
         # round trip of the chunk through DRAM (134.2 MB each way at 512 aa, measured 0.711 ms for
@@ -5662,7 +5730,9 @@ class TriangleMultiplication(Module):
                         gated = (
                             (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                             and (mask_u is None or mask_moved is not None)
-                            and not _FAST_MODE
+                            # `eligible_gated` rejects a non-bf16 operand anyway; naming the
+                            # dtype keeps `_FAST_MODE` and the per-site flags on one rule.
+                            and gp_in_fused.dtype == ttnn.bfloat16
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and memory_config.buffer_type == ttnn.BufferType.DRAM
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
@@ -5708,7 +5778,7 @@ class TriangleMultiplication(Module):
                         compute_kernel_config=self.compute_kernel_config,
                         memory_config=out_mc,
                         program_config=program_config,
-                        dtype=ttnn.bfloat16,
+                        dtype=_pair_dtype("trimul_mm", ttnn.bfloat16),
                     )
                     ttnn.deallocate(a_chunk)
                     ttnn.deallocate(b_chunk)
@@ -6435,11 +6505,12 @@ class TriangleAttention(Module):
                 "head-major output projection cannot carry linear_o.bias"
             if head_major:
                 x_out = _triatt_qkv.out_proj(
-                    o_in, self.o_weight, self.compute_kernel_config, _dtype())
+                    o_in, self.o_weight, self.compute_kernel_config, _pair_dtype("triatt_out"))
             else:
                 o_in_mm = self.o_bias is not None and "o" in self.bias_in_matmul
                 x_out = _pair_proj_linear(
-                    o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True,
+                    o_in, self.o_weight, self.compute_kernel_config,
+                    _pair_dtype("triatt_out"), l1_out=True,
                     bias=self.o_bias if o_in_mm else None,
                 )
                 if self.o_bias is not None and not o_in_mm:
@@ -6462,14 +6533,14 @@ class TriangleAttention(Module):
                 qkv_cfg_chunk = _qkv_mm_config(x_chunk, self.qkv_weight)
                 qkv_chunk = _triatt_qkv.qkv_heads(
                     x_chunk, self.qkv_weight, self.compute_kernel_config,
-                    self.n_heads, self.head_dim, _dtype(), qkv_cfg_chunk,
+                    self.n_heads, self.head_dim, _pair_dtype("triatt_qkv"), qkv_cfg_chunk,
                 )
                 if qkv_chunk is None:
                     qkv_chunk = ttnn.experimental.minimal_matmul(
                         input_tensor=x_chunk,
                         weight_tensor=self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
-                        dtype=_dtype(),
+                        dtype=_pair_dtype("triatt_qkv"),
                         config=qkv_cfg_chunk,
                     )
                 g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
@@ -6477,7 +6548,7 @@ class TriangleAttention(Module):
                 if isinstance(qkv_chunk, tuple) and not self.biased:
                     g_chunk = _triatt_qkv.gate_proj(
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
-                        self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
+                        self.n_heads, self.head_dim, _pair_dtype("triatt_gate"), g_cfg_chunk,
                     )
                 g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
                 if g_chunk is None:
@@ -6486,7 +6557,7 @@ class TriangleAttention(Module):
                         weight_tensor=self.g_weight,
                         bias_tensor=self.g_bias if g_in_mm else None,
                         compute_kernel_config=self.compute_kernel_config,
-                        dtype=_dtype(),
+                        dtype=_pair_dtype("triatt_gate"),
                         config=g_cfg_chunk,
                     )
                     if g_in_mm:
@@ -6577,12 +6648,12 @@ class TriangleAttention(Module):
             x = ttnn.concat(parts, dim=0)
             del parts
         else:
-            qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
+            qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _pair_dtype("triatt_qkv"))
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
             qkv = None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
-                self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
+                self.n_heads, self.head_dim, _pair_dtype("triatt_qkv"), _qkv_mm_config(x, self.qkv_weight),
             )
             if qkv is None:
                 if qkv_cfg is not None:
@@ -6590,7 +6661,7 @@ class TriangleAttention(Module):
                         x,
                         self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
-                        dtype=_dtype(),
+                        dtype=_pair_dtype("triatt_qkv"),
                         memory_config=ttnn.L1_MEMORY_CONFIG,
                         program_config=qkv_cfg,
                     )
@@ -6599,14 +6670,14 @@ class TriangleAttention(Module):
                         input_tensor=x,
                         weight_tensor=self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
-                        dtype=_dtype(),
+                        dtype=_pair_dtype("triatt_qkv"),
                         config=_qkv_mm_config(x, self.qkv_weight),
                     )
             g = None
             if isinstance(qkv, tuple) and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
-                    self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
+                    self.n_heads, self.head_dim, _pair_dtype("triatt_gate"), _qkv_mm_config(x, self.g_weight),
                 )
             g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
             if g is None:
@@ -6615,7 +6686,7 @@ class TriangleAttention(Module):
                     weight_tensor=self.g_weight,
                     bias_tensor=self.g_bias if g_in_mm else None,
                     compute_kernel_config=self.compute_kernel_config,
-                    dtype=_dtype(),
+                    dtype=_pair_dtype("triatt_gate"),
                     config=_qkv_mm_config(x, self.g_weight),
                 )
                 if g_in_mm:
@@ -7120,8 +7191,13 @@ class Transition(Module):
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        # A 4-D input is the PAIR transition ([1, S, S, c_z]); 3-D is the token transition, whose
+        # activations are three orders smaller and have nothing to win from a narrower store.
+        pair_scale = len(x.shape) >= 4
+
         def swiglu(x):
-            dtype = self.dtype if self.dtype is not None else _dtype()
+            dtype = self.dtype if self.dtype is not None else (
+                _pair_dtype("transition") if pair_scale else _dtype())
             x_norm = ttnn.layer_norm(
                 x,
                 weight=self.norm_weight,
@@ -7545,9 +7621,20 @@ class Pairformer(Module):
         # the MSA trunk's peak is floor + k*m_feat + pair_copies*z, and only a measurement
         # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
         dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
+        # The `z` site stores the pair residual stream itself in bfloat8_b for the whole stack.
+        # Cast once on the way in and once on the way out rather than per block, so the residual
+        # `add_`s write into a bfloat8_b z while the caller still gets the bf16 tensor it has
+        # always been handed.
+        z_in_dtype = z.dtype
+        if _pair_b8("z") and z.dtype == ttnn.bfloat16:
+            z = ttnn.typecast(z, ttnn.bfloat8_b)
         for i, block in enumerate(self.blocks):
             s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
             dram_peak(f"pairformer block {i} done")
+        if z.dtype != z_in_dtype:
+            out = ttnn.typecast(z, z_in_dtype)
+            ttnn.deallocate(z)
+            z = out
         return s, z
 
 
