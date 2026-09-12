@@ -1,0 +1,225 @@
+{
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "chip": "7",
+  "ttnn": "0.68.0",
+  "note": "sub-unit numbers carry 4 extra device syncs per block; the OPM op table is one sync per op and is only readable as shares",
+  "rows": [
+    {
+      "padded_depth": 64,
+      "true_rows": 35,
+      "tokens": 512,
+      "padded_tokens": 512,
+      "n_blocks": 4,
+      "reps": 5,
+      "module_ms_unsynced": 585.0938,
+      "per_layer_ms_unsynced": 146.2735,
+      "module_ms_synced": 590.7589,
+      "subunit_per_call_ms": {
+        "pair_weighted_averaging": 15.3745,
+        "msa_transition": 1.5999,
+        "outer_product_mean": 46.5758,
+        "pairformer_layer": 82.6868
+      },
+      "subunit_sum_ms": 146.237
+    },
+    {
+      "padded_depth": 1024,
+      "true_rows": 35,
+      "tokens": 512,
+      "padded_tokens": 512,
+      "n_blocks": 4,
+      "reps": 5,
+      "module_ms_unsynced": 969.6671,
+      "per_layer_ms_unsynced": 242.4168,
+      "module_ms_synced": 975.8799,
+      "subunit_per_call_ms": {
+        "pair_weighted_averaging": 74.5863,
+        "msa_transition": 21.3538,
+        "outer_product_mean": 61.5456,
+        "pairformer_layer": 82.7251
+      },
+      "subunit_sum_ms": 240.2108
+    }
+  ],
+  "opm_ops": {
+    "64": {
+      "opm_synced_total_ms_all_blocks": 191.791,
+      "top_ops": [
+        {
+          "op": "linear 512x512x1024",
+          "calls": 4,
+          "ms": 35.821,
+          "share": 0.1868
+        },
+        {
+          "op": "reshape 16384x16384",
+          "calls": 4,
+          "ms": 33.21,
+          "share": 0.1732
+        },
+        {
+          "op": "matmul 16384x64",
+          "calls": 4,
+          "ms": 31.717,
+          "share": 0.1654
+        },
+        {
+          "op": "permute 512x1024x512",
+          "calls": 4,
+          "ms": 22.883,
+          "share": 0.1193
+        },
+        {
+          "op": "to_layout 16384x16384",
+          "calls": 4,
+          "ms": 22.195,
+          "share": 0.1157
+        },
+        {
+          "op": "to_layout 512x1024x512",
+          "calls": 4,
+          "ms": 20.353,
+          "share": 0.1061
+        },
+        {
+          "op": "multiply_ 512x512x1024",
+          "calls": 4,
+          "ms": 20.298,
+          "share": 0.1058
+        },
+        {
+          "op": "permute 64x512x32",
+          "calls": 8,
+          "ms": 1.351,
+          "share": 0.007
+        },
+        {
+          "op": "linear 64x512x64",
+          "calls": 8,
+          "ms": 1.249,
+          "share": 0.0065
+        },
+        {
+          "op": "layer_norm 64x512x64",
+          "calls": 4,
+          "ms": 0.894,
+          "share": 0.0047
+        },
+        {
+          "op": "multiply_ 64x512x32",
+          "calls": 4,
+          "ms": 0.413,
+          "share": 0.0022
+        },
+        {
+          "op": "reshape 1x64x512x64",
+          "calls": 4,
+          "ms": 0.376,
+          "share": 0.002
+        },
+        {
+          "op": "to_layout 32x512x64",
+          "calls": 4,
+          "ms": 0.362,
+          "share": 0.0019
+        },
+        {
+          "op": "to_layout 16384x64",
+          "calls": 4,
+          "ms": 0.342,
+          "share": 0.0018
+        }
+      ]
+    },
+    "1024": {
+      "opm_synced_total_ms_all_blocks": 251.875,
+      "top_ops": [
+        {
+          "op": "matmul 16384x1024",
+          "calls": 4,
+          "ms": 59.508,
+          "share": 0.2363
+        },
+        {
+          "op": "linear 512x512x1024",
+          "calls": 4,
+          "ms": 35.602,
+          "share": 0.1413
+        },
+        {
+          "op": "reshape 16384x16384",
+          "calls": 4,
+          "ms": 33.088,
+          "share": 0.1314
+        },
+        {
+          "op": "permute 512x1024x512",
+          "calls": 4,
+          "ms": 22.428,
+          "share": 0.089
+        },
+        {
+          "op": "to_layout 16384x16384",
+          "calls": 4,
+          "ms": 22.206,
+          "share": 0.0882
+        },
+        {
+          "op": "to_layout 512x1024x512",
+          "calls": 4,
+          "ms": 20.22,
+          "share": 0.0803
+        },
+        {
+          "op": "multiply_ 512x512x1024",
+          "calls": 4,
+          "ms": 20.185,
+          "share": 0.0801
+        },
+        {
+          "op": "permute 1024x512x32",
+          "calls": 8,
+          "ms": 15.468,
+          "share": 0.0614
+        },
+        {
+          "op": "linear 1024x512x64",
+          "calls": 8,
+          "ms": 11.885,
+          "share": 0.0472
+        },
+        {
+          "op": "layer_norm 1024x512x64",
+          "calls": 4,
+          "ms": 5.8,
+          "share": 0.023
+        },
+        {
+          "op": "multiply_ 1024x512x32",
+          "calls": 4,
+          "ms": 1.646,
+          "share": 0.0065
+        },
+        {
+          "op": "to_layout 32x512x1024",
+          "calls": 4,
+          "ms": 1.616,
+          "share": 0.0064
+        },
+        {
+          "op": "to_layout 16384x1024",
+          "calls": 4,
+          "ms": 1.545,
+          "share": 0.0061
+        },
+        {
+          "op": "reshape 1x1024x512x64",
+          "calls": 4,
+          "ms": 0.406,
+          "share": 0.0016
+        }
+      ]
+    }
+  }
+}

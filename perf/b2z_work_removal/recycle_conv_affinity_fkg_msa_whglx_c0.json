@@ -1,0 +1,51 @@
+{
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "chip": "0",
+  "ttnn": "0.68.0",
+  "target": "affinity_fkg_msa",
+  "tokens": 512,
+  "recycles": 3,
+  "sampling_steps": 10,
+  "fold_s": 14.76,
+  "plddt": null,
+  "n_msa": null,
+  "bin_centers_A": [
+    2.0,
+    22.0,
+    64
+  ],
+  "curve": [
+    {
+      "iteration": 0,
+      "n_tokens": 140
+    },
+    {
+      "iteration": 1,
+      "n_tokens": 140,
+      "dz_rel": 0.171902,
+      "dD_mean_A": 0.041763,
+      "dD_rms_A": 0.16272,
+      "dD_max_A": 16.624367,
+      "tv_mean": 0.059689
+    },
+    {
+      "iteration": 2,
+      "n_tokens": 140,
+      "dz_rel": 0.046459,
+      "dD_mean_A": 0.015012,
+      "dD_rms_A": 0.042692,
+      "dD_max_A": 3.183097,
+      "tv_mean": 0.02097
+    },
+    {
+      "iteration": 3,
+      "n_tokens": 140,
+      "dz_rel": 0.020182,
+      "dD_mean_A": 0.007089,
+      "dD_rms_A": 0.018945,
+      "dD_max_A": 1.614047,
+      "tv_mean": 0.009795
+    }
+  ]
+}

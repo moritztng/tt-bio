@@ -202,6 +202,35 @@ per glycine, and that lands on a multiple of 32 only for a sequence with the rig
 blindness this page describes one level up: a ladder built only from multiples of the thing you are
 testing tests nothing.
 
+## The MSA row axis is padded too, and that one is pure cost
+
+Boltz-2, BoltzGen and Nesso-1 pad the alignment's row axis the way they pad the token axis, and for
+the same reason: one shape means one compiled program. The row axis uses a single 1024 step, so a
+fold whose alignment is shallower than 1024 rows runs the MSA track at 1024 anyway. The perf
+fixture's alignment has 35 rows. Every `--single_sequence` fold has one.
+
+The padded rows are inert. They sit behind a row mask that zeroes the outer product's `a`
+projection, so they cannot reach a real row, and the only thing they cost is time. Measured on one
+Wormhole chip at 512 tokens, one `MSALayer` call is `139.6 ms + 0.0996 ms per padded row`, so the
+1024 step spends 96 ms per call, 1.5 s per fold, on rows that are not there.
+
+`TT_BIO_MSA_DEPTH_LADDER=1` drops the padding to the smallest power-of-two rung that holds the real
+alignment, floored at 64 because the row axis tiles at 32. Above 1024 the single step is already
+the finer rule and the ladder defers to it, so turning the flag on can only remove padding, never
+add it. It is **off by default**: the reduction then runs over a shorter axis, which moves the last
+bf16 bit, and the flag stays behind the release gate until that has a Blackhole accuracy re-measure.
+
+Read the win against your alignment's true depth, not against the fixture's:
+
+| true rows | 1 | 35 | 256 | 1024 | 2048 or deeper |
+|---|---|---|---|---|---|
+| padding removed per call | 960 | 960 | 768 | 0 | 0 |
+| worth | ~1.5 s/fold | ~1.5 s/fold | ~1.2 s/fold | nothing | nothing |
+
+A production fold against an MSA server usually lands in the right-hand columns and gains nothing.
+This is a win on shallow alignments and single-sequence folds, not a fold-time improvement the
+service can claim in general.
+
 ## What the 2026-08-19 sweep found
 
 The gate's own baseline, recorded on one p150a at a 13x10 grid, current main, single-sequence folds at

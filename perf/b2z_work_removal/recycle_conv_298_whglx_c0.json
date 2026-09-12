@@ -1,0 +1,51 @@
+{
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "chip": "0",
+  "ttnn": "0.68.0",
+  "target": "cdk2x2_298.yaml",
+  "tokens": 298,
+  "recycles": 3,
+  "sampling_steps": 10,
+  "fold_s": 16.454,
+  "plddt": null,
+  "n_msa": null,
+  "bin_centers_A": [
+    2.0,
+    22.0,
+    64
+  ],
+  "curve": [
+    {
+      "iteration": 0,
+      "n_tokens": 298
+    },
+    {
+      "iteration": 1,
+      "n_tokens": 298,
+      "dz_rel": 0.297174,
+      "dD_mean_A": 0.127459,
+      "dD_rms_A": 0.321205,
+      "dD_max_A": 4.357877,
+      "tv_mean": 0.094297
+    },
+    {
+      "iteration": 2,
+      "n_tokens": 298,
+      "dz_rel": 0.117607,
+      "dD_mean_A": 0.054554,
+      "dD_rms_A": 0.211003,
+      "dD_max_A": 3.510536,
+      "tv_mean": 0.036831
+    },
+    {
+      "iteration": 3,
+      "n_tokens": 298,
+      "dz_rel": 0.053075,
+      "dD_mean_A": 0.020503,
+      "dD_rms_A": 0.068664,
+      "dD_max_A": 1.155437,
+      "tv_mean": 0.015812
+    }
+  ]
+}

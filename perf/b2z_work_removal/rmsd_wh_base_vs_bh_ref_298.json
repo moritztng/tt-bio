@@ -1,0 +1,17 @@
+{
+ "label": "wh_base_vs_bh_ref",
+ "ref": "perf/b2x-baseline-attrib/ref/main20260911_71653ff7_cdk2x2_298.cif",
+ "arm": "perf/b2z_work_removal/cif298/bucket1024_poison0__cdk2x2_298.cif",
+ "n_atoms_ref": 2397,
+ "n_atoms_arm": 2397,
+ "n_matched": 2397,
+ "n_CA": 298,
+ "allatom_rmsd_A": 0.2947,
+ "ca_rmsd_A": 0.1477,
+ "bar": {
+  "pass_A": 0.35,
+  "hold_A": 0.6
+ },
+ "verdict": "pass",
+ "identical_bytes": false
+}
