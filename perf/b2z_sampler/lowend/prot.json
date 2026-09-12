@@ -1,0 +1,284 @@
+{
+ "folds": [
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 0,
+   "role": "reference",
+   "tag": "s200_r3_seed0",
+   "fold_s": 81.991,
+   "plddt": 0.865821,
+   "ptm": 0.890444,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 83,
+   "cifs": {
+    "prot.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/prot__s200_r3_seed0__prot.cif",
+     "sha256": "4ce25f27a8f7ae516ef213f79a1c0c4625a519493ce1f520166e9c186ef23ff4"
+    }
+   },
+   "counts": {
+    "denoise": 200,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "198.50",
+    "100.83",
+    "82.38"
+   ]
+  },
+  {
+   "steps": 20,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps",
+   "tag": "s20_r3_seed0",
+   "fold_s": 27.479,
+   "plddt": 0.886985,
+   "ptm": 0.853699,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 83,
+   "cifs": {
+    "prot.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/prot__s20_r3_seed0__prot.cif",
+     "sha256": "223d09434b6a247539eafcdd04609e5498d3674f404301ebcb40bbfb4ef74d3c"
+    }
+   },
+   "counts": {
+    "denoise": 20,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "192.75",
+    "108.83",
+    "85.63"
+   ]
+  },
+  {
+   "steps": 15,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps",
+   "tag": "s15_r3_seed0",
+   "fold_s": 19.988,
+   "plddt": 0.878363,
+   "ptm": 0.870712,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 83,
+   "cifs": {
+    "prot.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/prot__s15_r3_seed0__prot.cif",
+     "sha256": "6b83a8b621e22b9e552424cf83d183cec05e968f597b5f062195563063b689b1"
+    }
+   },
+   "counts": {
+    "denoise": 15,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "194.14",
+    "114.57",
+    "88.02"
+   ]
+  },
+  {
+   "steps": 10,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps",
+   "tag": "s10_r3_seed0",
+   "fold_s": 17.566,
+   "plddt": 0.424732,
+   "ptm": 0.402442,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 83,
+   "cifs": {
+    "prot.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/prot__s10_r3_seed0__prot.cif",
+     "sha256": "8d1df46fc907b026bba43b12dd7d40671a9ffbf94a13c3bf323a965604703800"
+    }
+   },
+   "counts": {
+    "denoise": 10,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "189.11",
+    "117.30",
+    "89.33"
+   ]
+  },
+  {
+   "steps": 5,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps",
+   "tag": "s5_r3_seed0",
+   "fold_s": 6.341,
+   "plddt": 0.542553,
+   "ptm": 0.1877,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 83,
+   "cifs": {
+    "prot.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/prot__s5_r3_seed0__prot.cif",
+     "sha256": "b1e3e9b53dcaa829109555d637226c6772c1aed06f269ae67d1fbfa2dd65a752"
+    }
+   },
+   "counts": {
+    "denoise": 5,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "167.20",
+    "115.01",
+    "88.89"
+   ]
+  },
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 1,
+   "role": "floor",
+   "tag": "s200_r3_seed1",
+   "fold_s": 39.963,
+   "plddt": 0.876497,
+   "ptm": 0.901847,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 83,
+   "cifs": {
+    "prot.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/prot__s200_r3_seed1__prot.cif",
+     "sha256": "b9fa247809b93ef6cafcd43450b018084dfaa4c68325acaa8703e200b6dea0ab"
+    }
+   },
+   "counts": {
+    "denoise": 200,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "165.35",
+    "120.62",
+    "91.85"
+   ]
+  },
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 2,
+   "role": "floor",
+   "tag": "s200_r3_seed2",
+   "fold_s": 47.67,
+   "plddt": 0.869872,
+   "ptm": 0.845883,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 83,
+   "cifs": {
+    "prot.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/prot__s200_r3_seed2__prot.cif",
+     "sha256": "563267241e9cc583702bd31663de0c7d098d5f6bd6e1830c3a388843517cfb16"
+    }
+   },
+   "counts": {
+    "denoise": 200,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "155.61",
+    "124.57",
+    "94.57"
+   ]
+  }
+ ],
+ "env": {
+  "host": "j10glx02",
+  "card": "12",
+  "lease_cards": "12",
+  "git_head": "ca8c98ea237ce2883f32a9af2d968fff87ce34d7",
+  "ttnn": "0.68.0",
+  "torch": "2.14.0+cu130",
+  "target": "prot",
+  "target_spec": {
+   "yaml": "examples/prot.yaml",
+   "a3m": "docs/implementation-parity-data/ref-fixtures/boltz2/prot/msa-colabfold_200step_1sample_3recycle_bf16/msa.a3m",
+   "kind": "monomer",
+   "note": "PDB 7ROA, 117 aa -- the release gate's own fold target"
+  },
+  "started": "2026-09-12T10:13:46+0000",
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "load_s": 19.3,
+  "card_type": "tt-galaxy-wh-l",
+  "aiclk_mhz": "1000",
+  "msa": {
+   "source": "/home/tt-admin/wt/b2z-sampler-steps-b/docs/implementation-parity-data/ref-fixtures/boltz2/prot/msa-colabfold_200step_1sample_3recycle_bf16/msa.a3m",
+   "rows": 93
+  },
+  "finished": "2026-09-12T10:19:33+0000"
+ },
+ "grid": [
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 0,
+   "role": "reference"
+  },
+  {
+   "steps": 20,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps"
+  },
+  {
+   "steps": 15,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps"
+  },
+  {
+   "steps": 10,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps"
+  },
+  {
+   "steps": 5,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps"
+  },
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 1,
+   "role": "floor"
+  },
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 2,
+   "role": "floor"
+  }
+ ],
+ "cold": {
+  "fold_s": 82.497,
+  "plddt": null,
+  "n_tokens": null,
+  "n_residues": null,
+  "msa": null,
+  "counts": {
+   "denoise": 200,
+   "trunk_recycles": 3
+  }
+ }
+}

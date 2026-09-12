@@ -1,0 +1,285 @@
+{
+ "folds": [
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 0,
+   "role": "reference",
+   "tag": "s200_r3_seed0",
+   "fold_s": 106.998,
+   "plddt": 0.9773,
+   "ptm": 0.983451,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 8192,
+   "cifs": {
+    "affinity_dhfr_msa.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/affinity_dhfr__s200_r3_seed0__affinity_dhfr_msa.cif",
+     "sha256": "b6be0ff0038d38a9a7807fde1757af2fd6a13eeb9a95b3615d65f17efbe57601"
+    }
+   },
+   "counts": {
+    "denoise": 200,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "190.36",
+    "115.11",
+    "88.33"
+   ]
+  },
+  {
+   "steps": 20,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps",
+   "tag": "s20_r3_seed0",
+   "fold_s": 28.165,
+   "plddt": 0.975033,
+   "ptm": 0.980376,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 8192,
+   "cifs": {
+    "affinity_dhfr_msa.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/affinity_dhfr__s20_r3_seed0__affinity_dhfr_msa.cif",
+     "sha256": "8f55d85808fffdc35ff354d33c99e8117f347c6ff245ed431da9adc7f81f650a"
+    }
+   },
+   "counts": {
+    "denoise": 20,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "160.37",
+    "114.46",
+    "88.85"
+   ]
+  },
+  {
+   "steps": 15,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps",
+   "tag": "s15_r3_seed0",
+   "fold_s": 42.542,
+   "plddt": 0.976248,
+   "ptm": 0.979786,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 8192,
+   "cifs": {
+    "affinity_dhfr_msa.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/affinity_dhfr__s15_r3_seed0__affinity_dhfr_msa.cif",
+     "sha256": "131930e0e4e900c03e91d38a21348773179f5df2814c6533f665860dbd103df5"
+    }
+   },
+   "counts": {
+    "denoise": 15,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "165.29",
+    "122.08",
+    "92.64"
+   ]
+  },
+  {
+   "steps": 10,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps",
+   "tag": "s10_r3_seed0",
+   "fold_s": 34.553,
+   "plddt": 0.532158,
+   "ptm": 0.571709,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 8192,
+   "cifs": {
+    "affinity_dhfr_msa.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/affinity_dhfr__s10_r3_seed0__affinity_dhfr_msa.cif",
+     "sha256": "5166ddd81f8c7e433177e846f0f466f5f4a82043305e78360a2e1d8f26db468d"
+    }
+   },
+   "counts": {
+    "denoise": 10,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "155.61",
+    "124.57",
+    "94.57"
+   ]
+  },
+  {
+   "steps": 5,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps",
+   "tag": "s5_r3_seed0",
+   "fold_s": 17.11,
+   "plddt": 0.666118,
+   "ptm": 0.506806,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 8192,
+   "cifs": {
+    "affinity_dhfr_msa.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/affinity_dhfr__s5_r3_seed0__affinity_dhfr_msa.cif",
+     "sha256": "95d4ef76e9d513ffeba7b71db7950894df5007c3b38fab553c19265988f267ca"
+    }
+   },
+   "counts": {
+    "denoise": 5,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "126.23",
+    "119.60",
+    "93.42"
+   ]
+  },
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 1,
+   "role": "floor",
+   "tag": "s200_r3_seed1",
+   "fold_s": 24.256,
+   "plddt": 0.977017,
+   "ptm": 0.985097,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 8192,
+   "cifs": {
+    "affinity_dhfr_msa.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/affinity_dhfr__s200_r3_seed1__affinity_dhfr_msa.cif",
+     "sha256": "85c81f45cb7ecf16bb0f6a59c2fefe1dfe89cb36213b881ed63bc5d473be1f2e"
+    }
+   },
+   "counts": {
+    "denoise": 200,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "92.23",
+    "112.07",
+    "91.62"
+   ]
+  },
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 2,
+   "role": "floor",
+   "tag": "s200_r3_seed2",
+   "fold_s": 21.022,
+   "plddt": 0.978539,
+   "ptm": 0.983924,
+   "n_tokens": null,
+   "n_residues": null,
+   "msa_depth": 8192,
+   "cifs": {
+    "affinity_dhfr_msa.cif": {
+     "path": "/home/tt-admin/wt/b2z-sampler-steps-b/perf/b2z_sampler/lowend/cif/affinity_dhfr__s200_r3_seed2__affinity_dhfr_msa.cif",
+     "sha256": "018362182769d411d3a3c8f3847378941bf65cd06b5d53f4e335e661d8687dbc"
+    }
+   },
+   "counts": {
+    "denoise": 200,
+    "trunk_recycles": 3
+   },
+   "loadavg": [
+    "72.23",
+    "106.24",
+    "90.14"
+   ]
+  }
+ ],
+ "env": {
+  "host": "j10glx02",
+  "card": "8",
+  "lease_cards": "8",
+  "git_head": "ca8c98ea237ce2883f32a9af2d968fff87ce34d7",
+  "ttnn": "0.68.0",
+  "torch": "2.14.0+cu130",
+  "target": "affinity_dhfr",
+  "target_spec": {
+   "yaml": "examples/affinity_dhfr_msa.yaml",
+   "kind": "protein+ligand",
+   "note": "DHFR + ligand"
+  },
+  "started": "2026-09-12T10:13:46+0000",
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "load_s": 20.02,
+  "card_type": "tt-galaxy-wh-l",
+  "aiclk_mhz": "1000",
+  "msa": {
+   "source": "yaml msa: paths",
+   "rows": {
+    "A": 9419
+   }
+  },
+  "finished": "2026-09-12T10:20:33+0000"
+ },
+ "grid": [
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 0,
+   "role": "reference"
+  },
+  {
+   "steps": 20,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps"
+  },
+  {
+   "steps": 15,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps"
+  },
+  {
+   "steps": 10,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps"
+  },
+  {
+   "steps": 5,
+   "recycles": 3,
+   "seed": 0,
+   "role": "steps"
+  },
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 1,
+   "role": "floor"
+  },
+  {
+   "steps": 200,
+   "recycles": 3,
+   "seed": 2,
+   "role": "floor"
+  }
+ ],
+ "cold": {
+  "fold_s": 106.706,
+  "plddt": null,
+  "n_tokens": null,
+  "n_residues": null,
+  "msa": null,
+  "counts": {
+   "denoise": 200,
+   "trunk_recycles": 3
+  }
+ }
+}
