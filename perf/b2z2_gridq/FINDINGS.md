@@ -162,3 +162,57 @@ and `b` is smaller on the part with more DRAM bandwidth. Blackhole tolerating na
 Wormhole is exactly what that predicts. **This row does not fit it either** -- 30 rungs on three
 grids is enough to see the sign and not enough to fit two coefficients across two architectures --
 and says plainly what it leaves on the table: **1.10x-1.25x at 110 cores, 1.02x-1.21x at 130.**
+
+## 4. Across models: the pick moves on every model on the path
+
+`model_pick_census.py` wraps the picker and records, for every SDPA call a real run makes, the
+`(q_len, k_len, work)` it arrives with. Run on whglx card 24, 8x9 = 72 cores, flag OFF so the
+census sees the shipped run:
+
+| model | run | calls | q_len | work | shipped | rule | occupancy |
+|---|---|---|---|---|---|---|---|
+| ESMC-300M | `embed examples/prot.fasta` | 30 | 128 | 15 | 128 | **32** | 0.208 -> **0.833** |
+| SaProt-650M | `saprot examples/prot.fasta` | 33 | 128 | 20 | 128 | **64** | 0.278 -> **0.556** |
+
+**Every call of both models gets a different chunk**, and both sit at a quarter of the grid under
+the shipped constant. Neither is Boltz-2: this is the first evidence the lever is not a Boltz-2
+patch.
+
+### And the shapes they ask at are below what the ladder can measure
+
+ESMC and SaProt call at 128 tokens, where the op is 13-16 us. The inherited ladder settings (20
+reps) read **0.9322x** there -- the first loss on 35 rungs, on a production shape. **It is not a
+loss.** Three repeats at 60 reps of the same configuration on the same card:
+
+    128 tokens, 15 heads, 110 cores      shipped arm        rule arm      ratio
+      repeat 1                            15.80 us          11.9 us       1.3277x
+      repeat 2                            15.90 us          27.5 us       0.5782x
+      repeat 3                            15.90 us          12.2 us       1.3033x
+
+The shipped arm is stable to 0.6 % across the three and the rule's arm swings 2.3x. A 13 us op is
+below what this harness resolves; the parent's ladder never ran under 320 tokens, so nothing had
+tested that. **At 256 tokens the same instrument is stable and the win is large:**
+
+| shape (110 cores) | repeat 1 | repeat 2 | repeat 3 |
+|---|---|---|---|
+| 256 tokens, 15 heads | 1.4326x | 1.4062x | 1.4397x |
+| 256 tokens, 20 heads | 1.3906x | 1.3709x | 1.3953x |
+
+**So the PLM exposure is real and its size is not yet measured.** What is established: the pick
+moves on 63 of 63 calls across two models that are not Boltz-2, the occupancy it leaves rises from
+~0.25 to 0.56-0.83, and at the nearest resolvable size the win is 1.37x-1.44x. What is owed is an
+instrument that can resolve a 13 us op.
+
+## 5. What is owed
+
+1. **The Blackhole STEP on the published cell's part.** All four qb2 chips were held (three
+   leased, and card 0 running `b2z2-union-gate-ship`'s parity gate), so the Blackhole leg here is
+   an op ladder on a p150a, not a step on the p300c. **Not projected into any headline.**
+2. **Boltz-2's own pick census.** `tt_bio.main` fans the fold out to spawned device workers, and
+   the hook reaches only the CLI process, which does no attention: the census file reads
+   `patched: true, sdpa_calls: []` on a fold that ran 177 s of device work. Boltz-2's diffusion
+   attention is `tenstorrent.AttentionPairBias.__call__`, which does call the picker, so this is a
+   census plumbing gap and not a finding about the model. Next pass should grab the step in-process
+   the way `step_probe.py` does rather than going through the CLI.
+3. **A resolvable instrument under ~30 us**, without which the PLM shapes cannot be priced.
+4. **The two-term rule** that would take the remaining 1.10x-1.25x on Blackhole.

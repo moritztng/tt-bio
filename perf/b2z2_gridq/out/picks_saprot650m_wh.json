@@ -1,0 +1,39 @@
+{
+ "meta": {
+  "model": "saprot-650m",
+  "input": "examples/prot.fasta",
+  "argv": [
+   "saprot",
+   "examples/prot.fasta",
+   "--model",
+   "saprot-650m"
+  ],
+  "rc": 0,
+  "grid": [
+   8,
+   9
+  ],
+  "cores": 72,
+  "seconds": 15.8,
+  "card": "24"
+ },
+ "sdpa_calls": [
+  {
+   "q_len": 128,
+   "k_len": 128,
+   "work": 20,
+   "calls": 33,
+   "cores": 72,
+   "shipped_chunk": 128,
+   "rule_chunk": 64,
+   "moves": true,
+   "shipped_units": 20,
+   "rule_units": 40,
+   "shipped_occupancy": 0.278,
+   "rule_occupancy": 0.556
+  }
+ ],
+ "tri_att_calls": [],
+ "total_sdpa_calls": 33,
+ "calls_whose_pick_moves": 33
+}

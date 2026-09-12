@@ -1,0 +1,39 @@
+{
+ "meta": {
+  "model": "esmc-300m",
+  "input": "examples/prot.fasta",
+  "argv": [
+   "embed",
+   "examples/prot.fasta",
+   "--model",
+   "esmc-300m"
+  ],
+  "rc": 0,
+  "grid": [
+   8,
+   9
+  ],
+  "cores": 72,
+  "seconds": 17.1,
+  "card": "24"
+ },
+ "sdpa_calls": [
+  {
+   "q_len": 128,
+   "k_len": 128,
+   "work": 15,
+   "calls": 30,
+   "cores": 72,
+   "shipped_chunk": 128,
+   "rule_chunk": 32,
+   "moves": true,
+   "shipped_units": 15,
+   "rule_units": 60,
+   "shipped_occupancy": 0.208,
+   "rule_occupancy": 0.833
+  }
+ ],
+ "tri_att_calls": [],
+ "total_sdpa_calls": 30,
+ "calls_whose_pick_moves": 30
+}
