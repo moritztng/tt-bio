@@ -27,6 +27,13 @@
 #ifndef TRIMUL_TAIL_SKIP_SIGMOID
 #define TRIMUL_TAIL_SKIP_SIGMOID 0
 #endif
+// How many output tiles the epilogue product folds per DST acquire. The kernel this was derived
+// from takes one tile per acquire, so every output tile pays a full math/pack barrier. Each folded
+// tile needs two DST slots (both operands are copied in), so under fp32 DST half sync (4 tiles) the
+// ceiling is 2.
+#ifndef TRIMUL_TAIL_MUL_BATCH
+#define TRIMUL_TAIL_MUL_BATCH 1
+#endif
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -92,22 +99,32 @@ ALWI void round_bf16_tile(uint32_t idst) {
 // bf16 result, and so does this. The multiply is the SFPU one because the FPU's `mul_tiles`
 // truncates the product.
 void mul_block(uint32_t p_cb, uint32_t g_cb, uint32_t out_cb, uint32_t block_num_tiles) {
-    for (uint32_t t = 0; t < block_num_tiles; t++) {
+    constexpr uint32_t B = TRIMUL_TAIL_MUL_BATCH;
+    for (uint32_t t = 0; t < block_num_tiles; t += B) {
+        const uint32_t n = (block_num_tiles - t < B) ? (block_num_tiles - t) : B;
         tile_regs_acquire();
         copy_tile_to_dst_init_short(p_cb);
         reconfig_data_format_srca(p_cb);
         pack_reconfig_data_format(out_cb);
-        copy_tile(p_cb, t, 0);
+        for (uint32_t i = 0; i < n; i++) {
+            copy_tile(p_cb, t + i, 2 * i);
+        }
         copy_tile_to_dst_init_short(g_cb);
-        copy_tile(g_cb, t, 1);
+        for (uint32_t i = 0; i < n; i++) {
+            copy_tile(g_cb, t + i, 2 * i + 1);
+        }
         mul_binary_tile_init();
-        mul_binary_tile(0, 1, 0);
+        for (uint32_t i = 0; i < n; i++) {
+            mul_binary_tile(2 * i, 2 * i + 1, 2 * i);
 #if TRIMUL_TAIL_ROUND != 0
-        round_bf16_tile(0);
+            round_bf16_tile(2 * i);
 #endif
+        }
         tile_regs_commit();
         tile_regs_wait();
-        pack_tile(0, out_cb);
+        for (uint32_t i = 0; i < n; i++) {
+            pack_tile(2 * i, out_cb);
+        }
         tile_regs_release();
     }
     cb_push_back(out_cb, block_num_tiles);

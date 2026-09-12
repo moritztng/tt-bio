@@ -39,6 +39,7 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "transition_swiglu"
 TILE = 32
 PASSES = 2
 ROUND = 2          # the product's rounding to bf16; see kernels/trimul_tail/compute.cpp
+MUL_BATCH = 1      # output tiles folded per DST acquire in the epilogue product; ceiling 2 on fp32 DST
 
 #: (kt, nt) -> the block config the fused kernel folds with. Deliberately a LOCAL table and not
 #: `tenstorrent._MM_BLOCK`: a lookup into the shared table would switch this on for every model
@@ -129,7 +130,8 @@ def _cb(idx, core_grid, tiles):
 
 
 def _build(device, x, w_plain, w_act, out, grid, ckc, block):
-    defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND}
+    defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
+            "TRIMUL_TAIL_MUL_BATCH": MUL_BATCH}
     entry = MG.build(device, x, w_plain, [out], (block, grid), ckc,
                      defines=defs, kernel_dir=KERNEL_DIR)
 
@@ -190,7 +192,7 @@ def fused_swiglu(x, w_plain, w_act, ckc, grid, memory_config=None):
     device = x.device()
     mc = memory_config if memory_config is not None else ttnn.L1_MEMORY_CONFIG
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = (spec(x), spec(w_plain), tuple(grid), tuple(str(c) for c in ckc), ROUND, str(mc))
+    key = (spec(x), spec(w_plain), tuple(grid), tuple(str(c) for c in ckc), ROUND, MUL_BATCH, str(mc))
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w_plain.shape[-1])]),
         ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc)

@@ -1,0 +1,62 @@
+{
+ "block": [
+  8,
+  2,
+  2,
+  2,
+  2
+ ],
+ "grid": [
+  11,
+  8
+ ],
+ "inner": 32,
+ "reps": 9,
+ "arms": {
+  "incumbent": {
+   "ms": 0.16663,
+   "ratio_vs_incumbent": 1.0,
+   "spread_pct": 0.69,
+   "pcc": 1.0000001192092896,
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  "incumbent_aa": {
+   "ms": 0.16666,
+   "ratio_vs_incumbent": 0.9998,
+   "spread_pct": 0.33
+  },
+  "split_silu": {
+   "ms": 0.1188,
+   "ratio_vs_incumbent": 1.4025,
+   "spread_pct": 0.92,
+   "pcc": 0.9999949336051941,
+   "max_abs": 0.00390625,
+   "bit_exact": false
+  },
+  "fused_r2_b1": {
+   "ms": 0.16313,
+   "ratio_vs_incumbent": 1.0214,
+   "spread_pct": 1.4,
+   "pcc": 0.9999982714653015,
+   "max_abs": 0.00390625,
+   "bit_exact": false
+  },
+  "fused_r2_b2": {
+   "ms": 0.16307,
+   "ratio_vs_incumbent": 1.0218,
+   "spread_pct": 1.01,
+   "pcc": 0.9999982714653015,
+   "max_abs": 0.00390625,
+   "bit_exact": false
+  },
+  "fused_r0_b2": {
+   "ms": 0.14947,
+   "ratio_vs_incumbent": 1.1148,
+   "spread_pct": 0.96,
+   "pcc": 0.9999982118606567,
+   "max_abs": 0.00390625,
+   "bit_exact": false
+  }
+ }
+}
