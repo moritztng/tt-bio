@@ -451,13 +451,20 @@ def main() -> int:
         # is indistinguishable from a measured negative result.
         want_steps = int(cfg.get("sampling_steps") or 0)
         seen_steps = (splitter.loop[-1][0] + 1) if splitter.loop else 0
-        if want_steps and seen_steps and abs(seen_steps - want_steps) > 1:
+        # RELATIVE, not absolute. The progress callback does not emit one mark per step: a 200-step
+        # fold reports 191, because Splitter starts appending at the second `diffusion` callback and
+        # the loop does not mark every index. The exact offset is not worth modelling and would be a
+        # second thing to get wrong. What must never pass is the GROSS failure -- an arm that asked
+        # for 50 and ran the shipped 200 (observed 191, i.e. 3.8x its request). A 25 % band clears
+        # the real 4.5 % shortfall with room and still catches that by a mile.
+        steps_observed = seen_steps
+        if want_steps and seen_steps and not (0.75 <= seen_steps / want_steps <= 1.25):
             raise SystemExit(
                 f"arm {arm!r} asked for {want_steps} sampling steps but the diffusion loop ran "
-                f"{seen_steps}. The protocol lever did not reach the live model -- "
-                f"model.predict_args is what predict_step reads. Refusing to report a ratio "
-                f"from a fold that did not run the protocol it claims.")
-        steps_observed = seen_steps
+                f"{seen_steps} ({seen_steps / want_steps:.2f}x the request). The protocol lever did "
+                f"not reach the live model -- model.predict_args is what predict_step reads, not "
+                f"cfg. Refusing to report a ratio from a fold that did not run the protocol it "
+                f"claims.")
         if keep:
             keep.mkdir(parents=True, exist_ok=True)
             shutil.copy2(cifs[0], keep / cifs[0].name)
