@@ -44,8 +44,16 @@ def shape(row, pfx):
 
 
 def is_fence(row):
-    return (shape(row, "INPUT_0")[2:] == (FENCE_DIM, FENCE_DIM)
-            and "EXP" in row.get("OP CODE", "").upper())
+    """The census harness fences its profiled region with 3 x ttnn.exp on a 32x32 tile.
+
+    The op shows up as `UnaryDeviceOperation`; the 32x32 shape is what makes it unambiguous,
+    so the report has to be generated with `--no-op-info-cache` or the shape columns are empty
+    for every program-cache hit.
+    """
+    if not row.get("OP CODE", "").startswith("Unary"):
+        return False
+    sh = shape(row, "INPUT_0")[2:]
+    return sh in ((FENCE_DIM, FENCE_DIM), (0, 0))
 
 
 def find_region(rows):
