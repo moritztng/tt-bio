@@ -1,0 +1,48 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "mesh": "1x2",
+ "S": 512,
+ "visible": "12,13",
+ "drop": "2",
+ "chain": {
+  "ran": true,
+  "z": {
+   "bit_exact_per_chip": [
+    false,
+    false
+   ],
+   "max_abs_diff": 1.01708984375
+  },
+  "s": {
+   "bit_exact_per_chip": [
+    false,
+    false
+   ],
+   "max_abs_diff": 0.03515625
+  }
+ },
+ "localise": {
+  "trimul_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "trimul_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "transition_z": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "first_divergent_op": null
+ },
+ "controls": {}
+}

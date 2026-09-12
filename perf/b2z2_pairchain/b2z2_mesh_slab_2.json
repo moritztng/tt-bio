@@ -1,0 +1,92 @@
+{
+  "arch": "Arch.WORMHOLE_B0",
+  "mesh": "1x2",
+  "S": 512,
+  "ops": {
+    "trimul_start": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0
+    },
+    "trimul_end": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0
+    },
+    "triatt_start": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0
+    },
+    "triatt_end": {
+      "guarded": true,
+      "why": "triangle_attention_end has no proven mesh-addressed slab yet: pass row_slab=(r0, r1) for this op, or fix the divergence perf/b2z2_trunkshard/mesh_slab_bitexact."
+    },
+    "transition_z": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0
+    }
+  },
+  "block": {},
+  "a_a": {
+    "trimul_start": {
+      "deterministic": true,
+      "max_abs_diff": 0.0
+    },
+    "trimul_end": {
+      "deterministic": true,
+      "max_abs_diff": 0.0
+    },
+    "triatt_start": {
+      "deterministic": true,
+      "max_abs_diff": 0.0
+    },
+    "triatt_end": {
+      "deterministic": true,
+      "max_abs_diff": 0.0
+    },
+    "transition_z": {
+      "deterministic": true,
+      "max_abs_diff": 0.0
+    }
+  },
+  "addressing": {
+    "trimul_start": {
+      "mesh_eq_index": true,
+      "mesh_index_max_abs_diff": 0.0,
+      "index_eq_whole": true,
+      "index_whole_max_abs_diff": 0.0
+    },
+    "trimul_end": {
+      "mesh_eq_index": true,
+      "mesh_index_max_abs_diff": 0.0,
+      "index_eq_whole": true,
+      "index_whole_max_abs_diff": 0.0
+    },
+    "triatt_start": {
+      "mesh_eq_index": true,
+      "mesh_index_max_abs_diff": 0.0,
+      "index_eq_whole": true,
+      "index_whole_max_abs_diff": 0.0
+    },
+    "triatt_end": {
+      "guarded": true
+    },
+    "transition_z": {
+      "mesh_eq_index": true,
+      "mesh_index_max_abs_diff": 0.0,
+      "index_eq_whole": true,
+      "index_whole_max_abs_diff": 0.0
+    }
+  },
+  "partition_shape": [
+    1,
+    256,
+    512,
+    128
+  ],
+  "partition_calls": 21,
+  "control_1_rejected": true,
+  "control_2": {
+    "device0_is_first_slab": true,
+    "device0_is_second_slab": false
+  },
+  "pass": true
+}

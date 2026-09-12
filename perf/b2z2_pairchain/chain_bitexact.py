@@ -222,7 +222,12 @@ if DROP is not None:
         def counting(t, dim, *a, **kw):
             i, state["i"] = state["i"], state["i"] + 1
             if i == n:
-                return ttnn.clone(t)     # the shard's own shape, NOT the gathered tensor
+                # The RIGHT shape and the WRONG rows: every device's own slab, twice, with no
+                # traffic. Returning the shard instead (which is what this control used to do)
+                # is rejected by a shape check three ops later, which proves the gather is
+                # structurally required and says nothing about whether the comparison reads
+                # values. This one can only be caught by reading them.
+                return ttnn.concat([t, t], dim=dim)
             return real(t, dim, *a, **kw)
         ttnn.all_gather = counting
         try:
