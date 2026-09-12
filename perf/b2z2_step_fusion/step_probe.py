@@ -168,18 +168,16 @@ def mode_ops(ttnn, dev, g):
     g["obj"](*g["args"], **g["kwargs"])
     ttnn.synchronize_device(dev)
     nodes = ttnn.graph.end_graph_capture()
-    spans = top_level_spans(nodes)
-    seq, seen = [], set()
-    for _counter, (i, name) in sorted(spans.items()):
-        if i in seen:
-            continue
-        seen.add(i)
-        seq.append((i, name))
-    seq.sort()
-    names = [n for _i, n in seq]
+    ops, _owner = top_level_spans(nodes)
+    names = [o["name"] for o in ops]
     by = defaultdict(int)
     for n in names:
         by[n] += 1
+    import gzip
+    raw = OUT_PATH.with_suffix(".graph.json.gz")
+    with gzip.open(raw, "wt") as fh:
+        json.dump(nodes, fh)
+    OUT["graph"] = raw.name
     OUT["ops"] = {"n_top_level": len(names),
                   "by_name": dict(sorted(by.items(), key=lambda kv: -kv[1])),
                   "sequence": names}
