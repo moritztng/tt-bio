@@ -296,8 +296,28 @@ def main() -> int:
         order.append(("all", frozenset(sites)))
         order.append(("base", frozenset()))
 
+    # An arm that cannot RUN is a result, not a crash: a storage dtype changes which program
+    # config a tuned matmul picks, and on Wormhole's 1.5 MB L1 that is enough to overflow the
+    # static CBs. Record it against the site and keep sweeping, or one such site costs the other
+    # eight their numbers (which is exactly what happened on card 15 at 10:54Z).
+    failed: set = set()
     for i, (label, ss) in enumerate(order):
-        a = arm(label, ss)
+        if label == "all":
+            ss = frozenset(ss) - failed
+            if not ss:
+                continue
+        try:
+            a = arm(label, ss)
+        except Exception as e:                                        # noqa: BLE001
+            T._PAIR_B8_SITES = frozenset()
+            failed.add(label)
+            a = {"arm": label, "sites": sorted(ss), "order": i,
+                 "error": f"{type(e).__name__}: {e}".split("\nbacktrace")[0][:600]}
+            arms.append(a)
+            OUT["arms"] = arms
+            dump()
+            print(f"[{i:2d}] {label:13s} FAILED  {a['error'][:160]}", flush=True)
+            continue
         a["order"] = i
         arms.append(a)
         OUT["arms"] = arms
@@ -307,7 +327,11 @@ def main() -> int:
               f"typecasts {a['graph']['n_typecast']}", flush=True)
 
     T._PAIR_B8_SITES = frozenset()
-    base = [a for a in arms if a["arm"] == "base"]
+    base = [a for a in arms if a["arm"] == "base" and "error" not in a]
+    if not base:
+        OUT["summary"] = {"error": "every base arm failed"}
+        dump()
+        return 1
     t0_ = st.median([a["block_median_s"] for a in base])
     B0 = st.median([a["graph"]["real_MB"] for a in base])
     aa = ((max(a["block_median_s"] for a in base) - min(a["block_median_s"] for a in base)) / t0_
@@ -316,6 +340,9 @@ def main() -> int:
     per_site = {}
     for a in arms:
         if a["arm"] == "base":
+            continue
+        if "error" in a:
+            per_site[a["arm"]] = {"error": a["error"]}
             continue
         t1, B1 = a["block_median_s"], a["graph"]["real_MB"]
         bc, tc = 1 - B1 / B0, 1 - t1 / t0_

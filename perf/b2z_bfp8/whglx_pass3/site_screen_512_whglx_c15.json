@@ -1,0 +1,123 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "15",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "seq": 512,
+  "reps": 5,
+  "utc": "2026-09-12T10:54:18Z",
+  "tt_bio": "/home/tt-admin/wt/b2z-bfp8-narrow/tt_bio/__init__.py",
+  "sites": [
+   "z",
+   "trimul_in",
+   "trimul_mm",
+   "trimul_out",
+   "triatt_qkv",
+   "triatt_gate",
+   "triatt_bias",
+   "triatt_out",
+   "transition"
+  ],
+  "byte_counter": "perf/b2x_difflayer/real_traffic.py (buffer-address dedupe)",
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 6.3,
+ "pairformer_path": "pairformer_module",
+ "gate_targets": [
+  "reblock_permute.eligible",
+  "reblock_permute.eligible_back",
+  "reblock_permute.eligible_gated",
+  "softmax_generic.eligible",
+  "tenstorrent._pair_proj_minimal_matmul",
+  "triatt_qkv.gate_proj",
+  "triatt_qkv.qkv_heads",
+  "trimul_tail.eligible"
+ ],
+ "arms": [
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.0999,
+    0.10238,
+    0.08621,
+    0.08629,
+    0.08628
+   ],
+   "block_median_s": 0.08629,
+   "sub_median_s": {
+    "trimul_start": 0.01705,
+    "trimul_end": 0.01698,
+    "triatt_start": 0.01099,
+    "triatt_end": 0.01399,
+    "transition_z": 0.02014
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 8447.025,
+    "n_top_level_ops": 418,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 97.9,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 66
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 0
+  }
+ ]
+}

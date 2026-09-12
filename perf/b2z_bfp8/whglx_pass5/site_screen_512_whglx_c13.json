@@ -1,0 +1,1646 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "13",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "seq": 512,
+  "reps": 5,
+  "utc": "2026-09-12T11:57:59Z",
+  "tt_bio": "/home/tt-admin/wt/b2z-bfp8-narrow/tt_bio/__init__.py",
+  "sites": [
+   "z",
+   "trimul_in",
+   "trimul_mm",
+   "trimul_out",
+   "triatt_qkv",
+   "triatt_gate",
+   "triatt_bias",
+   "triatt_out",
+   "transition"
+  ],
+  "byte_counter": "perf/b2x_difflayer/real_traffic.py (buffer-address dedupe)",
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 5.16,
+ "pairformer_path": "pairformer_module",
+ "gate_targets": [
+  "reblock_permute.eligible",
+  "reblock_permute.eligible_back",
+  "reblock_permute.eligible_gated",
+  "softmax_generic.eligible",
+  "tenstorrent._pair_proj_minimal_matmul",
+  "triatt_qkv.gate_proj",
+  "triatt_qkv.qkv_heads",
+  "trimul_tail.eligible"
+ ],
+ "arms": [
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.09882,
+    0.09702,
+    0.0862,
+    0.08629,
+    0.08635
+   ],
+   "block_median_s": 0.08635,
+   "sub_median_s": {
+    "trimul_start": 0.01702,
+    "trimul_end": 0.01702,
+    "triatt_start": 0.01097,
+    "triatt_end": 0.01399,
+    "transition_z": 0.02016
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 8447.025,
+    "n_top_level_ops": 418,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 97.8,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 66
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 0
+  },
+  {
+   "arm": "z",
+   "sites": [
+    "z"
+   ],
+   "order": 1,
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1644960 B which is beyond max L1 size of 1499136 B"
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.08624,
+    0.08623,
+    0.08635,
+    0.08631,
+    0.08618
+   ],
+   "block_median_s": 0.08624,
+   "sub_median_s": {
+    "trimul_start": 0.01699,
+    "trimul_end": 0.01704,
+    "triatt_start": 0.01097,
+    "triatt_end": 0.014,
+    "transition_z": 0.02013
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 8447.025,
+    "n_top_level_ops": 418,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 97.9,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 2
+  },
+  {
+   "arm": "trimul_in",
+   "sites": [
+    "trimul_in"
+   ],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.09336,
+    0.09346,
+    0.09354,
+    0.09347,
+    0.09343
+   ],
+   "block_median_s": 0.09346,
+   "sub_median_s": {
+    "trimul_start": 0.02069,
+    "trimul_end": 0.0206,
+    "triatt_start": 0.01096,
+    "triatt_end": 0.01397,
+    "transition_z": 0.02013
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2777.907,
+     "n_typecast": 1
+    },
+    "trimul_end": {
+     "real_MB": 2778.956,
+     "n_typecast": 1
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9772.425,
+    "n_top_level_ops": 446,
+    "n_typecast": 1,
+    "ops": {
+     "ttnn.deallocate": 4,
+     "ttnn.unsqueeze": 2,
+     "ttnn.multiply_": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.experimental.minimal_matmul": 1,
+     "ttnn.chunk": 1,
+     "ttnn.typecast": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 104.6,
+   "gates": {
+    "reblock_permute.eligible": {
+     "served": 48,
+     "declined": 0
+    },
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 3
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.0863,
+    0.08612,
+    0.08637,
+    0.08625,
+    0.08628
+   ],
+   "block_median_s": 0.08628,
+   "sub_median_s": {
+    "trimul_start": 0.01698,
+    "trimul_end": 0.01702,
+    "triatt_start": 0.01096,
+    "triatt_end": 0.01397,
+    "transition_z": 0.02012
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 8447.025,
+    "n_top_level_ops": 418,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 97.9,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 4
+  },
+  {
+   "arm": "trimul_mm",
+   "sites": [
+    "trimul_mm"
+   ],
+   "order": 5,
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1644960 B which is beyond max L1 size of 1499136 B"
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.08633,
+    0.08634,
+    0.08626,
+    0.08626,
+    0.08619
+   ],
+   "block_median_s": 0.08626,
+   "sub_median_s": {
+    "trimul_start": 0.01705,
+    "trimul_end": 0.01703,
+    "triatt_start": 0.01101,
+    "triatt_end": 0.01397,
+    "transition_z": 0.02015
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 8447.025,
+    "n_top_level_ops": 418,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 97.9,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 6
+  },
+  {
+   "arm": "trimul_out",
+   "sites": [
+    "trimul_out"
+   ],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.08334,
+    0.08344,
+    0.08343,
+    0.08333,
+    0.08593
+   ],
+   "block_median_s": 0.08343,
+   "sub_median_s": {
+    "trimul_start": 0.01579,
+    "trimul_end": 0.01579,
+    "triatt_start": 0.01097,
+    "triatt_end": 0.01398,
+    "transition_z": 0.02015
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 1712.554,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 1713.603,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 7373.283,
+    "n_top_level_ops": 418,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 88.4,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 24
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 7
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.08624,
+    0.08631,
+    0.08639,
+    0.08625,
+    0.08624
+   ],
+   "block_median_s": 0.08625,
+   "sub_median_s": {
+    "trimul_start": 0.01702,
+    "trimul_end": 0.017,
+    "triatt_start": 0.01097,
+    "triatt_end": 0.01395,
+    "transition_z": 0.02013
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 8447.025,
+    "n_top_level_ops": 418,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 97.9,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 8
+  },
+  {
+   "arm": "triatt_qkv",
+   "sites": [
+    "triatt_qkv"
+   ],
+   "order": 9,
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1644960 B which is beyond max L1 size of 1499136 B"
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.08624,
+    0.08637,
+    0.08613,
+    0.08635,
+    0.08619
+   ],
+   "block_median_s": 0.08624,
+   "sub_median_s": {
+    "trimul_start": 0.01701,
+    "trimul_end": 0.01701,
+    "triatt_start": 0.01095,
+    "triatt_end": 0.01395,
+    "transition_z": 0.0201
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 8447.025,
+    "n_top_level_ops": 418,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 97.9,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 10
+  },
+  {
+   "arm": "triatt_gate",
+   "sites": [
+    "triatt_gate"
+   ],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.09108,
+    0.09096,
+    0.09115,
+    0.09111,
+    0.0911
+   ],
+   "block_median_s": 0.0911,
+   "sub_median_s": {
+    "trimul_start": 0.01698,
+    "trimul_end": 0.01702,
+    "triatt_start": 0.01134,
+    "triatt_end": 0.01847,
+    "transition_z": 0.02013
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1155.752,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1961.058,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9264.914,
+    "n_top_level_ops": 428,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 101.7,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 0,
+     "declined": 24
+    }
+   },
+   "order": 11
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.0906,
+    0.09063,
+    0.09071,
+    0.09072,
+    0.09068
+   ],
+   "block_median_s": 0.09068,
+   "sub_median_s": {
+    "trimul_start": 0.01702,
+    "trimul_end": 0.01706,
+    "triatt_start": 0.011,
+    "triatt_end": 0.01818,
+    "transition_z": 0.02016
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1988.321,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9386.549,
+    "n_top_level_ops": 426,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 103.5,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 12
+  },
+  {
+   "arm": "triatt_bias",
+   "sites": [
+    "triatt_bias"
+   ],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.0914,
+    0.09137,
+    0.09154,
+    0.09133,
+    0.09138
+   ],
+   "block_median_s": 0.09138,
+   "sub_median_s": {
+    "trimul_start": 0.01697,
+    "trimul_end": 0.01707,
+    "triatt_start": 0.0114,
+    "triatt_end": 0.01864,
+    "transition_z": 0.02013
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1185.243,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1990.55,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9391.006,
+    "n_top_level_ops": 428,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 102.8,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 13
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.09065,
+    0.0906,
+    0.0907,
+    0.09067,
+    0.09067
+   ],
+   "block_median_s": 0.09067,
+   "sub_median_s": {
+    "trimul_start": 0.01703,
+    "trimul_end": 0.01701,
+    "triatt_start": 0.01096,
+    "triatt_end": 0.01818,
+    "transition_z": 0.02014
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1988.321,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9386.549,
+    "n_top_level_ops": 426,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 103.5,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 14
+  },
+  {
+   "arm": "triatt_out",
+   "sites": [
+    "triatt_out"
+   ],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.09059,
+    0.09059,
+    0.0906,
+    0.09068,
+    0.09058
+   ],
+   "block_median_s": 0.09059,
+   "sub_median_s": {
+    "trimul_start": 0.01699,
+    "trimul_end": 0.01704,
+    "triatt_start": 0.01097,
+    "triatt_end": 0.01817,
+    "transition_z": 0.02012
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1988.321,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9386.549,
+    "n_top_level_ops": 426,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 103.6,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 15
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.09054,
+    0.09064,
+    0.09057,
+    0.09055,
+    0.09069
+   ],
+   "block_median_s": 0.09057,
+   "sub_median_s": {
+    "trimul_start": 0.01696,
+    "trimul_end": 0.017,
+    "triatt_start": 0.01099,
+    "triatt_end": 0.01818,
+    "transition_z": 0.02014
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1988.321,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9386.549,
+    "n_top_level_ops": 426,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 103.6,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 16
+  },
+  {
+   "arm": "transition",
+   "sites": [
+    "transition"
+   ],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.08776,
+    0.08771,
+    0.08767,
+    0.08771,
+    0.0877
+   ],
+   "block_median_s": 0.08771,
+   "sub_median_s": {
+    "trimul_start": 0.01697,
+    "trimul_end": 0.01702,
+    "triatt_start": 0.01098,
+    "triatt_end": 0.01824,
+    "transition_z": 0.01726
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1988.321,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 348.406,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9229.263,
+    "n_top_level_ops": 426,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 105.2,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 17
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.09063,
+    0.09049,
+    0.09062,
+    0.09072,
+    0.09052
+   ],
+   "block_median_s": 0.09062,
+   "sub_median_s": {
+    "trimul_start": 0.01699,
+    "trimul_end": 0.017,
+    "triatt_start": 0.01098,
+    "triatt_end": 0.01816,
+    "transition_z": 0.02013
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1988.321,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9386.549,
+    "n_top_level_ops": 426,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 103.6,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 18
+  },
+  {
+   "arm": "all",
+   "sites": [
+    "transition",
+    "triatt_bias",
+    "triatt_gate",
+    "triatt_out",
+    "trimul_in",
+    "trimul_out"
+   ],
+   "order": 19,
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 67108864 B L1 buffer across 72 banks, where each bank needs to store 933888 B, but bank size is 1395424 B (allocated: 496128 B, free: 899296 B, largest free block: 899296 B)"
+  },
+  {
+   "arm": "base",
+   "sites": [],
+   "z_store": "DataType.BFLOAT16",
+   "block_s": [
+    0.09064,
+    0.09067,
+    0.09057,
+    0.0906,
+    0.09064
+   ],
+   "block_median_s": 0.09064,
+   "sub_median_s": {
+    "trimul_start": 0.017,
+    "trimul_end": 0.01702,
+    "triatt_start": 0.01098,
+    "triatt_end": 0.01816,
+    "transition_z": 0.02014
+   },
+   "sub_MB": {
+    "trimul_start": {
+     "real_MB": 2115.207,
+     "n_typecast": 0
+    },
+    "trimul_end": {
+     "real_MB": 2116.256,
+     "n_typecast": 0
+    },
+    "triatt_start": {
+     "real_MB": 1183.015,
+     "n_typecast": 0
+    },
+    "triatt_end": {
+     "real_MB": 1988.321,
+     "n_typecast": 0
+    },
+    "transition_z": {
+     "real_MB": 474.235,
+     "n_typecast": 0
+    }
+   },
+   "graph": {
+    "real_MB": 9386.549,
+    "n_top_level_ops": 426,
+    "n_typecast": 0,
+    "ops": {
+     "ttnn.unsqueeze": 2,
+     "ttnn.layer_norm": 1,
+     "ttnn.allocate_tensor_on_device": 1,
+     "ttnn.generic_op": 1
+    }
+   },
+   "achieved_GBps": 103.6,
+   "gates": {
+    "reblock_permute.eligible_back": {
+     "served": 24,
+     "declined": 0
+    },
+    "reblock_permute.eligible_gated": {
+     "served": 24,
+     "declined": 0
+    },
+    "trimul_tail.eligible": {
+     "served": 0,
+     "declined": 24
+    },
+    "tenstorrent._pair_proj_minimal_matmul": {
+     "served": 0,
+     "declined": 72
+    },
+    "triatt_qkv.qkv_heads": {
+     "served": 24,
+     "declined": 0
+    },
+    "triatt_qkv.gate_proj": {
+     "served": 24,
+     "declined": 0
+    }
+   },
+   "order": 20
+  }
+ ],
+ "summary": {
+  "aa_floor_rel": 0.05142,
+  "base_block_ms": 86.35,
+  "base_MB": 8447.0,
+  "base_GBps": 97.8,
+  "base_typecast": 0,
+  "n_base_arms": 11
+ },
+ "per_site": {
+  "z": {
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1644960 B which is beyond max L1 size of 1499136 B"
+  },
+  "trimul_in": {
+   "block_ms": 93.46,
+   "MB": 9772.4,
+   "byte_cut": -0.1569,
+   "time_cut": -0.0823,
+   "realization": 0.525,
+   "speedup": 0.9239,
+   "GBps": 104.6,
+   "n_typecast": 1,
+   "declined": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 72
+   },
+   "declined_base": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 66
+   },
+   "sub_ms": {
+    "trimul_start": 0.02069,
+    "trimul_end": 0.0206,
+    "triatt_start": 0.01096,
+    "triatt_end": 0.01397,
+    "transition_z": 0.02013
+   }
+  },
+  "trimul_mm": {
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1644960 B which is beyond max L1 size of 1499136 B"
+  },
+  "trimul_out": {
+   "block_ms": 83.43,
+   "MB": 7373.3,
+   "byte_cut": 0.1271,
+   "time_cut": 0.0338,
+   "realization": 0.266,
+   "speedup": 1.035,
+   "GBps": 88.4,
+   "n_typecast": 0,
+   "declined": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 24
+   },
+   "declined_base": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 66
+   },
+   "sub_ms": {
+    "trimul_start": 0.01579,
+    "trimul_end": 0.01579,
+    "triatt_start": 0.01097,
+    "triatt_end": 0.01398,
+    "transition_z": 0.02015
+   }
+  },
+  "triatt_qkv": {
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1644960 B which is beyond max L1 size of 1499136 B"
+  },
+  "triatt_gate": {
+   "block_ms": 91.1,
+   "MB": 9264.9,
+   "byte_cut": -0.0968,
+   "time_cut": -0.055,
+   "realization": 0.568,
+   "speedup": 0.9479,
+   "GBps": 101.7,
+   "n_typecast": 0,
+   "declined": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 72,
+    "triatt_qkv.gate_proj": 24
+   },
+   "declined_base": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 66
+   },
+   "sub_ms": {
+    "trimul_start": 0.01698,
+    "trimul_end": 0.01702,
+    "triatt_start": 0.01134,
+    "triatt_end": 0.01847,
+    "transition_z": 0.02013
+   }
+  },
+  "triatt_bias": {
+   "block_ms": 91.38,
+   "MB": 9391.0,
+   "byte_cut": -0.1118,
+   "time_cut": -0.0583,
+   "realization": 0.521,
+   "speedup": 0.945,
+   "GBps": 102.8,
+   "n_typecast": 0,
+   "declined": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 72
+   },
+   "declined_base": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 66
+   },
+   "sub_ms": {
+    "trimul_start": 0.01697,
+    "trimul_end": 0.01707,
+    "triatt_start": 0.0114,
+    "triatt_end": 0.01864,
+    "transition_z": 0.02013
+   }
+  },
+  "triatt_out": {
+   "block_ms": 90.59,
+   "MB": 9386.5,
+   "byte_cut": -0.1112,
+   "time_cut": -0.0491,
+   "realization": 0.441,
+   "speedup": 0.9532,
+   "GBps": 103.6,
+   "n_typecast": 0,
+   "declined": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 72
+   },
+   "declined_base": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 66
+   },
+   "sub_ms": {
+    "trimul_start": 0.01699,
+    "trimul_end": 0.01704,
+    "triatt_start": 0.01097,
+    "triatt_end": 0.01817,
+    "transition_z": 0.02012
+   }
+  },
+  "transition": {
+   "block_ms": 87.71,
+   "MB": 9229.3,
+   "byte_cut": -0.0926,
+   "time_cut": -0.0157,
+   "realization": 0.17,
+   "speedup": 0.9845,
+   "GBps": 105.2,
+   "n_typecast": 0,
+   "declined": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 72
+   },
+   "declined_base": {
+    "trimul_tail.eligible": 24,
+    "tenstorrent._pair_proj_minimal_matmul": 66
+   },
+   "sub_ms": {
+    "trimul_start": 0.01697,
+    "trimul_end": 0.01702,
+    "triatt_start": 0.01098,
+    "triatt_end": 0.01824,
+    "transition_z": 0.01726
+   }
+  },
+  "all": {
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 67108864 B L1 buffer across 72 banks, where each bank needs to store 933888 B, but bank size is 1395424 B (allocated: 496128 B, free: 899296 B, largest free block: 899296 B)"
+  }
+ }
+}
