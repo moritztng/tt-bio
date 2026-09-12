@@ -25,10 +25,19 @@ four seeds by more than the seed spread.
 
 BH, qb2 card 1, seed 0, each arm against its own base folded in the same process:
 
-| arm | domain 1 | domain 2 | hinge | whole molecule | old verdict | new |
-|---|---|---|---|---|---|---|
-| HOST | 0.580 A | 0.403 A | 4.37 deg | 0.771 A | kill | **pass** |
-| MSA ladder | 0.709 A | 0.565 A | 4.48 deg | 0.977 A | kill | kill |
+| arm | arch | domain 1 | domain 2 | hinge | whole molecule | old | new |
+|---|---|---|---|---|---|---|---|
+| HOST | BH | 0.580 A | 0.403 A | 4.37 deg | 0.771 A | kill | **pass** |
+| MSA ladder | BH | 0.709 A | 0.565 A | 4.48 deg | 0.977 A | kill | kill |
+| `swiglu` SILU=1 | WH | 0.369 A | 0.392 A | 3.45 deg | 0.543 A | pass | pass |
+| `swiglu_bf16` SILU=4 | WH | 0.675 A | 0.422 A | 2.52 deg | 0.720 A | kill | kill |
+| `swiglu_appx` SILU=5 | WH | **5.051 A** | 1.407 A | 63.73 deg | 20.877 A | kill | **kill** |
+
+`swiglu_appx` is the positive control and it breaks the check: 8.4x the bar per domain, 2.6x above
+the seed floor's WORST pair, native CA-lDDT against 1HCL down 0.048 on copy 1 against a 0.028 seed
+spread, and native CA RMSD 1.554 -> 4.425 A. Its hinge, 63.73 deg, sits INSIDE the sampler's own
+52.6 - 157.5 deg band, so an arm can look like a re-roll at the hinge and still be caught by the
+domains. The instrument discriminates; it is not merely permissive.
 
 Against the fixture's own seed floor (WH, twelve same-arm pairs): per-domain 0.967 - 1.906 A,
 whole-molecule 6.80 - 17.36 A, hinge 52.6 - 157.5 deg. Both levers move the hinge 12 - 36x less
