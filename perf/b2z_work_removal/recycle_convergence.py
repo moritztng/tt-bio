@@ -49,6 +49,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--tokens", type=int, default=512)
+    ap.add_argument("--label", default=None)
+    ap.add_argument("--target", default=None,
+                    help="a yaml that carries its own `msa:` paths, e.g. examples/8hel_msa.yaml; "
+                         "the MSA cache seeding is skipped for these")
     ap.add_argument("--recycles", type=int, default=3)
     ap.add_argument("--sampling-steps", type=int, default=10)
     a = ap.parse_args()
@@ -59,9 +63,18 @@ def main() -> int:
 
     B.SAMPLING_STEPS = a.sampling_steps
     patch_boltz2_cfg()
-    target = ROOT / "perf/size512/fixtures" / f"cdk2x2_{a.tokens}.yaml"
+    if a.target:
+        # These panel members carry their `msa:` paths inside the yaml, which the normal resolve
+        # path reads off disk, so there is no committed a3m to install into the cache. Neutralise
+        # the seeding step rather than inventing one; process-local, the harness only.
+        target = ROOT / a.target
+        B.seed_msa_cache = lambda *_a, **_k: 0
+        a3m = target
+    else:
+        target = ROOT / "perf/size512/fixtures" / f"cdk2x2_{a.tokens}.yaml"
+        a3m = target.with_suffix(".a3m")
     one_fold, meta, state = B.build_fold(
-        "boltz2", ROOT / f".msa_b2zwr_{a.tokens}", target, target.with_suffix(".a3m"),
+        "boltz2", ROOT / f".msa_b2zwr_{target.stem}", target, a3m,
         recycling_steps=a.recycles)
     model = state.model
     dg = model.distogram_module
@@ -89,6 +102,10 @@ def main() -> int:
             r["dz_rel"] = round(float((z - prev_z).abs().mean() / z.abs().mean()), 6)
             d = (D - prev_D).abs()
             r["dD_mean_A"] = round(float(d.mean()), 6)
+            # AlphaFold2's `recycle_early_stop_tolerance` thresholds an RMS over the predicted
+            # distance matrix, not a mean absolute, so the RMS is the number that is directly
+            # comparable to its shipped 0.5 A. Both are reported; they differ by the tail.
+            r["dD_rms_A"] = round(float((d ** 2).mean().sqrt()), 6)
             r["dD_max_A"] = round(float(d.max()), 6)
             # scale-free companion, so the criterion does not rest on the bin range
             r["tv_mean"] = round(float(0.5 * (P - prev_P).abs().sum(-1).mean()), 6)
@@ -99,7 +116,7 @@ def main() -> int:
     import socket
     out = {"host": socket.gethostname(), "arch": T.arch_name(),
            "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"), "ttnn": im.version("ttnn"),
-           "target": target.name, "tokens": a.tokens, "recycles": a.recycles,
+           "target": a.label or target.name, "tokens": a.tokens, "recycles": a.recycles,
            "sampling_steps": a.sampling_steps, "fold_s": round(secs, 3),
            "plddt": m.get("plddt"), "n_msa": m.get("n_msa"),
            "bin_centers_A": [2.0, 22.0, nb],
