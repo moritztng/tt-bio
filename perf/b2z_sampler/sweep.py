@@ -79,11 +79,20 @@ PANEL: dict[str, dict] = {
                       "kind": "protein+ligand", "note": "DHFR + ligand"},
     "affinity_tryp": {"yaml": "examples/affinity_tryp_msa.yaml",
                       "kind": "protein+ligand", "note": "trypsin + ligand"},
-    "9bk6": {"yaml": "examples/9bk6.yaml",
-             "kind": "complex", "note": "two-chain protein-protein complex, MSA per chain"},
-    "8hel": {"yaml": "examples/8hel_msa.yaml", "kind": "monomer", "note": "OpenFold3 bench target"},
-    "7xi5": {"yaml": "examples/7xi5_notmpl.yaml", "kind": "monomer",
-             "note": "OpenFold3 bench target, templates off"},
+    # 9bk6 / 8hel / 7xi5 are not panel members: their committed alignments are OpenFold3-style
+    # .sto hit files, which Boltz-2's MSA resolver cannot read. Folding them here would either
+    # reach for ColabFold or quietly drop to single-sequence, so the preflight rejects them.
+    "prot": {"yaml": "examples/prot.yaml",
+             "a3m": "docs/implementation-parity-data/ref-fixtures/boltz2/prot/"
+                    "msa-colabfold_200step_1sample_3recycle_bf16/msa.a3m",
+             "kind": "monomer", "note": "PDB 7ROA, 117 aa -- the release gate's own fold target"},
+    "ubq": {"yaml": "examples/ubq.yaml",
+            "a3m": "docs/implementation-parity-data/ref-fixtures/boltz2/ubiquitin/"
+                   "msa-colabfold_200step_1sample_3recycle_bf16_gpu/msa.a3m",
+            "kind": "monomer", "note": "ubiquitin, 76 aa -- the small end"},
+    "multimer": {"yaml": "examples/multimer.yaml", "kind": "complex", "single_sequence": True,
+                 "note": "two-chain protein-protein complex, folded single-sequence (no "
+                         "committed per-chain alignment exists for it)"},
     "hsa": {"yaml": "examples/hsa.yaml", "kind": "monomer", "single_sequence": True,
             "note": "human serum albumin, 585 aa -- the long end, folded single-sequence"},
 }
