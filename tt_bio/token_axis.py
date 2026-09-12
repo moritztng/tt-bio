@@ -290,6 +290,48 @@ LIVE_MULTIPLES = {
 # token bucket and does not answer to TOKEN_BUCKET. Pinned separately so it cannot drift unseen.
 MSA_AXIS_MULTIPLE = ("tt_bio.tenstorrent", "MSA_PAD_MULTIPLE", 1024)
 
+# The MSA row axis has ONE bucket where the token axis has a ladder, and the alignments we fold are
+# nowhere near it. The perf fixture's a3m carries 35 rows; the device runs 1024, so 989 rows of
+# zeros are pair-weighted-averaged, transitioned and outer-producted every block of every recycle.
+#
+# MEASURED (WH, whglx card 0, 512 tokens, 35 real rows, ttnn 0.68.0,
+# perf/b2z_work_removal/msa_depth_cost_512_whglx_c0.json): one MSALayer costs
+# 139.47 ms + 0.0995 ms per padded row, so at depth 1024 42.2 % of the call is depth-linear and
+# 1024 -> 64 is 242.25 -> 146.11 ms, a 1.658x on the unit. The depth-free remainder is the layer's
+# inner PairformerNoSeq, which does not see the row axis at all.
+#
+# So the ladder, not a smaller single step: a fold pays for the bucket it lands in, and a deep
+# alignment still gets a bucket rather than a recompile per depth. Powers of two from one tile-
+# aligned floor, which is the same discipline the token axis uses and the same reason
+# (token-axis-must-bucket-to-multiple-of-32 is STANDING).
+MSA_DEPTH_LADDER = (64, 128, 256, 512, 1024, 2048, 4096, 8192)
+
+
+def msa_ladder_enabled() -> bool:
+    """``TT_BIO_MSA_DEPTH_LADDER=1`` opts into the ladder. Default OFF.
+
+    Off it is exactly today's behaviour -- one 1024 bucket -- so the shipped fold is untouched
+    until the ladder has a Blackhole re-measure and a release gate behind it.
+    """
+    from .envflags import env_flag
+    return env_flag("TT_BIO_MSA_DEPTH_LADDER", False)
+
+
+def msa_depth_bucket(n_msa: int) -> int:
+    """Padded depth for `n_msa` alignment rows.
+
+    Ladder when enabled, the historical single 1024 step otherwise. Above the ladder's top the
+    rule falls back to the top rung's multiple, so an 9000-row alignment still lands on a bucket
+    instead of compiling its own program.
+    """
+    mult = MSA_AXIS_MULTIPLE[2]
+    if not msa_ladder_enabled():
+        return bucketed_width(n_msa, mult)
+    for rung in MSA_DEPTH_LADDER:
+        if n_msa <= rung:
+            return rung
+    return bucketed_width(n_msa, MSA_DEPTH_LADDER[-1])
+
 # ---------------------------------------------------------------------------------------------
 # The mechanism. One copy of it, next to the census, so a new adoption is a table row and a call.
 # ---------------------------------------------------------------------------------------------
