@@ -5755,7 +5755,7 @@ class Boltz2(nn.Module):
         if use_resident_trunk:
             _trunk = self._tt_trunk_module()
             s, z = _trunk(s_inputs, s_init, z_init, feats, recycling_steps,
-                          progress_fn=_pfn,
+                          z_init_build=z_init_build, progress_fn=_pfn,
                           keep_device_z=device_conditioning or device_confidence)
             if device_conditioning or device_confidence:
                 # Taken once and owned here, because two stages read it: the diffusion
