@@ -26,7 +26,8 @@ NUM = ("DEVICE FW DURATION [ns]", "DEVICE KERNEL DURATION [ns]",
        "OP TO OP LATENCY [ns]", "DEVICE BRISC KERNEL DURATION [ns]",
        "DEVICE NCRISC KERNEL DURATION [ns]", "DEVICE TRISC0 KERNEL DURATION [ns]",
        "DEVICE TRISC1 KERNEL DURATION [ns]", "DEVICE TRISC2 KERNEL DURATION [ns]",
-       "DEVICE FW START CYCLE", "DEVICE FW END CYCLE", "CORE COUNT")
+       "DEVICE FW START CYCLE", "DEVICE FW END CYCLE", "CORE COUNT",
+       "DEVICE COMPUTE CB WAIT FRONT [ns]", "DEVICE COMPUTE CB RESERVE BACK [ns]")
 
 
 def f(row, key, default=0.0):
@@ -152,6 +153,8 @@ def main() -> int:
             "trisc0_ns": st.median([f(r, "DEVICE TRISC0 KERNEL DURATION [ns]") for r in rs]),
             "trisc1_ns": st.median([f(r, "DEVICE TRISC1 KERNEL DURATION [ns]") for r in rs]),
             "trisc2_ns": st.median([f(r, "DEVICE TRISC2 KERNEL DURATION [ns]") for r in rs]),
+            "cb_wait_front_ns": st.median([f(r, "DEVICE COMPUTE CB WAIT FRONT [ns]") for r in rs]),
+            "cb_reserve_back_ns": st.median([f(r, "DEVICE COMPUTE CB RESERVE BACK [ns]") for r in rs]),
             "flops": flops,
             "math_ns": (1e9 * flops / (a.tflops_roof * 1e12)) if flops else 0.0,
         })
@@ -159,6 +162,13 @@ def main() -> int:
     math_ms = sum(o["math_ns"] for o in ops) / 1e6
     kernel_ms = sum(o["kernel_ns"] for o in ops) / 1e6
     span_ms = med["span_ms"]
+    # --enable-sum-profiling populates the two compute-thread stall accumulators. When they are
+    # there they measure (b) directly instead of inferring it from a roof: CB WAIT FRONT is the
+    # math thread blocked on input tiles, CB RESERVE BACK is it blocked on room to write output.
+    cb_wait_ms = sum(o["cb_wait_front_ns"] for o in ops) / 1e6
+    cb_res_ms = sum(o["cb_reserve_back_ns"] for o in ops) / 1e6
+    trisc1_ms = sum(o["trisc1_ns"] for o in ops) / 1e6
+    have_cb = (cb_wait_ms + cb_res_ms) > 0
     out = {
         "label": a.label,
         "csv": str(a.csv),
@@ -179,6 +189,12 @@ def main() -> int:
             "b_in_kernel_waiting": 100.0 * (kernel_ms - math_ms) / span_ms,
             "c_outside_kernels": 100.0 * (span_ms - kernel_ms) / span_ms,
         },
+        "compute_thread_ms": {
+            "trisc1_resident": trisc1_ms,
+            "cb_wait_front": cb_wait_ms,
+            "cb_reserve_back": cb_res_ms,
+            "not_stalled_on_a_cb": trisc1_ms - cb_wait_ms - cb_res_ms if have_cb else None,
+        },
         "gap_from_op_to_op_latency_ms": med["gap_ms"],
         "gap_from_span_minus_kernel_ms": gap_from_span_ms,
         "ops": ops,
@@ -193,6 +209,12 @@ def main() -> int:
           f"{out['split_pct']['b_in_kernel_waiting']:5.1f} %")
     print(f"  (c) outside kernels   {span_ms - kernel_ms:9.4f} ms  "
           f"{out['split_pct']['c_outside_kernels']:5.1f} %")
+    if have_cb:
+        print(f"  compute thread: TRISC1 resident {trisc1_ms:.4f} ms, of which "
+              f"CB wait-front {cb_wait_ms:.4f} ms ({100 * cb_wait_ms / trisc1_ms:.1f} %) and "
+              f"CB reserve-back {cb_res_ms:.4f} ms ({100 * cb_res_ms / trisc1_ms:.1f} %); "
+              f"not stalled on a CB {trisc1_ms - cb_wait_ms - cb_res_ms:.4f} ms "
+              f"({100 * (trisc1_ms - cb_wait_ms - cb_res_ms) / span_ms:.1f} % of span)")
     top = sorted(ops, key=lambda o: -o["kernel_ns"])[:15]
     print(f"  top ops by kernel ns:")
     for o in top:

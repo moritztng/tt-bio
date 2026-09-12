@@ -146,3 +146,93 @@ The mechanism is the same one either way: the diffusion step's programs are **6.
 the pairformer block's (20.7 us against 133 us) and run on **83 of 110 cores** against 103.8. Two
 blocks of the same fold sit on opposite sides of the dispatch knee, which is why one number for
 "the fold" was never going to fit both.
+
+---
+
+# The corrected sub-unit floor: four classes, 10.161 s/fold, not 22.443 s
+
+Run on qb2 card 0 at 512 aa on the **wheel** stack (ttnn 0.68.0, not the source build), because that
+is the stack the table it corrects was taken on. `perf/b2x_op_cost/device_floor.py` with the
+orchestrator's fix, commit `a0735332`, output `perf/b2z_kernel_census/subunit_floor_corrected_512_qb2c0.json`
+and `subunit_apb_512_qb2c0.json`. The b2x artifact is untouched.
+
+| class | shape priced | ms/call | calls priced | of all calls | s/fold | b2x s/fold | delta |
+|---|---|---|---|---|---|---|---|
+| TriangleMultiplication | 1x512x512x128 | 6.8577 | 560 | 560 | **3.8403** | 5.2626 | −1.42 |
+| TriangleAttention | 1x512x512x128 | 4.3797 | 560 | 560 | **2.4526** | 2.4590 | −0.01 |
+| Transition | 1x512x512x128 | 8.7075 | 296 | 960 | **2.5774** | 8.3568 | **−5.78** |
+| AttentionPairBias | 1x512x768 | 0.2688 | 4800 | 6264 | **1.2902** | 6.3642 | **−5.07** |
+| | | | | | **10.161** | **22.443** | **−12.28** |
+
+Against containers worth 20.025 s, so the corrected four fit, with 9.86 s of container time in glue
+these four classes do not name. The amendment's check passes.
+
+The 12.28 s has **two different causes** and they must not be merged:
+
+* **10.85 s is the counting bug**, Transition and AttentionPairBias.
+* **1.42 s is main moving forward.** TriangleMultiplication is 9.3975 ms/call at commit `072da10f`
+  and **6.8577 ms/call** at `a0735332`, same shape, same 560 calls, **1.37x**. TriangleAttention
+  did not move (4.391 → 4.3797). This is the same effect that took the pairformer block from
+  41.4152 ms to 36.4994 ms, and it is now visible in two independent places.
+
+## The shape histogram, which is the evidence
+
+| class | first-arg shape | calls/fold |
+|---|---|---|
+| TriangleMultiplication | 1x512x512x128 | 560 |
+| TriangleAttention | 1x512x512x128 | 560 |
+| Transition | 1x512x768 | 400 |
+| | 1x512x512x128 | 280 |
+| | 1x512x384 | 264 |
+| | 1x1024x512x64 | 16 |
+| AttentionPairBias | 1x512x768 | 4800 |
+| | 1x140x32x128 | 1200 |
+| | 1x512x384 | 264 |
+
+TriangleMultiplication and TriangleAttention are single-shape, so they were never at risk. The other
+two are not, and the histogram shows exactly how badly: only **280 of 960** Transitions and **0 of
+6264** AttentionPairBias calls are on the pair tensor.
+
+## The fix as shipped dropped AttentionPairBias instead of correcting it
+
+The amendment's `device_floor.py` filters AttentionPairBias with the same `_vol(args[0]) > 4_000_000`
+predicate it uses for Transition. **AttentionPairBias never takes the pair tensor as its first
+argument** — z enters as a bias. Its widest first arg at 512 aa is 1x512x768 = 393 216 elements,
+an order of magnitude under the threshold, so the predicate matches nothing, the class is never
+grabbed, and it vanishes from the table with no error. Silent omission, not a wrong number.
+
+Fixed here by matching the token track on rank and channel width (3-D first arg, last dim > 512),
+which selects the 4800 diffusion-transformer calls. That call is **0.2688 ms**, not the 1.016 ms the
+b2x table used — the b2x grab landed on one of the 264 *pairformer* calls at 1x512x384, which is
+**3.8x more expensive per call** than the diffusion one because it carries the full 512x512x128 pair
+bias while the diffusion transformer's bias is precomputed once per step. So the old row was wrong
+in both factors at once, cost and count, and they compounded in the same direction.
+
+Two shapes are still unpriced and the total above excludes them: 664 Transitions (400 at 1x512x768,
+264 at 1x512x384) and 1464 AttentionPairBias (1200 at 1x140x32x128, 264 at 1x512x384). 16 of the 296
+Transitions priced are 1x1024x512x64, the same element count as the pair shape but a different
+layout, so 0.139 s of the Transition row is an upper bound rather than a measurement.
+
+## The census does not have this defect, and here is the proof
+
+The amendment asks whether the kernel census inherits the same inflation. It cannot: it reads one
+row per **dispatched device program** out of the profiler and prices each at its own measured
+cycles. Nothing is a representative times a count. The spread inside a single op code shows how far
+wrong the representative approach would have been here:
+
+| op code | programs | min µs | median µs | max µs | max/min |
+|---|---|---|---|---|---|
+| TransposeDeviceOperation | 8 | 2.9 | 174.3 | 730.5 | **250x** |
+| MatmulDeviceOperation | 113 | 7.5 | 35.7 | 816.8 | **109x** |
+| BinaryNgDeviceOperation | 52 | 4.8 | 26.0 | 509.5 | 106x |
+| LayerNormDeviceOperation | 41 | 11.3 | 23.4 | 541.1 | 48x |
+| GenericOpDeviceOperation | 16 | 409.4 | 913.2 | 1311.4 | 3.2x |
+
+A per-class representative cost in this block is not off by tens of percent. It is off by up to
+**250x within one op code**, in either direction depending on which call the grab happened to land
+on.
+
+Containment check, which is the other thing that makes the corrected table believable: one
+PairformerLayer holds 2 TriangleMultiplication + 2 TriangleAttention + 1 pair Transition + 1
+AttentionPairBias = 2(6.8577) + 2(4.3797) + 8.7075 + ~1.0 = **32.2 ms** of the block's measured
+**36.4994 ms**, 88 %. The old numbers do not fit in the block at all.
