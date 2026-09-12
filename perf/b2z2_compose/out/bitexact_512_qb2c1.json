@@ -1,0 +1,491 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "1",
+  "lease_cards": "1",
+  "grid": [
+   11,
+   10
+  ],
+  "torch": "2.8.0+cpu",
+  "arch": "Arch.BLACKHOLE",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-bh-compose-landed/tt_bio/__init__.py",
+  "started_utc": "2026-09-12T15:44:22Z",
+  "loadavg": [
+   1.7998046875,
+   3.369140625,
+   3.798828125
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "diffusion_trace": false,
+   "fixtures": [
+    "cdk2x2_512.yaml",
+    "cdk2x2_298.yaml"
+   ]
+  },
+  "lever_defaults": {
+   "TRIATT_QKV_GATE_FUSED": true,
+   "TRIATT_HEAD_MAJOR_QKV": true,
+   "GATE_DST_RESIDENT": false,
+   "MSA_LADDER": false,
+   "TRIMUL_TAIL_DIRECT_PACK": 1,
+   "F1_BLOCK_KEYS": [
+    "(8, 8)"
+   ]
+  },
+  "msa_bucket_for_35_rows": {
+   "ladder_off": 1024,
+   "ladder_on": 64
+  },
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 2.405,
+ "phase1": [
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": false,
+    "dst": false,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 20.454,
+   "prepare_and_trunk_s": 12.4773,
+   "stages_s": {
+    "diffusion_conditioning": 1.0438,
+    "sampler": 5.5051,
+    "confidence": 1.4276
+   },
+   "sampler_ms_per_step": 27.6961,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 0,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 1.57,
+   "warmup": true
+  },
+  {
+   "arm": "K2DST",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": true,
+    "dst": true,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 20.383,
+   "prepare_and_trunk_s": 12.2625,
+   "stages_s": {
+    "diffusion_conditioning": 1.1934,
+    "sampler": 5.6109,
+    "confidence": 1.3164
+   },
+   "sampler_ms_per_step": 28.2478,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 560,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 5.64,
+   "warmup": true
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": false,
+    "dst": false,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 20.86,
+   "prepare_and_trunk_s": 12.3845,
+   "stages_s": {
+    "diffusion_conditioning": 1.1864,
+    "sampler": 5.8731,
+    "confidence": 1.4161
+   },
+   "sampler_ms_per_step": 29.5143,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 0,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 4.61,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "K2DST",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": true,
+    "dst": true,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 21.253,
+   "prepare_and_trunk_s": 12.2704,
+   "stages_s": {
+    "diffusion_conditioning": 1.1831,
+    "sampler": 6.4552,
+    "confidence": 1.3439
+   },
+   "sampler_ms_per_step": 32.4943,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 560,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 7.27,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": false,
+    "dst": false,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 20.729,
+   "prepare_and_trunk_s": 12.4433,
+   "stages_s": {
+    "diffusion_conditioning": 1.0717,
+    "sampler": 5.8108,
+    "confidence": 1.4027
+   },
+   "sampler_ms_per_step": 29.0029,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 0,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 5.78,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": false,
+    "dst": false,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 20.468,
+   "prepare_and_trunk_s": 12.398,
+   "stages_s": {
+    "diffusion_conditioning": 1.0885,
+    "sampler": 5.538,
+    "confidence": 1.4442
+   },
+   "sampler_ms_per_step": 27.8287,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 0,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 6.55,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "K2DST",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": true,
+    "dst": true,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 21.164,
+   "prepare_and_trunk_s": 12.4074,
+   "stages_s": {
+    "diffusion_conditioning": 1.7304,
+    "sampler": 5.5739,
+    "confidence": 1.4519
+   },
+   "sampler_ms_per_step": 28.0695,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 560,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 6.66,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": false,
+    "dst": false,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 20.924,
+   "prepare_and_trunk_s": 12.5154,
+   "stages_s": {
+    "diffusion_conditioning": 1.2776,
+    "sampler": 5.6739,
+    "confidence": 1.4568
+   },
+   "sampler_ms_per_step": 28.5692,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 0,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 6.42,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": false,
+    "dst": false,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 20.698,
+   "prepare_and_trunk_s": 12.4273,
+   "stages_s": {
+    "diffusion_conditioning": 1.1808,
+    "sampler": 5.7421,
+    "confidence": 1.3481
+   },
+   "sampler_ms_per_step": 28.9548,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 0,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 7.91,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "K2DST",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": true,
+    "dst": true,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 20.705,
+   "prepare_and_trunk_s": 12.2633,
+   "stages_s": {
+    "diffusion_conditioning": 1.1989,
+    "sampler": 5.7993,
+    "confidence": 1.4431
+   },
+   "sampler_ms_per_step": 29.1881,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 560,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 7.55,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": false,
+    "dst": false,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 21.331,
+   "prepare_and_trunk_s": 12.5716,
+   "stages_s": {
+    "diffusion_conditioning": 1.1981,
+    "sampler": 6.0917,
+    "confidence": 1.4702
+   },
+   "sampler_ms_per_step": 30.6907,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 0,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 9.24,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "levers": {
+    "k2": false,
+    "dst": false,
+    "msa": false
+   },
+   "diffusion_shape": [
+    512,
+    4128,
+    4480
+   ],
+   "fold_s": 21.056,
+   "prepare_and_trunk_s": 12.5871,
+   "stages_s": {
+    "diffusion_conditioning": 1.1489,
+    "sampler": 5.9118,
+    "confidence": 1.4082
+   },
+   "sampler_ms_per_step": 29.7504,
+   "plddt": 0.845488,
+   "cif_sha256": "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351",
+   "calls": {
+    "k2_served": 0,
+    "k2_declined": 0,
+    "headmajor_served": 560,
+    "headmajor_declined": 0,
+    "gated_served": 1120,
+    "gated_declined": 0,
+    "f1_served": 0,
+    "f1_declined": 560
+   },
+   "loadavg1": 8.98,
+   "warmup": false,
+   "rep": 3
+  }
+ ]
+}
