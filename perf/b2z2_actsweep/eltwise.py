@@ -54,7 +54,10 @@ UOP = {"sigmoid": ttnn.UnaryOpType.SIGMOID, "silu": ttnn.UnaryOpType.SILU}
 FN = {"sigmoid": ttnn.sigmoid, "silu": ttnn.silu}
 TREF = {"sigmoid": torch.sigmoid, "silu": torch.nn.functional.silu}
 
-# (name, shape, act, operand, calls_per_fold, note) -- shapes and counts from census_whglx_c6.json
+# (name, shape, act, operand, calls_per_fold, note) -- shapes and counts from census_whglx_c6.json.
+# The three biggest are 33-67 MB per operand and cannot be held in L1 at all, which is why they are
+# DRAM-resident in production; they are measured there, with `--dram` naming them.
+DRAM_SPECS = {"trimul_tail", "triatt_gate", "pwa_head"}
 SPECS = [
     ("trimul_tail",  [1, 512, 512, 128],  "sigmoid", "b",  560, "tenstorrent.py:5958 trimul out gate"),
     ("triatt_gate",  [512, 4, 512, 32],   "sigmoid", "b",  560, "tenstorrent.py:6478 tri-attention gate"),
@@ -83,31 +86,32 @@ def dump():
 
 
 def run(name, shape, act, operand, calls, note):
+    mc = DRAM if name in DRAM_SPECS else L1
     torch.manual_seed(0)
     xt = (torch.randn(*shape) * 0.5).bfloat16()
     gt = (torch.randn(*shape) * 0.5).bfloat16()
     mk = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
-                                   memory_config=L1)
+                                   memory_config=mc)
     x, gg = mk(xt), mk(gt)
     kwa = ("input_tensor_a_activations" if operand == "a" else "input_tensor_b_activations")
     ref = (TREF[act](xt.float()) * gt.float() if operand == "a"
            else xt.float() * TREF[act](gt.float()))
 
     def fused():
-        return ttnn.multiply(x, gg, **{kwa: [UOP[act]]}, memory_config=L1)
+        return ttnn.multiply(x, gg, **{kwa: [UOP[act]]}, memory_config=mc)
 
     def split():
-        t = FN[act](x if operand == "a" else gg, memory_config=L1)
-        r = ttnn.multiply(t, gg, memory_config=L1) if operand == "a" \
-            else ttnn.multiply(x, t, memory_config=L1)
+        t = FN[act](x if operand == "a" else gg, memory_config=mc)
+        r = ttnn.multiply(t, gg, memory_config=mc) if operand == "a" \
+            else ttnn.multiply(x, t, memory_config=mc)
         ttnn.deallocate(t)
         return r
 
     def plain():
-        return ttnn.multiply(x, gg, memory_config=L1)
+        return ttnn.multiply(x, gg, memory_config=mc)
 
     def actonly():
-        return FN[act](gg, memory_config=L1)
+        return FN[act](gg, memory_config=mc)
 
     arms = {"fused": fused, "fused2": fused, "split": split, "plain": plain, "act": actonly}
 
@@ -138,6 +142,7 @@ def run(name, shape, act, operand, calls, note):
     for d_ in shape:
         elems *= d_
     r = {"name": name, "note": note, "shape": shape, "activation": act, "operand": operand,
+         "memory": "DRAM" if mc is DRAM else "L1",
          "calls_per_fold": calls, "out_tiles": elems // 1024,
          "ms": {k: round(v, 6) for k, v in med.items()},
          "aa_floor": round(med["fused"] / med["fused2"], 5),
@@ -148,7 +153,7 @@ def run(name, shape, act, operand, calls, note):
          "saving_ms_per_fold": round((med["fused"] - med["split"]) * calls, 3),
          "accuracy": acc}
     out["specs"].append(r); dump()
-    print(f"{name:12s} {act:8s} op-{operand} tiles={r['out_tiles']:<6d} fused={med['fused']:.5f} "
+    print(f"{name:12s} {act:8s} op-{operand} {r['memory']:4s} tiles={r['out_tiles']:<6d} fused={med['fused']:.5f} "
           f"split={med['split']:.5f} plain={med['plain']:.5f} act={med['act']:.5f} "
           f"ratio={r['ratio_split']:.4f} aa={r['aa_floor']:.4f} "
           f"fold={r['saving_ms_per_fold']:+.1f} ms", flush=True)

@@ -1,0 +1,392 @@
+{
+ "doc": "The other half of the census: an SFPU pass fused into a BINARY ELTWISE op, not into a matmul.\n\n`census.py` finds 31,512 such calls in a 512 aa fold moving 110.5 GB of output -- more than the\n85.7 GB the matmul-fused sites move. They are the sigmoid gates (`x * sigmoid(g)`) and the diffusion\nSwiGLU (`silu(a) * g`), written as `input_tensor_{a,b}_activations=[...]`.\n\nThe matmul result says the fused SFPU pass runs at roughly half the rate the standalone op reaches.\nIf that is a property of the fused pass and not of the matmul kernel, it should show here too --\nexcept the arithmetic is against it: splitting a matmul's activation adds an L1 round trip, while\nsplitting an eltwise activation adds an ENTIRE SECOND OP over the same operand. So this is the\nfalsifier for \"the property is about the fused pass\": if the penalty is a fused-pass property it\nsurvives the op it is fused into; if it is a matmul-kernel property it vanishes here.\n\n  fused    ttnn.multiply(x, g, input_tensor_b_activations=[SIGMOID])\n  split    ttnn.sigmoid(g) then ttnn.multiply(x, g_act)\n  plain    ttnn.multiply(x, g)                                        decomposition\n  act      ttnn.sigmoid(g) alone                                      what the pass costs on its own\n\n    eltwise.py --out <json> [--reps 9] [--inner 32]\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "tt_visible_devices": "6",
+  "commit": "",
+  "reps": 9,
+  "inner": 32,
+  "started_utc": "2026-09-12T18:55:08Z"
+ },
+ "specs": [
+  {
+   "name": "trimul_tail",
+   "note": "tenstorrent.py:5958 trimul out gate",
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "activation": "sigmoid",
+   "operand": "b",
+   "memory": "DRAM",
+   "calls_per_fold": 560,
+   "out_tiles": 32768,
+   "ms": {
+    "fused": 1.237801,
+    "fused2": 1.238181,
+    "split": 1.58123,
+    "plain": 0.850555,
+    "act": 0.735595
+   },
+   "aa_floor": 0.99969,
+   "ratio_split": 0.78281,
+   "fused_penalty_ms": 0.387246,
+   "split_penalty_ms": 0.730675,
+   "standalone_act_ms": 0.735595,
+   "saving_ms_per_fold": -192.32,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0006344571011140943,
+     "max_abs_vs_fp32": 0.008850455284118652
+    },
+    "split": {
+     "rms_vs_fp32": 0.0006344571011140943,
+     "max_abs_vs_fp32": 0.008850455284118652
+    }
+   }
+  },
+  {
+   "name": "triatt_gate",
+   "note": "tenstorrent.py:6478 tri-attention gate",
+   "shape": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "activation": "sigmoid",
+   "operand": "b",
+   "memory": "DRAM",
+   "calls_per_fold": 560,
+   "out_tiles": 32768,
+   "ms": {
+    "fused": 1.239407,
+    "fused2": 1.239247,
+    "split": 1.58063,
+    "plain": 0.85161,
+    "act": 0.736438
+   },
+   "aa_floor": 1.00013,
+   "ratio_split": 0.78412,
+   "fused_penalty_ms": 0.387797,
+   "split_penalty_ms": 0.72902,
+   "standalone_act_ms": 0.736438,
+   "saving_ms_per_fold": -191.085,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0006344571011140943,
+     "max_abs_vs_fp32": 0.008850455284118652
+    },
+    "split": {
+     "rms_vs_fp32": 0.0006344571011140943,
+     "max_abs_vs_fp32": 0.008850455284118652
+    }
+   }
+  },
+  {
+   "name": "adaln",
+   "note": "tenstorrent.py:8351 AdaLN scale",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "activation": "sigmoid",
+   "operand": "b",
+   "memory": "L1",
+   "calls_per_fold": 9600,
+   "out_tiles": 384,
+   "ms": {
+    "fused": 0.026688,
+    "fused2": 0.026455,
+    "split": 0.042963,
+    "plain": 0.025371,
+    "act": 0.018225
+   },
+   "aa_floor": 1.00881,
+   "ratio_split": 0.6212,
+   "fused_penalty_ms": 0.001317,
+   "split_penalty_ms": 0.017592,
+   "standalone_act_ms": 0.018225,
+   "saving_ms_per_fold": -156.235,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0006349247414618731,
+     "max_abs_vs_fp32": 0.007104992866516113
+    },
+    "split": {
+     "rms_vs_fp32": 0.0006349247414618731,
+     "max_abs_vs_fp32": 0.007104992866516113
+    }
+   }
+  },
+  {
+   "name": "ctb_swiglu",
+   "note": "tenstorrent.py:8404 ConditionedTransitionBlock",
+   "shape": [
+    1,
+    512,
+    1536
+   ],
+   "activation": "silu",
+   "operand": "a",
+   "memory": "L1",
+   "calls_per_fold": 4800,
+   "out_tiles": 768,
+   "ms": {
+    "fused": 0.037909,
+    "fused2": 0.036315,
+    "split": 0.046869,
+    "plain": 0.025663,
+    "act": 0.022197
+   },
+   "aa_floor": 1.04388,
+   "ratio_split": 0.80882,
+   "fused_penalty_ms": 0.012246,
+   "split_penalty_ms": 0.021207,
+   "standalone_act_ms": 0.022197,
+   "saving_ms_per_fold": -43.011,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.00032594005460850894,
+     "max_abs_vs_fp32": 0.012173652648925781
+    },
+    "split": {
+     "rms_vs_fp32": 0.00032594005460850894,
+     "max_abs_vs_fp32": 0.012173652648925781
+    }
+   }
+  },
+  {
+   "name": "pwa_head",
+   "note": "tenstorrent.py:8678 PairWeightedAveraging",
+   "shape": [
+    1024,
+    512,
+    32
+   ],
+   "activation": "sigmoid",
+   "operand": "b",
+   "memory": "DRAM",
+   "calls_per_fold": 128,
+   "out_tiles": 16384,
+   "ms": {
+    "fused": 0.642071,
+    "fused2": 0.643346,
+    "split": 0.85011,
+    "plain": 0.451277,
+    "act": 0.400355
+   },
+   "aa_floor": 0.99802,
+   "ratio_split": 0.75528,
+   "fused_penalty_ms": 0.190793,
+   "split_penalty_ms": 0.398832,
+   "standalone_act_ms": 0.400355,
+   "saving_ms_per_fold": -26.629,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.00063456961652264,
+     "max_abs_vs_fp32": 0.008381247520446777
+    },
+    "split": {
+     "rms_vs_fp32": 0.00063456961652264,
+     "max_abs_vs_fp32": 0.008381247520446777
+    }
+   }
+  },
+  {
+   "name": "apb_gate",
+   "note": "tenstorrent.py:7145 AttentionPairBias",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "activation": "sigmoid",
+   "operand": "b",
+   "memory": "L1",
+   "calls_per_fold": 4800,
+   "out_tiles": 384,
+   "ms": {
+    "fused": 0.026724,
+    "fused2": 0.026445,
+    "split": 0.043338,
+    "plain": 0.025593,
+    "act": 0.018455
+   },
+   "aa_floor": 1.01054,
+   "ratio_split": 0.61663,
+   "fused_penalty_ms": 0.00113,
+   "split_penalty_ms": 0.017745,
+   "standalone_act_ms": 0.018455,
+   "saving_ms_per_fold": -79.749,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0006349247414618731,
+     "max_abs_vs_fp32": 0.007104992866516113
+    },
+    "split": {
+     "rms_vs_fp32": 0.0006349247414618731,
+     "max_abs_vs_fp32": 0.007104992866516113
+    }
+   }
+  },
+  {
+   "name": "ctb_out",
+   "note": "tenstorrent.py:8432 CTB output gate",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "activation": "sigmoid",
+   "operand": "a",
+   "memory": "L1",
+   "calls_per_fold": 4800,
+   "out_tiles": 384,
+   "ms": {
+    "fused": 0.021289,
+    "fused2": 0.021218,
+    "split": 0.027207,
+    "plain": 0.015875,
+    "act": 0.012941
+   },
+   "aa_floor": 1.0033,
+   "ratio_split": 0.78247,
+   "fused_penalty_ms": 0.005413,
+   "split_penalty_ms": 0.011331,
+   "standalone_act_ms": 0.012941,
+   "saving_ms_per_fold": -28.408,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0006348153692670166,
+     "max_abs_vs_fp32": 0.007403373718261719
+    },
+    "split": {
+     "rms_vs_fp32": 0.0006348153692670166,
+     "max_abs_vs_fp32": 0.007403373718261719
+    }
+   }
+  },
+  {
+   "name": "adaln_atom",
+   "note": "tenstorrent.py:8351 atom-level AdaLN",
+   "shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "activation": "sigmoid",
+   "operand": "b",
+   "memory": "L1",
+   "calls_per_fold": 2400,
+   "out_tiles": 560,
+   "ms": {
+    "fused": 0.027011,
+    "fused2": 0.026852,
+    "split": 0.030259,
+    "plain": 0.016233,
+    "act": 0.01659
+   },
+   "aa_floor": 1.00592,
+   "ratio_split": 0.89265,
+   "fused_penalty_ms": 0.010778,
+   "split_penalty_ms": 0.014026,
+   "standalone_act_ms": 0.01659,
+   "saving_ms_per_fold": -7.796,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0006363668944686651,
+     "max_abs_vs_fp32": 0.00715947151184082
+    },
+    "split": {
+     "rms_vs_fp32": 0.0006363668944686651,
+     "max_abs_vs_fp32": 0.00715947151184082
+    }
+   }
+  },
+  {
+   "name": "ctb_sw_atom",
+   "note": "tenstorrent.py:8404 atom-level SwiGLU",
+   "shape": [
+    1,
+    140,
+    32,
+    256
+   ],
+   "activation": "silu",
+   "operand": "a",
+   "memory": "L1",
+   "calls_per_fold": 1200,
+   "out_tiles": 1120,
+   "ms": {
+    "fused": 0.049742,
+    "fused2": 0.049655,
+    "split": 0.052028,
+    "plain": 0.02335,
+    "act": 0.030114
+   },
+   "aa_floor": 1.00176,
+   "ratio_split": 0.95607,
+   "fused_penalty_ms": 0.026392,
+   "split_penalty_ms": 0.028677,
+   "standalone_act_ms": 0.030114,
+   "saving_ms_per_fold": -2.742,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0003263216349296272,
+     "max_abs_vs_fp32": 0.012399435043334961
+    },
+    "split": {
+     "rms_vs_fp32": 0.0003263216349296272,
+     "max_abs_vs_fp32": 0.012399435043334961
+    }
+   }
+  },
+  {
+   "name": "apb_small",
+   "note": "tenstorrent.py:7145 trunk s gate",
+   "shape": [
+    1,
+    512,
+    384
+   ],
+   "activation": "sigmoid",
+   "operand": "b",
+   "memory": "L1",
+   "calls_per_fold": 264,
+   "out_tiles": 192,
+   "ms": {
+    "fused": 0.02626,
+    "fused2": 0.026407,
+    "split": 0.042982,
+    "plain": 0.025085,
+    "act": 0.018245
+   },
+   "aa_floor": 0.99445,
+   "ratio_split": 0.61096,
+   "fused_penalty_ms": 0.001175,
+   "split_penalty_ms": 0.017897,
+   "standalone_act_ms": 0.018245,
+   "saving_ms_per_fold": -4.415,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.000637051067315042,
+     "max_abs_vs_fp32": 0.0069844722747802734
+    },
+    "split": {
+     "rms_vs_fp32": 0.000637051067315042,
+     "max_abs_vs_fp32": 0.0069844722747802734
+    }
+   }
+  }
+ ]
+}

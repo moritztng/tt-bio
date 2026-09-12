@@ -1,0 +1,123 @@
+{
+ "doc": "The fold A/B for the union of every site the fused-activation threshold gate fires at.\n\n`sweep.py` prices each site on its own. Sites that share a kernel or a program cache entry are not\nindependent, so the fold number has to come from switching them all on together and timing the whole\nfold, never from adding up the per-site savings. That is what this does.\n\nAt 512 aa the gate fires at exactly the four `Transition` fc1 shapes (4096, 2048, 768 and 768\noutput tiles, all silu, all L1) and declines the DiT sigmoid gate (384 tiles to DRAM) and the\natom->token relu. So the device behaviour of the `split` arm here is identical to what\n`TT_BIO_UNFUSED_SILU` produced before the gate replaced it, and `b2z2-unfused-silu-recover`'s\nfour-seed per-pseudo-domain parity read applies to it unchanged. The point of this run is the\nratio on this build, plus the A/A floor that makes it interpretable.\n\nArms, in ONE process so they share a device, a program cache and a model load:\n\n    base     the shipped default: ttnn.linear(activation=\"silu\")\n    split    TT_BIO_SPLIT_FUSED_ACT, silu as its own op wherever the threshold is met\n\nThe gate is module-level in `tt_bio.tenstorrent` (it picks a device program, so it is read at build\ntime, not per call), so it is set on the module here rather than in the environment, and asserted\nabsent from the environment so a pinned value cannot silently serve every arm. The last fold\nrepeats the first: that repeat is the A/A floor and must come back byte-identical or nothing else\nhere is interpretable.\n\n    fold_union.py --out <json> --cifdir <dir> [--plan base:0,1,2,3;split:0,1,2,3]\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "torch": "2.14.0+cu130",
+  "tt_visible_devices": "6",
+  "tt_bio_file": "/home/tt-admin/wt-actsweep/tt_bio/__init__.py",
+  "commit": "",
+  "started_utc": "2026-09-12T18:46:25Z",
+  "loadavg": [
+   12.216796875,
+   12.98974609375,
+   11.46630859375
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3;split:0,1,2,3",
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 112.058,
+   "split_ops": 0,
+   "sha256": "da476491dbb2a847",
+   "plddt": 0.802815,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "split",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 39.993,
+   "split_ops": 10648,
+   "sha256": "3f9ffb76ed443fa0",
+   "plddt": 0.817264,
+   "tag": "split-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 41.12,
+   "split_ops": 0,
+   "sha256": "9fa548f2b5da1f18",
+   "plddt": 0.814333,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "split",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 39.696,
+   "split_ops": 10648,
+   "sha256": "6d61df1eb8684a2f",
+   "plddt": 0.813052,
+   "tag": "split-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 41.627,
+   "split_ops": 0,
+   "sha256": "56320896584783f4",
+   "plddt": 0.805309,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "split",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 40.913,
+   "split_ops": 10648,
+   "sha256": "94dde4a39fb8fd4e",
+   "plddt": 0.808857,
+   "tag": "split-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 41.33,
+   "split_ops": 0,
+   "sha256": "e01352a8219147e6",
+   "plddt": 0.836459,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "split",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 39.269,
+   "split_ops": 10648,
+   "sha256": "3cfefb000ed8b6f8",
+   "plddt": 0.838134,
+   "tag": "split-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 40.989,
+   "split_ops": 0,
+   "sha256": "da476491dbb2a847",
+   "plddt": 0.802815,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 5.458,
+ "aa_floor_identical": {
+  "512": true
+ }
+}

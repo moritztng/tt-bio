@@ -240,11 +240,13 @@ TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 # measured, none of them a model name:
 #
 #   * The activation's fused pass must be the slower one. Per output tile, fused against standalone
-#     plus its L1 round trip: silu 57.0 vs 23.7 ns, sigmoid 56.2 vs 22.7 -- split. relu is FREE
-#     fused (0.0 vs 11.8 ns) and gelu's fused pass already runs at its standalone rate (29.3 vs
-#     34.7) -- leave those two alone, splitting them costs 0.58x and 0.85x.
+#     plus its L1 round trip: silu 57.7 vs 23.7 ns, sigmoid 56.1 vs 22.8 -- split. relu is FREE
+#     fused (-0.0 vs 11.7 ns) and gelu's fused pass already beats its standalone op (30.2 vs 35.0)
+#     -- leave those two alone, splitting them costs 0.58x and 0.85x.
 #   * The output must be at least _SPLIT_FUSED_ACT_MIN_TILES tiles, or the extra op's own fixed cost
-#     dominates: the same silu reads 1.49x at 1024 tiles, 1.05x at 512 and 0.93x at 256.
+#     dominates. Every measured point at 768 tiles or more wins (1.47x at 768, 1.49x at 1024, 1.51x
+#     at 2048, 1.42-1.80x at 4096); 512 tiles reads 1.05x, inside the 0.5 % A/A floor, and 384 and
+#     256 tiles lose outright at 0.90x and 0.93x.
 #   * The output must land in L1. A DRAM output pays the split's round trip at DRAM bandwidth, which
 #     caps the win at 1.22x and reverses it to 0.97x by 4096 tiles.
 #
@@ -252,13 +254,15 @@ TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 # independent of K, so a bigger K just dilutes them (silu at 4096 tiles reads 1.855x at K=32 and
 # 1.269x at K=1536, and wins at every K in between). The penalty is also specific to the MATMUL
 # kernel and does not transfer to fusion in general: the same sigmoid fused into a binary eltwise op
-# costs 13 ns/tile against 34 ns/tile standalone, the opposite sign, so the eltwise gates are left
-# fused (perf/b2z2_actsweep/out/eltwise_whglx_c6.json).
+# costs 11.8 ns/tile against 22.4 ns/tile standalone, the opposite sign. All 10 eltwise-fused shapes
+# a fold runs read 0.61x to 0.96x split, so they are left fused
+# (perf/b2z2_actsweep/out/eltwise_whglx_c6.json).
 # Release-gated: the split applies the activation to the bf16-packed matmul output rather than to the
-# fp32 dest accumulator, so it is not bit-exact. 1.454e-4 RMS against fp32 truth at the pair
-# Transition shape, against the fused form's 1.227e-4.
+# fp32 dest accumulator, so it is not bit-exact. At the pair Transition shape it costs one extra
+# rounding, 7.21e-4 RMS against an fp32 evaluation of the same algebra against the fused form's
+# 4.67e-4. Scored structurally at 512 aa across four seeds in perf/b2z2_actsweep/out/score_*.json.
 _SPLIT_FUSED_ACT = env_flag("TT_BIO_SPLIT_FUSED_ACT", False)
-_SPLIT_FUSED_ACT_MIN_TILES = 1024
+_SPLIT_FUSED_ACT_MIN_TILES = 768
 
 
 def _unfused_activation(activation: str, out_shape, memory_config):
@@ -7219,7 +7223,7 @@ class Transition(Module):
                 memory_config=ttnn.L1_MEMORY_CONFIG,
             )
             split = _unfused_activation(
-                "silu", (*x_norm.shape[:-1], self.fc1_weight.shape[-1]),
+                "silu", (*list(x_norm.shape)[:-1], list(self.fc1_weight.shape)[-1]),
                 ttnn.L1_MEMORY_CONFIG)
             x_1 = ttnn.linear(
                 x_norm,

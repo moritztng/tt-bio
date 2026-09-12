@@ -1,0 +1,984 @@
+{
+ "doc": "Fused vs split activation at every shape a 512 aa Boltz-2 fold actually runs, plus the sweep\nthat turns the result into a rule instead of a list.\n\n`b2z2-unfused-silu-recover` measured ONE point: `ttnn.linear(activation=\"silu\")` at the pair\nTransition chunk (M=16x512, K=128, N=512), 0.11432 ms fused against 0.02663 ms for the bare matmul,\nand 1.4549x for the chunk once silu is split out. The census (`census.py`) says a fold runs that\ncall site at four different shapes and two other sites at two other activations, so the shipped\n`TT_BIO_UNFUSED_SILU` flag already flips shapes nobody measured.\n\nThe mechanism predicts the rule. A fused activation is an SFPU pass over the OUTPUT, so it costs\n~c_act per output tile regardless of K. The matmul that produced the output costs ~c_mm * K per\noutput tile. Splitting pays an L1 round trip of the output, also per output tile. So the fused\npenalty as a FRACTION of the op falls like 1/K, and the win should die at a K threshold that\ndepends on the activation, not on the model, the site or the output size. That is the prediction\nthis file is built to falsify: arms at fixed output shape across K = 32..1536, four activations.\n\nArms, per spec, interleaved inside one process so they share a device and a program cache:\n\n  fused    ttnn.linear(x, w, activation=act)                  what ships\n  fused2   the same op again                                  the A/A floor, same rep\n  split    ttnn.linear(x, w) then ttnn.<act>(y, out=y)        the candidate\n  plain    ttnn.linear(x, w)                                  decomposition: what the activation costs\n\nAccuracy is scored in the same pass against an fp32 evaluation of the identical algebra, because\nthe split arm rounds the pre-activation to bf16 and the fused arm does not.\n\n    sweep.py --out <json> [--reps 9] [--inner 32] [--only census|ksweep]\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "tt_visible_devices": "6",
+  "commit": "",
+  "reps": 9,
+  "inner": 32,
+  "torch": "2.14.0+cu130",
+  "started_utc": "2026-09-12T18:39:58Z"
+ },
+ "specs": [
+  {
+   "name": "t256_silu_l1",
+   "note": "tile sweep 256 tiles, L1",
+   "in_shape": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 262144,
+   "out_tiles": 256,
+   "ms": {
+    "fused": 0.03558,
+    "fused2": 0.035919,
+    "split": 0.038434,
+    "plain": 0.023213
+   },
+   "spread_pct": {
+    "fused": 3.32,
+    "fused2": 3.64,
+    "split": 77.76,
+    "plain": 47.96
+   },
+   "aa_floor": 0.99058,
+   "ratio_split": 0.92576,
+   "fused_penalty_ms": 0.012367,
+   "split_penalty_ms": 0.015221,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0004676453536376357,
+     "max_abs_vs_fp32": 0.004953145980834961,
+     "mean_rel_vs_fp32": 0.0015092607354745269
+    },
+    "split": {
+     "rms_vs_fp32": 0.000718851457349956,
+     "max_abs_vs_fp32": 0.009698987007141113,
+     "mean_rel_vs_fp32": 0.002117140218615532
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t512_silu_l1",
+   "note": "tile sweep 512 tiles, L1",
+   "in_shape": [
+    1,
+    2,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 524288,
+   "out_tiles": 512,
+   "ms": {
+    "fused": 0.061321,
+    "fused2": 0.061213,
+    "split": 0.058435,
+    "plain": 0.031428
+   },
+   "spread_pct": {
+    "fused": 1.04,
+    "fused2": 1.3,
+    "split": 25.92,
+    "plain": 17.53
+   },
+   "aa_floor": 1.00177,
+   "ratio_split": 1.0494,
+   "fused_penalty_ms": 0.029893,
+   "split_penalty_ms": 0.027007,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0004675748059526086,
+     "max_abs_vs_fp32": 0.0048580169677734375,
+     "mean_rel_vs_fp32": 0.0015057068085297942
+    },
+    "split": {
+     "rms_vs_fp32": 0.0007215957157313824,
+     "max_abs_vs_fp32": 0.00856935977935791,
+     "mean_rel_vs_fp32": 0.0021180592011660337
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t1024_silu_l1",
+   "note": "tile sweep 1024 tiles, L1",
+   "in_shape": [
+    1,
+    4,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 1048576,
+   "out_tiles": 1024,
+   "ms": {
+    "fused": 0.115521,
+    "fused2": 0.115524,
+    "split": 0.077519,
+    "plain": 0.050462
+   },
+   "spread_pct": {
+    "fused": 0.78,
+    "fused2": 2.99,
+    "split": 1.58,
+    "plain": 1.89
+   },
+   "aa_floor": 0.99998,
+   "ratio_split": 1.49024,
+   "fused_penalty_ms": 0.06506,
+   "split_penalty_ms": 0.027057,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.00046791997738182545,
+     "max_abs_vs_fp32": 0.005507707595825195,
+     "mean_rel_vs_fp32": 0.0015071077505126595
+    },
+    "split": {
+     "rms_vs_fp32": 0.000722744909580797,
+     "max_abs_vs_fp32": 0.011835336685180664,
+     "mean_rel_vs_fp32": 0.0021199462935328484
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t2048_silu_l1",
+   "note": "tile sweep 2048 tiles, L1",
+   "in_shape": [
+    1,
+    8,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 2097152,
+   "out_tiles": 2048,
+   "ms": {
+    "fused": 0.219122,
+    "fused2": 0.21823,
+    "split": 0.145258,
+    "plain": 0.09585
+   },
+   "spread_pct": {
+    "fused": 1.38,
+    "fused2": 1.34,
+    "split": 2.42,
+    "plain": 2.53
+   },
+   "aa_floor": 1.00409,
+   "ratio_split": 1.5085,
+   "fused_penalty_ms": 0.123272,
+   "split_penalty_ms": 0.049409,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0005183473112992942,
+     "max_abs_vs_fp32": 0.2646702229976654,
+     "mean_rel_vs_fp32": 0.0015072476817294955
+    },
+    "split": {
+     "rms_vs_fp32": 0.000757539295591414,
+     "max_abs_vs_fp32": 0.2646702229976654,
+     "mean_rel_vs_fp32": 0.00212328159250319
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t4096_silu_l1",
+   "note": "tile sweep 4096 tiles, L1",
+   "in_shape": [
+    1,
+    16,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 4194304,
+   "out_tiles": 4096,
+   "ms": {
+    "fused": 0.473404,
+    "fused2": 0.473761,
+    "split": 0.333298,
+    "plain": 0.23593
+   },
+   "spread_pct": {
+    "fused": 0.98,
+    "fused2": 0.83,
+    "split": 1.1,
+    "plain": 1.29
+   },
+   "aa_floor": 0.99925,
+   "ratio_split": 1.42036,
+   "fused_penalty_ms": 0.237474,
+   "split_penalty_ms": 0.097367,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.00047046542749740183,
+     "max_abs_vs_fp32": 0.00867009162902832,
+     "mean_rel_vs_fp32": 0.0015065830666571856
+    },
+    "split": {
+     "rms_vs_fp32": 0.0007244955049827695,
+     "max_abs_vs_fp32": 0.013441085815429688,
+     "mean_rel_vs_fp32": 0.0021198538597673178
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t256_silu_dram",
+   "note": "tile sweep 256 tiles, DRAM",
+   "in_shape": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 262144,
+   "out_tiles": 256,
+   "ms": {
+    "fused": 0.04013,
+    "fused2": 0.040091,
+    "split": 0.057816,
+    "plain": 0.031478
+   },
+   "spread_pct": {
+    "fused": 4.89,
+    "fused2": 3.55,
+    "split": 30.62,
+    "plain": 27.44
+   },
+   "aa_floor": 1.00098,
+   "ratio_split": 0.69409,
+   "fused_penalty_ms": 0.008651,
+   "split_penalty_ms": 0.026337,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0004676453536376357,
+     "max_abs_vs_fp32": 0.004953145980834961,
+     "mean_rel_vs_fp32": 0.0015092607354745269
+    },
+    "split": {
+     "rms_vs_fp32": 0.000718851457349956,
+     "max_abs_vs_fp32": 0.009698987007141113,
+     "mean_rel_vs_fp32": 0.002117140218615532
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t512_silu_dram",
+   "note": "tile sweep 512 tiles, DRAM",
+   "in_shape": [
+    1,
+    2,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 524288,
+   "out_tiles": 512,
+   "ms": {
+    "fused": 0.06545,
+    "fused2": 0.065544,
+    "split": 0.058506,
+    "plain": 0.038021
+   },
+   "spread_pct": {
+    "fused": 0.81,
+    "fused2": 0.9,
+    "split": 28.15,
+    "plain": 5.52
+   },
+   "aa_floor": 0.99855,
+   "ratio_split": 1.11869,
+   "fused_penalty_ms": 0.027428,
+   "split_penalty_ms": 0.020485,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0004675748059526086,
+     "max_abs_vs_fp32": 0.0048580169677734375,
+     "mean_rel_vs_fp32": 0.0015057068085297942
+    },
+    "split": {
+     "rms_vs_fp32": 0.0007215957157313824,
+     "max_abs_vs_fp32": 0.00856935977935791,
+     "mean_rel_vs_fp32": 0.0021180592011660337
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t1024_silu_dram",
+   "note": "tile sweep 1024 tiles, DRAM",
+   "in_shape": [
+    1,
+    4,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 1048576,
+   "out_tiles": 1024,
+   "ms": {
+    "fused": 0.119422,
+    "fused2": 0.119281,
+    "split": 0.097984,
+    "plain": 0.069981
+   },
+   "spread_pct": {
+    "fused": 1.07,
+    "fused2": 1.14,
+    "split": 1.39,
+    "plain": 1.18
+   },
+   "aa_floor": 1.00119,
+   "ratio_split": 1.21879,
+   "fused_penalty_ms": 0.049441,
+   "split_penalty_ms": 0.028004,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.00046791997738182545,
+     "max_abs_vs_fp32": 0.005507707595825195,
+     "mean_rel_vs_fp32": 0.0015071077505126595
+    },
+    "split": {
+     "rms_vs_fp32": 0.000722744909580797,
+     "max_abs_vs_fp32": 0.011835336685180664,
+     "mean_rel_vs_fp32": 0.0021199462935328484
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t2048_silu_dram",
+   "note": "tile sweep 2048 tiles, DRAM",
+   "in_shape": [
+    1,
+    8,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 2097152,
+   "out_tiles": 2048,
+   "ms": {
+    "fused": 0.221165,
+    "fused2": 0.221498,
+    "split": 0.188305,
+    "plain": 0.136821
+   },
+   "spread_pct": {
+    "fused": 1.86,
+    "fused2": 5.03,
+    "split": 2.53,
+    "plain": 3.17
+   },
+   "aa_floor": 0.99849,
+   "ratio_split": 1.1745,
+   "fused_penalty_ms": 0.084344,
+   "split_penalty_ms": 0.051484,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0005183473112992942,
+     "max_abs_vs_fp32": 0.2646702229976654,
+     "mean_rel_vs_fp32": 0.0015072476817294955
+    },
+    "split": {
+     "rms_vs_fp32": 0.000757539295591414,
+     "max_abs_vs_fp32": 0.2646702229976654,
+     "mean_rel_vs_fp32": 0.00212328159250319
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t4096_silu_dram",
+   "note": "tile sweep 4096 tiles, DRAM",
+   "in_shape": [
+    1,
+    16,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "silu",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 4194304,
+   "out_tiles": 4096,
+   "ms": {
+    "fused": 0.480198,
+    "fused2": 0.479569,
+    "split": 0.494882,
+    "plain": 0.355492
+   },
+   "spread_pct": {
+    "fused": 0.93,
+    "fused2": 1.4,
+    "split": 2.47,
+    "plain": 1.5
+   },
+   "aa_floor": 1.00131,
+   "ratio_split": 0.97033,
+   "fused_penalty_ms": 0.124706,
+   "split_penalty_ms": 0.13939,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.00047046542749740183,
+     "max_abs_vs_fp32": 0.00867009162902832,
+     "mean_rel_vs_fp32": 0.0015065830666571856
+    },
+    "split": {
+     "rms_vs_fp32": 0.0007244955049827695,
+     "max_abs_vs_fp32": 0.013441085815429688,
+     "mean_rel_vs_fp32": 0.0021198538597673178
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t256_sigmoid_l1",
+   "note": "tile sweep 256 tiles, L1",
+   "in_shape": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 262144,
+   "out_tiles": 256,
+   "ms": {
+    "fused": 0.03451,
+    "fused2": 0.034498,
+    "split": 0.026935,
+    "plain": 0.018138
+   },
+   "spread_pct": {
+    "fused": 0.68,
+    "fused2": 0.79,
+    "split": 4.55,
+    "plain": 1.61
+   },
+   "aa_floor": 1.00033,
+   "ratio_split": 1.28123,
+   "fused_penalty_ms": 0.016371,
+   "split_penalty_ms": 0.008796,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.000889545539394021,
+     "max_abs_vs_fp32": 0.002130568027496338,
+     "mean_rel_vs_fp32": 0.0014568525366485119
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009545299108140171,
+     "max_abs_vs_fp32": 0.002957582473754883,
+     "mean_rel_vs_fp32": 0.0015523830661550164
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t512_sigmoid_l1",
+   "note": "tile sweep 512 tiles, L1",
+   "in_shape": [
+    1,
+    2,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 524288,
+   "out_tiles": 512,
+   "ms": {
+    "fused": 0.060776,
+    "fused2": 0.060821,
+    "split": 0.053086,
+    "plain": 0.031767
+   },
+   "spread_pct": {
+    "fused": 1.41,
+    "fused2": 1.2,
+    "split": 26.91,
+    "plain": 12.96
+   },
+   "aa_floor": 0.99926,
+   "ratio_split": 1.14486,
+   "fused_penalty_ms": 0.029009,
+   "split_penalty_ms": 0.021319,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0008908421732485294,
+     "max_abs_vs_fp32": 0.002167999744415283,
+     "mean_rel_vs_fp32": 0.0014587333425879478
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009560731705278158,
+     "max_abs_vs_fp32": 0.0030651092529296875,
+     "mean_rel_vs_fp32": 0.001554867485538125
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t1024_sigmoid_l1",
+   "note": "tile sweep 1024 tiles, L1",
+   "in_shape": [
+    1,
+    4,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 1048576,
+   "out_tiles": 1024,
+   "ms": {
+    "fused": 0.113899,
+    "fused2": 0.114108,
+    "split": 0.076486,
+    "plain": 0.050178
+   },
+   "spread_pct": {
+    "fused": 0.34,
+    "fused2": 0.46,
+    "split": 0.87,
+    "plain": 0.82
+   },
+   "aa_floor": 0.99817,
+   "ratio_split": 1.48915,
+   "fused_penalty_ms": 0.063721,
+   "split_penalty_ms": 0.026308,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0008906450239010155,
+     "max_abs_vs_fp32": 0.002163112163543701,
+     "mean_rel_vs_fp32": 0.0014598474372178316
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009554695570841432,
+     "max_abs_vs_fp32": 0.0030589699745178223,
+     "mean_rel_vs_fp32": 0.0015557053266093135
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t2048_sigmoid_l1",
+   "note": "tile sweep 2048 tiles, L1",
+   "in_shape": [
+    1,
+    8,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 2097152,
+   "out_tiles": 2048,
+   "ms": {
+    "fused": 0.216149,
+    "fused2": 0.215336,
+    "split": 0.143304,
+    "plain": 0.095417
+   },
+   "spread_pct": {
+    "fused": 1.02,
+    "fused2": 0.87,
+    "split": 2.47,
+    "plain": 3.39
+   },
+   "aa_floor": 1.00377,
+   "ratio_split": 1.50832,
+   "fused_penalty_ms": 0.120732,
+   "split_penalty_ms": 0.047887,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0009177460451610386,
+     "max_abs_vs_fp32": 0.22997945547103882,
+     "mean_rel_vs_fp32": 0.0014604529133066535
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009813545038923621,
+     "max_abs_vs_fp32": 0.22997945547103882,
+     "mean_rel_vs_fp32": 0.0015569415409117937
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t4096_sigmoid_l1",
+   "note": "tile sweep 4096 tiles, L1",
+   "in_shape": [
+    1,
+    16,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 4194304,
+   "out_tiles": 4096,
+   "ms": {
+    "fused": 0.466247,
+    "fused2": 0.468186,
+    "split": 0.329619,
+    "plain": 0.235718
+   },
+   "spread_pct": {
+    "fused": 0.88,
+    "fused2": 14.39,
+    "split": 1.54,
+    "plain": 0.64
+   },
+   "aa_floor": 0.99586,
+   "ratio_split": 1.4145,
+   "fused_penalty_ms": 0.230529,
+   "split_penalty_ms": 0.093901,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0008911596378311515,
+     "max_abs_vs_fp32": 0.0021863579750061035,
+     "mean_rel_vs_fp32": 0.0014605295145884156
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009565069922246039,
+     "max_abs_vs_fp32": 0.00307309627532959,
+     "mean_rel_vs_fp32": 0.0015568298986181617
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t256_sigmoid_dram",
+   "note": "tile sweep 256 tiles, DRAM",
+   "in_shape": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 262144,
+   "out_tiles": 256,
+   "ms": {
+    "fused": 0.0389,
+    "fused2": 0.038876,
+    "split": 0.032918,
+    "plain": 0.022498
+   },
+   "spread_pct": {
+    "fused": 1.15,
+    "fused2": 3.45,
+    "split": 1.5,
+    "plain": 0.99
+   },
+   "aa_floor": 1.00062,
+   "ratio_split": 1.18172,
+   "fused_penalty_ms": 0.016402,
+   "split_penalty_ms": 0.01042,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.000889545539394021,
+     "max_abs_vs_fp32": 0.002130568027496338,
+     "mean_rel_vs_fp32": 0.0014568525366485119
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009545299108140171,
+     "max_abs_vs_fp32": 0.002957582473754883,
+     "mean_rel_vs_fp32": 0.0015523830661550164
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t512_sigmoid_dram",
+   "note": "tile sweep 512 tiles, DRAM",
+   "in_shape": [
+    1,
+    2,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 524288,
+   "out_tiles": 512,
+   "ms": {
+    "fused": 0.063934,
+    "fused2": 0.063931,
+    "split": 0.052588,
+    "plain": 0.037104
+   },
+   "spread_pct": {
+    "fused": 0.61,
+    "fused2": 0.31,
+    "split": 1.45,
+    "plain": 1.31
+   },
+   "aa_floor": 1.00004,
+   "ratio_split": 1.21574,
+   "fused_penalty_ms": 0.02683,
+   "split_penalty_ms": 0.015484,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0008908421732485294,
+     "max_abs_vs_fp32": 0.002167999744415283,
+     "mean_rel_vs_fp32": 0.0014587333425879478
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009560731705278158,
+     "max_abs_vs_fp32": 0.0030651092529296875,
+     "mean_rel_vs_fp32": 0.001554867485538125
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t1024_sigmoid_dram",
+   "note": "tile sweep 1024 tiles, DRAM",
+   "in_shape": [
+    1,
+    4,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 1048576,
+   "out_tiles": 1024,
+   "ms": {
+    "fused": 0.117395,
+    "fused2": 0.117524,
+    "split": 0.09629,
+    "plain": 0.069326
+   },
+   "spread_pct": {
+    "fused": 1.08,
+    "fused2": 0.47,
+    "split": 0.91,
+    "plain": 2.73
+   },
+   "aa_floor": 0.9989,
+   "ratio_split": 1.21918,
+   "fused_penalty_ms": 0.048069,
+   "split_penalty_ms": 0.026964,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0008906450239010155,
+     "max_abs_vs_fp32": 0.002163112163543701,
+     "mean_rel_vs_fp32": 0.0014598474372178316
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009554695570841432,
+     "max_abs_vs_fp32": 0.0030589699745178223,
+     "mean_rel_vs_fp32": 0.0015557053266093135
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t2048_sigmoid_dram",
+   "note": "tile sweep 2048 tiles, DRAM",
+   "in_shape": [
+    1,
+    8,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 2097152,
+   "out_tiles": 2048,
+   "ms": {
+    "fused": 0.214751,
+    "fused2": 0.21506,
+    "split": 0.186302,
+    "plain": 0.133101
+   },
+   "spread_pct": {
+    "fused": 0.39,
+    "fused2": 0.61,
+    "split": 0.96,
+    "plain": 0.5
+   },
+   "aa_floor": 0.99856,
+   "ratio_split": 1.1527,
+   "fused_penalty_ms": 0.08165,
+   "split_penalty_ms": 0.053201,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0009177460451610386,
+     "max_abs_vs_fp32": 0.22997945547103882,
+     "mean_rel_vs_fp32": 0.0014604529133066535
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009813545038923621,
+     "max_abs_vs_fp32": 0.22997945547103882,
+     "mean_rel_vs_fp32": 0.0015569415409117937
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "t4096_sigmoid_dram",
+   "note": "tile sweep 4096 tiles, DRAM",
+   "in_shape": [
+    1,
+    16,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 512,
+   "activation": "sigmoid",
+   "bias": false,
+   "calls_per_fold": 0,
+   "out_elems": 4194304,
+   "out_tiles": 4096,
+   "ms": {
+    "fused": 0.473573,
+    "fused2": 0.473393,
+    "split": 0.503318,
+    "plain": 0.355792
+   },
+   "spread_pct": {
+    "fused": 6.96,
+    "fused2": 16.44,
+    "split": 14.81,
+    "plain": 21.17
+   },
+   "aa_floor": 1.00038,
+   "ratio_split": 0.9409,
+   "fused_penalty_ms": 0.117781,
+   "split_penalty_ms": 0.147526,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0008911596378311515,
+     "max_abs_vs_fp32": 0.0021863579750061035,
+     "mean_rel_vs_fp32": 0.0014605295145884156
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009565069922246039,
+     "max_abs_vs_fp32": 0.00307309627532959,
+     "mean_rel_vs_fp32": 0.0015568298986181617
+    }
+   },
+   "saving_ms_per_fold": null
+  },
+  {
+   "name": "ditS_o_l1",
+   "note": "tenstorrent.py:8502 shape with an L1 output instead of DRAM",
+   "in_shape": [
+    1,
+    512,
+    768
+   ],
+   "K": 768,
+   "N": 768,
+   "activation": "sigmoid",
+   "bias": true,
+   "calls_per_fold": 0,
+   "out_elems": 393216,
+   "out_tiles": 384,
+   "ms": {
+    "fused": 0.046868,
+    "fused2": 0.047182,
+    "split": 0.052178,
+    "plain": 0.030482
+   },
+   "spread_pct": {
+    "fused": 2.34,
+    "fused2": 3.68,
+    "split": 40.61,
+    "plain": 35.18
+   },
+   "aa_floor": 0.99335,
+   "ratio_split": 0.89823,
+   "fused_penalty_ms": 0.016386,
+   "split_penalty_ms": 0.021697,
+   "accuracy": {
+    "fused": {
+     "rms_vs_fp32": 0.0008935083169490099,
+     "max_abs_vs_fp32": 0.002230525016784668,
+     "mean_rel_vs_fp32": 0.0014649400254711509
+    },
+    "split": {
+     "rms_vs_fp32": 0.0009571037953719497,
+     "max_abs_vs_fp32": 0.002919912338256836,
+     "mean_rel_vs_fp32": 0.0015595125732943416
+    }
+   },
+   "saving_ms_per_fold": null
+  }
+ ]
+}
