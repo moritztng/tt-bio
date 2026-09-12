@@ -100,6 +100,45 @@ for rows in ROWS:
         fail.append(f"{out_b/1e6:.2f} MB: the gather did not return every device's rows")
     ttnn.deallocate(t)
 
+# --- the shape the block actually gathers -------------------------------------------------------
+# The curve above is rank 3, [1, rows, 128]. `_pair_track_row_sharded` gathers the PAIR TENSOR,
+# [1, S/N, S, 128] on dim 1 -- same bytes, different pages. `b2z2-pairtrack-chain-wh` measured
+# 1546.5 us for the 67.11 MB pair-track gather on chips 12+13 where the rank-3 curve here says
+# 979.5 us on 22+23, so the page shape is the first thing that could explain a 1.6x gap between
+# two rows on one box. This prices the real thing and settles it.
+RES["pair_shape"] = []
+for S in (256, 512, 768):
+    if S % N:
+        continue
+    host = torch.cat([torch.full((1, S // N, S, C), float(i)) for i in range(N)], dim=1)
+    t4 = ttnn.from_torch(host, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                         mesh_mapper=ttnn.shard_tensor_to_mesh_mapper(dev, dim=1))
+    g = ttnn.all_gather(t4, dim=1)
+    got = ttnn.to_torch(g, mesh_composer=comp)
+    exact = [torch.equal(got[i:i + 1], host) for i in range(N)]
+    ttnn.deallocate(g)
+    ttnn.synchronize_device(dev)
+    v = []
+    for _ in range(REPS):
+        ttnn.synchronize_device(dev)
+        t0 = time.perf_counter()
+        g = ttnn.all_gather(t4, dim=1)
+        ttnn.synchronize_device(dev)
+        v.append(time.perf_counter() - t0)
+        ttnn.deallocate(g)
+    v.sort()
+    med = statistics.median(v)
+    out_b = S * S * C * 2
+    moved = out_b * (N - 1) / N
+    RES["pair_shape"].append({"S": S, "shape": [1, S, S, C], "out_bytes": out_b,
+                              "median_us": med * 1e6, "gbps_per_dir": moved / med / 1e9,
+                              "exact_per_device": exact})
+    log(f"pair tensor S={S:4d} [1,{S},{S},{C}]  {out_b/1e6:7.2f} MB  {med*1e6:9.1f} us  "
+        f"{moved/med/1e9:6.2f} GB/s/dir  exact={all(exact)}")
+    if not all(exact):
+        fail.append(f"S={S} pair-shape gather did not return every device's rows")
+    ttnn.deallocate(t4)
+
 # A fit over the points that are bandwidth-bound, and the fixed term read off the small end rather
 # than extrapolated down to it -- CONTEXT 4-D: the p300c's published intercept is 10x too small
 # because it was fitted at the large end only.
