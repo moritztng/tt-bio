@@ -1,0 +1,54 @@
+{
+ "env": {
+  "started": "2026-09-12T21:10:19+0000",
+  "card": "16",
+  "grid": [
+   8,
+   9
+  ],
+  "commit": "50df40e3",
+  "loadavg": [
+   "15.87",
+   "10.65",
+   "7.19"
+  ],
+  "m": 8192,
+  "n": 384,
+  "block_cfg": [
+   4,
+   4,
+   1,
+   4,
+   1
+  ],
+  "reps": 5
+ },
+ "rows": [
+  {
+   "K_num_blocks": 1,
+   "K": 128,
+   "arm": "mcast",
+   "bit_exact": true,
+   "chain_ms": 0.48243,
+   "arm_ms": 0.47369,
+   "ratio_chain_over_arm": 1.01845,
+   "aa_floor": 1.00101,
+   "gate_saw": [
+    [
+     "chain",
+     1
+    ],
+    [
+     "mcast",
+     1
+    ]
+   ]
+  }
+ ],
+ "verdict": {
+  "all_bit_exact": true,
+  "ratio_by_k": {
+   "1": 1.01845
+  }
+ }
+}
