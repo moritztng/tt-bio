@@ -86,7 +86,7 @@ ELIGIBILITY-CENSUS, per arm, identical in both: `qkv_heads` 28/28 served, head-m
 served, `reblock_gated` 56. The lever does not drop a tuned kernel, it adds a call to one. This is
 the check that flipped `b2z2-byte-axis-reopened`'s sign and it is flat here.
 
-TILE-MOVEMENT-DELTA: **-2.85 %** of the block's input-tile wait. The arm removes 1.44 % of the
+TILE-MOVEMENT-DELTA: -2.85 % of the block's input-tile wait. The arm removes 1.44 % of the
 block wall (1.235 ms of 85.884, WH) and every millisecond of it has to come out of the movement
 term: the arithmetic is bit-identical, the MAC count is unchanged, the output buffers are the same
 four, and the only program property that moves is N. Carried onto the BH decomposition the
@@ -94,7 +94,7 @@ campaign scores in (wait 18.3366 ms of a 36.3438 ms block), 1.44 % of the block 
 is **2.85 % of the wait**. Measured on WH and transferred as a fraction, per CONTEXT
 §2-CORRECTION: fractions transfer, seconds do not.
 
-DEFICIT-SECONDS: **0.0 s** removed from the shipped path, because the lever's default is OFF and a
+DEFICIT-SECONDS: 0.0 s removed from the shipped path, because the lever's default is OFF and a
 fold A/B has not run. **0.147 s/fold located and measured on the block** (1.44 % of the trunk's
 10.22 s of BH device span), which is the number a fold A/B would have to find. Separately this pass
 EXPLAINS a term rather than removing it: the 1.76x realization above says the campaign's DRAM-byte
