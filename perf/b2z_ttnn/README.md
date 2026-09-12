@@ -135,3 +135,39 @@ asks whether tt-metal is the limit, without our kernels in between.
 One transient to know about: a 0.78 process that dies during JIT build can leave sysmem mapped, and
 the next open fails with `Sysmem mapped at unexpected NOC address` from
 `silicon_sysmem_manager.cpp:417`. It clears by itself; it is not a wedged chip.
+
+## The answer
+
+**ttnn 0.78.0 is 0.9968x on the 512 aa fold and folds the 298 aa control 18.3 A wrong.**
+
+| | 0.68.0 | 0.78.0 |
+|---|---|---|
+| 512 aa warm fold (paired, adjacent, fused kernels off both sides) | 49.647 s | 49.808 s |
+| 298 aa control vs the committed reference | 0.2947 A, plDDT 0.9087 — **pass** | — |
+| 298 aa control vs the 0.68.0 arm | — | **18.3187 A, plDDT 0.4054 — reject** |
+| ops bit-identical out of 20 probed | | **16** |
+
+The 0.68.0 arm reproducing the committed reference at 0.2947 A is the control on the rig: isolated
+venv, isolated clone, every fused kernel off, still inside the 0.35 A bar. So the 18.3 A is the
+stack, not the setup.
+
+Sixteen of twenty ops are bit-identical, including `matmul` at both the library default and explicit
+HiFi4. The four that differ — `softmax`, `layer_norm`, `rms_norm`, fused SDPA — all reduce across
+the last axis and differ by at most 6e-2, which is accumulation order rather than a bug. A
+perturbation that small cannot move a structure 18 A: for scale, taking the whole pair track from
+bf16 to bfp8_b moved this same control 1.50 A. So the cause lives in a path these default-config
+calls do not reach, most likely the explicit `compute_kernel_config` / program-config / sharded
+paths tt-bio actually uses. Those four ops are shared-engine, so the exposure is every model, not
+just Boltz-2.
+
+Two caveats that belong next to any number above. The fold ratio is one paired round, n=2 per arm:
+the cross-process A/A floor on this shared box is **0.2967x** (two old-stack processes, same chip,
+ten minutes apart: 49.647 s and 167.325 s), so nothing below about 1.2x is resolvable on whglx while
+the swarm runs, and the pair above is only trustworthy because the two arms ran back to back. And
+the 0.78.0 arm exits SIGSEGV after its CIFs are written — teardown only, but one more thing that
+would have to be fixed before the pin could move.
+
+**So: do not move the pin, and do not fork.** The upside is zero and the cost is a full rewrite of
+every hand-written kernel against a changed LLK surface. The Python op surface is stable across ten
+minor versions, so tracking upstream stays cheap whenever we choose to; a fork would pay maintenance
+forever to avoid a problem we do not have.
