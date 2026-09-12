@@ -74,7 +74,11 @@ def grid_for(kind: str, rec: dict, level: str) -> list[str]:
     return out
 
 
-def run_one(ttnn, torch, rec, device, knob, reps, bursts, want_out):
+def run_one(ttnn, torch, rec, device, knob, reps, bursts, want_out, seed=0):
+    # Same seed for every arm of an instance, or the parity column compares an arm's output
+    # against the incumbent's output computed from DIFFERENT random operands, which reads as a
+    # numerics change on arms that cannot possibly have one (a core-grid change, say).
+    torch.manual_seed(seed)
     knobs = R.parse_knobs(knob)
     fn, ins = R.build_call(ttnn, torch, rec, device, knobs)
     if fn is None:
@@ -113,6 +117,9 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--bursts", type=int, default=5)
     ap.add_argument("--parity", action="store_true")
+    ap.add_argument("--arms-from", default="",
+                    help="a prior sweep json: re-run only arms that beat --arms-min there")
+    ap.add_argument("--arms-min", type=float, default=1.05)
     a = ap.parse_args()
 
     import torch
@@ -141,9 +148,17 @@ def main() -> int:
            "instances": []}
     print(f"# {len(keep)} instances, shard {a.shard}, level {a.level}", flush=True)
 
+    prior = {}
+    if a.arms_from:
+        for e in json.load(open(a.arms_from))["instances"]:
+            prior[e["id"]] = [r["knob"] for r in e.get("arms", [])
+                              if r.get("ratio", 0) >= a.arms_min]
+
     for br in keep:
         rec = recs[br["id"]]
-        arms = grid_for(rec["kind"], rec, a.level)
+        arms = prior.get(br["id"], []) if a.arms_from else grid_for(rec["kind"], rec, a.level)
+        if a.arms_from and not arms:
+            continue
         entry = {"id": br["id"], "unit": rec["unit"], "kind": rec["kind"], "api": rec["api"],
                  "shapes": br["shapes"], "calls_per_fold": rec["calls_per_fold"],
                  "baseline_ms_per_fold": br["ms_per_fold"], "arms": []}
