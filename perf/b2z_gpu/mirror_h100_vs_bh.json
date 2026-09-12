@@ -1,0 +1,161 @@
+{
+ "tt_curve": {
+  "t_fixed_us": 6.3597,
+  "t_fixed_at_MB": 0.0655,
+  "BW_plateau_GBs": 443.1,
+  "BW_plateau_at_MB": 134.2177,
+  "BW_peak_GBs": 444.98,
+  "BW_peak_at_MB": 67.1089
+ },
+ "gpu_curve": {
+  "t_fixed_us": 1.2878,
+  "t_fixed_at_MB": 0.0655,
+  "BW_plateau_GBs": 3062.97,
+  "BW_plateau_at_MB": 268.4355,
+  "BW_peak_GBs": 3842.55,
+  "BW_peak_at_MB": 8.3886
+ },
+ "gpu_compute_roof": {
+  "bf16": {
+   "n": 8192,
+   "ms": 1.6572,
+   "TFLOPs": 663.49
+  },
+  "fp16": {
+   "n": 8192,
+   "ms": 1.6597,
+   "TFLOPs": 662.46
+  },
+  "tf32": {
+   "n": 8192,
+   "ms": 3.3058,
+   "TFLOPs": 332.6
+  },
+  "fp32": {
+   "n": 8192,
+   "ms": 22.6269,
+   "TFLOPs": 48.59
+  }
+ },
+ "gpu_env": {
+  "started": "2026-09-12T10:11:06+0000",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "device": "NVIDIA H100 80GB HBM3",
+  "size_aa": 512,
+  "dtype": "bf16",
+  "use_kernels": false,
+  "recycles": 3,
+  "sampling_steps": 200,
+  "samples": 1,
+  "seed": 0,
+  "gpu": "NVIDIA H100 80GB HBM3, 555.58.02, 345 MHz, 75.35 W, 44, 0 %",
+  "compute_apps": "",
+  "own_pid": 3411
+ },
+ "gpu_fold": {
+  "warm_s": [
+   13.609
+  ],
+  "cold_s": 14.118,
+  "plddt": 0.875013
+ },
+ "units": {
+  "MSALayer": {
+   "measured_graph_ms": 32.1292,
+   "measured_kernel_ms": 32.5866,
+   "measured_eager_ms": 33.8229,
+   "cuda_kernels": 714.0,
+   "compute_ops": 726,
+   "view_ops": 1007,
+   "bytes_GB": 44.1694,
+   "by_cuda_kernels": {
+    "fixed_ms": 0.9195,
+    "byte_ms": 14.4205,
+    "modelled_ms": 15.34,
+    "deficit": 2.094
+   },
+   "by_compute_ops": {
+    "fixed_ms": 0.9349,
+    "byte_ms": 14.4205,
+    "modelled_ms": 15.3554,
+    "deficit": 2.092
+   },
+   "sensitivity_peak_BW": {
+    "fixed_ms": 0.9195,
+    "byte_ms": 11.4948,
+    "modelled_ms": 12.4143,
+    "deficit": 2.588
+   },
+   "tt_device_ms": 120.2894,
+   "tt_over_gpu": 3.744
+  },
+  "PairformerLayer": {
+   "measured_graph_ms": 26.763,
+   "measured_kernel_ms": 27.0309,
+   "measured_eager_ms": 27.3972,
+   "cuda_kernels": 383.0,
+   "compute_ops": 348,
+   "view_ops": 488,
+   "bytes_GB": 33.6385,
+   "by_cuda_kernels": {
+    "fixed_ms": 0.4932,
+    "byte_ms": 10.9823,
+    "modelled_ms": 11.4755,
+    "deficit": 2.332
+   },
+   "by_compute_ops": {
+    "fixed_ms": 0.4482,
+    "byte_ms": 10.9823,
+    "modelled_ms": 11.4305,
+    "deficit": 2.341
+   },
+   "sensitivity_peak_BW": {
+    "fixed_ms": 0.4932,
+    "byte_ms": 8.7542,
+    "modelled_ms": 9.2474,
+    "deficit": 2.894
+   },
+   "tt_device_ms": 41.4152,
+   "tt_over_gpu": 1.547
+  },
+  "DiffusionModule": {
+   "measured_graph_ms": 13.4781,
+   "measured_kernel_ms": 13.3696,
+   "measured_eager_ms": 39.5607,
+   "cuda_kernels": 2556.0,
+   "compute_ops": 2601,
+   "view_ops": 2646,
+   "bytes_GB": 23.9959,
+   "by_cuda_kernels": {
+    "fixed_ms": 3.2916,
+    "byte_ms": 7.8342,
+    "modelled_ms": 11.1258,
+    "deficit": 1.211
+   },
+   "by_compute_ops": {
+    "fixed_ms": 3.3496,
+    "byte_ms": 7.8342,
+    "modelled_ms": 11.1838,
+    "deficit": 1.205
+   },
+   "sensitivity_peak_BW": {
+    "fixed_ms": 3.2916,
+    "byte_ms": 6.2448,
+    "modelled_ms": 9.5364,
+    "deficit": 1.413
+   },
+   "tt_device_ms": 32.5179,
+   "tt_over_gpu": 2.413
+  }
+ },
+ "tt_pairformer": {
+  "fixed_ms": 2.722,
+  "byte_ms": 15.0102,
+  "modelled_ms": 17.7321,
+  "measured_ms": 41.4152,
+  "deficit": 2.336,
+  "ops": 428,
+  "bytes_GB": 6.651
+ }
+}
