@@ -26,9 +26,23 @@ top_level_instance {{ mesh {{ mesh_descriptor: "M0" mesh_id: 0 }} }}
 def install(n, rows=1, arch="WORMHOLE_B0", channels=2, out_dir="/tmp/b2z2_meshdesc"):
     """Write a rows x (n/rows) descriptor and point TT_MESH_GRAPH_DESC_PATH at it. Returns the path."""
     assert n % rows == 0, f"{n} chips do not fill {rows} rows"
-    d = pathlib.Path(out_dir)
-    d.mkdir(parents=True, exist_ok=True)
-    p = d / f"mesh_{rows}x{n // rows}_{arch.lower()}.textproto"
-    p.write_text(TEMPLATE.format(n=n, arch=arch, r=rows, c=n // rows, ch=channels))
+    body = TEMPLATE.format(n=n, arch=arch, r=rows, c=n // rows, ch=channels)
+    name = f"mesh_{rows}x{n // rows}_{arch.lower()}.textproto"
+    # whglx runs several accounts against one galaxy, so the first worker to ask for a width owns
+    # the file and every later one is refused at the write. The contents are a pure function of
+    # (n, rows, arch, channels), so an existing file that already says this is the file we wanted;
+    # otherwise fall back to a directory this account does own.
+    for d in (pathlib.Path(out_dir), pathlib.Path(os.path.expanduser("~/.cache/b2z2_meshdesc"))):
+        p = d / name
+        if p.is_file() and p.read_text() == body:
+            break
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            p.write_text(body)
+            break
+        except OSError:
+            continue
+    else:
+        raise RuntimeError(f"could not write a {rows}x{n // rows} mesh descriptor anywhere")
     os.environ["TT_MESH_GRAPH_DESC_PATH"] = str(p)
     return str(p)
