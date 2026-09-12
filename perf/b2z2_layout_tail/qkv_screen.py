@@ -34,8 +34,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 S, C, H, HD = 512, 768, 16, 64          # the real token-DiT shape at 512 aa
-CANDIDATES = [(4, 24, 1, 4, 1), (4, 8, 1, 4, 1), (4, 12, 1, 4, 1), (4, 4, 1, 4, 1),
-              (2, 8, 1, 2, 1), (8, 8, 1, 4, 1), (4, 6, 1, 4, 1), (4, 8, 2, 4, 2)]
+# (8,8,8,2,2) is `_MM_DEFAULT`, which tenstorrent.py records as being the unconfigured op's OWN
+# contraction order -- the only candidate here that can be bit-exact against `ttnn.linear`. The
+# rest fold K differently and would cost arm B the one property that made it worth building.
+CANDIDATES = [(8, 8, 8, 2, 2), (4, 8, 2, 4, 2), (4, 24, 1, 4, 1), (4, 12, 1, 4, 1),
+              (4, 8, 1, 4, 1), (4, 4, 1, 4, 1), (8, 8, 1, 4, 1), (4, 8, 4, 4, 2)]
 
 
 def timed(ttnn, dev, fn, reps=20, blocks=5):
@@ -78,6 +81,7 @@ def main() -> int:
     s = tt(torch.randn(1, S, C))
     w = tt(torch.randn(C, 3 * H * HD))
     bias = tt(torch.zeros(1, 3 * H * HD))
+    bias_q = tt(torch.zeros(1, 1, H * HD))       # what the missing q bias would have to be added as
     ckc = T.get_compute_kernel_config() if hasattr(T, "get_compute_kernel_config") else \
         ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2,
                                          math_approx_mode=False, fp32_dest_acc_en=False,
@@ -128,14 +132,28 @@ def main() -> int:
             print(f"  generic {tag:14s} FAILED {str(e)[:120]}", flush=True)
         dump()
 
+    ref = ttnn.to_torch(ttnn.linear(s, w, compute_kernel_config=ckc,
+                                    core_grid=T.CORE_GRID_MAIN)).clone()
+    for blk in CANDIDATES:
+        tag = "x".join(str(b) for b in blk)
+        if "us" not in out["arms"]["generic"].get(tag, {}):
+            continue
+        G.generic_minimal_matmul(dev, s, w, outs, (blk, grid), G.ckc_args(ckc))
+        got = torch.cat([ttnn.to_torch(o) for o in outs], dim=-1)
+        d = (ref.float() - got.float()).abs()
+        out["arms"]["generic"][tag]["bit_exact_vs_linear"] = bool(d.max() == 0)
+        out["arms"]["generic"][tag]["max_abs_vs_linear"] = float(d.max())
+        print(f"  {tag:14s} bit-exact vs ttnn.linear: "
+              f"{out['arms']['generic'][tag]['bit_exact_vs_linear']}  "
+              f"max {out['arms']['generic'][tag]['max_abs_vs_linear']}", flush=True)
+    dump()
+
     ok = {k: v["us"] for k, v in out["arms"]["generic"].items() if "us" in v}
     if ok:
         best = min(ok, key=ok.get)
         # one broadcast add on q is what the missing bias costs
-        qb = ttnn.add(outs[0], bias, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(qb)
         add_us, _ = timed(ttnn, dev, lambda: ttnn.deallocate(
-            ttnn.add(outs[0], bias, memory_config=ttnn.DRAM_MEMORY_CONFIG)))
+            ttnn.add(outs[0], bias_q, memory_config=ttnn.DRAM_MEMORY_CONFIG)))
         out["verdict"] = {
             "best_generic": best, "best_generic_us": ok[best],
             "bias_add_us": round(add_us, 2),
