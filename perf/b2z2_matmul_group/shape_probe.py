@@ -82,17 +82,24 @@ def main():
         A = tt(torch.randn(1, K, W, Din))
         B = tt(torch.randn(1, 1, Din, N))
         A2 = ttnn.reshape(A, (1, 1, K * W, Din))
+        # The model passes core_grid=CORE_GRID_MAIN at every one of these sites, and that is
+        # what the capture timed. A bare ttnn.matmul here is a different program.
+        cg = T.CORE_GRID_MAIN
         mm = lambda x: ttnn.matmul(x, B, compute_kernel_config=ckc)
-        r = interleaved(ttnn, dev, {"batched": lambda: mm(A), "flat": lambda: mm(A2),
-                                    "batched_aa": lambda: mm(A),
-                                    "reshape": lambda: ttnn.reshape(A, (1, 1, K * W, Din))})
-        ref = ttnn.to_torch(mm(A)).reshape(1, 1, K * W, N)
-        got = ttnn.to_torch(mm(A2))
+        lin = lambda x: ttnn.linear(x, B, compute_kernel_config=ckc, core_grid=cg)
+        r = interleaved(ttnn, dev, {
+            "batched_cg": lambda: lin(A), "flat_cg": lambda: lin(A2),
+            "batched_cg_aa": lambda: lin(A),
+            "batched_nocg": lambda: mm(A), "flat_nocg": lambda: mm(A2),
+            "reshape": lambda: ttnn.reshape(A, (1, 1, K * W, Din))})
+        ref = ttnn.to_torch(lin(A)).reshape(1, 1, K * W, N)
+        got = ttnn.to_torch(lin(A2))
         r["bit_exact"] = bool(torch.equal(ref, got))
         r["max_abs"] = float((ref - got).abs().max())
-        r["ratio"] = round(r["batched"]["us"] / r["flat"]["us"], 4)
-        r["aa_floor"] = round(r["batched"]["us"] / r["batched_aa"]["us"], 4)
-        r["ratio_with_reshape"] = round(r["batched"]["us"] / (r["flat"]["us"] + r["reshape"]["us"]), 4)
+        r["ratio"] = round(r["batched_cg"]["us"] / r["flat_cg"]["us"], 4)
+        r["aa_floor"] = round(r["batched_cg"]["us"] / r["batched_cg_aa"]["us"], 4)
+        r["ratio_with_reshape"] = round(
+            r["batched_cg"]["us"] / (r["flat_cg"]["us"] + r["reshape"]["us"]), 4)
         r["n_programs_in_step"] = n_prog
         w2[tag] = r
         print(tag, json.dumps(r))
@@ -151,12 +158,20 @@ def main():
     folded = ttnn.to_torch(ttnn.matmul(
         ttnn.layer_norm(Xf, epsilon=1e-5, compute_kernel_config=ckc), Wfold,
         compute_kernel_config=ckc))
-    den = unfused.abs().mean().item()
+    # The control that makes the comparison mean something: an fp32 host reference. The
+    # question is not "do the two device paths differ" (they must, bf16 rounds) but "is the
+    # folded path FURTHER from the truth than the shipped one".
+    xn = (xt - xt.mean(-1, keepdim=True)) / (xt.var(-1, unbiased=False, keepdim=True) + 1e-5).sqrt()
+    ref32 = (xn * wt) @ Wt
+    den = ref32.abs().mean().item()
+    err = lambda y: float((y.float() - ref32).abs().mean() / den)
     out["fold_identity"] = {
         "bit_exact": bool(torch.equal(unfused, folded)),
         "max_abs": float((unfused - folded).abs().max()),
         "mean_abs": float((unfused - folded).abs().mean()),
-        "rel_mean": float((unfused - folded).abs().mean() / den),
+        "rel_mean_between_paths": float((unfused - folded).abs().mean() / den),
+        "rel_err_vs_fp32_shipped": err(unfused),
+        "rel_err_vs_fp32_folded": err(folded),
         "scale_mean_abs": den}
     print("fold_identity", json.dumps(out["fold_identity"]))
 
