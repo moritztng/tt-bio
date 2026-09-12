@@ -51,6 +51,12 @@ ROUND = 2          # the product's rounding to bf16; see kernels/trimul_tail/com
 #: budget, so the chain does not need `dst_full_sync_en` and keeps the math/pack double buffer.
 BLOCK_KEYS = {(4, 16): (4, 4, 1, 4, 1)}
 
+#: Diagnostic only: narrower hidden widths, to separate a bug in the kernel from a bug that only
+#: appears once the output is many N blocks wide. Never served in production.
+DIAG_KEYS = {(4, 4): (4, 4, 1, 4, 1), (4, 8): (4, 4, 1, 4, 1), (4, 2): (4, 4, 1, 4, 1)}
+if env_flag("TT_BIO_TRANSITION_SWIGLU_DIAG", False):
+    BLOCK_KEYS = {**BLOCK_KEYS, **DIAG_KEYS}
+
 #: OFF by default. It is a new kernel on a shared module (`Transition` serves every model in the
 #: repo), so it ships dark until the A/B and the parity leg have run on qb2.
 ENABLED = env_flag("TT_BIO_TRANSITION_SWIGLU", False)

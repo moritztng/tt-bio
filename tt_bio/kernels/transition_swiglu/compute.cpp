@@ -132,6 +132,11 @@ void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
             // fp32 accumulator to bf16, so silu sees the same fp32 value and the same single
             // rounding that `ttnn.linear(activation="silu")` gives it.
             if (apply_silu) {
+                // Re-init on every tile, not once at the top of the kernel. The wheel's generated
+                // kernel can hoist its SFPU_OP_INIT_ACTIVATION because nothing else in it touches
+                // the SFPU; this one runs `mul_binary_tile_init()` in its epilogue between block
+                // iterations, so a hoisted init is live only for the first block a core folds.
+                silu_tile_init();
                 silu_tile(fused_act_dst_id);
             }
             pack_tile(fused_act_dst_id, out_cb);
@@ -484,11 +489,15 @@ void kernel_main() {
                     current_subblock_h,
                     current_subblock_w);
 
+                // in0 reuse across the N stride. MEASURED, this file's open defect: the kernel is
+                // correct at PCC 0.9999989 whenever every core folds exactly ONE output block --
+                // where this branch cannot fire -- and lands at PCC 0.8160 as soon as a core folds
+                // two, where it does. Removing the reuse outright does not fix it, it DEADLOCKS:
+                // the in0 sender pushes on the same schedule the reuse assumes, so the pop count
+                // has to change on both sides together. The same loop is in
+                // kernels/trimul_tail/compute.cpp, which has only ever been validated in the
+                // one-block-per-core regime.
                 if (k_block == K_num_blocks - 1) {
-                    /**
-                     * On next iteration we might get reuse on in0
-                     *
-                     */
                     if (n_block_iter < N_blocks_per_core - 1) {
                         // going to stride on N, so reuse in0
                         reuse_in0_block = true;
