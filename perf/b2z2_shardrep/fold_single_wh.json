@@ -1,0 +1,89 @@
+{
+ "mode": "single",
+ "reps": 1,
+ "card": "28",
+ "protocol": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0
+ },
+ "diffusion_trace": false,
+ "benchlocked": false,
+ "loadavg_at_start": [
+  "7.77",
+  "7.76",
+  "9.85"
+ ],
+ "model_load_s": 9.59,
+ "device": "MeshDevice(1x1 grid, 1 devices)",
+ "n_devices": 1,
+ "core_grid_main": "ttnn.CoreGrid(x=8, y=9)",
+ "trace_region_size": 536870912,
+ "cold_s": 124.166,
+ "cold_cif": [
+  "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+ ],
+ "rungs_after_cold": {
+  "L1_OUT_RUNG": {
+   "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+  },
+  "BMM_CFG_RUNG": {},
+  "BMM_CFG_REFUSED": [],
+  "OPM_JOIN_REFUSED": {}
+ },
+ "reps_done": [
+  {
+   "fold_s": 42.2706,
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.0513,
+    "sampler_end": 10.963,
+    "end": 2.585,
+    "trunk_s": 27.6714
+   },
+   "rungs": {
+    "L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "BMM_CFG_RUNG": {},
+    "BMM_CFG_REFUSED": [],
+    "OPM_JOIN_REFUSED": {}
+   }
+  }
+ ],
+ "summary": {
+  "median_s": 42.2706,
+  "min_s": 42.2706,
+  "max_s": 42.2706,
+  "plddt": [
+   null
+  ],
+  "cif_sha256": [
+   "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+  ],
+  "cif_sha256_16": [
+   "da476491dbb2a847"
+  ],
+  "bit_identical_across_reps": true,
+  "trunk_s_median": 27.6714
+ },
+ "config_rungs": {
+  "_L1_OUT_RUNG": 1,
+  "_BMM_CFG_RUNG": 0,
+  "_BMM_CFG_REFUSED": 0,
+  "_OPM_JOIN_REFUSED": 0
+ },
+ "config_rungs_detail": {
+  "_L1_OUT_RUNG": [
+   "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)"
+  ],
+  "_BMM_CFG_RUNG": [],
+  "_BMM_CFG_REFUSED": [],
+  "_OPM_JOIN_REFUSED": []
+ }
+}
