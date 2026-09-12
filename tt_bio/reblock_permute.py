@@ -271,6 +271,26 @@ def reblock_permute(x, memory_config=None, device=None):
 L1_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MIN", "288"))
 L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 
+# The DRAM leg's edge, and the second reading of it that a non-square destination needs.
+#
+# `N >= 256` was measured on SQUARE moves, where N fixes two things at once: how wide a destination
+# row is, and how many tile groups the move splits into (Nt*Nt of them). The amortisation argument
+# `eligible`'s docstring records -- "below that there are fewer work groups than cores and the
+# per-call cost is not amortised" -- is about the second one, and on a square move you cannot tell
+# the two apart.
+#
+# A row SLAB of the ending triangle product separates them: its destination is [1, C, S, S/f],
+# which at f=4 is 512x128 -- the tile count of a 256x256 square, split into as many groups, with
+# half the row width. Reading only N declined it, and that decline is worth 1.2x-1.3x of the op at
+# every mesh width from four chips up (`perf/b2z2_axis2gate/`).
+#
+# So the window is a disjunction of the two things the one number was standing for: a destination
+# row wide enough on its own, OR enough spatial tile groups to amortise the call. 64 is exactly
+# Nt*Nt at the measured edge, so for a square move the second clause is redundant and this is
+# byte-for-byte the window that shipped. Both are properties of the tensors, not of the mesh.
+GATED_DRAM_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_GATED_DRAM_N_MIN", "256"))
+GATED_DRAM_GROUPS_MIN = int(os.environ.get("TT_BIO_REBLOCK_GATED_DRAM_GROUPS_MIN", "64"))
+
 
 def eligible(x, memory_config) -> bool:
     """The gate, measured against the wheel's own ``ttnn.permute`` on the card that runs it.
@@ -837,15 +857,19 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_in", shape)
     bt = memory_config.buffer_type
-    if not ((bt == ttnn.BufferType.DRAM and N >= 256)
+    # `nrt * nt` is this call's own spatial group count, the number `_build_gated` splits over the
+    # grid (times Ct, which the window deliberately leaves out -- the chunk width is the trunk's
+    # business). See GATED_DRAM_GROUPS_MIN for why the DRAM leg reads both it and N.
+    nt = (N + TILE_H - 1) // TILE_H
+    nrt = (shape[1] + TILE_H - 1) // TILE_H
+    if not ((bt == ttnn.BufferType.DRAM
+             and (N >= GATED_DRAM_N_MIN or nrt * nt >= GATED_DRAM_GROUPS_MIN))
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"gated_window_{bt}", shape)
     # Screen the group count the DESCRIPTOR actually builds -- Nrt * Nt * Ct, exactly as
     # `_build_gated` computes it and asserts on. The old `Nt ** 2` is a different number, and a
     # gate that screens a different number from the one the build uses can pass a shape the build
     # then refuses (`pcc-gate-can-pass-without-the-op-it-names`).
-    nt = (N + TILE_H - 1) // TILE_H
-    nrt = (shape[1] + TILE_H - 1) // TILE_H
     if _split_plan(xw.device(), nrt * nt * (slice_c // TILE_W)) is None:
         return _reject("gated_work_split", shape)
     return True
