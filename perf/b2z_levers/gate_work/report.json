@@ -1,0 +1,304 @@
+{
+  "legs": [
+    {
+      "leg": "esmc-300m",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "esmc-600m",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "saprot-35m",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "saprot-650m",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "esmfold2-trpcage",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "esmfold2-fast-trpcage",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "esmfold2-cocrystal",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-trpcage-nomsa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-prot-nomsa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-hsa-nomsa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-9ncy-nomsa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-9ncy-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/9ncy.cif (run scripts/fetch_parity_fixtures.sh to restore the externalized reference binaries; if it already ran clean, the release asset itself is missing them (scripts/full_parity_gate.py --verify-fixtures))",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-v1-prot-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-ubq-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-prot-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-7xi5-tmpl",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-7xi5-notmpl",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-8hel-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-8hel-nomsa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-9bk6-complex-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "openbind-ubq-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "openbind-fkg-ligand-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-nomsa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-nomsa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-affinity-tryp-nomsa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-affinity-tryp-msa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "opendde-trpcage-nomsa",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "DRY-RUN",
+      "detail": "cached",
+      "wall": 0
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "boltzgen",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "capacity",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "rfd3-featurizer",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "af2ig-featurizer",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "af2ig-trunk",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "af2ig-trunk-monomer",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "af2ig-trunk-device",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "pxdesign-featurizer",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "nesso1",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    },
+    {
+      "leg": "rf3-1024aa",
+      "verdict": "DRY-RUN",
+      "detail": "in-process",
+      "wall": 0
+    }
+  ],
+  "tally": {
+    "DRY-RUN": 43,
+    "BLOCKED-REF-REGEN-NEEDED": 1
+  },
+  "scored": 43,
+  "total_wall_s": 0.0019798790017375723,
+  "card_grant": null,
+  "skipped_for_card_grant": [],
+  "workers": [
+    "localhost:0"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "1": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "2": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      },
+      "3": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      }
+    }
+  }
+}
