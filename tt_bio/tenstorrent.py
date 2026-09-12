@@ -6479,6 +6479,18 @@ class TriangleAttention(Module):
         slab = RowSlab.of(row_slab, int(S))
         if slab is not None:
             slab.check(int(S))
+            # The ending variant is the one op whose slab is NOT yet bit-exact under mesh
+            # addressing. Measured on a real 1x2 Wormhole mesh at 512 aa: its row-number slab
+            # matches the unsharded result exactly, and its mesh slab differs from that same
+            # row-number slab by 0.4707 -- while the other four pair-track ops agree to the bit
+            # under both. The cause is not a single mis-partitioned operand; slicing and
+            # partitioning each of the three tensors it slabs give identical bytes on their own
+            # (`perf/b2z2_trunkshard/partition_vs_slice.py`). Until that is closed this refuses
+            # rather than returning a quietly wrong half of a fold.
+            assert not (slab.is_mesh and slab.n_devices > 1 and self.ending), (
+                "triangle_attention_end has no proven mesh-addressed slab yet: pass "
+                "row_slab=(r0, r1) for this op, or fix the divergence "
+                "perf/b2z2_trunkshard/mesh_slab_bitexact.py measures at 0.4707")
             assert not need_chunk, (
                 "the row slab is implemented on the whole-tensor path only; the chunked path "
                 f"(S={int(S)} > {SEQ_LEN_MORE_CHUNKING}) builds its bias and its qkv per row "

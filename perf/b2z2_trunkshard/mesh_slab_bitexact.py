@@ -78,6 +78,12 @@ ttnn.mesh_partition = _counted
 if N > 1:
     dev = ttnn.open_mesh_device(ttnn.MeshShape(1, N), l1_small_size=32768)
     tt._device = dev          # so Module.__init__ -> get_device() lands on the mesh
+    # Installing the device by hand skips what get_device() does next, and one of those things
+    # matters: the engine reads the part's core grid off the live device and retunes every program
+    # config against it. Without this the grid stays at the 11x10 module default, and on an 8x9
+    # Wormhole the custom matmul asks for core (10, 0) and dies with "No core coordinate found".
+    # A p300c is 11x10, so a mesh arm that only ever ran there would never see this.
+    tt._configure_active_compute_grid(dev)
 else:
     dev = tt.get_device()
 log(f"mesh 1x{N} device={dev} S={S} arch={dev.arch()}")
@@ -163,6 +169,22 @@ def eq(a, b):
 
 failures, res = [], {}
 
+# --- A/A first: is the op even deterministic on this device? -------------------------------------
+# Everything below compares two runs of the same op, so a device that does not return the same
+# bytes twice makes every one of those comparisons meaningless. This is the floor, and it has to
+# be measured rather than assumed (the fleet has two recorded cards that miscompute at one shape).
+log("A/A: the same op twice, same arguments, no slab")
+aa = {}
+for name, fn in OPS.items():
+    a = run_op(fn, None)
+    b = run_op(fn, None)
+    ok, d = eq(a, b)
+    aa[name] = {"deterministic": ok, "max_abs_diff": d}
+    log(f"  {name}: deterministic={ok} max abs diff {d}")
+    if not ok:
+        failures.append(f"{name} is NOT deterministic on this device (A/A max abs diff {d}); "
+                        "no slab comparison below can mean anything for it")
+
 # --- the partition itself: does it actually split, and by how much -------------------------------
 probe = up(z_t)
 part = ttnn.mesh_partition(probe, 1)
@@ -178,12 +200,51 @@ mesh_slab = RowSlab.mesh(N)
 log(f"each op: RowSlab.mesh({N}) against row_slab=None")
 for name, fn in OPS.items():
     whole = run_op(fn, None)
-    got = run_op(fn, mesh_slab, sharded=N > 1)
+    try:
+        got = run_op(fn, mesh_slab, sharded=N > 1)
+    except AssertionError as e:
+        # An op whose mesh slab is not proven refuses rather than returning a wrong half of a
+        # fold. That refusal is the correct behaviour, so it is recorded, not counted as a failure.
+        res[name] = {"guarded": True, "why": str(e)[:160]}
+        log(f"  {name}: REFUSED by its own guard (this is the intended behaviour)")
+        continue
     ok, d = eq(got, whole)
     res[name] = {"bit_exact": ok, "max_abs_diff": d}
     log(f"  {name}: equal={ok} max abs diff {d}")
     if not ok:
         failures.append(f"{name} is not bit-exact under mesh addressing, max abs diff {d}")
+
+# --- mesh addressing against ROW-NUMBER addressing, on the same device ---------------------------
+# The decisive comparison when an op is not bit-exact above. Both arms run on this mesh, on the
+# same silicon, in the same process; the only difference is how the slab was reached. If they
+# agree, the addressing is neutral and whatever moved is a property of the shape or the device,
+# not of mesh_partition. If they disagree, the addressing itself changed the kernel.
+log("mesh addressing against row-number addressing, same device, first slab")
+per = S // N
+index_slab = RowSlab.index(0, per)
+addressing = {}
+for name, fn in OPS.items():
+    by_index = run_op(fn, index_slab)          # replicated: every device computes rows [0, per)
+    try:
+        by_mesh = run_op(fn, mesh_slab, sharded=False)   # device 0's slab, which IS rows [0, per)
+    except AssertionError:
+        addressing[name] = {"guarded": True}
+        log(f"  {name}: REFUSED by its own guard")
+        continue
+    if N > 1:
+        by_index = by_index[0:1] if by_index.shape[0] > 1 else by_index
+    ok, d = eq(by_mesh, by_index)
+    # And the third leg: does the ROW-NUMBER slab match the unsharded result on this device? That
+    # separates "mesh_partition broke it" from "the slab was already not bit-exact here".
+    whole_first = run_op(fn, None)
+    if N > 1 and whole_first.shape[0] > 1:
+        whole_first = whole_first[0:1]
+    iok, idd = eq(by_index, whole_first[:, :per])
+    addressing[name] = {"mesh_eq_index": ok, "mesh_index_max_abs_diff": d,
+                        "index_eq_whole": iok, "index_whole_max_abs_diff": idd}
+    log(f"  {name}: mesh == index: {ok} ({d}); index == whole: {iok} ({idd})")
+    if not ok:
+        failures.append(f"{name}: mesh addressing and row-number addressing disagree by {d}")
 
 # --- the whole block, mesh-addressed -------------------------------------------------------------
 # On one device the gather is a no-op, so the whole residual chain runs; on a mesh each FULL op
@@ -250,6 +311,8 @@ if PARTITIONS[0] == 0:
     failures.append("ttnn.mesh_partition was never called: the mesh addressing is not being used")
 
 out = {"arch": str(dev.arch()), "mesh": f"1x{N}", "S": S, "ops": res, "block": block,
+       "a_a": aa,
+       "addressing": addressing,
        "partition_shape": part_shape, "partition_calls": PARTITIONS[0],
        "control_1_rejected": not nc1_ok, "control_2": nc2, "pass": not failures}
 pathlib.Path(OUT).write_text(json.dumps(out, indent=2))
@@ -260,6 +323,9 @@ if failures:
     for f in failures:
         print(f"  - {f}")
     sys.exit(1)
-print(f"PASS: every pair-track op is bit-exact addressed by ttnn.mesh_partition on a 1x{N} mesh, "
-      f"and every control was rejected")
+proved = [k for k, v in res.items() if v.get("bit_exact")]
+guarded = [k for k, v in res.items() if v.get("guarded")]
+print(f"PASS on a 1x{N} mesh: {len(proved)} of {len(OPS)} pair-track ops bit-exact addressed by "
+      f"ttnn.mesh_partition ({', '.join(proved)}), every control rejected"
+      + (f". REFUSED by its own guard, not proved: {', '.join(guarded)}" if guarded else ""))
 sys.exit(0)

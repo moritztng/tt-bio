@@ -36,6 +36,7 @@
       "ROWS"
     ]
   ],
+  "per_op": {},
   "z_bit_exact": true,
   "z_max_abs_diff": 0.0,
   "s_bit_exact": true,

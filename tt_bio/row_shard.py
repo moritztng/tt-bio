@@ -150,23 +150,29 @@ class RowSlab:
     def take(self, t, dim: int):
         """This chip's slab of ``t`` along ``dim``, as a tensor the caller owns.
 
-        Owning it matters. On a ONE-device mesh ``ttnn.mesh_partition`` has nothing to split and
-        hands back a tensor over its input's own buffer, so a caller that frees the source -- which
-        every slab site in `tenstorrent.py` does, because a slab is normally a fresh allocation --
-        frees the result too and the next op dies on "Buffer is not allocated". It is a DIFFERENT
-        Python object, so ``is`` does not see it; the tell is that the axis did not get shorter.
-        The partition still runs either way, so the 1x1 arm is still exercising it.
+        Owning it matters, and the degenerate cases are where that bites -- see the comment below.
         """
         import ttnn
 
         if self.is_mesh:
-            out = ttnn.mesh_partition(t, dim)
-            # Nothing was split, so the result may be a view of `t`. Copy, and do not free `out`.
-            return ttnn.clone(out) if int(out.shape[dim]) == int(t.shape[dim]) else out
-        shp = [int(d) for d in t.shape]
-        lo, hi = [0] * len(shp), list(shp)
-        lo[dim], hi[dim] = self.r0, self.r1
-        return ttnn.slice(t, lo, hi)
+            # The memory config is not cosmetic. `ttnn.slice` hands back a tensor in its input's
+            # config, and several kernels downstream are routed by config as well as by shape, so
+            # a partition that landed somewhere else could take a different kernel and stop being
+            # bit-identical to the slice it replaces. Ask for the input's config explicitly.
+            out = ttnn.mesh_partition(t, dim, memory_config=t.memory_config())
+        else:
+            shp = [int(d) for d in t.shape]
+            lo, hi = [0] * len(shp), list(shp)
+            lo[dim], hi[dim] = self.r0, self.r1
+            out = ttnn.slice(t, lo, hi)
+        # Neither primitive has to allocate when the "slab" turns out to be the whole axis: a
+        # one-device partition has nothing to split and a full-range slice has nothing to cut, and
+        # both then hand back a tensor over the INPUT's buffer. Every slab site in tenstorrent.py
+        # frees the source afterwards, because a slab is normally a fresh allocation, so without
+        # this the next op dies on "Buffer is not allocated". It is a different Python object in
+        # both cases, so an identity test does not see it; the tell is the axis not getting
+        # shorter. Do not free `out` here -- it may be the caller's tensor.
+        return ttnn.clone(out) if int(out.shape[dim]) == int(t.shape[dim]) else out
 
     def rows_source(self, t):
         """``(tensor, base)`` whose dim-1 rows from ``base`` on are this chip's rows.
