@@ -45,6 +45,10 @@ def install(T) -> None:
         TRI[(int(q_len), int(k_len))] += 1
         return orig_tri(q_len, k_len)
 
+    # `_configure_active_compute_grid` clears these caches at device open, so a wrapper without
+    # a `cache_clear` kills the run at the first open rather than censusing it.
+    wrapped.cache_clear = getattr(orig, "cache_clear", lambda: None)
+    wrapped_tri.cache_clear = getattr(orig_tri, "cache_clear", lambda: None)
     T._sdpa_program_config_for_lengths = wrapped
     T._tri_att_sdpa_program_config = wrapped_tri
     for name in ("tt_bio.esmc", "tt_bio.esmfold2", "tt_bio.saprot"):
