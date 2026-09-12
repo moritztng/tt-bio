@@ -122,3 +122,25 @@ step's 1.07444x**; the fold leg needs more reps before it can carry one of its o
 **PARITY: the fold output is bit-identical in both arms and in all six runs**, CIF sha256 prefix
 `da476491dbb2a847`. The 0.03125 the two gathers differ by at the op does not reach the structure
 at this fixture. That is one fixture, not a gate: the lever stays off by default.
+
+## 7. The lever ADDS programs and wins anyway, which qualifies the pricing rule
+
+Graph capture of one `Diffusion.__call__` with the flag on: **1686 top-level ttnn calls against
+1590**. Per atom layer the window takes out five device programs (reshape, permute, matmul,
+permute, reshape) and puts back eight (two `to_layout`, one `pad`, four `slice`, one `concat`), so
+over six atom layers:
+
+    PROGRAMS-BEFORE  1066
+    PROGRAMS-AFTER   1084      (+18)
+
+and the step still falls 2.8824 ms. **Priced as programs removed x the 9.76 us per-program
+constant, this lever scores -0.18 ms and would have been rejected.** It is worth 1.07444x because
+the five programs it deletes are not short: 65.65, 69.13, 98.42, 192.93 and 206.66 us, which is
+7x to 21x the constant. The eight it adds are.
+
+So the brief's rule -- price a sampler lever in programs removed, not in tile passes or bytes --
+holds for the step's 934 compute programs of mean 20.0 us, where a 9.76 us head is half the cost.
+It does not hold at a site whose programs are 10x the mean. **The right rule is: price a program
+at max(its measured kernel duration, the 9.76 us constant), and get the duration from the site
+map, not from the op-code mean.** The three sites in §1 were picked off measured durations for
+exactly this reason.
