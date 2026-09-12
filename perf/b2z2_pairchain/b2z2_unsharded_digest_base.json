@@ -1,0 +1,62 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "grid": "ttnn.CoreGrid(x=8, y=9)",
+ "lens": [
+  288,
+  320,
+  384,
+  512
+ ],
+ "digests": {
+  "288": {
+   "trimul_start": "2c639ec745b86752",
+   "trimul_end": "53fd323da27f9f26",
+   "triatt_start": "84fae2173d547379",
+   "triatt_end": "29eceeef2a760c22",
+   "transition_z": "b3dd7bdfa179c4d6"
+  },
+  "320": {
+   "trimul_start": "f95ef74ef1c529ba",
+   "trimul_end": "512079c14be8b155",
+   "triatt_start": "5efb5c05fca0d3f3",
+   "triatt_end": "c802d0e025018843",
+   "transition_z": "1b6eb1e1f1bd195c"
+  },
+  "384": {
+   "trimul_start": "0a3b240a5eb18000",
+   "trimul_end": "bd0d2240031c20c4",
+   "triatt_start": "3f51cda4b97b8cb8",
+   "triatt_end": "1394bf85e9a0c735",
+   "transition_z": "b78428fe34fb77e2"
+  },
+  "512": {
+   "trimul_start": "40cffdaa65e14f04",
+   "trimul_end": "1c6c2260873d0470",
+   "triatt_start": "7d707eb0e72a7a04",
+   "triatt_end": "f511a081be3d33f8",
+   "transition_z": "139372a6095c1860"
+  }
+ },
+ "sdpa_picks": {
+  "q288_k288": [
+   288,
+   64,
+   "stock"
+  ],
+  "q320_k320": [
+   320,
+   64,
+   "fused"
+  ],
+  "q384_k384": [
+   384,
+   64,
+   "fused"
+  ],
+  "q512_k512": [
+   512,
+   256,
+   "fused"
+  ]
+ }
+}
