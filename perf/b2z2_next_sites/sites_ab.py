@@ -36,6 +36,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "perf" / "b2z2_step_fusion"))
+sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
+sys.path.insert(0, str(ROOT / "perf" / "b2x_difflayer"))
 
 ARMS = {
     "base":  {"_ATOM_L1": False, "_ATOM_HEADS_UNPADDED": False},
