@@ -207,7 +207,7 @@ def fused_swiglu(x, w_plain, w_act, ckc, grid, memory_config=None):
     grid = tuple(GRID) if GRID is not None else tuple(grid)
     mc = memory_config if memory_config is not None else ttnn.L1_MEMORY_CONFIG
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = (spec(x), spec(w_plain), tuple(grid), tuple(str(c) for c in ckc), ROUND, MUL_BATCH, MUL_MODE, str(mc))
+    key = (spec(x), spec(w_plain), tuple(grid), tuple(str(c) for c in ckc), ROUND, MUL_BATCH, MUL_MODE, PASSES, str(mc))
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w_plain.shape[-1])]),
         ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc)

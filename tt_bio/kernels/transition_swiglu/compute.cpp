@@ -618,10 +618,19 @@ void kernel_main() {
 
             cb_reserve_back(out_cb, out_block_num_tiles);
             cb_wait_front(p_cb, out_block_num_tiles);
+#if TRIMUL_TAIL_PASSES > 1
             cb_wait_front(g_cb, out_block_num_tiles);
+#endif
+            // At TRIMUL_TAIL_PASSES == 1 there is no second projection to multiply by, so this is a
+            // DIAGNOSTIC build and only MUL_MODE 2 (pack pass 0, no product) is meaningful. Both
+            // dataflow kernels honour the same define, so a one-pass build pushes one pass and pops
+            // one pass -- nothing waits on a CB that is never filled. It exists to separate the
+            // cost of the two-pass LOOP from the cost of the second pass.
             mul_block(p_cb, g_cb, out_cb, out_block_num_tiles);
             cb_pop_front(p_cb, out_block_num_tiles);
+#if TRIMUL_TAIL_PASSES > 1
             cb_pop_front(g_cb, out_block_num_tiles);
+#endif
         }
     }
 }
