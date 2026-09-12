@@ -507,6 +507,18 @@ def main() -> int:
         v_on, v_off = a.ab_values.split(",")
         names = [n for n in a.ab_env.split("+") if n]
         print(f"=== ab: {'+'.join(names)} {v_on} vs {v_off}, interleaved ===", flush=True)
+        # One discarded cold fold is not enough for a lever that adds device programs. The cold
+        # fold above runs with the flags UNSET, so the arm's programs compile inside the FIRST A
+        # fold and pair 0 is biased against the arm by the whole compile. Measured 2026-09-12 on
+        # the three-flag host-to-device union: pair 0 read -2.439 s while pairs 1-5 read +2.659,
+        # +1.954, +2.228, +2.918, +3.281 -- one sign flip out of six, from the instrument. Warm
+        # each arm's programs once, discarded, before the first timed pair.
+        for val in (v_on, v_off):
+            for n in names:
+                os.environ[n] = val
+            t0 = time.perf_counter()
+            one_fold()
+            print(f"  warm[{val}] {time.perf_counter() - t0:.3f} s (discarded)", flush=True)
         rows = []
         for i in range(a.ab_pairs):
             for arm, val in (("A", v_on), ("B", v_off)):
