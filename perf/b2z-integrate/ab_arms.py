@@ -320,7 +320,14 @@ def main() -> int:
             if not hasattr(m, attr):
                 raise SystemExit(f"{target} does not exist on this tree (arm {name!r})")
             sites[target] = getattr(m, attr)
-    print("[defaults]", json.dumps({k: repr(v) for k, v in sites.items()}, indent=1), flush=True)
+    # cfg: sites cannot be resolved yet -- build_cfg has not run -- so print them separately once
+    # they exist rather than printing a placeholder None that reads as "the default is None".
+    print("[defaults]", json.dumps(
+        {k: repr(v) for k, v in sites.items() if not k.startswith("cfg:")}, indent=1), flush=True)
+    _pending_cfg = [k for k in sites if k.startswith("cfg:")]
+    if _pending_cfg:
+        print("[defaults] cfg levers resolved after build_cfg: "
+              + ", ".join(sorted(_pending_cfg)), flush=True)
 
     dev = get_device()
     try:
@@ -365,6 +372,8 @@ def main() -> int:
                 raise SystemExit(f"cfg:{k} is not in this tree's run config: {sorted(cfg)}")
             sites[key] = cfg[k]
     OUT["cfg_defaults"] = {k[4:]: sites[k] for k in sites if k.startswith("cfg:")}
+    if OUT["cfg_defaults"]:
+        print("[defaults:cfg]", json.dumps(OUT["cfg_defaults"], indent=1), flush=True)
     _ensure_local_artifacts(cfg)
     t_load = time.perf_counter()
     state = _WorkerState("tenstorrent")
