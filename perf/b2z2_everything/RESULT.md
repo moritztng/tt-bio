@@ -50,7 +50,7 @@ floor. The A/A repeat is byte-identical at both sizes, so the parity leg's own f
 zero, and the `on` arm differs from `off` at every seed, so the comparison demonstrably breaks.
 Against the experimental structure 1HCL the union is not worse than base at either size:
 CA RMSD 1.234/1.239 Å vs 1.270/1.280 Å at 512 aa, 0.790 Å vs 0.822 Å at 298 aa.
-DEFICIT-SECONDS: **3.991 s REMOVED on a WH fold** — 40.561 s to 36.570 s, the medians of 6 and 6
+DEFICIT-SECONDS: 3.991 s REMOVED on a WH fold — **40.561 s to 36.570 s**, the medians of 6 and 6
 timed folds interleaved in one process against one device open. Measured on the fold, not
 projected from a step. No Blackhole projection is made.
 TILE-MOVEMENT-DELTA: 0.0 % — **named, not measured**. No armed profiler capture was taken in this
