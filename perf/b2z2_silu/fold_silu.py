@@ -47,8 +47,29 @@ sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 
 import ab_flag_levers as AB  # noqa: E402  -- the fixtures, cfg and MSA seeding, unmodified
 
-# arm -> (_UNFUSED_SILU, _UNFUSED_SILU_FP32)
-ARMS = {"base": (False, False), "usilu": (True, False), "usilu32": (True, True)}
+# arm -> (_UNFUSED_SILU, _UNFUSED_SILU_FP32), or None for "touch nothing"
+ARMS = {"base": (False, False), "usilu": (True, False), "usilu32": (True, True),
+        # the arm that tests the SHIPPED DEFAULT rather than a gate this driver sets. Every other
+        # arm forces both flags, which is what makes an A/B honest and also what makes it blind to
+        # what the checkout does on its own: flipping a default and then measuring an arm that
+        # overrides it proves nothing about the default. `default:0` folds through the checkout
+        # untouched, and its digest must equal the arm the default is supposed to select.
+        "default": None}
+
+
+def check_arms(arms, T):
+    """`usilu32` needs a gate that only exists on the branch that built it.
+
+    Setting a module attribute that nothing reads succeeds silently, so on a checkout without
+    `_UNFUSED_SILU_FP32` the usilu32 arm would run as a second copy of usilu and be scored as if
+    it were the fp32 one. Refuse instead of measuring an arm that is not there.
+    """
+    for arm in arms:
+        assert arm in ARMS, f"unknown arm {arm}"
+        if ARMS[arm] and ARMS[arm][1]:
+            assert hasattr(T, "_UNFUSED_SILU_FP32"), (
+                f"arm {arm} needs tt_bio.tenstorrent._UNFUSED_SILU_FP32, which this checkout "
+                "does not have; it would run as plain usilu")
 
 
 def main() -> int:
@@ -87,6 +108,7 @@ def main() -> int:
         f"imported tt_bio from {_TB.__file__}, not this worktree")
     for v in ("TT_BIO_UNFUSED_SILU", "TT_BIO_UNFUSED_SILU_FP32"):
         assert v not in os.environ, f"{v} may not be pinned; the arm is set per fold"
+    check_arms(list(plan) + args.timing_arms.split(","), T)
 
     AB.SAMPLING_STEPS, AB.RECYCLING_STEPS = args.steps, args.recycles
     dev = get_device()
@@ -125,7 +147,8 @@ def main() -> int:
     dump()
 
     def fold(arm, seed, target, keep):
-        T._UNFUSED_SILU, T._UNFUSED_SILU_FP32 = ARMS[arm]
+        if ARMS[arm] is not None:
+            T._UNFUSED_SILU, T._UNFUSED_SILU_FP32 = ARMS[arm]
         cfg["seed"] = seed
         try:
             state.model.structure_module.score_model.reset_static_cache()
@@ -145,6 +168,7 @@ def main() -> int:
         body = (keep / cifs[0].name).read_bytes()
         return {"arm": arm, "seed": seed, "target": target.stem, "fold_s": round(wall, 3),
                 "sha256": hashlib.sha256(body).hexdigest()[:16],
+                "unfused_silu": bool(T._UNFUSED_SILU),
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
 
     if args.timing_reps:
