@@ -95,7 +95,8 @@ def main() -> int:
             out = ttnn.allocate_tensor_on_device(
                 ttnn.Shape([a.m, a.n]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
                 ttnn.DRAM_MEMORY_CONFIG)
-            MG.generic_minimal_matmul(dev, x, w, out, (cfg_block, grid), ckc)
+            MG.generic_minimal_matmul(dev, x, w, out, (cfg_block, grid), ckc,
+                                      kernel_dir=MG._ARMED_KERNEL_DIR)
             return out
 
         os.environ["TT_BIO_MM_BCAST"] = "chain"

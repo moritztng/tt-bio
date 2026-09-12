@@ -20,6 +20,7 @@ fused activation, no ternary, no all-gather fusion, N_chunks = 1.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import ttnn
 
@@ -79,6 +80,30 @@ def bcast_mode(k_blocks):
 
 def _bcast_key():
     return (os.environ.get("TT_BIO_MM_BCAST", ""), os.environ.get("TT_BIO_MM_BCAST_ANY_K", ""))
+
+
+#: Our copy of the wheel's two operand readers, which is the wheel's source plus guarded arms and
+#: so is a byte-for-byte no-op on the default path. It is where a non-chain mode comes from when the
+#: caller named no kernel directory of its own.
+_ARMED_KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "mm_split"
+
+_HAS_ARM: dict = {}
+
+
+def _dm_dir_has_arm(d):
+    """Does this directory's `dm_in0_sender.cpp` actually carry the broadcast arms?
+
+    A non-chain mode adds runtime args to the injector, and a kernel source without the arm reads
+    straight past them into the output addresses. That does not fail, it writes the output block to
+    a garbage address and hangs the grid on a semaphore that never arrives -- MEASURED twice on
+    whglx card 16, 2026-09-12, once badly enough to need `tt-smi -r`. So the mode is refused rather
+    than trusted whenever the source cannot honour it.
+    """
+    key = str(d)
+    if key not in _HAS_ARM:
+        f = Path(d) / "dm_in0_sender.cpp"
+        _HAS_ARM[key] = f.is_file() and "MM_BCAST_FANOUT" in f.read_text()
+    return _HAS_ARM[key]
 
 
 def ttnn_cpp_root():
@@ -253,6 +278,10 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     # One K block means the chain has nothing left to pipeline over, which is the only thing it
     # buys over a multicast. See `mcast_enabled`.
     mode = bcast_mode(K_blocks)
+    dm_dir = Path(kernel_dir) if kernel_dir else (
+        _ARMED_KERNEL_DIR if mode != "chain" else _kernel_dir())
+    if mode != "chain" and not _dm_dir_has_arm(dm_dir):
+        mode = "chain"
     if mode != "chain":
         defines = defines + [
             ("MM_MCAST_OPERAND" if mode == "mcast" else "MM_BCAST_FANOUT", "1")]
@@ -301,8 +330,8 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in1_recv_cores = cr((1, 0) if transpose else (0, 1), (gx - 1, gy - 1))
 
     kd = _kernel_dir()
-    dmd = kernel_dir or kd
-    in0_src, in1_src = str(dmd / "dm_in0_sender.cpp"), str(dmd / "dm_in1_sender_out.cpp")
+    in0_src = str(dm_dir / "dm_in0_sender.cpp")
+    in1_src = str(dm_dir / "dm_in1_sender_out.cpp")
     compute_src = str(kd / "compute.cpp")          # never patched, always the wheel's own
 
     k_blocks_per_core = _div_up(K_blocks, in1_axis_cores if transpose else in0_axis_cores)
@@ -401,7 +430,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                      "N_blocks_per_core": N_blocks_per_core, "K_blocks": K_blocks,
                      "N_tiles_per_chunk": N_tiles_per_chunk,
                      "transpose_core_grid": transpose, "defines": defines,
-                     "bcast_mode": mode}}
+                     "bcast_mode": mode, "dm_kernel_dir": str(dm_dir)}}
 
 
 def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None):
