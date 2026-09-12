@@ -139,6 +139,63 @@ OPEN_LEVERS = {
 }
 
 
+# ---------------------------------------------------------------------------------------------
+# CONTESTED. Levers killed on perf/b2z2_compose/score.py or perf/other512/cif_rmsd.py -- one
+# whole-molecule Kabsch RMSD, one seed, fixed 0.60 A bar -- on a fixture whose own same-arm
+# different-seed floor is 0.967-1.906 A per pseudo-domain and 6.80-17.36 A whole-molecule.
+# Six levers died there. One (unfused silu) has since been re-read per pseudo-domain on the SAME
+# committed CIFs and came back at 0.3358/0.3576 A. The rest are being re-scored.
+#
+# These are NOT independent and must not be multiplied. The overlaps are declared, not guessed.
+# ---------------------------------------------------------------------------------------------
+CONTESTED = {
+    # name: (fold ratio, status, what it overlaps with)
+    "unfused silu": (
+        1.02747, "kill REFUTED; BH four-seed read outstanding (b2z2-silu-bh-land)",
+        "the silu cost itself -- MUTUALLY EXCLUSIVE with swiglu_bf16, which makes the same silu "
+        "cheaper instead of moving it out of the kernel"),
+    "HOST (device conditioning)": (
+        1.06704, "kill CONTESTED, not yet re-scored (b2z2-killed-levers-rescore)",
+        "contains _fuse_bias_stack's collapse, which is ALREADY on main inside the banked "
+        "1.00814x -- so its marginal value is below 1.06704x by an unmeasured amount"),
+    "MSA depth ladder": (
+        1.04650, "kill CONTESTED, not yet re-scored (b2z2-killed-levers-rescore)",
+        "the MSA track; disjoint from the trunk and sampler levers as far as anyone has measured"),
+}
+# swiglu_bf16 is deliberately absent from the fold table. It is 1.6587x on the CHUNK, but the
+# kernel it lives in is 1.00406x on the fold, so quoting its chunk ratio at fold scale would be
+# the subunit-vs-container error. Its fold value is unmeasured. Say so rather than guess it.
+
+BANKED_ON_MAIN = 1.00814      # b2z-levers-default-on, fold, n=3 interleaved, A/A floor zero
+
+
+def contested_envelope() -> dict:
+    """An UPPER bound if every contested kill is overturned, with the overlaps taken out.
+
+    Not a forecast. The point of computing it is that it is small: even granting every
+    resurrection AND the trunk shard, the total is 1.2762x, so no outcome of the six pending
+    re-scores changes the campaign's headline conclusion.
+
+    SCOPE: this covers what is banked, what is contested and the shard. It excludes the three
+    levers in OPEN_LEVERS, which are named and measured but NOT BUILT -- the largest of them,
+    fusing the diffusion step's short programs, is 24.6 % of the step wall on its own. The gap
+    between this 1.2762x and the 1.53x-1.82x ceiling is not levers this campaign dismissed. It
+    is levers nobody has built yet.
+    """
+    silu = CONTESTED["unfused silu"][0]
+    host = CONTESTED["HOST (device conditioning)"][0]
+    msa = CONTESTED["MSA depth ladder"][0]
+    # HOST already contains part of what main banks; charge that part once by dividing it out.
+    host_marginal = host / BANKED_ON_MAIN
+    # silu and swiglu_bf16 are exclusive; take the one that is measured.
+    upper = BANKED_ON_MAIN * host_marginal * msa * silu
+    return {"banked_on_main": BANKED_ON_MAIN, "host_marginal": host_marginal,
+            "upper_if_all_resurrect": upper,
+            "with_trunk_shard": upper * (CELL_S / 18.052),
+            "note": "multiplicative and therefore optimistic; every stacked pair in this campaign "
+                    "has measured below its product"}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", type=Path)
@@ -192,6 +249,21 @@ def main() -> int:
     print(f"\nNamed, measured, NOT built:")
     for k, (size, basis) in OPEN_LEVERS.items():
         print(f"  {size:+7.2%}  {k}")
+
+    ce = contested_envelope()
+    out["contested"] = {k: {"fold_ratio": v[0], "status": v[1], "overlaps": v[2]}
+                        for k, v in CONTESTED.items()}
+    out["contested_envelope"] = ce
+    print(f"\nCONTESTED -- killed on an instrument that sits under the fixture's own noise:")
+    for k, (r, status, _) in CONTESTED.items():
+        print(f"  {r:.5f}x  {k:<28} {status}")
+    print(f"  HOST's marginal value once main's banked {BANKED_ON_MAIN:.5f}x is charged only once:"
+          f" {ce['host_marginal']:.5f}x")
+    print(f"  UPPER BOUND if every contested kill is overturned: {ce['upper_if_all_resurrect']:.4f}x"
+          f"  (optimistic: multiplicative, and every stacked pair this campaign measured came in"
+          f" under its product)")
+    print(f"  With the trunk shard on top: "
+          f"{ce['upper_if_all_resurrect'] * (CELL_S / 18.052):.4f}x -- still under 2x.")
 
     if a.json:
         a.json.write_text(json.dumps(out, indent=2))

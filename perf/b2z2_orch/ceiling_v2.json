@@ -61,5 +61,29 @@
   "bracket": [
     1.5336508708155174,
     1.823309214476065
-  ]
+  ],
+  "contested": {
+    "unfused silu": {
+      "fold_ratio": 1.02747,
+      "status": "kill REFUTED; BH four-seed read outstanding (b2z2-silu-bh-land)",
+      "overlaps": "the silu cost itself -- MUTUALLY EXCLUSIVE with swiglu_bf16, which makes the same silu cheaper instead of moving it out of the kernel"
+    },
+    "HOST (device conditioning)": {
+      "fold_ratio": 1.06704,
+      "status": "kill CONTESTED, not yet re-scored (b2z2-killed-levers-rescore)",
+      "overlaps": "contains _fuse_bias_stack's collapse, which is ALREADY on main inside the banked 1.00814x -- so its marginal value is below 1.06704x by an unmeasured amount"
+    },
+    "MSA depth ladder": {
+      "fold_ratio": 1.0465,
+      "status": "kill CONTESTED, not yet re-scored (b2z2-killed-levers-rescore)",
+      "overlaps": "the MSA track; disjoint from the trunk and sampler levers as far as anyone has measured"
+    }
+  },
+  "contested_envelope": {
+    "banked_on_main": 1.00814,
+    "host_marginal": 1.0584244251790424,
+    "upper_if_all_resurrect": 1.1473319376792002,
+    "with_trunk_shard": 1.276162086010451,
+    "note": "multiplicative and therefore optimistic; every stacked pair in this campaign has measured below its product"
+  }
 }
