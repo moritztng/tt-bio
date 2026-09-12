@@ -15,7 +15,11 @@ whole-molecule RMSD for any reassociation.
   the seed floor        the SAME arm at different seeds. Boltz-2's sampler is stochastic, so a
                         lever whose move is inside that spread has not been shown to do anything.
 
-    score.py <cifdir> --runs <fold_seeds.json> --split 298 --out <json>
+    score.py <cifdir> --runs <fold_seeds.json> --split 298 --out <json> [--arms off,on]
+
+The arms are named on the command line, first one the baseline every other is read against, so the
+same instrument scores any lever whose folds are laid out this way (`b2z2-unfused-silu-recover`
+scores `base,usilu,usilu32` with it).
 """
 from __future__ import annotations
 
@@ -105,7 +109,10 @@ def main() -> int:
     ap.add_argument("--runs", type=Path, required=True, help="fold_seeds.py --out json")
     ap.add_argument("--split", type=int, default=298, help="last label_seq_id of pseudo-domain 1")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--arms", default="off,on", help="first is the baseline")
     a = ap.parse_args()
+    arms = a.arms.split(",")
+    base = arms[0]
 
     runs = json.loads(a.runs.read_text())
     gt = ca_map(GT)
@@ -132,10 +139,11 @@ def main() -> int:
             sec["aa_floor"] = pair(S[t], S[t[:-3]], split)
             sec["aa_floor_bitexact"] = tags[t]["sha256"] == tags[t[:-3]]["sha256"]
 
-        sec["lever"] = {f"seed{s}": pair(S[f"on-s{s}"], S[f"off-s{s}"], split)
-                        for s in seeds if f"on-s{s}" in S and f"off-s{s}" in S}
+        sec["lever"] = {f"{arm} seed{s}": pair(S[f"{arm}-s{s}"], S[f"{base}-s{s}"], split)
+                        for arm in arms[1:] for s in seeds
+                        if f"{arm}-s{s}" in S and f"{base}-s{s}" in S}
         sec["seed_floor"] = {}
-        for arm in ("off", "on"):
+        for arm in arms:
             for i, j in itertools.combinations(seeds, 2):
                 if f"{arm}-s{i}" in S and f"{arm}-s{j}" in S:
                     sec["seed_floor"][f"{arm}: s{i} vs s{j}"] = pair(
@@ -148,10 +156,11 @@ def main() -> int:
                             "domain1_ca_A", "domain2_ca_A", "lddt_ca", "lddt_ca_domain1",
                             "lddt_ca_domain2", "whole_all_atom_A", "hinge_deg")
                 if any(k in v for v in sec["lever"].values())]
-        sec["summary"] = {k: {"lever": spread([v.get(k) for v in sec["lever"].values()]),
+        sec["summary"] = {k: {**{arm: spread([v.get(k) for t, v in sec["lever"].items()
+                                              if t.startswith(f"{arm} ")]) for arm in arms[1:]},
                               "seed_floor": spread([v.get(k) for v in sec["seed_floor"].values()])}
                           for k in keys}
-        for who in ("off", "on"):
+        for who in arms:
             for metric in ("ca_rmsd_A", "lddt_ca"):
                 for dom in GT_SEGMENTS[n]:
                     sec.setdefault("native_summary", {})[f"{who} {dom} {metric}"] = spread(
@@ -164,8 +173,8 @@ def main() -> int:
     for size, sec in report["sizes"].items():
         print(f"\n=== {size} aa ===  A/A bit-exact: {sec.get('aa_floor_bitexact')}")
         for k, v in sec["summary"].items():
-            print(f"  {k:24s} lever max {v['lever'].get('max'):>9} "
-                  f"| seed floor max {v['seed_floor'].get('max'):>9}")
+            lev = "  ".join(f"{arm} max {v[arm].get('max'):>9}" for arm in arms[1:] if arm in v)
+            print(f"  {k:24s} {lev} | seed floor max {v['seed_floor'].get('max'):>9}")
         for k, v in sec.get("native_summary", {}).items():
             print(f"  native {k:28s} {v}")
     print("\nwrote", a.out)

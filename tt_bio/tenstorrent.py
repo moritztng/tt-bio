@@ -241,6 +241,11 @@ TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 # the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
 # accumulator, so it is not bit-exact.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
+# The round trip above is what costs the accuracy: the fused form applies silu to the fp32 matmul
+# accumulator and rounds once, the unfused form rounds first and applies silu to the rounded value.
+# With this on, the projection is packed as fp32 and silu runs on it, so the unfused arm reproduces
+# the fused arm's arithmetic at the price of a wider intermediate. Only read when _UNFUSED_SILU is on.
+_UNFUSED_SILU_FP32 = env_flag("TT_BIO_UNFUSED_SILU_FP32", True)
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
@@ -7179,17 +7184,22 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
             )
+            wide = _UNFUSED_SILU and _UNFUSED_SILU_FP32
             x_1 = ttnn.linear(
                 x_norm,
                 self.fc1_weight,
                 activation=None if _UNFUSED_SILU else "silu",
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=dtype,
+                dtype=ttnn.float32 if wide else dtype,
                 core_grid=CORE_GRID_MAIN,
             )
             if _UNFUSED_SILU:
                 x_1 = ttnn.silu(x_1, memory_config=ttnn.L1_MEMORY_CONFIG, output_tensor=x_1)
+                if wide:
+                    x_32, x_1 = x_1, ttnn.typecast(
+                        x_1, dtype, memory_config=ttnn.L1_MEMORY_CONFIG)
+                    ttnn.deallocate(x_32)
             x_2 = ttnn.linear(
                 x_norm,
                 self.fc2_weight,
