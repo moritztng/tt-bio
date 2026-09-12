@@ -387,6 +387,20 @@ _PAIR_BIAS_L1_NORM = True
 # at 905216, static CB region ending at 1159680). `_template` gathers its projections above the
 # block loop so the residency window is the projections only.
 _PWA_L1_NORM = True
+# One master switch for the three PairWeightedAveraging residency knobs below. They were measured
+# together on `wk/b2z2-msa-movement-attack` and default ON there; in this union every lever is a
+# flag you turn on, so the three take their default from this one and `TT_BIO_PWA_RESIDENCY=1`
+# reproduces the configuration that branch measured.
+_PWA_RESIDENCY = env_flag("TT_BIO_PWA_RESIDENCY", False)
+# PairWeightedAveraging projects the normed pair tensor once PER HEAD to get that head's token
+# softmax, and `proj_z` is [c_z, n_heads] -- one COLUMN per head. Eight heads is eight columns of
+# the same 32-wide tile, so the eight matmuls have byte-for-byte the same padded output shape and
+# each one re-reads the whole pair tensor to fill a column of a tile it then discards 31/32 of.
+# MEASURED on Wormhole, one MSALayer at 512 tokens (perf/b2z2_msa_census): 8.436 ms and 536.9 MB
+# of reads against a 67.1 MB source, plus eight permutes, eight softmaxes and fourteen tiny
+# weight-slice retiles. One projection over the whole weight gives every head at once.
+# Gated only on the heads fitting one tile, which is a property of the shape, not of a model.
+_PWA_BATCH_HEAD_WEIGHTS = env_flag("TT_BIO_PWA_BATCH_HEAD_WEIGHTS", _PWA_RESIDENCY)
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
 # projection. The wall is per core, and an aggregate multiple of the tensor cannot see it: the
 # tensor scales with its area, its consumers' static circular buffers scale with the row width.
@@ -398,6 +412,23 @@ _PWA_L1_NORM = True
 # is nowhere near binding. Absolute bytes rather than a multiple so it scales the safe way onto a
 # part with less L1 per core.
 _PAIR_L1_CONSUMER_RESERVE = 640 * 1024
+# Rows of MSA depth per PairWeightedAveraging block when the block is sized so the NORMED rows
+# are L1-resident instead of DRAM-resident. The head loop reads those rows 2 * n_heads times --
+# once per head for `proj_m` and once for `proj_g` -- and at 512 tokens x 1024 padded rows that
+# is sixteen reads of the same 67.1 MB tensor, 1073.8 MB of the call's DRAM traffic and the
+# largest repeated read left in the layer after the head-weight batching. It is the same defect
+# `_PWA_L1_NORM` fixes on the pair tensor, on the other operand, and `_PWA_L1_NORM` cannot fix
+# it: the whole normed MSA tensor does not fit. Wormhole reports 72 banks of 1395424 B and the
+# block already holds 933888 B/core when the head loop starts, so the room is ~33 MB, not 100.
+# 0 leaves the block to `pwa_depth_block` -- today's single-shot path at every size that folds
+# today. A row count rather than a byte budget because the refusal is what settles it:
+# `_l1_layer_norm` falls back to DRAM if the part will not take it, so a block that is too big
+# costs the blocking overhead and buys nothing, which is exactly what the sweep measures.
+_PWA_L1_ROWS = int(os.environ.get("TT_BIO_PWA_L1_ROWS") or (0 if _PWA_RESIDENCY else -1))  # 0 = derive, -1 = off
+# The residency half of the lever, separable from the blocking half so a screen can price
+# them apart: blocking alone costs `depth/blk - 1` extra row slices and norms and buys
+# nothing, and if the win is not bigger than that cost the residency is not paying.
+_PWA_L1_NORM_M = env_flag("TT_BIO_PWA_L1_NORM_M", _PWA_RESIDENCY)
 _TEMPLATE_L1_NORM = True
 
 # Matmul fidelity for the trunk. The FPU is a 5b x 7b multiplier: srcA contributes a hidden bit plus
@@ -3695,22 +3726,34 @@ def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float,
     `reserve_per_core` prices that same need in bytes per core instead, for a caller whose
     consumer's buffers do not grow with the tensor.
     """
-    try:
-        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
-    except Exception:
-        return ttnn.DRAM_MEMORY_CONFIG
+    budget = _l1_budget_bytes(reserve_per_core)
     shape = [int(d) for d in t.shape]
-    if len(shape) < 2:
+    if budget is None or len(shape) < 2:
         return ttnn.DRAM_MEMORY_CONFIG
     volume = 1
     for d in shape[:-2]:
         volume *= d
     volume *= ((shape[-2] + 31) // 32) * 32 * ((shape[-1] + 31) // 32) * 32
     elem = 4 if t.dtype == ttnn.float32 else 2
-    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
-    if headroom * volume * elem <= max(per_core - reserve_per_core, 0) * cores:
+    if headroom * volume * elem <= budget:
         return ttnn.L1_MEMORY_CONFIG
     return ttnn.DRAM_MEMORY_CONFIG
+
+
+def _l1_budget_bytes(reserve_per_core: int = 0) -> int | None:
+    """Interleaved L1 bytes the main grid can hold, or None when the part will not say.
+
+    The same static budget `_l1_memory_config_if_it_fits` decides on, exposed in bytes so a
+    caller can SIZE a block to fit instead of only asking whether a block it already chose
+    does. Static in both uses, and in both the refusal is the real gate: it cannot see what
+    the live block already holds.
+    """
+    try:
+        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:
+        return None
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    return max(per_core - reserve_per_core, 0) * cores
 
 
 # The divisor band the trimul K block is tuned in. `in0_block_w` must divide Kt, and the widest
@@ -5024,6 +5067,43 @@ def pwa_depth_block(depth: int, tokens: int, c_m: int, budget: int | None = None
         return depth
     rows = max(32, (PWA_DEPTH_BUDGET_BYTES // per_row) // 32 * 32)
     return min(depth, rows)
+
+
+def pwa_l1_row_block(depth: int, tokens: int, c_m: int) -> int:
+    """MSA rows per PairWeightedAveraging block, sized so the NORMED block stays in L1.
+
+    The head loop reads the normed rows ``2 * n_heads`` times -- once for each head's ``proj_m``
+    and once for its ``proj_g`` -- so the tensor is worth keeping resident and the whole of it
+    does not fit. Halving the depth until the block passes the same L1 budget
+    `_l1_memory_config_if_it_fits` decides on gives the LARGEST resident block, which is what
+    matters: the blocking is not free, it costs one extra row slice and one extra layer_norm per
+    block, so the fewest blocks that are still resident wins.
+
+    Returns ``depth`` when the whole tensor already fits (nothing to block, the single-shot path
+    is L1-resident as it stands) and when the part will not report a budget. A property of the
+    shape and the grid, never of a model: `PairWeightedAveraging` is shared with protenix-v2
+    (`protenix.py`) and openfold3 (`openfold3_msa_embedder.py`) and they get the same rule at
+    their own shapes. MEASURED over seven of those shapes (`perf/b2z2_msa_move/shared_class_leg.py`):
+    bit-exact on all seven, and it blocks on only two of them -- 1024 rows x 512 tokens, which is
+    where both boltz2 and openfold3 sit at 512 aa. At 384 or 768 tokens, or at 512 rows, the whole
+    normed tensor already fits and the rule returns ``depth``.
+
+    MEASURED, Wormhole, 1024 padded rows x 512 tokens x c_m 64 (perf/b2z2_msa_move): the rule
+    picks 512 rows, and 512 is the arm that wins a 7-arm sweep -- 1.02583x and 1.02634x on the
+    MSALayer in two independent paired A/Bs against A/A floors of 0.99953x and 1.00088x. Its
+    blocking-only control is 1.01525x, so a little over a third of the win is the residency and
+    the rest is the smaller working set. 640 rows and 384 rows are both worse, and at 640 the
+    residency is net NEGATIVE against its own control, so this is a measured ladder rather than
+    a monotone one.
+    """
+    per_row = tokens * c_m * 2
+    budget = _l1_budget_bytes(_PAIR_L1_CONSUMER_RESERVE)
+    if budget is None or per_row <= 0:
+        return depth
+    rows = depth
+    while rows * per_row > budget and rows >= 64:
+        rows //= 2
+    return max(rows, 32) if rows * per_row <= budget else depth
 
 
 def concat_host_bytes() -> int:
@@ -8984,13 +9064,19 @@ class PairWeightedAveraging(Module):
         # `m` rather than slicing a full-depth normed copy -- which is the copy that does not
         # fit. Bit-identical either way: layer_norm reduces over channels only.
         def m_norm(s0=None, s1=None):
-            return ttnn.layer_norm(
-                m if s0 is None else m[s0:s1],
-                weight=self.m_norm_weight,
-                bias=self.m_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
-            )
+            x = m if s0 is None else m[s0:s1]
+            kw = dict(weight=self.m_norm_weight, bias=self.m_norm_bias, epsilon=1e-5,
+                      compute_kernel_config=self.compute_kernel_config)
+            # L1 when the block fits, DRAM when it does not, and the decision is the device's:
+            # every head's `proj_m` and `proj_g` reads this tensor whole, so a block small
+            # enough to stay resident turns 2 * n_heads DRAM reads into NoC reads. Bit-exact
+            # either way -- a memory config cannot regroup a matmul's accumulation, only
+            # `in0_block_w` can, and this does not touch it.
+            out = (_l1_layer_norm(x, 1.0, _PAIR_L1_CONSUMER_RESERVE, **kw)[0]
+                   if (_PWA_L1_ROWS >= 0 and _PWA_L1_NORM_M) else ttnn.layer_norm(x, **kw))
+            if x is not m:
+                ttnn.deallocate(x)
+            return out
 
         # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
         # tensor to write one tile of width, so all eight are source-bound and one L1-resident
@@ -9003,18 +9089,7 @@ class PairWeightedAveraging(Module):
                       (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                        epsilon=1e-5,
                                        compute_kernel_config=self.compute_kernel_config), False))
-        def token_weight(i):
-            """Head ``i``'s softmax over the token axis. A function of ``z`` alone, so it does
-            not depend on the MSA depth and a chunked path computes it once for every block."""
-            zw = self.z_weight[:, i : i + 1]
-            b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype, l1_out=z_in_l1)
-            if b is None:
-                b = ttnn.linear(
-                    z,
-                    zw,
-                    compute_kernel_config=self.compute_kernel_config,
-                    core_grid=CORE_GRID_MAIN,
-                )
+        def _softmax_over_tokens(b):
             b = ttnn.permute(b, (2, 0, 1))
             if attn_mask is not None:
                 b = ttnn.add_(b, ttnn.reshape(attn_mask, (1, 1, attn_mask.shape[-1])))
@@ -9024,6 +9099,43 @@ class PairWeightedAveraging(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 numeric_stable=True,
             )
+
+        def _proj_z(zw):
+            b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype, l1_out=z_in_l1)
+            if b is None:
+                b = ttnn.linear(
+                    z,
+                    zw,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
+            return b
+
+        def token_weight(i):
+            """Head ``i``'s softmax over the token axis. A function of ``z`` alone, so it does
+            not depend on the MSA depth and a chunked path computes it once for every block."""
+            return _softmax_over_tokens(_proj_z(self.z_weight[:, i : i + 1]))
+
+        def _batch_head_weights():
+            # A property of the shape, never a model name: the batching is correct at any head
+            # count, but it is only FREE while every head's column still lands in the one 32-wide
+            # tile the per-head call already paid for. Above that it would widen the output and
+            # the saving would have to be re-measured.
+            return _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
+
+        def token_weights():
+            """Every head's token softmax, from ONE projection of the pair tensor.
+
+            Bit-exact against the per-head loop, not approximately: `proj_z` is [c_z, n_heads]
+            and n_heads columns pad to the same 32-wide tile a single column does, so the
+            batched matmul has the identical padded operand shape, the identical K blocking and
+            the identical per-column dot product. Permute and softmax are per row over the token
+            axis and do not mix heads.
+            """
+            b = _softmax_over_tokens(_proj_z(self.z_weight))
+            out = [b[i:i + 1] for i in range(self.n_heads)]
+            ttnn.deallocate(b)
+            return out
 
         def head_out(mc, i, w):
             """Head ``i``'s contribution for the normed MSA rows ``mc``. Every op is per row."""
@@ -9075,8 +9187,9 @@ class PairWeightedAveraging(Module):
             written to the accumulator instead of to a new buffer.
             """
             acc = None
+            own = token_weights() if (not ws and _batch_head_weights()) else None
             for i in range(self.n_heads):
-                w = ws[i] if ws else token_weight(i)
+                w = ws[i] if ws else (own[i] if own else token_weight(i))
                 o = head_out(mc, i, w)
                 if not ws:
                     ttnn.deallocate(w)
@@ -9094,6 +9207,8 @@ class PairWeightedAveraging(Module):
         # further from there.
         depth, tokens, c_m = int(m.shape[0]), int(m.shape[1]), int(m.shape[2])
         blk = pwa_depth_block(depth, tokens, c_m)
+        if _PWA_L1_ROWS >= 0:
+            blk = min(blk, _PWA_L1_ROWS or pwa_l1_row_block(depth, tokens, c_m))
         cap = _PWA_DEPTH_ROW_CAP.get((depth, tokens))
         if cap is not None:
             blk = min(blk, cap)
@@ -9108,7 +9223,8 @@ class PairWeightedAveraging(Module):
             if not ws:
                 # Depth-independent, so eight [1, tokens, tokens] weights (2.4 MB each at 1088
                 # tokens) are computed once and reused by every block, not once per block.
-                ws.extend(token_weight(i) for i in range(self.n_heads))
+                ws.extend(token_weights() if _batch_head_weights()
+                          else [token_weight(i) for i in range(self.n_heads)])
             host = _host_concat(m)
             parts = []
             acc = None
