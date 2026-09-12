@@ -298,6 +298,10 @@ ARMS = {
     "blk512": {"@_PWA_L1_ROWS": 512, "@_PWA_L1_NORM_M": False},
     "blk256": {"@_PWA_L1_ROWS": 256, "@_PWA_L1_NORM_M": False},
     "blk128": {"@_PWA_L1_ROWS": 128, "@_PWA_L1_NORM_M": False},
+    "l1r384": {"@_PWA_L1_ROWS": 384},
+    "l1r640": {"@_PWA_L1_ROWS": 640},
+    "blk384": {"@_PWA_L1_ROWS": 384, "@_PWA_L1_NORM_M": False},
+    "blk640": {"@_PWA_L1_ROWS": 640, "@_PWA_L1_NORM_M": False},
 }
 
 
