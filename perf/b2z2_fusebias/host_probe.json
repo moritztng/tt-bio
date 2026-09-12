@@ -1,0 +1,46 @@
+{
+ "ckpt": "/home/moritz/.boltz/boltz2_conf.ckpt",
+ "rows": 4096,
+ "seed": 0,
+ "stacks": {
+  "atom_enc_proj_z": {
+   "layers": 3,
+   "c": 16,
+   "h": 4,
+   "out_width": 12,
+   "max_abs": 1.9073486328125e-06,
+   "mean_abs": 1.2758461309658742e-07,
+   "rms_out": 1.880456566810608,
+   "max_rel_to_rms": 1.0143007784790825e-06,
+   "mean_rel_to_rms": 6.784767947465298e-08,
+   "max_rel_elementwise": 0.010953607968986034,
+   "allclose_1e5": true
+  },
+  "atom_dec_proj_z": {
+   "layers": 3,
+   "c": 16,
+   "h": 4,
+   "out_width": 12,
+   "max_abs": 9.5367431640625e-07,
+   "mean_abs": 4.8426461063399984e-08,
+   "rms_out": 0.7996586561203003,
+   "max_rel_to_rms": 1.1926017577934545e-06,
+   "mean_rel_to_rms": 6.055891788037115e-08,
+   "max_rel_elementwise": 0.001123775844462216,
+   "allclose_1e5": true
+  },
+  "token_trans_proj_z": {
+   "layers": 24,
+   "c": 128,
+   "h": 16,
+   "out_width": 384,
+   "max_abs": 8.58306884765625e-06,
+   "mean_abs": 2.547159851928882e-07,
+   "rms_out": 1.5363407135009766,
+   "max_rel_to_rms": 5.5866962611617055e-06,
+   "mean_rel_to_rms": 1.657939492361038e-07,
+   "max_rel_elementwise": 0.3553723990917206,
+   "allclose_1e5": false
+  }
+ }
+}
