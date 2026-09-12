@@ -55,8 +55,8 @@ def main() -> int:
     torch.set_grad_enabled(False)
     import ttnn
     import tt_bio.tenstorrent as T
+    import step_probe as SP                    # inserts the paths tt_baseline is found on
     import tt_baseline as B
-    import step_probe as SP
 
     SP.OUT_PATH = a.out.with_suffix(".grab.json")
     SP.OUT["env"] = {"card": os.environ.get("TT_VISIBLE_DEVICES"),
