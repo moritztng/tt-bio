@@ -40,7 +40,15 @@ TILE = 32
 PASSES = 2
 ROUND = 2          # the product's rounding to bf16; see kernels/trimul_tail/compute.cpp
 MUL_BATCH = 1      # output tiles folded per DST acquire in the epilogue product; ceiling 2 on fp32 DST
-MUL_MODE = 0       # 0 = two copy_tile + SFPU product, 1 = mul_tiles (one FPU unpack, 1 DST slot)
+MUL_MODE = 1       # 0 = two copy_tile + SFPU product, 1 = mul_tiles (one FPU unpack, 1 DST slot).
+                   # 1 is the default because it is faster at an identical PCC 0.9999983:
+                   # 1.0229x -> 1.0743x on the production chunk, qb2 card 1, n=9, A/A floor 0.03 %.
+
+#: Core grid the kernel folds on, or None to take the caller's (COMPUTE_GRID_MAIN). The kernel is
+#: not obliged to use every core the trunk's matmuls use, and it measures faster on 11x8 than on
+#: the cell's 11x10: 1.0743x against 1.0516x on the production chunk. Two idle core rows cost less
+#: than the extra hops the operand daisy chain pays across the wider grid.
+GRID = None
 
 #: (kt, nt) -> the block config the fused kernel folds with. Deliberately a LOCAL table and not
 #: `tenstorrent._MM_BLOCK`: a lookup into the shared table would switch this on for every model
@@ -51,7 +59,12 @@ MUL_MODE = 0       # 0 = two copy_tile + SFPU product, 1 = mul_tiles (one FPU un
 #: neither of the two things that broke `trimul_tail` at (12, 12) -- `out_block` doubling and
 #: `subblock_h` halving -- moves here. The 4-tile subblock is also exactly the fp32 half-sync DST
 #: budget, so the chain does not need `dst_full_sync_en` and keeps the math/pack double buffer.
-BLOCK_KEYS = {(4, 16): (4, 4, 1, 4, 1)}
+#: (8, 2, 2, 2, 2) replaces the original (4, 4, 1, 4, 1) on measurement, not on reasoning: at the
+#: production shape on Blackhole the matmul under this kernel runs 0.7627x `ttnn.linear` at
+#: (4,4,1,4,1) and 0.974x at (8,2,2,2,2). K_block = 2 splits the K = 4 contraction into two blocks
+#: so the operand daisy chain has something to pipeline over; the 2x2 subblock is still 4 tiles,
+#: exactly the fp32 half-sync DST budget, so the chain still does not need `dst_full_sync_en`.
+BLOCK_KEYS = {(4, 16): (8, 2, 2, 2, 2)}
 
 #: Diagnostic only: narrower hidden widths, to separate a bug in the kernel from a bug that only
 #: appears once the output is many N blocks wide. Never served in production.
@@ -191,6 +204,7 @@ def fused_swiglu(x, w_plain, w_act, ckc, grid, memory_config=None):
         return _reject(why, "x".join(str(int(d)) for d in x.padded_shape)
                        + "@" + "x".join(str(int(d)) for d in w_plain.shape))
     device = x.device()
+    grid = tuple(GRID) if GRID is not None else tuple(grid)
     mc = memory_config if memory_config is not None else ttnn.L1_MEMORY_CONFIG
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = (spec(x), spec(w_plain), tuple(grid), tuple(str(c) for c in ckc), ROUND, MUL_BATCH, MUL_MODE, str(mc))
