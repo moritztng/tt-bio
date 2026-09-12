@@ -1,0 +1,218 @@
+{
+ "env": {
+  "started": "2026-09-12T09:56:06+0000",
+  "label": "BH qb2 card1",
+  "host": "tt-quietbox2",
+  "card": "1",
+  "arch": "BLACKHOLE",
+  "mesh_graph_desc": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto",
+  "grid": "(x=11,y=10)",
+  "loadavg": [
+   "1.86",
+   "1.29",
+   "1.33"
+  ]
+ },
+ "calibration": [
+  {
+   "MB": 0.0655,
+   "us": 6.43,
+   "moved_MB": 0.1966,
+   "GBs": 30.58
+  },
+  {
+   "MB": 0.1311,
+   "us": 6.395,
+   "moved_MB": 0.3932,
+   "GBs": 61.49
+  },
+  {
+   "MB": 0.2621,
+   "us": 6.41,
+   "moved_MB": 0.7864,
+   "GBs": 122.68
+  },
+  {
+   "MB": 0.5243,
+   "us": 6.485,
+   "moved_MB": 1.5729,
+   "GBs": 242.55
+  },
+  {
+   "MB": 1.0486,
+   "us": 9.883,
+   "moved_MB": 3.1457,
+   "GBs": 318.3
+  },
+  {
+   "MB": 2.0972,
+   "us": 15.675,
+   "moved_MB": 6.2915,
+   "GBs": 401.38
+  },
+  {
+   "MB": 4.1943,
+   "us": 30.125,
+   "moved_MB": 12.5829,
+   "GBs": 417.69
+  },
+  {
+   "MB": 8.3886,
+   "us": 58.084,
+   "moved_MB": 25.1658,
+   "GBs": 433.26
+  },
+  {
+   "MB": 16.7772,
+   "us": 114.695,
+   "moved_MB": 50.3316,
+   "GBs": 438.83
+  },
+  {
+   "MB": 33.5544,
+   "us": 226.498,
+   "moved_MB": 100.6633,
+   "GBs": 444.43
+  },
+  {
+   "MB": 67.1089,
+   "us": 452.314,
+   "moved_MB": 201.3266,
+   "GBs": 445.1
+  }
+ ],
+ "instances": [
+  {
+   "name": "transition_in",
+   "A": [
+    262144,
+    128
+   ],
+   "B": [
+    128,
+    512
+   ],
+   "issued_by": "pair-track Transition, the 128 -> 512 expand (one of two)",
+   "R": 53,
+   "out_kwarg": "optional_output_tensor",
+   "us": 1667.501,
+   "all_us": [
+    1666.642,
+    1667.501,
+    1667.567,
+    1667.663,
+    1666.71
+   ],
+   "bytes_MB": 335.675,
+   "GFLOP": 34.36,
+   "predicted_us": 760.552,
+   "ratio": 2.1925,
+   "achieved_GBs": 201.3,
+   "achieved_TFLOPs": 20.606,
+   "pct_of_BW_eff": 45.23
+  },
+  {
+   "name": "transition_out",
+   "A": [
+    262144,
+    512
+   ],
+   "B": [
+    512,
+    128
+   ],
+   "issued_by": "pair-track Transition, the 512 -> 128 contract",
+   "R": 53,
+   "out_kwarg": "optional_output_tensor",
+   "us": 3757.508,
+   "all_us": [
+    3749.329,
+    3773.489,
+    3793.635,
+    3757.508,
+    3751.056
+   ],
+   "bytes_MB": 335.675,
+   "GFLOP": 34.36,
+   "predicted_us": 760.552,
+   "ratio": 4.9405,
+   "achieved_GBs": 89.33,
+   "achieved_TFLOPs": 9.144,
+   "pct_of_BW_eff": 20.07
+  },
+  {
+   "name": "trimul_core",
+   "A": [
+    128,
+    512,
+    512
+   ],
+   "B": [
+    128,
+    512,
+    512
+   ],
+   "issued_by": "TriangleMultiplication, the per-channel 512-cube batched matmul",
+   "R": 64,
+   "out_kwarg": "optional_output_tensor",
+   "us": 1837.787,
+   "all_us": [
+    1837.565,
+    1837.829,
+    1837.745,
+    1837.787,
+    1837.907
+   ],
+   "bytes_MB": 201.327,
+   "GFLOP": 34.36,
+   "predicted_us": 458.713,
+   "ratio": 4.0064,
+   "achieved_GBs": 109.55,
+   "achieved_TFLOPs": 18.696,
+   "pct_of_BW_eff": 24.61
+  },
+  {
+   "name": "pair_proj",
+   "A": [
+    262144,
+    128
+   ],
+   "B": [
+    128,
+    128
+   ],
+   "issued_by": "the square 128 -> 128 projections either side of every sub-unit",
+   "R": 64,
+   "out_kwarg": "optional_output_tensor",
+   "us": 764.941,
+   "all_us": [
+    764.941,
+    764.772,
+    765.022,
+    764.788,
+    765.448
+   ],
+   "bytes_MB": 134.25,
+   "GFLOP": 8.59,
+   "predicted_us": 308.014,
+   "ratio": 2.4835,
+   "achieved_GBs": 175.5,
+   "achieved_TFLOPs": 11.23,
+   "pct_of_BW_eff": 39.43
+  }
+ ],
+ "roofs": {
+  "t_fixed_us": 6.395,
+  "BW_eff_GBs": 445.1,
+  "flat_band_points": 4,
+  "flat_band_max_MB": 0.5243
+ },
+ "control_add": {
+  "MB": 16.7772,
+  "us": 114.695,
+  "moved_MB": 50.3316,
+  "GBs": 438.83,
+  "predicted_us": 119.474,
+  "ratio": 0.96
+ }
+}
