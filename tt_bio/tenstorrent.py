@@ -7819,14 +7819,27 @@ class PairformerLayer(Module):
                 print(f"[row-shard] new pair-track extent {k}", flush=True)
             _seen[k] += 1
 
+        def to_dram(t):
+            # A shard's whole failure mode is L1 PRESSURE, not arithmetic: it holds the full z, its
+            # own slab and the gathered update at once, and that tripped an allocation refusal the
+            # unsharded fold never hits. `_L1_OUT_RUNG` then remembered the refusal BY SHAPE and
+            # stepped a FULL-HEIGHT op's config down a rung for the rest of the process, which is
+            # not bit-exact across picks. Staging the slab and the update to DRAM is a memory move,
+            # not arithmetic, so it costs the shard nothing it is trying to win.
+            if t.memory_config() == ttnn.DRAM_MEMORY_CONFIG:
+                return t
+            moved = ttnn.to_memory_config(t, ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(t)
+            return moved
+
         def apply(op, extra, needs_full_z):
             nonlocal z
             if needs_full_z:
-                u = op(z, *extra, row_slab=slab)
+                u = to_dram(op(z, *extra, row_slab=slab))
             else:
-                rows = slab.take(z, 1)
+                rows = to_dram(slab.take(z, 1))
                 try:
-                    u = op(rows, *extra)
+                    u = to_dram(op(rows, *extra))
                 finally:
                     ttnn.deallocate(rows)
             # The gather is full-height and z is already full, so at the peak this holds z, the
