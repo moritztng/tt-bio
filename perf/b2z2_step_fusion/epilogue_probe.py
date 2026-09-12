@@ -107,10 +107,13 @@ def main():
             got = fn(o0)
             rec["out_shape"] = list(got.shape)
             got_t = ttnn.to_torch(got)
-            rec["shape_match"] = list(got_t.shape) == list(ref_t.shape)
+            # the stock chain ends 3D (1, 512, 768) and a concat-heads ends 4D (1, 1, 512, 768);
+            # the leading 1 is a view, so compare the values and report the shapes separately.
+            rec["shape_match"] = got_t.numel() == ref_t.numel()
             if rec["shape_match"]:
-                rec["bit_exact"] = bool(torch.equal(got_t, ref_t))
-                rec["max_abs"] = float((got_t.float() - ref_t.float()).abs().max())
+                g2, r2 = got_t.reshape(SEQ, -1), ref_t.reshape(SEQ, -1)
+                rec["bit_exact"] = bool(torch.equal(g2, r2))
+                rec["max_abs"] = float((g2.float() - r2.float()).abs().max())
             rec["us"] = timed(ttnn, dev, lambda: fn(o0))
         except Exception as e:                                            # noqa: BLE001
             rec["error"] = f"{type(e).__name__}: {str(e)[:300]}"
