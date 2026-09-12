@@ -759,6 +759,8 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | Flag | Default | What it does |
 |------|---------|--------------|
 | `TT_BIO_ATOM_SHIFT_GATHER` | on | Builds each atom's attention key window by slicing the atom sequence instead of selecting it with a matrix multiply. Same structure, bit for bit. |
+| `TT_BIO_UNFUSED_SILU` | on | Runs the transition blocks' SiLU as its own operation instead of folding it into the matrix multiply, which is faster on this hardware. Rounds one step earlier, so the structure moves slightly. |
+| `TT_BIO_DEVICE_CONDITIONING` | on | Runs Boltz-2's diffusion conditioning on the card, where the trunk already left the tensor it reads. Device math is bf16 where the host path was fp32, so the structure moves slightly. |
 
 More on how these were measured, and what "same structure" means for each of them, in
 [`docs/tuning-flags.md`](docs/tuning-flags.md).
