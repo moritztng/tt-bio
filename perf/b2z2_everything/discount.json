@@ -1,39 +1,71 @@
 {
  "fold_session": {
-  "floor": 1.00136,
+  "floor_hi": 1.00351,
   "ratios": {
    "base": 1.0,
    "BX": 1.04112,
    "ALL": 1.10789
-  },
-  "loadavg": [
-   7.14697265625,
-   14.880859375
-  ]
+  }
  },
  "singles_session": {
-  "floor": 1.00708,
+  "floor_hi": 1.02786,
   "ratios": {
    "base": 1.0,
    "SAMP": 1.0217,
    "TRUNK": 1.00693,
    "MSA": 1.0066,
    "HOSTONLY": 1.0683
+  }
+ },
+ "readers": {
+  "SHG": {
+   "class": "shared",
+   "why": "replaces the one-hot gather matmul; the gathered window still has the attention behind it"
   },
-  "loadavg": [
-   6.564453125,
-   46.74755859375
-  ]
+  "KVP": {
+   "class": "shared",
+   "why": "projects each atom once instead of four times -- deletes 3 of 4 readers of the same rows, not the last"
+  },
+  "L1": {
+   "class": "shared",
+   "why": "residency: the DRAM readers go away, the tensor's consumers do not"
+  },
+  "SDPAQ": {
+   "class": "none",
+   "why": "occupancy, not movement -- it deletes no reader at all"
+  },
+  "QKVG": {
+   "class": "shared",
+   "why": "the normed pair tensor is read once instead of twice, and a THIRD reader remains (the 32-wide pair-bias projection)"
+  },
+  "PWA": {
+   "class": "shared",
+   "why": "the normed MSA rows stop being re-read 2*n_heads times; the pair tensor keeps its other consumers"
+  },
+  "COND": {
+   "class": "last",
+   "why": "deletes a 201 MB host download outright -- nothing else reads it"
+  },
+  "ZINIT": {
+   "class": "last",
+   "why": "z_init never crosses PCIe; the resident trunk consumes it where it is built"
+  },
+  "CONF": {
+   "class": "last",
+   "why": "the confidence head reads the pair tensor the trunk already left on device"
+  }
  },
  "A_in_session_singles": {
   "product": 1.1063,
   "measured_union": 1.10789,
-  "discount_pct": -0.144
+  "discount_pct": -0.144,
+  "caveat": "three of the four factors are inside their session's bootstrapped floor"
  },
  "A_bitexact_subset": {
   "product": 1.03557,
   "measured": 1.04112,
-  "discount_pct": -0.536
+  "discount_pct": -0.536,
+  "note": "BX itself clears its session's floor by 11.7x; none of its three factors clears theirs"
  },
  "B_host_marginal": {
   "marginal_on_top_of_BX": 1.06413,
@@ -42,30 +74,58 @@
   "discount_vs_alone_pct": 0.39,
   "discount_vs_published_pct": 0.077
  },
- "readable_vs_floor": {
+ "readable_vs_bootstrapped_floor": {
   "SAMP": {
    "ratio": 1.0217,
-   "floor": 1.00708,
-   "multiple_of_floor": 3.06,
-   "readable": true
+   "floor_hi": 1.02786,
+   "readable": false,
+   "reader_class": [
+    "none",
+    "shared"
+   ]
   },
   "TRUNK": {
    "ratio": 1.00693,
-   "floor": 1.00708,
-   "multiple_of_floor": 0.98,
-   "readable": false
+   "floor_hi": 1.02786,
+   "readable": false,
+   "reader_class": [
+    "shared"
+   ]
   },
   "MSA": {
    "ratio": 1.0066,
-   "floor": 1.00708,
-   "multiple_of_floor": 0.93,
-   "readable": false
+   "floor_hi": 1.02786,
+   "readable": false,
+   "reader_class": [
+    "shared"
+   ]
   },
   "HOSTONLY": {
    "ratio": 1.0683,
-   "floor": 1.00708,
-   "multiple_of_floor": 9.65,
-   "readable": true
+   "floor_hi": 1.02786,
+   "readable": true,
+   "reader_class": [
+    "last"
+   ]
+  },
+  "BX": {
+   "ratio": 1.04112,
+   "floor_hi": 1.00351,
+   "readable": true,
+   "reader_class": [
+    "shared",
+    "none"
+   ]
+  },
+  "ALL": {
+   "ratio": 1.10789,
+   "floor_hi": 1.00351,
+   "readable": true,
+   "reader_class": [
+    "last",
+    "none",
+    "shared"
+   ]
   }
  },
  "falsifier": {

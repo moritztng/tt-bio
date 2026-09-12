@@ -1,0 +1,157 @@
+{
+ "doc": "The A/A floor, bootstrapped at the n the ratio is quoted at.",
+ "sessions": [
+  {
+   "file": "fold_everything_wh_c8.json",
+   "n_base": 6,
+   "quoted_n": 6,
+   "loadavg": [
+    7.14697265625,
+    14.880859375
+   ],
+   "base_fold_s": [
+    40.562,
+    40.586,
+    40.389,
+    40.444,
+    40.612,
+    40.56
+   ],
+   "floor_all_pairs": {
+    "lo": 0.9965,
+    "hi": 1.00351,
+    "n": 6,
+    "pool": 30,
+    "B": 20000
+   },
+   "floor_adjacent": {
+    "lo": 0.99725,
+    "hi": 1.00276,
+    "n": 6,
+    "pool": 10,
+    "B": 20000
+   },
+   "old_folded_median_floor": 1.00136,
+   "arms": {
+    "BX": {
+     "paired_ratio": 1.04112,
+     "floor_hi": 1.00351,
+     "excess_over_floor": 11.72,
+     "readable": true,
+     "all_reps": [
+      1.04168,
+      1.04056,
+      1.01353,
+      1.03977,
+      1.04525,
+      1.04747
+     ]
+    },
+    "ALL": {
+     "paired_ratio": 1.10789,
+     "floor_hi": 1.00351,
+     "excess_over_floor": 30.74,
+     "readable": true,
+     "all_reps": [
+      1.10148,
+      1.10537,
+      1.09535,
+      1.1104,
+      1.11691,
+      1.12464
+     ]
+    }
+   }
+  },
+  {
+   "file": "singles_everything_wh_c8.json",
+   "n_base": 6,
+   "quoted_n": 6,
+   "loadavg": [
+    6.564453125,
+    46.74755859375
+   ],
+   "base_fold_s": [
+    40.568,
+    41.391,
+    41.209,
+    41.256,
+    41.548,
+    43.02
+   ],
+   "floor_all_pairs": {
+    "lo": 0.97455,
+    "hi": 1.02786,
+    "n": 6,
+    "pool": 30,
+    "B": 20000
+   },
+   "floor_adjacent": {
+    "lo": 0.98069,
+    "hi": 1.01714,
+    "n": 6,
+    "pool": 10,
+    "B": 20000
+   },
+   "old_folded_median_floor": 1.00708,
+   "arms": {
+    "SAMP": {
+     "paired_ratio": 1.0217,
+     "floor_hi": 1.02786,
+     "excess_over_floor": 0.78,
+     "readable": false,
+     "all_reps": [
+      1.02928,
+      1.02119,
+      1.0222,
+      1.02614,
+      1.00869,
+      1.01693
+     ]
+    },
+    "TRUNK": {
+     "paired_ratio": 1.00693,
+     "floor_hi": 1.02786,
+     "excess_over_floor": 0.25,
+     "readable": false,
+     "all_reps": [
+      1.00309,
+      1.00505,
+      1.00092,
+      1.0088,
+      1.01312,
+      1.02842
+     ]
+    },
+    "MSA": {
+     "paired_ratio": 1.0066,
+     "floor_hi": 1.02786,
+     "excess_over_floor": 0.24,
+     "readable": false,
+     "all_reps": [
+      0.98213,
+      1.01444,
+      0.99409,
+      0.99877,
+      1.02393,
+      1.05268
+     ]
+    },
+    "HOSTONLY": {
+     "paired_ratio": 1.0683,
+     "floor_hi": 1.02786,
+     "excess_over_floor": 2.45,
+     "readable": true,
+     "all_reps": [
+      1.05118,
+      1.07158,
+      1.06502,
+      1.07493,
+      1.09096,
+      0.94384
+     ]
+    }
+   }
+  }
+ ]
+}
