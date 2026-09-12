@@ -69,9 +69,11 @@ def main() -> int:
 
         ref = ttnn.to_torch(at(shipped))
         sweep = {}
-        for qc in range(32, min(T.SDPA_CHUNK_MAX, S) + 1, 32):
-            if S % qc:
-                continue
+        # the shipped cap need not divide the length -- SDPA takes a ragged q tail -- so it is
+        # timed explicitly, alongside every chunk the rule is allowed to choose
+        cands = sorted({qc for qc in range(32, min(T.SDPA_CHUNK_MAX, S) + 1, 32) if S % qc == 0}
+                       | {shipped})
+        for qc in cands:
             try:
                 got = ttnn.to_torch(at(qc))
                 t = SP.timed_reps(ttnn, dev, lambda qc=qc: at(qc), (), {}, a.reps, fence, n_med=3)
