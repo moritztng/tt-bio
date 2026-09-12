@@ -54,6 +54,12 @@ if MODE in ("mesh", "shard") and MESH_N > 1 and not os.environ.get("TT_MESH_GRAP
     print(f"mesh descriptor: {meshdesc.install(MESH_N, out_dir=f'/tmp/b2z2_meshdesc_{os.getuid()}')}", flush=True)
 if MODE == "shard":
     os.environ["TT_BIO_ATOM_WINDOW_SHARD"] = "1"
+# Negative control: deliberately break the shard and require the fold's digest to CHANGE. Read
+# before tt_bio imports, because the module reads the variable at import.
+BREAK = os.environ.get("FOLD_BREAK", "")
+if BREAK:
+    assert MODE == "shard", "a break mode only means anything with the shard on"
+    os.environ["TT_BIO_ATOM_WINDOW_SHARD_BREAK"] = BREAK
 
 import torch  # noqa: E402,F401
 import ttnn  # noqa: E402
@@ -125,7 +131,8 @@ assert rows[1] == seq, "a3m query row does not match the target sequence"
 msa_dir.mkdir(parents=True, exist_ok=True)
 (msa_dir / f"{hashlib.sha256(seq.encode()).hexdigest()[:16]}.a3m").write_text(a3m.read_text())
 
-OUT = {"mode": MODE, "reps": REPS, "mesh_n": MESH_N if MODE in ("mesh", "shard") else 1,
+OUT = {"mode": MODE, "reps": REPS, "break": BREAK,
+       "mesh_n": MESH_N if MODE in ("mesh", "shard") else 1,
        "atom_window_shard": MODE == "shard", "card": os.environ.get("TT_VISIBLE_DEVICES"),
        "protocol": {"fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
                     "recycling_steps": RECYCLING_STEPS, "sampling_steps": SAMPLING_STEPS,
@@ -211,6 +218,11 @@ def fold_once():
     ttnn.synchronize_device(dev)
     wall = time.perf_counter() - t
     stages = sp.close(t, wall)
+    # Keep the structure itself, not only its digest. A digest answers "same or not"; a control
+    # needs "by how much", and the perturb control is only interpretable against a number.
+    for f in sorted(struct_dir.glob("*.cif")):
+        shutil.copyfile(f, OUT_PATH.with_suffix(".cif"))
+        break
     cifs = sorted(hashlib.sha256(f.read_bytes()).hexdigest()
                   for f in sorted(struct_dir.glob("*.cif")))
     return wall, metrics, cifs, stages
@@ -218,10 +230,13 @@ def fold_once():
 
 w, m, c, st_ = fold_once()
 OUT["cold_s"] = round(w, 3)
-log(f"cold {w:.3f}s plddt={m.get('plddt')} cif={c[0][:16] if c else 'NONE'} (discarded)")
+log(f"cold {w:.3f}s plddt={m.get('plddt')} cif={c[0][:16] if c else 'NONE'} "
+    f"({'KEPT' if REPS == 0 else 'discarded'})")
 dump()
 
-rows_out = []
+# REPS=0 is the correctness arm: the digest is the deliverable and it does not care that the
+# fold that produced it also compiled the kernels, so one fold does instead of two.
+rows_out = [{"fold_s": round(w, 4), "plddt": m.get("plddt"), "cif": c, "stages": st_}] if REPS == 0 else []
 for i in range(REPS):
     w, m, c, st_ = fold_once()
     rows_out.append({"fold_s": round(w, 4), "plddt": m.get("plddt"), "cif": c, "stages": st_})
@@ -248,6 +263,11 @@ dump()
 # Did the gate actually fire? A declined shard runs the ordinary path and writes the ordinary
 # digest, which reads exactly like a shard that worked. [served, declined_windows, declined_device].
 OUT["shard_stats"] = list(T.ATOM_WINDOW_SHARD_STATS)
+OUT["break_count"] = list(T.ATOM_WINDOW_SHARD_BREAK_COUNT)
+log(f"break mode {BREAK!r} applied {OUT['break_count'][0]} times")
+assert (OUT["break_count"][0] > 0) == bool(BREAK), (
+    f"break mode {BREAK!r} but it fired {OUT['break_count'][0]} times -- a control that did not "
+    "fire looks exactly like a control the code survived")
 log(f"atom window shard stats [served, declined_windows, declined_device] = {OUT['shard_stats']}")
 assert (OUT["shard_stats"][0] > 0) == (MODE == "shard"), (
     f"mode {MODE} but shard stats {OUT['shard_stats']}")

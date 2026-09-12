@@ -1116,6 +1116,14 @@ ATOM_HALO_WINDOWS = 2     # 2 * ATOM_WINDOW = 64 >= the 48 rows a window's key r
 # path and writes the ordinary digest, which is indistinguishable from a shard that worked -- so
 # the gate counts itself and the harness reads the counter.
 ATOM_WINDOW_SHARD_STATS = [0, 0, 0]
+# Deliberately-broken shard, for negative controls only. A bit-exactness check that cannot be made
+# to FAIL has not tested anything, and the way this shard fails silently is a dropped collective:
+# drop the per-layer halo exchange and every op still runs, at its own shape, faster, and wrong
+# only at the slab edges. "halo" drops it; "perturb" scales the slab by 1 + 2**-8 (exact in bf16)
+# to show the digest responds to the sharded path at all. Counted, because a control that did not
+# fire looks exactly like a control the code survived.
+ATOM_WINDOW_SHARD_BREAK = os.environ.get("TT_BIO_ATOM_WINDOW_SHARD_BREAK", "")
+ATOM_WINDOW_SHARD_BREAK_COUNT = [0]
 
 # Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
 # DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
@@ -9421,6 +9429,11 @@ class _AtomWindowShard:
         """(1, NW_local, W, D) on each device -> (1, NW_local + 2*halo, W, D) with the
         neighbour's edge windows in place. One all_gather of 4 windows per layer."""
         h = ATOM_HALO_WINDOWS
+        if ATOM_WINDOW_SHARD_BREAK == "halo":
+            # The negative control: no exchange at all, so each slab sees zeros where its
+            # neighbour's rows belong. Every op still runs at its own shape.
+            ATOM_WINDOW_SHARD_BREAK_COUNT[0] += 1
+            return ttnn.concat([self.pad, s, self.pad], dim=1)
         edge = ttnn.concat([s[:, :h], s[:, -h:]], dim=1)
         allg = ttnn.all_gather(edge, dim=1)
         lefts, rights = [], []
@@ -9438,7 +9451,20 @@ class _AtomWindowShard:
         for layer in transformer.layers:
             layer.attn_pair_bias.key_source = self._key_source
         try:
-            out = transformer(ttnn.mesh_partition(a, dim=1), s, z, self.keys_indexing,
+            slab = ttnn.mesh_partition(a, dim=1)
+            if ATOM_WINDOW_SHARD_BREAK == "perturb":
+                # 2**-7, and half the channels rather than all of them. Both parts were learned
+                # the hard way. 1 + 2**-8 is NOT representable in bfloat16 -- 7 explicit mantissa
+                # bits put the first step above 1.0 at 2**-7 -- so it rounds to exactly 1.0 and
+                # the "perturbation" multiplies by one: it fired 400 times per fold at both mesh
+                # widths and the fold wrote the unperturbed digest, which reads as a passing
+                # bit-exactness check. And a scale applied to ALL channels is removed by the
+                # first AdaLN anyway, so the perturbation has to change the vector's direction.
+                ATOM_WINDOW_SHARD_BREAK_COUNT[0] += 1
+                d = slab.shape[-1] // 2
+                slab = ttnn.concat([ttnn.multiply(slab[..., :d], 1.0 + 2 ** -7),
+                                    slab[..., d:]], dim=-1)
+            out = transformer(slab, s, z, self.keys_indexing,
                               large_seq_len=large_seq_len)
         finally:
             for layer in transformer.layers:
