@@ -154,9 +154,9 @@ def main() -> int:
     import torch
     torch.set_grad_enabled(False)
     import ttnn
+    import step_probe                 # first: it puts scripts/gpu_vs_tt on sys.path
     import tt_bio.tenstorrent as T
     import tt_baseline as B
-    import step_probe
 
     step_probe.OUT_PATH = a.out.with_suffix(".grab.json")
     step_probe.OUT = {"env": {
