@@ -189,13 +189,16 @@ def main() -> int:
     if args.negctl:
         # The negative control the brief demands: make the FUSED path compute something else and
         # show the CIF sha moves. Without this, equal shas are not evidence.
+        # The scale is 1 + 2**-6, not the 1 + 2**-10 this first tried: the bias is bf16, whose
+        # mantissa is 8 bits, so a 2**-10 perturbation rounds straight back to the original tile
+        # and the control passed for the same reason the reference fixture did.
         real = K.qkvgb_heads
         def broken(*a, **kw):
             r = real(*a, **kw)
             if r is None:
                 return None
             qkv, gate, bias = r
-            return qkv, gate, ttnn.multiply(bias, 1.0 + 2 ** -10)
+            return qkv, gate, ttnn.multiply(bias, 1.0 + 2 ** -6)
         K.qkvgb_heads = broken
         try:
             r = fold("all3", args.cifdir / "negctl", tag="_negctl")
