@@ -82,8 +82,10 @@ def main():
     kvw = ttnn.from_torch(torch.randn(D, 2 * D) * 0.05, layout=ttnn.TILE_LAYOUT,
                           dtype=ttnn.bfloat16, device=dev)
 
+    plan = T._atom_window_plan((B, K, W, D), ki_tt)
+
     def win(x):
-        return T._atom_key_window(x, ki_tt)
+        return T._atom_window_gather(x, plan)
 
     def lin(x, w):
         return ttnn.linear(x, w, compute_kernel_config=ckc, core_grid=T.CORE_GRID_MAIN,

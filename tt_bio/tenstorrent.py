@@ -1098,14 +1098,15 @@ _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
 _ATOM_KEY_WINDOW = env_flag("TT_BIO_ATOM_KEY_WINDOW", False)
 
 
-def _atom_key_window(s: ttnn.Tensor, keys_indexing: ttnn.Tensor) -> ttnn.Tensor | None:
-    """`single_to_keys` as a window. Returns None when the geometry is not the sliding one.
+def _atom_window_plan(shape, keys_indexing: ttnn.Tensor):
+    """The sliding-window geometry, or None when this is not it.
 
     Gated on shape alone -- the query window W, the key window H and the indexing matrix the
     caller was handed -- so every model whose atom attention has this geometry takes it and no
-    model name appears anywhere in the condition.
+    model name appears anywhere in the condition. The plan does not depend on the channel count,
+    which is what lets the gather be applied to a projection of `s` as readily as to `s` itself.
     """
-    B, K, W, D = s.shape
+    B, K, W, _D = shape
     W, H = int(W), ATOM_DIM
     if W != ATOM_WINDOW or W % 2 or H % W or (H // (W // 2)) % 2 or H < W:
         return None
@@ -1119,6 +1120,14 @@ def _atom_key_window(s: ttnn.Tensor, keys_indexing: ttnn.Tensor) -> ttnn.Tensor 
     back = n_blk * W - K * W - front
     if back < 0:
         return None
+    return {"K": int(K), "W": W, "n_chunk": n_chunk, "front": front, "back": back, "n_blk": n_blk}
+
+
+def _atom_window_gather(s: ttnn.Tensor, plan: dict) -> ttnn.Tensor:
+    """Gather `s` (B, K, W, D) into its (B, K, H, D) key windows under a plan."""
+    B, K, W, D = s.shape
+    K, W = plan["K"], plan["W"]
+    n_chunk, front, back, n_blk = plan["n_chunk"], plan["front"], plan["back"], plan["n_blk"]
     flat = ttnn.reshape(s, (B, 1, K * W, D))
     # Tile-layout pad cannot pad the FRONT of a tensor, so the one sub-tile op in the whole
     # construction goes through ROW_MAJOR. Everything after it is tile-aligned.
@@ -1130,6 +1139,21 @@ def _atom_key_window(s: ttnn.Tensor, keys_indexing: ttnn.Tensor) -> ttnn.Tensor 
     out = ttnn.concat([p[:, c:c + K] for c in range(n_chunk)], dim=2)
     ttnn.deallocate(p)
     return out
+
+
+# The same window, moved to the other side of the K/V projection. Each atom sits in exactly
+# H/W = 4 key windows, so projecting the GATHERED tensor runs the projection four times over
+# every atom: 17920 rows at 512 aa where the atom axis has 4480. A linear is per-row, so
+# `linear(gather(s)) == gather(linear(s))` value for value, and the second form is the one that
+# projects each atom once. It pays for that by gathering 2 * n_heads * head_dim channels instead
+# of D_S; at boltz-2's atom geometry that is 256 against 128.
+#
+# Measured off-fold at the production shape on WH card 9, bf16, HiFi4 (perf/b2z2_atom_next/
+# atom_probe_wh_c9.json): the K/V matmul falls 254.87 -> 66.78 us and the gather grows
+# 169.64 -> 281.28 us, so the pair falls 422.97 -> 348.06 us, 1.21523x, six times a step.
+# **Bit-exact: torch.equal, max abs 0.0**, with a negative control that correctly differs.
+# Requires the window: with TT_BIO_ATOM_KEY_WINDOW off there is no gather to move across.
+_ATOM_KV_PREPROJ = env_flag("TT_BIO_ATOM_KV_PREPROJ", False)
 
 # ON by default since 2026-09-11. It sizes the atom axis on the real atom count
 # (ceil(N/448)*448 = 4480 at 512 aa) instead of padded_seq * 14 = 7168, so the atom transformer
@@ -7137,8 +7161,25 @@ class AttentionPairBias(Module):
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
-            s_kv = _atom_key_window(s, keys_indexing) if _ATOM_KEY_WINDOW else None
-            if s_kv is None:
+            plan = (_atom_window_plan(s.shape, keys_indexing)
+                    if _ATOM_KEY_WINDOW else None)
+            # Project once per atom and gather the projection, rather than gathering the atoms
+            # and projecting each of them H/W times. Same values, a quarter of the matmul.
+            kv = None
+            if plan is not None and _ATOM_KV_PREPROJ:
+                kv_flat = ttnn.linear(
+                    s,
+                    self.kv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                )
+                kv = _atom_window_gather(kv_flat, plan)
+                ttnn.deallocate(kv_flat)
+                s_kv = None
+            elif plan is not None:
+                s_kv = _atom_window_gather(s, plan)
+            else:
                 s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
                 s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
                 s_kv = ttnn.matmul(
@@ -7158,13 +7199,14 @@ class AttentionPairBias(Module):
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
             )
-            kv = ttnn.linear(
-                s_kv,
-                self.kv_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-                dtype=_dtype(),
-            )
+            if kv is None:
+                kv = ttnn.linear(
+                    s_kv,
+                    self.kv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                )
 
             if self.kq_norm:
                 q, kv = self._apply_kq_norm_atom(q, kv)
