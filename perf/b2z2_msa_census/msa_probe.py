@@ -1,0 +1,331 @@
+#!/usr/bin/env python3
+"""One settled `MSALayer.__call__`, grabbed out of a real 512 aa fold and replayed.
+
+The MSA track is the only block of the fold nobody has taken apart per program. Its cost is
+`139.47 ms + 0.0995 ms/padded row` (CONTEXT §2-CORRECTION, CONTESTED), and the row-independent
+139.47 ms is the same SHAPE as the diffusion step's per-program constant. Whether it is the same
+MECHANISM is what this harness exists to answer, with the same instruments the step was answered
+with: `b2z2_sampler_stall/stall_split.py` for the CB split and the three-model fit, and
+`b2z2_step_fusion/site_cost.py` to put a microsecond on each line of `tenstorrent.py`.
+
+Modes:
+  ops    graph-capture one call and print the ordered top-level ttnn op list, so a lever can be
+         picked off the real sequence instead of an op-code histogram that has lost the order.
+  time   replay the call `--reps` times with the profiler OFF, report the synced wall. A span may
+         only be taken here: the profiler inflates gaps (3.81x on the 1066-program diffusion step)
+         and leaves kernels alone.
+  prof   the same replay, laid out for a profiler-armed capture: warm, sync, fence, exactly
+         `--reps` calls, sync, fence. `stall_split.py` windows on the last two fence runs and
+         divides by `--reps`, so this mode must not run any other device work in between.
+  fold   a real fold at the full protocol (200 sampling steps, 3 recycles, full MSA depth), with
+         every `MSALayer.__call__` and every `MSA.__call__` bracketed by a device sync. This is
+         what settles the CONTESTED fit: the padded row count the fixture actually carries and the
+         track's measured share of the fold.
+
+The grab follows `perf/b2z2_step_fusion/step_probe.py`: patch the class, take the arguments of a
+settled call, abort the precursor fold with a sentinel. The MSA module runs first in the trunk, so
+the precursor is short. Replay is safe without re-cloning because at 512 tokens on Wormhole
+`S <= SEQ_LEN_MORE_CHUNKING` and the whole path is in-place: `add_` returns its own operand and
+`PairformerLayer` only ever adds into `z`. The returned pair is fed back in so the replay is a
+steady state rather than 10 calls on the same values; a bf16 program's cycle count does not depend
+on its values.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import statistics as st
+import sys
+import time
+from collections import defaultdict
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
+sys.path.insert(0, str(ROOT / "perf" / "b2x_difflayer"))
+
+OUT: dict = {}
+OUT_PATH: Path | None = None
+
+FENCE_N, FENCE_DIM = 3, 32
+GRAB_CALL = 2               # second MSALayer of the first trunk pass: block 0 warmed the kernels
+
+
+class Grabbed(Exception):
+    """Unwind out of the precursor fold as soon as the call has been captured."""
+
+
+def dump():
+    if OUT_PATH:
+        OUT_PATH.write_text(json.dumps(OUT, indent=1))
+
+
+def make_fence(ttnn, dev):
+    import torch
+    t = ttnn.from_torch(torch.ones(1, 1, FENCE_DIM, FENCE_DIM), layout=ttnn.TILE_LAYOUT,
+                        dtype=ttnn.bfloat16, device=dev)
+
+    def fence():
+        for _ in range(FENCE_N):
+            ttnn.exp(t)
+        ttnn.synchronize_device(dev)
+    return fence
+
+
+def patch_cfg():
+    snap = list(sys.path)
+    sys.path.insert(0, str(ROOT / "perf" / "other512"))
+    from fold_ab_multi import patch_boltz2_cfg
+    sys.path[:] = snap
+    patch_boltz2_cfg()
+
+
+def build(ttnn, T, B, size, recycles):
+    B.RECYCLING_STEPS = recycles
+    B.SAMPLING_STEPS = 200
+    patch_cfg()
+    T.get_device(trace_region_size=512 << 20)
+    fix = ROOT / "perf" / "size512" / "fixtures"
+    one_fold, meta, _state = B.build_fold(
+        "boltz2", HERE / f".msa_{size}", fix / f"cdk2x2_{size}.yaml", fix / f"cdk2x2_{size}.a3m")
+    OUT["env"].update({k: meta[k] for k in ("hardware", "grid", "card_type") if k in meta})
+    dump()
+    return one_fold, T.get_device()
+
+
+def grab(ttnn, T, B, size):
+    """Run the precursor fold and return the settled `MSALayer.__call__` and its operands."""
+    one_fold, dev = build(ttnn, T, B, size, recycles=1)
+    grabs, counts = {}, {"n": 0}
+    cls = T.MSALayer
+    orig = cls.__dict__["__call__"]
+
+    def clone(x):
+        return ttnn.clone(x) if isinstance(x, ttnn.Tensor) else x
+
+    def wrapper(self_obj, *args, **kw):
+        counts["n"] += 1
+        if counts["n"] >= GRAB_CALL and not grabs:
+            grabs["g"] = {"obj": self_obj,
+                          "args": tuple(clone(x) for x in args),
+                          "kwargs": {k: clone(v) for k, v in kw.items()}}
+            raise Grabbed
+        return orig(self_obj, *args, **kw)
+    cls.__call__ = wrapper
+
+    t0 = time.perf_counter()
+    try:
+        one_fold()
+    except Grabbed:
+        pass
+    finally:
+        cls.__call__ = orig
+    OUT["precursor_s"] = round(time.perf_counter() - t0, 3)
+    OUT["msalayer_calls_in_precursor"] = counts["n"]
+    dump()
+    if not grabs:
+        raise SystemExit("MSALayer was never grabbed")
+    g = grabs["g"]
+    OUT["arg_shapes"] = [list(x.shape) if hasattr(x, "shape") else repr(x) for x in g["args"]]
+    m = g["args"][1]
+    OUT["padded_rows"] = int(m.shape[1])
+    OUT["tokens"] = int(m.shape[2])
+    dump()
+    return dev, g
+
+
+def replay(g, reps):
+    """`reps` back-to-back calls, feeding the returned pair forward. Returns nothing."""
+    obj, args, kw = g["obj"], list(g["args"]), g["kwargs"]
+    for _ in range(reps):
+        z, m = obj(*args, **kw)
+        args[0], args[1] = z, m
+    g["args"] = tuple(args)
+
+
+def mode_time(ttnn, dev, g, reps, blocks):
+    fence = make_fence(ttnn, dev)
+    for _ in range(3):
+        replay(g, 1)
+    ttnn.synchronize_device(dev)
+    fence()
+    walls = []
+    for _ in range(blocks):
+        t0 = time.perf_counter()
+        replay(g, reps)
+        ttnn.synchronize_device(dev)
+        walls.append((time.perf_counter() - t0) / reps)
+    fence()
+    OUT["layer"] = {"ms_per_call": round(1e3 * st.median(walls), 4),
+                    "ms_all": [round(1e3 * w, 4) for w in walls],
+                    "reps": reps, "blocks": blocks}
+    print(f"  MSALayer {OUT['layer']['ms_per_call']:.4f} ms/call  {OUT['layer']['ms_all']}",
+          flush=True)
+
+
+def mode_prof(ttnn, dev, g, reps):
+    """One fenced window of exactly `reps` calls, for `stall_split.py` to read."""
+    fence = make_fence(ttnn, dev)
+    for _ in range(3):
+        replay(g, 1)
+    ttnn.synchronize_device(dev)
+    fence()
+    t0 = time.perf_counter()
+    replay(g, reps)
+    ttnn.synchronize_device(dev)
+    armed = (time.perf_counter() - t0) / reps
+    fence()
+    OUT["env"]["reps"] = reps
+    OUT["armed_ms_per_call"] = round(1e3 * armed, 4)
+    print(f"  armed window: {reps} calls, {1e3*armed:.4f} ms/call (span, NOT a wall)", flush=True)
+
+
+def mode_ops(ttnn, dev, g):
+    from itemize import top_level_spans
+    replay(g, 1)
+    ttnn.synchronize_device(dev)
+    ttnn.graph.begin_graph_capture(ttnn.graph.RunMode.NORMAL)
+    replay(g, 1)
+    ttnn.synchronize_device(dev)
+    nodes = ttnn.graph.end_graph_capture()
+    ops, _owner = top_level_spans(nodes)
+    names = [o["name"] for o in ops]
+    by = defaultdict(int)
+    for n in names:
+        by[n] += 1
+    import gzip
+    raw = OUT_PATH.with_suffix(".graph.json.gz")
+    with gzip.open(raw, "wt") as fh:
+        json.dump(nodes, fh)
+    OUT["graph"] = raw.name
+    OUT["ops"] = {"n_top_level": len(names),
+                  "by_name": dict(sorted(by.items(), key=lambda kv: -kv[1])),
+                  "sequence": names}
+    print(f"  {len(names)} top-level ttnn ops", flush=True)
+    for k, v in sorted(by.items(), key=lambda kv: -kv[1]):
+        print(f"    {v:5d}  {k}", flush=True)
+
+
+def mode_fold(ttnn, T, B, size, folds, recycles):
+    """A real fold at the full protocol, with the MSA track bracketed by device syncs."""
+    dev_box = {}
+    layer_ms, module_ms, depths = [], [], []
+    cls, mod = T.MSALayer, T.MSA
+    o_layer, o_mod = cls.__dict__["__call__"], mod.__dict__["__call__"]
+
+    def sync():
+        d = dev_box.get("d")
+        if d is not None:
+            ttnn.synchronize_device(d)
+
+    def w_layer(self_obj, *a, **k):
+        sync()
+        t0 = time.perf_counter()
+        out = o_layer(self_obj, *a, **k)
+        sync()
+        layer_ms.append(1e3 * (time.perf_counter() - t0))
+        return out
+
+    def w_mod(self_obj, *a, **k):
+        depths.append(int(a[1].shape[1]))
+        sync()
+        t0 = time.perf_counter()
+        out = o_mod(self_obj, *a, **k)
+        sync()
+        module_ms.append(1e3 * (time.perf_counter() - t0))
+        return out
+
+    one_fold, dev = build(ttnn, T, B, size, recycles)
+    dev_box["d"] = dev
+    t0 = time.perf_counter()
+    one_fold()                                   # cold fold, discarded
+    OUT["cold_fold_s"] = round(time.perf_counter() - t0, 4)
+    dump()
+
+    cls.__call__, mod.__call__ = w_layer, w_mod
+    walls = []
+    try:
+        for i in range(folds):
+            layer_ms.clear(); module_ms.clear(); depths.clear()
+            t0 = time.perf_counter()
+            one_fold()
+            wall = time.perf_counter() - t0
+            walls.append(wall)
+            OUT.setdefault("folds", []).append({
+                "fold_s": round(wall, 4),
+                "msalayer_calls": len(layer_ms),
+                "msalayer_ms": [round(x, 3) for x in layer_ms],
+                "msalayer_total_ms": round(sum(layer_ms), 3),
+                "msa_module_calls": len(module_ms),
+                "msa_module_total_ms": round(sum(module_ms), 3),
+                "padded_rows": sorted(set(depths)),
+                "track_pct_of_fold": round(100 * sum(module_ms) / 1e3 / wall, 3)})
+            f = OUT["folds"][-1]
+            print(f"  fold {i}: {wall:.4f} s, MSA track {f['msa_module_total_ms']/1e3:.4f} s "
+                  f"({f['track_pct_of_fold']:.2f} %), {f['msalayer_calls']} MSALayer calls, "
+                  f"depth {f['padded_rows']}", flush=True)
+            dump()
+    finally:
+        cls.__call__, mod.__call__ = o_layer, o_mod
+    OUT["fold_median_s"] = round(st.median(walls), 4)
+    OUT["track_median_s"] = round(st.median([f["msa_module_total_ms"] for f in OUT["folds"]]) / 1e3, 4)
+    OUT["track_pct_median"] = round(st.median([f["track_pct_of_fold"] for f in OUT["folds"]]), 3)
+    OUT["layer_ms_median"] = round(st.median(
+        [x for f in OUT["folds"] for x in f["msalayer_ms"]]), 4)
+    print(f"  MEDIAN fold {OUT['fold_median_s']:.4f} s, track {OUT['track_median_s']:.4f} s "
+          f"= {OUT['track_pct_median']:.2f} %, MSALayer {OUT['layer_ms_median']:.4f} ms",
+          flush=True)
+
+
+def main() -> int:
+    global OUT_PATH
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--mode", required=True, choices=("ops", "time", "prof", "fold"))
+    ap.add_argument("--size", type=int, default=512)
+    ap.add_argument("--reps", type=int, default=5)
+    ap.add_argument("--blocks", type=int, default=5)
+    ap.add_argument("--folds", type=int, default=3)
+    ap.add_argument("--recycles", type=int, default=3)
+    ap.add_argument("--label", default="")
+    a = ap.parse_args()
+    OUT_PATH = a.out
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    import torch
+    torch.set_grad_enabled(False)
+    import ttnn
+    import tt_bio.tenstorrent as T
+    import tt_baseline as B
+
+    OUT["env"] = {"started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                  "card": os.environ.get("TT_VISIBLE_DEVICES"),
+                  "mode": a.mode, "size": a.size, "label": a.label,
+                  "commit": os.popen(f"git -C {ROOT} rev-parse --short HEAD").read().strip(),
+                  "profiler": os.environ.get("TT_METAL_DEVICE_PROFILER", "0"),
+                  "ttnn": getattr(ttnn, "__file__", "?"),
+                  "flags": {k: v for k, v in sorted(os.environ.items())
+                            if k.startswith("TT_BIO_") or k.startswith("B2_")},
+                  "loadavg": open("/proc/loadavg").read().split()[:3]}
+    dump()
+
+    if a.mode == "fold":
+        mode_fold(ttnn, T, B, a.size, a.folds, a.recycles)
+    else:
+        dev, g = grab(ttnn, T, B, a.size)
+        if a.mode == "ops":
+            mode_ops(ttnn, dev, g)
+        elif a.mode == "time":
+            mode_time(ttnn, dev, g, a.reps, a.blocks)
+        else:
+            mode_prof(ttnn, dev, g, a.reps)
+    dump()
+    print("DONE", a.out, flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
