@@ -1,0 +1,125 @@
+{
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "chip": "0",
+  "ttnn": "0.68.0",
+  "tokens": 512,
+  "sampling_steps": 40,
+  "recycling_steps": 3,
+  "n_msa": null,
+  "padded_depth_base": 1024,
+  "padded_depth_ladder": null,
+  "median_base_s": 34.9648,
+  "median_ladder_s": 33.4291,
+  "ratio": 1.0459,
+  "aa_floor_pct": 2.693,
+  "bit_exact": false,
+  "sha_base": [
+    "{\"cdk2x2_512.cif\": \"ab20569e846ed00a\"}"
+  ],
+  "sha_ladder": [
+    "{\"cdk2x2_512.cif\": \"e9c020f803c60e97\"}"
+  ],
+  "rows": [
+    {
+      "arm": "cold",
+      "wall_s": 36.5431,
+      "elapsed_s": 36.5431,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 33.9776,
+      "elapsed_s": 33.9776,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    },
+    {
+      "arm": "ladder",
+      "wall_s": 33.4291,
+      "elapsed_s": 33.4292,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "e9c020f803c60e97"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 36.1728,
+      "elapsed_s": 36.1729,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 35.2242,
+      "elapsed_s": 35.2242,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    },
+    {
+      "arm": "ladder",
+      "wall_s": 32.2801,
+      "elapsed_s": 32.2801,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "e9c020f803c60e97"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 34.7053,
+      "elapsed_s": 34.7053,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 34.4264,
+      "elapsed_s": 34.4264,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    },
+    {
+      "arm": "ladder",
+      "wall_s": 92.1423,
+      "elapsed_s": 92.1424,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "e9c020f803c60e97"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 114.1591,
+      "elapsed_s": 114.1592,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    }
+  ]
+}
