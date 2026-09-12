@@ -1,0 +1,395 @@
+{
+  "cell_s": 20.113,
+  "A_aa_floor": {
+    "headline_paired_median": 1.1286218027228676,
+    "n_aa_pairs": 25,
+    "floor_as_published": 1.0286005823207067,
+    "floor_with_replacement": 1.0359412153004817,
+    "floor_structure_matched_shared_numerator": 1.035472934538016,
+    "within_rep_stack_ratio_correlation": 0.6446018620730536,
+    "base_at_pos10_mean": 21.2822,
+    "base_all_mean": 21.173333333333336,
+    "base_at_pos10_mean_within_rep_quantile": 0.5166666666666667,
+    "worst_single_aa_pair": 1.1010981434973162,
+    "headline_margin_over_published_floor": 4.497174263117918,
+    "headline_margin_over_corrected_floor": 3.625913795911775
+  },
+  "B_decomposition": {
+    "session_base_median": {
+      "fold_s": 21.229,
+      "trunk_s": 10.213550000000001,
+      "sampler_s": 5.2804,
+      "remainder_s": 5.7350499999999975
+    },
+    "session_stack_median": {
+      "fold_s": 18.9055,
+      "trunk_s": 9.7594,
+      "sampler_s": 4.3181,
+      "remainder_s": 4.828
+    },
+    "load_fits": {
+      "fold": {
+        "intercept_s": 19.922821280390608,
+        "slope_s_per_load": 0.11588472365329718,
+        "r2": 0.35712226462909125
+      },
+      "trunk": {
+        "intercept_s": 10.144285952372924,
+        "slope_s_per_load": 0.006313660855689253,
+        "r2": 0.376522236688861,
+        "share_of_load_penalty_pct": 5.448225319653352
+      },
+      "sampler": {
+        "intercept_s": 5.138816145698886,
+        "slope_s_per_load": 0.01195816152050593,
+        "r2": 0.1082802749904771,
+        "share_of_load_penalty_pct": 10.319014572000228
+      },
+      "remainder": {
+        "intercept_s": 4.639719182318792,
+        "slope_s_per_load": 0.09761290127710198,
+        "r2": 0.3575616613055961,
+        "share_of_load_penalty_pct": 84.23276010834641
+      }
+    },
+    "loadavg_at_which_base_folds_in_cell_s": 1.641102585517371,
+    "split_at_cell_measured": {
+      "fold": 20.113,
+      "trunk": 10.154647317527274,
+      "sampler": 5.158440715488223,
+      "remainder": 4.799911966984497
+    },
+    "split_as_published": {
+      "trunk": 10.22,
+      "sampler": 5.365,
+      "remainder": 4.527999999999999
+    },
+    "step_wall_ms_from_this_session": 26.402,
+    "where_the_stack_saving_lands": {
+      "trunk_s": 0.45415000000000205,
+      "sampler_s": 0.9622999999999999,
+      "remainder_s": 0.9070499999999972,
+      "trunk_ratio": 1.0465346230301045,
+      "sampler_ratio": 1.222852643523772
+    },
+    "silu_predicted_trunk_saving_s": 0.475809134667017
+  },
+  "C_composition": {
+    "bh_step_census": {
+      "atom_tracks_ms": 6.0538,
+      "kernel_ms": 22.015239,
+      "step_wall_ms": 26.402,
+      "atom_pct_of_kernel": 27.498225206639816,
+      "atom_pct_of_wall": 22.92932353609575,
+      "exposed_dispatch_ms": 4.386761,
+      "exposed_dispatch_pct_of_wall": 16.61526020756003
+    },
+    "wh_step_census": {
+      "atom_ms": 12.34,
+      "kernel_ms": 40.366,
+      "atom_pct_of_kernel": 30.570281920428084
+    },
+    "sampler_step_ratios": {
+      "2": {
+        "wh_kernel_basis_as_published": 1.1335328077689992,
+        "bh_kernel_basis": 1.118523424424608,
+        "bh_wall_basis": 1.0969217709999397
+      },
+      "4": {
+        "wh_kernel_basis_as_published": 1.2277923117833198,
+        "bh_kernel_basis": 1.2003156284789294,
+        "bh_wall_basis": 1.161652394907036
+      },
+      "cap": {
+        "wh_kernel_basis_as_published": 1.323762601217451,
+        "bh_kernel_basis": 1.2820505436653198,
+        "bh_wall_basis": 1.2246588282542723
+      }
+    },
+    "post_stack_split_measured": {
+      "trunk_s": 9.700497317527272,
+      "sampler_s": 4.196140715488223,
+      "remainder_s": 3.8928619669844995,
+      "total_s": 17.789499999999997,
+      "implied_stack_ratio": 1.1306107535343883
+    },
+    "wh_to_bh_trunk_shard_calibration": 1.0716797167744243,
+    "routes": [
+      {
+        "route": "trunk shard N=2",
+        "block_ratio": 1.3422,
+        "step_ratio": 1.0,
+        "fold_ratio_corrected": 1.3131749541247189,
+        "fold_s": 15.316314050023959,
+        "fold_ratio_calibrated": 1.300964076204167,
+        "fold_s_calibrated": 15.460073316308515,
+        "published_range": [
+          1.311,
+          1.322
+        ]
+      },
+      {
+        "route": "trunk shard N=4",
+        "block_ratio": 1.6404,
+        "step_ratio": 1.0,
+        "fold_ratio_corrected": 1.4363865898377581,
+        "fold_s": 14.002497755337433,
+        "fold_ratio_calibrated": 1.4159346534992991,
+        "fold_s_calibrated": 14.20475157542993,
+        "published_range": null
+      },
+      {
+        "route": "trunk shard N=8",
+        "block_ratio": 1.9424,
+        "step_ratio": 1.0,
+        "fold_ratio_corrected": 1.5373290375316477,
+        "fold_s": 13.083080790754888,
+        "fold_ratio_calibrated": 1.510125526120934,
+        "fold_s_calibrated": 13.31876036269935,
+        "published_range": [
+          1.536,
+          1.564
+        ]
+      },
+      {
+        "route": "trunk shard cap, measured link",
+        "block_ratio": 2.299,
+        "step_ratio": 1.0,
+        "fold_ratio_corrected": 1.634081348657506,
+        "fold_s": 12.308444751862575,
+        "fold_ratio_calibrated": 1.6004065210968086,
+        "fold_s_calibrated": 12.5674319211196,
+        "published_range": [
+          1.633,
+          1.67
+        ]
+      },
+      {
+        "route": "trunk shard cap, FREE link",
+        "block_ratio": 2.99,
+        "step_ratio": 1.0,
+        "fold_ratio_corrected": 1.7746791587163315,
+        "fold_s": 11.333316166595555,
+        "fold_ratio_calibrated": 1.73160039167038,
+        "fold_s_calibrated": 11.615266488013491,
+        "published_range": [
+          1.83,
+          1.83
+        ]
+      },
+      {
+        "route": "both shards N=2",
+        "block_ratio": 1.3422,
+        "step_ratio": 1.0969217709999397,
+        "fold_ratio_corrected": 1.3457516003010037,
+        "fold_s": 14.945551612571988,
+        "fold_ratio_calibrated": 1.3313618206667897,
+        "fold_s_calibrated": 15.107087861304862,
+        "published_range": [
+          1.357,
+          1.366
+        ]
+      },
+      {
+        "route": "both shards N=4",
+        "block_ratio": 1.6404,
+        "step_ratio": 1.161652394907036,
+        "fold_ratio_corrected": 1.498892482882973,
+        "fold_s": 13.418574200408699,
+        "fold_ratio_calibrated": 1.4742598154547266,
+        "fold_s_calibrated": 13.642778422876747,
+        "published_range": [
+          1.523,
+          1.539
+        ]
+      },
+      {
+        "route": "both shards at caps",
+        "block_ratio": 2.299,
+        "step_ratio": 1.2246588282542723,
+        "fold_ratio_corrected": 1.743093769841815,
+        "fold_s": 11.538679299981231,
+        "fold_ratio_calibrated": 1.7021276038774156,
+        "fold_s_calibrated": 11.816387886656061,
+        "published_range": [
+          1.789,
+          1.822
+        ]
+      },
+      {
+        "route": "both shards at caps, FREE link",
+        "block_ratio": 2.99,
+        "step_ratio": 1.2246588282542723,
+        "fold_ratio_corrected": 1.9039999469102886,
+        "fold_s": 10.56355071471421,
+        "fold_ratio_calibrated": 1.8522715083946852,
+        "fold_s_calibrated": 10.85855929265543,
+        "published_range": null
+      }
+    ]
+  },
+  "D_trunk_closed": {
+    "wh_trace_total_gb": 7.416881152,
+    "bh_census_total_gb": 8.0493,
+    "removable_gb": 0.416333824,
+    "removable_pct_of_bh_census": 5.172298510429478,
+    "removable_pct_of_wh_trace": 5.613327427900519,
+    "byte_cut_needed_for_movement_free_pct": 27.674898189904717,
+    "unit_check": {
+      "census_bytes_are_decimal": true,
+      "roof_is_decimal_gbps": "roofs_bh.py line 55: 2*nbytes/(ms*1e-3)/1e9",
+      "verdict": "no unit slip: both sides decimal"
+    },
+    "roof_sensitivity": {
+      "clone 64 MiB": {
+        "gbps": 382.9,
+        "block_floor_ms": 21.021937842778797,
+        "block_ratio": 1.7288510827028434,
+        "block_ratio_after_every_removable_byte": 1.8231498344320711
+      },
+      "clone 128 MiB (quoted)": {
+        "gbps": 390.7,
+        "block_floor_ms": 20.602252367545432,
+        "block_ratio": 1.7640692557116768,
+        "block_ratio_after_every_removable_byte": 1.8602889535456
+      },
+      "clone 192 MiB": {
+        "gbps": 396.2,
+        "block_floor_ms": 20.31625441696113,
+        "block_ratio": 1.78890258283329,
+        "block_ratio_after_every_removable_byte": 1.8864767939461646
+      },
+      "clone 256 MiB": {
+        "gbps": 395.9,
+        "block_floor_ms": 20.331649406415767,
+        "block_ratio": 1.787548037717565,
+        "block_ratio_after_every_removable_byte": 1.8850483662879522
+      },
+      "add 2r+1w": {
+        "gbps": 429.9,
+        "block_floor_ms": 18.723656664340545,
+        "block_ratio": 1.9410631508329916,
+        "block_ratio_after_every_removable_byte": 2.0469368342187186
+      },
+      "campaign fitted": {
+        "gbps": 444.9,
+        "block_floor_ms": 18.092380310182065,
+        "block_ratio": 2.008790406619209,
+        "block_ratio_after_every_removable_byte": 2.1183582171293507
+      }
+    }
+  },
+  "E_atom_shard": {
+    "work_side_fit": {
+      "const_ms": 0.6178249999999998,
+      "ms_per_atom": 0.0012561060267857144,
+      "r2": 0.9986025760544502,
+      "const_pct_at_4480_atoms": 9.892829349994713
+    },
+    "time_side_fit_over_3_points": {
+      "const_ms": 1.2418349999999996,
+      "per_chip_ms": 4.969105714285715,
+      "r2": 0.9987650116822415,
+      "replicated_pct": 19.994314180840096
+    },
+    "measured": {
+      "whole_ms": 6.18572,
+      "shard2_ms": 3.80205,
+      "shard4_ms": 2.43367,
+      "ratio2": 1.62694,
+      "ratio4": 2.54386
+    },
+    "bit_exact_2": {
+      "bit_exact": true,
+      "max_abs": 0.0
+    },
+    "bit_exact_4": {
+      "bit_exact": true,
+      "max_abs": 0.0
+    },
+    "controls_2": {
+      "nohalo_differs": true,
+      "perturbed_differs": true
+    },
+    "extrapolated_cap_from_time_fit": 5.001421859011637,
+    "halo_cost_ms": 0.10079,
+    "outgather_cost_ms": 0.11602
+  },
+  "F_atom_key_window": {
+    "impls_at_production_shape": {
+      "window (TT_BIO_ATOM_KEY_WINDOW)": {
+        "max_abs": 4.21875,
+        "bad_windows": 13,
+        "first_bad": 127
+      },
+      "shift (TT_BIO_ATOM_SHIFT_GATHER)": {
+        "max_abs": 0.0,
+        "bit_exact": true
+      },
+      "onehot (shipped)": {
+        "max_abs": 0.0,
+        "bit_exact": true
+      }
+    },
+    "mechanism_confirmed": {
+      "windows_real": 129,
+      "windows_pad": 140,
+      "first_bad_is_windows_minus_2": true,
+      "bit_exact_when_no_zero_tail": true
+    },
+    "mask_neutralises_it": {
+      "with_matrix_bias_4128_atoms_bad_real_windows": [],
+      "with_matrix_bias_4100_atoms_bad_real_windows": [],
+      "without_bias_bad_real_windows": [
+        127,
+        128
+      ],
+      "verdict": "the -1e9 atom bias is load-bearing; remove it and windows 127-128 go wrong"
+    },
+    "no_cheat_check": {
+      "window_out_shape": [
+        1,
+        140,
+        128,
+        128
+      ],
+      "shift_out_shape": [
+        1,
+        140,
+        128,
+        128
+      ],
+      "same_output_extent": true,
+      "window_is_bitexact_over_all_140_real_windows": true,
+      "verdict": "both implementations produce the same 140-window output; the window impl is bit-exact when all 140 windows are real, so it computes a FULL gather and is not cheaper for doing less. Its 1.02744x against the shift gather's 1.01985x is mechanism, not skipped model work."
+    }
+  },
+  "G_page": {
+    "fixture_is_page_wide": "perf/size512/fixtures/cdk2x2_512.yaml",
+    "protocol_is_model_level": {
+      "recycles": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0,
+      "templates": "off"
+    },
+    "cells": {
+      "p150a_s": 20.113,
+      "h200_s": 7.298,
+      "gap": 2.7559605371334612
+    },
+    "host_seconds_asymmetry": {
+      "tt_host_inside_cell": true,
+      "h200_host_s": 0.24,
+      "h200_host_in_cell": false,
+      "page_says": "Two readings of the same eight rows. Whole fold counts every second a user waits for on both sides. Device only strips the host work off both sides, and it is the reading that says what the silicon does. The Tenstorrent host seconds are inside the published cell on every row; the NVIDIA ones sit outside it on the five folding rows and inside it on RoseTTAFold3, PXDesign and Nesso-1, whose cells time host and device together. Every Tenstorrent host figure is an upper bound, so every device-only ratio here is a lower bound on the real device gap. This table is Blackhole against H200 only."
+    },
+    "timed_region_note": "Each cell times what that platform's own harness times, and the regions are not identical: every Tenstorrent number is a whole prediction call with featurisation and structure writing inside it, and on NVIDIA that is true of RoseTTAFold3 and effectively true of ESMFold2, but the Boltz-2, OpenFold3, Protenix-v2 and OpenDDE cells time the network forward and leave host work outside the timer. What they leave out is 0.24 s, 0.43 s, 0.62 s and 6.31 s per prediction, which makes those four ratios larger than a like-for-like comparison would. The host and device table gives both readings for every row.",
+    "verdict_inputs": {
+      "same_fixture": true,
+      "same_protocol": true,
+      "tt_cell_includes_host_seconds": true,
+      "h200_cell_excludes_its_0_24_s_host": true
+    }
+  }
+}

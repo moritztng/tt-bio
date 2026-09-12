@@ -1,0 +1,2139 @@
+{
+ "what": "Boltz-2 512aa diffusion sampler: one step's 22.015 ms device kernel time attributed to the three tracks",
+ "produced_by": "b2z2-sharded-sampler, CPU-only re-derivation; no device opened",
+ "sources": {
+  "census_json": "origin/wk/b2z2-sampler-ceiling-map:perf/b2z2_sampler_map/src/kc_step_census.json (field ops[].kernel_ns, 1066 entries, sum=22.015239 ms; median_ms.kernel_ms=22.02521)",
+  "shapes_csv": "origin/wk/b2z2-sampler-ceiling-map:perf/b2z2_sampler_map/src/kc_ops_perf_step_qb2c0.csv.gz (columns INPUT_n_{W,Z,Y,X}_PAD[LOGICAL])",
+  "join": "census op-code sequence (1066) located verbatim in the CSV; 7 occurrences; last used, identical to step_map.py's join",
+  "model_source": "tt_bio/tenstorrent.py @ same worktree: DiffusionTransformerLayer L8437, AdaLN L8266, ConditionedTransitionBlock L8360, AttentionPairBias L6690, Transition L~7171"
+ },
+ "card": "qb2 card 0, Blackhole p300c, 11x10 = 110 worker cores, ttnn 0.68.0",
+ "method": "program-order segmentation by exact (op_code, in0, in1, out0) signature periodicity. Self-checking: 24 byte-identical periods of 34 programs (token DiT) and 6 byte-identical periods of 36 programs (3 atom encoder + 3 atom decoder layers, the two 36-op signatures are equal). 24*34 + 6*36 + 34 glue = 1066 exactly.",
+ "total_kernel_ms": 22.015239,
+ "tracks": {
+  "token_transformer_24L": {
+   "span": [
+    134,
+    950
+   ],
+   "programs": 816,
+   "ms_per_step": 15.3762,
+   "pct_of_kernel": 69.843,
+   "layers": 24,
+   "programs_per_layer": 34,
+   "ms_per_layer": 0.6407,
+   "us_per_layer": 640.67
+  },
+  "atom_encoder_3L": {
+   "span": [
+    2,
+    110
+   ],
+   "programs": 108,
+   "ms_per_step": 3.0228,
+   "pct_of_kernel": 13.73,
+   "layers": 3,
+   "programs_per_layer": 36
+  },
+  "atom_decoder_3L": {
+   "span": [
+    956,
+    1064
+   ],
+   "programs": 108,
+   "ms_per_step": 3.031,
+   "pct_of_kernel": 13.768,
+   "layers": 3,
+   "programs_per_layer": 36
+  },
+  "glue_other": {
+   "programs": 34,
+   "ms_per_step": 0.5852,
+   "pct_of_kernel": 2.658,
+   "parts": {
+    "atom_input_proj_[0,2)": {
+     "span": [
+      0,
+      2
+     ],
+     "programs": 2,
+     "ms_per_step": 0.0234,
+     "pct_of_kernel": 0.106
+    },
+    "atom_to_token_aggregation_plus_t_conditioning_[110,134)": {
+     "span": [
+      110,
+      134
+     ],
+     "programs": 24,
+     "ms_per_step": 0.459,
+     "pct_of_kernel": 2.085
+    },
+    "token_to_atom_broadcast_[950,956)": {
+     "span": [
+      950,
+      956
+     ],
+     "programs": 6,
+     "ms_per_step": 0.0724,
+     "pct_of_kernel": 0.329
+    },
+    "final_layernorm_plus_out_linear_[1064,1066)": {
+     "span": [
+      1064,
+      1066
+     ],
+     "programs": 2,
+     "ms_per_step": 0.0304,
+     "pct_of_kernel": 0.138
+    }
+   }
+  }
+ },
+ "headline": {
+  "token_transformer_ms": 15.3762,
+  "token_transformer_pct": 69.84,
+  "everything_else_ms": 6.6391,
+  "everything_else_pct": 30.16,
+  "atom_tracks_combined_ms": 6.0538,
+  "atom_tracks_combined_pct": 27.5
+ },
+ "token_layer": {
+  "programs": 34,
+  "ms_per_step_all_24": 15.3762,
+  "us_per_layer": 640.67,
+  "groups_ms_per_step": {
+   "attention": 6.0438,
+   "transition": 5.7497,
+   "adaln_attn": 2.3529,
+   "gate_residual": 1.2297
+  },
+  "ops": [
+   {
+    "order": 0,
+    "name": "adaLN(attn): layer_norm(a) no-affine",
+    "group": "adaln_attn",
+    "op": "LayerNormDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 14.69,
+    "ms_per_step": 0.3527,
+    "us_min": 14.51,
+    "us_max": 14.86,
+    "cores": 16
+   },
+   {
+    "order": 1,
+    "name": "adaLN(attn): layer_norm(s) affine",
+    "group": "adaln_attn",
+    "op": "LayerNormDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     32,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 16.9,
+    "ms_per_step": 0.4057,
+    "us_min": 16.85,
+    "us_max": 16.98,
+    "cores": 16
+   },
+   {
+    "order": 2,
+    "name": "adaLN(attn): s_scale linear 768x768",
+    "group": "adaln_attn",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 23.44,
+    "ms_per_step": 0.5626,
+    "us_min": 23.22,
+    "us_max": 23.67,
+    "cores": 64
+   },
+   {
+    "order": 3,
+    "name": "adaLN(attn): s_bias linear 768x768",
+    "group": "adaln_attn",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 23.0,
+    "ms_per_step": 0.552,
+    "us_min": 22.52,
+    "us_max": 23.34,
+    "cores": 64
+   },
+   {
+    "order": 4,
+    "name": "adaLN(attn): mul(a, sigmoid(s_scale))",
+    "group": "adaln_attn",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 11.26,
+    "ms_per_step": 0.2703,
+    "us_min": 11.11,
+    "us_max": 11.47,
+    "cores": 110
+   },
+   {
+    "order": 5,
+    "name": "adaLN(attn): add(a, s_bias)",
+    "group": "adaln_attn",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 8.73,
+    "ms_per_step": 0.2096,
+    "us_min": 8.57,
+    "us_max": 9.27,
+    "cores": 110
+   },
+   {
+    "order": 6,
+    "name": "attn: qkv linear 768x3072",
+    "group": "attention",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     3072
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     3072
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 39.6,
+    "ms_per_step": 0.9505,
+    "us_min": 39.33,
+    "us_max": 39.8,
+    "cores": 88
+   },
+   {
+    "order": 7,
+    "name": "attn: nlp_create_qkv_heads -> [1,16,512,64]",
+    "group": "attention",
+    "op": "NlpCreateHeadsDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     3072
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 42.56,
+    "ms_per_step": 1.0213,
+    "us_min": 42.26,
+    "us_max": 42.84,
+    "cores": 16
+   },
+   {
+    "order": 8,
+    "name": "attn: SDPA (fused, with pair bias mask)",
+    "group": "attention",
+    "op": "SDPAOperation",
+    "in0": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "in1": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "out0": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 91.48,
+    "ms_per_step": 2.1956,
+    "us_min": 90.44,
+    "us_max": 92.65,
+    "cores": 110
+   },
+   {
+    "order": 9,
+    "name": "attn: slice head_dim 64->48",
+    "group": "attention",
+    "op": "SliceDeviceOperation",
+    "in0": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 6.04,
+    "ms_per_step": 0.145,
+    "us_min": 5.92,
+    "us_max": 6.14,
+    "cores": 110
+   },
+   {
+    "order": 10,
+    "name": "attn: transpose (0,1,3,2)",
+    "group": "attention",
+    "op": "TransposeDeviceOperation",
+    "in0": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     16,
+     64,
+     512
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 6.22,
+    "ms_per_step": 0.1492,
+    "us_min": 6.1,
+    "us_max": 6.37,
+    "cores": 110
+   },
+   {
+    "order": 11,
+    "name": "attn: reshape -> [1,1,768,512]",
+    "group": "attention",
+    "op": "ReshapeViewDeviceOperation",
+    "in0": [
+     1,
+     16,
+     64,
+     512
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     1,
+     768,
+     512
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 21.73,
+    "ms_per_step": 0.5215,
+    "us_min": 21.64,
+    "us_max": 21.83,
+    "cores": 110
+   },
+   {
+    "order": 12,
+    "name": "attn: transpose -> [1,1,512,768]",
+    "group": "attention",
+    "op": "TransposeDeviceOperation",
+    "in0": [
+     1,
+     1,
+     768,
+     512
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 4.75,
+    "ms_per_step": 0.1139,
+    "us_min": 4.6,
+    "us_max": 4.86,
+    "cores": 110
+   },
+   {
+    "order": 13,
+    "name": "attn: g gate linear 768x768",
+    "group": "attention",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 14.14,
+    "ms_per_step": 0.3394,
+    "us_min": 13.73,
+    "us_max": 14.66,
+    "cores": 64
+   },
+   {
+    "order": 14,
+    "name": "attn: mul(o, sigmoid(g))",
+    "group": "attention",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 11.13,
+    "ms_per_step": 0.2671,
+    "us_min": 10.96,
+    "us_max": 11.29,
+    "cores": 110
+   },
+   {
+    "order": 15,
+    "name": "attn: out proj o_weight 768x768",
+    "group": "attention",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 14.18,
+    "ms_per_step": 0.3403,
+    "us_min": 13.76,
+    "us_max": 14.72,
+    "cores": 64
+   },
+   {
+    "order": 16,
+    "name": "layer: s_o output_projection linear (sigmoid) 768x768",
+    "group": "gate_residual",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 24.72,
+    "ms_per_step": 0.5932,
+    "us_min": 24.47,
+    "us_max": 25.12,
+    "cores": 64
+   },
+   {
+    "order": 17,
+    "name": "layer: mul(s_o, b)",
+    "group": "gate_residual",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 9.17,
+    "ms_per_step": 0.2201,
+    "us_min": 8.92,
+    "us_max": 9.49,
+    "cores": 110
+   },
+   {
+    "order": 18,
+    "name": "layer: residual add(a, b)",
+    "group": "gate_residual",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 8.69,
+    "ms_per_step": 0.2086,
+    "us_min": 8.47,
+    "us_max": 9.03,
+    "cores": 110
+   },
+   {
+    "order": 19,
+    "name": "transition adaLN: layer_norm(a) no-affine",
+    "group": "transition",
+    "op": "LayerNormDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 14.71,
+    "ms_per_step": 0.353,
+    "us_min": 14.45,
+    "us_max": 15.01,
+    "cores": 16
+   },
+   {
+    "order": 20,
+    "name": "transition adaLN: layer_norm(s) affine",
+    "group": "transition",
+    "op": "LayerNormDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     32,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 16.9,
+    "ms_per_step": 0.4056,
+    "us_min": 16.84,
+    "us_max": 16.95,
+    "cores": 16
+   },
+   {
+    "order": 21,
+    "name": "transition adaLN: s_scale linear 768x768",
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 23.33,
+    "ms_per_step": 0.56,
+    "us_min": 23.1,
+    "us_max": 23.51,
+    "cores": 64
+   },
+   {
+    "order": 22,
+    "name": "transition adaLN: s_bias linear 768x768",
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 23.0,
+    "ms_per_step": 0.5519,
+    "us_min": 22.59,
+    "us_max": 23.36,
+    "cores": 64
+   },
+   {
+    "order": 23,
+    "name": "transition adaLN: mul(a, sigmoid(s_scale))",
+    "group": "transition",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 10.94,
+    "ms_per_step": 0.2626,
+    "us_min": 10.89,
+    "us_max": 11.11,
+    "cores": 110
+   },
+   {
+    "order": 24,
+    "name": "transition adaLN: add(a, s_bias)",
+    "group": "transition",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 9.01,
+    "ms_per_step": 0.2163,
+    "us_min": 8.69,
+    "us_max": 9.27,
+    "cores": 110
+   },
+   {
+    "order": 25,
+    "name": "transition: swish linear 768x1536",
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     1536
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 21.93,
+    "ms_per_step": 0.5263,
+    "us_min": 21.69,
+    "us_max": 22.12,
+    "cores": 80
+   },
+   {
+    "order": 26,
+    "name": "transition: gates linear 768x1536",
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     1536
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 21.91,
+    "ms_per_step": 0.5258,
+    "us_min": 21.67,
+    "us_max": 22.09,
+    "cores": 80
+   },
+   {
+    "order": 27,
+    "name": "transition: mul_ silu(swish)*gates",
+    "group": "transition",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 14.52,
+    "ms_per_step": 0.3486,
+    "us_min": 14.5,
+    "us_max": 14.55,
+    "cores": 110
+   },
+   {
+    "order": 28,
+    "name": "transition: a_to_b linear 768x1536",
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     1536
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 21.9,
+    "ms_per_step": 0.5256,
+    "us_min": 21.49,
+    "us_max": 22.19,
+    "cores": 80
+   },
+   {
+    "order": 29,
+    "name": "transition: mul_ (a_swish * a_b)",
+    "group": "transition",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 11.98,
+    "ms_per_step": 0.2876,
+    "us_min": 11.83,
+    "us_max": 12.21,
+    "cores": 110
+   },
+   {
+    "order": 30,
+    "name": "transition: s output_projection linear 768x768",
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     768,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 15.14,
+    "ms_per_step": 0.3634,
+    "us_min": 14.73,
+    "us_max": 15.57,
+    "cores": 64
+   },
+   {
+    "order": 31,
+    "name": "transition: b_to_a linear 1536x768",
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     1536
+    ],
+    "in1": [
+     1,
+     1,
+     1536,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 23.0,
+    "ms_per_step": 0.5521,
+    "us_min": 22.61,
+    "us_max": 23.43,
+    "cores": 64
+   },
+   {
+    "order": 32,
+    "name": "transition: mul_ sigmoid(s)*b_a",
+    "group": "transition",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 11.29,
+    "ms_per_step": 0.2709,
+    "us_min": 11.22,
+    "us_max": 11.4,
+    "cores": 110
+   },
+   {
+    "order": 33,
+    "name": "layer: residual add(a, a_t)",
+    "group": "gate_residual",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "in1": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "out0": [
+     1,
+     1,
+     512,
+     768
+    ],
+    "calls_per_step": 24,
+    "us_per_call": 8.66,
+    "ms_per_step": 0.2078,
+    "us_min": 8.43,
+    "us_max": 8.96,
+    "cores": 110
+   }
+  ]
+ },
+ "atom_layer": {
+  "programs": 36,
+  "instances_per_step": 6,
+  "us_per_layer": 1008.95,
+  "groups_ms_per_step": {
+   "windowed_kv_gather(keys_indexing)": 2.5291,
+   "attention": 1.7235,
+   "transition": 0.9736,
+   "gate_residual": 0.4053,
+   "adaLN_attn": 0.2114,
+   "adaLN_transition": 0.2112
+  },
+  "ops": [
+   {
+    "order": 0,
+    "group": "adaLN_attn",
+    "op": "CopyDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 3.86,
+    "ms_per_step": 0.0231,
+    "cores": 110
+   },
+   {
+    "order": 1,
+    "group": "adaLN_attn",
+    "op": "LayerNormDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 9.46,
+    "ms_per_step": 0.0567,
+    "cores": 110
+   },
+   {
+    "order": 2,
+    "group": "adaLN_attn",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 11.88,
+    "ms_per_step": 0.0713,
+    "cores": 110
+   },
+   {
+    "order": 3,
+    "group": "adaLN_attn",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 5.0,
+    "ms_per_step": 0.03,
+    "cores": 110
+   },
+   {
+    "order": 4,
+    "group": "adaLN_attn",
+    "op": "CopyDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 5.04,
+    "ms_per_step": 0.0303,
+    "cores": 110
+   },
+   {
+    "order": 5,
+    "group": "windowed_kv_gather(keys_indexing)",
+    "op": "ReshapeViewDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     280,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 32.21,
+    "ms_per_step": 0.1933,
+    "cores": 110
+   },
+   {
+    "order": 6,
+    "group": "windowed_kv_gather(keys_indexing)",
+    "op": "PermuteDeviceOperation",
+    "in0": [
+     1,
+     280,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     16,
+     128,
+     288
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 119.89,
+    "ms_per_step": 0.7194,
+    "cores": 110
+   },
+   {
+    "order": 7,
+    "group": "windowed_kv_gather(keys_indexing)",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     16,
+     128,
+     288
+    ],
+    "in1": [
+     1,
+     1,
+     288,
+     1120
+    ],
+    "out0": [
+     1,
+     16,
+     128,
+     1120
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 36.9,
+    "ms_per_step": 0.2214,
+    "cores": 90
+   },
+   {
+    "order": 8,
+    "group": "windowed_kv_gather(keys_indexing)",
+    "op": "PermuteDeviceOperation",
+    "in0": [
+     1,
+     16,
+     128,
+     1120
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     1120,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 125.06,
+    "ms_per_step": 0.7504,
+    "cores": 110
+   },
+   {
+    "order": 9,
+    "group": "windowed_kv_gather(keys_indexing)",
+    "op": "ReshapeViewDeviceOperation",
+    "in0": [
+     1,
+     1120,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     140,
+     128,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 107.43,
+    "ms_per_step": 0.6446,
+    "cores": 110
+   },
+   {
+    "order": 10,
+    "group": "attention",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     1,
+     128,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 16.24,
+    "ms_per_step": 0.0975,
+    "cores": 70
+   },
+   {
+    "order": 11,
+    "group": "attention",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     140,
+     128,
+     128
+    ],
+    "in1": [
+     1,
+     1,
+     128,
+     256
+    ],
+    "out0": [
+     1,
+     140,
+     128,
+     256
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 81.28,
+    "ms_per_step": 0.4877,
+    "cores": 94
+   },
+   {
+    "order": 12,
+    "group": "attention",
+    "op": "PadDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     140,
+     128,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 24.11,
+    "ms_per_step": 0.1447,
+    "cores": 110
+   },
+   {
+    "order": 13,
+    "group": "attention",
+    "op": "NlpCreateHeadsDeviceOperation",
+    "in0": [
+     140,
+     1,
+     128,
+     128
+    ],
+    "in1": [
+     140,
+     1,
+     128,
+     256
+    ],
+    "out0": [
+     140,
+     4,
+     128,
+     32
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 74.32,
+    "ms_per_step": 0.4459,
+    "cores": 110
+   },
+   {
+    "order": 14,
+    "group": "attention",
+    "op": "SliceDeviceOperation",
+    "in0": [
+     1,
+     560,
+     128,
+     32
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     560,
+     32,
+     32
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 13.7,
+    "ms_per_step": 0.0822,
+    "cores": 110
+   },
+   {
+    "order": 15,
+    "group": "attention",
+    "op": "SDPAOperation",
+    "in0": [
+     1,
+     560,
+     32,
+     32
+    ],
+    "in1": [
+     1,
+     560,
+     128,
+     32
+    ],
+    "out0": [
+     1,
+     560,
+     32,
+     32
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 51.48,
+    "ms_per_step": 0.3089,
+    "cores": 110
+   },
+   {
+    "order": 16,
+    "group": "attention",
+    "op": "NLPConcatHeadsDeviceOperation",
+    "in0": [
+     140,
+     4,
+     32,
+     32
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     140,
+     1,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 10.71,
+    "ms_per_step": 0.0643,
+    "cores": 110
+   },
+   {
+    "order": 17,
+    "group": "attention",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     1,
+     128,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 15.38,
+    "ms_per_step": 0.0923,
+    "cores": 70
+   },
+   {
+    "order": 18,
+    "group": "gate_residual",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 13.15,
+    "ms_per_step": 0.0789,
+    "cores": 110
+   },
+   {
+    "order": 19,
+    "group": "gate_residual",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     1,
+     128,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 15.61,
+    "ms_per_step": 0.0937,
+    "cores": 70
+   },
+   {
+    "order": 20,
+    "group": "gate_residual",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 9.09,
+    "ms_per_step": 0.0545,
+    "cores": 110
+   },
+   {
+    "order": 21,
+    "group": "gate_residual",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 8.67,
+    "ms_per_step": 0.052,
+    "cores": 110
+   },
+   {
+    "order": 22,
+    "group": "adaLN_transition",
+    "op": "CopyDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 3.84,
+    "ms_per_step": 0.0231,
+    "cores": 110
+   },
+   {
+    "order": 23,
+    "group": "adaLN_transition",
+    "op": "LayerNormDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 9.48,
+    "ms_per_step": 0.0569,
+    "cores": 110
+   },
+   {
+    "order": 24,
+    "group": "adaLN_transition",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 11.86,
+    "ms_per_step": 0.0712,
+    "cores": 110
+   },
+   {
+    "order": 25,
+    "group": "adaLN_transition",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 4.97,
+    "ms_per_step": 0.0298,
+    "cores": 110
+   },
+   {
+    "order": 26,
+    "group": "adaLN_transition",
+    "op": "CopyDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 5.03,
+    "ms_per_step": 0.0302,
+    "cores": 110
+   },
+   {
+    "order": 27,
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     1,
+     128,
+     256
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 24.6,
+    "ms_per_step": 0.1476,
+    "cores": 70
+   },
+   {
+    "order": 28,
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     1,
+     128,
+     256
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 24.52,
+    "ms_per_step": 0.1471,
+    "cores": 70
+   },
+   {
+    "order": 29,
+    "group": "transition",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 21.91,
+    "ms_per_step": 0.1315,
+    "cores": 110
+   },
+   {
+    "order": 30,
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     1,
+     128,
+     256
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 24.59,
+    "ms_per_step": 0.1475,
+    "cores": 70
+   },
+   {
+    "order": 31,
+    "group": "transition",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 18.1,
+    "ms_per_step": 0.1086,
+    "cores": 110
+   },
+   {
+    "order": 32,
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     1,
+     128,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 16.75,
+    "ms_per_step": 0.1005,
+    "cores": 70
+   },
+   {
+    "order": 33,
+    "group": "transition",
+    "op": "MatmulDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "in1": [
+     1,
+     1,
+     256,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 31.79,
+    "ms_per_step": 0.1908,
+    "cores": 70
+   },
+   {
+    "order": 34,
+    "group": "gate_residual",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 12.39,
+    "ms_per_step": 0.0743,
+    "cores": 110
+   },
+   {
+    "order": 35,
+    "group": "gate_residual",
+    "op": "BinaryNgDeviceOperation",
+    "in0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "in1": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "out0": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "calls_per_step": 6,
+    "us_per_call": 8.65,
+    "ms_per_step": 0.0519,
+    "cores": 110
+   }
+  ]
+ },
+ "reconciliation": {
+  "token 24*34": 816,
+  "atom 6*36": 216,
+  "glue": 34,
+  "sum": 1066,
+  "census_programs": 1066,
+  "exact": true,
+  "ms_sum_of_segments": 22.015239,
+  "census_total_ms": 22.015239
+ },
+ "shape_findings": [
+  "CONFIRMED token track [1,1,512,768]: every token-layer tensor is logical 512 x 768 with PAD==LOGICAL (no token-axis padding at 512aa).",
+  "CONFIRMED head_dim 48 -> 64, and it is MATERIALIZED, not merely tile-padded: qkv linear weight is [1,1,768,3072] with LOGICAL 3072 (=3*16*64, not 3*16*48=2304); nlp_create_qkv_heads emits [1,16,512,64] LOGICAL 64; SDPA q/k/v are all [1,16,512,64] LOGICAL 64. 16/64 = 25% of the qkv matmul and of the SDPA is arithmetic on padding. The unpad to 48 only appears one op later (Transpose in0 shows 64[48]).",
+  "CONTRADICTS the brief's N_padded ~= 7168: the atom axis is 4480 atoms = 140 windows of 32 (INPUT_0_Y_PAD[LOGICAL]='4480[4480]' on programs 0/110/953/1064). NW = 140, not 224.",
+  "Atom attention is windowed 32-query x 128-key with 4 heads and head_dim 32: SDPA in0 [1,560,32,32], in1/in2 [1,560,128,32], 560 = 140 windows * 4 heads.",
+  "41.8% of an atom layer (421.5 us of 1009 us) is the windowed K/V gather (reshape, permute, matmul vs a BFLOAT4_B keys_indexing [288,1120] one-hot, permute, reshape) -- 2.529 ms/step = 11.5% of the WHOLE step, and it does no model arithmetic.",
+  "The step's single most expensive glue program is the atom->token aggregation matmul [1,1,4480,768] x [1,1,4480,512] -> [1,1,768,512], 121.1 us."
+ ]
+}

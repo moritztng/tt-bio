@@ -1,0 +1,97 @@
+{
+  "cell_s": 20.113,
+  "cell_source": "site/data/perf-512aa.json, Boltz-2 p150a",
+  "measured_single_chip_stack": 1.12862,
+  "measured_single_chip_stack_s": 17.82087859509844,
+  "one_chip_bracket": [
+    1.35,
+    1.66
+  ],
+  "one_chip_best_supported": [
+    1.4,
+    1.49
+  ],
+  "sampler_token_axis_shards": false,
+  "sampler_atom_axis_step": {
+    "1": 1.0,
+    "2": 1.13353,
+    "4": 1.22779
+  },
+  "sampler_atom_axis_step_cap": 1.3237,
+  "trunk_s": 10.22,
+  "split_A_trunk_rest": [
+    10.22,
+    7.600878595098438
+  ],
+  "split_B_trunk_rest": [
+    9.744190865332984,
+    8.076687729765455
+  ],
+  "routes": [
+    {
+      "route": "shard N=2 (WH block, measured)",
+      "block_ratio": 1.3422,
+      "fold_lo": 1.3114420361271784,
+      "fold_hi": 1.321898040386673
+    },
+    {
+      "route": "shard N=4 (WH block, measured)",
+      "block_ratio": 1.6404,
+      "fold_lo": 1.4349190362978377,
+      "fold_hi": 1.4541901170128633
+    },
+    {
+      "route": "shard N=8 (WH block, measured)",
+      "block_ratio": 1.9424,
+      "fold_lo": 1.5361338045700104,
+      "fold_hi": 1.563703759533194
+    },
+    {
+      "route": "shard cap, measured link (any N)",
+      "block_ratio": 2.299,
+      "fold_lo": 1.6331935930960086,
+      "fold_hi": 1.6696427360977937
+    },
+    {
+      "route": "shard cap, FREE link (any N)",
+      "block_ratio": 2.99,
+      "fold_lo": 1.7743193459367854,
+      "fold_hi": 1.8253118900820047
+    },
+    {
+      "route": "+ BOTH shards, N=2 (WH, PROJECTED)",
+      "block_ratio": 1.3422,
+      "fold_lo": 1.3570987376563572,
+      "fold_hi": 1.3654749249344589
+    },
+    {
+      "route": "+ BOTH shards, N=4 (WH, PROJECTED)",
+      "block_ratio": 1.6404,
+      "fold_lo": 1.5232271887182403,
+      "fold_hi": 1.5393007648228922
+    },
+    {
+      "route": "+ BOTH shards at their caps (any N)",
+      "block_ratio": 2.299,
+      "fold_lo": 1.7887698898403763,
+      "fold_hi": 1.8221112747573678
+    }
+  ],
+  "wh_to_bh_shard_calibration": 1.0745320486447063,
+  "target_2x_s": 10.0565,
+  "byte_target": {
+    "block_ms_today": 36.3438,
+    "block_gbps_today": 221.47656546646198,
+    "byte_bound_ms": 20.602252367545432,
+    "movement_free_ms": 14.9006,
+    "block_floor_ms": 20.602252367545432,
+    "block_ratio_at_floor": 1.7640692557116768,
+    "gb_allowed_at_movement_free": 5.82166442,
+    "byte_cut_needed_pct": 27.674898189904717,
+    "byte_cut_available_pct": 5.17,
+    "gb_after_every_removable_byte": 7.63315119,
+    "byte_bound_ms_after": 19.537115920143332,
+    "block_floor_ms_after": 19.537115920143332,
+    "block_ratio_at_floor_after": 1.8602438634521532
+  }
+}
