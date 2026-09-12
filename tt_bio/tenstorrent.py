@@ -1078,6 +1078,65 @@ _SDPA_WIDE_Q = env_flag("TT_BIO_SDPA_WIDE_Q", True)
 # 160.53 us, pad in TILE 57.31 us (2.8011x). At the fold: -0.124 s at 512 aa, bit-exact.
 _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
 
+# The atom attention's key window, built as a window rather than as a one-hot matmul.
+#
+# `boltz2.get_indexing_matrix` produces a one-hot matrix whose product with the half-window view
+# of the atom sequence is, written out, a CONTIGUOUS slice:
+#
+#     s_kv[k, r, d] = flat[k*W + (W/2 - H/2) + r, d],  r = 0..H-1, zero outside the sequence
+#
+# so the key window of query window k is the H atoms starting H/2 - W/2 before it. Building it as
+# H/W tile-aligned slices of one shifted copy replaces a reshape, two permutes and the matmul.
+# Measured off-fold at the production shape [1, 140, 32, 128] bf16: chain 934.53 us, window
+# 272.425 us (3.43x), five programs down to six cheap ones.
+#
+# It is NOT bit-exact against the chain and that is the chain's problem, not this path's: the
+# window reproduces the exact gather bit for bit (torch.equal against the definition) while the
+# matmul misses it by 0.03125 max abs, identically for a bfloat4_b and a bfloat16 indexing matrix,
+# i.e. the loss is the matmul's fidelity truncating the VALUE operand and not the one-hot's dtype.
+#
+# ON by default since 2026-09-12. The fold-level structural check the paragraph above asked for was
+# taken on Blackhole and the fold is BIT-IDENTICAL to the matmul path at both sizes: cdk2x2_512
+# sha256 a91aa44441f0d9c5 = base, all-atom RMSD 0.00000 A, CA-lDDT 1.00000; cdk2x2_298 sha256
+# 0cf1b879dca3c0d5 = base. It buys 1.02744x on the 512 aa fold (19.658 -> 19.133 s, qb2 card 1,
+# benchlock, interleaved against its own base, A/A floor 1.00899x).
+# perf/b2z2_union/, state/b2z2-bh-union-clean.md.
+_ATOM_KEY_WINDOW = env_flag("TT_BIO_ATOM_KEY_WINDOW", True)
+
+
+def _atom_key_window(s: ttnn.Tensor, keys_indexing: ttnn.Tensor) -> ttnn.Tensor | None:
+    """`single_to_keys` as a window. Returns None when the geometry is not the sliding one.
+
+    Gated on shape alone -- the query window W, the key window H and the indexing matrix the
+    caller was handed -- so every model whose atom attention has this geometry takes it and no
+    model name appears anywhere in the condition.
+    """
+    B, K, W, D = s.shape
+    W, H = int(W), ATOM_DIM
+    if W != ATOM_WINDOW or W % 2 or H % W or (H // (W // 2)) % 2 or H < W:
+        return None
+    # `keys_indexing` is padded up from (2K, h*K); anything smaller is a geometry this does not
+    # describe and the caller keeps its matmul.
+    if int(keys_indexing.shape[0]) < 2 * K or int(keys_indexing.shape[1]) < (H // (W // 2)) * K:
+        return None
+    n_chunk = H // W
+    front = H // 2 - W // 2
+    n_blk = K + n_chunk - 1
+    back = n_blk * W - K * W - front
+    if back < 0:
+        return None
+    flat = ttnn.reshape(s, (B, 1, K * W, D))
+    # Tile-layout pad cannot pad the FRONT of a tensor, so the one sub-tile op in the whole
+    # construction goes through ROW_MAJOR. Everything after it is tile-aligned.
+    rm = ttnn.to_layout(flat, ttnn.ROW_MAJOR_LAYOUT)
+    rm = ttnn.pad(rm, [[0, 0], [0, 0], [front, back], [0, 0]], 0.0)
+    p = ttnn.to_layout(rm, ttnn.TILE_LAYOUT, dtype=s.dtype)
+    ttnn.deallocate(rm)
+    p = ttnn.reshape(p, (B, n_blk, W, D))
+    out = ttnn.concat([p[:, c:c + K] for c in range(n_chunk)], dim=2)
+    ttnn.deallocate(p)
+    return out
+
 # ON by default since 2026-09-11. It sizes the atom axis on the real atom count
 # (ceil(N/448)*448 = 4480 at 512 aa) instead of padded_seq * 14 = 7168, so the atom transformer
 # runs 140 windows where the token-derived pad ran 224. **1.0470x on the 512 aa fold**, 1.157x on
@@ -7084,16 +7143,18 @@ class AttentionPairBias(Module):
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
-            s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
-            s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
-            s_kv = ttnn.matmul(
-                s_kv,
-                keys_indexing,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
-            s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
-            s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
+            s_kv = _atom_key_window(s, keys_indexing) if _ATOM_KEY_WINDOW else None
+            if s_kv is None:
+                s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
+                s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
+                s_kv = ttnn.matmul(
+                    s_kv,
+                    keys_indexing,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
+                s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
+                s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
 
             q = ttnn.linear(
                 s,
