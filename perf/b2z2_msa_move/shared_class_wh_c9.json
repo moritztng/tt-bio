@@ -1,0 +1,145 @@
+{
+ "env": {
+  "started": "2026-09-12T21:58:18+0000",
+  "arch": "Arch.WORMHOLE_B0",
+  "grid": [
+   8,
+   9
+  ],
+  "l1_budget_bytes": 58371840
+ },
+ "cases": [
+  {
+   "label": "boltz2-512aa-control",
+   "depth": 1024,
+   "tokens": 512,
+   "c_z": 128,
+   "row_block": 512,
+   "blocked": true,
+   "equal_AA": true,
+   "equal_off_vs_on": true,
+   "negative_control_must_be_False": false,
+   "max_abs_diff": 0.0,
+   "out_shape": [
+    1,
+    1024,
+    512,
+    64
+   ]
+  },
+  {
+   "label": "protenix-v2-cz128",
+   "depth": 512,
+   "tokens": 512,
+   "c_z": 128,
+   "row_block": 512,
+   "blocked": false,
+   "equal_AA": true,
+   "equal_off_vs_on": true,
+   "negative_control_must_be_False": false,
+   "max_abs_diff": 0.0,
+   "out_shape": [
+    1,
+    512,
+    512,
+    64
+   ]
+  },
+  {
+   "label": "protenix-v2-cz256",
+   "depth": 1024,
+   "tokens": 384,
+   "c_z": 256,
+   "row_block": 1024,
+   "blocked": false,
+   "equal_AA": true,
+   "equal_off_vs_on": true,
+   "negative_control_must_be_False": false,
+   "max_abs_diff": 0.0,
+   "out_shape": [
+    1,
+    1024,
+    384,
+    64
+   ]
+  },
+  {
+   "label": "protenix-v2-cz384",
+   "depth": 256,
+   "tokens": 512,
+   "c_z": 384,
+   "row_block": 256,
+   "blocked": false,
+   "equal_AA": true,
+   "equal_off_vs_on": true,
+   "negative_control_must_be_False": false,
+   "max_abs_diff": 0.0,
+   "out_shape": [
+    1,
+    256,
+    512,
+    64
+   ]
+  },
+  {
+   "label": "openfold3-512aa",
+   "depth": 1024,
+   "tokens": 512,
+   "c_z": 128,
+   "row_block": 512,
+   "blocked": true,
+   "equal_AA": true,
+   "equal_off_vs_on": true,
+   "negative_control_must_be_False": false,
+   "max_abs_diff": 0.0,
+   "out_shape": [
+    1,
+    1024,
+    512,
+    64
+   ]
+  },
+  {
+   "label": "openfold3-wide",
+   "depth": 512,
+   "tokens": 768,
+   "c_z": 128,
+   "row_block": 512,
+   "blocked": false,
+   "equal_AA": true,
+   "equal_off_vs_on": true,
+   "negative_control_must_be_False": false,
+   "max_abs_diff": 0.0,
+   "out_shape": [
+    1,
+    512,
+    768,
+    64
+   ]
+  },
+  {
+   "label": "small-no-block",
+   "depth": 64,
+   "tokens": 256,
+   "c_z": 128,
+   "row_block": 64,
+   "blocked": false,
+   "equal_AA": true,
+   "equal_off_vs_on": true,
+   "negative_control_must_be_False": false,
+   "max_abs_diff": 0.0,
+   "out_shape": [
+    1,
+    64,
+    256,
+    64
+   ]
+  }
+ ],
+ "summary": {
+  "cases": 7,
+  "blocked_cases": 2,
+  "errors": [],
+  "all_bit_exact": true
+ }
+}
