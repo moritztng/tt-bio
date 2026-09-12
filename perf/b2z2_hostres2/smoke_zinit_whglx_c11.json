@@ -1,0 +1,53 @@
+{
+ "env": {
+  "started": "2026-09-12T20:28:21+0000",
+  "card": "11",
+  "commit": "09e42a0d",
+  "loadavg": [
+   "8.34",
+   "11.42",
+   "12.62"
+  ],
+  "size": 512,
+  "phases": [
+   "plain"
+  ],
+  "torch_threads": 32,
+  "torch_interop_threads": 32,
+  "gc_thresholds": [
+   700,
+   10,
+   10
+  ],
+  "instruments": {
+   "brackets": "time.perf_counter wall, no synchronize_device",
+   "sampler": "1.0 ms sys._current_frames on the main thread",
+   "gc": "gc.callbacks start/stop timing"
+  },
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "load_s": 4.09,
+  "n_msa": 35,
+  "card_type": "tt-galaxy-wh-l",
+  "recycling_steps": 3,
+  "timed_region": "predict_one (featurize + fold + CIF write)"
+ },
+ "cold_s": 41.456,
+ "plain": {
+  "a0": {
+   "wall_s": 39.4737,
+   "plddt": null,
+   "loadavg": [
+    "8.02",
+    "10.51",
+    "12.18"
+   ],
+   "cif": {
+    "cdk2x2_512.cif": "1308c9e0d7ebc6a6e32dc760b415964d3983b7690dfa039ae93bd29fb3b6af9f"
+   }
+  }
+ }
+}
