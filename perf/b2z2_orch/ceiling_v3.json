@@ -1,0 +1,58 @@
+{
+  "cell_s": 20.113,
+  "cell_source": "site/data/perf-512aa.json, Boltz-2 p150a",
+  "measured_single_chip_stack": 1.12862,
+  "measured_single_chip_stack_s": 17.82087859509844,
+  "one_chip_bracket": [
+    1.35,
+    1.66
+  ],
+  "one_chip_best_supported": [
+    1.4,
+    1.49
+  ],
+  "sampler_shards": false,
+  "trunk_s": 10.22,
+  "split_A_trunk_rest": [
+    10.22,
+    7.600878595098438
+  ],
+  "split_B_trunk_rest": [
+    9.744190865332984,
+    8.076687729765455
+  ],
+  "routes": [
+    {
+      "route": "shard N=2 (WH block, measured)",
+      "block_ratio": 1.3422,
+      "fold_lo": 1.3114420361271784,
+      "fold_hi": 1.321898040386673
+    },
+    {
+      "route": "shard N=4 (WH block, measured)",
+      "block_ratio": 1.6404,
+      "fold_lo": 1.4349190362978377,
+      "fold_hi": 1.4541901170128633
+    },
+    {
+      "route": "shard N=8 (WH block, measured)",
+      "block_ratio": 1.9424,
+      "fold_lo": 1.5361338045700104,
+      "fold_hi": 1.563703759533194
+    },
+    {
+      "route": "shard cap, measured link (any N)",
+      "block_ratio": 2.299,
+      "fold_lo": 1.6331935930960086,
+      "fold_hi": 1.6696427360977937
+    },
+    {
+      "route": "shard cap, FREE link (any N)",
+      "block_ratio": 2.99,
+      "fold_lo": 1.7743193459367854,
+      "fold_hi": 1.8253118900820047
+    }
+  ],
+  "wh_to_bh_shard_calibration": 1.0745320486447063,
+  "target_2x_s": 10.0565
+}

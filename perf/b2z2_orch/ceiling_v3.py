@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Wave 2's ceiling, third derivation -- the two measurements that superseded ceiling_v2.
+
+Host only. Opens no device, takes no new measurement, reads the published cell off the page.
+Every input below is MEASURED and names the row that measured it.
+
+What changed since `ceiling_v2.py`, and why that file must not be quoted any more:
+
+  * `b2z2-redteam-v2` REFUTED the 1.53x-1.80x single-processor bracket. The stall identity holds;
+    the regime built on it does not. "Movement free" holds the BYTES constant without saying so.
+    The Pairformer block moves 8.0493 GB of DRAM traffic per call, so its movement-free time
+    implies 540.2 GB/s from a part that measures 390.7 GB/s (ttnn.clone, read+write, same
+    currency). The 444.9 GB/s this campaign quoted everywhere is a FITTED asymptote and sits above
+    every directly measured roof. Corrected bracket: 1.35x-1.66x, best-supported 1.40x-1.49x.
+  * `b2z2-trunk-shard-scale-wh` MEASURED the shard at 2, 4 and 8 chips instead of projecting it.
+    It scales and it is bit-exact at every width, but 33.4 % of the block is replicated work that
+    no chip count removes, so the block caps at 2.299x with the measured link and 2.990x with a
+    free one -- at ANY width.
+  * `b2z2-bh-union-step` raised the measured single-chip stack from 1.09858x to 1.12862x on the
+    cell, and `b2z2-redteam-v2` re-derived the parent figure independently to within 0.17 %.
+
+The question this file answers: with everything wave 2 has MEASURED, plus an unlimited number of
+Blackhole processors, what is the best fold ratio anyone can name? It is not 2x.
+
+    python3 perf/b2z2_orch/ceiling_v3.py
+    python3 perf/b2z2_orch/ceiling_v3.py --json perf/b2z2_orch/ceiling_v3.json
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def published_cell() -> float:
+    """The ratio denominator, read from the page rather than from any state doc."""
+    d = json.loads((ROOT / "site" / "data" / "perf-512aa.json").read_text())
+    for m in d["models"]:
+        if m["name"] == "Boltz-2":
+            return float(m["cells"]["p150a"]["s_per_fold"])
+    raise SystemExit("Boltz-2 p150a cell not found in site/data/perf-512aa.json")
+
+
+CELL_S = published_cell()
+
+# -- MEASURED inputs -------------------------------------------------------------------------
+# Trunk seconds in the fold: PairformerLayer device spans, CONTEXT §2-CORRECTION (BH).
+TRUNK_S = 10.22
+# The single-chip stack on the cell: b2z2-bh-union-step, BH, paired against its own interleaved
+# base, A/A floor 1.01162x, n=10 stack / n=30 base, 65 warm folds in one process.
+STACK_RATIO = 1.12862
+# Of the stack's five levers, TT_BIO_UNFUSED_SILU is the only one acting inside the Pairformer
+# block; b2z2-bh-union-clean measured it at 1.02423x on the fold, alone, on the cell.
+SILU_FOLD_RATIO = 1.02423
+# Trunk shard, block ratios vs one chip: b2z2-trunk-shard-scale-wh, WH, 512 aa, median of 15 warm
+# reps, bit-exact at every width. Fit compute(N) = 28.679 + 58.916/N, R2 0.9964.
+SHARD_BLOCK = {1: 1.0000, 2: 1.3422, 4: 1.6404, 8: 1.9424}
+SHARD_CAP_MEASURED_LINK = 2.299   # any width, measured link
+SHARD_CAP_FREE_LINK = 2.990       # any width, link cost zero
+# The same shard, measured on a BH fold at N=2: b2z2-dual-chip-fold, corrected by b2z2-redteam-v2
+# C3 against the row's own benchlocked base (the published 1.1142x/1.1301x divided by the cell,
+# which is 1.01634x that base, and booked cross-session drift as shard win).
+SHARD_FOLD_BH_N2 = 1.0857
+# Sampler shard: b2z2-sharded-sampler, MEASURED NO-GO. 56.3 % of the token DiT does not depend on
+# token count, so a token-axis shard tops out at 1.2825x with a FREE link and measures 1.0411x
+# with the real one. No axis of a token-DiT matmul halves it.
+SAMPLER_SHARDS = False
+# Single-processor bracket after the bandwidth intersection: b2z2-redteam-v2.
+ONE_CHIP_BRACKET = (1.35, 1.66)
+ONE_CHIP_BEST_SUPPORTED = (1.40, 1.49)
+
+
+def split_stack() -> tuple[float, float, float, float]:
+    """Where the stack's seconds come off, as a bracket rather than an assumption.
+
+    The composite depends on how much of the stack's saving is already inside the trunk, because
+    the shard then has less left to divide. Two ends, both defensible:
+      A  none of it is (every lever but silu is a sampler or host lever) -> trunk untouched
+      B  all of silu's fold saving is (silu is the one lever acting inside the block)
+    """
+    stacked_s = CELL_S / STACK_RATIO
+    saved = CELL_S - stacked_s
+    rest = CELL_S - TRUNK_S
+    silu_s = CELL_S - CELL_S / SILU_FOLD_RATIO
+    # A: all saving outside the trunk.  B: silu's share comes out of the trunk.
+    return (TRUNK_S, rest - saved, TRUNK_S - silu_s, rest - (saved - silu_s))
+
+
+def composite(trunk_s: float, rest_s: float, block_ratio: float) -> float:
+    """Fold ratio for a stack that leaves `rest_s` alone and divides `trunk_s` by the shard."""
+    return CELL_S / (rest_s + trunk_s / block_ratio)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--json")
+    a = ap.parse_args()
+
+    tA, rA, tB, rB = split_stack()
+    rows = []
+    for label, ratio in [
+        *[(f"shard N={n} (WH block, measured)", r) for n, r in SHARD_BLOCK.items() if n > 1],
+        ("shard cap, measured link (any N)", SHARD_CAP_MEASURED_LINK),
+        ("shard cap, FREE link (any N)", SHARD_CAP_FREE_LINK),
+    ]:
+        lo, hi = sorted((composite(tB, rB, ratio), composite(tA, rA, ratio)))
+        rows.append({"route": label, "block_ratio": ratio, "fold_lo": lo, "fold_hi": hi})
+
+    # Calibration check: the WH block curve at N=2 against the BH fold measurement of the same
+    # shard. If they disagree, every larger-N row inherits the same transfer error.
+    n2_lo, n2_hi = rows[0]["fold_lo"], rows[0]["fold_hi"]
+    n2_marginal = ((n2_lo + n2_hi) / 2) / STACK_RATIO
+    calib = n2_marginal / SHARD_FOLD_BH_N2
+
+    out = {
+        "cell_s": CELL_S,
+        "cell_source": "site/data/perf-512aa.json, Boltz-2 p150a",
+        "measured_single_chip_stack": STACK_RATIO,
+        "measured_single_chip_stack_s": CELL_S / STACK_RATIO,
+        "one_chip_bracket": ONE_CHIP_BRACKET,
+        "one_chip_best_supported": ONE_CHIP_BEST_SUPPORTED,
+        "sampler_shards": SAMPLER_SHARDS,
+        "trunk_s": TRUNK_S,
+        "split_A_trunk_rest": [tA, rA],
+        "split_B_trunk_rest": [tB, rB],
+        "routes": rows,
+        "wh_to_bh_shard_calibration": calib,
+        "target_2x_s": CELL_S / 2.0,
+    }
+
+    print(f"published cell                 {CELL_S:.3f} s   (site/data/perf-512aa.json)")
+    print(f"2x target                      {CELL_S/2:.3f} s")
+    print(f"MEASURED single-chip stack     {STACK_RATIO:.5f}x = {CELL_S/STACK_RATIO:.3f} s"
+          "   (b2z2-bh-union-step, BH, A/A floor 1.01162x)")
+    print(f"one-processor ceiling          {ONE_CHIP_BRACKET[0]:.2f}x - {ONE_CHIP_BRACKET[1]:.2f}x"
+          f"   (best supported {ONE_CHIP_BEST_SUPPORTED[0]:.2f}x - {ONE_CHIP_BEST_SUPPORTED[1]:.2f}x)")
+    print(f"trunk / rest of fold           {TRUNK_S:.3f} s / {CELL_S-TRUNK_S:.3f} s")
+    print()
+    print("stack + trunk shard, the whole measured route (sampler does NOT shard):")
+    print(f"  {'route':<36} {'block':>7}  {'fold ratio':>18}")
+    for r in rows:
+        print(f"  {r['route']:<36} {r['block_ratio']:>6.3f}x  "
+              f"{r['fold_lo']:>7.4f}x - {r['fold_hi']:.4f}x")
+    print()
+    print(f"WH-block -> BH-fold shard calibration at N=2: {calib:.3f}x")
+    print("  (>1 means the WH block curve OVER-predicts the BH fold contribution of the same")
+    print("   shard, so every larger-N row above is an upper bound, not an estimate)")
+    print()
+    best = max(r["fold_hi"] for r in rows)
+    print(f"BEST NAMEABLE, unlimited processors, free link: {best:.4f}x = {CELL_S/best:.3f} s")
+    print(f"2x needs {CELL_S/2:.3f} s. It is not in this table.")
+
+    if a.json:
+        Path(a.json).write_text(json.dumps(out, indent=2) + "\n")
+        print(f"\nwrote {a.json}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
