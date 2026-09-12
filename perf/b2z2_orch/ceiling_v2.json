@@ -1,0 +1,65 @@
+{
+  "cell_s": 20.079,
+  "trunk_keep": 0.4099901496266213,
+  "trunk_movement_free_x": 2.439082989946714,
+  "sampler_keep": 0.608896,
+  "sampler_movement_free_x": 1.6423165860836662,
+  "rungs": {
+    "measured base 20.188 s": {
+      "fold": 20.188,
+      "trunk": 12.4,
+      "sampler": 5.365,
+      "rest": 2.423,
+      "trunk_floor_s": 5.293331352252653,
+      "sampler_floor_s": 3.39579136,
+      "trunk_only_s": 13.08133135225265,
+      "trunk_only_x": 1.5432679943944356,
+      "both_s": 11.112122712252651,
+      "both_x": 1.8167545952079829
+    },
+    "levered arm 18.594 s": {
+      "fold": 18.594,
+      "trunk": 11.3209,
+      "sampler": 5.2547,
+      "rest": 2.0184,
+      "trunk_floor_s": 4.850910981790566,
+      "sampler_floor_s": 3.3286301311999997,
+      "trunk_only_s": 12.124010981790567,
+      "trunk_only_x": 1.5336508708155174,
+      "both_s": 10.197941112990568,
+      "both_x": 1.823309214476065
+    }
+  },
+  "shard": {
+    "block_ratio": 1.191429962668398,
+    "block_saving_fraction": 0.16067244291864202,
+    "saving_block_basis_s": 1.6420723666285215,
+    "saving_stage_basis_s": 1.9705993106642687,
+    "fold_on_mesh_s": 18.051700689335732,
+    "fold_on_mesh_x": 1.1123051697761597,
+    "fold_on_single_s": 17.797100689335732,
+    "fold_on_single_x": 1.1282174748851994
+  },
+  "open_levers": {
+    "diffusion step: fuse short programs": {
+      "size": 0.246,
+      "basis": "of the 26.400 ms step wall; 9.76 us x 934 programs = 62.9 % of its input wait (b2z2-sampler-stall-split). Machinery exists: b2z2-pairformer-megakernel-build."
+    },
+    "fused Pairformer two-pass loop at matmul parity": {
+      "size": 0.0796,
+      "basis": "on the block; the loop is 2.5x two standalone matmuls before it multiplies anything, 0.14057 vs 0.0555 ms (b2z2-fusion-rebuild MODE 2)."
+    },
+    "unfused silu": {
+      "size": 0.02747,
+      "basis": "on the fold; ttnn.linear(activation=silu) is 4.3x the same matmul without it. Killed at 0.805 A whole-molecule on a hinged fixture with no stochastic floor."
+    }
+  },
+  "crosscheck": {
+    "trunk_only": 0.006270738511565086,
+    "both": 0.003607872678770751
+  },
+  "bracket": [
+    1.5336508708155174,
+    1.823309214476065
+  ]
+}
