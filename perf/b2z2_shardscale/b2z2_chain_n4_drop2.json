@@ -1,0 +1,35 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "mesh": "1x4",
+ "S": 512,
+ "visible": "16,17,18,19",
+ "drop": "2",
+ "chain": {
+  "ran": false,
+  "raised": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/binary_ng_device_operation.cpp:346: a_dim == b_dim || a_dim == 1 || b_dim == 1\ninfo:\nBroadcasting rule violation at dimension index -1 (output rank 4), dim a: 256, dim b: 512\nbacktrace:\n --- /home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x896165) [0x7b3810496165]\n --- ttnn::operations::"
+ },
+ "localise": {
+  "trimul_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "trimul_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "transition_z": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "first_divergent_op": null
+ },
+ "controls": {}
+}

@@ -1,0 +1,185 @@
+{
+ "mesh_n": 4,
+ "arch": "Arch.WORMHOLE_B0",
+ "reps": 12,
+ "visible": "16,17,18,19",
+ "points": [
+  {
+   "rows": 2048,
+   "out_bytes": 524288,
+   "per_device_in_bytes": 131072,
+   "moved_bytes": 393216.0,
+   "median_us": 135.32250886783004,
+   "min_us": 124.7279578819871,
+   "max_us": 233.83100051432848,
+   "gbps_per_dir": 2.9057693600999923,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "rows": 8192,
+   "out_bytes": 2097152,
+   "per_device_in_bytes": 524288,
+   "moved_bytes": 1572864.0,
+   "median_us": 210.6014871969819,
+   "min_us": 176.6849309206009,
+   "max_us": 270.05502488464117,
+   "gbps_per_dir": 7.4684372885213905,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "rows": 16384,
+   "out_bytes": 4194304,
+   "per_device_in_bytes": 1048576,
+   "moved_bytes": 3145728.0,
+   "median_us": 216.79047495126724,
+   "min_us": 215.14296531677246,
+   "max_us": 349.34491850435734,
+   "gbps_per_dir": 14.510453010941253,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "rows": 65536,
+   "out_bytes": 16777216,
+   "per_device_in_bytes": 4194304,
+   "moved_bytes": 12582912.0,
+   "median_us": 513.0654899403453,
+   "min_us": 477.66801435500383,
+   "max_us": 6000.349996611476,
+   "gbps_per_dir": 24.52496269328703,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "rows": 262144,
+   "out_bytes": 67108864,
+   "per_device_in_bytes": 16777216,
+   "moved_bytes": 50331648.0,
+   "median_us": 1526.375999674201,
+   "min_us": 1494.0829714760184,
+   "max_us": 1631.8500274792314,
+   "gbps_per_dir": 32.97460652600872,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "rows": 524288,
+   "out_bytes": 134217728,
+   "per_device_in_bytes": 33554432,
+   "moved_bytes": 100663296.0,
+   "median_us": 2863.1589957512915,
+   "min_us": 2827.0439943298697,
+   "max_us": 3812.2039986774325,
+   "gbps_per_dir": 35.1581229506907,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "rows": 1048576,
+   "out_bytes": 268435456,
+   "per_device_in_bytes": 67108864,
+   "moved_bytes": 201326592.0,
+   "median_us": 5564.465012867004,
+   "min_us": 5521.300015971065,
+   "max_us": 9527.53599267453,
+   "gbps_per_dir": 36.18076338596109,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  }
+ ],
+ "pair_shape": [
+  {
+   "S": 256,
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "out_bytes": 16777216,
+   "median_us": 4394.918505568057,
+   "gbps_per_dir": 2.863059231714609,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "S": 512,
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out_bytes": 67108864,
+   "median_us": 2022.5820480845869,
+   "gbps_per_dir": 24.884848576434646,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "S": 768,
+   "shape": [
+    1,
+    768,
+    768,
+    128
+   ],
+   "out_bytes": 150994944,
+   "median_us": 3950.6115135736763,
+   "gbps_per_dir": 28.665488269576482,
+   "exact_per_device": [
+    true,
+    true,
+    true,
+    true
+   ]
+  }
+ ],
+ "fit_large": {
+  "intercept_us": 176.1299896437885,
+  "gbps_per_dir": 37.378002132504776,
+  "over_mb": [
+   12.582912,
+   201.326592
+  ]
+ },
+ "latency_floor_us": 135.32250886783004
+}

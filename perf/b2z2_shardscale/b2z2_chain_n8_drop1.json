@@ -1,0 +1,35 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "mesh": "1x8",
+ "S": 512,
+ "visible": "16,17,18,19,20,21,22,23",
+ "drop": "1",
+ "chain": {
+  "ran": false,
+  "raised": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/transformer/sdpa/device/sdpa_device_operation.cpp:93: mask_shape[2] == q_shape[2]\ninfo:\nMask sequence length must match Q sequence length\nbacktrace:\n --- /home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e45bbd5d668]\n --- ttnn::prim::SDPAOperation::validate_on_program_cache_miss(ttnn::prim::SDPAParams"
+ },
+ "localise": {
+  "trimul_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "trimul_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "transition_z": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "first_divergent_op": null
+ },
+ "controls": {}
+}

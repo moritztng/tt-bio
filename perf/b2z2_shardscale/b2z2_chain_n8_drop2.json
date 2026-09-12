@@ -1,0 +1,35 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "mesh": "1x8",
+ "S": 512,
+ "visible": "16,17,18,19,20,21,22,23",
+ "drop": "2",
+ "chain": {
+  "ran": false,
+  "raised": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/slice/device/slice_device_operation.cpp:161: (output_tensor_shape[-2] % TILE_HEIGHT == 0) && (args.slice_start[-2] % TILE_HEIGHT == 0)\ninfo:\nCan only slice tilized tensor with height begin index aligned to tiles\nbacktrace:\n --- /home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x73908715d66"
+ },
+ "localise": {
+  "trimul_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "trimul_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "transition_z": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "first_divergent_op": null
+ },
+ "controls": {}
+}

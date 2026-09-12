@@ -1,0 +1,35 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "mesh": "1x4",
+ "S": 512,
+ "visible": "16,17,18,19",
+ "drop": "0",
+ "chain": {
+  "ran": false,
+  "raised": "RuntimeError: TT_THROW @ /project/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/binary_ng_device_operation.cpp:223: tt::exception\ninfo:\nInvalid subtile broadcast type\nbacktrace:\n --- /home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7f9457d5d668]\n --- /home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9bina"
+ },
+ "localise": {
+  "trimul_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "trimul_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_start": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "triatt_end": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "transition_z": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "first_divergent_op": null
+ },
+ "controls": {}
+}
