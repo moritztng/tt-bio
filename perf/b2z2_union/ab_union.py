@@ -68,8 +68,15 @@ FLAGS = {
     "HOST": ("env", "TT_BIO_DEVICE_CONDITIONING"),
     "LN": ("attr", "_B2_ADALN_SHARED_SNORM"),
     "LAY": ("attr", "_HEAD_PAD_TAIL"),
+    # Added by `b2z2-bh-stack-atom`. SG is the same transform as AKW built on the matrix instead
+    # of on the geometry, so the two are alternatives and never appear in one arm; L1 and KVP sit
+    # on top of whichever gather is live.
+    "SG": ("attr", "_ATOM_SHIFT_GATHER"),
+    "L1": ("attr", "_ATOM_L1"),
+    "KVP": ("attr", "_ATOM_KV_PREPROJ"),
 }
 UNION = ("HOST", "SILU", "AKW")
+CUNION = ("HOST", "SILU", "SG")
 ARMS = {
     "base": (),
     "HOST": ("HOST",),
@@ -81,6 +88,15 @@ ARMS = {
     "U_LN": UNION + ("LN",),
     "U_LAY": UNION + ("LAY",),
     "STACK": UNION + ("LN", "LAY"),
+    # The corrected ladder: the same five levers with the gather that reproduces the one-hot.
+    "SG": ("SG",),
+    "L1": ("L1",),
+    "SG_L1": ("SG", "L1"),
+    "SG_KVP": ("SG", "KVP"),
+    "CUNION": CUNION,
+    "CSTACK": CUNION + ("LN", "LAY"),
+    "CSTACK_L1": CUNION + ("LN", "LAY", "L1"),
+    "CSTACK_L1_KVP": CUNION + ("LN", "LAY", "L1", "KVP"),
 }
 
 
@@ -128,7 +144,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--cifdir", type=Path)
-    ap.add_argument("--mode", choices=("parity", "timing"), required=True)
+    ap.add_argument("--mode", choices=("parity", "timing", "ladder"), required=True)
     ap.add_argument("--sizes", default="512")
     ap.add_argument("--arms", default="base,HOST,SILU,AKW,UNION", help="parity mode: arms per size")
     ap.add_argument("--seeds", default="0", help="parity mode: seeds per arm")
@@ -252,6 +268,9 @@ def main() -> int:
         wall["s"] = 0.0
         step["n"] = 0
         step["s"] = 0.0
+        # A lever that can decline needs an instrument that says it declined.
+        T.ATOM_L1_STATS["l1"] = T.ATOM_L1_STATS["dram"] = 0
+        T.ATOM_SHIFT_GATHER_STATS[0] = T.ATOM_SHIFT_GATHER_STATS[1] = 0
         ttnn.synchronize_device(dev)
         load_before = os.getloadavg()
         t = time.perf_counter()
@@ -268,12 +287,46 @@ def main() -> int:
                 "block_s": round(wall["s"], 4), "block_n": wall["n"],
                 "step_s": round(step["s"], 4), "step_n": step["n"],
                 "step_ms": round(1000 * step["s"] / step["n"], 4) if step["n"] else None,
+                "atom_l1": dict(T.ATOM_L1_STATS),
+                "atom_gather": {"slice_concat": T.ATOM_SHIFT_GATHER_STATS[0],
+                                "one_hot_matmul": T.ATOM_SHIFT_GATHER_STATS[1]},
                 "loadavg_before": [round(x, 2) for x in load_before],
                 "loadavg_after": [round(x, 2) for x in os.getloadavg()],
                 "occupancy": occupancy(),
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
 
     cifdir = args.cifdir or Path(tempfile.mkdtemp(prefix="b2z2-union-cif-"))
+
+    if args.mode == "ladder":
+        # One fold per (size, arm). An OOM is the answer the ladder exists to get, so it is caught,
+        # recorded with its message and the size it happened at, and the ladder keeps climbing.
+        arms = args.arms.split(",")
+        for arm in arms:
+            assert arm in ARMS, f"unknown arm {arm}"
+        for size in args.sizes.split(","):
+            target = AB.FIX / f"cdk2x2_{size}.yaml"
+            assert target.exists(), f"no fixture {target}"
+            AB._seed_msa(target, (AB.FIX / f"cdk2x2_{size}.a3m").read_text(), msa_dir)
+            for arm in arms:
+                tag = f"{size}_{arm}"
+                try:
+                    r = fold(arm, 0, target, cifdir / tag)
+                except Exception as e:                       # noqa: BLE001 -- the finding
+                    r = {"arm": arm, "target": target.stem, "failed": True,
+                         "error_type": type(e).__name__, "error": str(e)[:2000],
+                         "loadavg_before": [round(x, 2) for x in os.getloadavg()]}
+                    print("  {:14s} FAILED {}: {}".format(
+                        tag, type(e).__name__, str(e)[:200]), flush=True)
+                else:
+                    print("  {:14s} fold {:8.3f}s  atom_l1={} gather={} sha={} plddt={}".format(
+                        tag, r["fold_s"], r["atom_l1"], r["atom_gather"], r["sha256"],
+                        r["plddt"]), flush=True)
+                r["tag"] = tag
+                r["size"] = size
+                out["runs"].append(r)
+                dump()
+        summarise_ladder(out, dump)
+        return 0
 
     if args.mode == "parity":
         arms = args.arms.split(",")
@@ -315,6 +368,32 @@ def main() -> int:
             dump()
     summarise_timing(out, dump, order)
     return 0
+
+
+def summarise_ladder(out, dump):
+    """Per size: did the gate take L1, did the fold survive, and is the arm bit-exact against base.
+
+    A DECLINE is a pass for the gate and is reported as one. A failure is a NO-GO for a default
+    flip and is reported with the size it happened at.
+    """
+    lad = {}
+    for r in out["runs"]:
+        row = lad.setdefault(r.get("size", r["target"]), {})
+        if r.get("failed"):
+            row[r["arm"]] = {"failed": True, "error_type": r["error_type"],
+                             "error": r["error"][:300]}
+        else:
+            row[r["arm"]] = {"fold_s": r["fold_s"], "atom_l1": r["atom_l1"],
+                             "atom_gather": r["atom_gather"], "sha256": r["sha256"],
+                             "plddt": r["plddt"]}
+    for size, row in lad.items():
+        base = row.get("base", {})
+        for arm, v in row.items():
+            if arm != "base" and not v.get("failed") and base.get("sha256"):
+                v["bit_exact_vs_base"] = (v["sha256"] == base["sha256"])
+    out["ladder"] = lad
+    dump()
+    print(json.dumps(lad, indent=1), flush=True)
 
 
 def summarise_parity(out, dump):
