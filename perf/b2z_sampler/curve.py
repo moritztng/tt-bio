@@ -19,13 +19,25 @@ import json
 import statistics as st
 from pathlib import Path
 
-STEPS = [(200, 3), (150, 3), (100, 3), (75, 3), (50, 3), (25, 3)]
-RECYC = [(200, 2), (200, 1), (200, 0)]
-CORNER = [(100, 2), (50, 2), (100, 1), (50, 1)]
-ORDER = STEPS + [(200, 2), (100, 2), (50, 2), (200, 1), (100, 1), (50, 1), (200, 0)]
+ROLE_RANK = {"reference": 0, "steps": 1, "recycles": 2, "corner": 3}
+
+
+def order_of(d):
+    """Column order read off the data: reference first, then the step axis by descending count,
+    then the recycle axis, then the corners. Hardcoding it would need editing every time the grid
+    changes, and the low-end extension changes it."""
+    seen = {}
+    for t in d["targets"]:
+        for r in t["rows"]:
+            if r["seed"] == 0 and r["role"] != "floor":
+                seen.setdefault((r["steps"], r["recycles"]), ROLE_RANK.get(r["role"], 9))
+    # reference, then the step axis by descending count, then everything that moved the recycle
+    # count grouped by recycle count so the recycle story reads across a row.
+    return sorted(seen, key=lambda k: (min(seen[k], 2), -k[1] if seen[k] >= 2 else 0, -k[0]))
 
 
 def table(d, metric, better_low):
+    ORDER = order_of(d)
     out = [f"{'target':>14} {'FLOOR':>7} {'kind':>16}"
            + "".join(f"{s}/{r:<1}".rjust(9) for s, r in ORDER)]
     misses = {k: 0 for k in ORDER}
@@ -54,10 +66,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--frontier", type=Path, required=True)
     ap.add_argument("--paired", type=Path, required=True)
+    ap.add_argument("--lowend", type=Path, default=None,
+                    help="a second frontier json for the sub-25-step extension")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     d = json.loads(a.frontier.read_text())
     p = json.loads(a.paired.read_text())
+    ORDER = order_of(d)
 
     by = {}
     for r in p["runs"]:
@@ -82,7 +97,18 @@ def main() -> int:
              "unchanged with a different seed.\n")
 
     L.append("## Accuracy: all-atom RMSD (Angstrom) against the same reference\n")
-    L.append("```\n" + table(d, "rmsd_allatom_A", better_low=True) + "\n```\n")
+    L.append("```\n" + table(d, "rmsd_allatom_A", better_low=True) + "\n```")
+    L.append("Secondary. All-atom RMSD is superposition-based, so a hinge rotation saturates it "
+             "while every domain stays identical; lDDT above is the primary read.\n")
+
+    if a.lowend is not None:
+        e = json.loads(a.lowend.read_text())
+        L.append("## The knee: below 25 steps\n")
+        L.append(f"Separate run, {len(e['targets'])} targets, its OWN reference and its own seed "
+                 "floor re-measured in the same process, so these columns are read against the "
+                 "same yardstick the panel used and not against the panel's numbers.\n")
+        L.append("```\n" + table(e, "lddt_ca", better_low=False) + "\n```")
+        L.append("```\n" + table(e, "rmsd_allatom_A", better_low=True) + "\n```\n")
 
     L.append("## Seconds: measured, paired, same chip\n")
     L.append("```")
