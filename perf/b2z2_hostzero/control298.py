@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""cdk2x2_298 structural control for TT_BIO_DEVICE_CONDITIONING.
+"""cdk2x2_298 structural control for one TT_BIO_* lever (``--flag``).
 
 The device conditioning is not bit-exact -- bf16 device math against fp32 torch, and the fused
 bias stack on top -- so a CIF hash cannot score it. `cdk2x2_512` cannot score it either: it is
@@ -29,15 +29,16 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts" / "gpu_vs_tt"))
 FIX = REPO / "perf" / "size512" / "fixtures"
 
-FLAG = "TT_BIO_DEVICE_CONDITIONING"
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--cifdir", type=Path, required=True)
     ap.add_argument("--size", type=int, default=298)
+    ap.add_argument("--flag", default="TT_BIO_DEVICE_CONDITIONING")
+    ap.add_argument("--arm", default=None, help="tag for the on fold; defaults from --flag")
     a = ap.parse_args()
+    FLAG = a.flag
+    arm = a.arm or FLAG.removeprefix("TT_BIO_").lower()
 
     import torch
     torch.set_grad_enabled(False)
@@ -69,7 +70,7 @@ def main() -> int:
     print("=== cold fold (discarded) ===", flush=True)
     one_fold()
 
-    for tag, val in (("base_0", "0"), ("base_1", "0"), ("devcond_0", "1")):
+    for tag, val in (("base_0", "0"), ("base_1", "0"), (f"{arm}_0", "1")):
         os.environ[FLAG] = val
         t0 = time.perf_counter()
         _t, m = one_fold()
