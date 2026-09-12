@@ -1,0 +1,2522 @@
+{
+ "n_binary": 339,
+ "histogram": {
+  "1": 53,
+  "2": 143
+ },
+ "chain_shapes": {
+  "ttnn.add@tenstorrent.py:9531:__call__": {
+   "n": 1,
+   "ms": 0.0244,
+   "len": 1
+  },
+  "ttnn.multiply_@tenstorrent.py:8406:__call__[{'seq': ['UnaryOpType']}] -> ttnn.add_@tenstorrent.py:8407:__call__": {
+   "n": 55,
+   "ms": 1.9495,
+   "len": 2
+  },
+  "ttnn.multiply@tenstorrent.py:7200:__call__[{'seq': ['UnaryOpType']}]": {
+   "n": 30,
+   "ms": 0.6623,
+   "len": 1
+  },
+  "ttnn.multiply@tenstorrent.py:8569:__call__ -> ttnn.add@tenstorrent.py:8576:__call__": {
+   "n": 30,
+   "ms": 0.9642,
+   "len": 2
+  },
+  "ttnn.multiply_@tenstorrent.py:8459:__call__[{'seq': ['UnaryOpType']}] -> ttnn.multiply_@tenstorrent.py:8468:__call__": {
+   "n": 30,
+   "ms": 1.9155,
+   "len": 2
+  },
+  "ttnn.multiply_@tenstorrent.py:8487:__call__[{'seq': ['UnaryOpType']}] -> ttnn.add@tenstorrent.py:8578:__call__": {
+   "n": 28,
+   "ms": 1.0483,
+   "len": 2
+  },
+  "ttnn.multiply_@tenstorrent.py:8406:__call__[{'seq': ['UnaryOpType']}]": {
+   "n": 5,
+   "ms": 0.1269,
+   "len": 1
+  },
+  "ttnn.add_@tenstorrent.py:8407:__call__": {
+   "n": 5,
+   "ms": 0.058,
+   "len": 1
+  },
+  "ttnn.multiply_@tenstorrent.py:8487:__call__[{'seq': ['UnaryOpType']}]": {
+   "n": 2,
+   "ms": 0.0551,
+   "len": 1
+  },
+  "ttnn.add@tenstorrent.py:8578:__call__": {
+   "n": 2,
+   "ms": 0.0494,
+   "len": 1
+  },
+  "ttnn.multiply@tenstorrent.py:9564:__call__": {
+   "n": 1,
+   "ms": 0.0049,
+   "len": 1
+  },
+  "ttnn.add@tenstorrent.py:9580:__call__": {
+   "n": 1,
+   "ms": 0.0141,
+   "len": 1
+  },
+  "ttnn.multiply_@tenstorrent.py:7257:swiglu": {
+   "n": 2,
+   "ms": 0.0275,
+   "len": 1
+  },
+  "ttnn.add@tenstorrent.py:9583:__call__": {
+   "n": 1,
+   "ms": 0.0144,
+   "len": 1
+  },
+  "ttnn.add@tenstorrent.py:9586:__call__": {
+   "n": 1,
+   "ms": 0.0142,
+   "len": 1
+  },
+  "ttnn.add@tenstorrent.py:9601:__call__": {
+   "n": 1,
+   "ms": 0.0139,
+   "len": 1
+  },
+  "ttnn.add@tenstorrent.py:9641:__call__": {
+   "n": 1,
+   "ms": 0.0249,
+   "len": 1
+  }
+ },
+ "chains": [
+  [
+   {
+    "d": 1,
+    "site": "tenstorrent.py:9531:__call__",
+    "name": "ttnn.add",
+    "us": 24.443
+   }
+  ],
+  [
+   {
+    "d": 5,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.184
+   },
+   {
+    "d": 6,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.237
+   }
+  ],
+  [
+   {
+    "d": 30,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 27.421
+   }
+  ],
+  [
+   {
+    "d": 32,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 23.352
+   },
+   {
+    "d": 33,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 25.04
+   }
+  ],
+  [
+   {
+    "d": 36,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.239
+   },
+   {
+    "d": 37,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.491
+   }
+  ],
+  [
+   {
+    "d": 41,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 50.448
+   },
+   {
+    "d": 43,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 35.417
+   }
+  ],
+  [
+   {
+    "d": 46,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 27.614
+   },
+   {
+    "d": 47,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 24.338
+   }
+  ],
+  [
+   {
+    "d": 50,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.392
+   }
+  ],
+  [
+   {
+    "d": 51,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.557
+   }
+  ],
+  [
+   {
+    "d": 75,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 27.266
+   }
+  ],
+  [
+   {
+    "d": 77,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 22.813
+   },
+   {
+    "d": 78,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 24.288
+   }
+  ],
+  [
+   {
+    "d": 81,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.321
+   },
+   {
+    "d": 82,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.487
+   }
+  ],
+  [
+   {
+    "d": 86,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 50.395
+   },
+   {
+    "d": 88,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 36.133
+   }
+  ],
+  [
+   {
+    "d": 91,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 27.603
+   },
+   {
+    "d": 92,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 24.392
+   }
+  ],
+  [
+   {
+    "d": 95,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.352
+   }
+  ],
+  [
+   {
+    "d": 96,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.74
+   }
+  ],
+  [
+   {
+    "d": 120,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 27.45
+   }
+  ],
+  [
+   {
+    "d": 122,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 23.809
+   },
+   {
+    "d": 123,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 25.582
+   }
+  ],
+  [
+   {
+    "d": 126,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.336
+   },
+   {
+    "d": 127,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.436
+   }
+  ],
+  [
+   {
+    "d": 131,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 50.248
+   },
+   {
+    "d": 133,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 35.848
+   }
+  ],
+  [
+   {
+    "d": 136,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 27.576
+   }
+  ],
+  [
+   {
+    "d": 137,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 24.884
+   }
+  ],
+  [
+   {
+    "d": 144,
+    "site": "tenstorrent.py:9564:__call__",
+    "name": "ttnn.multiply",
+    "us": 4.905
+   }
+  ],
+  [
+   {
+    "d": 149,
+    "site": "tenstorrent.py:9580:__call__",
+    "name": "ttnn.add",
+    "us": 14.131
+   }
+  ],
+  [
+   {
+    "d": 153,
+    "site": "tenstorrent.py:7257:swiglu",
+    "name": "ttnn.multiply_",
+    "us": 13.786
+   }
+  ],
+  [
+   {
+    "d": 155,
+    "site": "tenstorrent.py:9583:__call__",
+    "name": "ttnn.add",
+    "us": 14.387
+   }
+  ],
+  [
+   {
+    "d": 159,
+    "site": "tenstorrent.py:7257:swiglu",
+    "name": "ttnn.multiply_",
+    "us": 13.681
+   }
+  ],
+  [
+   {
+    "d": 161,
+    "site": "tenstorrent.py:9586:__call__",
+    "name": "ttnn.add",
+    "us": 14.21
+   }
+  ],
+  [
+   {
+    "d": 164,
+    "site": "tenstorrent.py:9601:__call__",
+    "name": "ttnn.add",
+    "us": 13.916
+   }
+  ],
+  [
+   {
+    "d": 169,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.679
+   },
+   {
+    "d": 170,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.081
+   }
+  ],
+  [
+   {
+    "d": 180,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.688
+   }
+  ],
+  [
+   {
+    "d": 183,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.124
+   },
+   {
+    "d": 184,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 13.99
+   }
+  ],
+  [
+   {
+    "d": 189,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.762
+   },
+   {
+    "d": 190,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.732
+   }
+  ],
+  [
+   {
+    "d": 194,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.021
+   },
+   {
+    "d": 196,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.607
+   }
+  ],
+  [
+   {
+    "d": 199,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.037
+   },
+   {
+    "d": 200,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.943
+   }
+  ],
+  [
+   {
+    "d": 205,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.621
+   },
+   {
+    "d": 206,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.544
+   }
+  ],
+  [
+   {
+    "d": 216,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.583
+   }
+  ],
+  [
+   {
+    "d": 219,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.79
+   },
+   {
+    "d": 220,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 13.925
+   }
+  ],
+  [
+   {
+    "d": 225,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.687
+   },
+   {
+    "d": 226,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.56
+   }
+  ],
+  [
+   {
+    "d": 230,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.36
+   },
+   {
+    "d": 232,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 23.863
+   }
+  ],
+  [
+   {
+    "d": 235,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.037
+   },
+   {
+    "d": 236,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.128
+   }
+  ],
+  [
+   {
+    "d": 241,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.668
+   },
+   {
+    "d": 242,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.307
+   }
+  ],
+  [
+   {
+    "d": 252,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.833
+   }
+  ],
+  [
+   {
+    "d": 255,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.767
+   },
+   {
+    "d": 256,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.02
+   }
+  ],
+  [
+   {
+    "d": 261,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.871
+   },
+   {
+    "d": 262,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.515
+   }
+  ],
+  [
+   {
+    "d": 266,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.259
+   },
+   {
+    "d": 268,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.249
+   }
+  ],
+  [
+   {
+    "d": 271,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.017
+   },
+   {
+    "d": 272,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.941
+   }
+  ],
+  [
+   {
+    "d": 277,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.762
+   },
+   {
+    "d": 278,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.591
+   }
+  ],
+  [
+   {
+    "d": 288,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.578
+   }
+  ],
+  [
+   {
+    "d": 291,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.137
+   },
+   {
+    "d": 292,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.224
+   }
+  ],
+  [
+   {
+    "d": 297,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.732
+   },
+   {
+    "d": 298,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.68
+   }
+  ],
+  [
+   {
+    "d": 302,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.076
+   },
+   {
+    "d": 304,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 23.748
+   }
+  ],
+  [
+   {
+    "d": 307,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.072
+   },
+   {
+    "d": 308,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.098
+   }
+  ],
+  [
+   {
+    "d": 313,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.706
+   },
+   {
+    "d": 314,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.209
+   }
+  ],
+  [
+   {
+    "d": 324,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.477
+   }
+  ],
+  [
+   {
+    "d": 327,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.132
+   },
+   {
+    "d": 328,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.06
+   }
+  ],
+  [
+   {
+    "d": 333,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.927
+   },
+   {
+    "d": 334,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.678
+   }
+  ],
+  [
+   {
+    "d": 338,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.106
+   },
+   {
+    "d": 340,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.08
+   }
+  ],
+  [
+   {
+    "d": 343,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.018
+   },
+   {
+    "d": 344,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.128
+   }
+  ],
+  [
+   {
+    "d": 349,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.755
+   },
+   {
+    "d": 350,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.438
+   }
+  ],
+  [
+   {
+    "d": 360,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.788
+   }
+  ],
+  [
+   {
+    "d": 363,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.918
+   },
+   {
+    "d": 364,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.274
+   }
+  ],
+  [
+   {
+    "d": 369,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.967
+   },
+   {
+    "d": 370,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.724
+   }
+  ],
+  [
+   {
+    "d": 374,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.098
+   },
+   {
+    "d": 376,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.209
+   }
+  ],
+  [
+   {
+    "d": 379,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.842
+   },
+   {
+    "d": 380,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.776
+   }
+  ],
+  [
+   {
+    "d": 385,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.671
+   },
+   {
+    "d": 386,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.306
+   }
+  ],
+  [
+   {
+    "d": 396,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.661
+   }
+  ],
+  [
+   {
+    "d": 399,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.79
+   },
+   {
+    "d": 400,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.298
+   }
+  ],
+  [
+   {
+    "d": 405,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.811
+   },
+   {
+    "d": 406,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.77
+   }
+  ],
+  [
+   {
+    "d": 410,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.369
+   },
+   {
+    "d": 412,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.423
+   }
+  ],
+  [
+   {
+    "d": 415,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.016
+   },
+   {
+    "d": 416,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.806
+   }
+  ],
+  [
+   {
+    "d": 421,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.769
+   },
+   {
+    "d": 422,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.284
+   }
+  ],
+  [
+   {
+    "d": 432,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.868
+   }
+  ],
+  [
+   {
+    "d": 435,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.974
+   },
+   {
+    "d": 436,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.376
+   }
+  ],
+  [
+   {
+    "d": 441,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.614
+   },
+   {
+    "d": 442,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.838
+   }
+  ],
+  [
+   {
+    "d": 446,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.086
+   },
+   {
+    "d": 448,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.316
+   }
+  ],
+  [
+   {
+    "d": 451,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.958
+   },
+   {
+    "d": 452,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.216
+   }
+  ],
+  [
+   {
+    "d": 457,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.761
+   },
+   {
+    "d": 458,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.37
+   }
+  ],
+  [
+   {
+    "d": 468,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.676
+   }
+  ],
+  [
+   {
+    "d": 471,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.152
+   },
+   {
+    "d": 472,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.123
+   }
+  ],
+  [
+   {
+    "d": 477,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.593
+   },
+   {
+    "d": 478,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.778
+   }
+  ],
+  [
+   {
+    "d": 482,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.043
+   },
+   {
+    "d": 484,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.246
+   }
+  ],
+  [
+   {
+    "d": 487,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.095
+   },
+   {
+    "d": 488,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.19
+   }
+  ],
+  [
+   {
+    "d": 493,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.489
+   },
+   {
+    "d": 494,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.295
+   }
+  ],
+  [
+   {
+    "d": 504,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.825
+   }
+  ],
+  [
+   {
+    "d": 507,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.74
+   },
+   {
+    "d": 508,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.076
+   }
+  ],
+  [
+   {
+    "d": 513,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.607
+   },
+   {
+    "d": 514,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.454
+   }
+  ],
+  [
+   {
+    "d": 518,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.043
+   },
+   {
+    "d": 520,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.107
+   }
+  ],
+  [
+   {
+    "d": 523,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.931
+   },
+   {
+    "d": 524,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.244
+   }
+  ],
+  [
+   {
+    "d": 529,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.578
+   },
+   {
+    "d": 530,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.238
+   }
+  ],
+  [
+   {
+    "d": 540,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.976
+   }
+  ],
+  [
+   {
+    "d": 543,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.849
+   },
+   {
+    "d": 544,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.02
+   }
+  ],
+  [
+   {
+    "d": 549,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.721
+   },
+   {
+    "d": 550,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.519
+   }
+  ],
+  [
+   {
+    "d": 554,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.242
+   },
+   {
+    "d": 556,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.069
+   }
+  ],
+  [
+   {
+    "d": 559,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.851
+   },
+   {
+    "d": 560,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.994
+   }
+  ],
+  [
+   {
+    "d": 565,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.668
+   },
+   {
+    "d": 566,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.402
+   }
+  ],
+  [
+   {
+    "d": 576,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.863
+   }
+  ],
+  [
+   {
+    "d": 579,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.118
+   },
+   {
+    "d": 580,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 13.967
+   }
+  ],
+  [
+   {
+    "d": 585,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.669
+   },
+   {
+    "d": 586,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.593
+   }
+  ],
+  [
+   {
+    "d": 590,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.435
+   },
+   {
+    "d": 592,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.499
+   }
+  ],
+  [
+   {
+    "d": 595,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.005
+   },
+   {
+    "d": 596,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.238
+   }
+  ],
+  [
+   {
+    "d": 601,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.877
+   },
+   {
+    "d": 602,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.471
+   }
+  ],
+  [
+   {
+    "d": 612,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.829
+   }
+  ],
+  [
+   {
+    "d": 615,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.865
+   },
+   {
+    "d": 616,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.356
+   }
+  ],
+  [
+   {
+    "d": 621,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.001
+   },
+   {
+    "d": 622,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.328
+   }
+  ],
+  [
+   {
+    "d": 626,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.158
+   },
+   {
+    "d": 628,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.126
+   }
+  ],
+  [
+   {
+    "d": 631,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.013
+   },
+   {
+    "d": 632,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.227
+   }
+  ],
+  [
+   {
+    "d": 637,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.557
+   },
+   {
+    "d": 638,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.159
+   }
+  ],
+  [
+   {
+    "d": 648,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.835
+   }
+  ],
+  [
+   {
+    "d": 651,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.394
+   },
+   {
+    "d": 652,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 13.802
+   }
+  ],
+  [
+   {
+    "d": 657,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.795
+   },
+   {
+    "d": 658,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.781
+   }
+  ],
+  [
+   {
+    "d": 662,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.477
+   },
+   {
+    "d": 664,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 23.769
+   }
+  ],
+  [
+   {
+    "d": 667,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.913
+   },
+   {
+    "d": 668,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.151
+   }
+  ],
+  [
+   {
+    "d": 673,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.747
+   },
+   {
+    "d": 674,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.535
+   }
+  ],
+  [
+   {
+    "d": 684,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.74
+   }
+  ],
+  [
+   {
+    "d": 687,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.972
+   },
+   {
+    "d": 688,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 13.93
+   }
+  ],
+  [
+   {
+    "d": 693,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.795
+   },
+   {
+    "d": 694,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.574
+   }
+  ],
+  [
+   {
+    "d": 698,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.068
+   },
+   {
+    "d": 700,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.007
+   }
+  ],
+  [
+   {
+    "d": 703,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.018
+   },
+   {
+    "d": 704,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.154
+   }
+  ],
+  [
+   {
+    "d": 709,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.654
+   },
+   {
+    "d": 710,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.609
+   }
+  ],
+  [
+   {
+    "d": 720,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.829
+   }
+  ],
+  [
+   {
+    "d": 723,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.033
+   },
+   {
+    "d": 724,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.364
+   }
+  ],
+  [
+   {
+    "d": 729,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.819
+   },
+   {
+    "d": 730,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.763
+   }
+  ],
+  [
+   {
+    "d": 734,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.772
+   },
+   {
+    "d": 736,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 23.964
+   }
+  ],
+  [
+   {
+    "d": 739,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.043
+   },
+   {
+    "d": 740,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.93
+   }
+  ],
+  [
+   {
+    "d": 745,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.604
+   },
+   {
+    "d": 746,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.418
+   }
+  ],
+  [
+   {
+    "d": 756,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.633
+   }
+  ],
+  [
+   {
+    "d": 759,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.859
+   },
+   {
+    "d": 760,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.214
+   }
+  ],
+  [
+   {
+    "d": 765,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.682
+   },
+   {
+    "d": 766,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.66
+   }
+  ],
+  [
+   {
+    "d": 770,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.368
+   },
+   {
+    "d": 772,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.009
+   }
+  ],
+  [
+   {
+    "d": 775,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.867
+   },
+   {
+    "d": 776,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.89
+   }
+  ],
+  [
+   {
+    "d": 781,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.68
+   },
+   {
+    "d": 782,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.246
+   }
+  ],
+  [
+   {
+    "d": 792,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.806
+   }
+  ],
+  [
+   {
+    "d": 795,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.096
+   },
+   {
+    "d": 796,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.11
+   }
+  ],
+  [
+   {
+    "d": 801,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.573
+   },
+   {
+    "d": 802,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.665
+   }
+  ],
+  [
+   {
+    "d": 806,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.1
+   },
+   {
+    "d": 808,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 23.951
+   }
+  ],
+  [
+   {
+    "d": 811,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.114
+   },
+   {
+    "d": 812,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.936
+   }
+  ],
+  [
+   {
+    "d": 817,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.677
+   },
+   {
+    "d": 818,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.389
+   }
+  ],
+  [
+   {
+    "d": 828,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.844
+   }
+  ],
+  [
+   {
+    "d": 831,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.768
+   },
+   {
+    "d": 832,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.075
+   }
+  ],
+  [
+   {
+    "d": 837,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.83
+   },
+   {
+    "d": 838,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.778
+   }
+  ],
+  [
+   {
+    "d": 842,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.032
+   },
+   {
+    "d": 844,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 23.783
+   }
+  ],
+  [
+   {
+    "d": 847,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.95
+   },
+   {
+    "d": 848,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.101
+   }
+  ],
+  [
+   {
+    "d": 853,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.669
+   },
+   {
+    "d": 854,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.552
+   }
+  ],
+  [
+   {
+    "d": 864,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 21.056
+   }
+  ],
+  [
+   {
+    "d": 867,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.114
+   },
+   {
+    "d": 868,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 13.937
+   }
+  ],
+  [
+   {
+    "d": 873,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.769
+   },
+   {
+    "d": 874,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.729
+   }
+  ],
+  [
+   {
+    "d": 878,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.331
+   },
+   {
+    "d": 880,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.064
+   }
+  ],
+  [
+   {
+    "d": 883,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.943
+   },
+   {
+    "d": 884,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 14.024
+   }
+  ],
+  [
+   {
+    "d": 889,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.644
+   },
+   {
+    "d": 890,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.67
+   }
+  ],
+  [
+   {
+    "d": 900,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.806
+   }
+  ],
+  [
+   {
+    "d": 903,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.927
+   },
+   {
+    "d": 904,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.036
+   }
+  ],
+  [
+   {
+    "d": 909,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.75
+   },
+   {
+    "d": 910,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.867
+   }
+  ],
+  [
+   {
+    "d": 914,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.024
+   },
+   {
+    "d": 916,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 23.991
+   }
+  ],
+  [
+   {
+    "d": 919,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.809
+   },
+   {
+    "d": 920,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.976
+   }
+  ],
+  [
+   {
+    "d": 925,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.779
+   },
+   {
+    "d": 926,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.368
+   }
+  ],
+  [
+   {
+    "d": 936,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.746
+   }
+  ],
+  [
+   {
+    "d": 939,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.96
+   },
+   {
+    "d": 940,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.305
+   }
+  ],
+  [
+   {
+    "d": 945,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.721
+   },
+   {
+    "d": 946,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.711
+   }
+  ],
+  [
+   {
+    "d": 950,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 33.907
+   },
+   {
+    "d": 952,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 23.815
+   }
+  ],
+  [
+   {
+    "d": 955,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.041
+   },
+   {
+    "d": 956,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.915
+   }
+  ],
+  [
+   {
+    "d": 961,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.698
+   },
+   {
+    "d": 962,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.256
+   }
+  ],
+  [
+   {
+    "d": 972,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.988
+   }
+  ],
+  [
+   {
+    "d": 975,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 14.174
+   },
+   {
+    "d": 976,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.363
+   }
+  ],
+  [
+   {
+    "d": 981,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.745
+   },
+   {
+    "d": 982,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.543
+   }
+  ],
+  [
+   {
+    "d": 986,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.324
+   },
+   {
+    "d": 988,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.518
+   }
+  ],
+  [
+   {
+    "d": 991,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 21.26
+   },
+   {
+    "d": 992,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.751
+   }
+  ],
+  [
+   {
+    "d": 997,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.757
+   },
+   {
+    "d": 998,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.556
+   }
+  ],
+  [
+   {
+    "d": 1008,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 20.632
+   }
+  ],
+  [
+   {
+    "d": 1011,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 13.869
+   },
+   {
+    "d": 1012,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 14.039
+   }
+  ],
+  [
+   {
+    "d": 1017,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.79
+   },
+   {
+    "d": 1018,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 14.74
+   }
+  ],
+  [
+   {
+    "d": 1022,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 34.14
+   },
+   {
+    "d": 1024,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 24.533
+   }
+  ],
+  [
+   {
+    "d": 1027,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 20.763
+   },
+   {
+    "d": 1028,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 13.836
+   }
+  ],
+  [
+   {
+    "d": 1034,
+    "site": "tenstorrent.py:9641:__call__",
+    "name": "ttnn.add",
+    "us": 24.895
+   }
+  ],
+  [
+   {
+    "d": 1038,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.222
+   }
+  ],
+  [
+   {
+    "d": 1039,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.59
+   }
+  ],
+  [
+   {
+    "d": 1063,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 27.196
+   }
+  ],
+  [
+   {
+    "d": 1065,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 24.32
+   },
+   {
+    "d": 1066,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 23.866
+   }
+  ],
+  [
+   {
+    "d": 1069,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.381
+   },
+   {
+    "d": 1070,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.625
+   }
+  ],
+  [
+   {
+    "d": 1074,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 50.361
+   },
+   {
+    "d": 1076,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 35.229
+   }
+  ],
+  [
+   {
+    "d": 1079,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 27.463
+   },
+   {
+    "d": 1080,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 24.747
+   }
+  ],
+  [
+   {
+    "d": 1083,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.397
+   }
+  ],
+  [
+   {
+    "d": 1084,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.405
+   }
+  ],
+  [
+   {
+    "d": 1108,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 27.156
+   }
+  ],
+  [
+   {
+    "d": 1110,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 23.11
+   },
+   {
+    "d": 1111,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 25.252
+   }
+  ],
+  [
+   {
+    "d": 1114,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.348
+   },
+   {
+    "d": 1115,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.739
+   }
+  ],
+  [
+   {
+    "d": 1119,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 50.307
+   },
+   {
+    "d": 1121,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 35.488
+   }
+  ],
+  [
+   {
+    "d": 1124,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 27.546
+   },
+   {
+    "d": 1125,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 24.395
+   }
+  ],
+  [
+   {
+    "d": 1128,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.51
+   }
+  ],
+  [
+   {
+    "d": 1129,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.73
+   }
+  ],
+  [
+   {
+    "d": 1153,
+    "site": "tenstorrent.py:7200:__call__",
+    "name": "ttnn.multiply",
+    "us": 27.239
+   }
+  ],
+  [
+   {
+    "d": 1155,
+    "site": "tenstorrent.py:8569:__call__",
+    "name": "ttnn.multiply",
+    "us": 23.852
+   },
+   {
+    "d": 1156,
+    "site": "tenstorrent.py:8576:__call__",
+    "name": "ttnn.add",
+    "us": 24.472
+   }
+  ],
+  [
+   {
+    "d": 1159,
+    "site": "tenstorrent.py:8406:__call__",
+    "name": "ttnn.multiply_",
+    "us": 25.248
+   },
+   {
+    "d": 1160,
+    "site": "tenstorrent.py:8407:__call__",
+    "name": "ttnn.add_",
+    "us": 11.461
+   }
+  ],
+  [
+   {
+    "d": 1164,
+    "site": "tenstorrent.py:8459:__call__",
+    "name": "ttnn.multiply_",
+    "us": 50.139
+   },
+   {
+    "d": 1166,
+    "site": "tenstorrent.py:8468:__call__",
+    "name": "ttnn.multiply_",
+    "us": 35.655
+   }
+  ],
+  [
+   {
+    "d": 1169,
+    "site": "tenstorrent.py:8487:__call__",
+    "name": "ttnn.multiply_",
+    "us": 27.537
+   }
+  ],
+  [
+   {
+    "d": 1170,
+    "site": "tenstorrent.py:8578:__call__",
+    "name": "ttnn.add",
+    "us": 24.563
+   }
+  ]
+ ]
+}
