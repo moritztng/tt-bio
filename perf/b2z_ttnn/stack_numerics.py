@@ -51,6 +51,11 @@ def run(out: Path) -> int:
     dev = ttnn.open_device(device_id=0)
     res: dict[str, np.ndarray] = {}
     try:
+        def _np(t_):
+            # bf16 -> fp32 is lossless, so widening here cannot hide a difference between stacks,
+            # and numpy has no bf16 to compare in.
+            return ttnn.to_torch(t_).float()
+
         def to_dev(x, dtype=ttnn.bfloat16):
             return ttnn.from_torch(torch.from_numpy(x), dtype=dtype,
                                    layout=ttnn.TILE_LAYOUT, device=dev)
@@ -59,22 +64,22 @@ def run(out: Path) -> int:
         ba, bb = to_dev(src["big_a"]), to_dev(src["big_b"])
 
         # 1. matmul at the library default -- the changed-default hypothesis lands here
-        res["mm_default"] = ttnn.to_torch(ttnn.matmul(a, b)).numpy()
+        res["mm_default"] = _np(ttnn.matmul(a, b))
         # 2. the same matmul with tt-bio's explicit HiFi4 config
         cfg = ttnn.init_device_compute_kernel_config(
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
             math_approx_mode=False, fp32_dest_acc_en=False, packer_l1_acc=False)
-        res["mm_hifi4"] = ttnn.to_torch(
-            ttnn.matmul(a, b, compute_kernel_config=cfg)).numpy()
+        res["mm_hifi4"] = _np(
+            ttnn.matmul(a, b, compute_kernel_config=cfg))
         # 3. a big matmul, where fidelity loss compounds over K
-        res["mm_big"] = ttnn.to_torch(ttnn.matmul(ba, bb)).numpy()
+        res["mm_big"] = _np(ttnn.matmul(ba, bb))
         # 4. softmax on the last axis -- the fold's numerics are sensitive to it
-        res["softmax"] = ttnn.to_torch(ttnn.softmax(ba, dim=-1)).numpy()
+        res["softmax"] = _np(ttnn.softmax(ba, dim=-1))
         # 5. layer_norm, which every block runs dozens of times
-        res["layer_norm"] = ttnn.to_torch(ttnn.layer_norm(
-            a, weight=to_dev(src["ln_w"]), bias=to_dev(src["ln_b"]), epsilon=1e-5)).numpy()
+        res["layer_norm"] = _np(ttnn.layer_norm(
+            a, weight=to_dev(src["ln_w"]), bias=to_dev(src["ln_b"]), epsilon=1e-5))
         # 6. a bf16 round trip, the floor: any difference here is not arithmetic at all
-        res["roundtrip"] = ttnn.to_torch(a).numpy()
+        res["roundtrip"] = _np(a)
     finally:
         ttnn.close_device(dev)
 
