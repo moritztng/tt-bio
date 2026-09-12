@@ -70,6 +70,7 @@ def main():
         return r
 
     TS.set_enabled(True)
+    TS.BLOCK_KEYS = {**TS.BLOCK_KEYS, **TS.DIAG_KEYS}
 
     def fused():
         r = TS.fused_swiglu(x, w2, w1, T._mm_ckc(ckc), grid)

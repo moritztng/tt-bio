@@ -489,15 +489,29 @@ void kernel_main() {
                     current_subblock_h,
                     current_subblock_w);
 
-                // in0 reuse across the N stride. MEASURED, this file's open defect: the kernel is
-                // correct at PCC 0.9999989 whenever every core folds exactly ONE output block --
-                // where this branch cannot fire -- and lands at PCC 0.8160 as soon as a core folds
-                // two, where it does. Removing the reuse outright does not fix it, it DEADLOCKS:
-                // the in0 sender pushes on the same schedule the reuse assumes, so the pop count
-                // has to change on both sides together. The same loop is in
-                // kernels/trimul_tail/compute.cpp, which has only ever been validated in the
-                // one-block-per-core regime.
-                if (k_block == K_num_blocks - 1) {
+                // in0 reuse across the N stride, corrected for a MULTI-PASS loop.
+                //
+                // The sender skips exactly one in0 read per strided N block, at `pass == 0 &&
+                // k_block_iter == 0` (dm_in0_sender.cpp:265), and pushes one block for every other
+                // (n_block, pass, k_block). The wheel's single-pass compute matches that by
+                // retaining its block whenever it is about to stride on N. This kernel runs two
+                // passes, and the unmodified condition fires at the end of BOTH of them, so pass 1
+                // re-reads pass 0's block and every later block on that core is one push behind.
+                //
+                // MEASURED, before and after: PCC 0.8160 with the condition unmodified as soon as
+                // a core folds two output blocks, 0.9999989 at one block a core where the branch
+                // cannot fire, and 0.9999989 everywhere once the condition also requires the last
+                // pass. Removing the reuse instead of correcting it DEADLOCKS -- the sender is
+                // still skipping its read, so the pops stop matching the pushes.
+                //
+                // What the retained block holds at the strided N block is PASS 1's activation, and
+                // pass 0 of the next N block consumes it. That is only sound because both passes
+                // of this kernel read the SAME activation tensor (`x_norm` for both projections).
+                // `kernels/trimul_tail/compute.cpp` has the unmodified condition and two DIFFERENT
+                // activations, so it is not merely one push behind above one block a core, it is
+                // also reading the wrong operand. It ships on by default and should be re-validated
+                // there.
+                if (k_block == K_num_blocks - 1 && pass == TRIMUL_TAIL_PASSES - 1) {
                     if (n_block_iter < N_blocks_per_core - 1) {
                         // going to stride on N, so reuse in0
                         reuse_in0_block = true;
