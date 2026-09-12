@@ -1,0 +1,49 @@
+{
+ "cell": {
+  "arch": "WH",
+  "host": "whglx",
+  "span_ms": 85.293569,
+  "cores": 72,
+  "grid_core_ms": 6141.136968
+ },
+ "budget_pct_of_grid_core_ms": {
+  "in_kernel": 93.46214360480617,
+  "of_which_math_blocked_on_input": 55.023872706432684,
+  "of_which_math_blocked_on_output_room": 9.631195592639973,
+  "idle_between_kernels": 6.537856395193822
+ },
+ "REBALANCE": {
+  "what": "every core waits as little as the luckiest core already does",
+  "input_wait_excess_core_ms": 317.1184999999998,
+  "output_room_excess_core_ms": 178.3921200000001,
+  "total_core_ms": 495.5106199999999,
+  "block_pct": 8.06871142236344,
+  "block_ratio": 1.0877689364220036
+ },
+ "OVERLAP": {
+  "what": "every core idle between kernels is given useful work",
+  "total_core_ms": 401.498716,
+  "straggler_core_ms": 224.373205,
+  "dispatch_gap_core_ms": 177.125511,
+  "block_pct": 6.537856395193822,
+  "block_ratio": 1.0699519200291232
+ },
+ "DECHAIN": {
+  "what": "multicast the operand instead of forwarding it core to core",
+  "chain_ramp_core_us": 65140.67,
+  "downwait_core_us": 16399.4,
+  "forward_saved_core_us": 31445.015748031496,
+  "total_core_us": 112985.0857480315,
+  "instrumented_reader_total_core_us": 239328.59999999998,
+  "pct_of_instrumented_reader": 47.209186761645505,
+  "core_ms": 112.98508574803151,
+  "block_pct": 1.8398072919846902,
+  "block_ratio": 1.0187429062762472
+ },
+ "UNION_ALL_THREE": {
+  "core_ms": 1009.9944217480313,
+  "block_pct": 16.446375109541954,
+  "block_ratio": 1.1968361651706168,
+  "caveat": "additive and generous; the three overlap, so the true union is smaller"
+ }
+}
