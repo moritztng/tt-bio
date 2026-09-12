@@ -25,6 +25,7 @@ That is the S4 gate.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -363,6 +364,14 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         "MUL_BCAST_GRANULARITY": str(valid_granularity(p["Sq_chunk_t"] * p["Sk_chunk_t"], ds)),
         "DHT_GRANULARITY": str(dht_granularity(p["DHt"], p["vDHt"], ds)),
         "REDUCE_GRANULARITY": str(valid_granularity(p["Sq_chunk_t"], ds // 2)),
+        # The mask add and the running-sum/max adds share one helper, so the granularity has to be
+        # legal for the smallest block either of them passes -- that is Sq_chunk_t, the same count
+        # STATS_GRANULARITY is priced against. Batching it is worth 1.0317x on the fused SDPA on
+        # Blackhole (2.8299 -> 2.7430 ms at 512x512, perf/b2z_levers/addgran_512_qb2c0.json) and
+        # 1.0267x on Wormhole, and is bit-exact against the per-tile loop at every granularity,
+        # which `TT_BIO_SDPA_ADD_GRANULARITY=1` restores.
+        "ADD_BLOCK_GRANULARITY": os.environ.get(
+            "TT_BIO_SDPA_ADD_GRANULARITY") or str(valid_granularity(p["Sq_chunk_t"], ds)),
         "EXP_APPROX_MODE": str(int(exp_approx_mode)),
     }
     if defines_extra:
@@ -429,7 +438,11 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            str(q.dtype), q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
            tuple(sorted((kw.get("defines_extra") or {}).items())),
            kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")), kw.get("split"),
-           kw.get("kv_buffer_factor"))
+           kw.get("kv_buffer_factor"),
+           # `build` reads this one define from the environment, and the cache is keyed on what
+           # `build` was given -- so without it here an A/B that flips the env gets the FIRST arm's
+           # compiled program back for both legs and reads a 1.000x that means nothing.
+           os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,

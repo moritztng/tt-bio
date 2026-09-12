@@ -1,0 +1,731 @@
+{
+ "cifdir": "perf/b2z-perfpage/cif298",
+ "ref": "base_0",
+ "thresholds_A": {
+  "pass": 0.35,
+  "hold": 0.6,
+  "source": "state/answered/4649-decision.md"
+ },
+ "n_atoms": 2397,
+ "n_ca": 298,
+ "pairwise": [
+  {
+   "kind": "A/A",
+   "a": "base_0",
+   "b": "base_1",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_0",
+   "b": "base_2",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_0",
+   "b": "base_3",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_0",
+   "b": "base_4",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_0",
+   "b": "base_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_0",
+   "b": "ship_0",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_0",
+   "b": "ship_1",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_0",
+   "b": "ship_2",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_0",
+   "b": "ship_3",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_0",
+   "b": "ship_4",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_0",
+   "b": "ship_5",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_0",
+   "b": "warm_base",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_0",
+   "b": "warm_ship",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_1",
+   "b": "base_2",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_1",
+   "b": "base_3",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_1",
+   "b": "base_4",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_1",
+   "b": "base_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_1",
+   "b": "ship_0",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_1",
+   "b": "ship_1",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_1",
+   "b": "ship_2",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_1",
+   "b": "ship_3",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_1",
+   "b": "ship_4",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_1",
+   "b": "ship_5",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_1",
+   "b": "warm_base",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_1",
+   "b": "warm_ship",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_2",
+   "b": "base_3",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_2",
+   "b": "base_4",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_2",
+   "b": "base_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_2",
+   "b": "ship_0",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_2",
+   "b": "ship_1",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_2",
+   "b": "ship_2",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_2",
+   "b": "ship_3",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_2",
+   "b": "ship_4",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_2",
+   "b": "ship_5",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_2",
+   "b": "warm_base",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_2",
+   "b": "warm_ship",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_3",
+   "b": "base_4",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "base_3",
+   "b": "base_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_3",
+   "b": "ship_0",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_3",
+   "b": "ship_1",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_3",
+   "b": "ship_2",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_3",
+   "b": "ship_3",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_3",
+   "b": "ship_4",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_3",
+   "b": "ship_5",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_3",
+   "b": "warm_base",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_3",
+   "b": "warm_ship",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_4",
+   "b": "base_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_4",
+   "b": "ship_0",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_4",
+   "b": "ship_1",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_4",
+   "b": "ship_2",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_4",
+   "b": "ship_3",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_4",
+   "b": "ship_4",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_4",
+   "b": "ship_5",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_4",
+   "b": "warm_base",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_4",
+   "b": "warm_ship",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_5",
+   "b": "ship_0",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_5",
+   "b": "ship_1",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_5",
+   "b": "ship_2",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_5",
+   "b": "ship_3",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_5",
+   "b": "ship_4",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/B",
+   "a": "base_5",
+   "b": "ship_5",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "base_5",
+   "b": "warm_base",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_5",
+   "b": "warm_ship",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_0",
+   "b": "ship_1",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_0",
+   "b": "ship_2",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_0",
+   "b": "ship_3",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_0",
+   "b": "ship_4",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_0",
+   "b": "ship_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "ship_0",
+   "b": "warm_base",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_0",
+   "b": "warm_ship",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_1",
+   "b": "ship_2",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_1",
+   "b": "ship_3",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_1",
+   "b": "ship_4",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_1",
+   "b": "ship_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "ship_1",
+   "b": "warm_base",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_1",
+   "b": "warm_ship",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_2",
+   "b": "ship_3",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_2",
+   "b": "ship_4",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_2",
+   "b": "ship_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "ship_2",
+   "b": "warm_base",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_2",
+   "b": "warm_ship",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_3",
+   "b": "ship_4",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_3",
+   "b": "ship_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "ship_3",
+   "b": "warm_base",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_3",
+   "b": "warm_ship",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_4",
+   "b": "ship_5",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "ship_4",
+   "b": "warm_base",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_4",
+   "b": "warm_ship",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "ship_5",
+   "b": "warm_base",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  },
+  {
+   "kind": "A/A",
+   "a": "ship_5",
+   "b": "warm_ship",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "warm_base",
+   "b": "warm_ship",
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729
+  }
+ ],
+ "vs_ref": {
+  "base_1": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "base_2": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "base_3": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "base_4": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "base_5": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "ship_0": {
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "ship_1": {
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "ship_2": {
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "ship_3": {
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "ship_4": {
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "ship_5": {
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "warm_base": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "warm_ship": {
+   "all_atom_A": 0.218107,
+   "ca_A": 0.13729,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  }
+ },
+ "AA_structural_floor_A": 0.0
+}

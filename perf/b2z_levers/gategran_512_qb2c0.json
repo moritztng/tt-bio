@@ -1,0 +1,101 @@
+{
+ "doc": "Does the DST-granularity lever generalise off attention? A/B on a structurally unrelated kernel.\n\n`b2z-custom-sdpa` measured, on the Boltz-2 triangle-attention SDPA: the op is at 34.0 % of its byte\nroof and 33.4 % of its matmul roof AT ONCE; one 128-tile pass over the score block costs 1.168 ms\n(17.8 % of the op), linear in both directions at 71.3 ns a tile against a 64 ns/tile packer floor.\nTwo sibling rows found the same signature in unrelated kernels -- trimul's matmul-shaped ops at\n37-49 % and 15-52 % of their two roofs at once, and 97.28 % of cores busy across a whole\nPairformerLayer, which refutes under-parallelisation. The orchestrator's question is whether the\nDST treatment is UNIFORM, because a uniform per-core pipeline defect is the campaign and a pile of\nper-kernel accidents is not.\n\n`reblock_permute_gated` is the test. It is structurally unrelated to attention -- a gated channel\npermute inside TriangleMultiplication -- and it is the DENSEST instance of the defect in the tree:\nthe SDPA's mask add paid ONE `acquire_dst()` a tile, this pays THREE, because each of sigmoid,\nmultiply and transpose round-trips through its own bf16 CB to hold a rounding point that the\nkernel's bit-exactness against ttnn depends on. At 512 aa it is 3.149 ms of the 16.961 ms\nTriangleMultiplication chain (18.6 %).\n\nPREDICTED, before the first number:\n\n    The barrier was NOT what the SDPA's add paid for -- batching it there returned only 1.0267x.\n    This kernel has 3x the barrier density per tile, so if the lever is uniform it should return\n    MORE than 1.0267x here, but still modest: 1.05-1.15x on the op.\n\n    FALSIFIER, and it is the interesting outcome: at or under 1.01x. The host comment on these CBs\n    says \"a deeper ring would only hold more of a stream the writer is already the slow end of\". If\n    the writer is the slow end then removing compute barriers buys nothing, the lever does NOT\n    generalise, and the convergence across the three rows is a coincidence of three kernels each\n    being slow for its own reason.\n\nBit-exactness is checked, not assumed, at every granularity: same three stages, same order, same two\nbf16 circular buffers, so every rounding point is untouched and `torch.equal` must hold. A parity\nfailure here is a STOP -- this kernel's `torch.equal` against the two-op ttnn sequence is a standing\nclaim, not a PCC.\n",
+ "meta": {
+  "card": "0",
+  "grid": [
+   11,
+   10
+  ],
+  "loadavg": [
+   1.66943359375,
+   1.16455078125,
+   0.7041015625
+  ],
+  "started": "2026-09-12T14:08:46+0000",
+  "shape": [
+   1,
+   512,
+   512,
+   512
+  ],
+  "grans": [
+   1,
+   2,
+   4
+  ],
+  "loadavg_end": [
+   1.66943359375,
+   1.16455078125,
+   0.7041015625
+  ]
+ },
+ "parity_vs_gran1": {
+  "2": {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  "4": {
+   "equal": true,
+   "max_abs": 0.0
+  }
+ },
+ "arms": {
+  "1": {
+   "ms": 1.0320599994884105,
+   "all_ms": [
+    1.0580439993645996,
+    1.030833002005238,
+    1.0332169986213557,
+    1.0432570015836973,
+    1.0228979990642983,
+    1.040450999425957,
+    1.0210940017714165,
+    1.0309030003554653,
+    1.029230003041448,
+    1.0433269999339245
+   ],
+   "over_gran1": 1.0,
+   "saved_ms": 0.0
+  },
+  "2": {
+   "ms": 1.016881000396097,
+   "all_ms": [
+    1.0273659972881433,
+    1.0084800014737993,
+    1.0167760010517668,
+    1.0269550002703909,
+    1.0315840008843224,
+    1.0123870015377179,
+    1.0169859997404274,
+    1.0152630020456854,
+    1.0183279991906602,
+    1.0088910021295305
+   ],
+   "over_gran1": 1.0149270161271584,
+   "saved_ms": 0.015178999092313461
+  },
+  "4": {
+   "ms": 1.0347804982302478,
+   "all_ms": [
+    1.0351309974794276,
+    1.0391590003564488,
+    1.0317749984096736,
+    1.0423250023450237,
+    1.027406000503106,
+    1.0326869996788446,
+    1.034429998981068,
+    1.0360720007156488,
+    1.0376450009061955,
+    1.0264340016874485
+   ],
+   "over_gran1": 0.9973709412319908,
+   "saved_ms": -0.0027204987418372184
+  }
+ },
+ "verdict": {
+  "best_gran": 2,
+  "best_speedup": 1.0149270161271584,
+  "generalises": true,
+  "falsifier": "at or under 1.01x means the writer is the slow end and the lever does not generalise off attention"
+ }
+}

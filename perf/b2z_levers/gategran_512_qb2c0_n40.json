@@ -1,0 +1,191 @@
+{
+ "doc": "Does the DST-granularity lever generalise off attention? A/B on a structurally unrelated kernel.\n\n`b2z-custom-sdpa` measured, on the Boltz-2 triangle-attention SDPA: the op is at 34.0 % of its byte\nroof and 33.4 % of its matmul roof AT ONCE; one 128-tile pass over the score block costs 1.168 ms\n(17.8 % of the op), linear in both directions at 71.3 ns a tile against a 64 ns/tile packer floor.\nTwo sibling rows found the same signature in unrelated kernels -- trimul's matmul-shaped ops at\n37-49 % and 15-52 % of their two roofs at once, and 97.28 % of cores busy across a whole\nPairformerLayer, which refutes under-parallelisation. The orchestrator's question is whether the\nDST treatment is UNIFORM, because a uniform per-core pipeline defect is the campaign and a pile of\nper-kernel accidents is not.\n\n`reblock_permute_gated` is the test. It is structurally unrelated to attention -- a gated channel\npermute inside TriangleMultiplication -- and it is the DENSEST instance of the defect in the tree:\nthe SDPA's mask add paid ONE `acquire_dst()` a tile, this pays THREE, because each of sigmoid,\nmultiply and transpose round-trips through its own bf16 CB to hold a rounding point that the\nkernel's bit-exactness against ttnn depends on. At 512 aa it is 3.149 ms of the 16.961 ms\nTriangleMultiplication chain (18.6 %).\n\nPREDICTED, before the first number:\n\n    The barrier was NOT what the SDPA's add paid for -- batching it there returned only 1.0267x.\n    This kernel has 3x the barrier density per tile, so if the lever is uniform it should return\n    MORE than 1.0267x here, but still modest: 1.05-1.15x on the op.\n\n    FALSIFIER, and it is the interesting outcome: at or under 1.01x. The host comment on these CBs\n    says \"a deeper ring would only hold more of a stream the writer is already the slow end of\". If\n    the writer is the slow end then removing compute barriers buys nothing, the lever does NOT\n    generalise, and the convergence across the three rows is a coincidence of three kernels each\n    being slow for its own reason.\n\nBit-exactness is checked, not assumed, at every granularity: same three stages, same order, same two\nbf16 circular buffers, so every rounding point is untouched and `torch.equal` must hold. A parity\nfailure here is a STOP -- this kernel's `torch.equal` against the two-op ttnn sequence is a standing\nclaim, not a PCC.\n",
+ "meta": {
+  "card": "0",
+  "grid": [
+   11,
+   10
+  ],
+  "loadavg": [
+   1.27490234375,
+   1.10498046875,
+   0.6943359375
+  ],
+  "started": "2026-09-12T14:09:06+0000",
+  "shape": [
+   1,
+   512,
+   512,
+   512
+  ],
+  "grans": [
+   1,
+   2,
+   4
+  ],
+  "loadavg_end": [
+   1.27490234375,
+   1.10498046875,
+   0.6943359375
+  ]
+ },
+ "parity_vs_gran1": {
+  "2": {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  "4": {
+   "equal": true,
+   "max_abs": 0.0
+  }
+ },
+ "arms": {
+  "1": {
+   "ms": 1.032876501994906,
+   "all_ms": [
+    1.0352710014558397,
+    1.041131999954814,
+    1.0352009994676337,
+    1.0301009970135055,
+    1.022947999445023,
+    1.0460420016897842,
+    1.0361230015405454,
+    1.0335580009268597,
+    1.035031000355957,
+    1.0331170014978852,
+    1.0400799983472098,
+    1.0291189973941073,
+    1.0242999996989965,
+    1.0401910003565717,
+    1.0301820002496243,
+    1.044077998813009,
+    1.026374000502983,
+    1.017726997815771,
+    1.0343190006096847,
+    1.0320649998902809,
+    1.0306730000593234,
+    1.0269550002703909,
+    1.0348709984100424,
+    1.0297210028511472,
+    1.0231479973299429,
+    1.0566620003373828,
+    1.0235789995931555,
+    1.033436998113757,
+    1.0323550013708882,
+    1.0431070004415233,
+    1.0357819992350414,
+    1.0323960013920441,
+    1.0396789984952193,
+    1.023098000587197,
+    1.0326360024919268,
+    1.031714000419015,
+    1.0263139993185177,
+    1.0341689994675107,
+    1.0374550001870375,
+    1.0174269991694018
+   ],
+   "over_gran1": 1.0,
+   "saved_ms": 0.0
+  },
+  "2": {
+   "ms": 1.0177479998674244,
+   "all_ms": [
+    1.0163449987885542,
+    1.0237989990855567,
+    1.0157649994653184,
+    1.032175001455471,
+    1.0138809993804898,
+    1.0020280024036765,
+    1.0231180021946784,
+    1.0141999991901685,
+    1.0168160006287508,
+    1.0135490010725334,
+    1.022257001750404,
+    1.0145810010726564,
+    1.0159039993595798,
+    1.0322359994461294,
+    1.0198710006079637,
+    1.0287689983670134,
+    1.020892999804346,
+    1.0072280019812752,
+    1.018679999106098,
+    1.0250819977954961,
+    1.0284990021318663,
+    1.0142409992113244,
+    1.0208729981968645,
+    1.02222599889501,
+    1.0085900030389894,
+    1.0145419983018655,
+    1.0288689991284627,
+    1.054438002029201,
+    1.0270059974573087,
+    1.0242499993182719,
+    1.0149030022148509,
+    1.0096629994222894,
+    1.0228669998468831,
+    1.0092320007970557,
+    1.0296610016666818,
+    1.0149520021514036,
+    1.0156130010727793,
+    1.0130789996765088,
+    1.0340289991290774,
+    1.0099130013259128
+   ],
+   "over_gran1": 1.014864683722741,
+   "saved_ms": 0.015128502127481624
+  },
+  "4": {
+   "ms": 1.0317600008420413,
+   "all_ms": [
+    1.0354420010116883,
+    1.0386280009697657,
+    1.0293699997419026,
+    1.035150999086909,
+    1.0400710016256198,
+    1.0353510006098077,
+    1.0279279995302204,
+    1.0475140006747097,
+    1.0287990007782355,
+    1.0234190012852196,
+    1.033056996675441,
+    1.0291300022799987,
+    1.0294099993188865,
+    1.0316240004613064,
+    1.031795000017155,
+    1.0244000004604459,
+    1.0314040009689052,
+    1.0322359994461294,
+    1.032977001159452,
+    1.0415629985800479,
+    1.0348199975851458,
+    1.0328069984097965,
+    1.03095300073619,
+    1.037546000588918,
+    1.0312439990229905,
+    1.0300909998477437,
+    1.0311029982403852,
+    1.0476249990460929,
+    1.0190700013481546,
+    1.0340990011172835,
+    1.0317250016669277,
+    1.0306320000381675,
+    1.033428001392167,
+    1.0375960009696428,
+    1.0292600018146913,
+    1.0315440013073385,
+    1.0328460011805873,
+    1.0296809996361844,
+    1.0294910025550053,
+    1.0373350014560856
+   ],
+   "over_gran1": 1.001082132619944,
+   "saved_ms": 0.0011165011528646573
+  }
+ },
+ "verdict": {
+  "best_gran": 2,
+  "best_speedup": 1.014864683722741,
+  "generalises": true,
+  "falsifier": "at or under 1.01x means the writer is the slow end and the lever does not generalise off attention"
+ }
+}

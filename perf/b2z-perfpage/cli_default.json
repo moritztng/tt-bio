@@ -1,0 +1,67 @@
+{
+ "commit": "0f3f9f673472e6d2fc94430599adf7492bafef19",
+ "defaults": {
+  "fuse_bias_stacks": true,
+  "gate_granularity": 2
+ },
+ "cli_wall_s": 29.063,
+ "sha256": "a91aa44441f0d9c5",
+ "n_atoms": 4116,
+ "results_json": {
+  "boltz2_results_cdk2x2_512/results.json": [
+   {
+    "id": "cdk2x2_512",
+    "status": "ok",
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0,
+    "pair_chains_iptm": {
+     "0": {
+      "0": 0.629293
+     }
+    },
+    "chains_ptm": {
+     "0": 0.629293
+    },
+    "runtime_s": 20.4
+   }
+  ]
+ },
+ "cmd": [
+  "-m",
+  "tt_bio.main",
+  "predict",
+  "/home/ttuser/.coworker/wt/b2z-perfpage-recell/perf/size512/fixtures/cdk2x2_512.yaml",
+  "--model",
+  "boltz2",
+  "--msa_dir",
+  "/tmp/b2z-recell-cli-jm3phhw5/msa",
+  "--out_dir",
+  "/tmp/b2z-recell-cli-jm3phhw5/out",
+  "--recycling_steps",
+  "3",
+  "--sampling_steps",
+  "200",
+  "--diffusion_samples",
+  "1",
+  "--seed",
+  "0",
+  "--output_format",
+  "cif"
+ ],
+ "utc": "2026-09-12T18:58:56Z",
+ "against": {
+  "cif": "perf/b2z-perfpage/cif512/512_ship_0/cdk2x2_512.cif",
+  "sha256": "a91aa44441f0d9c5",
+  "atom_identity_identical": true,
+  "coordinates_identical": true,
+  "max_abs_delta_A": 0.0,
+  "kabsch_all_atom_A": 0.0
+ }
+}

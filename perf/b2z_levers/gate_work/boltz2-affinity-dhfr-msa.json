@@ -1,0 +1,27 @@
+{
+  "mode": "integration_envelope",
+  "kind": "affinity",
+  "target": "affinity_dhfr",
+  "margin": 0.5,
+  "verdict": "PASS",
+  "metrics": {
+    "affinity_pred_value": {
+      "numerator": 0.07929999999999993,
+      "envelope": 0.09706999999999999,
+      "bound": 0.155605,
+      "ratio": 0.8169362315854531,
+      "margin": 0.5,
+      "abs_floor": 0.01,
+      "pass": true
+    },
+    "affinity_probability_binary": {
+      "numerator": 0.004330000000000056,
+      "envelope": 0.0014099999999999113,
+      "bound": 0.012114999999999867,
+      "ratio": 3.070921985815836,
+      "margin": 0.5,
+      "abs_floor": 0.01,
+      "pass": true
+    }
+  }
+}

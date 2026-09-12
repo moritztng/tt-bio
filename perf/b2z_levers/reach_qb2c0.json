@@ -1,0 +1,19 @@
+{
+  "host": "tt-quietbox2",
+  "card": "0",
+  "flag": "TT_BIO_FUSE_BIAS_STACKS=1",
+  "commit": "c0b924ef81a9f96ca5d72daf7ebcb268e64e1b54",
+  "boltz2": {
+    "processes": 3,
+    "bias_stack_calls": 3,
+    "fused_calls": 3,
+    "artifact_written": true
+  },
+  "boltzgen": {
+    "processes": 1,
+    "bias_stack_calls": 0,
+    "fused_calls": 0,
+    "artifact_written": true
+  },
+  "verdict": "REACHES BOLTZ-2 ONLY"
+}

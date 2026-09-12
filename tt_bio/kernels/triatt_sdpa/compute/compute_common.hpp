@@ -334,6 +334,12 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                 sub_tiles_bcast_cols(in0_cb, in1_cb, j, i, j);
                 constexpr int iterations = (vector_mode == VectorMode::RC) ? 32 : 8;
                 constexpr int vector_mode_exp = (vector_mode == VectorMode::RC) ? VectorMode::None : vector_mode;
+#ifndef ABLATE_EXP
+                // ABLATE_EXP is an INSTRUMENT, not a knob: dropping the exponential leaves the
+                // subtraction, the L1-accumulated row sum and both matmuls exactly where they are,
+                // so the difference between the two arms is the SFPU's exp and nothing else. The
+                // output is wrong by construction and the define is unreachable from any shipped
+                // path -- `tt_bio/triatt_sdpa.py` only sets it from TT_BIO_TRIATT_ABLATE.
                 exp_tile<
                     true /* approx */,
                     true /* fast+approx */,
@@ -341,6 +347,7 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                     false /* skip +ve check */,
                     InputClamping::None,
                     iterations>(j, vector_mode_exp);
+#endif
             }
             tile_regs_commit();
 
@@ -549,6 +556,23 @@ void mul_block_bcast_scalar_inplace(uint32_t in0_cb) {
 /**
  * in0_cb += in1_cb
  */
+// One DST acquire per tile costs more than the add it guards. MEASURED on whglx card 3 (WH) by
+// ablation at the Boltz-2 512 aa triangle-attention shape (`perf/b2z_sdpa_floor/ablate_512.py`):
+// removing this one eltwise add took 1.373 ms off a 6.809 ms op -- 20.2 % -- while removing the
+// SFPU exponential over the SAME 128 tiles per chunk took 0.276 ms, 4.1 %. An add cannot cost 5x an
+// exp; what it costs is 14 592 acquire/release round-trips per core, each one a full math-to-pack
+// barrier that leaves the two threads with nothing to overlap. Every other block helper in this
+// file already batches (`STATS_GRANULARITY`, `SUB_EXP_GRANULARITY`, `MUL_BCAST_GRANULARITY`); this
+// one was the transcription's last per-tile loop.
+//
+// ADD_BLOCK_GRANULARITY is the number of tiles per acquire, priced by `sdpa_generic.valid_granularity`
+// against the same DST budget the other helpers use, so it cannot exceed what DST holds. 1 restores
+// the per-tile loop verbatim and is how the A/B reaches the incumbent. Bit-exact either way: the
+// same tiles are added in the same order and packed in the same order, only the barrier moves.
+#ifndef ADD_BLOCK_GRANULARITY
+#define ADD_BLOCK_GRANULARITY 1
+#endif
+
 template <bool pop_in1 = true>
 void add_block_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
                        uint32_t in1_base = 0) {
@@ -559,12 +583,33 @@ void add_block_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
     add_tiles_init(in0_cb, in1_cb);
     cb_wait_front(in0_cb, num_tiles);
     cb_wait_front(in1_cb, in1_base + num_tiles);
+#if ADD_BLOCK_GRANULARITY == 1
     for (uint32_t i = 0; i < num_tiles; i++) {
         acquire_dst();
         add_tiles(in0_cb, in1_cb, i, in1_base + i, 0);
         pack_tile(0, in0_cb);
         release_dst();
     }
+#else
+    // in0 is read and written in place, but a group reads tiles [i, i+n) and writes the same
+    // [i, i+n): the next group's unpack touches [i+n, i+2n), which this group's pack never wrote.
+    // So the pack of group g may overlap the unpack of group g+1 without a hazard, which is the
+    // whole point of splitting acquire from wait.
+    for (uint32_t i = 0; i < num_tiles; i += ADD_BLOCK_GRANULARITY) {
+        const uint32_t n = (num_tiles - i < ADD_BLOCK_GRANULARITY) ? (num_tiles - i)
+                                                                   : ADD_BLOCK_GRANULARITY;
+        tile_regs_acquire();
+        for (uint32_t j = 0; j < n; ++j) {
+            add_tiles(in0_cb, in1_cb, i + j, in1_base + i + j, j);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < n; ++j) {
+            pack_tile(j, in0_cb);
+        }
+        tile_regs_release();
+    }
+#endif
 
     cb_pop_front(in0_cb, num_tiles);
     if (pop_in1) {
@@ -1808,11 +1853,34 @@ void sdpa_inner_loop(
                         local_n_mask_chunk_id,
                         joint_n_mask_chunk_id);
                 } else {
-#ifdef PERSISTENT_MASK
+#if defined(PERSISTENT_MASK) && defined(ABLATE_MASKADD)
+                    // Instrument arm: the reader still fills the whole fronted mask, so this
+                    // prices the ADD alone, not the mask's bytes. With pop_in1 false the call
+                    // it replaces pops and re-pushes in0 with no net effect, so dropping it
+                    // leaves every circular buffer in the same state.
+                    (void)qk_chunk_tiles;
+#elif defined(PERSISTENT_MASK)
                     // The whole head's mask is fronted once; index block k_chunk
                     // and never pop, so the next batch reuses the same tiles.
                     add_block_inplace<false>(
                         cb_qk_im, cb_mask_in, qk_chunk_tiles, k_chunk * qk_chunk_tiles);
+#ifdef ABLATE_MASKADD_X2
+                    // The linear-pass control for ABLATE_MASKADD, and the reason it ADDS a pass
+                    // instead of removing one. Removing a stage can leave a downstream
+                    // `cb_wait_front` unsatisfied and wedge the card; running this stage twice is
+                    // CB-neutral by construction -- pop_in1 is false so the mask is never popped,
+                    // and the call pops and re-pushes cb_qk_im with no net effect -- so the second
+                    // pass is free to add and cannot deadlock. The scores become qk + 2*mask, which
+                    // is wrong on purpose; only the time means anything.
+                    //
+                    // What it tests: ABLATE_MASKADD says REMOVING this pass saves 1.373 ms. If the
+                    // cost is per-pass and linear, as the packer model claims, then ADDING one
+                    // identical pass must cost the same 1.373 ms. If instead it costs far less, the
+                    // first pass was paying a one-off (a format reconfigure, a cold mask CB) and
+                    // the packer attribution is wrong.
+                    add_block_inplace<false>(
+                        cb_qk_im, cb_mask_in, qk_chunk_tiles, k_chunk * qk_chunk_tiles);
+#endif
 #else
                     add_block_inplace(cb_qk_im, cb_mask_in, qk_chunk_tiles);
 #endif

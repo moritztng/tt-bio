@@ -1,0 +1,128 @@
+[
+  {
+    "protein": "examples/fkg_ligand.yaml",
+    "target": "107aa+SB3",
+    "L": 140,
+    "n_seeds": 2,
+    "n_ligand_chains": 1,
+    "checkpoint": "esmfold2",
+    "trunk_blocks": 48,
+    "plddt_mean": {
+      "seeds": [
+        0,
+        1
+      ],
+      "ref": [
+        0.9326348304748535,
+        0.9314279556274414
+      ],
+      "tt": [
+        0.9311996698379517,
+        0.9320494532585144
+      ],
+      "ref_seed_spread": 0.0012068748474121094,
+      "tt_seed_spread": 0.0008497834205627441,
+      "same_seed_abs_delta": [
+        0.0014351606369018555,
+        0.000621497631072998
+      ],
+      "mean_abs_delta": 0.0010283291339874268
+    },
+    "plddt_pcc": 0.9955906271934509,
+    "plddt_mae": 0.0035994499921798706,
+    "distogram_pcc": 0.9994521141052246,
+    "distogram_rel_l2": 0.044431447982788086,
+    "ptm_tt": 0.9504431486129761,
+    "ptm_ref": 0.9512833952903748,
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 4,
+        "mean": 0.32125842571258545,
+        "std": 0.07300130885790101,
+        "min": 0.21277016401290894,
+        "max": 0.3907710015773773
+      },
+      "ref_floor": {
+        "n": 1,
+        "mean": 0.21818089485168457,
+        "std": 0.0,
+        "min": 0.21818089485168457,
+        "max": 0.21818089485168457
+      },
+      "dev_floor": {
+        "n": 1,
+        "mean": 0.3791842460632324,
+        "std": 0.0,
+        "min": 0.3791842460632324,
+        "max": 0.3791842460632324
+      },
+      "floor_mean": 0.3791842460632324,
+      "cross_over_floor": 0.8472356883176331,
+      "dev_over_ref_floor": 1.7379351492759942,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "same_seed_cross": {
+        "n": 2,
+        "mean": 0.29899419844150543,
+        "std": 0.0862240344285965,
+        "min": 0.21277016401290894,
+        "max": 0.38521823287010193
+      },
+      "same_seed_over_all_cross": 0.9306968300622915
+    },
+    "coord_dm_1mpcc": {
+      "metric": "1-coord_dm_pcc",
+      "cross": {
+        "n": 4,
+        "mean": 0.000495031476020813,
+        "std": 0.0001268579629198499,
+        "min": 0.00031828880310058594,
+        "max": 0.000626683235168457
+      },
+      "ref_floor": {
+        "n": 1,
+        "mean": 0.00022524595260620117,
+        "std": 0.0,
+        "min": 0.00022524595260620117,
+        "max": 0.00022524595260620117
+      },
+      "dev_floor": {
+        "n": 1,
+        "mean": 0.0005591511726379395,
+        "std": 0.0,
+        "min": 0.0005591511726379395,
+        "max": 0.0005591511726379395
+      },
+      "floor_mean": 0.0005591511726379395,
+      "cross_over_floor": 0.8853267242298263,
+      "dev_over_ref_floor": 2.482402752050807,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "same_seed_cross": {
+        "n": 2,
+        "mean": 0.0004609227180480957,
+        "std": 0.00014263391494750977,
+        "min": 0.00031828880310058594,
+        "max": 0.0006035566329956055
+      },
+      "same_seed_over_all_cross": 0.9310977995846001
+    },
+    "ligand": {
+      "n_ligand_atoms": 33,
+      "n_protein_atoms": 831,
+      "ligand_rmsd_protein_frame": 0.45786651968955994,
+      "protein_rmsd_protein_frame": 0.19684894382953644,
+      "ref": {
+        "min_contact_A": 2.78,
+        "n_contacts": 50
+      },
+      "device": {
+        "min_contact_A": 2.625,
+        "n_contacts": 51
+      }
+    }
+  }
+]

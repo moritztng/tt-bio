@@ -1,0 +1,89 @@
+{
+  "legs": [
+    {
+      "leg": "boltz2-affinity-fkbp12-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0041 env=0.0005 ratio=8.62; affinity_pred_value r=0.27, affinity_probability_binary r=8.62",
+      "wall": 114.01880789600182,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_pred_value: num=0.0254 env=0.0641 ratio=0.40; affinity_pred_value r=0.40, affinity_probability_binary r=0.27",
+      "wall": 88.01572928499809,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0021 env=0.0012 ratio=1.77; affinity_pred_value r=0.33, affinity_probability_binary r=1.77",
+      "wall": 144.01946058300018,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0043 env=0.0014 ratio=3.07; affinity_pred_value r=0.82, affinity_probability_binary r=3.07",
+      "wall": 98.01575105499796,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_pred_value: num=0.0263 env=0.0191 ratio=1.38; affinity_pred_value r=1.38, affinity_probability_binary r=0.44",
+      "wall": 106.01453253399814,
+      "committed": "GAP",
+      "report": "boltz2-affinity-tryp-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0035 env=0.0217 ratio=0.16; affinity_pred_value r=0.16, affinity_probability_binary r=0.16",
+      "wall": 98.01836935300162,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-tryp-msa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 6
+  },
+  "scored": 6,
+  "total_wall_s": 648.103899720998,
+  "card_grant": [
+    0
+  ],
+  "skipped_for_card_grant": [],
+  "workers": [
+    "localhost:0"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "1": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "2": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      },
+      "3": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      }
+    }
+  }
+}

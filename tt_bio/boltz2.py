@@ -1160,8 +1160,51 @@ def _block_pairwise() -> bool:
     return _host_levers() and env_flag("TT_BIO_HOST_BLOCK_PAIRWISE", False)
 
 
+def _fuse_bias_stacks() -> bool:
+    # On by default; TT_BIO_FUSE_BIAS_STACKS=0 restores the per-layer stack. Not bit-exact (see
+    # _fuse_bias_stack), so it ships on a control rather than on the algebra: cdk2x2_298 moves
+    # 0.218 A all-atom against a 0.000 A A/A floor and a 0.35 A bar, with plDDT flat to 0.0026.
+    # The second call site this used to wait on does not exist: BoltzGen builds its conditioning
+    # from tt_bio/boltzgen/model/modules/diffusion_conditioning.py, which inlines the per-layer
+    # loop, so a whole design run makes zero _bias_stack calls against a Boltz-2 fold's three
+    # (perf/b2z_levers/reach_qb2c0.json). Read per call for the same reason as _host_levers: an
+    # A/B flips arms inside one process.
+    return _host_levers() and env_flag("TT_BIO_FUSE_BIAS_STACKS", True)
+
+
 def _row_block(bytes_per_row: int) -> int:
     return max(1, HOST_BLOCK_BYTES // max(int(bytes_per_row), 1))
+
+
+def _fuse_bias_stack(layers):
+    """One ``(weight, bias)`` for a whole stack of LayerNorm(C) + Linear(C, H, bias=False).
+
+    Every layer in the stack normalises the SAME tensor, so the normalisation is computed once
+    per layer and all but one of them thrown away. With ``xhat = (x - mean) / std`` shared,
+
+        layer_i(x) = (xhat * w_i + b_i) @ W_i.T = xhat @ (w_i * W_i).T + b_i @ W_i.T
+
+    so the stack is one affine-free LayerNorm plus one ``[C, H * len(layers)]`` Linear with a
+    constant bias. Exact in real arithmetic; in floating point the products and the summation
+    order both move, so it is not bit-exact (2.1e-5 max, 2e-7 mean relative on Boltz-2's
+    24-layer token stack at 512 tokens).
+
+    Cached in the ModuleList's ``__dict__`` directly so ``nn.Module``'s attribute machinery
+    never sees the tensors: they are derived constants, not parameters or buffers, and must not
+    turn up in ``state_dict()``.
+    """
+    fused = layers.__dict__.get("_fused_bias")
+    if fused is None:
+        norm, proj = layers[0][0], layers[0][1]
+        eps = norm.eps
+        assert all(lay[0].eps == eps
+                   and lay[0].normalized_shape == norm.normalized_shape
+                   and lay[1].out_features == proj.out_features for lay in layers)
+        w = torch.cat([lay[1].weight * lay[0].weight for lay in layers], dim=0)
+        b = torch.cat([lay[1].weight @ lay[0].bias for lay in layers], dim=0)
+        fused = (w, b, norm.normalized_shape, eps)
+        layers.__dict__["_fused_bias"] = fused
+    return fused
 
 
 def _bias_stack(layers, x):
@@ -1172,6 +1215,9 @@ def _bias_stack(layers, x):
     """
     if not _host_levers():
         return torch.cat([layer(x) for layer in layers], dim=-1)
+    if _fuse_bias_stacks() and len(layers) > 1:
+        w, b, shape, eps = _fuse_bias_stack(layers)
+        return F.linear(F.layer_norm(x, shape, eps=eps), w, b)
     c = x.shape[-1]
     h = layers[0][1].out_features
     w = h * len(layers)

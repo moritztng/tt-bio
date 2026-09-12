@@ -44,61 +44,91 @@ void kernel_main() {
 
     const uint32_t num_tiles = get_arg_val<uint32_t>(0);
 
-    constexpr uint32_t onetile = 1;
+    // Tiles per DST acquire. 1 is the incumbent, verbatim -- three acquire/pack/release cycles per
+    // tile, one tile in flight. Above 1 the SAME three stages run over a group of tiles, in the
+    // same order, through the same two bf16 circular buffers, so every rounding point named in the
+    // header above is untouched and the result stays bit-exact; only the barriers move.
+    //
+    // Why this kernel: it is the densest instance in the tree of the defect measured in
+    // `b2z-custom-sdpa` -- a per-tile `acquire_dst()` around an eltwise op. The SDPA's mask add
+    // paid ONE barrier a tile; this pays THREE, because each stage round-trips through a CB to
+    // hold its rounding. At 512 aa it is 3.149 ms of the 16.961 ms TriangleMultiplication chain
+    // (18.6 %), and it is structurally unrelated to attention -- which is the point of testing it.
+    //
+    // Capped by DST, not by taste: stage 2 holds the value AND the gate for each tile, 2 slots a
+    // tile, against 8 slots of a 16-bit DST. So 4 is the ceiling and the host will not pass more.
+    constexpr uint32_t GRAN = get_compile_time_arg_val(6);
 
     binary_op_init_common(p_cb, sig_cb, mul_cb);
 
-    for (uint32_t i = 0; i < num_tiles; ++i) {
+    for (uint32_t i = 0; i < num_tiles; i += GRAN) {
+        const uint32_t n = (num_tiles - i < GRAN) ? (num_tiles - i) : GRAN;
+
         // sigmoid(g) -> its own CB. binary_ng applies an input activation in PREPROCESS
         // (eltwise_utils.hpp), which copies the operand to DST, runs the SFPU op and packs the
         // result before the binary op unpacks it again, so the activation is rounded to bf16
         // BEFORE the multiply. Keeping it in DST would multiply against more mantissa than ttnn.
-        cb_wait_front(g_cb, onetile);
-        cb_reserve_back(sig_cb, onetile);
+        cb_wait_front(g_cb, n);
+        cb_reserve_back(sig_cb, n);
         tile_regs_acquire();
         copy_tile_to_dst_init_short(g_cb);
-        copy_tile(g_cb, 0, 0);
+        for (uint32_t j = 0; j < n; ++j) {
+            copy_tile(g_cb, j, j);
+        }
         if constexpr (!skip_sigmoid) {
             sigmoid_tile_init();
-            sigmoid_tile(0);
+            for (uint32_t j = 0; j < n; ++j) {
+                sigmoid_tile(j);
+            }
         }
         tile_regs_commit();
         tile_regs_wait();
-        pack_tile(0, sig_cb);
+        for (uint32_t j = 0; j < n; ++j) {
+            pack_tile(j, sig_cb);
+        }
         tile_regs_release();
-        cb_pop_front(g_cb, onetile);
-        cb_push_back(sig_cb, onetile);
+        cb_pop_front(g_cb, n);
+        cb_push_back(sig_cb, n);
 
-        cb_wait_front(p_cb, onetile);
-        cb_wait_front(sig_cb, onetile);
-        cb_reserve_back(mul_cb, onetile);
+        cb_wait_front(p_cb, n);
+        cb_wait_front(sig_cb, n);
+        cb_reserve_back(mul_cb, n);
         tile_regs_acquire();
-        copy_tile_to_dst_init_short(p_cb);
-        copy_tile(p_cb, 0, 0);
-        copy_tile_to_dst_init_short(sig_cb);
-        copy_tile(sig_cb, 0, 1);
-        mul_binary_tile_init();
-        mul_binary_tile(0, 1, 0);
+        for (uint32_t j = 0; j < n; ++j) {
+            // Two DST slots a tile, so the multiply reads the same two operands it always did.
+            copy_tile_to_dst_init_short(p_cb);
+            copy_tile(p_cb, j, 2 * j);
+            copy_tile_to_dst_init_short(sig_cb);
+            copy_tile(sig_cb, j, 2 * j + 1);
+            mul_binary_tile_init();
+            mul_binary_tile(2 * j, 2 * j + 1, 2 * j);
+        }
         tile_regs_commit();
         tile_regs_wait();
-        pack_tile(0, mul_cb);
+        for (uint32_t j = 0; j < n; ++j) {
+            pack_tile(2 * j, mul_cb);
+        }
         tile_regs_release();
-        cb_pop_front(p_cb, onetile);
-        cb_pop_front(sig_cb, onetile);
-        cb_push_back(mul_cb, onetile);
+        cb_pop_front(p_cb, n);
+        cb_pop_front(sig_cb, n);
+        cb_push_back(mul_cb, n);
 
         // The within-tile WH transpose, unchanged from compute_reblock_permute.cpp. It runs last,
         // as it does in production where `_transform_chunk` moves the already-gated chunk.
-        cb_wait_front(mul_cb, onetile);
-        cb_reserve_back(out_cb, onetile);
+        cb_wait_front(mul_cb, n);
+        cb_reserve_back(out_cb, n);
         transpose_wh_init(mul_cb, out_cb);
         tile_regs_acquire();
-        transpose_wh_tile(mul_cb, 0, 0);
+        for (uint32_t j = 0; j < n; ++j) {
+            transpose_wh_tile(mul_cb, j, j);
+        }
         tile_regs_commit();
         tile_regs_wait();
-        pack_tile(0, out_cb);
+        for (uint32_t j = 0; j < n; ++j) {
+            pack_tile(j, out_cb);
+        }
         tile_regs_release();
-        cb_pop_front(mul_cb, onetile);
-        cb_push_back(out_cb, onetile);
+        cb_pop_front(mul_cb, n);
+        cb_push_back(out_cb, n);
     }
 }

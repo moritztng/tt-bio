@@ -49,8 +49,21 @@ def main() -> int:
             continue
         keys, xyz = read_atoms(cifs[0])
         tag = d.name.split("_", 1)[1]          # 298_base_0 -> base_0
+        # The prefix carries the FIXTURE, and stripping it makes 298_base_0 and 512_base_0 the
+        # same key. A cifdir holding both sizes -- which `ab_arms.py --control` produces, since it
+        # keeps 512_* from the timed phase and 298_* from the control phase in one directory --
+        # then silently scores the 512 folds under the 298 thresholds. cdk2x2_512 is chimeric and
+        # saturates for any change (memory cdk2x2-chimeric-fixture-cannot-score-non-bit-exact-
+        # parity), so the table comes out plausible and wrong: measured 2026-09-12, a change that
+        # is 0.218 A on cdk2x2_298 read 0.505 A and flipped PASS to HOLD. Refuse loudly instead.
+        if tag in data:
+            raise SystemExit(
+                f"two directories map to the tag {tag!r}: {data[tag]['dir']} and {d.name}. The "
+                f"fixture prefix is what differs, so this cifdir holds more than one fixture and "
+                f"the thresholds below apply to exactly one. Point this at a single fixture's "
+                f"folds.")
         ca = [i for i, k in enumerate(keys) if "CA" in k]
-        data[tag] = {"keys": keys, "xyz": xyz, "ca": ca, "cif": cifs[0].name}
+        data[tag] = {"keys": keys, "xyz": xyz, "ca": ca, "cif": cifs[0].name, "dir": d.name}
         print(f"  {tag:10s} {len(xyz):6d} atoms  {len(ca):5d} CA  {cifs[0].name}")
     if len(data) < 2:
         raise SystemExit("need at least two folds on disk")
@@ -61,6 +74,14 @@ def main() -> int:
             raise SystemExit(f"atom identity differs in {tag} -- cannot compare by order")
     print(f"\n  atom identity identical across all {len(data)} folds ({len(ref_keys)} atoms), "
           f"so every comparison is atom-for-atom\n")
+
+    def arm_of(tag: str) -> str:
+        """`base_3` and `warm_base` are one arm. The warmup directories a timing run leaves behind
+        carry the arm in the SECOND field, so splitting on the first alone pairs warm_base with
+        warm_ship and calls it A/A -- the floor then reports the A/B difference and announces that
+        the measurement is void, on a run whose real floor is exactly 0."""
+        head, _, rest = tag.partition("_")
+        return rest if head == "warm" else head
 
     def pair(x, y):
         ax, ay = data[x], data[y]
@@ -76,7 +97,7 @@ def main() -> int:
     print("  every pair, all-atom / CA Kabsch RMSD in A:")
     for x, y in itertools.combinations(sorted(data), 2):
         aa, ca = pair(x, y)
-        kind = "A/A" if x.split("_")[0] == y.split("_")[0] else "A/B"
+        kind = "A/A" if arm_of(x) == arm_of(y) else "A/B"
         out["pairwise"].append({"kind": kind, "a": x, "b": y,
                                 "all_atom_A": round(aa, 6), "ca_A": round(ca, 6)})
         print(f"    {kind}  {x:10s} vs {y:10s}  {aa:10.6f} / {ca:10.6f}")

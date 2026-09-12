@@ -1,0 +1,85 @@
+{
+ "doc": "Are the b2z levers correctness-neutral on Wormhole? They were all measured on Blackhole.\n\nThree levers ship default-on after `b2z-levers-default-on`: the fused bias stacks in Boltz-2's\ndiffusion conditioning (TT_BIO_FUSE_BIAS_STACKS, not bit-exact), the batched DST acquire in the\nfused SDPA's mask add (TT_BIO_SDPA_ADD_GRANULARITY, bit-exact) and the same treatment in the gated\nchannel permute (TT_BIO_GATE_GRANULARITY, bit-exact). `b2x-integrate-wh-neutral` is the precedent\nand the reason this exists: the last two flipped-on Boltz-2 levers shipped fleet-wide having only\never run on qb2.\n\nThree arms in ONE process so the A/A floor and the A/B are measured on the same program cache:\n\n    base    every lever forced off -- the pre-merge path\n    base    again, which is the A/A floor. A non-zero floor invalidates the third arm.\n    ship    every lever at its shipped default\n\nSame fixtures, protocol and 0.35 A bar as the Blackhole control, so the two platforms compare\ndirectly. The 298 aa fixture is the one the bar is written against; 512 aa runs for the crash and\nOOM answer, which is the other half of the question.\n\nThe arms are applied in-process, which is legal for each lever but for a different reason each\ntime: TT_BIO_FUSE_BIAS_STACKS is read per call, TT_BIO_SDPA_ADD_GRANULARITY is read inside\n`sdpa_generic.build` AND is in the program-cache key, and GATE_GRANULARITY is a module constant\nso it is assigned rather than exported -- it is in that kernel's cache key too. Without those two\nkeys both arms would get the first arm's compiled program back and read a parity that means\nnothing.\n\n    wh_neutral.py --out perf/b2z_levers/wh_neutral_whglx.json --cifdir <dir>\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "torch": "2.14.0+cu130",
+  "tt_visible_devices": "3",
+  "tt_bio_file": "/home/mthuening/work/wt/b2z-levers-default-on/tt_bio/__init__.py",
+  "commit": "731b9c8a0446a834a086fada7a1f793f35d11e3e",
+  "started_utc": "2026-09-12T14:15:41Z",
+  "loadavg": [
+   1.17333984375,
+   2.2822265625,
+   2.90234375
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "seed": 0,
+   "diffusion_trace": false
+  },
+  "shipped_defaults": {
+   "gate_granularity": 2
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "fold_s": 48.795,
+   "sha256": "2e3b25a5520c8ff8",
+   "plddt": 0.800029,
+   "rep": 0
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "fold_s": 41.176,
+   "sha256": "2e3b25a5520c8ff8",
+   "plddt": 0.800029,
+   "rep": 1
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_512",
+   "fold_s": 42.695,
+   "sha256": "da476491dbb2a847",
+   "plddt": 0.802815,
+   "rep": 0
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "fold_s": 27.273,
+   "sha256": "35467677530aaa0c",
+   "plddt": 0.912855,
+   "rep": 0
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "fold_s": 22.081,
+   "sha256": "35467677530aaa0c",
+   "plddt": 0.912855,
+   "rep": 1
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_298",
+   "fold_s": 23.458,
+   "sha256": "8af5840b8f08fa44",
+   "plddt": 0.913019,
+   "rep": 0
+  }
+ ],
+ "model_load_s": 6.244,
+ "aa_floor_identical": {
+  "512": true,
+  "298": true
+ }
+}
