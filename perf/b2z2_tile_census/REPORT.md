@@ -88,10 +88,14 @@ identity (`wait_in 18.3366 + wait_out 3.1066 + compute 10.7010 + non-resident 4.
 against a 36.3438 ms span) and nothing here touches it. What changes is what you have to do to
 reach it.
 
-* **Deleting a tile PASS is worth 20.82 ns only if it also deletes the operand's round trip.** A
-  fusion that keeps an intermediate in DST and stops it going to DRAM and back deletes bytes at
-  352 GB/s, which on this block is 27x the tile-pass saving. A fusion that merely saves a pass on
-  an operand that still has to be read is worth the 20.82 ns and no more.
+* **Deleting a tile PASS is worth 20.82 ns only if it also deletes the operand's round trip.**
+  A tile that crosses the DRAM interface carries 598.4 ns of wait with it (the fitted 12.5130 ms
+  DRAM term over the 20,911 DRAM-fed arrivals per core; the independent route, 2048 B at
+  352.2 GB/s over 110 cores, gives 639.6 ns and the 6.9 % gap is the fit error). That is
+  **28.7x** a tile pass. So a fusion that stops an intermediate going to DRAM and coming back is
+  worth two orders of magnitude more than the same fusion priced by passes deleted, and a fusion
+  that merely saves a pass on an operand that still has to be read is worth the 20.82 ns and no
+  more.
 * **Residency is the direct lever.** DERIVED, at the fitted bandwidths: if every DRAM-interleaved
   read in the block became L1-interleaved, the wait's DRAM term falls 12.5130 -> 6.7604 ms and the
   block goes 36.3438 -> 30.5912 ms, **1.188x on the Pairformer block**. That is a ratio against a
