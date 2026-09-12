@@ -57,21 +57,25 @@ def pair(a, b, split: int) -> dict:
     rots = {}
     for tag, sel in (("domain1", "d1"), ("domain2", "d2")):
         idx = a[sel]
+        if len(idx) < 3:            # cdk2x2_298 is one domain; there is no second to superpose
+            continue
         R, r = kabsch(a["xyz"][idx], b["xyz"][idx])
         rots[tag] = R
         out[f"{tag}_all_atom_A"] = r
-        cidx = np.array([i for i in a["ca"] if i in set(idx.tolist())])
+        cidx = np.intersect1d(a["ca"], idx)
         out[f"{tag}_ca_A"] = kabsch_rmsd(a["xyz"][cidx], b["xyz"][cidx])
-    n1, n2 = len(a["d1"]), len(a["d2"])
-    out["hinge_deg"] = angle_between(rots["domain1"], rots["domain2"]) if n2 else 0.0
-    out["hinge_free_all_atom_A"] = math.sqrt(
-        (n1 * out["domain1_all_atom_A"] ** 2 + n2 * out["domain2_all_atom_A"] ** 2) / (n1 + n2))
+    if len(rots) == 2:
+        n1, n2 = len(a["d1"]), len(a["d2"])
+        out["hinge_deg"] = angle_between(rots["domain1"], rots["domain2"])
+        out["hinge_free_all_atom_A"] = math.sqrt(
+            (n1 * out["domain1_all_atom_A"] ** 2 + n2 * out["domain2_all_atom_A"] ** 2)
+            / (n1 + n2))
     # lDDT is superposition-free, so it is the one number the hinge cannot move. Whole chain
     # first, then each domain on its own CA set.
     _pr, out["lddt_ca"] = lddt_per_residue(a["xyz"][a["ca"]], b["xyz"][b["ca"]])
     for tag, sel in (("domain1", "d1"), ("domain2", "d2")):
         m = np.isin(a["ca_seq"], a["seq"][a[sel]])
-        if m.sum() > 1:
+        if m.sum() > 2:
             _pr, out[f"lddt_ca_{tag}"] = lddt_per_residue(
                 a["xyz"][a["ca"]][m], b["xyz"][b["ca"]][m])
     return {k: (round(v, 5) if isinstance(v, float) else v) for k, v in out.items()}
