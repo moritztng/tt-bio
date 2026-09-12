@@ -1112,6 +1112,10 @@ ATOM_AXIS_BUCKET_STATS = [0, 0]      # [served, declined], one pair per fold
 # measured and its digest checked against the one-chip fold.
 _ATOM_WINDOW_SHARD = env_flag("TT_BIO_ATOM_WINDOW_SHARD", False)
 ATOM_HALO_WINDOWS = 2     # 2 * ATOM_WINDOW = 64 >= the 48 rows a window's key range reaches back
+# [served, declined_windows, declined_device]. A fold that declines the shard runs the ordinary
+# path and writes the ordinary digest, which is indistinguishable from a shard that worked -- so
+# the gate counts itself and the harness reads the counter.
+ATOM_WINDOW_SHARD_STATS = [0, 0, 0]
 
 # Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
 # DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
@@ -9442,8 +9446,13 @@ def _atom_window_shard(device, n_windows: int, dim: int, dtype=None):
     if not _ATOM_WINDOW_SHARD:
         return None
     n = int(device.get_num_devices()) if hasattr(device, "get_num_devices") else 1
-    if n < 2 or n_windows % n or n_windows // n <= 2 * ATOM_HALO_WINDOWS:
+    if n < 2:
+        ATOM_WINDOW_SHARD_STATS[2] += 1
         return None
+    if n_windows % n or n_windows // n <= 2 * ATOM_HALO_WINDOWS:
+        ATOM_WINDOW_SHARD_STATS[1] += 1
+        return None
+    ATOM_WINDOW_SHARD_STATS[0] += 1
     return _AtomWindowShard(device, n, n_windows, dim, dtype)
 
 

@@ -245,6 +245,12 @@ dump()
 # rung on an allocation refusal and remember it by shape. A config that sets blocking or reduction
 # order is not bit-exact across picks, so a refusal the unsharded fold never hits is enough to
 # change the answer while every op stays bit-exact at its own shape. Record what fired.
+# Did the gate actually fire? A declined shard runs the ordinary path and writes the ordinary
+# digest, which reads exactly like a shard that worked. [served, declined_windows, declined_device].
+OUT["shard_stats"] = list(T.ATOM_WINDOW_SHARD_STATS)
+log(f"atom window shard stats [served, declined_windows, declined_device] = {OUT['shard_stats']}")
+assert (OUT["shard_stats"][0] > 0) == (MODE == "shard"), (
+    f"mode {MODE} but shard stats {OUT['shard_stats']}")
 OUT["config_rungs"] = {
     name: (len(getattr(T, name)) if hasattr(T, name) else None)
     for name in ("_L1_OUT_RUNG", "_BMM_CFG_RUNG", "_BMM_CFG_REFUSED", "_OPM_JOIN_REFUSED")
