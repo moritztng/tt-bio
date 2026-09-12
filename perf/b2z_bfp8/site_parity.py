@@ -55,6 +55,9 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--steps", type=int, default=STEPS)
     ap.add_argument("--sites", default="")
+    ap.add_argument("--union", action=argparse.BooleanOptionalAction, default=True,
+                    help="also fold the union of --sites; off when --sites is one shard of a "
+                         "fan-out, where the union of a shard means nothing")
     ap.add_argument("--seq512", action="store_true",
                     help="also fold the 512 aa cell per arm (roughly triples the wall clock)")
     ap.add_argument("--cifdir", type=Path, default=None)
@@ -77,7 +80,7 @@ def main() -> int:
 
     arms: list[tuple[str, frozenset]] = [("base", frozenset())]
     arms += [(s, frozenset([s])) for s in sites]
-    if len(sites) > 1:
+    if len(sites) > 1 and args.union:
         arms.append(("all", frozenset(sites)))
 
     dev = T.get_device()
