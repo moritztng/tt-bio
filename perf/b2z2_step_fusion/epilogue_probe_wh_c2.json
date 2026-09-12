@@ -1,0 +1,65 @@
+{
+ "env": {
+  "card": "2",
+  "started": "2026-09-12T18:33:37+0000",
+  "shape": [
+   1,
+   16,
+   512,
+   48
+  ]
+ },
+ "logical_shape": [
+  1,
+  16,
+  512,
+  48
+ ],
+ "stock": {
+  "out_shape": [
+   1,
+   512,
+   768
+  ],
+  "us": 73.738
+ },
+ "candidates": {
+  "nlp_concat_heads": {
+   "out_shape": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "shape_match": true,
+   "bit_exact": false,
+   "max_abs": 6.453125,
+   "us": 21.357
+  },
+  "permute_0213_reshape": {
+   "out_shape": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "shape_match": true,
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "us": 308.171
+  },
+  "reshape_only": {
+   "out_shape": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "shape_match": true,
+   "bit_exact": false,
+   "max_abs": 6.578125,
+   "us": 148.282
+  }
+ },
+ "negative_control_equal": false
+}
