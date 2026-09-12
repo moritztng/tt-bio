@@ -1,0 +1,120 @@
+{
+ "env": {
+  "started": "2026-09-12T21:23:27+0000",
+  "card": "12",
+  "size": 512,
+  "arms": [
+   "base",
+   "gridq"
+  ],
+  "reps": 10,
+  "blocks": 5,
+  "commit": "40df8ad9",
+  "profiler": "0",
+  "loadavg": [
+   "26.63",
+   "23.05",
+   "16.47"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3,
+  "arch": "Arch.WORMHOLE_B0",
+  "n_cores": 72
+ },
+ "precursor_s": 31.498,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "q_chunk_picks": {
+  "base": {},
+  "gridq": {}
+ },
+ "parity": {
+  "base": {
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "gridq": {
+   "bit_exact": true,
+   "max_abs": 0.0
+  }
+ },
+ "walls": {
+  "base": [
+   41.5813,
+   41.5915,
+   41.5674,
+   41.6262,
+   41.5951
+  ],
+  "gridq": [
+   40.8438,
+   40.8425,
+   40.8393,
+   40.8436,
+   40.8534
+  ]
+ },
+ "ms_per_step": {
+  "base": 41.5915,
+  "gridq": 40.8436
+ },
+ "spread_pct": {
+  "base": 0.141,
+  "gridq": 0.034
+ },
+ "ratio_vs_base": {
+  "base": 1.0,
+  "gridq": 1.01831
+ }
+}
