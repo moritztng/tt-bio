@@ -208,11 +208,15 @@ instrument that can resolve a 13 us op.
 1. **The Blackhole STEP on the published cell's part.** All four qb2 chips were held (three
    leased, and card 0 running `b2z2-union-gate-ship`'s parity gate), so the Blackhole leg here is
    an op ladder on a p150a, not a step on the p300c. **Not projected into any headline.**
-2. **Boltz-2's own pick census.** `tt_bio.main` fans the fold out to spawned device workers, and
-   the hook reaches only the CLI process, which does no attention: the census file reads
-   `patched: true, sdpa_calls: []` on a fold that ran 177 s of device work. Boltz-2's diffusion
-   attention is `tenstorrent.AttentionPairBias.__call__`, which does call the picker, so this is a
-   census plumbing gap and not a finding about the model. Next pass should grab the step in-process
-   the way `step_probe.py` does rather than going through the CLI.
+2. **Boltz-2's own pick census, and a caveat the merge decision needs.** A 512 aa fold through
+   `tt_bio.main` records **zero** calls, and the engine's own branch counter agrees:
+   `B2_TOKEN_DIT_SDPA_STATS` reads **[0, 0]** -- served zero, declined zero -- so
+   `AttentionPairBias.__call__` never ran in the process the hook is in. The fold runs in spawned
+   device workers and a `sitecustomize` on PYTHONPATH reached only the parent. **This is census
+   plumbing, not a model finding**, but it means something real is still unshown: every Boltz-2
+   number for this lever, the parent's 1.01831x included, was taken on a step GRABBED out of a
+   truncated precursor fold, and the branch it lives on is gated on `seq_mask is None`. Nobody has
+   yet demonstrated that a production fold takes it. That is one counter read away and it should be
+   read before the flag is flipped.
 3. **A resolvable instrument under ~30 us**, without which the PLM shapes cannot be priced.
 4. **The two-term rule** that would take the remaining 1.10x-1.25x on Blackhole.
