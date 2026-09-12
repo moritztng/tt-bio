@@ -1178,11 +1178,15 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 
 # The diffusion step spends 339 elementwise programs, and 286 of them are 143 chains of exactly
 # two: a product written to L1 and read straight back by an add or a second product. `ttnn.mac`
-# is ONE program for `x * y + z` and is bit-identical to the pair it replaces (checked with
-# `torch.equal` at both production shapes, [1, 512, 768] and [1, 140, 32, 128], bf16). The step's
-# math thread is input-stalled with a 9.76 us per-program constant, so a deleted program is the
-# currency here. Gated on the chain shape, not on a model: every DiT that scales-and-shifts gets it.
-_MAC_FUSE = env_flag("TT_BIO_MAC_FUSE", False)
+# is ONE program for `x * y + z`, so each chain is a program that need not exist. A bit per site,
+# because the three sites do not cost the same: two of them also have to move a sigmoid out of the
+# multiply's operand activation and into the epilogue of the matmul that produced the operand, and
+# that move is not free. Gated on the chain's shape, not on a model: every DiT that scales-and-
+# shifts gets it.
+_MAC_ADALN = 1          # AdaLN's `a * sigmoid(s_scale) + s_bias`, 60 chains a step
+_MAC_RESIDUAL = 2       # the DiT layer's `a + s_o * b`, 30 chains, no activation to move
+_MAC_TRANSITION = 4     # the DiT layer's `a + sigmoid(s) * b_a`, 30 chains
+_MAC_FUSE = env_int("TT_BIO_MAC_FUSE", 0)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
@@ -8378,7 +8382,7 @@ class AdaLN(Module):
             # `__call__` needs sigmoid(s_scale). Taking it in the matmul's epilogue instead of in
             # the multiply's operand activation is bit-identical (both round to bf16 on the way to
             # L1) and leaves a plain product, which `ttnn.mac` can do in one program with the add.
-            activation="sigmoid" if _MAC_FUSE else None,
+            activation="sigmoid" if _MAC_FUSE & _MAC_ADALN else None,
             #core_grid=ttnn.CoreGrid(y=10, x=11), CAUSES ACCURACY ISSUE
         )
         s_bias = ttnn.linear(
@@ -8415,7 +8419,7 @@ class AdaLN(Module):
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
-        if _MAC_FUSE:           # sigmoid is already in s_scale, see `s_terms`
+        if _MAC_FUSE & _MAC_ADALN:      # sigmoid is already in s_scale, see `s_terms`
             normed, a = a, ttnn.mac(a, s_scale, s_bias)
             ttnn.deallocate(normed)     # `mac` allocates where the in-place pair did not
         else:
@@ -8496,7 +8500,7 @@ class ConditionedTransitionBlock(Module):
             bias=self.output_projection_bias,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
-            activation="sigmoid" if _MAC_FUSE else None,
+            activation="sigmoid" if _MAC_FUSE & _MAC_TRANSITION else None,
         )
         b_a = ttnn.linear(
             b,
@@ -8511,7 +8515,7 @@ class ConditionedTransitionBlock(Module):
         self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False
     ) -> ttnn.Tensor:
         s, b_a = self.out_terms(a, s, large_seq_len=large_seq_len)
-        if _MAC_FUSE:           # sigmoid is already in s, see `out_terms`
+        if _MAC_FUSE & _MAC_TRANSITION:     # sigmoid is already in s, see `out_terms`
             a = ttnn.multiply_(s, b_a)
         else:
             a = ttnn.multiply_(s, b_a, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -8596,38 +8600,44 @@ class DiffusionTransformerLayer(Module):
                 self.s_o, self._s_o_key = s_o, key
         else:
             s_o = self.s_o
-        # Both residuals here are `a + x * y`, which is one `ttnn.mac` program and two without it.
-        if _MAC_FUSE:
-            def absorb(a):
-                """``a + s_o * b``, and the attention output is dead the moment it lands."""
-                out = ttnn.mac(s_o, b, a)   # `a` belongs to the caller and is left alone
-                ttnn.deallocate(b)
-                if s_o is not self.s_o:         # a cached projection outlives the call
-                    ttnn.deallocate(s_o)
-                return out
-            if self.no_residual:
-                # transition reads the block input, so it must be evaluated BEFORE a
-                # absorbs the attention output
-                t_s, t_b = self.transition.out_terms(a, s, large_seq_len=large_seq_len)
-                a = absorb(a)
-            else:
-                a = absorb(a)
-                t_s, t_b = self.transition.out_terms(a, s, large_seq_len=large_seq_len)
-            residual, a = a, ttnn.mac(t_s, t_b, a)
-            ttnn.deallocate(residual)
-            ttnn.deallocate(t_s)
-            ttnn.deallocate(t_b)
-            return a
-        b = ttnn.multiply(s_o, b)
+        # Both residuals here are `a + x * y`: one `ttnn.mac` program each, or two without one.
+        fuse_res = bool(_MAC_FUSE & _MAC_RESIDUAL)
+        fuse_tr = bool(_MAC_FUSE & _MAC_TRANSITION)
+        if not fuse_res:
+            b = ttnn.multiply(s_o, b)
+
+        def absorb(a):
+            """``a + s_o * b``."""
+            if not fuse_res:
+                return ttnn.add(a, b)
+            out = ttnn.mac(s_o, b, a)
+            ttnn.deallocate(b)
+            if s_o is not self.s_o:             # a cached projection outlives the call
+                ttnn.deallocate(s_o)
+            return out
+
+        def transition_of(src):
+            """the transition's output, or the pair whose product it is when that is fusable"""
+            if fuse_tr:
+                return self.transition.out_terms(src, s, large_seq_len=large_seq_len)
+            return self.transition(src, s, large_seq_len=large_seq_len)
+
+        def add_transition(a, t):
+            if not fuse_tr:
+                return ttnn.add(a, t)
+            out = ttnn.mac(t[0], t[1], a)
+            ttnn.deallocate(t[0])
+            ttnn.deallocate(t[1])
+            return out
+
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
             # absorbs the attention output
-            a_t = self.transition(a, s, large_seq_len=large_seq_len)
-            a = ttnn.add(ttnn.add(a, b), a_t)
+            t = transition_of(a)
+            a = add_transition(absorb(a), t)
         else:
-            a = ttnn.add(a, b)
-            a_t = self.transition(a, s, large_seq_len=large_seq_len)
-            a = ttnn.add(a, a_t)
+            a = absorb(a)
+            a = add_transition(a, transition_of(a))
         return a
 
 

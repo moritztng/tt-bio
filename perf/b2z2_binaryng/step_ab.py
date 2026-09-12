@@ -42,8 +42,8 @@ def adalns(T):
     return out
 
 
-def set_arm(T, on, memos):
-    T._MAC_FUSE = on
+def set_arm(T, mask, memos):
+    T._MAC_FUSE = mask
     for m in memos:
         m._s_memo = None
         m._s_memo_src = None
@@ -56,6 +56,8 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=10)
     ap.add_argument("--rounds", type=int, default=5)
     ap.add_argument("--keep-blocks", type=int, default=2)
+    ap.add_argument("--arms", default="1,2,4,7",
+                    help="TT_BIO_MAC_FUSE masks to price against the 0 base")
     a = ap.parse_args()
     a.out.parent.mkdir(parents=True, exist_ok=True)
 
@@ -83,10 +85,14 @@ def main() -> int:
 
     call = lambda: g["obj"](*g["args"], **g["kwargs"])          # noqa: E731
 
-    # ---- program count, both arms ----------------------------------------------------------
-    OUT["programs"] = {}
-    for name, on in (("base", False), ("mac", True)):
-        set_arm(T, on, memos)
+    arms = [int(x) for x in a.arms.split(",")]
+    NAME = {1: "adaln", 2: "residual", 4: "transition", 7: "all"}
+    label = {m: NAME.get(m, f"mask{m}") for m in arms}
+
+    # ---- program count, and parity against the base, one arm at a time ----------------------
+    OUT["programs"], OUT["parity"] = {}, {}
+    for mask in [0] + arms:
+        set_arm(T, mask, memos)
         call()
         ttnn.synchronize_device(dev)
         ttnn.graph.begin_graph_capture(ttnn.graph.RunMode.NORMAL)
@@ -95,58 +101,71 @@ def main() -> int:
         ops, _ = top_level_spans(ttnn.graph.end_graph_capture())
         names = [o["name"] for o in ops]
         disp = [n for n in names if n != "ttnn.deallocate"]
-        OUT["programs"][name] = {"top_level": len(names), "dispatching": len(disp),
-                                 "mac": sum(n == "ttnn.mac" for n in names)}
-        print(f"  {name}: {len(names)} top-level ttnn calls, {len(disp)} dispatching, "
-              f"{OUT['programs'][name]['mac']} mac", flush=True)
+        key = "base" if mask == 0 else label[mask]
+        OUT["programs"][key] = {"mask": mask, "top_level": len(names),
+                                "dispatching": len(disp),
+                                "mac": sum(n == "ttnn.mac" for n in names)}
+        print(f"  {key:10s} mask={mask}: {len(disp)} dispatching programs, "
+              f"{OUT['programs'][key]['mac']} mac", flush=True)
 
-    # ---- parity on the step output, and its negative control --------------------------------
-    set_arm(T, False, memos)
+    set_arm(T, 0, memos)
     ref = ttnn.to_torch(call()).float()
-    set_arm(T, True, memos)
-    got = ttnn.to_torch(call()).float()
-    OUT["parity"] = {"bit_exact": bool(torch.equal(ref, got)),
-                     "max_abs": round(float((got - ref).abs().max()), 8),
-                     "ref_absmax": round(float(ref.abs().max()), 6)}
-    T._MAC_FUSE = False                       # negative control: flip WITHOUT clearing the memo
+    for mask in arms:
+        set_arm(T, mask, memos)
+        got = ttnn.to_torch(call()).float()
+        OUT["parity"][label[mask]] = {
+            "bit_exact": bool(torch.equal(ref, got)),
+            "max_abs": round(float((got - ref).abs().max()), 8)}
+        print(f"  parity {label[mask]:10s} bit_exact="
+              f"{OUT['parity'][label[mask]]['bit_exact']} "
+              f"max_abs={OUT['parity'][label[mask]]['max_abs']}", flush=True)
+    OUT["parity"]["ref_absmax"] = round(float(ref.abs().max()), 6)
+    # negative control: flip the gate back WITHOUT dropping AdaLN's memo, which still holds the
+    # sigmoid'd s_scale. If this does not differ, the parity check above is not reading the gate.
+    T._MAC_FUSE = 0
     bad = ttnn.to_torch(call()).float()
     OUT["parity"]["negative_control_differs"] = not bool(torch.equal(ref, bad))
-    OUT["parity"]["negative_control_max_abs"] = round(float((bad - ref).abs().max()), 8)
-    print(f"  parity bit_exact={OUT['parity']['bit_exact']} max_abs={OUT['parity']['max_abs']} "
-          f"neg_control_differs={OUT['parity']['negative_control_differs']}", flush=True)
+    print(f"  negative control differs: {OUT['parity']['negative_control_differs']}", flush=True)
 
-    # ---- interleaved timing -----------------------------------------------------------------
+    # ---- interleaved timing: every arm sits between two bases -------------------------------
     fence = step_probe.make_fence(ttnn, dev)
-    walls = {"base": [], "mac": []}
-    set_arm(T, False, memos)
+    walls = {"base": []}
+    for mask in arms:
+        walls[label[mask]] = []
+    set_arm(T, 0, memos)
     for _ in range(3):
         call()
     ttnn.synchronize_device(dev)
+
+    def one(mask, key):
+        set_arm(T, mask, memos)
+        for _ in range(2):
+            call()
+        ttnn.synchronize_device(dev)
+        fence()
+        t0 = time.perf_counter()
+        for _ in range(a.reps):
+            call()
+        ttnn.synchronize_device(dev)
+        ms = 1e3 * (time.perf_counter() - t0) / a.reps
+        walls[key].append(round(ms, 4))
+        print(f"    {key:10s} {ms:8.4f} ms", flush=True)
+
     for r in range(a.rounds):
-        for name, on in (("base", False), ("mac", True)):
-            set_arm(T, on, memos)
-            for _ in range(2):
-                call()
-            ttnn.synchronize_device(dev)
-            fence()
-            t0 = time.perf_counter()
-            for _ in range(a.reps):
-                call()
-            ttnn.synchronize_device(dev)
-            ms = 1e3 * (time.perf_counter() - t0) / a.reps
-            walls[name].append(round(ms, 4))
-            print(f"  round {r} {name:5s} {ms:8.4f} ms", flush=True)
+        print(f"  round {r}", flush=True)
+        for mask in arms:
+            one(0, "base")
+            one(mask, label[mask])
+        one(0, "base")
+
     med = {k: st.median(v) for k, v in walls.items()}
-    OUT["step"] = {"ms": {k: round(v, 4) for k, v in med.items()},
-                   "all": walls,
-                   "spread_pct": {k: round(100 * (max(v) - min(v)) / st.median(v), 3)
-                                  for k, v in walls.items()},
-                   "ratio": round(med["base"] / med["mac"], 5),
+    OUT["step"] = {"ms": {k: round(v, 4) for k, v in med.items()}, "all": walls,
                    "aa_floor_base": round(max(walls["base"]) / min(walls["base"]), 5),
-                   "aa_floor_mac": round(max(walls["mac"]) / min(walls["mac"]), 5)}
-    print(f"  STEP base {med['base']:.4f} ms  mac {med['mac']:.4f} ms  "
-          f"RATIO {OUT['step']['ratio']:.5f}x  A/A base {OUT['step']['aa_floor_base']:.5f}x",
+                   "ratio": {k: round(med["base"] / v, 5) for k, v in med.items() if k != "base"}}
+    print(f"  STEP base {med['base']:.4f} ms   A/A floor {OUT['step']['aa_floor_base']:.5f}x",
           flush=True)
+    for k, v in OUT["step"]["ratio"].items():
+        print(f"    {k:10s} {med[k]:8.4f} ms   RATIO {v:.5f}x", flush=True)
     a.out.write_text(json.dumps(OUT, indent=1))
     print("DONE", a.out, flush=True)
     return 0
