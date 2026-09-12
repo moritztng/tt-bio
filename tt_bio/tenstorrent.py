@@ -7258,7 +7258,7 @@ class AttentionPairBias(Module):
                      if _ATOM_HEADS_UNPADDED else None)
             if split is not None:
                 q, k, v = split
-                D_Q = int(q.shape[3])
+                H, D_Q = self.n_heads, int(q.shape[3])
             else:
                 if _ATOM_PAD_IN_TILE:
                     q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
