@@ -9737,6 +9737,7 @@ class PairformerModule(TorchWrapper):
         use_kernels: bool = False,
         z_device: "ttnn.Tensor | None" = None,
         seq_len: int | None = None,
+        keep_z_device: bool = False,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
         # `z_device` is an already-padded device tensor from a caller that built z where the
         # previous stage left it (see ConfidencePairDevice): nothing to upload, nothing to pad.
@@ -9814,6 +9815,11 @@ class PairformerModule(TorchWrapper):
         )
 
         s_result = self._to_torch(s_out)[:, :seq_len, :] if s_out is not None else None
+        if keep_z_device:
+            # The caller consumes z on the card and owns the buffer from here. Nothing else in
+            # this module needs it, and the download is the whole point of asking: 67.1 MB on
+            # the bus at 512 tokens, for a tensor the next stage only reads channel-wise.
+            return s_result, z_out
         z_result = self._to_torch(z_out)[:, :seq_len, :seq_len, :]
         return s_result, z_result
 
@@ -10972,6 +10978,141 @@ class ConfidencePairDevice:
             ttnn.deallocate(keep_tt)
         self.wall.mark("pad zero")
         return z
+
+
+
+class ConfidenceHeadsDevice:
+    """Boltz-2's pae/pde heads and the pTM contraction, where the pairformer left the tensor.
+
+    ``ConfidenceHeads`` reads ``z`` four times -- ``to_pae_{intra,inter}_logits`` and
+    ``to_pde_{intra,inter}_logits``, each a ``[1, n, n, token_z] -> 64`` projection -- and then
+    throws the logits away. Every reader downstream takes an aggregate over the 64 bins:
+    ``worker.py`` writes the ``[1, n, n]`` pae and pde, ``main.py`` takes scalars, and nothing in
+    the boltz-2 path reads ``out_dict["pae_logits"]`` at all. So the projections belong where
+    ``z`` already is, and what crosses the bus is the reductions: 16.8 MB at 512 tokens instead
+    of the 67.1 MB the pairformer's ``z_out`` download used to cost.
+
+    The intra/inter pair is a SELECT, not a blend -- ``is_same_chain`` masks one, its complement
+    masks the other, and the two are summed. That mask is per ``(i, j)`` and covers all 64 bins
+    at once, so it commutes with the softmax and with the bin contraction:
+
+        select(softmax(a), softmax(c)) . b  ==  select(softmax(a) . b, softmax(c) . b)
+
+    Selecting after the contraction instead of before it is what makes one download carry
+    everything: three numbers per ``(i, j)`` -- pae, pde, and the TM expectation ``compute_ptms``
+    wants -- ride three channels of a single 32-wide tensor, because the two bin-centre vectors
+    and the TM curve are all just columns of one ``[bins, 32]`` matrix.
+
+    Not bit-exact against torch (bf16 device math against fp32), and it does not need to be: the
+    head runs after ``structure_module.sample``, so at one diffusion sample nothing it computes
+    can re-enter a coordinate. The scores move by a bf16 rounding; the atoms do not move at all.
+    """
+
+    CH_PAE, CH_TM, CH_PDE = 0, 1, 2
+    CH = 32                                   # one tile: the narrowest a device result can be
+
+    @staticmethod
+    def supports(heads) -> bool:
+        """Gated on the module, never on a model name.
+
+        ``use_separate_heads`` is the configuration this implements -- the masked intra/inter
+        pair. The single-head form is a different (and cheaper) shape and falls back to torch.
+        """
+        return bool(getattr(heads, "use_separate_heads", False))
+
+    def __init__(self, heads, compute_kernel_config):
+        self.compute_kernel_config = compute_kernel_config
+        self.wall = StageWall("TT_BIO_DEVICE_CONFIDENCE_PROFILE", "confheads")
+        device = get_device()
+
+        def w(linear):
+            return ttnn.from_torch(linear.weight.detach().t().contiguous(),
+                                   layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+        self.pae = (w(heads.to_pae_intra_logits), w(heads.to_pae_inter_logits))
+        self.pde = (w(heads.to_pde_intra_logits), w(heads.to_pde_inter_logits))
+        self.n_pae_bins = heads.to_pae_intra_logits.weight.shape[0]
+        self.n_pde_bins = heads.to_pde_intra_logits.weight.shape[0]
+        # The same-chain select, as a two-row table: the [n, n] chain-equality map goes up as an
+        # index (1 MB) and the [1, n, n, 32] mask is built by the gather, not by the bus.
+        self.select_table = ttnn.from_torch(
+            torch.stack([torch.zeros(self.CH), torch.ones(self.CH)]),
+            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+    def _contract(self, n_bins: int, columns: dict) -> "ttnn.Tensor":
+        """``[n_bins, 32]`` whose column ``j`` is the bin vector ``columns[j]``.
+
+        One matmul per head does every reduction that head feeds, and the unused 29 columns are
+        zero. The result is a tile wide because a tile is the floor, not because 32 numbers are
+        wanted -- three of them are.
+        """
+        m = torch.zeros(n_bins, self.CH)
+        for j, v in columns.items():
+            m[:, j] = v
+        return ttnn.from_torch(m, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                               dtype=ttnn.bfloat16)
+
+    def _linear(self, x, weight):
+        return ttnn.linear(x, weight, compute_kernel_config=self.compute_kernel_config,
+                           core_grid=CORE_GRID_MAIN)
+
+    def _reduce(self, z, weight, contract):
+        """``softmax(z @ weight) @ contract``: one head's bins, already contracted."""
+        logits = self._linear(z, weight)
+        probs = ttnn.softmax(logits, dim=-1)
+        ttnn.deallocate(logits)
+        out = self._linear(probs, contract)
+        ttnn.deallocate(probs)
+        return out
+
+    def __call__(self, z_tt, asym_id, bins, seq_len, padded):
+        """``{"pae", "pde", "tm"}``, each host ``[1, n, n]``, from the device ``z``.
+
+        ``z_tt`` is the confidence pairformer's own output and IS consumed here -- the caller
+        hands it over rather than downloading it. ``bins`` is ``(pae centres, TM curve over the
+        pae centres, pde centres)``, built by the caller so the bin definition stays in the one
+        place that owns it. ``tm`` is the expectation ``compute_ptms`` would otherwise take over
+        the full pae logits on the host.
+        """
+        self.wall.start()
+        zt = ttnn.permute(z_tt, (0, 2, 1, 3))
+        zsym = ttnn.add(z_tt, zt)
+        ttnn.deallocate(zt)
+        self.wall.mark("z transpose")
+
+        pae_centres, tm_value, pde_centres = bins
+        a_pae = self._contract(self.n_pae_bins,
+                               {self.CH_PAE: pae_centres, self.CH_TM: tm_value})
+        a_pde = self._contract(self.n_pde_bins, {self.CH_PDE: pde_centres})
+
+        # intra and inter are summed under complementary masks, so compute each arm whole --
+        # pae and pde land in disjoint channels of the same 32-wide tensor and add for free.
+        arms = []
+        for i in (0, 1):
+            arm = self._reduce(z_tt, self.pae[i], a_pae)
+            arm = ttnn.add_(arm, self._reduce(zsym, self.pde[i], a_pde))
+            arms.append(arm)
+        ttnn.deallocate(zsym)
+        ttnn.deallocate(z_tt)
+        ttnn.deallocate(a_pae)
+        ttnn.deallocate(a_pde)
+        self.wall.mark("heads")
+
+        same = asym_id.reshape(-1)
+        same = (same[:, None] == same[None, :]).long()
+        mask = pair_gather(same, self.select_table, padded)
+        out = ttnn.where(mask, arms[0], arms[1])
+        ttnn.deallocate(mask)
+        for arm in arms:
+            ttnn.deallocate(arm)
+        self.wall.mark("same-chain select")
+
+        t = torch.Tensor(ttnn.to_torch(out)).to(torch.float32)[:, :seq_len, :seq_len, :]
+        ttnn.deallocate(out)
+        self.wall.mark("download")
+        return {"pae": t[..., self.CH_PAE].contiguous(),
+                "pde": t[..., self.CH_PDE].contiguous(),
+                "tm": t[..., self.CH_TM].contiguous()}
 
 
 class TemplateRecycle:
