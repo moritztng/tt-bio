@@ -1,0 +1,34 @@
+{
+ "what": "one settled 512 aa Diffusion call, WH, whglx card 2, profiler armed",
+ "ops": 1066,
+ "reps": 3,
+ "window": [
+  9937,
+  13134
+ ],
+ "cores_touched": 35,
+ "grid": 72,
+ "distinct_core_share_pct": 48.611111111111114,
+ "time_weighted_grid_occupancy_pct": 43.25812141574024,
+ "time_weighted_occupancy_over_used_cores_pct": 88.98813548380849,
+ "sum_op_span_ms": 39.918478,
+ "block_span_ms": 157.162768,
+ "per_core_input_wait_ms": {
+  "min": 7.576531,
+  "median": 13.099916,
+  "max": 15.743181,
+  "max_over_median": 1.2017772480373157
+ },
+ "straggler_surplus_core_ms": 203.977153,
+ "straggler_pct_of_used_core_ms": 14.599551258299119,
+ "op_core_count_histogram": {
+  "1": 1,
+  "4": 1,
+  "8": 100,
+  "12": 1,
+  "16": 24,
+  "32": 327,
+  "35": 612
+ },
+ "NOT_REPORTED": "the block span / sum-of-op-span gap. 1066 tiny ops per diffusion call put the profiler far outside the 1.0079x perturbation measured on a 272-op Pairformer block, so the inter-op gap here is an instrument artefact and is not quoted."
+}

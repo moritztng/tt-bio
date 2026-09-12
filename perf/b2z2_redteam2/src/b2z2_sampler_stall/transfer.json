@@ -1,0 +1,44 @@
+{
+ "wh_fractions_of_trisc1": {
+  "wait_in": 0.5578614447359611,
+  "wait_out": 0.1212366095874414,
+  "compute": 0.32063171389245276
+ },
+ "bh_step_wait_ms": 10.329760504313276,
+ "bh_step_movement_free_ms": 16.07023949568672,
+ "sampler_movement_free_mult_measured": 0.6087211930184364,
+ "sampler_movement_free_mult_transferred": 0.41,
+ "sampler_s_measured_floor": 3.4518046410710492,
+ "sampler_s_transferred_floor": 2.5361569999999998,
+ "wh_native_bare_wall_ms": 41.482,
+ "wh_native_stall_ms": 17.640244947222214,
+ "wh_native_movement_free_x": 1.7398886914227802,
+ "rungs_as_published": {
+  "trunk_only": {
+   "fold_s": 12.124119,
+   "x": 1.5336372069591202
+  },
+  "trunk_sampler_cons": {
+   "fold_s": 10.275509759999998,
+   "x": 1.8095452619179844
+  },
+  "trunk_sampler_opt": {
+   "fold_s": 9.405576,
+   "x": 1.9769124187609564
+  }
+ },
+ "rungs_with_measured_sampler": {
+  "trunk_only": {
+   "fold_s": 12.124119,
+   "x": 1.5336372069591202
+  },
+  "trunk_sampler_cons": {
+   "fold_s": 10.898150155928313,
+   "x": 1.7061611130293837
+  },
+  "trunk_sampler_opt": {
+   "fold_s": 10.321223641071049,
+   "x": 1.8015305787977747
+  }
+ }
+}

@@ -1,0 +1,71 @@
+{
+ "mode": "mesh",
+ "reps": 5,
+ "card": "0,1",
+ "protocol": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0
+ },
+ "benchlocked": false,
+ "timing_caveat": "NOT benchlocked: the box ran 8.7 load from sibling wave-2 rows. Times here are indicative; the claim is functional + bit-exactness.",
+ "model_load_s": 3.34,
+ "device": "MeshDevice(1x2 grid, 2 devices)",
+ "n_devices": 2,
+ "core_grid_main": "ttnn.CoreGrid(x=11, y=10)",
+ "cold_s": 37.488,
+ "reps_done": [
+  {
+   "fold_s": 20.9832,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ]
+  },
+  {
+   "fold_s": 20.8169,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ]
+  },
+  {
+   "fold_s": 20.8368,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ]
+  },
+  {
+   "fold_s": 20.8315,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ]
+  },
+  {
+   "fold_s": 20.7267,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ]
+  }
+ ],
+ "summary": {
+  "median_s": 20.8315,
+  "min_s": 20.7267,
+  "max_s": 20.9832,
+  "plddt": [
+   null
+  ],
+  "cif_sha256": [
+   "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+  ],
+  "cif_sha256_16": [
+   "dd1c2a12f97772fb"
+  ],
+  "bit_identical_across_reps": true
+ }
+}

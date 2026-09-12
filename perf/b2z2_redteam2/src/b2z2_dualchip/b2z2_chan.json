@@ -1,0 +1,12 @@
+{
+  "channels": 128,
+  "pair": 512,
+  "bit_exact": true,
+  "negative_control_rejects": true,
+  "max_abs_diff": 0.0,
+  "replicated_s": 0.0019790212500083726,
+  "sharded_with_gather_s": 0.002590667750155262,
+  "speedup": 0.7639039200954145,
+  "implied_gbps_replicated": 101.7303841477944,
+  "physically_possible": true
+}

@@ -1,0 +1,84 @@
+2026-08-09 18:20:50.926 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 18:20:50.931 | info     |             UMD | Established firmware bundle version: 19.9.0 (topology_discovery.cpp:471)
+2026-08-09 18:20:50.931 | info     |             UMD | Firmware bundle version 19.9.0 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 18:20:50.941 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-09 18:20:50.941 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 18:20:50.946 | info     |             UMD | Established firmware bundle version: 19.9.0 (topology_discovery.cpp:471)
+2026-08-09 18:20:50.946 | info     |             UMD | Firmware bundle version 19.9.0 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 18:20:50.956 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 18:20:50.960 | info     |             UMD | Established firmware bundle version: 19.9.0 (topology_discovery.cpp:471)
+2026-08-09 18:20:50.960 | info     |             UMD | Firmware bundle version 19.9.0 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 18:20:50.979 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x60 dram: 0x0 eth: 0x120 pcie: 0x1 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-09 18:20:50.988 | info     |             UMD | Initializing iommu for sysmem (size: 0x40000000). (silicon_sysmem_manager.cpp:275)
+2026-08-09 18:20:50.988 | info     |             UMD | Allocating sysmem without hugepages (size: 0x40000000). (silicon_sysmem_manager.cpp:281)
+2026-08-09 18:20:51.109 | info     |             UMD | Harvesting masks for chip 1 tensix: 0x6 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-09 18:20:51.118 | info     |             UMD | Initializing iommu for sysmem (size: 0x40000000). (silicon_sysmem_manager.cpp:275)
+2026-08-09 18:20:51.118 | info     |             UMD | Allocating sysmem without hugepages (size: 0x40000000). (silicon_sysmem_manager.cpp:281)
+2026-08-09 18:20:51.254 | info     |             UMD | Opening local chip ids/PCIe ids: {0, 1}/[0, 1] and remote chip ids {} (cluster.cpp:180)
+2026-08-09 18:20:51.254 | info     |             UMD | IOMMU: enabled (cluster.cpp:155)
+2026-08-09 18:20:51.254 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-09 18:20:51.255 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-09 18:20:51.277 | info     |             UMD | Mapped sysmem without hugepages to IOVA 0xffffffff40000000; NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:329)
+2026-08-09 18:20:51.298 | info     |             UMD | Mapped sysmem without hugepages to IOVA 0x40000000; NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:329)
+2026-08-09 18:20:51.503 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-09 18:20:51.503 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-09 18:20:51.503 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 18:20:51.506 | info     |             UMD | Established firmware bundle version: 19.9.0 (topology_discovery.cpp:471)
+2026-08-09 18:20:51.506 | info     |             UMD | Firmware bundle version 19.9.0 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 18:20:51.514 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-09 18:20:51.514 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-09 18:20:51.514 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 2
+Degree histogram: {1:2}
+ (topology_solver.tpp:91)
+2026-08-09 18:20:51.514 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-09 18:20:51.514 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-09 18:20:51.514 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 2
+Degree histogram: {1:2}
+ (topology_solver.tpp:91)
+2026-08-09 18:20:51.514 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-09 18:20:51.514 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-09 18:20:51.514 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-09 18:20:51.514 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+2026-08-09 18:20:51.515 | warning  |       Inspector | Failed to start Inspector RPC server: ::bind(sockfd, &addr.generic, addrlen): Address already in use; toString() = 127.0.0.1:50051 (data.cpp:65)
+2026-08-09 18:20:51.518 | info     |    BuildKernels | Using pre-compiled firmware from: /home/ttuser/tt-bio/env/lib/python3.12/site-packages/ttnn/tt_metal/pre-compiled/6745986192171285359/ (build_env_manager.cpp:259)
+2026-08-09 18:20:51.518 | info     |    BuildKernels | Using pre-compiled firmware from: /home/ttuser/tt-bio/env/lib/python3.12/site-packages/ttnn/tt_metal/pre-compiled/6745986192171285359/ (build_env_manager.cpp:259)
+2026-08-09 18:20:51.538 | warning  |           Metal | Opening subset of mmio devices slows down UMD read/write to remote chips. If opening more devices, consider using CreateDevices API. (device_manager.cpp:261)
+2026-08-09 18:20:52.886 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:967)
+compute_grid=11x10 core_grid_main=11x10
+=== compute roof: square bf16 matmul, HiFi4 ===
+  N=2048  op_ckc_oDRAM        0.2122 ms    80.98 TFLOP/s
+  N=2048  op_ckc_oL1          0.2471 ms    69.53 TFLOP/s
+  N=2048  plain_ckc_oDRAM     0.2612 ms    65.78 TFLOP/s
+  N=2048  plain_ckc_oL1       1.1574 ms    14.84 TFLOP/s
+  N=4096  op_ckc_oDRAM        1.3472 ms   102.02 TFLOP/s
+  N=4096  op_ckc_oL1         23.4165 ms     5.87 TFLOP/s
+  N=4096  plain_ckc_oDRAM     1.8376 ms    74.79 TFLOP/s
+  N=4096  plain_ckc_oL1       2.4371 ms    56.39 TFLOP/s
+  N=6144  op_ckc_oDRAM        5.2691 ms    88.03 TFLOP/s
+  N=6144  op_ckc_oL1         85.0826 ms     5.45 TFLOP/s
+  N=6144  plain_ckc_oDRAM     6.7499 ms    68.72 TFLOP/s
+  N=6144  plain_ckc_oL1      84.7267 ms     5.47 TFLOP/s
+MEASURED_HiFi4_COMPUTE_ROOF 102.02 TFLOP/s
+
+=== directional DRAM roofs ===
+  {"MB": 8.0, "read_GBs": 284.8, "write_GBs": 220.5, "dram2dram_rw_GBs": 324.8}
+  {"MB": 16.0, "read_GBs": 321.5, "write_GBs": 242.6, "dram2dram_rw_GBs": 339.3}
+  {"MB": 32.0, "read_GBs": 372.2, "write_GBs": 262.4, "dram2dram_rw_GBs": 383.6}
+  {"MB": 48.0, "read_GBs": 385.6, "write_GBs": 268.4, "dram2dram_rw_GBs": 390.0}
+  {"MB": 64.0, "read_GBs": 390.0, "write_GBs": 269.6, "dram2dram_rw_GBs": 393.9}
+MEASURED_DRAM_READ_ROOF 390.0 GB/s   MEASURED_DRAM_WRITE_ROOF 269.6 GB/s
+MACHINE_BALANCE 261.6 FLOP/byte (read)
+2026-08-09 18:21:06.606 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-09 18:21:06.606 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)

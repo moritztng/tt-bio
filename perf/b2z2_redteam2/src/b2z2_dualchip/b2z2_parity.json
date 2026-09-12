@@ -1,0 +1,12 @@
+{
+  "layer_norm_pair": {
+    "bit_exact": true,
+    "negative_control_rejects": true,
+    "max_abs_diff": 0.0
+  },
+  "trimul_contraction": {
+    "bit_exact": true,
+    "negative_control_rejects": true,
+    "max_abs_diff": 0.0
+  }
+}

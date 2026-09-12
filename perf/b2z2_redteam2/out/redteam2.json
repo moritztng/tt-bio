@@ -1,0 +1,434 @@
+{
+ "c1_dram": {
+  "DiffusionStep": {
+   "achieved_GBs": 136.16244363636363,
+   "dram_binds": {
+    "campaign fitted 444.9": false,
+    "measured add 2r+1w 429.9": false,
+    "measured clone 128 MiB 390.7": false,
+    "measured read-only 390.0": false
+   },
+   "dram_rd_MB": 2340.64896,
+   "dram_total_GB": 3.594688512,
+   "dram_wr_MB": 1254.039552,
+   "floor_ms_at_roof": {
+    "campaign fitted 444.9": 8.079767390424815,
+    "measured add 2r+1w 429.9": 8.361685303558966,
+    "measured clone 128 MiB 390.7": 9.200636068594829,
+    "measured read-only 390.0": 9.21715003076923
+   },
+   "l1_MB": 133.69344,
+   "movement_free_ms": 16.0748544,
+   "movement_free_x": 1.6423165860836662,
+   "required_GBs_if_movement_free": 223.62183958568235,
+   "wall_ms": 26.4,
+   "x_at_roof": {
+    "campaign fitted 444.9": 3.267420796208336,
+    "measured add 2r+1w 429.9": 3.1572582609349604,
+    "measured clone 128 MiB 390.7": 2.8693668354205375,
+    "measured read-only 390.0": 2.86422591710778
+   }
+  },
+  "PairformerLayer": {
+   "achieved_GBs": 221.47666319977546,
+   "dram_binds": {
+    "campaign fitted 444.9": true,
+    "measured add 2r+1w 429.9": true,
+    "measured clone 128 MiB 390.7": true,
+    "measured read-only 390.0": true
+   },
+   "dram_rd_MB": 4710.76864,
+   "dram_total_GB": 8.049303552,
+   "dram_wr_MB": 3338.534912,
+   "floor_ms_at_roof": {
+    "campaign fitted 444.9": 18.092388293998653,
+    "measured add 2r+1w 429.9": 18.723664926727146,
+    "measured clone 128 MiB 390.7": 20.602261458919887,
+    "measured read-only 390.0": 20.639239876923074
+   },
+   "l1_MB": 3097.624576,
+   "movement_free_ms": 14.9006,
+   "movement_free_x": 2.4390829899467135,
+   "required_GBs_if_movement_free": 540.1999618807296,
+   "wall_ms": 36.3438,
+   "x_at_roof": {
+    "campaign fitted 444.9": 2.0087895201793478,
+    "measured add 2r+1w 429.9": 1.941062294279842,
+    "measured clone 128 MiB 390.7": 1.7640684772624662,
+    "measured read-only 390.0": 1.7609078733871562
+   }
+  },
+  "direction_test": {
+   "clone_total_traffic_GBs": 390.7,
+   "concurrency_gain_x": 1.0017948717948717,
+   "read_only_GBs": 390.0,
+   "verdict": "reads and writes share one budget; total-traffic accounting is supported"
+  }
+ },
+ "c1_identity": {
+  "agreement_pct": {
+   "compute_ms": 0.5411094518566799,
+   "non_resident_ms": 0.8749439981937551,
+   "span_ms": 8.764040042915805e-05,
+   "wait_in_ms": 0.17995956000694263,
+   "wait_out_ms": 0.3821007608655434
+  },
+  "census": {
+   "closes_to_ms": 0.0,
+   "compute_ms": 10.643095877556817,
+   "non_resident_ms": 4.236344148148149,
+   "span_ms": 36.34376814814815,
+   "wait_in_ms": 18.369598464680234,
+   "wait_out_ms": 3.094729657762951
+  },
+  "movement_free_span_ms": 14.900600000000004,
+  "movement_free_x": 2.439082989946713,
+  "wave1": {
+   "closes_to_ms": 0.0,
+   "compute_ms": 10.701,
+   "non_resident_ms": 4.199600000000004,
+   "span_ms": 36.3438,
+   "wait_in_ms": 18.3366,
+   "wait_out_ms": 3.1066
+  }
+ },
+ "c1_rungs": {
+  "rungs": {
+   "DRAM roof, campaign's fitted 444.9": {
+    "levered arm 18.594 s": {
+     "both_s": 11.160989315246793,
+     "both_x": 1.6659813458112651,
+     "trunk_floor_s": 5.813959184046793,
+     "trunk_only_s": 13.087059184046794,
+     "trunk_only_x": 1.4207928411194322
+    },
+    "measured base 20.188 s": {
+     "both_s": 12.169939726467286,
+     "both_x": 1.658841412015786,
+     "trunk_floor_s": 6.351148366467287,
+     "trunk_only_s": 14.139148366467285,
+     "trunk_only_x": 1.4278087673143245
+    }
+   },
+   "DRAM roof, measured 390.7 (clone, matching mix)": {
+    "levered arm 18.594 s": {
+     "both_s": 11.918285419099712,
+     "both_x": 1.5601237381177402,
+     "trunk_floor_s": 6.571255287899712,
+     "trunk_only_s": 13.844355287899713,
+     "trunk_only_x": 1.3430744598306854
+    },
+    "measured base 20.188 s": {
+     "both_s": 13.001757595580482,
+     "both_x": 1.552713150632976,
+     "trunk_floor_s": 7.182966235580484,
+     "trunk_only_s": 14.970966235580484,
+     "trunk_only_x": 1.3484767570993876
+    }
+   },
+   "DRAM roof, measured 429.9 (most generous measured)": {
+    "levered arm 18.594 s": {
+     "both_s": 11.3514624200635,
+     "both_x": 1.6380268296651759,
+     "trunk_floor_s": 6.004432288863498,
+     "trunk_only_s": 13.2775322888635,
+     "trunk_only_x": 1.4004108290209678
+    },
+    "measured base 20.188 s": {
+     "both_s": 12.379156347767609,
+     "both_x": 1.6308058023389127,
+     "trunk_floor_s": 6.56036498776761,
+     "trunk_only_s": 14.348364987767608,
+     "trunk_only_x": 1.4069895780606951
+    }
+   },
+   "movement-free (published)": {
+    "levered arm 18.594 s": {
+     "both_s": 10.197941112990568,
+     "both_x": 1.823309214476065,
+     "trunk_floor_s": 4.850910981790567,
+     "trunk_only_s": 12.124010981790567,
+     "trunk_only_x": 1.5336508708155174
+    },
+    "measured base 20.188 s": {
+     "both_s": 11.112122712252653,
+     "both_x": 1.8167545952079827,
+     "trunk_floor_s": 5.293331352252654,
+     "trunk_only_s": 13.081331352252652,
+     "trunk_only_x": 1.5432679943944354
+    }
+   }
+  },
+  "sampler_keep": 0.608896,
+  "sampler_movement_free_x": 1.6423165860836662,
+  "trunk_keeps": {
+   "DRAM roof, campaign's fitted 444.9": 0.4978122346589694,
+   "DRAM roof, measured 390.7 (clone, matching mix)": 0.5668714184790772,
+   "DRAM roof, measured 429.9 (most generous measured)": 0.5151818171662607,
+   "movement-free (published)": 0.40999014962662134
+  }
+ },
+ "c2": {
+  "arch": "WH \u2014 72 cores, 85.2936 ms block. The cell is BH.",
+  "bound_block_x": 1.1968374650686582,
+  "components_core_ms": {
+   "DECHAIN": 113.0,
+   "OVERLAP": 401.5,
+   "REBALANCE": 495.5
+  },
+  "grid_core_ms": 6141.137,
+  "not_covered": {
+   "L1-interleave every DRAM-interleaved read": {
+    "size": 1.188,
+    "status": "DERIVED at fitted bandwidths, b2z2-byte-axis-reopened; the L1 bandwidth in it is fitted, not measured"
+   },
+   "bfp8_b on the delivery axis": {
+    "size": 0.531,
+    "status": "BYTES, not a ratio: 0.531x the bytes at the same tile count. Its dismissal in wave 1 rested on the refuted tile-count model"
+   },
+   "delete every byte (envelope, not a lever)": {
+    "size": 1.826,
+    "status": "b2z2-byte-axis-reopened, 89.5 % of the wait x 50.5 % of the span"
+   }
+  },
+  "scope": "work placement and re-timing on a FIXED dependency graph. REBALANCE re-places producers near consumers, OVERLAP fills inter-kernel idle, DECHAIN multicasts instead of forwarding. None of the three changes what bytes are moved.",
+  "source_row_says": "b2z2-dependency-overlap, own words: 'That does not put the fold at its floor generally. It says the remaining levers have to make the tile cheaper or delete it, not re-time it.'",
+  "sum_core_ms": 1010.0
+ },
+ "c3": {
+  "arms": {
+   "mesh": {
+    "benchlocked": false,
+    "cif": [
+     "dd1c2a12f97772fb"
+    ],
+    "devices": 2,
+    "median_s": 20.8315,
+    "n": 5,
+    "trace": null,
+    "trunk_s": null
+   },
+   "mesh_notrace": {
+    "benchlocked": true,
+    "cif": [
+     "dd1c2a12f97772fb"
+    ],
+    "devices": 2,
+    "median_s": 21.0692,
+    "n": 5,
+    "trace": false,
+    "trunk_s": 12.3591
+   },
+   "meshctl": {
+    "benchlocked": true,
+    "cif": [
+     "dd1c2a12f97772fb"
+    ],
+    "devices": 2,
+    "median_s": 19.966,
+    "n": 5,
+    "trace": true,
+    "trunk_s": 12.3485
+   },
+   "meshtrace": {
+    "benchlocked": true,
+    "cif": [
+     "dd1c2a12f97772fb"
+    ],
+    "devices": 2,
+    "median_s": 20.0223,
+    "n": 5,
+    "trace": true,
+    "trunk_s": null
+   },
+   "sharded": {
+    "benchlocked": true,
+    "cif": [
+     "dd1c2a12f97772fb"
+    ],
+    "devices": 2,
+    "median_s": 19.7091,
+    "n": 5,
+    "trace": true,
+    "trunk_s": 11.7366
+   },
+   "single": {
+    "benchlocked": false,
+    "cif": [
+     "dd1c2a12f97772fb"
+    ],
+    "devices": 1,
+    "median_s": 19.7677,
+    "n": 5,
+    "trace": null,
+    "trunk_s": null
+   },
+   "stages": {
+    "benchlocked": true,
+    "cif": [
+     "dd1c2a12f97772fb"
+    ],
+    "devices": 1,
+    "median_s": 19.7896,
+    "n": 5,
+    "trace": false,
+    "trunk_s": 12.2647
+   }
+  },
+  "block": {
+   "label": "CONSTRUCTED from replayed per-op slab timings + a measured gather, not a sharded block that has ever run. The only sharded block effect that has actually run is transition_z alone.",
+   "one_chip_ms": 36.702,
+   "pair_track_slab_x": 1.487339898540906,
+   "sharded_ms": 30.805,
+   "x": 1.191429962668398
+  },
+  "denominator_drift_x": 1.0163419169664873,
+  "fold_projections": {
+   "block-scaling basis, vs own benchlocked single-chip base": 1.0962734393048603,
+   "block-scaling basis, vs the PUBLISHED CELL (what the wave quotes)": 1.1141886488225459,
+   "measured-anchored basis, vs own benchlocked single-chip base": 1.0856582469671723,
+   "measured-anchored basis, vs the PUBLISHED CELL": 1.1033999838930921,
+   "vs the NON-benchlocked single-chip arm, mesh tax omitted (ceiling_v2's 1.1301x)": 1.1301278984195435
+  },
+  "measured_shard_fold_x": 1.013034588083677,
+  "measured_shard_trunk_x": 1.0521360530306902,
+  "mesh_tax_traced_ctl_x": 1.0089137728908113,
+  "mesh_tax_traced_x": 1.011758701540203,
+  "parity": [
+   "dd1c2a12f97772fb"
+  ],
+  "projected_fold_s": {
+   "block-scaling": 18.051700689335732,
+   "measured-anchored": 18.228204
+  }
+ },
+ "c4_projection": {
+  "grid": {
+   "all three multiplied (as published) | mesh tax charged | block ratio on the union's block": {
+    "fold_s": 15.871614105385358,
+    "x_vs_union_base": 1.2385633792173598
+   },
+   "all three multiplied (as published) | mesh tax charged | row's measured-anchored fold saving": {
+    "fold_s": 16.021677433487838,
+    "x_vs_union_base": 1.2269626624058523
+   },
+   "all three multiplied (as published) | mesh tax omitted (as published) | block ratio on the union's block": {
+    "fold_s": 15.71758869584831,
+    "x_vs_union_base": 1.250700751903027
+   },
+   "all three multiplied (as published) | mesh tax omitted (as published) | row's measured-anchored fold saving": {
+    "fold_s": 15.86765202395079,
+    "x_vs_union_base": 1.2388726429296548
+   },
+   "largest single lever only | mesh tax charged | block ratio on the union's block": {
+    "fold_s": 16.15328939998755,
+    "x_vs_union_base": 1.21696575311869
+   },
+   "largest single lever only | mesh tax charged | row's measured-anchored fold saving": {
+    "fold_s": 16.30335272809003,
+    "x_vs_union_base": 1.205764257687319
+   },
+   "largest single lever only | mesh tax omitted (as published) | block ratio on the union's block": {
+    "fold_s": 15.996775383720667,
+    "x_vs_union_base": 1.2288726651750845
+   },
+   "largest single lever only | mesh tax omitted (as published) | row's measured-anchored fold saving": {
+    "fold_s": 16.146838711823147,
+    "x_vs_union_base": 1.21745193290411
+   }
+  },
+  "mesh_tax_x": 1.0089137728908113,
+  "published_1_2507": 1.250700751903027,
+  "range_x": [
+   1.205764257687319,
+   1.250700751903027
+  ],
+  "shard_block_x": 1.191429962668398,
+  "shard_supported_fold_x": 1.0856582469671723,
+  "step_stack_largest": 1.07444,
+  "step_stack_product": 1.1454305036857921,
+  "wh_to_bh_transfer_check": {
+   "akw_wh_step_x": 1.07444,
+   "measured_fold_saving_s_BH": 0.5250000000000021,
+   "predicted_fold_saving_s": 0.37170116525818125,
+   "wh_underpredicts_by_pct": 41.24249506598681
+  }
+ },
+ "c4_union": {
+  "arms": {
+   "AKW": {
+    "cif": [
+     "a91aa44441f0d9c5"
+    ],
+    "global_base_ratio_x": 1.027439502430356,
+    "median_s": 19.133,
+    "n": 5,
+    "position_matched_ratio_x": 1.024256234770384,
+    "range_s": [
+     19.1,
+     19.24
+    ]
+   },
+   "HOST": {
+    "cif": [
+     "6267c8e4b151212f"
+    ],
+    "global_base_ratio_x": 1.0464175449803044,
+    "median_s": 18.786,
+    "n": 5,
+    "position_matched_ratio_x": 1.0432979368750006,
+    "range_s": [
+     18.73,
+     19.357
+    ]
+   },
+   "SILU": {
+    "cif": [
+     "188e835079a67544"
+    ],
+    "global_base_ratio_x": 1.0242275829729588,
+    "median_s": 19.193,
+    "n": 5,
+    "position_matched_ratio_x": 1.024887466531416,
+    "range_s": [
+     19.059,
+     19.292
+    ]
+   },
+   "UNION": {
+    "cif": [
+     "b7709671d2665f96"
+    ],
+    "global_base_ratio_x": 1.0985805297865208,
+    "median_s": 17.894,
+    "n": 10,
+    "position_matched_ratio_x": 1.096753815798083,
+    "range_s": [
+     17.748,
+     18.01
+    ]
+   }
+  },
+  "base": {
+   "by_position_mean_s": {
+    "0": 19.7158,
+    "2": 19.6978,
+    "4": 19.6252,
+    "6": 19.6346,
+    "8": 19.6224
+   },
+   "median_s": 19.658,
+   "n": 25,
+   "position_drift_pct": 0.4737317278528012,
+   "range_s": [
+    19.385,
+    19.93
+   ]
+  },
+  "every_union_fold_beats_every_base_fold": true,
+  "loadavg_1m_range": [
+   1.26,
+   3.32
+  ]
+ }
+}

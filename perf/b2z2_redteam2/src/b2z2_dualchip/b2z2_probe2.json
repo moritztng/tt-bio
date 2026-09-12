@@ -1,0 +1,87 @@
+{
+  "lease_cards": [
+    "2",
+    "3"
+  ],
+  "sizes": [
+    {
+      "i_axis": 32,
+      "tensor_bytes": 4194304,
+      "bytes_across_link_per_direction": 2097152.0,
+      "verified_chip_a": true,
+      "verified_chip_b": true,
+      "negative_control_rejects_local_only": true,
+      "percall_median_s": 0.00017774099978851154,
+      "percall_min_s": 0.00016959400090854615,
+      "burst_per_op_s": 0.00011514984998939326,
+      "gbps_percall": 11.798920915800718,
+      "gbps_burst": 18.21237283585844
+    },
+    {
+      "i_axis": 64,
+      "tensor_bytes": 8388608,
+      "bytes_across_link_per_direction": 4194304.0,
+      "verified_chip_a": true,
+      "verified_chip_b": true,
+      "negative_control_rejects_local_only": true,
+      "percall_median_s": 0.00027366400172468275,
+      "percall_min_s": 0.00024549899899284355,
+      "burst_per_op_s": 0.00021991435005475068,
+      "gbps_percall": 15.326473242979333,
+      "gbps_burst": 19.072443426069153
+    },
+    {
+      "i_axis": 128,
+      "tensor_bytes": 16777216,
+      "bytes_across_link_per_direction": 8388608.0,
+      "verified_chip_a": true,
+      "verified_chip_b": true,
+      "negative_control_rejects_local_only": true,
+      "percall_median_s": 0.00050594799904502,
+      "percall_min_s": 0.0004521350019786041,
+      "burst_per_op_s": 0.00042818545007321517,
+      "gbps_percall": 16.579980582655825,
+      "gbps_burst": 19.59106270090597
+    },
+    {
+      "i_axis": 256,
+      "tensor_bytes": 33554432,
+      "bytes_across_link_per_direction": 16777216.0,
+      "verified_chip_a": true,
+      "verified_chip_b": true,
+      "negative_control_rejects_local_only": true,
+      "percall_median_s": 0.0009519720006210264,
+      "percall_min_s": 0.0009323150006821379,
+      "burst_per_op_s": 0.0008448694001344847,
+      "gbps_percall": 17.62364438140539,
+      "gbps_burst": 19.857762628554703
+    },
+    {
+      "i_axis": 512,
+      "tensor_bytes": 67108864,
+      "bytes_across_link_per_direction": 33554432.0,
+      "verified_chip_a": true,
+      "verified_chip_b": true,
+      "negative_control_rejects_local_only": true,
+      "percall_median_s": 0.0018179289982072078,
+      "percall_min_s": 0.0017206230004376266,
+      "burst_per_op_s": 0.001679537250129215,
+      "gbps_percall": 18.457504134149612,
+      "gbps_burst": 19.978379162128434
+    },
+    {
+      "i_axis": 1024,
+      "tensor_bytes": 134217728,
+      "bytes_across_link_per_direction": 67108864.0,
+      "verified_chip_a": true,
+      "verified_chip_b": true,
+      "negative_control_rejects_local_only": true,
+      "percall_median_s": 0.003490749997581588,
+      "percall_min_s": 0.003432679000979988,
+      "burst_per_op_s": 0.0033494285500637487,
+      "gbps_percall": 19.224769475469,
+      "gbps_burst": 20.03591448419544
+    }
+  ],
+  "point_to_point": null
+}
