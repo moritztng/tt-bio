@@ -40,6 +40,11 @@ if _DIR:
             cap = T._capped_sdpa_chunk_size(q_len)
             rule = T._grid_q_chunk(q_len, int(work), cap, cores) if work else cap
             CALLS[(int(q_len), int(k_len), int(work), cap, rule, cores)] += 1
+            # Dump as we go, not only at exit. The device workers `tt_bio.main` spawns are torn
+            # down without running their atexit handlers, so the first two Boltz-2 censuses
+            # recorded only the CLI process, which does no attention at all.
+            if sum(CALLS.values()) % 256 == 0:
+                _dump()
             return orig(q_len, k_len, work)
 
         wrapped.cache_clear = getattr(orig, "cache_clear", lambda: None)
