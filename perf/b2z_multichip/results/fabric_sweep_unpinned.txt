@@ -1,0 +1,17 @@
+FAIL (1, 2)/1d/worker         24.3s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+FAIL (1, 2)/2d/worker         14.4s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+OK   (1, 2)/off/worker        n=2 0.2s
+FAIL (2, 1)/1d/worker         10.6s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+FAIL (2, 1)/2d/worker         10.6s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+OK   (2, 1)/off/worker        n=2 0.2s
+FAIL (1, 4)/1d/worker         12.3s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+FAIL (1, 4)/2d/worker         12.5s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+OK   (1, 4)/off/worker        n=4 0.2s
+FAIL (8, 4)/1d/worker         17.7s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+FAIL (8, 4)/2d/worker         18.9s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+OK   (8, 4)/off/worker        n=32 0.3s
+FAIL (1, 8)/1d/worker         10.7s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+FAIL (1, 8)/2d/worker         10.7s RuntimeError:  --- env/bin/python(_start+0x25) [0x60377da45e45]
+OK   (1, 8)/off/worker        n=8 0.3s
+
+[exited with code 0]
