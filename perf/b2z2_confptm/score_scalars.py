@@ -53,6 +53,10 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--flag", default="TT_BIO_DEVICE_CONF_HEADS")
+    ap.add_argument("--target", type=Path, default=None,
+                    help="fixture yaml; defaults to the cdk2x2 one for --size")
+    ap.add_argument("--a3m", type=Path, default=None)
+    ap.add_argument("--tag", default=None, help="msa cache suffix, so two fixtures do not share one")
     a = ap.parse_args()
     FLAG = a.flag
 
@@ -81,12 +85,14 @@ def main() -> int:
 
     boltz2.ConfidenceHeads.forward = wrapped
 
-    tgt, a3m = FIX / f"cdk2x2_{a.size}.yaml", FIX / f"cdk2x2_{a.size}.a3m"
-    msa_dir = Path(__file__).resolve().parent / f".msa_{a.size}"
+    tgt = a.target or FIX / f"cdk2x2_{a.size}.yaml"
+    a3m = a.a3m or FIX / f"cdk2x2_{a.size}.a3m"
+    msa_dir = Path(__file__).resolve().parent / f".msa_{a.tag or a.size}"
     one_fold, meta, _state = B.build_fold("boltz2", msa_dir, tgt, a3m)
     out = {"env": {"started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                    "card": os.environ.get("TT_VISIBLE_DEVICES"),
                    "host": os.uname().nodename, "size": a.size, "flag": FLAG,
+                   "target": str(tgt),
                    "commit": os.popen(f"git -C {REPO} rev-parse --short HEAD").read().strip(),
                    "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS},
            "folds": [], "aa": None, "arm": None}
