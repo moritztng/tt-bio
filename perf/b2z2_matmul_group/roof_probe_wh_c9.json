@@ -1,0 +1,238 @@
+{
+ "env": {
+  "card": "9",
+  "arch": "Arch.WORMHOLE_B0",
+  "grid": "(x=8,y=9)",
+  "core_grid_main": "9x8",
+  "started": "2026-09-12T19:32:13+0000",
+  "commit": "f95f7700"
+ },
+ "roof_flop": {
+  "1024_hifi4_fp32acc": {
+   "us": 80.335,
+   "spread_pct": 1.68,
+   "tflops": 26.732
+  },
+  "1024_lofi": {
+   "us": 74.007,
+   "spread_pct": 3.81,
+   "tflops": 29.017
+  },
+  "2048_hifi4_fp32acc": {
+   "us": 436.061,
+   "spread_pct": 6.74,
+   "tflops": 39.398
+  },
+  "2048_lofi": {
+   "us": 343.658,
+   "spread_pct": 9.46,
+   "tflops": 49.991
+  },
+  "3072_hifi4_fp32acc": {
+   "us": 1163.289,
+   "spread_pct": 9.34,
+   "tflops": 49.843
+  },
+  "3072_lofi": {
+   "us": 880.48,
+   "spread_pct": 1.11,
+   "tflops": 65.853
+  },
+  "4096_hifi4_fp32acc": {
+   "us": 2609.903,
+   "spread_pct": 2.64,
+   "tflops": 52.661
+  },
+  "4096_lofi": {
+   "us": 1922.603,
+   "spread_pct": 0.83,
+   "tflops": 71.486
+  },
+  "6144_hifi4_fp32acc": {
+   "us": 8483.832,
+   "spread_pct": 8.72,
+   "tflops": 54.675
+  },
+  "6144_lofi": {
+   "us": 6255.126,
+   "spread_pct": 0.7,
+   "tflops": 74.156
+  }
+ },
+ "roof_flop_best_tflops": {
+  "hifi4_fp32acc": 54.675,
+  "lofi": 74.156
+ },
+ "roof_byte": {
+  "clone_us": 1184.012,
+  "spread_pct": 0.48,
+  "gbps_rw": 226.72
+ },
+ "sites": [
+  {
+   "a": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    768
+   ],
+   "n_programs": 193,
+   "us": 31.357,
+   "spread_pct": 1.73,
+   "tflops": 19.261,
+   "pct_of_flop_roof": 35.2,
+   "gbps": 87.78,
+   "pct_of_byte_roof": 38.7
+  },
+  {
+   "a": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    1536
+   ],
+   "n_programs": 76,
+   "us": 52.621,
+   "spread_pct": 0.74,
+   "tflops": 22.956,
+   "pct_of_flop_roof": 42.0,
+   "gbps": 89.67,
+   "pct_of_byte_roof": 39.6
+  },
+  {
+   "a": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    3072
+   ],
+   "n_programs": 24,
+   "us": 107.05,
+   "spread_pct": 0.3,
+   "tflops": 22.568,
+   "pct_of_flop_roof": 41.3,
+   "gbps": 80.81,
+   "pct_of_byte_roof": 35.6
+  },
+  {
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "n_programs": 6,
+   "us": 255.764,
+   "spread_pct": 0.44,
+   "tflops": 4.592,
+   "pct_of_flop_roof": 8.4,
+   "gbps": 54.07,
+   "pct_of_byte_roof": 23.8
+  },
+  {
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "n_programs": 18,
+   "us": 67.83,
+   "spread_pct": 1.06,
+   "tflops": 4.328,
+   "pct_of_flop_roof": 7.9,
+   "gbps": 51.69,
+   "pct_of_byte_roof": 22.8
+  },
+  {
+   "a": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "b": [
+    1536,
+    768
+   ],
+   "n_programs": 26,
+   "us": 47.257,
+   "spread_pct": 0.89,
+   "tflops": 25.561,
+   "pct_of_flop_roof": 46.8,
+   "gbps": 99.85,
+   "pct_of_byte_roof": 44.0
+  },
+  {
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "n_programs": 24,
+   "us": 43.147,
+   "spread_pct": 0.98,
+   "tflops": 3.402,
+   "pct_of_flop_roof": 6.2,
+   "gbps": 53.92,
+   "pct_of_byte_roof": 23.8
+  },
+  {
+   "a": [
+    1,
+    140,
+    32,
+    256
+   ],
+   "b": [
+    256,
+    128
+   ],
+   "n_programs": 6,
+   "us": 60.114,
+   "spread_pct": 0.98,
+   "tflops": 4.884,
+   "pct_of_flop_roof": 8.9,
+   "gbps": 58.33,
+   "pct_of_byte_roof": 25.7
+  }
+ ],
+ "adaln_core_grid": {
+  "no_core_grid": {
+   "us": 33.663,
+   "spread_pct": 2.28
+  },
+  "core_grid_main": {
+   "us": 34.701,
+   "spread_pct": 6.83
+  },
+  "bit_exact": false,
+  "max_abs": 0.25,
+  "ratio": 0.9701
+ }
+}

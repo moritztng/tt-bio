@@ -1,0 +1,188 @@
+{
+ "env": {
+  "card": "9",
+  "arch": "Arch.WORMHOLE_B0",
+  "grid": "(x=8,y=9)",
+  "started": "2026-09-12T19:23:10+0000",
+  "commit": "cd31bb8a"
+ },
+ "w2_batched_vs_flat": {
+  "[1,140,32,128]x[128,128]": {
+   "batched_cg": {
+    "us": 45.064,
+    "spread_pct": 1.16
+   },
+   "flat_cg": {
+    "us": 44.498,
+    "spread_pct": 1.12
+   },
+   "batched_cg_aa": {
+    "us": 44.382,
+    "spread_pct": 0.96
+   },
+   "batched_nocg": {
+    "us": 345.116,
+    "spread_pct": 0.09
+   },
+   "flat_nocg": {
+    "us": 36.431,
+    "spread_pct": 3.65
+   },
+   "reshape": {
+    "us": 5.47,
+    "spread_pct": 20.24
+   },
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ratio": 1.0127,
+   "aa_floor": 1.0154,
+   "ratio_with_reshape": 0.9019,
+   "n_programs_in_step": 24
+  },
+  "[1,140,32,128]x[128,256]": {
+   "batched_cg": {
+    "us": 68.165,
+    "spread_pct": 1.16
+   },
+   "flat_cg": {
+    "us": 68.055,
+    "spread_pct": 4.37
+   },
+   "batched_cg_aa": {
+    "us": 67.959,
+    "spread_pct": 2.29
+   },
+   "batched_nocg": {
+    "us": 345.786,
+    "spread_pct": 0.2
+   },
+   "flat_nocg": {
+    "us": 60.269,
+    "spread_pct": 4.69
+   },
+   "reshape": {
+    "us": 5.498,
+    "spread_pct": 10.24
+   },
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ratio": 1.0016,
+   "aa_floor": 1.003,
+   "ratio_with_reshape": 0.9267,
+   "n_programs_in_step": 18
+  },
+  "[1,140,128,128]x[128,256]": {
+   "batched_cg": {
+    "us": 255.301,
+    "spread_pct": 1.67
+   },
+   "flat_cg": {
+    "us": 254.768,
+    "spread_pct": 2.19
+   },
+   "batched_cg_aa": {
+    "us": 254.786,
+    "spread_pct": 2.4
+   },
+   "batched_nocg": {
+    "us": 546.426,
+    "spread_pct": 0.91
+   },
+   "flat_nocg": {
+    "us": 217.363,
+    "spread_pct": 2.66
+   },
+   "reshape": {
+    "us": 3.972,
+    "spread_pct": 115.82
+   },
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ratio": 1.0021,
+   "aa_floor": 1.002,
+   "ratio_with_reshape": 0.9867,
+   "n_programs_in_step": 6
+  },
+  "[1,140,32,256]x[256,128]": {
+   "batched_cg": {
+    "us": 60.124,
+    "spread_pct": 2.66
+   },
+   "flat_cg": {
+    "us": 60.17,
+    "spread_pct": 4.19
+   },
+   "batched_cg_aa": {
+    "us": 59.79,
+    "spread_pct": 4.08
+   },
+   "batched_nocg": {
+    "us": 514.863,
+    "spread_pct": 0.28
+   },
+   "flat_nocg": {
+    "us": 63.522,
+    "spread_pct": 6.11
+   },
+   "reshape": {
+    "us": 4.743,
+    "spread_pct": 73.02
+   },
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "ratio": 0.9992,
+   "aa_floor": 1.0056,
+   "ratio_with_reshape": 0.9262,
+   "n_programs_in_step": 6
+  }
+ },
+ "n_fusion_pair": {
+  "two_768": {
+   "us": 61.874,
+   "spread_pct": 1.5
+  },
+  "wide_1536_plus_2_slices": {
+   "us": 74.407,
+   "spread_pct": 0.81
+  },
+  "wide_1536_only": {
+   "us": 55.732,
+   "spread_pct": 0.67
+  },
+  "one_768": {
+   "us": 32.063,
+   "spread_pct": 2.26
+  },
+  "two_768_aa": {
+   "us": 61.479,
+   "spread_pct": 0.57
+  },
+  "ratio_fused_over_two": 0.8316,
+  "aa_floor": 1.0064,
+  "slice_us_each": 9.337
+ },
+ "layer_norm_512x768": {
+  "layer_norm_weighted": {
+   "us": 33.599,
+   "spread_pct": 0.57
+  },
+  "layer_norm_plain": {
+   "us": 29.511,
+   "spread_pct": 0.29
+  },
+  "layer_norm_weighted_aa": {
+   "us": 33.589,
+   "spread_pct": 1.74
+  },
+  "aa_floor": 1.0003
+ },
+ "fold_identity": {
+  "bit_exact": false,
+  "max_abs": 64.0,
+  "mean_abs": 0.0830078125,
+  "rel_mean_between_paths": 0.0037384033203125,
+  "rel_err_vs_fp32_shipped": 0.003723026951774955,
+  "rel_err_vs_fp32_folded": 0.0034232500474900007,
+  "scale_mean_abs": 22.19322967529297
+ }
+}

@@ -1,0 +1,115 @@
+{
+ "env": {
+  "card": "9",
+  "arch": "Arch.WORMHOLE_B0",
+  "started": "2026-09-12T19:34:08+0000",
+  "commit": "ae37d97e"
+ },
+ "roofs_from_roof_probe": {
+  "tflops_hifi4_fp32acc": 54.675,
+  "gbps_rw": 226.72
+ },
+ "atom_sites": {
+  "[1,140,32,128]x[128,128]": {
+   "dram": {
+    "us": 44.417,
+    "spread_pct": 2.49
+   },
+   "l1_in": {
+    "us": 35.93,
+    "spread_pct": 10.15
+   },
+   "l1_both": {
+    "us": 31.464,
+    "spread_pct": 28.98
+   },
+   "dram_aa": {
+    "us": 44.434,
+    "spread_pct": 1.23
+   },
+   "l1_both_bit_exact": true,
+   "aa_floor": 0.9996,
+   "ratio_l1_in": 1.2362,
+   "ratio_l1_both": 1.4117,
+   "n_programs_in_step": 24,
+   "ms_in_step_dram": 1.066,
+   "ms_saved_if_l1_both": 0.3109
+  },
+  "[1,140,32,128]x[128,256]": {
+   "dram": {
+    "us": 67.786,
+    "spread_pct": 1.85
+   },
+   "l1_in": {
+    "us": 61.039,
+    "spread_pct": 2.01
+   },
+   "l1_both": {
+    "us": 31.772,
+    "spread_pct": 15.91
+   },
+   "dram_aa": {
+    "us": 67.962,
+    "spread_pct": 1.57
+   },
+   "l1_both_bit_exact": true,
+   "aa_floor": 0.9974,
+   "ratio_l1_in": 1.1105,
+   "ratio_l1_both": 2.1335,
+   "n_programs_in_step": 18,
+   "ms_in_step_dram": 1.2201,
+   "ms_saved_if_l1_both": 0.6483
+  },
+  "[1,140,128,128]x[128,256]": {
+   "dram": {
+    "us": 256.124,
+    "spread_pct": 1.46
+   },
+   "l1_in": {
+    "us": 213.705,
+    "spread_pct": 1.12
+   },
+   "l1_both": {
+    "us": 80.014,
+    "spread_pct": 4.41
+   },
+   "dram_aa": {
+    "us": 255.181,
+    "spread_pct": 1.02
+   },
+   "l1_both_bit_exact": true,
+   "aa_floor": 1.0037,
+   "ratio_l1_in": 1.1985,
+   "ratio_l1_both": 3.201,
+   "n_programs_in_step": 6,
+   "ms_in_step_dram": 1.5367,
+   "ms_saved_if_l1_both": 1.0567
+  },
+  "[1,140,32,256]x[256,128]": {
+   "dram": {
+    "us": 60.278,
+    "spread_pct": 1.49
+   },
+   "l1_in": {
+    "us": 44.104,
+    "spread_pct": 1.77
+   },
+   "l1_both": {
+    "us": 32.42,
+    "spread_pct": 3.14
+   },
+   "dram_aa": {
+    "us": 60.075,
+    "spread_pct": 0.7
+   },
+   "l1_both_bit_exact": true,
+   "aa_floor": 1.0034,
+   "ratio_l1_in": 1.3667,
+   "ratio_l1_both": 1.8593,
+   "n_programs_in_step": 6,
+   "ms_in_step_dram": 0.3617,
+   "ms_saved_if_l1_both": 0.1671
+  }
+ },
+ "total_ms_saved_if_l1_both": 2.183
+}

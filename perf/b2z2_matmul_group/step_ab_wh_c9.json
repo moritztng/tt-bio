@@ -1,0 +1,113 @@
+{
+ "env": {
+  "card": "9",
+  "started": "2026-09-12T19:27:22+0000",
+  "size": 512,
+  "commit": "6c42b49c",
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3
+ },
+ "precursor_s": 94.638,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "n_adaln_token": 48,
+ "step_output": {
+  "base_self_bit_exact": true,
+  "fold_bit_exact_vs_base": false,
+  "max_abs": 0.201171875,
+  "rel_mean": 0.05566965788602829,
+  "scale_mean_abs": 0.34657832980155945
+ },
+ "ttnn_top_level_calls": {
+  "base": 1590,
+  "fold": 1544
+ },
+ "step_ms": {
+  "base": {
+   "median": 41.5898,
+   "spread_pct": 0.31,
+   "all": [
+    41.6167,
+    41.5804,
+    41.5696,
+    41.6596,
+    41.6874,
+    41.5921,
+    41.586,
+    41.598,
+    41.5901,
+    41.5717,
+    41.5583,
+    41.5651,
+    41.5895,
+    41.5902
+   ]
+  },
+  "fold": {
+   "median": 39.9999,
+   "spread_pct": 0.079,
+   "all": [
+    40.005,
+    39.9895,
+    39.9941,
+    40.0211,
+    39.9896,
+    39.9999,
+    40.0024
+   ]
+  }
+ },
+ "ratio": 1.03975,
+ "aa_floor": 0.99998
+}
