@@ -1,0 +1,25 @@
+{
+ "env": {
+  "started": "2026-09-12T15:08:33+0000",
+  "card": "1",
+  "phase": "probe",
+  "reps": 3,
+  "size": 512,
+  "commit": "b82a5f03",
+  "profiler": "1",
+  "ttnn": "/home/mthuening/work/b2z2-profiler/tt-metal/ttnn/ttnn/__init__.py",
+  "loadavg": [
+   "7.23",
+   "18.66",
+   "17.10"
+  ]
+ },
+ "probe": {
+  "n": 2048,
+  "reps": 20,
+  "solo_synced_ms": 0.4556,
+  "back_to_back_ms": 0.3104,
+  "flops": 17179869184,
+  "bytes": 25165824
+ }
+}

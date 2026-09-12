@@ -1,0 +1,118 @@
+{
+ "label": "PairformerLayer 512aa WH whglx c1",
+ "csv": "perf/b2z2_profiler/block_prof/reports/2026_09_12_15_16_25/ops_perf_results_2026_09_12_15_16_25.csv",
+ "ops_per_block": 272,
+ "reps": 3,
+ "ns_per_cycle": 1.0,
+ "per_rep_ms": [
+  {
+   "span_ms": 85.263503,
+   "kernel_ms": 85.091323,
+   "trisc1_ms": 76.655764,
+   "wait_in_ms": 47.44992452604165,
+   "wait_out_ms": 8.297691970486111,
+   "compute_ms": 20.90814750347224
+  },
+  {
+   "span_ms": 85.299621,
+   "kernel_ms": 85.121118,
+   "trisc1_ms": 76.49513,
+   "wait_in_ms": 47.456263934027795,
+   "wait_out_ms": 8.276794095486112,
+   "compute_ms": 20.76207197048609
+  },
+  {
+   "span_ms": 85.339499,
+   "kernel_ms": 85.160262,
+   "trisc1_ms": 76.53965,
+   "wait_in_ms": 47.37337901736112,
+   "wait_out_ms": 8.431820887152783,
+   "compute_ms": 20.734450095486096
+  }
+ ],
+ "median_ms": {
+  "span_ms": 85.299621,
+  "kernel_ms": 85.121118,
+  "trisc1_ms": 76.53965,
+  "wait_in_ms": 47.44992452604165,
+  "wait_out_ms": 8.297691970486111,
+  "compute_ms": 20.76207197048609
+ },
+ "synced_wall_ms_per_call": 86.6378,
+ "trisc1_pct": {
+  "wait_in_ms": 61.99391364611891,
+  "wait_out_ms": 10.84103725387575,
+  "compute_ms": 27.125903986347065
+ },
+ "non_resident_ms": 8.759971000000007,
+ "gap_ms": 0.1785030000000063,
+ "ops_where_stall_exceeds_residency": 51,
+ "by_op_code": {
+  "GenericOpDeviceOperation": {
+   "n": 16,
+   "trisc1_ms": 28.766205666666668,
+   "wait_in_ms": 16.657521310185185,
+   "wait_out_ms": 0.8047691481481479
+  },
+  "MatmulDeviceOperation": {
+   "n": 113,
+   "trisc1_ms": 24.923288333333332,
+   "wait_in_ms": 12.369593499421297,
+   "wait_out_ms": 2.1728061047453697
+  },
+  "BinaryNgDeviceOperation": {
+   "n": 52,
+   "trisc1_ms": 12.767808666666665,
+   "wait_in_ms": 10.936981611111117,
+   "wait_out_ms": 3.9476432638888896
+  },
+  "LayerNormDeviceOperation": {
+   "n": 41,
+   "trisc1_ms": 7.922139666666667,
+   "wait_in_ms": 5.663168048611113,
+   "wait_out_ms": 0.36920476388888895
+  },
+  "TransposeDeviceOperation": {
+   "n": 8,
+   "trisc1_ms": 1.3522466666666668,
+   "wait_in_ms": 1.142876962962963,
+   "wait_out_ms": 0.46349157407407393
+  },
+  "PermuteDeviceOperation": {
+   "n": 3,
+   "trisc1_ms": 0.6138303333333334,
+   "wait_in_ms": 0.55951925,
+   "wait_out_ms": 0.5662688657407408
+  },
+  "SoftmaxDeviceOperation": {
+   "n": 1,
+   "trisc1_ms": 0.21799533333333335,
+   "wait_in_ms": 0.09686181018518518,
+   "wait_out_ms": 0.011251930555555555
+  },
+  "ReshapeViewDeviceOperation": {
+   "n": 3,
+   "trisc1_ms": 0.0,
+   "wait_in_ms": 0.0,
+   "wait_out_ms": 0.0
+  },
+  "SliceDeviceOperation": {
+   "n": 33,
+   "trisc1_ms": 0.0,
+   "wait_in_ms": 0.0,
+   "wait_out_ms": 0.0
+  },
+  "ConcatDeviceOperation": {
+   "n": 1,
+   "trisc1_ms": 0.0,
+   "wait_in_ms": 0.0,
+   "wait_out_ms": 0.0
+  },
+  "NlpCreateHeadsDeviceOperation": {
+   "n": 1,
+   "trisc1_ms": 0.0,
+   "wait_in_ms": 0.0,
+   "wait_out_ms": 0.0
+  }
+ }
+}

@@ -1,0 +1,12023 @@
+{
+ "label": "PairformerLayer 512aa WH whglx c1",
+ "csv": "perf/b2z2_profiler/block_prof/reports/2026_09_12_15_16_25/ops_perf_results_2026_09_12_15_16_25.csv",
+ "ops_per_block": 272,
+ "reps": 3,
+ "ns_per_cycle": 1.0,
+ "per_rep_ms": [
+  {
+   "span_ms": 85.263503,
+   "fw_ms": 100.410491,
+   "kernel_ms": 85.091323,
+   "gap_ms": 0.171475
+  },
+  {
+   "span_ms": 85.299621,
+   "fw_ms": 100.275683,
+   "kernel_ms": 85.121118,
+   "gap_ms": 0.172451
+  },
+  {
+   "span_ms": 85.339499,
+   "fw_ms": 100.458681,
+   "kernel_ms": 85.160262,
+   "gap_ms": 0.17188
+  }
+ ],
+ "median_ms": {
+  "span_ms": 85.299621,
+  "fw_ms": 100.410491,
+  "kernel_ms": 85.121118,
+  "gap_ms": 0.17188
+ },
+ "synced_wall_ms_per_call": 86.6378,
+ "split_ms": {
+  "span": 85.299621,
+  "a_math_at_roof": 0.0,
+  "b_in_kernel_waiting": 85.119344,
+  "c_outside_kernels": 0.1802770000000038
+ },
+ "split_pct": {
+  "a_math_at_roof": 0.0,
+  "b_in_kernel_waiting": 99.78865439507638,
+  "c_outside_kernels": 0.21134560492361834
+ },
+ "compute_thread_ms": {
+  "trisc1_resident": 76.497839,
+  "cb_wait_front": 3374.965698,
+  "cb_reserve_back": 596.687978,
+  "not_stalled_on_a_cb": -3895.155837
+ },
+ "gap_from_op_to_op_latency_ms": 0.17188,
+ "gap_from_span_minus_kernel_ms": 0.1785030000000063,
+ "ops": [
+  {
+   "i": 0,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 928185.0,
+   "kernel_ns_spread": [
+    927385.0,
+    928493.0
+   ],
+   "fw_ns": 934238.0,
+   "gap_ns": 613.0,
+   "core_min_ns": 897919.0,
+   "core_max_ns": 928029.0,
+   "core_avg_ns": 915353.0,
+   "skew_ns": 2129.0,
+   "brisc_ns": 928178.0,
+   "ncrisc_ns": 913712.0,
+   "trisc0_ns": 927021.0,
+   "trisc1_ns": 926318.0,
+   "trisc2_ns": 927236.0,
+   "cb_wait_front_ns": 48807176.0,
+   "cb_reserve_back_ns": 3341153.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 1,
+   "op": "ReshapeViewDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 516734.0,
+   "kernel_ns_spread": [
+    516473.0,
+    517510.0
+   ],
+   "fw_ns": 545941.0,
+   "gap_ns": 593.0,
+   "core_min_ns": 495395.0,
+   "core_max_ns": 516628.0,
+   "core_avg_ns": 508348.0,
+   "skew_ns": 1867.0,
+   "brisc_ns": 516734.0,
+   "ncrisc_ns": 514264.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 2,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 3123218.0,
+   "kernel_ns_spread": [
+    3100750.0,
+    3133399.0
+   ],
+   "fw_ns": 3143258.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 2982911.0,
+   "core_max_ns": 3123218.0,
+   "core_avg_ns": 3064172.0,
+   "skew_ns": 2237.0,
+   "brisc_ns": 3108518.0,
+   "ncrisc_ns": 3123218.0,
+   "trisc0_ns": 3122777.0,
+   "trisc1_ns": 3122775.0,
+   "trisc2_ns": 3122932.0,
+   "cb_wait_front_ns": 98450530.0,
+   "cb_reserve_back_ns": 478203.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 3,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1527910.0,
+   "kernel_ns_spread": [
+    1523242.0,
+    1533627.0
+   ],
+   "fw_ns": 1668689.0,
+   "gap_ns": 599.0,
+   "core_min_ns": 1408310.0,
+   "core_max_ns": 1527862.0,
+   "core_avg_ns": 1438499.0,
+   "skew_ns": 2185.0,
+   "brisc_ns": 1527897.0,
+   "ncrisc_ns": 1466303.0,
+   "trisc0_ns": 1472764.0,
+   "trisc1_ns": 1472585.0,
+   "trisc2_ns": 1472798.0,
+   "cb_wait_front_ns": 84006145.0,
+   "cb_reserve_back_ns": 1648691.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 4,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1524385.0,
+   "kernel_ns_spread": [
+    1520965.0,
+    1524861.0
+   ],
+   "fw_ns": 1644123.0,
+   "gap_ns": 565.0,
+   "core_min_ns": 1409085.0,
+   "core_max_ns": 1522723.0,
+   "core_avg_ns": 1438279.0,
+   "skew_ns": 2155.0,
+   "brisc_ns": 1524373.0,
+   "ncrisc_ns": 1462639.0,
+   "trisc0_ns": 1469142.0,
+   "trisc1_ns": 1468959.0,
+   "trisc2_ns": 1469163.0,
+   "cb_wait_front_ns": 83971314.0,
+   "cb_reserve_back_ns": 1636525.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 5,
+   "op": "TransposeDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 670826.0,
+   "kernel_ns_spread": [
+    655005.0,
+    691917.0
+   ],
+   "fw_ns": 780377.0,
+   "gap_ns": 563.0,
+   "core_min_ns": 515004.0,
+   "core_max_ns": 670786.0,
+   "core_avg_ns": 573921.0,
+   "skew_ns": 2027.0,
+   "brisc_ns": 670819.0,
+   "ncrisc_ns": 670128.0,
+   "trisc0_ns": 670193.0,
+   "trisc1_ns": 669131.0,
+   "trisc2_ns": 669692.0,
+   "cb_wait_front_ns": 39238223.0,
+   "cb_reserve_back_ns": 17124816.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 6,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 836846.0,
+   "kernel_ns_spread": [
+    832779.0,
+    848311.0
+   ],
+   "fw_ns": 971766.0,
+   "gap_ns": 651.0,
+   "core_min_ns": 712939.0,
+   "core_max_ns": 836736.0,
+   "core_avg_ns": 796567.0,
+   "skew_ns": 1975.0,
+   "brisc_ns": 836844.0,
+   "ncrisc_ns": 834168.0,
+   "trisc0_ns": 834620.0,
+   "trisc1_ns": 836154.0,
+   "trisc2_ns": 835309.0,
+   "cb_wait_front_ns": 51084074.0,
+   "cb_reserve_back_ns": 25001141.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 7,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1664826.0,
+   "kernel_ns_spread": [
+    1653021.0,
+    1676459.0
+   ],
+   "fw_ns": 1795099.0,
+   "gap_ns": 603.0,
+   "core_min_ns": 1656436.0,
+   "core_max_ns": 1664743.0,
+   "core_avg_ns": 1661132.0,
+   "skew_ns": 1968.0,
+   "brisc_ns": 1664826.0,
+   "ncrisc_ns": 1656324.0,
+   "trisc0_ns": 1660910.0,
+   "trisc1_ns": 1661308.0,
+   "trisc2_ns": 1661361.0,
+   "cb_wait_front_ns": 68107471.0,
+   "cb_reserve_back_ns": 5594374.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 8,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi2",
+   "kernel_ns": 937941.0,
+   "kernel_ns_spread": [
+    933567.0,
+    959584.0
+   ],
+   "fw_ns": 2597867.0,
+   "gap_ns": 609.0,
+   "core_min_ns": 787740.0,
+   "core_max_ns": 937207.0,
+   "core_avg_ns": 850277.0,
+   "skew_ns": 2016.0,
+   "brisc_ns": 937941.0,
+   "ncrisc_ns": 934907.0,
+   "trisc0_ns": 935069.0,
+   "trisc1_ns": 933677.0,
+   "trisc2_ns": 933772.0,
+   "cb_wait_front_ns": 55161933.0,
+   "cb_reserve_back_ns": 567739.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 9,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 927090.0,
+   "kernel_ns_spread": [
+    927033.0,
+    927695.0
+   ],
+   "fw_ns": 1079587.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 896766.0,
+   "core_max_ns": 926928.0,
+   "core_avg_ns": 914035.0,
+   "skew_ns": 2147.0,
+   "brisc_ns": 927090.0,
+   "ncrisc_ns": 912396.0,
+   "trisc0_ns": 925927.0,
+   "trisc1_ns": 925220.0,
+   "trisc2_ns": 926152.0,
+   "cb_wait_front_ns": 48745852.0,
+   "cb_reserve_back_ns": 3360560.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 10,
+   "op": "MatmulDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1446205.0,
+   "kernel_ns_spread": [
+    1445020.0,
+    1448517.0
+   ],
+   "fw_ns": 1475322.0,
+   "gap_ns": 535.0,
+   "core_min_ns": 1393810.0,
+   "core_max_ns": 1446133.0,
+   "core_avg_ns": 1423246.0,
+   "skew_ns": 2039.0,
+   "brisc_ns": 1446205.0,
+   "ncrisc_ns": 1375906.0,
+   "trisc0_ns": 1392629.0,
+   "trisc1_ns": 1393387.0,
+   "trisc2_ns": 1393502.0,
+   "cb_wait_front_ns": 92334747.0,
+   "cb_reserve_back_ns": 28773222.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 11,
+   "op": "MatmulDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1448989.0,
+   "kernel_ns_spread": [
+    1446571.0,
+    1451683.0
+   ],
+   "fw_ns": 1500483.0,
+   "gap_ns": 609.0,
+   "core_min_ns": 1395955.0,
+   "core_max_ns": 1448282.0,
+   "core_avg_ns": 1425732.0,
+   "skew_ns": 1940.0,
+   "brisc_ns": 1448987.0,
+   "ncrisc_ns": 1377398.0,
+   "trisc0_ns": 1394760.0,
+   "trisc1_ns": 1395520.0,
+   "trisc2_ns": 1395635.0,
+   "cb_wait_front_ns": 92482169.0,
+   "cb_reserve_back_ns": 28969481.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 12,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1218776.0,
+   "kernel_ns_spread": [
+    1218646.0,
+    1219292.0
+   ],
+   "fw_ns": 1270754.0,
+   "gap_ns": 615.0,
+   "core_min_ns": 1212120.0,
+   "core_max_ns": 1217602.0,
+   "core_avg_ns": 1213233.0,
+   "skew_ns": 2019.0,
+   "brisc_ns": 1218773.0,
+   "ncrisc_ns": 1212938.0,
+   "trisc0_ns": 1217385.0,
+   "trisc1_ns": 1218165.0,
+   "trisc2_ns": 1217148.0,
+   "cb_wait_front_ns": 77952144.0,
+   "cb_reserve_back_ns": 9000565.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 13,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 827518.0,
+   "kernel_ns_spread": [
+    825507.0,
+    828020.0
+   ],
+   "fw_ns": 833154.0,
+   "gap_ns": 522.0,
+   "core_min_ns": 737708.0,
+   "core_max_ns": 827478.0,
+   "core_avg_ns": 804458.0,
+   "skew_ns": 2079.0,
+   "brisc_ns": 827516.0,
+   "ncrisc_ns": 826764.0,
+   "trisc0_ns": 826787.0,
+   "trisc1_ns": 825477.0,
+   "trisc2_ns": 826288.0,
+   "cb_wait_front_ns": 55083380.0,
+   "cb_reserve_back_ns": 24078448.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 14,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 927931.0,
+   "kernel_ns_spread": [
+    927373.0,
+    928338.0
+   ],
+   "fw_ns": 1014559.0,
+   "gap_ns": 607.0,
+   "core_min_ns": 896768.0,
+   "core_max_ns": 927209.0,
+   "core_avg_ns": 913990.0,
+   "skew_ns": 2186.0,
+   "brisc_ns": 927928.0,
+   "ncrisc_ns": 912868.0,
+   "trisc0_ns": 926598.0,
+   "trisc1_ns": 925917.0,
+   "trisc2_ns": 926843.0,
+   "cb_wait_front_ns": 48752045.0,
+   "cb_reserve_back_ns": 3341063.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 15,
+   "op": "ReshapeViewDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 515972.0,
+   "kernel_ns_spread": [
+    505689.0,
+    517449.0
+   ],
+   "fw_ns": 545467.0,
+   "gap_ns": 542.0,
+   "core_min_ns": 494741.0,
+   "core_max_ns": 515853.0,
+   "core_avg_ns": 508069.0,
+   "skew_ns": 1964.0,
+   "brisc_ns": 515965.0,
+   "ncrisc_ns": 513418.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 16,
+   "op": "TransposeDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 6469.0,
+   "kernel_ns_spread": [
+    6456.0,
+    7177.0
+   ],
+   "fw_ns": 27502.0,
+   "gap_ns": 583.0,
+   "core_min_ns": 3034.0,
+   "core_max_ns": 6405.0,
+   "core_avg_ns": 4936.0,
+   "skew_ns": 2006.0,
+   "brisc_ns": 6467.0,
+   "ncrisc_ns": 4791.0,
+   "trisc0_ns": 4843.0,
+   "trisc1_ns": 3323.0,
+   "trisc2_ns": 5557.0,
+   "cb_wait_front_ns": 191325.0,
+   "cb_reserve_back_ns": 118529.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 17,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 3077967.0,
+   "kernel_ns_spread": [
+    3069965.0,
+    3120390.0
+   ],
+   "fw_ns": 3081115.0,
+   "gap_ns": 653.0,
+   "core_min_ns": 2986524.0,
+   "core_max_ns": 3077758.0,
+   "core_avg_ns": 3040034.0,
+   "skew_ns": 2190.0,
+   "brisc_ns": 3063277.0,
+   "ncrisc_ns": 3077965.0,
+   "trisc0_ns": 3077518.0,
+   "trisc1_ns": 3077519.0,
+   "trisc2_ns": 3077684.0,
+   "cb_wait_front_ns": 96648513.0,
+   "cb_reserve_back_ns": 429501.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 18,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1529220.0,
+   "kernel_ns_spread": [
+    1527255.0,
+    1538987.0
+   ],
+   "fw_ns": 1621151.0,
+   "gap_ns": 589.0,
+   "core_min_ns": 1408146.0,
+   "core_max_ns": 1529173.0,
+   "core_avg_ns": 1439296.0,
+   "skew_ns": 2201.0,
+   "brisc_ns": 1529217.0,
+   "ncrisc_ns": 1466548.0,
+   "trisc0_ns": 1473053.0,
+   "trisc1_ns": 1472876.0,
+   "trisc2_ns": 1473083.0,
+   "cb_wait_front_ns": 84003976.0,
+   "cb_reserve_back_ns": 1635612.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 19,
+   "op": "TransposeDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 656333.0,
+   "kernel_ns_spread": [
+    654989.0,
+    690033.0
+   ],
+   "fw_ns": 786071.0,
+   "gap_ns": 566.0,
+   "core_min_ns": 526239.0,
+   "core_max_ns": 656291.0,
+   "core_avg_ns": 584022.0,
+   "skew_ns": 2027.0,
+   "brisc_ns": 656321.0,
+   "ncrisc_ns": 655631.0,
+   "trisc0_ns": 655698.0,
+   "trisc1_ns": 654692.0,
+   "trisc2_ns": 655251.0,
+   "cb_wait_front_ns": 39960573.0,
+   "cb_reserve_back_ns": 16741776.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 20,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1518614.0,
+   "kernel_ns_spread": [
+    1517861.0,
+    1520715.0
+   ],
+   "fw_ns": 1656191.0,
+   "gap_ns": 652.0,
+   "core_min_ns": 1409121.0,
+   "core_max_ns": 1518558.0,
+   "core_avg_ns": 1436395.0,
+   "skew_ns": 2046.0,
+   "brisc_ns": 1518592.0,
+   "ncrisc_ns": 1456987.0,
+   "trisc0_ns": 1463341.0,
+   "trisc1_ns": 1463158.0,
+   "trisc2_ns": 1463359.0,
+   "cb_wait_front_ns": 83865733.0,
+   "cb_reserve_back_ns": 1649349.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 21,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 834294.0,
+   "kernel_ns_spread": [
+    831713.0,
+    839061.0
+   ],
+   "fw_ns": 940282.0,
+   "gap_ns": 641.0,
+   "core_min_ns": 707912.0,
+   "core_max_ns": 834158.0,
+   "core_avg_ns": 797818.0,
+   "skew_ns": 1986.0,
+   "brisc_ns": 834281.0,
+   "ncrisc_ns": 831785.0,
+   "trisc0_ns": 832112.0,
+   "trisc1_ns": 833643.0,
+   "trisc2_ns": 832796.0,
+   "cb_wait_front_ns": 51093420.0,
+   "cb_reserve_back_ns": 25052173.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 22,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1654559.0,
+   "kernel_ns_spread": [
+    1649770.0,
+    1665138.0
+   ],
+   "fw_ns": 1782215.0,
+   "gap_ns": 584.0,
+   "core_min_ns": 1648445.0,
+   "core_max_ns": 1654479.0,
+   "core_avg_ns": 1650783.0,
+   "skew_ns": 1968.0,
+   "brisc_ns": 1654545.0,
+   "ncrisc_ns": 1644620.0,
+   "trisc0_ns": 1650394.0,
+   "trisc1_ns": 1650775.0,
+   "trisc2_ns": 1650830.0,
+   "cb_wait_front_ns": 67047385.0,
+   "cb_reserve_back_ns": 5237003.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 23,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi2",
+   "kernel_ns": 954450.0,
+   "kernel_ns_spread": [
+    941299.0,
+    960289.0
+   ],
+   "fw_ns": 2603732.0,
+   "gap_ns": 608.0,
+   "core_min_ns": 789547.0,
+   "core_max_ns": 953603.0,
+   "core_avg_ns": 852071.0,
+   "skew_ns": 2029.0,
+   "brisc_ns": 954450.0,
+   "ncrisc_ns": 951384.0,
+   "trisc0_ns": 951530.0,
+   "trisc1_ns": 950153.0,
+   "trisc2_ns": 950262.0,
+   "cb_wait_front_ns": 55193623.0,
+   "cb_reserve_back_ns": 557144.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 24,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 926822.0,
+   "kernel_ns_spread": [
+    926702.0,
+    927188.0
+   ],
+   "fw_ns": 1089071.0,
+   "gap_ns": 611.0,
+   "core_min_ns": 897158.0,
+   "core_max_ns": 926544.0,
+   "core_avg_ns": 914310.0,
+   "skew_ns": 2129.0,
+   "brisc_ns": 926809.0,
+   "ncrisc_ns": 911799.0,
+   "trisc0_ns": 925502.0,
+   "trisc1_ns": 924819.0,
+   "trisc2_ns": 925745.0,
+   "cb_wait_front_ns": 48760591.0,
+   "cb_reserve_back_ns": 3341219.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 25,
+   "op": "MatmulDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1449112.0,
+   "kernel_ns_spread": [
+    1446619.0,
+    1450926.0
+   ],
+   "fw_ns": 1476856.0,
+   "gap_ns": 565.0,
+   "core_min_ns": 1396340.0,
+   "core_max_ns": 1448361.0,
+   "core_avg_ns": 1425844.0,
+   "skew_ns": 2008.0,
+   "brisc_ns": 1449112.0,
+   "ncrisc_ns": 1379618.0,
+   "trisc0_ns": 1395151.0,
+   "trisc1_ns": 1395916.0,
+   "trisc2_ns": 1396036.0,
+   "cb_wait_front_ns": 92511568.0,
+   "cb_reserve_back_ns": 28786902.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 26,
+   "op": "MatmulDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1445391.0,
+   "kernel_ns_spread": [
+    1444634.0,
+    1445551.0
+   ],
+   "fw_ns": 1497476.0,
+   "gap_ns": 608.0,
+   "core_min_ns": 1392145.0,
+   "core_max_ns": 1444304.0,
+   "core_avg_ns": 1421854.0,
+   "skew_ns": 1940.0,
+   "brisc_ns": 1445391.0,
+   "ncrisc_ns": 1375039.0,
+   "trisc0_ns": 1390969.0,
+   "trisc1_ns": 1391728.0,
+   "trisc2_ns": 1391839.0,
+   "cb_wait_front_ns": 92214991.0,
+   "cb_reserve_back_ns": 28800482.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 27,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1219309.0,
+   "kernel_ns_spread": [
+    1218508.0,
+    1219456.0
+   ],
+   "fw_ns": 1270756.0,
+   "gap_ns": 612.0,
+   "core_min_ns": 1212644.0,
+   "core_max_ns": 1217731.0,
+   "core_avg_ns": 1213914.0,
+   "skew_ns": 2000.0,
+   "brisc_ns": 1219306.0,
+   "ncrisc_ns": 1213162.0,
+   "trisc0_ns": 1217885.0,
+   "trisc1_ns": 1218657.0,
+   "trisc2_ns": 1217629.0,
+   "cb_wait_front_ns": 77978781.0,
+   "cb_reserve_back_ns": 9048510.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 28,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 828718.0,
+   "kernel_ns_spread": [
+    825367.0,
+    833260.0
+   ],
+   "fw_ns": 833973.0,
+   "gap_ns": 516.0,
+   "core_min_ns": 725229.0,
+   "core_max_ns": 828640.0,
+   "core_avg_ns": 804576.0,
+   "skew_ns": 2073.0,
+   "brisc_ns": 828717.0,
+   "ncrisc_ns": 827798.0,
+   "trisc0_ns": 827821.0,
+   "trisc1_ns": 826660.0,
+   "trisc2_ns": 827408.0,
+   "cb_wait_front_ns": 55026838.0,
+   "cb_reserve_back_ns": 24035262.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 29,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 928488.0,
+   "kernel_ns_spread": [
+    927319.0,
+    929578.0
+   ],
+   "fw_ns": 1028595.0,
+   "gap_ns": 619.0,
+   "core_min_ns": 897178.0,
+   "core_max_ns": 928336.0,
+   "core_avg_ns": 914808.0,
+   "skew_ns": 2197.0,
+   "brisc_ns": 928475.0,
+   "ncrisc_ns": 913779.0,
+   "trisc0_ns": 927232.0,
+   "trisc1_ns": 926569.0,
+   "trisc2_ns": 927495.0,
+   "cb_wait_front_ns": 48758710.0,
+   "cb_reserve_back_ns": 3291094.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 30,
+   "op": "MatmulDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1067625.0,
+   "kernel_ns_spread": [
+    1046165.0,
+    1078723.0
+   ],
+   "fw_ns": 1096893.0,
+   "gap_ns": 539.0,
+   "core_min_ns": 1053069.0,
+   "core_max_ns": 1067308.0,
+   "core_avg_ns": 1061096.0,
+   "skew_ns": 2024.0,
+   "brisc_ns": 1067614.0,
+   "ncrisc_ns": 1056321.0,
+   "trisc0_ns": 1057454.0,
+   "trisc1_ns": 1057926.0,
+   "trisc2_ns": 1057978.0,
+   "cb_wait_front_ns": 73977444.0,
+   "cb_reserve_back_ns": 856318.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 31,
+   "op": "PermuteDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 142831.0,
+   "kernel_ns_spread": [
+    142624.0,
+    142949.0
+   ],
+   "fw_ns": 155236.0,
+   "gap_ns": 689.0,
+   "core_min_ns": 128569.0,
+   "core_max_ns": 142714.0,
+   "core_avg_ns": 136329.0,
+   "skew_ns": 1920.0,
+   "brisc_ns": 142831.0,
+   "ncrisc_ns": 137318.0,
+   "trisc0_ns": 137367.0,
+   "trisc1_ns": 136771.0,
+   "trisc2_ns": 140838.0,
+   "cb_wait_front_ns": 8889323.0,
+   "cb_reserve_back_ns": 8891136.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 32,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 2103141.0,
+   "kernel_ns_spread": [
+    2093390.0,
+    2118333.0
+   ],
+   "fw_ns": 2115354.0,
+   "gap_ns": 606.0,
+   "core_min_ns": 2060539.0,
+   "core_max_ns": 2103097.0,
+   "core_avg_ns": 2087444.0,
+   "skew_ns": 2115.0,
+   "brisc_ns": 2094731.0,
+   "ncrisc_ns": 2103141.0,
+   "trisc0_ns": 2102228.0,
+   "trisc1_ns": 2102198.0,
+   "trisc2_ns": 2102386.0,
+   "cb_wait_front_ns": 125350938.0,
+   "cb_reserve_back_ns": 1743178.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 33,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 959106.0,
+   "kernel_ns_spread": [
+    948238.0,
+    966254.0
+   ],
+   "fw_ns": 996050.0,
+   "gap_ns": 583.0,
+   "core_min_ns": 944512.0,
+   "core_max_ns": 959106.0,
+   "core_avg_ns": 952797.0,
+   "skew_ns": 2129.0,
+   "brisc_ns": 956846.0,
+   "ncrisc_ns": 959106.0,
+   "trisc0_ns": 958689.0,
+   "trisc1_ns": 958666.0,
+   "trisc2_ns": 958853.0,
+   "cb_wait_front_ns": 55829508.0,
+   "cb_reserve_back_ns": 852493.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 34,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 35868.0,
+   "kernel_ns_spread": [
+    34334.0,
+    37504.0
+   ],
+   "fw_ns": 49263.0,
+   "gap_ns": 553.0,
+   "core_min_ns": 20132.0,
+   "core_max_ns": 35868.0,
+   "core_avg_ns": 29786.0,
+   "skew_ns": 2075.0,
+   "brisc_ns": 35855.0,
+   "ncrisc_ns": 34801.0,
+   "trisc0_ns": 35180.0,
+   "trisc1_ns": 34961.0,
+   "trisc2_ns": 35000.0,
+   "cb_wait_front_ns": 1742546.0,
+   "cb_reserve_back_ns": 40548.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 35,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi2",
+   "kernel_ns": 3398272.0,
+   "kernel_ns_spread": [
+    3397672.0,
+    3406699.0
+   ],
+   "fw_ns": 3409844.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 2253169.0,
+   "core_max_ns": 3398139.0,
+   "core_avg_ns": 3312027.0,
+   "skew_ns": 2620.0,
+   "brisc_ns": 3398269.0,
+   "ncrisc_ns": 3298116.0,
+   "trisc0_ns": 3396034.0,
+   "trisc1_ns": 3396026.0,
+   "trisc2_ns": 3396189.0,
+   "cb_wait_front_ns": 43676385.0,
+   "cb_reserve_back_ns": 21181318.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 36,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1217381.0,
+   "kernel_ns_spread": [
+    1217260.0,
+    1218460.0
+   ],
+   "fw_ns": 2360642.0,
+   "gap_ns": 575.0,
+   "core_min_ns": 1211511.0,
+   "core_max_ns": 1217219.0,
+   "core_avg_ns": 1212769.0,
+   "skew_ns": 2070.0,
+   "brisc_ns": 1217378.0,
+   "ncrisc_ns": 1211399.0,
+   "trisc0_ns": 1216006.0,
+   "trisc1_ns": 1216771.0,
+   "trisc2_ns": 1215762.0,
+   "cb_wait_front_ns": 77915585.0,
+   "cb_reserve_back_ns": 8988237.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 37,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 938117.0,
+   "kernel_ns_spread": [
+    936758.0,
+    939299.0
+   ],
+   "fw_ns": 943701.0,
+   "gap_ns": 531.0,
+   "core_min_ns": 923579.0,
+   "core_max_ns": 938117.0,
+   "core_avg_ns": 931602.0,
+   "skew_ns": 2150.0,
+   "brisc_ns": 935815.0,
+   "ncrisc_ns": 938104.0,
+   "trisc0_ns": 937718.0,
+   "trisc1_ns": 937693.0,
+   "trisc2_ns": 937862.0,
+   "cb_wait_front_ns": 54254485.0,
+   "cb_reserve_back_ns": 860327.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 38,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 826751.0,
+   "kernel_ns_spread": [
+    825377.0,
+    829129.0
+   ],
+   "fw_ns": 840491.0,
+   "gap_ns": 568.0,
+   "core_min_ns": 729852.0,
+   "core_max_ns": 826679.0,
+   "core_avg_ns": 802515.0,
+   "skew_ns": 2092.0,
+   "brisc_ns": 826749.0,
+   "ncrisc_ns": 825998.0,
+   "trisc0_ns": 826013.0,
+   "trisc1_ns": 824603.0,
+   "trisc2_ns": 825461.0,
+   "cb_wait_front_ns": 54882264.0,
+   "cb_reserve_back_ns": 23790230.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 39,
+   "op": "TransposeDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 1470974.0,
+   "kernel_ns_spread": [
+    1468209.0,
+    1471138.0
+   ],
+   "fw_ns": 1566370.0,
+   "gap_ns": 609.0,
+   "core_min_ns": 1460644.0,
+   "core_max_ns": 1470872.0,
+   "core_avg_ns": 1466066.0,
+   "skew_ns": 1870.0,
+   "brisc_ns": 1470967.0,
+   "ncrisc_ns": 1465078.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 40,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 919461.0,
+   "kernel_ns_spread": [
+    918438.0,
+    919796.0
+   ],
+   "fw_ns": 927997.0,
+   "gap_ns": 600.0,
+   "core_min_ns": 897549.0,
+   "core_max_ns": 919314.0,
+   "core_avg_ns": 910127.0,
+   "skew_ns": 2156.0,
+   "brisc_ns": 919440.0,
+   "ncrisc_ns": 904342.0,
+   "trisc0_ns": 918296.0,
+   "trisc1_ns": 917594.0,
+   "trisc2_ns": 918532.0,
+   "cb_wait_front_ns": 48415454.0,
+   "cb_reserve_back_ns": 3353663.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 41,
+   "op": "MatmulDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1057491.0,
+   "kernel_ns_spread": [
+    1050547.0,
+    1067579.0
+   ],
+   "fw_ns": 1077899.0,
+   "gap_ns": 565.0,
+   "core_min_ns": 1045039.0,
+   "core_max_ns": 1057007.0,
+   "core_avg_ns": 1050783.0,
+   "skew_ns": 1991.0,
+   "brisc_ns": 1057481.0,
+   "ncrisc_ns": 1049892.0,
+   "trisc0_ns": 1051008.0,
+   "trisc1_ns": 1051482.0,
+   "trisc2_ns": 1051536.0,
+   "cb_wait_front_ns": 73388146.0,
+   "cb_reserve_back_ns": 787153.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 42,
+   "op": "PermuteDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 141994.0,
+   "kernel_ns_spread": [
+    140455.0,
+    144544.0
+   ],
+   "fw_ns": 153401.0,
+   "gap_ns": 608.0,
+   "core_min_ns": 128530.0,
+   "core_max_ns": 141944.0,
+   "core_avg_ns": 136099.0,
+   "skew_ns": 1951.0,
+   "brisc_ns": 141990.0,
+   "ncrisc_ns": 136658.0,
+   "trisc0_ns": 136717.0,
+   "trisc1_ns": 136006.0,
+   "trisc2_ns": 140016.0,
+   "cb_wait_front_ns": 8886550.0,
+   "cb_reserve_back_ns": 8888927.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 43,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 2116948.0,
+   "kernel_ns_spread": [
+    2105792.0,
+    2125696.0
+   ],
+   "fw_ns": 2129467.0,
+   "gap_ns": 650.0,
+   "core_min_ns": 2079807.0,
+   "core_max_ns": 2116905.0,
+   "core_avg_ns": 2102195.0,
+   "skew_ns": 2101.0,
+   "brisc_ns": 2108146.0,
+   "ncrisc_ns": 2116948.0,
+   "trisc0_ns": 2116029.0,
+   "trisc1_ns": 2115996.0,
+   "trisc2_ns": 2116176.0,
+   "cb_wait_front_ns": 126410949.0,
+   "cb_reserve_back_ns": 1805850.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 44,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 946896.0,
+   "kernel_ns_spread": [
+    941009.0,
+    949366.0
+   ],
+   "fw_ns": 982933.0,
+   "gap_ns": 587.0,
+   "core_min_ns": 933054.0,
+   "core_max_ns": 946896.0,
+   "core_avg_ns": 941082.0,
+   "skew_ns": 2139.0,
+   "brisc_ns": 944653.0,
+   "ncrisc_ns": 946896.0,
+   "trisc0_ns": 946484.0,
+   "trisc1_ns": 946475.0,
+   "trisc2_ns": 946650.0,
+   "cb_wait_front_ns": 54960114.0,
+   "cb_reserve_back_ns": 831185.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 45,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 35522.0,
+   "kernel_ns_spread": [
+    35467.0,
+    36102.0
+   ],
+   "fw_ns": 48166.0,
+   "gap_ns": 552.0,
+   "core_min_ns": 18692.0,
+   "core_max_ns": 35522.0,
+   "core_avg_ns": 29479.0,
+   "skew_ns": 2078.0,
+   "brisc_ns": 35507.0,
+   "ncrisc_ns": 34441.0,
+   "trisc0_ns": 34818.0,
+   "trisc1_ns": 34605.0,
+   "trisc2_ns": 34653.0,
+   "cb_wait_front_ns": 1723777.0,
+   "cb_reserve_back_ns": 40621.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 46,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi2",
+   "kernel_ns": 3397219.0,
+   "kernel_ns_spread": [
+    3395714.0,
+    3399954.0
+   ],
+   "fw_ns": 3400971.0,
+   "gap_ns": 7088.0,
+   "core_min_ns": 2249753.0,
+   "core_max_ns": 3397107.0,
+   "core_avg_ns": 3309503.0,
+   "skew_ns": 815.0,
+   "brisc_ns": 3397203.0,
+   "ncrisc_ns": 3296083.0,
+   "trisc0_ns": 3394492.0,
+   "trisc1_ns": 3394476.0,
+   "trisc2_ns": 3394638.0,
+   "cb_wait_front_ns": 43723113.0,
+   "cb_reserve_back_ns": 21183948.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 47,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1217333.0,
+   "kernel_ns_spread": [
+    1217081.0,
+    1217502.0
+   ],
+   "fw_ns": 2366200.0,
+   "gap_ns": 592.0,
+   "core_min_ns": 1211832.0,
+   "core_max_ns": 1217171.0,
+   "core_avg_ns": 1213104.0,
+   "skew_ns": 2042.0,
+   "brisc_ns": 1217330.0,
+   "ncrisc_ns": 1211691.0,
+   "trisc0_ns": 1215906.0,
+   "trisc1_ns": 1216702.0,
+   "trisc2_ns": 1215683.0,
+   "cb_wait_front_ns": 77881059.0,
+   "cb_reserve_back_ns": 8997588.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 48,
+   "op": "GenericOpDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 939479.0,
+   "kernel_ns_spread": [
+    935886.0,
+    940049.0
+   ],
+   "fw_ns": 943822.0,
+   "gap_ns": 537.0,
+   "core_min_ns": 921160.0,
+   "core_max_ns": 939479.0,
+   "core_avg_ns": 930464.0,
+   "skew_ns": 2131.0,
+   "brisc_ns": 937203.0,
+   "ncrisc_ns": 939474.0,
+   "trisc0_ns": 939081.0,
+   "trisc1_ns": 939058.0,
+   "trisc2_ns": 939237.0,
+   "cb_wait_front_ns": 54221301.0,
+   "cb_reserve_back_ns": 838006.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 49,
+   "op": "TransposeDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 1580559.0,
+   "kernel_ns_spread": [
+    1471237.0,
+    1580595.0
+   ],
+   "fw_ns": 1594116.0,
+   "gap_ns": 550.0,
+   "core_min_ns": 1569381.0,
+   "core_max_ns": 1580472.0,
+   "core_avg_ns": 1575055.0,
+   "skew_ns": 1946.0,
+   "brisc_ns": 1580553.0,
+   "ncrisc_ns": 1574082.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 50,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 606856.0,
+   "kernel_ns_spread": [
+    580659.0,
+    615172.0
+   ],
+   "fw_ns": 616390.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 521674.0,
+   "core_max_ns": 606810.0,
+   "core_avg_ns": 544716.0,
+   "skew_ns": 1986.0,
+   "brisc_ns": 606825.0,
+   "ncrisc_ns": 606088.0,
+   "trisc0_ns": 606117.0,
+   "trisc1_ns": 605076.0,
+   "trisc2_ns": 605764.0,
+   "cb_wait_front_ns": 36363588.0,
+   "cb_reserve_back_ns": 33251236.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 51,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 21712.0,
+   "kernel_ns_spread": [
+    20689.0,
+    22546.0
+   ],
+   "fw_ns": 105855.0,
+   "gap_ns": 655.0,
+   "core_min_ns": 13630.0,
+   "core_max_ns": 20644.0,
+   "core_avg_ns": 16616.0,
+   "skew_ns": 1835.0,
+   "brisc_ns": 21711.0,
+   "ncrisc_ns": 21122.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 52,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 21176.0,
+   "kernel_ns_spread": [
+    20068.0,
+    22802.0
+   ],
+   "fw_ns": 28235.0,
+   "gap_ns": 651.0,
+   "core_min_ns": 15075.0,
+   "core_max_ns": 20352.0,
+   "core_avg_ns": 17073.0,
+   "skew_ns": 1831.0,
+   "brisc_ns": 21173.0,
+   "ncrisc_ns": 20759.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 53,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19156.0,
+   "kernel_ns_spread": [
+    19142.0,
+    19179.0
+   ],
+   "fw_ns": 24161.0,
+   "gap_ns": 648.0,
+   "core_min_ns": 15018.0,
+   "core_max_ns": 19080.0,
+   "core_avg_ns": 17234.0,
+   "skew_ns": 1855.0,
+   "brisc_ns": 19155.0,
+   "ncrisc_ns": 18773.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 54,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19199.0,
+   "kernel_ns_spread": [
+    18868.0,
+    20296.0
+   ],
+   "fw_ns": 22290.0,
+   "gap_ns": 629.0,
+   "core_min_ns": 15114.0,
+   "core_max_ns": 18132.0,
+   "core_avg_ns": 16911.0,
+   "skew_ns": 1831.0,
+   "brisc_ns": 19197.0,
+   "ncrisc_ns": 18816.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 55,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19540.0,
+   "kernel_ns_spread": [
+    19218.0,
+    19654.0
+   ],
+   "fw_ns": 22356.0,
+   "gap_ns": 606.0,
+   "core_min_ns": 14784.0,
+   "core_max_ns": 18415.0,
+   "core_avg_ns": 16703.0,
+   "skew_ns": 1887.0,
+   "brisc_ns": 19539.0,
+   "ncrisc_ns": 19118.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 56,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19448.0,
+   "kernel_ns_spread": [
+    19062.0,
+    21690.0
+   ],
+   "fw_ns": 22884.0,
+   "gap_ns": 648.0,
+   "core_min_ns": 15077.0,
+   "core_max_ns": 18914.0,
+   "core_avg_ns": 16959.0,
+   "skew_ns": 1845.0,
+   "brisc_ns": 19447.0,
+   "ncrisc_ns": 19017.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 57,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 21495.0,
+   "kernel_ns_spread": [
+    20232.0,
+    23150.0
+   ],
+   "fw_ns": 24247.0,
+   "gap_ns": 600.0,
+   "core_min_ns": 13954.0,
+   "core_max_ns": 20158.0,
+   "core_avg_ns": 16515.0,
+   "skew_ns": 1843.0,
+   "brisc_ns": 21494.0,
+   "ncrisc_ns": 21074.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 58,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19961.0,
+   "kernel_ns_spread": [
+    19050.0,
+    22705.0
+   ],
+   "fw_ns": 26103.0,
+   "gap_ns": 641.0,
+   "core_min_ns": 14858.0,
+   "core_max_ns": 18982.0,
+   "core_avg_ns": 17064.0,
+   "skew_ns": 1859.0,
+   "brisc_ns": 19960.0,
+   "ncrisc_ns": 19581.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 59,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19548.0,
+   "kernel_ns_spread": [
+    19506.0,
+    19863.0
+   ],
+   "fw_ns": 23579.0,
+   "gap_ns": 643.0,
+   "core_min_ns": 14863.0,
+   "core_max_ns": 18951.0,
+   "core_avg_ns": 17167.0,
+   "skew_ns": 1848.0,
+   "brisc_ns": 19547.0,
+   "ncrisc_ns": 19159.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 60,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19993.0,
+   "kernel_ns_spread": [
+    19084.0,
+    23856.0
+   ],
+   "fw_ns": 23882.0,
+   "gap_ns": 644.0,
+   "core_min_ns": 15171.0,
+   "core_max_ns": 18730.0,
+   "core_avg_ns": 17048.0,
+   "skew_ns": 1826.0,
+   "brisc_ns": 19992.0,
+   "ncrisc_ns": 19444.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 61,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 22150.0,
+   "kernel_ns_spread": [
+    19925.0,
+    22333.0
+   ],
+   "fw_ns": 26130.0,
+   "gap_ns": 650.0,
+   "core_min_ns": 14434.0,
+   "core_max_ns": 20616.0,
+   "core_avg_ns": 16913.0,
+   "skew_ns": 1827.0,
+   "brisc_ns": 22149.0,
+   "ncrisc_ns": 21736.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 62,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19192.0,
+   "kernel_ns_spread": [
+    19127.0,
+    19221.0
+   ],
+   "fw_ns": 25728.0,
+   "gap_ns": 640.0,
+   "core_min_ns": 14766.0,
+   "core_max_ns": 19045.0,
+   "core_avg_ns": 17191.0,
+   "skew_ns": 1843.0,
+   "brisc_ns": 19191.0,
+   "ncrisc_ns": 18837.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 63,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 20903.0,
+   "kernel_ns_spread": [
+    20290.0,
+    21028.0
+   ],
+   "fw_ns": 23526.0,
+   "gap_ns": 623.0,
+   "core_min_ns": 14606.0,
+   "core_max_ns": 20633.0,
+   "core_avg_ns": 16665.0,
+   "skew_ns": 1849.0,
+   "brisc_ns": 20902.0,
+   "ncrisc_ns": 20526.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 64,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 21967.0,
+   "kernel_ns_spread": [
+    21725.0,
+    23110.0
+   ],
+   "fw_ns": 27029.0,
+   "gap_ns": 641.0,
+   "core_min_ns": 14104.0,
+   "core_max_ns": 21293.0,
+   "core_avg_ns": 16716.0,
+   "skew_ns": 1845.0,
+   "brisc_ns": 21966.0,
+   "ncrisc_ns": 21586.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 65,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19567.0,
+   "kernel_ns_spread": [
+    19417.0,
+    20588.0
+   ],
+   "fw_ns": 26261.0,
+   "gap_ns": 647.0,
+   "core_min_ns": 14565.0,
+   "core_max_ns": 19521.0,
+   "core_avg_ns": 17249.0,
+   "skew_ns": 1835.0,
+   "brisc_ns": 19566.0,
+   "ncrisc_ns": 19150.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 66,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 21267.0,
+   "kernel_ns_spread": [
+    20310.0,
+    21584.0
+   ],
+   "fw_ns": 24126.0,
+   "gap_ns": 644.0,
+   "core_min_ns": 14317.0,
+   "core_max_ns": 20977.0,
+   "core_avg_ns": 16786.0,
+   "skew_ns": 1804.0,
+   "brisc_ns": 21266.0,
+   "ncrisc_ns": 20810.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 67,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19302.0,
+   "kernel_ns_spread": [
+    19175.0,
+    21947.0
+   ],
+   "fw_ns": 26203.0,
+   "gap_ns": 642.0,
+   "core_min_ns": 15333.0,
+   "core_max_ns": 19211.0,
+   "core_avg_ns": 17515.0,
+   "skew_ns": 1843.0,
+   "brisc_ns": 19301.0,
+   "ncrisc_ns": 18806.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 68,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19566.0,
+   "kernel_ns_spread": [
+    19184.0,
+    22190.0
+   ],
+   "fw_ns": 24479.0,
+   "gap_ns": 623.0,
+   "core_min_ns": 14345.0,
+   "core_max_ns": 19445.0,
+   "core_avg_ns": 17567.0,
+   "skew_ns": 1864.0,
+   "brisc_ns": 19565.0,
+   "ncrisc_ns": 19120.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 69,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19822.0,
+   "kernel_ns_spread": [
+    19244.0,
+    20708.0
+   ],
+   "fw_ns": 23365.0,
+   "gap_ns": 627.0,
+   "core_min_ns": 15115.0,
+   "core_max_ns": 18375.0,
+   "core_avg_ns": 16757.0,
+   "skew_ns": 1837.0,
+   "brisc_ns": 19821.0,
+   "ncrisc_ns": 19553.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 70,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 20431.0,
+   "kernel_ns_spread": [
+    19600.0,
+    20885.0
+   ],
+   "fw_ns": 24366.0,
+   "gap_ns": 639.0,
+   "core_min_ns": 14960.0,
+   "core_max_ns": 19489.0,
+   "core_avg_ns": 17384.0,
+   "skew_ns": 1852.0,
+   "brisc_ns": 20430.0,
+   "ncrisc_ns": 20015.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 71,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19424.0,
+   "kernel_ns_spread": [
+    19036.0,
+    22012.0
+   ],
+   "fw_ns": 23911.0,
+   "gap_ns": 639.0,
+   "core_min_ns": 14475.0,
+   "core_max_ns": 19087.0,
+   "core_avg_ns": 17238.0,
+   "skew_ns": 1845.0,
+   "brisc_ns": 19423.0,
+   "ncrisc_ns": 19151.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 72,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 20316.0,
+   "kernel_ns_spread": [
+    19506.0,
+    20831.0
+   ],
+   "fw_ns": 23360.0,
+   "gap_ns": 646.0,
+   "core_min_ns": 14626.0,
+   "core_max_ns": 18885.0,
+   "core_avg_ns": 16682.0,
+   "skew_ns": 1842.0,
+   "brisc_ns": 20316.0,
+   "ncrisc_ns": 20038.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 73,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19773.0,
+   "kernel_ns_spread": [
+    19361.0,
+    21702.0
+   ],
+   "fw_ns": 25356.0,
+   "gap_ns": 648.0,
+   "core_min_ns": 14679.0,
+   "core_max_ns": 19641.0,
+   "core_avg_ns": 17078.0,
+   "skew_ns": 1844.0,
+   "brisc_ns": 19772.0,
+   "ncrisc_ns": 19378.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 74,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19564.0,
+   "kernel_ns_spread": [
+    18724.0,
+    19715.0
+   ],
+   "fw_ns": 23173.0,
+   "gap_ns": 641.0,
+   "core_min_ns": 15408.0,
+   "core_max_ns": 19361.0,
+   "core_avg_ns": 17102.0,
+   "skew_ns": 1851.0,
+   "brisc_ns": 19563.0,
+   "ncrisc_ns": 19292.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 75,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19580.0,
+   "kernel_ns_spread": [
+    19466.0,
+    21704.0
+   ],
+   "fw_ns": 22325.0,
+   "gap_ns": 638.0,
+   "core_min_ns": 15095.0,
+   "core_max_ns": 18877.0,
+   "core_avg_ns": 16926.0,
+   "skew_ns": 1856.0,
+   "brisc_ns": 19579.0,
+   "ncrisc_ns": 19129.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 76,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19831.0,
+   "kernel_ns_spread": [
+    18811.0,
+    21022.0
+   ],
+   "fw_ns": 24149.0,
+   "gap_ns": 629.0,
+   "core_min_ns": 15089.0,
+   "core_max_ns": 18864.0,
+   "core_avg_ns": 17036.0,
+   "skew_ns": 1851.0,
+   "brisc_ns": 19830.0,
+   "ncrisc_ns": 19401.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 77,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 18932.0,
+   "kernel_ns_spread": [
+    18854.0,
+    20000.0
+   ],
+   "fw_ns": 23607.0,
+   "gap_ns": 577.0,
+   "core_min_ns": 15231.0,
+   "core_max_ns": 18721.0,
+   "core_avg_ns": 17122.0,
+   "skew_ns": 1894.0,
+   "brisc_ns": 18931.0,
+   "ncrisc_ns": 18511.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 78,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 20594.0,
+   "kernel_ns_spread": [
+    18986.0,
+    22835.0
+   ],
+   "fw_ns": 23329.0,
+   "gap_ns": 623.0,
+   "core_min_ns": 14160.0,
+   "core_max_ns": 19761.0,
+   "core_avg_ns": 16843.0,
+   "skew_ns": 1853.0,
+   "brisc_ns": 20593.0,
+   "ncrisc_ns": 20323.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 79,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 20139.0,
+   "kernel_ns_spread": [
+    19550.0,
+    21068.0
+   ],
+   "fw_ns": 25264.0,
+   "gap_ns": 642.0,
+   "core_min_ns": 13907.0,
+   "core_max_ns": 19504.0,
+   "core_avg_ns": 17028.0,
+   "skew_ns": 1834.0,
+   "brisc_ns": 20138.0,
+   "ncrisc_ns": 19717.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 80,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 19320.0,
+   "kernel_ns_spread": [
+    19185.0,
+    19778.0
+   ],
+   "fw_ns": 24603.0,
+   "gap_ns": 648.0,
+   "core_min_ns": 15533.0,
+   "core_max_ns": 18873.0,
+   "core_avg_ns": 17282.0,
+   "skew_ns": 1839.0,
+   "brisc_ns": 19319.0,
+   "ncrisc_ns": 18933.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 81,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 20253.0,
+   "kernel_ns_spread": [
+    19731.0,
+    22784.0
+   ],
+   "fw_ns": 22804.0,
+   "gap_ns": 611.0,
+   "core_min_ns": 14484.0,
+   "core_max_ns": 19417.0,
+   "core_avg_ns": 16800.0,
+   "skew_ns": 1834.0,
+   "brisc_ns": 20253.0,
+   "ncrisc_ns": 19872.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 82,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 22996.0,
+   "kernel_ns_spread": [
+    20350.0,
+    24103.0
+   ],
+   "fw_ns": 27565.0,
+   "gap_ns": 651.0,
+   "core_min_ns": 13711.0,
+   "core_max_ns": 21771.0,
+   "core_avg_ns": 17424.0,
+   "skew_ns": 1838.0,
+   "brisc_ns": 22995.0,
+   "ncrisc_ns": 22581.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 83,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45600.0,
+   "kernel_ns_spread": [
+    45225.0,
+    45627.0
+   ],
+   "fw_ns": 52854.0,
+   "gap_ns": 653.0,
+   "core_min_ns": 28913.0,
+   "core_max_ns": 45467.0,
+   "core_avg_ns": 36538.0,
+   "skew_ns": 2128.0,
+   "brisc_ns": 45588.0,
+   "ncrisc_ns": 30804.0,
+   "trisc0_ns": 44446.0,
+   "trisc1_ns": 43776.0,
+   "trisc2_ns": 44675.0,
+   "cb_wait_front_ns": 1999246.0,
+   "cb_reserve_back_ns": 99812.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 84,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306133.0,
+   "kernel_ns_spread": [
+    305740.0,
+    309116.0
+   ],
+   "fw_ns": 321526.0,
+   "gap_ns": 595.0,
+   "core_min_ns": 301704.0,
+   "core_max_ns": 305992.0,
+   "core_avg_ns": 304709.0,
+   "skew_ns": 1968.0,
+   "brisc_ns": 306108.0,
+   "ncrisc_ns": 22599.0,
+   "trisc0_ns": 285807.0,
+   "trisc1_ns": 302733.0,
+   "trisc2_ns": 302846.0,
+   "cb_wait_front_ns": 626862.0,
+   "cb_reserve_back_ns": 135266.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 85,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71427.0,
+   "kernel_ns_spread": [
+    70585.0,
+    72450.0
+   ],
+   "fw_ns": 74701.0,
+   "gap_ns": 660.0,
+   "core_min_ns": 42647.0,
+   "core_max_ns": 71003.0,
+   "core_avg_ns": 58238.0,
+   "skew_ns": 1952.0,
+   "brisc_ns": 71422.0,
+   "ncrisc_ns": 22510.0,
+   "trisc0_ns": 37869.0,
+   "trisc1_ns": 38011.0,
+   "trisc2_ns": 38445.0,
+   "cb_wait_front_ns": 585043.0,
+   "cb_reserve_back_ns": 127810.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 86,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 61018.0,
+   "kernel_ns_spread": [
+    58686.0,
+    61989.0
+   ],
+   "fw_ns": 131980.0,
+   "gap_ns": 593.0,
+   "core_min_ns": 52602.0,
+   "core_max_ns": 60892.0,
+   "core_avg_ns": 56435.0,
+   "skew_ns": 1998.0,
+   "brisc_ns": 61005.0,
+   "ncrisc_ns": 58523.0,
+   "trisc0_ns": 58912.0,
+   "trisc1_ns": 60459.0,
+   "trisc2_ns": 59612.0,
+   "cb_wait_front_ns": 3028084.0,
+   "cb_reserve_back_ns": 1943146.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 87,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90941.0,
+   "kernel_ns_spread": [
+    90079.0,
+    91132.0
+   ],
+   "fw_ns": 97326.0,
+   "gap_ns": 574.0,
+   "core_min_ns": 55348.0,
+   "core_max_ns": 90857.0,
+   "core_avg_ns": 74220.0,
+   "skew_ns": 2014.0,
+   "brisc_ns": 90927.0,
+   "ncrisc_ns": 48242.0,
+   "trisc0_ns": 51957.0,
+   "trisc1_ns": 52069.0,
+   "trisc2_ns": 52529.0,
+   "cb_wait_front_ns": 2702553.0,
+   "cb_reserve_back_ns": 437137.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 88,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46037.0,
+   "kernel_ns_spread": [
+    45039.0,
+    47898.0
+   ],
+   "fw_ns": 135648.0,
+   "gap_ns": 606.0,
+   "core_min_ns": 29602.0,
+   "core_max_ns": 45939.0,
+   "core_avg_ns": 37042.0,
+   "skew_ns": 2150.0,
+   "brisc_ns": 46036.0,
+   "ncrisc_ns": 31192.0,
+   "trisc0_ns": 44968.0,
+   "trisc1_ns": 44268.0,
+   "trisc2_ns": 45207.0,
+   "cb_wait_front_ns": 2034790.0,
+   "cb_reserve_back_ns": 99601.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 89,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306154.0,
+   "kernel_ns_spread": [
+    306047.0,
+    306650.0
+   ],
+   "fw_ns": 322229.0,
+   "gap_ns": 609.0,
+   "core_min_ns": 301724.0,
+   "core_max_ns": 306117.0,
+   "core_avg_ns": 304702.0,
+   "skew_ns": 1945.0,
+   "brisc_ns": 306141.0,
+   "ncrisc_ns": 22488.0,
+   "trisc0_ns": 285866.0,
+   "trisc1_ns": 302772.0,
+   "trisc2_ns": 302886.0,
+   "cb_wait_front_ns": 634480.0,
+   "cb_reserve_back_ns": 129659.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 90,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71436.0,
+   "kernel_ns_spread": [
+    71263.0,
+    73919.0
+   ],
+   "fw_ns": 74711.0,
+   "gap_ns": 618.0,
+   "core_min_ns": 42720.0,
+   "core_max_ns": 71377.0,
+   "core_avg_ns": 58243.0,
+   "skew_ns": 1937.0,
+   "brisc_ns": 71398.0,
+   "ncrisc_ns": 22153.0,
+   "trisc0_ns": 37865.0,
+   "trisc1_ns": 38010.0,
+   "trisc2_ns": 38443.0,
+   "cb_wait_front_ns": 580200.0,
+   "cb_reserve_back_ns": 127930.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 91,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 58646.0,
+   "kernel_ns_spread": [
+    57682.0,
+    65581.0
+   ],
+   "fw_ns": 132093.0,
+   "gap_ns": 595.0,
+   "core_min_ns": 51762.0,
+   "core_max_ns": 57563.0,
+   "core_avg_ns": 54124.0,
+   "skew_ns": 2005.0,
+   "brisc_ns": 58633.0,
+   "ncrisc_ns": 56116.0,
+   "trisc0_ns": 56551.0,
+   "trisc1_ns": 58078.0,
+   "trisc2_ns": 57231.0,
+   "cb_wait_front_ns": 2854321.0,
+   "cb_reserve_back_ns": 1952619.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 92,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 91152.0,
+   "kernel_ns_spread": [
+    90965.0,
+    91198.0
+   ],
+   "fw_ns": 97359.0,
+   "gap_ns": 591.0,
+   "core_min_ns": 54952.0,
+   "core_max_ns": 91065.0,
+   "core_avg_ns": 74712.0,
+   "skew_ns": 1957.0,
+   "brisc_ns": 91139.0,
+   "ncrisc_ns": 48407.0,
+   "trisc0_ns": 52143.0,
+   "trisc1_ns": 52246.0,
+   "trisc2_ns": 52704.0,
+   "cb_wait_front_ns": 2714806.0,
+   "cb_reserve_back_ns": 435544.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 93,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46567.0,
+   "kernel_ns_spread": [
+    46102.0,
+    46883.0
+   ],
+   "fw_ns": 137009.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 29520.0,
+   "core_max_ns": 46466.0,
+   "core_avg_ns": 37372.0,
+   "skew_ns": 2165.0,
+   "brisc_ns": 46554.0,
+   "ncrisc_ns": 31805.0,
+   "trisc0_ns": 45491.0,
+   "trisc1_ns": 44832.0,
+   "trisc2_ns": 45728.0,
+   "cb_wait_front_ns": 2056120.0,
+   "cb_reserve_back_ns": 99478.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 94,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306029.0,
+   "kernel_ns_spread": [
+    305870.0,
+    307900.0
+   ],
+   "fw_ns": 321881.0,
+   "gap_ns": 612.0,
+   "core_min_ns": 301503.0,
+   "core_max_ns": 305993.0,
+   "core_avg_ns": 304634.0,
+   "skew_ns": 1954.0,
+   "brisc_ns": 306029.0,
+   "ncrisc_ns": 22457.0,
+   "trisc0_ns": 285813.0,
+   "trisc1_ns": 302726.0,
+   "trisc2_ns": 302861.0,
+   "cb_wait_front_ns": 626053.0,
+   "cb_reserve_back_ns": 129607.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 95,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71322.0,
+   "kernel_ns_spread": [
+    71188.0,
+    72641.0
+   ],
+   "fw_ns": 74819.0,
+   "gap_ns": 649.0,
+   "core_min_ns": 43039.0,
+   "core_max_ns": 71258.0,
+   "core_avg_ns": 58428.0,
+   "skew_ns": 1931.0,
+   "brisc_ns": 71307.0,
+   "ncrisc_ns": 22101.0,
+   "trisc0_ns": 37921.0,
+   "trisc1_ns": 38088.0,
+   "trisc2_ns": 38542.0,
+   "cb_wait_front_ns": 579666.0,
+   "cb_reserve_back_ns": 127906.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 96,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 59266.0,
+   "kernel_ns_spread": [
+    57350.0,
+    61223.0
+   ],
+   "fw_ns": 129966.0,
+   "gap_ns": 597.0,
+   "core_min_ns": 51731.0,
+   "core_max_ns": 59138.0,
+   "core_avg_ns": 54713.0,
+   "skew_ns": 2004.0,
+   "brisc_ns": 59266.0,
+   "ncrisc_ns": 56737.0,
+   "trisc0_ns": 57288.0,
+   "trisc1_ns": 58811.0,
+   "trisc2_ns": 57956.0,
+   "cb_wait_front_ns": 2884425.0,
+   "cb_reserve_back_ns": 1940872.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 97,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90650.0,
+   "kernel_ns_spread": [
+    90263.0,
+    90943.0
+   ],
+   "fw_ns": 97432.0,
+   "gap_ns": 594.0,
+   "core_min_ns": 55319.0,
+   "core_max_ns": 90573.0,
+   "core_avg_ns": 74563.0,
+   "skew_ns": 1961.0,
+   "brisc_ns": 90635.0,
+   "ncrisc_ns": 48507.0,
+   "trisc0_ns": 52280.0,
+   "trisc1_ns": 52389.0,
+   "trisc2_ns": 52844.0,
+   "cb_wait_front_ns": 2717703.0,
+   "cb_reserve_back_ns": 435802.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 98,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45341.0,
+   "kernel_ns_spread": [
+    44741.0,
+    45793.0
+   ],
+   "fw_ns": 135499.0,
+   "gap_ns": 604.0,
+   "core_min_ns": 29492.0,
+   "core_max_ns": 45238.0,
+   "core_avg_ns": 36866.0,
+   "skew_ns": 2151.0,
+   "brisc_ns": 45340.0,
+   "ncrisc_ns": 30622.0,
+   "trisc0_ns": 44244.0,
+   "trisc1_ns": 43542.0,
+   "trisc2_ns": 44479.0,
+   "cb_wait_front_ns": 2022221.0,
+   "cb_reserve_back_ns": 99508.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 99,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306178.0,
+   "kernel_ns_spread": [
+    306078.0,
+    306807.0
+   ],
+   "fw_ns": 320472.0,
+   "gap_ns": 608.0,
+   "core_min_ns": 301570.0,
+   "core_max_ns": 306161.0,
+   "core_avg_ns": 304678.0,
+   "skew_ns": 1964.0,
+   "brisc_ns": 306176.0,
+   "ncrisc_ns": 22763.0,
+   "trisc0_ns": 285899.0,
+   "trisc1_ns": 302794.0,
+   "trisc2_ns": 302913.0,
+   "cb_wait_front_ns": 631150.0,
+   "cb_reserve_back_ns": 129743.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 100,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72566.0,
+   "kernel_ns_spread": [
+    72397.0,
+    74175.0
+   ],
+   "fw_ns": 76889.0,
+   "gap_ns": 651.0,
+   "core_min_ns": 42808.0,
+   "core_max_ns": 72505.0,
+   "core_avg_ns": 58935.0,
+   "skew_ns": 1895.0,
+   "brisc_ns": 72552.0,
+   "ncrisc_ns": 22489.0,
+   "trisc0_ns": 37913.0,
+   "trisc1_ns": 38049.0,
+   "trisc2_ns": 38487.0,
+   "cb_wait_front_ns": 583816.0,
+   "cb_reserve_back_ns": 127895.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 101,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 59993.0,
+   "kernel_ns_spread": [
+    57262.0,
+    61992.0
+   ],
+   "fw_ns": 133719.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 51434.0,
+   "core_max_ns": 59931.0,
+   "core_avg_ns": 55231.0,
+   "skew_ns": 1997.0,
+   "brisc_ns": 59989.0,
+   "ncrisc_ns": 57480.0,
+   "trisc0_ns": 57905.0,
+   "trisc1_ns": 59443.0,
+   "trisc2_ns": 58588.0,
+   "cb_wait_front_ns": 2919888.0,
+   "cb_reserve_back_ns": 1949081.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 102,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90088.0,
+   "kernel_ns_spread": [
+    89996.0,
+    90382.0
+   ],
+   "fw_ns": 97787.0,
+   "gap_ns": 591.0,
+   "core_min_ns": 54710.0,
+   "core_max_ns": 89919.0,
+   "core_avg_ns": 73816.0,
+   "skew_ns": 1967.0,
+   "brisc_ns": 90088.0,
+   "ncrisc_ns": 47826.0,
+   "trisc0_ns": 51571.0,
+   "trisc1_ns": 51680.0,
+   "trisc2_ns": 52140.0,
+   "cb_wait_front_ns": 2675982.0,
+   "cb_reserve_back_ns": 435345.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 103,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45478.0,
+   "kernel_ns_spread": [
+    44584.0,
+    46731.0
+   ],
+   "fw_ns": 135002.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 29473.0,
+   "core_max_ns": 45378.0,
+   "core_avg_ns": 36615.0,
+   "skew_ns": 2157.0,
+   "brisc_ns": 45477.0,
+   "ncrisc_ns": 30619.0,
+   "trisc0_ns": 44386.0,
+   "trisc1_ns": 43723.0,
+   "trisc2_ns": 44625.0,
+   "cb_wait_front_ns": 2001920.0,
+   "cb_reserve_back_ns": 99535.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 104,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306216.0,
+   "kernel_ns_spread": [
+    306087.0,
+    307348.0
+   ],
+   "fw_ns": 321410.0,
+   "gap_ns": 613.0,
+   "core_min_ns": 301689.0,
+   "core_max_ns": 306167.0,
+   "core_avg_ns": 304707.0,
+   "skew_ns": 1946.0,
+   "brisc_ns": 306213.0,
+   "ncrisc_ns": 22655.0,
+   "trisc0_ns": 285942.0,
+   "trisc1_ns": 302851.0,
+   "trisc2_ns": 302967.0,
+   "cb_wait_front_ns": 629886.0,
+   "cb_reserve_back_ns": 129675.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 105,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 73757.0,
+   "kernel_ns_spread": [
+    72955.0,
+    74693.0
+   ],
+   "fw_ns": 76886.0,
+   "gap_ns": 626.0,
+   "core_min_ns": 43173.0,
+   "core_max_ns": 73674.0,
+   "core_avg_ns": 58776.0,
+   "skew_ns": 1890.0,
+   "brisc_ns": 73743.0,
+   "ncrisc_ns": 22342.0,
+   "trisc0_ns": 37836.0,
+   "trisc1_ns": 37974.0,
+   "trisc2_ns": 38419.0,
+   "cb_wait_front_ns": 577366.0,
+   "cb_reserve_back_ns": 127814.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 106,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 60732.0,
+   "kernel_ns_spread": [
+    58416.0,
+    60734.0
+   ],
+   "fw_ns": 134007.0,
+   "gap_ns": 600.0,
+   "core_min_ns": 51971.0,
+   "core_max_ns": 60670.0,
+   "core_avg_ns": 56398.0,
+   "skew_ns": 1992.0,
+   "brisc_ns": 60719.0,
+   "ncrisc_ns": 58228.0,
+   "trisc0_ns": 58643.0,
+   "trisc1_ns": 60182.0,
+   "trisc2_ns": 59335.0,
+   "cb_wait_front_ns": 2998306.0,
+   "cb_reserve_back_ns": 1933334.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 107,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 91155.0,
+   "kernel_ns_spread": [
+    90863.0,
+    91281.0
+   ],
+   "fw_ns": 98110.0,
+   "gap_ns": 643.0,
+   "core_min_ns": 55278.0,
+   "core_max_ns": 90667.0,
+   "core_avg_ns": 74615.0,
+   "skew_ns": 1896.0,
+   "brisc_ns": 91142.0,
+   "ncrisc_ns": 48614.0,
+   "trisc0_ns": 52335.0,
+   "trisc1_ns": 52441.0,
+   "trisc2_ns": 52900.0,
+   "cb_wait_front_ns": 2721583.0,
+   "cb_reserve_back_ns": 436003.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 108,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46100.0,
+   "kernel_ns_spread": [
+    44647.0,
+    46644.0
+   ],
+   "fw_ns": 136470.0,
+   "gap_ns": 600.0,
+   "core_min_ns": 29783.0,
+   "core_max_ns": 46002.0,
+   "core_avg_ns": 37053.0,
+   "skew_ns": 2145.0,
+   "brisc_ns": 46083.0,
+   "ncrisc_ns": 31202.0,
+   "trisc0_ns": 45025.0,
+   "trisc1_ns": 44325.0,
+   "trisc2_ns": 45261.0,
+   "cb_wait_front_ns": 2036772.0,
+   "cb_reserve_back_ns": 99601.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 109,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306042.0,
+   "kernel_ns_spread": [
+    305914.0,
+    306312.0
+   ],
+   "fw_ns": 321361.0,
+   "gap_ns": 607.0,
+   "core_min_ns": 301771.0,
+   "core_max_ns": 305961.0,
+   "core_avg_ns": 304584.0,
+   "skew_ns": 1966.0,
+   "brisc_ns": 306017.0,
+   "ncrisc_ns": 22557.0,
+   "trisc0_ns": 285895.0,
+   "trisc1_ns": 302867.0,
+   "trisc2_ns": 302983.0,
+   "cb_wait_front_ns": 632115.0,
+   "cb_reserve_back_ns": 129748.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 110,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71670.0,
+   "kernel_ns_spread": [
+    71097.0,
+    71770.0
+   ],
+   "fw_ns": 74335.0,
+   "gap_ns": 639.0,
+   "core_min_ns": 43151.0,
+   "core_max_ns": 70929.0,
+   "core_avg_ns": 58196.0,
+   "skew_ns": 1915.0,
+   "brisc_ns": 71622.0,
+   "ncrisc_ns": 22146.0,
+   "trisc0_ns": 37902.0,
+   "trisc1_ns": 38060.0,
+   "trisc2_ns": 38496.0,
+   "cb_wait_front_ns": 580648.0,
+   "cb_reserve_back_ns": 127849.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 111,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 60753.0,
+   "kernel_ns_spread": [
+    57932.0,
+    63417.0
+   ],
+   "fw_ns": 131934.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 51552.0,
+   "core_max_ns": 59169.0,
+   "core_avg_ns": 54482.0,
+   "skew_ns": 2013.0,
+   "brisc_ns": 60751.0,
+   "ncrisc_ns": 58233.0,
+   "trisc0_ns": 58677.0,
+   "trisc1_ns": 60197.0,
+   "trisc2_ns": 59353.0,
+   "cb_wait_front_ns": 2869318.0,
+   "cb_reserve_back_ns": 1933725.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 112,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90686.0,
+   "kernel_ns_spread": [
+    89962.0,
+    91022.0
+   ],
+   "fw_ns": 98794.0,
+   "gap_ns": 581.0,
+   "core_min_ns": 55065.0,
+   "core_max_ns": 90610.0,
+   "core_avg_ns": 74633.0,
+   "skew_ns": 1984.0,
+   "brisc_ns": 90684.0,
+   "ncrisc_ns": 48199.0,
+   "trisc0_ns": 51941.0,
+   "trisc1_ns": 52050.0,
+   "trisc2_ns": 52506.0,
+   "cb_wait_front_ns": 2702247.0,
+   "cb_reserve_back_ns": 435358.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 113,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46850.0,
+   "kernel_ns_spread": [
+    46768.0,
+    47751.0
+   ],
+   "fw_ns": 136956.0,
+   "gap_ns": 603.0,
+   "core_min_ns": 30201.0,
+   "core_max_ns": 46722.0,
+   "core_avg_ns": 37371.0,
+   "skew_ns": 2151.0,
+   "brisc_ns": 46850.0,
+   "ncrisc_ns": 31960.0,
+   "trisc0_ns": 45782.0,
+   "trisc1_ns": 45090.0,
+   "trisc2_ns": 46015.0,
+   "cb_wait_front_ns": 2058751.0,
+   "cb_reserve_back_ns": 99644.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 114,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306096.0,
+   "kernel_ns_spread": [
+    305654.0,
+    306675.0
+   ],
+   "fw_ns": 322098.0,
+   "gap_ns": 576.0,
+   "core_min_ns": 301624.0,
+   "core_max_ns": 306037.0,
+   "core_avg_ns": 304750.0,
+   "skew_ns": 1990.0,
+   "brisc_ns": 306071.0,
+   "ncrisc_ns": 22676.0,
+   "trisc0_ns": 285921.0,
+   "trisc1_ns": 302827.0,
+   "trisc2_ns": 302940.0,
+   "cb_wait_front_ns": 639447.0,
+   "cb_reserve_back_ns": 129645.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 115,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72218.0,
+   "kernel_ns_spread": [
+    72078.0,
+    72773.0
+   ],
+   "fw_ns": 75094.0,
+   "gap_ns": 609.0,
+   "core_min_ns": 43677.0,
+   "core_max_ns": 71687.0,
+   "core_avg_ns": 58639.0,
+   "skew_ns": 1965.0,
+   "brisc_ns": 72197.0,
+   "ncrisc_ns": 22409.0,
+   "trisc0_ns": 37868.0,
+   "trisc1_ns": 38036.0,
+   "trisc2_ns": 38463.0,
+   "cb_wait_front_ns": 572560.0,
+   "cb_reserve_back_ns": 127864.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 116,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 59522.0,
+   "kernel_ns_spread": [
+    57916.0,
+    61608.0
+   ],
+   "fw_ns": 131155.0,
+   "gap_ns": 604.0,
+   "core_min_ns": 51831.0,
+   "core_max_ns": 57936.0,
+   "core_avg_ns": 54392.0,
+   "skew_ns": 2021.0,
+   "brisc_ns": 59520.0,
+   "ncrisc_ns": 56980.0,
+   "trisc0_ns": 57435.0,
+   "trisc1_ns": 58954.0,
+   "trisc2_ns": 58110.0,
+   "cb_wait_front_ns": 2868643.0,
+   "cb_reserve_back_ns": 1952188.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 117,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90303.0,
+   "kernel_ns_spread": [
+    89955.0,
+    91271.0
+   ],
+   "fw_ns": 96919.0,
+   "gap_ns": 585.0,
+   "core_min_ns": 54607.0,
+   "core_max_ns": 90221.0,
+   "core_avg_ns": 73768.0,
+   "skew_ns": 1978.0,
+   "brisc_ns": 90298.0,
+   "ncrisc_ns": 47877.0,
+   "trisc0_ns": 51555.0,
+   "trisc1_ns": 51662.0,
+   "trisc2_ns": 52115.0,
+   "cb_wait_front_ns": 2678771.0,
+   "cb_reserve_back_ns": 436060.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 118,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45363.0,
+   "kernel_ns_spread": [
+    44565.0,
+    46693.0
+   ],
+   "fw_ns": 134837.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 29502.0,
+   "core_max_ns": 45265.0,
+   "core_avg_ns": 36698.0,
+   "skew_ns": 2143.0,
+   "brisc_ns": 45360.0,
+   "ncrisc_ns": 30732.0,
+   "trisc0_ns": 44291.0,
+   "trisc1_ns": 43637.0,
+   "trisc2_ns": 44529.0,
+   "cb_wait_front_ns": 2009169.0,
+   "cb_reserve_back_ns": 99584.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 119,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306088.0,
+   "kernel_ns_spread": [
+    305978.0,
+    307170.0
+   ],
+   "fw_ns": 322168.0,
+   "gap_ns": 613.0,
+   "core_min_ns": 301493.0,
+   "core_max_ns": 306024.0,
+   "core_avg_ns": 304704.0,
+   "skew_ns": 1930.0,
+   "brisc_ns": 306066.0,
+   "ncrisc_ns": 22500.0,
+   "trisc0_ns": 285864.0,
+   "trisc1_ns": 302774.0,
+   "trisc2_ns": 302886.0,
+   "cb_wait_front_ns": 627103.0,
+   "cb_reserve_back_ns": 129593.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 120,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72291.0,
+   "kernel_ns_spread": [
+    71667.0,
+    72802.0
+   ],
+   "fw_ns": 75635.0,
+   "gap_ns": 631.0,
+   "core_min_ns": 43449.0,
+   "core_max_ns": 71753.0,
+   "core_avg_ns": 58300.0,
+   "skew_ns": 1880.0,
+   "brisc_ns": 72274.0,
+   "ncrisc_ns": 22309.0,
+   "trisc0_ns": 37864.0,
+   "trisc1_ns": 38037.0,
+   "trisc2_ns": 38468.0,
+   "cb_wait_front_ns": 570907.0,
+   "cb_reserve_back_ns": 127848.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 121,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 61761.0,
+   "kernel_ns_spread": [
+    58699.0,
+    61823.0
+   ],
+   "fw_ns": 132968.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 52576.0,
+   "core_max_ns": 61635.0,
+   "core_avg_ns": 56813.0,
+   "skew_ns": 1992.0,
+   "brisc_ns": 61761.0,
+   "ncrisc_ns": 59234.0,
+   "trisc0_ns": 59677.0,
+   "trisc1_ns": 61201.0,
+   "trisc2_ns": 60346.0,
+   "cb_wait_front_ns": 3028700.0,
+   "cb_reserve_back_ns": 1937194.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 122,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90819.0,
+   "kernel_ns_spread": [
+    90596.0,
+    91159.0
+   ],
+   "fw_ns": 98270.0,
+   "gap_ns": 580.0,
+   "core_min_ns": 54549.0,
+   "core_max_ns": 90736.0,
+   "core_avg_ns": 74633.0,
+   "skew_ns": 1973.0,
+   "brisc_ns": 90819.0,
+   "ncrisc_ns": 48205.0,
+   "trisc0_ns": 52000.0,
+   "trisc1_ns": 52097.0,
+   "trisc2_ns": 52553.0,
+   "cb_wait_front_ns": 2705977.0,
+   "cb_reserve_back_ns": 435847.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 123,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46096.0,
+   "kernel_ns_spread": [
+    44655.0,
+    47295.0
+   ],
+   "fw_ns": 136747.0,
+   "gap_ns": 599.0,
+   "core_min_ns": 29633.0,
+   "core_max_ns": 45992.0,
+   "core_avg_ns": 36839.0,
+   "skew_ns": 2171.0,
+   "brisc_ns": 46074.0,
+   "ncrisc_ns": 31412.0,
+   "trisc0_ns": 45007.0,
+   "trisc1_ns": 44353.0,
+   "trisc2_ns": 45240.0,
+   "cb_wait_front_ns": 2016972.0,
+   "cb_reserve_back_ns": 99660.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 124,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306092.0,
+   "kernel_ns_spread": [
+    305863.0,
+    306815.0
+   ],
+   "fw_ns": 322313.0,
+   "gap_ns": 610.0,
+   "core_min_ns": 301649.0,
+   "core_max_ns": 306037.0,
+   "core_avg_ns": 304599.0,
+   "skew_ns": 1948.0,
+   "brisc_ns": 306089.0,
+   "ncrisc_ns": 22579.0,
+   "trisc0_ns": 285832.0,
+   "trisc1_ns": 302754.0,
+   "trisc2_ns": 302874.0,
+   "cb_wait_front_ns": 628982.0,
+   "cb_reserve_back_ns": 129614.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 125,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71508.0,
+   "kernel_ns_spread": [
+    71034.0,
+    72397.0
+   ],
+   "fw_ns": 74894.0,
+   "gap_ns": 631.0,
+   "core_min_ns": 42967.0,
+   "core_max_ns": 70413.0,
+   "core_avg_ns": 58094.0,
+   "skew_ns": 1917.0,
+   "brisc_ns": 71475.0,
+   "ncrisc_ns": 22324.0,
+   "trisc0_ns": 37879.0,
+   "trisc1_ns": 38022.0,
+   "trisc2_ns": 38452.0,
+   "cb_wait_front_ns": 578116.0,
+   "cb_reserve_back_ns": 127846.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 126,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 61276.0,
+   "kernel_ns_spread": [
+    59562.0,
+    62557.0
+   ],
+   "fw_ns": 133176.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 53037.0,
+   "core_max_ns": 61155.0,
+   "core_avg_ns": 56448.0,
+   "skew_ns": 1995.0,
+   "brisc_ns": 61263.0,
+   "ncrisc_ns": 58775.0,
+   "trisc0_ns": 59171.0,
+   "trisc1_ns": 60700.0,
+   "trisc2_ns": 59855.0,
+   "cb_wait_front_ns": 2999908.0,
+   "cb_reserve_back_ns": 1937423.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 127,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90511.0,
+   "kernel_ns_spread": [
+    89425.0,
+    91013.0
+   ],
+   "fw_ns": 97269.0,
+   "gap_ns": 603.0,
+   "core_min_ns": 54626.0,
+   "core_max_ns": 90435.0,
+   "core_avg_ns": 74105.0,
+   "skew_ns": 1957.0,
+   "brisc_ns": 90504.0,
+   "ncrisc_ns": 48193.0,
+   "trisc0_ns": 51909.0,
+   "trisc1_ns": 52013.0,
+   "trisc2_ns": 52463.0,
+   "cb_wait_front_ns": 2701504.0,
+   "cb_reserve_back_ns": 434808.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 128,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46356.0,
+   "kernel_ns_spread": [
+    44518.0,
+    46581.0
+   ],
+   "fw_ns": 136366.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 29606.0,
+   "core_max_ns": 46257.0,
+   "core_avg_ns": 37207.0,
+   "skew_ns": 2159.0,
+   "brisc_ns": 46343.0,
+   "ncrisc_ns": 31573.0,
+   "trisc0_ns": 45274.0,
+   "trisc1_ns": 44610.0,
+   "trisc2_ns": 45516.0,
+   "cb_wait_front_ns": 2044921.0,
+   "cb_reserve_back_ns": 99645.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 129,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306031.0,
+   "kernel_ns_spread": [
+    305904.0,
+    306609.0
+   ],
+   "fw_ns": 321068.0,
+   "gap_ns": 605.0,
+   "core_min_ns": 301576.0,
+   "core_max_ns": 305978.0,
+   "core_avg_ns": 304564.0,
+   "skew_ns": 1961.0,
+   "brisc_ns": 306026.0,
+   "ncrisc_ns": 22484.0,
+   "trisc0_ns": 285909.0,
+   "trisc1_ns": 302805.0,
+   "trisc2_ns": 302933.0,
+   "cb_wait_front_ns": 630282.0,
+   "cb_reserve_back_ns": 129659.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 130,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 73906.0,
+   "kernel_ns_spread": [
+    72024.0,
+    74300.0
+   ],
+   "fw_ns": 76437.0,
+   "gap_ns": 638.0,
+   "core_min_ns": 43115.0,
+   "core_max_ns": 73727.0,
+   "core_avg_ns": 58737.0,
+   "skew_ns": 1958.0,
+   "brisc_ns": 73883.0,
+   "ncrisc_ns": 22285.0,
+   "trisc0_ns": 37953.0,
+   "trisc1_ns": 38082.0,
+   "trisc2_ns": 38517.0,
+   "cb_wait_front_ns": 580453.0,
+   "cb_reserve_back_ns": 127836.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 131,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 61420.0,
+   "kernel_ns_spread": [
+    60002.0,
+    63074.0
+   ],
+   "fw_ns": 134603.0,
+   "gap_ns": 597.0,
+   "core_min_ns": 51708.0,
+   "core_max_ns": 61327.0,
+   "core_avg_ns": 54868.0,
+   "skew_ns": 2000.0,
+   "brisc_ns": 61418.0,
+   "ncrisc_ns": 58894.0,
+   "trisc0_ns": 59336.0,
+   "trisc1_ns": 60859.0,
+   "trisc2_ns": 60011.0,
+   "cb_wait_front_ns": 2867453.0,
+   "cb_reserve_back_ns": 1941460.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 132,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90675.0,
+   "kernel_ns_spread": [
+    90157.0,
+    91317.0
+   ],
+   "fw_ns": 98964.0,
+   "gap_ns": 620.0,
+   "core_min_ns": 55458.0,
+   "core_max_ns": 90587.0,
+   "core_avg_ns": 74906.0,
+   "skew_ns": 1946.0,
+   "brisc_ns": 90658.0,
+   "ncrisc_ns": 48591.0,
+   "trisc0_ns": 52337.0,
+   "trisc1_ns": 52429.0,
+   "trisc2_ns": 52891.0,
+   "cb_wait_front_ns": 2730932.0,
+   "cb_reserve_back_ns": 436327.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 133,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45514.0,
+   "kernel_ns_spread": [
+    44310.0,
+    45809.0
+   ],
+   "fw_ns": 135230.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 29695.0,
+   "core_max_ns": 45410.0,
+   "core_avg_ns": 37069.0,
+   "skew_ns": 2161.0,
+   "brisc_ns": 45502.0,
+   "ncrisc_ns": 30610.0,
+   "trisc0_ns": 44445.0,
+   "trisc1_ns": 43746.0,
+   "trisc2_ns": 44667.0,
+   "cb_wait_front_ns": 2037164.0,
+   "cb_reserve_back_ns": 99514.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 134,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306296.0,
+   "kernel_ns_spread": [
+    305926.0,
+    307176.0
+   ],
+   "fw_ns": 320978.0,
+   "gap_ns": 615.0,
+   "core_min_ns": 301617.0,
+   "core_max_ns": 306240.0,
+   "core_avg_ns": 304588.0,
+   "skew_ns": 1960.0,
+   "brisc_ns": 306296.0,
+   "ncrisc_ns": 22499.0,
+   "trisc0_ns": 285826.0,
+   "trisc1_ns": 302722.0,
+   "trisc2_ns": 302847.0,
+   "cb_wait_front_ns": 625660.0,
+   "cb_reserve_back_ns": 129592.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 135,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71478.0,
+   "kernel_ns_spread": [
+    71384.0,
+    71650.0
+   ],
+   "fw_ns": 74690.0,
+   "gap_ns": 619.0,
+   "core_min_ns": 43294.0,
+   "core_max_ns": 71453.0,
+   "core_avg_ns": 58434.0,
+   "skew_ns": 1923.0,
+   "brisc_ns": 71465.0,
+   "ncrisc_ns": 22173.0,
+   "trisc0_ns": 37837.0,
+   "trisc1_ns": 37978.0,
+   "trisc2_ns": 38413.0,
+   "cb_wait_front_ns": 585594.0,
+   "cb_reserve_back_ns": 127842.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 136,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 61322.0,
+   "kernel_ns_spread": [
+    58382.0,
+    62179.0
+   ],
+   "fw_ns": 132464.0,
+   "gap_ns": 596.0,
+   "core_min_ns": 53147.0,
+   "core_max_ns": 61247.0,
+   "core_avg_ns": 57184.0,
+   "skew_ns": 2009.0,
+   "brisc_ns": 61309.0,
+   "ncrisc_ns": 58787.0,
+   "trisc0_ns": 59229.0,
+   "trisc1_ns": 60747.0,
+   "trisc2_ns": 59904.0,
+   "cb_wait_front_ns": 3055857.0,
+   "cb_reserve_back_ns": 1945029.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 137,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90480.0,
+   "kernel_ns_spread": [
+    90310.0,
+    91243.0
+   ],
+   "fw_ns": 97029.0,
+   "gap_ns": 645.0,
+   "core_min_ns": 55138.0,
+   "core_max_ns": 90419.0,
+   "core_avg_ns": 74545.0,
+   "skew_ns": 1905.0,
+   "brisc_ns": 90468.0,
+   "ncrisc_ns": 48720.0,
+   "trisc0_ns": 52378.0,
+   "trisc1_ns": 52478.0,
+   "trisc2_ns": 52936.0,
+   "cb_wait_front_ns": 2725501.0,
+   "cb_reserve_back_ns": 435174.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 138,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 44562.0,
+   "kernel_ns_spread": [
+    44429.0,
+    45525.0
+   ],
+   "fw_ns": 134516.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 29688.0,
+   "core_max_ns": 44463.0,
+   "core_avg_ns": 36894.0,
+   "skew_ns": 2155.0,
+   "brisc_ns": 44561.0,
+   "ncrisc_ns": 29806.0,
+   "trisc0_ns": 43475.0,
+   "trisc1_ns": 42763.0,
+   "trisc2_ns": 43715.0,
+   "cb_wait_front_ns": 2022324.0,
+   "cb_reserve_back_ns": 99526.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 139,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306084.0,
+   "kernel_ns_spread": [
+    305967.0,
+    306875.0
+   ],
+   "fw_ns": 319799.0,
+   "gap_ns": 605.0,
+   "core_min_ns": 301649.0,
+   "core_max_ns": 306025.0,
+   "core_avg_ns": 304493.0,
+   "skew_ns": 1969.0,
+   "brisc_ns": 306071.0,
+   "ncrisc_ns": 22616.0,
+   "trisc0_ns": 285985.0,
+   "trisc1_ns": 302898.0,
+   "trisc2_ns": 303012.0,
+   "cb_wait_front_ns": 629339.0,
+   "cb_reserve_back_ns": 129713.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 140,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71574.0,
+   "kernel_ns_spread": [
+    71331.0,
+    72411.0
+   ],
+   "fw_ns": 74949.0,
+   "gap_ns": 658.0,
+   "core_min_ns": 42943.0,
+   "core_max_ns": 71172.0,
+   "core_avg_ns": 57987.0,
+   "skew_ns": 1899.0,
+   "brisc_ns": 71561.0,
+   "ncrisc_ns": 22339.0,
+   "trisc0_ns": 37856.0,
+   "trisc1_ns": 38005.0,
+   "trisc2_ns": 38437.0,
+   "cb_wait_front_ns": 584084.0,
+   "cb_reserve_back_ns": 127875.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 141,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 61402.0,
+   "kernel_ns_spread": [
+    58708.0,
+    62116.0
+   ],
+   "fw_ns": 133224.0,
+   "gap_ns": 596.0,
+   "core_min_ns": 52576.0,
+   "core_max_ns": 61313.0,
+   "core_avg_ns": 56544.0,
+   "skew_ns": 1996.0,
+   "brisc_ns": 61402.0,
+   "ncrisc_ns": 58902.0,
+   "trisc0_ns": 59310.0,
+   "trisc1_ns": 60836.0,
+   "trisc2_ns": 59981.0,
+   "cb_wait_front_ns": 3045834.0,
+   "cb_reserve_back_ns": 1941762.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 142,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90933.0,
+   "kernel_ns_spread": [
+    90899.0,
+    90998.0
+   ],
+   "fw_ns": 98434.0,
+   "gap_ns": 612.0,
+   "core_min_ns": 55141.0,
+   "core_max_ns": 90854.0,
+   "core_avg_ns": 74333.0,
+   "skew_ns": 1970.0,
+   "brisc_ns": 90933.0,
+   "ncrisc_ns": 48178.0,
+   "trisc0_ns": 51916.0,
+   "trisc1_ns": 52020.0,
+   "trisc2_ns": 52476.0,
+   "cb_wait_front_ns": 2699021.0,
+   "cb_reserve_back_ns": 436943.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 143,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46367.0,
+   "kernel_ns_spread": [
+    44531.0,
+    46903.0
+   ],
+   "fw_ns": 136760.0,
+   "gap_ns": 603.0,
+   "core_min_ns": 29581.0,
+   "core_max_ns": 46267.0,
+   "core_avg_ns": 37222.0,
+   "skew_ns": 2163.0,
+   "brisc_ns": 46345.0,
+   "ncrisc_ns": 31478.0,
+   "trisc0_ns": 45293.0,
+   "trisc1_ns": 44571.0,
+   "trisc2_ns": 45513.0,
+   "cb_wait_front_ns": 2048846.0,
+   "cb_reserve_back_ns": 99457.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 144,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306088.0,
+   "kernel_ns_spread": [
+    305784.0,
+    306652.0
+   ],
+   "fw_ns": 321864.0,
+   "gap_ns": 607.0,
+   "core_min_ns": 301657.0,
+   "core_max_ns": 306019.0,
+   "core_avg_ns": 304650.0,
+   "skew_ns": 1965.0,
+   "brisc_ns": 306059.0,
+   "ncrisc_ns": 22534.0,
+   "trisc0_ns": 285834.0,
+   "trisc1_ns": 302739.0,
+   "trisc2_ns": 302859.0,
+   "cb_wait_front_ns": 629324.0,
+   "cb_reserve_back_ns": 129652.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 145,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 73932.0,
+   "kernel_ns_spread": [
+    72391.0,
+    74412.0
+   ],
+   "fw_ns": 76886.0,
+   "gap_ns": 654.0,
+   "core_min_ns": 43338.0,
+   "core_max_ns": 72545.0,
+   "core_avg_ns": 58729.0,
+   "skew_ns": 1907.0,
+   "brisc_ns": 73919.0,
+   "ncrisc_ns": 22141.0,
+   "trisc0_ns": 37863.0,
+   "trisc1_ns": 38012.0,
+   "trisc2_ns": 38443.0,
+   "cb_wait_front_ns": 572086.0,
+   "cb_reserve_back_ns": 127866.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 146,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 59048.0,
+   "kernel_ns_spread": [
+    57470.0,
+    60535.0
+   ],
+   "fw_ns": 132990.0,
+   "gap_ns": 595.0,
+   "core_min_ns": 51813.0,
+   "core_max_ns": 58924.0,
+   "core_avg_ns": 54501.0,
+   "skew_ns": 2000.0,
+   "brisc_ns": 59046.0,
+   "ncrisc_ns": 56530.0,
+   "trisc0_ns": 57076.0,
+   "trisc1_ns": 58600.0,
+   "trisc2_ns": 57752.0,
+   "cb_wait_front_ns": 2861452.0,
+   "cb_reserve_back_ns": 1950831.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 147,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90103.0,
+   "kernel_ns_spread": [
+    89661.0,
+    91043.0
+   ],
+   "fw_ns": 95650.0,
+   "gap_ns": 608.0,
+   "core_min_ns": 54466.0,
+   "core_max_ns": 90025.0,
+   "core_avg_ns": 73899.0,
+   "skew_ns": 1949.0,
+   "brisc_ns": 90103.0,
+   "ncrisc_ns": 47938.0,
+   "trisc0_ns": 51549.0,
+   "trisc1_ns": 51652.0,
+   "trisc2_ns": 52108.0,
+   "cb_wait_front_ns": 2685140.0,
+   "cb_reserve_back_ns": 436034.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 148,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46586.0,
+   "kernel_ns_spread": [
+    44550.0,
+    47685.0
+   ],
+   "fw_ns": 135729.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 29707.0,
+   "core_max_ns": 46446.0,
+   "core_avg_ns": 37348.0,
+   "skew_ns": 2151.0,
+   "brisc_ns": 46573.0,
+   "ncrisc_ns": 31743.0,
+   "trisc0_ns": 45508.0,
+   "trisc1_ns": 44814.0,
+   "trisc2_ns": 45741.0,
+   "cb_wait_front_ns": 2058618.0,
+   "cb_reserve_back_ns": 99788.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 149,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306079.0,
+   "kernel_ns_spread": [
+    305939.0,
+    306850.0
+   ],
+   "fw_ns": 321849.0,
+   "gap_ns": 608.0,
+   "core_min_ns": 301676.0,
+   "core_max_ns": 306024.0,
+   "core_avg_ns": 304640.0,
+   "skew_ns": 1971.0,
+   "brisc_ns": 306079.0,
+   "ncrisc_ns": 22635.0,
+   "trisc0_ns": 285896.0,
+   "trisc1_ns": 302805.0,
+   "trisc2_ns": 302927.0,
+   "cb_wait_front_ns": 634128.0,
+   "cb_reserve_back_ns": 129625.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 150,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71628.0,
+   "kernel_ns_spread": [
+    70997.0,
+    74624.0
+   ],
+   "fw_ns": 74929.0,
+   "gap_ns": 638.0,
+   "core_min_ns": 42810.0,
+   "core_max_ns": 70911.0,
+   "core_avg_ns": 58402.0,
+   "skew_ns": 1900.0,
+   "brisc_ns": 71609.0,
+   "ncrisc_ns": 22547.0,
+   "trisc0_ns": 37869.0,
+   "trisc1_ns": 38014.0,
+   "trisc2_ns": 38452.0,
+   "cb_wait_front_ns": 572778.0,
+   "cb_reserve_back_ns": 127876.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 151,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 58863.0,
+   "kernel_ns_spread": [
+    58447.0,
+    60163.0
+   ],
+   "fw_ns": 131304.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 51710.0,
+   "core_max_ns": 58316.0,
+   "core_avg_ns": 54459.0,
+   "skew_ns": 2012.0,
+   "brisc_ns": 58850.0,
+   "ncrisc_ns": 56342.0,
+   "trisc0_ns": 56769.0,
+   "trisc1_ns": 58295.0,
+   "trisc2_ns": 57450.0,
+   "cb_wait_front_ns": 2876943.0,
+   "cb_reserve_back_ns": 1953257.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 152,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90364.0,
+   "kernel_ns_spread": [
+    90306.0,
+    91832.0
+   ],
+   "fw_ns": 96484.0,
+   "gap_ns": 594.0,
+   "core_min_ns": 54966.0,
+   "core_max_ns": 90267.0,
+   "core_avg_ns": 74364.0,
+   "skew_ns": 1960.0,
+   "brisc_ns": 90364.0,
+   "ncrisc_ns": 48291.0,
+   "trisc0_ns": 51790.0,
+   "trisc1_ns": 51902.0,
+   "trisc2_ns": 52357.0,
+   "cb_wait_front_ns": 2693369.0,
+   "cb_reserve_back_ns": 435492.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 153,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45215.0,
+   "kernel_ns_spread": [
+    45044.0,
+    46439.0
+   ],
+   "fw_ns": 135101.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 29615.0,
+   "core_max_ns": 45115.0,
+   "core_avg_ns": 36836.0,
+   "skew_ns": 2174.0,
+   "brisc_ns": 45212.0,
+   "ncrisc_ns": 30383.0,
+   "trisc0_ns": 44135.0,
+   "trisc1_ns": 43429.0,
+   "trisc2_ns": 44374.0,
+   "cb_wait_front_ns": 2018544.0,
+   "cb_reserve_back_ns": 99609.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 154,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306113.0,
+   "kernel_ns_spread": [
+    306004.0,
+    307650.0
+   ],
+   "fw_ns": 321329.0,
+   "gap_ns": 610.0,
+   "core_min_ns": 301631.0,
+   "core_max_ns": 306049.0,
+   "core_avg_ns": 304616.0,
+   "skew_ns": 1948.0,
+   "brisc_ns": 306113.0,
+   "ncrisc_ns": 22475.0,
+   "trisc0_ns": 285842.0,
+   "trisc1_ns": 302784.0,
+   "trisc2_ns": 302919.0,
+   "cb_wait_front_ns": 629191.0,
+   "cb_reserve_back_ns": 129748.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 155,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72420.0,
+   "kernel_ns_spread": [
+    71739.0,
+    72673.0
+   ],
+   "fw_ns": 75769.0,
+   "gap_ns": 626.0,
+   "core_min_ns": 42882.0,
+   "core_max_ns": 71216.0,
+   "core_avg_ns": 58499.0,
+   "skew_ns": 1917.0,
+   "brisc_ns": 72388.0,
+   "ncrisc_ns": 22126.0,
+   "trisc0_ns": 38113.0,
+   "trisc1_ns": 38259.0,
+   "trisc2_ns": 38695.0,
+   "cb_wait_front_ns": 577472.0,
+   "cb_reserve_back_ns": 127888.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 156,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 63560.0,
+   "kernel_ns_spread": [
+    58963.0,
+    63735.0
+   ],
+   "fw_ns": 135470.0,
+   "gap_ns": 596.0,
+   "core_min_ns": 52503.0,
+   "core_max_ns": 62385.0,
+   "core_avg_ns": 57253.0,
+   "skew_ns": 1999.0,
+   "brisc_ns": 63547.0,
+   "ncrisc_ns": 61045.0,
+   "trisc0_ns": 61483.0,
+   "trisc1_ns": 62999.0,
+   "trisc2_ns": 62156.0,
+   "cb_wait_front_ns": 3038632.0,
+   "cb_reserve_back_ns": 1931925.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 157,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90861.0,
+   "kernel_ns_spread": [
+    90736.0,
+    91038.0
+   ],
+   "fw_ns": 100653.0,
+   "gap_ns": 561.0,
+   "core_min_ns": 55297.0,
+   "core_max_ns": 90774.0,
+   "core_avg_ns": 74572.0,
+   "skew_ns": 2005.0,
+   "brisc_ns": 90848.0,
+   "ncrisc_ns": 48277.0,
+   "trisc0_ns": 52040.0,
+   "trisc1_ns": 52138.0,
+   "trisc2_ns": 52595.0,
+   "cb_wait_front_ns": 2707637.0,
+   "cb_reserve_back_ns": 436468.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 158,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46656.0,
+   "kernel_ns_spread": [
+    45758.0,
+    47317.0
+   ],
+   "fw_ns": 137196.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 29466.0,
+   "core_max_ns": 46527.0,
+   "core_avg_ns": 37071.0,
+   "skew_ns": 2160.0,
+   "brisc_ns": 46645.0,
+   "ncrisc_ns": 31748.0,
+   "trisc0_ns": 45585.0,
+   "trisc1_ns": 44868.0,
+   "trisc2_ns": 45809.0,
+   "cb_wait_front_ns": 2034985.0,
+   "cb_reserve_back_ns": 99555.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 159,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306076.0,
+   "kernel_ns_spread": [
+    305854.0,
+    306802.0
+   ],
+   "fw_ns": 322517.0,
+   "gap_ns": 584.0,
+   "core_min_ns": 301648.0,
+   "core_max_ns": 306018.0,
+   "core_avg_ns": 304684.0,
+   "skew_ns": 1964.0,
+   "brisc_ns": 306060.0,
+   "ncrisc_ns": 22696.0,
+   "trisc0_ns": 285950.0,
+   "trisc1_ns": 302892.0,
+   "trisc2_ns": 303017.0,
+   "cb_wait_front_ns": 631159.0,
+   "cb_reserve_back_ns": 129632.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 160,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71220.0,
+   "kernel_ns_spread": [
+    70846.0,
+    72250.0
+   ],
+   "fw_ns": 74954.0,
+   "gap_ns": 628.0,
+   "core_min_ns": 43107.0,
+   "core_max_ns": 70759.0,
+   "core_avg_ns": 58265.0,
+   "skew_ns": 1908.0,
+   "brisc_ns": 71210.0,
+   "ncrisc_ns": 22263.0,
+   "trisc0_ns": 37840.0,
+   "trisc1_ns": 38020.0,
+   "trisc2_ns": 38451.0,
+   "cb_wait_front_ns": 579193.0,
+   "cb_reserve_back_ns": 127853.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 161,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 60919.0,
+   "kernel_ns_spread": [
+    57807.0,
+    63676.0
+   ],
+   "fw_ns": 132740.0,
+   "gap_ns": 605.0,
+   "core_min_ns": 51789.0,
+   "core_max_ns": 60866.0,
+   "core_avg_ns": 56051.0,
+   "skew_ns": 1998.0,
+   "brisc_ns": 60919.0,
+   "ncrisc_ns": 58390.0,
+   "trisc0_ns": 58835.0,
+   "trisc1_ns": 60358.0,
+   "trisc2_ns": 59503.0,
+   "cb_wait_front_ns": 2993956.0,
+   "cb_reserve_back_ns": 1932151.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 162,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90712.0,
+   "kernel_ns_spread": [
+    90306.0,
+    91334.0
+   ],
+   "fw_ns": 98392.0,
+   "gap_ns": 662.0,
+   "core_min_ns": 54806.0,
+   "core_max_ns": 90634.0,
+   "core_avg_ns": 74430.0,
+   "skew_ns": 1887.0,
+   "brisc_ns": 90712.0,
+   "ncrisc_ns": 48257.0,
+   "trisc0_ns": 51936.0,
+   "trisc1_ns": 52043.0,
+   "trisc2_ns": 52494.0,
+   "cb_wait_front_ns": 2701436.0,
+   "cb_reserve_back_ns": 435265.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 163,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46912.0,
+   "kernel_ns_spread": [
+    45440.0,
+    47763.0
+   ],
+   "fw_ns": 136710.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 30192.0,
+   "core_max_ns": 46809.0,
+   "core_avg_ns": 37355.0,
+   "skew_ns": 2161.0,
+   "brisc_ns": 46899.0,
+   "ncrisc_ns": 32151.0,
+   "trisc0_ns": 45795.0,
+   "trisc1_ns": 45087.0,
+   "trisc2_ns": 46030.0,
+   "cb_wait_front_ns": 2056943.0,
+   "cb_reserve_back_ns": 99621.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 164,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306135.0,
+   "kernel_ns_spread": [
+    306130.0,
+    307665.0
+   ],
+   "fw_ns": 321601.0,
+   "gap_ns": 596.0,
+   "core_min_ns": 301553.0,
+   "core_max_ns": 306081.0,
+   "core_avg_ns": 304491.0,
+   "skew_ns": 1963.0,
+   "brisc_ns": 306130.0,
+   "ncrisc_ns": 22504.0,
+   "trisc0_ns": 285924.0,
+   "trisc1_ns": 302838.0,
+   "trisc2_ns": 302956.0,
+   "cb_wait_front_ns": 633455.0,
+   "cb_reserve_back_ns": 129804.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 165,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71565.0,
+   "kernel_ns_spread": [
+    71231.0,
+    71977.0
+   ],
+   "fw_ns": 75264.0,
+   "gap_ns": 635.0,
+   "core_min_ns": 43623.0,
+   "core_max_ns": 71164.0,
+   "core_avg_ns": 58701.0,
+   "skew_ns": 1898.0,
+   "brisc_ns": 71562.0,
+   "ncrisc_ns": 22673.0,
+   "trisc0_ns": 37980.0,
+   "trisc1_ns": 38148.0,
+   "trisc2_ns": 38586.0,
+   "cb_wait_front_ns": 581725.0,
+   "cb_reserve_back_ns": 127905.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 166,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 59280.0,
+   "kernel_ns_spread": [
+    57649.0,
+    64428.0
+   ],
+   "fw_ns": 130373.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 51709.0,
+   "core_max_ns": 59149.0,
+   "core_avg_ns": 54579.0,
+   "skew_ns": 2011.0,
+   "brisc_ns": 59278.0,
+   "ncrisc_ns": 56744.0,
+   "trisc0_ns": 57295.0,
+   "trisc1_ns": 58815.0,
+   "trisc2_ns": 57971.0,
+   "cb_wait_front_ns": 2885464.0,
+   "cb_reserve_back_ns": 1953281.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 167,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90534.0,
+   "kernel_ns_spread": [
+    90122.0,
+    90617.0
+   ],
+   "fw_ns": 97253.0,
+   "gap_ns": 582.0,
+   "core_min_ns": 54906.0,
+   "core_max_ns": 90198.0,
+   "core_avg_ns": 74399.0,
+   "skew_ns": 1986.0,
+   "brisc_ns": 90521.0,
+   "ncrisc_ns": 48408.0,
+   "trisc0_ns": 52095.0,
+   "trisc1_ns": 52194.0,
+   "trisc2_ns": 52647.0,
+   "cb_wait_front_ns": 2710362.0,
+   "cb_reserve_back_ns": 435010.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 168,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46116.0,
+   "kernel_ns_spread": [
+    44732.0,
+    46662.0
+   ],
+   "fw_ns": 135754.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 29545.0,
+   "core_max_ns": 46012.0,
+   "core_avg_ns": 36691.0,
+   "skew_ns": 2144.0,
+   "brisc_ns": 46095.0,
+   "ncrisc_ns": 31237.0,
+   "trisc0_ns": 45064.0,
+   "trisc1_ns": 44383.0,
+   "trisc2_ns": 45294.0,
+   "cb_wait_front_ns": 2009607.0,
+   "cb_reserve_back_ns": 99461.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 169,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306358.0,
+   "kernel_ns_spread": [
+    305952.0,
+    306538.0
+   ],
+   "fw_ns": 320738.0,
+   "gap_ns": 610.0,
+   "core_min_ns": 301666.0,
+   "core_max_ns": 306225.0,
+   "core_avg_ns": 304564.0,
+   "skew_ns": 1963.0,
+   "brisc_ns": 306346.0,
+   "ncrisc_ns": 22602.0,
+   "trisc0_ns": 285878.0,
+   "trisc1_ns": 302780.0,
+   "trisc2_ns": 302902.0,
+   "cb_wait_front_ns": 629568.0,
+   "cb_reserve_back_ns": 129747.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 170,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 73080.0,
+   "kernel_ns_spread": [
+    71001.0,
+    73766.0
+   ],
+   "fw_ns": 76860.0,
+   "gap_ns": 652.0,
+   "core_min_ns": 43783.0,
+   "core_max_ns": 72845.0,
+   "core_avg_ns": 58541.0,
+   "skew_ns": 1897.0,
+   "brisc_ns": 73078.0,
+   "ncrisc_ns": 22456.0,
+   "trisc0_ns": 37888.0,
+   "trisc1_ns": 38047.0,
+   "trisc2_ns": 38481.0,
+   "cb_wait_front_ns": 583036.0,
+   "cb_reserve_back_ns": 127902.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 171,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 61032.0,
+   "kernel_ns_spread": [
+    57508.0,
+    63687.0
+   ],
+   "fw_ns": 131554.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 53465.0,
+   "core_max_ns": 60930.0,
+   "core_avg_ns": 56999.0,
+   "skew_ns": 1997.0,
+   "brisc_ns": 61019.0,
+   "ncrisc_ns": 58528.0,
+   "trisc0_ns": 58945.0,
+   "trisc1_ns": 60474.0,
+   "trisc2_ns": 59629.0,
+   "cb_wait_front_ns": 3067444.0,
+   "cb_reserve_back_ns": 1942716.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 172,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 91121.0,
+   "kernel_ns_spread": [
+    90310.0,
+    91612.0
+   ],
+   "fw_ns": 98078.0,
+   "gap_ns": 618.0,
+   "core_min_ns": 55298.0,
+   "core_max_ns": 91039.0,
+   "core_avg_ns": 74727.0,
+   "skew_ns": 1958.0,
+   "brisc_ns": 91121.0,
+   "ncrisc_ns": 48718.0,
+   "trisc0_ns": 52296.0,
+   "trisc1_ns": 52408.0,
+   "trisc2_ns": 52866.0,
+   "cb_wait_front_ns": 2720425.0,
+   "cb_reserve_back_ns": 434907.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 173,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45842.0,
+   "kernel_ns_spread": [
+    44475.0,
+    46526.0
+   ],
+   "fw_ns": 136335.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 29511.0,
+   "core_max_ns": 45735.0,
+   "core_avg_ns": 36687.0,
+   "skew_ns": 2186.0,
+   "brisc_ns": 45840.0,
+   "ncrisc_ns": 31117.0,
+   "trisc0_ns": 44786.0,
+   "trisc1_ns": 44108.0,
+   "trisc2_ns": 45020.0,
+   "cb_wait_front_ns": 2007964.0,
+   "cb_reserve_back_ns": 99513.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 174,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306048.0,
+   "kernel_ns_spread": [
+    305887.0,
+    308534.0
+   ],
+   "fw_ns": 321738.0,
+   "gap_ns": 612.0,
+   "core_min_ns": 301478.0,
+   "core_max_ns": 305993.0,
+   "core_avg_ns": 304649.0,
+   "skew_ns": 1937.0,
+   "brisc_ns": 306035.0,
+   "ncrisc_ns": 22527.0,
+   "trisc0_ns": 285825.0,
+   "trisc1_ns": 302758.0,
+   "trisc2_ns": 302878.0,
+   "cb_wait_front_ns": 625918.0,
+   "cb_reserve_back_ns": 129570.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 175,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 73786.0,
+   "kernel_ns_spread": [
+    71657.0,
+    74262.0
+   ],
+   "fw_ns": 77169.0,
+   "gap_ns": 615.0,
+   "core_min_ns": 43273.0,
+   "core_max_ns": 72412.0,
+   "core_avg_ns": 58579.0,
+   "skew_ns": 1940.0,
+   "brisc_ns": 73783.0,
+   "ncrisc_ns": 22296.0,
+   "trisc0_ns": 37900.0,
+   "trisc1_ns": 38067.0,
+   "trisc2_ns": 38500.0,
+   "cb_wait_front_ns": 581969.0,
+   "cb_reserve_back_ns": 127851.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 176,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 61349.0,
+   "kernel_ns_spread": [
+    59691.0,
+    62488.0
+   ],
+   "fw_ns": 135120.0,
+   "gap_ns": 600.0,
+   "core_min_ns": 52716.0,
+   "core_max_ns": 61240.0,
+   "core_avg_ns": 56742.0,
+   "skew_ns": 1995.0,
+   "brisc_ns": 61347.0,
+   "ncrisc_ns": 58835.0,
+   "trisc0_ns": 59367.0,
+   "trisc1_ns": 60887.0,
+   "trisc2_ns": 60041.0,
+   "cb_wait_front_ns": 3034714.0,
+   "cb_reserve_back_ns": 1942796.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 177,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90968.0,
+   "kernel_ns_spread": [
+    90138.0,
+    91617.0
+   ],
+   "fw_ns": 97707.0,
+   "gap_ns": 610.0,
+   "core_min_ns": 55357.0,
+   "core_max_ns": 90748.0,
+   "core_avg_ns": 74743.0,
+   "skew_ns": 1961.0,
+   "brisc_ns": 90965.0,
+   "ncrisc_ns": 48455.0,
+   "trisc0_ns": 52199.0,
+   "trisc1_ns": 52314.0,
+   "trisc2_ns": 52768.0,
+   "cb_wait_front_ns": 2715439.0,
+   "cb_reserve_back_ns": 435634.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 178,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46242.0,
+   "kernel_ns_spread": [
+    45943.0,
+    46755.0
+   ],
+   "fw_ns": 136404.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 29564.0,
+   "core_max_ns": 46141.0,
+   "core_avg_ns": 37194.0,
+   "skew_ns": 2160.0,
+   "brisc_ns": 46231.0,
+   "ncrisc_ns": 31331.0,
+   "trisc0_ns": 45162.0,
+   "trisc1_ns": 44452.0,
+   "trisc2_ns": 45387.0,
+   "cb_wait_front_ns": 2047573.0,
+   "cb_reserve_back_ns": 99583.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 179,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 305951.0,
+   "kernel_ns_spread": [
+    305821.0,
+    306826.0
+   ],
+   "fw_ns": 321707.0,
+   "gap_ns": 607.0,
+   "core_min_ns": 301648.0,
+   "core_max_ns": 305884.0,
+   "core_avg_ns": 304660.0,
+   "skew_ns": 1965.0,
+   "brisc_ns": 305948.0,
+   "ncrisc_ns": 22626.0,
+   "trisc0_ns": 285836.0,
+   "trisc1_ns": 302758.0,
+   "trisc2_ns": 302893.0,
+   "cb_wait_front_ns": 631295.0,
+   "cb_reserve_back_ns": 129739.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 180,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71259.0,
+   "kernel_ns_spread": [
+    70953.0,
+    71819.0
+   ],
+   "fw_ns": 74251.0,
+   "gap_ns": 680.0,
+   "core_min_ns": 43098.0,
+   "core_max_ns": 70388.0,
+   "core_avg_ns": 58077.0,
+   "skew_ns": 1860.0,
+   "brisc_ns": 71256.0,
+   "ncrisc_ns": 22094.0,
+   "trisc0_ns": 37759.0,
+   "trisc1_ns": 37901.0,
+   "trisc2_ns": 38332.0,
+   "cb_wait_front_ns": 567043.0,
+   "cb_reserve_back_ns": 127850.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 181,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 60902.0,
+   "kernel_ns_spread": [
+    57038.0,
+    63025.0
+   ],
+   "fw_ns": 131360.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 51964.0,
+   "core_max_ns": 60780.0,
+   "core_avg_ns": 56391.0,
+   "skew_ns": 2000.0,
+   "brisc_ns": 60902.0,
+   "ncrisc_ns": 58376.0,
+   "trisc0_ns": 58910.0,
+   "trisc1_ns": 60433.0,
+   "trisc2_ns": 59578.0,
+   "cb_wait_front_ns": 3014125.0,
+   "cb_reserve_back_ns": 1937614.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 182,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 91651.0,
+   "kernel_ns_spread": [
+    90849.0,
+    91774.0
+   ],
+   "fw_ns": 99227.0,
+   "gap_ns": 565.0,
+   "core_min_ns": 55545.0,
+   "core_max_ns": 91566.0,
+   "core_avg_ns": 74881.0,
+   "skew_ns": 1979.0,
+   "brisc_ns": 91650.0,
+   "ncrisc_ns": 49014.0,
+   "trisc0_ns": 52712.0,
+   "trisc1_ns": 52810.0,
+   "trisc2_ns": 53274.0,
+   "cb_wait_front_ns": 2747639.0,
+   "cb_reserve_back_ns": 437260.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 183,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45703.0,
+   "kernel_ns_spread": [
+    45665.0,
+    46564.0
+   ],
+   "fw_ns": 136854.0,
+   "gap_ns": 603.0,
+   "core_min_ns": 29825.0,
+   "core_max_ns": 45602.0,
+   "core_avg_ns": 37200.0,
+   "skew_ns": 2157.0,
+   "brisc_ns": 45700.0,
+   "ncrisc_ns": 30799.0,
+   "trisc0_ns": 44628.0,
+   "trisc1_ns": 43942.0,
+   "trisc2_ns": 44864.0,
+   "cb_wait_front_ns": 2047663.0,
+   "cb_reserve_back_ns": 99532.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 184,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306044.0,
+   "kernel_ns_spread": [
+    305928.0,
+    306735.0
+   ],
+   "fw_ns": 320791.0,
+   "gap_ns": 613.0,
+   "core_min_ns": 301567.0,
+   "core_max_ns": 305990.0,
+   "core_avg_ns": 304534.0,
+   "skew_ns": 1939.0,
+   "brisc_ns": 306027.0,
+   "ncrisc_ns": 22440.0,
+   "trisc0_ns": 285759.0,
+   "trisc1_ns": 302696.0,
+   "trisc2_ns": 302807.0,
+   "cb_wait_front_ns": 628371.0,
+   "cb_reserve_back_ns": 129655.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 185,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72209.0,
+   "kernel_ns_spread": [
+    71526.0,
+    73523.0
+   ],
+   "fw_ns": 75487.0,
+   "gap_ns": 627.0,
+   "core_min_ns": 43326.0,
+   "core_max_ns": 71726.0,
+   "core_avg_ns": 58546.0,
+   "skew_ns": 1897.0,
+   "brisc_ns": 72209.0,
+   "ncrisc_ns": 22365.0,
+   "trisc0_ns": 37914.0,
+   "trisc1_ns": 38093.0,
+   "trisc2_ns": 38524.0,
+   "cb_wait_front_ns": 573722.0,
+   "cb_reserve_back_ns": 127969.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 186,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 58551.0,
+   "kernel_ns_spread": [
+    57084.0,
+    62933.0
+   ],
+   "fw_ns": 131619.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 52062.0,
+   "core_max_ns": 58435.0,
+   "core_avg_ns": 54338.0,
+   "skew_ns": 2014.0,
+   "brisc_ns": 58551.0,
+   "ncrisc_ns": 56037.0,
+   "trisc0_ns": 56478.0,
+   "trisc1_ns": 58005.0,
+   "trisc2_ns": 57148.0,
+   "cb_wait_front_ns": 2854050.0,
+   "cb_reserve_back_ns": 1947634.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 187,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90558.0,
+   "kernel_ns_spread": [
+    90102.0,
+    90963.0
+   ],
+   "fw_ns": 95550.0,
+   "gap_ns": 599.0,
+   "core_min_ns": 55344.0,
+   "core_max_ns": 90195.0,
+   "core_avg_ns": 74653.0,
+   "skew_ns": 1961.0,
+   "brisc_ns": 90553.0,
+   "ncrisc_ns": 48863.0,
+   "trisc0_ns": 52587.0,
+   "trisc1_ns": 52690.0,
+   "trisc2_ns": 53143.0,
+   "cb_wait_front_ns": 2736752.0,
+   "cb_reserve_back_ns": 435583.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 188,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 44778.0,
+   "kernel_ns_spread": [
+    44584.0,
+    45408.0
+   ],
+   "fw_ns": 134669.0,
+   "gap_ns": 600.0,
+   "core_min_ns": 29508.0,
+   "core_max_ns": 44677.0,
+   "core_avg_ns": 36683.0,
+   "skew_ns": 2159.0,
+   "brisc_ns": 44757.0,
+   "ncrisc_ns": 29992.0,
+   "trisc0_ns": 43698.0,
+   "trisc1_ns": 43044.0,
+   "trisc2_ns": 43934.0,
+   "cb_wait_front_ns": 2008928.0,
+   "cb_reserve_back_ns": 99467.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 189,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306252.0,
+   "kernel_ns_spread": [
+    306235.0,
+    306843.0
+   ],
+   "fw_ns": 320291.0,
+   "gap_ns": 607.0,
+   "core_min_ns": 301541.0,
+   "core_max_ns": 306200.0,
+   "core_avg_ns": 304660.0,
+   "skew_ns": 1959.0,
+   "brisc_ns": 306249.0,
+   "ncrisc_ns": 22594.0,
+   "trisc0_ns": 285978.0,
+   "trisc1_ns": 302875.0,
+   "trisc2_ns": 302996.0,
+   "cb_wait_front_ns": 630148.0,
+   "cb_reserve_back_ns": 129636.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 190,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71701.0,
+   "kernel_ns_spread": [
+    71583.0,
+    72761.0
+   ],
+   "fw_ns": 75269.0,
+   "gap_ns": 616.0,
+   "core_min_ns": 43472.0,
+   "core_max_ns": 71620.0,
+   "core_avg_ns": 58165.0,
+   "skew_ns": 1949.0,
+   "brisc_ns": 71679.0,
+   "ncrisc_ns": 22341.0,
+   "trisc0_ns": 37990.0,
+   "trisc1_ns": 38177.0,
+   "trisc2_ns": 38590.0,
+   "cb_wait_front_ns": 581035.0,
+   "cb_reserve_back_ns": 127802.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 191,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 60976.0,
+   "kernel_ns_spread": [
+    57086.0,
+    61766.0
+   ],
+   "fw_ns": 132983.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 52068.0,
+   "core_max_ns": 60882.0,
+   "core_avg_ns": 56061.0,
+   "skew_ns": 2004.0,
+   "brisc_ns": 60976.0,
+   "ncrisc_ns": 58454.0,
+   "trisc0_ns": 58898.0,
+   "trisc1_ns": 60422.0,
+   "trisc2_ns": 59567.0,
+   "cb_wait_front_ns": 3002776.0,
+   "cb_reserve_back_ns": 1945128.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 192,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90526.0,
+   "kernel_ns_spread": [
+    90135.0,
+    91337.0
+   ],
+   "fw_ns": 98405.0,
+   "gap_ns": 627.0,
+   "core_min_ns": 54817.0,
+   "core_max_ns": 90149.0,
+   "core_avg_ns": 74389.0,
+   "skew_ns": 1922.0,
+   "brisc_ns": 90513.0,
+   "ncrisc_ns": 48495.0,
+   "trisc0_ns": 52114.0,
+   "trisc1_ns": 52217.0,
+   "trisc2_ns": 52673.0,
+   "cb_wait_front_ns": 2710006.0,
+   "cb_reserve_back_ns": 435265.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 193,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45359.0,
+   "kernel_ns_spread": [
+    45152.0,
+    46293.0
+   ],
+   "fw_ns": 136215.0,
+   "gap_ns": 600.0,
+   "core_min_ns": 29510.0,
+   "core_max_ns": 45255.0,
+   "core_avg_ns": 36677.0,
+   "skew_ns": 2160.0,
+   "brisc_ns": 45356.0,
+   "ncrisc_ns": 30499.0,
+   "trisc0_ns": 44268.0,
+   "trisc1_ns": 43578.0,
+   "trisc2_ns": 44508.0,
+   "cb_wait_front_ns": 2009051.0,
+   "cb_reserve_back_ns": 99436.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 194,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306262.0,
+   "kernel_ns_spread": [
+    305995.0,
+    306391.0
+   ],
+   "fw_ns": 320923.0,
+   "gap_ns": 612.0,
+   "core_min_ns": 301766.0,
+   "core_max_ns": 306210.0,
+   "core_avg_ns": 304771.0,
+   "skew_ns": 1940.0,
+   "brisc_ns": 306259.0,
+   "ncrisc_ns": 22572.0,
+   "trisc0_ns": 285865.0,
+   "trisc1_ns": 302784.0,
+   "trisc2_ns": 302895.0,
+   "cb_wait_front_ns": 634238.0,
+   "cb_reserve_back_ns": 129726.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 195,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72458.0,
+   "kernel_ns_spread": [
+    72375.0,
+    73492.0
+   ],
+   "fw_ns": 76056.0,
+   "gap_ns": 627.0,
+   "core_min_ns": 42997.0,
+   "core_max_ns": 72027.0,
+   "core_avg_ns": 58473.0,
+   "skew_ns": 1921.0,
+   "brisc_ns": 72458.0,
+   "ncrisc_ns": 22420.0,
+   "trisc0_ns": 37861.0,
+   "trisc1_ns": 38066.0,
+   "trisc2_ns": 38508.0,
+   "cb_wait_front_ns": 573942.0,
+   "cb_reserve_back_ns": 127809.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 196,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 61401.0,
+   "kernel_ns_spread": [
+    61358.0,
+    62143.0
+   ],
+   "fw_ns": 133998.0,
+   "gap_ns": 595.0,
+   "core_min_ns": 53150.0,
+   "core_max_ns": 61263.0,
+   "core_avg_ns": 56749.0,
+   "skew_ns": 2024.0,
+   "brisc_ns": 61388.0,
+   "ncrisc_ns": 58886.0,
+   "trisc0_ns": 59424.0,
+   "trisc1_ns": 60951.0,
+   "trisc2_ns": 60104.0,
+   "cb_wait_front_ns": 3044696.0,
+   "cb_reserve_back_ns": 1939847.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 197,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 91011.0,
+   "kernel_ns_spread": [
+    89768.0,
+    91488.0
+   ],
+   "fw_ns": 98319.0,
+   "gap_ns": 589.0,
+   "core_min_ns": 54542.0,
+   "core_max_ns": 90928.0,
+   "core_avg_ns": 73933.0,
+   "skew_ns": 1987.0,
+   "brisc_ns": 91011.0,
+   "ncrisc_ns": 47958.0,
+   "trisc0_ns": 51663.0,
+   "trisc1_ns": 51765.0,
+   "trisc2_ns": 52217.0,
+   "cb_wait_front_ns": 2682713.0,
+   "cb_reserve_back_ns": 435862.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 198,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46370.0,
+   "kernel_ns_spread": [
+    44433.0,
+    46663.0
+   ],
+   "fw_ns": 136878.0,
+   "gap_ns": 597.0,
+   "core_min_ns": 29555.0,
+   "core_max_ns": 46270.0,
+   "core_avg_ns": 37469.0,
+   "skew_ns": 2154.0,
+   "brisc_ns": 46367.0,
+   "ncrisc_ns": 31430.0,
+   "trisc0_ns": 45278.0,
+   "trisc1_ns": 44578.0,
+   "trisc2_ns": 45515.0,
+   "cb_wait_front_ns": 2067332.0,
+   "cb_reserve_back_ns": 99580.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 199,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 305930.0,
+   "kernel_ns_spread": [
+    305853.0,
+    306753.0
+   ],
+   "fw_ns": 321414.0,
+   "gap_ns": 609.0,
+   "core_min_ns": 301526.0,
+   "core_max_ns": 305797.0,
+   "core_avg_ns": 304416.0,
+   "skew_ns": 1953.0,
+   "brisc_ns": 305930.0,
+   "ncrisc_ns": 22512.0,
+   "trisc0_ns": 285748.0,
+   "trisc1_ns": 302656.0,
+   "trisc2_ns": 302783.0,
+   "cb_wait_front_ns": 623450.0,
+   "cb_reserve_back_ns": 129595.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 200,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 71413.0,
+   "kernel_ns_spread": [
+    71314.0,
+    71546.0
+   ],
+   "fw_ns": 74818.0,
+   "gap_ns": 681.0,
+   "core_min_ns": 43435.0,
+   "core_max_ns": 70679.0,
+   "core_avg_ns": 58401.0,
+   "skew_ns": 1895.0,
+   "brisc_ns": 71408.0,
+   "ncrisc_ns": 22218.0,
+   "trisc0_ns": 37828.0,
+   "trisc1_ns": 37989.0,
+   "trisc2_ns": 38434.0,
+   "cb_wait_front_ns": 582642.0,
+   "cb_reserve_back_ns": 127784.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 201,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 57977.0,
+   "kernel_ns_spread": [
+    57734.0,
+    67328.0
+   ],
+   "fw_ns": 129074.0,
+   "gap_ns": 598.0,
+   "core_min_ns": 51861.0,
+   "core_max_ns": 57885.0,
+   "core_avg_ns": 54496.0,
+   "skew_ns": 2004.0,
+   "brisc_ns": 57973.0,
+   "ncrisc_ns": 55458.0,
+   "trisc0_ns": 55872.0,
+   "trisc1_ns": 57409.0,
+   "trisc2_ns": 56552.0,
+   "cb_wait_front_ns": 2887502.0,
+   "cb_reserve_back_ns": 1939362.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 202,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 91006.0,
+   "kernel_ns_spread": [
+    90436.0,
+    91789.0
+   ],
+   "fw_ns": 96213.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 55159.0,
+   "core_max_ns": 90908.0,
+   "core_avg_ns": 74707.0,
+   "skew_ns": 1978.0,
+   "brisc_ns": 91006.0,
+   "ncrisc_ns": 48580.0,
+   "trisc0_ns": 52048.0,
+   "trisc1_ns": 52159.0,
+   "trisc2_ns": 52610.0,
+   "cb_wait_front_ns": 2710944.0,
+   "cb_reserve_back_ns": 435327.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 203,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 44730.0,
+   "kernel_ns_spread": [
+    44320.0,
+    45786.0
+   ],
+   "fw_ns": 135280.0,
+   "gap_ns": 604.0,
+   "core_min_ns": 29569.0,
+   "core_max_ns": 44630.0,
+   "core_avg_ns": 36649.0,
+   "skew_ns": 2148.0,
+   "brisc_ns": 44709.0,
+   "ncrisc_ns": 29964.0,
+   "trisc0_ns": 43638.0,
+   "trisc1_ns": 42933.0,
+   "trisc2_ns": 43853.0,
+   "cb_wait_front_ns": 2003872.0,
+   "cb_reserve_back_ns": 99651.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 204,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306118.0,
+   "kernel_ns_spread": [
+    306064.0,
+    306745.0
+   ],
+   "fw_ns": 320505.0,
+   "gap_ns": 611.0,
+   "core_min_ns": 301551.0,
+   "core_max_ns": 306054.0,
+   "core_avg_ns": 304602.0,
+   "skew_ns": 1942.0,
+   "brisc_ns": 306118.0,
+   "ncrisc_ns": 22571.0,
+   "trisc0_ns": 285901.0,
+   "trisc1_ns": 302809.0,
+   "trisc2_ns": 302934.0,
+   "cb_wait_front_ns": 629070.0,
+   "cb_reserve_back_ns": 129754.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 205,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72557.0,
+   "kernel_ns_spread": [
+    71431.0,
+    73268.0
+   ],
+   "fw_ns": 76107.0,
+   "gap_ns": 649.0,
+   "core_min_ns": 43014.0,
+   "core_max_ns": 72513.0,
+   "core_avg_ns": 58633.0,
+   "skew_ns": 1893.0,
+   "brisc_ns": 72552.0,
+   "ncrisc_ns": 22232.0,
+   "trisc0_ns": 37858.0,
+   "trisc1_ns": 38008.0,
+   "trisc2_ns": 38439.0,
+   "cb_wait_front_ns": 582051.0,
+   "cb_reserve_back_ns": 127879.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 206,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 59473.0,
+   "kernel_ns_spread": [
+    57309.0,
+    60965.0
+   ],
+   "fw_ns": 130447.0,
+   "gap_ns": 602.0,
+   "core_min_ns": 51567.0,
+   "core_max_ns": 58270.0,
+   "core_avg_ns": 54950.0,
+   "skew_ns": 2018.0,
+   "brisc_ns": 59460.0,
+   "ncrisc_ns": 56965.0,
+   "trisc0_ns": 57390.0,
+   "trisc1_ns": 58921.0,
+   "trisc2_ns": 58074.0,
+   "cb_wait_front_ns": 2901987.0,
+   "cb_reserve_back_ns": 1944866.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 207,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90919.0,
+   "kernel_ns_spread": [
+    89671.0,
+    92141.0
+   ],
+   "fw_ns": 97715.0,
+   "gap_ns": 615.0,
+   "core_min_ns": 54901.0,
+   "core_max_ns": 90057.0,
+   "core_avg_ns": 74400.0,
+   "skew_ns": 1938.0,
+   "brisc_ns": 90919.0,
+   "ncrisc_ns": 48508.0,
+   "trisc0_ns": 52163.0,
+   "trisc1_ns": 52275.0,
+   "trisc2_ns": 52726.0,
+   "cb_wait_front_ns": 2720305.0,
+   "cb_reserve_back_ns": 435591.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 208,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45383.0,
+   "kernel_ns_spread": [
+    44649.0,
+    46559.0
+   ],
+   "fw_ns": 135072.0,
+   "gap_ns": 597.0,
+   "core_min_ns": 29840.0,
+   "core_max_ns": 45252.0,
+   "core_avg_ns": 36668.0,
+   "skew_ns": 2165.0,
+   "brisc_ns": 45381.0,
+   "ncrisc_ns": 30462.0,
+   "trisc0_ns": 44302.0,
+   "trisc1_ns": 43621.0,
+   "trisc2_ns": 44528.0,
+   "cb_wait_front_ns": 2008305.0,
+   "cb_reserve_back_ns": 99571.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 209,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306357.0,
+   "kernel_ns_spread": [
+    305903.0,
+    307587.0
+   ],
+   "fw_ns": 321350.0,
+   "gap_ns": 586.0,
+   "core_min_ns": 301613.0,
+   "core_max_ns": 306299.0,
+   "core_avg_ns": 304620.0,
+   "skew_ns": 1961.0,
+   "brisc_ns": 306350.0,
+   "ncrisc_ns": 22473.0,
+   "trisc0_ns": 285979.0,
+   "trisc1_ns": 302874.0,
+   "trisc2_ns": 302989.0,
+   "cb_wait_front_ns": 630966.0,
+   "cb_reserve_back_ns": 129654.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 210,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 70997.0,
+   "kernel_ns_spread": [
+    70742.0,
+    74027.0
+   ],
+   "fw_ns": 74706.0,
+   "gap_ns": 603.0,
+   "core_min_ns": 42753.0,
+   "core_max_ns": 70747.0,
+   "core_avg_ns": 58071.0,
+   "skew_ns": 1918.0,
+   "brisc_ns": 70977.0,
+   "ncrisc_ns": 22397.0,
+   "trisc0_ns": 37936.0,
+   "trisc1_ns": 38090.0,
+   "trisc2_ns": 38521.0,
+   "cb_wait_front_ns": 578150.0,
+   "cb_reserve_back_ns": 127874.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 211,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 59620.0,
+   "kernel_ns_spread": [
+    57886.0,
+    64077.0
+   ],
+   "fw_ns": 133123.0,
+   "gap_ns": 600.0,
+   "core_min_ns": 52532.0,
+   "core_max_ns": 59486.0,
+   "core_avg_ns": 55420.0,
+   "skew_ns": 2014.0,
+   "brisc_ns": 59607.0,
+   "ncrisc_ns": 57097.0,
+   "trisc0_ns": 57533.0,
+   "trisc1_ns": 59062.0,
+   "trisc2_ns": 58217.0,
+   "cb_wait_front_ns": 2929945.0,
+   "cb_reserve_back_ns": 1935655.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 212,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 91824.0,
+   "kernel_ns_spread": [
+    90417.0,
+    91839.0
+   ],
+   "fw_ns": 97762.0,
+   "gap_ns": 607.0,
+   "core_min_ns": 55423.0,
+   "core_max_ns": 91747.0,
+   "core_avg_ns": 75307.0,
+   "skew_ns": 1917.0,
+   "brisc_ns": 91824.0,
+   "ncrisc_ns": 48688.0,
+   "trisc0_ns": 52375.0,
+   "trisc1_ns": 52490.0,
+   "trisc2_ns": 52944.0,
+   "cb_wait_front_ns": 2724866.0,
+   "cb_reserve_back_ns": 436333.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 213,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46167.0,
+   "kernel_ns_spread": [
+    45028.0,
+    46226.0
+   ],
+   "fw_ns": 137490.0,
+   "gap_ns": 608.0,
+   "core_min_ns": 29769.0,
+   "core_max_ns": 46067.0,
+   "core_avg_ns": 36782.0,
+   "skew_ns": 2184.0,
+   "brisc_ns": 46145.0,
+   "ncrisc_ns": 31334.0,
+   "trisc0_ns": 45095.0,
+   "trisc1_ns": 44405.0,
+   "trisc2_ns": 45322.0,
+   "cb_wait_front_ns": 2018040.0,
+   "cb_reserve_back_ns": 99553.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 214,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306270.0,
+   "kernel_ns_spread": [
+    305990.0,
+    306962.0
+   ],
+   "fw_ns": 321797.0,
+   "gap_ns": 585.0,
+   "core_min_ns": 301731.0,
+   "core_max_ns": 306211.0,
+   "core_avg_ns": 304631.0,
+   "skew_ns": 1979.0,
+   "brisc_ns": 306269.0,
+   "ncrisc_ns": 22532.0,
+   "trisc0_ns": 286010.0,
+   "trisc1_ns": 302917.0,
+   "trisc2_ns": 303040.0,
+   "cb_wait_front_ns": 632740.0,
+   "cb_reserve_back_ns": 129676.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 215,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72192.0,
+   "kernel_ns_spread": [
+    71515.0,
+    74024.0
+   ],
+   "fw_ns": 74950.0,
+   "gap_ns": 625.0,
+   "core_min_ns": 42853.0,
+   "core_max_ns": 71774.0,
+   "core_avg_ns": 58308.0,
+   "skew_ns": 1900.0,
+   "brisc_ns": 72190.0,
+   "ncrisc_ns": 22191.0,
+   "trisc0_ns": 37881.0,
+   "trisc1_ns": 38018.0,
+   "trisc2_ns": 38451.0,
+   "cb_wait_front_ns": 583248.0,
+   "cb_reserve_back_ns": 127791.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 216,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 58710.0,
+   "kernel_ns_spread": [
+    58395.0,
+    61323.0
+   ],
+   "fw_ns": 132290.0,
+   "gap_ns": 603.0,
+   "core_min_ns": 51744.0,
+   "core_max_ns": 58584.0,
+   "core_avg_ns": 54464.0,
+   "skew_ns": 1993.0,
+   "brisc_ns": 58710.0,
+   "ncrisc_ns": 56204.0,
+   "trisc0_ns": 56737.0,
+   "trisc1_ns": 58261.0,
+   "trisc2_ns": 57406.0,
+   "cb_wait_front_ns": 2868408.0,
+   "cb_reserve_back_ns": 1949442.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 217,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90013.0,
+   "kernel_ns_spread": [
+    89947.0,
+    90686.0
+   ],
+   "fw_ns": 96213.0,
+   "gap_ns": 581.0,
+   "core_min_ns": 54422.0,
+   "core_max_ns": 89927.0,
+   "core_avg_ns": 73922.0,
+   "skew_ns": 1965.0,
+   "brisc_ns": 90000.0,
+   "ncrisc_ns": 48025.0,
+   "trisc0_ns": 51587.0,
+   "trisc1_ns": 51697.0,
+   "trisc2_ns": 52149.0,
+   "cb_wait_front_ns": 2679539.0,
+   "cb_reserve_back_ns": 436419.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 218,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 45968.0,
+   "kernel_ns_spread": [
+    45792.0,
+    47279.0
+   ],
+   "fw_ns": 136164.0,
+   "gap_ns": 606.0,
+   "core_min_ns": 30057.0,
+   "core_max_ns": 45869.0,
+   "core_avg_ns": 37512.0,
+   "skew_ns": 2153.0,
+   "brisc_ns": 45957.0,
+   "ncrisc_ns": 31041.0,
+   "trisc0_ns": 44897.0,
+   "trisc1_ns": 44201.0,
+   "trisc2_ns": 45123.0,
+   "cb_wait_front_ns": 2068494.0,
+   "cb_reserve_back_ns": 99514.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 219,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306135.0,
+   "kernel_ns_spread": [
+    305732.0,
+    306660.0
+   ],
+   "fw_ns": 321181.0,
+   "gap_ns": 585.0,
+   "core_min_ns": 301744.0,
+   "core_max_ns": 306085.0,
+   "core_avg_ns": 304723.0,
+   "skew_ns": 1974.0,
+   "brisc_ns": 306128.0,
+   "ncrisc_ns": 22571.0,
+   "trisc0_ns": 286037.0,
+   "trisc1_ns": 302951.0,
+   "trisc2_ns": 303075.0,
+   "cb_wait_front_ns": 635118.0,
+   "cb_reserve_back_ns": 129574.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 220,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72035.0,
+   "kernel_ns_spread": [
+    70668.0,
+    72037.0
+   ],
+   "fw_ns": 74606.0,
+   "gap_ns": 624.0,
+   "core_min_ns": 42592.0,
+   "core_max_ns": 70870.0,
+   "core_avg_ns": 57983.0,
+   "skew_ns": 1920.0,
+   "brisc_ns": 72028.0,
+   "ncrisc_ns": 22412.0,
+   "trisc0_ns": 37862.0,
+   "trisc1_ns": 38010.0,
+   "trisc2_ns": 38445.0,
+   "cb_wait_front_ns": 568150.0,
+   "cb_reserve_back_ns": 127933.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 221,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 59815.0,
+   "kernel_ns_spread": [
+    57767.0,
+    62317.0
+   ],
+   "fw_ns": 131393.0,
+   "gap_ns": 600.0,
+   "core_min_ns": 51669.0,
+   "core_max_ns": 58409.0,
+   "core_avg_ns": 54441.0,
+   "skew_ns": 2006.0,
+   "brisc_ns": 59811.0,
+   "ncrisc_ns": 57283.0,
+   "trisc0_ns": 57720.0,
+   "trisc1_ns": 59259.0,
+   "trisc2_ns": 58402.0,
+   "cb_wait_front_ns": 2877963.0,
+   "cb_reserve_back_ns": 1947051.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 222,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90622.0,
+   "kernel_ns_spread": [
+    90429.0,
+    91754.0
+   ],
+   "fw_ns": 98824.0,
+   "gap_ns": 553.0,
+   "core_min_ns": 54877.0,
+   "core_max_ns": 90542.0,
+   "core_avg_ns": 74420.0,
+   "skew_ns": 1958.0,
+   "brisc_ns": 90622.0,
+   "ncrisc_ns": 48529.0,
+   "trisc0_ns": 52296.0,
+   "trisc1_ns": 52392.0,
+   "trisc2_ns": 52852.0,
+   "cb_wait_front_ns": 2714698.0,
+   "cb_reserve_back_ns": 436322.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 223,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 44760.0,
+   "kernel_ns_spread": [
+    44622.0,
+    46611.0
+   ],
+   "fw_ns": 135871.0,
+   "gap_ns": 603.0,
+   "core_min_ns": 29845.0,
+   "core_max_ns": 44663.0,
+   "core_avg_ns": 36879.0,
+   "skew_ns": 2157.0,
+   "brisc_ns": 44757.0,
+   "ncrisc_ns": 29915.0,
+   "trisc0_ns": 43688.0,
+   "trisc1_ns": 43028.0,
+   "trisc2_ns": 43917.0,
+   "cb_wait_front_ns": 2019318.0,
+   "cb_reserve_back_ns": 99588.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 224,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 305801.0,
+   "kernel_ns_spread": [
+    305715.0,
+    306964.0
+   ],
+   "fw_ns": 320184.0,
+   "gap_ns": 615.0,
+   "core_min_ns": 301539.0,
+   "core_max_ns": 305759.0,
+   "core_avg_ns": 304530.0,
+   "skew_ns": 1923.0,
+   "brisc_ns": 305801.0,
+   "ncrisc_ns": 22540.0,
+   "trisc0_ns": 285721.0,
+   "trisc1_ns": 302674.0,
+   "trisc2_ns": 302806.0,
+   "cb_wait_front_ns": 624011.0,
+   "cb_reserve_back_ns": 129661.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 225,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 73293.0,
+   "kernel_ns_spread": [
+    72481.0,
+    75114.0
+   ],
+   "fw_ns": 76537.0,
+   "gap_ns": 646.0,
+   "core_min_ns": 42987.0,
+   "core_max_ns": 72066.0,
+   "core_avg_ns": 58639.0,
+   "skew_ns": 1921.0,
+   "brisc_ns": 73290.0,
+   "ncrisc_ns": 22406.0,
+   "trisc0_ns": 37874.0,
+   "trisc1_ns": 38023.0,
+   "trisc2_ns": 38465.0,
+   "cb_wait_front_ns": 573050.0,
+   "cb_reserve_back_ns": 127841.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 226,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 60017.0,
+   "kernel_ns_spread": [
+    57657.0,
+    60511.0
+   ],
+   "fw_ns": 132830.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 52969.0,
+   "core_max_ns": 59911.0,
+   "core_avg_ns": 56427.0,
+   "skew_ns": 1994.0,
+   "brisc_ns": 60017.0,
+   "ncrisc_ns": 57495.0,
+   "trisc0_ns": 58022.0,
+   "trisc1_ns": 59545.0,
+   "trisc2_ns": 58690.0,
+   "cb_wait_front_ns": 3017892.0,
+   "cb_reserve_back_ns": 1940025.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 227,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90706.0,
+   "kernel_ns_spread": [
+    90498.0,
+    91410.0
+   ],
+   "fw_ns": 96605.0,
+   "gap_ns": 639.0,
+   "core_min_ns": 55260.0,
+   "core_max_ns": 90392.0,
+   "core_avg_ns": 74441.0,
+   "skew_ns": 1900.0,
+   "brisc_ns": 90685.0,
+   "ncrisc_ns": 48690.0,
+   "trisc0_ns": 52376.0,
+   "trisc1_ns": 52487.0,
+   "trisc2_ns": 52940.0,
+   "cb_wait_front_ns": 2725450.0,
+   "cb_reserve_back_ns": 435160.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 228,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 44242.0,
+   "kernel_ns_spread": [
+    44023.0,
+    47655.0
+   ],
+   "fw_ns": 134235.0,
+   "gap_ns": 599.0,
+   "core_min_ns": 29704.0,
+   "core_max_ns": 44139.0,
+   "core_avg_ns": 36659.0,
+   "skew_ns": 2157.0,
+   "brisc_ns": 44241.0,
+   "ncrisc_ns": 29440.0,
+   "trisc0_ns": 43154.0,
+   "trisc1_ns": 42453.0,
+   "trisc2_ns": 43389.0,
+   "cb_wait_front_ns": 2006731.0,
+   "cb_reserve_back_ns": 99695.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 229,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306343.0,
+   "kernel_ns_spread": [
+    305897.0,
+    306822.0
+   ],
+   "fw_ns": 320096.0,
+   "gap_ns": 607.0,
+   "core_min_ns": 301491.0,
+   "core_max_ns": 306283.0,
+   "core_avg_ns": 304649.0,
+   "skew_ns": 1961.0,
+   "brisc_ns": 306343.0,
+   "ncrisc_ns": 22573.0,
+   "trisc0_ns": 285786.0,
+   "trisc1_ns": 302732.0,
+   "trisc2_ns": 302859.0,
+   "cb_wait_front_ns": 630871.0,
+   "cb_reserve_back_ns": 129662.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 230,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72034.0,
+   "kernel_ns_spread": [
+    70578.0,
+    73397.0
+   ],
+   "fw_ns": 76179.0,
+   "gap_ns": 623.0,
+   "core_min_ns": 43133.0,
+   "core_max_ns": 71857.0,
+   "core_avg_ns": 58458.0,
+   "skew_ns": 1937.0,
+   "brisc_ns": 72031.0,
+   "ncrisc_ns": 22286.0,
+   "trisc0_ns": 37896.0,
+   "trisc1_ns": 38035.0,
+   "trisc2_ns": 38472.0,
+   "cb_wait_front_ns": 580861.0,
+   "cb_reserve_back_ns": 127879.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 231,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 60878.0,
+   "kernel_ns_spread": [
+    58837.0,
+    61734.0
+   ],
+   "fw_ns": 131738.0,
+   "gap_ns": 597.0,
+   "core_min_ns": 51489.0,
+   "core_max_ns": 60763.0,
+   "core_avg_ns": 56720.0,
+   "skew_ns": 2028.0,
+   "brisc_ns": 60865.0,
+   "ncrisc_ns": 58359.0,
+   "trisc0_ns": 58781.0,
+   "trisc1_ns": 60303.0,
+   "trisc2_ns": 59462.0,
+   "cb_wait_front_ns": 3020463.0,
+   "cb_reserve_back_ns": 1944860.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 232,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90998.0,
+   "kernel_ns_spread": [
+    90907.0,
+    91466.0
+   ],
+   "fw_ns": 97257.0,
+   "gap_ns": 648.0,
+   "core_min_ns": 55293.0,
+   "core_max_ns": 90939.0,
+   "core_avg_ns": 74833.0,
+   "skew_ns": 1923.0,
+   "brisc_ns": 90983.0,
+   "ncrisc_ns": 48506.0,
+   "trisc0_ns": 52274.0,
+   "trisc1_ns": 52381.0,
+   "trisc2_ns": 52832.0,
+   "cb_wait_front_ns": 2721913.0,
+   "cb_reserve_back_ns": 435573.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 233,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46771.0,
+   "kernel_ns_spread": [
+    44351.0,
+    47041.0
+   ],
+   "fw_ns": 137277.0,
+   "gap_ns": 599.0,
+   "core_min_ns": 29589.0,
+   "core_max_ns": 46636.0,
+   "core_avg_ns": 37451.0,
+   "skew_ns": 2177.0,
+   "brisc_ns": 46768.0,
+   "ncrisc_ns": 31910.0,
+   "trisc0_ns": 45694.0,
+   "trisc1_ns": 44993.0,
+   "trisc2_ns": 45931.0,
+   "cb_wait_front_ns": 2063720.0,
+   "cb_reserve_back_ns": 99570.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 234,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 306187.0,
+   "kernel_ns_spread": [
+    306029.0,
+    307470.0
+   ],
+   "fw_ns": 322593.0,
+   "gap_ns": 588.0,
+   "core_min_ns": 301717.0,
+   "core_max_ns": 306041.0,
+   "core_avg_ns": 304683.0,
+   "skew_ns": 1969.0,
+   "brisc_ns": 306187.0,
+   "ncrisc_ns": 22491.0,
+   "trisc0_ns": 285847.0,
+   "trisc1_ns": 302756.0,
+   "trisc2_ns": 302878.0,
+   "cb_wait_front_ns": 632062.0,
+   "cb_reserve_back_ns": 129591.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 235,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 73662.0,
+   "kernel_ns_spread": [
+    72498.0,
+    74271.0
+   ],
+   "fw_ns": 76908.0,
+   "gap_ns": 657.0,
+   "core_min_ns": 43468.0,
+   "core_max_ns": 73127.0,
+   "core_avg_ns": 58529.0,
+   "skew_ns": 1919.0,
+   "brisc_ns": 73660.0,
+   "ncrisc_ns": 22514.0,
+   "trisc0_ns": 37854.0,
+   "trisc1_ns": 38020.0,
+   "trisc2_ns": 38457.0,
+   "cb_wait_front_ns": 578619.0,
+   "cb_reserve_back_ns": 127848.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 236,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 60132.0,
+   "kernel_ns_spread": [
+    58240.0,
+    62144.0
+   ],
+   "fw_ns": 133906.0,
+   "gap_ns": 597.0,
+   "core_min_ns": 52355.0,
+   "core_max_ns": 60125.0,
+   "core_avg_ns": 54783.0,
+   "skew_ns": 1995.0,
+   "brisc_ns": 60119.0,
+   "ncrisc_ns": 57601.0,
+   "trisc0_ns": 58047.0,
+   "trisc1_ns": 59567.0,
+   "trisc2_ns": 58722.0,
+   "cb_wait_front_ns": 2905867.0,
+   "cb_reserve_back_ns": 1944791.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 237,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90651.0,
+   "kernel_ns_spread": [
+    90408.0,
+    92219.0
+   ],
+   "fw_ns": 98832.0,
+   "gap_ns": 616.0,
+   "core_min_ns": 55067.0,
+   "core_max_ns": 90569.0,
+   "core_avg_ns": 74466.0,
+   "skew_ns": 1959.0,
+   "brisc_ns": 90638.0,
+   "ncrisc_ns": 48334.0,
+   "trisc0_ns": 52033.0,
+   "trisc1_ns": 52147.0,
+   "trisc2_ns": 52600.0,
+   "cb_wait_front_ns": 2709055.0,
+   "cb_reserve_back_ns": 435824.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 238,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 46805.0,
+   "kernel_ns_spread": [
+    45025.0,
+    47388.0
+   ],
+   "fw_ns": 136970.0,
+   "gap_ns": 607.0,
+   "core_min_ns": 29585.0,
+   "core_max_ns": 46712.0,
+   "core_avg_ns": 37520.0,
+   "skew_ns": 2163.0,
+   "brisc_ns": 46798.0,
+   "ncrisc_ns": 31859.0,
+   "trisc0_ns": 45737.0,
+   "trisc1_ns": 45025.0,
+   "trisc2_ns": 45951.0,
+   "cb_wait_front_ns": 2071636.0,
+   "cb_reserve_back_ns": 99563.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 239,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 305938.0,
+   "kernel_ns_spread": [
+    305889.0,
+    308052.0
+   ],
+   "fw_ns": 322468.0,
+   "gap_ns": 611.0,
+   "core_min_ns": 301538.0,
+   "core_max_ns": 305831.0,
+   "core_avg_ns": 304387.0,
+   "skew_ns": 1954.0,
+   "brisc_ns": 305931.0,
+   "ncrisc_ns": 22570.0,
+   "trisc0_ns": 285641.0,
+   "trisc1_ns": 302604.0,
+   "trisc2_ns": 302728.0,
+   "cb_wait_front_ns": 612616.0,
+   "cb_reserve_back_ns": 129668.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 240,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 72043.0,
+   "kernel_ns_spread": [
+    71406.0,
+    73698.0
+   ],
+   "fw_ns": 75496.0,
+   "gap_ns": 635.0,
+   "core_min_ns": 43078.0,
+   "core_max_ns": 71441.0,
+   "core_avg_ns": 58678.0,
+   "skew_ns": 1897.0,
+   "brisc_ns": 72043.0,
+   "ncrisc_ns": 22403.0,
+   "trisc0_ns": 37863.0,
+   "trisc1_ns": 37999.0,
+   "trisc2_ns": 38446.0,
+   "cb_wait_front_ns": 594891.0,
+   "cb_reserve_back_ns": 127924.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 241,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 60937.0,
+   "kernel_ns_spread": [
+    58194.0,
+    62498.0
+   ],
+   "fw_ns": 132501.0,
+   "gap_ns": 595.0,
+   "core_min_ns": 52215.0,
+   "core_max_ns": 60884.0,
+   "core_avg_ns": 55968.0,
+   "skew_ns": 1991.0,
+   "brisc_ns": 60924.0,
+   "ncrisc_ns": 58407.0,
+   "trisc0_ns": 58843.0,
+   "trisc1_ns": 60366.0,
+   "trisc2_ns": 59519.0,
+   "cb_wait_front_ns": 2993832.0,
+   "cb_reserve_back_ns": 1944180.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 242,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 90541.0,
+   "kernel_ns_spread": [
+    90124.0,
+    91106.0
+   ],
+   "fw_ns": 98143.0,
+   "gap_ns": 662.0,
+   "core_min_ns": 54329.0,
+   "core_max_ns": 90458.0,
+   "core_avg_ns": 73738.0,
+   "skew_ns": 1553.0,
+   "brisc_ns": 90538.0,
+   "ncrisc_ns": 47748.0,
+   "trisc0_ns": 51503.0,
+   "trisc1_ns": 51598.0,
+   "trisc2_ns": 52052.0,
+   "cb_wait_front_ns": 2669188.0,
+   "cb_reserve_back_ns": 435198.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 243,
+   "op": "ConcatDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 639085.0,
+   "kernel_ns_spread": [
+    630202.0,
+    642319.0
+   ],
+   "fw_ns": 729114.0,
+   "gap_ns": 597.0,
+   "core_min_ns": 467396.0,
+   "core_max_ns": 639042.0,
+   "core_avg_ns": 527245.0,
+   "skew_ns": 1966.0,
+   "brisc_ns": 639075.0,
+   "ncrisc_ns": 638659.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 244,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 820045.0,
+   "kernel_ns_spread": [
+    819238.0,
+    824240.0
+   ],
+   "fw_ns": 991291.0,
+   "gap_ns": 651.0,
+   "core_min_ns": 717326.0,
+   "core_max_ns": 819945.0,
+   "core_avg_ns": 797386.0,
+   "skew_ns": 1973.0,
+   "brisc_ns": 820043.0,
+   "ncrisc_ns": 819284.0,
+   "trisc0_ns": 819307.0,
+   "trisc1_ns": 818128.0,
+   "trisc2_ns": 818821.0,
+   "cb_wait_front_ns": 54443676.0,
+   "cb_reserve_back_ns": 23969808.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 245,
+   "op": "LayerNormDeviceOperation",
+   "cores": 16,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 22049.0,
+   "kernel_ns_spread": [
+    21679.0,
+    22512.0
+   ],
+   "fw_ns": 122610.0,
+   "gap_ns": 697.0,
+   "core_min_ns": 20310.0,
+   "core_max_ns": 21965.0,
+   "core_avg_ns": 21049.0,
+   "skew_ns": 107.0,
+   "brisc_ns": 22036.0,
+   "ncrisc_ns": 11661.0,
+   "trisc0_ns": 20566.0,
+   "trisc1_ns": 19952.0,
+   "trisc2_ns": 20873.0,
+   "cb_wait_front_ns": 184228.0,
+   "cb_reserve_back_ns": 7845.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 246,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 38825.0,
+   "kernel_ns_spread": [
+    38640.0,
+    40935.0
+   ],
+   "fw_ns": 60420.0,
+   "gap_ns": 562.0,
+   "core_min_ns": 21414.0,
+   "core_max_ns": 38043.0,
+   "core_avg_ns": 28802.0,
+   "skew_ns": 2014.0,
+   "brisc_ns": 38810.0,
+   "ncrisc_ns": 14278.0,
+   "trisc0_ns": 20325.0,
+   "trisc1_ns": 20252.0,
+   "trisc2_ns": 20609.0,
+   "cb_wait_front_ns": 546351.0,
+   "cb_reserve_back_ns": 71705.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 247,
+   "op": "NlpCreateHeadsDeviceOperation",
+   "cores": 16,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 31989.0,
+   "kernel_ns_spread": [
+    31941.0,
+    32925.0
+   ],
+   "fw_ns": 71289.0,
+   "gap_ns": 632.0,
+   "core_min_ns": 28698.0,
+   "core_max_ns": 31935.0,
+   "core_avg_ns": 30642.0,
+   "skew_ns": 1886.0,
+   "brisc_ns": 31982.0,
+   "ncrisc_ns": 31053.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 248,
+   "op": "LayerNormDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 928267.0,
+   "kernel_ns_spread": [
+    926606.0,
+    928887.0
+   ],
+   "fw_ns": 960420.0,
+   "gap_ns": 635.0,
+   "core_min_ns": 897751.0,
+   "core_max_ns": 926673.0,
+   "core_avg_ns": 914288.0,
+   "skew_ns": 2126.0,
+   "brisc_ns": 928256.0,
+   "ncrisc_ns": 913373.0,
+   "trisc0_ns": 927083.0,
+   "trisc1_ns": 926411.0,
+   "trisc2_ns": 927328.0,
+   "cb_wait_front_ns": 48737600.0,
+   "cb_reserve_back_ns": 3380188.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 249,
+   "op": "MatmulDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 1053884.0,
+   "kernel_ns_spread": [
+    1053714.0,
+    1057504.0
+   ],
+   "fw_ns": 1083809.0,
+   "gap_ns": 612.0,
+   "core_min_ns": 1030106.0,
+   "core_max_ns": 1053738.0,
+   "core_avg_ns": 1045689.0,
+   "skew_ns": 1911.0,
+   "brisc_ns": 1053874.0,
+   "ncrisc_ns": 1048155.0,
+   "trisc0_ns": 1049453.0,
+   "trisc1_ns": 1049591.0,
+   "trisc2_ns": 1049656.0,
+   "cb_wait_front_ns": 71441141.0,
+   "cb_reserve_back_ns": 1584523.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 250,
+   "op": "PermuteDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 354006.0,
+   "kernel_ns_spread": [
+    349729.0,
+    360799.0
+   ],
+   "fw_ns": 375642.0,
+   "gap_ns": 694.0,
+   "core_min_ns": 296241.0,
+   "core_max_ns": 353889.0,
+   "core_avg_ns": 331180.0,
+   "skew_ns": 1886.0,
+   "brisc_ns": 354006.0,
+   "ncrisc_ns": 340544.0,
+   "trisc0_ns": 340602.0,
+   "trisc1_ns": 339947.0,
+   "trisc2_ns": 349422.0,
+   "cb_wait_front_ns": 22322798.0,
+   "cb_reserve_back_ns": 22814609.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 251,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 123969.0,
+   "kernel_ns_spread": [
+    122432.0,
+    124103.0
+   ],
+   "fw_ns": 183059.0,
+   "gap_ns": 592.0,
+   "core_min_ns": 85837.0,
+   "core_max_ns": 123904.0,
+   "core_avg_ns": 112686.0,
+   "skew_ns": 2025.0,
+   "brisc_ns": 123968.0,
+   "ncrisc_ns": 122883.0,
+   "trisc0_ns": 123276.0,
+   "trisc1_ns": 123066.0,
+   "trisc2_ns": 123107.0,
+   "cb_wait_front_ns": 6756829.0,
+   "cb_reserve_back_ns": 170739.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 252,
+   "op": "TransposeDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 6466.0,
+   "kernel_ns_spread": [
+    6326.0,
+    6786.0
+   ],
+   "fw_ns": 42650.0,
+   "gap_ns": 637.0,
+   "core_min_ns": 2532.0,
+   "core_max_ns": 6321.0,
+   "core_avg_ns": 4866.0,
+   "skew_ns": 1934.0,
+   "brisc_ns": 6453.0,
+   "ncrisc_ns": 5381.0,
+   "trisc0_ns": 5437.0,
+   "trisc1_ns": 4278.0,
+   "trisc2_ns": 5581.0,
+   "cb_wait_front_ns": 219479.0,
+   "cb_reserve_back_ns": 67047.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 253,
+   "op": "MatmulDeviceOperation",
+   "cores": 32,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 100031.0,
+   "kernel_ns_spread": [
+    98877.0,
+    100290.0
+   ],
+   "fw_ns": 101630.0,
+   "gap_ns": 641.0,
+   "core_min_ns": 47720.0,
+   "core_max_ns": 98877.0,
+   "core_avg_ns": 73686.0,
+   "skew_ns": 1903.0,
+   "brisc_ns": 100005.0,
+   "ncrisc_ns": 6211.0,
+   "trisc0_ns": 24178.0,
+   "trisc1_ns": 24764.0,
+   "trisc2_ns": 25301.0,
+   "cb_wait_front_ns": 382448.0,
+   "cb_reserve_back_ns": 23839.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 254,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 108743.0,
+   "kernel_ns_spread": [
+    108576.0,
+    108874.0
+   ],
+   "fw_ns": 208288.0,
+   "gap_ns": 616.0,
+   "core_min_ns": 92759.0,
+   "core_max_ns": 108492.0,
+   "core_avg_ns": 103562.0,
+   "skew_ns": 2005.0,
+   "brisc_ns": 108742.0,
+   "ncrisc_ns": 107991.0,
+   "trisc0_ns": 108018.0,
+   "trisc1_ns": 106779.0,
+   "trisc2_ns": 107494.0,
+   "cb_wait_front_ns": 7020800.0,
+   "cb_reserve_back_ns": 2907278.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 255,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 79459.0,
+   "kernel_ns_spread": [
+    77180.0,
+    82835.0
+   ],
+   "fw_ns": 95133.0,
+   "gap_ns": 604.0,
+   "core_min_ns": 65310.0,
+   "core_max_ns": 78799.0,
+   "core_avg_ns": 72239.0,
+   "skew_ns": 1980.0,
+   "brisc_ns": 79456.0,
+   "ncrisc_ns": 76837.0,
+   "trisc0_ns": 77303.0,
+   "trisc1_ns": 78822.0,
+   "trisc2_ns": 77966.0,
+   "cb_wait_front_ns": 4358056.0,
+   "cb_reserve_back_ns": 3554238.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 256,
+   "op": "SoftmaxDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 220555.0,
+   "kernel_ns_spread": [
+    218966.0,
+    221487.0
+   ],
+   "fw_ns": 234239.0,
+   "gap_ns": 639.0,
+   "core_min_ns": 156334.0,
+   "core_max_ns": 220468.0,
+   "core_avg_ns": 193281.0,
+   "skew_ns": 2031.0,
+   "brisc_ns": 220553.0,
+   "ncrisc_ns": 155037.0,
+   "trisc0_ns": 218251.0,
+   "trisc1_ns": 218310.0,
+   "trisc2_ns": 219085.0,
+   "cb_wait_front_ns": 6945840.0,
+   "cb_reserve_back_ns": 797429.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 257,
+   "op": "MatmulDeviceOperation",
+   "cores": 32,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 81366.0,
+   "kernel_ns_spread": [
+    80672.0,
+    82768.0
+   ],
+   "fw_ns": 145099.0,
+   "gap_ns": 608.0,
+   "core_min_ns": 52727.0,
+   "core_max_ns": 81224.0,
+   "core_avg_ns": 70565.0,
+   "skew_ns": 802.0,
+   "brisc_ns": 81364.0,
+   "ncrisc_ns": 77974.0,
+   "trisc0_ns": 79403.0,
+   "trisc1_ns": 79581.0,
+   "trisc2_ns": 80217.0,
+   "cb_wait_front_ns": 2072477.0,
+   "cb_reserve_back_ns": 83051.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 258,
+   "op": "SliceDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 6824.0,
+   "kernel_ns_spread": [
+    6749.0,
+    7295.0
+   ],
+   "fw_ns": 88082.0,
+   "gap_ns": 553.0,
+   "core_min_ns": 2487.0,
+   "core_max_ns": 6532.0,
+   "core_avg_ns": 4882.0,
+   "skew_ns": 1936.0,
+   "brisc_ns": 6824.0,
+   "ncrisc_ns": 6400.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 259,
+   "op": "TransposeDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 6875.0,
+   "kernel_ns_spread": [
+    6744.0,
+    7271.0
+   ],
+   "fw_ns": 10263.0,
+   "gap_ns": 556.0,
+   "core_min_ns": 2568.0,
+   "core_max_ns": 5642.0,
+   "core_avg_ns": 4437.0,
+   "skew_ns": 2015.0,
+   "brisc_ns": 6868.0,
+   "ncrisc_ns": 6174.0,
+   "trisc0_ns": 6231.0,
+   "trisc1_ns": 5023.0,
+   "trisc2_ns": 5762.0,
+   "cb_wait_front_ns": 206296.0,
+   "cb_reserve_back_ns": 53948.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 260,
+   "op": "ReshapeViewDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "",
+   "kernel_ns": 24041.0,
+   "kernel_ns_spread": [
+    23653.0,
+    24227.0
+   ],
+   "fw_ns": 27369.0,
+   "gap_ns": 560.0,
+   "core_min_ns": 14230.0,
+   "core_max_ns": 23241.0,
+   "core_avg_ns": 19690.0,
+   "skew_ns": 1955.0,
+   "brisc_ns": 24041.0,
+   "ncrisc_ns": 22346.0,
+   "trisc0_ns": 0.0,
+   "trisc1_ns": 0.0,
+   "trisc2_ns": 0.0,
+   "cb_wait_front_ns": 0.0,
+   "cb_reserve_back_ns": 0.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 261,
+   "op": "TransposeDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 5233.0,
+   "kernel_ns_spread": [
+    5200.0,
+    5286.0
+   ],
+   "fw_ns": 13783.0,
+   "gap_ns": 593.0,
+   "core_min_ns": 1804.0,
+   "core_max_ns": 4895.0,
+   "core_avg_ns": 3434.0,
+   "skew_ns": 2005.0,
+   "brisc_ns": 5223.0,
+   "ncrisc_ns": 4093.0,
+   "trisc0_ns": 4156.0,
+   "trisc1_ns": 3118.0,
+   "trisc2_ns": 3957.0,
+   "cb_wait_front_ns": 120149.0,
+   "cb_reserve_back_ns": 20929.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 262,
+   "op": "MatmulDeviceOperation",
+   "cores": 48,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 14063.0,
+   "kernel_ns_spread": [
+    13998.0,
+    15134.0
+   ],
+   "fw_ns": 16039.0,
+   "gap_ns": 683.0,
+   "core_min_ns": 8524.0,
+   "core_max_ns": 14008.0,
+   "core_avg_ns": 11457.0,
+   "skew_ns": 1705.0,
+   "brisc_ns": 14060.0,
+   "ncrisc_ns": 9799.0,
+   "trisc0_ns": 10488.0,
+   "trisc1_ns": 11147.0,
+   "trisc2_ns": 11674.0,
+   "cb_wait_front_ns": 330346.0,
+   "cb_reserve_back_ns": 24520.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 263,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 12229.0,
+   "kernel_ns_spread": [
+    12208.0,
+    12366.0
+   ],
+   "fw_ns": 25804.0,
+   "gap_ns": 596.0,
+   "core_min_ns": 7119.0,
+   "core_max_ns": 12051.0,
+   "core_avg_ns": 9825.0,
+   "skew_ns": 1987.0,
+   "brisc_ns": 12216.0,
+   "ncrisc_ns": 7351.0,
+   "trisc0_ns": 10770.0,
+   "trisc1_ns": 11558.0,
+   "trisc2_ns": 10527.0,
+   "cb_wait_front_ns": 521520.0,
+   "cb_reserve_back_ns": 36884.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 264,
+   "op": "MatmulDeviceOperation",
+   "cores": 48,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 15434.0,
+   "kernel_ns_spread": [
+    15233.0,
+    15890.0
+   ],
+   "fw_ns": 19827.0,
+   "gap_ns": 605.0,
+   "core_min_ns": 10497.0,
+   "core_max_ns": 15154.0,
+   "core_avg_ns": 12509.0,
+   "skew_ns": 1947.0,
+   "brisc_ns": 15434.0,
+   "ncrisc_ns": 9886.0,
+   "trisc0_ns": 10575.0,
+   "trisc1_ns": 11225.0,
+   "trisc2_ns": 11766.0,
+   "cb_wait_front_ns": 360614.0,
+   "cb_reserve_back_ns": 24846.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 265,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 9794.0,
+   "kernel_ns_spread": [
+    9569.0,
+    9902.0
+   ],
+   "fw_ns": 24837.0,
+   "gap_ns": 604.0,
+   "core_min_ns": 2448.0,
+   "core_max_ns": 9524.0,
+   "core_avg_ns": 5874.0,
+   "skew_ns": 2006.0,
+   "brisc_ns": 9786.0,
+   "ncrisc_ns": 9038.0,
+   "trisc0_ns": 9069.0,
+   "trisc1_ns": 5086.0,
+   "trisc2_ns": 7759.0,
+   "cb_wait_front_ns": 317470.0,
+   "cb_reserve_back_ns": 37805.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 266,
+   "op": "LayerNormDeviceOperation",
+   "cores": 16,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 21998.0,
+   "kernel_ns_spread": [
+    21972.0,
+    22132.0
+   ],
+   "fw_ns": 26946.0,
+   "gap_ns": 685.0,
+   "core_min_ns": 20162.0,
+   "core_max_ns": 21792.0,
+   "core_avg_ns": 20797.0,
+   "skew_ns": 2060.0,
+   "brisc_ns": 21979.0,
+   "ncrisc_ns": 12164.0,
+   "trisc0_ns": 20912.0,
+   "trisc1_ns": 20302.0,
+   "trisc2_ns": 21197.0,
+   "cb_wait_front_ns": 181102.0,
+   "cb_reserve_back_ns": 7897.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 267,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 70199.0,
+   "kernel_ns_spread": [
+    70155.0,
+    70538.0
+   ],
+   "fw_ns": 91769.0,
+   "gap_ns": 591.0,
+   "core_min_ns": 66860.0,
+   "core_max_ns": 70099.0,
+   "core_avg_ns": 68781.0,
+   "skew_ns": 1970.0,
+   "brisc_ns": 70197.0,
+   "ncrisc_ns": 11427.0,
+   "trisc0_ns": 60509.0,
+   "trisc1_ns": 69212.0,
+   "trisc2_ns": 69313.0,
+   "cb_wait_front_ns": 487902.0,
+   "cb_reserve_back_ns": 50052.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 268,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 21015.0,
+   "kernel_ns_spread": [
+    19703.0,
+    22209.0
+   ],
+   "fw_ns": 23525.0,
+   "gap_ns": 699.0,
+   "core_min_ns": 18176.0,
+   "core_max_ns": 20931.0,
+   "core_avg_ns": 19089.0,
+   "skew_ns": 1861.0,
+   "brisc_ns": 21013.0,
+   "ncrisc_ns": 10542.0,
+   "trisc0_ns": 18304.0,
+   "trisc1_ns": 18324.0,
+   "trisc2_ns": 18909.0,
+   "cb_wait_front_ns": 433158.0,
+   "cb_reserve_back_ns": 50308.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 269,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 15666.0,
+   "kernel_ns_spread": [
+    14599.0,
+    16182.0
+   ],
+   "fw_ns": 36199.0,
+   "gap_ns": 621.0,
+   "core_min_ns": 10244.0,
+   "core_max_ns": 14120.0,
+   "core_avg_ns": 12136.0,
+   "skew_ns": 1999.0,
+   "brisc_ns": 15652.0,
+   "ncrisc_ns": 13150.0,
+   "trisc0_ns": 13575.0,
+   "trisc1_ns": 15104.0,
+   "trisc2_ns": 14257.0,
+   "cb_wait_front_ns": 565164.0,
+   "cb_reserve_back_ns": 302035.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 270,
+   "op": "MatmulDeviceOperation",
+   "cores": 48,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 30184.0,
+   "kernel_ns_spread": [
+    29640.0,
+    31086.0
+   ],
+   "fw_ns": 33778.0,
+   "gap_ns": 570.0,
+   "core_min_ns": 24119.0,
+   "core_max_ns": 30121.0,
+   "core_avg_ns": 27542.0,
+   "skew_ns": 1980.0,
+   "brisc_ns": 30171.0,
+   "ncrisc_ns": 23035.0,
+   "trisc0_ns": 24304.0,
+   "trisc1_ns": 24948.0,
+   "trisc2_ns": 25491.0,
+   "cb_wait_front_ns": 922701.0,
+   "cb_reserve_back_ns": 230296.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  },
+  {
+   "i": 271,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 72,
+   "in0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fidelity": "HiFi4",
+   "kernel_ns": 9981.0,
+   "kernel_ns_spread": [
+    9540.0,
+    10786.0
+   ],
+   "fw_ns": 39711.0,
+   "gap_ns": 601.0,
+   "core_min_ns": 2476.0,
+   "core_max_ns": 9392.0,
+   "core_avg_ns": 5905.0,
+   "skew_ns": 1983.0,
+   "brisc_ns": 9979.0,
+   "ncrisc_ns": 9220.0,
+   "trisc0_ns": 9241.0,
+   "trisc1_ns": 5282.0,
+   "trisc2_ns": 8293.0,
+   "cb_wait_front_ns": 309776.0,
+   "cb_reserve_back_ns": 40603.0,
+   "flops": 0.0,
+   "math_ns": 0.0
+  }
+ ]
+}
