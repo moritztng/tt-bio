@@ -1123,20 +1123,34 @@ def _atom_window_plan(shape, keys_indexing: ttnn.Tensor):
     return {"K": int(K), "W": W, "n_chunk": n_chunk, "front": front, "back": back, "n_blk": n_blk}
 
 
-def _atom_window_gather(s: ttnn.Tensor, plan: dict) -> ttnn.Tensor:
-    """Gather `s` (B, K, W, D) into its (B, K, H, D) key windows under a plan."""
-    B, K, W, D = s.shape
+def _atom_window_shift(s: ttnn.Tensor, plan: dict) -> ttnn.Tensor:
+    """The gather's sub-tile half: (B, K, W, D) -> (B, n_blk, W, D), shifted by H/2 - W/2.
+
+    Tile-layout pad cannot pad the FRONT of a tensor, so this is the one op in the whole
+    construction that goes through ROW_MAJOR, and it is the only one whose cost is set by the
+    channel count alone. Everything after it is tile-aligned.
+    """
+    B, _K, _W, D = s.shape
     K, W = plan["K"], plan["W"]
-    n_chunk, front, back, n_blk = plan["n_chunk"], plan["front"], plan["back"], plan["n_blk"]
     flat = ttnn.reshape(s, (B, 1, K * W, D))
-    # Tile-layout pad cannot pad the FRONT of a tensor, so the one sub-tile op in the whole
-    # construction goes through ROW_MAJOR. Everything after it is tile-aligned.
     rm = ttnn.to_layout(flat, ttnn.ROW_MAJOR_LAYOUT)
-    rm = ttnn.pad(rm, [[0, 0], [0, 0], [front, back], [0, 0]], 0.0)
+    rm = ttnn.pad(rm, [[0, 0], [0, 0], [plan["front"], plan["back"]], [0, 0]], 0.0)
     p = ttnn.to_layout(rm, ttnn.TILE_LAYOUT, dtype=s.dtype)
     ttnn.deallocate(rm)
-    p = ttnn.reshape(p, (B, n_blk, W, D))
-    out = ttnn.concat([p[:, c:c + K] for c in range(n_chunk)], dim=2)
+    return ttnn.reshape(p, (B, plan["n_blk"], W, D))
+
+
+def _atom_window_blocks(p: ttnn.Tensor, plan: dict) -> ttnn.Tensor:
+    """The gather's tile-aligned half: (B, n_blk, W, D) -> (B, K, H, D), H = n_chunk * W."""
+    K = plan["K"]
+    out = ttnn.concat([p[:, c:c + K] for c in range(plan["n_chunk"])], dim=2)
+    return out
+
+
+def _atom_window_gather(s: ttnn.Tensor, plan: dict) -> ttnn.Tensor:
+    """Gather `s` (B, K, W, D) into its (B, K, H, D) key windows under a plan."""
+    p = _atom_window_shift(s, plan)
+    out = _atom_window_blocks(p, plan)
     ttnn.deallocate(p)
     return out
 
@@ -1148,10 +1162,18 @@ def _atom_window_gather(s: ttnn.Tensor, plan: dict) -> ttnn.Tensor:
 # projects each atom once. It pays for that by gathering 2 * n_heads * head_dim channels instead
 # of D_S; at boltz-2's atom geometry that is 256 against 128.
 #
+# The projection commutes with BOTH halves of the gather, so it goes in the middle: the sub-tile
+# shift runs on D_S channels, the projection on the atom axis, and the tile-aligned block slices
+# on the projected 2 * n_heads * head_dim. That keeps the only op whose cost is set by the channel
+# count on the narrow side. It needs the K/V projection to carry no bias -- the zero rows the shift
+# introduces outside the sequence have to stay zero after it -- which is how the reference defines
+# this projection and what the bit-exactness check below confirms at the production shape.
+#
 # Measured off-fold at the production shape on WH card 9, bf16, HiFi4 (perf/b2z2_atom_next/
-# atom_probe_wh_c9.json): the K/V matmul falls 254.87 -> 66.78 us and the gather grows
-# 169.64 -> 281.28 us, so the pair falls 422.97 -> 348.06 us, 1.21523x, six times a step.
-# **Bit-exact: torch.equal, max abs 0.0**, with a negative control that correctly differs.
+# atom_probe_wh_c9.json): the K/V matmul falls 254.10 -> 67.13 us, the shift stays on 128 channels
+# at 93.52 us instead of growing to 154.51, and the chain falls 424.58 -> 327.65 us, **1.29584x**,
+# six times a step. **Bit-exact: torch.equal against the shipped gather-then-project, max abs 0.0**,
+# with a negative control that correctly differs.
 # Requires the window: with TT_BIO_ATOM_KEY_WINDOW off there is no gather to move across.
 _ATOM_KV_PREPROJ = env_flag("TT_BIO_ATOM_KV_PREPROJ", False)
 
@@ -7167,14 +7189,16 @@ class AttentionPairBias(Module):
             # and projecting each of them H/W times. Same values, a quarter of the matmul.
             kv = None
             if plan is not None and _ATOM_KV_PREPROJ:
+                shifted = _atom_window_shift(s, plan)
                 kv_flat = ttnn.linear(
-                    s,
+                    shifted,
                     self.kv_weight,
                     compute_kernel_config=self.compute_kernel_config,
                     core_grid=CORE_GRID_MAIN,
                     dtype=_dtype(),
                 )
-                kv = _atom_window_gather(kv_flat, plan)
+                ttnn.deallocate(shifted)
+                kv = _atom_window_blocks(kv_flat, plan)
                 ttnn.deallocate(kv_flat)
                 s_kv = None
             elif plan is not None:
