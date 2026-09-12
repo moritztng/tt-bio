@@ -63,6 +63,11 @@
     "block_floor_ms": 20.602252367545432,
     "block_ratio_at_floor": 1.7640692557116768,
     "gb_allowed_at_movement_free": 5.82166442,
-    "byte_cut_needed_pct": 27.674898189904717
+    "byte_cut_needed_pct": 27.674898189904717,
+    "byte_cut_available_pct": 5.17,
+    "gb_after_every_removable_byte": 7.63315119,
+    "byte_bound_ms_after": 19.537115920143332,
+    "block_floor_ms_after": 19.537115920143332,
+    "block_ratio_at_floor_after": 1.8602438634521532
   }
 }

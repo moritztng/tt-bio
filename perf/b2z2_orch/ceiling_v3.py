@@ -78,6 +78,12 @@ BLOCK_MS_TODAY = 36.3438          # wave 1's capture, reproduced on a second ind
 BLOCK_MS_MOVEMENT_FREE = 14.9006  # the stall identity with the input wait zeroed
 BLOCK_GB_PER_CALL = 8.0493        # per program, each operand tensor once -> a LOWER bound
 ROOF_GBPS = 390.7                 # ttnn.clone, read+write, the same currency as the byte count
+# b2z2-trunk-byte-floor censused the block's bytes buffer-keyed (every operand keyed on its device
+# ALLOCATION, not its tensor id) and found how many are redundant rather than how many exist.
+REMOVABLE_BYTE_FRACTION = 0.0517  # 416.3 MB of 8.0493 GB. Everything else is read exactly once:
+                                  # 58.8 % of the traffic is 63 single-use intermediates with one
+                                  # producer and one consumer each, which is program fusion, not
+                                  # redundancy -- and the megakernel already lost 2.9 % on that.
 
 
 def byte_target() -> dict:
@@ -91,6 +97,8 @@ def byte_target() -> dict:
     byte_bound_ms = BLOCK_GB_PER_CALL / ROOF_GBPS * 1000.0
     floor_ms = max(BLOCK_MS_MOVEMENT_FREE, byte_bound_ms)
     gb_allowed = ROOF_GBPS * BLOCK_MS_MOVEMENT_FREE / 1000.0
+    gb_after = BLOCK_GB_PER_CALL * (1.0 - REMOVABLE_BYTE_FRACTION)
+    after_ms = gb_after / ROOF_GBPS * 1000.0
     return {
         "block_ms_today": BLOCK_MS_TODAY,
         "block_gbps_today": BLOCK_GB_PER_CALL / BLOCK_MS_TODAY * 1000.0,
@@ -100,6 +108,11 @@ def byte_target() -> dict:
         "block_ratio_at_floor": BLOCK_MS_TODAY / floor_ms,
         "gb_allowed_at_movement_free": gb_allowed,
         "byte_cut_needed_pct": (1.0 - gb_allowed / BLOCK_GB_PER_CALL) * 100.0,
+        "byte_cut_available_pct": REMOVABLE_BYTE_FRACTION * 100.0,
+        "gb_after_every_removable_byte": gb_after,
+        "byte_bound_ms_after": after_ms,
+        "block_floor_ms_after": max(BLOCK_MS_MOVEMENT_FREE, after_ms),
+        "block_ratio_at_floor_after": BLOCK_MS_TODAY / max(BLOCK_MS_MOVEMENT_FREE, after_ms),
     }
 
 
@@ -194,6 +207,11 @@ def main() -> int:
     print(f"  the byte cut that would make movement-free reachable: "
           f"**{bt['byte_cut_needed_pct']:.1f} %** "
           f"({BLOCK_GB_PER_CALL:.4f} -> {bt['gb_allowed_at_movement_free']:.4f} GB/call)")
+    print(f"  the byte cut that is actually AVAILABLE (measured, b2z2-trunk-byte-floor): "
+          f"**{bt['byte_cut_available_pct']:.2f} %** "
+          f"-> floor {bt['block_floor_ms_after']:.4f} ms = "
+          f"{bt['block_ratio_at_floor_after']:.4f}x on the block")
+    print("  => the roof still binds after every redundant byte in the block is deleted.")
     mf_A = composite(tA, rA, BLOCK_MS_TODAY / BLOCK_MS_MOVEMENT_FREE)
     mf_B = composite(tB, rB, BLOCK_MS_TODAY / BLOCK_MS_MOVEMENT_FREE)
     print(f"  and even a FULLY movement-free trunk, on ONE processor, with the measured stack, is "
