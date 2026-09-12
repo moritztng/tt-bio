@@ -302,6 +302,9 @@ ARMS = {
     "l1r640": {"@_PWA_L1_ROWS": 640},
     "blk384": {"@_PWA_L1_ROWS": 384, "@_PWA_L1_NORM_M": False},
     "blk640": {"@_PWA_L1_ROWS": 640, "@_PWA_L1_NORM_M": False},
+    # The shipped default, and the pre-lever path it has to beat now that it ships on.
+    "derived": {"@_PWA_L1_ROWS": 0},
+    "l1off": {"@_PWA_L1_ROWS": -1},
 }
 
 

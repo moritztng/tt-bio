@@ -419,7 +419,7 @@ _PAIR_L1_CONSUMER_RESERVE = 640 * 1024
 # today. A row count rather than a byte budget because the refusal is what settles it:
 # `_l1_layer_norm` falls back to DRAM if the part will not take it, so a block that is too big
 # costs the blocking overhead and buys nothing, which is exactly what the sweep measures.
-_PWA_L1_ROWS = int(os.environ.get("TT_BIO_PWA_L1_ROWS") or 0)
+_PWA_L1_ROWS = int(os.environ.get("TT_BIO_PWA_L1_ROWS") or 0)   # 0 = derive, -1 = off
 # The residency half of the lever, separable from the blocking half so a screen can price
 # them apart: blocking alone costs `depth/blk - 1` extra row slices and norms and buys
 # nothing, and if the win is not bigger than that cost the residency is not paying.
@@ -3434,22 +3434,34 @@ def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float,
     `reserve_per_core` prices that same need in bytes per core instead, for a caller whose
     consumer's buffers do not grow with the tensor.
     """
-    try:
-        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
-    except Exception:
-        return ttnn.DRAM_MEMORY_CONFIG
+    budget = _l1_budget_bytes(reserve_per_core)
     shape = [int(d) for d in t.shape]
-    if len(shape) < 2:
+    if budget is None or len(shape) < 2:
         return ttnn.DRAM_MEMORY_CONFIG
     volume = 1
     for d in shape[:-2]:
         volume *= d
     volume *= ((shape[-2] + 31) // 32) * 32 * ((shape[-1] + 31) // 32) * 32
     elem = 4 if t.dtype == ttnn.float32 else 2
-    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
-    if headroom * volume * elem <= max(per_core - reserve_per_core, 0) * cores:
+    if headroom * volume * elem <= budget:
         return ttnn.L1_MEMORY_CONFIG
     return ttnn.DRAM_MEMORY_CONFIG
+
+
+def _l1_budget_bytes(reserve_per_core: int = 0) -> int | None:
+    """Interleaved L1 bytes the main grid can hold, or None when the part will not say.
+
+    The same static budget `_l1_memory_config_if_it_fits` decides on, exposed in bytes so a
+    caller can SIZE a block to fit instead of only asking whether a block it already chose
+    does. Static in both uses, and in both the refusal is the real gate: it cannot see what
+    the live block already holds.
+    """
+    try:
+        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:
+        return None
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    return max(per_core - reserve_per_core, 0) * cores
 
 
 # The divisor band the trimul K block is tuned in. `in0_block_w` must divide Kt, and the widest
@@ -4762,6 +4774,39 @@ def pwa_depth_block(depth: int, tokens: int, c_m: int, budget: int | None = None
         return depth
     rows = max(32, (PWA_DEPTH_BUDGET_BYTES // per_row) // 32 * 32)
     return min(depth, rows)
+
+
+def pwa_l1_row_block(depth: int, tokens: int, c_m: int) -> int:
+    """MSA rows per PairWeightedAveraging block, sized so the NORMED block stays in L1.
+
+    The head loop reads the normed rows ``2 * n_heads`` times -- once for each head's ``proj_m``
+    and once for its ``proj_g`` -- so the tensor is worth keeping resident and the whole of it
+    does not fit. Halving the depth until the block passes the same L1 budget
+    `_l1_memory_config_if_it_fits` decides on gives the LARGEST resident block, which is what
+    matters: the blocking is not free, it costs one extra row slice and one extra layer_norm per
+    block, so the fewest blocks that are still resident wins.
+
+    Returns ``depth`` when the whole tensor already fits (nothing to block, the single-shot path
+    is L1-resident as it stands) and when the part will not report a budget. A property of the
+    shape and the grid, never of a model: `PairWeightedAveraging` is shared with protenix-v2 and
+    openfold3 and they get the same rule at their own shapes.
+
+    MEASURED, Wormhole, 1024 padded rows x 512 tokens x c_m 64 (perf/b2z2_msa_move): the rule
+    picks 512 rows, and 512 is the arm that wins a 7-arm sweep -- 1.02583x and 1.02634x on the
+    MSALayer in two independent paired A/Bs against A/A floors of 0.99953x and 1.00088x. Its
+    blocking-only control is 1.01525x, so a little over a third of the win is the residency and
+    the rest is the smaller working set. 640 rows and 384 rows are both worse, and at 640 the
+    residency is net NEGATIVE against its own control, so this is a measured ladder rather than
+    a monotone one.
+    """
+    per_row = tokens * c_m * 2
+    budget = _l1_budget_bytes(_PAIR_L1_CONSUMER_RESERVE)
+    if budget is None or per_row <= 0:
+        return depth
+    rows = depth
+    while rows * per_row > budget and rows >= 64:
+        rows //= 2
+    return max(rows, 32) if rows * per_row <= budget else depth
 
 
 def concat_host_bytes() -> int:
@@ -8640,7 +8685,7 @@ class PairWeightedAveraging(Module):
             # either way -- a memory config cannot regroup a matmul's accumulation, only
             # `in0_block_w` can, and this does not touch it.
             out = (_l1_layer_norm(x, 1.0, _PAIR_L1_CONSUMER_RESERVE, **kw)[0]
-                   if (_PWA_L1_ROWS and _PWA_L1_NORM_M) else ttnn.layer_norm(x, **kw))
+                   if (_PWA_L1_ROWS >= 0 and _PWA_L1_NORM_M) else ttnn.layer_norm(x, **kw))
             if x is not m:
                 ttnn.deallocate(x)
             return out
@@ -8774,8 +8819,8 @@ class PairWeightedAveraging(Module):
         # further from there.
         depth, tokens, c_m = int(m.shape[0]), int(m.shape[1]), int(m.shape[2])
         blk = pwa_depth_block(depth, tokens, c_m)
-        if _PWA_L1_ROWS:
-            blk = min(blk, _PWA_L1_ROWS)
+        if _PWA_L1_ROWS >= 0:
+            blk = min(blk, _PWA_L1_ROWS or pwa_l1_row_block(depth, tokens, c_m))
         cap = _PWA_DEPTH_ROW_CAP.get((depth, tokens))
         if cap is not None:
             blk = min(blk, cap)
