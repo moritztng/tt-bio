@@ -1,0 +1,940 @@
+{
+ "reps": 7,
+ "mesh_n": 2,
+ "cards": "30,31",
+ "protocol": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0
+ },
+ "benchlocked": false,
+ "benchlock_note": "whglx is shared with four other live b2z2 rows and has no host-exclusive benchlock. The defence is pairing and interleaving inside one process; loadavg is recorded per fold and the A/A floor is the guard.",
+ "loadavg_at_start": [
+  "30.01",
+  "20.57",
+  "16.40"
+ ],
+ "folds": [
+  {
+   "arm": "mesh",
+   "fold_s": 137.4258,
+   "trunk_s": 79.0989,
+   "stages": {
+    "diffusion_conditioning_end": 1.4037,
+    "sampler_end": 54.6919,
+    "end": 2.2315,
+    "trunk_s": 79.0989
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 41.64501953125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "shard",
+   "fold_s": 45.2068,
+   "trunk_s": 24.5231,
+   "stages": {
+    "diffusion_conditioning_end": 1.8335,
+    "sampler_end": 16.6385,
+    "end": 2.2118,
+    "trunk_s": 24.5231
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 0,
+   "loadavg": 56.818359375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "bshard",
+   "fold_s": 44.2278,
+   "trunk_s": 25.0247,
+   "stages": {
+    "diffusion_conditioning_end": 1.0757,
+    "sampler_end": 14.6763,
+    "end": 3.4511,
+    "trunk_s": 25.0247
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 264,
+   "loadavg": 46.19775390625,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 56.2032,
+   "trunk_s": 27.7849,
+   "stages": {
+    "diffusion_conditioning_end": 1.4405,
+    "sampler_end": 24.652,
+    "end": 2.3259,
+    "trunk_s": 27.7849
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 53.1484375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "shard",
+   "fold_s": 40.9977,
+   "trunk_s": 24.0564,
+   "stages": {
+    "diffusion_conditioning_end": 0.9252,
+    "sampler_end": 13.8396,
+    "end": 2.1767,
+    "trunk_s": 24.0564
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 0,
+   "loadavg": 42.587890625,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "bshard",
+   "fold_s": 40.0049,
+   "trunk_s": 25.0061,
+   "stages": {
+    "diffusion_conditioning_end": 0.9763,
+    "sampler_end": 11.7228,
+    "end": 2.2998,
+    "trunk_s": 25.0061
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 264,
+   "loadavg": 30.06005859375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 44.556,
+   "trunk_s": 28.1581,
+   "stages": {
+    "diffusion_conditioning_end": 1.6172,
+    "sampler_end": 12.3119,
+    "end": 2.4688,
+    "trunk_s": 28.1581
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 46.01904296875,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 44.6001,
+   "trunk_s": 27.6501,
+   "stages": {
+    "diffusion_conditioning_end": 1.2639,
+    "sampler_end": 13.1232,
+    "end": 2.563,
+    "trunk_s": 27.6501
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 36.1015625,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "bshard",
+   "fold_s": 41.0727,
+   "trunk_s": 25.3782,
+   "stages": {
+    "diffusion_conditioning_end": 1.2073,
+    "sampler_end": 12.4041,
+    "end": 2.0832,
+    "trunk_s": 25.3782
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 264,
+   "loadavg": 29.82080078125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "shard",
+   "fold_s": 42.6776,
+   "trunk_s": 24.1986,
+   "stages": {
+    "diffusion_conditioning_end": 1.3725,
+    "sampler_end": 14.9447,
+    "end": 2.1619,
+    "trunk_s": 24.1986
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 0,
+   "loadavg": 30.615234375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 44.4711,
+   "trunk_s": 27.8937,
+   "stages": {
+    "diffusion_conditioning_end": 1.3894,
+    "sampler_end": 12.7629,
+    "end": 2.4252,
+    "trunk_s": 27.8937
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 28.9365234375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 42.71,
+   "trunk_s": 27.6165,
+   "stages": {
+    "diffusion_conditioning_end": 1.2462,
+    "sampler_end": 11.7898,
+    "end": 2.0576,
+    "trunk_s": 27.6165
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 23.0439453125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "shard",
+   "fold_s": 50.5454,
+   "trunk_s": 24.4657,
+   "stages": {
+    "diffusion_conditioning_end": 1.0443,
+    "sampler_end": 22.4123,
+    "end": 2.6232,
+    "trunk_s": 24.4657
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 0,
+   "loadavg": 46.6611328125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "bshard",
+   "fold_s": 39.349,
+   "trunk_s": 25.5548,
+   "stages": {
+    "diffusion_conditioning_end": 0.9413,
+    "sampler_end": 10.8034,
+    "end": 2.0495,
+    "trunk_s": 25.5548
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 264,
+   "loadavg": 38.3876953125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 42.7357,
+   "trunk_s": 27.5001,
+   "stages": {
+    "diffusion_conditioning_end": 0.9171,
+    "sampler_end": 11.9747,
+    "end": 2.3439,
+    "trunk_s": 27.5001
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 34.0869140625,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 54.895,
+   "trunk_s": 27.8085,
+   "stages": {
+    "diffusion_conditioning_end": 0.8899,
+    "sampler_end": 23.3746,
+    "end": 2.823,
+    "trunk_s": 27.8085
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 43.8203125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "bshard",
+   "fold_s": 42.1967,
+   "trunk_s": 25.9308,
+   "stages": {
+    "diffusion_conditioning_end": 1.4497,
+    "sampler_end": 12.6791,
+    "end": 2.1372,
+    "trunk_s": 25.9308
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 264,
+   "loadavg": 35.1552734375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "shard",
+   "fold_s": 40.463,
+   "trunk_s": 24.5377,
+   "stages": {
+    "diffusion_conditioning_end": 1.6317,
+    "sampler_end": 12.0555,
+    "end": 2.2382,
+    "trunk_s": 24.5377
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 0,
+   "loadavg": 30.00390625,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 47.8195,
+   "trunk_s": 27.7469,
+   "stages": {
+    "diffusion_conditioning_end": 0.8337,
+    "sampler_end": 14.1274,
+    "end": 5.1116,
+    "trunk_s": 27.7469
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 38.6142578125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 46.5237,
+   "trunk_s": 29.786,
+   "stages": {
+    "diffusion_conditioning_end": 1.04,
+    "sampler_end": 13.3772,
+    "end": 2.3207,
+    "trunk_s": 29.786
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 48.8095703125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "shard",
+   "fold_s": 40.414,
+   "trunk_s": 24.3281,
+   "stages": {
+    "diffusion_conditioning_end": 0.9157,
+    "sampler_end": 12.7956,
+    "end": 2.3748,
+    "trunk_s": 24.3281
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 0,
+   "loadavg": 40.47021484375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "bshard",
+   "fold_s": 39.5762,
+   "trunk_s": 25.6827,
+   "stages": {
+    "diffusion_conditioning_end": 1.0209,
+    "sampler_end": 10.7483,
+    "end": 2.1243,
+    "trunk_s": 25.6827
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 264,
+   "loadavg": 31.32666015625,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 42.8685,
+   "trunk_s": 27.6043,
+   "stages": {
+    "diffusion_conditioning_end": 1.1614,
+    "sampler_end": 11.7465,
+    "end": 2.3565,
+    "trunk_s": 27.6043
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 27.48486328125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 46.4425,
+   "trunk_s": 27.8009,
+   "stages": {
+    "diffusion_conditioning_end": 1.2351,
+    "sampler_end": 14.6046,
+    "end": 2.802,
+    "trunk_s": 27.8009
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 34.7783203125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "bshard",
+   "fold_s": 40.7062,
+   "trunk_s": 26.9829,
+   "stages": {
+    "diffusion_conditioning_end": 0.8862,
+    "sampler_end": 10.71,
+    "end": 2.1272,
+    "trunk_s": 26.9829
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 264,
+   "loadavg": 24.63134765625,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "shard",
+   "fold_s": 47.7201,
+   "trunk_s": 24.4337,
+   "stages": {
+    "diffusion_conditioning_end": 1.3092,
+    "sampler_end": 19.8266,
+    "end": 2.1508,
+    "trunk_s": 24.4337
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 0,
+   "loadavg": 27.14306640625,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 42.8579,
+   "trunk_s": 27.7259,
+   "stages": {
+    "diffusion_conditioning_end": 0.9809,
+    "sampler_end": 11.9165,
+    "end": 2.2347,
+    "trunk_s": 27.7259
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 27.94580078125,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 47.9838,
+   "trunk_s": 27.5472,
+   "stages": {
+    "diffusion_conditioning_end": 1.6572,
+    "sampler_end": 15.9233,
+    "end": 2.859,
+    "trunk_s": 27.5472
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 41.75927734375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "shard",
+   "fold_s": 42.1425,
+   "trunk_s": 24.9791,
+   "stages": {
+    "diffusion_conditioning_end": 1.5219,
+    "sampler_end": 13.542,
+    "end": 2.0996,
+    "trunk_s": 24.9791
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 0,
+   "loadavg": 43.49365234375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "bshard",
+   "fold_s": 45.0517,
+   "trunk_s": 25.0976,
+   "stages": {
+    "diffusion_conditioning_end": 1.6073,
+    "sampler_end": 15.764,
+    "end": 2.5829,
+    "trunk_s": 25.0976
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 264,
+   "b_shard": 264,
+   "loadavg": 34.8662109375,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  {
+   "arm": "mesh",
+   "fold_s": 43.6564,
+   "trunk_s": 27.8987,
+   "stages": {
+    "diffusion_conditioning_end": 1.0651,
+    "sampler_end": 12.4315,
+    "end": 2.2611,
+    "trunk_s": 27.8987
+   },
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "chain": 0,
+   "b_shard": 0,
+   "loadavg": 30.5390625,
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  }
+ ],
+ "model_load_s": 13.3,
+ "device": "MeshDevice(1x2 grid, 2 devices)",
+ "n_devices": 2,
+ "cold": {
+  "mesh": {
+   "fold_s": 137.4258,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  "shard": {
+   "fold_s": 45.2068,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  },
+  "bshard": {
+   "fold_s": 44.2278,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "rungs": {
+    "_L1_OUT_RUNG": {
+     "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)": 6
+    },
+    "_BMM_CFG_RUNG": {},
+    "_BMM_CFG_REFUSED": [],
+    "_OPM_JOIN_REFUSED": {}
+   }
+  }
+ },
+ "summary": {
+  "median": {
+   "mesh": {
+    "fold_s": 44.578,
+    "trunk_s": 27.7659
+   },
+   "shard": {
+    "fold_s": 42.1425,
+    "trunk_s": 24.4337
+   },
+   "bshard": {
+    "fold_s": 40.7062,
+    "trunk_s": 25.5548
+   }
+  },
+  "ratios_vs_mesh": {
+   "shard": {
+    "fold_s": 1.05779,
+    "trunk_s": 1.13638
+   },
+   "bshard": {
+    "fold_s": 1.09512,
+    "trunk_s": 1.08652
+   }
+  },
+  "bshard_vs_shard": {
+   "fold_s": 1.03528,
+   "trunk_s": 0.95613
+  },
+  "aa_floor": {
+   "fold_s": {
+    "median": 0.92143,
+    "max": 1.0006,
+    "min": 0.79277,
+    "pairs": [
+     0.7927662481851566,
+     0.9971076298035206,
+     1.0006017326153125,
+     0.8711084798251206,
+     0.9214335919112194,
+     0.9228163858534747,
+     0.9098153960294932
+    ]
+   },
+   "trunk_s": {
+    "median": 0.99778,
+    "max": 1.01343,
+    "min": 0.92675
+   }
+  },
+  "cif_sha256_16": [
+   "da476491dbb2a847"
+  ],
+  "bit_identical_across_all_arms_and_reps": true,
+  "loadavg_range": [
+   23.0439453125,
+   53.1484375
+  ]
+ },
+ "row_shard_calls_total": {
+  "chain": 4224,
+  "b_shard": 2112,
+  "extents": {
+   "512x512x128": 4224
+  }
+ }
+}
