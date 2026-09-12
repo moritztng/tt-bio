@@ -1,0 +1,11 @@
+{
+ "unit": "PairformerLayer",
+ "size": 512,
+ "repeats": 3,
+ "grid": "13-10",
+ "wall_ms": [
+  40.485,
+  39.974,
+  40.463
+ ]
+}
