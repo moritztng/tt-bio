@@ -1,0 +1,39 @@
+{
+ "block": [
+  8,
+  2,
+  2,
+  2,
+  2
+ ],
+ "grid": [
+  8,
+  8
+ ],
+ "inner": 32,
+ "reps": 9,
+ "arms": {
+  "mm_1": {
+   "ms": 0.07369,
+   "x_mm_1": 1.0,
+   "spread_pct": 2.21
+  },
+  "mm_1_aa": {
+   "ms": 0.07378,
+   "x_mm_1": 1.0013,
+   "spread_pct": 1.27
+  },
+  "loop_p1": {
+   "ms": 0.07452,
+   "x_mm_1": 1.0114,
+   "spread_pct": 6.25
+  },
+  "loop_p2": {
+   "ms": 0.36267,
+   "x_mm_1": 4.9218,
+   "spread_pct": 0.45
+  },
+  "second_pass_ms": 0.28815,
+  "loop_overhead_p1_ms": 0.00083
+ }
+}

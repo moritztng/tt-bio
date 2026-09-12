@@ -1,0 +1,101 @@
+{
+ "block": [
+  8,
+  2,
+  2,
+  2,
+  2
+ ],
+ "grid": [
+  8,
+  8
+ ],
+ "inner": 32,
+ "reps": 9,
+ "arms": {
+  "incumbent": {
+   "ms": 0.44698,
+   "x_mm_1": 6.0636,
+   "ratio_vs_incumbent": 1.0,
+   "spread_pct": 0.28
+  },
+  "mm_1": {
+   "ms": 0.07372,
+   "x_mm_1": 1.0,
+   "ratio_vs_incumbent": 6.0636,
+   "spread_pct": 46.94
+  },
+  "mm_1_aa": {
+   "ms": 0.07396,
+   "x_mm_1": 1.0033,
+   "ratio_vs_incumbent": 6.0435,
+   "spread_pct": 27.65
+  },
+  "mm_2": {
+   "ms": 0.32478,
+   "x_mm_1": 4.4059,
+   "ratio_vs_incumbent": 1.3762,
+   "spread_pct": 110.17
+  },
+  "p1": {
+   "ms": 0.07489,
+   "x_mm_1": 1.0159,
+   "ratio_vs_incumbent": 5.9687,
+   "spread_pct": 17.59
+  },
+  "p2_diag": {
+   "ms": 0.36212,
+   "x_mm_1": 4.9125,
+   "ratio_vs_incumbent": 1.2343,
+   "spread_pct": 0.63
+  },
+  "p2_nosilu_diag": {
+   "ms": 0.09954,
+   "x_mm_1": 1.3504,
+   "ratio_vs_incumbent": 4.4903,
+   "spread_pct": 30.28
+  },
+  "real": {
+   "ms": 0.39209,
+   "x_mm_1": 5.319,
+   "ratio_vs_incumbent": 1.14,
+   "spread_pct": 0.71,
+   "bit_exact_vs_real": true,
+   "pcc_vs_incumbent": 0.9999983,
+   "max_abs_vs_incumbent": 0.00391,
+   "same_arithmetic": true
+  },
+  "real_nosilu": {
+   "ms": 0.12734,
+   "x_mm_1": 1.7275,
+   "ratio_vs_incumbent": 3.5101,
+   "spread_pct": 1.38,
+   "bit_exact_vs_real": false,
+   "pcc_vs_incumbent": 0.9722869,
+   "max_abs_vs_incumbent": 0.82422,
+   "same_arithmetic": false
+  },
+  "real_bf16silu": {
+   "ms": 0.26947,
+   "x_mm_1": 3.6556,
+   "ratio_vs_incumbent": 1.6587,
+   "spread_pct": 2.56,
+   "bit_exact_vs_real": false,
+   "pcc_vs_incumbent": 0.9999975,
+   "max_abs_vs_incumbent": 0.00391,
+   "same_arithmetic": false
+  },
+  "real_appx": {
+   "ms": 0.16764,
+   "x_mm_1": 2.2741,
+   "ratio_vs_incumbent": 2.6663,
+   "spread_pct": 1.29,
+   "bit_exact_vs_real": false,
+   "pcc_vs_incumbent": 0.9998784,
+   "max_abs_vs_incumbent": 0.02734,
+   "same_arithmetic": false
+  },
+  "twopass_vs_two_matmuls": 0.3065,
+  "second_pass_ms_p2_diag": 0.28723
+ }
+}

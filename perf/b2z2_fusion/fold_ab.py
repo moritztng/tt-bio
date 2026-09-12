@@ -7,6 +7,10 @@ recorded next to the fold wall so a null on the fold can be told apart from a le
 
   base    main's defaults: silu fused into ttnn.linear, no fused SwiGLU kernel.
   swiglu  tt_bio/transition_swiglu.py ON. Same arithmetic in one kernel, PCC 0.9999983 on the chunk.
+  swiglu_bf16  the same kernel with TRIMUL_TAIL_SILU 4: the LLK silu at bf16 accuracy instead of
+          fp32. The activation is 67.7 % of the fused chunk and the accuracy it is computed at is
+          discarded by the pack in the next instruction (`perf/b2z2_fusion/pass_split.py`).
+  swiglu_appx  TRIMUL_TAIL_SILU 5: x * sigmoid(x) with the SFPU's 6-entry LUT sigmoid.
   usilu   TT_BIO_UNFUSED_SILU's path: ttnn.linear with no activation, then ttnn.silu. Already in
           main, default off, release-gated. PCC 0.9999949 on the chunk.
 
