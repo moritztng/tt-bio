@@ -1,0 +1,33 @@
+benchlock: b2z-integrate waiting; currently held by: worker:b2z-host-residual-kill pid=228209 since=2026-09-12T10:17:56+00:00
+benchlock: b2z-integrate acquired after 0s, loadavg 1.54 1.98 1.98
+[plan] {
+ "arms": {
+  "base": [],
+  "steps50": [
+   [
+    "cfg",
+    "sampling_steps",
+    50
+   ]
+  ]
+ },
+ "order": [
+  "base",
+  "steps50"
+ ],
+ "reps": 5,
+ "folds_incl_warmup": 12,
+ "combined": null,
+ "fixture": "cdk2x2_512",
+ "control": "cdk2x2_298"
+}
+2026-09-12 10:21:48.556 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[defaults] {}
+[defaults] cfg levers resolved after build_cfg: cfg:sampling_steps
+[defaults:cfg] {
+ "sampling_steps": 200
+}
+[warmup] one fold per arm, discarded (program cache, per-arm shapes)
+arm 'base' asked for 200 sampling steps but the diffusion loop ran 191. The protocol lever did not reach the live model -- model.predict_args is what predict_step reads. Refusing to report a ratio from a fold that did not run the protocol it claims.
+benchlock: b2z-integrate released, rc=1, loadavg 2.52 2.18 2.04

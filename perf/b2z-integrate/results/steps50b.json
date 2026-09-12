@@ -1,0 +1,58 @@
+{
+ "plan": {
+  "arms": {
+   "base": [],
+   "steps50": [
+    [
+     "cfg",
+     "sampling_steps",
+     50
+    ]
+   ]
+  },
+  "order": [
+   "base",
+   "steps50"
+  ],
+  "reps": 5,
+  "folds_incl_warmup": 12,
+  "combined": null,
+  "fixture": "cdk2x2_512",
+  "control": "cdk2x2_298"
+ },
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "3",
+  "lease_cards": "3",
+  "grid": [
+   11,
+   10
+  ],
+  "torch": "2.8.0+cpu",
+  "arch": "Arch.BLACKHOLE",
+  "tt_bio_file": "/home/ttuser/wt-b2z-orch/tt_bio/__init__.py",
+  "started_utc": "2026-09-12T10:21:49Z",
+  "loadavg": [
+   1.544921875,
+   1.984375,
+   1.978515625
+  ],
+  "shipped_defaults": {
+   "cfg:sampling_steps": "None"
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "diffusion_trace": false,
+   "fixture": "cdk2x2_512",
+   "control": "cdk2x2_298"
+  },
+  "ttnn": "0.68.0"
+ },
+ "cfg_defaults": {
+  "sampling_steps": 200
+ },
+ "model_load_s": 2.451
+}

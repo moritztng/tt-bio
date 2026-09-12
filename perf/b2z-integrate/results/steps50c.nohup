@@ -1,0 +1,117 @@
+benchlock: b2z-integrate acquired after 0s, loadavg 0.85 1.75 1.90
+[plan] {
+ "arms": {
+  "base": [],
+  "steps50": [
+   [
+    "cfg",
+    "sampling_steps",
+    50
+   ]
+  ]
+ },
+ "order": [
+  "base",
+  "steps50"
+ ],
+ "reps": 5,
+ "folds_incl_warmup": 12,
+ "combined": null,
+ "fixture": "cdk2x2_512",
+ "control": "cdk2x2_298"
+}
+2026-09-12 10:23:21.762 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[defaults] {}
+[defaults] cfg levers resolved after build_cfg: cfg:sampling_steps
+[defaults:cfg] {
+ "sampling_steps": 200
+}
+[warmup] one fold per arm, discarded (program cache, per-arm shapes)
+  warm base          20.092s shape=(512, 4128, 4480) cif dd1c2a12f97772fb
+  warm steps50       16.100s shape=(512, 4128, 4480) cif b28623b5f7e294ff
+  rep0 base          19.693s sampler 5.282 26.54ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.51
+  rep0 steps50       16.099s sampler 1.6539 35.3148ms/step plddt 0.88361 cif b28623b5f7e294ff load 1.39
+  rep1 base          19.693s sampler 5.2665 26.4467ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.42
+  rep1 steps50       16.107s sampler 1.6577 35.4027ms/step plddt 0.88361 cif b28623b5f7e294ff load 1.3
+  rep2 base          19.661s sampler 5.2688 26.4704ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.21
+  rep2 steps50       16.096s sampler 1.6469 35.1631ms/step plddt 0.88361 cif b28623b5f7e294ff load 1.17
+  rep3 base          19.719s sampler 5.2593 26.4202ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.12
+  rep3 steps50       16.138s sampler 1.6536 35.3028ms/step plddt 0.88361 cif b28623b5f7e294ff load 1.24
+  rep4 base          19.870s sampler 5.4489 27.4115ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.69
+  rep4 steps50       16.108s sampler 1.6516 35.3118ms/step plddt 0.88361 cif b28623b5f7e294ff load 2.09
+
+[AA floor] {"base_folds": [19.693, 19.693, 19.661, 19.719, 19.87], "position_medians_s": [19.693], "fold_AA_ratio": null, "fold_spread_pct": 1.06}
+[summary] {
+ "base": {
+  "n": 5,
+  "fold_s": 19.693,
+  "folds": [
+   19.693,
+   19.693,
+   19.661,
+   19.719,
+   19.87
+  ],
+  "sampler_s": 5.2688,
+  "ms_per_step": 26.4704,
+  "trunk_s": 12.2271,
+  "confidence_s": 1.2288,
+  "shape": [
+   512,
+   4128,
+   4480
+  ],
+  "cif_sha256": [
+   "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+  ],
+  "plddt": [
+   0.845488
+  ]
+ },
+ "steps50": {
+  "n": 5,
+  "fold_s": 16.107,
+  "folds": [
+   16.099,
+   16.107,
+   16.096,
+   16.138,
+   16.108
+  ],
+  "sampler_s": 1.6536,
+  "ms_per_step": 35.3118,
+  "trunk_s": 12.2642,
+  "confidence_s": 1.226,
+  "shape": [
+   512,
+   4128,
+   4480
+  ],
+  "cif_sha256": [
+   "b28623b5f7e294ffd40727a8b8fc66f41140138dc01e2f15b9d27b1d61350102"
+  ],
+  "plddt": [
+   0.88361
+  ],
+  "paired_ratios": [
+   1.22324,
+   1.22264,
+   1.22148,
+   1.2219,
+   1.23355
+  ],
+  "paired_speedup": 1.22264,
+  "median_speedup": 1.22264,
+  "fold_saved_s": 3.586,
+  "bit_exact_vs_base": false
+ }
+}
+
+[control] cdk2x2_298
+  base_0          12.319s shape=(298, 2400, 2688) plddt 0.913597 cif 5be7dda326485303
+  steps50_0        8.415s shape=(298, 2400, 2688) plddt 0.913695 cif f940345f88d8e002
+  base_1          12.231s shape=(298, 2400, 2688) plddt 0.913597 cif 5be7dda326485303
+
+wrote /home/ttuser/wt-b2z-orch/perf/b2z-integrate/steps50c.json
+benchlock: b2z-integrate released, rc=0, loadavg 2.43 1.85 1.88
