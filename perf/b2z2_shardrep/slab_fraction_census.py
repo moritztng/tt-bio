@@ -37,7 +37,7 @@ from tt_bio import reference as ref  # noqa: E402
 from tt_bio import tenstorrent as tt  # noqa: E402
 
 S = int(os.environ.get("SLABC_S", "512"))
-FRACTIONS = [int(x) for x in os.environ.get("SLABC_F", "1,2,4,8").split(",")]
+FRACTIONS = [int(x) for x in os.environ.get("SLABC_F", "2,4,8,16").split(",")]
 REPS = int(os.environ.get("SLABC_REPS", "9"))
 WARM = int(os.environ.get("SLABC_WARM", "2"))
 OUT_PATH = os.environ.get("SLABC_OUT", f"/tmp/b2z2_slabcensus_{S}.json")
@@ -112,6 +112,20 @@ def s_track():
     return u2
 
 
+# f=1 is NOT on the ladder and must not be put back. A full-range `row_slab` makes `_slab_take`
+# fall through to `ttnn.slice(t, [0...], [full...])`, which hands back the INPUT tensor, and the op
+# then deallocates it as its own -- so timing the 1/1 point frees the caller's `z` and its mask
+# under the next op. Measured: it throws "Buffer is not allocated" on the first rep. The f=1 point
+# that matters is the whole-tensor call below anyway, which is the path an unsharded block runs and
+# the denominator the campaign's ratios are taken against.
+WHOLE = {
+    "trimul_start": lambda: layer.triangle_multiplication_start(Z, MASK),
+    "trimul_end": lambda: layer.triangle_multiplication_end(Z, MASK),
+    "triatt_start": lambda: layer.triangle_attention_start(Z, ATTN),
+    "triatt_end": lambda: layer.triangle_attention_end(Z, ATTN),
+    "transition_z": lambda: layer.transition_z(Z),
+}
+
 OPS = {
     "trimul_start": lambda r: layer.triangle_multiplication_start(Z, MASK, row_slab=(0, r)),
     "trimul_end": lambda r: layer.triangle_multiplication_end(Z, MASK, row_slab=(0, r)),
@@ -131,6 +145,9 @@ for f in FRACTIONS:
     log(f"--- fraction 1/{f}: {r} of {S} output rows per device ---")
     RES["by_fraction"][str(f)] = {name: timed(lambda fn=fn, r=r: fn(r), name)
                                   for name, fn in OPS.items()}
+
+log("--- the whole-tensor call of each op: the unsharded path, and the denominator ---")
+RES["whole_op"] = {name: timed(fn, f"whole {name}") for name, fn in WHOLE.items()}
 
 log("--- the s track, which no width changes ---")
 RES["s_track"] = timed(s_track, "s_track")
@@ -183,11 +200,12 @@ for name in OPS:
     xs = [1.0 / f for f in got]
     ys = [RES["by_fraction"][str(f)][name]["median_ms"] for f in got]
     A, B, r2 = fit(xs, ys)
-    RES["fit"][name] = {"A_ms": A, "B_ms": B, "r2": r2,
-                        "replicated_pct_of_op": 100 * A / (A + B) if A + B else 0.0}
+    w = RES["whole_op"][name]["median_ms"]
+    RES["fit"][name] = {"A_ms": A, "B_ms": B, "r2": r2, "whole_op_ms": w,
+                        "replicated_pct_of_whole_op": 100 * A / w if w else 0.0}
     A_sum += A
     log(f"fit {name:14s} A {A:8.3f} ms  B {B:8.3f} ms  R2 {r2:7.4f}  "
-        f"replicated {100*A/(A+B):5.1f} % of the op")
+        f"whole {w:8.3f} ms  A is {100*A/w:5.1f} % of the whole op")
 A_sum += RES["s_track"]["median_ms"]
 RES["fit"]["_A_total_ms"] = A_sum
 RES["fit"]["_A_total_incl_s_track"] = True
