@@ -1,0 +1,46 @@
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "fixture": "cdk2x2_512",
+ "folds": [
+  {
+   "tag": "cold",
+   "wall_s": 57.2926,
+   "epoch_start": 1789207154.9791846,
+   "epoch_end": 1789207212.2717407,
+   "cif_sha256": "dd1c2a12f97772fb"
+  },
+  {
+   "tag": "warm0",
+   "wall_s": 21.1318,
+   "epoch_start": 1789207212.2728598,
+   "epoch_end": 1789207233.4046288,
+   "cif_sha256": "dd1c2a12f97772fb"
+  },
+  {
+   "tag": "warm1",
+   "wall_s": 20.1929,
+   "epoch_start": 1789207233.4050386,
+   "epoch_end": 1789207253.5979757,
+   "cif_sha256": "dd1c2a12f97772fb"
+  },
+  {
+   "tag": "warm2",
+   "wall_s": 20.0728,
+   "epoch_start": 1789207253.5983806,
+   "epoch_end": 1789207273.6711357,
+   "cif_sha256": "dd1c2a12f97772fb"
+  }
+ ],
+ "model_load_s": 3.858,
+ "compute_grid": [
+  11,
+  10
+ ],
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "compute_grid_measured": true,
+ "warm_median_s": 20.1929
+}
