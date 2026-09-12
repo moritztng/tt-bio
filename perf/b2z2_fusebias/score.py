@@ -61,15 +61,18 @@ def pair(a, b, split: int) -> dict:
     rots = {}
     for tag, sel in (("domain1", "d1"), ("domain2", "d2")):
         idx = a[sel]
+        if not len(idx):                       # 298 aa is one pseudo-domain, not two
+            continue
         R, r = kabsch(a["xyz"][idx], b["xyz"][idx])
         rots[tag] = R
         out[f"{tag}_all_atom_A"] = r
-        cidx = np.array([i for i in a["ca"] if i in set(idx.tolist())])
+        cidx = np.array([i for i in a["ca"] if i in set(idx.tolist())], dtype=int)
         out[f"{tag}_ca_A"] = kabsch_rmsd(a["xyz"][cidx], b["xyz"][cidx])
     n1, n2 = len(a["d1"]), len(a["d2"])
     out["hinge_deg"] = angle_between(rots["domain1"], rots["domain2"]) if n2 else 0.0
     out["hinge_free_all_atom_A"] = math.sqrt(
-        (n1 * out["domain1_all_atom_A"] ** 2 + n2 * out["domain2_all_atom_A"] ** 2) / (n1 + n2))
+        (n1 * out["domain1_all_atom_A"] ** 2
+         + n2 * out.get("domain2_all_atom_A", 0.0) ** 2) / (n1 + n2))
     # lDDT is superposition-free, so it is the one number the hinge cannot move. Whole chain
     # first, then each domain on its own CA set.
     _pr, out["lddt_ca"] = lddt_per_residue(a["xyz"][a["ca"]], b["xyz"][b["ca"]])
