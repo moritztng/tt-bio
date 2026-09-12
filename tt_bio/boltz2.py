@@ -1161,9 +1161,12 @@ def _block_pairwise() -> bool:
 
 
 def _fuse_bias_stacks() -> bool:
-    # NOT bit-exact (see _fuse_bias_stack), so off by default until the cdk2x2_298 control has
-    # run. Read per call for the same reason as _host_levers: an A/B flips arms inside one
-    # process.
+    # Not bit-exact (see _fuse_bias_stack). Its structural control has run and passed -- cdk2x2_298
+    # all-atom 0.218 A against a 0.000 A A/A floor, bar 0.35 A, plDDT unchanged to 0.0026 -- so
+    # what keeps it off by default is not Boltz-2 but the second call site: boltzgen's
+    # diffusion_conditioning has the identical three stacks, this flag would change it too, and
+    # BoltzGen's control is a design run. Read per call for the same reason as _host_levers: an
+    # A/B flips arms inside one process.
     return _host_levers() and env_flag("TT_BIO_FUSE_BIAS_STACKS", False)
 
 
