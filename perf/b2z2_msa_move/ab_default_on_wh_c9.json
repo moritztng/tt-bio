@@ -1,0 +1,96 @@
+{
+ "env": {
+  "started": "2026-09-12T21:21:40+0000",
+  "card": "9",
+  "mode": "ab",
+  "size": 512,
+  "label": "",
+  "commit": "41f25d46",
+  "profiler": "0",
+  "ttnn": "/home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/__init__.py",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "9",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-msa-movement-attack",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "18.33",
+   "21.71",
+   "15.30"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "precursor_s": 7.32,
+ "msalayer_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   1024,
+   512,
+   64
+  ],
+  "None",
+  "None",
+  [
+   1024,
+   1,
+   1
+  ],
+  "35"
+ ],
+ "padded_rows": 1024,
+ "tokens": 512,
+ "ab": {
+  "reps": 3,
+  "blocks": 4,
+  "ms": {
+   "l1off": 231.7345,
+   "l1off#1": 231.8418,
+   "derived": 225.8557,
+   "l1r512": 225.9444
+  },
+  "all_ms": {
+   "l1off": [
+    231.6082,
+    231.778,
+    231.8421,
+    231.691
+   ],
+   "l1off#1": [
+    231.9151,
+    231.8761,
+    231.8076,
+    231.6059
+   ],
+   "derived": [
+    225.8911,
+    225.9204,
+    225.7912,
+    225.8204
+   ],
+   "l1r512": [
+    225.7861,
+    225.9459,
+    225.9429,
+    225.9833
+   ]
+  },
+  "ratio_vs_base": {
+   "l1off": 1.0,
+   "l1off#1": 0.99954,
+   "derived": 1.02603,
+   "l1r512": 1.02563
+  }
+ }
+}

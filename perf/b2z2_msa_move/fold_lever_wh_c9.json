@@ -1,0 +1,122 @@
+{
+ "env": {
+  "started": "2026-09-12T21:22:45+0000",
+  "card": "9",
+  "mode": "fold",
+  "size": 512,
+  "label": "",
+  "commit": "41f25d46",
+  "profiler": "0",
+  "ttnn": "/home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/__init__.py",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "9",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-msa-movement-attack",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "21.52",
+   "21.94",
+   "15.84"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "cold_fold_s": 85.4802,
+ "folds": [
+  {
+   "fold_s": 40.9763,
+   "msalayer_calls": 16,
+   "msalayer_ms": [
+    231.339,
+    224.989,
+    224.582,
+    224.762,
+    224.357,
+    224.143,
+    224.211,
+    224.116,
+    224.165,
+    224.523,
+    224.214,
+    224.333,
+    224.397,
+    224.231,
+    225.067,
+    224.596
+   ],
+   "msalayer_total_ms": 3598.026,
+   "msa_module_calls": 4,
+   "msa_module_total_ms": 3612.739,
+   "padded_rows": [
+    1024
+   ],
+   "track_pct_of_fold": 8.817
+  },
+  {
+   "fold_s": 40.9526,
+   "msalayer_calls": 16,
+   "msalayer_ms": [
+    232.496,
+    224.11,
+    224.208,
+    224.51,
+    224.165,
+    224.816,
+    224.415,
+    224.598,
+    224.049,
+    224.779,
+    224.093,
+    224.491,
+    224.106,
+    224.31,
+    224.549,
+    225.057
+   ],
+   "msalayer_total_ms": 3598.753,
+   "msa_module_calls": 4,
+   "msa_module_total_ms": 3613.836,
+   "padded_rows": [
+    1024
+   ],
+   "track_pct_of_fold": 8.824
+  },
+  {
+   "fold_s": 41.1073,
+   "msalayer_calls": 16,
+   "msalayer_ms": [
+    231.117,
+    224.387,
+    224.717,
+    224.578,
+    223.783,
+    224.161,
+    224.461,
+    224.754,
+    223.913,
+    224.102,
+    224.857,
+    224.718,
+    224.059,
+    224.5,
+    224.145,
+    224.298
+   ],
+   "msalayer_total_ms": 3596.551,
+   "msa_module_calls": 4,
+   "msa_module_total_ms": 3611.606,
+   "padded_rows": [
+    1024
+   ],
+   "track_pct_of_fold": 8.786
+  }
+ ],
+ "fold_median_s": 40.9763,
+ "track_median_s": 3.6127,
+ "track_pct_median": 8.817,
+ "layer_ms_median": 224.406
+}
