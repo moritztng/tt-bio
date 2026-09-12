@@ -1,5 +1,5 @@
 {
-  "cell_s": 20.079,
+  "cell_s": 20.113,
   "trunk_keep": 0.4099901496266213,
   "trunk_movement_free_x": 2.439082989946714,
   "sampler_keep": 0.608896,
@@ -36,9 +36,9 @@
     "saving_block_basis_s": 1.6420723666285215,
     "saving_stage_basis_s": 1.9705993106642687,
     "fold_on_mesh_s": 18.051700689335732,
-    "fold_on_mesh_x": 1.1123051697761597,
+    "fold_on_mesh_x": 1.1141886488225459,
     "fold_on_single_s": 17.797100689335732,
-    "fold_on_single_x": 1.1282174748851994
+    "fold_on_single_x": 1.1301278984195435
   },
   "open_levers": {
     "diffusion step: fuse short programs": {
@@ -49,9 +49,9 @@
       "size": 0.0796,
       "basis": "on the block; the loop is 2.5x two standalone matmuls before it multiplies anything, 0.14057 vs 0.0555 ms (b2z2-fusion-rebuild MODE 2)."
     },
-    "unfused silu (kill REFUTED, needs its BH four-seed read)": {
-      "size": 0.02747,
-      "basis": "on the fold; ttnn.linear(activation=silu) is 4.3x the same matmul without it. The 0.805 A kill was one whole-molecule reading: the same committed BH CIFs read 0.3358/0.3576 A per pseudo-domain (b2z2-unfused-silu-recover). WH fold 1.0308x, BH 1.02747x, 0.3 % apart. Falsifier fired at 1 seed of 4 (1.553 A, hinge basin), below the floor's worst 1.830 A."
+    "diffusion step: the atom key window (BUILT, WH-measured, no BH number)": {
+      "size": 0.0744,
+      "basis": "on the step. b2z2-step-program-fusion replaced get_indexing_matrix's matmul with the contiguous slice it approximates: step 41.6014 -> 38.7190 ms on WH, fold BIT-IDENTICAL in all six runs (CIF da476491dbb2a847). It is the first piece of the short-program lever above to be built. TT_BIO_ATOM_KEY_WINDOW defaults OFF and has never run on Blackhole; b2z2-bh-union-clean takes it."
     }
   },
   "crosscheck": {
@@ -64,26 +64,32 @@
   ],
   "contested": {
     "unfused silu": {
-      "fold_ratio": 1.02747,
-      "status": "kill REFUTED; BH four-seed read outstanding (b2z2-silu-bh-land)",
+      "fold_ratio": 1.02283,
+      "status": "kill OVERTURNED and the lever is GO on the cell: b2z2-silu-bh-land took the Blackhole four-seed read, no clause fired, 0.449 s/fold measured end to end (0.449 s on the 20.113 s cell = 1.02283x). The 1.02747x this line used to carry was b2z2-fusion-rebuild's independent BH figure, 0.5 % away.",
       "overlaps": "the silu cost itself -- MUTUALLY EXCLUSIVE with swiglu_bf16, which makes the same silu cheaper instead of moving it out of the kernel"
     },
     "HOST (device conditioning)": {
       "fold_ratio": 1.06704,
-      "status": "kill CONTESTED, not yet re-scored (b2z2-killed-levers-rescore)",
+      "status": "kill OVERTURNED on parity (b2z2-killed-levers-rescore: 0.580 / 0.403 A per pseudo-domain against a 0.60 A bar, where the whole-molecule reading said 0.7714 A). The TIMING is still unsettled: 1.06704x was taken in a session with a 1.02155x A/A floor and a 10.58 % arm spread on a contended box. b2z2-bh-union-clean is re-taking it clean.",
       "overlaps": "contains _fuse_bias_stack's collapse, which is ALREADY on main inside the banked 1.00814x -- so its marginal value is below 1.06704x by an unmeasured amount"
     },
     "MSA depth ladder": {
       "fold_ratio": 1.0465,
-      "status": "kill CONTESTED, not yet re-scored (b2z2-killed-levers-rescore)",
+      "status": "kill UPHELD. Re-scored per pseudo-domain it still fails: 0.709 / 0.565 A, over the 0.60 A bar on domain 1 (b2z2-killed-levers-rescore). Kept in the table with its size so the envelope below stays an upper bound.",
       "overlaps": "the MSA track; disjoint from the trunk and sampler levers as far as anyone has measured"
     }
   },
   "contested_envelope": {
-    "banked_on_main": 1.00814,
-    "host_marginal": 1.0584244251790424,
-    "upper_if_all_resurrect": 1.1473319376792002,
-    "with_trunk_shard": 1.276162086010451,
+    "banked_on_main": 1.00383,
+    "banked_bracket": [
+      1.00383,
+      1.00814
+    ],
+    "host_marginal": 1.0629688293834614,
+    "upper_surviving_rescores": 1.0914005232,
+    "upper_if_msa_also_granted": 1.1421506475288,
+    "upper_if_all_resurrect": 1.0914005232,
+    "with_trunk_shard": 1.2160059119832485,
     "note": "multiplicative and therefore optimistic; every stacked pair in this campaign has measured below its product"
   }
 }

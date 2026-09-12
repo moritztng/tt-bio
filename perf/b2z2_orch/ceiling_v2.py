@@ -130,13 +130,15 @@ OPEN_LEVERS = {
     "fused Pairformer two-pass loop at matmul parity":
         (0.0796, "on the block; the loop is 2.5x two standalone matmuls before it multiplies "
                  "anything, 0.14057 vs 0.0555 ms (b2z2-fusion-rebuild MODE 2)."),
-    "unfused silu (kill REFUTED, needs its BH four-seed read)":
-        (0.02747, "on the fold; ttnn.linear(activation=silu) is 4.3x the same matmul without it. "
-                  "The 0.805 A kill was one whole-molecule reading: the same committed BH CIFs "
-                  "read 0.3358/0.3576 A per pseudo-domain (b2z2-unfused-silu-recover). WH fold "
-                  "1.0308x, BH 1.02747x, 0.3 % apart. Falsifier fired at 1 seed of 4 (1.553 A, "
-                  "hinge basin), below the floor's worst 1.830 A."),
+    "diffusion step: the atom key window (BUILT, WH-measured, no BH number)":
+        (0.0744, "on the step. b2z2-step-program-fusion replaced get_indexing_matrix's matmul "
+                 "with the contiguous slice it approximates: step 41.6014 -> 38.7190 ms on WH, "
+                 "fold BIT-IDENTICAL in all six runs (CIF da476491dbb2a847). It is the first "
+                 "piece of the short-program lever above to be built. TT_BIO_ATOM_KEY_WINDOW "
+                 "defaults OFF and has never run on Blackhole; b2z2-bh-union-clean takes it."),
 }
+# Retired from this table on 2026-09-12 pass 31 because they are no longer open:
+#   unfused silu -- BUILT and GO on the cell, now in CONTESTED above at its measured 1.02283x.
 
 
 # ---------------------------------------------------------------------------------------------
@@ -151,22 +153,41 @@ OPEN_LEVERS = {
 CONTESTED = {
     # name: (fold ratio, status, what it overlaps with)
     "unfused silu": (
-        1.02747, "kill REFUTED; BH four-seed read outstanding (b2z2-silu-bh-land)",
+        1.02283, "kill OVERTURNED and the lever is GO on the cell: b2z2-silu-bh-land took the "
+                 "Blackhole four-seed read, no clause fired, 0.449 s/fold measured end to end "
+                 "(0.449 s on the 20.113 s cell = 1.02283x). The 1.02747x this line used to carry "
+                 "was b2z2-fusion-rebuild's independent BH figure, 0.5 % away.",
         "the silu cost itself -- MUTUALLY EXCLUSIVE with swiglu_bf16, which makes the same silu "
         "cheaper instead of moving it out of the kernel"),
     "HOST (device conditioning)": (
-        1.06704, "kill CONTESTED, not yet re-scored (b2z2-killed-levers-rescore)",
+        1.06704, "kill OVERTURNED on parity (b2z2-killed-levers-rescore: 0.580 / 0.403 A per "
+                 "pseudo-domain against a 0.60 A bar, where the whole-molecule reading said "
+                 "0.7714 A). The TIMING is still unsettled: 1.06704x was taken in a session with "
+                 "a 1.02155x A/A floor and a 10.58 % arm spread on a contended box. "
+                 "b2z2-bh-union-clean is re-taking it clean.",
         "contains _fuse_bias_stack's collapse, which is ALREADY on main inside the banked "
         "1.00814x -- so its marginal value is below 1.06704x by an unmeasured amount"),
     "MSA depth ladder": (
-        1.04650, "kill CONTESTED, not yet re-scored (b2z2-killed-levers-rescore)",
+        1.04650, "kill UPHELD. Re-scored per pseudo-domain it still fails: 0.709 / 0.565 A, "
+                 "over the 0.60 A bar on domain 1 (b2z2-killed-levers-rescore). Kept in the table "
+                 "with its size so the envelope below stays an upper bound.",
         "the MSA track; disjoint from the trunk and sampler levers as far as anyone has measured"),
 }
 # swiglu_bf16 is deliberately absent from the fold table. It is 1.6587x on the CHUNK, but the
 # kernel it lives in is 1.00406x on the fold, so quoting its chunk ratio at fold scale would be
 # the subunit-vs-container error. Its fold value is unmeasured. Say so rather than guess it.
 
-BANKED_ON_MAIN = 1.00814      # b2z-levers-default-on, fold, n=3 interleaved, A/A floor zero
+# What main's three shipped levers are actually worth on the fold. Two paired sessions disagree
+# on SIZE and agree on DIRECTION, and neither resolves -- see CONTEXT 1-CORRECTION-D.
+#   1.00814x  b2z-levers-default-on, n=3 interleaved, A/A floor zero (20.054 -> 19.892 s)
+#   1.00383x  b2z-perfpage-recell @ 84da2a49b, n=6 interleaved, benchlock, loadavg 1.92,
+#             levers-off control 20.190 s vs shipped default 20.113 s, levered arm won 6/6 pairs
+# The second is the better measurement (twice the n, a control on the same tree, a quiet box), so
+# it is the point estimate; the first is the top of the bracket. BANKED_ON_MAIN is used only to
+# charge HOST's overlap with _fuse_bias_stack once, and taking the SMALLER value subtracts less,
+# which keeps contested_envelope() an upper bound.
+BANKED_LO, BANKED_HI = 1.00383, 1.00814
+BANKED_ON_MAIN = BANKED_LO
 
 
 def contested_envelope() -> dict:
@@ -188,8 +209,16 @@ def contested_envelope() -> dict:
     # HOST already contains part of what main banks; charge that part once by dividing it out.
     host_marginal = host / BANKED_ON_MAIN
     # silu and swiglu_bf16 are exclusive; take the one that is measured.
-    upper = BANKED_ON_MAIN * host_marginal * msa * silu
-    return {"banked_on_main": BANKED_ON_MAIN, "host_marginal": host_marginal,
+    # MSA's kill was re-scored per pseudo-domain and UPHELD (0.709 A on domain 1), so it is not a
+    # resurrection candidate any more. Report the envelope both ways: the hypothetical one that
+    # grants it anyway, and the one that only grants what actually survived re-scoring. The second
+    # is the decision-relevant number and it is the one to quote.
+    upper_hypothetical = BANKED_ON_MAIN * host_marginal * msa * silu
+    upper = BANKED_ON_MAIN * host_marginal * silu
+    return {"banked_on_main": BANKED_ON_MAIN, "banked_bracket": [BANKED_LO, BANKED_HI],
+            "host_marginal": host_marginal,
+            "upper_surviving_rescores": upper,
+            "upper_if_msa_also_granted": upper_hypothetical,
             "upper_if_all_resurrect": upper,
             "with_trunk_shard": upper * (CELL_S / 18.052),
             "note": "multiplicative and therefore optimistic; every stacked pair in this campaign "
@@ -259,9 +288,12 @@ def main() -> int:
         print(f"  {r:.5f}x  {k:<28} {status}")
     print(f"  HOST's marginal value once main's banked {BANKED_ON_MAIN:.5f}x is charged only once:"
           f" {ce['host_marginal']:.5f}x")
-    print(f"  UPPER BOUND if every contested kill is overturned: {ce['upper_if_all_resurrect']:.4f}x"
-          f"  (optimistic: multiplicative, and every stacked pair this campaign measured came in"
-          f" under its product)")
+    print(f"  UPPER BOUND on what survived re-scoring (HOST + unfused silu, MSA's kill upheld):"
+          f" {ce['upper_surviving_rescores']:.4f}x")
+    print(f"    granting MSA as well, which its re-score does NOT support: "
+          f"{ce['upper_if_msa_also_granted']:.4f}x")
+    print(f"    both optimistic: multiplicative, and every stacked pair this campaign measured"
+          f" came in under its product")
     print(f"  With the trunk shard on top: "
           f"{ce['upper_if_all_resurrect'] * (CELL_S / 18.052):.4f}x -- still under 2x.")
 
