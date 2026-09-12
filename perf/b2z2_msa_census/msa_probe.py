@@ -287,6 +287,7 @@ ARMS = {
     "h32": {"TT_BIO_TRANSITION_H_CHUNK": "32"},
     "h64": {"TT_BIO_TRANSITION_H_CHUNK": "64"},
     "batchw": {"@_PWA_BATCH_HEAD_WEIGHTS": True},
+    "perhead": {"@_PWA_BATCH_HEAD_WEIGHTS": False},   # the pre-lever base, now that it ships on
 }
 
 

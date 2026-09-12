@@ -395,7 +395,7 @@ _PWA_L1_NORM = True
 # of reads against a 67.1 MB source, plus eight permutes, eight softmaxes and fourteen tiny
 # weight-slice retiles. One projection over the whole weight gives every head at once.
 # Gated only on the heads fitting one tile, which is a property of the shape, not of a model.
-_PWA_BATCH_HEAD_WEIGHTS = env_flag("TT_BIO_PWA_BATCH_HEAD_WEIGHTS", False)
+_PWA_BATCH_HEAD_WEIGHTS = env_flag("TT_BIO_PWA_BATCH_HEAD_WEIGHTS", True)
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
 # projection. The wall is per core, and an aggregate multiple of the tensor cannot see it: the
 # tensor scales with its area, its consumers' static circular buffers scale with the row width.
@@ -8660,6 +8660,13 @@ class PairWeightedAveraging(Module):
             not depend on the MSA depth and a chunked path computes it once for every block."""
             return _softmax_over_tokens(_proj_z(self.z_weight[:, i : i + 1]))
 
+        def _batch_head_weights():
+            # A property of the shape, never a model name: the batching is correct at any head
+            # count, but it is only FREE while every head's column still lands in the one 32-wide
+            # tile the per-head call already paid for. Above that it would widen the output and
+            # the saving would have to be re-measured.
+            return _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
+
         def token_weights():
             """Every head's token softmax, from ONE projection of the pair tensor.
 
@@ -8724,7 +8731,7 @@ class PairWeightedAveraging(Module):
             written to the accumulator instead of to a new buffer.
             """
             acc = None
-            own = token_weights() if (not ws and _PWA_BATCH_HEAD_WEIGHTS) else None
+            own = token_weights() if (not ws and _batch_head_weights()) else None
             for i in range(self.n_heads):
                 w = ws[i] if ws else (own[i] if own else token_weight(i))
                 o = head_out(mc, i, w)
@@ -8758,7 +8765,7 @@ class PairWeightedAveraging(Module):
             if not ws:
                 # Depth-independent, so eight [1, tokens, tokens] weights (2.4 MB each at 1088
                 # tokens) are computed once and reused by every block, not once per block.
-                ws.extend(token_weights() if _PWA_BATCH_HEAD_WEIGHTS
+                ws.extend(token_weights() if _batch_head_weights()
                           else [token_weight(i) for i in range(self.n_heads)])
             host = _host_concat(m)
             parts = []
