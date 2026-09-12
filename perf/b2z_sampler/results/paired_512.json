@@ -1,0 +1,47 @@
+{
+ "runs": [],
+ "env": {
+  "host": "j10glx02",
+  "card": "7",
+  "git_head": "3963799b927d6670d1c612493a1e3f8c620e2989",
+  "ttnn": "0.68.0",
+  "target": "cdk2x2_512",
+  "arms": [
+   [
+    200,
+    3
+   ],
+   [
+    100,
+    3
+   ],
+   [
+    50,
+    3
+   ],
+   [
+    25,
+    3
+   ],
+   [
+    50,
+    2
+   ],
+   [
+    200,
+    2
+   ]
+  ],
+  "reps": 5,
+  "started": "2026-09-12T10:01:19+0000",
+  "timed_region": "predict_one (featurise + fold + CIF write)",
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "aiclk_mhz": "1000"
+ },
+ "cold_s": 48.742
+}
