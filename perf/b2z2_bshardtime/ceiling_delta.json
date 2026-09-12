@@ -1,0 +1,35 @@
+{
+ "cell_s": 20.113,
+ "cap_block": {
+  "shard": 2.299,
+  "bshard": 2.801
+ },
+ "cap_block_free": {
+  "shard": 2.99,
+  "bshard": 4.845
+ },
+ "fold": {
+  "cap_fold": {
+   "shard": 1.7386601217088486,
+   "bshard": 1.8602712451752956,
+   "move": 1.069945311304961
+  },
+  "cap_fold_calibrated": {
+   "shard": 1.695677088456391,
+   "bshard": 1.8197618365745956,
+   "move": 1.073177109582321
+  }
+ },
+ "seconds": {
+  "cap_fold": {
+   "shard": 11.568103362393716,
+   "bshard": 10.811864158070522
+  },
+  "cap_fold_calibrated": {
+   "shard": 11.861338539585546,
+   "bshard": 11.052545226390414
+  }
+ },
+ "wh_to_bh_shard_calibration": 1.0694940285712538,
+ "source": "origin/wk/b2z2-orchestrator:perf/b2z2_orch/ceiling_v3.py"
+}
