@@ -18,16 +18,19 @@ _DIR = os.environ.get("TT_BIO_PICK_CENSUS_DIR")
 if _DIR:
     CALLS = Counter()
 
+    PATCHED = [False]
+
     def _dump():
-        if not CALLS:
-            return
+        # Writes even with nothing recorded, on purpose: a missing file and a file saying zero
+        # are different diagnoses, and the first Boltz-2 census could not tell them apart.
         rows = []
         for (q, k, w, cap, rule, c), n in CALLS.items():
             rows.append({"q_len": q, "k_len": k, "work": w, "calls": n, "cores": c,
                          "shipped_chunk": cap, "rule_chunk": rule, "moves": cap != rule})
         os.makedirs(_DIR, exist_ok=True)
         with open(os.path.join(_DIR, f"picks_{os.getpid()}.json"), "w") as fh:
-            json.dump({"pid": os.getpid(), "argv": sys.argv[:6], "sdpa_calls": rows}, fh, indent=1)
+            json.dump({"pid": os.getpid(), "argv": sys.argv[:6], "patched": PATCHED[0],
+                       "sdpa_calls": rows}, fh, indent=1)
 
     def _patch(T):
         orig = T._sdpa_program_config_for_lengths
@@ -41,6 +44,7 @@ if _DIR:
 
         wrapped.cache_clear = getattr(orig, "cache_clear", lambda: None)
         T._sdpa_program_config_for_lengths = wrapped
+        PATCHED[0] = True
         for name in ("tt_bio.esmc", "tt_bio.esmfold2", "tt_bio.saprot"):
             m = sys.modules.get(name)
             if m is not None and hasattr(m, "_sdpa_program_config_for_lengths"):
