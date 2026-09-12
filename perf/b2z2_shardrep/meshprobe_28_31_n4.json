@@ -1,0 +1,23 @@
+{
+ "mesh_n": 4,
+ "rows": 1,
+ "visible": "28,29,30,31",
+ "arch": "Arch.WORMHOLE_B0",
+ "open_s": 4.34,
+ "desc": "/tmp/b2z2_meshdesc/mesh_1x4_wormhole_b0.textproto",
+ "gather": {
+  "per_device_exact": [
+   true,
+   true,
+   true,
+   true
+  ],
+  "shape": [
+   4,
+   256,
+   128
+  ],
+  "max_abs_diff": 0.0,
+  "cold_call_ms": 85.06
+ }
+}
