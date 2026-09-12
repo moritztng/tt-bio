@@ -1,0 +1,127 @@
+{
+ "doc": "Is the shared `layer_norm(s)` safe at 512 aa? The folds that question needs.\n\n`BOLTZ2_ADALN_SHARED_SNORM` normalises the token stack's `s` once instead of once per AdaLN and\ncarries each site's `s_norm.weight` in the projection that consumes it. Exact in real arithmetic,\nNOT bit-exact in bf16. At one AdaLN, against an fp32 reference of the same weights and the same\nreal `s`, the folded form is the more accurate of the two (0.00246 vs 0.00255 relative rms on\n`s_scale`, 0.00294 vs 0.00306 on `s_bias`, and the worst layer improves 0.00356 -> 0.00277), so\nwhat this run has to settle is whether a 0.25 %-sized change 24 layers deep reaches the structure.\n\nThis is `perf/b2z2_fusebias/fold_seeds.py` with one line changed: the arm is a module global read\nper call (`tt_bio.tenstorrent._B2_ADALN_SHARED_SNORM`), not an environment variable, so both arms\nshare a device, a program cache and a model load exactly as they do there. Everything else --\nthe fixtures, the MSA seeding, the per-size plan, the A/A repeat as the last fold -- is that row's\nand is unmodified, and the CIFs it writes are scored by that row's `score.py`, not by a new one.\n\n    fold_seeds_snorm.py --out <json> --cifdir <dir> [--seeds 0,1] [--sizes 512,298]\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "torch": "2.14.0+cu130",
+  "tt_visible_devices": "11",
+  "tt_bio_file": "/home/tt-admin/wt/b2z2-step-layernorm-fusion/tt_bio/__init__.py",
+  "commit": "cb0ca285eb851cea9141a7d372adf8d9ceb11c99",
+  "started_utc": "2026-09-12T19:26:20Z",
+  "loadavg": [
+   6.6943359375,
+   7.111328125,
+   6.59228515625
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "seeds": [
+    0,
+    1
+   ],
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 44.136,
+   "sha256": "da476491dbb2a847",
+   "plddt": 0.802815,
+   "tag": "off-s0"
+  },
+  {
+   "arm": "on",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 40.886,
+   "sha256": "0ea366e20afd17ef",
+   "plddt": 0.79985,
+   "tag": "on-s0"
+  },
+  {
+   "arm": "off",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 41.533,
+   "sha256": "9fa548f2b5da1f18",
+   "plddt": 0.814333,
+   "tag": "off-s1"
+  },
+  {
+   "arm": "on",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 40.618,
+   "sha256": "31e260c95f540f9c",
+   "plddt": 0.815306,
+   "tag": "on-s1"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 41.055,
+   "sha256": "da476491dbb2a847",
+   "plddt": 0.802815,
+   "tag": "off-s0_r1"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 73.12,
+   "sha256": "8af5840b8f08fa44",
+   "plddt": 0.913019,
+   "tag": "off-s0"
+  },
+  {
+   "arm": "on",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 23.923,
+   "sha256": "e69582faa0a06db2",
+   "plddt": 0.912609,
+   "tag": "on-s0"
+  },
+  {
+   "arm": "off",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 22.833,
+   "sha256": "d1e107ab6c995775",
+   "plddt": 0.917371,
+   "tag": "off-s1"
+  },
+  {
+   "arm": "on",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 23.854,
+   "sha256": "1e96fdfc5f71b6e7",
+   "plddt": 0.918017,
+   "tag": "on-s1"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 22.757,
+   "sha256": "8af5840b8f08fa44",
+   "plddt": 0.913019,
+   "tag": "off-s0_r1"
+  }
+ ],
+ "model_load_s": 5.742,
+ "aa_floor_identical": {
+  "512": true,
+  "298": true
+ }
+}

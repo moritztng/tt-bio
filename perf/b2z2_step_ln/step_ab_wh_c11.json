@@ -1,0 +1,149 @@
+{
+ "env": {
+  "started": "2026-09-12T19:23:21+0000",
+  "card": "11",
+  "mode": "time",
+  "size": 512,
+  "commit": "09904060",
+  "profiler": "0",
+  "flags": {
+   "TT_BIO_LEASE_CARDS": "11",
+   "TT_BIO_LEASE_HOLDER": "worker:b2z2-step-layernorm-fusion",
+   "TT_BIO_TRACE_REGION_SIZE": "536870912"
+  },
+  "loadavg": [
+   "9.04",
+   "7.14",
+   "6.47"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3
+ },
+ "precursor_s": 13.455,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "seq": [
+  [
+   "base",
+   42.1473
+  ],
+  [
+   "arm",
+   39.9956
+  ],
+  [
+   "base",
+   41.5768
+  ],
+  [
+   "arm",
+   40.0064
+  ],
+  [
+   "base",
+   41.5696
+  ],
+  [
+   "arm",
+   40.017
+  ],
+  [
+   "base",
+   41.5618
+  ],
+  [
+   "arm",
+   39.9961
+  ],
+  [
+   "base",
+   41.5766
+  ],
+  [
+   "arm",
+   40.0037
+  ]
+ ],
+ "step": {
+  "ms": {
+   "base": 41.5766,
+   "arm": 40.0037
+  },
+  "all": {
+   "base": [
+    42.1473,
+    41.5768,
+    41.5696,
+    41.5618,
+    41.5766
+   ],
+   "arm": [
+    39.9956,
+    40.0064,
+    40.017,
+    39.9961,
+    40.0037
+   ]
+  },
+  "spread_pct": {
+   "base": 1.408,
+   "arm": 0.053
+  },
+  "ratio": 1.03932,
+  "aa_floor_base": 1.01409,
+  "aa_floor_arm": 1.00054,
+  "reps": 10,
+  "blocks": 5
+ }
+}
