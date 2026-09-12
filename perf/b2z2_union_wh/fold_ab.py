@@ -35,7 +35,9 @@ ARMS = {
     "S":     (False, False, False, True),
     "L1":    (False, False, True,  False),
     "GK":    (True,  True,  False, False),
+    "SK":    (False, True,  False, True),
     "UNION": (True,  True,  True,  False),
+    "SUNION": (False, True,  True,  True),
 }
 OUT: dict = {}
 OUT_PATH: Path | None = None
@@ -51,7 +53,7 @@ def main() -> int:
     global OUT_PATH
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--arms", default="base,UNION")
+    ap.add_argument("--arms", default="base,SUNION")
     ap.add_argument("--reps", type=int, default=6)
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--recycles", type=int, default=3)

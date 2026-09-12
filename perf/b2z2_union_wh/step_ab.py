@@ -41,7 +41,9 @@ ARMS = {
     "S":     (False, False, False, True),
     "L1":    (False, False, True,  False),
     "GK":    (True,  True,  False, False),
+    "SK":    (False, True,  False, True),
     "UNION": (True,  True,  True,  False),
+    "SUNION": (False, True,  True,  True),
 }
 
 
@@ -52,7 +54,7 @@ def set_arm(T, arm):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--arms", default="base,G,S,L1,GK,UNION")
+    ap.add_argument("--arms", default="base,G,S,L1,GK,SK,UNION,SUNION")
     ap.add_argument("--reps", type=int, default=10)
     ap.add_argument("--blocks", type=int, default=5)
     ap.add_argument("--size", type=int, default=512)
@@ -214,15 +216,19 @@ def main() -> int:
     out["arm_min_max"] = {arm: [round(min(vals(arm)), 4), round(max(vals(arm)), 4)]
                           for arm in arms}
     r = out["ratio_vs_base"]
+    out["product_of_singles"], out["union_discount_pct"] = {}, {}
+    for gather, kvp, union in (("G", "GK", "UNION"), ("S", "SK", "SUNION")):
+        if all(k in r for k in (gather, "L1", kvp, union)):
+            singles = r[gather] * r["L1"] * (r[kvp] / r[gather])
+            out["product_of_singles"][union] = round(singles, 5)
+            out["union_discount_pct"][union] = round(100 * (singles - r[union]) / singles, 3)
     if all(k in r for k in ("G", "L1", "GK", "UNION")):
-        singles = r["G"] * r["L1"] * (r["GK"] / r["G"])
-        out["product_of_singles_this_session"] = round(singles, 5)
-        out["union_discount_pct"] = round(100 * (singles - r["UNION"]) / singles, 3)
+        out["product_of_singles_this_session"] = out["product_of_singles"]["UNION"]
     if "S" in r and "G" in r:
         out["shift_vs_window"] = round(r["S"] / r["G"], 5)
     out["env"]["loadavg_end"] = open("/proc/loadavg").read().split()[:3]
     a.out.write_text(json.dumps(out, indent=1))
-    for k in ("median_ms", "ratio_vs_base", "aa_floor", "product_of_singles_this_session",
+    for k in ("median_ms", "ratio_vs_base", "aa_floor", "product_of_singles",
               "union_discount_pct", "shift_vs_window", "arm_min_max"):
         if k in out:
             print(k.upper(), json.dumps(out[k]), flush=True)

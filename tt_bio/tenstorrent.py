@@ -1255,17 +1255,16 @@ def _atom_gather_shift_windows(ki):
     return real if torch.equal(ki, want) else None
 
 
-def _atom_shift_gather(s: "ttnn.Tensor", windows: int,
-                       memory_config: "ttnn.MemoryConfig | None" = None) -> "ttnn.Tensor":
-    """The centred key window as four window-axis slices, no matmul and no permutes.
+def _atom_shift_shift(s: "ttnn.Tensor", windows: int,
+                      memory_config: "ttnn.MemoryConfig | None" = None) -> "ttnn.Tensor":
+    """The gather's sub-tile half: (b, k, w, d) -> (b, k + H/w, w, d), shifted back by 48 rows.
 
     One misaligned op survives: the 48-row shift, which is 48 % 32 != 0 and so cannot be a tile
     boundary move. It goes through ROW_MAJOR on 1.2 MB. A tiled `ttnn.pad` with the same front
     padding was also measured and did not reproduce the matmul path, so it is not used.
 
-    `windows` bounds both ends of the bucket. The source is cut there so a key window straddling
-    the boundary picks up zeros for the padded half exactly as the one-hot did, and the output is
-    padded back out on the window axis so the padded windows gather nothing at all.
+    `windows` cuts the source at the real window count, so a key window straddling the bucket
+    boundary picks up zeros for its padded half exactly as the one-hot did.
     """
     b, k, w, d = s.shape
     pieces = ATOM_DIM // w
@@ -1277,11 +1276,31 @@ def _atom_shift_gather(s: "ttnn.Tensor", windows: int,
     shifted = ttnn.pad(rm, [(0, 0), (0, 0), (ATOM_KEY_SHIFT, tail), (0, 0)], 0.0)
     ttnn.deallocate(rm)
     shifted = ttnn.to_layout(shifted, ttnn.TILE_LAYOUT, dtype=s.dtype)
-    src = ttnn.reshape(shifted, (b, k + pieces, w, d), memory_config=memory_config)
+    return ttnn.reshape(shifted, (b, k + pieces, w, d), memory_config=memory_config)
+
+
+def _atom_shift_blocks(src: "ttnn.Tensor", k: int, windows: int,
+                       memory_config: "ttnn.MemoryConfig | None" = None) -> "ttnn.Tensor":
+    """The gather's tile-aligned half: (b, k + H/w, w, d) -> (b, k, H, d).
+
+    The window axis is padded back out past `windows` so the bucket's padded windows gather
+    nothing at all, which is what the one-hot's zero columns did.
+    """
+    pieces = ATOM_DIM // int(src.shape[2])
     out = ttnn.concat([src[:, j:j + windows] for j in range(pieces)], dim=2,
                       memory_config=memory_config)
     if windows < k:
         out = ttnn.pad(out, [(0, 0), (0, k - windows), (0, 0), (0, 0)], 0.0)
+    return out
+
+
+def _atom_shift_gather(s: "ttnn.Tensor", windows: int,
+                       memory_config: "ttnn.MemoryConfig | None" = None) -> "ttnn.Tensor":
+    """The centred key window as four window-axis slices, no matmul and no permutes."""
+    k = int(s.shape[1])
+    src = _atom_shift_shift(s, windows, memory_config)
+    out = _atom_shift_blocks(src, k, windows, memory_config)
+    ttnn.deallocate(src)
     return out
 
 
@@ -7328,7 +7347,22 @@ class AttentionPairBias(Module):
             # Project once per atom and gather the projection, rather than gathering the atoms
             # and projecting each of them H/W times. Same values, a quarter of the matmul.
             kv = None
-            if plan is not None and _ATOM_KV_PREPROJ:
+            if shift is not None and _ATOM_KV_PREPROJ:
+                src = _atom_shift_shift(s, shift.windows, atom_mc)
+                kv_flat = ttnn.linear(
+                    src,
+                    self.kv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                    memory_config=atom_mc,
+                )
+                ttnn.deallocate(src)
+                ATOM_SHIFT_GATHER_STATS[0] += 1
+                kv = _atom_shift_blocks(kv_flat, K, shift.windows, atom_mc)
+                ttnn.deallocate(kv_flat)
+                s_kv = None
+            elif plan is not None and _ATOM_KV_PREPROJ:
                 shifted = _atom_window_shift(s, plan)
                 kv_flat = ttnn.linear(
                     shifted,
