@@ -22,7 +22,7 @@ from __future__ import annotations
 from .token_axis import TOKEN_BUCKET
 
 __all__ = ["row_shard_bounds", "row_shard_ceiling", "gathers_per_block",
-           "pairformer_block_sharded", "PAIR_CHAIN"]
+           "pairformer_block_sharded", "PAIR_CHAIN", "RowSlab"]
 
 
 def row_shard_bounds(
@@ -68,6 +68,114 @@ def row_shard_ceiling(n_rows: int, n_shards: int, align: int = TOKEN_BUCKET) -> 
     """
     bounds = row_shard_bounds(n_rows, n_shards, align)
     return n_rows / max(r1 - r0 for r0, r1 in bounds)
+
+
+# --- how a chip addresses its own slab ----------------------------------------------------------
+
+
+class RowSlab:
+    """Where a chip's own rows are, in a form an op can act on without naming them.
+
+    Two forms behind one interface.
+
+    **index** ``RowSlab.index(r0, r1)`` addresses the slab by row number and slices it out. It is
+    what one device uses to compute somebody else's half on purpose, which is how the shard was
+    proved correct in the first place. It cannot express an SPMD shard: under SPMD every device
+    runs the same program, and ``r0`` would have to be a different constant on each one.
+
+    **mesh** ``RowSlab.mesh(n)`` addresses the slab by ``ttnn.mesh_partition``, which hands every
+    device the i-th of n partitions of the same tensor. One instruction, one program, a different
+    slab per device -- which is exactly what SPMD needs and what the index form cannot do.
+
+    The two forms compute the same thing. Only the addressing differs, so a result proved
+    bit-exact under one is bit-exact under the other, and `perf/b2z2_trunkshard/mesh_slab_bitexact.py`
+    checks that on a device rather than asserting it.
+
+    One limit that belongs to the mesh form alone: ``mesh_partition`` splits an axis EVENLY. A
+    token axis of 288 rows over two devices is 144 rows each, which is 4.5 tiles, and the slab
+    ops require a tile-aligned range. So a 2-way mesh shard needs the token axis bucketed to 64
+    rather than 32. 512 aa is unaffected; see :func:`row_shard_bounds` for what the index form
+    does instead, which is to split unevenly and stay tile-aligned.
+    """
+
+    __slots__ = ("r0", "r1", "n_devices")
+
+    def __init__(self, r0=None, r1=None, n_devices=None):
+        self.r0, self.r1, self.n_devices = r0, r1, n_devices
+
+    @classmethod
+    def index(cls, r0: int, r1: int) -> "RowSlab":
+        return cls(r0=int(r0), r1=int(r1))
+
+    @classmethod
+    def mesh(cls, n_devices: int) -> "RowSlab":
+        if n_devices < 1:
+            raise ValueError(f"a mesh slab needs at least one device, got {n_devices}")
+        return cls(n_devices=int(n_devices))
+
+    @classmethod
+    def of(cls, spec, n_rows: int) -> "RowSlab | None":
+        """Normalise what a caller passed. ``None`` stays ``None`` -- the whole-tensor path."""
+        if spec is None or isinstance(spec, cls):
+            return spec
+        return cls.index(spec[0], spec[1])
+
+    @property
+    def is_mesh(self) -> bool:
+        return self.n_devices is not None
+
+    def extent(self, total: int) -> int:
+        """How many rows this chip owns out of ``total``."""
+        if self.is_mesh:
+            if total % self.n_devices:
+                raise ValueError(
+                    f"mesh_partition splits evenly, and {total} rows do not divide by "
+                    f"{self.n_devices} devices; bucket the token axis to a multiple of "
+                    f"{32 * self.n_devices}")
+            return total // self.n_devices
+        return self.r1 - self.r0
+
+    def check(self, total: int, what: str = "rows") -> None:
+        """Tile alignment, before any device work. A sub-tile slice is the ask that wedges a part."""
+        e = self.extent(total)
+        if self.is_mesh:
+            if e % 32:
+                raise ValueError(
+                    f"{total} {what} over {self.n_devices} devices is {e} rows each, not a whole "
+                    f"number of 32-row tiles")
+            return
+        assert 0 <= self.r0 < self.r1 <= total and self.r0 % 32 == 0 and self.r1 % 32 == 0, \
+            f"row slab ({self.r0}, {self.r1}) is not a tile-aligned sub-range of {total} {what}"
+
+    def take(self, t, dim: int):
+        """This chip's slab of ``t`` along ``dim``, as a tensor the caller owns.
+
+        Owning it matters. On a ONE-device mesh ``ttnn.mesh_partition`` has nothing to split and
+        hands back a tensor over its input's own buffer, so a caller that frees the source -- which
+        every slab site in `tenstorrent.py` does, because a slab is normally a fresh allocation --
+        frees the result too and the next op dies on "Buffer is not allocated". It is a DIFFERENT
+        Python object, so ``is`` does not see it; the tell is that the axis did not get shorter.
+        The partition still runs either way, so the 1x1 arm is still exercising it.
+        """
+        import ttnn
+
+        if self.is_mesh:
+            out = ttnn.mesh_partition(t, dim)
+            # Nothing was split, so the result may be a view of `t`. Copy, and do not free `out`.
+            return ttnn.clone(out) if int(out.shape[dim]) == int(t.shape[dim]) else out
+        shp = [int(d) for d in t.shape]
+        lo, hi = [0] * len(shp), list(shp)
+        lo[dim], hi[dim] = self.r0, self.r1
+        return ttnn.slice(t, lo, hi)
+
+    def rows_source(self, t):
+        """``(tensor, base)`` whose dim-1 rows from ``base`` on are this chip's rows.
+
+        The index form returns ``t`` untouched with ``base = r0``, so a row-blocked loop reads the
+        same rows it always did and no slab-sized copy is made. The mesh form has to partition,
+        because there is no row number to offset by -- that is the whole point of it.
+        """
+        return (self.take(t, 1), 0) if self.is_mesh else (t, self.r0)
 
 
 # --- the Pairformer block, run as row slabs -----------------------------------------------------
@@ -173,24 +281,28 @@ def pairformer_block_sharded(layer, s, z, bounds, *, mask=None, attn_mask_start=
         "triangle_attention_end": (attn_mask_end,),
         "transition_z": (),
     }
+    shards = [RowSlab.of(b, int(z.shape[1])) for b in bounds]
     for name, need in chain:
         op = getattr(layer, name)
         extra = args[name]
         parts = []
-        for r0, r1 in bounds:
+        for slab in shards:
             if need == "FULL":
-                parts.append(keep(op(z, *extra, row_slab=(r0, r1))))
+                parts.append(keep(op(z, *extra, row_slab=slab)))
             else:
-                shp = [int(d) for d in z.shape]
-                rows = ttnn.slice(z, [0, r0, 0, 0], [shp[0], r1, shp[2], shp[3]],
-                                  memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                # A row-local op is handed ONLY its own rows, which is what makes the chain a test
+                # of the inventory and not just of the values.
+                rows = slab.take(z, 1)
                 try:
                     parts.append(keep(op(rows, *extra)))
                 finally:
                     ttnn.deallocate(rows)
         update = gather(parts)
         for p in parts:
-            ttnn.deallocate(p)
+            # With a single shard the gather is legitimately the identity, and freeing the part
+            # would free the update itself.
+            if p is not update:
+                ttnn.deallocate(p)
         z = ttnn.add_(z, update)
         ttnn.deallocate(update)
 

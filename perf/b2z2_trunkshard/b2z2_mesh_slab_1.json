@@ -1,0 +1,45 @@
+{
+  "arch": "Arch.WORMHOLE_B0",
+  "mesh": "1x1",
+  "S": 512,
+  "ops": {
+    "trimul_start": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0
+    },
+    "trimul_end": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0
+    },
+    "triatt_start": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0
+    },
+    "triatt_end": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0
+    },
+    "transition_z": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0
+    }
+  },
+  "block": {
+    "z_bit_exact": true,
+    "z_max_abs_diff": 0.0,
+    "s_bit_exact": true,
+    "s_max_abs_diff": 0.0
+  },
+  "partition_shape": [
+    1,
+    512,
+    512,
+    128
+  ],
+  "partition_calls": 26,
+  "control_1_rejected": true,
+  "control_2": {
+    "not_testable": "a 1x1 mesh_partition is the identity; the 1x2 arm is what tests this"
+  },
+  "pass": true
+}
