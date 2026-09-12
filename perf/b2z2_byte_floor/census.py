@@ -27,6 +27,7 @@ number before it was written down:
 import gzip
 import json
 import os
+import sys
 from collections import defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -69,7 +70,11 @@ def unit(r):
 
 
 def main():
-    tr = json.load(gzip.open(os.path.join(HERE, "out", "trace_512_wh_c10.json.gz"), "rt"))
+    # argv: the trace to read and where to write the per-buffer ledger. Defaults are this row's
+    # own arm, so `python3 census.py` still reproduces the published table.
+    src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "out", "trace_512_wh_c10.json.gz")
+    dst = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "out", "census.json")
+    tr = json.load(gzip.open(src, "rt"))
     rows, bufs = tr["rows"], tr["buffers"]
 
     # per-buffer event stream, in program order
@@ -142,7 +147,7 @@ def main():
     json.dump({"per_buf": per_buf,
                "totals": {"dram_rd": dram_rd, "dram_wr": dram_wr, "l1_rd": l1_rd,
                           "l1_wr": l1_wr, "redundant_dram_rd": red}},
-              open(os.path.join(HERE, "out", "census.json"), "w"), indent=1)
+              open(dst, "w"), indent=1)
 
 
 main()

@@ -1,0 +1,3425 @@
+{
+ "per_buf": [
+  {
+   "buf": "13651488#3",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x512x128",
+   "reads": 3.0,
+   "writes": 1,
+   "redundant_b": 134217728.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:3848:_pair_proj_linear",
+     "generic_op@mm_generic.py:372:generic_minimal_matmul",
+     "generic_op@mm_generic.py:372:generic_minimal_matmul"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13651488#5",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x512x128",
+   "reads": 3.0,
+   "writes": 1,
+   "redundant_b": 134217728.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:3848:_pair_proj_linear",
+     "generic_op@mm_generic.py:372:generic_minimal_matmul",
+     "generic_op@mm_generic.py:372:generic_minimal_matmul"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "106528#0",
+   "bytes": 131072,
+   "where": "DRAM",
+   "shape": "128x512",
+   "reads": 32.0,
+   "writes": 0,
+   "redundant_b": 4063232.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7326:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "118816#0",
+   "bytes": 131072,
+   "where": "DRAM",
+   "shape": "128x512",
+   "reads": 32.0,
+   "writes": 0,
+   "redundant_b": 4063232.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "131104#0",
+   "bytes": 131072,
+   "where": "DRAM",
+   "shape": "512x128",
+   "reads": 32.0,
+   "writes": 0,
+   "redundant_b": 4063232.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu",
+     "linear@tenstorrent.py:7348:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#1",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#2",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#3",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#4",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#5",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#6",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#7",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#8",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#9",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#10",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#11",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#12",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#13",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#14",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#15",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#16",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#17",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#18",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#19",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#20",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#21",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#22",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#23",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#24",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#25",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#26",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#27",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#28",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#29",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#30",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#31",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1468416#32",
+   "bytes": 2097152,
+   "where": "L1",
+   "shape": "1x16x512x128",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 2097152.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "608288#0",
+   "bytes": 524288,
+   "where": "DRAM",
+   "shape": "1x512x512",
+   "reads": 4.0,
+   "writes": 2,
+   "redundant_b": 524288.0,
+   "runs": [
+    [
+     "multiply_@tenstorrent.py:5854:__call__",
+     "unsqueeze@tenstorrent.py:5718:__call__"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6283296#2",
+   "bytes": 393216,
+   "where": "DRAM",
+   "shape": "1x512x384",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 393216.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7105:__call__",
+     "linear@tenstorrent.py:7281:__call__"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1492992#1",
+   "bytes": 393216,
+   "where": "L1",
+   "shape": "1x512x384",
+   "reads": 2.0,
+   "writes": 1,
+   "redundant_b": 393216.0,
+   "runs": [
+    [
+     "linear@tenstorrent.py:7326:swiglu",
+     "linear@tenstorrent.py:7337:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "102432#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 32.0,
+   "writes": 0,
+   "redundant_b": 253952.0,
+   "runs": [
+    [
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "104480#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 32.0,
+   "writes": 0,
+   "redundant_b": 253952.0,
+   "runs": [
+    [
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu",
+     "layer_norm@tenstorrent.py:7318:swiglu"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "653344#0",
+   "bytes": 32768,
+   "where": "DRAM",
+   "shape": "1x1x32x512",
+   "reads": 3.0,
+   "writes": 0,
+   "redundant_b": 65536.0,
+   "runs": [
+    [
+     "add@tenstorrent.py:6821:__call__",
+     "add@tenstorrent.py:6821:__call__",
+     "add_@tenstorrent.py:7201:__call__"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "690208#0",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 5.0,
+   "writes": 7,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "32#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "2080#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13651488#1",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#1",
+   "bytes": 16777216,
+   "where": "DRAM",
+   "shape": "1x512x512x32",
+   "reads": 0,
+   "writes": 1,
+   "redundant_b": 0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13637152#0",
+   "bytes": 163840,
+   "where": "DRAM",
+   "shape": "128x640",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "41614880#1",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#1",
+   "bytes": 268435456,
+   "where": "DRAM",
+   "shape": "1x512x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [
+    [
+     "generic_op@reblock_permute.py:754:reblock_permute_gated",
+     "generic_op@reblock_permute.py:754:reblock_permute_gated"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "47207968#1",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x128x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "52801056#1",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x128x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "58394144#1",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x128x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#2",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x128x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "24837664#1",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "4128#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6176#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#3",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "12320#0",
+   "bytes": 32768,
+   "where": "DRAM",
+   "shape": "128x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "565248#1",
+   "bytes": 67108864,
+   "where": "L1",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "16416#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "18464#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13651488#2",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#2",
+   "bytes": 16777216,
+   "where": "DRAM",
+   "shape": "1x512x512x32",
+   "reads": 0,
+   "writes": 1,
+   "redundant_b": 0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6283296#1",
+   "bytes": 524288,
+   "where": "DRAM",
+   "shape": "1x1x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "11946016#0",
+   "bytes": 163840,
+   "where": "DRAM",
+   "shape": "128x640",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "41614880#2",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#4",
+   "bytes": 268435456,
+   "where": "DRAM",
+   "shape": "1x512x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [
+    [
+     "generic_op@reblock_permute.py:754:reblock_permute_gated",
+     "generic_op@reblock_permute.py:754:reblock_permute_gated"
+    ]
+   ],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "47207968#2",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x128x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "52801056#2",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x128x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "47207968#3",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x128x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#5",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x128x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "24837664#2",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "20512#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "22560#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#6",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "28704#0",
+   "bytes": 32768,
+   "where": "DRAM",
+   "shape": "128x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "565248#2",
+   "bytes": 67108864,
+   "where": "L1",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "32800#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "34848#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "40992#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "128x32",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#3",
+   "bytes": 16777216,
+   "where": "DRAM",
+   "shape": "512x512x32",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "7817248#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x4x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "43040#0",
+   "bytes": 98304,
+   "where": "DRAM",
+   "shape": "128x384",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "30430752#1",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#7",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "24837664#3",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "51232#0",
+   "bytes": 32768,
+   "where": "DRAM",
+   "shape": "128x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "36023840#1",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#4",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x4x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13651488#4",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "36896#0",
+   "bytes": 32768,
+   "where": "DRAM",
+   "shape": "128x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#8",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x512x128",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "565248#3",
+   "bytes": 67108864,
+   "where": "L1",
+   "shape": "512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "67616#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "69664#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "75808#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "128x32",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#5",
+   "bytes": 16777216,
+   "where": "DRAM",
+   "shape": "512x512x32",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "7817248#2",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x4x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "77856#0",
+   "bytes": 98304,
+   "where": "DRAM",
+   "shape": "128x384",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "30430752#2",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#9",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "24837664#4",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "86048#0",
+   "bytes": 32768,
+   "where": "DRAM",
+   "shape": "128x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "36023840#2",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#6",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x4x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13651488#6",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x4x512x32",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "71712#0",
+   "bytes": 32768,
+   "where": "DRAM",
+   "shape": "128x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "19244576#10",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "565248#4",
+   "bytes": 67108864,
+   "where": "L1",
+   "shape": "512x512x128",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#7",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#1",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#1",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "12312608#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6594592#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#2",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#2",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "12488736#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6770720#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#3",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#3",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "12664864#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6946848#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#4",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#4",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "12840992#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "7122976#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#5",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#5",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13017120#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "7299104#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#6",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#6",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13651488#7",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "7475232#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#7",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#7",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13827616#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "7651360#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#8",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#8",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "14003744#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "7827488#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#9",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#9",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "14179872#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "8003616#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#10",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#10",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "14356000#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "8179744#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#11",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#11",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "14532128#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "8355872#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#12",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#12",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "14708256#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "8532000#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#13",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#13",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "14884384#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "8708128#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#14",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#14",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "15060512#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "8884256#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#15",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#15",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "15236640#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "9060384#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#16",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#16",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "15412768#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "9236512#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#17",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#17",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "15588896#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "9412640#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#18",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#18",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "15765024#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "9588768#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#19",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#19",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "15941152#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "9764896#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#20",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#20",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "16117280#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "9941024#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#21",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#21",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "16293408#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "10117152#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#22",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#22",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "16469536#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "10293280#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#23",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#23",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "16645664#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "10469408#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#24",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#24",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "16821792#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "10645536#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#25",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#25",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "16997920#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "10821664#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#26",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#26",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "17174048#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "10997792#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#27",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#27",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "17350176#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "11173920#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#28",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#28",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "17526304#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "11350048#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#29",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#29",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "17702432#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "11526176#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#30",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#30",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "17878560#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "11960352#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#31",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#31",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "18054688#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "12136480#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1351680#32",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1234944#32",
+   "bytes": 8388608,
+   "where": "L1",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "18230816#1",
+   "bytes": 2097152,
+   "where": "DRAM",
+   "shape": "1x16x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "18406944#1",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "657440#0",
+   "bytes": 393216,
+   "where": "DRAM",
+   "shape": "1x512x384",
+   "reads": 2.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "143392#0",
+   "bytes": 24576,
+   "where": "DRAM",
+   "shape": "32x384",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "145440#0",
+   "bytes": 24576,
+   "where": "DRAM",
+   "shape": "32x384",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "147488#0",
+   "bytes": 1179648,
+   "where": "DRAM",
+   "shape": "384x1536",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "245792#0",
+   "bytes": 98304,
+   "where": "DRAM",
+   "shape": "32x1536",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#8",
+   "bytes": 1572864,
+   "where": "DRAM",
+   "shape": "1x512x1536",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6316064#1",
+   "bytes": 524288,
+   "where": "DRAM",
+   "shape": "1x16x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6549536#1",
+   "bytes": 524288,
+   "where": "DRAM",
+   "shape": "1x16x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6594592#2",
+   "bytes": 524288,
+   "where": "DRAM",
+   "shape": "1x16x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "278560#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "280608#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "32x128",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "13651488#8",
+   "bytes": 67108864,
+   "where": "DRAM",
+   "shape": "1x512x512x128",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "282656#0",
+   "bytes": 8192,
+   "where": "DRAM",
+   "shape": "128x32",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6639648#1",
+   "bytes": 16777216,
+   "where": "DRAM",
+   "shape": "1x512x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "8038432#1",
+   "bytes": 8388608,
+   "where": "DRAM",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#9",
+   "bytes": 524288,
+   "where": "DRAM",
+   "shape": "1x16x32x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6639648#2",
+   "bytes": 8388608,
+   "where": "DRAM",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 3,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "8738848#1",
+   "bytes": 8388608,
+   "where": "DRAM",
+   "shape": "1x16x512x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#10",
+   "bytes": 524288,
+   "where": "DRAM",
+   "shape": "1x16x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6316064#2",
+   "bytes": 524288,
+   "where": "DRAM",
+   "shape": "1x16x512x32",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#11",
+   "bytes": 524288,
+   "where": "DRAM",
+   "shape": "1x16x32x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6316064#3",
+   "bytes": 393216,
+   "where": "DRAM",
+   "shape": "1x384x512",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6348832#1",
+   "bytes": 393216,
+   "where": "DRAM",
+   "shape": "1x512x384",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "253984#0",
+   "bytes": 294912,
+   "where": "DRAM",
+   "shape": "384x384",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6316064#4",
+   "bytes": 393216,
+   "where": "DRAM",
+   "shape": "1x512x384",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6418464#12",
+   "bytes": 393216,
+   "where": "DRAM",
+   "shape": "1x512x384",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "284704#0",
+   "bytes": 294912,
+   "where": "DRAM",
+   "shape": "384x384",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6316064#5",
+   "bytes": 393216,
+   "where": "DRAM",
+   "shape": "1x512x384",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "309280#0",
+   "bytes": 24576,
+   "where": "DRAM",
+   "shape": "32x384",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "311328#0",
+   "bytes": 24576,
+   "where": "DRAM",
+   "shape": "32x384",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "313376#0",
+   "bytes": 1179648,
+   "where": "DRAM",
+   "shape": "384x1536",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1470464#1",
+   "bytes": 1572864,
+   "where": "L1",
+   "shape": "1x512x1536",
+   "reads": 1.0,
+   "writes": 2,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "411680#0",
+   "bytes": 1179648,
+   "where": "DRAM",
+   "shape": "384x1536",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "1447936#1",
+   "bytes": 1572864,
+   "where": "L1",
+   "shape": "1x512x1536",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "509984#0",
+   "bytes": 1179648,
+   "where": "DRAM",
+   "shape": "1536x384",
+   "reads": 1.0,
+   "writes": 0,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  },
+  {
+   "buf": "6283296#3",
+   "bytes": 393216,
+   "where": "DRAM",
+   "shape": "1x512x384",
+   "reads": 1.0,
+   "writes": 1,
+   "redundant_b": 0.0,
+   "runs": [],
+   "owner": "tenstorrent.py:__call__"
+  }
+ ],
+ "totals": {
+  "dram_rd": 3537805312.0,
+  "dram_wr": 3744858112.0,
+  "l1_rd": 943456256.0,
+  "l1_wr": 1347289088.0,
+  "redundant_dram_rd": 282116096.0
+ }
+}
