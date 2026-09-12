@@ -1,0 +1,165 @@
+{
+ "size": 512,
+ "trace_region": 1073741824,
+ "grid": [
+  11,
+  10
+ ],
+ "runs": [
+  {
+   "label": "cold",
+   "instrumented": false,
+   "traced": true,
+   "fold_s": 23.234,
+   "plddt": null,
+   "wall": {},
+   "loadavg": [
+    "7.81",
+    "8.40",
+    "9.21"
+   ]
+  },
+  {
+   "label": "traced_bare_1",
+   "instrumented": false,
+   "traced": true,
+   "fold_s": 25.399,
+   "plddt": null,
+   "wall": {},
+   "loadavg": [
+    "8.51",
+    "8.52",
+    "9.24"
+   ]
+  },
+  {
+   "label": "traced_instrumented",
+   "instrumented": true,
+   "traced": true,
+   "fold_s": 23.495,
+   "plddt": null,
+   "wall": {
+    "sample": {
+     "n": 1,
+     "ms": 7506.42
+    },
+    "pnf": {
+     "n": 200,
+     "ms": 5551.92
+    },
+    "forward_traced": {
+     "n": 200,
+     "ms": 5497.29
+    },
+    "out": {
+     "n": 204,
+     "ms": 5088.57
+    },
+    "align": {
+     "n": 200,
+     "ms": 1087.47
+    },
+    "stage_in": {
+     "n": 800,
+     "ms": 123.63
+    },
+    "augment": {
+     "n": 200,
+     "ms": 47.31
+    },
+    "replay": {
+     "n": 200,
+     "ms": 3.68
+    }
+   },
+   "loadavg": [
+    "9.53",
+    "8.74",
+    "9.29"
+   ],
+   "split_ms": {
+    "sample": 7506.4,
+    "pnf": 5551.9,
+    "pnf_minus_device": 463.3,
+    "device_wait_out": 5088.6,
+    "stage_in": 123.6,
+    "replay_issue": 3.7,
+    "augment": 47.3,
+    "align": 1087.5,
+    "loop_residual": 819.7
+   }
+  },
+  {
+   "label": "traced_bare_2",
+   "instrumented": false,
+   "traced": true,
+   "fold_s": 23.583,
+   "plddt": null,
+   "wall": {},
+   "loadavg": [
+    "11.16",
+    "9.18",
+    "9.42"
+   ]
+  },
+  {
+   "label": "eager_instrumented",
+   "instrumented": true,
+   "traced": false,
+   "fold_s": 24.459,
+   "plddt": null,
+   "wall": {
+    "sample": {
+     "n": 1,
+     "ms": 8105.57
+    },
+    "pnf": {
+     "n": 200,
+     "ms": 5675.38
+    },
+    "out": {
+     "n": 204,
+     "ms": 1711.25
+    },
+    "align": {
+     "n": 200,
+     "ms": 1246.79
+    },
+    "augment": {
+     "n": 200,
+     "ms": 52.75
+    }
+   },
+   "loadavg": [
+    "10.66",
+    "9.21",
+    "9.43"
+   ],
+   "split_ms": {
+    "sample": 8105.6,
+    "pnf": 5675.4,
+    "pnf_minus_device": 3964.1,
+    "device_wait_out": 1711.3,
+    "stage_in": 0.0,
+    "replay_issue": 0.0,
+    "augment": 52.8,
+    "align": 1246.8,
+    "loop_residual": 1130.7
+   }
+  },
+  {
+   "label": "eager_bare",
+   "instrumented": false,
+   "traced": false,
+   "fold_s": 21.66,
+   "plddt": null,
+   "wall": {},
+   "loadavg": [
+    "8.86",
+    "8.89",
+    "9.31"
+   ]
+  }
+ ],
+ "instrument_cost_s": -0.996
+}
