@@ -9747,6 +9747,25 @@ class Diffusion(Module):
         return r_update
 
 
+def _mesh_local(x: "ttnn.Tensor", device) -> "ttnn.Tensor":
+    """Chip 0's copy of a REPLICATED mesh tensor; ``x`` unchanged on a single device.
+
+    ``ttnn.to_torch`` refuses a tensor living on more than one chip ("buffers.size() == 1") unless
+    it is handed a composer. Every activation this model brings back to host is replicated,
+    identical on each chip, so chip 0's copy IS the value and composing would concatenate
+    duplicates. It deliberately does NOT compose: a genuinely sharded tensor arriving at a host
+    readback means whoever sharded it failed to gather it, which is a bug worth surfacing rather
+    than papering over. Inert on a single device, which is every shipped path today.
+
+    Written by `b2z2-dual-chip-fold`; taken from that branch rather than reinvented.
+    """
+    if getattr(device, "get_num_devices", lambda: 1)() > 1:
+        parts = ttnn.get_device_tensors(x)
+        if len(parts) > 1:
+            return parts[0]
+    return x
+
+
 class TorchWrapper(nn.Module):
     def __init__(self):
         super().__init__()
@@ -9775,7 +9794,7 @@ class TorchWrapper(nn.Module):
         )
 
     def _to_torch(self, x: ttnn.Tensor) -> torch.Tensor:
-        return torch.Tensor(ttnn.to_torch(x)).to(torch.float32)
+        return torch.Tensor(ttnn.to_torch(_mesh_local(x, self.tt_device))).to(torch.float32)
 
     def _cache_set(self, key: str, value):
         self._runtime_cache[key] = value
@@ -10449,7 +10468,8 @@ class DiffusionModule(TorchWrapper):
         ttnn.copy_host_to_device_tensor(self._host_tt(r), tr["in_r"])
         ttnn.copy_host_to_device_tensor(self._host_tt(times), tr["in_times"])
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
-        result = torch.Tensor(ttnn.to_torch(tr["out"])).to(torch.float32)
+        result = torch.Tensor(
+            ttnn.to_torch(_mesh_local(tr["out"], self.tt_device))).to(torch.float32)
         return result[:, :N, :]
 
     def reset_static_cache(self):
