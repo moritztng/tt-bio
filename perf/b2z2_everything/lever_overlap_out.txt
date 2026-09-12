@@ -1,0 +1,233 @@
+origin/wk/b2z2-layout-op-elision: 122 changed lines in 1 file(s), 7 hunk context(s)
+origin/wk/b2z2-step-fusion-next-sites: 174 changed lines in 1 file(s), 2 hunk context(s)
+origin/wk/b2z2-sampler-union-wh: 336 changed lines in 1 file(s), 6 hunk context(s)
+origin/wk/b2z2-step-adaln-sdpa: 225 changed lines in 4 file(s), 8 hunk context(s)
+origin/wk/b2z2-step-program-fusion: 65 changed lines in 1 file(s), 2 hunk context(s)
+origin/wk/b2z2-step-binaryng-fusion: 139 changed lines in 1 file(s), 6 hunk context(s)
+origin/wk/b2z2-step-matmul-group: 65 changed lines in 1 file(s), 2 hunk context(s)
+origin/wk/b2z2-trunk-byte-floor: 125 changed lines in 2 file(s), 3 hunk context(s)
+origin/wk/b2z2-msa-movement-attack: 139 changed lines in 1 file(s), 5 hunk context(s)
+origin/wk/b2z2-host-device-compose: 869 changed lines in 2 file(s), 11 hunk context(s)
+
+=== origin/wk/b2z2-layout-op-elision  vs  origin/wk/b2z2-step-fusion-next-sites
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 6 line(s), e.g. [1172, 1173, 1174, 1175, 1176, 1177]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-layout-op-elision  vs  origin/wk/b2z2-sampler-union-wh
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 6 line(s), e.g. [1172, 1173, 1174, 1175, 1176, 1177]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+    class Diffusion(Module):
+    class DiffusionModule(TorchWrapper):
+    class DiffusionTransformer(Module):
+    class DiffusionTransformerLayer(Module):
+
+=== origin/wk/b2z2-layout-op-elision  vs  origin/wk/b2z2-step-adaln-sdpa
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 6 line(s), e.g. [1172, 1173, 1174, 1175, 1176, 1177]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-layout-op-elision  vs  origin/wk/b2z2-step-program-fusion
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+  => not proof: a class is big and two branches can edit different methods of it. READ the two diffs before you compose them, and say in your doc which you did. This is where the atom-gather duplicate hid.
+
+=== origin/wk/b2z2-layout-op-elision  vs  origin/wk/b2z2-step-binaryng-fusion
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+    class DiffusionTransformerLayer(Module):
+  => not proof: a class is big and two branches can edit different methods of it. READ the two diffs before you compose them, and say in your doc which you did. This is where the atom-gather duplicate hid.
+
+=== origin/wk/b2z2-layout-op-elision  vs  origin/wk/b2z2-step-matmul-group
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+  => not proof: a class is big and two branches can edit different methods of it. READ the two diffs before you compose them, and say in your doc which you did. This is where the atom-gather duplicate hid.
+
+=== origin/wk/b2z2-layout-op-elision  vs  origin/wk/b2z2-trunk-byte-floor
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-layout-op-elision  vs  origin/wk/b2z2-msa-movement-attack
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-layout-op-elision  vs  origin/wk/b2z2-host-device-compose
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    class DiffusionModule(TorchWrapper):
+  => not proof: a class is big and two branches can edit different methods of it. READ the two diffs before you compose them, and say in your doc which you did. This is where the atom-gather duplicate hid.
+
+=== origin/wk/b2z2-step-fusion-next-sites  vs  origin/wk/b2z2-sampler-union-wh
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 132 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-step-fusion-next-sites  vs  origin/wk/b2z2-step-adaln-sdpa
+  CONTAINS: one branch is an ancestor of the other -- their ratios are not independent and the marginal one is the only thing you may claim.
+
+=== origin/wk/b2z2-step-fusion-next-sites  vs  origin/wk/b2z2-step-program-fusion
+  CONTAINS: one branch is an ancestor of the other -- their ratios are not independent and the marginal one is the only thing you may claim.
+
+=== origin/wk/b2z2-step-fusion-next-sites  vs  origin/wk/b2z2-step-binaryng-fusion
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 65 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-step-fusion-next-sites  vs  origin/wk/b2z2-step-matmul-group
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 53 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-step-fusion-next-sites  vs  origin/wk/b2z2-trunk-byte-floor
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-fusion-next-sites  vs  origin/wk/b2z2-msa-movement-attack
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-fusion-next-sites  vs  origin/wk/b2z2-host-device-compose
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-sampler-union-wh  vs  origin/wk/b2z2-step-adaln-sdpa
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 134 line(s), e.g. [1120, 1121, 1122, 1123, 1124, 1125, 1126, 1127]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-sampler-union-wh  vs  origin/wk/b2z2-step-program-fusion
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 53 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-sampler-union-wh  vs  origin/wk/b2z2-step-binaryng-fusion
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 65 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+    class DiffusionTransformerLayer(Module):
+
+=== origin/wk/b2z2-sampler-union-wh  vs  origin/wk/b2z2-step-matmul-group
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 53 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-sampler-union-wh  vs  origin/wk/b2z2-trunk-byte-floor
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-sampler-union-wh  vs  origin/wk/b2z2-msa-movement-attack
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-sampler-union-wh  vs  origin/wk/b2z2-host-device-compose
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 1 line(s), e.g. [9750]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    class DiffusionModule(TorchWrapper):
+
+=== origin/wk/b2z2-step-adaln-sdpa  vs  origin/wk/b2z2-step-program-fusion
+  CONTAINS: one branch is an ancestor of the other -- their ratios are not independent and the marginal one is the only thing you may claim.
+
+=== origin/wk/b2z2-step-adaln-sdpa  vs  origin/wk/b2z2-step-binaryng-fusion
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 26 line(s), e.g. [1120, 1121, 1122, 1123, 1124, 1125, 1126, 1127]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-step-adaln-sdpa  vs  origin/wk/b2z2-step-matmul-group
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 14 line(s), e.g. [1120, 1121, 1122, 1123, 1124, 1125, 1126, 1127]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-step-adaln-sdpa  vs  origin/wk/b2z2-trunk-byte-floor
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-adaln-sdpa  vs  origin/wk/b2z2-msa-movement-attack
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-adaln-sdpa  vs  origin/wk/b2z2-host-device-compose
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-program-fusion  vs  origin/wk/b2z2-step-binaryng-fusion
+  CONTAINS: one branch is an ancestor of the other -- their ratios are not independent and the marginal one is the only thing you may claim.
+
+=== origin/wk/b2z2-step-program-fusion  vs  origin/wk/b2z2-step-matmul-group
+  CONTAINS: one branch is an ancestor of the other -- their ratios are not independent and the marginal one is the only thing you may claim.
+
+=== origin/wk/b2z2-step-program-fusion  vs  origin/wk/b2z2-trunk-byte-floor
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-program-fusion  vs  origin/wk/b2z2-msa-movement-attack
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-program-fusion  vs  origin/wk/b2z2-host-device-compose
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-binaryng-fusion  vs  origin/wk/b2z2-step-matmul-group
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 53 line(s), e.g. [1081, 1082, 1083, 1084, 1085, 1086, 1087, 1088]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== origin/wk/b2z2-step-binaryng-fusion  vs  origin/wk/b2z2-trunk-byte-floor
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-binaryng-fusion  vs  origin/wk/b2z2-msa-movement-attack
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-binaryng-fusion  vs  origin/wk/b2z2-host-device-compose
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-matmul-group  vs  origin/wk/b2z2-trunk-byte-floor
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-matmul-group  vs  origin/wk/b2z2-msa-movement-attack
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-step-matmul-group  vs  origin/wk/b2z2-host-device-compose
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-trunk-byte-floor  vs  origin/wk/b2z2-msa-movement-attack
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-trunk-byte-floor  vs  origin/wk/b2z2-host-device-compose
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/wk/b2z2-msa-movement-attack  vs  origin/wk/b2z2-host-device-compose
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+23 of 45 pair(s) are not independent.
