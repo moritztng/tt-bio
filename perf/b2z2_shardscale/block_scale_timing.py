@@ -43,6 +43,7 @@ SIZES = [int(x) for x in os.environ.get("SCALE_S", "512").split(",")]
 REPS = int(os.environ.get("SCALE_REPS", "15"))
 WARM = int(os.environ.get("SCALE_WARM", "3"))
 OUT_PATH = os.environ.get("SCALE_OUT", f"/tmp/b2z2_scale_{N}.json")
+ARMS_BSHARD = os.environ.get("SCALE_BSHARD", "0") == "1"
 C_Z, C_S = 128, 384
 
 if N > 1:
@@ -77,7 +78,7 @@ dev = tt.get_device()
 assert OPENS[0] == 1, "the mesh was opened more than once"
 log(f"device={dev} arch={dev.arch()} grid={tt.CORE_GRID_MAIN} N={N} sizes={SIZES}")
 
-RES = {"mesh_n": N, "sizes": SIZES, "reps": REPS, "arch": str(dev.arch()),
+RES = {"mesh_n": N, "sizes": SIZES, "reps": REPS, "arch": str(dev.arch()), "bshard": ARMS_BSHARD,
        "visible": os.environ.get("TT_VISIBLE_DEVICES"), "by_size": {}, "gather": []}
 
 kernel_cls = (ttnn.types.WormholeComputeKernelConfig
@@ -100,13 +101,13 @@ def up(t):
                            mesh_mapper=REPL)
 
 
-def time_block(row_shard, s_host, z_host, PAIR_MASK, ATTN):
+def time_block(row_shard, s_host, z_host, PAIR_MASK, ATTN, b_shard=False):
     """Median block wall. The residual updates are in place, so the block returns the tensor it
     was given: s and z are rebuilt every rep and uploaded OUTSIDE the timed region, and it is
     those handles that get freed, not the returned ones."""
     for _ in range(WARM):
         s_t, z_t = up(s_host), up(z_host)
-        layer(s_t, z_t, PAIR_MASK, ATTN, ATTN, row_shard=row_shard)
+        layer(s_t, z_t, PAIR_MASK, ATTN, ATTN, row_shard=row_shard, b_shard=b_shard)
         ttnn.synchronize_device(dev)
         ttnn.deallocate(z_t)
         ttnn.deallocate(s_t)
@@ -115,7 +116,7 @@ def time_block(row_shard, s_host, z_host, PAIR_MASK, ATTN):
         s_t, z_t = up(s_host), up(z_host)
         ttnn.synchronize_device(dev)
         t0 = time.perf_counter()
-        layer(s_t, z_t, PAIR_MASK, ATTN, ATTN, row_shard=row_shard)
+        layer(s_t, z_t, PAIR_MASK, ATTN, ATTN, row_shard=row_shard, b_shard=b_shard)
         ttnn.synchronize_device(dev)
         v.append(time.perf_counter() - t0)
         ttnn.deallocate(z_t)
@@ -138,16 +139,26 @@ for S in SIZES:
     PAIR_MASK = up(m1[:, :, None] * m1[:, None, :])
     ATTN = up((1 - m1).unsqueeze(1).unsqueeze(1) * -1e9)
     arms = {}
-    for arm, rs in (("whole", False), ("shard", True)):
+    # `bshard` is the third arm: the row shard with the `b` role split too. It is the deliverable
+    # of `b2z2-shard-replication-attack` and it is timed in the SAME process, against the same
+    # `whole` and `shard` arms, so the three numbers share a device open and a program cache.
+    for arm, rs, bs in (("whole", False, False), ("shard", True, False), ("bshard", True, True)):
         if rs and N == 1:
             continue
-        arms[arm] = time_block(rs, s_host, z_host, PAIR_MASK, ATTN)
+        if bs and not ARMS_BSHARD:
+            continue
+        arms[arm] = time_block(rs, s_host, z_host, PAIR_MASK, ATTN, b_shard=bs)
         a = arms[arm]
         log(f"S={S:4d} {arm:6s} block {a['median_ms']:8.3f} ms  (min {a['min_ms']:.3f} "
             f"max {a['max_ms']:.3f}, spread {a['spread_pct']:.1f} %)")
     if "shard" in arms:
         arms["shard_ratio_same_mesh"] = arms["whole"]["median_ms"] / arms["shard"]["median_ms"]
         log(f"S={S:4d} shard vs whole ON THIS MESH: {arms['shard_ratio_same_mesh']:.4f}x")
+    if "bshard" in arms:
+        arms["bshard_ratio_same_mesh"] = arms["whole"]["median_ms"] / arms["bshard"]["median_ms"]
+        arms["bshard_vs_shard"] = arms["shard"]["median_ms"] / arms["bshard"]["median_ms"]
+        log(f"S={S:4d} bshard vs whole ON THIS MESH: {arms['bshard_ratio_same_mesh']:.4f}x  "
+            f"| bshard vs shard: {arms['bshard_vs_shard']:.4f}x")
     RES["by_size"][str(S)] = arms
     for t_ in (PAIR_MASK, ATTN):
         ttnn.deallocate(t_)

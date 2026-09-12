@@ -45,6 +45,11 @@ import torch  # noqa: E402
 N = int(os.environ.get("MESH_N", "2"))
 S = int(os.environ.get("CHAIN_S", "512"))
 DROP = os.environ.get("CHAIN_DROP")
+# `b_shard` splits the `b` role of both triangle products over the mesh and gathers the projection
+# instead of replicating the read. It adds collectives INSIDE the trimul, so under CHAIN_B_SHARD
+# the gather index CHAIN_DROP enumerates counts every collective the chain makes, b gathers
+# included, and each of them has to be rejected.
+B_SHARD = os.environ.get("CHAIN_B_SHARD", "0") == "1"
 OUT_PATH = os.environ.get("CHAIN_OUT", f"/tmp/b2z2_chain_{N}.json")
 C_Z, C_S = 128, 384
 
@@ -79,11 +84,12 @@ def _mesh_open(device_id, kwargs):
 
 tt._open_device_locked = _mesh_open
 dev = tt.get_device()
-log(f"device={dev} opens={OPENS[0]} arch={dev.arch()} grid={tt.CORE_GRID_MAIN}")
+log(f"device={dev} opens={OPENS[0]} arch={dev.arch()} grid={tt.CORE_GRID_MAIN} "
+    f"b_shard={B_SHARD}")
 assert OPENS[0] == 1, "the mesh was opened more than once"
 
 RES = {"arch": str(dev.arch()), "mesh": f"1x{N}", "S": S, "visible": os.environ.get("TT_VISIBLE_DEVICES"),
-       "drop": DROP, "chain": {}, "localise": {}, "controls": {}}
+       "drop": DROP, "b_shard": B_SHARD, "chain": {}, "localise": {}, "controls": {}}
 failures = []
 
 kernel_cls = (ttnn.types.WormholeComputeKernelConfig
@@ -154,9 +160,13 @@ def eq(a, b):
 # where this says which op's output first differs, and comparing the gathered z after each step
 # separates "the op computed the wrong rows" from "the gather put them back wrong".
 STEPS = [
-    ("trimul_start", lambda z, ri: layer.triangle_multiplication_start(z, PAIR_MASK, row_input=ri),
+    ("trimul_start",
+     lambda z, ri: layer.triangle_multiplication_start(z, PAIR_MASK, row_input=ri,
+                                                       b_shard=B_SHARD),
      lambda z: layer.triangle_multiplication_start(z, PAIR_MASK)),
-    ("trimul_end", lambda z, ri: layer.triangle_multiplication_end(z, PAIR_MASK, row_input=ri),
+    ("trimul_end",
+     lambda z, ri: layer.triangle_multiplication_end(z, PAIR_MASK, row_input=ri,
+                                                     b_shard=B_SHARD),
      lambda z: layer.triangle_multiplication_end(z, PAIR_MASK)),
     ("triatt_start", lambda z, ri: layer.triangle_attention_start(z, ATTN, row_input=ri),
      lambda z: layer.triangle_attention_start(z, ATTN)),
@@ -216,7 +226,7 @@ if DROP is not None:
     orig = tt.PairformerLayer._pair_track_row_sharded
     state = {"i": 0}
 
-    def patched(self, z, mask, ams, ame):
+    def patched(self, z, mask, ams, ame, **kw):
         real = ttnn.all_gather
 
         def counting(t, dim, *a, **kw):
@@ -227,11 +237,14 @@ if DROP is not None:
                 # is rejected by a shape check three ops later, which proves the gather is
                 # structurally required and says nothing about whether the comparison reads
                 # values. This one can only be caught by reading them.
-                return ttnn.concat([t, t], dim=dim)
+                # N copies, not two: at width 4 a doubled slab is the wrong SHAPE and the chain
+                # then dies on a shape error, which rejects the control for a reason that says
+                # nothing about whether the comparison reads values.
+                return ttnn.concat([t] * N, dim=dim)
             return real(t, dim, *a, **kw)
         ttnn.all_gather = counting
         try:
-            return orig(self, z, mask, ams, ame)
+            return orig(self, z, mask, ams, ame, **kw)
         finally:
             ttnn.all_gather = real
     tt.PairformerLayer._pair_track_row_sharded = patched
@@ -240,7 +253,8 @@ if DROP is not None:
 
 def run_block(row_shard, z_host=None):
     s, z = up(s_t), up(z_t if z_host is None else z_host)
-    s_o, z_o = layer(s, z, PAIR_MASK, ATTN, ATTN, row_shard=row_shard)
+    s_o, z_o = layer(s, z, PAIR_MASK, ATTN, ATTN, row_shard=row_shard,
+                     b_shard=B_SHARD and row_shard)
     hs, hz = down_all(s_o), down_all(z_o)
     ttnn.deallocate(s_o)
     ttnn.deallocate(z_o)
@@ -308,6 +322,7 @@ if failures:
     for f in failures:
         print(f"  - {f}")
     sys.exit(1)
-log(f"PASS: the five-op row-sharded pair track at S={S} is bit-identical to the replicated block "
+log(f"PASS: the five-op row-sharded pair track at S={S}"
+    f"{' with b_shard' if B_SHARD else ''} is bit-identical to the replicated block "
     f"on every chip of the 1x{N} mesh")
 sys.exit(0)

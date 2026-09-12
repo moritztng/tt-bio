@@ -5661,8 +5661,12 @@ class TriangleMultiplication(Module):
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None,
                  row_slab: tuple[int, int] | None = None,
-                 row_input: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                 row_input: ttnn.Tensor | None = None,
+                 b_shard: bool = False) -> ttnn.Tensor:
         """The triangle product over the whole pair tensor, or over a slab of its OUTPUT rows.
+
+        `b_shard` splits the one part of a row shard that a row shard does not split. It needs
+        `row_input`, and why it is legal is at the end of this docstring.
 
         `row_input` is the MESH spelling of the same slab: pass this device's rows of `x`, which
         `ttnn.mesh_partition(x, dim=1)` produces for free off a replicated tensor, and the call
@@ -5686,6 +5690,15 @@ class TriangleMultiplication(Module):
         a-side reads a row slab; the ending one is `out[i,j,c] = sum_k a[k,i,c] b[k,j,c]`, where i
         is a's SECOND axis. `b` carries the output COLUMN in both, so it reads all of z either way,
         and that asymmetry is what forces the fused input projection apart into its a and b halves.
+
+        It is also the whole of the row shard's un-shardable floor, and `b_shard` removes it. `b`'s
+        output column j is an axis of the RESULT, not of the contraction, so each device can
+        project its own slab of j and one `all_gather` puts the whole `b` back before the matmul.
+        Which slab is not a choice: the starting variant has `a` and `b` both reading z ROWS and
+        the ending one has both reading z COLUMNS, so `b`'s slab is the slab `a` already took and
+        the code hands it the same tensor. The concat is in device order, which is slab order, and
+        every projected column is the same dot product over the channel axis that the whole-tensor
+        call computes, so nothing regroups and the result is bit-identical.
         """
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
@@ -5693,6 +5706,8 @@ class TriangleMultiplication(Module):
         shard = row_input is not None
         assert not (shard and row_slab is not None), \
             "row_slab and row_input are two spellings of one slab; pass exactly one"
+        assert not b_shard or shard, \
+            "b_shard splits `b` over the devices of a mesh; it needs the `row_input` spelling"
         # A shard addresses its own rows LOCALLY: `mesh_partition` has already moved the offset,
         # so every index below runs from 0 and the extent is what this device was handed.
         slab = shard or row_slab is not None
@@ -5700,7 +5715,8 @@ class TriangleMultiplication(Module):
             r0, r1 = 0, int(row_input.shape[1])
         else:
             r0, r1 = (0, H) if row_slab is None else (int(row_slab[0]), int(row_slab[1]))
-        # Which axis of z the a-role projection reads its slab from. `b` always reads all of it.
+        # Which axis of z the a-role projection reads its slab from. `b` reads all of it, unless
+        # `b_shard` puts it on the same slab and gathers the projection afterwards.
         a_axis = 2 if self.ending else 1
         if shard:
             assert len(row_input.shape) == 4 and int(row_input.shape[2]) == shp[2] \
@@ -5871,9 +5887,13 @@ class TriangleMultiplication(Module):
                         # config -- `_MM_DEFAULT`, which is what `determine_default_block_sizes`
                         # returns for the unconfigured op at every width this site reaches -- so
                         # each column is the column the four-role projection produced.
+                        # `b`'s input is the whole pair tensor, or -- under `b_shard` -- the same
+                        # slab `a` took, because both roles read the same axis of z and differ
+                        # only in which weight they read it with.
+                        b_src = a_src if b_shard else (x_in if row_norm else x_norm_in)
                         gp_b_fused = (
                             None if not slab else
-                            _in_proj(x_in if row_norm else x_norm_in, gp_b_chunks[i], b_bias_i)
+                            _in_proj(b_src, gp_b_chunks[i], b_bias_i)
                         )
                         slice_c = int(gp_in_fused.shape[-1]) // (4 if not slab else 2)
                         _eb = 4 if _dtype() == ttnn.float32 else 2
@@ -5965,6 +5985,14 @@ class TriangleMultiplication(Module):
                             b_chunk = self._transform_chunk(
                                 b_chunk, perm_b, memory_config=tail_mc, realloc=n_pairs // group > 1,
                             )
+                    if b_shard:
+                        # `perm_b` puts the output column j LAST for both variants -- (0,3,2,1) on
+                        # the starting one and (0,3,1,2) on the ending one both land on (c, k, j)
+                        # -- so rebuilding the whole `b` is a concat on the last axis, in device
+                        # order. Only `a` is masked, so nothing above this line has touched `b`.
+                        b_full = ttnn.all_gather(b_chunk, dim=3)
+                        ttnn.deallocate(b_chunk)
+                        b_chunk = b_full
                     if mask_moved is not None:
                         # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
                         # declines the in-place form for a broadcast operand, take `ttnn.multiply`
@@ -7866,8 +7894,11 @@ class PairformerLayer(Module):
                 self.scope("transition_s"), compute_kernel_config
             )
 
-    def _pair_track_row_sharded(self, z, mask, attn_mask_start, attn_mask_end):
+    def _pair_track_row_sharded(self, z, mask, attn_mask_start, attn_mask_end, b_shard=False):
         """The five pair-track ops with the i axis sharded over a 1xN mesh. Returns the full `z`.
+
+        `b_shard` splits the one term this shard leaves on every device: the `b` role of both
+        triangle products, which reads the whole pair tensor. See `TriangleMultiplication`.
 
         `z` stays REPLICATED and full on every device; what is sharded is the WORK. Each device
         keeps `z_rows`, its own rows, and runs the whole residual chain on them in the unsharded
@@ -7903,9 +7934,9 @@ class PairformerLayer(Module):
         # partition(z + u) == partition(z) + partition(u) and the adds are elementwise.
         z_rows = ttnn.mesh_partition(z, dim=1)
 
-        def step(op, *args):
+        def step(op, *args, **kw):
             nonlocal z_rows
-            u = op(*args, row_input=z_rows)
+            u = op(*args, row_input=z_rows, **kw)
             z_rows = ttnn.add_(z_rows, u)
             ttnn.deallocate(u)
 
@@ -7915,9 +7946,9 @@ class PairformerLayer(Module):
             z = ttnn.all_gather(z_rows, dim=1)
             ttnn.deallocate(old_z)
 
-        step(self.triangle_multiplication_start, z, mask)
+        step(self.triangle_multiplication_start, z, mask, b_shard=b_shard)
         gather()
-        step(self.triangle_multiplication_end, z, mask)
+        step(self.triangle_multiplication_end, z, mask, b_shard=b_shard)
         gather()
         step(self.triangle_attention_start, z, attn_mask_start)
         gather()
@@ -7932,6 +7963,7 @@ class PairformerLayer(Module):
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
         extra_attn_bias: ttnn.Tensor | None = None, row_shard: bool = False,
+        b_shard: bool = False,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
         """One Pairformer block. `row_shard` splits the pair track's i axis over the mesh.
 
@@ -7941,8 +7973,10 @@ class PairformerLayer(Module):
         and the block computes the same thing the long way round, so the flag defaults off and the
         unsharded chain below is byte-for-byte what ships.
         """
+        assert not b_shard or row_shard, "b_shard is a refinement of row_shard, not an alternative"
         if row_shard:
-            z = self._pair_track_row_sharded(z, mask, attn_mask_start, attn_mask_end)
+            z = self._pair_track_row_sharded(
+                z, mask, attn_mask_start, attn_mask_end, b_shard=b_shard)
         else:
             z_update = self.triangle_multiplication_start(z, mask)
             z = ttnn.add_(z, z_update)
