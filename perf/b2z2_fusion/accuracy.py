@@ -70,7 +70,10 @@ def main():
 
     def set_arm(name):
         T._UNFUSED_SILU = (name == "usilu")
-        TS.set_enabled(name == "swiglu")
+        TS.set_enabled(name.startswith("swiglu"))
+        # swiglu_s1 is the same kernel with sigmoid at bf16 precision; see fold_ab.py.
+        TS.SILU_MODE = TS.SILU_HOIST = 1 if name == "swiglu_s1" else 0
+        TS.MUL_BATCH = 4
         TS.REJECTS.clear()
         served[0] = served[1] = 0
 
@@ -109,7 +112,8 @@ def main():
                    "plddt": m.get("plddt"), "n_tokens": m.get("n_tokens"),
                    "cif_sha256": sha_dir(struct_dir), "cif_dir": str(dest),
                    "swiglu_served": served[0], "swiglu_declined": served[1],
-                   "unfused_silu": T._UNFUSED_SILU}
+                   "unfused_silu": T._UNFUSED_SILU,
+                   "silu_mode": TS.SILU_MODE, "silu_hoist": TS.SILU_HOIST}
             res["runs"].append(rec)
             a.out.parent.mkdir(parents=True, exist_ok=True)
             a.out.write_text(json.dumps(res, indent=1))

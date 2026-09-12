@@ -101,9 +101,14 @@ def main():
         installed.append(key)
 
     def set_arm(name):
-        """Both flags on every arm. Never bool(dict.get(name)) -- that inherits."""
+        """Every flag on every arm. Never bool(dict.get(name)) -- that inherits."""
         T._UNFUSED_SILU = (name == "usilu")
-        TS.set_enabled(name == "swiglu")
+        TS.set_enabled(name.startswith("swiglu"))
+        # swiglu_s1: the same kernel with sigmoid computed at bf16 precision, which is all the
+        # pack that follows it keeps. 1.5968x on the chunk against 1.0741x, PCC 0.9999974 vs the
+        # incumbent and 0.9999956 vs torch (the incumbent itself is 0.9999957 vs torch).
+        TS.SILU_MODE = TS.SILU_HOIST = 1 if name == "swiglu_s1" else 0
+        TS.MUL_BATCH = 4
         TS.REJECTS.clear()
         SERVED[0] = SERVED[1] = 0
 
@@ -146,6 +151,8 @@ def main():
                               "rejects": {"%s:%s" % (r, sh): n
                                           for (r, sh), n in TS.REJECTS.items()}},
                    "unfused_silu": T._UNFUSED_SILU,
+                   "silu_mode": TS.SILU_MODE, "silu_hoist": TS.SILU_HOIST,
+                   "mul_batch": TS.MUL_BATCH,
                    "walls": {k: {"n": v["n"], "s": round(v["s"], 4)} for k, v in WALL.items()}}
             res["runs"].append(rec)
             a.out.parent.mkdir(parents=True, exist_ok=True)
