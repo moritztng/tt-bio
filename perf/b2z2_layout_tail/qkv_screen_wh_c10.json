@@ -1,0 +1,128 @@
+{
+ "env": {
+  "card": "10",
+  "commit": "fd593eb1",
+  "shape": {
+   "S": 512,
+   "C": 768,
+   "qkv_N": 3072
+  },
+  "loadavg": [
+   "10.85",
+   "10.56",
+   "10.01"
+  ]
+ },
+ "arms": {
+  "shipped_linear_plus_heads_us": 169.07,
+  "shipped_linear_only_us": 106.0,
+  "nlp_create_qkv_heads_us": 63.07,
+  "generic": {
+   "8x8x8x2x2": {
+    "us": 115.81,
+    "walls": [
+     116.55,
+     116.46,
+     115.81,
+     115.72,
+     115.81
+    ],
+    "bit_exact_vs_linear": false,
+    "max_abs_vs_linear": 3.0
+   },
+   "4x8x2x4x2": {
+    "us": 129.22,
+    "walls": [
+     134.18,
+     129.07,
+     129.13,
+     130.33,
+     129.22
+    ],
+    "bit_exact_vs_linear": false,
+    "max_abs_vs_linear": 3.0
+   },
+   "4x24x1x4x1": {
+    "us": 135.45,
+    "walls": [
+     135.45,
+     134.18,
+     134.63,
+     135.7,
+     201.57
+    ],
+    "bit_exact_vs_linear": false,
+    "max_abs_vs_linear": 3.5
+   },
+   "4x12x1x4x1": {
+    "us": 156.12,
+    "walls": [
+     156.12,
+     157.38,
+     157.29,
+     156.08,
+     155.94
+    ],
+    "bit_exact_vs_linear": false,
+    "max_abs_vs_linear": 3.0
+   },
+   "4x8x1x4x1": {
+    "us": 175.34,
+    "walls": [
+     179.45,
+     175.79,
+     174.17,
+     175.34,
+     173.9
+    ],
+    "bit_exact_vs_linear": false,
+    "max_abs_vs_linear": 3.0
+   },
+   "4x4x1x4x1": {
+    "us": 207.54,
+    "walls": [
+     208.22,
+     207.25,
+     208.75,
+     207.54,
+     205.35
+    ],
+    "bit_exact_vs_linear": false,
+    "max_abs_vs_linear": 2.25
+   },
+   "8x8x1x4x1": {
+    "us": 176.75,
+    "walls": [
+     176.75,
+     176.03,
+     178.08,
+     176.26,
+     176.94
+    ],
+    "bit_exact_vs_linear": false,
+    "max_abs_vs_linear": 3.0
+   },
+   "4x8x4x4x2": {
+    "us": 103.18,
+    "walls": [
+     103.94,
+     102.47,
+     103.85,
+     102.76,
+     103.18
+    ],
+    "bit_exact_vs_linear": false,
+    "max_abs_vs_linear": 3.0
+   }
+  }
+ },
+ "verdict": {
+  "best_generic": "4x8x4x4x2",
+  "best_generic_us": 103.18,
+  "bias_add_us": 27.85,
+  "arm_b_floor_us": 131.03,
+  "shipped_us": 169.07,
+  "headroom_us": 38.04,
+  "arm_b_can_pay": true
+ }
+}
