@@ -102,3 +102,29 @@ for the glue, and all three are inside what a device `z_init` deletes.
 (The instance-level brackets added for those two terms did not take: assigning a timing wrapper
 over an `nn.Module` child raises in `nn.Module.__setattr__` and the harness swallowed it, so the
 rows are absent rather than zero. Raw: `glue_hoston_whglx_c11.json`.)
+
+## Row 3, built and measured
+
+`TT_BIO_DEVICE_ZINIT` (`tenstorrent.PairAssemblyDevice.for_trunk`) builds the whole sum on the
+device, inside the trunk's own static build, so nothing is uploaded. Measured on whglx card 11,
+WH, commit `c44d6e83`, 6 interleaved paired folds in one process:
+
+| | |
+|---|---|
+| median on / off | 39.099 / 39.525 s |
+| ratio | **1.01090x** |
+| paired mean | **+0.3685 s**, sd 0.1913, t = 4.72, **6/6 positive** |
+| arm spreads | on 2.10 %, off 1.61 % — larger than the effect; the pairing is what carries it |
+| device track added | **98.9 ms** (51 % of it one packed upload) |
+| `cdk2x2_298` control | **0.298180 A** all-atom / 0.143312 A CA, A/A floor 0.000000 A, bar 0.35 A |
+
+The fold sees 0.3685 s of the ~0.58 s the brackets predict, because part of the host assembly was
+already overlapping queued device work.
+
+## What is left of the residual after row 3
+
+Rows 2 (the sampler's 200-step host, 0.659 s) and 4 (featurisation and parsing, 0.362 s) are
+untouched and are now the largest host terms that nobody owns. Row 2 splits as
+`weighted_rigid_align` 0.341 s over 200 calls and 0.239 s of loop Python; the align is a per-step
+Kabsch superposition, so it is a device candidate but not a cheap one. Row 4 is parsing and
+featurisation, which no device can help.
