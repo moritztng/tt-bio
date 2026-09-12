@@ -63,6 +63,16 @@ ROOT = Path(os.environ.get("FOLD_ROOT", "/home/tt-admin/wt-shardrep"))
 OUT_PATH = Path(os.environ.get("FOLD_OUT", f"/tmp/b2z2_fold_{MODE}.json"))
 sys.path.insert(0, str(ROOT))
 
+MESH_MODES = ("mesh", "shard", "bshard")
+# BEFORE `import tt_bio`. `_ROW_SHARD_FOLD` is a module-level flag read once at import, so setting
+# it after the import leaves it False and the arm folds UNSHARDED under a sharded name -- which is
+# exactly what happened on the first run of this file: all three arms returned the same CIF and the
+# agreement meant nothing, because `row_shard_calls` was 0. That counter is why it was caught.
+if MODE in ("shard", "bshard"):
+    os.environ["TT_BIO_ROW_SHARD_FOLD"] = "1"
+if MODE == "bshard":
+    os.environ["TT_BIO_B_SHARD_FOLD"] = "1"
+
 RECYCLING_STEPS, SAMPLING_STEPS, DIFFUSION_SAMPLES, SEED = 3, 200, 1, 0
 
 import torch  # noqa: E402,F401
@@ -73,12 +83,6 @@ from tt_bio import tenstorrent as T  # noqa: E402
 def log(m):
     print(f"[{time.strftime('%H:%M:%S')}] {m}", flush=True)
 
-
-MESH_MODES = ("mesh", "shard", "bshard")
-if MODE in ("shard", "bshard"):
-    os.environ["TT_BIO_ROW_SHARD_FOLD"] = "1"
-if MODE == "bshard":
-    os.environ["TT_BIO_B_SHARD_FOLD"] = "1"
 
 if MODE in MESH_MODES:
     def _mesh_open(device_id, kwargs):
