@@ -27,8 +27,8 @@
   ],
   "cap_fold": 1.8153171680909375,
   "cap_fold_calibrated": 1.7738061384070878,
-  "cap_with_bshard": 1.8470988945569404,
-  "cap_with_bshard_calibrated": 1.8062853668107612,
+  "cap_with_bshard": null,
+  "bshard_excluded_reason": "4.6 % fold regression, 7/7 reps, p=0.0078",
   "redteam3_cap": 1.7431,
   "redteam3_cap_calibrated": 1.7021,
   "routes": [
@@ -79,12 +79,6 @@
       "block_ratio": 2.6,
       "step_ratio": 1.224649750171451,
       "fold": 1.8153171680909375
-    },
-    {
-      "route": "+ both shards, gate fix AND b_shard",
-      "block_ratio": 2.74,
-      "step_ratio": 1.224649750171451,
-      "fold": 1.8470988945569404
     }
   ],
   "wh_to_bh_shard_calibration": 1.0694940285712538,
