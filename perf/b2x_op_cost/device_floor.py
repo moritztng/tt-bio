@@ -205,6 +205,12 @@ def main() -> int:
     # ---- grab one settled call of each class we want a device floor for ---------------------
     grabs: dict[str, dict] = {}
     counts: dict[str, int] = {}
+    # A class's calls are not all the same shape. `counts` is every call of the class; `matching`
+    # is only the calls that look like the one we actually grabbed and timed, and `shapes` is the
+    # histogram that proves whether the distinction mattered. Multiplying one grabbed call's time
+    # by `counts` prices small calls at a large call's cost -- see the note above device_s_per_fold.
+    matching: dict[str, int] = {}
+    shapes: dict[str, dict[str, int]] = {}
     originals = []
 
     def _vol(sh):
@@ -223,7 +229,13 @@ def main() -> int:
 
         def w(self_obj, *args, **kw):
             counts[cname] = counts.get(cname, 0) + 1
-            if cname not in grabs and counts[cname] >= 3 and want(self_obj, args):
+            hit = bool(want(self_obj, args))
+            if hit:
+                matching[cname] = matching.get(cname, 0) + 1
+            if args and hasattr(args[0], "shape"):
+                k = "x".join(str(int(d)) for d in args[0].shape)
+                shapes.setdefault(cname, {})[k] = shapes.setdefault(cname, {}).get(k, 0) + 1
+            if cname not in grabs and counts[cname] >= 3 and hit:
                 grabs[cname] = {"obj": self_obj,
                                 "args": tuple(clone(x) for x in args),
                                 "kwargs": {k: clone(v) for k, v in kw.items()}}
@@ -245,7 +257,16 @@ def main() -> int:
                 # the volume of its first tensor argument (z is 512x512x128 at 512 aa)
                 arm(cname, lambda o, ar: bool(ar) and hasattr(ar[0], "shape")
                     and _vol(ar[0].shape) > 4_000_000)
+            elif cname == "AttentionPairBias":
+                # Same hazard as Transition: AttentionPairBias runs on the pair track and inside
+                # the diffusion transformer at different shapes, so an unfiltered grab times
+                # whichever came first and then prices all of them at it. Filter it the same way.
+                arm(cname, lambda o, ar: bool(ar) and hasattr(ar[0], "shape")
+                    and _vol(ar[0].shape) > 4_000_000)
             else:
+                # Uniform-shape classes only (TriangleMultiplication / TriangleAttention are
+                # 2 per PairformerLayer at one shape). The shape histogram in the output is what
+                # confirms that per run -- check it before trusting a new class added here.
                 arm(cname, lambda o, ar: True)
     print("=== fold 2 (grabbing) ===", flush=True)
     t, m = one_fold()
@@ -253,6 +274,8 @@ def main() -> int:
         cls.__call__ = orig
     OUT["fold2_s"] = round(t, 3)
     OUT["class_call_counts_per_fold"] = counts
+    OUT["class_matching_call_counts_per_fold"] = matching
+    OUT["class_call_shapes_per_fold"] = shapes
     OUT["grabbed"] = sorted(grabs)
     print("  call counts/fold: " + json.dumps(counts), flush=True)
     dump()
@@ -288,9 +311,21 @@ def main() -> int:
             g = grabs[cname]
             try:
                 r = trace_floor(ttnn, dev, g["obj"], g["args"], g["kwargs"])
-                r["calls_per_fold"] = counts.get(cname)
-                r["device_s_per_fold"] = round(
-                    1e-3 * r["device_ms_per_call"] * counts.get(cname, 0), 4)
+                # Price the fold on the calls that LOOK LIKE THE ONE TIMED, not on every call
+                # of the class. `Transition` is grabbed by a >4M-element filter precisely because
+                # its single-track and diffusion calls are far smaller; counting those at the
+                # pair-track call's cost inflated Transition to 8.3568 s/fold, more than the
+                # PairformerLayer + MSALayer + Diffusion containers it sits inside can hold.
+                n_all = counts.get(cname, 0)
+                n_match = matching.get(cname, n_all)
+                r["calls_per_fold"] = n_match
+                r["calls_per_fold_all_shapes"] = n_all
+                r["device_s_per_fold"] = round(1e-3 * r["device_ms_per_call"] * n_match, 4)
+                if n_match != n_all:
+                    r["note"] = (f"{n_all - n_match} of {n_all} calls of this class do NOT match "
+                                 f"the grabbed call's filter and are NOT priced here; they are a "
+                                 f"separate, smaller shape. See class_call_shapes_per_fold.")
+                r["shapes_seen"] = shapes.get(cname, {})
                 OUT["floor"][cname] = r
                 print(f"  {cname:18s} {r['device_ms_per_call']:9.4f} ms/call x "
                       f"{r['calls_per_fold']} = {r['device_s_per_fold']:7.3f} s/fold "
