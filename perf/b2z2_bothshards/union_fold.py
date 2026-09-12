@@ -190,6 +190,14 @@ class Splitter:
         return out
 
 
+def atom_stats_reset():
+    T._ATOM_SHARD_STATS.update(sharded=0, declined=0, reasons={})
+
+
+def atom_stats():
+    return dict(T._ATOM_SHARD_STATS, reasons=dict(T._ATOM_SHARD_STATS["reasons"]))
+
+
 def rungs():
     return {n: (len(getattr(T, n)) if hasattr(T, n) else None)
             for n in ("_L1_OUT_RUNG", "_BMM_CFG_RUNG", "_BMM_CFG_REFUSED", "_OPM_JOIN_REFUSED")}
@@ -199,6 +207,7 @@ def fold_once(arm):
     for p in struct_dir.glob("*"):
         p.unlink() if p.is_file() else shutil.rmtree(p)
     set_arm(arm)
+    atom_stats_reset()
     sp = Splitter()
     state.pfn = sp
     state.model.progress_fn = sp
@@ -212,6 +221,7 @@ def fold_once(arm):
                   for f in sorted(struct_dir.glob("*.cif")))
     return {"arm": arm, "fold_s": round(wall, 4), "plddt": metrics.get("plddt"),
             "cif": [c[:16] for c in cifs], "stages": stages, "rungs": rungs(),
+            "atom_shard": atom_stats(),
             "loadavg": open("/proc/loadavg").read().split()[:3]}
 
 
@@ -221,8 +231,15 @@ OUT["cold"] = []
 for arm in dict.fromkeys(ARMS):
     r = fold_once(arm)
     OUT["cold"].append(r)
-    log(f"cold[{arm}] {r['fold_s']:.3f}s cif={r['cif']} rungs={r['rungs']}")
+    log(f"cold[{arm}] {r['fold_s']:.3f}s cif={r['cif']} rungs={r['rungs']} "
+        f"atom={r['atom_shard']}")
     dump()
+
+for arm in dict.fromkeys(ARMS):
+    got = [r for r in OUT["cold"] if r["arm"] == arm][0]["atom_shard"]
+    want = arm in ("atom", "both")
+    assert bool(got["sharded"]) == want, (
+        f"arm {arm!r} wanted atom-shard={want} and the gate reports {got}")
 
 for i, arm in enumerate(ARMS):
     r = fold_once(arm)

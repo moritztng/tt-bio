@@ -9757,6 +9757,11 @@ _ATOM_ROW_SHARD = os.environ.get("TT_BIO_ATOM_ROW_SHARD", "0") == "1"
 #: the layer's own AdaLN output, not a rollout invariant, so the exchange is per layer and no
 #: amount of input replication removes it.
 _ATOM_HALO_W = 2
+#: How many atom-transformer calls took the sharded path, and how many declined it and why. A gate
+#: that quietly declines is indistinguishable from a shard that costs nothing: the first wiring of
+#: this lever read bit-exact and within noise of its own base, which is exactly what an inert gate
+#: reads like. A harness that does not check this is not measuring the shard.
+_ATOM_SHARD_STATS = {"sharded": 0, "declined": 0, "reasons": {}}
 
 
 class Diffusion(Module):
@@ -9865,8 +9870,15 @@ class Diffusion(Module):
             return 1
         n = getattr(self.device, "get_num_devices", lambda: 1)()
         NW = int(q.shape[1])
-        if n < 2 or NW % n or NW // n <= 2 * _ATOM_HALO_W:
+        why = ("one device" if n < 2 else
+               f"{NW} windows do not divide by {n}" if NW % n else
+               f"{NW // n} windows a chip is not wider than its {2 * _ATOM_HALO_W}-window halo"
+               if NW // n <= 2 * _ATOM_HALO_W else None)
+        if why is not None:
+            _ATOM_SHARD_STATS["declined"] += 1
+            _ATOM_SHARD_STATS["reasons"][why] = _ATOM_SHARD_STATS["reasons"].get(why, 0) + 1
             return 1
+        _ATOM_SHARD_STATS["sharded"] += 1
         return n
 
     def _atom_local(self, key, src, build):
