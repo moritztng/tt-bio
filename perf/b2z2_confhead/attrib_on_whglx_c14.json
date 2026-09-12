@@ -1,0 +1,205 @@
+{
+ "env": {
+  "started": "2026-09-12T19:33:57+0000",
+  "card": "14",
+  "commit": "7fa21916",
+  "loadavg": [
+   "16.19",
+   "15.20",
+   "10.79"
+  ],
+  "size": 512,
+  "phases": [
+   "plain",
+   "attrib"
+  ],
+  "torch_threads": 32,
+  "torch_interop_threads": 32,
+  "gc_thresholds": [
+   700,
+   10,
+   10
+  ],
+  "instruments": {
+   "brackets": "time.perf_counter wall, no synchronize_device",
+   "sampler": "1.0 ms sys._current_frames on the main thread",
+   "gc": "gc.callbacks start/stop timing"
+  },
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "load_s": 4.7,
+  "n_msa": 35,
+  "card_type": "tt-galaxy-wh-l",
+  "recycling_steps": 3,
+  "timed_region": "predict_one (featurize + fold + CIF write)"
+ },
+ "cold_s": 49.67,
+ "plain": {
+  "a0": {
+   "wall_s": 41.0592,
+   "plddt": null,
+   "loadavg": [
+    "17.14",
+    "15.68",
+    "11.41"
+   ],
+   "cif": {
+    "cdk2x2_512.cif": "6be82118d47812d094feb57c01b71a5151d821bb7deaa0be40225ccaac60e58d"
+   }
+  }
+ },
+ "attrib": {
+  "fold_wall_s": 40.548,
+  "plddt": null,
+  "loadavg": [
+   "15.79",
+   "15.59",
+   "11.57"
+  ],
+  "patched": {
+   "prepare": true,
+   "to_batch": true,
+   "predict_step": true,
+   "write_result": true,
+   "trunk": true,
+   "denoise_device": true,
+   "pairformer_conf": true,
+   "sampler": true,
+   "denoiser": true,
+   "align": true,
+   "randaug": true,
+   "digest": true,
+   "confidence": true,
+   "rel_pos": true,
+   "input_embedder": true,
+   "diffusion_cond": true,
+   "pairwise_cond": true,
+   "atom_encoder": true
+  },
+  "notes": [],
+  "tree": {
+   "predict_step": {
+    "calls": 1,
+    "incl_s": 40.02718,
+    "excl_s": 0.54231,
+    "ms_per_call": 40027.17994
+   },
+   "predict_step/confidence": {
+    "calls": 1,
+    "incl_s": 1.41502,
+    "excl_s": 0.58037,
+    "ms_per_call": 1415.01869
+   },
+   "predict_step/confidence/pairformer_conf": {
+    "calls": 1,
+    "incl_s": 0.83465,
+    "excl_s": 0.83465,
+    "ms_per_call": 834.65352
+   },
+   "predict_step/diffusion_cond": {
+    "calls": 1,
+    "incl_s": 1.15118,
+    "excl_s": 0.12875,
+    "ms_per_call": 1151.17674
+   },
+   "predict_step/diffusion_cond/atom_encoder": {
+    "calls": 1,
+    "incl_s": 0.27737,
+    "excl_s": 0.27737,
+    "ms_per_call": 277.36863
+   },
+   "predict_step/diffusion_cond/pairwise_cond": {
+    "calls": 1,
+    "incl_s": 0.74506,
+    "excl_s": 0.74506,
+    "ms_per_call": 745.06134
+   },
+   "predict_step/input_embedder": {
+    "calls": 1,
+    "incl_s": 0.09938,
+    "excl_s": 0.03536,
+    "ms_per_call": 99.38283
+   },
+   "predict_step/input_embedder/atom_encoder": {
+    "calls": 1,
+    "incl_s": 0.06402,
+    "excl_s": 0.06402,
+    "ms_per_call": 64.02138
+   },
+   "predict_step/rel_pos": {
+    "calls": 1,
+    "incl_s": 0.12635,
+    "excl_s": 0.12635,
+    "ms_per_call": 126.35006
+   },
+   "predict_step/sampler": {
+    "calls": 1,
+    "incl_s": 10.16883,
+    "excl_s": 0.22843,
+    "ms_per_call": 10168.82942
+   },
+   "predict_step/sampler/align": {
+    "calls": 200,
+    "incl_s": 0.30685,
+    "excl_s": 0.30685,
+    "ms_per_call": 1.53425
+   },
+   "predict_step/sampler/denoiser": {
+    "calls": 200,
+    "incl_s": 9.59587,
+    "excl_s": 0.04177,
+    "ms_per_call": 47.97934
+   },
+   "predict_step/sampler/denoiser/denoise_device": {
+    "calls": 200,
+    "incl_s": 9.5541,
+    "excl_s": 9.5541,
+    "ms_per_call": 47.77052
+   },
+   "predict_step/sampler/digest": {
+    "calls": 1,
+    "incl_s": 1e-05,
+    "excl_s": 1e-05,
+    "ms_per_call": 0.00818
+   },
+   "predict_step/sampler/randaug": {
+    "calls": 200,
+    "incl_s": 0.03767,
+    "excl_s": 0.03767,
+    "ms_per_call": 0.18836
+   },
+   "predict_step/trunk": {
+    "calls": 1,
+    "incl_s": 26.52412,
+    "excl_s": 26.52412,
+    "ms_per_call": 26524.11695
+   },
+   "prepare": {
+    "calls": 1,
+    "incl_s": 0.35828,
+    "excl_s": 0.35828,
+    "ms_per_call": 358.28015
+   },
+   "to_batch": {
+    "calls": 1,
+    "incl_s": 0.00018,
+    "excl_s": 0.00018,
+    "ms_per_call": 0.17574
+   },
+   "write_result": {
+    "calls": 1,
+    "incl_s": 0.14776,
+    "excl_s": 0.14776,
+    "ms_per_call": 147.75703
+   }
+  },
+  "top_level_incl_s": 40.5334,
+  "unattributed_s": 0.0146,
+  "cif": {
+   "cdk2x2_512.cif": "6be82118d47812d094feb57c01b71a5151d821bb7deaa0be40225ccaac60e58d"
+  }
+ }
+}
