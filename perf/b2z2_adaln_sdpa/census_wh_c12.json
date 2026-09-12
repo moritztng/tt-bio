@@ -1,0 +1,736 @@
+{
+ "env": {
+  "started": "2026-09-12T21:13:47+0000",
+  "card": "12",
+  "size": 512,
+  "commit": "bbf64af9",
+  "profiler": "0",
+  "loadavg": [
+   "13.59",
+   "12.54",
+   "8.64"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3,
+  "arch": "Arch.WORMHOLE_B0",
+  "cores": "8x9"
+ },
+ "precursor_s": 70.241,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "layer_norm": {
+  "n_calls": 114,
+  "sites": [
+   {
+    "key": [
+     "tenstorrent.py:8490 __call__",
+     [
+      1,
+      512,
+      768
+     ],
+     false,
+     false
+    ],
+    "n": 48,
+    "shape": [
+     1,
+     512,
+     768
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "mc": "DRAM",
+    "weight": false,
+    "bias": false,
+    "bytes": 1572864,
+    "site": "tenstorrent.py:8490 __call__"
+   },
+   {
+    "key": [
+     "tenstorrent.py:8451 s_terms",
+     [
+      1,
+      512,
+      768
+     ],
+     true,
+     false
+    ],
+    "n": 48,
+    "shape": [
+     1,
+     512,
+     768
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "mc": "DRAM",
+    "weight": true,
+    "bias": false,
+    "bytes": 1572864,
+    "site": "tenstorrent.py:8451 s_terms"
+   },
+   {
+    "key": [
+     "tenstorrent.py:8490 __call__",
+     [
+      1,
+      140,
+      32,
+      128
+     ],
+     false,
+     false
+    ],
+    "n": 12,
+    "shape": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "mc": "L1",
+    "weight": false,
+    "bias": false,
+    "bytes": 2293760,
+    "site": "tenstorrent.py:8490 __call__"
+   },
+   {
+    "key": [
+     "tenstorrent.py:7322 swiglu",
+     [
+      1,
+      512,
+      768
+     ],
+     true,
+     true
+    ],
+    "n": 2,
+    "shape": [
+     1,
+     512,
+     768
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "mc": "DRAM",
+    "weight": true,
+    "bias": true,
+    "bytes": 1572864,
+    "site": "tenstorrent.py:7322 swiglu"
+   },
+   {
+    "key": [
+     "tenstorrent.py:9659 __call__",
+     [
+      1,
+      256
+     ],
+     true,
+     true
+    ],
+    "n": 1,
+    "shape": [
+     1,
+     256
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "mc": "DRAM",
+    "weight": true,
+    "bias": true,
+    "bytes": 1024,
+    "site": "tenstorrent.py:9659 __call__"
+   },
+   {
+    "key": [
+     "tenstorrent.py:9681 __call__",
+     [
+      1,
+      512,
+      768
+     ],
+     true,
+     true
+    ],
+    "n": 1,
+    "shape": [
+     1,
+     512,
+     768
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "mc": "DRAM",
+    "weight": true,
+    "bias": true,
+    "bytes": 1572864,
+    "site": "tenstorrent.py:9681 __call__"
+   },
+   {
+    "key": [
+     "tenstorrent.py:9711 __call__",
+     [
+      1,
+      512,
+      768
+     ],
+     true,
+     true
+    ],
+    "n": 1,
+    "shape": [
+     1,
+     512,
+     768
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "mc": "DRAM",
+    "weight": true,
+    "bias": true,
+    "bytes": 1572864,
+    "site": "tenstorrent.py:9711 __call__"
+   },
+   {
+    "key": [
+     "tenstorrent.py:9745 __call__",
+     [
+      1,
+      4480,
+      128
+     ],
+     true,
+     true
+    ],
+    "n": 1,
+    "shape": [
+     1,
+     4480,
+     128
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "mc": "DRAM",
+    "weight": true,
+    "bias": true,
+    "bytes": 2293760,
+    "site": "tenstorrent.py:9745 __call__"
+   }
+  ]
+ },
+ "sdpa": {
+  "n_calls": 30,
+  "sites": [
+   {
+    "key": [
+     "tenstorrent.py:7179 <lambda>",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     [
+      1,
+      16,
+      512,
+      512
+     ]
+    ],
+    "n": 24,
+    "q": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "k": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "v": [
+     1,
+     16,
+     512,
+     64
+    ],
+    "bias": [
+     1,
+     16,
+     512,
+     512
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "bias_dtype": "DataType.BFLOAT16",
+    "qkv_bytes": 3145728,
+    "bias_bytes": 8388608,
+    "out_bytes": 1048576,
+    "flops": 1073741824.0,
+    "site": "tenstorrent.py:7179 <lambda>"
+   },
+   {
+    "key": [
+     "tenstorrent.py:6949 <lambda>",
+     [
+      1,
+      560,
+      32,
+      32
+     ],
+     [
+      1,
+      560,
+      32,
+      128
+     ]
+    ],
+    "n": 6,
+    "q": [
+     1,
+     560,
+     32,
+     32
+    ],
+    "k": [
+     1,
+     560,
+     128,
+     32
+    ],
+    "v": [
+     1,
+     560,
+     128,
+     32
+    ],
+    "bias": [
+     1,
+     560,
+     32,
+     128
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "bias_dtype": "DataType.BFLOAT16",
+    "qkv_bytes": 10321920,
+    "bias_bytes": 4587520,
+    "out_bytes": 1146880,
+    "flops": 293601280.0,
+    "site": "tenstorrent.py:6949 <lambda>"
+   }
+  ]
+ },
+ "ln_isolated": [
+  {
+   "site": "tenstorrent.py:8490 __call__",
+   "shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "mc": "L1",
+   "weight": false,
+   "bias": false,
+   "bytes": 2293760,
+   "ms_per_call": 0.0272,
+   "ms_all": [
+    0.0362,
+    0.0271,
+    0.0272,
+    0.0276,
+    0.0272
+   ],
+   "reps": 30,
+   "blocks": 5
+  },
+  {
+   "site": "tenstorrent.py:9659 __call__",
+   "shape": [
+    1,
+    256
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "mc": "DRAM",
+   "weight": true,
+   "bias": true,
+   "bytes": 1024,
+   "ms_per_call": 0.0298,
+   "ms_all": [
+    0.0303,
+    0.0301,
+    0.0295,
+    0.0294,
+    0.0298
+   ],
+   "reps": 30,
+   "blocks": 5
+  },
+  {
+   "site": "tenstorrent.py:7322 swiglu",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "mc": "DRAM",
+   "weight": true,
+   "bias": true,
+   "bytes": 1572864,
+   "ms_per_call": 0.0395,
+   "ms_all": [
+    0.0396,
+    0.0393,
+    0.0395,
+    0.0398,
+    0.0395
+   ],
+   "reps": 30,
+   "blocks": 5
+  },
+  {
+   "site": "tenstorrent.py:9681 __call__",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "mc": "DRAM",
+   "weight": true,
+   "bias": true,
+   "bytes": 1572864,
+   "ms_per_call": 0.0397,
+   "ms_all": [
+    0.0397,
+    0.0397,
+    0.0397,
+    0.0394,
+    0.0393
+   ],
+   "reps": 30,
+   "blocks": 5
+  },
+  {
+   "site": "tenstorrent.py:8490 __call__",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "mc": "DRAM",
+   "weight": false,
+   "bias": false,
+   "bytes": 1572864,
+   "ms_per_call": 0.0297,
+   "ms_all": [
+    0.0297,
+    0.0301,
+    0.0296,
+    0.0297,
+    0.0302
+   ],
+   "reps": 30,
+   "blocks": 5
+  },
+  {
+   "site": "tenstorrent.py:8451 s_terms",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "mc": "DRAM",
+   "weight": true,
+   "bias": false,
+   "bytes": 1572864,
+   "ms_per_call": 0.0331,
+   "ms_all": [
+    0.0331,
+    0.0331,
+    0.0332,
+    0.0332,
+    0.0331
+   ],
+   "reps": 30,
+   "blocks": 5
+  },
+  {
+   "site": "tenstorrent.py:9711 __call__",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "mc": "DRAM",
+   "weight": true,
+   "bias": true,
+   "bytes": 1572864,
+   "ms_per_call": 0.0388,
+   "ms_all": [
+    0.0388,
+    0.0388,
+    0.0388,
+    0.0392,
+    0.0392
+   ],
+   "reps": 30,
+   "blocks": 5
+  },
+  {
+   "site": "tenstorrent.py:9745 __call__",
+   "shape": [
+    1,
+    4480,
+    128
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "mc": "DRAM",
+   "weight": true,
+   "bias": true,
+   "bytes": 2293760,
+   "ms_per_call": 0.0331,
+   "ms_all": [
+    0.0331,
+    0.0331,
+    0.0329,
+    0.0331,
+    0.0333
+   ],
+   "reps": 30,
+   "blocks": 5
+  }
+ ],
+ "sdpa_isolated": [
+  {
+   "site": "tenstorrent.py:6949 <lambda>",
+   "q": [
+    1,
+    560,
+    32,
+    32
+   ],
+   "k": [
+    1,
+    560,
+    128,
+    32
+   ],
+   "v": [
+    1,
+    560,
+    128,
+    32
+   ],
+   "bias": [
+    1,
+    560,
+    32,
+    128
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "bias_dtype": "DataType.BFLOAT16",
+   "qkv_bytes": 10321920,
+   "bias_bytes": 4587520,
+   "out_bytes": 1146880,
+   "flops": 293601280.0,
+   "ms_per_call": 0.0919,
+   "ms_all": [
+    0.0913,
+    0.0917,
+    0.0919,
+    0.0922,
+    0.0924
+   ],
+   "reps": 30,
+   "blocks": 5
+  },
+  {
+   "site": "tenstorrent.py:7179 <lambda>",
+   "q": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "k": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "v": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "bias": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "bias_dtype": "DataType.BFLOAT16",
+   "qkv_bytes": 3145728,
+   "bias_bytes": 8388608,
+   "out_bytes": 1048576,
+   "flops": 1073741824.0,
+   "ms_per_call": 0.1252,
+   "ms_all": [
+    0.1269,
+    0.125,
+    0.1266,
+    0.1252,
+    0.1252
+   ],
+   "reps": 30,
+   "blocks": 5
+  }
+ ],
+ "screen_adaln_chain": {
+  "dram": {
+   "ms_per_call": 0.0918,
+   "ms_all": [
+    0.1073,
+    0.0917,
+    0.0918,
+    0.0903,
+    0.1065
+   ],
+   "reps": 30,
+   "blocks": 5,
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "l1": {
+   "ms_per_call": 0.1135,
+   "ms_all": [
+    0.1069,
+    0.1165,
+    0.1157,
+    0.1135,
+    0.1115
+   ],
+   "reps": 30,
+   "blocks": 5,
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "ratio_l1_over_dram": 0.80881
+ },
+ "screen_sdpa_bias": {
+  "bf16": {
+   "ms_per_call": 0.1255,
+   "ms_all": [
+    0.1265,
+    0.1265,
+    0.1255,
+    0.1254,
+    0.1247
+   ],
+   "reps": 30,
+   "blocks": 5,
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "rms_ref": 4.364716529846191
+  },
+  "bfp8_b": {
+   "ms_per_call": 0.1173,
+   "ms_all": [
+    0.1173,
+    0.1158,
+    0.1187,
+    0.1148,
+    0.118
+   ],
+   "reps": 30,
+   "blocks": 5,
+   "bit_exact": false,
+   "max_abs": 0.875,
+   "rms_ref": 4.364716529846191
+  },
+  "bfp4_b": {
+   "ms_per_call": 0.111,
+   "ms_all": [
+    0.1111,
+    0.111,
+    0.1107,
+    0.1125,
+    0.1102
+   ],
+   "reps": 30,
+   "blocks": 5,
+   "bit_exact": false,
+   "max_abs": 1.4375,
+   "rms_ref": 4.364716529846191
+  },
+  "ratio_bfp8_b": 1.06991,
+  "ratio_bfp4_b": 1.13063
+ },
+ "step_ms": 41.5235,
+ "step_aa_blocks": [
+  41.5232,
+  41.5243,
+  41.5239,
+  41.5083,
+  41.5304,
+  41.504
+ ],
+ "step_aa_floor": 1.00064
+}

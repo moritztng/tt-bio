@@ -1,0 +1,197 @@
+{
+ "env": {
+  "started": "2026-09-12T21:16:51+0000",
+  "card": "12",
+  "size": 512,
+  "commit": "77e231e6",
+  "loadavg": [
+   "28.37",
+   "18.71",
+   "11.73"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3,
+  "arch": "Arch.WORMHOLE_B0",
+  "cores": "8x9",
+  "n_cores": 72,
+  "compute_grid_main": [
+   8,
+   9
+  ]
+ },
+ "precursor_s": 98.622,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "sdpa_shape": {
+  "q": [
+   1,
+   16,
+   512,
+   64
+  ],
+  "bias": [
+   1,
+   16,
+   512,
+   512
+  ],
+  "shipped_q_chunk": 256,
+  "shipped_k_chunk": 256
+ },
+ "sdpa_q_chunk_sweep": [
+  {
+   "q_chunk": 512,
+   "k_chunk": 256,
+   "work_units": 16,
+   "us": 182.7,
+   "ms_all": [
+    0.1837,
+    0.1832,
+    0.1827,
+    0.1825,
+    0.1824
+   ],
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  {
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "work_units": 32,
+   "us": 125.4,
+   "ms_all": [
+    0.1249,
+    0.1272,
+    0.129,
+    0.1241,
+    0.1254
+   ],
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  {
+   "q_chunk": 128,
+   "k_chunk": 256,
+   "work_units": 64,
+   "us": 95.6,
+   "ms_all": [
+    0.0952,
+    0.0961,
+    0.0959,
+    0.0954,
+    0.0956
+   ],
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  {
+   "q_chunk": 64,
+   "k_chunk": 256,
+   "work_units": 128,
+   "us": 106.0,
+   "ms_all": [
+    0.1058,
+    0.1057,
+    0.1064,
+    0.1063,
+    0.106
+   ],
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  {
+   "q_chunk": 32,
+   "k_chunk": 256,
+   "work_units": 256,
+   "us": 140.4,
+   "ms_all": [
+    0.1411,
+    0.1403,
+    0.1409,
+    0.1404,
+    0.1403
+   ],
+   "bit_exact": true,
+   "max_abs": 0.0
+  }
+ ],
+ "ln_row_scaling": {
+  "rows512": {
+   "us": 29.4,
+   "rows": 512,
+   "tile_rows": 16,
+   "ms_all": [
+    0.0294,
+    0.0294,
+    0.0294,
+    0.0295,
+    0.0293
+   ]
+  },
+  "rows2048": {
+   "us": 55.4,
+   "rows": 2048,
+   "tile_rows": 64,
+   "ms_all": [
+    0.0551,
+    0.0556,
+    0.0554,
+    0.0554,
+    0.0557
+   ]
+  },
+  "work_ratio": 4.0,
+  "time_ratio": 1.8844
+ }
+}
