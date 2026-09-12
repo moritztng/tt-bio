@@ -1131,6 +1131,85 @@ def _atom_key_window(s: ttnn.Tensor, keys_indexing: ttnn.Tensor) -> ttnn.Tensor 
     ttnn.deallocate(p)
     return out
 
+
+# The atom attention branch, resident in L1 instead of round-tripping DRAM.
+#
+# `b2z2-step-matmul-group` measured the 54 atom-level matmuls at 6-9 % of this card's FLOP roof
+# and 23-26 % of its byte roof: their arithmetic intensity is ~63 FLOP/byte against a 241 FLOP/byte
+# crossover, so bytes are what binds them, and the branch starts by forcing its own input to DRAM.
+# Off-fold at the four production shapes, taking operand and result to L1 measured 1.41x-3.20x and
+# `torch.equal` at every one. A memory config moves bytes and not values, so this cannot change an
+# output; the only thing it can do is run out of L1, which is what the budget below is for.
+_ATOM_L1 = env_flag("TT_BIO_ATOM_L1", False)
+_ATOM_L1_SHARE = float(os.environ.get("TT_BIO_ATOM_L1_SHARE", "0.5"))
+ATOM_L1_STATS = {"l1": 0, "dram": 0}
+
+
+def _atom_branch_memory_config(s: ttnn.Tensor) -> ttnn.MemoryConfig | None:
+    """L1 for the atom attention branch when its live set fits the grid's banks, else None.
+
+    Priced on the branch's own bytes per bank, the way `_trimul_tail_memory_config` and
+    `_FP32_SOFTMAX_L1_BYTES_PER_CORE` are, and never on a sequence length or a model name. The
+    live set is `s` itself (B K W D), the key window it gathers (B K H D), that window's kv
+    projection (B K H 2D) and the query padded up to the window (B K H D), so it grows linearly
+    with the atom count and the gate flips on its own at the size where it stops fitting.
+
+    Returning None hands every call site ttnn's default, which is what the branch did before.
+    """
+    if not _ATOM_L1:
+        return None
+    B, K, W, D = (int(v) for v in s.shape)
+    if W != ATOM_WINDOW:
+        return None
+    elem = 4 if s.dtype == ttnn.float32 else 2
+    live = B * K * D * (W + 4 * ATOM_DIM) * elem
+    gx, gy = COMPUTE_GRID_MAIN
+    if live <= _ATOM_L1_SHARE * _l1_bank_bytes() * gx * gy:
+        ATOM_L1_STATS["l1"] += 1
+        return ttnn.L1_MEMORY_CONFIG
+    ATOM_L1_STATS["dram"] += 1
+    return None
+
+
+# The atom branch's q/k/v heads, split without padding the query up to the key window.
+#
+# `nlp_create_qkv_heads` requires its two operands to agree on the sequence dimension, so the
+# shipped path pads the 32-row query up to the 128-row key window, splits all of it, and slices
+# the padding straight back off. The site map prices that at 69.5 us of zeros, 158.8 us of split
+# and 23.5 us of slice per atom layer, and three quarters of the split is zeros. The head dim here
+# is 32 channels (128 over 4 heads), which is tile aligned, so the split is a permute and needs no
+# padding at all. Bit-exact by construction: it is the same permutation of the same channels, and
+# the harness checks it with `torch.equal` against the padded path.
+_ATOM_HEADS_UNPADDED = env_flag("TT_BIO_ATOM_HEADS_UNPADDED", False)
+
+
+def _atom_qkv_heads(q: ttnn.Tensor, kv: ttnn.Tensor, n_heads: int,
+                    memory_config: ttnn.MemoryConfig | None = None):
+    """(q, k, v) head-major, from a [B,K,W,D] query and a [B,K,H,2D] fused kv.
+
+    `kv` carries K then V in its last dim, which is the layout `_apply_kq_norm_atom` already
+    relies on. Returns None when the head dim is not tile aligned, where the padded path is the
+    only correct one.
+    """
+    B, K, W, D = (int(v) for v in q.shape)
+    hd = D // n_heads
+    if hd % 32 or D % n_heads or int(kv.shape[3]) != 2 * D:
+        return None
+    H = int(kv.shape[2])
+
+    def heads(t, rows, groups):
+        t = ttnn.reshape(t, (B * K, rows, groups, hd), memory_config=memory_config)
+        t = ttnn.permute(t, (0, 2, 1, 3), memory_config=memory_config)
+        return t
+
+    qh = ttnn.reshape(heads(q, W, n_heads), (B, K * n_heads, W, hd),
+                      memory_config=memory_config)
+    kvh = heads(kv, H, 2 * n_heads)
+    kh = ttnn.reshape(kvh[:, :n_heads], (B, K * n_heads, H, hd), memory_config=memory_config)
+    vh = ttnn.reshape(kvh[:, n_heads:], (B, K * n_heads, H, hd), memory_config=memory_config)
+    ttnn.deallocate(kvh)
+    return qh, kh, vh
+
 # ON by default since 2026-09-11. It sizes the atom axis on the real atom count
 # (ceil(N/448)*448 = 4480 at 512 aa) instead of padded_seq * 14 = 7168, so the atom transformer
 # runs 140 windows where the token-derived pad ran 224. **1.0470x on the 512 aa fold**, 1.157x on
@@ -7010,6 +7089,8 @@ class AttentionPairBias(Module):
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
         self._load_kq_norm()
+        # None everywhere except the atom branch, where it is L1 while the branch's live set fits.
+        atom_mc = None
         if not self.atom_level:
             qkv = ttnn.linear(
                 s,
@@ -7135,7 +7216,8 @@ class AttentionPairBias(Module):
             o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
             o = ttnn.permute(o, (0, 2, 1))
         else:
-            s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
+            atom_mc = _atom_branch_memory_config(s)
+            s = ttnn.to_memory_config(s, atom_mc or ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
             s_kv = _atom_key_window(s, keys_indexing) if _ATOM_KEY_WINDOW else None
             if s_kv is None:
@@ -7146,9 +7228,10 @@ class AttentionPairBias(Module):
                     keys_indexing,
                     compute_kernel_config=self.compute_kernel_config,
                     core_grid=CORE_GRID_MAIN,
+                    memory_config=atom_mc,
                 )
-                s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
-                s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
+                s_kv = ttnn.permute(s_kv, (0, 3, 1, 2), memory_config=atom_mc)
+                s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S), memory_config=atom_mc)
 
             q = ttnn.linear(
                 s,
@@ -7157,6 +7240,7 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
+                memory_config=atom_mc,
             )
             kv = ttnn.linear(
                 s_kv,
@@ -7164,25 +7248,32 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
+                memory_config=atom_mc,
             )
 
             if self.kq_norm:
                 q, kv = self._apply_kq_norm_atom(q, kv)
 
-            if _ATOM_PAD_IN_TILE:
-                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+            split = (_atom_qkv_heads(q, kv, self.n_heads, atom_mc)
+                     if _ATOM_HEADS_UNPADDED else None)
+            if split is not None:
+                q, k, v = split
+                D_Q = int(q.shape[3])
             else:
-                q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
-                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
-                q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
-            q = ttnn.reshape(q, (B * K, 1, ATOM_DIM, -1))
-            kv = ttnn.reshape(kv, (B * K, 1, ATOM_DIM, -1))
-            q, k, v = ttnn.experimental.nlp_create_qkv_heads(q, kv, num_heads=self.n_heads, num_kv_heads=self.n_heads, transpose_k_heads=False)
-            _, H, S, D_Q = q.shape
-            q = ttnn.reshape(q, (B, K * H, S, D_Q))
-            k = ttnn.reshape(k, (B, K * H, S, D_Q))
-            v = ttnn.reshape(v, (B, K * H, S, D_Q))
-            q = q[:, :, :ATOM_WINDOW, :]
+                if _ATOM_PAD_IN_TILE:
+                    q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+                else:
+                    q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
+                    q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+                    q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
+                q = ttnn.reshape(q, (B * K, 1, ATOM_DIM, -1))
+                kv = ttnn.reshape(kv, (B * K, 1, ATOM_DIM, -1))
+                q, k, v = ttnn.experimental.nlp_create_qkv_heads(q, kv, num_heads=self.n_heads, num_kv_heads=self.n_heads, transpose_k_heads=False)
+                _, H, S, D_Q = q.shape
+                q = ttnn.reshape(q, (B, K * H, S, D_Q))
+                k = ttnn.reshape(k, (B, K * H, S, D_Q))
+                v = ttnn.reshape(v, (B, K * H, S, D_Q))
+                q = q[:, :, :ATOM_WINDOW, :]
             z = ttnn.reshape(z, (1, -1, z.shape[2], z.shape[3]))
             o = self._attention(q, k, v, z)
             o = ttnn.reshape(o, (B * K, H, W, D_Q))
@@ -7194,14 +7285,16 @@ class AttentionPairBias(Module):
             self.g_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            memory_config=atom_mc,
         )
         if _FAST_MODE:
             o = ttnn.typecast(o, ttnn.bfloat16)
-        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
+        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
+                          dtype=self.dtype, memory_config=atom_mc)
         ttnn.deallocate(g)
         x = ttnn.linear(
             o, self.o_weight, compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
+            core_grid=CORE_GRID_MAIN, memory_config=atom_mc,
         )
         ttnn.deallocate(o)
         return x
