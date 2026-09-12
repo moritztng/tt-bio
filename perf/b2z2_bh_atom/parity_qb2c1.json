@@ -1,0 +1,790 @@
+{
+ "doc": "The three credible Blackhole levers, singly and together, in one interleaved process.\n\n    HOST   TT_BIO_DEVICE_CONDITIONING   the diffusion conditioning pair track on the device\n    SILU   TT_BIO_UNFUSED_SILU          silu as its own op instead of inside ttnn.linear\n    AKW    TT_BIO_ATOM_KEY_WINDOW       the atom key window as tile-aligned slices, not a matmul\n    LN     BOLTZ2_ADALN_SHARED_SNORM    one shared LayerNorm for the 48 AdaLN sites of a step\n    LAY    TT_BIO_HEAD_PAD_TAIL         the head-split tail carried padded, four layout programs gone\n\nLN and LAY are the two step levers this pass adds. Both were measured on Wormhole only, 1.03932x\nand 1.02574x ON THE STEP, and neither has ever held a Blackhole chip. The third step lever the\nbrief names, `wk/b2z2-step-program-fusion`, is ALREADY IN THE UNION: it is AKW, and its Blackhole\nnumber is the union row's 1.02744x. Anything that stacks it a second time is double counting.\n\nEach was measured alone and none of them has been measured beside the other two. HOST carries the\ncampaign's largest single factor (1.06704x) and it was taken in a session whose own A/A floor was\n1.02155x on a box a co-tenant joined mid-run, so the number it carries is not one this wave can\npublish. This driver retakes all three on one tree, one device open, arms interleaved inside every\nrep, and records the loadavg and the device occupancy of every single fold, so a co-tenant arriving\nmid-run is visible in the artifact instead of inside a ratio.\n\nThe flags live in two different places and both are handled here rather than in the environment of\nthe process, because an A/B has to flip arms inside one process:\n\n  * `_UNFUSED_SILU` and `_ATOM_KEY_WINDOW` pick a device program, so they are read at build time\n    and are module attributes of `tt_bio.tenstorrent`;\n  * `TT_BIO_DEVICE_CONDITIONING` is read per call by `tt_bio.boltz2._device_conditioning`, so it\n    is an environment variable this driver sets per fold.\n\nEVERY arm applies the FULL flag set, not just the flags it turns on. An arm that only sets its own\nflags inherits whatever the previous arm left behind, which is how an interleaved run silently\nmeasures the union five times. `base` is therefore all three explicitly off, and it is the only\nthing any ratio here is a ratio of.\n\n    ab_union.py --out <json> --cifdir <dir> --mode parity --sizes 512,298\n    ab_union.py --out <json> --mode timing --reps 5 --order base,HOST,base,SILU,base,AKW,base,UNION\n    ab_union.py --out <json> --mode timing --reps 5 --order base,LN,base,LAY,base,UNION,base,STACK\n\nThe step wall is recorded per fold beside the PairformerLayer wall, because LN and LAY are step\nlevers: a null on the fold with a moved step is a different finding from a lever that never fired.\n`DiffusionModule.forward` returns a torch tensor, so it already reads back from the device and no\nextra synchronize is added around it; the Pairformer wrap keeps the explicit syncs it was built\nwith so its numbers stay comparable with `b2z2-bh-union-clean`'s.\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "ttnn": "?",
+  "tt_visible_devices": "1",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-bh-stack-atom/tt_bio/__init__.py",
+  "commit": "f287eec15817fc6d79936d5ccf91bd0c5b10649d",
+  "started_utc": "2026-09-12T22:22:20Z",
+  "loadavg_at_start": [
+   7.6357421875,
+   7.89013671875,
+   6.7197265625
+  ],
+  "occupancy_at_start": {
+   "pids": [
+    "1219366",
+    "1223509"
+   ],
+   "nodes": [
+    "/dev/tenstorrent/0",
+    "/dev/tenstorrent/1"
+   ]
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "mode": "parity",
+   "order": "base,HOST,base,SILU,base,AKW,base,UNION,base,UNION",
+   "reps": 5,
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 22.816,
+   "sha256": "a91aa44441f0d9c5",
+   "flags": {
+    "SILU": false,
+    "AKW": false,
+    "HOST": false,
+    "LN": false,
+    "LAY": false,
+    "SG": false,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 10.4146,
+   "block_n": 280,
+   "step_s": 5.7169,
+   "step_n": 200,
+   "step_ms": 28.5843,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 0,
+    "one_hot_matmul": 1200
+   },
+   "loadavg_before": [
+    7.75,
+    7.91,
+    6.73
+   ],
+   "loadavg_after": [
+    8.79,
+    8.13,
+    6.84
+   ],
+   "occupancy": {
+    "pids": [
+     "1219366",
+     "1223509"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.800144,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "CSTACK",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 20.283,
+   "sha256": "a15c6653fe8ba871",
+   "flags": {
+    "SILU": true,
+    "AKW": false,
+    "HOST": true,
+    "LN": true,
+    "LAY": true,
+    "SG": true,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 9.7673,
+   "block_n": 280,
+   "step_s": 5.0241,
+   "step_n": 200,
+   "step_ms": 25.1207,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 1200,
+    "one_hot_matmul": 0
+   },
+   "loadavg_before": [
+    8.79,
+    8.13,
+    6.84
+   ],
+   "loadavg_after": [
+    8.85,
+    8.19,
+    6.88
+   ],
+   "occupancy": {
+    "pids": [
+     "1219366",
+     "1223509"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.8021,
+   "tag": "CSTACK-s0"
+  },
+  {
+   "arm": "CSTACK_L1_KVP",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.694,
+   "sha256": "a15c6653fe8ba871",
+   "flags": {
+    "SILU": true,
+    "AKW": false,
+    "HOST": true,
+    "LN": true,
+    "LAY": true,
+    "SG": true,
+    "L1": true,
+    "KVP": true
+   },
+   "block_s": 9.8203,
+   "block_n": 280,
+   "step_s": 4.6072,
+   "step_n": 200,
+   "step_ms": 23.0361,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 1200,
+    "one_hot_matmul": 0
+   },
+   "loadavg_before": [
+    8.85,
+    8.19,
+    6.88
+   ],
+   "loadavg_after": [
+    9.04,
+    8.27,
+    6.94
+   ],
+   "occupancy": {
+    "pids": [
+     "1219366",
+     "1223509"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.8021,
+   "tag": "CSTACK_L1_KVP-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 21.707,
+   "sha256": "099907e8ebf1dbda",
+   "flags": {
+    "SILU": false,
+    "AKW": false,
+    "HOST": false,
+    "LN": false,
+    "LAY": false,
+    "SG": false,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 10.2359,
+   "block_n": 280,
+   "step_s": 5.6805,
+   "step_n": 200,
+   "step_ms": 28.4025,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 0,
+    "one_hot_matmul": 1200
+   },
+   "loadavg_before": [
+    9.04,
+    8.27,
+    6.94
+   ],
+   "loadavg_after": [
+    9.03,
+    8.32,
+    6.99
+   ],
+   "occupancy": {
+    "pids": [
+     "1219366",
+     "1223509"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.813671,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "CSTACK",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 19.655,
+   "sha256": "fe3df99bcac8070f",
+   "flags": {
+    "SILU": true,
+    "AKW": false,
+    "HOST": true,
+    "LN": true,
+    "LAY": true,
+    "SG": true,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 9.8518,
+   "block_n": 280,
+   "step_s": 4.7014,
+   "step_n": 200,
+   "step_ms": 23.5072,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 1200,
+    "one_hot_matmul": 0
+   },
+   "loadavg_before": [
+    9.03,
+    8.32,
+    6.99
+   ],
+   "loadavg_after": [
+    10.18,
+    8.61,
+    7.11
+   ],
+   "occupancy": {
+    "pids": [
+     "1219366",
+     "1223509"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.817468,
+   "tag": "CSTACK-s1"
+  },
+  {
+   "arm": "CSTACK_L1_KVP",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 18.147,
+   "sha256": "fe3df99bcac8070f",
+   "flags": {
+    "SILU": true,
+    "AKW": false,
+    "HOST": true,
+    "LN": true,
+    "LAY": true,
+    "SG": true,
+    "L1": true,
+    "KVP": true
+   },
+   "block_s": 9.7715,
+   "block_n": 280,
+   "step_s": 4.2593,
+   "step_n": 200,
+   "step_ms": 21.2967,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 1200,
+    "one_hot_matmul": 0
+   },
+   "loadavg_before": [
+    10.18,
+    8.61,
+    7.11
+   ],
+   "loadavg_after": [
+    8.64,
+    8.35,
+    7.05
+   ],
+   "occupancy": {
+    "pids": [
+     "1223509",
+     "1224374",
+     "1224454"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/3"
+    ]
+   },
+   "plddt": 0.817468,
+   "tag": "CSTACK_L1_KVP-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 22.05,
+   "sha256": "a91aa44441f0d9c5",
+   "flags": {
+    "SILU": false,
+    "AKW": false,
+    "HOST": false,
+    "LN": false,
+    "LAY": false,
+    "SG": false,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 10.1933,
+   "block_n": 280,
+   "step_s": 5.5917,
+   "step_n": 200,
+   "step_ms": 27.9585,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 0,
+    "one_hot_matmul": 1200
+   },
+   "loadavg_before": [
+    8.64,
+    8.35,
+    7.05
+   ],
+   "loadavg_after": [
+    9.3,
+    8.52,
+    7.14
+   ],
+   "occupancy": {
+    "pids": [
+     "1223509",
+     "1224374"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.800144,
+   "tag": "base-s0_r1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 17.791,
+   "sha256": "0cf1b879dca3c0d5",
+   "flags": {
+    "SILU": false,
+    "AKW": false,
+    "HOST": false,
+    "LN": false,
+    "LAY": false,
+    "SG": false,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 8.4679,
+   "block_n": 280,
+   "step_s": 5.7479,
+   "step_n": 200,
+   "step_ms": 28.7394,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 0,
+    "one_hot_matmul": 1200
+   },
+   "loadavg_before": [
+    9.3,
+    8.52,
+    7.14
+   ],
+   "loadavg_after": [
+    9.96,
+    8.72,
+    7.23
+   ],
+   "occupancy": {
+    "pids": [
+     "1223509",
+     "1224374"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.917809,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "CSTACK",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 13.174,
+   "sha256": "2d8652abf9ab7e5a",
+   "flags": {
+    "SILU": true,
+    "AKW": false,
+    "HOST": true,
+    "LN": true,
+    "LAY": true,
+    "SG": true,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 4.6241,
+   "block_n": 280,
+   "step_s": 5.5287,
+   "step_n": 200,
+   "step_ms": 27.6437,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 1200,
+    "one_hot_matmul": 0
+   },
+   "loadavg_before": [
+    9.96,
+    8.72,
+    7.23
+   ],
+   "loadavg_after": [
+    9.33,
+    8.63,
+    7.22
+   ],
+   "occupancy": {
+    "pids": [
+     "1223509",
+     "1224374"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.915766,
+   "tag": "CSTACK-s0"
+  },
+  {
+   "arm": "CSTACK_L1_KVP",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 15.616,
+   "sha256": "2d8652abf9ab7e5a",
+   "flags": {
+    "SILU": true,
+    "AKW": false,
+    "HOST": true,
+    "LN": true,
+    "LAY": true,
+    "SG": true,
+    "L1": true,
+    "KVP": true
+   },
+   "block_s": 4.6097,
+   "block_n": 280,
+   "step_s": 7.7537,
+   "step_n": 200,
+   "step_ms": 38.7685,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 1200,
+    "one_hot_matmul": 0
+   },
+   "loadavg_before": [
+    9.33,
+    8.63,
+    7.22
+   ],
+   "loadavg_after": [
+    9.18,
+    8.63,
+    7.24
+   ],
+   "occupancy": {
+    "pids": [
+     "1223509",
+     "1224374"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.915766,
+   "tag": "CSTACK_L1_KVP-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 13.984,
+   "sha256": "2b93753165dd05cc",
+   "flags": {
+    "SILU": false,
+    "AKW": false,
+    "HOST": false,
+    "LN": false,
+    "LAY": false,
+    "SG": false,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 4.691,
+   "block_n": 280,
+   "step_s": 5.7374,
+   "step_n": 200,
+   "step_ms": 28.6871,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 0,
+    "one_hot_matmul": 1200
+   },
+   "loadavg_before": [
+    9.18,
+    8.63,
+    7.24
+   ],
+   "loadavg_after": [
+    9.14,
+    8.65,
+    7.27
+   ],
+   "occupancy": {
+    "pids": [
+     "1223509",
+     "1224374"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.917459,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "CSTACK",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 12.971,
+   "sha256": "e9249a92efbd85ef",
+   "flags": {
+    "SILU": true,
+    "AKW": false,
+    "HOST": true,
+    "LN": true,
+    "LAY": true,
+    "SG": true,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 4.5705,
+   "block_n": 280,
+   "step_s": 5.1101,
+   "step_n": 200,
+   "step_ms": 25.5504,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 1200,
+    "one_hot_matmul": 0
+   },
+   "loadavg_before": [
+    9.14,
+    8.65,
+    7.27
+   ],
+   "loadavg_after": [
+    8.55,
+    8.55,
+    7.26
+   ],
+   "occupancy": {
+    "pids": [
+     "1223509",
+     "1224374"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.916394,
+   "tag": "CSTACK-s1"
+  },
+  {
+   "arm": "CSTACK_L1_KVP",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 12.32,
+   "sha256": "e9249a92efbd85ef",
+   "flags": {
+    "SILU": true,
+    "AKW": false,
+    "HOST": true,
+    "LN": true,
+    "LAY": true,
+    "SG": true,
+    "L1": true,
+    "KVP": true
+   },
+   "block_s": 4.5918,
+   "block_n": 280,
+   "step_s": 4.9467,
+   "step_n": 200,
+   "step_ms": 24.7337,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 1200,
+    "one_hot_matmul": 0
+   },
+   "loadavg_before": [
+    8.55,
+    8.55,
+    7.26
+   ],
+   "loadavg_after": [
+    8.62,
+    8.57,
+    7.28
+   ],
+   "occupancy": {
+    "pids": [
+     "1223509",
+     "1224374"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.916394,
+   "tag": "CSTACK_L1_KVP-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 13.733,
+   "sha256": "0cf1b879dca3c0d5",
+   "flags": {
+    "SILU": false,
+    "AKW": false,
+    "HOST": false,
+    "LN": false,
+    "LAY": false,
+    "SG": false,
+    "L1": false,
+    "KVP": false
+   },
+   "block_s": 4.6533,
+   "block_n": 280,
+   "step_s": 5.4932,
+   "step_n": 200,
+   "step_ms": 27.4659,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "atom_gather": {
+    "slice_concat": 0,
+    "one_hot_matmul": 1200
+   },
+   "loadavg_before": [
+    8.62,
+    8.57,
+    7.28
+   ],
+   "loadavg_after": [
+    9.22,
+    8.7,
+    7.35
+   ],
+   "occupancy": {
+    "pids": [
+     "1223509",
+     "1224374"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.917809,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 3.785,
+ "bit_exact_vs_base": {
+  "cdk2x2_512": {
+   "base": true,
+   "CSTACK": false,
+   "CSTACK_L1_KVP": false
+  },
+  "cdk2x2_298": {
+   "base": true,
+   "CSTACK": false,
+   "CSTACK_L1_KVP": false
+  }
+ },
+ "aa_floor_identical": {
+  "cdk2x2_512": false,
+  "cdk2x2_298": false
+ }
+}
