@@ -1,0 +1,172 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "9",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "seq": 512,
+  "utc": "2026-09-12T10:54:44Z",
+  "tt_bio": "/home/tt-admin/wt/b2z-bfp8-narrow/tt_bio/__init__.py",
+  "ttnn": "0.68.0"
+ },
+ "docstring": "\n        minimal_matmul(input_tensor, weight_tensor, bias_tensor=None, *, fused_activation=None, config=None, memory_config=None, dtype=None, compute_kernel_config=None)\n\n        Experimental, high-performance matrix multiply (A @ B [+ bias]) with optional fused activation.\n        This op expects TILE layout tensors on device and operates in tile units internally. It is designed\n        to be minimal and fast, with a small set of required constraints explicitly validated at runtime.\n\n        Parameters\n        ----------\n        input_tensor : ttnn.Tensor\n            Activation/input matrix A.\n            - Layout: TILE (required).\n            - Device: must be on device and allocated in a device buffer.\n            - DType: one of {DataType::BFLOAT16, DataType::BFLOAT8_B, DataType::BFLOAT4_B}.\n            - Shape: [..., M, K]. Upper (leading) dimensions are broadcast over rows (folded into M).\n\n        weight_tensor : ttnn.Tensor\n            Weight matrix B.\n            - Layout: TILE (required).\n            - Device: same device as `input_tensor`; must be allocated in a device buffer.\n            - DType: must match `input_tensor` dtype (same set of supported dtypes).\n            - Shape: [..., K, N] with no batching; all leading dimensions (dims < -2) must be 1.\n\n        bias_tensor : Optional[ttnn.Tensor], default: None\n            Optional row-broadcast bias added to the matmul result before the optional activation.\n            - Layout: TILE (required if provided).\n            - Device: same device as inputs; must be allocated in a device buffer.\n            - DType: one of {DataType::BFLOAT16, DataType::BFLOAT8_B, DataType::BFLOAT4_B}.\n            - Shape: [..., N] where all dims except the last are 1. The last dim must equal N.\n\n        fused_activation : Optional[ttnn.operations.eltwise.unary.common.UnaryWithParam], default: None\n            Optional fused unary activation applied per output tile during packing. See ttnn unary utilities\n            for supported ops and parameters. Typical examples include relu/gelu/etc. If provided, it is applied\n            after bias (if any) and before the tile is written out.\n\n        config : Optional[MinimalMatmulConfig], default: None\n            Execution configuration in tile units. If omitted, reasonable defaults are selected based on tensor\n            sizes and kernel flags.\n            Fields (all values are in tiles):\n            - M_block_size: Number of output tiles along M per block.\n            - K_block_size: Number of K tiles per block (inner dimension chunk).\n            - N_block_size: Number of output tiles along N per block.\n            - subblock_h: Sub-block height (M dimension) used by compute kernel within a block.\n            - subblock_w: Sub-block width (N dimension) used by compute kernel within a block.\n            - compute_with_storage_grid_size: Core grid (x, y) to run the op on.\n\n            Required invariants:\n            - All block/subblock sizes must be > 0.\n            - M_block_size % subblock_h == 0.\n            - N_block_size % subblock_w == 0.\n            - Grid size must be within the device grid; typically at least 2x2 is recommended.\n            - Internally, K is rounded up to a multiple of K_block_size as needed (zero-padded reads).\n\n            Defaults behavior (when `config` is None):\n            - Block sizes and subblock sizes are chosen automatically; subblocks are typically 2x2, and may switch\n              to 2x4 or 4x2 depending on aspect ratio and accumulation mode to balance NOC/dataflow.\n            - The core grid defaults to the device compute-with-storage grid.\n\n        memory_config : Optional[ttnn.MemoryConfig], default: None\n            Memory configuration for the output tensor. If not provided, the output inherits the memory configuration\n            of `input_tensor`. The output is produced in TILE layout.\n\n        dtype : Optional[ttnn.DataType], default: None\n            Data type of the output tensor. If not",
+ "cases": [
+  {
+   "case": "c128",
+   "x_dtype": "DataType.BFLOAT16",
+   "w_dtype": "DataType.BFLOAT16",
+   "label": "bf16",
+   "kt": 4,
+   "have_cfg": true,
+   "ms": 0.9971,
+   "ms_all": [
+    1.0466,
+    1.0014,
+    1.0194,
+    0.9972,
+    0.9922,
+    0.9935,
+    0.995,
+    0.9971,
+    0.9913
+   ],
+   "rmse_vs_fp64": 0.001039128166862775,
+   "rel_rmse": 0.0029681813971024393,
+   "ok": true
+  },
+  {
+   "case": "c128",
+   "x_dtype": "DataType.BFLOAT8_B",
+   "w_dtype": "DataType.BFLOAT8_B",
+   "label": "bfp8_b",
+   "kt": 4,
+   "have_cfg": true,
+   "ms": 0.8583,
+   "ms_all": [
+    0.9062,
+    0.8583,
+    0.8627,
+    0.8615,
+    0.8571,
+    0.8614,
+    0.858,
+    0.8555,
+    0.8578
+   ],
+   "rmse_vs_fp64": 0.004350187503562628,
+   "rel_rmse": 0.012425941316714637,
+   "ok": true
+  },
+  {
+   "case": "c128",
+   "x_dtype": "DataType.BFLOAT8_B",
+   "w_dtype": "DataType.BFLOAT16",
+   "label": "mixed_x8_wbf16",
+   "kt": 4,
+   "have_cfg": true,
+   "ms": 0.9362,
+   "ms_all": [
+    0.9933,
+    0.9453,
+    0.9362,
+    0.9333,
+    0.9329,
+    0.9383,
+    0.9427,
+    0.9356,
+    0.9331
+   ],
+   "rmse_vs_fp64": 0.003701439932850977,
+   "rel_rmse": 0.010572848953127484,
+   "ok": true
+  },
+  {
+   "case": "c256",
+   "x_dtype": "DataType.BFLOAT16",
+   "w_dtype": "DataType.BFLOAT16",
+   "label": "bf16",
+   "kt": 8,
+   "have_cfg": true,
+   "ms": 1.7348,
+   "ms_all": [
+    1.7789,
+    2.5968,
+    1.7338,
+    1.7294,
+    1.7229,
+    1.7478,
+    1.7348,
+    1.73,
+    1.7604
+   ],
+   "rmse_vs_fp64": 0.0011220492774547419,
+   "rel_rmse": 0.0032067565043167752,
+   "ok": true
+  },
+  {
+   "case": "c256",
+   "x_dtype": "DataType.BFLOAT8_B",
+   "w_dtype": "DataType.BFLOAT8_B",
+   "label": "bfp8_b",
+   "kt": 8,
+   "have_cfg": true,
+   "ms": 1.2564,
+   "ms_all": [
+    1.2935,
+    1.2719,
+    1.2674,
+    1.2451,
+    1.2551,
+    1.251,
+    1.2564,
+    1.2628,
+    1.2516
+   ],
+   "rmse_vs_fp64": 0.004453802582118501,
+   "rel_rmse": 0.01272872830643343,
+   "ok": true
+  },
+  {
+   "case": "c256",
+   "x_dtype": "DataType.BFLOAT8_B",
+   "w_dtype": "DataType.BFLOAT16",
+   "label": "mixed_x8_wbf16",
+   "kt": 8,
+   "have_cfg": true,
+   "ms": 1.4691,
+   "ms_all": [
+    1.5333,
+    1.5081,
+    1.4798,
+    1.4744,
+    1.4691,
+    1.4504,
+    1.4127,
+    1.4326,
+    1.4427
+   ],
+   "rmse_vs_fp64": 0.0036961634663186128,
+   "rel_rmse": 0.010563436450422145,
+   "ok": true
+  }
+ ],
+ "verdict": {
+  "c128": {
+   "bfp8_b_runs": true,
+   "speedup_bf16_over_bfp8": 1.1617,
+   "rel_rmse_bf16": 0.0029681813971024393,
+   "rel_rmse_bfp8": 0.012425941316714637,
+   "mixed_operand_dtypes": "ran"
+  },
+  "c256": {
+   "bfp8_b_runs": true,
+   "speedup_bf16_over_bfp8": 1.3808,
+   "rel_rmse_bf16": 0.0032067565043167752,
+   "rel_rmse_bfp8": 0.01272872830643343,
+   "mixed_operand_dtypes": "ran"
+  }
+ }
+}

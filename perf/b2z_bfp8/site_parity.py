@@ -145,11 +145,22 @@ def main() -> int:
     cifs = args.cifdir or (work / "cif")
     cifs.mkdir(parents=True, exist_ok=True)
     folds: dict = {}
+    # A site that cannot fold is a result against that site, not a crash of the sweep: a storage
+    # dtype changes which program config a tuned matmul picks, and that alone can overflow L1.
+    errors: dict = {}
     for name, ss in arms:
         set_arm(ss)
         folds[name] = {}
         for tgt in targets:
-            f = fold(FIX / f"{tgt}.yaml", struct_dir)
+            try:
+                f = fold(FIX / f"{tgt}.yaml", struct_dir)
+            except Exception as e:                                    # noqa: BLE001
+                msg = f"{type(e).__name__}: {e}".split("\nbacktrace")[0][:600]
+                errors.setdefault(name, {})[tgt] = msg
+                OUT["errors"] = errors
+                dump()
+                print(f"  {tgt} {name:12s} FAILED  {msg[:160]}", flush=True)
+                continue
             (cifs / f"{name}__{tgt}.cif").write_text(f.pop("cif"))
             folds[name][tgt] = f
             OUT["folds"] = folds
@@ -157,6 +168,10 @@ def main() -> int:
             print(f"  {tgt} {name:12s} {f['fold_s']:7.3f} s  sha {f['cif_sha256']}  "
                   f"plddt {f['plddt']}", flush=True)
     set_arm(frozenset())
+    if not folds.get("base"):
+        OUT["summary"] = {"error": "the base arm did not fold; nothing to score against"}
+        dump()
+        return 1
 
     def score(path_a: Path, path_b: Path):
         ka, xa = read_atoms(path_a)
@@ -180,6 +195,9 @@ def main() -> int:
     for name, _ss in arms:
         r = {}
         for tgt in targets:
+            if tgt not in folds.get(name, {}) or tgt not in folds["base"]:
+                r[tgt] = {"error": errors.get(name, {}).get(tgt, "not folded")}
+                continue
             mine = cifs / f"{name}__{tgt}.cif"
             base = cifs / f"base__{tgt}.cif"
             e = {"vs_base": score(mine, base),
@@ -198,10 +216,11 @@ def main() -> int:
         dump()
 
     OUT["summary"] = {
-        name: {"all_atom_A_298": r["cdk2x2_298"]["vs_base"].get("all_atom_rmsd_A"),
-               "verdict": r["cdk2x2_298"].get("verdict"),
-               "plddt_298": r["cdk2x2_298"]["plddt"],
-               "plddt_512": r.get("cdk2x2_512", {}).get("plddt")}
+        name: ({"error": r["cdk2x2_298"]["error"]} if "error" in r["cdk2x2_298"] else
+               {"all_atom_A_298": r["cdk2x2_298"]["vs_base"].get("all_atom_rmsd_A"),
+                "verdict": r["cdk2x2_298"].get("verdict"),
+                "plddt_298": r["cdk2x2_298"]["plddt"],
+                "plddt_512": r.get("cdk2x2_512", {}).get("plddt")})
         for name, r in results.items()}
     dump()
     print(json.dumps(OUT["summary"], indent=1))
