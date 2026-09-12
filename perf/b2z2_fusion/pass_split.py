@@ -91,6 +91,19 @@ def mm_1():
     ttnn.deallocate(o)
 
 
+def mm_2():
+    """The comparison the workstream states the 2.5x against: the two projections as two separate
+    `generic_op` matmuls, writing two L1 tensors instead of one."""
+    o1 = ttnn.allocate_tensor_on_device(hshape, ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+                                        ttnn.L1_MEMORY_CONFIG)
+    o2 = ttnn.allocate_tensor_on_device(hshape, ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+                                        ttnn.L1_MEMORY_CONFIG)
+    MG.generic_minimal_matmul(dev, x, w1, [o1], (block, grid), ckc4)
+    MG.generic_minimal_matmul(dev, x, w2, [o2], (block, grid), ckc4)
+    ttnn.deallocate(o1)
+    ttnn.deallocate(o2)
+
+
 ARM_SPECS = []
 for tok in a.arms.split(";"):
     name, cfg = tok.split(":")
@@ -164,7 +177,7 @@ for name in SAME_MATH:
         raise SystemExit("%s is NOT bit-exact against the kernel as it arrived. It is a "
                          "restructure, not a numerics change, so this is a bug. Aborting." % name)
 
-ARMS = ([("incumbent", incumbent), ("mm_1", mm_1), ("mm_1_aa", mm_1)]
+ARMS = ([("incumbent", incumbent), ("mm_1", mm_1), ("mm_1_aa", mm_1), ("mm_2", mm_2)]
         + [(n, loop_for(s)) for n, s in ARM_SPECS])
 for _, fn in ARMS:
     r = fn()
@@ -194,6 +207,12 @@ for name, _ in ARMS:
           % (name, rows[name]["ms"], rows[name]["x_mm_1"], rows[name]["ratio_vs_incumbent"],
              rows[name]["spread_pct"]), flush=True)
 
+if "p2_nosilu_diag" in rows and "mm_2" in rows:
+    print("\ntwo-pass loop with no activation and no product: %.5f ms against two standalone "
+          "matmuls at %.5f -- %.4fx"
+          % (rows["p2_nosilu_diag"]["ms"], rows["mm_2"]["ms"],
+             rows["p2_nosilu_diag"]["ms"] / rows["mm_2"]["ms"]), flush=True)
+    rows["twopass_vs_two_matmuls"] = round(rows["p2_nosilu_diag"]["ms"] / rows["mm_2"]["ms"], 4)
 if "p1" in rows and "p2_diag" in rows:
     p1ms, p2ms = rows["p1"]["ms"], rows["p2_diag"]["ms"]
     print("\npass 1 costs %.5f ms as it arrived; a standalone matmul is %.5f (%.2fx)"
