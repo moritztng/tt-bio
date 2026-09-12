@@ -86,23 +86,23 @@
     10
    ],
    "card": "2",
-   "aa_floor": 1.01517,
+   "aa_floor": 1.01024,
    "aa_floor_per_position": {
-    "2": 1.01517
+    "2": 1.01024
    },
-   "reps_complete": 2,
+   "reps_complete": 5,
    "loadavg_1m_min_max": [
-    12.98,
+    11.07,
     18.76
    ],
    "arms": {
     "L1": {
-     "n": 2,
-     "median_fold_s": 77.113,
-     "min_fold_s": 75.171,
+     "n": 5,
+     "median_fold_s": 74.507,
+     "min_fold_s": 74.318,
      "max_fold_s": 79.054,
-     "spread_pct": 5.04,
-     "median_step_s": 9.061,
+     "spread_pct": 6.36,
+     "median_step_s": 8.969,
      "atom_l1_l1": [
       1200
      ],
@@ -117,12 +117,12 @@
      ]
     },
     "base": {
-     "n": 4,
-     "median_fold_s": 76.667,
-     "min_fold_s": 74.654,
+     "n": 10,
+     "median_fold_s": 75.308,
+     "min_fold_s": 74.323,
      "max_fold_s": 78.509,
-     "spread_pct": 5.03,
-     "median_step_s": 9.747,
+     "spread_pct": 5.56,
+     "median_step_s": 9.702,
      "atom_l1_l1": [
       0
      ],
@@ -137,10 +137,10 @@
      ]
     }
    },
-   "ratio_vs_base": 0.99422,
-   "above_aa_floor": false,
-   "ratio_resolved": 1.0,
-   "step_ratio_vs_base": 1.07571,
+   "ratio_vs_base": 1.01075,
+   "above_aa_floor": true,
+   "ratio_resolved": 1.01075,
+   "step_ratio_vs_base": 1.08173,
    "bit_exact_vs_base": true,
    "sha256": "d6ece9fab83c5ca3",
    "gate_declined": false,
@@ -150,38 +150,38 @@
  ],
  "fits": {
   "base": {
-   "exponent": 1.7802,
+   "exponent": 1.7544,
    "stderr": null,
    "r2": 1.0,
    "n_points": 2,
-   "prefactor": 0.00033548
+   "prefactor": 0.00039406
   },
   "L1": {
-   "exponent": 1.8347,
+   "exponent": 1.7851,
    "stderr": null,
    "r2": 1.0,
    "n_points": 2,
-   "prefactor": 0.00023132
+   "prefactor": 0.0003152
   }
  },
  "local_exponents": {
   "base": [
    {
     "interval": "512->1024",
-    "exponent": 1.7802,
+    "exponent": 1.7544,
     "seconds": [
      22.321,
-     76.667
+     75.308
     ]
    }
   ],
   "L1": [
    {
     "interval": "512->1024",
-    "exponent": 1.8347,
+    "exponent": 1.7851,
     "seconds": [
      21.619,
-     77.113
+     74.507
     ]
    }
   ]
@@ -218,10 +218,10 @@
    "n": 5
   },
   "1024": {
-   "ratio": 0.99422,
-   "aa_floor": 1.01517,
-   "resolved": 1.0,
-   "n": 2
+   "ratio": 1.01075,
+   "aa_floor": 1.01024,
+   "resolved": 1.01075,
+   "n": 5
   }
  }
 }

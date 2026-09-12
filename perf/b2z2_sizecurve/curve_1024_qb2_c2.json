@@ -362,7 +362,502 @@
    "cold": false,
    "size": 1024,
    "tag": "t1_2_base"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 75.256,
+   "sha256": "d6ece9fab83c5ca3",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 47.8961,
+   "block_n": 280,
+   "step_s": 9.4616,
+   "step_n": 200,
+   "step_ms": 47.3079,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    14.63,
+    13.85,
+    10.7
+   ],
+   "loadavg_after": [
+    12.01,
+    13.32,
+    10.77
+   ],
+   "occupancy": {
+    "pids": [
+     "1291091",
+     "1304227"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/2"
+    ]
+   },
+   "plddt": 0.758638,
+   "rep": 2,
+   "pos": 0,
+   "cold": false,
+   "size": 1024,
+   "tag": "t2_0_base"
+  },
+  {
+   "arm": "L1",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 74.457,
+   "sha256": "d6ece9fab83c5ca3",
+   "flags": {
+    "L1": true
+   },
+   "block_s": 47.9071,
+   "block_n": 280,
+   "step_s": 8.9227,
+   "step_n": 200,
+   "step_ms": 44.6135,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "loadavg_before": [
+    12.01,
+    13.32,
+    10.77
+   ],
+   "loadavg_after": [
+    13.52,
+    13.39,
+    10.99
+   ],
+   "occupancy": {
+    "pids": [
+     "1291091",
+     "1304227"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/2"
+    ]
+   },
+   "plddt": 0.758638,
+   "rep": 2,
+   "pos": 1,
+   "cold": false,
+   "size": 1024,
+   "tag": "t2_1_L1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 75.021,
+   "sha256": "d6ece9fab83c5ca3",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 47.8866,
+   "block_n": 280,
+   "step_s": 9.7378,
+   "step_n": 200,
+   "step_ms": 48.6888,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    13.52,
+    13.39,
+    10.99
+   ],
+   "loadavg_after": [
+    13.85,
+    13.27,
+    11.12
+   ],
+   "occupancy": {
+    "pids": [
+     "1291091",
+     "1307042"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/2"
+    ]
+   },
+   "plddt": 0.758638,
+   "rep": 2,
+   "pos": 2,
+   "cold": false,
+   "size": 1024,
+   "tag": "t2_2_base"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 74.637,
+   "sha256": "d6ece9fab83c5ca3",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 47.9202,
+   "block_n": 280,
+   "step_s": 9.655,
+   "step_n": 200,
+   "step_ms": 48.2752,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    13.85,
+    13.27,
+    11.12
+   ],
+   "loadavg_after": [
+    14.8,
+    13.58,
+    11.39
+   ],
+   "occupancy": {
+    "pids": [
+     "1291091",
+     "1307042"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/2"
+    ]
+   },
+   "plddt": 0.758638,
+   "rep": 3,
+   "pos": 0,
+   "cold": false,
+   "size": 1024,
+   "tag": "t3_0_base"
+  },
+  {
+   "arm": "L1",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 74.318,
+   "sha256": "d6ece9fab83c5ca3",
+   "flags": {
+    "L1": true
+   },
+   "block_s": 47.8726,
+   "block_n": 280,
+   "step_s": 8.9853,
+   "step_n": 200,
+   "step_ms": 44.9265,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "loadavg_before": [
+    14.8,
+    13.58,
+    11.39
+   ],
+   "loadavg_after": [
+    14.54,
+    13.63,
+    11.56
+   ],
+   "occupancy": {
+    "pids": [
+     "1291091",
+     "1309338"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/2"
+    ]
+   },
+   "plddt": 0.758638,
+   "rep": 3,
+   "pos": 1,
+   "cold": false,
+   "size": 1024,
+   "tag": "t3_1_L1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 74.323,
+   "sha256": "d6ece9fab83c5ca3",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 47.8941,
+   "block_n": 280,
+   "step_s": 9.449,
+   "step_n": 200,
+   "step_ms": 47.245,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    14.54,
+    13.63,
+    11.56
+   ],
+   "loadavg_after": [
+    11.07,
+    12.88,
+    11.47
+   ],
+   "occupancy": {
+    "pids": [
+     "1291091",
+     "1311585"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/2"
+    ]
+   },
+   "plddt": 0.758638,
+   "rep": 3,
+   "pos": 2,
+   "cold": false,
+   "size": 1024,
+   "tag": "t3_2_base"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 75.789,
+   "sha256": "d6ece9fab83c5ca3",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 47.9515,
+   "block_n": 280,
+   "step_s": 9.7146,
+   "step_n": 200,
+   "step_ms": 48.573,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    11.07,
+    12.88,
+    11.47
+   ],
+   "loadavg_after": [
+    14.82,
+    13.59,
+    11.83
+   ],
+   "occupancy": {
+    "pids": [
+     "1291091",
+     "1311585"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/2"
+    ]
+   },
+   "plddt": 0.758638,
+   "rep": 4,
+   "pos": 0,
+   "cold": false,
+   "size": 1024,
+   "tag": "t4_0_base"
+  },
+  {
+   "arm": "L1",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 74.507,
+   "sha256": "d6ece9fab83c5ca3",
+   "flags": {
+    "L1": true
+   },
+   "block_s": 47.9036,
+   "block_n": 280,
+   "step_s": 8.9329,
+   "step_n": 200,
+   "step_ms": 44.6647,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "loadavg_before": [
+    14.82,
+    13.59,
+    11.83
+   ],
+   "loadavg_after": [
+    12.7,
+    13.03,
+    11.76
+   ],
+   "occupancy": {
+    "pids": [
+     "1291091",
+     "1313863"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/2"
+    ]
+   },
+   "plddt": 0.758638,
+   "rep": 4,
+   "pos": 1,
+   "cold": false,
+   "size": 1024,
+   "tag": "t4_1_L1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 75.359,
+   "sha256": "d6ece9fab83c5ca3",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 47.9125,
+   "block_n": 280,
+   "step_s": 9.7193,
+   "step_n": 200,
+   "step_ms": 48.5964,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    12.7,
+    13.03,
+    11.76
+   ],
+   "loadavg_after": [
+    16.45,
+    14.01,
+    12.2
+   ],
+   "occupancy": {
+    "pids": [
+     "1291091",
+     "1313863"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/2"
+    ]
+   },
+   "plddt": 0.758638,
+   "rep": 4,
+   "pos": 2,
+   "cold": false,
+   "size": 1024,
+   "tag": "t4_2_base"
   }
  ],
- "model_load_s": 3.631
+ "model_load_s": 3.631,
+ "timing_summary": {
+  "aa_floor": 1.01024,
+  "aa_floor_per_position": {
+   "2": 1.01024
+  },
+  "base_spread_pct": 5.56,
+  "loadavg_1m_min_max": [
+   11.07,
+   18.76
+  ],
+  "foreign_pids_seen": [
+   "1291092",
+   "1294140",
+   "1297223",
+   "1299791",
+   "1302039",
+   "1304227",
+   "1307042",
+   "1309338",
+   "1311585",
+   "1313863"
+  ],
+  "arms": {
+   "L1": {
+    "n": 5,
+    "median_fold_s": 74.507,
+    "min_fold_s": 74.318,
+    "max_fold_s": 79.054,
+    "ratio_vs_base": 1.01074,
+    "spread_pct": 6.36,
+    "above_floor": true,
+    "ratio_resolved": 1.01074,
+    "median_block_s": 47.904,
+    "block_ratio_vs_base": 1.00006,
+    "median_step_s": 8.969,
+    "step_ratio_vs_base": 1.08177
+   },
+   "base": {
+    "n": 10,
+    "median_fold_s": 75.308,
+    "min_fold_s": 74.323,
+    "max_fold_s": 78.509,
+    "ratio_vs_base": 1.0,
+    "spread_pct": 5.56,
+    "above_floor": false,
+    "ratio_resolved": 1.0,
+    "median_block_s": 47.907,
+    "block_ratio_vs_base": 1.0,
+    "median_step_s": 9.702,
+    "step_ratio_vs_base": 1.0
+   }
+  },
+  "identical_across_arms": true,
+  "sha_by_arm": {
+   "L1": [
+    "d6ece9fab83c5ca3"
+   ],
+   "base": [
+    "d6ece9fab83c5ca3"
+   ]
+  },
+  "atom_l1_gate": {
+   "L1": {
+    "l1": [
+     1200
+    ],
+    "dram": [
+     0
+    ]
+   },
+   "base": {
+    "l1": [
+     0
+    ],
+    "dram": [
+     0
+    ]
+   }
+  },
+  "gate_declined_anywhere": false,
+  "gate_took_l1_on_every_call": true,
+  "protocol_readback": {
+   "step_n": [
+    200
+   ],
+   "block_n": [
+    280
+   ]
+  }
+ }
 }

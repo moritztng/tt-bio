@@ -240,6 +240,579 @@
    "cold": false,
    "size": 1024,
    "tag": "t0_1_L1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 178.273,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.7189,
+   "block_n": 280,
+   "step_s": 18.3759,
+   "step_n": 200,
+   "step_ms": 91.8796,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    21.76,
+    30.69,
+    25.84
+   ],
+   "loadavg_after": [
+    36.23,
+    34.86,
+    28.43
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1334770",
+     "1343682",
+     "1343683",
+     "1343684",
+     "1343685",
+     "1343686",
+     "1445270"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1",
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/12",
+     "/dev/tenstorrent/13",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/6",
+     "/dev/tenstorrent/7",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 0,
+   "pos": 2,
+   "cold": false,
+   "size": 1024,
+   "tag": "t0_2_base"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 178.598,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.7128,
+   "block_n": 280,
+   "step_s": 18.4459,
+   "step_n": 200,
+   "step_ms": 92.2293,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    36.23,
+    34.86,
+    28.43
+   ],
+   "loadavg_after": [
+    52.45,
+    39.93,
+    31.32
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1334770",
+     "1343683",
+     "1343684",
+     "1343685",
+     "1343686",
+     "1470866"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/1",
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/12",
+     "/dev/tenstorrent/13",
+     "/dev/tenstorrent/14",
+     "/dev/tenstorrent/15",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/6",
+     "/dev/tenstorrent/7",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 1,
+   "pos": 0,
+   "cold": false,
+   "size": 1024,
+   "tag": "t1_0_base"
+  },
+  {
+   "arm": "L1",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 172.209,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": true
+   },
+   "block_s": 127.6822,
+   "block_n": 280,
+   "step_s": 16.9974,
+   "step_n": 200,
+   "step_ms": 84.9872,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "loadavg_before": [
+    52.45,
+    39.93,
+    31.32
+   ],
+   "loadavg_after": [
+    31.62,
+    34.54,
+    30.61
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1334770",
+     "1343683",
+     "1343684",
+     "1343685",
+     "1343686"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/1",
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/6",
+     "/dev/tenstorrent/7",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 1,
+   "pos": 1,
+   "cold": false,
+   "size": 1024,
+   "tag": "t1_1_L1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 176.572,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.7032,
+   "block_n": 280,
+   "step_s": 18.1739,
+   "step_n": 200,
+   "step_ms": 90.8695,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    31.62,
+    34.54,
+    30.61
+   ],
+   "loadavg_after": [
+    41.76,
+    33.67,
+    30.7
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1334770",
+     "1343684",
+     "1343685",
+     "1343686",
+     "1494898",
+     "1501042"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/12",
+     "/dev/tenstorrent/13",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/6",
+     "/dev/tenstorrent/7",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 1,
+   "pos": 2,
+   "cold": false,
+   "size": 1024,
+   "tag": "t1_2_base"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 175.118,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.7188,
+   "block_n": 280,
+   "step_s": 18.6459,
+   "step_n": 200,
+   "step_ms": 93.2296,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    41.76,
+    33.67,
+    30.7
+   ],
+   "loadavg_after": [
+    42.26,
+    35.08,
+    31.64
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1343684",
+     "1343685",
+     "1343686",
+     "1494898",
+     "1517204"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/12",
+     "/dev/tenstorrent/13",
+     "/dev/tenstorrent/14",
+     "/dev/tenstorrent/15",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 2,
+   "pos": 0,
+   "cold": false,
+   "size": 1024,
+   "tag": "t2_0_base"
+  },
+  {
+   "arm": "L1",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 170.462,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": true
+   },
+   "block_s": 127.7034,
+   "block_n": 280,
+   "step_s": 17.106,
+   "step_n": 200,
+   "step_ms": 85.53,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "loadavg_before": [
+    42.26,
+    35.08,
+    31.64
+   ],
+   "loadavg_after": [
+    28.26,
+    30.62,
+    30.43
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1343685",
+     "1343686",
+     "1494898",
+     "1533558"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/12",
+     "/dev/tenstorrent/13",
+     "/dev/tenstorrent/14",
+     "/dev/tenstorrent/15",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 2,
+   "pos": 1,
+   "cold": false,
+   "size": 1024,
+   "tag": "t2_1_L1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 170.949,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.6671,
+   "block_n": 280,
+   "step_s": 18.2513,
+   "step_n": 200,
+   "step_ms": 91.2564,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    28.26,
+    30.62,
+    30.43
+   ],
+   "loadavg_after": [
+    18.22,
+    24.86,
+    28.29
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1343685",
+     "1343686",
+     "1494898"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 2,
+   "pos": 2,
+   "cold": false,
+   "size": 1024,
+   "tag": "t2_2_base"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 171.83,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.6819,
+   "block_n": 280,
+   "step_s": 18.2788,
+   "step_n": 200,
+   "step_ms": 91.3938,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    18.22,
+    24.86,
+    28.29
+   ],
+   "loadavg_after": [
+    33.0,
+    26.53,
+    28.22
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1343685",
+     "1343686",
+     "1494898"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 3,
+   "pos": 0,
+   "cold": false,
+   "size": 1024,
+   "tag": "t3_0_base"
+  },
+  {
+   "arm": "L1",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 170.412,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": true
+   },
+   "block_s": 127.6897,
+   "block_n": 280,
+   "step_s": 17.2863,
+   "step_n": 200,
+   "step_ms": 86.4317,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "loadavg_before": [
+    30.84,
+    26.19,
+    28.1
+   ],
+   "loadavg_after": [
+    13.35,
+    19.88,
+    25.32
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1343685",
+     "1343686",
+     "1494898"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 3,
+   "pos": 1,
+   "cold": false,
+   "size": 1024,
+   "tag": "t3_1_L1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 170.777,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.6897,
+   "block_n": 280,
+   "step_s": 18.2027,
+   "step_n": 200,
+   "step_ms": 91.0134,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    13.35,
+    19.88,
+    25.32
+   ],
+   "loadavg_after": [
+    15.68,
+    17.47,
+    23.43
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1343686",
+     "1494898"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 3,
+   "pos": 2,
+   "cold": false,
+   "size": 1024,
+   "tag": "t3_2_base"
   }
  ],
  "model_load_s": 16.558

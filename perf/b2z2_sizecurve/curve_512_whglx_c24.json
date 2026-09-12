@@ -847,7 +847,283 @@
    "cold": false,
    "size": 512,
    "tag": "t3_2_base"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 42.836,
+   "sha256": "da476491dbb2a847",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 23.9748,
+   "block_n": 280,
+   "step_s": 9.5058,
+   "step_n": 200,
+   "step_ms": 47.5292,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    42.21,
+    35.29,
+    27.77
+   ],
+   "loadavg_after": [
+    35.18,
+    34.31,
+    27.79
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1334770",
+     "1343682",
+     "1343683",
+     "1343684",
+     "1343685",
+     "1343686",
+     "1439578"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1",
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/12",
+     "/dev/tenstorrent/13",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/6",
+     "/dev/tenstorrent/7",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.802815,
+   "rep": 4,
+   "pos": 0,
+   "cold": false,
+   "size": 512,
+   "tag": "t4_0_base"
+  },
+  {
+   "arm": "L1",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 44.293,
+   "sha256": "da476491dbb2a847",
+   "flags": {
+    "L1": true
+   },
+   "block_s": 23.9937,
+   "block_n": 280,
+   "step_s": 9.2654,
+   "step_n": 200,
+   "step_ms": 46.3269,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "loadavg_before": [
+    35.18,
+    34.31,
+    27.79
+   ],
+   "loadavg_after": [
+    36.19,
+    34.81,
+    28.28
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1334770",
+     "1343682",
+     "1343683",
+     "1343684",
+     "1343685",
+     "1343686"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1",
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/6",
+     "/dev/tenstorrent/7",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.802815,
+   "rep": 4,
+   "pos": 1,
+   "cold": false,
+   "size": 512,
+   "tag": "t4_1_L1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 44.229,
+   "sha256": "da476491dbb2a847",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 24.0959,
+   "block_n": 280,
+   "step_s": 9.7368,
+   "step_n": 200,
+   "step_ms": 48.6842,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    36.19,
+    34.81,
+    28.28
+   ],
+   "loadavg_after": [
+    44.17,
+    37.02,
+    29.29
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1334770",
+     "1343682",
+     "1343683",
+     "1343684",
+     "1343685",
+     "1343686",
+     "1445270"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1",
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/12",
+     "/dev/tenstorrent/13",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/6",
+     "/dev/tenstorrent/7",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.802815,
+   "rep": 4,
+   "pos": 2,
+   "cold": false,
+   "size": 512,
+   "tag": "t4_2_base"
   }
  ],
- "model_load_s": 16.087
+ "model_load_s": 16.087,
+ "timing_summary": {
+  "aa_floor": 1.0176,
+  "aa_floor_per_position": {
+   "2": 1.0176
+  },
+  "base_spread_pct": 11.05,
+  "loadavg_1m_min_max": [
+   23.82,
+   48.18
+  ],
+  "foreign_pids_seen": [
+   "1157567",
+   "1224904",
+   "1334770",
+   "1342848",
+   "1343683",
+   "1343684",
+   "1343685",
+   "1343686",
+   "1439578",
+   "1445270"
+  ],
+  "arms": {
+   "L1": {
+    "n": 5,
+    "median_fold_s": 44.293,
+    "min_fold_s": 43.099,
+    "max_fold_s": 47.941,
+    "ratio_vs_base": 0.97154,
+    "spread_pct": 10.93,
+    "above_floor": false,
+    "ratio_resolved": 1.0,
+    "median_block_s": 23.994,
+    "block_ratio_vs_base": 0.9998,
+    "median_step_s": 9.119,
+    "step_ratio_vs_base": 1.04533
+   },
+   "base": {
+    "n": 10,
+    "median_fold_s": 43.032,
+    "min_fold_s": 41.702,
+    "max_fold_s": 46.459,
+    "ratio_vs_base": 1.0,
+    "spread_pct": 11.05,
+    "above_floor": false,
+    "ratio_resolved": 1.0,
+    "median_block_s": 23.989,
+    "block_ratio_vs_base": 1.0,
+    "median_step_s": 9.532,
+    "step_ratio_vs_base": 1.0
+   }
+  },
+  "identical_across_arms": true,
+  "sha_by_arm": {
+   "L1": [
+    "da476491dbb2a847"
+   ],
+   "base": [
+    "da476491dbb2a847"
+   ]
+  },
+  "atom_l1_gate": {
+   "L1": {
+    "l1": [
+     1200
+    ],
+    "dram": [
+     0
+    ]
+   },
+   "base": {
+    "l1": [
+     0
+    ],
+    "dram": [
+     0
+    ]
+   }
+  },
+  "gate_declined_anywhere": false,
+  "gate_took_l1_on_every_call": true,
+  "protocol_readback": {
+   "step_n": [
+    200
+   ],
+   "block_n": [
+    280
+   ]
+  }
+ }
 }

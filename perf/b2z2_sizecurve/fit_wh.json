@@ -1,0 +1,540 @@
+{
+ "doc": "Fit both arms' size curves from whatever `size_curve.py` has written, and say where they part.\n\nThe deliverable of this row is a PAIR OF EXPONENTS with their fit quality, not a single ratio, so\nthe fit is the artifact and the per-size ratios are the supporting table. Three things this does\nthat a bare `polyfit` would not:\n\n  * **Every exponent comes with a standard error and the two arms are compared against it.** The\n    pre-registered falsifier is \"if the two arms' exponents agree within their fit error, the\n    768 aa screen was load noise\", and a slope without an error bar cannot fire it.\n  * **Each size's ratio is quoted beside the A/A floor of ITS OWN session**, and both are the same\n    estimator: a median over that size's own interleaved reps. Quoting a per-position floor beside\n    a median-of-n ratio is the mistake `CONTEXT.md` names; the floor here is the worst\n    base-position-vs-base-position median ratio inside the same process.\n  * **A LOCAL exponent per adjacent pair**, which is what a knee actually is. A global fit averages\n    a cliff away; `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa` found its cliff by comparing\n    N^2.03 on one interval against N^3.62 on the next, and that only shows per interval.\n\nRuns offline on the JSONs. Takes no device and asserts nothing about the box it runs on.\n",
+ "arch": "Arch.WORMHOLE_B0",
+ "host": "j10glx02",
+ "grid": [
+  8,
+  9
+ ],
+ "sizes": [
+  {
+   "size": 512,
+   "arch": "Arch.WORMHOLE_B0",
+   "host": "j10glx02",
+   "grid": [
+    8,
+    9
+   ],
+   "card": "24",
+   "aa_floor": 1.0176,
+   "aa_floor_per_position": {
+    "2": 1.0176
+   },
+   "reps_complete": 5,
+   "loadavg_1m_min_max": [
+    23.82,
+    48.18
+   ],
+   "arms": {
+    "L1": {
+     "n": 5,
+     "median_fold_s": 44.293,
+     "min_fold_s": 43.099,
+     "max_fold_s": 47.941,
+     "spread_pct": 10.93,
+     "median_step_s": 9.119,
+     "atom_l1_l1": [
+      1200
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "da476491dbb2a847"
+     ]
+    },
+    "base": {
+     "n": 10,
+     "median_fold_s": 43.032,
+     "min_fold_s": 41.702,
+     "max_fold_s": 46.459,
+     "spread_pct": 11.05,
+     "median_step_s": 9.532,
+     "atom_l1_l1": [
+      0
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "da476491dbb2a847"
+     ]
+    }
+   },
+   "ratio_vs_base": 0.97153,
+   "above_aa_floor": false,
+   "ratio_resolved": 1.0,
+   "step_ratio_vs_base": 1.04529,
+   "bit_exact_vs_base": true,
+   "sha256": "da476491dbb2a847",
+   "gate_declined": false,
+   "gate_took_l1_every_call": true,
+   "protocol_ok": true
+  },
+  {
+   "size": 640,
+   "arch": "Arch.WORMHOLE_B0",
+   "host": "j10glx02",
+   "grid": [
+    8,
+    9
+   ],
+   "card": "25",
+   "aa_floor": 1.05126,
+   "aa_floor_per_position": {
+    "2": 1.05126
+   },
+   "reps_complete": 5,
+   "loadavg_1m_min_max": [
+    27.82,
+    59.06
+   ],
+   "arms": {
+    "L1": {
+     "n": 5,
+     "median_fold_s": 69.601,
+     "min_fold_s": 67.315,
+     "max_fold_s": 77.284,
+     "spread_pct": 14.32,
+     "median_step_s": 13.637,
+     "atom_l1_l1": [
+      1200
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "6ab60bdefca5f483"
+     ]
+    },
+    "base": {
+     "n": 10,
+     "median_fold_s": 69.665,
+     "min_fold_s": 67.597,
+     "max_fold_s": 75.633,
+     "spread_pct": 11.54,
+     "median_step_s": 14.141,
+     "atom_l1_l1": [
+      0
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "6ab60bdefca5f483"
+     ]
+    }
+   },
+   "ratio_vs_base": 1.00092,
+   "above_aa_floor": false,
+   "ratio_resolved": 1.0,
+   "step_ratio_vs_base": 1.03696,
+   "bit_exact_vs_base": true,
+   "sha256": "6ab60bdefca5f483",
+   "gate_declined": false,
+   "gate_took_l1_every_call": true,
+   "protocol_ok": true
+  },
+  {
+   "size": 768,
+   "arch": "Arch.WORMHOLE_B0",
+   "host": "j10glx02",
+   "grid": [
+    8,
+    9
+   ],
+   "card": "26",
+   "aa_floor": 1.02156,
+   "aa_floor_per_position": {
+    "2": 1.02156
+   },
+   "reps_complete": 5,
+   "loadavg_1m_min_max": [
+    24.28,
+    59.06
+   ],
+   "arms": {
+    "L1": {
+     "n": 5,
+     "median_fold_s": 97.754,
+     "min_fold_s": 91.079,
+     "max_fold_s": 103.633,
+     "spread_pct": 12.84,
+     "median_step_s": 13.658,
+     "atom_l1_l1": [
+      1200
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "7860ea474a8139b1"
+     ]
+    },
+    "base": {
+     "n": 10,
+     "median_fold_s": 91.947,
+     "min_fold_s": 89.251,
+     "max_fold_s": 95.71,
+     "spread_pct": 7.02,
+     "median_step_s": 14.175,
+     "atom_l1_l1": [
+      0
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "7860ea474a8139b1"
+     ]
+    }
+   },
+   "ratio_vs_base": 0.9406,
+   "above_aa_floor": false,
+   "ratio_resolved": 1.0,
+   "step_ratio_vs_base": 1.03785,
+   "bit_exact_vs_base": true,
+   "sha256": "7860ea474a8139b1",
+   "gate_declined": false,
+   "gate_took_l1_every_call": true,
+   "protocol_ok": true
+  },
+  {
+   "size": 896,
+   "arch": "Arch.WORMHOLE_B0",
+   "host": "j10glx02",
+   "grid": [
+    8,
+    9
+   ],
+   "card": "28",
+   "aa_floor": 1.01281,
+   "aa_floor_per_position": {
+    "2": 1.01281
+   },
+   "reps_complete": 5,
+   "loadavg_1m_min_max": [
+    15.84,
+    61.44
+   ],
+   "arms": {
+    "L1": {
+     "n": 5,
+     "median_fold_s": 134.147,
+     "min_fold_s": 131.481,
+     "max_fold_s": 143.044,
+     "spread_pct": 8.62,
+     "median_step_s": 16.82,
+     "atom_l1_l1": [
+      1200
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "2108872e687af9ac"
+     ]
+    },
+    "base": {
+     "n": 10,
+     "median_fold_s": 134.363,
+     "min_fold_s": 132.045,
+     "max_fold_s": 142.669,
+     "spread_pct": 7.91,
+     "median_step_s": 17.837,
+     "atom_l1_l1": [
+      0
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "2108872e687af9ac"
+     ]
+    }
+   },
+   "ratio_vs_base": 1.00161,
+   "above_aa_floor": false,
+   "ratio_resolved": 1.0,
+   "step_ratio_vs_base": 1.06046,
+   "bit_exact_vs_base": true,
+   "sha256": "2108872e687af9ac",
+   "gate_declined": false,
+   "gate_took_l1_every_call": true,
+   "protocol_ok": true
+  },
+  {
+   "size": 1024,
+   "arch": "Arch.WORMHOLE_B0",
+   "host": "j10glx02",
+   "grid": [
+    8,
+    9
+   ],
+   "card": "0",
+   "aa_floor": 1.00391,
+   "aa_floor_per_position": {
+    "2": 1.00391
+   },
+   "reps_complete": 4,
+   "loadavg_1m_min_max": [
+    13.35,
+    52.45
+   ],
+   "arms": {
+    "L1": {
+     "n": 4,
+     "median_fold_s": 171.335,
+     "min_fold_s": 170.412,
+     "max_fold_s": 176.291,
+     "spread_pct": 3.43,
+     "median_step_s": 17.196,
+     "atom_l1_l1": [
+      1200
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "17bd0c67e2bb4128"
+     ]
+    },
+    "base": {
+     "n": 8,
+     "median_fold_s": 174.44,
+     "min_fold_s": 170.777,
+     "max_fold_s": 178.598,
+     "spread_pct": 4.48,
+     "median_step_s": 18.269,
+     "atom_l1_l1": [
+      0
+     ],
+     "atom_l1_dram": [
+      0
+     ],
+     "step_n": [
+      200
+     ],
+     "sha256": [
+      "17bd0c67e2bb4128"
+     ]
+    }
+   },
+   "ratio_vs_base": 1.01812,
+   "above_aa_floor": true,
+   "ratio_resolved": 1.01812,
+   "step_ratio_vs_base": 1.0624,
+   "bit_exact_vs_base": true,
+   "sha256": "17bd0c67e2bb4128",
+   "gate_declined": false,
+   "gate_took_l1_every_call": true,
+   "protocol_ok": true
+  }
+ ],
+ "fits": {
+  "base": {
+   "exponent": 2.0028,
+   "stderr": 0.0701,
+   "r2": 0.99634,
+   "n_points": 5,
+   "prefactor": 0.00016167
+  },
+  "L1": {
+   "exponent": 1.953,
+   "stderr": 0.0186,
+   "r2": 0.99973,
+   "n_points": 5,
+   "prefactor": 0.00022785
+  }
+ },
+ "exponent_separation": {
+  "base_minus_l1": 0.0498,
+  "combined_stderr": 0.0725,
+  "sigma": 0.69,
+  "falsifier_fired": true,
+  "reading": "exponents agree within fit error: the 768 aa screen was load noise"
+ },
+ "local_exponents": {
+  "base": [
+   {
+    "interval": "512->640",
+    "exponent": 2.1589,
+    "seconds": [
+     43.032,
+     69.665
+    ]
+   },
+   {
+    "interval": "640->768",
+    "exponent": 1.5221,
+    "seconds": [
+     69.665,
+     91.947
+    ]
+   },
+   {
+    "interval": "768->896",
+    "exponent": 2.4608,
+    "seconds": [
+     91.947,
+     134.363
+    ]
+   },
+   {
+    "interval": "896->1024",
+    "exponent": 1.9549,
+    "seconds": [
+     134.363,
+     174.44
+    ]
+   }
+  ],
+  "L1": [
+   {
+    "interval": "512->640",
+    "exponent": 2.0254,
+    "seconds": [
+     44.293,
+     69.601
+    ]
+   },
+   {
+    "interval": "640->768",
+    "exponent": 1.8631,
+    "seconds": [
+     69.601,
+     97.754
+    ]
+   },
+   {
+    "interval": "768->896",
+    "exponent": 2.0531,
+    "seconds": [
+     97.754,
+     134.147
+    ]
+   },
+   {
+    "interval": "896->1024",
+    "exponent": 1.8324,
+    "seconds": [
+     134.147,
+     171.335
+    ]
+   }
+  ]
+ },
+ "gate": {
+  "512": {
+   "declined": false,
+   "l1": [
+    1200
+   ],
+   "dram": [
+    0
+   ]
+  },
+  "640": {
+   "declined": false,
+   "l1": [
+    1200
+   ],
+   "dram": [
+    0
+   ]
+  },
+  "768": {
+   "declined": false,
+   "l1": [
+    1200
+   ],
+   "dram": [
+    0
+   ]
+  },
+  "896": {
+   "declined": false,
+   "l1": [
+    1200
+   ],
+   "dram": [
+    0
+   ]
+  },
+  "1024": {
+   "declined": false,
+   "l1": [
+    1200
+   ],
+   "dram": [
+    0
+   ]
+  }
+ },
+ "bit_exact": {
+  "512": true,
+  "640": true,
+  "768": true,
+  "896": true,
+  "1024": true
+ },
+ "ratio_curve": {
+  "512": {
+   "ratio": 0.97153,
+   "aa_floor": 1.0176,
+   "resolved": 1.0,
+   "n": 5
+  },
+  "640": {
+   "ratio": 1.00092,
+   "aa_floor": 1.05126,
+   "resolved": 1.0,
+   "n": 5
+  },
+  "768": {
+   "ratio": 0.9406,
+   "aa_floor": 1.02156,
+   "resolved": 1.0,
+   "n": 5
+  },
+  "896": {
+   "ratio": 1.00161,
+   "aa_floor": 1.01281,
+   "resolved": 1.0,
+   "n": 5
+  },
+  "1024": {
+   "ratio": 1.01812,
+   "aa_floor": 1.00391,
+   "resolved": 1.01812,
+   "n": 4
+  }
+ }
+}
