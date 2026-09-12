@@ -1,0 +1,39 @@
+{
+  "arch": "Arch.BLACKHOLE",
+  "grid": [
+    13,
+    10
+  ],
+  "shape": {
+    "b": 1,
+    "h": 16,
+    "m": 512,
+    "k": 512,
+    "n": 128
+  },
+  "reps": 5,
+  "iters": 30,
+  "arms": {
+    "in=DRAM  out=DRAM": {
+      "us_per_op": 203.09799971679848,
+      "ns_per_output_tile": 198.33789034843602,
+      "ns_per_output_tile_per_core": 25783.92574529668,
+      "spread_pct": 0.39742715592484934
+    },
+    "in=L1    out=L1": {
+      "us_per_op": 184.00356687682992,
+      "ns_per_output_tile": 179.69098327815422,
+      "ns_per_output_tile_per_core": 23359.827826160046,
+      "spread_pct": 6.8713159670575825
+    },
+    "in=DRAM  out=DRAM (A/A)": {
+      "us_per_op": 202.13823348361376,
+      "ns_per_output_tile": 197.40061863634156,
+      "ns_per_output_tile_per_core": 25662.080422724404,
+      "spread_pct": 0.19084287787490029
+    }
+  },
+  "aa_floor": 0.9952743688538389,
+  "ratio_L1_over_DRAM": 0.905984141318014,
+  "max_abs_L1_vs_DRAM": 0.0087890625
+}

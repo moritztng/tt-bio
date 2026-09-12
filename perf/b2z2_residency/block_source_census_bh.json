@@ -1,0 +1,71 @@
+{
+  "env": {
+    "card": "0",
+    "size": 512,
+    "commit": "1537ba50",
+    "hardware": "blackhole",
+    "grid": [
+      13,
+      10
+    ],
+    "precursor_s": 6.563,
+    "wrapped_entry_points": 26
+  },
+  "recorded_calls": 192,
+  "operand_tile_reads_total": 3046800.75,
+  "operand_tile_reads_by_source": {
+    "DRAM": 2746640.75,
+    "L1": 300160.0
+  },
+  "operand_tile_reads_by_source_and_layout": {
+    "DRAM/INTERLEAVED": 2746640.75,
+    "L1/INTERLEAVED": 300160.0
+  },
+  "dram_share_of_operand_tile_reads": 0.9014835479477941,
+  "output_tile_writes_by_destination": {
+    "DRAM": 1230016.0,
+    "L1": 566976.0
+  },
+  "per_op": {
+    "generic_op": {
+      "DRAM": 1902880.0
+    },
+    "linear": {
+      "DRAM": 205988.5,
+      "L1": 230528.0
+    },
+    "layer_norm": {
+      "DRAM": 229771.25,
+      "L1": 32768.0
+    },
+    "matmul": {
+      "DRAM": 135936.0
+    },
+    "reshape": {
+      "DRAM": 98496.0,
+      "L1": 32768.0
+    },
+    "permute": {
+      "DRAM": 67968.0,
+      "L1": 4096.0
+    },
+    "transpose": {
+      "DRAM": 66048.0
+    },
+    "concat": {
+      "DRAM": 32768.0
+    },
+    "softmax": {
+      "DRAM": 4096.0
+    },
+    "add": {
+      "DRAM": 2049.0
+    },
+    "multiply": {
+      "DRAM": 384.0
+    },
+    "slice": {
+      "DRAM": 256.0
+    }
+  }
+}

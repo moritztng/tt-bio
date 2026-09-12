@@ -1,0 +1,100 @@
+{
+  "arch": "Arch.BLACKHOLE",
+  "grid": [
+    13,
+    10
+  ],
+  "tiles_per_core": 128,
+  "iters": 40,
+  "reps": 5,
+  "by_cores": {
+    "1": {
+      "DRAM->shard": {
+        "ns_per_tile_per_core": 68.41992217232473,
+        "us_per_op": 8.757750038057566,
+        "spread_pct": 100.92375230132198
+      },
+      "L1->shard": {
+        "ns_per_tile_per_core": 68.3064456552529,
+        "us_per_op": 8.743225043872371,
+        "spread_pct": 22.596355690383895
+      },
+      "shard->L1": {
+        "ns_per_tile_per_core": 59.06269677780074,
+        "us_per_op": 7.5600251875584945,
+        "spread_pct": 95.75299149375057
+      },
+      "shard->DRAM": {
+        "ns_per_tile_per_core": 58.18808688218269,
+        "us_per_op": 7.448075120919384,
+        "spread_pct": 23.49633883230166
+      }
+    },
+    "8": {
+      "DRAM->shard": {
+        "ns_per_tile_per_core": 84.88984519772202,
+        "us_per_op": 10.86590018530842,
+        "spread_pct": 12.751587746588255
+      },
+      "L1->shard": {
+        "ns_per_tile_per_core": 78.51308509998489,
+        "us_per_op": 10.049674892798066,
+        "spread_pct": 60.4897688762546
+      },
+      "shard->L1": {
+        "ns_per_tile_per_core": 72.69746049587411,
+        "us_per_op": 9.305274943471886,
+        "spread_pct": 4.715873649164171
+      },
+      "shard->DRAM": {
+        "ns_per_tile_per_core": 72.55078173784568,
+        "us_per_op": 9.286500062444247,
+        "spread_pct": 4.223604635442715
+      }
+    },
+    "32": {
+      "DRAM->shard": {
+        "ns_per_tile_per_core": 194.5486332033397,
+        "us_per_op": 24.902225050027482,
+        "spread_pct": 5.6405619722160685
+      },
+      "L1->shard": {
+        "ns_per_tile_per_core": 124.22851511928457,
+        "us_per_op": 15.901249935268424,
+        "spread_pct": 44.84867575283026
+      },
+      "shard->L1": {
+        "ns_per_tile_per_core": 104.98574170014763,
+        "us_per_op": 13.438174937618896,
+        "spread_pct": 8.268050629133654
+      },
+      "shard->DRAM": {
+        "ns_per_tile_per_core": 218.61875154627342,
+        "us_per_op": 27.983200197922997,
+        "spread_pct": 1.6074816267653824
+      }
+    },
+    "110": {
+      "DRAM->shard": {
+        "ns_per_tile_per_core": 596.1925779729427,
+        "us_per_op": 76.31264998053666,
+        "spread_pct": 2.0132312284297442
+      },
+      "L1->shard": {
+        "ns_per_tile_per_core": 263.3853512179485,
+        "us_per_op": 33.713324955897406,
+        "spread_pct": 9.392798884978296
+      },
+      "shard->L1": {
+        "ns_per_tile_per_core": 300.73203163283324,
+        "us_per_op": 38.493700049002655,
+        "spread_pct": 0.8926783447383138
+      },
+      "shard->DRAM": {
+        "ns_per_tile_per_core": 753.8093768744147,
+        "us_per_op": 96.48760023992509,
+        "spread_pct": 1.6166842423104808
+      }
+    }
+  }
+}
