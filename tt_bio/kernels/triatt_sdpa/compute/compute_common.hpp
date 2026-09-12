@@ -1864,6 +1864,23 @@ void sdpa_inner_loop(
                     // and never pop, so the next batch reuses the same tiles.
                     add_block_inplace<false>(
                         cb_qk_im, cb_mask_in, qk_chunk_tiles, k_chunk * qk_chunk_tiles);
+#ifdef ABLATE_MASKADD_X2
+                    // The linear-pass control for ABLATE_MASKADD, and the reason it ADDS a pass
+                    // instead of removing one. Removing a stage can leave a downstream
+                    // `cb_wait_front` unsatisfied and wedge the card; running this stage twice is
+                    // CB-neutral by construction -- pop_in1 is false so the mask is never popped,
+                    // and the call pops and re-pushes cb_qk_im with no net effect -- so the second
+                    // pass is free to add and cannot deadlock. The scores become qk + 2*mask, which
+                    // is wrong on purpose; only the time means anything.
+                    //
+                    // What it tests: ABLATE_MASKADD says REMOVING this pass saves 1.373 ms. If the
+                    // cost is per-pass and linear, as the packer model claims, then ADDING one
+                    // identical pass must cost the same 1.373 ms. If instead it costs far less, the
+                    // first pass was paying a one-off (a format reconfigure, a cold mask CB) and
+                    // the packer attribution is wrong.
+                    add_block_inplace<false>(
+                        cb_qk_im, cb_mask_in, qk_chunk_tiles, k_chunk * qk_chunk_tiles);
+#endif
 #else
                     add_block_inplace(cb_qk_im, cb_mask_in, qk_chunk_tiles);
 #endif
