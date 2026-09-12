@@ -84,7 +84,9 @@ def main() -> int:
                "row_block": blk, "blocked": blk < depth}
         try:
             mod = T.PairWeightedAveraging(C_H, N_HEADS, weights(torch, c_z), ckc)
-            m_t = torch.randn(depth, tokens, C_M, dtype=torch.float32) * 0.3
+            # Both operands carry a leading 1: `__call__` strips one dim off each before
+            # it does anything else, so a 3-D `m` fails a volume check rather than running.
+            m_t = torch.randn(1, depth, tokens, C_M, dtype=torch.float32) * 0.3
             z_t = torch.randn(1, tokens, tokens, c_z, dtype=torch.float32) * 0.3
 
             def run(rows):
@@ -121,12 +123,19 @@ def main() -> int:
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(out, indent=1))
 
-    ok = [c for c in out["cases"] if c.get("blocked")]
+    cases = out["cases"]
+    errs = [c["label"] for c in cases if "error" in c]
+    # `all(...)` over a list an error filter has emptied is True, which is how a harness that
+    # ran nothing reports a clean pass. Every clause below has to be independently true.
     out["summary"] = {
-        "cases": len(out["cases"]),
-        "blocked_cases": len(ok),
-        "all_bit_exact": all(c.get("equal_off_vs_on") for c in out["cases"] if "error" not in c),
-        "errors": [c["label"] for c in out["cases"] if "error" in c]}
+        "cases": len(cases),
+        "blocked_cases": len([c for c in cases if c.get("blocked")]),
+        "errors": errs,
+        "all_bit_exact": (not errs
+                          and len(cases) > 0
+                          and all(c.get("equal_off_vs_on") for c in cases)
+                          and all(c.get("equal_AA") for c in cases)
+                          and not any(c.get("negative_control_must_be_False") for c in cases))}
     a.out.write_text(json.dumps(out, indent=1))
     print("SUMMARY", json.dumps(out["summary"]), flush=True)
     return 0
