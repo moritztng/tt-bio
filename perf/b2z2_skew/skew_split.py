@@ -240,8 +240,13 @@ def main() -> int:
             t0 = min(arrs)
             rel = [(h, (arr - t0) * ns / 1000.0) for h, _, _, _, arr in per]
             sl, ic, r2 = linfit([h for h, _ in rel], [w for _, w in rel])
+            a0 = min(asks)
+            ask_rel = [(h, (ask - a0) * ns / 1000.0) for h, _, _, ask, _ in per]
             samples.append({
                 "axis": akey, "group": grp, "iter": it, "cores": len(per),
+                "rho_hop_vs_ask": spearman([h for h, _ in ask_rel], [w for _, w in ask_rel]),
+                "rho_ask_vs_wait": spearman([w for _, w in ask_rel],
+                                            [w for _, w, _, _, _ in per]),
                 "ask_spread_us": (max(asks) - min(asks)) * ns / 1000.0,
                 "arr_spread_us": (max(arrs) - min(arrs)) * ns / 1000.0,
                 "sum_wait_us": sum(w for _, w, _, _, _ in per) * ns / 1000.0,
@@ -298,8 +303,23 @@ def main() -> int:
             "tail_share_of_wait": round(tail / sum(ally), 4) if sum(ally) else 0.0,
             "total_wait_us": round(sum(ally), 3)}
 
+    # Does the axis enter the program already skewed, or does the skew build up inside it? The
+    # first iteration is the one the chain cannot have caused: every core was released by the same
+    # program dispatch and has not yet waited on anything in this op.
+    by_iter = defaultdict(list)
+    for smp in samples:
+        by_iter[smp["iter"]].append(smp)
+    iter_ask = {i: round(st.median([x["ask_spread_us"] for x in v]), 4)
+                for i, v in sorted(by_iter.items())}
+    iter_arr = {i: round(st.median([x["arr_spread_us"] for x in v]), 4)
+                for i, v in sorted(by_iter.items())}
+
     res = {
-        "samples": len(samples), "unmapped_waits": unmapped,
+        "samples": len(samples),
+        "ask_spread_us_by_iteration": iter_ask,
+        "arr_spread_us_by_iteration": iter_arr,
+        "median_rho_hop_vs_ask": round(st.median([x["rho_hop_vs_ask"] for x in samples]), 4),
+        "median_rho_ask_vs_wait": round(st.median([x["rho_ask_vs_wait"] for x in samples]), 4), "unmapped_waits": unmapped,
         "core_map_check": dict(map_check, variant_used=dict(map_check["variant_used"])),
         "causality": {"checked": causality_checked, "violations": causality_bad,
                       "note": "a core's operand arriving before its predecessor finished "
