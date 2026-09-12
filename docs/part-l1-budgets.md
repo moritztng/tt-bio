@@ -52,3 +52,42 @@ produces no numbers to compare.
 one. `TT_BIO_TRIMUL_CHUNK_CAP=<width>` pins the trimul chunk width; the gate uses it to prove
 the clash-and-retry path returns the same bytes as a run that never clashed. Both are
 test-only and unset in production.
+
+## Two L1 numbers, and which one a gate may use
+
+A part reports its L1 twice and the two disagree. On a p300c Blackhole processor, measured on
+tt-quietbox2 device 1 on 2026-09-12:
+
+| call | reads | what it is |
+|---|---|---|
+| `ttnn.get_max_worker_l1_unreserved_size()` | 1,532,416 B | the device's view |
+| `ttnn.get_memory_view(dev, L1).total_bytes_per_bank` | **1,461,760 B** | what the allocator will actually place in |
+
+The gap is 70,656 B per bank, 4.6 %. A budget sized against the device number can admit a config
+that does not fit on a completely idle card, so `_l1_bank_bytes()` reads the allocator and falls
+back to the device call only when the view is unavailable. The table above still records
+1,532,416 B for both Blackhole parts because that is what the older budgets were fitted against;
+anything new is sized on the allocator number.
+
+Same part, `get_memory_view` also reports **110 banks** on the 11x10 grid, one per Tensix.
+
+## The atom attention branch, resident in L1
+
+`TT_BIO_ATOM_L1` (off by default) keeps `AttentionPairBias`'s atom branch in L1 instead of
+round-tripping DRAM between its projections. It is a memory config and nothing else: no op is added
+or removed and no operand changes, so it cannot move a value.
+
+The gate prices the branch's own live set, which is `s`, the key window it gathers, that window's
+K/V projection and the padded query, against half the grid's L1:
+
+    live = B * K * D * (ATOM_WINDOW + 4 * ATOM_DIM) * bytes_per_element
+    budget = TT_BIO_ATOM_L1_SHARE * _l1_bank_bytes() * grid_x * grid_y
+
+There is no sequence length and no model name in either side. At 512 aa on the 11x10 grid that is
+19.50 MB of live set against 80.40 MB of budget, and the live set grows linearly with the atom
+count, so on these shapes the gate does not decline until roughly 2900 aa. `ATOM_L1_STATS` counts
+the calls that took each path.
+
+Folded at 256, 512, 768 and 1024 aa on a p300c processor, the gate took L1 on all 1200 atom-layer
+calls of every fold, nothing ran out of L1, and every structure was byte-identical to the same fold
+with the flag off. Evidence in `perf/b2z2_bh_atom/`.
