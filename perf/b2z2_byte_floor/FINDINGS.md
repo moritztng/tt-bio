@@ -12,8 +12,8 @@ VERDICT: GO. The census is complete, the table is published, the top site's trac
   bit-exact and measured. **The byte model UNDER-prices a deleted read by 1.76x**, which is the
   pre-registered falsifier firing in the direction nobody set it up for.
 BRANCH: wk/b2z2-trunk-byte-floor (pushed). `ef77563a` the pre-registered prediction, `8e05277c` the
-  buffer tracer, `5b081c49` the census and its table, `f6cd6a0b` the fused projection + bit-exact
-  check, `6f810244` the A/B harness, `<tip>` the results.
+  buffer tracer, `5b081c49` the census and its table, `07f3d58d` the fused projection and its
+  bit-exact check, `ca1c8360` the A/B harness, `6f810244` the refactor, `78371796` the results.
 CARD: whglx card 10, pinned `TT_VISIBLE_DEVICES=10`, leased as `worker:b2z2-trunk-byte-floor`,
   trace region capped at 512 MiB. No other card opened, no reset run, pc's banned card untouched.
   Worktree on whglx is `~/wt-bytefloor` (tt-admin), a clone — the shared checkout was not touched.
@@ -85,6 +85,22 @@ arm's first draw: 1.01491x. `perf/b2z2_byte_floor/out/ab_512_wh_c10.json` carrie
 ELIGIBILITY-CENSUS, per arm, identical in both: `qkv_heads` 28/28 served, head-major tail 28/28
 served, `reblock_gated` 56. The lever does not drop a tuned kernel, it adds a call to one. This is
 the check that flipped `b2z2-byte-axis-reopened`'s sign and it is flat here.
+
+TILE-MOVEMENT-DELTA: **-2.85 %** of the block's input-tile wait. The arm removes 1.44 % of the
+block wall (1.235 ms of 85.884, WH) and every millisecond of it has to come out of the movement
+term: the arithmetic is bit-identical, the MAC count is unchanged, the output buffers are the same
+four, and the only program property that moves is N. Carried onto the BH decomposition the
+campaign scores in (wait 18.3366 ms of a 36.3438 ms block), 1.44 % of the block is 0.523 ms, which
+is **2.85 % of the wait**. Measured on WH and transferred as a fraction, per CONTEXT
+§2-CORRECTION: fractions transfer, seconds do not.
+
+DEFICIT-SECONDS: **0.0 s** removed from the shipped path, because the lever's default is OFF and a
+fold A/B has not run. **0.147 s/fold located and measured on the block** (1.44 % of the trunk's
+10.22 s of BH device span), which is the number a fold A/B would have to find. Separately this pass
+EXPLAINS a term rather than removing it: the 1.76x realization above says the campaign's DRAM-byte
+ledger mis-prices its own remaining levers by up to that factor in either direction depending on
+whether the operand is multicast, and the remaining redundancy ledger (282.1 MB) is worth
+re-pricing before the next row spends a pass on it.
 
 FOLD-RATIO: **not claimed.** PROJECTED 1.0074x on the 20.079 s BH cell (1.01459x applied to the
 trunk's 50.9 % share), which is under the cell's own 1.01x measurability floor. A fold A/B is the
