@@ -7810,6 +7810,19 @@ class Transition(Module):
 
 
 _MIN_ROW_SHARD = os.environ.get("TT_BIO_MIN_ROW_SHARD", "0") == "1"
+#: Reach the row shard from a FOLD, which is the only place an end-to-end digest can be taken.
+#: `b2z2-dual-chip-fold` established that an op-level bit-exactness suite cannot certify a shard:
+#: all five of its pair-track ops passed `torch.equal` at their own shape while the composed fold
+#: emitted the wrong CIF, because a shard's real failure mode is L1 PRESSURE tripping an allocation
+#: refusal that `_L1_OUT_RUNG` then remembers BY SHAPE, stepping a full-height op's config down a
+#: rung for the rest of the process. A block harness never reaches that pressure.
+#:
+#: Gated on `transform_s`, a STRUCTURAL property of the layer and not a model name: it is True
+#: exactly for the 64-block trunk that carries a single track. That row measured that sharding the
+#: MSA module's inner pairformer and the confidence head as well produces a wrong CIF with every op
+#: still passing its own gate, so those stay whole.
+_ROW_SHARD_FOLD = os.environ.get("TT_BIO_ROW_SHARD_FOLD", "0") == "1"
+_B_SHARD_FOLD = os.environ.get("TT_BIO_B_SHARD_FOLD", "0") == "1"
 
 class PairformerLayer(Module):
     def __init__(
@@ -7974,9 +7987,13 @@ class PairformerLayer(Module):
         unsharded chain below is byte-for-byte what ships.
         """
         assert not b_shard or row_shard, "b_shard is a refinement of row_shard, not an alternative"
-        if row_shard:
+        _fold_shard = (_ROW_SHARD_FOLD
+                       and getattr(self.device, "get_num_devices", lambda: 1)() > 1
+                       and self.transform_s)
+        if row_shard or _fold_shard:
             z = self._pair_track_row_sharded(
-                z, mask, attn_mask_start, attn_mask_end, b_shard=b_shard)
+                z, mask, attn_mask_start, attn_mask_end,
+                b_shard=b_shard or (_fold_shard and _B_SHARD_FOLD))
         else:
             z_update = self.triangle_multiplication_start(z, mask)
             z = ttnn.add_(z, z_update)
