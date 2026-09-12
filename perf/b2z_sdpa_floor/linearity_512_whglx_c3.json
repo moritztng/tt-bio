@@ -1,0 +1,118 @@
+{
+ "doc": "Is the mask add's cost per-PASS and linear, or a one-off? The control for the packer model.\n\n`ablate_512.py` measured that REMOVING the mask add saves 1.373 ms of a 6.809 ms op (20.2 %), while\nremoving the SFPU exponential over the same 128 tiles saves 0.276 ms (4.1 %), and `addgran_512.py`\nruled out the DST barrier (1.0267x). That left one explanation: the cost is the tile PASSES through\nL1 that the add makes and the exp does not, priced by the packer at ~64 cycles a tile write.\n\nThat story has a hole. A single removal cannot tell a per-pass cost from a one-off that happens to\nsit in the same block -- a format reconfigure, a cold mask CB, a first-touch of cb_qk_im. Both look\nidentical when you delete the stage.\n\nSo this arm ADDS a second identical pass instead of removing the first. Adding is also the safe\ndirection: removing a stage can leave a downstream `cb_wait_front` unsatisfied and wedge the card,\nwhereas the doubled call is CB-neutral by construction (pop_in1 false, and in0 is popped and\nre-pushed with no net effect). Scores become qk + 2*mask, wrong on purpose.\n\nPREDICTED, before the first number:\n\n    If the cost is per-pass and linear, one ADDED pass costs what one REMOVED pass saved:\n    +1.373 ms, i.e. ~8.18 ms against the 6.81 ms baseline, and the three arms lie on a straight\n    line with slope ~1.37 ms per pass.\n\n    FALSIFIER: an added pass costing under 0.7 ms or over 2.1 ms. Under 0.7 means the first pass was\n    paying a one-off and the per-pass attribution -- and with it the packer model's whole basis for\n    extrapolating to other kernels by counting tile writes -- is wrong. Over 2.1 means something\n    superlinear (CB pressure, L1 thrash) that the model also does not describe.\n\nInterleaved in one process, same operands, same device, medians over --reps.\n",
+ "meta": {
+  "card": "3",
+  "grid": [
+   8,
+   9
+  ],
+  "loadavg": [
+   152.36181640625,
+   195.47021484375,
+   166.62548828125
+  ],
+  "started": "2026-09-12T09:53:28+0000",
+  "shape": [
+   512,
+   8,
+   512,
+   32
+  ],
+  "loadavg_end": [
+   140.0634765625,
+   191.48583984375,
+   165.6416015625
+  ]
+ },
+ "instrument_live": {
+  "x2_differs_from_baseline": true,
+  "max_abs_delta": 0.365234375
+ },
+ "arms": {
+  "passes_0": {
+   "passes": 0,
+   "ms": 5.358344002161175,
+   "all_ms": [
+    5.420047091320157,
+    5.43352693784982,
+    5.458183935843408,
+    6.980570033192635,
+    9.238098980858922,
+    7.97922897618264,
+    5.334618967026472,
+    5.308490013703704,
+    5.32880995888263,
+    5.363752017728984,
+    5.384132964536548,
+    5.327609018422663,
+    5.334238056093454,
+    5.346626043319702,
+    5.34486398100853,
+    5.352935986593366,
+    5.33623096998781,
+    5.327767925336957,
+    5.39153499994427,
+    5.39056200068444
+   ]
+  },
+  "passes_1": {
+   "passes": 1,
+   "ms": 6.5489220432937145,
+   "all_ms": [
+    6.52093009557575,
+    6.595582002773881,
+    6.633699988014996,
+    6.994249997660518,
+    8.965139975771308,
+    6.52184197679162,
+    7.667001103982329,
+    6.490584928542376,
+    6.564314942806959,
+    6.549162091687322,
+    6.582121015526354,
+    6.546598044224083,
+    6.511304993182421,
+    6.516722962260246,
+    6.5269689075648785,
+    6.548681994900107,
+    6.7200290504843,
+    6.514339940622449,
+    6.620940053835511,
+    6.53966807294637
+   ]
+  },
+  "passes_2": {
+   "passes": 2,
+   "ms": 7.695002539549023,
+   "all_ms": [
+    7.703354931436479,
+    7.761441986076534,
+    7.967401994392276,
+    7.686901022680104,
+    9.988596080802381,
+    8.931339019909501,
+    7.6540709706023335,
+    7.597145042382181,
+    7.670124992728233,
+    7.8884829999879,
+    7.7410119120031595,
+    7.641903008334339,
+    8.884557988494635,
+    7.6798900263383985,
+    7.642733980901539,
+    7.664797944016755,
+    7.648793049156666,
+    7.703104056417942,
+    7.884105900302529,
+    7.635232992470264
+   ]
+  }
+ },
+ "linearity": {
+  "removed_one_pass_ms": 1.1905780411325395,
+  "added_one_pass_ms": 1.1460804962553084,
+  "ratio_added_over_removed": 0.9626252598822478,
+  "linear": true,
+  "falsifier": "added pass under 0.7 ms (one-off, not per-pass) or over 2.1 ms (superlinear)"
+ }
+}
