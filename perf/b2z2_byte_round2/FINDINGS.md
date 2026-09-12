@@ -1,8 +1,10 @@
-# 134.2 MB more, deleted bit-exactly, buys 1.01080x — and the realization coefficient is 1.31, not 1.76
+# The trunk's redundant reads are gone: 416.3 MB down to 13.7, and the block carries 1.05106x
 
-`b2z2-trunk-byte-floor` published a 416.3 MB redundancy surface for one PairformerLayer and built
-half of rank 1, measuring that its deleted bytes bought **1.76x** what the DRAM-byte ledger priced
-them at. This row builds rank 2 and asks whether that 1.76 is a rule.
+`b2z2-trunk-byte-floor` published a 416.3 MB read-redundancy surface for one PairformerLayer, built
+half of rank 1, and measured that its deleted bytes bought **1.76x** what the DRAM-byte ledger
+priced them at. This row builds the other two sites. Both are bit-exact, both are worth more than
+their byte line, and **neither is worth 1.76** — the coefficient is not a constant and the reason it
+is not is the useful part.
 
 ## The ledger reproduces, to the megabyte
 
@@ -10,87 +12,127 @@ them at. This row builds rank 2 and asks whether that 1.76 is a rule.
 10: DRAM read **3,672.0 MB**, write **3,744.9 MB**, total **7.4169 GB**, redundant reads
 **416.3 MB = 5.17 %** of the campaign's 8.0493 GB. Byte for byte the parent's table.
 
-## R2 — the trimul's output gate rides its in-projection
+## What got built
 
-The trimul reads its own normed input twice: the fused four-way in-projection reads all 67.1 MB of
-it, and so does `g_out` at the tail. `TT_BIO_TRIMUL_FUSED_GOUT` concatenates `g_out`'s weight onto
-the in-projection's, so the gate is a second destination of one pass and the second read never
-happens.
+| | lever | what it deletes | block ratio | A/A floor | realization |
+|---|---|---|---|---|---|
+| rank 1a | `TT_BIO_TRIATT_FUSED_QKVG` (parent) | q/k/v and the gate share one pass | 1.01459x | 0.99983x | 1.76 |
+| rank 2 | `TT_BIO_TRIMUL_FUSED_GOUT` | the trimul's output gate rides its in-projection | **1.01080x** | 1.00021x | **1.31** |
+| rank 1b | `TT_BIO_TRIATT_FUSED_QKVGB` | the pair-bias projection rides the qkv+gate pass | **1.02491x** | 1.00074x | **2.93** |
+| all three | | | **1.05106x** | 1.00064x | 1.98 |
 
-**The split writer had to learn an unequal chunk.** `minimal_matmul`'s split path divides N into
-`N_chunks` EQUAL chunks, which is exactly why two projections of different widths over one
-activation could not share a pass. `MM_SPLIT_LAST_TILES` gives the final chunk its own width
-(`tt_bio/kernels/mm_split/patch_mm_split.py`, regenerated from the wheel's own kernels). Addressing
-only: same tiles, same order, two buffers instead of one. The same edit gives the split path
-`MM_DUAL_NOC`, which it did not have, so a two-chunk call does not lose the drain lever purely by
-taking a different branch.
+Every ratio is a median of 7, paired and interleaved in one process on one card, with an A/A leg
+measured the same way in the same run and `os.getloadavg()` recorded inside every rep. Drop-first
+and min/min agree with every median to within 0.1 pp. Draws in `out/ab_{gout,qkvgb,all}_512_wh_c10.json`.
+Each arm's first draw or two is a program-cache miss of several hundred ms and is why the raw
+spread column is large; the medians are unaffected and the A/A spreads are 0.16-0.24 %.
 
-| | measured |
+The three are additive: 1.01459 x 1.01080 x 1.02491 = 1.0518 against 1.05106 measured.
+
+## The bytes, re-counted with the levers on
+
+| | base | all three |
+|---|---|---|
+| DRAM read | 3,672.0 MB | **3,269.4 MB** (-402.6, exactly 3 x 134.2) |
+| DRAM write | 3,744.9 MB | 3,744.9 MB, unchanged |
+| L1 read / write | 943.5 / 1,347.3 MB | unchanged |
+| redundant reads | 416.3 MB, 5.17 % | **13.7 MB, 0.17 %** |
+| device programs | 417 | 415 |
+
+**96.7 % of the surface is gone**, which is exactly the fraction the parent's census said was one
+defect shape. What is left is the transition's `swiglu` weights — 0.1 MB tensors re-read once per
+row chunk, 32 times — and four sub-MB shared masks. Deleting those means unchunking the transition,
+which is a different lever with a different cost.
+
+## BIT-EXACT, both sites, with controls that fire
+
+`torch.equal` True at max abs **0.0** on both of the block's outputs for each lever, and the block
+digest is identical in every rep of every arm (101156.188 / 340218.562 / 80569.953 for the three
+harness seeds). Negative controls move the block by 1.74 and 0.49 respectively.
+
+Both levers change an op's CLASS — `g_out` and the pair bias are `ttnn.linear` today and become
+chunks of a `minimal_matmul` — and `_trimul_out_proj`'s own docstring warns that the two kernels
+block the contraction differently. **That was measured before anything was built**
+(`probe_opclass.py`): at c_z=128 both take the whole 4-tile contraction in one block and are
+`torch.equal` at max abs 0.0, and a matmul's N width does not change its own arithmetic.
+`probe_split.py` proves the new split writer is column-sensitive in the right chunk and only there.
+
+**ELIGIBILITY CENSUS, flat in every arm.** `qkv_heads` 28/28 served, head-major tail 28/28,
+`reblock_gated` 56, in base and lever arms of all three A/Bs. `trimul_tail_f1` declines at the same
+per-call rate in both. No tuned kernel is dropped.
+
+## The finding: the currency is wrong about OP SHAPE, not just about multicast
+
+The parent explained its 1.76 by multicast: a matmul's `in0` is delivered to a whole grid row, so a
+DRAM-byte ledger under-prices it. That explanation predicted this row's two sites would behave
+alike, and it predicted the one-tile-wide bias projection would realize LESS. **Pre-registered P2
+said 0.5-1.4, point 1.0. It measured 2.93.** The prediction was wrong and so was the reasoning
+behind it.
+
+**The real driver is how efficient the deleted reader was**, and it is measurable rather than
+arguable (`probe_bias_cost.py`, medians of 11 on the same card):
+
+| | |
 |---|---|
-| block ratio | **1.01080x** (median of 7, paired interleaved, one process, one card; drop-first 1.01069x) |
-| A/A floor, same run | **1.00021x**, spread 0.22 / 0.24 % |
-| loadavg, recorded per rep | 6.6 throughout |
-| DRAM reads | 3,672.0 -> **3,537.8 MB**, exactly **-134.2 MB** |
-| DRAM writes / L1 | 3,744.9 MB / 943.5 / 1,347.3 MB, **unchanged** |
-| redundancy surface | 416.3 -> **282.1 MB**, 5.17 % -> 3.50 % of 8.0493 GB |
-| block output digest | 101156.188 in every rep of every arm |
+| the stock bias `ttnn.linear`, `[512,512,128] x [128,4]` | **1.136 ms** |
+| its own bytes at the measured 390.7 GB/s roof (67.1 read + 16.8 write) | 0.215 ms |
+| the fused qkv+gate matmul, 16 N tiles | 2.582 ms |
+| the same matmul at 17 N tiles — what the fusion actually pays | 2.654 ms |
+| **the 17th N tile** | **0.072 ms** |
+| so the fusion returns 1.063 ms per attention, **2.127 ms per block** | measured 2.057 |
 
-`perf/b2z2_byte_round2/out/ab_gout_512_wh_c10.json` carries every draw.
+97 % of the win is accounted for. The bias projection costs **5.3x its byte cost** because its N is
+a single tile: the grid wants seventeen and gets one, so the op is occupancy-bound and its bytes
+never described it. Folding it into a matmul that was already running buys the same arithmetic for
+0.072 ms.
 
-**BIT-EXACT.** `torch.equal` True and max abs **0.0** on both of the block's outputs, negative
-control (one column of the fused gate weight perturbed) fires at max abs 1.74
-(`bitexact_gout.py`). The op class of `g_out` does change — it moves off `ttnn.linear` onto
-`minimal_matmul` — and that was measured before anything was built rather than assumed:
-`probe_opclass.py` is `torch.equal` at max abs 0.0 at both remaining sites, because at c_z=128 both
-kernels block the whole 4-tile contraction at once. `probe_split.py` proves the split writer is
-column-sensitive in the right half and only the right half.
-
-**ELIGIBILITY CENSUS, flat.** Per arm, AB leg: `qkv_heads` 28/28 served, head-major tail 28/28,
-`reblock_gated` 56, `qkvg` 0, in both arms. `trimul_gout` 14/0 in the lever arm and 0 in the base;
-`trimul_tail_f1` declines 14 in the lever arm against 28 in the A/A leg, which is the same
-per-call decline rate — the lever does not ask F1 and F1 was already declining every call at
-c_z=128. No tuned kernel is dropped.
-
-## The finding: 1.31, not 1.76
-
-1.809 % of this trace's bytes x the byte model's 45.2 % byte-proportional share predicts **0.702 ms
-of 85.884**. Measured **0.918 ms. Realization 1.31.**
-
-The falsifier this row pre-registered was "below 1.0x of the DRAM-byte prediction" and it did **not**
-fire: a deleted multicast `in0` is still worth more than its DRAM line. But it is worth **1.31x, not
-1.76x**, on an operand of the same class at the same activation width, in the same block, measured
-the same way. So **the coefficient is not a constant**, and the campaign should carry a band —
-1.3-1.8 — rather than the parent's point value. The two sites differ in what the freed matmul is
-doing with the delivered bytes: the parent's deletion merged two matmuls that were both already
-`minimal_matmul` at the same block config, while this one also moves a `ttnn.linear` with its own
-tuned program config into a chunk of another matmul, and that op pays its own dispatch and drain.
+**So: price a deleted read by what its READER costs, not by what its bytes cost.** The realization
+coefficient runs 1.3 (a well-shaped reader merged into another well-shaped reader) to 2.9 (a skinny
+reader deleted outright), and a DRAM-byte ledger is a lower bound at every site this campaign has
+measured — never an over-estimate. The multicast story was not wrong, it was incomplete.
 
 ## What the block floor becomes
 
-**Nothing in `perf/b2z2_orch/ceiling_v3.py` should change**, and that is worth saying because the
-brief asked for it. `REMOVABLE_BYTE_FRACTION = 0.0517` is a census of what EXISTS to remove, not of
-what has been removed; building a lever does not move it. The floor it computes — 19.54 ms,
-**1.8602x** on the block — is still the floor.
+**`perf/b2z2_orch/ceiling_v3.py` needs no edit**, and that is worth saying because the brief asked
+for one. `REMOVABLE_BYTE_FRACTION = 0.0517` is a census of what EXISTS to remove, not of what has
+been removed; building a lever does not move it. The floor it computes — 19.54 ms, **1.8603x** on
+the block — is still the floor.
 
-What moved is the distance to it. Taking the same arithmetic at the fraction actually built:
+What moved is the distance to it, at the same arithmetic and the fraction actually built:
 
 | built | bytes | byte-bound floor | block ratio at the floor |
 |---|---|---|---|
 | nothing | 8.0493 GB | 20.602 ms | 1.7641x |
-| qkvg (parent) | 7.9149 GB | 20.258 ms | 1.7940x |
-| **qkvg + gout (now)** | **7.7805 GB** | **19.914 ms** | **1.8250x** |
-| the whole surface | 7.6332 GB | 19.537 ms | 1.8602x |
+| qkvg (parent) | 7.9151 GB | 20.259 ms | 1.7940x |
+| qkvg + gout | 7.7809 GB | 19.915 ms | 1.8249x |
+| **all three (now)** | **7.6467 GB** | **19.572 ms** | **1.8569x** |
+| the whole surface | 7.6330 GB | 19.537 ms | 1.8603x |
 
-Two thirds of the ranking is built. The last 1.83 pp — the tri-attention bias projection at 1.67 pp
-plus the transition weights at 0.15 — is worth the final 1.8250x -> 1.8602x and **is not built**.
+**The ranking is built out.** 1.8569x of the available 1.8603x, and the remaining 0.0034x is the
+transition's re-read weights.
 
 ## The harness bug this row had to fix first, which is the reusable part
 
 The block-level bit-exact check came back BIT-EXACT with a negative control that **could not fail**,
-and the reason was the fixture, not the lever. `tt_bio.reference` zero-initialises every sub-unit's
-output projection so the residual starts as identity, and with `p_out.weight` zero the trimul's
-whole contribution is `0 * sigmoid(g_out)` — zero, whatever the gate is. **23 of the layer's
-weights are all-zero**, including both trimuls' `p_out` and `g_out` and both attentions' `linear_o`
-and `linear_g`. A block-output comparison against that fixture passes for a correct arm, for an
-incorrect arm, and for an arm that computes nothing at all. Every harness here unzeroes them first;
-shapes and ops are untouched, so the timing is the timing either way.
+and the reason was the fixture. `tt_bio.reference` zero-initialises every sub-unit's output
+projection so the residual starts as identity, and with `p_out.weight` zero the trimul's whole
+contribution is `0 * sigmoid(g_out)` — zero, whatever the gate is. **23 of the layer's weights are
+all-zero**, including both trimuls' `p_out`/`g_out` and both attentions' `linear_o`/`linear_g`. A
+block-output comparison against that fixture passes for a correct arm, for a wrong arm, and for an
+arm that computes nothing. Every harness here unzeroes them first; shapes and ops are untouched, so
+the timing is the timing either way.
+
+## The kernel change both sites needed
+
+`minimal_matmul`'s split writer divided N into `N_chunks` EQUAL chunks. That is the structural
+reason these two sites sat unbuilt after the parent row: a 512-wide projection cannot share a pass
+with a 128-wide one, and a 384-wide one cannot share with a 32-wide one. `MM_SPLIT_LAST_TILES` gives
+the final chunk its own width, in both of tt-bio's forks of the kernel
+(`kernels/mm_split/patch_mm_split.py`, regenerated from the wheel's own sources, and the
+hand-maintained `kernels/triatt/`). Host side is `mm_generic.build(..., n_widths=)`.
+
+Two details worth keeping. The `mm_split` fork's split path had no `MM_DUAL_NOC`, so a two-chunk
+call would have silently lost the drain lever by taking a different branch; it has it now. And the
+head-major tile-id transform reduces to the plain one at a chunk width of a single tile, so the
+one-tile bias chunk lands correctly in an ordinary `[batch, seq, 32]` buffer while its four
+head-major siblings keep theirs — no second define, no second kernel.
