@@ -2,8 +2,8 @@
  "rows": [
   {
    "probe": "sdpa.capped_q_chunk",
-   "what": "SDPA q_chunk (and k_chunk) for every non-tri-att call",
-   "parallel": true,
+   "what": "SDPA q_chunk: work units = batch*heads*q_chunks, one per core",
+   "cls": "OCCUPANCY",
    "grid_aware": false,
    "values": {
     "72": {
@@ -32,7 +32,7 @@
   {
    "probe": "sdpa.grid_q_chunk",
    "what": "THIS ROW'S LEVER -- control, must move with the grid",
-   "parallel": true,
+   "cls": "OCCUPANCY",
    "grid_aware": true,
    "values": {
     "72": {
@@ -75,8 +75,8 @@
   },
   {
    "probe": "sdpa.dividing_k_chunk",
-   "what": "k_chunk for the fused tri-att kernel",
-   "parallel": true,
+   "what": "k_chunk: the SDPA inner loop, not a core count",
+   "cls": "inner-loop",
    "grid_aware": false,
    "values": {
     "72": {
@@ -104,8 +104,8 @@
   },
   {
    "probe": "sdpa.shipped_band",
-   "what": "the 256<seq<=384 (64,64) band",
-   "parallel": true,
+   "what": "the (64,64) band; its q half is occupancy on a saturated path",
+   "cls": "OCCUPANCY",
    "grid_aware": false,
    "values": {
     "72": {
@@ -178,8 +178,8 @@
   },
   {
    "probe": "sdpa.tri_att_q_ladder",
-   "what": "q_chunks the tri-att SDPA tries, widest first",
-   "parallel": true,
+   "what": "tri-att q_chunks: occupancy, but L1-bound and never starved",
+   "cls": "OCCUPANCY",
    "grid_aware": false,
    "values": {
     "72": {
@@ -265,7 +265,7 @@
   {
    "probe": "sdpa.fp32_softmax_cores",
    "what": "cores the ragged fp32-softmax shard may use",
-   "parallel": true,
+   "cls": "OCCUPANCY",
    "grid_aware": true,
    "values": {
     "72": 72,
@@ -276,7 +276,7 @@
   {
    "probe": "mm.trimul_per_core",
    "what": "per_core_M/N of the triangle-mult matmul",
-   "parallel": true,
+   "cls": "OCCUPANCY",
    "grid_aware": true,
    "values": {
     "72": {
@@ -325,8 +325,8 @@
   },
   {
    "probe": "mm.trimul_in0_block_w",
-   "what": "K blocking of the trimul matmul",
-   "parallel": true,
+   "what": "in0_block_w: the matmul K loop, not a core count",
+   "cls": "inner-loop",
    "grid_aware": false,
    "values": {
     "72": {
@@ -352,7 +352,7 @@
   {
    "probe": "chunk.trimul",
    "what": "channel chunk of the triangle multiplication",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": true,
    "values": {
     "72": {
@@ -384,7 +384,7 @@
   {
    "probe": "chunk.transition_h",
    "what": "H chunk of the pair transition",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": true,
    "values": {
     "72": [
@@ -410,7 +410,7 @@
   {
    "probe": "chunk.seq_len_more",
    "what": "SEQ_LEN_MORE_CHUNKING and the transition thresholds",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": true,
    "values": {
     "72": [
@@ -433,7 +433,7 @@
   {
    "probe": "rows.pair_row_tile",
    "what": "rows per block of a pair [B,L,L,*] op",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": true,
    "values": {
     "72": {
@@ -459,7 +459,7 @@
   {
    "probe": "rows.msa_row_tile",
    "what": "rows per block of an MSA [B,L,M,*] op",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": true,
    "values": {
     "72": {
@@ -485,7 +485,7 @@
   {
    "probe": "rows.row_block",
    "what": "rows per block from the L1 residency budget",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": false,
    "values": {
     "72": {
@@ -502,7 +502,7 @@
   {
    "probe": "rows.pwa_depth_block",
    "what": "MSA depth block of the pair-weighted average",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": false,
    "values": {
     "72": {
@@ -519,7 +519,7 @@
   {
    "probe": "budget.l1_resident",
    "what": "L1 a row-blocked op may hold",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": false,
    "values": {
     "72": {
@@ -536,7 +536,7 @@
   {
    "probe": "budget.atom_pair",
    "what": "DRAM an atom-pair section may hold",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": false,
    "values": {
     "72": {
@@ -553,7 +553,7 @@
   {
    "probe": "budget.trimul_l1",
    "what": "trimul L1 residency thresholds",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": true,
    "values": {
     "72": [
@@ -576,7 +576,7 @@
   {
    "probe": "esmc.pair_ffn_row_block",
    "what": "ESMC pair-FFN row block",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": false,
    "values": {
     "72": [
@@ -608,7 +608,7 @@
   {
    "probe": "esmfold2.msa_row_blocks",
    "what": "ESMFold2 MSA row blocks",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": true,
    "values": {
     "72": {
@@ -648,7 +648,7 @@
   {
    "probe": "esmfold2.opm_fallback_rows",
    "what": "ESMFold2 outer-product-mean fallback rows",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": false,
    "values": {
     "72": {
@@ -668,7 +668,7 @@
   {
    "probe": "boltz2.row_block",
    "what": "Boltz-2 host row block",
-   "parallel": false,
+   "cls": "bytes",
    "grid_aware": false,
    "values": {
     "72": {
@@ -690,8 +690,8 @@
   },
   {
    "probe": "rfd3.attn_row_block",
-   "what": "RFdiffusion3 attention row block / pair transition H chunk",
-   "parallel": true,
+   "what": "RFD3 HOST neighbour row block (CPU threads) + pair-transition H chunk",
+   "cls": "host/bytes",
    "grid_aware": false,
    "values": {
     "72": [
@@ -710,8 +710,8 @@
   },
   {
    "probe": "protenix.paircond",
-   "what": "Protenix pair-conditioning narrow-matmul tile cap",
-   "parallel": true,
+   "what": "whether to force a core grid at all: a multicast DEADLOCK guard",
+   "cls": "guard",
    "grid_aware": false,
    "values": {
     "72": [
@@ -728,7 +728,7 @@
   {
    "probe": "exposure.sdpa_units",
    "what": "work units the shipped q_chunk leaves, per shipped SDPA shape",
-   "parallel": true,
+   "cls": "OCCUPANCY",
    "grid_aware": true,
    "values": {
     "72": {

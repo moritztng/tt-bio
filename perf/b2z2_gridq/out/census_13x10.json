@@ -8,8 +8,8 @@
  "device_probes": false,
  "probes": {
   "sdpa.capped_q_chunk": {
-   "what": "SDPA q_chunk (and k_chunk) for every non-tri-att call",
-   "parallel": true,
+   "what": "SDPA q_chunk: work units = batch*heads*q_chunks, one per core",
+   "cls": "OCCUPANCY",
    "value": {
     "320": 256,
     "512": 256,
@@ -20,7 +20,7 @@
   },
   "sdpa.grid_q_chunk": {
    "what": "THIS ROW'S LEVER -- control, must move with the grid",
-   "parallel": true,
+   "cls": "OCCUPANCY",
    "value": {
     "320/8": 32,
     "320/16": 64,
@@ -35,8 +35,8 @@
    }
   },
   "sdpa.dividing_k_chunk": {
-   "what": "k_chunk for the fused tri-att kernel",
-   "parallel": true,
+   "what": "k_chunk: the SDPA inner loop, not a core count",
+   "cls": "inner-loop",
    "value": {
     "320": 160,
     "448": 224,
@@ -46,8 +46,8 @@
    }
   },
   "sdpa.shipped_band": {
-   "what": "the 256<seq<=384 (64,64) band",
-   "parallel": true,
+   "what": "the (64,64) band; its q half is occupancy on a saturated path",
+   "cls": "OCCUPANCY",
    "value": {
     "288": [
      64,
@@ -72,8 +72,8 @@
    }
   },
   "sdpa.tri_att_q_ladder": {
-   "what": "q_chunks the tri-att SDPA tries, widest first",
-   "parallel": true,
+   "what": "tri-att q_chunks: occupancy, but L1-bound and never starved",
+   "cls": "OCCUPANCY",
    "value": {
     "320": [
      320,
@@ -103,12 +103,12 @@
   },
   "sdpa.fp32_softmax_cores": {
    "what": "cores the ragged fp32-softmax shard may use",
-   "parallel": true,
+   "cls": "OCCUPANCY",
    "value": 110
   },
   "mm.trimul_per_core": {
    "what": "per_core_M/N of the triangle-mult matmul",
-   "parallel": true,
+   "cls": "OCCUPANCY",
    "value": {
     "320": [
      1,
@@ -125,8 +125,8 @@
    }
   },
   "mm.trimul_in0_block_w": {
-   "what": "K blocking of the trimul matmul",
-   "parallel": true,
+   "what": "in0_block_w: the matmul K loop, not a core count",
+   "cls": "inner-loop",
    "value": {
     "320": 10,
     "512": 8,
@@ -136,7 +136,7 @@
   },
   "chunk.trimul": {
    "what": "channel chunk of the triangle multiplication",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "320/128": 64,
     "320/256": 64,
@@ -148,7 +148,7 @@
   },
   "chunk.transition_h": {
    "what": "H chunk of the pair transition",
-   "parallel": false,
+   "cls": "bytes",
    "value": [
     16,
     32,
@@ -158,7 +158,7 @@
   },
   "chunk.seq_len_more": {
    "what": "SEQ_LEN_MORE_CHUNKING and the transition thresholds",
-   "parallel": false,
+   "cls": "bytes",
    "value": [
     1536,
     1024,
@@ -167,7 +167,7 @@
   },
   "rows.pair_row_tile": {
    "what": "rows per block of a pair [B,L,L,*] op",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "320": 0,
     "512": 0,
@@ -177,7 +177,7 @@
   },
   "rows.msa_row_tile": {
    "what": "rows per block of an MSA [B,L,M,*] op",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "512/1024": 0,
     "512/8192": 0,
@@ -187,35 +187,35 @@
   },
   "rows.row_block": {
    "what": "rows per block from the L1 residency budget",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "skipped": "needs a pinned device"
    }
   },
   "rows.pwa_depth_block": {
    "what": "MSA depth block of the pair-weighted average",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "skipped": "needs a pinned device"
    }
   },
   "budget.l1_resident": {
    "what": "L1 a row-blocked op may hold",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "skipped": "needs a pinned device"
    }
   },
   "budget.atom_pair": {
    "what": "DRAM an atom-pair section may hold",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "skipped": "needs a pinned device"
    }
   },
   "budget.trimul_l1": {
    "what": "trimul L1 residency thresholds",
-   "parallel": false,
+   "cls": "bytes",
    "value": [
     352,
     640,
@@ -224,7 +224,7 @@
   },
   "esmc.pair_ffn_row_block": {
    "what": "ESMC pair-FFN row block",
-   "parallel": false,
+   "cls": "bytes",
    "value": [
     32,
     [
@@ -236,14 +236,14 @@
   },
   "esmfold2.msa_row_blocks": {
    "what": "ESMFold2 MSA row blocks",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "error": "TypeError: 'NoneType' object is not iterable"
    }
   },
   "esmfold2.opm_fallback_rows": {
    "what": "ESMFold2 outer-product-mean fallback rows",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "512": 128,
     "1024": 256
@@ -251,7 +251,7 @@
   },
   "boltz2.row_block": {
    "what": "Boltz-2 host row block",
-   "parallel": false,
+   "cls": "bytes",
    "value": {
     "4096": 4096,
     "65536": 256,
@@ -259,23 +259,23 @@
    }
   },
   "rfd3.attn_row_block": {
-   "what": "RFdiffusion3 attention row block / pair transition H chunk",
-   "parallel": true,
+   "what": "RFD3 HOST neighbour row block (CPU threads) + pair-transition H chunk",
+   "cls": "host/bytes",
    "value": [
     256,
     64
    ]
   },
   "protenix.paircond": {
-   "what": "Protenix pair-conditioning narrow-matmul tile cap",
-   "parallel": true,
+   "what": "whether to force a core grid at all: a multicast DEADLOCK guard",
+   "cls": "guard",
    "value": [
     4
    ]
   },
   "exposure.sdpa_units": {
    "what": "work units the shipped q_chunk leaves, per shipped SDPA shape",
-   "parallel": true,
+   "cls": "OCCUPANCY",
    "value": {
     "boltz2.diffusion.token": {
      "shipped_chunk": 256,
