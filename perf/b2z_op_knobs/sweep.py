@@ -132,7 +132,7 @@ def main() -> int:
     i, n = (int(x) for x in a.shard.split("/"))
     keep = keep[i::n]
 
-    device = ttnn.open_device(device_id=0)
+    device = R.open_device_retry(ttnn)
     out = {"env": {"started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                    "card": os.environ.get("TT_VISIBLE_DEVICES"),
                    "shard": a.shard, "level": a.level, "reps": a.reps, "bursts": a.bursts,

@@ -1,0 +1,7912 @@
+{
+ "env": {
+  "started": "2026-09-12T09:49:37+0000",
+  "card": "1",
+  "knob": "",
+  "reps": 20,
+  "bursts": 5,
+  "arch": "Arch.WORMHOLE_B0",
+  "grid": "(x=8,y=9)"
+ },
+ "rows": [
+  {
+   "id": "PairformerLayer#000",
+   "unit": "PairformerLayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 32,
+   "calls_per_fold": 8448,
+   "in_bytes": 2097664,
+   "shapes": [
+    "1x16x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 47.71,
+   "bursts_us": [
+    47.57,
+    60.19,
+    47.46,
+    47.71,
+    57.67
+   ],
+   "ms_per_fold": 403.072,
+   "aa_ratio": 1.001
+  },
+  {
+   "id": "PairformerLayer#001",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 32,
+   "calls_per_fold": 8448,
+   "in_bytes": 2228224,
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "us_per_call": 473.35,
+   "bursts_us": [
+    633.58,
+    473.35,
+    474.02,
+    472.61,
+    472.66
+   ],
+   "ms_per_fold": 3998.891,
+   "aa_ratio": 0.9985
+  },
+  {
+   "id": "PairformerLayer#002",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 32,
+   "calls_per_fold": 8448,
+   "in_bytes": 2228224,
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "us_per_call": 550.63,
+   "bursts_us": [
+    550.63,
+    598.13,
+    472.57,
+    625.52,
+    473.14
+   ],
+   "ms_per_fold": 4651.728,
+   "aa_ratio": 0.9973
+  },
+  {
+   "id": "PairformerLayer#003",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 32,
+   "calls_per_fold": 8448,
+   "in_bytes": 25165824,
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x512",
+    "1x16x512x512"
+   ],
+   "us_per_call": 63.46,
+   "bursts_us": [
+    63.46,
+    184.82,
+    63.52,
+    63.19,
+    62.95
+   ],
+   "ms_per_fold": 536.07,
+   "aa_ratio": 3.7082
+  },
+  {
+   "id": "PairformerLayer#004",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 32,
+   "calls_per_fold": 8448,
+   "in_bytes": 8519680,
+   "shapes": [
+    "1x16x512x512",
+    "512x128"
+   ],
+   "us_per_call": 274.7,
+   "bursts_us": [
+    357.28,
+    274.6,
+    274.7,
+    274.39,
+    275.13
+   ],
+   "ms_per_fold": 2320.707,
+   "aa_ratio": 0.9996
+  },
+  {
+   "id": "PairformerLayer#005",
+   "unit": "PairformerLayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 4,
+   "calls_per_fold": 1056,
+   "in_bytes": 67109376,
+   "shapes": [
+    "1x512x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 936.05,
+   "bursts_us": [
+    948.72,
+    934.93,
+    934.73,
+    1164.16,
+    936.05
+   ],
+   "ms_per_fold": 988.474,
+   "aa_ratio": 1.175
+  },
+  {
+   "id": "PairformerLayer#006",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 4,
+   "calls_per_fold": 1056,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1x512x512x128",
+    "1x512x512x128",
+    "1x512x512x128"
+   ],
+   "us_per_call": 847.66,
+   "bursts_us": [
+    850.64,
+    847.41,
+    847.66,
+    845.42,
+    949.34
+   ],
+   "ms_per_fold": 895.132,
+   "aa_ratio": 1.2499
+  },
+  {
+   "id": "PairformerLayer#007",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 4,
+   "calls_per_fold": 1056,
+   "in_bytes": 67141632,
+   "shapes": [
+    "1x512x512x128",
+    "128x128"
+   ],
+   "us_per_call": 3184.22,
+   "bursts_us": [
+    3181.84,
+    3335.91,
+    3401.86,
+    3184.22,
+    3184.13
+   ],
+   "ms_per_fold": 3362.54,
+   "aa_ratio": 1.0003
+  },
+  {
+   "id": "PairformerLayer#008",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 3,
+   "calls_per_fold": 792,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1x512x512x128",
+    "1x512x512x128",
+    "1x512x512x128"
+   ],
+   "us_per_call": 851.48,
+   "bursts_us": [
+    628.03,
+    682.88,
+    898.46,
+    990.45,
+    851.48
+   ],
+   "ms_per_fold": 674.368,
+   "aa_ratio": 0.7645
+  },
+  {
+   "id": "PairformerLayer#009",
+   "unit": "PairformerLayer",
+   "kind": "reshape",
+   "api": "ttnn.unsqueeze",
+   "op": "ReshapeView",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 524288,
+   "shapes": [
+    "1x512x512"
+   ],
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume\ninfo:\nInvalid arguments to reshape\nbacktrace:\n --- /home/tt-admin/tt-bio/env/lib/python3.10/site-pac"
+  },
+  {
+   "id": "PairformerLayer#010",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 268435456,
+   "shapes": [
+    "1x512x512x512"
+   ],
+   "us_per_call": 727.98,
+   "bursts_us": [
+    735.1,
+    657.94,
+    771.99,
+    727.98,
+    655.1
+   ],
+   "ms_per_fold": 384.376,
+   "aa_ratio": 0.9022
+  },
+  {
+   "id": "PairformerLayer#011",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 268435456,
+   "shapes": [
+    "1x512x512x512"
+   ],
+   "us_per_call": 650.0,
+   "bursts_us": [
+    650.0,
+    648.48,
+    654.48,
+    649.68,
+    652.48
+   ],
+   "ms_per_fold": 343.202,
+   "aa_ratio": 1.0037
+  },
+  {
+   "id": "PairformerLayer#012",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 268435456,
+   "shapes": [
+    "1x512x512x512"
+   ],
+   "us_per_call": 874.72,
+   "bursts_us": [
+    949.84,
+    700.94,
+    1202.95,
+    750.85,
+    874.72
+   ],
+   "ms_per_fold": 461.852,
+   "aa_ratio": 0.8583
+  },
+  {
+   "id": "PairformerLayer#013",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 268435456,
+   "shapes": [
+    "1x512x512x512"
+   ],
+   "us_per_call": 658.47,
+   "bursts_us": [
+    662.14,
+    658.47,
+    657.02,
+    655.07,
+    659.71
+   ],
+   "ms_per_fold": 347.67,
+   "aa_ratio": 1.0013
+  },
+  {
+   "id": "PairformerLayer#014",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 134742016,
+   "shapes": [
+    "1x512x512x128",
+    "1x512x512x1",
+    "1x512x512x128"
+   ],
+   "us_per_call": 1581.09,
+   "bursts_us": [
+    1579.63,
+    1581.16,
+    1580.71,
+    1581.09,
+    1581.21
+   ],
+   "ms_per_fold": 834.814,
+   "aa_ratio": 0.9999
+  },
+  {
+   "id": "PairformerLayer#016",
+   "unit": "PairformerLayer",
+   "kind": "transpose",
+   "api": "ttnn.transpose",
+   "op": "Transpose",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x128x512x512"
+   ],
+   "us_per_call": 748.48,
+   "bursts_us": [
+    796.19,
+    748.48,
+    949.42,
+    681.54,
+    690.38
+   ],
+   "ms_per_fold": 395.196,
+   "aa_ratio": 0.9173
+  },
+  {
+   "id": "PairformerLayer#017",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 134217728,
+   "shapes": [
+    "1x128x512x512",
+    "1x128x512x512"
+   ],
+   "us_per_call": 2335.42,
+   "bursts_us": [
+    2333.55,
+    2336.3,
+    2335.16,
+    2335.42,
+    2335.95
+   ],
+   "ms_per_fold": 1233.1,
+   "aa_ratio": 0.9999
+  },
+  {
+   "id": "PairformerLayer#018",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1x512x512x128",
+    "1x512x512x128",
+    "1x512x512x128"
+   ],
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 67108864 B L1 buffer across 72 banks, where each bank needs to store 933888 B, but bank size is 13"
+  },
+  {
+   "id": "PairformerLayer#019",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 67109888,
+   "shapes": [
+    "512x512x128",
+    "128x4"
+   ],
+   "us_per_call": 1620.02,
+   "bursts_us": [
+    1622.96,
+    1620.78,
+    1620.02,
+    1618.6,
+    1619.86
+   ],
+   "ms_per_fold": 855.372,
+   "aa_ratio": 0.9993
+  },
+  {
+   "id": "PairformerLayer#020",
+   "unit": "PairformerLayer",
+   "kind": "permute",
+   "api": "ttnn.permute",
+   "op": "Permute",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 2097152,
+   "shapes": [
+    "1x512x512x4"
+   ],
+   "us_per_call": 145.5,
+   "bursts_us": [
+    145.69,
+    145.5,
+    145.69,
+    145.0,
+    144.34
+   ],
+   "ms_per_fold": 76.823,
+   "aa_ratio": 0.9978
+  },
+  {
+   "id": "PairformerLayer#021",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.add",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 2098176,
+   "shapes": [
+    "1x4x512x512",
+    "1x1x1x512"
+   ],
+   "us_per_call": 38.96,
+   "bursts_us": [
+    39.17,
+    38.56,
+    38.96,
+    80.48,
+    38.76
+   ],
+   "ms_per_fold": 20.573,
+   "aa_ratio": 0.9941
+  },
+  {
+   "id": "PairformerLayer#023",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 201326592,
+   "shapes": [
+    "512x4x512x32",
+    "512x4x512x32",
+    "512x4x512x32"
+   ],
+   "us_per_call": 950.51,
+   "bursts_us": [
+    1169.92,
+    950.51,
+    1579.92,
+    847.04,
+    846.93
+   ],
+   "ms_per_fold": 501.871,
+   "aa_ratio": 0.8903
+  },
+  {
+   "id": "PairformerLayer#024",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1x512x512x128",
+    "1x512x512x128",
+    "1x512x512x128"
+   ],
+   "us_per_call": 842.29,
+   "bursts_us": [
+    1015.08,
+    842.29,
+    840.81,
+    839.82,
+    871.49
+   ],
+   "ms_per_fold": 444.73,
+   "aa_ratio": 0.999
+  },
+  {
+   "id": "PairformerLayer#025",
+   "unit": "PairformerLayer",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 1515.61,
+   "bursts_us": [
+    1515.61,
+    1504.76,
+    1513.1,
+    1566.74,
+    1699.88
+   ],
+   "ms_per_fold": 800.243,
+   "aa_ratio": 1.2197
+  },
+  {
+   "id": "PairformerLayer#026",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 688128,
+   "shapes": [
+    "1x512x384",
+    "384x384"
+   ],
+   "us_per_call": 23.56,
+   "bursts_us": [
+    323.0,
+    24.31,
+    23.56,
+    23.54,
+    23.39
+   ],
+   "ms_per_fold": 12.439,
+   "aa_ratio": 0.9839
+  },
+  {
+   "id": "PairformerLayer#027",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 528,
+   "in_bytes": 1179648,
+   "shapes": [
+    "1x512x384",
+    "1x512x384",
+    "1x512x384"
+   ],
+   "us_per_call": 150.02,
+   "bursts_us": [
+    150.35,
+    17.52,
+    150.02,
+    50.71,
+    217.23
+   ],
+   "ms_per_fold": 79.209,
+   "aa_ratio": 0.1238
+  },
+  {
+   "id": "PairformerLayer#034",
+   "unit": "PairformerLayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67109376,
+   "shapes": [
+    "512x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 934.51,
+   "bursts_us": [
+    934.93,
+    934.3,
+    934.51,
+    934.8,
+    934.28
+   ],
+   "ms_per_fold": 246.711,
+   "aa_ratio": 1.0008
+  },
+  {
+   "id": "PairformerLayer#038",
+   "unit": "PairformerLayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67109376,
+   "shapes": [
+    "512x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 926.0,
+   "bursts_us": [
+    926.0,
+    1036.14,
+    948.25,
+    925.6,
+    925.15
+   ],
+   "ms_per_fold": 244.464,
+   "aa_ratio": 1.0
+  },
+  {
+   "id": "PairformerLayer#042",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 125.52,
+   "bursts_us": [
+    149.9,
+    518.95,
+    26.25,
+    125.52,
+    24.12
+   ],
+   "ms_per_fold": 33.137,
+   "aa_ratio": 0.1951
+  },
+  {
+   "id": "PairformerLayer#043",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.68,
+   "bursts_us": [
+    24.26,
+    22.6,
+    22.84,
+    22.68,
+    22.26
+   ],
+   "ms_per_fold": 5.986,
+   "aa_ratio": 1.0041
+  },
+  {
+   "id": "PairformerLayer#044",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.55,
+   "bursts_us": [
+    23.17,
+    21.54,
+    21.48,
+    21.55,
+    21.85
+   ],
+   "ms_per_fold": 5.69,
+   "aa_ratio": 0.9985
+  },
+  {
+   "id": "PairformerLayer#045",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.85,
+   "bursts_us": [
+    24.85,
+    24.27,
+    24.19,
+    65.65,
+    61.77
+   ],
+   "ms_per_fold": 6.56,
+   "aa_ratio": 2.0338
+  },
+  {
+   "id": "PairformerLayer#046",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 26.28,
+   "bursts_us": [
+    26.28,
+    22.71,
+    22.68,
+    165.16,
+    198.96
+   ],
+   "ms_per_fold": 6.938,
+   "aa_ratio": 0.8664
+  },
+  {
+   "id": "PairformerLayer#047",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 28.99,
+   "bursts_us": [
+    28.99,
+    166.79,
+    199.48,
+    22.79,
+    21.61
+   ],
+   "ms_per_fold": 7.653,
+   "aa_ratio": 0.7592
+  },
+  {
+   "id": "PairformerLayer#048",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.31,
+   "bursts_us": [
+    66.1,
+    24.61,
+    24.31,
+    23.33,
+    23.91
+   ],
+   "ms_per_fold": 6.418,
+   "aa_ratio": 1.5211
+  },
+  {
+   "id": "PairformerLayer#049",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 28.3,
+   "bursts_us": [
+    28.3,
+    268.64,
+    248.97,
+    23.78,
+    22.44
+   ],
+   "ms_per_fold": 7.472,
+   "aa_ratio": 0.8161
+  },
+  {
+   "id": "PairformerLayer#050",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.05,
+   "bursts_us": [
+    24.05,
+    21.96,
+    37.0,
+    21.68,
+    25.1
+   ],
+   "ms_per_fold": 6.35,
+   "aa_ratio": 1.0918
+  },
+  {
+   "id": "PairformerLayer#051",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.67,
+   "bursts_us": [
+    28.23,
+    24.52,
+    24.67,
+    24.11,
+    24.81
+   ],
+   "ms_per_fold": 6.513,
+   "aa_ratio": 0.988
+  },
+  {
+   "id": "PairformerLayer#052",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.21,
+   "bursts_us": [
+    122.39,
+    25.62,
+    22.78,
+    22.59,
+    23.21
+   ],
+   "ms_per_fold": 6.128,
+   "aa_ratio": 1.0101
+  },
+  {
+   "id": "PairformerLayer#053",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.96,
+   "bursts_us": [
+    21.86,
+    21.89,
+    22.01,
+    22.02,
+    21.96
+   ],
+   "ms_per_fold": 5.798,
+   "aa_ratio": 1.1619
+  },
+  {
+   "id": "PairformerLayer#054",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 34.95,
+   "bursts_us": [
+    116.73,
+    26.08,
+    34.83,
+    120.15,
+    34.95
+   ],
+   "ms_per_fold": 9.227,
+   "aa_ratio": 0.735
+  },
+  {
+   "id": "PairformerLayer#055",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.9,
+   "bursts_us": [
+    25.28,
+    23.51,
+    24.77,
+    23.57,
+    23.9
+   ],
+   "ms_per_fold": 6.311,
+   "aa_ratio": 0.9767
+  },
+  {
+   "id": "PairformerLayer#056",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.36,
+   "bursts_us": [
+    23.16,
+    21.76,
+    128.32,
+    22.36,
+    21.53
+   ],
+   "ms_per_fold": 5.903,
+   "aa_ratio": 0.9973
+  },
+  {
+   "id": "PairformerLayer#057",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.31,
+   "bursts_us": [
+    30.68,
+    24.19,
+    23.94,
+    24.31,
+    24.41
+   ],
+   "ms_per_fold": 6.419,
+   "aa_ratio": 0.9979
+  },
+  {
+   "id": "PairformerLayer#058",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.05,
+   "bursts_us": [
+    29.14,
+    23.05,
+    22.45,
+    22.3,
+    23.35
+   ],
+   "ms_per_fold": 6.085,
+   "aa_ratio": 0.9881
+  },
+  {
+   "id": "PairformerLayer#059",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.79,
+   "bursts_us": [
+    21.67,
+    21.7,
+    21.79,
+    21.93,
+    22.12
+   ],
+   "ms_per_fold": 5.753,
+   "aa_ratio": 0.9981
+  },
+  {
+   "id": "PairformerLayer#060",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.36,
+   "bursts_us": [
+    150.07,
+    24.49,
+    24.36,
+    24.11,
+    24.09
+   ],
+   "ms_per_fold": 6.43,
+   "aa_ratio": 0.9955
+  },
+  {
+   "id": "PairformerLayer#061",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.19,
+   "bursts_us": [
+    247.79,
+    26.08,
+    22.63,
+    23.19,
+    22.46
+   ],
+   "ms_per_fold": 6.122,
+   "aa_ratio": 1.0061
+  },
+  {
+   "id": "PairformerLayer#062",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.71,
+   "bursts_us": [
+    21.71,
+    22.04,
+    22.04,
+    21.56,
+    21.69
+   ],
+   "ms_per_fold": 5.732,
+   "aa_ratio": 1.4406
+  },
+  {
+   "id": "PairformerLayer#063",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.95,
+   "bursts_us": [
+    25.81,
+    24.95,
+    25.01,
+    24.71,
+    24.56
+   ],
+   "ms_per_fold": 6.588,
+   "aa_ratio": 0.9696
+  },
+  {
+   "id": "PairformerLayer#064",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.62,
+   "bursts_us": [
+    24.65,
+    22.51,
+    22.62,
+    22.47,
+    23.4
+   ],
+   "ms_per_fold": 5.972,
+   "aa_ratio": 1.0171
+  },
+  {
+   "id": "PairformerLayer#065",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.91,
+   "bursts_us": [
+    23.56,
+    21.77,
+    21.95,
+    21.91,
+    21.85
+   ],
+   "ms_per_fold": 5.786,
+   "aa_ratio": 1.0028
+  },
+  {
+   "id": "PairformerLayer#066",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.28,
+   "bursts_us": [
+    24.4,
+    24.28,
+    24.43,
+    24.0,
+    23.99
+   ],
+   "ms_per_fold": 6.409,
+   "aa_ratio": 1.0146
+  },
+  {
+   "id": "PairformerLayer#067",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.69,
+   "bursts_us": [
+    24.18,
+    23.08,
+    22.62,
+    22.69,
+    22.47
+   ],
+   "ms_per_fold": 5.991,
+   "aa_ratio": 1.0176
+  },
+  {
+   "id": "PairformerLayer#068",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.64,
+   "bursts_us": [
+    23.21,
+    21.94,
+    21.49,
+    21.64,
+    21.52
+   ],
+   "ms_per_fold": 5.712,
+   "aa_ratio": 1.0255
+  },
+  {
+   "id": "PairformerLayer#069",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.99,
+   "bursts_us": [
+    26.11,
+    24.33,
+    24.1,
+    171.93,
+    24.99
+   ],
+   "ms_per_fold": 6.598,
+   "aa_ratio": 0.9699
+  },
+  {
+   "id": "PairformerLayer#070",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.4,
+   "bursts_us": [
+    25.63,
+    23.4,
+    255.18,
+    22.96,
+    22.58
+   ],
+   "ms_per_fold": 6.178,
+   "aa_ratio": 0.9765
+  },
+  {
+   "id": "PairformerLayer#071",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.72,
+   "bursts_us": [
+    27.9,
+    21.63,
+    21.7,
+    21.72,
+    21.85
+   ],
+   "ms_per_fold": 5.733,
+   "aa_ratio": 1.0211
+  },
+  {
+   "id": "PairformerLayer#072",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.71,
+   "bursts_us": [
+    25.47,
+    24.71,
+    24.34,
+    24.77,
+    24.69
+   ],
+   "ms_per_fold": 6.524,
+   "aa_ratio": 0.9832
+  },
+  {
+   "id": "PairformerLayer#073",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.79,
+   "bursts_us": [
+    227.62,
+    23.79,
+    24.38,
+    22.82,
+    22.49
+   ],
+   "ms_per_fold": 6.282,
+   "aa_ratio": 0.9465
+  },
+  {
+   "id": "PairformerLayer#074",
+   "unit": "PairformerLayer",
+   "kind": "concat",
+   "api": "ttnn.concat",
+   "op": "Concat",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128"
+   ],
+   "us_per_call": 667.07,
+   "bursts_us": [
+    669.19,
+    667.49,
+    664.59,
+    667.07,
+    666.71
+   ],
+   "ms_per_fold": 176.106,
+   "aa_ratio": 0.9996
+  },
+  {
+   "id": "PairformerLayer#075",
+   "unit": "PairformerLayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 394752,
+   "shapes": [
+    "1x512x384",
+    "384",
+    "384"
+   ],
+   "us_per_call": 24.8,
+   "bursts_us": [
+    30.94,
+    24.37,
+    140.6,
+    24.8,
+    23.99
+   ],
+   "ms_per_fold": 6.548,
+   "aa_ratio": 0.9726
+  },
+  {
+   "id": "PairformerLayer#076",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 1575936,
+   "shapes": [
+    "1x512x384",
+    "384x1536",
+    "1536"
+   ],
+   "us_per_call": 50.51,
+   "bursts_us": [
+    50.51,
+    50.47,
+    50.43,
+    218.55,
+    51.11
+   ],
+   "ms_per_fold": 13.335,
+   "aa_ratio": 1.0074
+  },
+  {
+   "id": "PairformerLayer#077",
+   "unit": "PairformerLayer",
+   "kind": "nlp_create_qkv_heads",
+   "api": "ttnn.experimental.nlp_create_qkv_heads",
+   "op": "NlpCreateHeads",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 1572864,
+   "shapes": [
+    "1x1x512x1536"
+   ],
+   "us_per_call": 35.53,
+   "bursts_us": [
+    41.77,
+    35.44,
+    35.53,
+    35.1,
+    35.92
+   ],
+   "ms_per_fold": 9.381,
+   "aa_ratio": 1.0466
+  },
+  {
+   "id": "PairformerLayer#078",
+   "unit": "PairformerLayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67109376,
+   "shapes": [
+    "1x512x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 1040.84,
+   "bursts_us": [
+    1040.84,
+    927.65,
+    1068.76,
+    1076.58,
+    928.27
+   ],
+   "ms_per_fold": 274.782,
+   "aa_ratio": 0.8922
+  },
+  {
+   "id": "PairformerLayer#079",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 67112960,
+   "shapes": [
+    "1x512x512x128",
+    "128x16"
+   ],
+   "us_per_call": 1526.95,
+   "bursts_us": [
+    1548.45,
+    1750.45,
+    1441.21,
+    1440.61,
+    1526.95
+   ],
+   "ms_per_fold": 403.115,
+   "aa_ratio": 1.0079
+  },
+  {
+   "id": "PairformerLayer#080",
+   "unit": "PairformerLayer",
+   "kind": "permute",
+   "api": "ttnn.permute",
+   "op": "Permute",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 8388608,
+   "shapes": [
+    "1x512x512x16"
+   ],
+   "us_per_call": 357.1,
+   "bursts_us": [
+    398.06,
+    270.84,
+    487.29,
+    357.1,
+    270.4
+   ],
+   "ms_per_fold": 94.274,
+   "aa_ratio": 0.7595
+  },
+  {
+   "id": "PairformerLayer#081",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 16778240,
+   "shapes": [
+    "1x16x512x512",
+    "1x1x1x512",
+    "1x16x512x512"
+   ],
+   "us_per_call": 75.89,
+   "bursts_us": [
+    75.89,
+    144.77,
+    149.14,
+    75.76,
+    75.33
+   ],
+   "ms_per_fold": 20.036,
+   "aa_ratio": 1.9768
+  },
+  {
+   "id": "PairformerLayer#082",
+   "unit": "PairformerLayer",
+   "kind": "transpose",
+   "api": "ttnn.transpose",
+   "op": "Transpose",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 524288,
+   "shapes": [
+    "1x16x512x32"
+   ],
+   "us_per_call": 16.58,
+   "bursts_us": [
+    16.58,
+    71.09,
+    200.14,
+    16.24,
+    16.05
+   ],
+   "ms_per_fold": 4.378,
+   "aa_ratio": 0.9741
+  },
+  {
+   "id": "PairformerLayer#083",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 1048576,
+   "shapes": [
+    "1x16x512x32",
+    "1x16x32x512"
+   ],
+   "us_per_call": 133.86,
+   "bursts_us": [
+    133.86,
+    133.57,
+    133.27,
+    134.29,
+    134.58
+   ],
+   "ms_per_fold": 35.34,
+   "aa_ratio": 1.006
+  },
+  {
+   "id": "PairformerLayer#084",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 25165824,
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x512",
+    "1x16x512x512"
+   ],
+   "us_per_call": 152.76,
+   "bursts_us": [
+    198.74,
+    128.88,
+    80.77,
+    152.76,
+    296.11
+   ],
+   "ms_per_fold": 40.329,
+   "aa_ratio": 0.5304
+  },
+  {
+   "id": "PairformerLayer#085",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 16777216,
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x512"
+   ],
+   "us_per_call": 119.68,
+   "bursts_us": [
+    119.68,
+    115.17,
+    150.64,
+    115.37,
+    149.93
+   ],
+   "ms_per_fold": 31.595,
+   "aa_ratio": 2.0821
+  },
+  {
+   "id": "PairformerLayer#086",
+   "unit": "PairformerLayer",
+   "kind": "softmax",
+   "api": "ttnn.softmax",
+   "op": "Softmax",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 8388608,
+   "shapes": [
+    "1x16x512x512"
+   ],
+   "us_per_call": 377.99,
+   "bursts_us": [
+    377.99,
+    693.83,
+    227.64,
+    650.19,
+    299.47
+   ],
+   "ms_per_fold": 99.789,
+   "aa_ratio": 1.323
+  },
+  {
+   "id": "PairformerLayer#087",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 8912896,
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x32"
+   ],
+   "us_per_call": 229.54,
+   "bursts_us": [
+    300.33,
+    187.59,
+    188.0,
+    235.72,
+    229.54
+   ],
+   "ms_per_fold": 60.599,
+   "aa_ratio": 1.2986
+  },
+  {
+   "id": "PairformerLayer#088",
+   "unit": "PairformerLayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 524288,
+   "shapes": [
+    "1x16x512x32"
+   ],
+   "us_per_call": 2.22,
+   "bursts_us": [
+    170.71,
+    127.93,
+    2.22,
+    2.22,
+    2.21
+   ],
+   "ms_per_fold": 0.586,
+   "aa_ratio": 0.9829
+  },
+  {
+   "id": "PairformerLayer#089",
+   "unit": "PairformerLayer",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 393216,
+   "shapes": [
+    "1x16x512x24"
+   ],
+   "us_per_call": 17.9,
+   "bursts_us": [
+    17.9,
+    16.44,
+    111.98,
+    18.18,
+    15.93
+   ],
+   "ms_per_fold": 4.726,
+   "aa_ratio": 1.0763
+  },
+  {
+   "id": "PairformerLayer#090",
+   "unit": "PairformerLayer",
+   "kind": "reshape",
+   "api": "ttnn.reshape",
+   "op": "ReshapeView",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 393216,
+   "shapes": [
+    "16x24x512"
+   ],
+   "us_per_call": 26.26,
+   "bursts_us": [
+    26.2,
+    89.92,
+    26.26,
+    26.28,
+    26.19
+   ],
+   "ms_per_fold": 6.932,
+   "aa_ratio": 0.999
+  },
+  {
+   "id": "PairformerLayer#091",
+   "unit": "PairformerLayer",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 393216,
+   "shapes": [
+    "1x1x384x512"
+   ],
+   "us_per_call": 17.7,
+   "bursts_us": [
+    17.7,
+    148.98,
+    17.98,
+    17.29,
+    17.7
+   ],
+   "ms_per_fold": 4.674,
+   "aa_ratio": 0.9912
+  },
+  {
+   "id": "PairformerLayer#092",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.multiply",
+   "op": "BinaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 786432,
+   "shapes": [
+    "1x512x384",
+    "1x512x384"
+   ],
+   "us_per_call": 31.23,
+   "bursts_us": [
+    149.85,
+    249.54,
+    31.23,
+    21.38,
+    20.58
+   ],
+   "ms_per_fold": 8.246,
+   "aa_ratio": 0.6704
+  },
+  {
+   "id": "PairformerLayer#093",
+   "unit": "PairformerLayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 394752,
+   "shapes": [
+    "1x512x384",
+    "384",
+    "384"
+   ],
+   "us_per_call": 24.12,
+   "bursts_us": [
+    150.45,
+    150.09,
+    24.06,
+    24.12,
+    23.93
+   ],
+   "ms_per_fold": 6.368,
+   "aa_ratio": 0.9909
+  },
+  {
+   "id": "PairformerLayer#094",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 1572864,
+   "shapes": [
+    "1x512x384",
+    "384x1536"
+   ],
+   "us_per_call": 80.0,
+   "bursts_us": [
+    80.0,
+    79.87,
+    79.97,
+    349.87,
+    80.8
+   ],
+   "ms_per_fold": 21.119,
+   "aa_ratio": 3.1345
+  },
+  {
+   "id": "PairformerLayer#095",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 1572864,
+   "shapes": [
+    "1x512x384",
+    "384x1536"
+   ],
+   "us_per_call": 82.5,
+   "bursts_us": [
+    80.73,
+    89.41,
+    82.5,
+    216.08,
+    80.29
+   ],
+   "ms_per_fold": 21.78,
+   "aa_ratio": 0.9789
+  },
+  {
+   "id": "PairformerLayer#096",
+   "unit": "PairformerLayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 4718592,
+   "shapes": [
+    "1x512x1536",
+    "1x512x1536",
+    "1x512x1536"
+   ],
+   "us_per_call": 75.25,
+   "bursts_us": [
+    75.25,
+    173.27,
+    80.96,
+    22.11,
+    19.13
+   ],
+   "ms_per_fold": 19.867,
+   "aa_ratio": 0.3414
+  },
+  {
+   "id": "PairformerLayer#097",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 264,
+   "in_bytes": 2752512,
+   "shapes": [
+    "1x512x1536",
+    "1536x384"
+   ],
+   "us_per_call": 298.88,
+   "bursts_us": [
+    260.97,
+    262.15,
+    387.26,
+    298.88,
+    349.86
+   ],
+   "ms_per_fold": 78.904,
+   "aa_ratio": 1.0023
+  },
+  {
+   "id": "DiffusionStep#000",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 72,
+   "calls_per_fold": 14400,
+   "in_bytes": 3145728,
+   "shapes": [
+    "1x512x768",
+    "768x1536"
+   ],
+   "us_per_call": 199.9,
+   "bursts_us": [
+    199.9,
+    246.77,
+    251.44,
+    56.2,
+    150.14
+   ],
+   "ms_per_fold": 2878.547,
+   "aa_ratio": 0.2846
+  },
+  {
+   "id": "DiffusionStep#001",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.add",
+   "op": "BinaryNg",
+   "per_unit": 51,
+   "calls_per_fold": 10200,
+   "in_bytes": 1572864,
+   "shapes": [
+    "1x512x768",
+    "1x512x768"
+   ],
+   "us_per_call": 21.76,
+   "bursts_us": [
+    23.31,
+    168.81,
+    21.76,
+    20.57,
+    21.22
+   ],
+   "ms_per_fold": 221.99,
+   "aa_ratio": 0.9949
+  },
+  {
+   "id": "DiffusionStep#002",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 49,
+   "calls_per_fold": 9800,
+   "in_bytes": 1966080,
+   "shapes": [
+    "1x512x768",
+    "768x768"
+   ],
+   "us_per_call": 32.09,
+   "bursts_us": [
+    37.45,
+    32.09,
+    31.58,
+    31.89,
+    33.25
+   ],
+   "ms_per_fold": 314.454,
+   "aa_ratio": 0.992
+  },
+  {
+   "id": "DiffusionStep#003",
+   "unit": "DiffusionStep",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 48,
+   "calls_per_fold": 9600,
+   "in_bytes": 786432,
+   "shapes": [
+    "1x512x768"
+   ],
+   "us_per_call": 29.55,
+   "bursts_us": [
+    29.55,
+    29.42,
+    29.57,
+    29.59,
+    29.51
+   ],
+   "ms_per_fold": 283.693,
+   "aa_ratio": 1.0109
+  },
+  {
+   "id": "DiffusionStep#004",
+   "unit": "DiffusionStep",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 48,
+   "calls_per_fold": 9600,
+   "in_bytes": 787968,
+   "shapes": [
+    "1x512x768",
+    "768"
+   ],
+   "us_per_call": 33.72,
+   "bursts_us": [
+    33.72,
+    33.61,
+    33.64,
+    161.4,
+    34.25
+   ],
+   "ms_per_fold": 323.747,
+   "aa_ratio": 1.0044
+  },
+  {
+   "id": "DiffusionStep#005",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 48,
+   "calls_per_fold": 9600,
+   "in_bytes": 1967616,
+   "shapes": [
+    "1x512x768",
+    "768x768",
+    "768"
+   ],
+   "us_per_call": 32.78,
+   "bursts_us": [
+    32.98,
+    33.11,
+    32.78,
+    32.74,
+    32.33
+   ],
+   "ms_per_fold": 314.671,
+   "aa_ratio": 1.0004
+  },
+  {
+   "id": "DiffusionStep#006",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 48,
+   "calls_per_fold": 9600,
+   "in_bytes": 1966080,
+   "shapes": [
+    "1x512x768",
+    "768x768"
+   ],
+   "us_per_call": 33.65,
+   "bursts_us": [
+    256.22,
+    33.65,
+    31.86,
+    32.37,
+    69.36
+   ],
+   "ms_per_fold": 323.021,
+   "aa_ratio": 0.957
+  },
+  {
+   "id": "DiffusionStep#007",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 48,
+   "calls_per_fold": 9600,
+   "in_bytes": 2359296,
+   "shapes": [
+    "1x512x768",
+    "1x512x768",
+    "1x512x768"
+   ],
+   "us_per_call": 19.29,
+   "bursts_us": [
+    20.67,
+    19.26,
+    18.98,
+    19.54,
+    19.29
+   ],
+   "ms_per_fold": 185.198,
+   "aa_ratio": 1.0013
+  },
+  {
+   "id": "DiffusionStep#008",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 48,
+   "calls_per_fold": 9600,
+   "in_bytes": 2359296,
+   "shapes": [
+    "1x512x768",
+    "1x512x768",
+    "1x512x768"
+   ],
+   "us_per_call": 18.54,
+   "bursts_us": [
+    19.6,
+    17.73,
+    18.54,
+    17.65,
+    58.36
+   ],
+   "ms_per_fold": 178.031,
+   "aa_ratio": 0.977
+  },
+  {
+   "id": "DiffusionStep#009",
+   "unit": "DiffusionStep",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 25,
+   "calls_per_fold": 5000,
+   "in_bytes": 786432,
+   "shapes": [
+    "1x1x768x512"
+   ],
+   "us_per_call": 15.89,
+   "bursts_us": [
+    16.21,
+    15.89,
+    15.73,
+    15.84,
+    16.0
+   ],
+   "ms_per_fold": 79.462,
+   "aa_ratio": 0.9923
+  },
+  {
+   "id": "DiffusionStep#010",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 5511168,
+   "shapes": [
+    "1x512x768",
+    "768x3072",
+    "3072"
+   ],
+   "us_per_call": 113.49,
+   "bursts_us": [
+    117.23,
+    113.44,
+    113.09,
+    113.49,
+    113.52
+   ],
+   "ms_per_fold": 544.739,
+   "aa_ratio": 0.9971
+  },
+  {
+   "id": "DiffusionStep#011",
+   "unit": "DiffusionStep",
+   "kind": "nlp_create_qkv_heads",
+   "api": "ttnn.experimental.nlp_create_qkv_heads",
+   "op": "NlpCreateHeads",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 3145728,
+   "shapes": [
+    "1x1x512x3072"
+   ],
+   "us_per_call": 67.02,
+   "bursts_us": [
+    66.24,
+    69.0,
+    67.02,
+    215.04,
+    66.55
+   ],
+   "ms_per_fold": 321.699,
+   "aa_ratio": 0.9933
+  },
+  {
+   "id": "DiffusionStep#012",
+   "unit": "DiffusionStep",
+   "kind": "transpose",
+   "api": "ttnn.transpose",
+   "op": "Transpose",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 1048576,
+   "shapes": [
+    "1x16x512x64"
+   ],
+   "us_per_call": 17.15,
+   "bursts_us": [
+    17.83,
+    15.83,
+    16.36,
+    40.73,
+    17.15
+   ],
+   "ms_per_fold": 82.314,
+   "aa_ratio": 0.9285
+  },
+  {
+   "id": "DiffusionStep#013",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 2097152,
+   "shapes": [
+    "1x16x512x64",
+    "1x16x64x512"
+   ],
+   "us_per_call": 149.8,
+   "bursts_us": [
+    150.76,
+    166.68,
+    149.8,
+    148.56,
+    148.96
+   ],
+   "ms_per_fold": 719.023,
+   "aa_ratio": 0.999
+  },
+  {
+   "id": "DiffusionStep#014",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 25165824,
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x512",
+    "1x16x512x512"
+   ],
+   "us_per_call": 112.73,
+   "bursts_us": [
+    113.69,
+    112.58,
+    113.23,
+    112.59,
+    112.73
+   ],
+   "ms_per_fold": 541.11,
+   "aa_ratio": 0.998
+  },
+  {
+   "id": "DiffusionStep#015",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 16777216,
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x512"
+   ],
+   "us_per_call": 155.25,
+   "bursts_us": [
+    155.25,
+    115.01,
+    229.79,
+    180.26,
+    114.36
+   ],
+   "ms_per_fold": 745.212,
+   "aa_ratio": 0.953
+  },
+  {
+   "id": "DiffusionStep#016",
+   "unit": "DiffusionStep",
+   "kind": "softmax",
+   "api": "ttnn.softmax",
+   "op": "Softmax",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 8388608,
+   "shapes": [
+    "1x16x512x512"
+   ],
+   "us_per_call": 226.85,
+   "bursts_us": [
+    252.63,
+    226.9,
+    226.29,
+    226.28,
+    226.85
+   ],
+   "ms_per_fold": 1088.861,
+   "aa_ratio": 0.9995
+  },
+  {
+   "id": "DiffusionStep#017",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 9437184,
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x64"
+   ],
+   "us_per_call": 497.45,
+   "bursts_us": [
+    797.7,
+    201.83,
+    201.72,
+    497.45,
+    598.87
+   ],
+   "ms_per_fold": 2387.769,
+   "aa_ratio": 1.1073
+  },
+  {
+   "id": "DiffusionStep#018",
+   "unit": "DiffusionStep",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 1048576,
+   "shapes": [
+    "1x16x512x64"
+   ],
+   "us_per_call": 2.01,
+   "bursts_us": [
+    150.02,
+    2.13,
+    2.01,
+    1.96,
+    1.97
+   ],
+   "ms_per_fold": 9.631,
+   "aa_ratio": 0.9858
+  },
+  {
+   "id": "DiffusionStep#019",
+   "unit": "DiffusionStep",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 786432,
+   "shapes": [
+    "1x16x512x48"
+   ],
+   "us_per_call": 17.72,
+   "bursts_us": [
+    17.72,
+    16.31,
+    17.41,
+    28.2,
+    194.28
+   ],
+   "ms_per_fold": 85.035,
+   "aa_ratio": 8.6869
+  },
+  {
+   "id": "DiffusionStep#020",
+   "unit": "DiffusionStep",
+   "kind": "reshape",
+   "api": "ttnn.reshape",
+   "op": "ReshapeView",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 786432,
+   "shapes": [
+    "16x48x512"
+   ],
+   "us_per_call": 103.87,
+   "bursts_us": [
+    44.1,
+    50.51,
+    149.96,
+    103.87,
+    178.6
+   ],
+   "ms_per_fold": 498.588,
+   "aa_ratio": 0.4222
+  },
+  {
+   "id": "DiffusionStep#021",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply",
+   "op": "BinaryNg",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 1572864,
+   "shapes": [
+    "1x512x768",
+    "1x512x768"
+   ],
+   "us_per_call": 24.72,
+   "bursts_us": [
+    24.72,
+    126.74,
+    342.66,
+    23.08,
+    21.55
+   ],
+   "ms_per_fold": 118.656,
+   "aa_ratio": 0.8753
+  },
+  {
+   "id": "DiffusionStep#022",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 1967616,
+   "shapes": [
+    "1x512x768",
+    "768x768",
+    "768"
+   ],
+   "us_per_call": 33.52,
+   "bursts_us": [
+    33.52,
+    32.54,
+    32.94,
+    144.81,
+    123.04
+   ],
+   "ms_per_fold": 160.888,
+   "aa_ratio": 0.9802
+  },
+  {
+   "id": "DiffusionStep#023",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply",
+   "op": "BinaryNg",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 1572864,
+   "shapes": [
+    "1x512x768",
+    "1x512x768"
+   ],
+   "us_per_call": 23.28,
+   "bursts_us": [
+    150.35,
+    21.76,
+    21.28,
+    103.21,
+    23.28
+   ],
+   "ms_per_fold": 111.725,
+   "aa_ratio": 0.933
+  },
+  {
+   "id": "DiffusionStep#024",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 4718592,
+   "shapes": [
+    "1x512x1536",
+    "1x512x1536",
+    "1x512x1536"
+   ],
+   "us_per_call": 31.12,
+   "bursts_us": [
+    39.07,
+    135.28,
+    26.54,
+    31.12,
+    26.43
+   ],
+   "ms_per_fold": 149.377,
+   "aa_ratio": 0.8818
+  },
+  {
+   "id": "DiffusionStep#025",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 4718592,
+   "shapes": [
+    "1x512x1536",
+    "1x512x1536",
+    "1x512x1536"
+   ],
+   "us_per_call": 26.51,
+   "bursts_us": [
+    137.68,
+    26.96,
+    26.51,
+    26.22,
+    26.24
+   ],
+   "ms_per_fold": 127.247,
+   "aa_ratio": 1.014
+  },
+  {
+   "id": "DiffusionStep#026",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 1967616,
+   "shapes": [
+    "1x512x768",
+    "768x768",
+    "768"
+   ],
+   "us_per_call": 47.43,
+   "bursts_us": [
+    188.06,
+    33.28,
+    68.4,
+    47.43,
+    33.9
+   ],
+   "ms_per_fold": 227.679,
+   "aa_ratio": 0.6921
+  },
+  {
+   "id": "DiffusionStep#027",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 3932160,
+   "shapes": [
+    "1x512x1536",
+    "1536x768"
+   ],
+   "us_per_call": 44.92,
+   "bursts_us": [
+    47.99,
+    44.92,
+    44.31,
+    44.87,
+    45.04
+   ],
+   "ms_per_fold": 215.599,
+   "aa_ratio": 1.0051
+  },
+  {
+   "id": "DiffusionStep#028",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 24,
+   "calls_per_fold": 4800,
+   "in_bytes": 2359296,
+   "shapes": [
+    "1x512x768",
+    "1x512x768",
+    "1x512x768"
+   ],
+   "us_per_call": 24.01,
+   "bursts_us": [
+    22.35,
+    42.34,
+    23.31,
+    24.01,
+    123.44
+   ],
+   "ms_per_fold": 115.251,
+   "aa_ratio": 0.7444
+  },
+  {
+   "id": "DiffusionStep#029",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 18,
+   "calls_per_fold": 3600,
+   "in_bytes": 1900544,
+   "shapes": [
+    "1x224x32x128",
+    "128x256"
+   ],
+   "us_per_call": 552.13,
+   "bursts_us": [
+    550.14,
+    552.13,
+    551.83,
+    552.36,
+    599.92
+   ],
+   "ms_per_fold": 1987.671,
+   "aa_ratio": 1.1255
+  },
+  {
+   "id": "DiffusionStep#030",
+   "unit": "DiffusionStep",
+   "kind": "copy",
+   "api": "ttnn.to_memory_config",
+   "op": "Copy",
+   "per_unit": 12,
+   "calls_per_fold": 2400,
+   "in_bytes": 1835008,
+   "shapes": [
+    "1x224x32x128"
+   ],
+   "us_per_call": 16.49,
+   "bursts_us": [
+    17.33,
+    16.37,
+    16.52,
+    16.44,
+    16.49
+   ],
+   "ms_per_fold": 39.574,
+   "aa_ratio": 1.0154
+  },
+  {
+   "id": "DiffusionStep#031",
+   "unit": "DiffusionStep",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 12,
+   "calls_per_fold": 2400,
+   "in_bytes": 1835008,
+   "shapes": [
+    "1x224x32x128"
+   ],
+   "us_per_call": 31.53,
+   "bursts_us": [
+    196.29,
+    31.73,
+    31.53,
+    31.41,
+    31.45
+   ],
+   "ms_per_fold": 75.67,
+   "aa_ratio": 0.9938
+  },
+  {
+   "id": "DiffusionStep#032",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 12,
+   "calls_per_fold": 2400,
+   "in_bytes": 5505024,
+   "shapes": [
+    "1x224x32x128",
+    "1x224x32x128",
+    "1x224x32x128"
+   ],
+   "us_per_call": 23.47,
+   "bursts_us": [
+    23.47,
+    23.4,
+    23.48,
+    23.39,
+    24.1
+   ],
+   "ms_per_fold": 56.338,
+   "aa_ratio": 1.019
+  },
+  {
+   "id": "DiffusionStep#033",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 12,
+   "calls_per_fold": 2400,
+   "in_bytes": 5505024,
+   "shapes": [
+    "1x224x32x128",
+    "1x224x32x128",
+    "1x224x32x128"
+   ],
+   "us_per_call": 22.15,
+   "bursts_us": [
+    27.63,
+    22.01,
+    21.72,
+    146.81,
+    22.15
+   ],
+   "ms_per_fold": 53.167,
+   "aa_ratio": 0.9767
+  },
+  {
+   "id": "DiffusionStep#034",
+   "unit": "DiffusionStep",
+   "kind": "copy",
+   "api": "ttnn.to_memory_config",
+   "op": "Copy",
+   "per_unit": 12,
+   "calls_per_fold": 2400,
+   "in_bytes": 1835008,
+   "shapes": [
+    "1x224x32x128"
+   ],
+   "us_per_call": 20.43,
+   "bursts_us": [
+    168.24,
+    20.87,
+    20.42,
+    20.43,
+    20.36
+   ],
+   "ms_per_fold": 49.035,
+   "aa_ratio": 1.3686
+  },
+  {
+   "id": "DiffusionStep#035",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 12,
+   "calls_per_fold": 2400,
+   "in_bytes": 1868032,
+   "shapes": [
+    "1x224x32x128",
+    "128x128",
+    "128"
+   ],
+   "us_per_call": 554.94,
+   "bursts_us": [
+    554.68,
+    554.66,
+    555.26,
+    555.63,
+    554.94
+   ],
+   "ms_per_fold": 1331.867,
+   "aa_ratio": 1.0018
+  },
+  {
+   "id": "DiffusionStep#036",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 12,
+   "calls_per_fold": 2400,
+   "in_bytes": 1867776,
+   "shapes": [
+    "1x224x32x128",
+    "128x128"
+   ],
+   "us_per_call": 548.87,
+   "bursts_us": [
+    548.95,
+    549.29,
+    548.87,
+    548.18,
+    547.77
+   ],
+   "ms_per_fold": 1317.294,
+   "aa_ratio": 0.9988
+  },
+  {
+   "id": "DiffusionStep#037",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.add",
+   "op": "BinaryNg",
+   "per_unit": 12,
+   "calls_per_fold": 2400,
+   "in_bytes": 3670016,
+   "shapes": [
+    "1x224x32x128",
+    "1x224x32x128"
+   ],
+   "us_per_call": 37.71,
+   "bursts_us": [
+    37.72,
+    37.71,
+    37.73,
+    37.46,
+    36.97
+   ],
+   "ms_per_fold": 90.501,
+   "aa_ratio": 0.9838
+  },
+  {
+   "id": "DiffusionStep#038",
+   "unit": "DiffusionStep",
+   "kind": "reshape",
+   "api": "ttnn.reshape",
+   "op": "ReshapeView",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 1835008,
+   "shapes": [
+    "224x32x128"
+   ],
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume\ninfo:\nInvalid arguments to reshape\nbacktrace:\n --- /home/tt-admin/tt-bio/env/lib/python3.10/site-pac"
+  },
+  {
+   "id": "DiffusionStep#039",
+   "unit": "DiffusionStep",
+   "kind": "permute",
+   "api": "ttnn.permute",
+   "op": "Permute",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 1835008,
+   "shapes": [
+    "1x448x16x128"
+   ],
+   "us_per_call": 249.03,
+   "bursts_us": [
+    256.04,
+    102.83,
+    395.33,
+    249.03,
+    102.56
+   ],
+   "ms_per_fold": 298.841,
+   "aa_ratio": 0.4155
+  },
+  {
+   "id": "DiffusionStep#040",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 2637824,
+   "shapes": [
+    "1x16x128x448",
+    "448x1792"
+   ],
+   "us_per_call": 596.32,
+   "bursts_us": [
+    536.9,
+    378.68,
+    596.32,
+    648.63,
+    649.23
+   ],
+   "ms_per_fold": 715.581,
+   "aa_ratio": 0.6341
+  },
+  {
+   "id": "DiffusionStep#041",
+   "unit": "DiffusionStep",
+   "kind": "permute",
+   "api": "ttnn.permute",
+   "op": "Permute",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 7340032,
+   "shapes": [
+    "1x16x128x1792"
+   ],
+   "us_per_call": 329.47,
+   "bursts_us": [
+    328.95,
+    329.47,
+    328.61,
+    330.66,
+    472.59
+   ],
+   "ms_per_fold": 395.364,
+   "aa_ratio": 1.0009
+  },
+  {
+   "id": "DiffusionStep#042",
+   "unit": "DiffusionStep",
+   "kind": "reshape",
+   "api": "ttnn.reshape",
+   "op": "ReshapeView",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 7340032,
+   "shapes": [
+    "1792x16x128"
+   ],
+   "us_per_call": 489.01,
+   "bursts_us": [
+    489.01,
+    497.59,
+    649.46,
+    461.2,
+    487.56
+   ],
+   "ms_per_fold": 586.81,
+   "aa_ratio": 1.0215
+  },
+  {
+   "id": "DiffusionStep#043",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 7405568,
+   "shapes": [
+    "1x224x128x128",
+    "128x256"
+   ],
+   "us_per_call": 1048.68,
+   "bursts_us": [
+    951.34,
+    1248.53,
+    1048.68,
+    1201.25,
+    1046.71
+   ],
+   "ms_per_fold": 1258.41,
+   "aa_ratio": 0.8371
+  },
+  {
+   "id": "DiffusionStep#044",
+   "unit": "DiffusionStep",
+   "kind": "pad",
+   "api": "ttnn.pad",
+   "op": "Pad",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 1835008,
+   "shapes": [
+    "1x224x32x128"
+   ],
+   "error": "no builder"
+  },
+  {
+   "id": "DiffusionStep#045",
+   "unit": "DiffusionStep",
+   "kind": "nlp_create_qkv_heads",
+   "api": "ttnn.experimental.nlp_create_qkv_heads",
+   "op": "NlpCreateHeads",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 22020096,
+   "shapes": [
+    "224x1x128x128",
+    "224x1x128x256"
+   ],
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/transformer/nlp_create_qkv_heads/nlp_create_qkv_heads.cpp:30: input_tensor_q.padded_shape()[3] % (num_q_heads + 2 * num_kv_heads_val) == 0\ninfo:\nUnsupported input"
+  },
+  {
+   "id": "DiffusionStep#046",
+   "unit": "DiffusionStep",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 7340032,
+   "shapes": [
+    "1x896x128x32"
+   ],
+   "us_per_call": 45.39,
+   "bursts_us": [
+    46.77,
+    44.78,
+    44.55,
+    186.25,
+    45.39
+   ],
+   "ms_per_fold": 54.47,
+   "aa_ratio": 0.9912
+  },
+  {
+   "id": "DiffusionStep#047",
+   "unit": "DiffusionStep",
+   "kind": "sdpa",
+   "api": "ttnn.transformer.scaled_dot_product_attention",
+   "op": "SDPAOperation",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 23855104,
+   "shapes": [
+    "1x896x32x32",
+    "1x896x128x32",
+    "1x896x128x32",
+    "1x896x32x128"
+   ],
+   "us_per_call": 189.11,
+   "bursts_us": [
+    190.09,
+    189.11,
+    188.8,
+    188.92,
+    189.91
+   ],
+   "ms_per_fold": 226.938,
+   "aa_ratio": 1.0025
+  },
+  {
+   "id": "DiffusionStep#048",
+   "unit": "DiffusionStep",
+   "kind": "nlp_concat_heads",
+   "api": "ttnn.experimental.nlp_concat_heads",
+   "op": "NLPConcatHeads",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 1835008,
+   "shapes": [
+    "224x4x32x32"
+   ],
+   "us_per_call": 28.61,
+   "bursts_us": [
+    64.53,
+    30.04,
+    28.61,
+    28.58,
+    28.55
+   ],
+   "ms_per_fold": 34.329,
+   "aa_ratio": 0.9995
+  },
+  {
+   "id": "DiffusionStep#049",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply",
+   "op": "BinaryNg",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 3670016,
+   "shapes": [
+    "1x224x32x128",
+    "1x224x32x128"
+   ],
+   "us_per_call": 37.74,
+   "bursts_us": [
+    38.82,
+    37.46,
+    183.94,
+    37.74,
+    37.56
+   ],
+   "ms_per_fold": 45.291,
+   "aa_ratio": 0.9997
+  },
+  {
+   "id": "DiffusionStep#050",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply",
+   "op": "BinaryNg",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 3670016,
+   "shapes": [
+    "1x224x32x128",
+    "1x224x32x128"
+   ],
+   "us_per_call": 37.56,
+   "bursts_us": [
+    37.56,
+    37.5,
+    37.58,
+    37.72,
+    37.44
+   ],
+   "ms_per_fold": 45.074,
+   "aa_ratio": 0.9995
+  },
+  {
+   "id": "DiffusionStep#051",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 11010048,
+   "shapes": [
+    "1x224x32x256",
+    "1x224x32x256",
+    "1x224x32x256"
+   ],
+   "us_per_call": 56.79,
+   "bursts_us": [
+    56.54,
+    202.15,
+    199.36,
+    56.64,
+    56.79
+   ],
+   "ms_per_fold": 68.153,
+   "aa_ratio": 0.9995
+  },
+  {
+   "id": "DiffusionStep#052",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 11010048,
+   "shapes": [
+    "1x224x32x256",
+    "1x224x32x256",
+    "1x224x32x256"
+   ],
+   "us_per_call": 56.58,
+   "bursts_us": [
+    57.15,
+    57.39,
+    56.0,
+    56.58,
+    56.33
+   ],
+   "ms_per_fold": 67.896,
+   "aa_ratio": 1.002
+  },
+  {
+   "id": "DiffusionStep#053",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 3735552,
+   "shapes": [
+    "1x224x32x256",
+    "256x128"
+   ],
+   "us_per_call": 820.84,
+   "bursts_us": [
+    819.63,
+    820.84,
+    819.88,
+    821.04,
+    823.37
+   ],
+   "ms_per_fold": 985.002,
+   "aa_ratio": 0.9996
+  },
+  {
+   "id": "DiffusionStep#054",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 6,
+   "calls_per_fold": 1200,
+   "in_bytes": 5505024,
+   "shapes": [
+    "1x224x32x128",
+    "1x224x32x128",
+    "1x224x32x128"
+   ],
+   "us_per_call": 37.24,
+   "bursts_us": [
+    37.31,
+    37.29,
+    37.24,
+    37.2,
+    37.24
+   ],
+   "ms_per_fold": 44.691,
+   "aa_ratio": 1.0023
+  },
+  {
+   "id": "DiffusionStep#055",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.add",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 400,
+   "in_bytes": 3670016,
+   "shapes": [
+    "1x7168x128",
+    "1x7168x128"
+   ],
+   "us_per_call": 37.47,
+   "bursts_us": [
+    354.23,
+    37.67,
+    37.38,
+    37.47,
+    37.43
+   ],
+   "ms_per_fold": 14.989,
+   "aa_ratio": 1.0011
+  },
+  {
+   "id": "DiffusionStep#056",
+   "unit": "DiffusionStep",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 2,
+   "calls_per_fold": 400,
+   "in_bytes": 789504,
+   "shapes": [
+    "1x512x768",
+    "768",
+    "768"
+   ],
+   "us_per_call": 98.51,
+   "bursts_us": [
+    41.25,
+    170.6,
+    40.44,
+    98.51,
+    142.87
+   ],
+   "ms_per_fold": 39.403,
+   "aa_ratio": 0.398
+  },
+  {
+   "id": "DiffusionStep#057",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 2,
+   "calls_per_fold": 400,
+   "in_bytes": 3145728,
+   "shapes": [
+    "1x512x768",
+    "768x1536"
+   ],
+   "us_per_call": 142.06,
+   "bursts_us": [
+    142.06,
+    149.07,
+    142.83,
+    141.89,
+    141.97
+   ],
+   "ms_per_fold": 56.823,
+   "aa_ratio": 1.2697
+  },
+  {
+   "id": "DiffusionStep#058",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 2,
+   "calls_per_fold": 400,
+   "in_bytes": 3145728,
+   "shapes": [
+    "1x512x768",
+    "768x1536"
+   ],
+   "us_per_call": 142.88,
+   "bursts_us": [
+    250.85,
+    142.88,
+    142.5,
+    142.95,
+    142.84
+   ],
+   "ms_per_fold": 57.152,
+   "aa_ratio": 0.9992
+  },
+  {
+   "id": "DiffusionStep#059",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 400,
+   "in_bytes": 4718592,
+   "shapes": [
+    "1x512x1536",
+    "1x512x1536",
+    "1x512x1536"
+   ],
+   "us_per_call": 17.44,
+   "bursts_us": [
+    18.79,
+    17.4,
+    17.44,
+    17.92,
+    17.3
+   ],
+   "ms_per_fold": 6.977,
+   "aa_ratio": 0.9888
+  },
+  {
+   "id": "DiffusionStep#060",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 2,
+   "calls_per_fold": 400,
+   "in_bytes": 3932160,
+   "shapes": [
+    "1x512x1536",
+    "1536x768"
+   ],
+   "us_per_call": 497.02,
+   "bursts_us": [
+    463.88,
+    497.02,
+    499.2,
+    774.97,
+    323.16
+   ],
+   "ms_per_fold": 198.806,
+   "aa_ratio": 0.8522
+  },
+  {
+   "id": "DiffusionStep#061",
+   "unit": "DiffusionStep",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 2,
+   "calls_per_fold": 400,
+   "in_bytes": 789504,
+   "shapes": [
+    "1x512x768",
+    "768",
+    "768"
+   ],
+   "us_per_call": 39.45,
+   "bursts_us": [
+    40.87,
+    39.7,
+    39.21,
+    39.45,
+    39.25
+   ],
+   "ms_per_fold": 15.78,
+   "aa_ratio": 0.9932
+  },
+  {
+   "id": "DiffusionStep#062",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 43776,
+   "shapes": [
+    "1x7168x3",
+    "3x128"
+   ],
+   "us_per_call": 62.28,
+   "bursts_us": [
+    61.57,
+    61.63,
+    112.75,
+    62.28,
+    135.26
+   ],
+   "ms_per_fold": 12.456,
+   "aa_ratio": 0.9897
+  },
+  {
+   "id": "DiffusionStep#063",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 2031616,
+   "shapes": [
+    "1x7168x128",
+    "128x768"
+   ],
+   "us_per_call": 489.69,
+   "bursts_us": [
+    489.69,
+    298.6,
+    500.37,
+    499.32,
+    447.95
+   ],
+   "ms_per_fold": 97.939,
+   "aa_ratio": 1.02
+  },
+  {
+   "id": "DiffusionStep#064",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 18350080,
+   "shapes": [
+    "1x7168x768",
+    "1x7168x512"
+   ],
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:126: a_shape[-1] == b_shape[-2]\ninfo:\nThe width of the first tensor must be equal to the height of the second tensor. Mismatch: width"
+  },
+  {
+   "id": "DiffusionStep#065",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 1026,
+   "shapes": [
+    "1x1",
+    "1x256",
+    "256"
+   ],
+   "us_per_call": 18.78,
+   "bursts_us": [
+    71.34,
+    27.79,
+    18.78,
+    17.7,
+    17.36
+   ],
+   "ms_per_fold": 3.756,
+   "aa_ratio": 1.0445
+  },
+  {
+   "id": "DiffusionStep#066",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.multiply",
+   "op": "BinaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 512,
+   "shapes": [
+    "1x256"
+   ],
+   "error": "IndexError: list index out of range"
+  },
+  {
+   "id": "DiffusionStep#067",
+   "unit": "DiffusionStep",
+   "kind": "unary",
+   "api": "ttnn.cos",
+   "op": "UnaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 512,
+   "shapes": [
+    "1x256"
+   ],
+   "us_per_call": 28.07,
+   "bursts_us": [
+    27.67,
+    28.81,
+    28.07,
+    28.03,
+    28.25
+   ],
+   "ms_per_fold": 5.613,
+   "aa_ratio": 0.8182
+  },
+  {
+   "id": "DiffusionStep#068",
+   "unit": "DiffusionStep",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 1536,
+   "shapes": [
+    "1x256",
+    "256",
+    "256"
+   ],
+   "us_per_call": 17.46,
+   "bursts_us": [
+    17.46,
+    17.3,
+    17.27,
+    176.13,
+    18.86
+   ],
+   "ms_per_fold": 3.492,
+   "aa_ratio": 0.9892
+  },
+  {
+   "id": "DiffusionStep#069",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 393728,
+   "shapes": [
+    "1x256",
+    "256x768"
+   ],
+   "us_per_call": 22.14,
+   "bursts_us": [
+    184.43,
+    99.86,
+    22.14,
+    19.76,
+    17.88
+   ],
+   "ms_per_fold": 4.428,
+   "aa_ratio": 0.799
+  },
+  {
+   "id": "DiffusionStep#070",
+   "unit": "DiffusionStep",
+   "kind": "binary",
+   "api": "ttnn.add",
+   "op": "BinaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 787968,
+   "shapes": [
+    "1x512x768",
+    "1x1x768"
+   ],
+   "us_per_call": 23.69,
+   "bursts_us": [
+    23.69,
+    174.35,
+    21.8,
+    147.45,
+    21.62
+   ],
+   "ms_per_fold": 4.738,
+   "aa_ratio": 0.9457
+  },
+  {
+   "id": "DiffusionStep#071",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 983040,
+   "shapes": [
+    "1x512x768",
+    "768x128"
+   ],
+   "us_per_call": 28.06,
+   "bursts_us": [
+    28.11,
+    27.99,
+    27.97,
+    28.06,
+    29.64
+   ],
+   "ms_per_fold": 5.613,
+   "aa_ratio": 1.0018
+  },
+  {
+   "id": "DiffusionStep#072",
+   "unit": "DiffusionStep",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 131072,
+   "shapes": [
+    "1x1x512x128"
+   ],
+   "us_per_call": 15.92,
+   "bursts_us": [
+    15.62,
+    16.62,
+    15.55,
+    17.58,
+    15.92
+   ],
+   "ms_per_fold": 3.184,
+   "aa_ratio": 1.0008
+  },
+  {
+   "id": "DiffusionStep#073",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 7471104,
+   "shapes": [
+    "1x128x512",
+    "1x7168x512"
+   ],
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:126: a_shape[-1] == b_shape[-2]\ninfo:\nThe width of the first tensor must be equal to the height of the second tensor. Mismatch: width"
+  },
+  {
+   "id": "DiffusionStep#074",
+   "unit": "DiffusionStep",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 1835008,
+   "shapes": [
+    "1x1x128x7168"
+   ],
+   "us_per_call": 24.05,
+   "bursts_us": [
+    25.57,
+    24.01,
+    24.18,
+    24.05,
+    23.98
+   ],
+   "ms_per_fold": 4.81,
+   "aa_ratio": 1.013
+  },
+  {
+   "id": "DiffusionStep#075",
+   "unit": "DiffusionStep",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 1835520,
+   "shapes": [
+    "1x7168x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 54.51,
+   "bursts_us": [
+    54.2,
+    54.51,
+    54.18,
+    66.4,
+    54.89
+   ],
+   "ms_per_fold": 10.901,
+   "aa_ratio": 0.9922
+  },
+  {
+   "id": "DiffusionStep#076",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 200,
+   "in_bytes": 1835776,
+   "shapes": [
+    "1x7168x128",
+    "128x3"
+   ],
+   "us_per_call": 34.97,
+   "bursts_us": [
+    34.97,
+    33.8,
+    327.7,
+    35.41,
+    33.69
+   ],
+   "ms_per_fold": 6.994,
+   "aa_ratio": 0.9675
+  },
+  {
+   "id": "MSALayer#000",
+   "unit": "MSALayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 64,
+   "calls_per_fold": 1024,
+   "in_bytes": 1048832,
+   "shapes": [
+    "1x16x512x64",
+    "64",
+    "64"
+   ],
+   "us_per_call": 44.37,
+   "bursts_us": [
+    44.37,
+    103.24,
+    37.82,
+    36.98,
+    118.36
+   ],
+   "ms_per_fold": 45.43,
+   "aa_ratio": 0.8315
+  },
+  {
+   "id": "MSALayer#001",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 64,
+   "calls_per_fold": 1024,
+   "in_bytes": 1081344,
+   "shapes": [
+    "1x16x512x64",
+    "64x256"
+   ],
+   "us_per_call": 229.76,
+   "bursts_us": [
+    121.73,
+    281.91,
+    306.96,
+    118.79,
+    229.76
+   ],
+   "ms_per_fold": 235.274,
+   "aa_ratio": 1.2111
+  },
+  {
+   "id": "MSALayer#002",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 64,
+   "calls_per_fold": 1024,
+   "in_bytes": 1081344,
+   "shapes": [
+    "1x16x512x64",
+    "64x256"
+   ],
+   "us_per_call": 200.36,
+   "bursts_us": [
+    119.64,
+    200.36,
+    118.34,
+    300.02,
+    299.86
+   ],
+   "ms_per_fold": 205.169,
+   "aa_ratio": 1.9974
+  },
+  {
+   "id": "MSALayer#003",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 64,
+   "calls_per_fold": 1024,
+   "in_bytes": 12582912,
+   "shapes": [
+    "1x16x512x256",
+    "1x16x512x256",
+    "1x16x512x256"
+   ],
+   "us_per_call": 36.43,
+   "bursts_us": [
+    169.23,
+    36.43,
+    189.14,
+    35.53,
+    35.81
+   ],
+   "ms_per_fold": 37.309,
+   "aa_ratio": 0.9808
+  },
+  {
+   "id": "MSALayer#004",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 64,
+   "calls_per_fold": 1024,
+   "in_bytes": 4227072,
+   "shapes": [
+    "1x16x512x256",
+    "256x64"
+   ],
+   "us_per_call": 105.78,
+   "bursts_us": [
+    105.89,
+    105.57,
+    285.93,
+    105.78,
+    105.48
+   ],
+   "ms_per_fold": 108.322,
+   "aa_ratio": 0.9951
+  },
+  {
+   "id": "MSALayer#005",
+   "unit": "MSALayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 32,
+   "calls_per_fold": 512,
+   "in_bytes": 2097664,
+   "shapes": [
+    "1x16x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 50.26,
+   "bursts_us": [
+    50.26,
+    89.58,
+    47.77,
+    349.79,
+    48.15
+   ],
+   "ms_per_fold": 25.735,
+   "aa_ratio": 0.9463
+  },
+  {
+   "id": "MSALayer#006",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 32,
+   "calls_per_fold": 512,
+   "in_bytes": 2228224,
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "us_per_call": 473.1,
+   "bursts_us": [
+    558.18,
+    473.1,
+    472.44,
+    472.71,
+    474.29
+   ],
+   "ms_per_fold": 242.225,
+   "aa_ratio": 0.9993
+  },
+  {
+   "id": "MSALayer#007",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 32,
+   "calls_per_fold": 512,
+   "in_bytes": 2228224,
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "us_per_call": 474.65,
+   "bursts_us": [
+    835.56,
+    587.87,
+    474.65,
+    472.47,
+    472.2
+   ],
+   "ms_per_fold": 243.021,
+   "aa_ratio": 0.9954
+  },
+  {
+   "id": "MSALayer#008",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 32,
+   "calls_per_fold": 512,
+   "in_bytes": 25165824,
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x512",
+    "1x16x512x512"
+   ],
+   "us_per_call": 63.14,
+   "bursts_us": [
+    63.14,
+    63.04,
+    319.71,
+    63.63,
+    63.05
+   ],
+   "ms_per_fold": 32.327,
+   "aa_ratio": 1.031
+  },
+  {
+   "id": "MSALayer#009",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 32,
+   "calls_per_fold": 512,
+   "in_bytes": 8519680,
+   "shapes": [
+    "1x16x512x512",
+    "512x128"
+   ],
+   "us_per_call": 375.53,
+   "bursts_us": [
+    420.07,
+    275.25,
+    480.0,
+    275.16,
+    375.53
+   ],
+   "ms_per_fold": 192.273,
+   "aa_ratio": 0.7336
+  },
+  {
+   "id": "MSALayer#010",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 18,
+   "calls_per_fold": 288,
+   "in_bytes": 67112960,
+   "shapes": [
+    "1024x512x64",
+    "64x32"
+   ],
+   "us_per_call": 2271.85,
+   "bursts_us": [
+    2275.28,
+    2271.85,
+    2213.33,
+    2213.23,
+    2458.14
+   ],
+   "ms_per_fold": 654.292,
+   "aa_ratio": 1.0472
+  },
+  {
+   "id": "MSALayer#011",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 8,
+   "calls_per_fold": 128,
+   "in_bytes": 67109120,
+   "shapes": [
+    "512x512x128",
+    "128x1"
+   ],
+   "us_per_call": 1441.04,
+   "bursts_us": [
+    1439.36,
+    1441.04,
+    1441.25,
+    1440.96,
+    1441.19
+   ],
+   "ms_per_fold": 184.453,
+   "aa_ratio": 1.0003
+  },
+  {
+   "id": "MSALayer#012",
+   "unit": "MSALayer",
+   "kind": "permute",
+   "api": "ttnn.permute",
+   "op": "Permute",
+   "per_unit": 8,
+   "calls_per_fold": 128,
+   "in_bytes": 524288,
+   "shapes": [
+    "1x512x512x1"
+   ],
+   "us_per_call": 69.52,
+   "bursts_us": [
+    69.47,
+    446.58,
+    70.13,
+    69.14,
+    69.52
+   ],
+   "ms_per_fold": 8.899,
+   "aa_ratio": 1.0132
+  },
+  {
+   "id": "MSALayer#013",
+   "unit": "MSALayer",
+   "kind": "softmax",
+   "api": "ttnn.softmax",
+   "op": "Softmax",
+   "per_unit": 8,
+   "calls_per_fold": 128,
+   "in_bytes": 524288,
+   "shapes": [
+    "1x1x512x512"
+   ],
+   "us_per_call": 56.85,
+   "bursts_us": [
+    56.47,
+    56.85,
+    56.83,
+    56.93,
+    235.08
+   ],
+   "ms_per_fold": 7.277,
+   "aa_ratio": 1.0015
+  },
+  {
+   "id": "MSALayer#014",
+   "unit": "MSALayer",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 8,
+   "calls_per_fold": 128,
+   "in_bytes": 33554432,
+   "shapes": [
+    "1x1024x512x32"
+   ],
+   "us_per_call": 369.6,
+   "bursts_us": [
+    469.94,
+    625.9,
+    369.6,
+    344.01,
+    341.14
+   ],
+   "ms_per_fold": 47.309,
+   "aa_ratio": 0.9319
+  },
+  {
+   "id": "MSALayer#015",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 8,
+   "calls_per_fold": 128,
+   "in_bytes": 34078720,
+   "shapes": [
+    "1024x32x512",
+    "1x512x512"
+   ],
+   "us_per_call": 8223.5,
+   "bursts_us": [
+    8371.47,
+    8207.08,
+    8237.22,
+    8223.5,
+    8207.33
+   ],
+   "ms_per_fold": 1052.608,
+   "aa_ratio": 0.998
+  },
+  {
+   "id": "MSALayer#016",
+   "unit": "MSALayer",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 8,
+   "calls_per_fold": 128,
+   "in_bytes": 33554432,
+   "shapes": [
+    "1x1024x32x512"
+   ],
+   "us_per_call": 344.87,
+   "bursts_us": [
+    344.63,
+    399.74,
+    480.4,
+    344.87,
+    343.11
+   ],
+   "ms_per_fold": 44.143,
+   "aa_ratio": 0.9975
+  },
+  {
+   "id": "MSALayer#017",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 8,
+   "calls_per_fold": 128,
+   "in_bytes": 100663296,
+   "shapes": [
+    "1024x512x32",
+    "1024x512x32",
+    "1024x512x32"
+   ],
+   "us_per_call": 443.42,
+   "bursts_us": [
+    443.42,
+    443.08,
+    442.97,
+    518.55,
+    455.93
+   ],
+   "ms_per_fold": 56.758,
+   "aa_ratio": 0.998
+  },
+  {
+   "id": "MSALayer#018",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 8,
+   "calls_per_fold": 128,
+   "in_bytes": 33558528,
+   "shapes": [
+    "1024x512x32",
+    "32x64"
+   ],
+   "us_per_call": 2931.95,
+   "bursts_us": [
+    2924.52,
+    2931.95,
+    2976.79,
+    2927.36,
+    3080.77
+   ],
+   "ms_per_fold": 375.29,
+   "aa_ratio": 0.9986
+  },
+  {
+   "id": "MSALayer#021",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 7,
+   "calls_per_fold": 112,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1024x512x64",
+    "1024x512x64",
+    "1024x512x64"
+   ],
+   "us_per_call": 871.41,
+   "bursts_us": [
+    973.39,
+    827.44,
+    871.41,
+    899.23,
+    837.37
+   ],
+   "ms_per_fold": 97.598,
+   "aa_ratio": 0.9496
+  },
+  {
+   "id": "MSALayer#022",
+   "unit": "MSALayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 4,
+   "calls_per_fold": 64,
+   "in_bytes": 67109376,
+   "shapes": [
+    "1x512x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 938.21,
+   "bursts_us": [
+    938.21,
+    934.54,
+    987.49,
+    934.14,
+    1085.98
+   ],
+   "ms_per_fold": 60.046,
+   "aa_ratio": 0.9964
+  },
+  {
+   "id": "MSALayer#023",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 4,
+   "calls_per_fold": 64,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1x512x512x128",
+    "1x512x512x128",
+    "1x512x512x128"
+   ],
+   "us_per_call": 834.62,
+   "bursts_us": [
+    834.62,
+    832.98,
+    834.73,
+    834.63,
+    834.12
+   ],
+   "ms_per_fold": 53.416,
+   "aa_ratio": 0.9984
+  },
+  {
+   "id": "MSALayer#024",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 4,
+   "calls_per_fold": 64,
+   "in_bytes": 67141632,
+   "shapes": [
+    "1x512x512x128",
+    "128x128"
+   ],
+   "us_per_call": 3183.26,
+   "bursts_us": [
+    3182.95,
+    3183.26,
+    3183.02,
+    3317.44,
+    3233.08
+   ],
+   "ms_per_fold": 203.729,
+   "aa_ratio": 1.0003
+  },
+  {
+   "id": "MSALayer#025",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 3,
+   "calls_per_fold": 48,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1x512x512x128",
+    "1x512x512x128",
+    "1x512x512x128"
+   ],
+   "us_per_call": 829.75,
+   "bursts_us": [
+    831.69,
+    1200.88,
+    829.75,
+    827.66,
+    829.63
+   ],
+   "ms_per_fold": 39.828,
+   "aa_ratio": 1.0002
+  },
+  {
+   "id": "MSALayer#026",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 3,
+   "calls_per_fold": 48,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1x512x512x128",
+    "1x512x512x128",
+    "1x512x512x128"
+   ],
+   "us_per_call": 612.88,
+   "bursts_us": [
+    795.16,
+    616.86,
+    611.21,
+    610.53,
+    612.88
+   ],
+   "ms_per_fold": 29.418,
+   "aa_ratio": 1.1399
+  },
+  {
+   "id": "MSALayer#027",
+   "unit": "MSALayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 67109120,
+   "shapes": [
+    "1024x512x64",
+    "64",
+    "64"
+   ],
+   "us_per_call": 1363.04,
+   "bursts_us": [
+    1302.63,
+    1549.48,
+    1448.55,
+    1304.19,
+    1363.04
+   ],
+   "ms_per_fold": 43.617,
+   "aa_ratio": 0.969
+  },
+  {
+   "id": "MSALayer#028",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 32768,
+   "shapes": [
+    "64x256"
+   ],
+   "us_per_call": 15.67,
+   "bursts_us": [
+    15.67,
+    15.72,
+    15.73,
+    14.79,
+    15.46
+   ],
+   "ms_per_fold": 0.501,
+   "aa_ratio": 1.8596
+  },
+  {
+   "id": "MSALayer#029",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 32768,
+   "shapes": [
+    "64x256"
+   ],
+   "us_per_call": 16.82,
+   "bursts_us": [
+    16.82,
+    36.91,
+    15.85,
+    15.86,
+    26.24
+   ],
+   "ms_per_fold": 0.538,
+   "aa_ratio": 1.1908
+  },
+  {
+   "id": "MSALayer#030",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 32768,
+   "shapes": [
+    "64x256"
+   ],
+   "us_per_call": 25.66,
+   "bursts_us": [
+    72.9,
+    15.84,
+    25.66,
+    23.85,
+    82.47
+   ],
+   "ms_per_fold": 0.821,
+   "aa_ratio": 0.641
+  },
+  {
+   "id": "MSALayer#031",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 32768,
+   "shapes": [
+    "64x256"
+   ],
+   "us_per_call": 15.71,
+   "bursts_us": [
+    15.71,
+    15.73,
+    15.02,
+    15.89,
+    15.45
+   ],
+   "ms_per_fold": 0.503,
+   "aa_ratio": 1.0034
+  },
+  {
+   "id": "MSALayer#032",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 32768,
+   "shapes": [
+    "64x256"
+   ],
+   "us_per_call": 15.78,
+   "bursts_us": [
+    15.39,
+    17.62,
+    15.78,
+    16.04,
+    15.08
+   ],
+   "ms_per_fold": 0.505,
+   "aa_ratio": 0.9591
+  },
+  {
+   "id": "MSALayer#033",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 32768,
+   "shapes": [
+    "64x256"
+   ],
+   "us_per_call": 15.85,
+   "bursts_us": [
+    15.85,
+    18.53,
+    15.94,
+    11.76,
+    11.77
+   ],
+   "ms_per_fold": 0.507,
+   "aa_ratio": 1.1065
+  },
+  {
+   "id": "MSALayer#034",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 32768,
+   "shapes": [
+    "64x256"
+   ],
+   "us_per_call": 15.58,
+   "bursts_us": [
+    15.58,
+    16.99,
+    16.93,
+    14.87,
+    15.57
+   ],
+   "ms_per_fold": 0.499,
+   "aa_ratio": 0.9976
+  },
+  {
+   "id": "MSALayer#035",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 32768,
+   "shapes": [
+    "64x256"
+   ],
+   "us_per_call": 14.53,
+   "bursts_us": [
+    16.32,
+    14.36,
+    14.53,
+    15.54,
+    14.33
+   ],
+   "ms_per_fold": 0.465,
+   "aa_ratio": 0.9937
+  },
+  {
+   "id": "MSALayer#036",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.add_",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1x1024x512x64",
+    "1x1024x512x64",
+    "1x1024x512x64"
+   ],
+   "us_per_call": 826.36,
+   "bursts_us": [
+    826.36,
+    826.36,
+    825.78,
+    826.4,
+    826.48
+   ],
+   "ms_per_fold": 26.444,
+   "aa_ratio": 1.0019
+  },
+  {
+   "id": "MSALayer#037",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 268435456,
+   "shapes": [
+    "1x512x512x512"
+   ],
+   "us_per_call": 649.42,
+   "bursts_us": [
+    649.42,
+    727.73,
+    648.18,
+    650.25,
+    644.39
+   ],
+   "ms_per_fold": 20.781,
+   "aa_ratio": 0.9974
+  },
+  {
+   "id": "MSALayer#038",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 268435456,
+   "shapes": [
+    "1x512x512x512"
+   ],
+   "us_per_call": 698.73,
+   "bursts_us": [
+    746.78,
+    649.6,
+    698.73,
+    798.1,
+    646.39
+   ],
+   "ms_per_fold": 22.359,
+   "aa_ratio": 0.9273
+  },
+  {
+   "id": "MSALayer#039",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 268435456,
+   "shapes": [
+    "1x512x512x512"
+   ],
+   "us_per_call": 702.48,
+   "bursts_us": [
+    714.49,
+    702.48,
+    699.61,
+    704.5,
+    701.77
+   ],
+   "ms_per_fold": 22.479,
+   "aa_ratio": 0.9972
+  },
+  {
+   "id": "MSALayer#040",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 268435456,
+   "shapes": [
+    "1x512x512x512"
+   ],
+   "us_per_call": 654.23,
+   "bursts_us": [
+    654.65,
+    654.23,
+    655.54,
+    650.85,
+    650.59
+   ],
+   "ms_per_fold": 20.935,
+   "aa_ratio": 1.0014
+  },
+  {
+   "id": "MSALayer#042",
+   "unit": "MSALayer",
+   "kind": "transpose",
+   "api": "ttnn.transpose",
+   "op": "Transpose",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x128x512x512"
+   ],
+   "us_per_call": 678.97,
+   "bursts_us": [
+    676.03,
+    678.97,
+    682.57,
+    673.36,
+    684.44
+   ],
+   "ms_per_fold": 21.727,
+   "aa_ratio": 0.9969
+  },
+  {
+   "id": "MSALayer#043",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 134217728,
+   "shapes": [
+    "1x128x512x512",
+    "1x128x512x512"
+   ],
+   "us_per_call": 2334.41,
+   "bursts_us": [
+    2334.26,
+    2334.82,
+    2334.41,
+    2333.6,
+    2335.69
+   ],
+   "ms_per_fold": 74.701,
+   "aa_ratio": 1.0
+  },
+  {
+   "id": "MSALayer#044",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 201326592,
+   "shapes": [
+    "1x512x512x128",
+    "1x512x512x128",
+    "1x512x512x128"
+   ],
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 67108864 B L1 buffer across 72 banks, where each bank needs to store 933888 B, but bank size is 13"
+  },
+  {
+   "id": "MSALayer#045",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 67109888,
+   "shapes": [
+    "512x512x128",
+    "128x4"
+   ],
+   "us_per_call": 1622.44,
+   "bursts_us": [
+    1619.35,
+    1716.51,
+    1622.44,
+    1622.24,
+    1624.8
+   ],
+   "ms_per_fold": 51.918,
+   "aa_ratio": 0.9996
+  },
+  {
+   "id": "MSALayer#046",
+   "unit": "MSALayer",
+   "kind": "permute",
+   "api": "ttnn.permute",
+   "op": "Permute",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 2097152,
+   "shapes": [
+    "1x512x512x4"
+   ],
+   "us_per_call": 146.41,
+   "bursts_us": [
+    148.25,
+    145.37,
+    150.27,
+    145.19,
+    146.41
+   ],
+   "ms_per_fold": 4.685,
+   "aa_ratio": 0.9884
+  },
+  {
+   "id": "MSALayer#048",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 201326592,
+   "shapes": [
+    "512x4x512x32",
+    "512x4x512x32",
+    "512x4x512x32"
+   ],
+   "us_per_call": 833.44,
+   "bursts_us": [
+    832.13,
+    833.44,
+    832.83,
+    834.23,
+    836.9
+   ],
+   "ms_per_fold": 26.67,
+   "aa_ratio": 1.0018
+  },
+  {
+   "id": "MSALayer#049",
+   "unit": "MSALayer",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 2,
+   "calls_per_fold": 32,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 1507.53,
+   "bursts_us": [
+    1508.41,
+    1502.37,
+    1507.53,
+    1510.73,
+    1501.8
+   ],
+   "ms_per_fold": 48.241,
+   "aa_ratio": 1.0
+  },
+  {
+   "id": "MSALayer#050",
+   "unit": "MSALayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67109376,
+   "shapes": [
+    "512x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 928.0,
+   "bursts_us": [
+    927.71,
+    926.75,
+    928.0,
+    929.5,
+    930.56
+   ],
+   "ms_per_fold": 14.848,
+   "aa_ratio": 1.0023
+  },
+  {
+   "id": "MSALayer#051",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 2048,
+   "shapes": [
+    "128x8"
+   ],
+   "us_per_call": 15.91,
+   "bursts_us": [
+    18.73,
+    16.59,
+    15.41,
+    15.16,
+    15.91
+   ],
+   "ms_per_fold": 0.255,
+   "aa_ratio": 0.9604
+  },
+  {
+   "id": "MSALayer#052",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 32768,
+   "shapes": [
+    "256x64"
+   ],
+   "us_per_call": 17.14,
+   "bursts_us": [
+    15.15,
+    16.04,
+    194.02,
+    18.11,
+    17.14
+   ],
+   "ms_per_fold": 0.274,
+   "aa_ratio": 0.8912
+  },
+  {
+   "id": "MSALayer#053",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 2048,
+   "shapes": [
+    "128x8"
+   ],
+   "us_per_call": 45.41,
+   "bursts_us": [
+    45.41,
+    45.02,
+    44.92,
+    47.42,
+    47.91
+   ],
+   "ms_per_fold": 0.727,
+   "aa_ratio": 0.8387
+  },
+  {
+   "id": "MSALayer#054",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 32768,
+   "shapes": [
+    "256x64"
+   ],
+   "us_per_call": 12.32,
+   "bursts_us": [
+    12.71,
+    12.32,
+    11.7,
+    11.4,
+    12.74
+   ],
+   "ms_per_fold": 0.197,
+   "aa_ratio": 0.9687
+  },
+  {
+   "id": "MSALayer#055",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 2048,
+   "shapes": [
+    "128x8"
+   ],
+   "us_per_call": 38.39,
+   "bursts_us": [
+    39.55,
+    38.46,
+    38.39,
+    37.22,
+    37.58
+   ],
+   "ms_per_fold": 0.614,
+   "aa_ratio": 0.9862
+  },
+  {
+   "id": "MSALayer#056",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 32768,
+   "shapes": [
+    "256x64"
+   ],
+   "us_per_call": 11.89,
+   "bursts_us": [
+    13.05,
+    11.89,
+    11.83,
+    11.86,
+    12.68
+   ],
+   "ms_per_fold": 0.19,
+   "aa_ratio": 1.0175
+  },
+  {
+   "id": "MSALayer#057",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 2048,
+   "shapes": [
+    "128x8"
+   ],
+   "us_per_call": 38.55,
+   "bursts_us": [
+    38.55,
+    38.19,
+    37.28,
+    192.78,
+    42.1
+   ],
+   "ms_per_fold": 0.617,
+   "aa_ratio": 0.9668
+  },
+  {
+   "id": "MSALayer#058",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 32768,
+   "shapes": [
+    "256x64"
+   ],
+   "us_per_call": 17.94,
+   "bursts_us": [
+    17.94,
+    20.39,
+    17.74,
+    18.71,
+    17.27
+   ],
+   "ms_per_fold": 0.287,
+   "aa_ratio": 0.8865
+  },
+  {
+   "id": "MSALayer#059",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 2048,
+   "shapes": [
+    "128x8"
+   ],
+   "us_per_call": 37.32,
+   "bursts_us": [
+    40.21,
+    37.06,
+    37.32,
+    37.22,
+    37.32
+   ],
+   "ms_per_fold": 0.597,
+   "aa_ratio": 1.0054
+  },
+  {
+   "id": "MSALayer#060",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 32768,
+   "shapes": [
+    "256x64"
+   ],
+   "us_per_call": 11.75,
+   "bursts_us": [
+    11.8,
+    11.75,
+    11.53,
+    11.85,
+    11.6
+   ],
+   "ms_per_fold": 0.188,
+   "aa_ratio": 0.9611
+  },
+  {
+   "id": "MSALayer#061",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 2048,
+   "shapes": [
+    "128x8"
+   ],
+   "us_per_call": 37.78,
+   "bursts_us": [
+    37.78,
+    37.08,
+    36.71,
+    46.58,
+    47.89
+   ],
+   "ms_per_fold": 0.604,
+   "aa_ratio": 1.1996
+  },
+  {
+   "id": "MSALayer#062",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 32768,
+   "shapes": [
+    "256x64"
+   ],
+   "us_per_call": 11.68,
+   "bursts_us": [
+    11.91,
+    11.3,
+    11.53,
+    13.67,
+    11.68
+   ],
+   "ms_per_fold": 0.187,
+   "aa_ratio": 1.234
+  },
+  {
+   "id": "MSALayer#063",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 2048,
+   "shapes": [
+    "128x8"
+   ],
+   "us_per_call": 43.62,
+   "bursts_us": [
+    43.88,
+    43.5,
+    43.86,
+    43.62,
+    42.77
+   ],
+   "ms_per_fold": 0.698,
+   "aa_ratio": 1.0062
+  },
+  {
+   "id": "MSALayer#064",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 32768,
+   "shapes": [
+    "256x64"
+   ],
+   "us_per_call": 15.57,
+   "bursts_us": [
+    15.57,
+    14.62,
+    14.69,
+    43.14,
+    17.05
+   ],
+   "ms_per_fold": 0.249,
+   "aa_ratio": 1.0393
+  },
+  {
+   "id": "MSALayer#065",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 2048,
+   "shapes": [
+    "128x8"
+   ],
+   "us_per_call": 43.36,
+   "bursts_us": [
+    44.28,
+    43.36,
+    44.33,
+    41.81,
+    37.59
+   ],
+   "ms_per_fold": 0.694,
+   "aa_ratio": 0.8776
+  },
+  {
+   "id": "MSALayer#066",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.slice",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 32768,
+   "shapes": [
+    "256x64"
+   ],
+   "us_per_call": 16.96,
+   "bursts_us": [
+    16.78,
+    16.96,
+    16.38,
+    17.01,
+    17.19
+   ],
+   "ms_per_fold": 0.271,
+   "aa_ratio": 0.9789
+  },
+  {
+   "id": "MSALayer#067",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 13.4,
+   "bursts_us": [
+    16.57,
+    13.82,
+    13.4,
+    12.98,
+    13.26
+   ],
+   "ms_per_fold": 0.214,
+   "aa_ratio": 0.9744
+  },
+  {
+   "id": "MSALayer#068",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 13.14,
+   "bursts_us": [
+    17.29,
+    12.78,
+    14.68,
+    13.14,
+    13.11
+   ],
+   "ms_per_fold": 0.21,
+   "aa_ratio": 1.0135
+  },
+  {
+   "id": "MSALayer#069",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.85,
+   "bursts_us": [
+    19.85,
+    16.99,
+    16.5,
+    16.28,
+    16.85
+   ],
+   "ms_per_fold": 0.27,
+   "aa_ratio": 0.9859
+  },
+  {
+   "id": "MSALayer#070",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 13.1,
+   "bursts_us": [
+    14.88,
+    13.58,
+    12.94,
+    12.79,
+    13.1
+   ],
+   "ms_per_fold": 0.21,
+   "aa_ratio": 0.9777
+  },
+  {
+   "id": "MSALayer#071",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 12.93,
+   "bursts_us": [
+    15.1,
+    12.59,
+    12.93,
+    13.37,
+    12.72
+   ],
+   "ms_per_fold": 0.207,
+   "aa_ratio": 0.9662
+  },
+  {
+   "id": "MSALayer#072",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.65,
+   "bursts_us": [
+    19.63,
+    16.23,
+    16.65,
+    16.08,
+    77.12
+   ],
+   "ms_per_fold": 0.266,
+   "aa_ratio": 1.438
+  },
+  {
+   "id": "MSALayer#073",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 44.31,
+   "bursts_us": [
+    20.1,
+    60.53,
+    162.54,
+    44.31,
+    19.42
+   ],
+   "ms_per_fold": 0.709,
+   "aa_ratio": 0.3756
+  },
+  {
+   "id": "MSALayer#074",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 20.46,
+   "bursts_us": [
+    20.7,
+    101.01,
+    20.46,
+    18.75,
+    19.41
+   ],
+   "ms_per_fold": 0.327,
+   "aa_ratio": 1.2402
+  },
+  {
+   "id": "MSALayer#075",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 17.5,
+   "bursts_us": [
+    34.04,
+    17.5,
+    17.31,
+    17.72,
+    17.08
+   ],
+   "ms_per_fold": 0.28,
+   "aa_ratio": 1.0086
+  },
+  {
+   "id": "MSALayer#076",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 13.41,
+   "bursts_us": [
+    15.15,
+    13.41,
+    13.57,
+    12.72,
+    12.75
+   ],
+   "ms_per_fold": 0.215,
+   "aa_ratio": 1.2126
+  },
+  {
+   "id": "MSALayer#077",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 12.85,
+   "bursts_us": [
+    15.73,
+    12.85,
+    13.02,
+    12.8,
+    12.82
+   ],
+   "ms_per_fold": 0.206,
+   "aa_ratio": 0.9995
+  },
+  {
+   "id": "MSALayer#078",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 18.35,
+   "bursts_us": [
+    19.89,
+    33.45,
+    18.35,
+    17.61,
+    18.31
+   ],
+   "ms_per_fold": 0.294,
+   "aa_ratio": 0.9867
+  },
+  {
+   "id": "MSALayer#079",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 17.41,
+   "bursts_us": [
+    21.12,
+    17.41,
+    21.67,
+    16.91,
+    16.66
+   ],
+   "ms_per_fold": 0.279,
+   "aa_ratio": 0.9724
+  },
+  {
+   "id": "MSALayer#080",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 15.98,
+   "bursts_us": [
+    18.82,
+    15.83,
+    15.82,
+    16.45,
+    15.98
+   ],
+   "ms_per_fold": 0.256,
+   "aa_ratio": 1.0432
+  },
+  {
+   "id": "MSALayer#081",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.58,
+   "bursts_us": [
+    19.38,
+    16.5,
+    16.85,
+    16.33,
+    16.58
+   ],
+   "ms_per_fold": 0.265,
+   "aa_ratio": 0.9901
+  },
+  {
+   "id": "MSALayer#082",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 19.72,
+   "bursts_us": [
+    19.72,
+    16.96,
+    20.84,
+    16.49,
+    67.97
+   ],
+   "ms_per_fold": 0.315,
+   "aa_ratio": 0.9146
+  },
+  {
+   "id": "MSALayer#083",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 12.92,
+   "bursts_us": [
+    16.91,
+    12.75,
+    12.92,
+    12.97,
+    12.78
+   ],
+   "ms_per_fold": 0.207,
+   "aa_ratio": 1.0175
+  },
+  {
+   "id": "MSALayer#084",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.39,
+   "bursts_us": [
+    20.75,
+    27.43,
+    15.98,
+    15.6,
+    16.39
+   ],
+   "ms_per_fold": 0.262,
+   "aa_ratio": 0.9843
+  },
+  {
+   "id": "MSALayer#085",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.77,
+   "bursts_us": [
+    17.97,
+    16.77,
+    16.94,
+    16.42,
+    16.18
+   ],
+   "ms_per_fold": 0.268,
+   "aa_ratio": 1.0013
+  },
+  {
+   "id": "MSALayer#086",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.43,
+   "bursts_us": [
+    20.13,
+    16.07,
+    16.43,
+    16.13,
+    16.45
+   ],
+   "ms_per_fold": 0.263,
+   "aa_ratio": 0.9647
+  },
+  {
+   "id": "MSALayer#087",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 13.36,
+   "bursts_us": [
+    15.83,
+    13.28,
+    13.5,
+    12.77,
+    13.36
+   ],
+   "ms_per_fold": 0.214,
+   "aa_ratio": 1.012
+  },
+  {
+   "id": "MSALayer#088",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.52,
+   "bursts_us": [
+    18.4,
+    16.52,
+    16.35,
+    16.97,
+    16.49
+   ],
+   "ms_per_fold": 0.264,
+   "aa_ratio": 0.9808
+  },
+  {
+   "id": "MSALayer#089",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.4,
+   "bursts_us": [
+    19.59,
+    16.49,
+    15.99,
+    15.93,
+    16.4
+   ],
+   "ms_per_fold": 0.262,
+   "aa_ratio": 0.7848
+  },
+  {
+   "id": "MSALayer#090",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 17.91,
+   "bursts_us": [
+    19.97,
+    17.01,
+    16.12,
+    169.19,
+    17.91
+   ],
+   "ms_per_fold": 0.287,
+   "aa_ratio": 0.9317
+  },
+  {
+   "id": "MSALayer#091",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.87,
+   "bursts_us": [
+    19.75,
+    17.08,
+    16.64,
+    16.87,
+    16.32
+   ],
+   "ms_per_fold": 0.27,
+   "aa_ratio": 0.9829
+  },
+  {
+   "id": "MSALayer#092",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.21,
+   "bursts_us": [
+    19.09,
+    16.12,
+    16.21,
+    16.11,
+    166.16
+   ],
+   "ms_per_fold": 0.259,
+   "aa_ratio": 0.9956
+  },
+  {
+   "id": "MSALayer#093",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.74,
+   "bursts_us": [
+    15.39,
+    18.42,
+    16.74,
+    16.03,
+    207.77
+   ],
+   "ms_per_fold": 0.268,
+   "aa_ratio": 0.9639
+  },
+  {
+   "id": "MSALayer#094",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.41,
+   "bursts_us": [
+    21.06,
+    16.61,
+    16.41,
+    15.92,
+    15.7
+   ],
+   "ms_per_fold": 0.263,
+   "aa_ratio": 1.0113
+  },
+  {
+   "id": "MSALayer#095",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.83,
+   "bursts_us": [
+    25.31,
+    15.99,
+    202.39,
+    16.83,
+    16.54
+   ],
+   "ms_per_fold": 0.269,
+   "aa_ratio": 1.0897
+  },
+  {
+   "id": "MSALayer#096",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 18.46,
+   "bursts_us": [
+    27.95,
+    18.46,
+    181.38,
+    16.8,
+    16.87
+   ],
+   "ms_per_fold": 0.295,
+   "aa_ratio": 0.8867
+  },
+  {
+   "id": "MSALayer#097",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 17.07,
+   "bursts_us": [
+    20.13,
+    17.46,
+    17.07,
+    16.79,
+    16.15
+   ],
+   "ms_per_fold": 0.273,
+   "aa_ratio": 0.9726
+  },
+  {
+   "id": "MSALayer#098",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.56,
+   "bursts_us": [
+    17.74,
+    16.3,
+    16.55,
+    16.97,
+    16.56
+   ],
+   "ms_per_fold": 0.265,
+   "aa_ratio": 0.998
+  },
+  {
+   "id": "MSALayer#099",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.7,
+   "bursts_us": [
+    18.61,
+    16.7,
+    16.34,
+    16.31,
+    16.95
+   ],
+   "ms_per_fold": 0.267,
+   "aa_ratio": 0.9867
+  },
+  {
+   "id": "MSALayer#100",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.78,
+   "bursts_us": [
+    16.88,
+    16.78,
+    17.08,
+    16.38,
+    16.09
+   ],
+   "ms_per_fold": 0.268,
+   "aa_ratio": 0.9782
+  },
+  {
+   "id": "MSALayer#101",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 43.65,
+   "bursts_us": [
+    139.61,
+    43.65,
+    53.17,
+    18.14,
+    16.75
+   ],
+   "ms_per_fold": 0.698,
+   "aa_ratio": 0.3841
+  },
+  {
+   "id": "MSALayer#102",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.39,
+   "bursts_us": [
+    16.85,
+    16.39,
+    16.94,
+    16.19,
+    16.34
+   ],
+   "ms_per_fold": 0.262,
+   "aa_ratio": 1.0843
+  },
+  {
+   "id": "MSALayer#103",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 18.37,
+   "bursts_us": [
+    18.37,
+    16.98,
+    162.63,
+    18.77,
+    16.4
+   ],
+   "ms_per_fold": 0.294,
+   "aa_ratio": 0.8971
+  },
+  {
+   "id": "MSALayer#104",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.44,
+   "bursts_us": [
+    17.05,
+    16.44,
+    16.18,
+    16.2,
+    16.85
+   ],
+   "ms_per_fold": 0.263,
+   "aa_ratio": 0.9811
+  },
+  {
+   "id": "MSALayer#105",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.74,
+   "bursts_us": [
+    347.0,
+    18.69,
+    16.38,
+    16.74,
+    16.1
+   ],
+   "ms_per_fold": 0.268,
+   "aa_ratio": 0.9653
+  },
+  {
+   "id": "MSALayer#106",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.78,
+   "bursts_us": [
+    17.43,
+    16.78,
+    17.23,
+    16.36,
+    16.29
+   ],
+   "ms_per_fold": 0.268,
+   "aa_ratio": 0.9762
+  },
+  {
+   "id": "MSALayer#107",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.77,
+   "bursts_us": [
+    19.8,
+    16.77,
+    17.65,
+    16.57,
+    16.36
+   ],
+   "ms_per_fold": 0.268,
+   "aa_ratio": 5.2556
+  },
+  {
+   "id": "MSALayer#108",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 17.08,
+   "bursts_us": [
+    16.74,
+    163.38,
+    17.08,
+    15.98,
+    17.81
+   ],
+   "ms_per_fold": 0.273,
+   "aa_ratio": 0.9617
+  },
+  {
+   "id": "MSALayer#109",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.88,
+   "bursts_us": [
+    17.67,
+    16.88,
+    16.97,
+    16.38,
+    15.99
+   ],
+   "ms_per_fold": 0.27,
+   "aa_ratio": 0.9829
+  },
+  {
+   "id": "MSALayer#110",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.74,
+   "bursts_us": [
+    17.31,
+    16.74,
+    16.27,
+    16.38,
+    17.51
+   ],
+   "ms_per_fold": 0.268,
+   "aa_ratio": 1.0083
+  },
+  {
+   "id": "MSALayer#111",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.64,
+   "bursts_us": [
+    18.47,
+    17.14,
+    16.35,
+    15.99,
+    16.64
+   ],
+   "ms_per_fold": 0.266,
+   "aa_ratio": 0.9616
+  },
+  {
+   "id": "MSALayer#112",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 17.22,
+   "bursts_us": [
+    17.79,
+    16.81,
+    17.22,
+    356.09,
+    17.12
+   ],
+   "ms_per_fold": 0.276,
+   "aa_ratio": 0.9606
+  },
+  {
+   "id": "MSALayer#113",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.8,
+   "bursts_us": [
+    25.18,
+    16.8,
+    16.26,
+    16.36,
+    16.89
+   ],
+   "ms_per_fold": 0.269,
+   "aa_ratio": 0.9589
+  },
+  {
+   "id": "MSALayer#114",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 26.74,
+   "bursts_us": [
+    21.91,
+    66.87,
+    26.74,
+    16.21,
+    68.83
+   ],
+   "ms_per_fold": 0.428,
+   "aa_ratio": 0.6899
+  },
+  {
+   "id": "MSALayer#115",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 17.11,
+   "bursts_us": [
+    20.04,
+    17.11,
+    17.15,
+    16.53,
+    16.31
+   ],
+   "ms_per_fold": 0.274,
+   "aa_ratio": 0.9637
+  },
+  {
+   "id": "MSALayer#116",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.68,
+   "bursts_us": [
+    21.53,
+    16.68,
+    16.47,
+    17.17,
+    16.65
+   ],
+   "ms_per_fold": 0.267,
+   "aa_ratio": 0.9937
+  },
+  {
+   "id": "MSALayer#117",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 17.84,
+   "bursts_us": [
+    20.55,
+    16.43,
+    16.5,
+    199.97,
+    17.84
+   ],
+   "ms_per_fold": 0.285,
+   "aa_ratio": 0.9211
+  },
+  {
+   "id": "MSALayer#118",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.79,
+   "bursts_us": [
+    54.48,
+    19.82,
+    16.79,
+    16.73,
+    16.09
+   ],
+   "ms_per_fold": 0.269,
+   "aa_ratio": 1.0092
+  },
+  {
+   "id": "MSALayer#119",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.66,
+   "bursts_us": [
+    24.88,
+    13.31,
+    18.3,
+    16.66,
+    16.31
+   ],
+   "ms_per_fold": 0.267,
+   "aa_ratio": 0.9802
+  },
+  {
+   "id": "MSALayer#120",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 20.3,
+   "bursts_us": [
+    20.3,
+    174.8,
+    19.57,
+    17.87,
+    167.19
+   ],
+   "ms_per_fold": 0.325,
+   "aa_ratio": 0.9077
+  },
+  {
+   "id": "MSALayer#121",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.7,
+   "bursts_us": [
+    19.35,
+    16.28,
+    16.7,
+    16.3,
+    177.43
+   ],
+   "ms_per_fold": 0.267,
+   "aa_ratio": 0.9757
+  },
+  {
+   "id": "MSALayer#122",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.4,
+   "bursts_us": [
+    20.53,
+    16.4,
+    17.01,
+    16.3,
+    16.29
+   ],
+   "ms_per_fold": 0.262,
+   "aa_ratio": 1.1513
+  },
+  {
+   "id": "MSALayer#123",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.49,
+   "bursts_us": [
+    19.63,
+    16.68,
+    16.37,
+    15.91,
+    16.49
+   ],
+   "ms_per_fold": 0.264,
+   "aa_ratio": 0.9855
+  },
+  {
+   "id": "MSALayer#124",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.45,
+   "bursts_us": [
+    19.41,
+    16.93,
+    16.45,
+    16.45,
+    16.31
+   ],
+   "ms_per_fold": 0.263,
+   "aa_ratio": 1.0029
+  },
+  {
+   "id": "MSALayer#125",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 16.25,
+   "bursts_us": [
+    18.78,
+    16.25,
+    16.37,
+    16.11,
+    16.15
+   ],
+   "ms_per_fold": 0.26,
+   "aa_ratio": 1.0117
+  },
+  {
+   "id": "MSALayer#126",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 20.45,
+   "bursts_us": [
+    20.45,
+    176.93,
+    199.1,
+    16.79,
+    16.4
+   ],
+   "ms_per_fold": 0.327,
+   "aa_ratio": 0.8192
+  },
+  {
+   "id": "MSALayer#127",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 22.94,
+   "bursts_us": [
+    31.42,
+    23.4,
+    22.94,
+    19.91,
+    16.18
+   ],
+   "ms_per_fold": 0.367,
+   "aa_ratio": 0.7171
+  },
+  {
+   "id": "MSALayer#128",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 19.14,
+   "bursts_us": [
+    55.72,
+    60.66,
+    19.14,
+    16.82,
+    16.86
+   ],
+   "ms_per_fold": 0.306,
+   "aa_ratio": 0.8451
+  },
+  {
+   "id": "MSALayer#129",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 13.21,
+   "bursts_us": [
+    15.84,
+    13.21,
+    13.41,
+    13.01,
+    13.05
+   ],
+   "ms_per_fold": 0.211,
+   "aa_ratio": 1.2283
+  },
+  {
+   "id": "MSALayer#130",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x1024x512x64"
+   ],
+   "us_per_call": 19.59,
+   "bursts_us": [
+    89.22,
+    199.97,
+    19.59,
+    18.05,
+    18.23
+   ],
+   "ms_per_fold": 0.313,
+   "aa_ratio": 0.928
+  },
+  {
+   "id": "MSALayer#131",
+   "unit": "MSALayer",
+   "kind": "concat",
+   "api": "ttnn.concat",
+   "op": "Concat",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 52428800,
+   "shapes": [
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64"
+   ],
+   "us_per_call": 558.18,
+   "bursts_us": [
+    558.18,
+    519.53,
+    627.66,
+    518.61,
+    649.15
+   ],
+   "ms_per_fold": 8.931,
+   "aa_ratio": 1.0343
+  },
+  {
+   "id": "MSALayer#132",
+   "unit": "MSALayer",
+   "kind": "concat",
+   "api": "ttnn.concat",
+   "op": "Concat",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 14680064,
+   "shapes": [
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64",
+    "1x16x512x64"
+   ],
+   "us_per_call": 199.02,
+   "bursts_us": [
+    196.45,
+    299.13,
+    199.76,
+    199.02,
+    151.8
+   ],
+   "ms_per_fold": 3.184,
+   "aa_ratio": 1.5007
+  },
+  {
+   "id": "MSALayer#133",
+   "unit": "MSALayer",
+   "kind": "concat",
+   "api": "ttnn.concat",
+   "op": "Concat",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x800x512x64",
+    "1x224x512x64"
+   ],
+   "us_per_call": 658.46,
+   "bursts_us": [
+    654.58,
+    658.46,
+    950.18,
+    798.31,
+    656.09
+   ],
+   "ms_per_fold": 10.535,
+   "aa_ratio": 0.9963
+  },
+  {
+   "id": "MSALayer#134",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67110912,
+   "shapes": [
+    "1024x512x32",
+    "1024x1x1",
+    "1024x512x32"
+   ],
+   "us_per_call": 312.3,
+   "bursts_us": [
+    311.03,
+    311.46,
+    312.58,
+    312.63,
+    312.3
+   ],
+   "ms_per_fold": 4.997,
+   "aa_ratio": 0.9986
+  },
+  {
+   "id": "MSALayer#135",
+   "unit": "MSALayer",
+   "kind": "permute",
+   "api": "ttnn.permute",
+   "op": "Permute",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 33554432,
+   "shapes": [
+    "1x1024x512x32"
+   ],
+   "us_per_call": 1649.48,
+   "bursts_us": [
+    1798.71,
+    1641.88,
+    1659.22,
+    1644.2,
+    1649.48
+   ],
+   "ms_per_fold": 26.392,
+   "aa_ratio": 0.9973
+  },
+  {
+   "id": "MSALayer#136",
+   "unit": "MSALayer",
+   "kind": "permute",
+   "api": "ttnn.permute",
+   "op": "Permute",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 33554432,
+   "shapes": [
+    "1x1024x512x32"
+   ],
+   "us_per_call": 1911.99,
+   "bursts_us": [
+    1909.07,
+    1915.84,
+    2093.93,
+    1911.85,
+    1911.99
+   ],
+   "ms_per_fold": 30.592,
+   "aa_ratio": 1.0387
+  },
+  {
+   "id": "MSALayer#139",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "16384x1024",
+    "16384x1024"
+   ],
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:126: a_shape[-1] == b_shape[-2]\ninfo:\nThe width of the first tensor must be equal to the height of the second tensor. Mismatch: width"
+  },
+  {
+   "id": "MSALayer#141",
+   "unit": "MSALayer",
+   "kind": "reshape",
+   "api": "ttnn.reshape",
+   "op": "ReshapeView",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 536870912,
+   "shapes": [
+    "16384x16384"
+   ],
+   "us_per_call": 8197.43,
+   "bursts_us": [
+    8197.43,
+    8193.48,
+    8207.02,
+    8184.29,
+    8203.8
+   ],
+   "ms_per_fold": 131.159,
+   "aa_ratio": 1.0003
+  },
+  {
+   "id": "MSALayer#143",
+   "unit": "MSALayer",
+   "kind": "transpose",
+   "api": "ttnn.permute",
+   "op": "Transpose",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 536870912,
+   "shapes": [
+    "1x512x1024x512"
+   ],
+   "us_per_call": 5529.06,
+   "bursts_us": [
+    5531.52,
+    5492.98,
+    5529.06,
+    5599.88,
+    5524.23
+   ],
+   "ms_per_fold": 88.465,
+   "aa_ratio": 1.0006
+  },
+  {
+   "id": "MSALayer#144",
+   "unit": "MSALayer",
+   "kind": "binary",
+   "api": "ttnn.multiply_",
+   "op": "BinaryNg",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 1073741824,
+   "shapes": [
+    "512x512x1024",
+    "512x512x1024"
+   ],
+   "error": "operands 1074 MB over cap"
+  },
+  {
+   "id": "MSALayer#145",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "op": "Matmul",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 537133312,
+   "shapes": [
+    "512x512x1024",
+    "1024x128",
+    "128"
+   ],
+   "us_per_call": 15642.23,
+   "bursts_us": [
+    15644.13,
+    15639.98,
+    15641.87,
+    15805.3,
+    15642.23
+   ],
+   "ms_per_fold": 250.276,
+   "aa_ratio": 0.9999
+  },
+  {
+   "id": "MSALayer#152",
+   "unit": "MSALayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67109376,
+   "shapes": [
+    "512x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 934.37,
+   "bursts_us": [
+    973.28,
+    934.04,
+    934.37,
+    933.78,
+    934.73
+   ],
+   "ms_per_fold": 14.95,
+   "aa_ratio": 1.0013
+  },
+  {
+   "id": "MSALayer#156",
+   "unit": "MSALayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "op": "LayerNorm",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67109376,
+   "shapes": [
+    "512x512x128",
+    "128",
+    "128"
+   ],
+   "us_per_call": 925.7,
+   "bursts_us": [
+    925.7,
+    926.06,
+    925.53,
+    925.07,
+    926.12
+   ],
+   "ms_per_fold": 14.811,
+   "aa_ratio": 1.0003
+  },
+  {
+   "id": "MSALayer#160",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.3,
+   "bursts_us": [
+    26.57,
+    24.12,
+    24.0,
+    24.3,
+    24.43
+   ],
+   "ms_per_fold": 0.389,
+   "aa_ratio": 0.9906
+  },
+  {
+   "id": "MSALayer#161",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.26,
+   "bursts_us": [
+    25.64,
+    29.23,
+    23.26,
+    22.41,
+    22.78
+   ],
+   "ms_per_fold": 0.372,
+   "aa_ratio": 0.9782
+  },
+  {
+   "id": "MSALayer#162",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.94,
+   "bursts_us": [
+    23.15,
+    22.04,
+    21.89,
+    21.94,
+    21.82
+   ],
+   "ms_per_fold": 0.351,
+   "aa_ratio": 1.0161
+  },
+  {
+   "id": "MSALayer#163",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.18,
+   "bursts_us": [
+    25.5,
+    24.16,
+    24.04,
+    24.18,
+    24.32
+   ],
+   "ms_per_fold": 0.387,
+   "aa_ratio": 0.9877
+  },
+  {
+   "id": "MSALayer#164",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.26,
+   "bursts_us": [
+    31.13,
+    23.26,
+    23.32,
+    22.41,
+    22.47
+   ],
+   "ms_per_fold": 0.372,
+   "aa_ratio": 0.9862
+  },
+  {
+   "id": "MSALayer#165",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.02,
+   "bursts_us": [
+    24.02,
+    22.16,
+    21.69,
+    21.94,
+    22.02
+   ],
+   "ms_per_fold": 0.352,
+   "aa_ratio": 0.9933
+  },
+  {
+   "id": "MSALayer#166",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.84,
+   "bursts_us": [
+    28.34,
+    24.66,
+    24.84,
+    24.82,
+    27.33
+   ],
+   "ms_per_fold": 0.397,
+   "aa_ratio": 1.0085
+  },
+  {
+   "id": "MSALayer#167",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.31,
+   "bursts_us": [
+    25.85,
+    22.9,
+    23.31,
+    23.94,
+    22.58
+   ],
+   "ms_per_fold": 0.373,
+   "aa_ratio": 0.9766
+  },
+  {
+   "id": "MSALayer#168",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.89,
+   "bursts_us": [
+    24.07,
+    21.74,
+    21.69,
+    21.92,
+    21.89
+   ],
+   "ms_per_fold": 0.35,
+   "aa_ratio": 1.0046
+  },
+  {
+   "id": "MSALayer#169",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.48,
+   "bursts_us": [
+    25.4,
+    24.13,
+    24.5,
+    24.48,
+    24.4
+   ],
+   "ms_per_fold": 0.392,
+   "aa_ratio": 0.9877
+  },
+  {
+   "id": "MSALayer#170",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.6,
+   "bursts_us": [
+    24.91,
+    22.58,
+    22.08,
+    22.63,
+    22.6
+   ],
+   "ms_per_fold": 0.362,
+   "aa_ratio": 1.0095
+  },
+  {
+   "id": "MSALayer#171",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.99,
+   "bursts_us": [
+    27.06,
+    24.99,
+    22.39,
+    24.06,
+    25.26
+   ],
+   "ms_per_fold": 0.4,
+   "aa_ratio": 0.8935
+  },
+  {
+   "id": "MSALayer#172",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 26.47,
+   "bursts_us": [
+    29.47,
+    26.47,
+    24.09,
+    27.01,
+    26.24
+   ],
+   "ms_per_fold": 0.423,
+   "aa_ratio": 0.9243
+  },
+  {
+   "id": "MSALayer#173",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.88,
+   "bursts_us": [
+    23.39,
+    22.88,
+    23.29,
+    22.52,
+    22.53
+   ],
+   "ms_per_fold": 0.366,
+   "aa_ratio": 0.9926
+  },
+  {
+   "id": "MSALayer#174",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.93,
+   "bursts_us": [
+    23.02,
+    21.85,
+    21.93,
+    21.65,
+    22.01
+   ],
+   "ms_per_fold": 0.351,
+   "aa_ratio": 0.9942
+  },
+  {
+   "id": "MSALayer#175",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.0,
+   "bursts_us": [
+    26.16,
+    23.94,
+    24.0,
+    24.45,
+    23.8
+   ],
+   "ms_per_fold": 0.384,
+   "aa_ratio": 1.0036
+  },
+  {
+   "id": "MSALayer#176",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.56,
+   "bursts_us": [
+    25.54,
+    23.22,
+    22.39,
+    22.56,
+    22.44
+   ],
+   "ms_per_fold": 0.361,
+   "aa_ratio": 0.9948
+  },
+  {
+   "id": "MSALayer#177",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.01,
+   "bursts_us": [
+    23.01,
+    22.01,
+    21.71,
+    22.05,
+    21.69
+   ],
+   "ms_per_fold": 0.352,
+   "aa_ratio": 0.9908
+  },
+  {
+   "id": "MSALayer#178",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.4,
+   "bursts_us": [
+    25.97,
+    24.17,
+    24.71,
+    24.4,
+    23.93
+   ],
+   "ms_per_fold": 0.39,
+   "aa_ratio": 0.9879
+  },
+  {
+   "id": "MSALayer#179",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.65,
+   "bursts_us": [
+    24.71,
+    22.6,
+    23.24,
+    22.44,
+    22.65
+   ],
+   "ms_per_fold": 0.362,
+   "aa_ratio": 0.9843
+  },
+  {
+   "id": "MSALayer#180",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.9,
+   "bursts_us": [
+    23.34,
+    21.79,
+    21.61,
+    22.04,
+    21.9
+   ],
+   "ms_per_fold": 0.35,
+   "aa_ratio": 1.0044
+  },
+  {
+   "id": "MSALayer#181",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.6,
+   "bursts_us": [
+    25.68,
+    23.92,
+    24.01,
+    24.66,
+    24.6
+   ],
+   "ms_per_fold": 0.394,
+   "aa_ratio": 0.9733
+  },
+  {
+   "id": "MSALayer#182",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.94,
+   "bursts_us": [
+    23.99,
+    22.94,
+    22.14,
+    23.16,
+    22.36
+   ],
+   "ms_per_fold": 0.367,
+   "aa_ratio": 0.9837
+  },
+  {
+   "id": "MSALayer#183",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.93,
+   "bursts_us": [
+    24.71,
+    21.95,
+    21.93,
+    21.84,
+    21.78
+   ],
+   "ms_per_fold": 0.351,
+   "aa_ratio": 0.9966
+  },
+  {
+   "id": "MSALayer#184",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.24,
+   "bursts_us": [
+    26.04,
+    24.24,
+    23.71,
+    24.58,
+    23.74
+   ],
+   "ms_per_fold": 0.388,
+   "aa_ratio": 0.9906
+  },
+  {
+   "id": "MSALayer#185",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 23.32,
+   "bursts_us": [
+    24.16,
+    22.08,
+    23.32,
+    23.62,
+    22.95
+   ],
+   "ms_per_fold": 0.373,
+   "aa_ratio": 0.974
+  },
+  {
+   "id": "MSALayer#186",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 21.86,
+   "bursts_us": [
+    24.28,
+    21.86,
+    21.81,
+    21.57,
+    22.09
+   ],
+   "ms_per_fold": 0.35,
+   "aa_ratio": 1.0053
+  },
+  {
+   "id": "MSALayer#187",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.09,
+   "bursts_us": [
+    25.34,
+    23.97,
+    24.09,
+    24.56,
+    23.81
+   ],
+   "ms_per_fold": 0.385,
+   "aa_ratio": 1.0072
+  },
+  {
+   "id": "MSALayer#188",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.72,
+   "bursts_us": [
+    23.75,
+    23.02,
+    22.72,
+    22.63,
+    22.2
+   ],
+   "ms_per_fold": 0.363,
+   "aa_ratio": 0.9796
+  },
+  {
+   "id": "MSALayer#189",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.23,
+   "bursts_us": [
+    24.9,
+    22.33,
+    21.69,
+    21.81,
+    22.23
+   ],
+   "ms_per_fold": 0.356,
+   "aa_ratio": 0.9887
+  },
+  {
+   "id": "MSALayer#190",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 24.22,
+   "bursts_us": [
+    25.17,
+    23.85,
+    24.37,
+    24.22,
+    24.1
+   ],
+   "ms_per_fold": 0.388,
+   "aa_ratio": 0.9959
+  },
+  {
+   "id": "MSALayer#191",
+   "unit": "MSALayer",
+   "kind": "slice",
+   "api": "ttnn.chunk",
+   "op": "Slice",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x512x512x128"
+   ],
+   "us_per_call": 22.34,
+   "bursts_us": [
+    23.99,
+    22.08,
+    22.34,
+    22.21,
+    22.98
+   ],
+   "ms_per_fold": 0.357,
+   "aa_ratio": 1.0147
+  },
+  {
+   "id": "MSALayer#192",
+   "unit": "MSALayer",
+   "kind": "concat",
+   "api": "ttnn.concat",
+   "op": "Concat",
+   "per_unit": 1,
+   "calls_per_fold": 16,
+   "in_bytes": 67108864,
+   "shapes": [
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128",
+    "1x16x512x128"
+   ],
+   "us_per_call": 659.87,
+   "bursts_us": [
+    658.5,
+    659.87,
+    660.78,
+    658.84,
+    660.59
+   ],
+   "ms_per_fold": 10.558,
+   "aa_ratio": 1.0063
+  }
+ ],
+ "totals": {
+  "DiffusionStep": 23.735,
+  "MSALayer": 5.3174,
+  "PairformerLayer": 26.7868
+ }
+}

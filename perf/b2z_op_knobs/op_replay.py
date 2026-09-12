@@ -288,6 +288,21 @@ def time_call(ttnn, device, fn, ins, reps=24, bursts=5):
     return 1e6 * st.median(meds), [round(1e6 * m, 2) for m in meds]
 
 
+def open_device_retry(ttnn, tries=24, wait=30.0):
+    """whglx runs ~10 swarm rows at once and UMD brings up the whole 32-chip cluster on every
+    open, so a device open there fails transiently on a sysmem or CHIP_IN_USE collision that has
+    nothing to do with this process. Retry rather than lose the run."""
+    last = None
+    for i in range(tries):
+        try:
+            return ttnn.open_device(device_id=0)
+        except Exception as e:                                           # noqa: BLE001
+            last = e
+            print(f"# open_device attempt {i+1}/{tries} failed: {str(e)[:120]}", flush=True)
+            time.sleep(wait)
+    raise RuntimeError(f"device never opened: {last}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", default=str(HERE / "bench_manifest.json"))
@@ -314,7 +329,7 @@ def main() -> int:
     recs = [r for r in recs if r["unit"] in units and (not want or r["id"] in want)]
     recs = [r for r in recs if r["kind"] not in ("unsupported", "generic")]
 
-    device = ttnn.open_device(device_id=0)
+    device = open_device_retry(ttnn)
     ttnn.enable_program_cache(device) if hasattr(ttnn, "enable_program_cache") else None
     out = {"env": {"started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                    "card": os.environ.get("TT_VISIBLE_DEVICES"),
