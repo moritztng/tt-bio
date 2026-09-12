@@ -11010,6 +11010,7 @@ class ConfidenceHeadsDevice:
 
     CH_PAE, CH_TM, CH_PDE = 0, 1, 2
     CH = 32                                   # one tile: the narrowest a device result can be
+    CH_KEEP = 4                               # ... but only three channels carry anything
 
     @staticmethod
     def supports(heads) -> bool:
@@ -11107,7 +11108,13 @@ class ConfidenceHeadsDevice:
             ttnn.deallocate(arm)
         self.wall.mark("same-chain select")
 
-        t = torch.Tensor(ttnn.to_torch(out)).to(torch.float32)[:, :seq_len, :seq_len, :]
+        # A tiled download moves all 32 channels and both padded axes. Untilizing on the card
+        # and slicing there instead costs one data-movement pass and takes 14.7 MB off the bus
+        # at 512 tokens -- the result is three numbers per (i, j), so that is what should cross.
+        out = ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT)
+        self.wall.mark("untilize")
+        out = ttnn.slice(out, [0, 0, 0, 0], [1, seq_len, seq_len, self.CH_KEEP])
+        t = torch.Tensor(ttnn.to_torch(out)).to(torch.float32)
         ttnn.deallocate(out)
         self.wall.mark("download")
         return {"pae": t[..., self.CH_PAE].contiguous(),
