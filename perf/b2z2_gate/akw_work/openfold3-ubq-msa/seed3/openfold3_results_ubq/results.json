@@ -1,0 +1,61 @@
+[
+  {
+    "id": "ubq",
+    "status": "ok",
+    "complex_plddt": 0.713845,
+    "plddt": 0.713845,
+    "ptm": 0.673845,
+    "iptm": 0.0,
+    "confidence_score": 0.134769,
+    "n_residues": 76,
+    "n_chains": 1,
+    "n_tokens": 76,
+    "msa": true,
+    "msa_depth": 9656,
+    "n_atoms": 601,
+    "samples": 5,
+    "all_runs": [
+      {
+        "rank": 0,
+        "complex_plddt": 0.713845,
+        "plddt": 0.713845,
+        "ptm": 0.673845,
+        "iptm": 0.0,
+        "confidence_score": 0.134769
+      },
+      {
+        "rank": 1,
+        "complex_plddt": 0.714,
+        "plddt": 0.714,
+        "ptm": 0.672925,
+        "iptm": 0.0,
+        "confidence_score": 0.134585
+      },
+      {
+        "rank": 2,
+        "complex_plddt": 0.714131,
+        "plddt": 0.714131,
+        "ptm": 0.670499,
+        "iptm": 0.0,
+        "confidence_score": 0.1341
+      },
+      {
+        "rank": 3,
+        "complex_plddt": 0.71058,
+        "plddt": 0.71058,
+        "ptm": 0.666925,
+        "iptm": 0.0,
+        "confidence_score": 0.133385
+      },
+      {
+        "rank": 4,
+        "complex_plddt": 0.707914,
+        "plddt": 0.707914,
+        "ptm": 0.66509,
+        "iptm": 0.0,
+        "confidence_score": 0.133018
+      }
+    ],
+    "runtime_s": 88.6
+  }
+]
