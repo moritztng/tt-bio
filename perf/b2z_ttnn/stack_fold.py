@@ -46,9 +46,9 @@ def _seed_msa(target: Path, a3m_text: str, msa_dir: Path) -> None:
     (msa_dir / f"{h}.a3m").write_text(a3m_text)
 
 
-def build_cfg(msa_dir: Path, struct_dir: Path) -> dict:
+def build_cfg(msa_dir: Path, struct_dir: Path, model: str = "boltz2") -> dict:
     return dict(
-        model="boltz2", fast=False, output_format="cif",
+        model=model, fast=False, output_format="cif",
         recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
         diffusion_samples=DIFFUSION_SAMPLES, seed=SEED, trace=False,
         msa_dir=str(msa_dir), struct_dir=str(struct_dir),
@@ -95,6 +95,8 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=RECYCLING_STEPS)
     ap.add_argument("--cifdir", type=Path, default=None, help="keep every fold's CIF here")
+    ap.add_argument("--model", default="boltz2",
+                    help="blast radius: the same stack A/B through another model")
     args = ap.parse_args()
     SAMPLING_STEPS, RECYCLING_STEPS = args.steps, args.recycles
 
@@ -124,7 +126,7 @@ def main() -> int:
     msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
     target = FIX / f"{args.fixture}.yaml"
     _seed_msa(target, (FIX / f"{args.fixture}.a3m").read_text(), msa_dir)
-    cfg = build_cfg(msa_dir, struct_dir)
+    cfg = build_cfg(msa_dir, struct_dir, args.model)
     _ensure_local_artifacts(cfg)
 
     t_load = time.perf_counter()
@@ -138,7 +140,7 @@ def main() -> int:
         "torch": torch.__version__, "host": socket.gethostname(),
         "tt_visible_devices": os.environ.get("TT_VISIBLE_DEVICES"),
         "grid": grid, "arch": str(getattr(dev, "arch", lambda: "?")()),
-        "python": sys.executable, "tt_bio_file": _TB.__file__,
+        "python": sys.executable, "tt_bio_file": _TB.__file__, "model": args.model,
         "model_load_s": model_load_s, "fixture": args.fixture,
         "protocol": {"recycling_steps": RECYCLING_STEPS, "sampling_steps": SAMPLING_STEPS,
                      "diffusion_samples": DIFFUSION_SAMPLES, "seed": SEED},
