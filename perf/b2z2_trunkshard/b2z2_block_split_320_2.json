@@ -1,0 +1,70 @@
+{
+  "arch": "WORMHOLE_B0",
+  "S": 320,
+  "shards": [
+    [
+      0,
+      160
+    ],
+    [
+      160,
+      320
+    ]
+  ],
+  "balance_ceiling": 2.0,
+  "gathers_per_block": 4,
+  "gathers_per_block_with_injectable_bias": 3,
+  "chain": [
+    [
+      "triangle_multiplication_start",
+      "FULL"
+    ],
+    [
+      "triangle_multiplication_end",
+      "FULL"
+    ],
+    [
+      "triangle_attention_start",
+      "FULL"
+    ],
+    [
+      "triangle_attention_end",
+      "FULL"
+    ],
+    [
+      "transition_z",
+      "ROWS"
+    ]
+  ],
+  "z_bit_exact": false,
+  "z_max_abs_diff": 0.94140625,
+  "s_bit_exact": false,
+  "s_max_abs_diff": 0.03125,
+  "nc1_rejected": true,
+  "nc1_max_abs_diff": 5.091796875,
+  "nc2_starve": {
+    "triangle_multiplication_start": {
+      "rejected": true,
+      "how": "raised",
+      "detail": "RuntimeError"
+    },
+    "triangle_multiplication_end": {
+      "rejected": true,
+      "how": "raised",
+      "detail": "RuntimeError"
+    },
+    "triangle_attention_start": {
+      "rejected": true,
+      "how": "values",
+      "detail": 0.990234375
+    },
+    "triangle_attention_end": {
+      "rejected": true,
+      "how": "raised",
+      "detail": "RuntimeError"
+    }
+  },
+  "nc3_rejected": true,
+  "nc3_max_abs_diff": 11.34375,
+  "pass": false
+}
