@@ -14,6 +14,9 @@ wheel's kernels byte for byte on the default path:
                across without a second RISC, a second CB or a semaphore. Bit-exact by
                construction: same tiles, same addresses, same bytes, different wire.
 
+The third arm, MM_MCAST_OPERAND, is shared with the other two kernel families and lives in
+`tt_bio/kernels/mm_mcast.py`.
+
 Run from the repo root; overwrites the generated files.
 """
 
@@ -118,6 +121,8 @@ def apply(text, edits, path):
 def main():
     sys.path.insert(0, ".")
     from tt_bio.mm_generic import _kernel_dir
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tt_bio/kernels is not a package
+    import mm_mcast
     src = _kernel_dir()
     OUT.mkdir(parents=True, exist_ok=True)
 
@@ -132,6 +137,7 @@ def main():
     for name in ("dm_in0_sender.cpp", "dm_in1_sender_out.cpp"):
         t = (src / name).read_text()
         t = apply(t, CPP_EDITS, name)
+        t = mm_mcast.apply(t, name)
         (OUT / name).write_text(t)
 
     print("wrote", OUT, "from", src)

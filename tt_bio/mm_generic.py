@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import ttnn
 
+from .envflags import env_flag
+
 # tt_metal/hostdevcommon/api/hostdevcommon/common_values.hpp
 INVALID, VALID = 0, 1
 TILE_HW = 32
@@ -44,6 +46,21 @@ def tile_bytes(dtype):
                          "fold issues, which is bf16 and fp32 only") from None
 
 _CACHE: dict = {}
+
+
+def mcast_enabled():
+    """Whether the operand broadcast goes out as one multicast instead of a daisy chain.
+
+    The kernels reach every core on a grid axis by forwarding the injector's block from one core to
+    the next, 8-9 hops on an 8x9 Wormhole grid and 10-11 on an 11x10 Blackhole one, each gated by a
+    semaphore round trip. `MM_MCAST_OPERAND` (`tt_bio/kernels/mm_mcast.py`) sends it to the whole
+    axis in one transaction instead.
+
+    Gated on `K_num_blocks == 1` at the call site, which is a property of the block config and not a
+    model name. The chain's one advantage is that a core can forward block k while it reads block
+    k+1, and with a single K block there is no such overlap left to buy.
+    """
+    return env_flag("TT_BIO_MM_MCAST", False)
 
 
 def ttnn_cpp_root():
@@ -117,6 +134,12 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
     fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=data_format, page_size=page_size)
     return ttnn.CBDescriptor(
         total_size=num_tiles * page_size, core_ranges=core_grid, format_descriptors=[fmt])
+
+
+def _mcast_args(order, phys):
+    """``(dest, injector, [end_x, end_y, num_dests])`` for one axis's multicast, in NOC order."""
+    first, last = phys(order[min(1, len(order) - 1)]), phys(order[-1])
+    return first, phys(order[0]), [last[0], last[1], len(order) - 1]
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
@@ -197,6 +220,12 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     M_blocks_per_core = _div_up(M_tiles_per_core, M_block_tiles)
     N_blocks_per_core = _div_up(N_tiles_per_core, N_block_tiles)
 
+    # One K block means the chain has nothing left to pipeline over, which is the only thing it
+    # buys over a multicast. See `mcast_enabled`.
+    use_mcast = mcast_enabled() and K_blocks == 1
+    if use_mcast:
+        defines = defines + [("MM_MCAST_OPERAND", "1")]
+
     in0_block = M_block_tiles * K_block_tiles
     in1_block = K_block_tiles * N_block_tiles
     out_block = M_block_tiles * N_block_tiles
@@ -274,17 +303,31 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
             in1_prev = phys(in1_order[max(in1_i - 1, 0)])
             in1_next = phys(in1_order[min(in1_i + 1, len(in1_order) - 1)])
 
+            # The multicast rectangle is the chain minus its injector, and `*_order` was already
+            # built in this NOC's own traversal direction, so order[1] is the corner the packet
+            # reaches first and order[-1] the one it reaches last -- which is exactly the corner
+            # convention `get_noc_multicast_addr` wants, on either NOC. Every core credits the
+            # injector instead of its predecessor, and carries the same rectangle so the runtime
+            # args do not depend on where in the chain the core sits.
+            in0_mcast = _mcast_args(in0_order, phys)
+            in1_mcast = _mcast_args(in1_order, phys)
+
             M_start, M_end = M_tiles_per_core * in0_idx, M_tiles_per_core * (in0_idx + 1)
             N_start, N_end = N_tiles_per_core * in1_idx, N_tiles_per_core * (in1_idx + 1)
             defer_k = min(cy * k_blocks_per_core, K_blocks - 1)
 
             cc = ttnn.CoreCoord(cx, cy)
+            if use_mcast:
+                (in0_next, in0_prev, in0_tail) = in0_mcast
+                (in1_next, in1_prev, in1_tail) = in1_mcast
+            else:
+                in0_tail = in1_tail = []
             a0 = [in0_addr, 0, 0, int(core == in0_order[-1]),
                   in0_next[0], in0_next[1], in0_prev[0], in0_prev[1],
-                  M_start, M_end, N_start, N_end, defer_k, *out_addrs]
+                  M_start, M_end, N_start, N_end, defer_k, *in0_tail, *out_addrs]
             a1 = [in1_addr, 0, int(core == in1_order[-1]),
                   in1_next[0], in1_next[1], in1_prev[0], in1_prev[1],
-                  M_start, M_end, N_start, N_end, defer_k, *out_addrs]
+                  M_start, M_end, N_start, N_end, defer_k, *in1_tail, *out_addrs]
             rt["in0_sender" if in1_idx == 0 else "in0_recv"].append((cc, a0))
             rt["in1_sender" if in0_idx == 0 else "in1_recv"].append((cc, a1))
             rt["compute"].append((cc, [M_start, M_end, N_start, N_end]))
@@ -330,7 +373,8 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                      "M_blocks_per_core": M_blocks_per_core,
                      "N_blocks_per_core": N_blocks_per_core, "K_blocks": K_blocks,
                      "N_tiles_per_chunk": N_tiles_per_chunk,
-                     "transpose_core_grid": transpose, "defines": defines}}
+                     "transpose_core_grid": transpose, "defines": defines,
+                     "mcast": use_mcast}}
 
 
 def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None):
@@ -339,7 +383,8 @@ def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
-            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode))
+            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode),
+            mcast_enabled())
 
 
 def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,

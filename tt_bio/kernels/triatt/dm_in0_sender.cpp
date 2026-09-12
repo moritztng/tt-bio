@@ -46,6 +46,11 @@ void kernel_main() {
     const uint32_t N_start_tile = get_arg_val<uint32_t>(argidx++);
     const uint32_t N_end_tile = get_arg_val<uint32_t>(argidx++);
     const uint32_t defer_write_k_block = get_arg_val<uint32_t>(argidx++);
+#ifdef MM_MCAST_OPERAND
+    const uint32_t in0_mcast_end_noc_x = get_arg_val<uint32_t>(argidx++);
+    const uint32_t in0_mcast_end_noc_y = get_arg_val<uint32_t>(argidx++);
+    const uint32_t in0_mcast_num_dests = get_arg_val<uint32_t>(argidx++);
+#endif
 
 #ifdef FUSE_TERNARY
     // Fuse addcmul - read runtime addresses before setting out_addr_rt_arg_idx
@@ -172,6 +177,13 @@ void kernel_main() {
 
     const uint64_t in0_receiver_semaphore_noc_addr =
         get_noc_addr(in0_dest_noc_x, in0_dest_noc_y, in0_receiver_semaphore_addr);
+#ifdef MM_MCAST_OPERAND
+    const uint64_t in0_mcast_data_base_addr = get_noc_multicast_addr(
+        in0_dest_noc_x, in0_dest_noc_y, in0_mcast_end_noc_x, in0_mcast_end_noc_y, 0);
+    const uint64_t in0_mcast_receiver_semaphore_noc_addr = get_noc_multicast_addr(
+        in0_dest_noc_x, in0_dest_noc_y, in0_mcast_end_noc_x, in0_mcast_end_noc_y,
+        in0_receiver_semaphore_addr);
+#endif
 
     /**
      * This is a Row-Major output block ordering.
@@ -280,6 +292,27 @@ void kernel_main() {
                 // This frees sender to start next read earlier
                 cb_push_back(cb_id_in0, in0_block_num_tiles);
 
+#ifdef MM_MCAST_OPERAND
+                if constexpr (is_injector_core) {
+                    if (in0_mcast_num_dests) {
+                        noc_semaphore_wait(in0_sender_semaphore_addr_ptr, in0_mcast_num_dests);
+                        noc_semaphore_set(in0_sender_semaphore_addr_ptr, 0);
+                        noc_async_write_multicast(
+                            in0_start_address,
+                            in0_mcast_data_base_addr | in0_start_address,
+                            current_block_bytes,
+                            in0_mcast_num_dests,
+                            true);
+#ifdef ARCH_BLACKHOLE
+                        noc_async_writes_flushed();
+#endif
+                        noc_semaphore_set_multicast(
+                            in0_valid_semaphore_addr,
+                            in0_mcast_receiver_semaphore_noc_addr,
+                            in0_mcast_num_dests);
+                    }
+                }
+#else
                 if (!is_sink_core) {
                     noc_semaphore_wait(in0_sender_semaphore_addr_ptr, 1);
                     noc_semaphore_set(in0_sender_semaphore_addr_ptr, 0);
@@ -298,6 +331,7 @@ void kernel_main() {
 
                     noc_semaphore_set_remote(in0_valid_semaphore_addr, in0_receiver_semaphore_noc_addr);
                 }
+#endif  // MM_MCAST_OPERAND
             }
 #ifdef FUSE_BIAS
             if constexpr (!is_output_writer) {
