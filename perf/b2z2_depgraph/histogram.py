@@ -71,7 +71,7 @@ def main() -> int:
         with open(a.opscsv) as fh:
             for row in csv.DictReader(fh):
                 try:
-                    names[int(row["GLOBAL CALL COUNT"])] = row["OP CODE"].strip()
+                    names[int(row["GLOBAL CALL COUNT"]) // 1024] = row["OP CODE"].strip()
                 except (ValueError, KeyError):
                     pass
 

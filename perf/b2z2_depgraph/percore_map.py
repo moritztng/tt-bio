@@ -24,6 +24,9 @@ def main() -> int:
     ap.add_argument("log")
     ap.add_argument("--ops-per-block", type=int, required=True)
     ap.add_argument("--reps", type=int, required=True)
+    ap.add_argument("--window", help="first,last op index (run host ID / 1024) of the replayed "
+                    "region; the census brackets it with 1-core fence ops, so the tail of the log "
+                    "is NOT the block")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -68,7 +71,14 @@ def main() -> int:
     if len(all_ops) < need:
         print(f"only {len(all_ops)} ops in log, need {need}", file=sys.stderr)
         return 1
-    window = all_ops[-need:]
+    if a.window:
+        lo, hi = (int(v) for v in a.window.split(","))
+        window = [o for o in all_ops if lo <= o <= hi]
+        if len(window) != need:
+            print(f"window {lo}..{hi} holds {len(window)} ops, need {need}", file=sys.stderr)
+            return 1
+    else:
+        window = all_ops[-need:]
     by_op_kern = defaultdict(dict)
     for (o, core), d in kern.items():
         by_op_kern[o][core] = d
