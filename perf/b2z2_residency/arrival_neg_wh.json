@@ -1,0 +1,353 @@
+{
+  "arch": "Arch.WORMHOLE_B0",
+  "grid": [
+    8,
+    9
+  ],
+  "max_cores": 72,
+  "op": "neg",
+  "dtype": "bfloat16",
+  "tiles_per_core": 128,
+  "width_tiles": 8,
+  "bytes_per_tile": 2048,
+  "iters": 40,
+  "reps": 5,
+  "by_cores": {
+    "1": {
+      "cores": 1,
+      "linearity_ratio": 1.870779655407219,
+      "linearity_us": [
+        35.10319802444428,
+        65.67034870386124
+      ],
+      "DRAM": {
+        "us_per_op": 66.01384957320988,
+        "ns_per_tile_per_core": 515.7331997907022,
+        "n": 5,
+        "spread_pct": 0.26362097550915065
+      },
+      "L1I": {
+        "us_per_op": 52.6122486917302,
+        "ns_per_tile_per_core": 411.0331929041422,
+        "n": 5,
+        "spread_pct": 1.9064489860312666
+      },
+      "L1S": {
+        "us_per_op": 28.888601809740067,
+        "ns_per_tile_per_core": 225.69220163859427,
+        "n": 5,
+        "spread_pct": 32.541722546576445
+      },
+      "DRAM_AA": {
+        "us_per_op": 65.99180051125586,
+        "ns_per_tile_per_core": 515.5609414941864,
+        "n": 5,
+        "spread_pct": 79.67527997173931
+      },
+      "parity_max_abs": {
+        "DRAM": 0.0,
+        "L1I": 0.0,
+        "L1S": 0.0,
+        "DRAM_AA": 0.0
+      },
+      "aa_floor": 0.9996659933923476,
+      "ratio_L1S_over_DRAM": 0.4376142581671802,
+      "ratio_L1I_over_L1S": 1.8212113219682193,
+      "dram_arm_GBps": 7.942090991354177
+    },
+    "2": {
+      "cores": 2,
+      "linearity_ratio": 1.9031622705666038,
+      "linearity_us": [
+        34.76745041552931,
+        66.16809987463057
+      ],
+      "DRAM": {
+        "us_per_op": 66.08172552660108,
+        "ns_per_tile_per_core": 516.2634806765709,
+        "n": 5,
+        "spread_pct": 29.91360069988304
+      },
+      "L1I": {
+        "us_per_op": 52.66130028758198,
+        "ns_per_tile_per_core": 411.4164084967342,
+        "n": 5,
+        "spread_pct": 0.8262719416655487
+      },
+      "L1S": {
+        "us_per_op": 27.85380056593567,
+        "ns_per_tile_per_core": 217.60781692137243,
+        "n": 5,
+        "spread_pct": 212.42998662660324
+      },
+      "DRAM_AA": {
+        "us_per_op": 65.8306002151221,
+        "ns_per_tile_per_core": 514.3015641806414,
+        "n": 5,
+        "spread_pct": 0.4966925918141782
+      },
+      "parity_max_abs": {
+        "DRAM": 0.0,
+        "L1I": 0.0,
+        "L1S": 0.0,
+        "DRAM_AA": 0.0
+      },
+      "aa_floor": 0.99619977672378,
+      "ratio_L1S_over_DRAM": 0.42150534575134807,
+      "ratio_L1I_over_L1S": 1.8906324888383492,
+      "dram_arm_GBps": 15.867866518980316
+    },
+    "4": {
+      "cores": 4,
+      "linearity_ratio": 1.8967497965991071,
+      "linearity_us": [
+        34.83429900370538,
+        66.07194954995066
+      ],
+      "DRAM": {
+        "us_per_op": 66.531149786897,
+        "ns_per_tile_per_core": 519.7746077101328,
+        "n": 5,
+        "spread_pct": 0.480942001175936
+      },
+      "L1I": {
+        "us_per_op": 53.190349717624485,
+        "ns_per_tile_per_core": 415.5496071689413,
+        "n": 5,
+        "spread_pct": 0.949471344077628
+      },
+      "L1S": {
+        "us_per_op": 35.19607416819781,
+        "ns_per_tile_per_core": 274.9693294390454,
+        "n": 5,
+        "spread_pct": 19.41694225362699
+      },
+      "DRAM_AA": {
+        "us_per_op": 66.4640247123316,
+        "ns_per_tile_per_core": 519.2501930650906,
+        "n": 5,
+        "spread_pct": 1.8733438236815698
+      },
+      "parity_max_abs": {
+        "DRAM": 0.0,
+        "L1I": 0.0,
+        "L1S": 0.0,
+        "DRAM_AA": 0.0
+      },
+      "aa_floor": 0.9989910729818977,
+      "ratio_L1S_over_DRAM": 0.5290164724483615,
+      "ratio_L1I_over_L1S": 1.5112580301835425,
+      "dram_arm_GBps": 31.521355135410936
+    },
+    "8": {
+      "cores": 8,
+      "linearity_ratio": 1.933910431699113,
+      "linearity_us": [
+        35.76320013962686,
+        69.16282582096756
+      ],
+      "DRAM": {
+        "us_per_op": 67.95552326366305,
+        "ns_per_tile_per_core": 530.9025254973676,
+        "n": 5,
+        "spread_pct": 0.8901793369748393
+      },
+      "L1I": {
+        "us_per_op": 53.46952530089766,
+        "ns_per_tile_per_core": 417.73066641326295,
+        "n": 5,
+        "spread_pct": 0.6386788060889894
+      },
+      "L1S": {
+        "us_per_op": 27.84054959192872,
+        "ns_per_tile_per_core": 217.50429368694313,
+        "n": 5,
+        "spread_pct": 46.47690660823714
+      },
+      "DRAM_AA": {
+        "us_per_op": 67.98857357352972,
+        "ns_per_tile_per_core": 531.1607310432009,
+        "n": 5,
+        "spread_pct": 1.2940795942038552
+      },
+      "parity_max_abs": {
+        "DRAM": 0.0,
+        "L1I": 0.0,
+        "L1S": 0.0,
+        "DRAM_AA": 0.0
+      },
+      "aa_floor": 1.000486352076761,
+      "ratio_L1S_over_DRAM": 0.4096878113043024,
+      "ratio_L1I_over_L1S": 1.9205628511155202,
+      "dram_arm_GBps": 61.72131121301753
+    },
+    "16": {
+      "cores": 16,
+      "linearity_ratio": 1.919375746094605,
+      "linearity_us": [
+        38.21587597485632,
+        73.35062546189874
+      ],
+      "DRAM": {
+        "us_per_op": 73.57495196629316,
+        "ns_per_tile_per_core": 574.8043122366653,
+        "n": 5,
+        "spread_pct": 1.7865432107018657
+      },
+      "L1I": {
+        "us_per_op": 55.73845119215548,
+        "ns_per_tile_per_core": 435.4566499387147,
+        "n": 5,
+        "spread_pct": 1.161632253328777
+      },
+      "L1S": {
+        "us_per_op": 35.04437627270818,
+        "ns_per_tile_per_core": 273.78418963053264,
+        "n": 5,
+        "spread_pct": 47.90340728082919
+      },
+      "DRAM_AA": {
+        "us_per_op": 73.7529742764309,
+        "ns_per_tile_per_core": 576.1951115346164,
+        "n": 5,
+        "spread_pct": 0.6609913789446444
+      },
+      "parity_max_abs": {
+        "DRAM": 0.0,
+        "L1I": 0.0,
+        "L1S": 0.0,
+        "DRAM_AA": 0.0
+      },
+      "aa_floor": 1.0024196048434977,
+      "ratio_L1S_over_DRAM": 0.47630851718072525,
+      "ratio_L1I_over_L1S": 1.5905105788846188,
+      "dram_arm_GBps": 114.01445431922357
+    },
+    "32": {
+      "cores": 32,
+      "linearity_ratio": 2.0370328855804916,
+      "linearity_us": [
+        46.06165166478604,
+        93.82909920532256
+      ],
+      "DRAM": {
+        "us_per_op": 94.20292335562408,
+        "ns_per_tile_per_core": 735.9603387158131,
+        "n": 5,
+        "spread_pct": 0.8031851825442468
+      },
+      "L1I": {
+        "us_per_op": 60.15957333147526,
+        "ns_per_tile_per_core": 469.99666665215045,
+        "n": 5,
+        "spread_pct": 0.8511527830348189
+      },
+      "L1S": {
+        "us_per_op": 28.05162512231618,
+        "ns_per_tile_per_core": 219.15332126809517,
+        "n": 5,
+        "spread_pct": 16.644310063895027
+      },
+      "DRAM_AA": {
+        "us_per_op": 94.43927556276321,
+        "ns_per_tile_per_core": 737.8068403340876,
+        "n": 5,
+        "spread_pct": 0.6598675438890496
+      },
+      "parity_max_abs": {
+        "DRAM": 0.0,
+        "L1I": 0.0,
+        "L1S": 0.0,
+        "DRAM_AA": 0.0
+      },
+      "aa_floor": 1.0025089689228315,
+      "ratio_L1S_over_DRAM": 0.2977787113508028,
+      "ratio_L1I_over_L1S": 2.1446020709729194,
+      "dram_arm_GBps": 178.0965537201492
+    },
+    "64": {
+      "cores": 64,
+      "linearity_ratio": 1.929882961381059,
+      "linearity_us": [
+        94.19492271263152,
+        181.78517639171332
+      ],
+      "DRAM": {
+        "us_per_op": 182.29667330160737,
+        "ns_per_tile_per_core": 1424.1927601688076,
+        "n": 5,
+        "spread_pct": 1.612851004507578
+      },
+      "L1I": {
+        "us_per_op": 102.72897488903254,
+        "ns_per_tile_per_core": 802.5701163205667,
+        "n": 5,
+        "spread_pct": 1.4075141553599133
+      },
+      "L1S": {
+        "us_per_op": 35.621976712718606,
+        "ns_per_tile_per_core": 278.2966930681141,
+        "n": 5,
+        "spread_pct": 155.48589833440883
+      },
+      "DRAM_AA": {
+        "us_per_op": 183.87055024504662,
+        "ns_per_tile_per_core": 1436.4886737894267,
+        "n": 5,
+        "spread_pct": 1.9063830379958326
+      },
+      "parity_max_abs": {
+        "DRAM": 0.0,
+        "L1I": 0.0,
+        "L1S": 0.0,
+        "DRAM_AA": 0.0
+      },
+      "aa_floor": 1.0086336021109683,
+      "ratio_L1S_over_DRAM": 0.1954066197016252,
+      "ratio_L1I_over_L1S": 2.8838650846782965,
+      "dram_arm_GBps": 184.06497163272226
+    },
+    "72": {
+      "cores": 72,
+      "linearity_ratio": 2.006336122952294,
+      "linearity_us": [
+        105.04092497285455,
+        210.7474021613598
+      ],
+      "DRAM": {
+        "us_per_op": 209.93917423766106,
+        "ns_per_tile_per_core": 1640.149798731727,
+        "n": 5,
+        "spread_pct": 0.7837991533349948
+      },
+      "L1I": {
+        "us_per_op": 111.4873739425093,
+        "ns_per_tile_per_core": 870.9951089258539,
+        "n": 5,
+        "spread_pct": 1.1172803136364644
+      },
+      "L1S": {
+        "us_per_op": 36.42392694018781,
+        "ns_per_tile_per_core": 284.5619292202173,
+        "n": 5,
+        "spread_pct": 153.98868860389064
+      },
+      "DRAM_AA": {
+        "us_per_op": 211.15602576173842,
+        "ns_per_tile_per_core": 1649.6564512635814,
+        "n": 5,
+        "spread_pct": 1.2341119190974317
+      },
+      "parity_max_abs": {
+        "DRAM": 0.0,
+        "L1I": 0.0,
+        "L1S": 0.0,
+        "DRAM_AA": 0.0
+      },
+      "aa_floor": 1.0057962099188777,
+      "ratio_L1S_over_DRAM": 0.17349752409216493,
+      "ratio_L1I_over_L1S": 3.0608279586543237,
+      "dram_arm_GBps": 179.80796646016455
+    }
+  }
+}
