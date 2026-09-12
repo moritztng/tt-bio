@@ -387,6 +387,15 @@ _PAIR_BIAS_L1_NORM = True
 # at 905216, static CB region ending at 1159680). `_template` gathers its projections above the
 # block loop so the residency window is the projections only.
 _PWA_L1_NORM = True
+# PairWeightedAveraging projects the normed pair tensor once PER HEAD to get that head's token
+# softmax, and `proj_z` is [c_z, n_heads] -- one COLUMN per head. Eight heads is eight columns of
+# the same 32-wide tile, so the eight matmuls have byte-for-byte the same padded output shape and
+# each one re-reads the whole pair tensor to fill a column of a tile it then discards 31/32 of.
+# MEASURED on Wormhole, one MSALayer at 512 tokens (perf/b2z2_msa_census): 8.436 ms and 536.9 MB
+# of reads against a 67.1 MB source, plus eight permutes, eight softmaxes and fourteen tiny
+# weight-slice retiles. One projection over the whole weight gives every head at once.
+# Gated only on the heads fitting one tile, which is a property of the shape, not of a model.
+_PWA_BATCH_HEAD_WEIGHTS = env_flag("TT_BIO_PWA_BATCH_HEAD_WEIGHTS", False)
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
 # projection. The wall is per core, and an aggregate multiple of the tensor cannot see it: the
 # tensor scales with its area, its consumers' static circular buffers scale with the row width.
@@ -8624,18 +8633,7 @@ class PairWeightedAveraging(Module):
                       (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                        epsilon=1e-5,
                                        compute_kernel_config=self.compute_kernel_config), False))
-        def token_weight(i):
-            """Head ``i``'s softmax over the token axis. A function of ``z`` alone, so it does
-            not depend on the MSA depth and a chunked path computes it once for every block."""
-            zw = self.z_weight[:, i : i + 1]
-            b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype, l1_out=z_in_l1)
-            if b is None:
-                b = ttnn.linear(
-                    z,
-                    zw,
-                    compute_kernel_config=self.compute_kernel_config,
-                    core_grid=CORE_GRID_MAIN,
-                )
+        def _softmax_over_tokens(b):
             b = ttnn.permute(b, (2, 0, 1))
             if attn_mask is not None:
                 b = ttnn.add_(b, ttnn.reshape(attn_mask, (1, 1, attn_mask.shape[-1])))
@@ -8645,6 +8643,36 @@ class PairWeightedAveraging(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 numeric_stable=True,
             )
+
+        def _proj_z(zw):
+            b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype, l1_out=z_in_l1)
+            if b is None:
+                b = ttnn.linear(
+                    z,
+                    zw,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
+            return b
+
+        def token_weight(i):
+            """Head ``i``'s softmax over the token axis. A function of ``z`` alone, so it does
+            not depend on the MSA depth and a chunked path computes it once for every block."""
+            return _softmax_over_tokens(_proj_z(self.z_weight[:, i : i + 1]))
+
+        def token_weights():
+            """Every head's token softmax, from ONE projection of the pair tensor.
+
+            Bit-exact against the per-head loop, not approximately: `proj_z` is [c_z, n_heads]
+            and n_heads columns pad to the same 32-wide tile a single column does, so the
+            batched matmul has the identical padded operand shape, the identical K blocking and
+            the identical per-column dot product. Permute and softmax are per row over the token
+            axis and do not mix heads.
+            """
+            b = _softmax_over_tokens(_proj_z(self.z_weight))
+            out = [b[i:i + 1] for i in range(self.n_heads)]
+            ttnn.deallocate(b)
+            return out
 
         def head_out(mc, i, w):
             """Head ``i``'s contribution for the normed MSA rows ``mc``. Every op is per row."""
@@ -8696,8 +8724,9 @@ class PairWeightedAveraging(Module):
             written to the accumulator instead of to a new buffer.
             """
             acc = None
+            own = token_weights() if (not ws and _PWA_BATCH_HEAD_WEIGHTS) else None
             for i in range(self.n_heads):
-                w = ws[i] if ws else token_weight(i)
+                w = ws[i] if ws else (own[i] if own else token_weight(i))
                 o = head_out(mc, i, w)
                 if not ws:
                     ttnn.deallocate(w)
@@ -8729,7 +8758,8 @@ class PairWeightedAveraging(Module):
             if not ws:
                 # Depth-independent, so eight [1, tokens, tokens] weights (2.4 MB each at 1088
                 # tokens) are computed once and reused by every block, not once per block.
-                ws.extend(token_weight(i) for i in range(self.n_heads))
+                ws.extend(token_weights() if _PWA_BATCH_HEAD_WEIGHTS
+                          else [token_weight(i) for i in range(self.n_heads)])
             host = _host_concat(m)
             parts = []
             acc = None
