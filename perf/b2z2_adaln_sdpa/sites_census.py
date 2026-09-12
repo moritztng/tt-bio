@@ -99,7 +99,7 @@ def main() -> int:
         key = (rec["site"], tuple(rec["shape"]))
         if key not in seen_ln:
             seen_ln.add(key)
-            keep["ln"].append((rec, ttnn.clone(x), dict(kw)))
+            keep["ln"].append((rec, (ttnn.clone(x),), dict(kw)))
         return orig_ln(x, **kw)
 
     def sdpa_rec(q, k, v, **kw):
@@ -163,9 +163,9 @@ def main() -> int:
             print(f"    {tag} ISOLATED {rec['site']:44s} {t['ms_per_call']*1e3:8.2f} us", flush=True)
         return rows
 
-    out["ln_isolated"] = price("LN", keep["ln"], lambda x, **kw: orig_ln(x, **kw))
+    out["ln_isolated"] = price("LN", keep["ln"], lambda *x, **kw: orig_ln(*x, **kw))
     out["sdpa_isolated"] = price("SDPA", keep["sdpa"],
-                                 lambda qkv, **kw: orig_sdpa(*qkv, **kw))
+                                 lambda *qkv, **kw: orig_sdpa(*qkv, **kw))
     SP.dump()
 
     # ---- screen 1: the token AdaLN chain, DRAM-resident against L1-resident --------------
@@ -180,7 +180,7 @@ def main() -> int:
                   if e[0]["site"].endswith("__call__") and e[0]["shape"] == [1, 512, 768]
                   and not e[0]["weight"]), None)
     if ln_in is not None:
-        a0 = ln_in[1]
+        a0 = ln_in[1][0]
         kwln = {k: v for k, v in ln_in[2].items() if k != "memory_config"}
         sc = ttnn.clone(a0)
         sb = ttnn.clone(a0)
