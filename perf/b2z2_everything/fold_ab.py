@@ -43,6 +43,8 @@ ARMS = {
     "ALL": BITEXACT + HOST,              # the whole union
     "HOSTONLY": HOST,
     "SAMP": ("SHG", "KVP", "L1", "SDPAQ"),
+    "SDPAQ": ("SDPAQ",),                 # the one member of the union that deletes no reader
+    "GATHER": ("SHG", "KVP", "L1"),      # the sampler levers that do
     "TRUNK": ("QKVG",),
     "MSA": ("PWA",),
 }
