@@ -238,12 +238,16 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in0_is_writer = not transpose
     in1_is_writer = transpose
 
-    def dm_ct(tile_size, sems, is_writer, is_injector, acc_main, tail, acc_bias=()):
+    def dm_ct(tile_size, sems, is_writer, is_injector, acc_main, tail):
+        # `acc_in2` is empty unless there is a bias, so a no-bias program is byte-for-byte the
+        # descriptor every caller got before. Both DM kernels read in2's accessor args from the
+        # same place -- straight after the outputs' -- and BOTH JIT-compile the block, so both
+        # lists carry them even though only the non-writer of the pair reads the tiles.
         return ([M_tiles, padded_M_tiles, K_tiles, padded_K_tiles, N_tiles, padded_N_tiles,
                  M_block_tiles, K_block_tiles, N_block_tiles, M_blocks_per_core, N_blocks_per_core,
                  tile_size, out_tile_size, in2_tile_size, *sems,
                  int(is_writer), int(is_injector), N_chunks, N_tiles_per_chunk] + tail
-                + acc_main + acc_out + list(acc_bias))
+                + acc_main + acc_out + acc_in2)
 
     in0_sems = [in0_sender_sem, in0_recv_sem, in0_valid_sem]
     in1_sems = [in1_sender_sem, in1_recv_sem, in1_valid_sem]
@@ -296,7 +300,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
             defer_k = min(cy * k_blocks_per_core, K_blocks - 1)
 
             cc = ttnn.CoreCoord(cx, cy)
-            a0 = [in0_addr, 0, 0, int(core == in0_order[-1]),
+            a0 = [in0_addr, bias_addr, 0, int(core == in0_order[-1]),
                   in0_next[0], in0_next[1], in0_prev[0], in0_prev[1],
                   M_start, M_end, N_start, N_end, defer_k, *out_addrs]
             a1 = [in1_addr, bias_addr, int(core == in1_order[-1]),
@@ -323,10 +327,10 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                   dm_ct(in0_tile_size, in0_sems, in0_is_writer, False, acc_in0, [in3_tile_size]),
                   rt["in0_recv"], in0_risc, in0_noc),
         dm_kernel(in1_src, in1_sender_cores,
-                  dm_ct(in1_tile_size, in1_sems, in1_is_writer, True, acc_in1, [], acc_in2),
+                  dm_ct(in1_tile_size, in1_sems, in1_is_writer, True, acc_in1, []),
                   rt["in1_sender"], in1_risc, in1_noc),
         dm_kernel(in1_src, in1_recv_cores,
-                  dm_ct(in1_tile_size, in1_sems, in1_is_writer, False, acc_in1, [], acc_in2),
+                  dm_ct(in1_tile_size, in1_sems, in1_is_writer, False, acc_in1, []),
                   rt["in1_recv"], in1_risc, in1_noc),
         ttnn.KernelDescriptor(
             kernel_source=compute_src,
@@ -393,7 +397,7 @@ def rebind(entry, in0_addr, in1_addr, out_addrs, bias_addr=0):
                        ("in1_sender", in1_addr), ("in1_recv", in1_addr)):
         for _, a in rt[name]:
             a[0] = addr
-            if entry["has_bias"] and name.startswith("in1"):
+            if entry["has_bias"]:
                 a[1] = bias_addr           # the slot the kernel reads as in2_addr
             a[len(a) - n:] = list(out_addrs)
     for k, name in zip(entry["kernels"][:4],
