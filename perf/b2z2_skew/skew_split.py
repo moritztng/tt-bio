@@ -106,6 +106,10 @@ def main() -> int:
 
     cmap = json.loads(a.coremap.read_text())
     gx, gy = cmap["grid"]
+    if "variants" not in cmap:
+        print("coremap predates the two-geometry fix; regenerate with core_map.py",
+              file=sys.stderr)
+        return 1
     stream = load(a.log)
     try:
         first = next(stream)
@@ -132,7 +136,7 @@ def main() -> int:
 
     # (axis, run, core) -> [(ask, arrive), ...] in issue order, one per block iteration
     waits = defaultdict(list)
-    src_cores = defaultdict(set)          # which cores read DRAM: the injectors, per axis
+    src_cores = defaultdict(set)          # (axis, run) -> the cores that read DRAM
     seen_x, seen_y = set(), set()
     open_at = {}
     fwd_end = defaultdict(list)
@@ -149,7 +153,7 @@ def main() -> int:
         seen_x.add(core[0])
         seen_y.add(core[1])
         if z.endswith("-SRC"):
-            src_cores[axis].add(core)
+            src_cores[(axis, run)].add(core)
         t, ph = int(r[c_time]), r[c_phase].lower()
         begin = ph.startswith("beg") or ph.endswith("start")
         if z.endswith("CHAINWAIT"):
@@ -180,21 +184,37 @@ def main() -> int:
     for core in {c for _, _, c in waits} | {c for v in src_cores.values() for c in v}:
         if core[0] in xs and core[1] in ys:
             to_logical[core] = (xs.index(core[0]), ys.index(core[1]))
-    map_check = {"grid": [gx, gy], "distinct_x": len(xs), "distinct_y": len(ys)}
-    for axis in ("in0", "in1"):
-        want = {c for c, lg in to_logical.items()
-                if cmap[axis].get(f"{lg[0]},{lg[1]}", {}).get("injector")}
-        got = src_cores.get(axis, set())
-        map_check[axis + "_injectors_expected"] = len(want)
-        map_check[axis + "_injectors_with_dram_read"] = len(got)
-        map_check[axis + "_injector_mismatch"] = len(want ^ got)
+    map_check = {"grid": [gx, gy], "distinct_x": len(xs), "distinct_y": len(ys),
+                 "variant_used": defaultdict(int), "programs_unresolved": 0}
+
+    def lg(core):
+        return to_logical.get(core)
+
+    # Pick the geometry per program rather than assuming one. `build` sets `transpose = M > N`, so
+    # one Pairformer block contains both walks; the cores that issued a DRAM read ARE the injector
+    # set, so the variant whose injectors match them exactly is the one that program ran, and a
+    # program whose injectors match neither is dropped and counted rather than guessed at.
+    variant_of = {}
+    for (axis, run), got in src_cores.items():
+        cores = {c for (ax, rn, c) in waits if ax == axis and rn == run} | got
+        for name, var in cmap["variants"].items():
+            want = {c for c in cores
+                    if var[axis].get("%d,%d" % lg(c), {}).get("injector")} if all(
+                        lg(c) for c in cores) else set()
+            if want and want == got:
+                variant_of[(axis, run)] = name
+                map_check["variant_used"][axis + ":" + name] += 1
+                break
+        else:
+            map_check["programs_unresolved"] += 1
 
     # group cores of one chain together: (axis, run, chain group) -> {core: [(ask, arr), ...]}
     groups = defaultdict(dict)
     unmapped = 0
     for (axis, run, core), v in waits.items():
-        lg = to_logical.get(core)
-        ent = cmap[axis].get(f"{lg[0]},{lg[1]}") if lg else None
+        name = variant_of.get((axis, run))
+        l = lg(core)
+        ent = cmap["variants"][name][axis].get("%d,%d" % l) if (name and l) else None
         if ent is None:
             unmapped += 1
             continue
@@ -206,6 +226,7 @@ def main() -> int:
     for (axis, run, grp), members in groups.items():
         if len(members) < 3:
             continue
+        akey = axis + ":" + variant_of[(axis, run)]
         n_iter = min(len(v) for _, v in members.values())
         for it in range(n_iter):
             asks, arrs, hops, per = [], [], [], []
@@ -215,12 +236,12 @@ def main() -> int:
                 arrs.append(arr)
                 hops.append(hop)
                 per.append((hop, arr - ask, core, ask, arr))
-                hop_wait[(axis, hop)].append((arr - ask) * ns / 1000.0)
+                hop_wait[(akey, hop)].append((arr - ask) * ns / 1000.0)
             t0 = min(arrs)
             rel = [(h, (arr - t0) * ns / 1000.0) for h, _, _, _, arr in per]
             sl, ic, r2 = linfit([h for h, _ in rel], [w for _, w in rel])
             samples.append({
-                "axis": axis, "group": grp, "iter": it, "cores": len(per),
+                "axis": akey, "group": grp, "iter": it, "cores": len(per),
                 "ask_spread_us": (max(asks) - min(asks)) * ns / 1000.0,
                 "arr_spread_us": (max(arrs) - min(arrs)) * ns / 1000.0,
                 "sum_wait_us": sum(w for _, w, _, _, _ in per) * ns / 1000.0,
@@ -255,7 +276,7 @@ def main() -> int:
     # the ramp, fitted once over every (hop, wait) sample rather than per iteration
     hop_mean = {k: st.mean(v) for k, v in sorted(hop_wait.items())}
     per_axis = {}
-    for axis in ("in0", "in1"):
+    for axis in sorted({k for k, _ in hop_mean}):
         hs = [h for (ax, h) in hop_mean if ax == axis]
         if len(hs) < 3:
             continue
@@ -278,7 +299,8 @@ def main() -> int:
             "total_wait_us": round(sum(ally), 3)}
 
     res = {
-        "samples": len(samples), "unmapped_cores": unmapped, "core_map_check": map_check,
+        "samples": len(samples), "unmapped_waits": unmapped,
+        "core_map_check": dict(map_check, variant_used=dict(map_check["variant_used"])),
         "causality": {"checked": causality_checked, "violations": causality_bad,
                       "note": "a core's operand arriving before its predecessor finished "
                               "forwarding would mean cross-core timestamps are not comparable"},
