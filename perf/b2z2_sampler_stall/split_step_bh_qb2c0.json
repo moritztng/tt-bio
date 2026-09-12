@@ -74,7 +74,11 @@
    "compute_ms": 6.739283666666667,
    "kernel_ms": 9.070436333333333,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 979.679232,
+   "dram_wr_MB": 529.686528,
+   "l1_rd_MB": 6.291456,
+   "l1_wr_MB": 6.291456
   },
   "BinaryNgDeviceOperation": {
    "n": 339,
@@ -84,7 +88,11 @@
    "compute_ms": 3.023943,
    "kernel_ms": 3.5925123333333335,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 652.279808,
+   "dram_wr_MB": 312.754176,
+   "l1_rd_MB": 33.816576,
+   "l1_wr_MB": 30.670848
   },
   "SDPAOperation": {
    "n": 30,
@@ -94,7 +102,11 @@
    "compute_ms": 2.4668783333333333,
    "kernel_ms": 2.505245,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 366.280704,
+   "dram_wr_MB": 32.047104,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "LayerNormDeviceOperation": {
    "n": 114,
@@ -104,7 +116,11 @@
    "compute_ms": 1.6026296666666668,
    "kernel_ms": 1.737682,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 82.57536,
+   "dram_wr_MB": 78.2336,
+   "l1_rd_MB": 13.76256,
+   "l1_wr_MB": 15.335424
   },
   "PermuteDeviceOperation": {
    "n": 12,
@@ -114,7 +130,11 @@
    "compute_ms": 1.2772346666666667,
    "kernel_ms": 1.4708923333333332,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 41.28768,
+   "dram_wr_MB": 62.128128,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "NlpCreateHeadsDeviceOperation": {
    "n": 30,
@@ -124,7 +144,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 1.4701826666666666,
    "dead_kernel_ms": 1.4701826666666666,
-   "dead_n": 30
+   "dead_n": 30,
+   "dram_rd_MB": 52.690944,
+   "dram_wr_MB": 52.690944,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "ReshapeViewDeviceOperation": {
    "n": 36,
@@ -134,7 +158,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 1.359382,
    "dead_kernel_ms": 1.359382,
-   "dead_n": 36
+   "dead_n": 36,
+   "dram_rd_MB": 60.162048,
+   "dram_wr_MB": 60.162048,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "TransposeDeviceOperation": {
    "n": 51,
@@ -144,7 +172,11 @@
    "compute_ms": 0.10651733333333332,
    "kernel_ms": 0.2744873333333333,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 46.104576,
+   "dram_wr_MB": 46.104576,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "SliceDeviceOperation": {
    "n": 30,
@@ -154,7 +186,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 0.22744,
    "dead_kernel_ms": 0.22744,
-   "dead_n": 30
+   "dead_n": 30,
+   "dram_rd_MB": 32.047104,
+   "dram_wr_MB": 32.047104,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "PadDeviceOperation": {
    "n": 6,
@@ -164,7 +200,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 0.14464933333333335,
    "dead_kernel_ms": 0.14464933333333335,
-   "dead_n": 6
+   "dead_n": 6,
+   "dram_rd_MB": 6.88128,
+   "dram_wr_MB": 27.52512,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "CopyDeviceOperation": {
    "n": 24,
@@ -174,7 +214,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 0.10641533333333333,
    "dead_kernel_ms": 0.10641533333333333,
-   "dead_n": 24
+   "dead_n": 24,
+   "dram_rd_MB": 13.76256,
+   "dram_wr_MB": 13.76256,
+   "l1_rd_MB": 13.76256,
+   "l1_wr_MB": 13.76256
   },
   "NLPConcatHeadsDeviceOperation": {
    "n": 6,
@@ -184,7 +228,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 0.06443366666666667,
    "dead_kernel_ms": 0.06443366666666667,
-   "dead_n": 6
+   "dead_n": 6,
+   "dram_rd_MB": 6.88128,
+   "dram_wr_MB": 6.88128,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "UnaryNgDeviceOperation": {
    "n": 1,
@@ -194,7 +242,11 @@
    "compute_ms": 0.001459,
    "kernel_ms": 0.0018193333333333332,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 0.016384,
+   "dram_wr_MB": 0.016384,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   }
  },
  "site_fits": {},
@@ -731,5 +783,11 @@
    "output": "1x1x512x768",
    "cores": 16
   }
- ]
+ ],
+ "zero_residency": {
+  "programs": 132,
+  "kernel_ms": 3.372503,
+  "MB": 393.01939200000004,
+  "gbps": 116.53640990089558
+ }
 }

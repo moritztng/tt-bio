@@ -121,7 +121,10 @@ def main() -> int:
                 dead_n += 1
             if wi + wo > t and t > 0:
                 bad += 1
+            tr = traffic(r)
             c = by_code[r.get("OP CODE", "?")]
+            for tk, tv in tr.items():
+                c[tk] += tv
             c["trisc1"] += t
             c["wait_in"] += wi
             c["wait_out"] += wo
@@ -208,7 +211,11 @@ def main() -> int:
                            "compute_ms": (v["trisc1"] - v["wait_in"] - v["wait_out"]) / reps / 1e6,
                            "kernel_ms": v["kernel"] / reps / 1e6,
                            "dead_kernel_ms": v["dead_kernel"] / reps / 1e6,
-                           "dead_n": int(v["dead_n"] // reps)}
+                           "dead_n": int(v["dead_n"] // reps),
+                           "dram_rd_MB": v["dram_rd"] / reps / 1e6,
+                           "dram_wr_MB": v["dram_wr"] / reps / 1e6,
+                           "l1_rd_MB": v["l1_rd"] / reps / 1e6,
+                           "l1_wr_MB": v["l1_wr"] / reps / 1e6}
                        for k, v in sorted(by_code.items(), key=lambda kv: -kv[1]["kernel"])},
         "site_fits": fit_out, "site_spearman": rank_out, "n_sites": len(S),
         "arrivals_pc": arr_tot,
@@ -252,6 +259,22 @@ def main() -> int:
           f"{v['wait_in_ms']:8.3f} "
           f"{100*v['wait_in_ms']/max(v['trisc1_ms'],1e-9):5.1f}% {v['wait_out_ms']:7.3f} "
           f"{v['compute_ms']:8.3f}")
+    dead = {k: v for k, v in out["by_op_code"].items() if v["dead_n"]}
+    if dead:
+        P("\n  programs whose math thread is never resident (they only move bytes):")
+        P(f"    {'op code':32s} {'n':>4s} {'kernel':>8s} {'MB moved':>9s} {'GB/s':>8s}")
+        dk = db = 0.0
+        for code, v in sorted(dead.items(), key=lambda kv: -kv[1]["dead_kernel_ms"]):
+            mb = v["dram_rd_MB"] + v["dram_wr_MB"] + v["l1_rd_MB"] + v["l1_wr_MB"]
+            dk += v["dead_kernel_ms"]; db += mb
+            P(f"    {code[:32]:32s} {v['dead_n']:4d} {v['dead_kernel_ms']:8.3f} {mb:9.2f}"
+              f" {mb/1e3/(v['dead_kernel_ms']/1e3) if v['dead_kernel_ms'] else 0:8.1f}")
+        P(f"    {'TOTAL':32s} {int(med['zero_residency_programs']):4d} {dk:8.3f} {db:9.2f}"
+          f" {db/1e3/(dk/1e3):8.1f}   = {100*dk/med['kernel_ms']:.1f} % of kernel time")
+        out["zero_residency"] = {"programs": int(med["zero_residency_programs"]),
+                                 "kernel_ms": dk, "MB": db, "gbps": db / dk}
+        a.out.write_text(json.dumps(out, indent=1))
+
     P(f"\n  What predicts the per-site wait? {len(S)} sites that run a compute kernel:")
     for name, v in fit_out.items():
         P(f"    R2 = {v['r2']:8.4f}   {name:28s} " + "  ".join(f"{c:.5g}" for c in v["coef"]))
