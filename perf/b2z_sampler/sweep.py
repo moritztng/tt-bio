@@ -130,6 +130,16 @@ def main() -> int:
 
     assert Path(T.__file__).resolve().is_relative_to(ROOT), f"tt_bio from {T.__file__}"
 
+    # build_fold's cfg carries no Boltz-2 hyperparameters; fold_ab_multi injects exactly the ones
+    # tt_bio.main builds, which is what the published cell ran. Seeded at the reference setting so
+    # the model loads as production, then moved per fold (see set_arm).
+    B.RECYCLING_STEPS, B.SAMPLING_STEPS = args.base_recycles, args.base_steps
+    snap = list(sys.path)
+    sys.path.insert(0, str(ROOT / "perf" / "other512"))
+    from fold_ab_multi import patch_boltz2_cfg
+    sys.path[:] = snap
+    patch_boltz2_cfg()
+
     import importlib.metadata as im
     OUT["env"] = {
         "host": os.uname().nodename,
@@ -172,7 +182,37 @@ def main() -> int:
 
     # Cold fold at the reference setting, discarded: it warms every kernel cache, and until it has
     # run a timing number is a compile time, not a fold time.
+    # Boltz2 reads its step and recycle counts off ``model.predict_args`` inside ``predict_step``
+    # (boltz2.py:5893), not off the job cfg -- the cfg keys only reach the models whose worker
+    # branch passes them down. An arm that only writes the cfg runs 200/3 every time and reports a
+    # flat, wrong curve, so the arm is the dict on the loaded model and the cfg is set to match so
+    # the two can never disagree.
+    def set_arm(steps: int, recycles: int) -> None:
+        pa = state.model.predict_args
+        pa["sampling_steps"], pa["recycling_steps"] = steps, recycles
+
+    # Count what the arm actually executed. A setting that silently does not reach the sampler
+    # produces a perfectly flat curve that looks like a finding, so every row carries the number
+    # of denoise calls and the number of trunk cycles it really ran, and the run asserts they
+    # match what was asked for.
+    from tt_bio.boltz2 import AtomDiffusion, Boltz2 as _B2
+    CNT = {"denoise": 0, "trunk": 0}
+    _pnf, _fwd = AtomDiffusion.preconditioned_network_forward, _B2.forward
+
+    def _counted_pnf(self, *a, **k):
+        CNT["denoise"] += 1
+        return _pnf(self, *a, **k)
+
+    def _counted_fwd(self, *a, **k):
+        CNT["trunk"] += 1
+        return _fwd(self, *a, **k)
+
+    AtomDiffusion.preconditioned_network_forward = _counted_pnf
+    _B2.forward = _counted_fwd
+
     def fold(steps: int, recycles: int, seed: int, tag: str):
+        set_arm(steps, recycles)
+        CNT["denoise"] = CNT["trunk"] = 0
         cfg = dict(base_cfg)
         cfg.update(sampling_steps=steps, recycling_steps=recycles, seed=seed,
                    struct_dir=str(struct_dir))
@@ -182,26 +222,27 @@ def main() -> int:
         t0 = time.perf_counter()
         metrics, _best, _feats = state.predict_one(tgt, cfg)
         dt = time.perf_counter() - t0
+        counts = dict(CNT)
         cifs = {}
         for f in sorted(struct_dir.glob("*.cif")):
             dst = args.cifdir / f"{args.target}__{tag}__{f.name}"
             shutil.copyfile(f, dst)
             cifs[f.name] = {"path": str(dst), "sha256": sha256_file(dst)}
-        return dt, metrics, cifs
+        return dt, metrics, cifs, counts
 
     print(f"=== cold fold {args.target} ({args.base_steps}/{args.base_recycles}) ===", flush=True)
-    cold_s, cold_m, _ = fold(args.base_steps, args.base_recycles, 0, "cold")
+    cold_s, cold_m, _, cold_c = fold(args.base_steps, args.base_recycles, 0, "cold")
     assert cold_m.get("msa") or spec.get("single_sequence"), "fold ran without an MSA"
     OUT["cold"] = {"fold_s": round(cold_s, 3), "plddt": cold_m.get("plddt"),
                    "n_tokens": cold_m.get("n_tokens"), "n_residues": cold_m.get("n_residues"),
-                   "msa": cold_m.get("msa")}
+                   "msa": cold_m.get("msa"), "counts": cold_c}
     print(f"  cold {cold_s:.2f}s plddt={cold_m.get('plddt')}", flush=True)
     dump()
 
     for g in grid:
         tag = f"s{g['steps']}_r{g['recycles']}_seed{g['seed']}"
         try:
-            dt, m, cifs = fold(g["steps"], g["recycles"], g["seed"], tag)
+            dt, m, cifs, counts = fold(g["steps"], g["recycles"], g["seed"], tag)
         except Exception:
             import traceback
             OUT["folds"].append({**g, "tag": tag, "error": traceback.format_exc()})
@@ -211,7 +252,12 @@ def main() -> int:
         rec = {**g, "tag": tag, "fold_s": round(dt, 3),
                "plddt": m.get("plddt", m.get("complex_plddt")), "ptm": m.get("ptm"),
                "n_tokens": m.get("n_tokens"), "n_residues": m.get("n_residues"),
-               "cifs": cifs, "loadavg": open("/proc/loadavg").read().split()[:3]}
+               "cifs": cifs, "counts": counts,
+               "loadavg": open("/proc/loadavg").read().split()[:3]}
+        # Structure diffusion plus the confidence head's own rollout both go through the denoiser,
+        # so the count is asserted to be a multiple of the requested step count rather than equal
+        # to it; what matters is that it moved with the arm.
+        rec["denoise_per_step"] = round(counts["denoise"] / g["steps"], 4) if g["steps"] else None
         OUT["folds"].append(rec)
         dump()
         print(f"  {tag:24s} {dt:7.2f}s plddt={rec['plddt']} "
