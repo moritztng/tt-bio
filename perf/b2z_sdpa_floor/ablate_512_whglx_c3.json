@@ -1,0 +1,121 @@
+{
+ "doc": "Where the Boltz-2 triangle-attention SDPA's time actually goes, by removing stages from it.\n\n`floor_512.py` put the shipped fused kernel at 34 % of its own measured byte roof AND 33 % of its\nown measured matmul roof on whglx card 3 (WH): 6.829 ms against a 2.321 ms floor, a 2.94x deficit\nwith the same signature as the campaign-wide 2.34x. Neither roof prices the SFPU, and at head_dim\n32 this op exponentiates a score matrix 16x larger than any operand either roof counts.\n\nPREDICTED, before the first ablation number:\n\n    The score matrix is S*S per (batch, head) = 1.074e9 elements per call, against 2.68e8 elements\n    of q+k+v+out. Every one of them gets a subtract, an exp and an L1-accumulated add; the matmuls\n    that produce and consume them are only 256 tile-MACs per (batch, head, k_chunk) against ~500\n    tile-passes of eltwise over the same tiles. So removing the exp alone should take 30-55 % off\n    the op, and the mask add -- one pass over the same 128 tiles per chunk -- 8-15 %.\n\n    FALSIFIER: if removing the exp moves the op by under 10 %, the SFPU is not the missing term and\n    the deficit is somewhere neither this ablation nor either roof can see.\n\nArms are interleaved in ONE process. Every ablated arm computes WRONG VALUES by construction; only\nthe times mean anything, which is why nothing here writes a parity number.\n",
+ "meta": {
+  "card": "3",
+  "grid": [
+   8,
+   9
+  ],
+  "loadavg": [
+   12.3564453125,
+   10.4775390625,
+   6.7548828125
+  ],
+  "started": "2026-09-12T09:29:07+0000",
+  "shape": [
+   512,
+   8,
+   512,
+   32
+  ],
+  "loadavg_end": [
+   11.76708984375,
+   10.38623046875,
+   6.7451171875
+  ]
+ },
+ "arms": {
+  "full": {
+   "ms": 6.808893056586385,
+   "all_ms": [
+    6.909813964739442,
+    6.861030007712543,
+    6.782512995414436,
+    6.809822982177138,
+    6.821750896051526,
+    6.810784921981394,
+    6.677555036731064,
+    6.6886619897559285,
+    6.729381973855197,
+    6.66823098435998,
+    6.67263800278306,
+    6.666899076662958,
+    6.808893056586385,
+    6.887158961035311,
+    6.820189068093896
+   ],
+   "removed_ms": 0.0,
+   "removed_frac": 0.0
+  },
+  "no_exp": {
+   "ms": 6.5327970078215,
+   "all_ms": [
+    6.621000007726252,
+    6.561439950019121,
+    6.517485016956925,
+    6.539267022162676,
+    6.5327970078215,
+    6.561600021086633,
+    6.412717048078775,
+    6.438496056944132,
+    6.400839076377451,
+    6.3930879114195704,
+    6.416062940843403,
+    6.520278053358197,
+    6.545345997437835,
+    6.605437025427818,
+    6.545527023263276
+   ],
+   "removed_ms": 0.27609604876488447,
+   "removed_frac": 0.04054932960032483
+  },
+  "no_maskadd": {
+   "ms": 5.436100997030735,
+   "all_ms": [
+    5.523802945390344,
+    5.443222005851567,
+    5.570081993937492,
+    5.454138037748635,
+    5.436100997030735,
+    5.430732970125973,
+    5.32528490293771,
+    5.339066032320261,
+    5.325594916939735,
+    5.290912929922342,
+    5.314568988978863,
+    5.410031997598708,
+    5.556090967729688,
+    5.474268924444914,
+    5.4492499912157655
+   ],
+   "removed_ms": 1.3727920595556498,
+   "removed_frac": 0.20161750935825307
+  },
+  "no_exp_no_maskadd": {
+   "ms": 5.1221689209342,
+   "all_ms": [
+    5.223502055741847,
+    5.147507064975798,
+    5.222590058110654,
+    5.18917094450444,
+    5.117331980727613,
+    5.048429942689836,
+    5.063641932792962,
+    5.036602029576898,
+    5.024091922678053,
+    5.014116992242634,
+    5.021738936193287,
+    5.1221689209342,
+    5.220777937211096,
+    5.1758900517597795,
+    5.172705976292491
+   ],
+   "removed_ms": 1.6867241356521845,
+   "removed_frac": 0.24772369335726033
+  }
+ },
+ "additivity": {
+  "exp_plus_maskadd_ms": 1.6488881083205342,
+  "both_together_ms": 1.6867241356521845
+ }
+}

@@ -1,0 +1,133 @@
+{
+ "doc": "Job 1+2 of b2z-custom-sdpa: price the triangle-attention SDPA and find its floor.\n\nJob 1 (share) is already MEASURED on the cell and must not be re-run: `subunit_floor_512_qb2c0.json`\n(qb2 card 0, p300c, commit 072da10f, 2026-09-11) gives TriangleAttention = 4.391 ms/call at\n560 calls/fold, against a PairformerLayer of 41.4152 ms at 280 calls/fold -- two triangle-attention\ncalls per layer, so 8.782 ms of 41.4152 ms = 21.2 % of the block. `triatt_fused/s6_gate.json` gives\nthe SDPA call inside it at 2.673 ms, so the SDPA ITSELF is 5.346 ms = 12.9 % of the block and\n1.497 s of a 23.7 s fold.\n\nThis script answers Job 2, on whatever card it is given: what is the floor of that 2.673 ms? Both\nroofs are MEASURED here in the same process on the same card rather than quoted, because a roof\ncarried across a card type is not a roof (`roofline-roof-must-be-measured-not-asserted`).\n\nPREDICTED, written before the first number existed:\n\n    The op moves 541.0 MB and does 137.44 GFLOP. On Blackhole's published campaign roofs\n    (429.9 GB/s, 85.96 TFLOP/s) that is 1.259 ms of bytes and 1.599 ms of arithmetic, so the fused\n    kernel at 2.673 ms sits at 60 % of its COMPUTE roof -- the one place in this fold where the\n    compute roof binds before the byte roof. If that holds, the remaining headroom on this op is\n    at most 1.67x and realistically ~1.3x, the op is 12.9 % of the block, and the brief's own\n    repoint rule fires: a perfect kernel here is 1.03x on the fold.\n\n    FALSIFIER: if the measured compute roof at this fidelity is >2x the bandwidth-implied roof,\n    or the fused op measures under 45 % of both roofs, there is real headroom and the brief stands.\n",
+ "meta": {
+  "card": "3",
+  "grid": [
+   8,
+   9
+  ],
+  "loadavg": [
+   7.263671875,
+   5.638671875,
+   4.46240234375
+  ],
+  "started": "2026-09-12T09:25:02+0000",
+  "shape": [
+   512,
+   8,
+   512,
+   32
+  ],
+  "sdpa_bytes": 541065216,
+  "sdpa_flops": 137438953472,
+  "loadavg_end": [
+   11.7236328125,
+   6.62744140625,
+   4.7958984375
+  ]
+ },
+ "roof_bw": {
+  "arms": {
+   "add": {
+    "ms": 1.7270480748265982,
+    "gbps": 233.1453245969588
+   },
+   "clone": {
+    "ms": 1.228650042321533,
+    "gbps": 218.4799957299407
+   }
+  },
+  "gbps": 233.1453245969588
+ },
+ "roof_flops": {
+  "arms": {
+   "2048": {
+    "ms": 0.40929444367066026,
+    "tflops": 41.974352326717195
+   },
+   "4096": {
+    "ms": 2.2796124685555696,
+    "tflops": 60.29049032140336
+   }
+  },
+  "tflops": 60.29049032140336,
+  "ckc": "HiFi2,approx,no_fp32_acc"
+ },
+ "parity_fused_vs_stock": {
+  "equal": true,
+  "max_abs": 0.0,
+  "rel_rms": 0.0
+ },
+ "op": {
+  "fused_ms": 6.828551471699029,
+  "stock_ms": 12.461037491448224,
+  "fused_over_stock": 1.8248434595672398,
+  "fused_all_ms": [
+   6.840048939920962,
+   6.730113993398845,
+   6.860780064016581,
+   6.805787095800042,
+   6.834359955973923,
+   6.857324973680079,
+   6.920950021594763,
+   6.867921096272767,
+   6.841700989753008,
+   6.716714007779956,
+   6.703634047880769,
+   6.828150944784284,
+   6.775461952202022,
+   6.836213055066764,
+   6.827820907346904,
+   6.768741994164884,
+   6.786698941141367,
+   6.758115952834487,
+   6.835071020759642,
+   6.828951998613775
+  ],
+  "stock_all_ms": [
+   12.461398029699922,
+   12.475909083150327,
+   12.458674027584493,
+   12.45299493893981,
+   12.506325030699372,
+   12.537251925095916,
+   12.485685059800744,
+   12.447957997210324,
+   12.481978978030384,
+   12.41535902954638,
+   12.42670591454953,
+   12.469080043956637,
+   12.491002911701798,
+   12.455049087293446,
+   12.635388993658125,
+   12.454007053747773,
+   12.442811043001711,
+   12.460676953196526,
+   12.489710934460163,
+   12.459985911846161
+  ],
+  "fused_served": 24,
+  "fused_declined": 0,
+  "rejects": {},
+  "picks": {
+   "(512, 512)": [
+    512,
+    256,
+    "stock"
+   ]
+  },
+  "routes": {
+   "fused": 24,
+   "stock": 24
+  }
+ },
+ "floor": {
+  "bytes_ms": 2.3207208505482413,
+  "flops_ms": 2.2796124685555696,
+  "binding_ms": 2.3207208505482413,
+  "binding": "bandwidth",
+  "fused_over_floor": 2.9424269058839494,
+  "frac_of_bw_roof": 0.33985551110897855,
+  "frac_of_flop_roof": 0.33383543757463596
+ }
+}

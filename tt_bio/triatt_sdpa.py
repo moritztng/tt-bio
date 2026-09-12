@@ -123,6 +123,20 @@ PM_L1_ERRORS: dict = {}
 # matmul against a bf16 v, and the statistics CBs meet a bf16 scalar in the reduce. The plumbing was
 # removed again rather than left as a dark knob -- there is nothing to gain from it, since the fp32
 # DST already carries the reduction and the arm above beats the materialised path outright.
+# INSTRUMENT, never a shipped knob. `TT_BIO_TRIATT_ABLATE=EXP,MASKADD` compiles the kernel with
+# the named stage REMOVED, so the arm's output is wrong on purpose and only its time means anything.
+# It exists because neither roof this campaign uses -- bytes moved and matmul FLOPs -- prices the
+# SFPU, and at head_dim 32 the score matrix this op exponentiates is 16x larger than the operands
+# the roofs count. An ablation is the only way to read that cost: a standalone `ttnn.exp` is
+# bandwidth-bound at any size that fits, so it measures DRAM, not the SFPU.
+_ABLATE = tuple(x.strip().upper() for x in os.environ.get("TT_BIO_TRIATT_ABLATE", "").split(",")
+                if x.strip())
+if _ABLATE:
+    import warnings
+    warnings.warn(f"TT_BIO_TRIATT_ABLATE={','.join(_ABLATE)}: triangle attention is computing "
+                  "WRONG VALUES on purpose. Never set this outside a perf instrument.",
+                  stacklevel=2)
+
 _FIDELITY = {"LoFi": ttnn.MathFidelity.LoFi, "HiFi2": ttnn.MathFidelity.HiFi2,
              "HiFi4": ttnn.MathFidelity.HiFi4}
 
@@ -265,7 +279,8 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
                 kv_buffer_factor=kv_buffer_factor,
-                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})
+                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"],
+                               **{f"ABLATE_{a}": 1 for a in _ABLATE}})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
         ttnn.deallocate(out)
         if "circular buffers" not in str(exc):
