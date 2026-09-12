@@ -7686,6 +7686,19 @@ class Transition(Module):
 
 
 _ROW_SHARD_FOLD = os.environ.get("TT_BIO_ROW_SHARD_FOLD", "0") == "1"
+#: Which ops of the chain to shard, so a block-level parity failure can be bisected to
+#: one op instead of guessed at. Every op is individually bit-exact on a 1x2 mesh; the
+#: composition is what broke, and that is only findable one op at a time.
+#: Default is the subset PROVED bit-exact end to end on a real fold, not the subset that is
+#: fastest. The four-op chain is measurably faster (trunk 11.45 s against 12.35) and produces the
+#: WRONG structure: CIF 5e7a351dc2d88a8f against the reference dd1c2a12f97772fb, stable across
+#: reps, with the cold fold differing again at 105086f0fad498b7. Bisected one op at a time:
+#: `transition_z` alone is bit-exact, `triatt_start` alone is not. Ruled out so far, each by a
+#: fold that did not change the digest: the rank-3 `mesh_partition` defect (fixed anyway in
+#: row_shard.py, it is real and bites elsewhere), freeing the gather's input before its result is
+#: consumed, and sharding the MSA and confidence Pairformers as well as the trunk.
+_ROW_SHARD_OPS = set(filter(None, os.environ.get(
+    "TT_BIO_ROW_SHARD_OPS", "transition_z").split(",")))
 
 
 class PairformerLayer(Module):
@@ -7792,6 +7805,19 @@ class PairformerLayer(Module):
         and it is not worth taking before the simple version has been measured.
         """
         slab = RowSlab.mesh(n_dev)
+        if os.environ.get("TT_BIO_ROW_SHARD_TRACE"):
+            # Which pair-track extents the shard actually sees in a fold. The op-level bit-exact
+            # gate was run at exactly 512; if the trunk carries any other extent then that gate
+            # never covered what the fold does, and a shape-routed kernel config is free to flip
+            # between the whole tensor and its half at an extent nobody checked.
+            _seen = getattr(type(self), "_shard_extents", None)
+            if _seen is None:
+                _seen = type(self)._shard_extents = {}
+            k = (int(z.shape[1]), int(z.shape[2]), int(z.shape[3]), bool(self.transform_s))
+            if k not in _seen:
+                _seen[k] = 0
+                print(f"[row-shard] new pair-track extent {k}", flush=True)
+            _seen[k] += 1
 
         def apply(op, extra, needs_full_z):
             nonlocal z
@@ -7803,20 +7829,39 @@ class PairformerLayer(Module):
                     u = op(rows, *extra)
                 finally:
                     ttnn.deallocate(rows)
-            g = ttnn.all_gather(u, dim=1)
-            ttnn.deallocate(u)
+            # The gather is full-height and z is already full, so at the peak this holds z, the
+            # slab update and the gathered update at once. Left to default that lands in L1 and
+            # clashes with the next program's static circular buffers ("L1 buffer allocated at
+            # 657216 and static circular buffer region ends at 1159680", program 296). The gather
+            # is a memory move, not arithmetic, so putting it in DRAM costs the shard nothing it
+            # is trying to win.
+            g = ttnn.all_gather(u, dim=1, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            # `u` stays alive until the gather's result has been consumed. `ttnn.deallocate` is a
+            # host-side free that can hand the buffer to the next op immediately, and a collective
+            # is still reading its input after the call returns, so freeing `u` here gave a fold
+            # that was not merely wrong but NONDETERMINISTIC: 105086f0fad498b7 cold and
+            # 5e7a351dc2d88a8f warm in the same run, different again on the next.
             z = ttnn.add_(z, g)
             ttnn.deallocate(g)
+            ttnn.deallocate(u)
 
-        apply(self.triangle_multiplication_start, (mask,), True)
-        apply(self.triangle_multiplication_end, (mask,), True)
-        apply(self.triangle_attention_start, (attn_mask_start,), False)
+        def whole(op, *extra):
+            nonlocal z
+            u = op(z, *extra)
+            z = ttnn.add_(z, u)
+            ttnn.deallocate(u)
 
-        z_update = self.triangle_attention_end(z, attn_mask_end)   # whole, see the docstring
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        def run(name, op, extra, needs_full_z):
+            if name in _ROW_SHARD_OPS:
+                apply(op, extra, needs_full_z)
+            else:
+                whole(op, *extra)
 
-        apply(self.transition_z, (), False)
+        run("trimul_start", self.triangle_multiplication_start, (mask,), True)
+        run("trimul_end", self.triangle_multiplication_end, (mask,), True)
+        run("triatt_start", self.triangle_attention_start, (attn_mask_start,), False)
+        whole(self.triangle_attention_end, attn_mask_end)   # refuses a mesh slab, see the docstring
+        run("transition_z", self.transition_z, (), False)
         return z
 
     def __call__(
@@ -7825,7 +7870,13 @@ class PairformerLayer(Module):
         extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
         n_dev = getattr(self.device, "get_num_devices", lambda: 1)()
-        if _ROW_SHARD_FOLD and n_dev > 1:
+        # Only the trunk stack. `transform_s` is True exactly for the Pairformer that carries a
+        # single track, which is the 64-block trunk; the MSA module's internal pairformer and the
+        # confidence head both build theirs with `transform_s=False` and hand their blocks different
+        # masks and token counts. Sharding those too is what made a four-op chain produce CIF
+        # ebf1792aa988734e with every op passing its own bit-exact gate. Gated on a structural
+        # property of the layer, not on a model name.
+        if _ROW_SHARD_FOLD and n_dev > 1 and self.transform_s:
             z = self._pair_track_row_sharded_mesh(z, mask, attn_mask_start, attn_mask_end, n_dev)
         else:
             z_update = self.triangle_multiplication_start(z, mask)

@@ -1,0 +1,108 @@
+{
+ "mode": "mesh",
+ "reps": 5,
+ "card": "2,3",
+ "protocol": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0
+ },
+ "diffusion_trace": true,
+ "benchlocked": true,
+ "loadavg_at_start": [
+  "0.34",
+  "0.63",
+  "0.88"
+ ],
+ "model_load_s": 3.38,
+ "device": "MeshDevice(1x2 grid, 2 devices)",
+ "n_devices": 2,
+ "core_grid_main": "ttnn.CoreGrid(x=11, y=10)",
+ "trace_region_size": 1073741824,
+ "cold_s": 19.462,
+ "reps_done": [
+  {
+   "fold_s": 19.1109,
+   "plddt": null,
+   "cif": [
+    "ebf1792aa988734e09d36f71eafe8a4610cde73c9d9230147e3daeae94d82d67"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9608,
+    "sampler_end": 5.5115,
+    "end": 1.1876,
+    "trunk_s": 11.451
+   }
+  },
+  {
+   "fold_s": 19.0644,
+   "plddt": null,
+   "cif": [
+    "ebf1792aa988734e09d36f71eafe8a4610cde73c9d9230147e3daeae94d82d67"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9665,
+    "sampler_end": 5.5118,
+    "end": 1.1871,
+    "trunk_s": 11.399
+   }
+  },
+  {
+   "fold_s": 19.0856,
+   "plddt": null,
+   "cif": [
+    "ebf1792aa988734e09d36f71eafe8a4610cde73c9d9230147e3daeae94d82d67"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9698,
+    "sampler_end": 5.5694,
+    "end": 1.2334,
+    "trunk_s": 11.3131
+   }
+  },
+  {
+   "fold_s": 19.2578,
+   "plddt": null,
+   "cif": [
+    "ebf1792aa988734e09d36f71eafe8a4610cde73c9d9230147e3daeae94d82d67"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9447,
+    "sampler_end": 5.6918,
+    "end": 1.2451,
+    "trunk_s": 11.3763
+   }
+  },
+  {
+   "fold_s": 20.0857,
+   "plddt": null,
+   "cif": [
+    "ebf1792aa988734e09d36f71eafe8a4610cde73c9d9230147e3daeae94d82d67"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.4248,
+    "sampler_end": 5.8334,
+    "end": 1.4405,
+    "trunk_s": 11.3872
+   }
+  }
+ ],
+ "summary": {
+  "median_s": 19.1109,
+  "min_s": 19.0644,
+  "max_s": 20.0857,
+  "plddt": [
+   null
+  ],
+  "cif_sha256": [
+   "ebf1792aa988734e09d36f71eafe8a4610cde73c9d9230147e3daeae94d82d67"
+  ],
+  "cif_sha256_16": [
+   "ebf1792aa988734e"
+  ],
+  "bit_identical_across_reps": true,
+  "trunk_s_median": 11.3872
+ }
+}

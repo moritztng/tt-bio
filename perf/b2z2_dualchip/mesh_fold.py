@@ -222,6 +222,23 @@ OUT["summary"] = {
                       if any(r["stages"].get("trunk_s") for r in rows_out) else None,
 }
 dump()
+# A shard changes L1 pressure, and this module has four caches that step a kernel config DOWN a
+# rung on an allocation refusal and remember it by shape. A config that sets blocking or reduction
+# order is not bit-exact across picks, so a refusal the unsharded fold never hits is enough to
+# change the answer while every op stays bit-exact at its own shape. Record what fired.
+OUT["config_rungs"] = {
+    name: (len(getattr(T, name)) if hasattr(T, name) else None)
+    for name in ("_L1_OUT_RUNG", "_BMM_CFG_RUNG", "_BMM_CFG_REFUSED", "_OPM_JOIN_REFUSED")
+}
+OUT["config_rungs_detail"] = {
+    name: sorted(map(str, getattr(T, name)))[:12] if hasattr(T, name) else None
+    for name in ("_L1_OUT_RUNG", "_BMM_CFG_RUNG", "_BMM_CFG_REFUSED", "_OPM_JOIN_REFUSED")
+}
+log("config rungs fired: " + json.dumps(OUT["config_rungs"]))
+for _n, _v in OUT["config_rungs_detail"].items():
+    if _v:
+        log(f"  {_n}: {_v}")
+dump()
 log(json.dumps(OUT["summary"], indent=1))
 log(f"wrote {OUT_PATH}")
 os._exit(0)

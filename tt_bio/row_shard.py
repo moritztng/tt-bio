@@ -159,6 +159,23 @@ class RowSlab:
             # config, and several kernels downstream are routed by config as well as by shape, so
             # a partition that landed somewhere else could take a different kernel and stop being
             # bit-identical to the slice it replaces. Ask for the input's config explicitly.
+            #
+            # RANK 4 OR IT IS SILENTLY WRONG. `ttnn.mesh_partition` on ttnn 0.68.0 returns the right
+            # SHAPE and bytes matching no slab of the input for a RANK-3 tensor on any dim but 0.
+            # It does not throw, so shape checks and per-op PCC on rank-4 operands pass while a
+            # rank-3 operand is quietly mis-sharded: it made a four-op sharded fold produce CIF
+            # ebf1792aa988734e instead of dd1c2a12f97772fb while every op passed its own bit-exact
+            # gate, and it is why triangle_attention_end was guarded off rather than fixed (it slabs
+            # axis 1 of a rank-3 transposed pair tensor, and triangle_attention_start slabs axis 0
+            # of the same tensor, which is the one rank-3 case that happens to be correct).
+            # Padding with leading 1s is free for a TILE tensor: the last two axes are untouched.
+            rank = len(t.shape)
+            if rank < 4:
+                pad = 4 - rank
+                t4 = ttnn.reshape(t, [1] * pad + [int(d) for d in t.shape])
+                out4 = ttnn.mesh_partition(t4, dim + pad, memory_config=t.memory_config())
+                out = ttnn.reshape(out4, [int(d) for d in out4.shape][pad:])
+                return ttnn.clone(out) if int(out.shape[dim]) == int(t.shape[dim]) else out
             out = ttnn.mesh_partition(t, dim, memory_config=t.memory_config())
         else:
             shp = [int(d) for d in t.shape]
