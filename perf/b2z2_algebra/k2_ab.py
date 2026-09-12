@@ -46,20 +46,23 @@ def main():
     ap.add_argument("--reps", type=int, default=7)
     ap.add_argument("--host", default="whglx")
     ap.add_argument("--card", type=int, default=5)
+    ap.add_argument("--cz", type=int, default=CZ)
+    ap.add_argument("--heads", type=int, default=HEADS)
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
     dev = T.get_device()
     from tt_bio.af2 import compute_kernel_config
     ck = T.trunk_compute_kernel_config(compute_kernel_config())
-    mods = {False: T.TriangleAttention(HEAD_DIM, HEADS, False, triatt_weights(1), ck),
-            True: T.TriangleAttention(HEAD_DIM, HEADS, True, triatt_weights(4), ck)}
+    W = lambda s: triatt_weights(s, a.cz, a.heads, HEAD_DIM)
+    mods = {False: T.TriangleAttention(HEAD_DIM, a.heads, False, W(1), ck),
+            True: T.TriangleAttention(HEAD_DIM, a.heads, True, W(4), ck)}
     g = torch.Generator().manual_seed(7)
-    z = ttnn.from_torch(torch.randn(1, a.n, a.n, CZ, generator=g), dtype=ttnn.bfloat16,
+    z = ttnn.from_torch(torch.randn(1, a.n, a.n, a.cz, generator=g), dtype=ttnn.bfloat16,
                         layout=ttnn.TILE_LAYOUT, device=dev,
                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
-    res = {"n": a.n, "host": a.host, "card": a.card, "arch": "WH" if a.host == "whglx" else "BH",
+    res = {"n": a.n, "cz": a.cz, "heads": a.heads, "host": a.host, "card": a.card, "arch": "WH" if a.host == "whglx" else "BH",
            "grid": list(T.COMPUTE_GRID_MAIN), "reps": a.reps,
            "ttnn": __import__("importlib.metadata", fromlist=["x"]).version("ttnn"),
            "date": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}

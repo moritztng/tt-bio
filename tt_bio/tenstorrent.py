@@ -6011,10 +6011,15 @@ _MM_BLOCK = {
     (8, 8): (4, 8, 1, 4, 1),    # protenix-v2 gate + pair  -- unchanged
     (4, 12): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv   at c_z=128
     (4, 4): (4, 4, 1, 4, 1),    # boltz2 / openfold3 gate  at c_z=128
-    # [Wq|Wk|Wv|Wg] at c_z=128, the key only the K2 fused projection produces. Same entry
-    # as its two halves: N_block is one tile and K_block == kt, so a 16-tile-wide weight
-    # computes every output tile exactly as the 12- and 4-tile weights did.
+    # [Wq|Wk|Wv|Wg], the keys only the K2 fused projection produces (nt = 4/3 of the qkv nt).
+    # Each one repeats its own qkv entry verbatim, which is what makes the fusion bit-exact and
+    # not merely equal: N_block is one tile and K_block == kt, so widening the weight cannot
+    # change how any single output tile is contracted. OpenDDE's (12, 48) is deliberately absent
+    # -- its two shipped entries are the ones flagged NOT bit-exact above, and a fused key would
+    # inherit that without ever having been scored at the fold.
     (4, 16): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv+gate fused at c_z=128
+    (2, 16): (4, 2, 1, 4, 1),   # openfold3            qkv+gate fused at c_z=64
+    (8, 32): (4, 8, 1, 4, 1),   # protenix-v2          qkv+gate fused at c_z=256
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
     # opendde tri-att at c_z=384. These two are NOT bit-exact -- K_block = 12 folds the contraction

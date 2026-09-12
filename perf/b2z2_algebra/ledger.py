@@ -52,14 +52,14 @@ def trimul_weights(seed=0):
     }
 
 
-def triatt_weights(seed=1):
+def triatt_weights(seed=1, cz=CZ, heads=HEADS, head_dim=HEAD_DIM):
     r = _rng(seed)
-    d = HEADS * HEAD_DIM
+    d = heads * head_dim
     return {
-        "layer_norm.weight": torch.ones(CZ), "layer_norm.bias": torch.zeros(CZ),
-        "linear_q.weight": r(d, CZ), "linear_k.weight": r(d, CZ), "linear_v.weight": r(d, CZ),
-        "linear_g.weight": r(d, CZ), "linear_o.weight": r(CZ, d),
-        "linear.weight": r(HEADS, CZ),
+        "layer_norm.weight": torch.ones(cz), "layer_norm.bias": torch.zeros(cz),
+        "linear_q.weight": r(d, cz), "linear_k.weight": r(d, cz), "linear_v.weight": r(d, cz),
+        "linear_g.weight": r(d, cz), "linear_o.weight": r(cz, d),
+        "linear.weight": r(heads, cz),
     }
 
 
