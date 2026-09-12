@@ -273,11 +273,16 @@ class GCTimer:
 
 
 # =============================================================================================
+_PREPARE_PARTIAL = None
+
+
 def install_regions(reg, state, T, boltz2):
     """Cover `predict_one` completely, so the leftover row is measured and not inferred."""
     import tt_bio.main as M
 
     ok = {}
+    global _PREPARE_PARTIAL
+    _PREPARE_PARTIAL = getattr(state, "prepare", None)
     # --- the four top-level steps of the boltz-2 branch of `_WorkerState.predict_one` -------
     ok["prepare"] = reg.patch(state, "prepare", "prepare")
     ok["to_batch"] = reg.patch(M, "to_batch", "to_batch")
@@ -312,6 +317,29 @@ def install_regions(reg, state, T, boltz2):
     ok["diffusion_cond"] = reg.patch(boltz2.DiffusionConditioning, "forward", "diffusion_cond")
     ok["pairwise_cond"] = reg.patch(boltz2.PairwiseConditioning, "forward", "pairwise_cond")
     ok["atom_encoder"] = reg.patch(boltz2.AtomEncoder, "forward", "atom_encoder")
+    # --- round 2: the rows that were only a sampler share the first time round --------------
+    # With TT_BIO_DEVICE_CONDITIONING on, `diffusion_cond` is gone and what is left of the host
+    # path is `Boltz2.forward`'s own body plus featurisation plus the writer. Name them.
+    for cls, label in (("DistogramModule", "distogram"),
+                       ("ContactConditioning", "contact_cond"),
+                       ("ConfidenceHeads", "confidence_heads")):
+        obj = getattr(boltz2, cls, None)
+        if obj is None:
+            reg.notes.append(f"no tt_bio.boltz2.{cls}")
+            continue
+        ok[label] = reg.patch(obj, "forward", label)
+    for fn in ("parse_yaml", "parse_a3m", "parse_csv"):
+        if hasattr(M, fn):
+            ok[fn] = reg.patch(M, fn, fn)
+    # `state.prepare` is a partial over `prepare_features`; the tokenizer and the featurizer are
+    # bound into it, so reach them through the partial rather than importing a second copy.
+    part = _PREPARE_PARTIAL
+    bound = list(getattr(part, "args", ()) or ()) + list((getattr(part, "keywords", {}) or {}).values())
+    for obj in bound:
+        for attr, label in (("tokenize", "tokenize"), ("process", "featurize")):
+            if label in ok or obj is None or not hasattr(obj, attr):
+                continue
+            ok[label] = reg.patch(type(obj), attr, label)
     return ok
 
 
