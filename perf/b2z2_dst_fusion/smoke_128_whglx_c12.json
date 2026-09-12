@@ -1,0 +1,16 @@
+{
+ "N": 128,
+ "C": 32,
+ "reps": 3,
+ "pairs": 2,
+ "grid": "(x=8,y=9)",
+ "ttnn": "0.68.0",
+ "shape_ok": true,
+ "equal": true,
+ "programs": 2,
+ "base_ms_median": 0.17176948798199496,
+ "dst_ms_median": 0.16168268242230016,
+ "ratio": 1.0623864313022033,
+ "aa_floor": 0.9930048479085789,
+ "aa_spread": 0.010379847944049891
+}
