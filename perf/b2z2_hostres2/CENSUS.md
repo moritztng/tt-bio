@@ -64,3 +64,25 @@ tracks in the model.
 
 So the trunk's own input is the third instance of a pattern this campaign has built twice, and it
 is the only one of the three that also deletes an upload the device then has to wait on.
+
+## Correction to row 3's own price, measured before anyone builds on it
+
+The five `[1, 512, 512, 128]` fp32 terms are **not** where row 3's 0.356 s of `Boltz2.forward`
+exclusive goes. Timed directly on the same box (whglx, 32 torch threads, loadavg 12.9, four
+repeats, no device involved):
+
+| | s |
+|---|---|
+| `z_init_1(...)[:, :, None] + z_init_2(...)[:, None, :]` broadcast | 0.005 |
+| the four `z = z + term` adds | 0.075 |
+| `torch.zeros_like(z_init)` | 0.005 |
+| **the pair arithmetic, total** | **0.085** |
+
+So **0.27 s of the 0.356 s glue is something other than the z_init tensor arithmetic** — the
+per-forward `disable_and_clear_program_cache()` / `enable_program_cache()` pair, the
+`for m in self.modules()` static-cache reset, `pair_mask`, and the `.float()` copies of `s` and
+`s_inputs` handed to the sampler. That term is unnamed and has to be split before it is priced.
+
+Row 3's addressable seconds are therefore **rel_pos 0.109 + contact_cond 0.182 + pair arithmetic
+0.085 + the two bond linears (inside the glue, not yet split) ~= 0.43 s**, not 0.647 s. Quoting
+0.647 s for a device port of `z_init` overstates it by ~1.5x.
