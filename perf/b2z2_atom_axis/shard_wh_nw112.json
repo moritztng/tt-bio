@@ -1,0 +1,37 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "24,25",
+  "arch": "wormhole_b0",
+  "grid": "ttnn.CoreGrid(x=8, y=9)",
+  "mesh": "1x2",
+  "NW": 112,
+  "n_atoms": 3584,
+  "halo_windows": 2,
+  "commit": "84da2a49",
+  "started": "2026-09-12T21:28:53+0000",
+  "loadavg_start": [
+   "15.76",
+   "20.99",
+   "17.90"
+  ],
+  "reps": 20,
+  "blocks": 5
+ },
+ "parity": {
+  "shard_vs_whole": {
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "self_repeat": {
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "control_nohalo_differs": true,
+  "control_nohalo_max_abs": 0.0078125,
+  "control_perturbed_differs": true,
+  "collectives_per_run": 2,
+  "both_chips_agree_after_gather": true
+ },
+ "timing": {}
+}

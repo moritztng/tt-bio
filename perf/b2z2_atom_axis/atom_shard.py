@@ -102,6 +102,7 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--blocks", type=int, default=5)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--parity-only", action="store_true")
     args = ap.parse_args()
     NW, MESH = args.windows, args.mesh
     assert NW % MESH == 0, "the window axis must split evenly"
@@ -210,6 +211,13 @@ def main() -> int:
     }
     print("PARITY", json.dumps(out["parity"], indent=1), flush=True)
     args.out.write_text(json.dumps(out, indent=1))
+    if args.parity_only:
+        ok = (out["parity"]["shard_vs_whole"]["bit_exact"]
+              and out["parity"]["control_nohalo_differs"]
+              and out["parity"]["control_perturbed_differs"]
+              and out["parity"]["both_chips_agree_after_gather"])
+        print("PARITY-ONLY", "PASS" if ok else "FAIL", flush=True)
+        return 0 if ok else 1
 
     # ---- timing: traced, both arms in one process ------------------------------------------
     def timed(fn, tag):
