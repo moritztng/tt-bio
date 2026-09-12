@@ -34,7 +34,7 @@ def main():
     ap.add_argument("--model", default="boltz2")
     ap.add_argument("--sizes", default="298,512")
     ap.add_argument("--arms", default="base,base,swiglu,usilu")
-    ap.add_argument("--grid", default="11x8")
+    ap.add_argument("--grid", default="11x8")   # 8x8 on Wormhole; 11x8 does not exist there
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--cifdir", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
@@ -68,9 +68,15 @@ def main():
 
     TS.fused_swiglu = counted
 
+    #: arm name -> the TRIMUL_TAIL_SILU the fused kernel folds with. `swiglu` is the kernel as
+    #: `b2z2-fusion-rebuild` left it (the fp32-accuracy LLK silu); 4 is the same silu at bf16
+    #: accuracy and 5 is the SFPU's LUT sigmoid. See kernels/transition_swiglu/compute.cpp.
+    SILU_ARMS = {"swiglu": 1, "swiglu_bf16": 4, "swiglu_appx": 5}
+
     def set_arm(name):
         T._UNFUSED_SILU = (name == "usilu")
-        TS.set_enabled(name == "swiglu")
+        TS.set_enabled(name in SILU_ARMS)
+        TS.SILU = SILU_ARMS.get(name, 1)
         TS.REJECTS.clear()
         served[0] = served[1] = 0
 
@@ -109,7 +115,7 @@ def main():
                    "plddt": m.get("plddt"), "n_tokens": m.get("n_tokens"),
                    "cif_sha256": sha_dir(struct_dir), "cif_dir": str(dest),
                    "swiglu_served": served[0], "swiglu_declined": served[1],
-                   "unfused_silu": T._UNFUSED_SILU}
+                   "unfused_silu": T._UNFUSED_SILU, "silu_mode": TS.SILU}
             res["runs"].append(rec)
             a.out.parent.mkdir(parents=True, exist_ok=True)
             a.out.write_text(json.dumps(res, indent=1))

@@ -48,6 +48,44 @@
 #ifndef TRIMUL_TAIL_MUL_MODE
 #define TRIMUL_TAIL_MUL_MODE 0
 #endif
+// How many tiles `copy_block` folds per DST acquire as it takes the fp32 accumulator to bf16.
+// The kernel this was derived from takes one tile per acquire, so the packer cannot drain tile i
+// while the SFPU works on i+1. Each tile needs one DST slot, so under fp32 half sync the ceiling
+// is 4. Bit-exact in every value: same tiles, same op, same pack order, only the barrier moves.
+#ifndef TRIMUL_TAIL_COPY_BATCH
+#define TRIMUL_TAIL_COPY_BATCH 1
+#endif
+// Where `silu_tile_init()` is issued. 0 = once per tile (what this kernel was derived with,
+// because the epilogue's `mul_binary_tile_init()` clobbers a kernel-top init between blocks),
+// 1 = once per `copy_block` call, which is still after every epilogue and so still valid.
+// Config only: the SFPU function, its operand and its rounding are untouched.
+#ifndef TRIMUL_TAIL_SILU_HOIST
+#define TRIMUL_TAIL_SILU_HOIST 0
+#endif
+// Which activation pass_1's `copy_block` runs over the fp32 accumulator.
+//   0  DIAGNOSTIC ONLY, computes the WRONG answer: no activation at all. It exists to price the
+//      activation against the pass that carries it, and it is what found that the activation is
+//      67.7 % of this kernel on WH.
+//   1  `silu_tile()`, the LLK silu `ttnn.linear(activation="silu")` runs. On Wormhole that is
+//      `abs`, a predicated piecewise-linear branch, a POLYVAL5, a predicated reflection and a
+//      multiply -- about twenty SFPU instructions a vector, none of them unrolled.
+//   2  DIAGNOSTIC ONLY, wrong answer: the kernel's own `round_bf16_tile`, a seven-instruction
+//      hand-written SFPU pass, in silu's place. It measures what ANY SFPU pass over these tiles
+//      costs, so silu's instruction count can be separated from the pass itself.
+//   3  DIAGNOSTIC: `x * sigmoid_tile(x)` through two DST slots. It is BIT-IDENTICAL to 1, which
+//      is how this kernel learned that the LLK silu IS `x * sigmoid(x)` over the same sigmoid.
+//      Kept because that identity is the evidence for 4.
+//   4  the same silu at bf16 accuracy instead of fp32 accuracy: `calculate_silu<false>`, which
+//      takes `_sfpu_exp_21f_bf16_` (~1 ULP on bf16) and a one-iteration reciprocal where the
+//      fp32 branch takes `_sfpu_exp_accurate_` and a two-iteration one. The kernel runs fp32 dest
+//      acc for the MATMUL, so the LLK picks the fp32 branch for the activation as well -- and the
+//      instruction after it packs the result to bf16, so that accuracy is discarded before it is
+//      ever stored. A numerics change of at most one bf16 ULP; scored, never assumed.
+//   5  `x * sigmoid(x)` with the SFPU's 6-entry hardware LUT sigmoid (APPROXIMATION_MODE), the
+//      cheapest sigmoid on the part. A coarser approximation than 4; scored.
+#ifndef TRIMUL_TAIL_SILU
+#define TRIMUL_TAIL_SILU 1
+#endif
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -69,6 +107,9 @@
 
 #ifdef TRISC_MATH
 #include "llk_math_eltwise_unary_sfpu_params.h"
+#include "ckernel_sfpu_silu.h"
+#include "ckernel_sfpu_sigmoid.h"
+#include "llk_math_eltwise_unary_sfpu_sigmoid.h"
 #include "sfpi.h"
 
 namespace ckernel {
@@ -97,6 +138,7 @@ inline void _round_bf16_() {
         sfpi::dst_reg++;
     }
 }
+
 }  // namespace sfpu
 }  // namespace ckernel
 #endif  // TRISC_MATH
@@ -105,6 +147,40 @@ ALWI void round_bf16_tile(uint32_t idst) {
     // `_llk_math_eltwise_unary_sfpu_params_` is a global template, not a member of `ckernel`.
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
         ckernel::sfpu::_round_bf16_<8>, idst, (int)VectorMode::RC)));
+}
+
+// The activation `copy_block` applies, chosen at compile time. Kept as one inline so the init and
+// the per-tile call cannot drift apart.
+// The LLK silu at bf16 accuracy. `silu_tile()` hard-wires `DST_ACCUM_MODE`, which this kernel sets
+// for the matmul accumulator, so it cannot be asked for the cheap branch through the compute API.
+ALWI void silu_bf16_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::calculate_silu<false, 8>, idst, (int)VectorMode::RC)));
+}
+
+ALWI void sigmoid_appx_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<true>(
+        ckernel::sfpu::calculate_sigmoid<true, false, 8>, idst, (int)VectorMode::RC)));
+}
+
+ALWI void tail_activation_init() {
+#if TRIMUL_TAIL_SILU == 1 || TRIMUL_TAIL_SILU == 4
+    silu_tile_init();
+#elif TRIMUL_TAIL_SILU == 3
+    sigmoid_tile_init();
+#elif TRIMUL_TAIL_SILU == 5
+    MATH((llk_math_eltwise_unary_sfpu_sigmoid_init<true>()));
+#endif
+}
+
+ALWI void tail_activation_tile(uint32_t idst) {
+#if TRIMUL_TAIL_SILU == 1
+    silu_tile(idst);
+#elif TRIMUL_TAIL_SILU == 2
+    round_bf16_tile(idst);
+#elif TRIMUL_TAIL_SILU == 4
+    silu_bf16_tile(idst);
+#endif
 }
 
 // out = p * g, tile by tile, with production's rounding points. `g` already carries silu and is
@@ -191,37 +267,108 @@ void mul_block(uint32_t p_cb, uint32_t g_cb, uint32_t out_cb, uint32_t block_num
     cb_push_back(out_cb, block_num_tiles);
 }
 
+
+#if TRIMUL_TAIL_SILU == 3 || TRIMUL_TAIL_SILU == 5
+// silu(x) = x * sigmoid(x), with sigmoid taken from the SFPU's 6-entry hardware LUT instead of the
+// LLK silu's `abs` + two predicated regions + POLYVAL5. `lut2`'s 6-entry table mode is not
+// reachable from a user kernel on this sfpi (`mod1` mask 0xc rejects it), so this composes the
+// same hardware path out of the compute API: one extra `copy_tile`, `sigmoid_tile`, one FPU
+// multiply. Two DST slots a tile, so COPY_BATCH is capped at 2 under fp32 half sync.
+void copy_block_silu_lut(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles,
+                         uint32_t N_block_tiles) {
+    constexpr uint32_t G = (TRIMUL_TAIL_COPY_BATCH > 2) ? 2 : TRIMUL_TAIL_COPY_BATCH;
+    const uint32_t total = M_block_tiles * N_block_tiles;
+    uint32_t pushed = 0;
+    for (uint32_t t = 0; t < total; t += G) {
+        const uint32_t n = (total - t < G) ? (total - t) : G;
+        tile_regs_acquire();
+        copy_tile_to_dst_init_short(in_cb);
+        reconfig_data_format_srca(in_cb);
+        pack_reconfig_data_format(out_cb);
+        for (uint32_t i = 0; i < n; i++) {
+            copy_tile(in_cb, t + i, 2 * i);
+            copy_tile(in_cb, t + i, 2 * i + 1);
+        }
+        tail_activation_init();
+        for (uint32_t i = 0; i < n; i++) {
+#if TRIMUL_TAIL_SILU == 5
+            sigmoid_appx_tile(2 * i + 1);
+#else
+            sigmoid_tile(2 * i + 1);
+#endif
+        }
+        mul_binary_tile_init();
+        for (uint32_t i = 0; i < n; i++) {
+            mul_binary_tile(2 * i, 2 * i + 1, 2 * i);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t i = 0; i < n; i++) {
+            pack_tile(2 * i, out_cb);
+        }
+        tile_regs_release();
+        while (pushed + N_block_tiles <= t + n) {
+            cb_push_back(out_cb, N_block_tiles);
+            pushed += N_block_tiles;
+        }
+    }
+}
+#endif
+
 void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles,
                 bool apply_silu = false) {
+#if TRIMUL_TAIL_SILU == 3 || TRIMUL_TAIL_SILU == 5
+    if (apply_silu) {
+        copy_block_silu_lut(in_cb, out_cb, M_block_tiles, N_block_tiles);
+        return;
+    }
+#endif
     copy_tile_to_dst_init_short(in_cb);
     reconfig_data_format_srca(in_cb);
     pack_reconfig_data_format(out_cb);
-    uint32_t fused_act_dst_id = 0;
+#if TRIMUL_TAIL_SILU && TRIMUL_TAIL_SILU_HOIST
+    // One SFPU init a block instead of one a tile. The epilogue's `mul_binary_tile_init()` runs
+    // between blocks, not between tiles, so a per-block init is still live for every tile it
+    // covers -- which is the only reason the per-tile form existed.
+    if (apply_silu) {
+        tail_activation_init();
+    }
+#endif
 
-    uint32_t tile_id = 0;
-    for (uint32_t m = 0; m < M_block_tiles; m++) {
-        for (uint32_t n = 0; n < N_block_tiles; n++) {
-            acquire_dst();
-            copy_tile(in_cb, tile_id, fused_act_dst_id /*dst*/);
+    constexpr uint32_t G = TRIMUL_TAIL_COPY_BATCH;
+    const uint32_t total = M_block_tiles * N_block_tiles;
+    uint32_t pushed = 0;
+    for (uint32_t t = 0; t < total; t += G) {
+        const uint32_t n = (total - t < G) ? (total - t) : G;
+        tile_regs_acquire();
+        for (uint32_t i = 0; i < n; i++) {
+            copy_tile(in_cb, t + i, i);
 #ifdef SFPU_OP_INIT_ACTIVATION
             SFPU_OP_FUNC_ACTIVATION
 #endif
             // The fused activation goes here and nowhere else: this is the copy that takes the
             // fp32 accumulator to bf16, so silu sees the same fp32 value and the same single
             // rounding that `ttnn.linear(activation="silu")` gives it.
+#if TRIMUL_TAIL_SILU
             if (apply_silu) {
-                // Re-init on every tile, not once at the top of the kernel. The wheel's generated
-                // kernel can hoist its SFPU_OP_INIT_ACTIVATION because nothing else in it touches
-                // the SFPU; this one runs `mul_binary_tile_init()` in its epilogue between block
-                // iterations, so a hoisted init is live only for the first block a core folds.
-                silu_tile_init();
-                silu_tile(fused_act_dst_id);
+#if !TRIMUL_TAIL_SILU_HOIST
+                tail_activation_init();
+#endif
+                tail_activation_tile(i);
             }
-            pack_tile(fused_act_dst_id, out_cb);
-            release_dst();
-            tile_id++;
+#endif
         }
-        cb_push_back(out_cb, N_block_tiles);
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t i = 0; i < n; i++) {
+            pack_tile(i, out_cb);
+        }
+        tile_regs_release();
+        // Release each output row the moment it is complete, exactly as the per-tile form did.
+        while (pushed + N_block_tiles <= t + n) {
+            cb_push_back(out_cb, N_block_tiles);
+            pushed += N_block_tiles;
+        }
     }
 }
 
