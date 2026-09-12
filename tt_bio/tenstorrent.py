@@ -1577,17 +1577,29 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
     # part rather than against our table. That is a different chunking and so not bit-exact,
     # which is why it is reached ONLY after the device has refused: a length that folds today
     # never enters this branch and keeps its exact numbers.
-    try:
-        o = ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, attn_mask=bias, is_causal=False, scale=scale,
-            program_config=_sdpa_program_config(fits[-1], k_chunk),
-        )
-        _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
-        return o
-    except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
-        absorb_l1_refusal("tri_att_sdpa/last_q_chunk", exc)
-        _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1]))
-        _latch("sdpa_q_chunk", "refused", exc)
+    #
+    # `fits` can be EMPTY, and that is the case this guard exists for. `_SDPA_Q_CHUNK_OVER_L1`
+    # is process-wide and accumulates across calls, so once L1 has refused every rung of this
+    # length's ladder -- which is what a long fold does to a length with a sparse divisor set,
+    # under a device whose free L1 shrinks as other tensors take residence -- the NEXT call
+    # filters the ladder down to nothing and `fits[-1]` raises IndexError. A degradation path
+    # that hard-fails the fold instead of degrading is not a degradation path; with no rung
+    # left, the planner fallback below IS the answer, so go straight to it.
+    if fits:
+        try:
+            o = ttnn.transformer.scaled_dot_product_attention(
+                q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+                program_config=_sdpa_program_config(fits[-1], k_chunk),
+            )
+            _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
+            return o
+        except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
+            absorb_l1_refusal("tri_att_sdpa/last_q_chunk", exc)
+            _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1]))
+            _latch("sdpa_q_chunk", "refused", exc)
+    else:
+        _latch("sdpa_q_chunk", "blocked",
+               RuntimeError(f"every q_chunk for (q={q_len}, k={k_len}) is in the L1 refusal set"))
     o = ttnn.transformer.scaled_dot_product_attention(
         q, k, v, attn_mask=bias, is_causal=False, scale=scale)
     _sdpa_pick(q_len, k_len, 0, k_chunk, "stock")
