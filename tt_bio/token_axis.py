@@ -304,7 +304,15 @@ MSA_AXIS_MULTIPLE = ("tt_bio.tenstorrent", "MSA_PAD_MULTIPLE", 1024)
 # alignment still gets a bucket rather than a recompile per depth. Powers of two from one tile-
 # aligned floor, which is the same discipline the token axis uses and the same reason
 # (token-axis-must-bucket-to-multiple-of-32 is STANDING).
-MSA_DEPTH_LADDER = (64, 128, 256, 512, 1024, 2048, 4096, 8192)
+# Powers of two up to the incumbent bucket, and NOTHING above it. A ladder that kept doubling past
+# 1024 is coarser than the single bucket it replaces over half its own range: 2500 rows land on 4096
+# where `bucketed_width(2500, 1024)` lands on 3072, and 4097-7168 rows all land on 8192 against an
+# incumbent that never pads past the next 1024. 7904 of the first 12000 row counts pad MORE under a
+# doubling ladder than under the incumbent, by up to 7168 rows -- +11.42 s per fold on Wormhole at
+# the measured 0.0995 ms per padded row per MSALayer x 16 calls. Above 1024 the incumbent's own
+# 1024-multiple is already the finer rule, so the ladder stops and defers to it, and
+# `msa_depth_bucket` is then <= the incumbent at every row count by construction.
+MSA_DEPTH_LADDER = (64, 128, 256, 512, 1024)
 
 
 def msa_ladder_enabled() -> bool:
@@ -333,19 +341,25 @@ def msa_pad_poison() -> float:
 
 
 def msa_depth_bucket(n_msa: int) -> int:
-    """Padded depth for `n_msa` alignment rows.
+    """Padded depth for `n_msa` alignment rows. Never above `bucketed_width(n_msa, 1024)`.
 
-    Ladder when enabled, the historical single 1024 step otherwise. Above the ladder's top the
-    rule falls back to the top rung's multiple, so an 9000-row alignment still lands on a bucket
-    instead of compiling its own program.
+    Off, this is the historical single 1024 step. On, a deep alignment keeps that step -- above
+    1024 the incumbent is already the finer rule -- and a shallow one drops to the smallest
+    power-of-two rung that holds it. So the ladder is a pure subtraction from the padding at every
+    row count, which is the property that lets it be judged on accuracy alone.
+
+    Every rung is a multiple of the 32 row tile (`token-axis-must-bucket-to-multiple-of-32` is
+    STANDING for the token axis and the row axis tiles the same way), and the map from a real
+    depth to its bucket is a pure function of that depth, so two folds of the same alignment run
+    the same program and produce the same bytes.
     """
-    mult = MSA_AXIS_MULTIPLE[2]
+    incumbent = bucketed_width(n_msa, MSA_AXIS_MULTIPLE[2])
     if not msa_ladder_enabled():
-        return bucketed_width(n_msa, mult)
+        return incumbent
     for rung in MSA_DEPTH_LADDER:
         if n_msa <= rung:
-            return rung
-    return bucketed_width(n_msa, MSA_DEPTH_LADDER[-1])
+            return min(rung, incumbent)
+    return incumbent
 
 # ---------------------------------------------------------------------------------------------
 # The mechanism. One copy of it, next to the census, so a new adoption is a table row and a call.
