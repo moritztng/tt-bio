@@ -120,7 +120,7 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
-          noc_mode=None):
+          noc_mode=None, bias=None):
     """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
@@ -135,6 +135,15 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     head-major activation reports wrongly: ``[S, 8, S, 32]`` is the same tile grid as
     ``[S*S, 256]`` but its last dim is 32.
 
+    ``bias`` is a ``[1, N]`` tiled tensor added to every output row, the fused-bias form of the op.
+    The kernels already had it: the in1 DM kernel reads it into ``c_4`` under ``FUSE_BIAS`` and the
+    compute kernel adds it before the pack, so the whole cost is one CB and nothing at all in the
+    output path. What the transcription was missing is the four bindings below -- the define, the
+    circular buffer, the accessor args after the outputs' and the address in runtime arg 1, which
+    the kernel has always read and this file has always passed as zero. Without it the fold pays a
+    separate broadcast add: 27.85 us at the token-DiT qkv shape, against 103.18 us for the matmul
+    (`perf/b2z2_layout_tail/qkv_screen_wh_c10.json`, WH).
+
     ``noc_mode`` is for a DM kernel that issues transactions on the NOC it was NOT configured
     with. Under the default ``DM_DEDICATED_NOC`` the firmware only runs ``noc_local_state_init``
     for the kernel's own NOC, so a write on the other one never issues and the barrier spins
@@ -147,6 +156,9 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     (M_block_tiles, K_block_tiles, N_block_tiles, subblock_h, subblock_w), (gx, gy) = cfg
     math_fidelity, math_approx_mode, fp32_dest_acc_en, dst_full_sync_en = ckc
     defines = [(str(k), str(v)) for k, v in dict(defines).items()]
+    if bias is not None:
+        defines = defines + [("FUSE_BIAS", "1")]
+    compute_defines = [("FUSE_BIAS", "1")] if bias is not None else []
 
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -173,7 +185,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in0_tile_size = tile_bytes(in0.dtype)
     in1_tile_size = tile_bytes(in1.dtype)
     out_tile_size = tile_bytes(out.dtype)
-    in2_tile_size = in1_tile_size          # no bias: in2_data_format = in1_data_format
+    in2_tile_size = tile_bytes(bias.dtype) if bias is not None else in1_tile_size
     in3_tile_size = in1_tile_size          # no all-gather fusion, same fallback
     interm_fmt = ttnn.float32 if fp32_dest_acc_en else ttnn.bfloat16
     interm_tile_size = tile_bytes(interm_fmt)
@@ -207,6 +219,8 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
         _cb(2, core_grid, out_tile_size, out_block * 2, out.dtype),
         _cb(3, core_grid, interm_tile_size, out_block, interm_fmt),
     ]
+    if bias is not None:
+        cbs.append(_cb(4, core_grid, in2_tile_size, N_block_tiles * 2, bias.dtype))
 
     # CreateSemaphore is called six times on the whole grid, so the ids are 0..5 in that order.
     sem_vals = [INVALID, INVALID, VALID, INVALID, INVALID, VALID]
@@ -218,16 +232,18 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     acc_in0 = list(ttnn.TensorAccessorArgs(in0).get_compile_time_args())
     acc_in1 = list(ttnn.TensorAccessorArgs(in1).get_compile_time_args())
     acc_out = [a for o in outs for a in ttnn.TensorAccessorArgs(o).get_compile_time_args()]
+    acc_in2 = (list(ttnn.TensorAccessorArgs(bias).get_compile_time_args())
+               if bias is not None else [])
 
     in0_is_writer = not transpose
     in1_is_writer = transpose
 
-    def dm_ct(tile_size, sems, is_writer, is_injector, acc_main, tail):
+    def dm_ct(tile_size, sems, is_writer, is_injector, acc_main, tail, acc_bias=()):
         return ([M_tiles, padded_M_tiles, K_tiles, padded_K_tiles, N_tiles, padded_N_tiles,
                  M_block_tiles, K_block_tiles, N_block_tiles, M_blocks_per_core, N_blocks_per_core,
                  tile_size, out_tile_size, in2_tile_size, *sems,
                  int(is_writer), int(is_injector), N_chunks, N_tiles_per_chunk] + tail
-                + acc_main + acc_out)
+                + acc_main + acc_out + list(acc_bias))
 
     in0_sems = [in0_sender_sem, in0_recv_sem, in0_valid_sem]
     in1_sems = [in1_sender_sem, in1_recv_sem, in1_valid_sem]
@@ -248,6 +264,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     k_blocks_per_core = _div_up(K_blocks, in1_axis_cores if transpose else in0_axis_cores)
 
     in0_addr, in1_addr = in0.buffer_address(), in1.buffer_address()
+    bias_addr = bias.buffer_address() if bias is not None else 0
     out_addrs = [o.buffer_address() for o in outs]
 
     rt = {"in0_sender": [], "in0_recv": [], "in1_sender": [], "in1_recv": [], "compute": []}
@@ -282,7 +299,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
             a0 = [in0_addr, 0, 0, int(core == in0_order[-1]),
                   in0_next[0], in0_next[1], in0_prev[0], in0_prev[1],
                   M_start, M_end, N_start, N_end, defer_k, *out_addrs]
-            a1 = [in1_addr, 0, int(core == in1_order[-1]),
+            a1 = [in1_addr, bias_addr, int(core == in1_order[-1]),
                   in1_next[0], in1_next[1], in1_prev[0], in1_prev[1],
                   M_start, M_end, N_start, N_end, defer_k, *out_addrs]
             rt["in0_sender" if in1_idx == 0 else "in0_recv"].append((cc, a0))
@@ -306,10 +323,10 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                   dm_ct(in0_tile_size, in0_sems, in0_is_writer, False, acc_in0, [in3_tile_size]),
                   rt["in0_recv"], in0_risc, in0_noc),
         dm_kernel(in1_src, in1_sender_cores,
-                  dm_ct(in1_tile_size, in1_sems, in1_is_writer, True, acc_in1, []),
+                  dm_ct(in1_tile_size, in1_sems, in1_is_writer, True, acc_in1, [], acc_in2),
                   rt["in1_sender"], in1_risc, in1_noc),
         dm_kernel(in1_src, in1_recv_cores,
-                  dm_ct(in1_tile_size, in1_sems, in1_is_writer, False, acc_in1, []),
+                  dm_ct(in1_tile_size, in1_sems, in1_is_writer, False, acc_in1, [], acc_in2),
                   rt["in1_recv"], in1_risc, in1_noc),
         ttnn.KernelDescriptor(
             kernel_source=compute_src,
@@ -317,14 +334,15 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
             core_ranges=core_grid,
             compile_time_args=[K_blocks, M_block_tiles, K_block_tiles, N_block_tiles,
                                M_blocks_per_core, N_blocks_per_core, subblock_h, subblock_w],
-            runtime_args=rt["compute"],
+            runtime_args=rt["compute"], defines=compute_defines,
             config=ttnn.ComputeConfigDescriptor(
                 math_fidelity=math_fidelity, math_approx_mode=math_approx_mode,
                 fp32_dest_acc_en=fp32_dest_acc_en, dst_full_sync_en=dst_full_sync_en)),
     ]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=semaphores, cbs=cbs)
     return {"pd": pd, "kernels": kernels, "cbs": cbs, "semaphores": semaphores, "rt": rt,
-            "addrs": (in0_addr, in1_addr, tuple(out_addrs)), "n_chunks": N_chunks,
+            "addrs": (in0_addr, in1_addr, tuple(out_addrs), bias_addr),
+            "has_bias": bias is not None, "n_chunks": N_chunks,
             "dims": {"M_tiles": M_tiles, "K_tiles": K_tiles, "N_tiles": N_tiles,
                      "padded_M_tiles": padded_M_tiles, "padded_N_tiles": padded_N_tiles,
                      "M_blocks_per_core": M_blocks_per_core,
@@ -333,34 +351,36 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                      "transpose_core_grid": transpose, "defines": defines}}
 
 
-def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None):
+def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None, bias=None):
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
-            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode))
+            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode),
+            spec(bias) if bias is not None else None)
 
 
 def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,
-                           m_k=None, noc_mode=None):
+                           m_k=None, noc_mode=None, bias=None):
     """``minimal_matmul`` through ``generic_op``, descriptor cached per shape/config."""
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
-    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode)
+    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode, bias)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = build(device, in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k,
-                                    noc_mode)
+                                    noc_mode, bias)
     addrs = (in0.buffer_address(), in1.buffer_address(),
-             tuple(o.buffer_address() for o in outs))
+             tuple(o.buffer_address() for o in outs),
+             bias.buffer_address() if bias is not None else 0)
     if addrs != entry["addrs"]:
         rebind(entry, *addrs)
-    ttnn.generic_op([in0, in1, *outs], entry["pd"])
+    ttnn.generic_op([in0, in1, *outs] + ([bias] if bias is not None else []), entry["pd"])
     return outs[0] if len(outs) == 1 else outs
 
 
-def rebind(entry, in0_addr, in1_addr, out_addrs):
+def rebind(entry, in0_addr, in1_addr, out_addrs, bias_addr=0):
     """Rewrite the buffer addresses in the cached per-core runtime args, in place.
 
     They sit at fixed indices: args[0] is the kernel's own input address and the last ``N_chunks``
@@ -373,10 +393,12 @@ def rebind(entry, in0_addr, in1_addr, out_addrs):
                        ("in1_sender", in1_addr), ("in1_recv", in1_addr)):
         for _, a in rt[name]:
             a[0] = addr
+            if entry["has_bias"] and name.startswith("in1"):
+                a[1] = bias_addr           # the slot the kernel reads as in2_addr
             a[len(a) - n:] = list(out_addrs)
     for k, name in zip(entry["kernels"][:4],
                        ("in0_sender", "in0_recv", "in1_sender", "in1_recv")):
         k.runtime_args = rt[name]
     entry["pd"] = ttnn.ProgramDescriptor(
         kernels=entry["kernels"], semaphores=entry["semaphores"], cbs=entry["cbs"])
-    entry["addrs"] = (in0_addr, in1_addr, tuple(out_addrs))
+    entry["addrs"] = (in0_addr, in1_addr, tuple(out_addrs), bias_addr)
