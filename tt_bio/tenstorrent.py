@@ -7048,23 +7048,33 @@ class AttentionPairBias(Module):
         g_weight, o_weight = (self._padded_tail_weights() if pad_tail
                               else (self.g_weight, self.o_weight))
         if not self.atom_level:
-            qkv = ttnn.linear(
-                s,
-                self.qkv_weight,
-                bias=self.qkv_bias,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
-            if self.kq_norm:
-                qkv = self._apply_kq_norm(qkv)
-            qkv = ttnn.unsqueeze(qkv, 1)
-            q, k, v = ttnn.experimental.nlp_create_qkv_heads(
-                qkv,
-                num_heads=self.n_heads,
-                num_kv_heads=self.n_heads,
-                transpose_k_heads=False,
-            )
-            ttnn.deallocate(qkv)
+            # The projection can write the head split directly: the head is a whole number of
+            # tiles once padded, so no element moves inside a tile and only the destination tile
+            # id changes. Declined when a kq norm has to see the flat qkv first.
+            fused = (_triatt_qkv.qkv_heads_wide(
+                s, self.qkv_weight, self.qkv_bias, self.compute_kernel_config, self.n_heads,
+                getattr(self, "padded_head_dim", self.head_dim), self.dtype)
+                if not self.kq_norm else None)
+            if fused is not None:
+                q, k, v = fused
+            else:
+                qkv = ttnn.linear(
+                    s,
+                    self.qkv_weight,
+                    bias=self.qkv_bias,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
+                if self.kq_norm:
+                    qkv = self._apply_kq_norm(qkv)
+                qkv = ttnn.unsqueeze(qkv, 1)
+                q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+                    qkv,
+                    num_heads=self.n_heads,
+                    num_kv_heads=self.n_heads,
+                    transpose_k_heads=False,
+                )
+                ttnn.deallocate(qkv)
             # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
             if self.compute_pair_bias and not bias_precomputed:
                 # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to

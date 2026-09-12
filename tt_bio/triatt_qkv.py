@@ -97,6 +97,80 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
     return tuple(outs)
 
 
+
+# --- the same writer, for a head that is more than one tile wide ----------------------------------
+#
+# `qkv_heads` above is gated on a 32-channel head because that is the only width the tri-attention
+# sites have. The diffusion transformer's heads are 48 channels padded to 64, which is two whole
+# tiles, so no element moves inside a tile there either and the same argument holds: only the
+# address the writer sends each tile to changes. `HEAD_MAJOR_HD_T` carries the head's tile width
+# into the macro and reduces to the shipped expression at 1.
+#
+# Two things differ from K1a and both are measured, not assumed
+# (`perf/b2z2_layout_tail/qkv_screen_wh_c10.json`, `bias_probe_wh_c10.json`, WH):
+#
+#   * this weight shape has no `_MM_BLOCK` entry, so the block config is swept here rather than
+#     looked up: 8 configs at the real shape, `(4, 8, 4, 4, 2)` fastest at 103.18 us against
+#     `ttnn.linear`'s 106.00;
+#   * the qkv projection carries a bias, which `mm_generic` used not to bind. It does now, and the
+#     fused form costs 4.91 us against 18.39 for the separate add it replaces.
+#
+# It is NOT bit-exact against `ttnn.linear` -- no block config is at this shape, `_MM_DEFAULT`
+# included -- so it is off by default and needs a fold-level score, exactly like the padded tail.
+DIT_QKV_BLOCK = (4, 8, 4, 4, 2)
+
+_WIDE_ENABLED = os.environ.get("TT_BIO_DIT_FUSED_QKV", "0") == "1"
+# (calls served, calls declined)
+WIDE_STATS = [0, 0]
+WIDE_REJECTS: dict = {}
+
+
+def _wide_reject(reason, shape):
+    k = (reason, tuple(shape))
+    WIDE_REJECTS[k] = WIDE_REJECTS.get(k, 0) + 1
+    WIDE_STATS[1] += 1
+    return None
+
+
+def qkv_heads_wide(x, w, bias, ckc, n_heads, head_dim, dtype, blk=DIT_QKV_BLOCK):
+    """`nlp_create_qkv_heads(linear(x, w, bias))` as one op, for a tile-aligned head of any width.
+
+    Returns `(q, k, v)`, each `[batch, n_heads, seq, head_dim]`. Gated on the shape and the dtype,
+    never on a model: a head that is not a whole number of tiles, a weight that is not exactly
+    `3 * n_heads * head_dim` wide, or anything that is not interleaved bf16 in DRAM falls through
+    to the two stock ops.
+    """
+    if not _WIDE_ENABLED:
+        return None
+    shape = [int(d) for d in x.shape]
+    if head_dim % TILE or head_dim < TILE:
+        return _wide_reject("head_dim_not_whole_tiles", shape)
+    if n_heads * head_dim * 3 != int(w.shape[-1]):
+        return _wide_reject("width", shape)
+    if not _common_ok(x, w, dtype):
+        return _wide_reject("dtype_or_memory", shape)
+    if bias is not None and (bias.dtype != ttnn.bfloat16
+                             or bias.layout != ttnn.TILE_LAYOUT
+                             or int(bias.shape[-1]) != int(w.shape[-1])):
+        return _wide_reject("bias_shape_or_dtype", shape)
+
+    from .tenstorrent import COMPUTE_GRID_MAIN
+    pad = [int(d) for d in x.padded_shape]
+    if pad[-2] % TILE or int(w.shape[-2]) % TILE:
+        return _wide_reject("unaligned_m_or_k", shape)
+
+    dev = x.device()
+    outs = [ttnn.allocate_tensor_on_device(
+        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+        dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
+    G.generic_minimal_matmul(
+        dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
+        {"HEAD_MAJOR_MT": pad[-2] // TILE, "HEAD_MAJOR_HD_T": head_dim // TILE},
+        KERNEL_DIR, bias=bias)
+    WIDE_STATS[0] += 1
+    return tuple(outs)
+
+
 # --- K1b: the tail stays head-major, so nlp_concat_heads never runs -------------------------------
 #
 # The SDPA leaves `o` as [batch, head, seq, 32]. Today the tail's first op undoes that so the gate
