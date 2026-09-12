@@ -1,0 +1,133 @@
+{
+ "env": {
+  "card": "11",
+  "commit": "52d87837",
+  "blk": [
+   4,
+   8,
+   4,
+   4,
+   2
+  ],
+  "shape": [
+   512,
+   768,
+   3072
+  ],
+  "loadavg": [
+   "10.25",
+   "12.87",
+   "11.54"
+  ]
+ },
+ "eligible": {
+  "served": 1,
+  "declined": 0,
+  "rejects": {}
+ },
+ "mapping": {
+  "q": {
+   "shape": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "vs_stock": {
+    "max_abs": 2.0,
+    "mean_abs": 0.171394,
+    "rms_ref": 27.7511
+   },
+   "vs_stock_heads_rolled_by_one": {
+    "max_abs": 175.5,
+    "mean_abs": 31.32415,
+    "rms_ref": 27.7511
+   }
+  },
+  "k": {
+   "shape": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "vs_stock": {
+    "max_abs": 2.0,
+    "mean_abs": 0.171067,
+    "rms_ref": 27.727
+   },
+   "vs_stock_heads_rolled_by_one": {
+    "max_abs": 182.5,
+    "mean_abs": 31.337244,
+    "rms_ref": 27.727
+   }
+  },
+  "v": {
+   "shape": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "vs_stock": {
+    "max_abs": 2.0,
+    "mean_abs": 0.170943,
+    "rms_ref": 27.7676
+   },
+   "vs_stock_heads_rolled_by_one": {
+    "max_abs": 181.0,
+    "mean_abs": 31.443935,
+    "rms_ref": 27.7676
+   }
+  }
+ },
+ "ab": {
+  "us_stock": 167.86,
+  "us_fused": 108.1,
+  "ratio": 1.55285,
+  "delta_us_per_call": 59.76,
+  "aa_floor": 1.003,
+  "order": [
+   [
+    "stock",
+    168.61
+   ],
+   [
+    "fused",
+    109.03
+   ],
+   [
+    "fused",
+    107.88
+   ],
+   [
+    "stock",
+    168.08
+   ],
+   [
+    "stock",
+    167.86
+   ],
+   [
+    "fused",
+    108.1
+   ],
+   [
+    "fused",
+    107.62
+   ],
+   [
+    "stock",
+    167.84
+   ],
+   [
+    "stock",
+    167.61
+   ],
+   [
+    "fused",
+    108.42
+   ]
+  ]
+ }
+}

@@ -1,0 +1,56 @@
+{
+ "env": {
+  "card": "11",
+  "commit": "52d87837",
+  "blk": [
+   4,
+   8,
+   4,
+   4,
+   2
+  ],
+  "shape": [
+   512,
+   768,
+   3072
+  ],
+  "loadavg": [
+   "10.80",
+   "13.02",
+   "11.59"
+  ]
+ },
+ "binding": {
+  "vs_same_matmul_plus_host_bias": {
+   "max_abs": 0.5,
+   "mean_abs": 0.008177454583346844,
+   "rms": 27.7617,
+   "max_rel_to_rms": 0.01801043701747207,
+   "bit_exact": false
+  },
+  "vs_ttnn_linear_bias": {
+   "max_abs": 2.0,
+   "mean_abs": 0.17101885378360748,
+   "rms": 27.7024,
+   "max_rel_to_rms": 0.07219578104252103,
+   "bit_exact": false
+  },
+  "nobias_vs_ttnn_linear_bias": {
+   "max_abs": 4.625,
+   "mean_abs": 0.8273236155509949,
+   "rms": 27.7024,
+   "max_rel_to_rms": 0.16695274366082988,
+   "bit_exact": false
+  },
+  "negative_control_differs": true,
+  "negative_control_max_abs": 4.125
+ },
+ "cost_us": {
+  "generic_no_bias": 102.29,
+  "generic_fused_bias": 106.38,
+  "separate_add_it_replaces": 38.36,
+  "ttnn_linear_with_bias": 106.33,
+  "fused_bias_costs_us": 4.09,
+  "saved_vs_separate_add_us": 34.27
+ }
+}

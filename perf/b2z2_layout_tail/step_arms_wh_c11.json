@@ -1,0 +1,233 @@
+{
+ "env": {
+  "started": "2026-09-12T20:12:22+0000",
+  "card": "11",
+  "size": 512,
+  "commit": "52d87837",
+  "loadavg": [
+   "10.25",
+   "12.87",
+   "11.54"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3
+ },
+ "precursor_s": 28.627,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "parity": {
+  "base_deterministic": true,
+  "padtail": {
+   "bit_exact": false,
+   "max_abs": 0.234375,
+   "mean_abs": 0.017304977402091026
+  },
+  "fusedqkv": {
+   "bit_exact": false,
+   "max_abs": 0.19921875,
+   "mean_abs": 0.017209861427545547
+  },
+  "both": {
+   "bit_exact": false,
+   "max_abs": 0.1878662109375,
+   "mean_abs": 0.01625177264213562
+  },
+  "served": {
+   "fused_qkv_calls": 48,
+   "declined": 0,
+   "rejects": {}
+  }
+ },
+ "ab": {
+  "ms": {
+   "base": 41.5784,
+   "padtail": 40.5272,
+   "fusedqkv": 39.9301,
+   "both": 38.8975
+  },
+  "ratio_vs_base": {
+   "base": 1.0,
+   "padtail": 1.02594,
+   "fusedqkv": 1.04128,
+   "both": 1.06892
+  },
+  "delta_ms": {
+   "base": 0.0,
+   "padtail": 1.0512,
+   "fusedqkv": 1.6482,
+   "both": 2.6809
+  },
+  "aa_floor": 1.00025,
+  "spread_pct": {
+   "base": 0.124,
+   "padtail": 0.082,
+   "fusedqkv": 2.249,
+   "both": 0.168
+  },
+  "walls": {
+   "base": [
+    41.5629,
+    41.6144,
+    41.5848,
+    41.5711,
+    41.5784
+   ],
+   "padtail": [
+    40.5392,
+    40.5248,
+    40.5272,
+    40.5443,
+    40.5112
+   ],
+   "fusedqkv": [
+    39.9301,
+    39.9402,
+    40.8127,
+    39.9185,
+    39.9146
+   ],
+   "both": [
+    38.8967,
+    38.9152,
+    38.8729,
+    38.8975,
+    38.9384
+   ]
+  },
+  "order": [
+   [
+    "base",
+    41.5629
+   ],
+   [
+    "padtail",
+    40.5392
+   ],
+   [
+    "fusedqkv",
+    39.9301
+   ],
+   [
+    "both",
+    38.8967
+   ],
+   [
+    "padtail",
+    40.5248
+   ],
+   [
+    "fusedqkv",
+    39.9402
+   ],
+   [
+    "both",
+    38.9152
+   ],
+   [
+    "base",
+    41.6144
+   ],
+   [
+    "fusedqkv",
+    40.8127
+   ],
+   [
+    "both",
+    38.8729
+   ],
+   [
+    "base",
+    41.5848
+   ],
+   [
+    "padtail",
+    40.5272
+   ],
+   [
+    "both",
+    38.8975
+   ],
+   [
+    "base",
+    41.5711
+   ],
+   [
+    "padtail",
+    40.5443
+   ],
+   [
+    "fusedqkv",
+    39.9185
+   ],
+   [
+    "base",
+    41.5784
+   ],
+   [
+    "padtail",
+    40.5112
+   ],
+   [
+    "fusedqkv",
+    39.9146
+   ],
+   [
+    "both",
+    38.9384
+   ]
+  ],
+  "reps": 10,
+  "blocks": 5
+ }
+}
