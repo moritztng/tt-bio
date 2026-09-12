@@ -49,8 +49,21 @@ def main() -> int:
             continue
         keys, xyz = read_atoms(cifs[0])
         tag = d.name.split("_", 1)[1]          # 298_base_0 -> base_0
+        # The prefix carries the FIXTURE, and stripping it makes 298_base_0 and 512_base_0 the
+        # same key. A cifdir holding both sizes -- which `ab_arms.py --control` produces, since it
+        # keeps 512_* from the timed phase and 298_* from the control phase in one directory --
+        # then silently scores the 512 folds under the 298 thresholds. cdk2x2_512 is chimeric and
+        # saturates for any change (memory cdk2x2-chimeric-fixture-cannot-score-non-bit-exact-
+        # parity), so the table comes out plausible and wrong: measured 2026-09-12, a change that
+        # is 0.218 A on cdk2x2_298 read 0.505 A and flipped PASS to HOLD. Refuse loudly instead.
+        if tag in data:
+            raise SystemExit(
+                f"two directories map to the tag {tag!r}: {data[tag]['dir']} and {d.name}. The "
+                f"fixture prefix is what differs, so this cifdir holds more than one fixture and "
+                f"the thresholds below apply to exactly one. Point this at a single fixture's "
+                f"folds.")
         ca = [i for i, k in enumerate(keys) if "CA" in k]
-        data[tag] = {"keys": keys, "xyz": xyz, "ca": ca, "cif": cifs[0].name}
+        data[tag] = {"keys": keys, "xyz": xyz, "ca": ca, "cif": cifs[0].name, "dir": d.name}
         print(f"  {tag:10s} {len(xyz):6d} atoms  {len(ca):5d} CA  {cifs[0].name}")
     if len(data) < 2:
         raise SystemExit("need at least two folds on disk")
