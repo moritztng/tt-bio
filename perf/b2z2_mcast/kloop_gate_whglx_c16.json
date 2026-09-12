@@ -1,0 +1,165 @@
+{
+ "env": {
+  "started": "2026-09-12T21:19:39+0000",
+  "card": "16",
+  "grid": [
+   8,
+   9
+  ],
+  "commit": "a89f4125",
+  "loadavg": [
+   "28.62",
+   "24.50",
+   "15.21"
+  ],
+  "m": 8192,
+  "n": 384,
+  "block_cfg": [
+   4,
+   4,
+   1,
+   4,
+   1
+  ],
+  "reps": 20
+ },
+ "rows": [
+  {
+   "K_num_blocks": 1,
+   "K": 128,
+   "arm": "mcast",
+   "bit_exact": true,
+   "chain_ms": 0.08374,
+   "arm_ms": 0.12801,
+   "ratio_chain_over_arm": 0.65413,
+   "aa_floor": 0.99647,
+   "gate_saw": [
+    [
+     "chain",
+     1
+    ],
+    [
+     "mcast",
+     1
+    ]
+   ]
+  },
+  {
+   "K_num_blocks": 2,
+   "K": 256,
+   "arm": "mcast",
+   "bit_exact": true,
+   "chain_ms": 0.1201,
+   "arm_ms": 0.16577,
+   "ratio_chain_over_arm": 0.7245,
+   "aa_floor": 1.00231,
+   "gate_saw": [
+    [
+     "chain",
+     1
+    ],
+    [
+     "chain",
+     2
+    ],
+    [
+     "mcast",
+     1
+    ],
+    [
+     "mcast",
+     2
+    ]
+   ]
+  },
+  {
+   "K_num_blocks": 4,
+   "K": 512,
+   "arm": "mcast",
+   "bit_exact": true,
+   "chain_ms": 0.21054,
+   "arm_ms": 0.24713,
+   "ratio_chain_over_arm": 0.85195,
+   "aa_floor": 0.99844,
+   "gate_saw": [
+    [
+     "chain",
+     1
+    ],
+    [
+     "chain",
+     2
+    ],
+    [
+     "chain",
+     4
+    ],
+    [
+     "mcast",
+     1
+    ],
+    [
+     "mcast",
+     2
+    ],
+    [
+     "mcast",
+     4
+    ]
+   ]
+  },
+  {
+   "K_num_blocks": 8,
+   "K": 1024,
+   "arm": "mcast",
+   "bit_exact": true,
+   "chain_ms": 0.42059,
+   "arm_ms": 0.44347,
+   "ratio_chain_over_arm": 0.94841,
+   "aa_floor": 0.99921,
+   "gate_saw": [
+    [
+     "chain",
+     1
+    ],
+    [
+     "chain",
+     2
+    ],
+    [
+     "chain",
+     4
+    ],
+    [
+     "chain",
+     8
+    ],
+    [
+     "mcast",
+     1
+    ],
+    [
+     "mcast",
+     2
+    ],
+    [
+     "mcast",
+     4
+    ],
+    [
+     "mcast",
+     8
+    ]
+   ]
+  }
+ ],
+ "verdict": {
+  "all_bit_exact": true,
+  "ratio_by_k": {
+   "1": 0.65413,
+   "2": 0.7245,
+   "4": 0.85195,
+   "8": 0.94841
+  }
+ }
+}

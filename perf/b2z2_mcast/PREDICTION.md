@@ -86,7 +86,7 @@ of the chain. Bit-exactness is `torch.equal` with the same negative control.
 
 ---
 
-## MEASURED — 2026-09-12, whglx card 16, WH 8x9. Both predictions falsified, in the same direction.
+## MEASURED — 2026-09-12, whglx card 16, WH 8x9. Both predictions falsified, same direction.
 
 **On one settled Pairformer block at 512 aa: the multicast is 0.93837x, i.e. 6.6 % SLOWER than the
 daisy chain.** `perf/b2z2_mcast/block_mcast_whglx_c16.json`. chain 85.692 ms, mcast 91.3202 ms,
@@ -96,34 +96,62 @@ generic matmul program shapes in the block on the arm. Predicted 1.02x-1.10x; fa
 **Parity holds and the check reads something.** `torch.equal` on both outputs, `max_abs_diff` 0.0
 and 0.0. The negative control (one element of the 1x512x512x128 pair track moved) correctly breaks
 the comparison, and the round-trip-only control correctly does not, so the control is not detecting
-the torch round trip.
+the torch round trip. The fan-out arm is bit-exact too, and 0.69918x.
 
-**The fan-out arm is 0.69918x, 1.43x slower, also bit-exact.**
+### The K sweep, and what it does to the gate
 
-**What the two arms together say. The chain is not paying for hops. It is buying skew tolerance.**
+One `generic_minimal_matmul`, M=8192 N=384, block config (4,4,1,4,1), paired chain-arm-arm-chain,
+3 slots of 20 reps each, uninstrumented. `perf/b2z2_mcast/kloop_gate_whglx_c16.json`.
 
-| where | what the axis looks like | chain vs multicast |
-|---|---|---|
-| one matmul, back to back, nothing else on the grid | every core arrives together | **1.01845x for the multicast** |
-| inside a Pairformer block | cores arrive skewed by the ops in front of the matmul | **0.93837x, the chain wins** |
+| K_num_blocks | chain ms | multicast ms | ratio | multicast penalty | A/A floor |
+|---|---|---|---|---|---|
+| 1 | 0.08374 | 0.12801 | **0.65413** | +0.0443 ms | 0.99647 |
+| 2 | 0.12010 | 0.16577 | **0.72450** | +0.0457 ms | 1.00231 |
+| 4 | 0.21054 | 0.24713 | **0.85195** | +0.0366 ms | 0.99844 |
+| 8 | 0.42059 | 0.44347 | **0.94841** | +0.0229 ms | 0.99921 |
 
-A multicast cannot send until the LAST receiver has posted its credit, so it is a barrier across the
-grid axis. The chain never waits for the axis: core i sends as soon as core i-1 asks, so it is a
-pipeline, and a pipeline absorbs per-core skew that a barrier converts into stall. The isolated
-matmul removes the skew and the multicast wins there, which is the control that makes the mechanism
-a measurement rather than a story. The fan-out arm says the same thing from the other side: it
-deletes the chain and concentrates all N transaction issues on the injector's one RISC, and loses
-by more.
+Bit-exact at every K. **The multicast is slower at every K_num_blocks measured**, and the penalty is
+roughly a fixed per-op cost, so the ratio climbs towards 1 because the op gets bigger, not because a
+K loop starts helping.
 
-**The Blackhole prediction inverts, and it is still the same model.** It was
-`1 + 1.235 x (R - 1)` from the hop count, 10-11 hops on the cell against 8-9 on whglx. With
-R = 0.93837 that now predicts **0.9239x on the cell** — a deeper chain is a deeper pipeline, so the
-multicast should lose by MORE on Blackhole, not win there. The sign is what is being predicted; a
-cell measurement at or above 1.0 would refute the skew reading.
+**That points the gate the wrong way.** `mm_generic.bcast_mode` restricts the arm to
+`K_num_blocks == 1` on the reading that the chain only beats a broadcast where there is a K loop to
+pipeline over. Measured: the chain wins everywhere, and **it wins by the most at
+`K_num_blocks == 1`** — exactly the regime the gate was letting the multicast into. The gate is
+harmless now (the arm is off), but the claim under it is refuted, and the brief asked for that
+either way.
+
+### Correction: the one number that said the multicast wins does not survive a clean re-take
+
+An earlier run of this same shape at `K_num_blocks == 1` read **1.01845x for the multicast**. It was
+taken with `TT_METAL_WATCHER` armed from process start, at loadavg 15.9, over 2 slots of 5 reps. The
+sweep above is the same shape uninstrumented over 3 slots of 20 reps and reads **0.65413x**. The
+watcher does not merely dilute a ratio, it perturbs the device asynchronously between slots, and an
+A/A floor taken inside the same run does not see that. **The 1.01845x is retracted as a
+measurement**, and with it the "multicast wins when the axis is not skewed" reading it supported.
+
+### What the numbers do support
+
+The multicast pays a per-op cost the chain does not, everywhere it was measured. The cheapest
+consistent account is the credit barrier: **a multicast cannot send until the LAST receiver on the
+axis has posted its credit**, so the injector always waits out the full spread of N arrival times.
+The chain never waits for the axis — core i sends the moment core i-1 asks — so it only ever waits
+out one gap. The fan-out arm loses harder still (0.69918x on the block-free matmul, 1.43x slower)
+because it also concentrates all N transaction issues on the injector's single RISC where the chain
+had N RISCs issue one each.
+
+**What this does to `b2z2-tile-arrival-latency`'s 82.8 %.** That split stands. What does not stand
+is reading it as transport a better broadcast can delete. **A lever on this term has to make the
+cores arrive together, not make the delivery cheaper.**
+
+**The Blackhole prediction inverts, and it is still the same model.** It was `1 + 1.235 x (R - 1)`
+from the hop count, 10-11 hops on the cell against 8-9 on whglx. With R = 0.93837 that now predicts
+**0.9239x on the cell**: more cores on the axis is a wider credit barrier, so the multicast should
+lose by MORE on Blackhole. A cell ratio at or above 1.0 refutes it.
 
 **The one thing that could rescue it**, unbuilt and unpriced: the barrier only bites because a
 receiver can run at most one block ahead (the in0/in1 circular buffers are two blocks deep). A
-deeper credit window would let early cores post credits for later blocks and let the injector send
+deeper credit window would let early cores post credits for later blocks so the injector can send
 without waiting on the laggard. That is a different lever from `b2z2-cb-depth-prefetch`'s, which
 swept the K ring where `K_num_blocks == 1` left nothing to prefetch; this is the M/N block loop,
 which does iterate.
