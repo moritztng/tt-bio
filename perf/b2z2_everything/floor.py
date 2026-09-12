@@ -58,6 +58,35 @@ def session(path: Path) -> dict:
            "floor_adjacent": bootstrap(adj, d["env"]["reps"]),
            "old_folded_median_floor": d.get("aa_floor_paired"),
            "arms": {}}
+    # The same bootstrap on a STAGE wall, because a trunk lever's instrument is the trunk stage
+    # and a stage is quieter than the fold it sits in. Still an in-fold measurement: no block is
+    # grabbed and replayed.
+    out["stages"] = {}
+    for stage in sorted({k for r in timed for k in r["stages_s"]}):
+        bs = [r["stages_s"][stage] for r in sorted(
+            (r for r in timed if r["arm"] == "base" and stage in r["stages_s"]),
+            key=lambda r: r["rep"])]
+        if len(bs) < 3:
+            continue
+        m = len(bs)
+        pool = [bs[i] / bs[j] for i in range(m) for j in range(m) if i != j]
+        f = bootstrap(pool, d["env"]["reps"])
+        row = {"floor": f, "arms": {}}
+        for a in arms:
+            per = []
+            for i in range(d["env"]["reps"]):
+                b = [r["stages_s"][stage] for r in timed
+                     if r.get("rep") == i and r["arm"] == "base" and stage in r["stages_s"]]
+                x = [r["stages_s"][stage] for r in timed
+                     if r.get("rep") == i and r["arm"] == a and stage in r["stages_s"]]
+                if b and x:
+                    per.append(b[0] / x[0])
+            if per:
+                r_ = st.median(per)
+                row["arms"][a] = {"paired_ratio": round(r_, 5), "readable": r_ > f["hi"],
+                                  "all_reps": [round(v, 5) for v in per]}
+        out["stages"][stage] = row
+
     hi = out["floor_all_pairs"]["hi"]
     for a in arms:
         r = d["paired_ratio"].get(a)
@@ -83,6 +112,12 @@ def main() -> int:
         for a, v in s["arms"].items():
             print(f"  {a:9s} {v['paired_ratio']:.5f}  {v['excess_over_floor']:>6}x the floor  "
                   f"{'READABLE' if v['readable'] else 'inside the floor'}")
+        for stage, row in s.get("stages", {}).items():
+            f2 = row["floor"]
+            print(f"  -- stage {stage:22s} floor [{f2['lo']}, {f2['hi']}]")
+            for a, v in row["arms"].items():
+                print(f"       {a:9s} {v['paired_ratio']:.5f}  "
+                      f"{'READABLE' if v['readable'] else 'inside the floor'}")
     print("\nwrote", H / "floor.json")
     return 0
 
