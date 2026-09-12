@@ -43,6 +43,22 @@ PASSES = 2
 ROUND = 2
 SKIP_SIGMOID = 0
 
+# Pack the matmul's fp32 DST straight into the bf16 result CB instead of staging it through
+# `intermediate_cb` and copying it back out.
+#
+# `intermediate_cb` is the running-sum buffer for a contraction that spans more than one K block.
+# `eligible` below refuses any call whose block entry does not put the whole contraction in ONE K
+# block -- "one K block is the fusion's whole simplification" -- so on every call this kernel ever
+# serves there is nothing to accumulate, and the stage is an unpack and a pack of the entire output
+# block, twice per tail call, that hand back the number they were given.
+#
+# Bit-identical, not approximately: the round trip writes the fp32 DST value into an fp32 CB and
+# reads it back with no loss, so the fp32 -> bf16 conversion that reaches the result CB is the same
+# packer conversion of the same value either way. Kept as a switch because that argument deserves a
+# `torch.equal` against the arm it replaces, in one process, which `perf/b2z2_algebra/f1_direct_ab.py`
+# runs.
+DIRECT_PACK = 1
+
 # The swept block config each pass runs, resolved per call from the weight's (kt, nt) key through
 # the same `tenstorrent._MM_BLOCK` table production's own projections read, so a served call folds
 # the identical single K block in the identical order the ops it replaces would.
@@ -169,7 +185,8 @@ def _cb(idx, core_grid, tiles):
 
 def _build(device, xa, xb, wa, wb, out, grid, ckc, block):
     defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
-            "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID}
+            "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID,
+            "TRIMUL_TAIL_DIRECT_PACK": DIRECT_PACK}
     entry = MG.build(device, xa, wa, [out], (block, grid), ckc,
                      defines=defs, kernel_dir=KERNEL_DIR)
 
@@ -222,7 +239,8 @@ def fused_tail(xa, xb, wa, wb, ckc, grid):
                        + "@" + "x".join(str(int(d)) for d in wa.shape))
     device = xa.device()
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID)
+    key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
+           DIRECT_PACK)
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([int(d) for d in xa.shape][:-1] + [int(wa.shape[-1])]),
         ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)

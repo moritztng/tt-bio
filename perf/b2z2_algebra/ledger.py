@@ -42,13 +42,14 @@ def _rng(seed):
     return lambda *s: torch.randn(*s, generator=g, dtype=torch.float32) * 0.05
 
 
-def trimul_weights(seed=0):
+def trimul_weights(seed=0, cz=CZ, hidden=None):
     r = _rng(seed)
+    hidden = cz if hidden is None else hidden
     return {
-        "norm_in.weight": torch.ones(CZ), "norm_in.bias": torch.zeros(CZ),
-        "norm_out.weight": torch.ones(HIDDEN), "norm_out.bias": torch.zeros(HIDDEN),
-        "g_in.weight": r(2 * HIDDEN, CZ), "p_in.weight": r(2 * HIDDEN, CZ),
-        "g_out.weight": r(CZ, CZ), "p_out.weight": r(CZ, HIDDEN),
+        "norm_in.weight": torch.ones(cz), "norm_in.bias": torch.zeros(cz),
+        "norm_out.weight": torch.ones(hidden), "norm_out.bias": torch.zeros(hidden),
+        "g_in.weight": r(2 * hidden, cz), "p_in.weight": r(2 * hidden, cz),
+        "g_out.weight": r(cz, cz), "p_out.weight": r(cz, hidden),
     }
 
 
