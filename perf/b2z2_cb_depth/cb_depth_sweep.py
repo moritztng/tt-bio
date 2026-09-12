@@ -60,7 +60,9 @@ def arm_apply(name, G, RP):
     """
     G.CB_DEPTH, RP.WORK_CB_DEPTH, G.K_SPLIT = 2, 2, 1
     G.CB_L1_BUDGET = 1_300_000
+    G.BLOCK_OVERRIDE = {}
     G.CB_DEPTH_STATS.clear()
+    G.TILE_TRAFFIC_STATS.clear()
     if name == "base":
         return {"mm": 2, "rp": 2, "ksplit": 1}
     for term in name.split("+"):
@@ -73,10 +75,12 @@ def arm_apply(name, G, RP):
             G.K_SPLIT = val
         elif knob == "bu":
             G.CB_L1_BUDGET = val * 1000
+        elif knob in ("mb", "nb", "sh", "sw"):
+            G.BLOCK_OVERRIDE[{"mb": "M", "nb": "N", "sh": "sh", "sw": "sw"}[knob]] = val
         else:
             raise SystemExit(f"unknown knob {knob} in arm {name}")
     return {"mm": G.CB_DEPTH, "rp": RP.WORK_CB_DEPTH, "ksplit": G.K_SPLIT,
-            "budget": G.CB_L1_BUDGET}
+            "budget": G.CB_L1_BUDGET, "block": dict(G.BLOCK_OVERRIDE)}
 
 
 def main() -> int:
@@ -263,6 +267,10 @@ def main() -> int:
         samples[name].append(round(ms, 4))
         setup[name]["mm_depths_built"] = dict(
             (str(k), v) for k, v in sorted(G.CB_DEPTH_STATS.items()))
+        traffic = {str(k): v for k, v in sorted(G.TILE_TRAFFIC_STATS.items())}
+        setup[name]["mm_tile_traffic"] = traffic
+        setup[name]["mm_tiles_in_per_core"] = sum(
+            v["in0_tiles_per_core"] + v["in1_tiles_per_core"] for v in traffic.values())
         print(f"  [{i+1}/{len(order)}] {name:10s} {ms:8.4f} ms/block", flush=True)
         OUT["samples"] = samples
         dump()

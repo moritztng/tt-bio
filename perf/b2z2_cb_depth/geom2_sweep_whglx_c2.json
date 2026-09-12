@@ -1,0 +1,178 @@
+{
+ "env": {
+  "started": "2026-09-12T15:04:41+0000",
+  "card": "2",
+  "size": 512,
+  "reps": 3,
+  "visits": 4,
+  "commit": "b82a5f03",
+  "loadavg": [
+   "32.46",
+   "25.97",
+   "18.04"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "precursor_s": 3.64,
+ "blocks_in_precursor": 5,
+ "arg_shapes": [
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   512,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  "NoneType"
+ ],
+ "generic_op_census_per_block": {
+  "mm_generic.generic_minimal_matmul": 8,
+  "reblock_permute.reblock_permute_gated": 4,
+  "reblock_permute.reblock_permute_back": 2,
+  "sdpa_generic.sdpa": 2
+ },
+ "arms": [
+  "base",
+  "mb8",
+  "mb16",
+  "mb32",
+  "mb16+sh4",
+  "mb8+rp8"
+ ],
+ "samples": {
+  "base": [
+   86.1967,
+   86.1637,
+   86.2529,
+   86.1796
+  ],
+  "mb8": [
+   85.0132,
+   84.9776,
+   85.0404,
+   85.1094
+  ],
+  "mb16": [],
+  "mb32": [],
+  "mb16+sh4": [],
+  "mb8+rp8": [
+   85.0396,
+   84.9095,
+   84.9203,
+   84.975
+  ]
+ },
+ "_base_ref": true,
+ "bit_exact": {
+  "base": true,
+  "mb8": true,
+  "mb8+rp8": true
+ },
+ "refused": {
+  "mb16": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "mb32": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "mb16+sh4": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+ },
+ "setup": {
+  "base": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 1,
+   "mm_depths_built": {
+    "(4, 4, 1, 2048, 2048)": 2,
+    "(8, 8, 8, 2048, 2048)": 2
+   }
+  },
+  "mb8": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 1,
+   "budget": 1300000,
+   "block": {
+    "M": 8
+   },
+   "mm_depths_built": {
+    "(8, 4, 1, 2048, 2048)": 2,
+    "(8, 8, 8, 2048, 2048)": 2
+   }
+  },
+  "mb16": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 1,
+   "budget": 1300000,
+   "block": {
+    "M": 16
+   }
+  },
+  "mb32": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 1,
+   "budget": 1300000,
+   "block": {
+    "M": 32
+   }
+  },
+  "mb16+sh4": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 1,
+   "budget": 1300000,
+   "block": {
+    "M": 16,
+    "sh": 4
+   }
+  },
+  "mb8+rp8": {
+   "mm": 2,
+   "rp": 8,
+   "ksplit": 1,
+   "budget": 1300000,
+   "block": {
+    "M": 8
+   },
+   "mm_depths_built": {
+    "(8, 4, 1, 2048, 2048)": 2,
+    "(8, 8, 8, 2048, 2048)": 2
+   }
+  }
+ },
+ "median_ms": {
+  "base": 86.1882,
+  "mb8": 85.0268,
+  "mb8+rp8": 84.9476
+ },
+ "aa_floor_pct": 0.042,
+ "ratio_vs_base": {
+  "base": 1.0,
+  "mb8": 1.0137,
+  "mb8+rp8": 1.0146
+ }
+}

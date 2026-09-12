@@ -57,10 +57,23 @@ CB_L1_BUDGET = 1_300_000
 #: pass over the output block, and the contraction folds in a different order (not bit-exact).
 K_SPLIT = 1
 
+#: Overrides for the caller's block geometry, as `{"M": t, "N": t, "sh": t, "sw": t}`. Empty ships.
+#: `M_block`/`N_block` set how many tiles the math thread waits on per `cb_wait_front`, and the
+#: subblock pair sets how many of them go into DST before a pack. They are the other half of
+#: "how far ahead can anything run" and they are not the same knob as ring depth: depth decides
+#: whether a *next* block can be staged, geometry decides how big the block being waited on is.
+BLOCK_OVERRIDE: dict = {}
+
 #: What depth each built program actually got, keyed by its block config. A clamped call and a
 #: deepened one time identically to a reader that only looks at `CB_DEPTH`, so a sweep has to be
 #: able to say which of its calls the ceiling refused.
 CB_DEPTH_STATS: dict = {}
+
+#: Per built program, the tile arithmetic the block geometry decides: how many tiles each core
+#: pulls in over the whole call. `in1` is re-read once per M block, so the geometry is a data-reuse
+#: knob and not only a scheduling one -- this is what lets a sweep price it in tiles rather than in
+#: milliseconds. Keyed the same way as `CB_DEPTH_STATS`.
+TILE_TRAFFIC_STATS: dict = {}
 
 
 def _fit_depth(want, per_depth_bytes, fixed_bytes, key):
@@ -206,6 +219,20 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     M_tiles, K_tiles, N_tiles = M // TILE_HW, K // TILE_HW, N // TILE_HW
     if K_SPLIT > 1 and K_block_tiles % K_SPLIT == 0 and K_block_tiles // K_SPLIT >= 1:
         K_block_tiles //= K_SPLIT
+    if BLOCK_OVERRIDE:
+        M_block_tiles = BLOCK_OVERRIDE.get("M", M_block_tiles)
+        N_block_tiles = BLOCK_OVERRIDE.get("N", N_block_tiles)
+        subblock_h = BLOCK_OVERRIDE.get("sh", subblock_h)
+        subblock_w = BLOCK_OVERRIDE.get("sw", subblock_w)
+        # The compute kernel clamps its own subblock to the block it is given, but the descriptor
+        # has to be legal before it gets there: a subblock wider than its block indexes past the
+        # CB, and DST holds 8 bf16 tiles.
+        subblock_h = max(1, min(subblock_h, M_block_tiles))
+        subblock_w = max(1, min(subblock_w, N_block_tiles))
+        while subblock_h * subblock_w > 8:
+            subblock_h = max(1, subblock_h // 2) if subblock_h > 1 else subblock_h
+            if subblock_h * subblock_w > 8:
+                subblock_w = max(1, subblock_w // 2)
     N_chunks = len(outs)
     N_tiles_per_chunk = N_tiles // N_chunks
 
@@ -240,6 +267,13 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in1_block = K_block_tiles * N_block_tiles
     out_block = M_block_tiles * N_block_tiles
 
+    TILE_TRAFFIC_STATS[(M_tiles, K_tiles, N_tiles, M_block_tiles, K_block_tiles, N_block_tiles)] = {
+        "cores": gx * gy,
+        "in0_tiles_per_core": M_tiles_per_core * padded_K_tiles * N_blocks_per_core,
+        "in1_tiles_per_core": padded_K_tiles * N_tiles_per_core * M_blocks_per_core,
+        "out_tiles_per_core": M_tiles_per_core * N_tiles_per_core,
+        "m_blocks_per_core": M_blocks_per_core, "n_blocks_per_core": N_blocks_per_core,
+    }
     depth = _fit_depth(
         CB_DEPTH,
         in0_block * in0_tile_size + in1_block * in1_tile_size + out_block * out_tile_size,

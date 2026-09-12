@@ -1,0 +1,214 @@
+{
+ "env": {
+  "started": "2026-09-12T15:06:06+0000",
+  "card": "2",
+  "size": 512,
+  "reps": 3,
+  "visits": 2,
+  "commit": "b82a5f03",
+  "loadavg": [
+   "28.29",
+   "26.48",
+   "18.93"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "precursor_s": 3.64,
+ "blocks_in_precursor": 5,
+ "arg_shapes": [
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   512,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  "NoneType"
+ ],
+ "generic_op_census_per_block": {
+  "mm_generic.generic_minimal_matmul": 8,
+  "reblock_permute.reblock_permute_gated": 4,
+  "reblock_permute.reblock_permute_back": 2,
+  "sdpa_generic.sdpa": 2
+ },
+ "arms": [
+  "base",
+  "mb8",
+  "mb8+rp8"
+ ],
+ "samples": {
+  "base": [
+   86.2956,
+   86.1854
+  ],
+  "mb8": [
+   85.0772,
+   85.0524
+  ],
+  "mb8+rp8": [
+   84.9123,
+   84.9449
+  ]
+ },
+ "_base_ref": true,
+ "bit_exact": {
+  "base": true,
+  "mb8": true,
+  "mb8+rp8": true
+ },
+ "setup": {
+  "base": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 1,
+   "mm_depths_built": {
+    "(4, 4, 1, 2048, 2048)": 2,
+    "(8, 8, 8, 2048, 2048)": 2
+   },
+   "mm_tile_traffic": {
+    "(8192, 4, 4, 4, 4, 1)": {
+     "cores": 72,
+     "in0_tiles_per_core": 4096,
+     "in1_tiles_per_core": 1024,
+     "out_tiles_per_core": 1024,
+     "m_blocks_per_core": 256,
+     "n_blocks_per_core": 1
+    },
+    "(8192, 4, 12, 4, 4, 1)": {
+     "cores": 72,
+     "in0_tiles_per_core": 8192,
+     "in1_tiles_per_core": 2048,
+     "out_tiles_per_core": 2048,
+     "m_blocks_per_core": 256,
+     "n_blocks_per_core": 2
+    },
+    "(8192, 4, 16, 8, 8, 8)": {
+     "cores": 72,
+     "in0_tiles_per_core": 8192,
+     "in1_tiles_per_core": 2048,
+     "out_tiles_per_core": 2048,
+     "m_blocks_per_core": 128,
+     "n_blocks_per_core": 1
+    }
+   },
+   "mm_tiles_in_per_core": 25600
+  },
+  "mb8": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 1,
+   "budget": 1300000,
+   "block": {
+    "M": 8
+   },
+   "mm_depths_built": {
+    "(8, 4, 1, 2048, 2048)": 2,
+    "(8, 8, 8, 2048, 2048)": 2
+   },
+   "mm_tile_traffic": {
+    "(8192, 4, 4, 8, 4, 1)": {
+     "cores": 72,
+     "in0_tiles_per_core": 4096,
+     "in1_tiles_per_core": 512,
+     "out_tiles_per_core": 1024,
+     "m_blocks_per_core": 128,
+     "n_blocks_per_core": 1
+    },
+    "(8192, 4, 12, 8, 4, 1)": {
+     "cores": 72,
+     "in0_tiles_per_core": 8192,
+     "in1_tiles_per_core": 1024,
+     "out_tiles_per_core": 2048,
+     "m_blocks_per_core": 128,
+     "n_blocks_per_core": 2
+    },
+    "(8192, 4, 16, 8, 8, 8)": {
+     "cores": 72,
+     "in0_tiles_per_core": 8192,
+     "in1_tiles_per_core": 2048,
+     "out_tiles_per_core": 2048,
+     "m_blocks_per_core": 128,
+     "n_blocks_per_core": 1
+    }
+   },
+   "mm_tiles_in_per_core": 24064
+  },
+  "mb8+rp8": {
+   "mm": 2,
+   "rp": 8,
+   "ksplit": 1,
+   "budget": 1300000,
+   "block": {
+    "M": 8
+   },
+   "mm_depths_built": {
+    "(8, 4, 1, 2048, 2048)": 2,
+    "(8, 8, 8, 2048, 2048)": 2
+   },
+   "mm_tile_traffic": {
+    "(8192, 4, 4, 8, 4, 1)": {
+     "cores": 72,
+     "in0_tiles_per_core": 4096,
+     "in1_tiles_per_core": 512,
+     "out_tiles_per_core": 1024,
+     "m_blocks_per_core": 128,
+     "n_blocks_per_core": 1
+    },
+    "(8192, 4, 12, 8, 4, 1)": {
+     "cores": 72,
+     "in0_tiles_per_core": 8192,
+     "in1_tiles_per_core": 1024,
+     "out_tiles_per_core": 2048,
+     "m_blocks_per_core": 128,
+     "n_blocks_per_core": 2
+    },
+    "(8192, 4, 16, 8, 8, 8)": {
+     "cores": 72,
+     "in0_tiles_per_core": 8192,
+     "in1_tiles_per_core": 2048,
+     "out_tiles_per_core": 2048,
+     "m_blocks_per_core": 128,
+     "n_blocks_per_core": 1
+    }
+   },
+   "mm_tiles_in_per_core": 24064
+  }
+ },
+ "median_ms": {
+  "base": 86.2405,
+  "mb8": 85.0648,
+  "mb8+rp8": 84.9286
+ },
+ "aa_floor_pct": 0.128,
+ "ratio_vs_base": {
+  "base": 1.0,
+  "mb8": 1.0138,
+  "mb8+rp8": 1.0154
+ }
+}
