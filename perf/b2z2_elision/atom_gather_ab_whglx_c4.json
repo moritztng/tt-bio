@@ -1,0 +1,72 @@
+{
+ "host": "j10glx02",
+ "card": "4",
+ "atoms": 4480,
+ "windows": 140,
+ "dim": 128,
+ "reps": 9,
+ "inner": 20,
+ "t0": 1789225781.5660176,
+ "ref_shape": [
+  1,
+  140,
+  128,
+  128
+ ],
+ "parity": {
+  "B": {
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/pad/pad.cpp:278: front_padding_is_zero\ninfo:\nttnn.pad: on device tile padding does not support front padding\nbacktrace:\n --- /home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7daf6535d668]\n --- ttnn::operations::data_movement::detail::invoke_tile(tt::tt_metal::Tensor const&, ttsl::SmallVector<ttnn::operations::data_movement::PadSpecDim, 8ul> const&, float, bool, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- ttnn::pad(tt::tt_metal::Tensor const&, ttsl::SmallVector<ttnn::operations::data_movement::PadSpecDim, 8ul> const&, float, bool, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- ttnn::pad(tt::tt_metal::Tensor const&, ttsl::SmallVector<std::array<unsigned int, 2ul>, 8ul> const&, float, bool, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x5f719a) [0x7daf66bf719a]\n --- /home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x7daf6686f895]\n --- /home/tt-admin/b2z2-env/bin/python(_PyObject_FastCallDictTstate+0x253) [0x562d571acf13]\n --- /home/tt-admin/b2z2-env/bin/python(_PyObject_Call_Prepend+0x5c) [0x562d571c1d5c]\n --- /home/tt-admin/b2z2-env/bin/python(+0x29dea4) [0x562d572c9ea4]\n --- /home/tt-admin/b2z2-env/bin/python(PyObject_Call+0xbb) [0x562d571c583b]\n --- /home/tt-admin/b2z2-env/bin/python(_PyEval_EvalFrameDefault+0x28e9) [0x562d571a3ee9]\n --- /home/tt-admin/b2z2-env/bin/python(_PyObject_FastCallDictTstate+0xc4) [0x562d571acd84]\n --- /home/tt-admin/b2z2-env/bin/python(_PyObject_Call_Prepend+0x5c) [0x562d571c1d5c]\n --- /home/tt-admin/b2z2-env/bin/python(+0x29dea4) [0x562d572c9ea4]\n --- /home/tt-admin/b2z2-env/bin/python(_PyObject_MakeTpCall+0x25b) [0x562d571adbab]\n --- /home/tt-admin/b2z2-env/bin/python(_PyEval_EvalFrameDefault+0x609e) [0x562d571a769e]\n --- /home/tt-admin/b2z2-env/bin/python(_PyFunction_Vectorcall+0x7c) [0x562d571b7aec]\n --- /home/tt-admin/b2z2-env/bin/python(_PyEval_EvalFrameDefault+0x6c0) [0x562d571a1cc0]\n --- /home/tt-admin/b2z2-env/bin/python(_PyFunction_Vectorcall+0x7c) [0x562d571b7aec]\n --- /home/tt-admin/b2z2-env/bin/python(_PyEval_EvalFrameDefault+0x6c0) [0x562d571a1cc0]\n --- /home/tt-admin/b2z2-env/bin/python(+0x25b036) [0x562d57287036]\n --- /home/tt-admin/b2z2-env/bin/python(PyEval_EvalCode+0x86) [0x562d57286f06]\n --- /home/tt-admin/b2z2-env/bin/python(+0x281a88) [0x562d572ada88]\n --- /home/tt-admin/b2z2-env/bin/python(+0x27c0df) [0x562d572a80df]\n --- /home/tt-admin/b2z2-env/bin/python(+0x281825) [0x562d572ad825]\n --- /home/tt-admin/b2z2-env/bin/python(_PyRun_SimpleFileObject+0x1a8) [0x562d572acd68]\n --- /home/tt-admin/b2z2-env/bin/python(_PyRun_AnyFileObject+0x47) [0x562d572aca47]\n --- /home/tt-admin/b2z2-env/bin/python(Py_RunMain+0x2be) [0x562d572a0eae]\n --- /home/tt-admin/b2z2-env/bin/python(Py_BytesMain+0x2d) [0x562d5727af4d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x7db0c4c29d90]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80) [0x7db0c4c29e40]\n --- /home/tt-admin/b2z2-env/bin/python(_start+0x25) [0x562d5727ae45]\n"
+  },
+  "C": {
+   "shape": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "equal": true,
+   "max_abs": 0.0
+  }
+ },
+ "series": {
+  "A": [
+   0.6550108548253775,
+   0.6561836518812925,
+   0.6578301021363586,
+   0.6584840477444232,
+   0.6582071539014578,
+   0.6566522992216051,
+   0.6587093987036496,
+   0.6553844024892896,
+   0.6575686973519623
+  ],
+  "C": [
+   0.288916751742363,
+   0.3648702520877123,
+   0.36532244994305074,
+   0.366255349945277,
+   0.3652343002613634,
+   0.3674787003546953,
+   0.37117525353096426,
+   0.36902804858982563,
+   0.36594190169125795
+  ]
+ },
+ "median_ms": {
+  "A": 0.6575686973519623,
+  "C": 0.36594190169125795
+ },
+ "ratio_vs_A": {
+  "A": 1.0,
+  "C": 1.796921025750004
+ },
+ "aa_floor": [
+  1.006488833576227,
+  1.002172010310828
+ ],
+ "loadavg": [
+  6.41,
+  15.75,
+  16.21
+ ]
+}

@@ -683,6 +683,97 @@ ATOM_DIM = 128
 ATOM_N_HEADS = 4
 ATOM_N_LAYERS = 3
 
+# Atom attention gives every 32-atom query window a 128-atom key window centred on it, so the
+# keys of window k are atoms [32k - 48, 32k + 80). The shipped path expresses that gather as a
+# one-hot matmul and pays four arithmetic-free programs to reach it: a reshape that splits each
+# window into two 16-row halves (which doubles the tiled footprint, 16 pads to 32), a permute
+# that drags the half-window axis last so the matmul can contract over it, the inverse permute,
+# and a reshape that glues the eight gathered half-blocks back into a 128-row key window. On
+# Blackhole those four cost 2.3045 ms of a 22.0224 ms diffusion step -- 45 % of every program in
+# the step that moves data and computes nothing (perf/b2z2_layout/PER-SITE-TABLE.md).
+#
+# Shift the flat atom axis by 48 and all four 32-row pieces of a key window land on a window
+# boundary, so the same gather is four window-axis slices and one concat. Measured 1.797x on the
+# gather, bit-exact (torch.equal), whglx card 4, WH: perf/b2z2_elision/atom_gather_ab.py.
+ATOM_KEY_SHIFT = (ATOM_DIM - ATOM_WINDOW) // 2
+ATOM_SHIFT_GATHER_STATS = [0, 0]        # [slice+concat, one-hot matmul]
+
+
+class _AtomShiftGather:
+    """Stands in for the gather matrix once it has been proven to be the centred window.
+
+    Carries `windows`, the real window count the matrix gathers for: the atom axis is bucketed,
+    and the matrix is zero-padded out to the bucket, so the windows past `windows` gather nothing
+    at all. Reproducing that is what keeps the two arms byte-identical.
+
+    Cached in place of the device one-hot, so the decision is made once per fold where the torch
+    matrix is in hand and every call site downstream needs one identity check, not a new argument
+    threaded through three layers.
+    """
+
+    __slots__ = ("windows",)
+
+    def __init__(self, windows: int):
+        self.windows = windows
+
+
+def _atom_gather_shift_windows(ki):
+    """The real window count if `ki` is the centred sliding-window gather, else None.
+
+    Gates on the matrix, never on a model: any model whose atom attention gathers a different
+    key set (or clamps its edges instead of zeroing them) fails this and keeps the matmul.
+    """
+    import torch
+    if _ATOM_SHIFT_GATHER_OFF or ki.dim() != 2:
+        return None
+    half = ATOM_WINDOW // 2
+    rows, cols = ki.shape
+    per = ATOM_DIM // half                       # half-blocks in one key window
+    off = ATOM_KEY_SHIFT // half                 # how far back the key window starts
+    if rows % 2 or ATOM_KEY_SHIFT % half or cols != (rows // 2) * per:
+        return None
+    live = (ki != 0).any(dim=0).view(rows // 2, per).any(dim=1)
+    nz = live.nonzero()
+    real = int(nz[-1]) + 1 if len(nz) else 0     # windows the matrix actually gathers for
+    if real and not bool(live[:real].all()):
+        return None                              # a hole: not the bucketed zero tail
+    want = torch.zeros_like(ki)
+    for k in range(real):
+        for c in range(per):
+            srow = 2 * k - off + c
+            if 0 <= srow < 2 * real:
+                want[srow, per * k + c] = 1.0
+    return real if torch.equal(ki, want) else None
+
+
+def _atom_shift_gather(s: "ttnn.Tensor", windows: int) -> "ttnn.Tensor":
+    """The centred key window as four window-axis slices, no matmul and no permutes.
+
+    One misaligned op survives: the 48-row shift, which is 48 % 32 != 0 and so cannot be a tile
+    boundary move. It goes through ROW_MAJOR on 1.2 MB. A tiled `ttnn.pad` with the same front
+    padding was also measured and did not reproduce the matmul path, so it is not used.
+
+    `windows` bounds both ends of the bucket. The source is cut there so a key window straddling
+    the boundary picks up zeros for the padded half exactly as the one-hot did, and the output is
+    padded back out on the window axis so the padded windows gather nothing at all.
+    """
+    b, k, w, d = s.shape
+    pieces = ATOM_DIM // w
+    flat = ttnn.reshape(s, (b, 1, k * w, d))
+    if windows < k:
+        flat = flat[:, :, :windows * w, :]
+    rm = ttnn.to_layout(flat, ttnn.ROW_MAJOR_LAYOUT)
+    tail = (k + pieces) * w - ATOM_KEY_SHIFT - windows * w
+    shifted = ttnn.pad(rm, [(0, 0), (0, 0), (ATOM_KEY_SHIFT, tail), (0, 0)], 0.0)
+    ttnn.deallocate(rm)
+    shifted = ttnn.to_layout(shifted, ttnn.TILE_LAYOUT, dtype=s.dtype)
+    src = ttnn.reshape(shifted, (b, k + pieces, w, d))
+    out = ttnn.concat([src[:, j:j + windows] for j in range(pieces)], dim=2)
+    if windows < k:
+        out = ttnn.pad(out, [(0, 0), (0, k - windows), (0, 0), (0, 0)], 0.0)
+    return out
+
+
 TOKEN_DIM = 2 * 384
 TOKEN_N_HEADS = 16
 TOKEN_N_LAYERS = 24
@@ -1077,6 +1168,12 @@ _SDPA_WIDE_Q = env_flag("TT_BIO_SDPA_WIDE_Q", True)
 # shape [1, 224, 32, 128] bf16, median of 7 after 2 warm, torch.equal against the chain: chain
 # 160.53 us, pad in TILE 57.31 us (2.8011x). At the fold: -0.124 s at 512 aa, bit-exact.
 _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+
+# Kill switch for the slice+concat atom key gather (see ATOM_KEY_SHIFT). The gather it replaces
+# is a pure index permutation, so the arm is bit-exact and defaults on; the switch exists so a
+# model whose gather matrix passes the structural check but whose fold regresses can be pinned
+# back to the matmul without a rebuild.
+_ATOM_SHIFT_GATHER_OFF = not env_flag("TT_BIO_ATOM_SHIFT_GATHER", True)
 
 # ON by default since 2026-09-11. It sizes the atom axis on the real atom count
 # (ceil(N/448)*448 = 4480 at 512 aa) instead of padded_seq * 14 = 7168, so the atom transformer
@@ -6952,7 +7049,7 @@ class AttentionPairBias(Module):
         self,
         s: ttnn.Tensor,
         z: ttnn.Tensor,
-        keys_indexing: ttnn.Tensor | None = None,
+        keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         seq_mask: ttnn.Tensor | None = None,
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
@@ -7084,16 +7181,21 @@ class AttentionPairBias(Module):
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
-            s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
-            s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
-            s_kv = ttnn.matmul(
-                s_kv,
-                keys_indexing,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
-            s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
-            s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
+            if isinstance(keys_indexing, _AtomShiftGather):
+                ATOM_SHIFT_GATHER_STATS[0] += 1
+                s_kv = _atom_shift_gather(s, keys_indexing.windows)
+            else:
+                ATOM_SHIFT_GATHER_STATS[1] += 1
+                s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
+                s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
+                s_kv = ttnn.matmul(
+                    s_kv,
+                    keys_indexing,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
+                s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
+                s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
 
             q = ttnn.linear(
                 s,
@@ -8489,7 +8591,7 @@ class DiffusionTransformerLayer(Module):
         a: ttnn.Tensor,
         s: ttnn.Tensor,
         z: ttnn.Tensor,
-        keys_indexing: ttnn.Tensor | None = None,
+        keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         large_seq_len: bool = False,
     ) -> ttnn.Tensor:
         b = self.adaln(a, s, large_seq_len=large_seq_len)
@@ -8557,7 +8659,7 @@ class DiffusionTransformer(Module):
         a: ttnn.Tensor,
         s: ttnn.Tensor,
         z: ttnn.Tensor,
-        keys_indexing: ttnn.Tensor | None = None,
+        keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         large_seq_len: bool = False,
     ) -> ttnn.Tensor:
         if isinstance(z, (list, tuple)):
@@ -9442,7 +9544,7 @@ class Diffusion(Module):
         bias_encoder: ttnn.Tensor,
         bias_token: ttnn.Tensor,
         bias_decoder: ttnn.Tensor,
-        keys_indexing: ttnn.Tensor,
+        keys_indexing: "ttnn.Tensor | _AtomShiftGather",
         atom_to_token: ttnn.Tensor,
         atom_to_token_normed: ttnn.Tensor,
         large_seq_len: bool = False,
@@ -10092,7 +10194,12 @@ class DiffusionModule(TorchWrapper):
                 ki_pad_cols = 8 * NW_padded - keys_indexing.shape[1]
                 keys_indexing = torch.nn.functional.pad(keys_indexing, (0, ki_pad_cols, 0, ki_pad_rows))
             keys_indexing_tt = self._from_torch(keys_indexing, dtype=ttnn.bfloat4_b)
-            self._cache_set("keys_indexing", keys_indexing_tt)
+            # The mask below still contracts against the real matrix; only the per-step gather
+            # gets the sentinel, and only if the matrix really is the centred window.
+            shift_windows = _atom_gather_shift_windows(keys_indexing)
+            self._cache_set("keys_indexing",
+                            _AtomShiftGather(shift_windows) if shift_windows
+                            else keys_indexing_tt)
 
             if atom_pad:
                 mask = torch.nn.functional.pad(mask, (0, atom_pad))
