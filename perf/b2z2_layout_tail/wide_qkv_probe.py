@@ -92,17 +92,25 @@ def main() -> int:
     dump()
     print("  mapping:", json.dumps(out["mapping"], indent=1), flush=True)
 
+    # Free the outputs each call so the allocator hands back the same addresses. Without this the
+    # fused arm alone pays `mm_generic.rebind` on every call -- a few hundred scalar writes and a
+    # binding round-trip -- which is an artefact of the probe, not of the lever: the model
+    # deallocates q, k and v at the end of every layer.
+    def timed_call(fn):
+        for t in fn():
+            ttnn.deallocate(t)
+
     walls = {"stock": [], "fused": []}
     order = []
     for blk in range(a.blocks):
         for tag in ("stock", "fused") if blk % 2 == 0 else ("fused", "stock"):
             fn = shipped if tag == "stock" else fused
             for _ in range(3):
-                fn()
+                timed_call(fn)
             ttnn.synchronize_device(dev)
             t = time.perf_counter()
             for _ in range(a.reps):
-                fn()
+                timed_call(fn)
             ttnn.synchronize_device(dev)
             us = 1e6 * (time.perf_counter() - t) / a.reps
             walls[tag].append(us)
