@@ -42,6 +42,21 @@ def _shape(t):
         return "?"
 
 
+def _where(t):
+    """DRAM / L1 / '?' for a tensor. The per-op GB/s column is only a DRAM number for the
+    operands that actually live in DRAM; `_pair_proj_linear(l1_out=True)` and the trimul tail
+    keep theirs in L1 at c_z = 128, and counting those as DRAM traffic overstates the roof
+    denominator for exactly the ops F1 already found to be L1-resident."""
+    try:
+        return "L1" if t.memory_config().buffer_type == ttnn.BufferType.L1 else "DRAM"
+    except Exception:                                                     # noqa: BLE001
+        return "?"
+
+
+def _dram_bytes(t):
+    return _bytes(t) if _where(t) == "DRAM" else 0
+
+
 def _bytes(t):
     try:
         n = 1
@@ -68,13 +83,21 @@ def _wrap(obj, name, label=None):
             dt = time.perf_counter() - t0
         finally:
             DEPTH[0] -= 1
-        rb = sum(_bytes(x) for x in a if isinstance(x, ttnn.Tensor)) * READ_FRAC.get(label, 1.0)
-        wb = _bytes(out) if isinstance(out, ttnn.Tensor) else sum(
-            _bytes(x) for x in (out or ()) if isinstance(x, ttnn.Tensor))
-        REC.append({"op": label, "ms": dt * 1e3, "in": [_shape(x) for x in a
-                                                        if isinstance(x, ttnn.Tensor)],
-                    "out": _shape(out) if isinstance(out, ttnn.Tensor) else "",
-                    "read_B": rb, "write_B": wb})
+        ins = [x for x in a if isinstance(x, ttnn.Tensor)]
+        outs = [out] if isinstance(out, ttnn.Tensor) else [
+            x for x in (out or ()) if isinstance(x, ttnn.Tensor)]
+        frac = READ_FRAC.get(label, 1.0)
+        rb = sum(_bytes(x) for x in ins) * frac
+        wb = sum(_bytes(x) for x in outs)
+        # the same two sums restricted to operands that really live in DRAM
+        rb_d = sum(_dram_bytes(x) for x in ins) * frac
+        wb_d = sum(_dram_bytes(x) for x in outs)
+        REC.append({"op": label, "ms": dt * 1e3, "in": [_shape(x) for x in ins],
+                    "out": _shape(outs[0]) if outs else "",
+                    "in_mem": [_where(x) for x in ins],
+                    "out_mem": [_where(x) for x in outs],
+                    "read_B": rb, "write_B": wb,
+                    "read_dram_B": rb_d, "write_dram_B": wb_d})
         return out
 
     setattr(obj, name, inner)
@@ -173,6 +196,10 @@ def main():
         "wall": walls, "per_op": per_op,
         "sum_instrumented_ms": {k: sum(r["ms"] for r in v) for k, v in per_op.items()},
         "sum_Z": {k: sum(r["read_B"] + r["write_B"] for r in v) / Z for k, v in per_op.items()},
+        # the same total counting ONLY operands resident in DRAM -- the denominator a streaming
+        # roof is actually entitled to
+        "sum_Z_dram": {k: sum(r["read_dram_B"] + r["write_dram_B"] for r in v) / Z
+                       for k, v in per_op.items()},
     }
     txt = json.dumps(res, indent=1)
     if a.out:
@@ -182,12 +209,16 @@ def main():
     for k, v in walls.items():
         print(f"trimul {k:5s}: median {v['median_ms']:8.3f} ms  min {v['min_ms']:8.3f} ms   "
               f"(sum of instrumented ops {res['sum_instrumented_ms'][k]:8.3f} ms, "
-              f"{res['sum_Z'][k]:.1f} Z)")
+              f"{res['sum_Z'][k]:.1f} Z of which {res['sum_Z_dram'][k]:.1f} Z in DRAM)")
     for k, v in per_op.items():
         print(f"\n-- {k} --")
         for r in v:
-            print(f"  {r['ms']:8.3f} ms  {(r['read_B'] + r['write_B']) / Z:6.2f} Z  "
-                  f"{r['op']:28s} {'|'.join(r['in']):38s} -> {r['out']}")
+            zt = (r["read_B"] + r["write_B"]) / Z
+            zd = (r["read_dram_B"] + r["write_dram_B"]) / Z
+            bw = (r["read_dram_B"] + r["write_dram_B"]) / max(r["ms"] - 0.036, 1e-9) / 1e6
+            print(f"  {r['ms']:8.3f} ms  {zt:5.2f} Z {zd:5.2f} D {bw:7.1f} GB/s  "
+                  f"{r['op']:28s} {'|'.join(r['in_mem']):14s} -> "
+                  f"{'|'.join(r['out_mem']):5s} {'|'.join(r['in']):34s} -> {r['out']}")
 
 
 if __name__ == "__main__":
