@@ -69,6 +69,15 @@ def main() -> int:
         print(f"only {len(all_ops)} ops in log, need {need}", file=sys.stderr)
         return 1
     window = all_ops[-need:]
+    by_op_kern = defaultdict(dict)
+    for (o, core), d in kern.items():
+        by_op_kern[o][core] = d
+    by_op_wait = defaultdict(lambda: defaultdict(float))
+    for (o, core, _risc), v in wait.items():
+        by_op_wait[o][core] += v
+    by_op_resv = defaultdict(lambda: defaultdict(float))
+    for (o, core, _risc), v in resv.items():
+        by_op_resv[o][core] += v
     blocks = [window[i * a.ops_per_block:(i + 1) * a.ops_per_block] for i in range(a.reps)]
 
     out = {"log": a.log, "ops_per_block": a.ops_per_block, "reps": a.reps,
@@ -81,9 +90,7 @@ def main() -> int:
         op_rows = []
         for oi, op in enumerate(block):
             cores = {}
-            for (o, core), d in kern.items():
-                if o != op:
-                    continue
+            for core, d in by_op_kern[op].items():
                 st = [v[0] for v in d.values() if v[0] is not None]
                 en = [v[1] for v in d.values() if v[1] is not None]
                 if not st or not en:
@@ -98,16 +105,12 @@ def main() -> int:
             gate = max(cores.items(), key=lambda kv: kv[1][1])[0]
             for core, (s, e) in cores.items():
                 per_core_busy[core] += e - s
-            w = {}
-            r = {}
-            for (o, core, risc), v in wait.items():
-                if o == op:
-                    w[core] = w.get(core, 0.0) + v
-                    per_core_wait[core] += v
-            for (o, core, risc), v in resv.items():
-                if o == op:
-                    r[core] = r.get(core, 0.0) + v
-                    per_core_resv[core] += v
+            w = by_op_wait[op]
+            r = by_op_resv[op]
+            for core, v in w.items():
+                per_core_wait[core] += v
+            for core, v in r.items():
+                per_core_resv[core] += v
             op_rows.append({
                 "op": op, "i": oi, "cores": len(cores),
                 "span": last - first, "first_start": first, "last_end": last,
