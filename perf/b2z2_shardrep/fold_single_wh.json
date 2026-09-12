@@ -12,16 +12,16 @@
  "diffusion_trace": false,
  "benchlocked": false,
  "loadavg_at_start": [
-  "7.77",
-  "7.76",
-  "9.85"
+  "7.14",
+  "12.19",
+  "12.33"
  ],
- "model_load_s": 9.59,
+ "model_load_s": 9.03,
  "device": "MeshDevice(1x1 grid, 1 devices)",
  "n_devices": 1,
  "core_grid_main": "ttnn.CoreGrid(x=8, y=9)",
  "trace_region_size": 536870912,
- "cold_s": 124.166,
+ "cold_s": 103.437,
  "cold_cif": [
   "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
  ],
@@ -35,16 +35,16 @@
  },
  "reps_done": [
   {
-   "fold_s": 42.2706,
+   "fold_s": 40.6214,
    "plddt": null,
    "cif": [
     "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
    ],
    "stages": {
-    "diffusion_conditioning_end": 1.0513,
-    "sampler_end": 10.963,
-    "end": 2.585,
-    "trunk_s": 27.6714
+    "diffusion_conditioning_end": 0.949,
+    "sampler_end": 9.9971,
+    "end": 2.1632,
+    "trunk_s": 27.512
    },
    "rungs": {
     "L1_OUT_RUNG": {
@@ -57,9 +57,9 @@
   }
  ],
  "summary": {
-  "median_s": 42.2706,
-  "min_s": 42.2706,
-  "max_s": 42.2706,
+  "median_s": 40.6214,
+  "min_s": 40.6214,
+  "max_s": 40.6214,
   "plddt": [
    null
   ],
@@ -70,7 +70,7 @@
    "da476491dbb2a847"
   ],
   "bit_identical_across_reps": true,
-  "trunk_s_median": 27.6714
+  "trunk_s_median": 27.512
  },
  "config_rungs": {
   "_L1_OUT_RUNG": 1,
@@ -85,5 +85,10 @@
   "_BMM_CFG_RUNG": [],
   "_BMM_CFG_REFUSED": [],
   "_OPM_JOIN_REFUSED": []
+ },
+ "row_shard_calls": {
+  "chain": 0,
+  "b_shard": 0,
+  "extents": {}
  }
 }
