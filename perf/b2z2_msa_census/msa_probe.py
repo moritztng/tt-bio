@@ -80,6 +80,31 @@ def make_fence(ttnn, dev):
     return fence
 
 
+def set_arm(T, over):
+    """Apply one arm's overrides and return the undo. `@name` sets a module attribute."""
+    keep = {}
+    for k, v in over.items():
+        if k.startswith("@"):
+            n = k[1:]
+            keep[k] = getattr(T, n)
+            setattr(T, n, v)
+        else:
+            keep[k] = os.environ.get(k)
+            os.environ[k] = v
+    T._L1_OUT_RUNG.clear()
+    return keep
+
+
+def clear_arm(T, keep):
+    for k, v in keep.items():
+        if k.startswith("@"):
+            setattr(T, k[1:], v)
+        elif v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
+
 class _Marked:
     """Wrap a sub-unit so the program stream carries a labelled boundary.
 
@@ -252,12 +277,16 @@ def mode_ops(ttnn, dev, g):
         print(f"    {v:5d}  {k}", flush=True)
 
 
-ARMS = {                       # name -> env overrides. `base` is the shipped setting.
+# name -> overrides. A plain key is an environment variable; a key starting with `@` is a
+# module-level attribute of `tt_bio.tenstorrent`, because a flag read once at import
+# (`env_flag` at module scope) does NOT see an environment variable set after the import --
+# which is how an arm can silently measure the base against itself.
+ARMS = {
     "base": {},
     "h24": {"TT_BIO_TRANSITION_H_CHUNK": "24"},
     "h32": {"TT_BIO_TRANSITION_H_CHUNK": "32"},
     "h64": {"TT_BIO_TRANSITION_H_CHUNK": "64"},
-    "batchw": {"TT_BIO_PWA_BATCH_HEAD_WEIGHTS": "1"},
+    "batchw": {"@_PWA_BATCH_HEAD_WEIGHTS": True},
 }
 
 
@@ -266,19 +295,10 @@ def mode_ab(ttnn, T, dev, g, arms, reps, blocks):
     fence = make_fence(ttnn, dev)
 
     def arm(name):
-        keep = {}
-        for k, v in ARMS[name].items():
-            keep[k] = os.environ.get(k)
-            os.environ[k] = v
-        T._L1_OUT_RUNG.clear()
-        return keep
+        return set_arm(T, ARMS[name])
 
     def unarm(keep):
-        for k, v in keep.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
+        clear_arm(T, keep)
 
     walls = {a: [] for a in arms}
     for a in arms:                              # warm every arm's programs before timing any
@@ -312,22 +332,19 @@ def mode_parity(ttnn, T, dev, g, arm):
     import torch
     obj, args, kw = g["obj"], list(g["args"]), g["kwargs"]
 
-    def once(env):
-        keep = {}
-        for k, v in env.items():
-            keep[k] = os.environ.get(k)
-            os.environ[k] = v
-        T._L1_OUT_RUNG.clear()
+    def once(over):
+        keep = set_arm(T, over)
         a = [ttnn.clone(x) if isinstance(x, ttnn.Tensor) else x for x in args]
         z, m = obj(*a, **kw)
         out = (ttnn.to_torch(z).clone(), ttnn.to_torch(m).clone())
-        for k, v in keep.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
+        clear_arm(T, keep)
         return out
 
+    if not ARMS[arm]:
+        raise SystemExit(f"arm {arm!r} sets nothing; that would compare the base with itself")
+    for k in ARMS[arm]:
+        if k.startswith("@") and not hasattr(T, k[1:]):
+            raise SystemExit(f"tt_bio.tenstorrent has no attribute {k[1:]}")
     base_z, base_m = once({})
     aa_z, aa_m = once({})
     arm_z, arm_m = once(ARMS[arm])
