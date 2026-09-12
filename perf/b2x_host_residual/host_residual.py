@@ -333,6 +333,11 @@ def install_regions(reg, state, T, boltz2):
             ok[fn] = reg.patch(M, fn, fn)
     # `state.prepare` is a partial over `prepare_features`; the tokenizer and the featurizer are
     # bound into it, so reach them through the partial rather than importing a second copy.
+    # The five terms of `z_init` are module INSTANCES on the Boltz2 object, not classes -- three
+    # of them are plain `Linear`, so patching the class would catch every Linear in the model.
+    for attr in ("s_init", "z_init_1", "z_init_2", "token_bonds", "token_bonds_type"):
+        if getattr(state.model, attr, None) is not None:
+            ok[attr] = reg.patch(state.model, attr, attr)
     part = _PREPARE_PARTIAL
     bound = list(getattr(part, "args", ()) or ()) + list((getattr(part, "keywords", {}) or {}).values())
     for obj in bound:
@@ -354,6 +359,7 @@ def main() -> int:
     ap.add_argument("--ab-env", default=None, help="env var toggled between arms")
     ap.add_argument("--ab-values", default="1,0")
     ap.add_argument("--ab-pairs", type=int, default=3)
+    ap.add_argument("--cacheclear-n", type=int, default=2)
     a = ap.parse_args()
     OUT_PATH = a.out
     phases = [p for p in a.phases.split(",") if p]
@@ -417,6 +423,27 @@ def main() -> int:
         print("=== plain folds: wall reference, A/A floor, CIF sha256 on THIS card ===", flush=True)
         for i in range(a.plain_n):
             plain(f"a{i}")
+
+    if "cacheclear" in phases:
+        # `Boltz2.forward` clears and re-enables the device program cache on EVERY call, so a
+        # warm fold pays to rebuild every program it uses. The cold fold above populated the
+        # cache; time the pair the next forward would run, then repopulate and repeat.
+        print("=== cacheclear: what every forward pays to clear the program cache ===", flush=True)
+        rows = []
+        for i in range(a.cacheclear_n):
+            dev = T.get_device()
+            t0 = time.perf_counter()
+            dev.disable_and_clear_program_cache()
+            t1 = time.perf_counter()
+            dev.enable_program_cache()
+            t2 = time.perf_counter()
+            rows.append({"i": i, "clear_s": round(t1 - t0, 5), "enable_s": round(t2 - t1, 5),
+                         "loadavg": loadavg()})
+            print(f"  clear {t1 - t0:.4f} s  enable {t2 - t1:.4f} s", flush=True)
+            OUT["cacheclear"] = rows
+            dump()
+            if i + 1 < a.cacheclear_n:
+                one_fold()          # repopulate, so the next clear has something to free
 
     if "attrib" in phases:
         print("=== attrib fold: wall-clock region tree over all of predict_one ===", flush=True)
