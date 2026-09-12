@@ -24,8 +24,18 @@ Run (the device is whatever `tt_bio.tenstorrent.get_device()` hands back, one ch
 Exit status is 0 only if every op is bit-exact AND every negative control was rejected.
 """
 
-import os
+import pathlib
 import sys
+
+# Score the checkout this script LIVES IN, not whatever `tt_bio` the env has installed. The
+# editable install in /home/ttuser/tt-bio-dev/env resolves to a different tree, and `python
+# perf/.../slab_*.py` puts the SCRIPT's directory on sys.path rather than the cwd, so without this
+# the run reports a verdict about code nobody edited.
+_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
+if _ROOT not in sys.path[:1]:
+    sys.path.insert(0, _ROOT)
+
+import os
 import time
 
 import torch
@@ -63,6 +73,7 @@ def log(m):
 
 dev = tt.get_device()
 log(f"device={dev}  S={S}  slabs={SLABS}")
+log(f"tt_bio from {tt.__file__}")
 
 KC = ttnn.types.BlackholeComputeKernelConfig(
     math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,

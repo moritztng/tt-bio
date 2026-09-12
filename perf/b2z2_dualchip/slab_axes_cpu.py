@@ -21,7 +21,17 @@ the shape of the dual-chip design: both chips hold all of z and each owns half o
     python3 perf/b2z2_dualchip/slab_axes_cpu.py
 """
 
+import pathlib
 import sys
+
+# Score the checkout this script LIVES IN, not whatever `tt_bio` the env has installed. The
+# editable install in /home/ttuser/tt-bio-dev/env resolves to a different tree, and `python
+# perf/.../slab_*.py` puts the SCRIPT's directory on sys.path rather than the cwd, so without this
+# the run reports a verdict about code nobody edited.
+_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
+if _ROOT not in sys.path[:1]:
+    sys.path.insert(0, _ROOT)
+
 
 import torch
 
@@ -44,6 +54,8 @@ def randomize_(module):
         else:
             p.data = torch.randn_like(p) * (p.shape[-1] ** -0.5)
 
+
+print(f"tt_bio from {ref.__file__}", flush=True)
 
 torch.manual_seed(0)
 S, C = 64, 32
