@@ -155,9 +155,9 @@ def build_call(ttnn, torch, rec, device, knobs):
             except Exception:                                          # noqa: BLE001
                 pass
         if len(ins) >= 3:
-            out = ins[2]
-            kw["output_tensor"] = out
+            kw["output_tensor"] = ins[2]
             kw.pop("dtype", None)
+        kw = _accepted(op, (a, b), kw)
         fn = lambda: op(a, b, **kw)                                    # noqa: E731
     elif kind == "layernorm":
         x = ins[0]
@@ -233,29 +233,56 @@ def build_call(ttnn, torch, rec, device, knobs):
     return fn, ins
 
 
-def time_call(ttnn, device, fn, reps=24, bursts=5, keep=False):
-    """Median us/call over `bursts` drained bursts of `reps` back-to-back issues."""
-    outs = []
-    for _ in range(3):
+def _addr(t):
+    try:
+        return t.buffer_address()
+    except Exception:                                                    # noqa: BLE001
+        return None
+
+
+def _accepted(fn, args, kw):
+    """Drop kwargs this ttnn overload does not take, cheapest-first."""
+    for drop in ([], ["activations"], ["dtype"], ["activations", "dtype"],
+                 ["activations", "dtype", "memory_config"]):
+        trial = {k: v for k, v in kw.items() if k not in drop}
+        try:
+            o = fn(*args, **trial)
+            if _addr(o) not in {_addr(x) for x in args}:
+                try:
+                    o.deallocate()
+                except Exception:                                        # noqa: BLE001
+                    pass
+            return trial
+        except Exception:                                                # noqa: BLE001
+            continue
+    return kw
+
+
+def time_call(ttnn, device, fn, ins, reps=24, bursts=5):
+    """Median us/call over `bursts` drained bursts of `reps` back-to-back issues.
+
+    An op whose output aliases an operand (in-place binaries, whole-tensor slices) must not have
+    that output deallocated, or the second call runs on a freed buffer.
+    """
+    live = {_addr(t) for t in ins}
+
+    def once():
         o = fn()
-        if keep:
-            outs.append(o)
-        else:
+        if _addr(o) not in live:
             try:
                 ttnn.deallocate(o)
             except Exception:                                            # noqa: BLE001
                 pass
+
+    for _ in range(3):
+        once()
     ttnn.synchronize_device(device)
     meds = []
     for _ in range(bursts):
         ttnn.synchronize_device(device)
         t0 = time.perf_counter()
         for _ in range(reps):
-            o = fn()
-            try:
-                ttnn.deallocate(o)
-            except Exception:                                            # noqa: BLE001
-                pass
+            once()
         ttnn.synchronize_device(device)
         meds.append((time.perf_counter() - t0) / reps)
     return 1e6 * st.median(meds), [round(1e6 * m, 2) for m in meds]
@@ -313,12 +340,12 @@ def main() -> int:
             if fn is None:
                 row["error"] = "no builder"
             else:
-                us, all_us = time_call(ttnn, device, fn, a.reps, a.bursts)
+                us, all_us = time_call(ttnn, device, fn, ins, a.reps, a.bursts)
                 row["us_per_call"] = round(us, 2)
                 row["bursts_us"] = all_us
                 row["ms_per_fold"] = round(us * r["calls_per_fold"] / 1000.0, 3)
                 if a.aa:
-                    us2, _ = time_call(ttnn, device, fn, a.reps, a.bursts)
+                    us2, _ = time_call(ttnn, device, fn, ins, a.reps, a.bursts)
                     row["aa_ratio"] = round(us2 / us, 4)
         except Exception as e:                                           # noqa: BLE001
             row["error"] = f"{type(e).__name__}: {str(e)[:220]}"
