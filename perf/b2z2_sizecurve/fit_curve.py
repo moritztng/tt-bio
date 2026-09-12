@@ -71,7 +71,9 @@ def per_size(path):
             floors[p] = round(max(st.median(p0) / st.median(v), st.median(v) / st.median(p0)), 5)
     aa = max(floors.values()) if floors else None
 
-    row = {"size": size, "aa_floor": aa, "aa_floor_per_position": floors,
+    row = {"size": size, "arch": d["env"].get("arch"), "host": d["env"].get("host"),
+           "grid": d["env"].get("grid"), "card": d["env"].get("tt_visible_devices"),
+           "aa_floor": aa, "aa_floor_per_position": floors,
            "reps_complete": len(by["L1"]),
            "loadavg_1m_min_max": [min(r["loadavg_before"][0] for r in warm),
                                   max(r["loadavg_after"][0] for r in warm)],
@@ -109,11 +111,34 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("jsons", nargs="+", type=Path)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--arch", help="keep only this arch, e.g. Wormhole_B0 or Blackhole")
     args = ap.parse_args()
 
-    rows = [r for r in (per_size(p) for p in args.jsons) if r]
-    rows.sort(key=lambda r: r["size"])
-    out = {"doc": __doc__, "sizes": rows}
+    allrows = [r for r in (per_size(p) for p in args.jsons) if r]
+    allrows.sort(key=lambda r: r["size"])
+    groups = {}
+    for r in allrows:
+        groups.setdefault(str(r["arch"]), []).append(r)
+    if args.arch:
+        groups = {k: v for k, v in groups.items() if args.arch.lower() in k.lower()}
+    assert groups, "no rows after grouping"
+    if len(groups) > 1:
+        # Two parts in one invocation: fit each separately and hand back a dict of results, so a
+        # Wormhole point and a Blackhole point can never land on the same regression line.
+        outs = {}
+        for arch, rows in groups.items():
+            sub = args.out.with_name(args.out.stem + "_" + arch.split(".")[-1] + args.out.suffix)
+            outs[arch] = str(sub)
+            _one(rows, sub)
+        print(json.dumps({"per_arch_outputs": outs}, indent=1))
+        return 0
+    rows = next(iter(groups.values()))
+    return _one(rows, args.out)
+
+
+def _one(rows, outpath):
+    out = {"doc": __doc__, "arch": rows[0]["arch"], "host": rows[0]["host"],
+           "grid": rows[0]["grid"], "sizes": rows}
 
     fits = {}
     for arm in ("base", "L1"):
@@ -155,11 +180,11 @@ def main():
     out["ratio_curve"] = {r["size"]: {"ratio": r["ratio_vs_base"], "aa_floor": r["aa_floor"],
                                       "resolved": r["ratio_resolved"], "n": r["reps_complete"]}
                           for r in rows}
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(out, indent=1))
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+    outpath.write_text(json.dumps(out, indent=1))
     print(json.dumps({k: out[k] for k in
-                      ("fits", "exponent_separation", "local_exponents", "gate", "bit_exact",
-                       "ratio_curve") if k in out}, indent=1))
+                      ("arch", "host", "grid", "fits", "exponent_separation", "local_exponents",
+                       "gate", "bit_exact", "ratio_curve") if k in out}, indent=1))
     return 0
 
 
