@@ -1116,14 +1116,16 @@ _ATOM_KEY_WINDOW = env_flag("TT_BIO_ATOM_KEY_WINDOW", False)
 _HEAD_PAD_TAIL = env_flag("TT_BIO_HEAD_PAD_TAIL", False)
 
 
-def _atom_key_window(s: ttnn.Tensor, keys_indexing: ttnn.Tensor) -> ttnn.Tensor | None:
-    """`single_to_keys` as a window. Returns None when the geometry is not the sliding one.
+
+def _atom_window_plan(shape, keys_indexing: ttnn.Tensor):
+    """The sliding-window geometry, or None when this is not it.
 
     Gated on shape alone -- the query window W, the key window H and the indexing matrix the
     caller was handed -- so every model whose atom attention has this geometry takes it and no
-    model name appears anywhere in the condition.
+    model name appears anywhere in the condition. The plan does not depend on the channel count,
+    which is what lets the gather be applied to a projection of `s` as readily as to `s` itself.
     """
-    B, K, W, D = s.shape
+    B, K, W, _D = shape
     W, H = int(W), ATOM_DIM
     if W != ATOM_WINDOW or W % 2 or H % W or (H // (W // 2)) % 2 or H < W:
         return None
@@ -1137,17 +1139,211 @@ def _atom_key_window(s: ttnn.Tensor, keys_indexing: ttnn.Tensor) -> ttnn.Tensor 
     back = n_blk * W - K * W - front
     if back < 0:
         return None
+    return {"K": int(K), "W": W, "n_chunk": n_chunk, "front": front, "back": back, "n_blk": n_blk}
+
+
+def _atom_window_shift(s: ttnn.Tensor, plan: dict) -> ttnn.Tensor:
+    """The gather's sub-tile half: (B, K, W, D) -> (B, n_blk, W, D), shifted by H/2 - W/2.
+
+    Tile-layout pad cannot pad the FRONT of a tensor, so this is the one op in the whole
+    construction that goes through ROW_MAJOR, and it is the only one whose cost is set by the
+    channel count alone. Everything after it is tile-aligned.
+    """
+    B, _K, _W, D = s.shape
+    K, W = plan["K"], plan["W"]
     flat = ttnn.reshape(s, (B, 1, K * W, D))
-    # Tile-layout pad cannot pad the FRONT of a tensor, so the one sub-tile op in the whole
-    # construction goes through ROW_MAJOR. Everything after it is tile-aligned.
     rm = ttnn.to_layout(flat, ttnn.ROW_MAJOR_LAYOUT)
-    rm = ttnn.pad(rm, [[0, 0], [0, 0], [front, back], [0, 0]], 0.0)
+    rm = ttnn.pad(rm, [[0, 0], [0, 0], [plan["front"], plan["back"]], [0, 0]], 0.0)
     p = ttnn.to_layout(rm, ttnn.TILE_LAYOUT, dtype=s.dtype)
     ttnn.deallocate(rm)
-    p = ttnn.reshape(p, (B, n_blk, W, D))
-    out = ttnn.concat([p[:, c:c + K] for c in range(n_chunk)], dim=2)
+    return ttnn.reshape(p, (B, plan["n_blk"], W, D))
+
+
+def _atom_window_blocks(p: ttnn.Tensor, plan: dict) -> ttnn.Tensor:
+    """The gather's tile-aligned half: (B, n_blk, W, D) -> (B, K, H, D), H = n_chunk * W."""
+    K = plan["K"]
+    out = ttnn.concat([p[:, c:c + K] for c in range(plan["n_chunk"])], dim=2)
+    return out
+
+
+def _atom_window_gather(s: ttnn.Tensor, plan: dict) -> ttnn.Tensor:
+    """Gather `s` (B, K, W, D) into its (B, K, H, D) key windows under a plan."""
+    p = _atom_window_shift(s, plan)
+    out = _atom_window_blocks(p, plan)
     ttnn.deallocate(p)
     return out
+
+
+
+# The atom attention branch, resident in L1 instead of round-tripping DRAM.
+#
+# `b2z2-step-matmul-group` measured the 54 atom-level matmuls at 6-9 % of this card's FLOP roof
+# and 23-26 % of its byte roof: their arithmetic intensity is ~63 FLOP/byte against a 241 FLOP/byte
+# crossover, so bytes are what binds them, and the branch starts by forcing its own input to DRAM.
+# Off-fold at the four production shapes, taking operand and result to L1 measured 1.41x-3.20x and
+# `torch.equal` at every one. A memory config moves bytes and not values, so this cannot change an
+# output; the only thing it can do is run out of L1, which is what the budget below is for.
+_ATOM_L1 = env_flag("TT_BIO_ATOM_L1", False)
+_ATOM_L1_SHARE = float(os.environ.get("TT_BIO_ATOM_L1_SHARE", "0.5"))
+ATOM_L1_STATS = {"l1": 0, "dram": 0}
+
+
+def _atom_branch_memory_config(s: ttnn.Tensor) -> ttnn.MemoryConfig | None:
+    """L1 for the atom attention branch when its live set fits the grid's banks, else None.
+
+    Priced on the branch's own bytes per bank, the way `_trimul_tail_memory_config` and
+    `_FP32_SOFTMAX_L1_BYTES_PER_CORE` are, and never on a sequence length or a model name. The
+    live set is `s` itself (B K W D), the key window it gathers (B K H D), that window's kv
+    projection (B K H 2D) and the query padded up to the window (B K H D), so it grows linearly
+    with the atom count and the gate flips on its own at the size where it stops fitting.
+
+    Returning None hands every call site ttnn's default, which is what the branch did before.
+    """
+    if not _ATOM_L1:
+        return None
+    B, K, W, D = (int(v) for v in s.shape)
+    if W != ATOM_WINDOW:
+        return None
+    elem = 4 if s.dtype == ttnn.float32 else 2
+    live = B * K * D * (W + 4 * ATOM_DIM) * elem
+    gx, gy = COMPUTE_GRID_MAIN
+    if live <= _ATOM_L1_SHARE * _l1_bank_bytes() * gx * gy:
+        ATOM_L1_STATS["l1"] += 1
+        return ttnn.L1_MEMORY_CONFIG
+    ATOM_L1_STATS["dram"] += 1
+    return None
+
+
+# The SAME gather again, reached from the other end: `b2z2-layout-op-elision` proved the one-hot
+# matmul IS the centred sliding window by checking the matrix itself on the host, where
+# `_atom_window_plan` above proves it from the geometry the caller was handed. Two rows built one
+# lever twice. Both are kept here so the union can measure which construction is faster; they are
+# mutually exclusive by definition and `TT_BIO_ATOM_SHIFT_GATHER` wins when both are asked for,
+# because only it knows the real window count.
+#
+# What the matrix check buys that the shape gate cannot: `windows`, the number of windows the
+# matrix actually gathers for. The atom axis is bucketed and the matrix is zero-padded out to the
+# bucket, so the windows past `windows` gather nothing at all, and reproducing that is what keeps
+# the two arms byte-identical at a size where the bucket has a tail.
+ATOM_KEY_SHIFT = (ATOM_DIM - ATOM_WINDOW) // 2
+ATOM_SHIFT_GATHER_STATS = [0, 0]        # [slice+concat, one-hot matmul]
+_ATOM_SHIFT_GATHER = env_flag("TT_BIO_ATOM_SHIFT_GATHER", False)
+
+
+class _AtomShiftGather:
+    """The gather matrix, plus the proof that it is the centred window and the count it covers.
+
+    Carries the device matrix itself, so a call site that wants the one-hot still has it and the
+    arm is a flag read rather than a different cached object. That is what lets one process
+    interleave the shifted gather against the matmul it replaces.
+    """
+
+    __slots__ = ("windows", "matrix")
+
+    def __init__(self, windows: int, matrix: "ttnn.Tensor"):
+        self.windows = windows
+        self.matrix = matrix
+
+
+def _atom_gather_shift_windows(ki):
+    """The real window count if `ki` is the centred sliding-window gather, else None.
+
+    Gates on the matrix, never on a model: any model whose atom attention gathers a different
+    key set (or clamps its edges instead of zeroing them) fails this and keeps the matmul.
+    """
+    import torch
+    if ki.dim() != 2:
+        return None
+    half = ATOM_WINDOW // 2
+    rows, cols = ki.shape
+    per = ATOM_DIM // half                       # half-blocks in one key window
+    off = ATOM_KEY_SHIFT // half                 # how far back the key window starts
+    if rows % 2 or ATOM_KEY_SHIFT % half or cols != (rows // 2) * per:
+        return None
+    live = (ki != 0).any(dim=0).view(rows // 2, per).any(dim=1)
+    nz = live.nonzero()
+    real = int(nz[-1]) + 1 if len(nz) else 0     # windows the matrix actually gathers for
+    if real and not bool(live[:real].all()):
+        return None                              # a hole: not the bucketed zero tail
+    want = torch.zeros_like(ki)
+    for k in range(real):
+        for c in range(per):
+            srow = 2 * k - off + c
+            if 0 <= srow < 2 * real:
+                want[srow, per * k + c] = 1.0
+    return real if torch.equal(ki, want) else None
+
+
+def _atom_shift_shift(s: "ttnn.Tensor", windows: int,
+                      memory_config: "ttnn.MemoryConfig | None" = None) -> "ttnn.Tensor":
+    """The gather's sub-tile half: (b, k, w, d) -> (b, k + H/w, w, d), shifted back by 48 rows.
+
+    One misaligned op survives: the 48-row shift, which is 48 % 32 != 0 and so cannot be a tile
+    boundary move. It goes through ROW_MAJOR on 1.2 MB. A tiled `ttnn.pad` with the same front
+    padding was also measured and did not reproduce the matmul path, so it is not used.
+
+    `windows` cuts the source at the real window count, so a key window straddling the bucket
+    boundary picks up zeros for its padded half exactly as the one-hot did.
+    """
+    b, k, w, d = s.shape
+    pieces = ATOM_DIM // w
+    flat = ttnn.reshape(s, (b, 1, k * w, d))
+    if windows < k:
+        flat = flat[:, :, :windows * w, :]
+    rm = ttnn.to_layout(flat, ttnn.ROW_MAJOR_LAYOUT)
+    tail = (k + pieces) * w - ATOM_KEY_SHIFT - windows * w
+    shifted = ttnn.pad(rm, [(0, 0), (0, 0), (ATOM_KEY_SHIFT, tail), (0, 0)], 0.0)
+    ttnn.deallocate(rm)
+    shifted = ttnn.to_layout(shifted, ttnn.TILE_LAYOUT, dtype=s.dtype)
+    return ttnn.reshape(shifted, (b, k + pieces, w, d), memory_config=memory_config)
+
+
+def _atom_shift_blocks(src: "ttnn.Tensor", k: int, windows: int,
+                       memory_config: "ttnn.MemoryConfig | None" = None) -> "ttnn.Tensor":
+    """The gather's tile-aligned half: (b, k + H/w, w, d) -> (b, k, H, d).
+
+    The window axis is padded back out past `windows` so the bucket's padded windows gather
+    nothing at all, which is what the one-hot's zero columns did.
+    """
+    pieces = ATOM_DIM // int(src.shape[2])
+    out = ttnn.concat([src[:, j:j + windows] for j in range(pieces)], dim=2,
+                      memory_config=memory_config)
+    if windows < k:
+        out = ttnn.pad(out, [(0, 0), (0, k - windows), (0, 0), (0, 0)], 0.0)
+    return out
+
+
+def _atom_shift_gather(s: "ttnn.Tensor", windows: int,
+                       memory_config: "ttnn.MemoryConfig | None" = None) -> "ttnn.Tensor":
+    """The centred key window as four window-axis slices, no matmul and no permutes."""
+    k = int(s.shape[1])
+    src = _atom_shift_shift(s, windows, memory_config)
+    out = _atom_shift_blocks(src, k, windows, memory_config)
+    ttnn.deallocate(src)
+    return out
+
+
+# The same window, moved to the other side of the K/V projection. Each atom sits in exactly
+# H/W = 4 key windows, so projecting the GATHERED tensor runs the projection four times over
+# every atom: 17920 rows at 512 aa where the atom axis has 4480. A linear is per-row, so
+# `linear(gather(s)) == gather(linear(s))` value for value, and the second form is the one that
+# projects each atom once. It pays for that by gathering 2 * n_heads * head_dim channels instead
+# of D_S; at boltz-2's atom geometry that is 256 against 128.
+#
+# The projection commutes with BOTH halves of the gather, so it goes in the middle: the sub-tile
+# shift runs on D_S channels, the projection on the atom axis, and the tile-aligned block slices
+# on the projected 2 * n_heads * head_dim. That keeps the only op whose cost is set by the channel
+# count on the narrow side. It needs the K/V projection to carry no bias -- the zero rows the shift
+# introduces outside the sequence have to stay zero after it -- which is how the reference defines
+# this projection and what the bit-exactness check below confirms at the production shape.
+#
+# Measured off-fold at the production shape on WH card 9, bf16, HiFi4 (perf/b2z2_atom_next/
+# atom_probe_wh_c9.json): the K/V matmul falls 254.10 -> 67.13 us, the shift stays on 128 channels
+# at 93.52 us instead of growing to 154.51, and the chain falls 424.58 -> 327.65 us, **1.29584x**,
+# six times a step. **Bit-exact: torch.equal against the shipped gather-then-project, max abs 0.0**,
+# with a negative control that correctly differs.
+# Requires the window: with TT_BIO_ATOM_KEY_WINDOW off there is no gather to move across.
+_ATOM_KV_PREPROJ = env_flag("TT_BIO_ATOM_KV_PREPROJ", False)
 
 # ON by default since 2026-09-11. It sizes the atom axis on the real atom count
 # (ceil(N/448)*448 = 4480 at 512 aa) instead of padded_seq * 14 = 7168, so the atom transformer
@@ -7058,7 +7254,7 @@ class AttentionPairBias(Module):
         self,
         s: ttnn.Tensor,
         z: ttnn.Tensor,
-        keys_indexing: ttnn.Tensor | None = None,
+        keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         seq_mask: ttnn.Tensor | None = None,
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
@@ -7066,6 +7262,8 @@ class AttentionPairBias(Module):
         pad_tail = self.pad_tail and _HEAD_PAD_TAIL
         g_weight, o_weight = (self._padded_tail_weights() if pad_tail
                               else (self.g_weight, self.o_weight))
+        # None everywhere except the atom branch, where it is L1 while the branch's live set fits.
+        atom_mc = None
         if not self.atom_level:
             qkv = ttnn.linear(
                 s,
@@ -7197,10 +7395,57 @@ class AttentionPairBias(Module):
                 o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
                 o = ttnn.permute(o, (0, 2, 1))
         else:
-            s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
+            atom_mc = _atom_branch_memory_config(s)
+            s = ttnn.to_memory_config(s, atom_mc or ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
-            s_kv = _atom_key_window(s, keys_indexing) if _ATOM_KEY_WINDOW else None
-            if s_kv is None:
+            # The host-proved window carries the matrix it stands in for, so the one-hot arm is
+            # still reachable and the flag alone picks the construction.
+            shift = keys_indexing if isinstance(keys_indexing, _AtomShiftGather) else None
+            if shift is not None:
+                keys_indexing = shift.matrix
+                if not _ATOM_SHIFT_GATHER:
+                    shift = None
+            plan = (_atom_window_plan(s.shape, keys_indexing)
+                    if _ATOM_KEY_WINDOW and shift is None else None)
+            # Project once per atom and gather the projection, rather than gathering the atoms
+            # and projecting each of them H/W times. Same values, a quarter of the matmul.
+            kv = None
+            if shift is not None and _ATOM_KV_PREPROJ:
+                src = _atom_shift_shift(s, shift.windows, atom_mc)
+                kv_flat = ttnn.linear(
+                    src,
+                    self.kv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                    memory_config=atom_mc,
+                )
+                ttnn.deallocate(src)
+                ATOM_SHIFT_GATHER_STATS[0] += 1
+                kv = _atom_shift_blocks(kv_flat, K, shift.windows, atom_mc)
+                ttnn.deallocate(kv_flat)
+                s_kv = None
+            elif plan is not None and _ATOM_KV_PREPROJ:
+                shifted = _atom_window_shift(s, plan)
+                kv_flat = ttnn.linear(
+                    shifted,
+                    self.kv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                    memory_config=atom_mc,
+                )
+                ttnn.deallocate(shifted)
+                kv = _atom_window_blocks(kv_flat, plan)
+                ttnn.deallocate(kv_flat)
+                s_kv = None
+            elif plan is not None:
+                s_kv = _atom_window_gather(s, plan)
+            elif shift is not None:
+                ATOM_SHIFT_GATHER_STATS[0] += 1
+                s_kv = _atom_shift_gather(s, shift.windows, atom_mc)
+            else:
+                ATOM_SHIFT_GATHER_STATS[1] += 1
                 s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
                 s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
                 s_kv = ttnn.matmul(
@@ -7208,9 +7453,10 @@ class AttentionPairBias(Module):
                     keys_indexing,
                     compute_kernel_config=self.compute_kernel_config,
                     core_grid=CORE_GRID_MAIN,
+                    memory_config=atom_mc,
                 )
-                s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
-                s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
+                s_kv = ttnn.permute(s_kv, (0, 3, 1, 2), memory_config=atom_mc)
+                s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S), memory_config=atom_mc)
 
             q = ttnn.linear(
                 s,
@@ -7219,14 +7465,17 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
+                memory_config=atom_mc,
             )
-            kv = ttnn.linear(
-                s_kv,
-                self.kv_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-                dtype=_dtype(),
-            )
+            if kv is None:
+                kv = ttnn.linear(
+                    s_kv,
+                    self.kv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                    memory_config=atom_mc,
+                )
 
             if self.kq_norm:
                 q, kv = self._apply_kq_norm_atom(q, kv)
@@ -7256,14 +7505,16 @@ class AttentionPairBias(Module):
             g_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            memory_config=atom_mc,
         )
         if _FAST_MODE:
             o = ttnn.typecast(o, ttnn.bfloat16)
-        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
+        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
+                          dtype=self.dtype, memory_config=atom_mc)
         ttnn.deallocate(g)
         x = ttnn.linear(
             o, o_weight, compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
+            core_grid=CORE_GRID_MAIN, memory_config=atom_mc,
         )
         ttnn.deallocate(o)
         return x
@@ -8639,7 +8890,7 @@ class DiffusionTransformerLayer(Module):
         a: ttnn.Tensor,
         s: ttnn.Tensor,
         z: ttnn.Tensor,
-        keys_indexing: ttnn.Tensor | None = None,
+        keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         large_seq_len: bool = False,
         s_normed=None,
     ) -> ttnn.Tensor:
@@ -8711,7 +8962,7 @@ class DiffusionTransformer(Module):
         a: ttnn.Tensor,
         s: ttnn.Tensor,
         z: ttnn.Tensor,
-        keys_indexing: ttnn.Tensor | None = None,
+        keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         large_seq_len: bool = False,
     ) -> ttnn.Tensor:
         # L8: every AdaLN below normalises this same `s`. Do it once, without the per-site
@@ -9611,7 +9862,7 @@ class Diffusion(Module):
         bias_encoder: ttnn.Tensor,
         bias_token: ttnn.Tensor,
         bias_decoder: ttnn.Tensor,
-        keys_indexing: ttnn.Tensor,
+        keys_indexing: "ttnn.Tensor | _AtomShiftGather",
         atom_to_token: ttnn.Tensor,
         atom_to_token_normed: ttnn.Tensor,
         large_seq_len: bool = False,
@@ -10261,7 +10512,13 @@ class DiffusionModule(TorchWrapper):
                 ki_pad_cols = 8 * NW_padded - keys_indexing.shape[1]
                 keys_indexing = torch.nn.functional.pad(keys_indexing, (0, ki_pad_cols, 0, ki_pad_rows))
             keys_indexing_tt = self._from_torch(keys_indexing, dtype=ttnn.bfloat4_b)
-            self._cache_set("keys_indexing", keys_indexing_tt)
+            # The mask below still contracts against the real matrix; the sentinel only records
+            # that the per-step gather MAY be taken as the centred window, and carries the matrix
+            # so the arm stays a flag read at the call site.
+            shift_windows = _atom_gather_shift_windows(keys_indexing)
+            self._cache_set("keys_indexing",
+                            _AtomShiftGather(shift_windows, keys_indexing_tt)
+                            if shift_windows else keys_indexing_tt)
 
             if atom_pad:
                 mask = torch.nn.functional.pad(mask, (0, atom_pad))
