@@ -1343,28 +1343,41 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
     return sl
 
 
-def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
+def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False,
+                  q_len_cfg: int | None = None):
     """SDPA for triangle attention at the widest q_chunk this device's L1 will hold.
 
     ``ckc`` is the fused kernel's compute kernel config, or ``None`` for the op default. Passed
     per call rather than set on ``triatt_sdpa._CKC_OVERRIDE``, which is a module global six models
     share. It rides THROUGH `_sdpa_masked`, so the per-site HiFi4 config and the ragged-tail mask
     compose instead of excluding each other.
+
+    ``q_len_cfg`` is the query length the CONFIG is picked for, when that is not the query length
+    this call computes. A row-sharded caller hands each device half the query rows, and the k_chunk
+    -- which sets the online-softmax reduction order and so is NOT bit-exact across picks -- is
+    selected from a band on q_len (`_sdpa_chunks_shipped`: 256 < q_len <= 384 takes k=64, otherwise
+    the 256 cap). A 384-token pair track is inside that band and its 192-row slab is outside it, so
+    the two halves reduce in different orders and the shard stops being bit-exact -- measured at
+    0.0137 on the op and 1.0176 by the end of the residual chain. Passing the unsharded length pins
+    the slab to the whole tensor's pick. It only moves k: the q_chunk ladder keeps reading the real
+    q_len, because a q_chunk only splits output rows and is bit-exact across picks (measured here
+    too -- at 256 aa the slab picks q_chunk 128 against the whole tensor's 256 and the chain is
+    still 0.0). Default None is exactly today's behaviour at every call site that does not shard.
     """
     if ckc is not None:
         SDPA_HIFI_CALLS[0] += 1
     return _sdpa_masked(_tri_att_sdpa_inner, q, k, v, bias, scale, ckc,
-                        site="tri_att", pad=pad)
+                        site="tri_att", pad=pad, q_len_cfg=q_len_cfg)
 
 
-def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
+def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None, q_len_cfg: int | None = None):
     if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
-            return _tri_att_sdpa_at(q, k, v, b8, scale, ckc)
+            return _tri_att_sdpa_at(q, k, v, b8, scale, ckc, q_len_cfg)
         finally:
             ttnn.deallocate(b8)
-    return _tri_att_sdpa_at(q, k, v, bias, scale, ckc)
+    return _tri_att_sdpa_at(q, k, v, bias, scale, ckc, q_len_cfg)
 
 
 # K5: a k_chunk that DIVIDES the padded sequence even when the only divisors are WIDER than the
@@ -1494,8 +1507,11 @@ _SDPA_QK_OVER_L1: set = set()
 _SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", False)
 
 
-def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
+def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, q_len_cfg: int | None = None):
     q_len, k_len = q.shape[2], k.shape[2]
+    # The length the k_chunk is picked for. Equal to q_len unless a row-sharded caller said
+    # otherwise; see `_tri_att_sdpa`. Everything else below keeps reading the real q_len.
+    cfg_q = int(q_len) if q_len_cfg is None else int(q_len_cfg)
     if _SDPA_FUSED_LARGE_S and q_len == k_len and q_len % SDPA_CHUNK_TILE == 0:
         cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
         for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
@@ -1505,7 +1521,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
                 SDPA_K_CHUNK_STATS[0] += 1
                 _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
                 return o
-    k_chunks = _tri_att_k_chunks(q_len, k_len)
+    k_chunks = _tri_att_k_chunks(cfg_q, k_len)
     if len(k_chunks) > 1:
         # Only q_chunks that DIVIDE the padded sequence are offered against a wide k. The q ladder's
         # last entry is the production cap, which is the one entry that need not divide, and pairing
@@ -1752,7 +1768,8 @@ def _triatt_dualprobe(o_fold, q, k, v, bias, scale_inv, bias_scale_inv, ckc, sit
     return o_fold
 
 
-def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
+def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False,
+                       q_len_cfg: int | None = None):
     """Triangle attention through the fused SDPA at `_TRIATT_FUSED_HIFI_CKC`, or None to decline.
 
     Declining is the caller's cue to run `_fp32_softmax_attention`, NOT the stock bf16 SDPA: the
@@ -1801,15 +1818,16 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
             TRIATT_FUSED_HIFI_STATS["too_short"] += 1
             return None
     return _sdpa_masked(_tri_att_sdpa_hifi_inner, q, k, v, bias, scale,
-                        site="tri_att_hifi", one_k_chunk=one_k_chunk)
+                        site="tri_att_hifi", one_k_chunk=one_k_chunk, q_len_cfg=q_len_cfg)
 
 
-def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = False):
+def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = False,
+                             q_len_cfg: int | None = None):
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
         return None
-    shipped_k = _sdpa_chunks_shipped(q_len, k_len)[1]
+    shipped_k = _sdpa_chunks_shipped(q_len if q_len_cfg is None else int(q_len_cfg), k_len)[1]
     padded_k = _padded_sdpa_len(k_len)
     k_chunks = (padded_k, shipped_k) if one_k_chunk and padded_k != shipped_k else (shipped_k,)
     for k_chunk in k_chunks:
@@ -6659,6 +6677,11 @@ class TriangleAttention(Module):
             return _attend_heads(q, k, v, bias, keep_heads)
 
         def _attend_heads(q, k, v, bias, keep_heads=False):
+            # A slab of OUTPUT rows is a slab of the query axis for the ending variant, and the
+            # k_chunk is picked from a band on that axis. So the slab asks for the config the whole
+            # tensor would have taken; see `_tri_att_sdpa`. The starting variant's row slab lands on
+            # the attention's BATCH axis and leaves q_len alone, so this is the identity there.
+            q_cfg = int(S) if slab else None
             if _FP32_SOFTMAX or self.fp32_softmax:
                 o = None
                 # The kernel adds the bias BEFORE applying `scale` (compute_common.hpp: the scale
@@ -6673,7 +6696,8 @@ class TriangleAttention(Module):
                     if self._bias_scale != self.scale:
                         b = ttnn.multiply(bias, self.scale / self._bias_scale)
                     o = _tri_att_sdpa_hifi(q, k, v, b, self.scale ** -1,
-                                           one_k_chunk=self.tri_att_one_k_chunk)
+                                           one_k_chunk=self.tri_att_one_k_chunk,
+                                           q_len_cfg=q_cfg)
                     if b is not bias:
                         ttnn.deallocate(b)
                 if o is None:
@@ -6710,7 +6734,7 @@ class TriangleAttention(Module):
                     b = ttnn.multiply(bias, self.scale / self._bias_scale)
                 o = _tri_att_sdpa(q, k, v, b, self.scale**-1,
                                   _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None,
-                                  self.sdpa_ragged_pad)
+                                  self.sdpa_ragged_pad, q_len_cfg=q_cfg)
                 if b is not bias:
                     ttnn.deallocate(b)
                 if _TRIATT_DUALPROBE:

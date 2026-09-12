@@ -206,6 +206,12 @@ for k, c in enumerate(sites):
     for x in (t, a, b):
         ttnn.deallocate(x)
 
+# Which (q_chunk, k_chunk) each shape actually ran. The k_chunk sets the online-softmax reduction
+# order, so "the slab is bit-exact" and "the slab took the whole tensor's k_chunk" have to be the
+# same statement; printing the picks is what makes that checkable instead of inferred.
+RES["sdpa_picks"] = {f"q{q}_k{k}": v for (q, k), v in tt.SDPA_CHUNK_PICKS.items()}
+log(f"SDPA picks (q_len, k_len) -> [q_chunk, k_chunk, route]: {RES['sdpa_picks']}")
+
 tt.cleanup()
 pathlib.Path(OUT_PATH).write_text(json.dumps(RES, indent=1))
 log(f"wrote {OUT_PATH}")
