@@ -1,0 +1,64 @@
+{
+ "env": {
+  "started": "2026-09-12T09:38:51+0000",
+  "card": "0",
+  "phase": "block",
+  "reps": 3,
+  "size": 512,
+  "commit": "ebc0254b",
+  "profiler": "1",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "loadavg": [
+   "0.11",
+   "1.11",
+   "2.14"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c"
+ },
+ "precursor_s": 30.299,
+ "class_calls_in_precursor": {
+  "PairformerLayer": 5
+ },
+ "arg_shapes": [
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   512,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  "NoneType"
+ ],
+ "synced_wall_ms_per_call": 36.4994,
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

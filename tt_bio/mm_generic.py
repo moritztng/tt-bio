@@ -34,6 +34,13 @@ NOC_FOR_DRAM_WRITE = ttnn.NOC.NOC_1
 #: size their CBs from this same table -- see `tile_bytes`.
 _TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
 
+#: Pages per block in the three pipeline circular buffers, as a multiple of one block. 2 is the
+#: C++ factory's value and the shipped default: the reader can stage one block ahead of the block
+#: the math thread is consuming. Raising it lets the reader run further ahead, at L1 cost.
+#: `perf/b2z2_cb_depth/` sweeps it -- a program descriptor is cached by shape and not by this, so
+#: clear `_CACHE` after changing it.
+CB_DEPTH = 2
+
 
 def tile_bytes(dtype):
     """Bytes one tile occupies in `dtype`, for a CB page size or a runtime arg."""
@@ -202,9 +209,11 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     out_block = M_block_tiles * N_block_tiles
 
     cbs = [
-        _cb(0, core_grid, in0_tile_size, in0_block * 2, in0.dtype),
-        _cb(1, core_grid, in1_tile_size, in1_block * 2, in1.dtype),
-        _cb(2, core_grid, out_tile_size, out_block * 2, out.dtype),
+        _cb(0, core_grid, in0_tile_size, in0_block * CB_DEPTH, in0.dtype),
+        _cb(1, core_grid, in1_tile_size, in1_block * CB_DEPTH, in1.dtype),
+        _cb(2, core_grid, out_tile_size, out_block * CB_DEPTH, out.dtype),
+        # The accumulation buffer, not a pipeline stage: the compute kernel reserves exactly one
+        # out block into it and packs K_num_blocks times with L1 accumulation on top.
         _cb(3, core_grid, interm_tile_size, out_block, interm_fmt),
     ]
 
