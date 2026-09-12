@@ -1,0 +1,16 @@
+{
+ "split": "1",
+ "reps": 3,
+ "grid": [
+  8,
+  9
+ ],
+ "m": 8192,
+ "n": 384,
+ "k": 128,
+ "card": "16",
+ "chain_split_built": [
+  "(1, 1)"
+ ],
+ "wall_ms_per_call": 0.49256
+}

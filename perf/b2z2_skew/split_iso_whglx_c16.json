@@ -1,0 +1,112 @@
+{
+ "doc": "Cut the operand chain into k shorter chains and A/B it against the shipped one.\n\n`b2z2-arrival-skew-attack` measured the matmul reader's wait per core per block iteration on WH\nand found a hop ramp on top of a floor: the core at hop h waits `intercept + slope * h`, with the\nslope worth 0.74 us/hop on the in0 axis. k injectors per axis cut the longest walk from N-1 to\nabout N/k - 1, so the ramp term shrinks by roughly k, at the price of k DRAM reads of the same\nblock instead of one -- and the whole DRAM read is 3.2 % of the reader's time with 0.63 % of it\non the wire, so the trade should be strongly favourable if the ramp is on anyone's critical path.\n\nThis is NOT the fan-out arm that lost at 0.69918x: that one deleted the chain and put all N\ntransaction issues on the injector's single RISC. Here every core still issues exactly one\nforward, and the only change is where the walk restarts.\n\nBit-exactness is checked at every k against the k=1 arm's own output: the same bytes reach the\nsame cores, so `torch.equal` is the bar and a failure is a bug, not a tradeoff.\n",
+ "env": {
+  "started": "2026-09-12T21:49:18+0000",
+  "card": "16",
+  "grid": [
+   8,
+   9
+  ],
+  "commit": "27231b21",
+  "loadavg": [
+   "7.67",
+   "8.35",
+   "12.21"
+  ],
+  "m": 8192,
+  "n": 384,
+  "k": 128,
+  "block_cfg": [
+   4,
+   4,
+   1,
+   4,
+   1
+  ],
+  "reps": 20,
+  "n_rep": 5
+ },
+ "controls": {
+  "negative_control_breaks": true,
+  "round_trip_only_holds": true
+ },
+ "rows": [
+  {
+   "split": "2",
+   "bit_exact": true,
+   "max_abs_diff": 0.0,
+   "base_ms": 0.08455,
+   "arm_ms": 0.09484,
+   "ratio_base_over_arm": 0.89157,
+   "aa_floor": 0.98506,
+   "built": [
+    [
+     "(1, 1)",
+     "(9, 8)"
+    ],
+    [
+     "(2, 2)",
+     "(9, 8)"
+    ]
+   ]
+  },
+  {
+   "split": "4",
+   "bit_exact": true,
+   "max_abs_diff": 0.0,
+   "base_ms": 0.08451,
+   "arm_ms": 0.10637,
+   "ratio_base_over_arm": 0.79451,
+   "aa_floor": 1.00708,
+   "built": [
+    [
+     "(1, 1)",
+     "(9, 8)"
+    ],
+    [
+     "(2, 2)",
+     "(9, 8)"
+    ],
+    [
+     "(4, 4)",
+     "(9, 8)"
+    ]
+   ]
+  },
+  {
+   "split": "max",
+   "bit_exact": true,
+   "max_abs_diff": 0.0,
+   "base_ms": 0.08401,
+   "arm_ms": 0.18574,
+   "ratio_base_over_arm": 0.4523,
+   "aa_floor": 0.99742,
+   "built": [
+    [
+     "(1, 1)",
+     "(9, 8)"
+    ],
+    [
+     "(2, 2)",
+     "(9, 8)"
+    ],
+    [
+     "(4, 4)",
+     "(9, 8)"
+    ],
+    [
+     "(9, 8)",
+     "(9, 8)"
+    ]
+   ]
+  }
+ ],
+ "verdict": {
+  "all_bit_exact": true,
+  "ratio_by_split": {
+   "2": 0.89157,
+   "4": 0.79451,
+   "max": 0.4523
+  }
+ }
+}
