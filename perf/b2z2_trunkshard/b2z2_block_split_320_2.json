@@ -1,0 +1,171 @@
+{
+  "arch": "WORMHOLE_B0",
+  "S": 320,
+  "shards": [
+    [
+      0,
+      160
+    ],
+    [
+      160,
+      320
+    ]
+  ],
+  "balance_ceiling": 2.0,
+  "gathers_per_block": 4,
+  "gathers_per_block_with_injectable_bias": 3,
+  "chain": [
+    [
+      "triangle_multiplication_start",
+      "FULL"
+    ],
+    [
+      "triangle_multiplication_end",
+      "FULL"
+    ],
+    [
+      "triangle_attention_start",
+      "FULL"
+    ],
+    [
+      "triangle_attention_end",
+      "FULL"
+    ],
+    [
+      "transition_z",
+      "ROWS"
+    ]
+  ],
+  "per_op": {
+    "triangle_multiplication_start": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0,
+      "routes_whole": {
+        "_reblock": [
+          2,
+          0
+        ]
+      },
+      "routes_slab": {
+        "_reblock": [
+          4,
+          0
+        ]
+      }
+    },
+    "triangle_multiplication_end": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0,
+      "routes_whole": {
+        "_reblock": [
+          2,
+          0
+        ]
+      },
+      "routes_slab": {}
+    },
+    "triangle_attention_start": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0,
+      "routes_whole": {
+        "_triatt_sdpa": [
+          1,
+          0
+        ],
+        "sdpa_routes": {
+          "fused": 1
+        },
+        "_triatt_qkv": [
+          1,
+          0
+        ]
+      },
+      "routes_slab": {
+        "_triatt_sdpa": [
+          2,
+          0
+        ],
+        "sdpa_routes": {
+          "fused": 2
+        },
+        "_triatt_qkv": [
+          2,
+          0
+        ]
+      }
+    },
+    "triangle_attention_end": {
+      "bit_exact": false,
+      "max_abs_diff": 0.999957799911499,
+      "routes_whole": {
+        "_triatt_sdpa": [
+          1,
+          0
+        ],
+        "sdpa_routes": {
+          "fused": 1
+        },
+        "_triatt_qkv": [
+          1,
+          0
+        ]
+      },
+      "routes_slab": {
+        "_triatt_sdpa": [
+          2,
+          0
+        ],
+        "sdpa_routes": {
+          "fused": 2
+        },
+        "_triatt_qkv": [
+          2,
+          0
+        ]
+      },
+      "n_differing": 11107112,
+      "n_elements": 13107200,
+      "frac_differing": 0.8474053955078125,
+      "mean_abs_diff": 0.0009438174893148243,
+      "max_rel_diff": 2974.838134765625,
+      "ref_abs_max": 1.0
+    },
+    "transition_z": {
+      "bit_exact": true,
+      "max_abs_diff": 0.0,
+      "routes_whole": {},
+      "routes_slab": {}
+    }
+  },
+  "z_bit_exact": false,
+  "z_max_abs_diff": 0.94140625,
+  "s_bit_exact": false,
+  "s_max_abs_diff": 0.03125,
+  "nc1_rejected": true,
+  "nc1_max_abs_diff": 5.091796875,
+  "nc2_starve": {
+    "triangle_multiplication_start": {
+      "rejected": true,
+      "how": "raised",
+      "detail": "RuntimeError"
+    },
+    "triangle_multiplication_end": {
+      "rejected": true,
+      "how": "raised",
+      "detail": "RuntimeError"
+    },
+    "triangle_attention_start": {
+      "rejected": true,
+      "how": "values",
+      "detail": 0.990234375
+    },
+    "triangle_attention_end": {
+      "rejected": true,
+      "how": "raised",
+      "detail": "RuntimeError"
+    }
+  },
+  "nc3_rejected": true,
+  "nc3_max_abs_diff": 11.34375,
+  "pass": false
+}

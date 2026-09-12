@@ -16,6 +16,7 @@ from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from .envflags import env_flag, env_int
+from .row_shard import RowSlab
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -5304,28 +5305,6 @@ _GP_A = (0, 2)
 _GP_B = (1, 3)
 
 
-def _slab_take(t: ttnn.Tensor, axis: int, r0: int, r1: int, shard: bool) -> ttnn.Tensor:
-    """This device's slab of `t` along `axis`. Two mechanisms, one meaning.
-
-    `row_slab=(r0, r1)` is a PYTHON range, and a ttnn mesh is SPMD: every device runs the same
-    program with the same Python values, so a range makes every device take the SAME rows. It
-    proves the algebra on one device -- which is what `perf/b2z2_dualchip/slab_bitexact.py` uses
-    it for -- and it cannot express a shard.
-
-    `ttnn.mesh_partition` is the same local slice taken at a DIFFERENT offset on each device, off
-    a replicated tensor, with no traffic between devices. It is the only form a mesh can use, and
-    it is the identity on a 1x1 mesh, so the two are not interchangeable and the caller picks.
-
-    Gated on whether a shard was asked for, never on a device count or a model name.
-    """
-    if shard:
-        return ttnn.mesh_partition(t, dim=axis)
-    lo = [0] * len(t.shape)
-    hi = [int(d) for d in t.shape]
-    lo[axis], hi[axis] = r0, r1
-    return ttnn.slice(t, lo, hi)
-
-
 class TriangleMultiplication(Module):
     def __init__(
         self,
@@ -5628,21 +5607,14 @@ class TriangleMultiplication(Module):
         self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None,
-                 row_slab: tuple[int, int] | None = None,
-                 row_input: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                 row_slab: "tuple[int, int] | RowSlab | None" = None) -> ttnn.Tensor:
         """The triangle product over the whole pair tensor, or over a slab of its OUTPUT rows.
 
-        `row_input` is the MESH spelling of the same slab: pass this device's rows of `x`, which
-        `ttnn.mesh_partition(x, dim=1)` produces for free off a replicated tensor, and the call
-        returns this device's rows of the result. It is a tensor and not a range because an SPMD
-        mesh gives every device the same Python values, so `row_slab` would make both chips
-        compute the same rows. See `_slab_take`. The two are mutually exclusive.
-
-        Where this op needs a slab of something it computed ITSELF -- the normed pair tensor the
-        `a` role reads, and the mask -- it takes that slab with `mesh_partition` too; `row_input`
-        is used directly for the row-blocked tail, which reads raw `x` rows.
-
-        `row_slab = (r0, r1)` returns rows [r0, r1) of the result and nothing else, while reading
+        `row_slab` is either `(r0, r1)`, which addresses the slab by row number, or a
+        `RowSlab.mesh(n)`, which addresses it by `ttnn.mesh_partition` and is the form an SPMD
+        program needs -- one instruction, a different slab on every device. The two compute the
+        same thing; see `tt_bio/row_shard.py`. Either form returns those rows of the result and
+        nothing else, while reading
         all of `x`. That is what lets the two chips of a 1x2 mesh each own half of the i axis with
         the whole pair track resident on both: the contraction is over k, so sharding i regroups
         no sum and the slab is bit-identical to those rows of the whole-tensor result
@@ -5658,29 +5630,14 @@ class TriangleMultiplication(Module):
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
         H = shp[1]
-        shard = row_input is not None
-        assert not (shard and row_slab is not None), \
-            "row_slab and row_input are two spellings of one slab; pass exactly one"
-        # A shard addresses its own rows LOCALLY: `mesh_partition` has already moved the offset,
-        # so every index below runs from 0 and the extent is what this device was handed.
-        slab = shard or row_slab is not None
-        if shard:
-            r0, r1 = 0, int(row_input.shape[1])
-        else:
-            r0, r1 = (0, H) if row_slab is None else (int(row_slab[0]), int(row_slab[1]))
+        slab = RowSlab.of(row_slab, H)
+        n_rows = H if slab is None else slab.extent(H)
         # Which axis of z the a-role projection reads its slab from. `b` always reads all of it.
         a_axis = 2 if self.ending else 1
-        if shard:
-            assert len(row_input.shape) == 4 and int(row_input.shape[2]) == shp[2] \
-                and int(row_input.shape[-1]) == shp[-1], \
-                f"row_input {[int(d) for d in row_input.shape]} is not a row slab of {shp}"
-            assert mask is None or len(mask.shape) == 3, \
-                "a row shard needs the [1, S, S] pair mask; the [1, S] form has no i axis"
-        if row_slab is not None:
+        if slab is not None:
             # Tile boundaries because every slice below is a TILE-layout slice, and a sub-tile one
             # is the class of ask `_TRIMUL_MIN_CHUNK` records as wedging a part.
-            assert 0 <= r0 < r1 <= H and r0 % 32 == 0 and r1 % 32 == 0, \
-                f"row slab {row_slab} is not a tile-aligned sub-range of {H} rows"
+            slab.check(H)
             assert mask is None or len(mask.shape) == 3, \
                 "a row slab needs the [1, S, S] pair mask; the [1, S] form has no i axis to slice"
         # Past TRIMUL_IN_NORM_ROWBLOCK_BYTES the LN'd pair tensor is never materialised whole. It
@@ -5727,13 +5684,13 @@ class TriangleMultiplication(Module):
             The retry handler below can renegotiate both the chunk width and the group, and the
             weights have to follow it, so every call site reads them from here.
             """
-            if not slab:
+            if row_slab is None:
                 return self._gp_in_chunks(c, g), None
             return self._gp_in_chunks(c, g, _GP_A), self._gp_in_chunks(c, g, _GP_B)
 
         def _gp_biases(c, g):
             """`_gp_weights` for the input biases. AF2 is the only checkpoint that carries any."""
-            if not slab:
+            if row_slab is None:
                 return self._gp_in_biases(c, g), None
             return self._gp_in_biases(c, g, _GP_A), self._gp_in_biases(c, g, _GP_B)
 
@@ -5747,7 +5704,7 @@ class TriangleMultiplication(Module):
 
         gp_in_chunks, gp_b_chunks = _gp_weights(chunk_size, group)
         seq_len_tiles = (H + 31) // 32
-        program_config = _triangle_mul_program_config(seq_len_tiles, (r1 - r0 + 31) // 32)
+        program_config = _triangle_mul_program_config(seq_len_tiles, (n_rows + 31) // 32)
         if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)
@@ -5758,13 +5715,13 @@ class TriangleMultiplication(Module):
         # does for the whole thing.
         a_src = x_in if row_norm else x_norm_in
         a_src_own = None
-        if slab:
-            a_src = a_src_own = _slab_take(a_src, a_axis, r0, r1, shard)
+        if slab is not None:
+            a_src = a_src_own = slab.take(a_src, a_axis)
         # Only `a` is masked, so on a slab the mask takes the same axis and the same range that
         # `a_src` just took. This slice is ours to free; the caller's mask is not (see below).
         mask_own = None
-        if mask is not None and slab:
-            mask = mask_own = _slab_take(mask, a_axis, r0, r1, shard)
+        if mask is not None and slab is not None:
+            mask = mask_own = slab.take(mask, a_axis)
         # Unsqueeze mask once before chunk loop (mask is [1,S,S] or [1,S])
         mask_u = ttnn.unsqueeze(mask, -1) if mask is not None else None
         # The same mask in the MOVED layout, for `_TRIMUL_MASK_AFTER_MOVE`. After perm_a the chunk
@@ -5819,7 +5776,7 @@ class TriangleMultiplication(Module):
                     # which is the one thing a slab cannot do: they read different inputs, so the
                     # slab's two halves are two matmuls and a matmul takes one weight. The fused
                     # move below is not the obstacle any more -- it serves a slab too.
-                    if (_TRIMUL_INPROJ_ROWBLOCK and not slab and not _FAST_MODE
+                    if (_TRIMUL_INPROJ_ROWBLOCK and row_slab is None and not _FAST_MODE
                             and not row_norm
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (mask_u is None or mask_moved is not None)
@@ -5840,10 +5797,10 @@ class TriangleMultiplication(Module):
                         # returns for the unconfigured op at every width this site reaches -- so
                         # each column is the column the four-role projection produced.
                         gp_b_fused = (
-                            None if not slab else
+                            None if row_slab is None else
                             _in_proj(x_in if row_norm else x_norm_in, gp_b_chunks[i], b_bias_i)
                         )
-                        slice_c = int(gp_in_fused.shape[-1]) // (4 if not slab else 2)
+                        slice_c = int(gp_in_fused.shape[-1]) // (4 if row_slab is None else 2)
                         _eb = 4 if _dtype() == ttnn.float32 else 2
                         # Two configs, because the tail's three tensors are not one decision. The two
                         # operands are read twice each (the transform writes them, the matmul reads
@@ -5874,10 +5831,10 @@ class TriangleMultiplication(Module):
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and memory_config.buffer_type == ttnn.BufferType.DRAM
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
-                            and (not slab or _reblock.eligible_gated(
+                            and (row_slab is None or _reblock.eligible_gated(
                                 gp_b_fused, slice_c, memory_config))
                         )
-                        if gated and not slab:
+                        if gated and row_slab is None:
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
                                 n_pairs // group > 1,
@@ -5906,7 +5863,7 @@ class TriangleMultiplication(Module):
                             )
                             ttnn.deallocate(gp_b_fused)
                         else:
-                            if not slab:
+                            if row_slab is None:
                                 g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(
                                     gp_in_fused, chunks=4, dim=-1)
                             else:
@@ -6077,19 +6034,18 @@ class TriangleMultiplication(Module):
             # blocks + concat destination, with the hidden freed before the concat. The
             # input norm above the gate is row-blocked the same way (_in_proj_rows), so no
             # full-size LN'd pair tensor exists anywhere on this path.
-            # `s` is an ABSOLUTE row of z, so `x_in` is indexed with it directly and the channel
-            # loop's result, which holds only the slab, is indexed from `r0`. Without a slab the
-            # range is (0, H) and both indexings are the one that has always run.
+            # The loop runs over THIS CHIP's rows, counted from zero. `rows_src` is a tensor
+            # whose dim-1 rows from `base` on are that chip's rows: for a row-number slab it is
+            # `x_in` itself with `base = r0`, so no slab-sized copy is made and the rows read are
+            # the ones that have always been read; for a mesh slab it is the partition, with
+            # `base = 0`, because there is no row number to offset by. Without a slab it is `x_in`
+            # and zero, which is the path that has always run.
+            rows_src, base = (x_in, 0) if slab is None else slab.rows_source(x_in)
             blocks = []
-            # The gate reads RAW x rows. Without a shard those are absolute rows of the caller's
-            # tensor and `s` indexes it directly, exactly as it always has. With one, this
-            # device's rows already arrived as `row_input` and `s` runs from 0 over them, so the
-            # shard costs no second slice of x.
-            tail_src = row_input if shard else x_in
-            for s in range(r0, r1, PAIR_ROW_BLOCK):
-                e = min(s + PAIR_ROW_BLOCK, r1)
+            for s in range(0, n_rows, PAIR_ROW_BLOCK):
+                e = min(s + PAIR_ROW_BLOCK, n_rows)
                 z_rows = ttnn.layer_norm(
-                    tail_src[:, s:e],
+                    rows_src[:, base + s:base + e],
                     weight=self.in_norm_weight,
                     bias=self.in_norm_bias,
                     epsilon=1e-5,
@@ -6106,7 +6062,7 @@ class TriangleMultiplication(Module):
                 )
                 ttnn.deallocate(z_rows)
                 x_rows = ttnn.layer_norm(
-                    x[:, s - r0:e - r0],
+                    x[:, s:e],
                     weight=self.out_norm_weight,
                     bias=self.out_norm_bias,
                     epsilon=1e-5,
@@ -6127,13 +6083,15 @@ class TriangleMultiplication(Module):
                 ), host_acc)
                 ttnn.deallocate(g_block)
             ttnn.deallocate(x)
+            if rows_src is not x_in:
+                ttnn.deallocate(rows_src)
             dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
             return _acc_concat(blocks, 1, host_acc)
-        if slab:
+        if slab is not None:
             # The tail is per OUTPUT row for both variants (`g = LN_in(z_rows) @ w_g`), so here the
             # slab is a row slab of z whichever axis `a` took above. The gate is the only thing
             # that still reads the normed pair tensor at this point.
-            _rows = _slab_take(x_norm_in, 1, r0, r1, shard)
+            _rows = slab.take(x_norm_in, 1)
             ttnn.deallocate(x_norm_in)
             x_norm_in = _rows
         x = ttnn.layer_norm(
@@ -6498,23 +6456,12 @@ class TriangleAttention(Module):
         self.biased = self.g_bias is not None or self.o_bias is not None
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
-                 row_slab: tuple[int, int] | None = None,
-                 row_input: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                 row_slab: "tuple[int, int] | RowSlab | None" = None) -> ttnn.Tensor:
         """Triangle attention over the whole pair tensor, or over a slab of its OUTPUT rows.
 
-        `row_input` is the MESH spelling: this device's rows of `x`, as
-        `ttnn.mesh_partition(x, dim=1)` produces them off a replicated tensor. `row_slab` is a
-        Python range and an SPMD mesh hands every device the same one, so only `row_input` can
-        express a shard; see `_slab_take`. Exactly one of the two.
-
-        Nothing here slabs the caller's tensor directly. q, k, v, the gate and the bias are all
-        read off tensors this op computes -- the NORMED pair tensor, the qkv projection, the bias
-        projection -- so the shard is taken from those with `mesh_partition` and `row_input` is
-        read only for its row count. In particular THE BIAS IS NOT ROW-LOCAL for either variant:
-        it is `_pair_proj_linear` over the whole normed pair tensor, so a sharded caller still has
-        to hand this op a full and FRESH `x`.
-
-        `row_slab = (r0, r1)` returns rows [r0, r1) and nothing else, reading all of `x`. The two
+        `row_slab` is `(r0, r1)` or a `RowSlab.mesh(n)` -- a row number or a
+        `ttnn.mesh_partition`, see `tt_bio/row_shard.py`. Either returns those rows and nothing
+        else, reading all of `x`. The two
         variants reach it from opposite sides. The starting one attends within a row, so the row
         index is the attention's BATCH axis and a slab is a smaller input; the bias is `b[j,k]`,
         shared by every row, and stays whole. The ending one attends over i for fixed j, so after
@@ -6529,18 +6476,21 @@ class TriangleAttention(Module):
         x = ttnn.reshape(x, tuple(x.shape)[1:])
         S = x.shape[0]
         need_chunk = S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID)
-        shard = row_input is not None
-        assert not (shard and row_slab is not None), \
-            "row_slab and row_input are two spellings of one slab; pass exactly one"
-        slab = shard or row_slab is not None
-        if shard:
-            # `mesh_partition` has already moved the offset, so the extent is local and r0 is 0.
-            r0, r1 = 0, int(row_input.shape[1])
-        else:
-            r0, r1 = (0, int(S)) if row_slab is None else (int(row_slab[0]), int(row_slab[1]))
-        if slab:
-            assert 0 <= r0 < r1 <= int(S) and r0 % 32 == 0 and r1 % 32 == 0, \
-                f"row slab ({r0}, {r1}) is not a tile-aligned sub-range of {int(S)} rows"
+        slab = RowSlab.of(row_slab, int(S))
+        if slab is not None:
+            slab.check(int(S))
+            # The ending variant is the one op whose slab is NOT yet bit-exact under mesh
+            # addressing. Measured on a real 1x2 Wormhole mesh at 512 aa: its row-number slab
+            # matches the unsharded result exactly, and its mesh slab differs from that same
+            # row-number slab by 0.4707 -- while the other four pair-track ops agree to the bit
+            # under both. The cause is not a single mis-partitioned operand; slicing and
+            # partitioning each of the three tensors it slabs give identical bytes on their own
+            # (`perf/b2z2_trunkshard/partition_vs_slice.py`). Until that is closed this refuses
+            # rather than returning a quietly wrong half of a fold.
+            assert not (slab.is_mesh and slab.n_devices > 1 and self.ending), (
+                "triangle_attention_end has no proven mesh-addressed slab yet: pass "
+                "row_slab=(r0, r1) for this op, or fix the divergence "
+                "perf/b2z2_trunkshard/mesh_slab_bitexact.py measures at 0.4707")
             assert not need_chunk, (
                 "the row slab is implemented on the whole-tensor path only; the chunked path "
                 f"(S={int(S)} > {SEQ_LEN_MORE_CHUNKING}) builds its bias and its qkv per row "
@@ -6893,11 +6843,11 @@ class TriangleAttention(Module):
             # different kernel and would not be bit-exact, and the parity script is what says
             # which of the two a shape is.
             x_gate = x
-            if slab:
+            if slab is not None:
                 _ax = 1 if self.ending else 0
-                x_gate = _slab_take(x, _ax, r0, r1, shard)
+                x_gate = slab.take(x, _ax)
                 if self.ending:
-                    b_slab = _slab_take(triangle_bias, 2, r0, r1, shard)
+                    b_slab = slab.take(triangle_bias, 2)
                     ttnn.deallocate(triangle_bias)
                     triangle_bias = b_slab
             x_qkv = x if self.ending else x_gate
@@ -6947,7 +6897,7 @@ class TriangleAttention(Module):
             if self.g_bias is not None and not g_in_mm:
                 g = ttnn.add_(g, self.g_bias)
                 _pair_bias_stat("g_add")
-            if slab and self.ending:
+            if slab is not None and self.ending:
                 # The output row is q's SEQUENCE axis here. The head split below is the one
                 # `attend` would have run on a flat projection -- same ops, same memory config --
                 # pulled forward so the slice can be taken per head.
@@ -6959,7 +6909,7 @@ class TriangleAttention(Module):
                     )
                     ttnn.deallocate(qkv_u)
                 q_full, k_full, v_full = qkv
-                q_slab = _slab_take(q_full, 2, r0, r1, shard)
+                q_slab = slab.take(q_full, 2)
                 ttnn.deallocate(q_full)
                 qkv = (q_slab, k_full, v_full)
             ttnn.deallocate(x)
@@ -6967,7 +6917,7 @@ class TriangleAttention(Module):
                 ttnn.deallocate(x_gate)
             if attn_mask is not None:
                 m = attn_mask
-                if slab and self.ending:
+                if slab is not None and self.ending:
                     # The mask rides the bias, so it takes the bias's query-axis slab -- unless
                     # that axis is a BROADCAST one. Boltz-2's is [1, 1, 1, S], a key mask with no
                     # query extent to slice; a [1, heads, S, S] mask has one and takes it.
@@ -6975,7 +6925,7 @@ class TriangleAttention(Module):
                     assert len(m_shp) == 4, \
                         f"a query-slab attention mask has to be 4-D, got {m_shp}"
                     if m_shp[2] != 1:
-                        m = _slab_take(m, 2, r0, r1, shard)
+                        m = slab.take(m, 2)
                 triangle_bias = ttnn.add(triangle_bias, m)
                 if m is not attn_mask:
                     ttnn.deallocate(m)
@@ -7472,32 +7422,24 @@ class Transition(Module):
         self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
-    def __call__(self, x: ttnn.Tensor, row_slab: tuple[int, int] | None = None,
-                 row_input: ttnn.Tensor | None = None) -> ttnn.Tensor:
+    def __call__(self, x: ttnn.Tensor,
+                 row_slab: "tuple[int, int] | RowSlab | None" = None) -> ttnn.Tensor:
         """The SwiGLU transition, over the whole input or over a slab of its OUTPUT rows.
 
-        `row_input` is the MESH spelling: this device's rows of `x`, from
-        `ttnn.mesh_partition(x, dim=1)`. This op is the one that needs nothing else -- it is
-        elementwise in (i, j) -- so its device's rows ARE its whole input and `x` goes unread.
-
-        `row_slab = (r0, r1)` is the pair track's i axis. Every op below is per (i, j) -- the norm
+        `row_slab`, `(r0, r1)` or a `RowSlab.mesh(n)`, is the pair track's i axis. Every op
+        below is per (i, j) -- the norm
         reduces over the channel axis and the three projections contract it -- so the slab is a
         smaller INPUT and nothing downstream has to know about it. The row loop's block size comes
         from W and the channel, never from the row count, so a slab whose extent is a multiple of
         that block feeds each projection exactly the M the whole-tensor path feeds it, and the
         result is bit-identical to those rows of it.
         """
-        if row_input is not None:
-            assert row_slab is None, \
-                "row_slab and row_input are two spellings of one slab; pass exactly one"
-            return self(row_input)
         if row_slab is not None:
             assert len(x.shape) == 4, "the row slab is the pair track's, which is 4-D here"
             _s = [int(d) for d in x.shape]
-            _r0, _r1 = int(row_slab[0]), int(row_slab[1])
-            assert 0 <= _r0 < _r1 <= _s[1] and _r0 % 32 == 0 and _r1 % 32 == 0, \
-                f"row slab {row_slab} is not a tile-aligned sub-range of {_s[1]} rows"
-            rows = ttnn.slice(x, [0, _r0, 0, 0], [_s[0], _r1, _s[2], _s[3]])
+            _slab = RowSlab.of(row_slab, _s[1])
+            _slab.check(_s[1])
+            rows = _slab.take(x, 1)
             try:
                 return self(rows)
             finally:
@@ -7743,8 +7685,6 @@ class Transition(Module):
         ], dim=1)
 
 
-_MIN_ROW_SHARD = os.environ.get("TT_BIO_MIN_ROW_SHARD", "0") == "1"
-
 class PairformerLayer(Module):
     def __init__(
         self,
@@ -7828,123 +7768,30 @@ class PairformerLayer(Module):
                 self.scope("transition_s"), compute_kernel_config
             )
 
-    def _pair_track_row_sharded(self, z, mask, attn_mask_start, attn_mask_end):
-        """The five pair-track ops with the i axis sharded over a 1xN mesh. Returns the full `z`.
-
-        `z` stays REPLICATED and full on every device; what is sharded is the WORK. Each device
-        keeps `z_rows`, its own rows, and runs the whole residual chain on them in the unsharded
-        order, so `z_rows` is bit-identical to those rows of the unsharded result by elementwise
-        construction. The replicated `z` is refreshed by ALL-GATHERING `z_rows`, which is a concat
-        and therefore also bit-exact -- gathering DELTAS instead and adding them to `z` would
-        reassociate the last two adds, and bf16 addition is not associative.
-
-        WHERE THE GATHERS GO IS READ OFF WHAT EACH OP READS, not chosen:
-
-          trimul_start  the b role reads all of z, the a role its own ROWS       needs a full z
-          trimul_end    the b role reads all of z, the a role its own COLUMNS    needs a full z
-          triatt_start  q, k, v and the gate are row-local, BUT the bias is
-                        `_pair_proj_linear` over the whole normed pair tensor    needs a full z
-          triatt_end    attends over i for fixed j, so k and v need every i      needs a full z
-          transition_z  elementwise in (i, j)                                    rows only
-
-        So a fresh full z is needed before four of the five, and the block's own entry state
-        supplies the first one: FOUR gathers, one per boundary between them, plus one at the end
-        for whatever reads z next (`attention_pair_bias` reads all of it as its bias).
-
-        `triatt_start` is the one that reads like it should be free and is not. Its q, k, v and
-        gate really are row-local -- that is what the row slab exploits -- but its bias is built
-        from the WHOLE normed pair tensor at `_pair_proj_linear(x, self.bias_weight, ...)`, so
-        feeding it a z whose far rows are one op stale is a wrong answer that no shape check
-        catches. The mesh equality check in `perf/b2z2_dualchip/mesh_block_parity.py` is what
-        would catch it.
-
-        The s track is deliberately NOT sharded: both devices compute the identical [1, S, 384]
-        update, which costs wall clock once and saves a fifth gather for ~3 ms of work.
-        """
-        # One partition per block. Every later `z_rows` comes from a local add, because
-        # partition(z + u) == partition(z) + partition(u) and the adds are elementwise.
-        z_rows = ttnn.mesh_partition(z, dim=1)
-
-        def step(op, *args):
-            nonlocal z_rows
-            u = op(*args, row_input=z_rows)
-            z_rows = ttnn.add_(z_rows, u)
-            ttnn.deallocate(u)
-
-        def gather():
-            nonlocal z
-            old_z = z
-            z = ttnn.all_gather(z_rows, dim=1)
-            ttnn.deallocate(old_z)
-
-        step(self.triangle_multiplication_start, z, mask)
-        gather()
-        step(self.triangle_multiplication_end, z, mask)
-        gather()
-        step(self.triangle_attention_start, z, attn_mask_start)
-        gather()
-        step(self.triangle_attention_end, z, attn_mask_end)
-        # transition_z reads only its own rows, so no gather sits between it and the one above.
-        step(self.transition_z, z)
-        gather()
-        ttnn.deallocate(z_rows)
-        return z
-
     def __call__(
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
-        extra_attn_bias: ttnn.Tensor | None = None, row_shard: bool = False,
+        extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
-        """One Pairformer block. `row_shard` splits the pair track's i axis over the mesh.
+        z_update = self.triangle_multiplication_start(z, mask)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
 
-        `row_shard` is a property of the call, not of a model: it asks for the work to be split
-        and is only meaningful where `z` is replicated over a mesh of more than one device, where
-        `ttnn.mesh_partition` hands each device a different slab. On a 1x1 mesh it is the identity
-        and the block computes the same thing the long way round, so the flag defaults off and the
-        unsharded chain below is byte-for-byte what ships.
-        """
-        if row_shard:
-            z = self._pair_track_row_sharded(z, mask, attn_mask_start, attn_mask_end)
-        else:
-            z_update = self.triangle_multiplication_start(z, mask)
-            z = ttnn.add_(z, z_update)
-            ttnn.deallocate(z_update)
+        z_update = self.triangle_multiplication_end(z, mask)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
 
-            z_update = self.triangle_multiplication_end(z, mask)
-            z = ttnn.add_(z, z_update)
-            ttnn.deallocate(z_update)
+        z_update = self.triangle_attention_start(z, attn_mask_start)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
 
-            z_update = self.triangle_attention_start(z, attn_mask_start)
-            z = ttnn.add_(z, z_update)
-            ttnn.deallocate(z_update)
+        z_update = self.triangle_attention_end(z, attn_mask_end)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
 
-            z_update = self.triangle_attention_end(z, attn_mask_end)
-            z = ttnn.add_(z, z_update)
-            ttnn.deallocate(z_update)
-
-            if _MIN_ROW_SHARD and getattr(
-                    self.device, "get_num_devices", lambda: 1)() > 1:
-                # The smallest shard that is a real one. `transition_z` is elementwise per (i, j),
-                # so a device needs only its own rows and `ttnn.mesh_partition` hands each a
-                # different slab off the replicated z for free. One all_gather puts z back for
-                # `attention_pair_bias`, which reads all of it as a bias.
-                #
-                # Measured on this branch: the op is 7.999 ms whole and 4.201 ms as a slab
-                # (1.904x), against a 1.680 ms gather, so it clears the break-even by 2.1 ms of
-                # the block's 36.702 ms. The full chain shards four more ops and is worth much
-                # more; this one exists because it needs no new op signature and no correctness
-                # argument beyond "elementwise ops do not care how many rows they get".
-                z_rows = ttnn.mesh_partition(z, dim=1)
-                u = self.transition_z(z_rows)
-                z_rows = ttnn.add_(z_rows, u)
-                ttnn.deallocate(u)
-                ttnn.deallocate(z)
-                z = ttnn.all_gather(z_rows, dim=1)
-                ttnn.deallocate(z_rows)
-            else:
-                z_update = self.transition_z(z)
-                z = ttnn.add_(z, z_update)
-                ttnn.deallocate(z_update)
+        z_update = self.transition_z(z)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
                 s,
