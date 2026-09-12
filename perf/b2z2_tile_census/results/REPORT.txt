@@ -1,0 +1,44 @@
+
+=== PairformerLayer: 272 programs, span 36.3438 ms (BH, qb2 card 0)
+  CB tile arrivals per core-averaged block          236,118
+  tile-pair MACs per core                         2,146,037
+  pack events per core                              151,862
+    of the arrivals, crossing the DRAM interface      20,911  (8.9 %)
+    read out of L1-interleaved                        7,025  (3.0 %)
+    multicast or CB replications of those           208,182  (88.2 %)
+  DRAM  read   4,710.8 MB   write   3,338.5 MB
+  L1    read   1,582.6 MB   write   1,515.1 MB
+  MEASURED CB wait-front/core 18.3696 ms   reserve-back 3.0947 ms   TRISC1 32.1074 ms
+  arrivals x 20.82 ns/tile        =   4.9160 ms  =   26.8 % of the wait
+  DRAM read at the 444.9 GB/s roof  =  10.5884 ms  =   57.6 % of the wait
+
+  What predicts the per-site wait? 40 sites that run a compute kernel:
+    R2 = -0.5559   tile arrivals only           5.0041
+    R2 = -0.5744   tile-pair MACs only          0.40501
+    R2 =  0.7011   DRAM bytes only              0.0029377
+    R2 =  0.7872   DRAM + L1 bytes              0.0028391  0.0015339
+    R2 =  0.7903   DRAM + L1 + per-program      0.0028274  0.0013177  2997.2
+    R2 =  0.7879   DRAM + L1 + tile arrivals    0.0028247  0.0015339  0.50163
+
+  Two-bandwidth fit: DRAM 352.2 GB/s (79 % of the 444.9 GB/s roof), L1-interleaved 651.9 GB/s
+    DRAM term 12.5130 ms (68.1 %) + L1 term 2.4275 ms (13.2 %) = 81.3 % of the wait
+
+  Spearman rank correlation against the measured per-site wait:
+    +0.909   bytes delivered (DRAM + L1 read)
+    +0.752   DRAM bytes read
+    +0.767   CB tile arrivals per core
+    +0.730   tile-pair MACs per core
+    +0.445   programs in the site
+
+=== DiffusionStep: 1066 programs, span 45.5048 ms (BH, qb2 card 0)
+  CB tile arrivals per core-averaged block           84,607
+  tile-pair MACs per core                            76,482
+  pack events per core                                8,382
+    of the arrivals, crossing the DRAM interface      10,390  (12.3 %)
+    read out of L1-interleaved                          300  (0.4 %)
+    multicast or CB replications of those            73,917  (87.4 %)
+  DRAM  read   2,340.6 MB   write   1,254.0 MB
+  L1    read      67.6 MB   write      66.1 MB
+  MEASURED CB wait-front/core 0.0000 ms   reserve-back 0.0000 ms   TRISC1 15.2097 ms
+  arrivals x 20.82 ns/tile        =   1.7615 ms
+  DRAM read at the 444.9 GB/s roof  =   5.2611 ms
