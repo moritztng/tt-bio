@@ -129,8 +129,12 @@ from tt_bio.worker import _WorkerState, _ensure_local_artifacts  # noqa: E402
 
 fix = ROOT / "perf" / "size512" / "fixtures"
 tgt, a3m = fix / "cdk2x2_512.yaml", fix / "cdk2x2_512.a3m"
-msa_dir = Path(f"/tmp/b2z2_msa512_{MODE}")
-struct_dir = Path(f"/tmp/b2z2_struct_{MODE}")
+# Namespaced per row AND per mode. The original keys these on MODE alone, and /tmp/b2z2_msa512_single
+# already existed on whglx owned by another user, so the run died on PermissionError before it opened
+# a device. Sibling perf campaigns need namespaced output paths.
+_TMP = os.environ.get("FOLD_TMP", "/tmp/b2z2_shardrep")
+msa_dir = Path(f"{_TMP}/msa512_{MODE}")
+struct_dir = Path(f"{_TMP}/struct_{MODE}")
 struct_dir.mkdir(parents=True, exist_ok=True)
 
 seq = _read_bio_chains(tgt)[0][1]
