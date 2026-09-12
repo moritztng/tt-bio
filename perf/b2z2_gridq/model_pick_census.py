@@ -98,7 +98,7 @@ def main() -> int:
     os.environ.setdefault("TT_BIO_SDPA_GRID_Q_CHUNK", "0")   # census the SHIPPED run
     import tt_bio.tenstorrent as T
     install(T)
-    from tt_bio.main import main as tt_main
+    from tt_bio.main import cli as tt_main
 
     argv = [a.cmd, a.input, "--model", a.model] + [v for v in a.extra if v != "--"]
     t0 = time.time()
