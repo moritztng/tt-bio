@@ -35,11 +35,16 @@ falsification, and it is a cheap one. Predicted 1.02-1.10x on a pack-heavy op; f
 ## `welford_ab.py` — the config-only lever nobody has tried
 
 tt-metal's default layernorm kernel makes five full-width pack passes over every row
-(`layernorm.cpp:186, :214, :269, :305, :332`). 0.68.0 ships a Welford variant that collapses the
-mean/variance passes, selected by `use_welford` on the program config
-(`layernorm_device_operation.cpp:215`, bound to Python at `layernorm_nanobind.cpp:45`). tt-bio
-passes no program config to `ttnn.layer_norm` anywhere, so every call runs the five-pass kernel.
-LayerNorm is 10.1 % of the Pairformer block, 1.032 s/fold.
+(`layernorm.cpp:186, :214, :269, :305, :332`) where the mathematics needs one. LayerNorm is 10.1 %
+of the Pairformer block, 1.032 s/fold, and tt-bio passes no program config to `ttnn.layer_norm`
+anywhere, so every call runs the five-pass kernel.
+
+`use_welford` (`layernorm_device_operation.cpp:215`, bound at `layernorm_nanobind.cpp:45`) removes
+**one** of the five — counting the passes in `layernorm_welford.cpp` (`:216, :272, :300, :328`), it
+folds away `cb_xmm2` and nothing else. So expect ~1.005x, not a large win. It is worth running
+because it is free and because it bounds how much of this op the packer actually prices; the real
+lever is folding gamma and beta into the normalize pass (P1b in the memo), which needs a kernel edit
+through the same overlay.
 
 ```
 python3 welford_ab.py --device-id 0 --seq 512 --dim 128
