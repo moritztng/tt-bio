@@ -1,0 +1,16 @@
+{
+ "label": "ladder_vs_bucket_512",
+ "ref": "perf/b2z_work_removal/cif512/bucket1024_poison0__cdk2x2_512.cif",
+ "arm": "perf/b2z_work_removal/cif512/ladder_poison0__cdk2x2_512.cif",
+ "n_matched": 4116,
+ "whole_allatom_rmsd_A": 0.8844,
+ "mean_bfactor_ref": 88.4096,
+ "mean_bfactor_arm": 88.5945,
+ "per_chain": {
+  "A": {
+   "n_atoms": 4116,
+   "allatom_rmsd_A": 0.8844,
+   "ca_rmsd_A": 0.8255
+  }
+ }
+}

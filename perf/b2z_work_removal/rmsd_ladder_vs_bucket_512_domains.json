@@ -1,0 +1,31 @@
+{
+ "label": "ladder_vs_bucket_512_domains",
+ "ref": "perf/b2z_work_removal/cif512/bucket1024_poison0__cdk2x2_512.cif",
+ "arm": "perf/b2z_work_removal/cif512/ladder_poison0__cdk2x2_512.cif",
+ "split_residue": 298,
+ "last_residue": 512,
+ "domains": [
+  {
+   "lo": 1,
+   "hi": 298,
+   "n_atoms": 2397,
+   "n_CA": 298,
+   "allatom_rmsd_A": 0.3029,
+   "ca_rmsd_A": 0.146
+  },
+  {
+   "lo": 299,
+   "hi": 512,
+   "n_atoms": 1719,
+   "n_CA": 214,
+   "allatom_rmsd_A": 0.3147,
+   "ca_rmsd_A": 0.1635
+  }
+ ],
+ "worst_domain_allatom_A": 0.3147,
+ "bar": {
+  "pass_A": 0.35,
+  "hold_A": 0.6
+ },
+ "verdict": "pass"
+}

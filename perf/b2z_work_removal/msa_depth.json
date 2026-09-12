@@ -1,0 +1,29 @@
+[
+  {
+    "fixture": "cdk2x2_512.yaml",
+    "a3m_seqs": 35,
+    "tokens": 512,
+    "msa_depth": 512,
+    "padded_1024": 1024,
+    "overcompute_x": 2.0,
+    "ladder_32": 512
+  },
+  {
+    "fixture": "cdk2x2_298.yaml",
+    "a3m_seqs": 35,
+    "tokens": 298,
+    "msa_depth": 298,
+    "padded_1024": 1024,
+    "overcompute_x": 3.436,
+    "ladder_32": 320
+  },
+  {
+    "fixture": "cdk2x2_128.yaml",
+    "a3m_seqs": 35,
+    "tokens": 128,
+    "msa_depth": 128,
+    "padded_1024": 1024,
+    "overcompute_x": 8.0,
+    "ladder_32": 128
+  }
+]

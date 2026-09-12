@@ -206,7 +206,12 @@ def patch_boltz2_cfg():
     _steering = {"fk_steering": False, "physical_guidance_update": False,
                  "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
                  "fk_resampling_interval": 3, "num_gd_steps": 20}
-    _conf = dict(predict_args={"recycling_steps": B.RECYCLING_STEPS,
+    # The recycle count is a per-checkpoint property and lives in tt_bio.main.RECYCLING_STEPS,
+    # which `build_fold` reads through `_resolve_recycling_steps`. `B.RECYCLING_STEPS` was a
+    # module constant that moved there; reading it here raised AttributeError for every caller.
+    from tt_bio.main import _resolve_recycling_steps
+    _recycles = _resolve_recycling_steps(None, "boltz2")
+    _conf = dict(predict_args={"recycling_steps": _recycles,
                                "sampling_steps": B.SAMPLING_STEPS,
                                "diffusion_samples": B.DIFFUSION_SAMPLES,
                                "max_parallel_samples": None},
