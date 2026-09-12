@@ -54,7 +54,7 @@ def run(out: Path) -> int:
         def _np(t_):
             # bf16 -> fp32 is lossless, so widening here cannot hide a difference between stacks,
             # and numpy has no bf16 to compare in.
-            return ttnn.to_torch(t_).float()
+            return ttnn.to_torch(t_).float().numpy()
 
         def to_dev(x, dtype=ttnn.bfloat16):
             return ttnn.from_torch(torch.from_numpy(x), dtype=dtype,
