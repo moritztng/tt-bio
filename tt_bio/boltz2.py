@@ -5672,15 +5672,25 @@ class Boltz2(nn.Module):
         # [b, n, n, token_z] tensor -- 134 MB at 512 tokens, six times over, and the result is
         # then uploaded to the resident trunk. `device_zinit` builds the same sum where the
         # trunk consumes it and the upload never happens; see PairAssemblyDevice.
-        device_zinit = (
-            self.run_trunk_and_structure
-            and self.use_tenstorrent
-            and not self.is_msa_compiled
-            and not self.is_pairformer_compiled
-            and not self.affinity_trunk_fp32
-            and not self.use_templates
-            and _device_zinit()
-        )
+        # The gate is a property of the model, never a model name: the resident trunk has to be
+        # the one consuming z_init, and nothing else on the host may need the relative position
+        # encoding this skips. BoltzGen's token-distance recycle does need it; Boltz-2 has no
+        # such module, and templates do not read it.
+        _zinit_gate = {
+            "run_trunk_and_structure": self.run_trunk_and_structure,
+            "use_tenstorrent": self.use_tenstorrent,
+            "not_msa_compiled": not self.is_msa_compiled,
+            "not_pairformer_compiled": not self.is_pairformer_compiled,
+            "not_affinity_fp32": not self.affinity_trunk_fp32,
+            "no_token_distance": getattr(self, "token_distance_module", None) is None,
+            "flag": _device_zinit(),
+        }
+        device_zinit = all(_zinit_gate.values())
+        if _zinit_gate["flag"] and not device_zinit:
+            # A lever that can decline needs an instrument that says it declined -- otherwise a
+            # silent fallback to torch reads as "the lever did nothing".
+            print("[zinit] declined: " + ", ".join(k for k, v in _zinit_gate.items() if not v),
+                  flush=True)
         z_init = relative_position_encoding = z_init_build = None
         if device_zinit:
             z_init_build = self._tt_zinit_module()
