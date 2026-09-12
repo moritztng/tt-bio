@@ -1161,13 +1161,15 @@ def _block_pairwise() -> bool:
 
 
 def _fuse_bias_stacks() -> bool:
-    # Not bit-exact (see _fuse_bias_stack). Its structural control has run and passed -- cdk2x2_298
-    # all-atom 0.218 A against a 0.000 A A/A floor, bar 0.35 A, plDDT unchanged to 0.0026 -- so
-    # what keeps it off by default is not Boltz-2 but the second call site: boltzgen's
-    # diffusion_conditioning has the identical three stacks, this flag would change it too, and
-    # BoltzGen's control is a design run. Read per call for the same reason as _host_levers: an
+    # On by default; TT_BIO_FUSE_BIAS_STACKS=0 restores the per-layer stack. Not bit-exact (see
+    # _fuse_bias_stack), so it ships on a control rather than on the algebra: cdk2x2_298 moves
+    # 0.218 A all-atom against a 0.000 A A/A floor and a 0.35 A bar, with plDDT flat to 0.0026.
+    # The second call site this used to wait on does not exist: BoltzGen builds its conditioning
+    # from tt_bio/boltzgen/model/modules/diffusion_conditioning.py, which inlines the per-layer
+    # loop, so a whole design run makes zero _bias_stack calls against a Boltz-2 fold's three
+    # (perf/b2z_levers/reach_qb2c0.json). Read per call for the same reason as _host_levers: an
     # A/B flips arms inside one process.
-    return _host_levers() and env_flag("TT_BIO_FUSE_BIAS_STACKS", False)
+    return _host_levers() and env_flag("TT_BIO_FUSE_BIAS_STACKS", True)
 
 
 def _row_block(bytes_per_row: int) -> int:

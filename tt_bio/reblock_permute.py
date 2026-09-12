@@ -561,12 +561,21 @@ def eligible_back(x, memory_config) -> bool:
 
 KERNEL_DIR_GATED = Path(__file__).resolve().parent / "kernels" / "reblock_permute_gated"
 
-# Tiles per DST acquire in the gated compute kernel. 1 is the incumbent, verbatim. INSTRUMENT for
-# now, not a shipped knob: this kernel's bit-exactness against the two-op ttnn sequence is a
-# standing parity claim (`torch.equal`, not a PCC), so the default does not move until an A/B and a
-# parity run on this branch say it should. Capped at 4 because the multiply stage holds two DST
-# slots a tile against 8 slots of a 16-bit DST -- above that the kernel would silently corrupt.
-GATE_GRANULARITY = max(1, min(4, int(os.environ.get("TT_BIO_GATE_GRANULARITY", "1"))))
+# Tiles per DST acquire in the gated compute kernel; TT_BIO_GATE_GRANULARITY=1 restores the
+# per-tile acquire. Same three stages in the same order through the same two bf16 circular
+# buffers, so every rounding point is untouched and this kernel's standing `torch.equal` claim
+# against the two-op ttnn sequence still holds -- checked, not assumed, at every value on both
+# architectures.
+#
+# 2, not the 4 that is fastest on Wormhole. The two architectures do not agree: WH reads
+# 1.0420x at 2 and 1.0759x at 4, Blackhole reads 1.0149x at 2 and 1.0011x at 4, so 4 is a wash on
+# the architecture the published cell is measured on. 2 is the value that wins on one and keeps
+# most of the other (perf/b2z_levers/gategran_512_qb2c0_n40.json,
+# perf/b2z_sdpa_floor/gategran_512_whglx_c3.json). Worth 0.014 s on a 512 aa Blackhole fold,
+# which is under the A/A floor -- it ships because it is free and bit-exact, not for the fold.
+# Capped at 4 because the multiply stage holds two DST slots a tile against 8 slots of a 16-bit
+# DST; above that the kernel would corrupt.
+GATE_GRANULARITY = max(1, min(4, int(os.environ.get("TT_BIO_GATE_GRANULARITY", "2"))))
 
 P_CB, G_CB, SIG_CB, MUL_CB = 0, 1, 2, 3
 
