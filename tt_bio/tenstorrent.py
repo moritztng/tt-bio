@@ -10516,6 +10516,30 @@ class TrunkRecycle:
         return s_out, z_out
 
 
+class StageWall:
+    """Wall seconds per stage of a device track, with an explicit sync at each boundary.
+
+    Off unless its env flag is set, because the syncs it inserts ARE the measurement: without
+    them the first ``to_torch`` collects the whole track's device time and every stage before it
+    reads as free. Read per call, so an A/B can arm it inside one process.
+    """
+
+    def __init__(self, flag: str, label: str):
+        self.flag, self.label, self.on, self.t0 = flag, label, False, 0.0
+
+    def start(self):
+        self.on = env_flag(self.flag, False)
+        self.t0 = time.perf_counter()
+
+    def mark(self, stage: str):
+        if not self.on:
+            return
+        ttnn.synchronize_device(get_device())
+        now = time.perf_counter()
+        print(f"[{self.label}] {stage:22s} {1e3 * (now - self.t0):8.2f} ms", flush=True)
+        self.t0 = now
+
+
 def pair_gather(index, table, padded):
     """``table[index]`` for an ``[n, n]`` integer map, zero-padded to ``[1, padded, padded, c]``.
 
@@ -10598,6 +10622,7 @@ class PairConditioningDevice:
                  rel_pos, compute_kernel_config):
         self.compute_kernel_config = compute_kernel_config
         self.rel_pos = RelPosGather(rel_pos)
+        self.wall = StageWall("TT_BIO_DEVICE_CONDITIONING_PROFILE", "paircond")
         device = get_device()
 
         def w(tensor, transpose=False):
@@ -10627,20 +10652,6 @@ class PairConditioningDevice:
         self.zp_norm_eps = z_to_p_trans[0].eps
         self.zp_proj_weight = w(z_to_p_trans[1].weight, transpose=True)
 
-    def _mark(self, label):
-        """Wall seconds per stage, with an explicit device sync at each boundary.
-
-        Off unless TT_BIO_DEVICE_CONDITIONING_PROFILE is set, because the syncs it inserts are
-        the measurement: without them the first `to_torch` would collect the whole track's device
-        time and every stage before it would read as free.
-        """
-        if not self._profile:
-            return
-        ttnn.synchronize_device(get_device())
-        now = time.perf_counter()
-        print(f"[paircond] {label:24s} {1e3 * (now - self._t0):8.2f} ms", flush=True)
-        self._t0 = now
-
     def _linear(self, x, weight, bias=None, activation=None):
         return ttnn.linear(
             x, weight, bias=bias, activation=activation,
@@ -10655,10 +10666,9 @@ class PairConditioningDevice:
         ``token_trans_bias`` stays on the device padded, which is the shape the diffusion cache
         wants.
         """
-        self._profile = env_flag("TT_BIO_DEVICE_CONDITIONING_PROFILE", False)
-        self._t0 = time.perf_counter()
+        self.wall.start()
         rel_pos_tt = self.rel_pos(feats, seq_len + seq_pad)
-        self._mark("rel_pos")
+        self.wall.mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(rel_pos_tt)
         x_norm = ttnn.layer_norm(
@@ -10668,7 +10678,7 @@ class PairConditioningDevice:
         ttnn.deallocate(x)
         z = self._linear(x_norm, self.init_proj_weight)
         ttnn.deallocate(x_norm)
-        self._mark("init proj")
+        self.wall.mark("init proj")
 
         for norm_weight, norm_bias, eps, fc1, fc2, fc3 in self.transitions:
             z_norm = ttnn.layer_norm(
@@ -10684,7 +10694,7 @@ class PairConditioningDevice:
             ttnn.deallocate(hidden)
             z = ttnn.add_(z, delta)
             ttnn.deallocate(delta)
-            self._mark("transition")
+            self.wall.mark("transition")
 
         z_norm = ttnn.layer_norm(
             z, epsilon=self.bias_eps, compute_kernel_config=self.compute_kernel_config)
@@ -10700,7 +10710,7 @@ class PairConditioningDevice:
             bias = ttnn.multiply_(bias, keep_tt)
             ttnn.deallocate(keep_tt)
 
-        self._mark("token bias")
+        self.wall.mark("token bias")
         z_norm = ttnn.layer_norm(
             z, weight=self.zp_norm_weight, bias=self.zp_norm_bias, epsilon=self.zp_norm_eps,
             compute_kernel_config=self.compute_kernel_config,
@@ -10710,7 +10720,7 @@ class PairConditioningDevice:
         ttnn.deallocate(z_norm)
         out = torch.Tensor(ttnn.to_torch(z_to_p)).to(torch.float32)[:, :seq_len, :seq_len, :]
         ttnn.deallocate(z_to_p)
-        self._mark("z_to_p download")
+        self.wall.mark("z_to_p download")
         return out, bias
 
 
@@ -10749,6 +10759,7 @@ class ConfidencePairDevice:
     def __init__(self, conf, compute_kernel_config):
         self.compute_kernel_config = compute_kernel_config
         self.conf = conf
+        self.wall = StageWall("TT_BIO_DEVICE_CONFIDENCE_PROFILE", "confpair")
         device = get_device()
 
         def w(tensor, transpose=False):
@@ -10765,24 +10776,55 @@ class ConfidencePairDevice:
         self.z_norm_bias = w(conf.z_norm.bias)
         self.z_norm_eps = conf.z_norm.eps
         self.rel_pos = RelPosGather(conf.rel_pos)
-        self.bonds_weight = w(conf.token_bonds.weight, transpose=True)
         self.bonds_type_table = (
             ttnn.from_torch(conf.token_bonds_type.weight.detach().contiguous(),
                             layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
             if getattr(conf, "bond_type_feature", False) else None)
 
+        # ---- the packed feature upload -------------------------------------------------------
+        # Five host feature maps feed this track -- the contact one-hot, the contact threshold,
+        # the UNSPECIFIED/UNSELECTED keep mask, and token_bonds -- and every one of them is
+        # narrower than a tile. A [1, n, n, 1] upload tilizes to 32 channels, so five separate
+        # uploads cost five times the bus and five host tilize passes for the same 6 columns.
+        # Pack them into one [1, n, n, K] tensor and give each consumer a [K, out] weight whose
+        # unused rows are zero: one upload, and the column selection happens inside a matmul
+        # that was going to run anyway.
         cc = conf.contact_conditioning
         self.cutoff_min, self.cutoff_max = cc.cutoff_min, cc.cutoff_max
-        self.fourier_weight = w(cc.fourier_embedding.proj.weight, transpose=True)
-        self.fourier_bias = row(cc.fourier_embedding.proj.bias)
-        # encoder reads cat([contact 3ch, threshold 1ch, fourier token_z ch]); split its weight
-        # at that boundary so neither matmul needs a device concat of a sub-tile width.
+        # encoder input is cat([cc[2:], threshold, fourier]), so its non-Fourier width fixes the
+        # contact one-hot's: n_small = (n_cc - 2) + 1. Read it off the module rather than
+        # importing the constant table, so the pack follows the checkpoint.
         n_small = cc.encoder.in_features - cc.fourier_embedding.proj.out_features
-        self.contact_weight = w(cc.encoder.weight[:, :n_small], transpose=True)
-        self.fourier_out_weight = w(cc.encoder.weight[:, n_small:], transpose=True)
+        n_cc = n_small + 1
+        n_tb = conf.token_bonds.in_features
+        self.n_pack = n_cc + 2 + n_tb           # cc | threshold | keep | token_bonds
+        i_thr, i_keep, i_tb = n_cc, n_cc + 1, n_cc + 2
+
+        def packed(cols: dict, out_dim: int):
+            """``[n_pack, out_dim]`` with ``cols[j]`` written at packed column ``j``."""
+            m = torch.zeros(self.n_pack, out_dim)
+            for j, v in cols.items():
+                m[j:j + v.shape[0]] = v
+            return w(m)
+
+        # Split the encoder weight at the Fourier boundary so the block that comes from host
+        # features rides the packed tensor and the block that comes from the Fourier embedding
+        # is its own matmul.
+        ew = cc.encoder.weight.detach()
+        self.contact_weight = packed({2: ew[:, :n_small - 1].t(),
+                                      i_thr: ew[:, n_small - 1:n_small].t()}, ew.shape[0])
+        self.fourier_in_weight = packed(
+            {i_thr: cc.fourier_embedding.proj.weight.detach().t()},
+            cc.fourier_embedding.proj.out_features)
+        self.fourier_bias = row(cc.fourier_embedding.proj.bias)
+        self.fourier_out_weight = w(ew[:, n_small:], transpose=True)
         self.contact_bias = row(cc.encoder.bias)
-        self.override_weight = w(
-            torch.stack([cc.encoding_unspecified, cc.encoding_unselected]))
+        self.override_weight = packed(
+            {0: torch.stack([cc.encoding_unspecified.detach(),
+                             cc.encoding_unselected.detach()])}, ew.shape[0])
+        self.keep_weight = packed({i_keep: torch.ones(1, 1)}, 1)
+        self.bonds_weight = packed({i_tb: conf.token_bonds.weight.detach().t()},
+                                   conf.token_bonds.out_features)
 
         self.s_to_z_weight = w(conf.s_to_z.weight, transpose=True)
         self.s_to_z_t_weight = w(conf.s_to_z_transpose.weight, transpose=True)
@@ -10797,58 +10839,48 @@ class ConfidencePairDevice:
             conf.dist_bin_pairwise_embed.weight.detach().contiguous(),
             layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
 
-    def _linear(self, x, weight, bias=None, activation=None):
+    def _linear(self, x, weight, bias=None, activation=None, core_grid=CORE_GRID_MAIN):
         return ttnn.linear(
             x, weight, bias=bias, activation=activation,
-            compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
+            compute_kernel_config=self.compute_kernel_config, core_grid=core_grid,
         )
 
-    def _up(self, t, padded=None):
-        """Host ``[1, n, n, c]`` -> device bf16, zero-padded to ``padded`` on both token axes."""
-        t = t.float()
-        if padded is not None:
-            pad = padded - t.shape[-2]
-            if pad:
-                t = torch.nn.functional.pad(t, (0, 0, 0, pad, 0, pad))
+    def _pack(self, feats, padded):
+        """The one host feature upload: ``[1, padded, padded, n_pack]``, zero-padded.
+
+        Columns, in order: the contact one-hot, the normalised contact threshold, the
+        UNSPECIFIED/UNSELECTED keep mask, ``token_bonds``.
+        """
+        cc = feats["contact_conditioning"].float()
+        b, n = cc.shape[0], cc.shape[1]
+        thr = feats["contact_threshold"].float().reshape(b, n, n, 1)
+        thr = (thr - self.cutoff_min) / (self.cutoff_max - self.cutoff_min)
+        keep = 1.0 - cc[..., 0:2].sum(dim=-1, keepdim=True)
+        tb = feats["token_bonds"].float().reshape(b, n, n, -1)
+        t = torch.cat([cc, thr, keep, tb], dim=-1)
+        pad = padded - n
+        if pad:
+            t = torch.nn.functional.pad(t, (0, 0, 0, pad, 0, pad))
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
                                dtype=ttnn.bfloat16)
 
-    def _contact(self, feats, padded):
-        """``ContactConditioning.forward``, as device ops over 4 MB of uploaded features.
+    def _contact(self, packed):
+        """``ContactConditioning.forward`` over the packed upload.
 
-        The host form builds the Fourier embedding of the contact threshold as a full
-        ``[1, n, n, token_z]`` tensor before it concatenates anything -- 134 MB at 512 tokens to
-        project one scalar per ``(i, j)``. Here the scalar goes up and the embedding is built
-        where it is consumed. The concatenation the encoder reads is split at the same place:
-        its first four input channels come from host features, its last ``token_z`` from the
-        Fourier block, so two matmuls over the split weight replace a device concat of a
-        sub-tile width.
-
-        The UNSPECIFIED/UNSELECTED override is an outer product of a ``[1, n, n, 2]`` indicator
-        with the two learned vectors, so it is one ``K = 2`` matmul rather than a broadcast.
+        The host form materialises the Fourier embedding of the contact threshold as a full
+        ``[1, n, n, token_z]`` tensor -- 134 MB at 512 tokens -- to project one scalar per
+        ``(i, j)``. Here the scalar is a column of the packed tensor and the embedding is built
+        where it is consumed.
         """
-        cc = feats["contact_conditioning"].float()
-        thr = feats["contact_threshold"].float()
-        thr = (thr - self.cutoff_min) / (self.cutoff_max - self.cutoff_min)
-        thr = thr.reshape(cc.shape[0], cc.shape[1], cc.shape[2], 1)
-        sel = cc[..., 0:2]
-
-        thr_tt = self._up(thr, padded)
-        small_tt = self._up(torch.cat([cc[..., 2:], thr], dim=-1), padded)
-        sel_tt = self._up(sel, padded)
-        keep_tt = self._up(1.0 - sel.sum(dim=-1, keepdim=True), padded)
-
-        fourier = self._linear(thr_tt, self.fourier_weight, bias=self.fourier_bias)
-        ttnn.deallocate(thr_tt)
+        fourier = self._linear(packed, self.fourier_in_weight, bias=self.fourier_bias)
         fourier = ttnn.cos(ttnn.multiply(fourier, 2 * pi))
         out = self._linear(fourier, self.fourier_out_weight, bias=self.contact_bias)
         ttnn.deallocate(fourier)
-        out = ttnn.add_(out, self._linear(small_tt, self.contact_weight))
-        ttnn.deallocate(small_tt)
-        out = ttnn.multiply_(out, keep_tt)
-        ttnn.deallocate(keep_tt)
-        out = ttnn.add_(out, self._linear(sel_tt, self.override_weight))
-        ttnn.deallocate(sel_tt)
+        out = ttnn.add_(out, self._linear(packed, self.contact_weight))
+        keep = self._linear(packed, self.keep_weight, core_grid=None)
+        out = ttnn.multiply_(out, keep)
+        ttnn.deallocate(keep)
+        out = ttnn.add_(out, self._linear(packed, self.override_weight))
         return out
 
     def __call__(self, z_tt, s_inputs, feats, dist_index, seq_len, seq_pad):
@@ -10859,18 +10891,22 @@ class ConfidencePairDevice:
         ``s_inputs`` is the already-normalised host ``[1, n, token_s]``; ``dist_index`` the host
         ``[1, n, n]`` distogram bucket index, which the head computes for its own heads anyway.
         """
-        conf = self.conf
+        self.wall.start()
         padded = seq_len + seq_pad
         z = ttnn.layer_norm(z_tt, weight=self.z_norm_weight, bias=self.z_norm_bias,
                             epsilon=self.z_norm_eps,
                             compute_kernel_config=self.compute_kernel_config)
+        self.wall.mark("z_norm")
 
         rel = self.rel_pos(feats, padded)
         z = ttnn.add_(z, rel)
         ttnn.deallocate(rel)
+        self.wall.mark("rel_pos")
 
-        bonds = self._up(feats["token_bonds"].reshape(1, seq_len, seq_len, -1), padded)
-        bonds = self._linear(bonds, self.bonds_weight)
+        packed = self._pack(feats, padded)
+        self.wall.mark("pack upload")
+
+        bonds = self._linear(packed, self.bonds_weight)
         z = ttnn.add_(z, bonds)
         ttnn.deallocate(bonds)
 
@@ -10878,10 +10914,13 @@ class ConfidencePairDevice:
             types = pair_gather(feats["type_bonds"].long(), self.bonds_type_table, padded)
             z = ttnn.add_(z, types)
             ttnn.deallocate(types)
+        self.wall.mark("bonds")
 
-        contact = self._contact(feats, padded)
+        contact = self._contact(packed)
+        ttnn.deallocate(packed)
         z = ttnn.add_(z, contact)
         ttnn.deallocate(contact)
+        self.wall.mark("contact")
 
         s_in = torch.nn.functional.pad(s_inputs.float(), (0, 0, 0, seq_pad))
         s_in = ttnn.from_torch(s_in, layout=ttnn.TILE_LAYOUT, device=get_device(),
@@ -10903,10 +10942,12 @@ class ConfidencePairDevice:
             z = ttnn.add_(z, p)
             ttnn.deallocate(p)
         ttnn.deallocate(s_in)
+        self.wall.mark("s_to_z")
 
         dist = pair_gather(dist_index, self.dist_table, padded)
         z = ttnn.add_(z, dist)
         ttnn.deallocate(dist)
+        self.wall.mark("distogram")
 
         if seq_pad:
             # The host path builds z unpadded and PairformerModule pads it with zeros; the
@@ -10917,6 +10958,7 @@ class ConfidencePairDevice:
                                       dtype=ttnn.bfloat16)
             z = ttnn.multiply_(z, keep_tt)
             ttnn.deallocate(keep_tt)
+        self.wall.mark("pad zero")
         return z
 
 
