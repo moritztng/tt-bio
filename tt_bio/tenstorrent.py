@@ -7743,6 +7743,8 @@ class Transition(Module):
         ], dim=1)
 
 
+_MIN_ROW_SHARD = os.environ.get("TT_BIO_MIN_ROW_SHARD", "0") == "1"
+
 class PairformerLayer(Module):
     def __init__(
         self,
@@ -7920,9 +7922,29 @@ class PairformerLayer(Module):
             z = ttnn.add_(z, z_update)
             ttnn.deallocate(z_update)
 
-            z_update = self.transition_z(z)
-            z = ttnn.add_(z, z_update)
-            ttnn.deallocate(z_update)
+            if _MIN_ROW_SHARD and getattr(
+                    self.device, "get_num_devices", lambda: 1)() > 1:
+                # The smallest shard that is a real one. `transition_z` is elementwise per (i, j),
+                # so a device needs only its own rows and `ttnn.mesh_partition` hands each a
+                # different slab off the replicated z for free. One all_gather puts z back for
+                # `attention_pair_bias`, which reads all of it as a bias.
+                #
+                # Measured on this branch: the op is 7.999 ms whole and 4.201 ms as a slab
+                # (1.904x), against a 1.680 ms gather, so it clears the break-even by 2.1 ms of
+                # the block's 36.702 ms. The full chain shards four more ops and is worth much
+                # more; this one exists because it needs no new op signature and no correctness
+                # argument beyond "elementwise ops do not care how many rows they get".
+                z_rows = ttnn.mesh_partition(z, dim=1)
+                u = self.transition_z(z_rows)
+                z_rows = ttnn.add_(z_rows, u)
+                ttnn.deallocate(u)
+                ttnn.deallocate(z)
+                z = ttnn.all_gather(z_rows, dim=1)
+                ttnn.deallocate(z_rows)
+            else:
+                z_update = self.transition_z(z)
+                z = ttnn.add_(z, z_update)
+                ttnn.deallocate(z_update)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
                 s,
