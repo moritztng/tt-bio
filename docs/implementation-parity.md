@@ -372,6 +372,20 @@ width at twice the layers (66 vs 33), so it accumulates about twice the bf16
 rounding. It has no leg in `full_parity_gate.py` and is therefore absent from
 the tally above; the 650M leg is the gated SaProt path.
 
+**Boltz-2 coordinates move under the fused bias stacks, by design.**
+`TT_BIO_FUSE_BIAS_STACKS` is on by default. It folds each LayerNorm affine into
+the projection behind it in the diffusion conditioning, so the pair tensor is
+normalised once per fold instead of once per layer. The algebra is exact in real
+arithmetic and not in bfloat16, so the structure shifts: 0.2198 A all-atom on the
+cdk2x2 298 aa control against that control's 0.35 A bar, measured identically on
+Blackhole and on Wormhole, with plDDT moving 0.0026. At 512 aa it costs 0.000997
+plDDT. Both are far inside the envelope every Boltz-2 leg above is scored against,
+and the gate's structure and affinity legs are run with the flag on.
+`TT_BIO_FUSE_BIAS_STACKS=0` restores the per-layer stack. The two granularity
+levers that shipped with it, `TT_BIO_SDPA_ADD_GRANULARITY` and
+`TT_BIO_GATE_GRANULARITY`, are bit-exact at every granularity and cannot move a
+coordinate.
+
 ## Reproduce
 
 Each leg's reproduce command is in [Implementation parity — details](implementation-parity-details.md#reproducing-a-comparison).
