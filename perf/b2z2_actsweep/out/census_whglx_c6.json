@@ -1,0 +1,596 @@
+{
+ "doc": "Every fused-activation op a 512 aa Boltz-2 fold actually executes, with shape, dtype and count.\n\nThe static grep finds call sites. It cannot tell you which of them a fold reaches, how many times,\nor at what shape -- Boltz-2 chunks its Transition by rows, caches one projection across diffusion\nsteps, and half the `activation=` sites in tt_bio belong to Protenix or OpenFold3. So this wraps\nthe ttnn entry points for the duration of one real fold and records what went through them.\n\nTwo classes are recorded, because they are two different mechanisms and only one is the one the\nrow is about:\n\n  A  matmul-fused    ttnn.linear/matmul with `activation=` or a program config carrying\n                     `fused_activation` -- an SFPU pass run inside the matmul kernel\n  B  eltwise-fused   ttnn.add/multiply (and their in-place forms) with\n                     input_tensor_{a,b}_activations -- an SFPU pass folded into a binary op that\n                     is already reading both operands\n\nSplitting A costs an L1 round trip and may still win (the Transition silu does, 1.4549x).\nSplitting B costs an entire extra op over the same bytes and cannot win; B is censused so the\ntotal is honest about what is and is not addressable.\n\n    census.py --out <json> [--size 512] [--steps 200] [--recycles 3]\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "tt_visible_devices": "6",
+  "commit": "",
+  "fixture": "cdk2x2_512",
+  "steps": 200,
+  "recycles": 3,
+  "fold_wall_s": 107.3,
+  "started_utc": "2026-09-12T18:35:47Z"
+ },
+ "sites": [
+  {
+   "class": "matmul",
+   "site": "tenstorrent.py:7182",
+   "activation": "silu",
+   "in_shapes": [
+    [
+     1,
+     16,
+     512,
+     128
+    ],
+    [
+     128,
+     512
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 8960,
+   "phases": {
+    "fold": 8960
+   },
+   "out_elems": 4194304,
+   "out_bytes": 8388608
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:5958",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     1,
+     512,
+     512,
+     128
+    ],
+    [
+     1,
+     512,
+     512,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 560,
+   "phases": {
+    "fold": 560
+   },
+   "out_elems": 33554432,
+   "out_bytes": 67108864
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:6478",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     512,
+     4,
+     512,
+     32
+    ],
+    [
+     512,
+     4,
+     512,
+     32
+    ]
+   ],
+   "out_shape": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 560,
+   "phases": {
+    "fold": 560
+   },
+   "out_elems": 33554432,
+   "out_bytes": 67108864
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:8351",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     1,
+     512,
+     768
+    ],
+    [
+     1,
+     512,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    512,
+    768
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 9600,
+   "phases": {
+    "fold": 9600
+   },
+   "out_elems": 393216,
+   "out_bytes": 786432
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:8404",
+   "activation": "SILU",
+   "in_shapes": [
+    [
+     1,
+     512,
+     1536
+    ],
+    [
+     1,
+     512,
+     1536
+    ]
+   ],
+   "out_shape": [
+    1,
+    512,
+    1536
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 4800,
+   "phases": {
+    "fold": 4800
+   },
+   "out_elems": 786432,
+   "out_bytes": 1572864
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:8678",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     1024,
+     512,
+     32
+    ],
+    [
+     1024,
+     512,
+     32
+    ]
+   ],
+   "out_shape": [
+    1024,
+    512,
+    32
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 128,
+   "phases": {
+    "fold": 128
+   },
+   "out_elems": 16777216,
+   "out_bytes": 33554432
+  },
+  {
+   "class": "matmul",
+   "site": "tenstorrent.py:7182",
+   "activation": "silu",
+   "in_shapes": [
+    [
+     1,
+     16,
+     512,
+     64
+    ],
+    [
+     64,
+     256
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    512,
+    256
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 1024,
+   "phases": {
+    "fold": 1024
+   },
+   "out_elems": 2097152,
+   "out_bytes": 4194304
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:7145",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     1,
+     512,
+     768
+    ],
+    [
+     1,
+     512,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    512,
+    768
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 4800,
+   "phases": {
+    "fold": 4800
+   },
+   "out_elems": 393216,
+   "out_bytes": 786432
+  },
+  {
+   "class": "matmul",
+   "site": "tenstorrent.py:8502",
+   "activation": "sigmoid",
+   "in_shapes": [
+    [
+     1,
+     512,
+     768
+    ],
+    [
+     768,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    512,
+    768
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 4800,
+   "phases": {
+    "fold": 4800
+   },
+   "out_elems": 393216,
+   "out_bytes": 786432
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:8432",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     1,
+     512,
+     768
+    ],
+    [
+     1,
+     512,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    512,
+    768
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 4800,
+   "phases": {
+    "fold": 4800
+   },
+   "out_elems": 393216,
+   "out_bytes": 786432
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:8351",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     1,
+     140,
+     32,
+     128
+    ],
+    [
+     1,
+     140,
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 2400,
+   "phases": {
+    "fold": 2400
+   },
+   "out_elems": 573440,
+   "out_bytes": 1146880
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:8404",
+   "activation": "SILU",
+   "in_shapes": [
+    [
+     1,
+     140,
+     32,
+     256
+    ],
+    [
+     1,
+     140,
+     32,
+     256
+    ]
+   ],
+   "out_shape": [
+    1,
+    140,
+    32,
+    256
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 1200,
+   "phases": {
+    "fold": 1200
+   },
+   "out_elems": 1146880,
+   "out_bytes": 2293760
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:7145",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     1,
+     140,
+     32,
+     128
+    ],
+    [
+     1,
+     140,
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 1200,
+   "phases": {
+    "fold": 1200
+   },
+   "out_elems": 573440,
+   "out_bytes": 1146880
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:8432",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     1,
+     140,
+     32,
+     128
+    ],
+    [
+     1,
+     140,
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 1200,
+   "phases": {
+    "fold": 1200
+   },
+   "out_elems": 573440,
+   "out_bytes": 1146880
+  },
+  {
+   "class": "matmul",
+   "site": "tenstorrent.py:9487",
+   "activation": "relu",
+   "in_shapes": [
+    [
+     1,
+     4480,
+     128
+    ],
+    [
+     128,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    4480,
+    768
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 200,
+   "phases": {
+    "fold": 200
+   },
+   "out_elems": 3440640,
+   "out_bytes": 6881280
+  },
+  {
+   "class": "matmul",
+   "site": "tenstorrent.py:7182",
+   "activation": "silu",
+   "in_shapes": [
+    [
+     1,
+     512,
+     768
+    ],
+    [
+     768,
+     1536
+    ]
+   ],
+   "out_shape": [
+    1,
+    512,
+    1536
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 400,
+   "phases": {
+    "fold": 400
+   },
+   "out_elems": 786432,
+   "out_bytes": 1572864
+  },
+  {
+   "class": "matmul",
+   "site": "tenstorrent.py:7182",
+   "activation": "silu",
+   "in_shapes": [
+    [
+     1,
+     512,
+     384
+    ],
+    [
+     384,
+     1536
+    ]
+   ],
+   "out_shape": [
+    1,
+    512,
+    1536
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 264,
+   "phases": {
+    "fold": 264
+   },
+   "out_elems": 786432,
+   "out_bytes": 1572864
+  },
+  {
+   "class": "eltwise",
+   "site": "tenstorrent.py:7145",
+   "activation": "SIGMOID",
+   "in_shapes": [
+    [
+     1,
+     512,
+     384
+    ],
+    [
+     1,
+     512,
+     384
+    ]
+   ],
+   "out_shape": [
+    1,
+    512,
+    384
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 264,
+   "phases": {
+    "fold": 264
+   },
+   "out_elems": 196608,
+   "out_bytes": 393216
+  },
+  {
+   "class": "matmul",
+   "site": "tenstorrent.py:8502",
+   "activation": "sigmoid",
+   "in_shapes": [
+    [
+     1,
+     140,
+     32,
+     128
+    ],
+    [
+     128,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out_dtype": "BFLOAT16",
+   "calls": 6,
+   "phases": {
+    "fold": 6
+   },
+   "out_elems": 573440,
+   "out_bytes": 1146880
+  }
+ ],
+ "totals": {
+  "matmul_sites": 7,
+  "matmul_calls": 15654,
+  "matmul_out_MB": 85659.3,
+  "eltwise_sites": 12,
+  "eltwise_calls": 31512,
+  "eltwise_out_MB": 110467.5
+ }
+}

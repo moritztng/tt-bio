@@ -232,15 +232,54 @@ _TRANSITION_L1_CHUNK_BYTES_BASE = 393216
 _WH_MEASURED_L1_PER_CORE = 1466080  # the L1 the base above was measured at
 TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 
-# A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
-# same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
-# is silu-specific and program-config-invariant: a fused relu costs +2.4 us and a fused gelu +141.3
-# against its own 135.3 standalone, and the +174 holds across eight explicit
-# MatmulMultiCoreReuseMultiCast configs. So unfusing pays a full L1 round trip and still wins,
-# because the fused path runs silu at half the SFPU rate the standalone op reaches. Release-gated:
-# the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
-# accumulator, so it is not bit-exact.
-_UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
+# Splitting a matmul's fused activation out into its own SFPU op. A fused activation is an SFPU pass
+# run inside the matmul kernel, and for some activations that pass is slower than the same op
+# standing alone -- slower by more than the L1 round trip that splitting it forces. Swept over every
+# fused-activation shape a 512 aa Boltz-2 fold runs, four activations and K from 32 to 1536
+# (whglx card 6, Wormhole B0, 8x9 grid, paired n=9x32, perf/b2z2_actsweep/). Three conditions, all
+# measured, none of them a model name:
+#
+#   * The activation's fused pass must be the slower one. Per output tile, fused against standalone
+#     plus its L1 round trip: silu 57.0 vs 23.7 ns, sigmoid 56.2 vs 22.7 -- split. relu is FREE
+#     fused (0.0 vs 11.8 ns) and gelu's fused pass already runs at its standalone rate (29.3 vs
+#     34.7) -- leave those two alone, splitting them costs 0.58x and 0.85x.
+#   * The output must be at least _SPLIT_FUSED_ACT_MIN_TILES tiles, or the extra op's own fixed cost
+#     dominates: the same silu reads 1.49x at 1024 tiles, 1.05x at 512 and 0.93x at 256.
+#   * The output must land in L1. A DRAM output pays the split's round trip at DRAM bandwidth, which
+#     caps the win at 1.22x and reverses it to 0.97x by 4096 tiles.
+#
+# K does not decide the sign, only the size of the win: both penalties are per-output-tile constants
+# independent of K, so a bigger K just dilutes them (silu at 4096 tiles reads 1.855x at K=32 and
+# 1.269x at K=1536, and wins at every K in between). The penalty is also specific to the MATMUL
+# kernel and does not transfer to fusion in general: the same sigmoid fused into a binary eltwise op
+# costs 13 ns/tile against 34 ns/tile standalone, the opposite sign, so the eltwise gates are left
+# fused (perf/b2z2_actsweep/out/eltwise_whglx_c6.json).
+# Release-gated: the split applies the activation to the bf16-packed matmul output rather than to the
+# fp32 dest accumulator, so it is not bit-exact. 1.454e-4 RMS against fp32 truth at the pair
+# Transition shape, against the fused form's 1.227e-4.
+_SPLIT_FUSED_ACT = env_flag("TT_BIO_SPLIT_FUSED_ACT", False)
+_SPLIT_FUSED_ACT_MIN_TILES = 1024
+
+
+def _unfused_activation(activation: str, out_shape, memory_config):
+    """The standalone SFPU op to run after this matmul, or None to leave the activation fused in.
+
+    ``out_shape`` is the matmul's output shape and ``memory_config`` is where it lands. The
+    condition is documented at ``_SPLIT_FUSED_ACT`` above.
+    """
+    if not _SPLIT_FUSED_ACT:
+        return None
+    op = {"silu": ttnn.silu, "sigmoid": ttnn.sigmoid}.get(activation)
+    if op is None:
+        return None
+    if getattr(memory_config, "buffer_type", None) is not ttnn.BufferType.L1:
+        return None
+    elems = 1
+    for d in out_shape:
+        elems *= int(d)
+    return op if elems >= _SPLIT_FUSED_ACT_MIN_TILES * 32 * 32 else None
+
+
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
@@ -7179,17 +7218,20 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
             )
+            split = _unfused_activation(
+                "silu", (*x_norm.shape[:-1], self.fc1_weight.shape[-1]),
+                ttnn.L1_MEMORY_CONFIG)
             x_1 = ttnn.linear(
                 x_norm,
                 self.fc1_weight,
-                activation=None if _UNFUSED_SILU else "silu",
+                activation=None if split else "silu",
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
                 dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
-            if _UNFUSED_SILU:
-                x_1 = ttnn.silu(x_1, memory_config=ttnn.L1_MEMORY_CONFIG, output_tensor=x_1)
+            if split:
+                x_1 = split(x_1, memory_config=ttnn.L1_MEMORY_CONFIG, output_tensor=x_1)
             x_2 = ttnn.linear(
                 x_norm,
                 self.fc2_weight,
