@@ -1,0 +1,127 @@
+{
+ "base_cross_session_spread_pct": 4.602573052757564,
+ "base_median_s": 20.054,
+ "bases": {
+  "b2z-levers-default-on n=3": 20.054,
+  "b2z-orchestrator n=5": 19.865,
+  "b2z2-bh-compose-landed s1 n=10": 20.188,
+  "b2z2-bh-compose-landed s2 n=10": 20.788,
+  "b2z2-diffusion-loop-attack n=3": 19.937
+ },
+ "best_within_session_aa_floor_x": 1.00229,
+ "ceiling": {
+  "levered arm 18.594 s": {
+   "fold": 18.594,
+   "rest": 2.0184,
+   "rung_trunk_free_sampler_measured_s": 11.574010981790565,
+   "rung_trunk_only_s": 12.124010981790565,
+   "rung_trunk_sampler_cons_s": 10.275370878246083,
+   "rung_trunk_sampler_opt_s": 9.405422594225149,
+   "sampler": 5.2547,
+   "trunk": 11.3209,
+   "trunk_floor_s": 4.850910981790566,
+   "x_trunk_free_sampler_measured": 1.6065303574753826,
+   "x_trunk_only": 1.5336508708155177,
+   "x_trunk_sampler_cons": 1.8095697197037657,
+   "x_trunk_sampler_opt": 1.9769446629029261
+  },
+  "measured base 20.188 s": {
+   "fold": 20.188,
+   "rest": 2.423,
+   "rung_trunk_free_sampler_measured_s": 12.531331352252652,
+   "rung_trunk_only_s": 13.08133135225265,
+   "rung_trunk_sampler_cons_s": 11.188438149890763,
+   "rung_trunk_sampler_opt_s": 10.29766487819105,
+   "sampler": 5.365,
+   "trunk": 12.4,
+   "trunk_floor_s": 5.293331352252653,
+   "x_trunk_free_sampler_measured": 1.6110020102828877,
+   "x_trunk_only": 1.5432679943944356,
+   "x_trunk_sampler_cons": 1.8043626580888865,
+   "x_trunk_sampler_opt": 1.9604444540388213
+  }
+ },
+ "cell_base_arm_s": 22.195,
+ "cell_levers_x": 1.1053837342497137,
+ "cell_s": 20.079,
+ "construction_agreement_pct": {
+  "trunk_free_sampler_measured": 0.27834225395728796,
+  "trunk_only": 0.627073851156494,
+  "trunk_sampler_cons": 0.28775136753125924,
+  "trunk_sampler_opt": 0.8346318019785195
+ },
+ "dual": {
+  "block_2gather_ms": 25.616331362999997,
+  "block_2gather_x": 1.432757855912656,
+  "block_3gather_ms": 27.296331362999997,
+  "block_3gather_x": 1.3445762916605462,
+  "block_one_chip_ms": 36.702,
+  "deficit_2chip_s": 1.3722769558494141,
+  "extra_host_calls_per_fold": 840,
+  "fold_2chip_sampler_measured_s": 11.411776955849417,
+  "fold_2chip_sampler_opt_s": 9.178110481787815,
+  "gather_cost_at_floor_s": 1.4112,
+  "link_ms_per_block": 5.04,
+  "saves_2gather_s": 3.086903533053785,
+  "saves_3gather_s": 2.6190925145806774,
+  "shardable_ms": 29.086335,
+  "single_track_ms": 7.615665,
+  "throughput_x_two_independent_folds": 2.0,
+  "trunk_floor_1chip_s": 5.293331352252653,
+  "trunk_floor_2chip_s": 4.173776955849416,
+  "trunk_pairformer_s": 10.22,
+  "x_2chip_sampler_measured": 1.769049647404131,
+  "x_2chip_sampler_opt": 2.1995812798352317,
+  "x_fold_shard_only": [
+   1.149075434357788,
+   1.1805091000463213
+  ]
+ },
+ "headline_move_pct": {
+  "cons": -7.391518950677291,
+  "opt": -7.403060285577221,
+  "trunk_only": -7.388232438676466
+ },
+ "inflation_x": 1.079864472410455,
+ "move_fraction": 0.5900098503733787,
+ "move_free_mult": 0.4099901496266213,
+ "never_published_s": 23.841,
+ "overlap": {
+  "envelope_block_x": 2.439082989946714,
+  "exceeds_envelope_by_pct": 3.7679132022639976,
+  "naive_product_block_x": 2.5309855199390916,
+  "routes": {
+   "CB ring topology": 1.0015,
+   "byte axis, every byte gone": 1.826,
+   "datum rate to zero": 1.1564220212677947,
+   "dest capacity": 1.0,
+   "tile-pass deletion": 0.971,
+   "work placement / reordering": 1.1968
+  },
+  "stacking_legitimate": false
+ },
+ "redteam_published": {
+  "cons": 1.954,
+  "opt": 2.135,
+  "trunk_only": 1.656
+ },
+ "redteam_reproduced_mixed": {
+  "cons": 1.9540900506578418,
+  "opt": 2.134832305390333,
+  "trunk_only": 1.6561350884750339
+ },
+ "self_consistent": {
+  "cons": 1.8095697197037657,
+  "opt": 1.9769446629029261,
+  "trunk_only": 1.5336508708155177
+ },
+ "two_x": {
+  "available_at_measured_ceilings_s": 7.656668647747347,
+  "deficit_1chip_s": 2.4918313522526514,
+  "must_remove_from_measured_base_s": 10.148499999999999,
+  "rest_removable_s": 0.0,
+  "sampler_measured_headroom_s": 0.55,
+  "target_s": 10.0395,
+  "trunk_movement_free_removes_s": 7.106668647747347
+ }
+}
