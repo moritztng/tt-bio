@@ -118,6 +118,51 @@ def make_tensor(ttnn, torch, spec, device, knobs):
     return ttnn.from_torch(t, dtype=dt, layout=layout, device=device, memory_config=mc)
 
 
+# --- what the fold ACTUALLY dispatches --------------------------------------------------------
+# The graph capture stringifies a matmul's program_config as the literal "<variant>" whether or
+# not one is set, so the manifest cannot say whether the shipped call was tuned. Reading the
+# engine instead: EVERY matmul call site on Boltz-2's hot path already passes either
+# `core_grid=CORE_GRID_MAIN` or a hand-tuned program config (audit over tt_bio/tenstorrent.py,
+# 39 call sites in Transition / TriangleMultiplication / TriangleAttention / AttentionPairBias /
+# ConditionedTransitionBlock / AdaLN / PairWeightedAveraging / Diffusion / DiffusionModule).
+#
+# So a replay incumbent that calls bare `ttnn.linear(a, b)` is a STRAW MAN: it measures the
+# default resolver, which the fold never reaches. Every `grid=` ratio taken against it is the
+# distance between the default resolver and a grid the engine already passes, not a win.
+#
+# Units whose matmul call sites ALL pass core_grid -- for these the faithful incumbent is the
+# device's full grid:
+_SHIPPED_CORE_GRID_UNITS = {
+    "Transition", "AttentionPairBias", "ConditionedTransitionBlock", "AdaLN",
+    "PairWeightedAveraging", "DiffusionModule",
+}
+# Units whose matmul goes through a hand-tuned program_config instead (_triangle_mul_program_config,
+# _pair_proj_program_config). A core_grid incumbent is not faithful to these either, so instances
+# landing here are reported but excluded from any grid conclusion.
+_SHIPPED_PROGRAM_CONFIG_UNITS = {"TriangleMultiplication", "TriangleAttention"}
+
+
+def shipped_matmul_config(rec: dict) -> str:
+    """'core_grid' | 'program_config' | 'default' -- how the fold configures this matmul."""
+    if rec.get("kind") != "matmul":
+        return "default"
+    leaf = (rec.get("unit_path") or "").rsplit("/", 1)[-1]
+    if leaf in _SHIPPED_CORE_GRID_UNITS:
+        return "core_grid"
+    if leaf in _SHIPPED_PROGRAM_CONFIG_UNITS:
+        return "program_config"
+    # Diffusion's own body is 8 linears with core_grid and 2 bare matmuls; ttnn.linear there is
+    # always given one, a bare ttnn.matmul never is.
+    if leaf == "Diffusion":
+        return "core_grid" if rec.get("api") == "ttnn.linear" else "default"
+    return "default"
+
+
+def full_grid(ttnn, device):
+    g = device.compute_with_storage_grid_size()
+    return ttnn.CoreGrid(x=int(g.x), y=int(g.y))
+
+
 def build_call(ttnn, torch, rec, device, knobs):
     """Return (fn, tensors) where fn() issues exactly the captured op once."""
     ins = [make_tensor(ttnn, torch, s, device, knobs) for s in rec["inputs"]]
@@ -135,6 +180,9 @@ def build_call(ttnn, torch, rec, device, knobs):
         if "grid" in knobs and knobs.get("shard", "none") == "none":
             gx, gy = (int(v) for v in knobs["grid"].split("x"))
             kw["core_grid"] = ttnn.CoreGrid(x=gx, y=gy)
+        elif knobs.get("nogrid") != "1" and shipped_matmul_config(rec) == "core_grid":
+            # faithful incumbent: the shipped call site passes CORE_GRID_MAIN, so must we
+            kw["core_grid"] = full_grid(ttnn, device)
         if rec.get("has_bias"):
             bias = ins[2]
             fn = lambda: ttnn.linear(a, b, bias=bias, **kw)          # noqa: E731
