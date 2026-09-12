@@ -1,0 +1,69 @@
+{
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "chip": "0",
+  "ttnn": "0.68.0",
+  "tokens": 512,
+  "a3m": "/home/tt-admin/wt/b2z-work-removal/perf/size512/fixtures/cdk2x2_512.a3m",
+  "sampling_steps": 40,
+  "recycling_steps": 3,
+  "poison_value": "1000.0",
+  "verdict": {
+    "bucket1024_mask_holds": true,
+    "ladder_mask_holds": true,
+    "ladder_equals_bucket": false,
+    "aa_deterministic": true
+  },
+  "rows": [
+    {
+      "label": "bucket1024_poison0",
+      "ladder": "0",
+      "poison": "0",
+      "wall_s": 34.2158,
+      "plddt": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    },
+    {
+      "label": "bucket1024_poisonX",
+      "ladder": "0",
+      "poison": "1000.0",
+      "wall_s": 34.0962,
+      "plddt": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    },
+    {
+      "label": "ladder_poison0",
+      "ladder": "1",
+      "poison": "0",
+      "wall_s": 32.6213,
+      "plddt": null,
+      "sha": {
+        "cdk2x2_512.cif": "e9c020f803c60e97"
+      }
+    },
+    {
+      "label": "ladder_poisonX",
+      "ladder": "1",
+      "poison": "1000.0",
+      "wall_s": 33.1262,
+      "plddt": null,
+      "sha": {
+        "cdk2x2_512.cif": "e9c020f803c60e97"
+      }
+    },
+    {
+      "label": "bucket1024_poison0_repeat",
+      "ladder": "0",
+      "poison": "0",
+      "wall_s": 34.1444,
+      "plddt": null,
+      "sha": {
+        "cdk2x2_512.cif": "ab20569e846ed00a"
+      }
+    }
+  ]
+}

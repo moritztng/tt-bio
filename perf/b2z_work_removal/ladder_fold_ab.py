@@ -36,6 +36,8 @@ def main() -> int:
     ap.add_argument("--tokens", type=int, default=512)
     ap.add_argument("--pairs", type=int, default=3)
     ap.add_argument("--sampling-steps", type=int, default=None)
+    ap.add_argument("--a3m", default=None,
+                    help="override the fixture's alignment, to measure the win AGAINST depth")
     a = ap.parse_args()
 
     import tt_bio.tenstorrent as T
@@ -46,8 +48,10 @@ def main() -> int:
         B.SAMPLING_STEPS = a.sampling_steps
     patch_boltz2_cfg()
     target = ROOT / "perf/size512/fixtures" / f"cdk2x2_{a.tokens}.yaml"
+    a3m = Path(a.a3m) if a.a3m else target.with_suffix(".a3m")
+    n_msa_true = a3m.read_text().count(">")
     one_fold, meta, state = B.build_fold(
-        "boltz2", ROOT / f".msa_b2zwr_{a.tokens}", target, target.with_suffix(".a3m"))
+        "boltz2", ROOT / f".msa_b2zwr_{a3m.stem}", target, a3m)
     struct_dir = Path(meta["struct_dir"])
 
     from tt_bio.token_axis import msa_depth_bucket
@@ -82,14 +86,15 @@ def main() -> int:
 
     import importlib.metadata as im
     import socket
-    n_msa = rows[1].get("n_msa")
+    n_msa = rows[1].get("n_msa") or n_msa_true
     out = {
         "host": socket.gethostname(), "arch": T.arch_name(),
         "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"), "ttnn": im.version("ttnn"),
         "tokens": a.tokens, "sampling_steps": B.SAMPLING_STEPS,
+        "a3m": str(a3m), "n_msa_true": n_msa_true,
         "recycling_steps": meta.get("recycling_steps"),
         "n_msa": n_msa,
-        "padded_depth_base": 1024,
+        "padded_depth_base": ((n_msa_true + 1023) // 1024) * 1024,
         "padded_depth_ladder": None,
         "median_base_s": round(st.median(base), 4) if base else None,
         "median_ladder_s": round(st.median(lad), 4) if lad else None,
