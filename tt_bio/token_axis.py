@@ -317,6 +317,21 @@ def msa_ladder_enabled() -> bool:
     return env_flag("TT_BIO_MSA_DEPTH_LADDER", False)
 
 
+def msa_pad_poison() -> float:
+    """Fill value for the MSA row padding. 0.0 in production.
+
+    The acceptance test for the row mask, and the only one that survives the ladder not being
+    bit-identical to the single bucket. Fold one target at two poison values: a correctly masked
+    row axis cannot let a padded row reach a real one, so the answer must not move. If it does
+    move, the mask leaks and the ladder is hiding a bug rather than exposing one. Separate env
+    from ``TT_BIO_TOKEN_PAD_POISON`` because the two axes are separate and poisoning both at once
+    cannot say which one leaked.
+    """
+    import os
+    v = os.environ.get("TT_BIO_MSA_PAD_POISON")
+    return float(v) if v and v.strip() else 0.0
+
+
 def msa_depth_bucket(n_msa: int) -> int:
     """Padded depth for `n_msa` alignment rows.
 

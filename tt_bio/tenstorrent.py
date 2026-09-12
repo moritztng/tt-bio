@@ -665,7 +665,8 @@ _MIN_L1_SCALE = 0.7             # floor: keep chunks workable on a very tight pa
 # The token bucket for boltz2, boltzgen and nesso1, DERIVED from the fleet value rather than
 # restated -- a literal here is how a per-model fork starts. The pad arithmetic is one copy in
 # token_axis.py, which asserts the multiple divides the 32 tile.
-from .token_axis import bucket_enabled, bucket_multiple, msa_depth_bucket, pad_amount
+from .token_axis import (bucket_enabled, bucket_multiple, msa_depth_bucket,
+                         msa_pad_poison, pad_amount)
 
 PAIRFORMER_PAD_MULTIPLE = bucket_multiple("boltz2")
 MSA_PAD_MULTIPLE = 1024  # a DIFFERENT axis, padded for the same recompilation reason; not the
@@ -680,6 +681,20 @@ MSA_PAD_MULTIPLE = 1024  # a DIFFERENT axis, padded for the same recompilation r
 # bucket to the seq_len bucket. Nucleotide tokens carry more (up to 23), so a DNA/RNA
 # target can exceed padded_seq * 14 — _populate_diffusion_cache extends the bucket to
 # cover the real atom count in that case instead of asserting.
+def _poison_msa_rows(m: torch.Tensor, n_msa: int) -> torch.Tensor:
+    """Fill the MSA row padding with ``TT_BIO_MSA_PAD_POISON``. A no-op in production.
+
+    One copy for both pad sites (``MSAModule.forward`` and ``TrunkModule._build_static``), so the
+    row mask is tested on the path the fold actually takes rather than on a harness's copy of it.
+    """
+    poison = msa_pad_poison()
+    if poison == 0.0 or m.shape[1] <= n_msa:
+        return m
+    m = m.float() if not m.is_floating_point() else m.clone()
+    m[:, n_msa:] = poison
+    return m
+
+
 MAX_ATOMS_PER_TOKEN = 14
 
 ATOM_WINDOW = 32
@@ -10393,6 +10408,7 @@ class MSAModule(TorchWrapper):
             emb = torch.nn.functional.pad(emb, (0, 0, 0, seq_pad))
         if seq_pad or msa_pad:
             m = torch.nn.functional.pad(m, (0, 0, 0, seq_pad, 0, msa_pad))
+        m = _poison_msa_rows(m, n_msa)
 
         # Compute masks (once, reused across forward calls)
         if self._first_forward_pass:
@@ -10721,6 +10737,9 @@ class TrunkModule(TorchWrapper):
         # path. This still collapses 4 host<->device crossings/iteration to 2.
         self.template_module_torch = template_module_torch
         self.use_kernels = use_kernels
+        #: Optional ``fn(iteration, z_torch)`` called after each recycling iteration. None in
+        #: production; see the call site in ``forward``.
+        self.recycle_probe = None
 
     def _build_static(self, s_inputs, s_init, z_init, feats, relative_position_encoding=None):
         """Build + upload (once per protein) all loop-invariant device tensors.
@@ -10751,6 +10770,7 @@ class TrunkModule(TorchWrapper):
         z_init_p = pad(z_init, (0, 0, 0, seq_pad, 0, seq_pad)) if seq_pad else z_init
         s_inputs_p = pad(s_inputs, (0, 0, 0, seq_pad)) if seq_pad else s_inputs
         m_p = pad(m, (0, 0, 0, seq_pad, 0, msa_pad)) if (seq_pad or msa_pad) else m
+        m_p = _poison_msa_rows(m_p, n_msa)
 
         # ---- Pairformer masks (mirror PairformerModule.forward, non-affinity) ----
         # One recipe for the whole resident trunk: the template and token-distance
@@ -10962,6 +10982,14 @@ class TrunkModule(TorchWrapper):
             if progress_fn:
                 progress_fn("trunk", step=_cyc, total=recycling_steps + 1)
             s, z = self._iteration(s, z, st)
+            # Per-iteration observation point for the recycling question: is the pair
+            # representation still moving by the time the third recycle runs? The resident loop
+            # never returns to the host between iterations, which is what makes it fast and also
+            # what makes the convergence of `z` unobservable. `recycle_probe` is None in
+            # production and costs nothing; a harness sets it and pays one z readback per
+            # iteration. An early-exit criterion, if one is ever adopted, belongs here.
+            if self.recycle_probe is not None:
+                self.recycle_probe(_cyc, self._to_torch(z)[:, :seq_len, :seq_len, :])
 
         s_out = self._to_torch(s)[:, :seq_len, :]
         z_out = self._to_torch(z)[:, :seq_len, :seq_len, :]
