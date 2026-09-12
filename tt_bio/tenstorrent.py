@@ -407,6 +407,23 @@ _PWA_BATCH_HEAD_WEIGHTS = env_flag("TT_BIO_PWA_BATCH_HEAD_WEIGHTS", True)
 # is nowhere near binding. Absolute bytes rather than a multiple so it scales the safe way onto a
 # part with less L1 per core.
 _PAIR_L1_CONSUMER_RESERVE = 640 * 1024
+# Rows of MSA depth per PairWeightedAveraging block when the block is sized so the NORMED rows
+# are L1-resident instead of DRAM-resident. The head loop reads those rows 2 * n_heads times --
+# once per head for `proj_m` and once for `proj_g` -- and at 512 tokens x 1024 padded rows that
+# is sixteen reads of the same 67.1 MB tensor, 1073.8 MB of the call's DRAM traffic and the
+# largest repeated read left in the layer after the head-weight batching. It is the same defect
+# `_PWA_L1_NORM` fixes on the pair tensor, on the other operand, and `_PWA_L1_NORM` cannot fix
+# it: the whole normed MSA tensor does not fit. Wormhole reports 72 banks of 1395424 B and the
+# block already holds 933888 B/core when the head loop starts, so the room is ~33 MB, not 100.
+# 0 leaves the block to `pwa_depth_block` -- today's single-shot path at every size that folds
+# today. A row count rather than a byte budget because the refusal is what settles it:
+# `_l1_layer_norm` falls back to DRAM if the part will not take it, so a block that is too big
+# costs the blocking overhead and buys nothing, which is exactly what the sweep measures.
+_PWA_L1_ROWS = int(os.environ.get("TT_BIO_PWA_L1_ROWS") or 0)
+# The residency half of the lever, separable from the blocking half so a screen can price
+# them apart: blocking alone costs `depth/blk - 1` extra row slices and norms and buys
+# nothing, and if the win is not bigger than that cost the residency is not paying.
+_PWA_L1_NORM_M = env_flag("TT_BIO_PWA_L1_NORM_M", True)
 _TEMPLATE_L1_NORM = True
 
 # Matmul fidelity for the trunk. The FPU is a 5b x 7b multiplier: srcA contributes a hidden bit plus
@@ -8614,13 +8631,19 @@ class PairWeightedAveraging(Module):
         # `m` rather than slicing a full-depth normed copy -- which is the copy that does not
         # fit. Bit-identical either way: layer_norm reduces over channels only.
         def m_norm(s0=None, s1=None):
-            return ttnn.layer_norm(
-                m if s0 is None else m[s0:s1],
-                weight=self.m_norm_weight,
-                bias=self.m_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
-            )
+            x = m if s0 is None else m[s0:s1]
+            kw = dict(weight=self.m_norm_weight, bias=self.m_norm_bias, epsilon=1e-5,
+                      compute_kernel_config=self.compute_kernel_config)
+            # L1 when the block fits, DRAM when it does not, and the decision is the device's:
+            # every head's `proj_m` and `proj_g` reads this tensor whole, so a block small
+            # enough to stay resident turns 2 * n_heads DRAM reads into NoC reads. Bit-exact
+            # either way -- a memory config cannot regroup a matmul's accumulation, only
+            # `in0_block_w` can, and this does not touch it.
+            out = (_l1_layer_norm(x, 1.0, _PAIR_L1_CONSUMER_RESERVE, **kw)[0]
+                   if (_PWA_L1_ROWS and _PWA_L1_NORM_M) else ttnn.layer_norm(x, **kw))
+            if x is not m:
+                ttnn.deallocate(x)
+            return out
 
         # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
         # tensor to write one tile of width, so all eight are source-bound and one L1-resident
@@ -8751,6 +8774,8 @@ class PairWeightedAveraging(Module):
         # further from there.
         depth, tokens, c_m = int(m.shape[0]), int(m.shape[1]), int(m.shape[2])
         blk = pwa_depth_block(depth, tokens, c_m)
+        if _PWA_L1_ROWS:
+            blk = min(blk, _PWA_L1_ROWS)
         cap = _PWA_DEPTH_ROW_CAP.get((depth, tokens))
         if cap is not None:
             blk = min(blk, cap)

@@ -288,6 +288,16 @@ ARMS = {
     "h64": {"TT_BIO_TRANSITION_H_CHUNK": "64"},
     "batchw": {"@_PWA_BATCH_HEAD_WEIGHTS": True},
     "perhead": {"@_PWA_BATCH_HEAD_WEIGHTS": False},   # the pre-lever base, now that it ships on
+    # The PWA residency sweep. `l1rN` blocks the head loop at N rows AND leaves the normed block
+    # L1-resident; `blkN` blocks at the same N with the norm in DRAM, so the pair isolates the
+    # residency from the blocking overhead it is paid for with.
+    "l1r512": {"@_PWA_L1_ROWS": 512},
+    "l1r256": {"@_PWA_L1_ROWS": 256},
+    "l1r128": {"@_PWA_L1_ROWS": 128},
+    "l1r64": {"@_PWA_L1_ROWS": 64},
+    "blk512": {"@_PWA_L1_ROWS": 512, "@_PWA_L1_NORM_M": False},
+    "blk256": {"@_PWA_L1_ROWS": 256, "@_PWA_L1_NORM_M": False},
+    "blk128": {"@_PWA_L1_ROWS": 128, "@_PWA_L1_NORM_M": False},
 }
 
 
