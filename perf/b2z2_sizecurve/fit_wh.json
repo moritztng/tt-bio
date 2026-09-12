@@ -296,23 +296,23 @@
     9
    ],
    "card": "0",
-   "aa_floor": 1.00391,
+   "aa_floor": 1.01646,
    "aa_floor_per_position": {
-    "2": 1.00391
+    "2": 1.01646
    },
-   "reps_complete": 4,
+   "reps_complete": 5,
    "loadavg_1m_min_max": [
-    13.35,
+    7.69,
     52.45
    ],
    "arms": {
     "L1": {
-     "n": 4,
-     "median_fold_s": 171.335,
-     "min_fold_s": 170.412,
+     "n": 5,
+     "median_fold_s": 170.462,
+     "min_fold_s": 169.269,
      "max_fold_s": 176.291,
-     "spread_pct": 3.43,
-     "median_step_s": 17.196,
+     "spread_pct": 4.12,
+     "median_step_s": 17.106,
      "atom_l1_l1": [
       1200
      ],
@@ -327,12 +327,12 @@
      ]
     },
     "base": {
-     "n": 8,
-     "median_fold_s": 174.44,
-     "min_fold_s": 170.777,
+     "n": 10,
+     "median_fold_s": 172.797,
+     "min_fold_s": 170.526,
      "max_fold_s": 178.598,
-     "spread_pct": 4.48,
-     "median_step_s": 18.269,
+     "spread_pct": 4.67,
+     "median_step_s": 18.266,
      "atom_l1_l1": [
       0
      ],
@@ -347,10 +347,10 @@
      ]
     }
    },
-   "ratio_vs_base": 1.01812,
-   "above_aa_floor": true,
-   "ratio_resolved": 1.01812,
-   "step_ratio_vs_base": 1.0624,
+   "ratio_vs_base": 1.0137,
+   "above_aa_floor": false,
+   "ratio_resolved": 1.0,
+   "step_ratio_vs_base": 1.06781,
    "bit_exact_vs_base": true,
    "sha256": "17bd0c67e2bb4128",
    "gate_declined": false,
@@ -360,24 +360,24 @@
  ],
  "fits": {
   "base": {
-   "exponent": 2.0028,
-   "stderr": 0.0701,
-   "r2": 0.99634,
+   "exponent": 1.9928,
+   "stderr": 0.0691,
+   "r2": 0.99641,
    "n_points": 5,
-   "prefactor": 0.00016167
+   "prefactor": 0.0001724
   },
   "L1": {
-   "exponent": 1.953,
-   "stderr": 0.0186,
-   "r2": 0.99973,
+   "exponent": 1.9476,
+   "stderr": 0.0209,
+   "r2": 0.99965,
    "n_points": 5,
-   "prefactor": 0.00022785
+   "prefactor": 0.00023589
   }
  },
  "exponent_separation": {
-  "base_minus_l1": 0.0498,
-  "combined_stderr": 0.0725,
-  "sigma": 0.69,
+  "base_minus_l1": 0.0452,
+  "combined_stderr": 0.0722,
+  "sigma": 0.63,
   "falsifier_fired": true,
   "reading": "exponents agree within fit error: the 768 aa screen was load noise"
  },
@@ -409,10 +409,10 @@
    },
    {
     "interval": "896->1024",
-    "exponent": 1.9549,
+    "exponent": 1.884,
     "seconds": [
      134.363,
-     174.44
+     172.797
     ]
    }
   ],
@@ -443,10 +443,10 @@
    },
    {
     "interval": "896->1024",
-    "exponent": 1.8324,
+    "exponent": 1.7942,
     "seconds": [
      134.147,
-     171.335
+     170.462
     ]
    }
   ]
@@ -531,10 +531,10 @@
    "n": 5
   },
   "1024": {
-   "ratio": 1.01812,
-   "aa_floor": 1.00391,
-   "resolved": 1.01812,
-   "n": 4
+   "ratio": 1.0137,
+   "aa_floor": 1.01646,
+   "resolved": 1.0,
+   "n": 5
   }
  }
 }

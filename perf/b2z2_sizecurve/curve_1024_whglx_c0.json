@@ -813,7 +813,250 @@
    "cold": false,
    "size": 1024,
    "tag": "t3_2_base"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 170.962,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.7054,
+   "block_n": 280,
+   "step_s": 18.274,
+   "step_n": 200,
+   "step_ms": 91.3699,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    15.68,
+    17.47,
+    23.43
+   ],
+   "loadavg_after": [
+    7.69,
+    12.94,
+    20.69
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1343686"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 4,
+   "pos": 0,
+   "cold": false,
+   "size": 1024,
+   "tag": "t4_0_base"
+  },
+  {
+   "arm": "L1",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 169.269,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": true
+   },
+   "block_s": 127.6728,
+   "block_n": 280,
+   "step_s": 16.9775,
+   "step_n": 200,
+   "step_ms": 84.8873,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "loadavg_before": [
+    7.69,
+    12.94,
+    20.69
+   ],
+   "loadavg_after": [
+    11.31,
+    12.55,
+    19.28
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1343686"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 4,
+   "pos": 1,
+   "cold": false,
+   "size": 1024,
+   "tag": "t4_1_L1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 170.526,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.7028,
+   "block_n": 280,
+   "step_s": 18.2513,
+   "step_n": 200,
+   "step_ms": 91.2563,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    11.31,
+    12.55,
+    19.28
+   ],
+   "loadavg_after": [
+    12.39,
+    12.12,
+    17.98
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1343686",
+     "1658112"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 4,
+   "pos": 2,
+   "cold": false,
+   "size": 1024,
+   "tag": "t4_2_base"
   }
  ],
- "model_load_s": 16.558
+ "model_load_s": 16.558,
+ "timing_summary": {
+  "aa_floor": 1.01646,
+  "aa_floor_per_position": {
+   "2": 1.01646
+  },
+  "base_spread_pct": 4.67,
+  "loadavg_1m_min_max": [
+   7.69,
+   52.45
+  ],
+  "foreign_pids_seen": [
+   "1157567",
+   "1224904",
+   "1334770",
+   "1343682",
+   "1343683",
+   "1343684",
+   "1343685",
+   "1445270",
+   "1470866",
+   "1494898",
+   "1501042",
+   "1517204",
+   "1533558",
+   "1658112"
+  ],
+  "arms": {
+   "L1": {
+    "n": 5,
+    "median_fold_s": 170.462,
+    "min_fold_s": 169.269,
+    "max_fold_s": 176.291,
+    "ratio_vs_base": 1.0137,
+    "spread_pct": 4.12,
+    "above_floor": false,
+    "ratio_resolved": 1.0,
+    "median_block_s": 127.69,
+    "block_ratio_vs_base": 1.00011,
+    "median_step_s": 17.106,
+    "step_ratio_vs_base": 1.06784
+   },
+   "base": {
+    "n": 10,
+    "median_fold_s": 172.797,
+    "min_fold_s": 170.526,
+    "max_fold_s": 178.598,
+    "ratio_vs_base": 1.0,
+    "spread_pct": 4.67,
+    "above_floor": false,
+    "ratio_resolved": 1.0,
+    "median_block_s": 127.704,
+    "block_ratio_vs_base": 1.0,
+    "median_step_s": 18.266,
+    "step_ratio_vs_base": 1.0
+   }
+  },
+  "identical_across_arms": true,
+  "sha_by_arm": {
+   "L1": [
+    "17bd0c67e2bb4128"
+   ],
+   "base": [
+    "17bd0c67e2bb4128"
+   ]
+  },
+  "atom_l1_gate": {
+   "L1": {
+    "l1": [
+     1200
+    ],
+    "dram": [
+     0
+    ]
+   },
+   "base": {
+    "l1": [
+     0
+    ],
+    "dram": [
+     0
+    ]
+   }
+  },
+  "gate_declined_anywhere": false,
+  "gate_took_l1_on_every_call": true,
+  "protocol_readback": {
+   "step_n": [
+    200
+   ],
+   "block_n": [
+    280
+   ]
+  }
+ }
 }

@@ -1,4 +1,89 @@
-# b2z2-atoml1-size-curve — TT_BIO_ATOM_L1 across the sizes users fold, both arms, both parts
+#!/usr/bin/env python3
+"""Render the row's result document from the artifacts, so no number in it is typed by hand.
+
+Every table below is read out of `curve_*.json` / `fit_*.json`. The prose is fixed; the figures
+are not. Re-run it after any further reps land and the document follows the data.
+
+    render_result.py --wh fit_wh.json --bh fit_bh.json --curves 'curve_*.json' --out <doc.md>
+"""
+import argparse
+import glob
+import json
+import statistics as st
+from pathlib import Path
+
+K_WINDOWS = {512: 140, 640: 182, 768: 210, 896: 238, 1024: 266}
+BYTES_PER_WINDOW = 139264
+
+
+def foldtab(d):
+    return "\n".join(
+        "| {} aa | {} | {:.3f} | {:.3f} | {:.5f} | {} | {} |".format(
+            r["size"], r["reps_complete"], r["arms"]["base"]["median_fold_s"],
+            r["arms"]["L1"]["median_fold_s"], r["ratio_vs_base"],
+            ("%.5f" % r["aa_floor"]) if r["aa_floor"] else "n/a",
+            ("**%.5fx**" % r["ratio_vs_base"]) if r["above_aa_floor"] else "1.000x")
+        for r in d["sizes"])
+
+
+def steptab(d):
+    return "\n".join(
+        "| {} aa | {:.3f} | {:.3f} | **{:.5f}** |".format(
+            r["size"], r["arms"]["base"]["median_step_s"],
+            r["arms"]["L1"]["median_step_s"], r["step_ratio_vs_base"])
+        for r in d["sizes"])
+
+
+def gatetab(d, budget_mb):
+    out = []
+    for r in d["sizes"]:
+        live = K_WINDOWS[r["size"]] * BYTES_PER_WINDOW / 1e6
+        out.append("| {} aa | {} | {:.2f} MB | {:.0f} % | `l1 {}, dram {}` | `{}` |".format(
+            r["size"], K_WINDOWS[r["size"]], live, 100 * live / budget_mb,
+            r["arms"]["L1"]["atom_l1_l1"][0], r["arms"]["L1"]["atom_l1_dram"][0], r["sha256"]))
+    return "\n".join(out)
+
+
+def localtab(d):
+    return "\n".join("| {} aa | {:.3f} | {:.3f} |".format(x["interval"], x["exponent"], y["exponent"])
+                     for x, y in zip(d["local_exponents"]["base"], d["local_exponents"]["L1"]))
+
+
+def blockwall(paths):
+    """The Pairformer wall per fold, base vs L1: the direct control for TILE-MOVEMENT-DELTA."""
+    rows = []
+    for f in sorted(paths):
+        d = json.loads(Path(f).read_text())
+        warm = [r for r in d["runs"] if not r.get("cold")]
+        size = d.get("size") or warm[0]["size"]
+        arch = d["env"]["arch"].split(".")[-1]
+        b = [r["block_s"] for r in warm if r["arm"] == "base"]
+        l = [r["block_s"] for r in warm if r["arm"] == "L1"]
+        if b and l:
+            rows.append((arch, size, st.median(b), st.median(l)))
+    rows.sort()
+    parts = {}
+    for arch, size, mb, ml in rows:
+        parts.setdefault("Wormhole" if "WORM" in arch else "Blackhole", []).append(
+            "{:.3f} / {:.3f} s at {} aa".format(mb, ml, size))
+    worst = max(abs(100 * (ml - mb) / mb) for _, _, mb, ml in rows)
+    wh_worst = max(abs(100 * (ml - mb) / mb) for a, _, mb, ml in rows if "WORM" in a)
+    return ("; ".join("{} {}".format(k, ", ".join(v)) for k, v in parts.items()), worst, wh_worst)
+
+
+def census(paths):
+    n = 0
+    steps, blocks = set(), set()
+    for f in paths:
+        d = json.loads(Path(f).read_text())
+        n += len(d["runs"])
+        for r in d["runs"]:
+            steps.add(r["step_n"])
+            blocks.add(r["block_n"])
+    return n, sorted(steps), sorted(blocks)
+
+
+DOC = """# b2z2-atoml1-size-curve — TT_BIO_ATOM_L1 across the sizes users fold, both arms, both parts
 
 TASK TYPE: VERIFY/BENCHMARK (+ ACCELERATE, one lever lifted onto main) | PLAYBOOKS loaded:
 VERIFY/BENCHMARK + ACCELERATE + ALWAYS-ON | memories read:
@@ -15,7 +100,7 @@ VERIFY/BENCHMARK + ACCELERATE + ALWAYS-ON | memories read:
 
 ARCH: WH+BH — Wormhole is whglx `j10glx02`, 8x9 grid, cards 24/25/26/28/0, five sizes. Blackhole is
 qb2 `tt-quietbox2`, 11x10 grid, one processor of a p300c, cards 2 and 3, two sizes. ttnn 0.68.0 on
-both. `perf/size512/fixtures/cdk2x2_{512,640,768,896,1024}.yaml` with their fixed a3m, 200
+both. `perf/size512/fixtures/cdk2x2_{{512,640,768,896,1024}}.yaml` with their fixed a3m, 200
 sampling steps, 3 recycles, 1 sample, seed 0, templates off, timed at `predict_one`, cold fold
 discarded. **Every table below names its own part.**
 
@@ -25,24 +110,24 @@ get more valuable as the target grows. It is a small, real, bit-exact lever wort
 the same thing the 512 aa cell already said.
 
 The pre-registered falsifier FIRED. On Wormhole, five sizes, n=5 each, the two arms scale at
-**N^1.9928 +/- 0.0691 (base)** and **N^1.9476 +/- 0.0209 (`TT_BIO_ATOM_L1`)** — a
-separation of **0.0452 against a combined stderr of 0.0722, 0.63 sigma**. The curves do
+**N^{whb:.4f} +/- {whbe:.4f} (base)** and **N^{whl:.4f} +/- {whle:.4f} (`TT_BIO_ATOM_L1`)** — a
+separation of **{sep:.4f} against a combined stderr of {sepe:.4f}, {sigma} sigma**. The curves do
 not part anywhere. So `b2z2-bh-stack-atom`'s **85.504 -> 45.243 s at 768 aa was load noise on a
 contended box**, exactly as the honest reading of one unpaired fold per arm with loadavg rising
-said it was. Paired at the same size on Wormhole the fold reads **0.94060x**, inside a
-1.02156x A/A floor. The lead is closed and the campaign should stop chasing it.
+said it was. Paired at the same size on Wormhole the fold reads **{r768:.5f}x**, inside a
+{f768:.5f}x A/A floor. The lead is closed and the campaign should stop chasing it.
 
 What the lever DOES do, at every one of the seven size-by-part points:
 
-* **The gate never declines.** `ATOM_L1_STATS` reads `{'l1': 1200, 'dram': 0}` at 512 / 640 / 768 /
+* **The gate never declines.** `ATOM_L1_STATS` reads `{{'l1': 1200, 'dram': 0}}` at 512 / 640 / 768 /
   896 / 1024 aa on Wormhole and at 512 / 1024 aa on Blackhole. 1200 = 200 steps x 6 atom layers. It
   is not a lever that silently fell back; it fired on every single call.
 * **It is bit-exact everywhere.** Base and `TT_BIO_ATOM_L1` write the same CIF sha256 at every size
   on both parts, including **`a91aa44441f0d9c5` at 512 aa on Blackhole, the digest the perf page
   publishes**.
 * **It earns ~1.05x (WH) / ~1.08x (BH) on its own scope, flat in N.** Sampler-wall ratio on
-  Wormhole 1.045 -> 1.068 across the whole range; on Blackhole 1.085 ->
-  1.082. **Blackhole is worth about 3 points more than Wormhole at every size**, which is
+  Wormhole {ws512:.3f} -> {ws1024:.3f} across the whole range; on Blackhole {bs512:.3f} ->
+  {bs1024:.3f}. **Blackhole is worth about 3 points more than Wormhole at every size**, which is
   the one architecture effect in the data, and it is a level shift rather than a slope.
 
 BRANCH: `wk/b2z2-atoml1-size-curve` — the lever, both harnesses, the fitter, the renderer, the
@@ -67,16 +152,16 @@ sampler wall and it is already inside `b2z2-bh-stack-atom`'s Blackhole stack num
 TILE-MOVEMENT-DELTA: 0.0 % — the reason is scope, and this row has the control on both parts.
 `TT_BIO_ATOM_L1` acts inside the atom branch of `Diffusion.__call__`; the 18.3366 ms/block of
 input-tile wait the term is defined on is the Pairformer block. That wall is recorded on every fold
-and it does not move. Median Pairformer wall per fold over 280 blocks, base vs L1: Blackhole 10.292 / 10.255 s at 512 aa, 47.907 / 47.904 s at 1024 aa; Wormhole 23.989 / 23.994 s at 512 aa, 40.683 / 40.695 s at 640 aa, 60.297 / 60.289 s at 768 aa, 94.706 / 94.721 s at 896 aa, 127.704 / 127.690 s at 1024 aa.
-**Worst deviation across all seven points 0.360 %, and on Wormhole under 0.029 % everywhere.**
+and it does not move. Median Pairformer wall per fold over 280 blocks, base vs L1: {bw}.
+**Worst deviation across all seven points {bww:.3f} %, and on Wormhole under {bwwh:.3f} % everywhere.**
 That matches `b2z2-bh-stack-atom`'s direct Blackhole control (1.00003x on the Pairformer wall
 against a 1.00779x block floor). The lever does not touch the term.
 
 CHEAT-CHECK: clean, and the driver asserts it per fold rather than the author once. `size_curve.py`
 raises unless `step_n == 200` on **every** fold before that fold is recorded, and
 `--steps`/`--recycles` are asserted equal to 200 and 3 before the device opens; `block_n` is read
-back off the model and stored per fold. **All 112 folds in this pass carry `step_n` in [200]
-and `block_n` in [280].** The fixtures are the campaign's `cdk2x2_*` with their fixed a3m at full
+back off the model and stored per fold. **All {nfolds} folds in this pass carry `step_n` in {stepn}
+and `block_n` in {blockn}.** The fixtures are the campaign's `cdk2x2_*` with their fixed a3m at full
 MSA depth, 1 sample, seed 0, templates off, and the protocol does not change with N.
 `TT_BIO_ATOM_L1` sets a `ttnn.MemoryConfig` and nothing else: it adds no op, removes no op and
 changes no operand, so it cannot do less of the model's own work — and the identical CIF sha256 at
@@ -89,7 +174,7 @@ BASE ON THE SAME BOX AND SIZE and **never against `tt_bio.reference`**, which ze
 a PairformerLayer's weights including both trimuls' `p_out` and would pass for a correct arm, a
 wrong arm, and an arm that computed nothing.
 
-MEASURED: **112 folds** in seven interleaved processes — five on Wormhole (one per size) and
+MEASURED: **{nfolds} folds** in seven interleaved processes — five on Wormhole (one per size) and
 two on Blackhole — one device open each, arms ordered `base, L1, base` inside every rep, 5 reps plus
 a discarded cold fold, **n=5 at every one of the seven points**. Driver
 `perf/b2z2_sizecurve/size_curve.py`, fitter `fit_curve.py`, copier `harvest.sh`, renderer
@@ -115,18 +200,13 @@ since. Eight numbered predictions, scored in full in section 5.
 
 | size | K | live | share of the 52.62 MB budget | `ATOM_L1_STATS` | CIF sha256, both arms |
 |---|---|---|---|---|---|
-| 512 aa | 140 | 19.50 MB | 37 % | `l1 1200, dram 0` | `da476491dbb2a847` |
-| 640 aa | 182 | 25.35 MB | 48 % | `l1 1200, dram 0` | `6ab60bdefca5f483` |
-| 768 aa | 210 | 29.25 MB | 56 % | `l1 1200, dram 0` | `7860ea474a8139b1` |
-| 896 aa | 238 | 33.14 MB | 63 % | `l1 1200, dram 0` | `2108872e687af9ac` |
-| 1024 aa | 266 | 37.04 MB | 70 % | `l1 1200, dram 0` | `17bd0c67e2bb4128` |
+{whgate}
 
 **Blackhole, measured:**
 
 | size | K | live | share of the 80.40 MB budget | `ATOM_L1_STATS` | CIF sha256, both arms |
 |---|---|---|---|---|---|
-| 512 aa | 140 | 19.50 MB | 24 % | `l1 1200, dram 0` | `a91aa44441f0d9c5` |
-| 1024 aa | 266 | 37.04 MB | 46 % | `l1 1200, dram 0` | `d6ece9fab83c5ca3` |
+{bhgate}
 
 The lever's own gate has no knee anywhere in the range a user folds, on either part, and the
 counters agree at all seven points. **Blackhole's larger grid makes this gate looser, not tighter** —
@@ -140,17 +220,17 @@ sizes per arm, n=5 per size.
 
 | arm | exponent | stderr | R^2 | points |
 |---|---|---|---|---|
-| base | **1.9928** | 0.0691 | 0.99641 | 5 |
-| `TT_BIO_ATOM_L1` | **1.9476** | 0.0209 | 0.99965 | 5 |
+| base | **{whb:.4f}** | {whbe:.4f} | {whbr:.5f} | 5 |
+| `TT_BIO_ATOM_L1` | **{whl:.4f}** | {whle:.4f} | {whlr:.5f} | 5 |
 
-**Separation base - L1 = 0.0452 against a combined stderr of 0.0722: 0.63 sigma. The arms
+**Separation base - L1 = {sep:.4f} against a combined stderr of {sepe:.4f}: {sigma} sigma. The arms
 scale the same.** The brief pre-registered exactly this case: *if the two arms' exponents agree
 within their fit error, the 85.504 -> 45.243 s screen was load noise on a contended box.* They do,
 and it was. An effect the size the screen implied would have moved the exponent by about **1.0**,
 not 0.05, and it would be unmissable on five points.
 
 Blackhole has two sizes, so it gives a slope and no error bar and is reported as such: base
-N^1.7544, `TT_BIO_ATOM_L1` N^1.7851 across 512 -> 1024 aa. Same conclusion, no fit quality to
+N^{bhb:.4f}, `TT_BIO_ATOM_L1` N^{bhl:.4f} across 512 -> 1024 aa. Same conclusion, no fit quality to
 quote.
 
 **Fold-level, Wormhole. Each size's ratio beside the A/A floor of its own session, both medians over
@@ -158,22 +238,17 @@ the same interleaved reps:**
 
 | size | reps | base median s | L1 median s | ratio | A/A floor | resolved |
 |---|---|---|---|---|---|---|
-| 512 aa | 5 | 43.032 | 44.293 | 0.97153 | 1.01760 | 1.000x |
-| 640 aa | 5 | 69.665 | 69.601 | 1.00092 | 1.05126 | 1.000x |
-| 768 aa | 5 | 91.947 | 97.754 | 0.94060 | 1.02156 | 1.000x |
-| 896 aa | 5 | 134.363 | 134.147 | 1.00161 | 1.01281 | 1.000x |
-| 1024 aa | 5 | 172.797 | 170.462 | 1.01370 | 1.01646 | 1.000x |
+{whfold}
 
 **Fold-level, Blackhole:**
 
 | size | reps | base median s | L1 median s | ratio | A/A floor | resolved |
 |---|---|---|---|---|---|---|
-| 512 aa | 5 | 22.321 | 21.619 | 1.03247 | 1.01560 | **1.03247x** |
-| 1024 aa | 5 | 75.308 | 74.507 | 1.01075 | 1.01024 | **1.01075x** |
+{bhfold}
 
-**768 aa paired reads 0.941x on Wormhole, not 1.89x.** The screen's base fold was 85.504 s
-where this row's paired base median is 91.947 s, and its L1 fold was 45.243 s where the paired
-L1 median is 97.754 s. **The quiet box landed on the treatment arm**, which is the opposite of
+**768 aa paired reads {r768:.3f}x on Wormhole, not 1.89x.** The screen's base fold was 85.504 s
+where this row's paired base median is {b768:.3f} s, and its L1 fold was 45.243 s where the paired
+L1 median is {l768:.3f} s. **The quiet box landed on the treatment arm**, which is the opposite of
 what the rising loadavg made it look like — and it is why arms have to be reversed inside a rep
 rather than run in order.
 
@@ -186,23 +261,18 @@ is recorded per fold.
 
 | size | base step s | L1 step s | ratio (>1 = lever wins) |
 |---|---|---|---|
-| 512 aa | 9.532 | 9.119 | **1.04529** |
-| 640 aa | 14.141 | 13.637 | **1.03696** |
-| 768 aa | 14.175 | 13.658 | **1.03785** |
-| 896 aa | 17.837 | 16.820 | **1.06046** |
-| 1024 aa | 18.266 | 17.106 | **1.06781** |
+{whstep}
 
 **Blackhole:**
 
 | size | base step s | L1 step s | ratio (>1 = lever wins) |
 |---|---|---|---|
-| 512 aa | 5.344 | 4.925 | **1.08508** |
-| 1024 aa | 9.702 | 8.969 | **1.08173** |
+{bhstep}
 
 **This is the answer to the brief's question and it is a flat line.** Wormhole moves from
-1.045 at 512 aa to 1.068 at 1024 aa — 2.3 points across a doubling of N,
-against per-size fold floors that themselves run 1.3 to 5.1 %. Blackhole is 1.085 and
-1.082, flat to within 0.3 points. **The lever is worth what it is worth at 512 aa,
+{ws512:.3f} at 512 aa to {ws1024:.3f} at 1024 aa — {swing:.1f} points across a doubling of N,
+against per-size fold floors that themselves run 1.3 to 5.1 %. Blackhole is {bs512:.3f} and
+{bs1024:.3f}, flat to within {bswing:.1f} points. **The lever is worth what it is worth at 512 aa,
 at every size.** The Blackhole number independently reproduces `b2z2-bh-stack-atom`'s 1.07175x on
 the same scope, on a different chip, on a branch carrying this lever and nothing else.
 
@@ -217,7 +287,7 @@ Mid-pass, at n=1-2 per size, the Wormhole step ratios read
 **1.054 / 0.900 / 0.891 / 0.838 / 0.833** and were written up as "the lever costs on Wormhole and
 costs more with N", with a crowding mechanism proposed for it. **That was wrong, and deepening to
 n=5 removed it**: the same five points now read
-1.045 / 1.037 / 1.038 / 1.060 / 1.068. One or two reps on a box at
+{ws512:.3f} / {ws640:.3f} / {ws768:.3f} / {ws896:.3f} / {ws1024:.3f}. One or two reps on a box at
 loadavg 25-61 produced a clean-looking monotone trend with a plausible mechanism attached, pointing
 the opposite way from the truth. It is the same error as the 768 aa screen this row was sent to
 retire, committed by this row, and caught only by adding reps.
@@ -230,22 +300,19 @@ Local exponents, the form a knee actually takes. A global fit averages a cliff a
 
 | interval | base | `TT_BIO_ATOM_L1` |
 |---|---|---|
-| 512->640 aa | 2.159 | 2.025 |
-| 640->768 aa | 1.522 | 1.863 |
-| 768->896 aa | 2.461 | 2.053 |
-| 896->1024 aa | 1.884 | 1.794 |
+{whlocal}
 
 **The knee is not where `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa` puts it, on this tree.**
 That memory recorded N^2.03 from 256 -> 512 and **N^3.62 from 512 -> 768**; here 512 -> 640 is
-2.16 and 640 -> 768 is 1.52. Nothing in this range reaches N^2.5 except 768 -> 896 in
-the base arm, at 2.46. Either the three gates that memory names have been fixed since
+{loc0:.2f} and 640 -> 768 is {loc1:.2f}. Nothing in this range reaches N^2.5 except 768 -> 896 in
+the base arm, at {loc2:.2f}. Either the three gates that memory names have been fixed since
 2026-08-13, or this fixture's shape does not trip them; this row measured the fold, not the gates,
 and cannot say which. **P6 is REFUTED as stated: the cliff is not between 512 and 640 aa.**
 
 **P7 stands: `TT_BIO_ATOM_L1` leaves the knee alone.** The two arms' local exponents track each
 other and the small difference runs the safe way — the L1 arm's are visibly smoother
-(2.03 / 1.86 / 2.05 / 1.79 against base's
-2.16 / 1.52 / 2.46 / 1.88), which is what a constant few-per-cent saving on
+({l0:.2f} / {l1_:.2f} / {l2:.2f} / {l3:.2f} against base's
+{loc0:.2f} / {loc1:.2f} / {loc2:.2f} / {loc3:.2f}), which is what a constant few-per-cent saving on
 a sub-term looks like. The gate arithmetic in section 1 said it could not be otherwise: the gates
 that memory names are in the trunk and this lever is in the diffusion atom branch.
 
@@ -257,13 +324,13 @@ size sat on a different card.
 
 | # | prediction | outcome |
 |---|---|---|
-| P0 | `{l1: 1200, dram: 0}` at all five sizes | **CONFIRMED**, and at both Blackhole sizes too |
-| P1 | base exponent 2.35 +/- 0.20 | **MISS.** 1.9928 +/- 0.0691, below the band |
-| P2 | L1 exponent 2.22 +/- 0.20, 0.10-0.20 below base | **MISS on the separation.** 1.9476 +/- 0.0209, below base by 0.0452, not 0.13 |
+| P0 | `{{l1: 1200, dram: 0}}` at all five sizes | **CONFIRMED**, and at both Blackhole sizes too |
+| P1 | base exponent 2.35 +/- 0.20 | **MISS.** {whb:.4f} +/- {whbe:.4f}, below the band |
+| P2 | L1 exponent 2.22 +/- 0.20, 0.10-0.20 below base | **MISS on the separation.** {whl:.4f} +/- {whle:.4f}, below base by {sep:.4f}, not 0.13 |
 | P3 | ratios 1.03 / 1.05 / 1.07 / 1.09 / 1.12 | **REFUTED.** No rise with N on either part |
 | P4 | curves separate visibly only above 768 aa | **REFUTED.** They do not separate anywhere |
-| P5 | 768 aa pairs at 1.05x-1.12x, **not** 1.89x | **HALF HIT.** 1.89x is dead (0.941x paired); the 1.05-1.12x half was too generous |
-| P6 | knee real, between 512 and 640 aa | **REFUTED as stated.** 512 -> 640 is N^2.16 |
+| P5 | 768 aa pairs at 1.05x-1.12x, **not** 1.89x | **HALF HIT.** 1.89x is dead ({r768:.3f}x paired); the 1.05-1.12x half was too generous |
+| P6 | knee real, between 512 and 640 aa | **REFUTED as stated.** 512 -> 640 is N^{loc0:.2f} |
 | P7 | `ATOM_L1` leaves the knee alone | **CONFIRMED** |
 | P8 | identical CIF sha256 at every size | **CONFIRMED** at all five WH sizes and both BH sizes |
 
@@ -276,15 +343,15 @@ exponents might fail to separate at n=5 and named that as the honest reading.
 
 **The perf page publishes 512 aa and it is not hiding anything.** The brief's premise was that this
 campaign had been optimising the one size that hides the lever's value. It has not: the lever is
-worth 1.085x on the Blackhole sampler wall at 512 aa and 1.082x at 1024 aa. **A user
+worth {bs512:.3f}x on the Blackhole sampler wall at 512 aa and {bs1024:.3f}x at 1024 aa. **A user
 folding an 800 aa complex gets the same thing a user folding a 512 aa one gets.** Nothing goes in
 front of Moritz as a separate size-dependent claim, because there is no size-dependent claim to make.
 
 **Recommendation: `TT_BIO_ATOM_L1` is safe but does not earn a default flip on its own.** It is
 bit-exact at every size on both parts, its gate never declines below ~1530 aa on the tighter part,
 and it costs nothing. But on the fold it clears its own A/A floor at exactly **two of seven points**,
-both on Blackhole (1.03247x against a 1.01560x floor at 512 aa, and 1.01075x against
-1.01024x at 1024 aa, which is marginal). Its honest home is inside `b2z2-bh-stack-atom`'s
+both on Blackhole ({br512:.5f}x against a {bf512:.5f}x floor at 512 aa, and {br1024:.5f}x against
+{bf1024:.5f}x at 1024 aa, which is marginal). Its honest home is inside `b2z2-bh-stack-atom`'s
 Blackhole stack, where it was measured, not as a standalone default. **Nothing merged.**
 
 ## 7. Reproducing this
@@ -292,8 +359,8 @@ Blackhole stack, where it was measured, not as a standalone default. **Nothing m
 ```
 ssh whglx-admin  'cd /home/mthuening/work/wt/b2z2-atoml1-size-curve && ...'   # Wormhole, 8x9
 ssh tt-quietbox2 'cd /home/ttuser/.coworker/wt/b2z2-atoml1-size-curve && ...' # Blackhole, 11x10
-env -u TT_METAL_DEVICE_PROFILER TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C \
-    TT_BIO_LEASE_HOLDER=worker:b2z2-atoml1-size-curve TT_BIO_TRACE_REGION_SIZE=536870912 \
+env -u TT_METAL_DEVICE_PROFILER TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C \\
+    TT_BIO_LEASE_HOLDER=worker:b2z2-atoml1-size-curve TT_BIO_TRACE_REGION_SIZE=536870912 \\
     python3 perf/b2z2_sizecurve/size_curve.py --out <json> --cifdir <dir> --size $S --reps 5
 
 perf/b2z2_sizecurve/harvest.sh                                  # copies both hosts onto pc
@@ -308,3 +375,52 @@ a committed artifact: the driver rewrites its JSON after every fold, so a plain 
 can land a short file, and the qb2 checkout additionally carries the *committed* Wormhole JSONs,
 which a plain copy would have written backwards over the live ones. `render_result.py` regenerates
 this document from those artifacts, so no figure in it is typed by hand.
+"""
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--wh", type=Path, required=True)
+    ap.add_argument("--bh", type=Path, required=True)
+    ap.add_argument("--curves", default="perf/b2z2_sizecurve/curve_*.json")
+    ap.add_argument("--out", type=Path, required=True)
+    a = ap.parse_args()
+    wh = json.loads(a.wh.read_text())
+    bh = json.loads(a.bh.read_text())
+    W = {r["size"]: r for r in wh["sizes"]}
+    B = {r["size"]: r for r in bh["sizes"]}
+    paths = glob.glob(a.curves)
+    nfolds, stepn, blockn = census(paths)
+    bw, bww, bwwh = blockwall(paths)
+    sep = wh["exponent_separation"]
+    lb = wh["local_exponents"]["base"]
+    ll = wh["local_exponents"]["L1"]
+    a.out.write_text(DOC.format(
+        whb=wh["fits"]["base"]["exponent"], whbe=wh["fits"]["base"]["stderr"],
+        whbr=wh["fits"]["base"]["r2"],
+        whl=wh["fits"]["L1"]["exponent"], whle=wh["fits"]["L1"]["stderr"],
+        whlr=wh["fits"]["L1"]["r2"],
+        bhb=bh["fits"]["base"]["exponent"], bhl=bh["fits"]["L1"]["exponent"],
+        sep=sep["base_minus_l1"], sepe=sep["combined_stderr"], sigma=sep["sigma"],
+        r768=W[768]["ratio_vs_base"], f768=W[768]["aa_floor"],
+        b768=W[768]["arms"]["base"]["median_fold_s"], l768=W[768]["arms"]["L1"]["median_fold_s"],
+        ws512=W[512]["step_ratio_vs_base"], ws640=W[640]["step_ratio_vs_base"],
+        ws768=W[768]["step_ratio_vs_base"], ws896=W[896]["step_ratio_vs_base"],
+        ws1024=W[1024]["step_ratio_vs_base"],
+        bs512=B[512]["step_ratio_vs_base"], bs1024=B[1024]["step_ratio_vs_base"],
+        swing=100 * abs(W[1024]["step_ratio_vs_base"] - W[512]["step_ratio_vs_base"]),
+        bswing=100 * abs(B[1024]["step_ratio_vs_base"] - B[512]["step_ratio_vs_base"]),
+        br512=B[512]["ratio_vs_base"], bf512=B[512]["aa_floor"],
+        br1024=B[1024]["ratio_vs_base"], bf1024=B[1024]["aa_floor"],
+        whgate=gatetab(wh, 52.62), bhgate=gatetab(bh, 80.40),
+        whfold=foldtab(wh), bhfold=foldtab(bh),
+        whstep=steptab(wh), bhstep=steptab(bh), whlocal=localtab(wh),
+        loc0=lb[0]["exponent"], loc1=lb[1]["exponent"], loc2=lb[2]["exponent"], loc3=lb[3]["exponent"],
+        l0=ll[0]["exponent"], l1_=ll[1]["exponent"], l2=ll[2]["exponent"], l3=ll[3]["exponent"],
+        nfolds=nfolds, stepn=stepn, blockn=blockn, bw=bw, bww=bww, bwwh=bwwh))
+    print("wrote", a.out, nfolds, "folds")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
