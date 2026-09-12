@@ -1,0 +1,140 @@
+{
+ "label": "MSALayer-WH-c9-leveron",
+ "graph": "ops_wh_c9.graph.json.gz",
+ "n_top_level_ops": 1327,
+ "totals_MB": {
+  "dram_rd": 19447.947,
+  "dram_wr": 8120.302,
+  "l1_rd": 2348.81,
+  "l1_wr": 1476.395
+ },
+ "dram_total_GB": 27.5682,
+ "by_op": {
+  "ttnn.slice": {
+   "n": 96,
+   "dram_rd": 4329.308,
+   "dram_wr": 71.401,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.linear": {
+   "n": 324,
+   "dram_rd": 2636.718,
+   "dram_wr": 1526.757,
+   "l1_rd": 805.306,
+   "l1_wr": 1207.96
+  },
+  "ttnn.generic_op": {
+   "n": 16,
+   "dram_rd": 3897.098,
+   "dram_wr": 0.0,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.permute": {
+   "n": 24,
+   "dram_rd": 1325.4,
+   "dram_wr": 1149.239,
+   "l1_rd": 0.0,
+   "l1_wr": 134.218
+  },
+  "ttnn.to_layout": {
+   "n": 4,
+   "dram_rd": 1140.851,
+   "dram_wr": 1140.851,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.add_": {
+   "n": 15,
+   "dram_rd": 1811.939,
+   "dram_wr": 0.0,
+   "l1_rd": 201.327,
+   "l1_wr": 0.0
+  },
+  "ttnn.allocate_tensor_on_device": {
+   "n": 20,
+   "dram_rd": 0.0,
+   "dram_wr": 1744.83,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.reshape": {
+   "n": 12,
+   "dram_rd": 1140.851,
+   "dram_wr": 536.871,
+   "l1_rd": 67.109,
+   "l1_wr": 0.0
+  },
+  "ttnn.matmul": {
+   "n": 11,
+   "dram_rd": 608.174,
+   "dram_wr": 939.524,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.multiply_": {
+   "n": 110,
+   "dram_rd": 1512.047,
+   "dram_wr": 0.0,
+   "l1_rd": 1207.96,
+   "l1_wr": 0.0
+  },
+  "ttnn.layer_norm": {
+   "n": 105,
+   "dram_rd": 672.268,
+   "dram_wr": 603.98,
+   "l1_rd": 67.109,
+   "l1_wr": 134.218
+  },
+  "ttnn.concat": {
+   "n": 2,
+   "dram_rd": 134.218,
+   "dram_wr": 201.327,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.transpose": {
+   "n": 2,
+   "dram_rd": 134.218,
+   "dram_wr": 134.218,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.chunk": {
+   "n": 1,
+   "dram_rd": 67.109,
+   "dram_wr": 67.109,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.unsqueeze": {
+   "n": 2,
+   "dram_rd": 33.554,
+   "dram_wr": 0.0,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.softmax": {
+   "n": 1,
+   "dram_rd": 4.194,
+   "dram_wr": 4.194,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.Tensor.__getitem__": {
+   "n": 96,
+   "dram_rd": 0.0,
+   "dram_wr": 0.0,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  },
+  "ttnn.deallocate": {
+   "n": 486,
+   "dram_rd": 0.0,
+   "dram_wr": 0.0,
+   "l1_rd": 0.0,
+   "l1_wr": 0.0
+  }
+ }
+}

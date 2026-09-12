@@ -1,0 +1,88 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "reps": 7,
+ "copy": [
+  {
+   "shape": [
+    1024,
+    1024,
+    32
+   ],
+   "MiB": 64.0,
+   "clone_ms": 0.5971,
+   "copy_roof_GBps": 224.8
+  },
+  {
+   "shape": [
+    1024,
+    1024,
+    64
+   ],
+   "MiB": 128.0,
+   "clone_ms": 1.1849,
+   "copy_roof_GBps": 226.5
+  },
+  {
+   "shape": [
+    1024,
+    1024,
+    96
+   ],
+   "MiB": 192.0,
+   "clone_ms": 1.7752,
+   "copy_roof_GBps": 226.8
+  },
+  {
+   "shape": [
+    1024,
+    1024,
+    128
+   ],
+   "MiB": 256.0,
+   "clone_ms": 2.3596,
+   "copy_roof_GBps": 227.5
+  },
+  {
+   "shape": [
+    8192,
+    8192
+   ],
+   "MiB": 128.0,
+   "clone_ms": 1.1951,
+   "copy_roof_GBps": 224.6
+  },
+  {
+   "shape": [
+    1024,
+    512,
+    64
+   ],
+   "MiB": 64.0,
+   "clone_ms": 0.6012,
+   "copy_roof_GBps": 223.2
+  }
+ ],
+ "read": [
+  {
+   "shape": [
+    1024,
+    1024,
+    128
+   ],
+   "MiB": 256.0,
+   "add_ms": 3.3765,
+   "rw_roof_GBps": 238.5
+  },
+  {
+   "shape": [
+    8192,
+    8192
+   ],
+   "MiB": 128.0,
+   "add_ms": 1.6976,
+   "rw_roof_GBps": 237.2
+  }
+ ],
+ "copy_roof_GBps": 227.5,
+ "rw_roof_GBps": 238.5
+}
