@@ -19,10 +19,21 @@ shows a 1339 ms trimul against a 36.70 ms whole block), so they are not evidence
 
 import json
 import os
+import pathlib
 import statistics as st
+import sys
 import time
 
 import torch
+
+# Time the checkout this script LIVES IN, not the `tt_bio` the env has installed, exactly as
+# slab_bitexact.py does and for the same reason: `python perf/.../slab_perf.py` puts the SCRIPT's
+# directory on sys.path, not the cwd, and the editable install in /home/ttuser/tt-bio-dev/env
+# resolves to a different tree. Without this the run either times code nobody edited or, if that
+# tree predates `row_slab`, dies on an unexpected keyword.
+_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
+if _ROOT not in sys.path[:1]:
+    sys.path.insert(0, _ROOT)
 
 OUT = os.environ.get("SLABPERF_OUT", "/tmp/b2z2_slabperf.json")
 REPS = int(os.environ.get("SLABPERF_REPS", "7"))
