@@ -86,6 +86,7 @@ def main() -> int:
     # ---- one recorded replay -------------------------------------------------------------
     ln_calls, sdpa_calls = [], []
     keep = {"ln": [], "sdpa": []}
+    seen_ln, seen_sdpa = set(), set()
     orig_ln = ttnn.layer_norm
     orig_sdpa = ttnn.transformer.scaled_dot_product_attention
 
@@ -95,8 +96,10 @@ def main() -> int:
                "weight": kw.get("weight") is not None, "bias": kw.get("bias") is not None,
                "bytes": 2 * nbytes(x.shape, x.dtype)}
         ln_calls.append(rec)
-        if len(keep["ln"]) < 200:
-            keep["ln"].append((rec, x, dict(kw)))
+        key = (rec["site"], tuple(rec["shape"]))
+        if key not in seen_ln:
+            seen_ln.add(key)
+            keep["ln"].append((rec, ttnn.clone(x), dict(kw)))
         return orig_ln(x, **kw)
 
     def sdpa_rec(q, k, v, **kw):
@@ -110,8 +113,13 @@ def main() -> int:
         h, s, d = int(q.shape[1]), int(q.shape[2]), int(q.shape[3])
         rec["flops"] = 4.0 * h * s * int(k.shape[2]) * d
         sdpa_calls.append(rec)
-        if len(keep["sdpa"]) < 60:
-            keep["sdpa"].append((rec, (q, k, v), dict(kw)))
+        key = (rec["site"], tuple(rec["q"]))
+        if key not in seen_sdpa:
+            seen_sdpa.add(key)
+            ckw = dict(kw)
+            if b is not None:
+                ckw["attn_mask"] = ttnn.clone(b)
+            keep["sdpa"].append((rec, tuple(ttnn.clone(t) for t in (q, k, v)), ckw))
         return orig_sdpa(q, k, v, **kw)
 
     ttnn.layer_norm = ln_rec
@@ -148,12 +156,8 @@ def main() -> int:
 
     # ---- isolated price per distinct (site, shape) ---------------------------------------
     def price(tag, entries, call):
-        seen, rows = set(), []
+        rows = []
         for rec, operands, kw in entries:
-            key = (rec["site"], tuple(rec.get("shape") or rec.get("q")))
-            if key in seen:
-                continue
-            seen.add(key)
             t = SP.timed_reps(ttnn, dev, call, operands, kw, a.reps, fence, n_med=5)
             rows.append({**{kk: vv for kk, vv in rec.items()}, **t})
             print(f"    {tag} ISOLATED {rec['site']:44s} {t['ms_per_call']*1e3:8.2f} us", flush=True)
@@ -163,6 +167,83 @@ def main() -> int:
     out["sdpa_isolated"] = price("SDPA", keep["sdpa"],
                                  lambda qkv, **kw: orig_sdpa(*qkv, **kw))
     SP.dump()
+
+    # ---- screen 1: the token AdaLN chain, DRAM-resident against L1-resident --------------
+    # `TT_BIO_ATOM_L1` bought 1.08461x on the atom branch by moving its live set into L1 and
+    # nothing else. The token AdaLN is the same shape of problem and nobody has tried it: `a`
+    # enters from DRAM, three programs each do a DRAM round trip of it, and the chain ends with
+    # an explicit `to_memory_config(..., DRAM)`. The live set is three [1, 512, 768] bf16
+    # tensors = 2.36 MB against a 50 MB L1 budget, so the question is only whether it pays.
+    L1 = ttnn.L1_MEMORY_CONFIG
+    ckc = g["obj"].__dict__.get("compute_kernel_config")
+    ln_in = next((e for e in keep["ln"]
+                  if e[0]["site"].endswith("__call__") and e[0]["shape"] == [1, 512, 768]
+                  and not e[0]["weight"]), None)
+    if ln_in is not None:
+        a0 = ln_in[1]
+        kwln = {k: v for k, v in ln_in[2].items() if k != "memory_config"}
+        sc = ttnn.clone(a0)
+        sb = ttnn.clone(a0)
+
+        def chain(mc_in, mc_mid):
+            def f():
+                x = ttnn.to_memory_config(a0, memory_config=mc_in)
+                x = orig_ln(x, memory_config=mc_mid, **kwln)
+                x = ttnn.multiply_(x, sc, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+                x = ttnn.add_(x, sb)
+                return ttnn.to_memory_config(x, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            return f
+
+        arms = {"dram": chain(ttnn.DRAM_MEMORY_CONFIG, ttnn.DRAM_MEMORY_CONFIG),
+                "l1": chain(L1, L1)}
+        ref = ttnn.to_torch(arms["dram"]())
+        scr = {}
+        for name, fn in arms.items():
+            got = ttnn.to_torch(fn())
+            t = SP.timed_reps(ttnn, dev, lambda: fn(), (), {}, a.reps, fence, n_med=5)
+            scr[name] = {**t, "bit_exact": bool(torch.equal(ref, got)),
+                         "max_abs": float((ref - got).abs().max())}
+            print(f"    ADALN-CHAIN {name:5s} {t['ms_per_call']*1e3:8.2f} us  "
+                  f"bit_exact={scr[name]['bit_exact']}", flush=True)
+        scr["ratio_l1_over_dram"] = round(scr["dram"]["ms_per_call"] / scr["l1"]["ms_per_call"], 5)
+        out["screen_adaln_chain"] = scr
+        SP.dump()
+
+    # ---- screen 2: the token SDPA's bias, bf16 against bfp8_b ----------------------------
+    # The bias is 2/3 of the op's bytes and it is invariant across all 200 sampling steps.
+    sd = next((e for e in keep["sdpa"] if e[0]["q"] == [1, 16, 512, 64]), None)
+    if sd is not None:
+        rec, (q, k, v), kw = sd
+        bias = kw["attn_mask"]
+        variants = {"bf16": bias}
+        for nm, dt in (("bfp8_b", ttnn.bfloat8_b), ("bfp4_b", ttnn.bfloat4_b)):
+            try:
+                variants[nm] = ttnn.typecast(bias, dt)
+            except Exception as exc:            # noqa: BLE001
+                print(f"    SDPA-BIAS {nm}: typecast refused: {exc}", flush=True)
+        base_out = ttnn.to_torch(orig_sdpa(q, k, v, **kw))
+        scr = {}
+        for nm, b in variants.items():
+            kwb = dict(kw, attn_mask=b)
+            try:
+                got = ttnn.to_torch(orig_sdpa(q, k, v, **kwb))
+                t = SP.timed_reps(ttnn, dev, lambda **kk: orig_sdpa(q, k, v, **kk), (), kwb,
+                                  a.reps, fence, n_med=5)
+            except Exception as exc:            # noqa: BLE001
+                print(f"    SDPA-BIAS {nm}: refused: {exc}", flush=True)
+                scr[nm] = {"refused": str(exc)[:200]}
+                continue
+            scr[nm] = {**t, "bit_exact": bool(torch.equal(base_out, got)),
+                       "max_abs": float((base_out - got).abs().max()),
+                       "rms_ref": float(base_out.float().pow(2).mean().sqrt())}
+            print(f"    SDPA-BIAS {nm:7s} {t['ms_per_call']*1e3:8.2f} us  "
+                  f"max_abs={scr[nm]['max_abs']:.6g}", flush=True)
+        if "bf16" in scr and "ms_per_call" in scr["bf16"]:
+            for nm in ("bfp8_b", "bfp4_b"):
+                if nm in scr and "ms_per_call" in scr[nm]:
+                    scr[f"ratio_{nm}"] = round(scr["bf16"]["ms_per_call"] / scr[nm]["ms_per_call"], 5)
+        out["screen_sdpa_bias"] = scr
+        SP.dump()
 
     # ---- A/A floor on the step, so every later ratio has one beside it -------------------
     for _ in range(3):
