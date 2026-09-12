@@ -228,24 +228,27 @@ def main() -> int:
     # produces a perfectly flat curve that looks like a finding, so every row carries the number
     # of denoise calls and the number of trunk cycles it really ran, and the run asserts they
     # match what was asked for.
-    from tt_bio.boltz2 import AtomDiffusion, Boltz2 as _B2
-    CNT = {"denoise": 0, "trunk": 0}
-    _pnf, _fwd = AtomDiffusion.preconditioned_network_forward, _B2.forward
+    from tt_bio.boltz2 import AtomDiffusion
+    from tt_bio.tenstorrent import TrunkModule
+    CNT = {"denoise": 0, "trunk_recycles": None}
+    _pnf, _trunk_call = AtomDiffusion.preconditioned_network_forward, TrunkModule.__call__
 
     def _counted_pnf(self, *a, **k):
         CNT["denoise"] += 1
         return _pnf(self, *a, **k)
 
-    def _counted_fwd(self, *a, **k):
-        CNT["trunk"] += 1
-        return _fwd(self, *a, **k)
+    def _counted_trunk(self, s_inputs, s_init, z_init, feats, recycling_steps, *a, **k):
+        # The recycle loop runs resident on the card, so counting host-side iterations would
+        # record 1 for every arm. Record the count the device loop was actually handed.
+        CNT["trunk_recycles"] = int(recycling_steps)
+        return _trunk_call(self, s_inputs, s_init, z_init, feats, recycling_steps, *a, **k)
 
     AtomDiffusion.preconditioned_network_forward = _counted_pnf
-    _B2.forward = _counted_fwd
+    TrunkModule.__call__ = _counted_trunk
 
     def fold(steps: int, recycles: int, seed: int, tag: str):
         set_arm(steps, recycles)
-        CNT["denoise"] = CNT["trunk"] = 0
+        CNT["denoise"], CNT["trunk_recycles"] = 0, None
         cfg = dict(base_cfg)
         cfg.update(sampling_steps=steps, recycling_steps=recycles, seed=seed,
                    struct_dir=str(struct_dir))
@@ -293,7 +296,8 @@ def main() -> int:
         # Structure diffusion plus the confidence head's own rollout both go through the denoiser,
         # so the count is asserted to be a multiple of the requested step count rather than equal
         # to it; what matters is that it moved with the arm.
-        rec["denoise_per_step"] = round(counts["denoise"] / g["steps"], 4) if g["steps"] else None
+        assert counts["denoise"] % g["steps"] == 0, f"{tag}: {counts['denoise']} denoise calls"
+        assert counts["trunk_recycles"] == g["recycles"], f"{tag}: trunk ran {counts['trunk_recycles']}"
         OUT["folds"].append(rec)
         dump()
         print(f"  {tag:24s} {dt:7.2f}s plddt={rec['plddt']} "
