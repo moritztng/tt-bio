@@ -9879,6 +9879,17 @@ class TorchWrapper(nn.Module):
         )
 
     def _to_torch(self, x: ttnn.Tensor) -> torch.Tensor:
+        # On a multi-device mesh `ttnn.to_torch` refuses a tensor that lives on more than one chip
+        # ("buffers.size() == 1") unless it is given a composer. Every activation that reaches this
+        # method is REPLICATED -- identical on each chip -- so chip 0's copy IS the value and
+        # composing would just concatenate duplicates. A tensor that is genuinely SHARDED has to be
+        # all-gathered by whoever sharded it before it comes back to host, so this deliberately
+        # does not compose: a sharded tensor arriving here is a bug upstream, not something to
+        # paper over. Inert on a single device, which is every shipped path today.
+        if getattr(self.tt_device, "get_num_devices", lambda: 1)() > 1:
+            parts = ttnn.get_device_tensors(x)
+            if len(parts) > 1:
+                x = parts[0]
         return torch.Tensor(ttnn.to_torch(x)).to(torch.float32)
 
     def _cache_set(self, key: str, value):
