@@ -83,6 +83,11 @@
 //      ever stored. A numerics change of at most one bf16 ULP; scored, never assumed.
 //   5  `x * sigmoid(x)` with the SFPU's 6-entry hardware LUT sigmoid (APPROXIMATION_MODE), the
 //      cheapest sigmoid on the part. A coarser approximation than 4; scored.
+//   6  accurate exp, ONE Newton reciprocal step, packer rounding. Half of the step from 1 to 4.
+//   7  bf16 exp, TWO Newton reciprocal steps, packer rounding. The other half.
+//   8  bf16 exp, ONE Newton step, packer rounding -- 4 in every respect EXCEPT the extra
+//      `float_to_fp16b` the LLK's bf16 branch applies to the result, so 8 against 4 isolates the
+//      rounding mode from the arithmetic. 1, 6, 7 and 8 are the four corners of (exp, reciprocal).
 #ifndef TRIMUL_TAIL_SILU
 #define TRIMUL_TAIL_SILU 1
 #endif
@@ -139,6 +144,31 @@ inline void _round_bf16_() {
     }
 }
 
+
+// silu with the exp and the Newton reciprocal chosen INDEPENDENTLY. The LLK's own cheap branch
+// (`calculate_silu<false>`, TRIMUL_TAIL_SILU 4) changes three things at once against its fp32 one:
+// `_sfpu_exp_21f_bf16_` for `_sfpu_exp_accurate_`, one Newton step for two, AND a final
+// `float_to_fp16b` on the result that the fp32 branch does not apply. The last one is not an
+// accuracy improvement, it is a change of ROUNDING MODE: it rounds to nearest-even where the
+// packer that immediately follows breaks ties away from zero. These arms take one axis at a time
+// and leave the rounding to the packer in every case, so each differs from `silu_tile()` in
+// exactly what its name says.
+template <bool ACCURATE_EXP, int RECIP_ITERS, int ITERATIONS = 8>
+inline void _silu_split_() {
+#pragma GCC unroll 8
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat x = sfpi::dst_reg[0];
+        sfpi::vFloat exp_neg_x;
+        if constexpr (ACCURATE_EXP) {
+            exp_neg_x = _sfpu_exp_accurate_<true>(-x);
+        } else {
+            exp_neg_x = _sfpu_exp_21f_bf16_<true>(-x);
+        }
+        sfpi::dst_reg[0] = x * _sfpu_reciprocal_<RECIP_ITERS>(sfpi::vConst1 + exp_neg_x);
+        sfpi::dst_reg++;
+    }
+}
+
 }  // namespace sfpu
 }  // namespace ckernel
 #endif  // TRISC_MATH
@@ -158,13 +188,29 @@ ALWI void silu_bf16_tile(uint32_t idst) {
         ckernel::sfpu::calculate_silu<false, 8>, idst, (int)VectorMode::RC)));
 }
 
+ALWI void silu_accurate_exp_1recip_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_silu_split_<true, 1, 8>, idst, (int)VectorMode::RC)));
+}
+
+ALWI void silu_bf16_exp_2recip_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_silu_split_<false, 2, 8>, idst, (int)VectorMode::RC)));
+}
+
+ALWI void silu_bf16_exp_1recip_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_silu_split_<false, 1, 8>, idst, (int)VectorMode::RC)));
+}
+
 ALWI void sigmoid_appx_tile(uint32_t idst) {
     MATH((_llk_math_eltwise_unary_sfpu_params_<true>(
         ckernel::sfpu::calculate_sigmoid<true, false, 8>, idst, (int)VectorMode::RC)));
 }
 
 ALWI void tail_activation_init() {
-#if TRIMUL_TAIL_SILU == 1 || TRIMUL_TAIL_SILU == 4
+#if TRIMUL_TAIL_SILU == 1 || TRIMUL_TAIL_SILU == 4 || TRIMUL_TAIL_SILU >= 6
+    // every split arm uses the same non-approximate reciprocal table this init loads.
     silu_tile_init();
 #elif TRIMUL_TAIL_SILU == 3
     sigmoid_tile_init();
@@ -180,6 +226,12 @@ ALWI void tail_activation_tile(uint32_t idst) {
     round_bf16_tile(idst);
 #elif TRIMUL_TAIL_SILU == 4
     silu_bf16_tile(idst);
+#elif TRIMUL_TAIL_SILU == 6
+    silu_accurate_exp_1recip_tile(idst);
+#elif TRIMUL_TAIL_SILU == 7
+    silu_bf16_exp_2recip_tile(idst);
+#elif TRIMUL_TAIL_SILU == 8
+    silu_bf16_exp_1recip_tile(idst);
 #endif
 }
 
