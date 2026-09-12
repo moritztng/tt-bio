@@ -34,6 +34,20 @@
 #ifndef TRIMUL_TAIL_MUL_BATCH
 #define TRIMUL_TAIL_MUL_BATCH 1
 #endif
+// How the epilogue product reads its two operands.
+//   0  two `copy_tile`s into DST, then the SFPU product. What this kernel was derived with: three
+//      math passes an output tile, and measured at ~4x what `ttnn.multiply_` costs over the same
+//      tiles while moving a quarter of the bytes.
+//   1  `mul_tiles`, which unpacks both operands straight into the FPU in one pass, the way ttnn's
+//      own binary does. One DST slot an output tile instead of two, so MUL_BATCH can go to 4 under
+//      fp32 half sync. The FPU product rounds where the SFPU one does not, so this is scored on
+//      PCC, not assumed equivalent.
+//   2  DIAGNOSTIC ONLY, computes the WRONG answer: pack pass 0 and drop the product entirely, so
+//      the epilogue's cost can be read off directly instead of inferred by subtraction. Never set
+//      in production; the PCC leg in perf/b2z2_fusion/epilogue_mode.py rejects it on sight.
+#ifndef TRIMUL_TAIL_MUL_MODE
+#define TRIMUL_TAIL_MUL_MODE 0
+#endif
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -100,6 +114,53 @@ ALWI void round_bf16_tile(uint32_t idst) {
 // truncates the product.
 void mul_block(uint32_t p_cb, uint32_t g_cb, uint32_t out_cb, uint32_t block_num_tiles) {
     constexpr uint32_t B = TRIMUL_TAIL_MUL_BATCH;
+#if TRIMUL_TAIL_MUL_MODE == 2
+    copy_tile_to_dst_init_short(p_cb);
+    reconfig_data_format_srca(p_cb);
+    pack_reconfig_data_format(out_cb);
+    for (uint32_t t = 0; t < block_num_tiles; t += B) {
+        const uint32_t n = (block_num_tiles - t < B) ? (block_num_tiles - t) : B;
+        tile_regs_acquire();
+        for (uint32_t i = 0; i < n; i++) {
+            copy_tile(p_cb, t + i, i);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t i = 0; i < n; i++) {
+            pack_tile(i, out_cb);
+        }
+        tile_regs_release();
+    }
+    cb_push_back(out_cb, block_num_tiles);
+    return;
+#endif
+#if TRIMUL_TAIL_MUL_MODE == 1
+    // A full binary init, not a short one: the pass loop above left the hardware configured for
+    // matmul. It is safe to re-init here because every pass re-issues `mm_block_init_short` and
+    // both `reconfig_data_format` calls before it touches the FPU again.
+    binary_op_init_common(p_cb, g_cb, out_cb);
+    mul_tiles_init(p_cb, g_cb);
+    for (uint32_t t = 0; t < block_num_tiles; t += B) {
+        const uint32_t n = (block_num_tiles - t < B) ? (block_num_tiles - t) : B;
+        tile_regs_acquire();
+        for (uint32_t i = 0; i < n; i++) {
+            mul_tiles(p_cb, g_cb, t + i, t + i, i);
+        }
+#if TRIMUL_TAIL_ROUND != 0
+        for (uint32_t i = 0; i < n; i++) {
+            round_bf16_tile(i);
+        }
+#endif
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t i = 0; i < n; i++) {
+            pack_tile(i, out_cb);
+        }
+        tile_regs_release();
+    }
+    cb_push_back(out_cb, block_num_tiles);
+    return;
+#endif
     for (uint32_t t = 0; t < block_num_tiles; t += B) {
         const uint32_t n = (block_num_tiles - t < B) ? (block_num_tiles - t) : B;
         tile_regs_acquire();
