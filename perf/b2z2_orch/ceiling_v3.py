@@ -72,6 +72,37 @@ ONE_CHIP_BRACKET = (1.35, 1.66)
 ONE_CHIP_BEST_SUPPORTED = (1.40, 1.49)
 
 
+# -- The bandwidth intersection, as a target rather than a verdict -----------------------------
+# b2z2-redteam-v2's primaries for the Pairformer block, all MEASURED:
+BLOCK_MS_TODAY = 36.3438          # wave 1's capture, reproduced on a second independent BH capture
+BLOCK_MS_MOVEMENT_FREE = 14.9006  # the stall identity with the input wait zeroed
+BLOCK_GB_PER_CALL = 8.0493        # per program, each operand tensor once -> a LOWER bound
+ROOF_GBPS = 390.7                 # ttnn.clone, read+write, the same currency as the byte count
+
+
+def byte_target() -> dict:
+    """How far the block's bytes must fall before the bandwidth roof stops binding it.
+
+    The campaign's top rung assumed the block could reach BLOCK_MS_MOVEMENT_FREE. At the measured
+    roof that time can only carry ROOF_GBPS * t bytes, so the rung is reachable only if the block
+    moves that many bytes or fewer. Everything here is division; the value is that it turns "the
+    trunk is bytes-bound" into a number a row can aim at.
+    """
+    byte_bound_ms = BLOCK_GB_PER_CALL / ROOF_GBPS * 1000.0
+    floor_ms = max(BLOCK_MS_MOVEMENT_FREE, byte_bound_ms)
+    gb_allowed = ROOF_GBPS * BLOCK_MS_MOVEMENT_FREE / 1000.0
+    return {
+        "block_ms_today": BLOCK_MS_TODAY,
+        "block_gbps_today": BLOCK_GB_PER_CALL / BLOCK_MS_TODAY * 1000.0,
+        "byte_bound_ms": byte_bound_ms,
+        "movement_free_ms": BLOCK_MS_MOVEMENT_FREE,
+        "block_floor_ms": floor_ms,
+        "block_ratio_at_floor": BLOCK_MS_TODAY / floor_ms,
+        "gb_allowed_at_movement_free": gb_allowed,
+        "byte_cut_needed_pct": (1.0 - gb_allowed / BLOCK_GB_PER_CALL) * 100.0,
+    }
+
+
 def split_stack() -> tuple[float, float, float, float]:
     """Where the stack's seconds come off, as a bracket rather than an assumption.
 
@@ -128,6 +159,7 @@ def main() -> int:
         "routes": rows,
         "wh_to_bh_shard_calibration": calib,
         "target_2x_s": CELL_S / 2.0,
+        "byte_target": byte_target(),
     }
 
     print(f"published cell                 {CELL_S:.3f} s   (site/data/perf-512aa.json)")
@@ -147,6 +179,25 @@ def main() -> int:
     print(f"WH-block -> BH-fold shard calibration at N=2: {calib:.3f}x")
     print("  (>1 means the WH block curve OVER-predicts the BH fold contribution of the same")
     print("   shard, so every larger-N row above is an upper bound, not an estimate)")
+    print()
+    bt = byte_target()
+    tA, rA, tB, rB = split_stack()
+    print("the trunk's own floor, once the bandwidth roof is applied:")
+    print(f"  block today                  {bt['block_ms_today']:.4f} ms "
+          f"at {bt['block_gbps_today']:.1f} GB/s")
+    print(f"  movement-free (stall identity){bt['movement_free_ms']:>8.4f} ms "
+          f"-- needs {BLOCK_GB_PER_CALL/BLOCK_MS_MOVEMENT_FREE*1000:.1f} GB/s")
+    print(f"  byte-bound at the roof       {bt['byte_bound_ms']:.4f} ms "
+          f"at {ROOF_GBPS:.1f} GB/s")
+    print(f"  => block floor               {bt['block_floor_ms']:.4f} ms = "
+          f"{bt['block_ratio_at_floor']:.4f}x on the block")
+    print(f"  the byte cut that would make movement-free reachable: "
+          f"**{bt['byte_cut_needed_pct']:.1f} %** "
+          f"({BLOCK_GB_PER_CALL:.4f} -> {bt['gb_allowed_at_movement_free']:.4f} GB/call)")
+    mf_A = composite(tA, rA, BLOCK_MS_TODAY / BLOCK_MS_MOVEMENT_FREE)
+    mf_B = composite(tB, rB, BLOCK_MS_TODAY / BLOCK_MS_MOVEMENT_FREE)
+    print(f"  and even a FULLY movement-free trunk, on ONE processor, with the measured stack, is "
+          f"{min(mf_A, mf_B):.4f}x - {max(mf_A, mf_B):.4f}x")
     print()
     best = max(r["fold_hi"] for r in rows)
     print(f"BEST NAMEABLE, unlimited processors, free link: {best:.4f}x = {CELL_S/best:.3f} s")

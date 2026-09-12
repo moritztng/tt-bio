@@ -54,5 +54,15 @@
     }
   ],
   "wh_to_bh_shard_calibration": 1.0745320486447063,
-  "target_2x_s": 10.0565
+  "target_2x_s": 10.0565,
+  "byte_target": {
+    "block_ms_today": 36.3438,
+    "block_gbps_today": 221.47656546646198,
+    "byte_bound_ms": 20.602252367545432,
+    "movement_free_ms": 14.9006,
+    "block_floor_ms": 20.602252367545432,
+    "block_ratio_at_floor": 1.7640692557116768,
+    "gb_allowed_at_movement_free": 5.82166442,
+    "byte_cut_needed_pct": 27.674898189904717
+  }
 }
