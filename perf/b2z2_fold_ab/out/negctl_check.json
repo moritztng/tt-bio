@@ -1,0 +1,409 @@
+{
+ "doc": "Paired interleaved fold A/B for the three read-deleting trunk levers, plus their A/A floor.\n\n`b2z2-trunk-byte-round2` measured 1.05106x on ONE PairformerLayer and located 0.497 s/fold. This\nruns the fold. Arms, all in one process so they share a program cache and a card state:\n\n    base    TT_BIO_TRIMUL_FUSED_GOUT / TRIATT_FUSED_QKVG / TRIATT_FUSED_QKVGB all off\n    all3    all three on\n    qkvg    only the qkv+gate fusion -- a 1.01459x block lever against all3's 1.05106x, so the\n            two points test whether fold gain is proportional to block gain over a 3.5x range\n\n`qkvgb` cannot be an arm on its own: `qkvgb_heads` requires `_QKVG_ENABLED`, because the bias tile\nrides the qkv+gate pass rather than replacing it.\n\nThe arms alternate base/all3/qkvg every rep, so a drift in the card or the host cannot land on one\narm. `os.getloadavg()` is read INSIDE every rep -- whglx runs several rows at once and a one-shot\ncheck before the loop is blind to a neighbour that starts mid-run. One warmup fold per arm is\ndiscarded so no rep is a program-cache miss.\n\nThe A/A floor is the 95 % band of the SAME statistic the ratio is quoted with (median of reps),\nresampled from the base arm's own reps. A per-position floor beside a median-of-reps ratio\nunderstates it ~2.5x.\n\nParity is the fold's CIF, not a block output: `tt_bio.reference` zero-initialises 23 of a\nPairformerLayer's weights including both trimuls' `p_out`, so a block comparison against it passes\nfor an arm that computes nothing. `--negctl` runs one extra all3 fold with the fused bias output\nscaled by 1+2**-10 and asserts the sha CHANGES, which is what makes the equal shas evidence.\n\n  fold_ab3.py --out o.json --cifdir cifs --reps 7 [--negctl] [--size 512]\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "torch": "2.14.0+cu130",
+  "tt_visible_devices": "10",
+  "tt_bio_file": "/home/tt-admin/wt-foldab/tt_bio/__init__.py",
+  "commit": "4a37f8bac3524ea2331c6ae1c64f45ed4ac3d0f5",
+  "started_utc": "2026-09-12T22:32:23Z",
+  "trace_region": "536870912",
+  "protocol": {
+   "recycling_steps": 0,
+   "sampling_steps": 2,
+   "seed": 0,
+   "size": "512"
+  }
+ },
+ "arms": [
+  "base",
+  "all3",
+  "qkvg"
+ ],
+ "reps": 1,
+ "runs": [
+  {
+   "arm": "base",
+   "fold_s": 14.2851,
+   "loadavg": 10.56,
+   "sha256": "4f901f8244de046d",
+   "plddt": 0.437885,
+   "census_delta": {
+    "trimul_gout": [
+     0,
+     0
+    ],
+    "qkvg": [
+     0,
+     0
+    ],
+    "qkvgb": [
+     0,
+     0
+    ],
+    "qkv_heads": [
+     152,
+     0
+    ],
+    "tail": [
+     152,
+     0
+    ],
+    "trimul_tail_f1": [
+     0,
+     152
+    ],
+    "reblock_gated": 304
+   },
+   "warmup": true
+  },
+  {
+   "arm": "all3",
+   "fold_s": 12.187,
+   "loadavg": 9.43,
+   "sha256": "4f901f8244de046d",
+   "plddt": 0.437885,
+   "census_delta": {
+    "trimul_gout": [
+     152,
+     0
+    ],
+    "qkvg": [
+     152,
+     0
+    ],
+    "qkvgb": [
+     152,
+     0
+    ],
+    "qkv_heads": [
+     152,
+     0
+    ],
+    "tail": [
+     152,
+     0
+    ],
+    "trimul_tail_f1": [
+     0,
+     0
+    ],
+    "reblock_gated": 304
+   },
+   "warmup": true
+  },
+  {
+   "arm": "qkvg",
+   "fold_s": 12.0253,
+   "loadavg": 11.12,
+   "sha256": "4f901f8244de046d",
+   "plddt": 0.437885,
+   "census_delta": {
+    "trimul_gout": [
+     0,
+     0
+    ],
+    "qkvg": [
+     152,
+     0
+    ],
+    "qkvgb": [
+     0,
+     0
+    ],
+    "qkv_heads": [
+     152,
+     0
+    ],
+    "tail": [
+     152,
+     0
+    ],
+    "trimul_tail_f1": [
+     0,
+     152
+    ],
+    "reblock_gated": 304
+   },
+   "warmup": true
+  },
+  {
+   "arm": "base",
+   "fold_s": 12.3226,
+   "loadavg": 11.09,
+   "sha256": "4f901f8244de046d",
+   "plddt": 0.437885,
+   "census_delta": {
+    "trimul_gout": [
+     0,
+     0
+    ],
+    "qkvg": [
+     0,
+     0
+    ],
+    "qkvgb": [
+     0,
+     0
+    ],
+    "qkv_heads": [
+     152,
+     0
+    ],
+    "tail": [
+     152,
+     0
+    ],
+    "trimul_tail_f1": [
+     0,
+     152
+    ],
+    "reblock_gated": 304
+   },
+   "rep": 0
+  },
+  {
+   "arm": "all3",
+   "fold_s": 12.4445,
+   "loadavg": 10.0,
+   "sha256": "4f901f8244de046d",
+   "plddt": 0.437885,
+   "census_delta": {
+    "trimul_gout": [
+     152,
+     0
+    ],
+    "qkvg": [
+     152,
+     0
+    ],
+    "qkvgb": [
+     152,
+     0
+    ],
+    "qkv_heads": [
+     152,
+     0
+    ],
+    "tail": [
+     152,
+     0
+    ],
+    "trimul_tail_f1": [
+     0,
+     0
+    ],
+    "reblock_gated": 304
+   },
+   "rep": 0
+  },
+  {
+   "arm": "qkvg",
+   "fold_s": 12.5226,
+   "loadavg": 10.51,
+   "sha256": "4f901f8244de046d",
+   "plddt": 0.437885,
+   "census_delta": {
+    "trimul_gout": [
+     0,
+     0
+    ],
+    "qkvg": [
+     152,
+     0
+    ],
+    "qkvgb": [
+     0,
+     0
+    ],
+    "qkv_heads": [
+     152,
+     0
+    ],
+    "tail": [
+     152,
+     0
+    ],
+    "trimul_tail_f1": [
+     0,
+     152
+    ],
+    "reblock_gated": 304
+   },
+   "rep": 0
+  },
+  {
+   "arm": "all3_negctl",
+   "fold_s": 12.3395,
+   "loadavg": 11.56,
+   "sha256": "0540da6ce02a6546",
+   "plddt": 0.439647,
+   "census_delta": {
+    "trimul_gout": [
+     152,
+     0
+    ],
+    "qkvg": [
+     152,
+     0
+    ],
+    "qkvgb": [
+     152,
+     0
+    ],
+    "qkv_heads": [
+     152,
+     0
+    ],
+    "tail": [
+     152,
+     0
+    ],
+    "trimul_tail_f1": [
+     0,
+     0
+    ],
+    "reblock_gated": 304
+   },
+   "negative_control": true
+  }
+ ],
+ "model_load_s": 5.011,
+ "median_fold_s": {
+  "base": 12.3226,
+  "all3": 12.4445,
+  "qkvg": 12.5226
+ },
+ "series_s": {
+  "base": [
+   12.3226
+  ],
+  "all3": [
+   12.4445
+  ],
+  "qkvg": [
+   12.5226
+  ]
+ },
+ "ratio_vs_base": {
+  "all3": 0.9902045080155892,
+  "qkvg": 0.9840288757925669
+ },
+ "seconds_saved": {
+  "all3": -0.12190000000000012,
+  "qkvg": -0.20000000000000107
+ },
+ "aa_floor": null,
+ "gain_ratio_all3_over_qkvg": 0.6133251396199069,
+ "sha_per_arm": {
+  "base": [
+   "4f901f8244de046d"
+  ],
+  "all3": [
+   "4f901f8244de046d"
+  ],
+  "qkvg": [
+   "4f901f8244de046d"
+  ]
+ },
+ "bit_exact_across_arms": true,
+ "negative_control_breaks": true,
+ "negative_control_sha": "0540da6ce02a6546",
+ "census_flat_per_arm": {
+  "base": true,
+  "all3": true,
+  "qkvg": true
+ },
+ "census_per_arm": {
+  "base": {
+   "qkv_heads": [
+    152,
+    0
+   ],
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "reblock_gated": 304,
+   "tail": [
+    152,
+    0
+   ],
+   "trimul_gout": [
+    0,
+    0
+   ],
+   "trimul_tail_f1": [
+    0,
+    152
+   ]
+  },
+  "all3": {
+   "qkv_heads": [
+    152,
+    0
+   ],
+   "qkvg": [
+    152,
+    0
+   ],
+   "qkvgb": [
+    152,
+    0
+   ],
+   "reblock_gated": 304,
+   "tail": [
+    152,
+    0
+   ],
+   "trimul_gout": [
+    152,
+    0
+   ],
+   "trimul_tail_f1": [
+    0,
+    0
+   ]
+  },
+  "qkvg": {
+   "qkv_heads": [
+    152,
+    0
+   ],
+   "qkvg": [
+    152,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "reblock_gated": 304,
+   "tail": [
+    152,
+    0
+   ],
+   "trimul_gout": [
+    0,
+    0
+   ],
+   "trimul_tail_f1": [
+    0,
+    152
+   ]
+  }
+ },
+ "loadavg_range": [
+  10.0,
+  11.09
+ ]
+}
