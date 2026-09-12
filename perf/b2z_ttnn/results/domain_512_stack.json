@@ -1,0 +1,16 @@
+{
+ "label": "ttnn078_vs_068_512",
+ "ref": "/home/mthuening/work/b2z-ttnn/out/cif/old_r1_1.cif",
+ "arm": "/home/mthuening/work/b2z-ttnn/out/cif/new_r1_1.cif",
+ "n_matched": 4116,
+ "whole_allatom_rmsd_A": 24.9111,
+ "mean_bfactor_ref": 84.6224,
+ "mean_bfactor_arm": 41.2261,
+ "per_chain": {
+  "A": {
+   "n_atoms": 4116,
+   "allatom_rmsd_A": 24.9111,
+   "ca_rmsd_A": 24.7049
+  }
+ }
+}
