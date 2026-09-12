@@ -366,8 +366,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         "REDUCE_GRANULARITY": str(valid_granularity(p["Sq_chunk_t"], ds // 2)),
         # The mask add and the running-sum/max adds share one helper, so the granularity has to be
         # legal for the smallest block either of them passes -- that is Sq_chunk_t, the same count
-        # STATS_GRANULARITY is priced against. Batching it is worth 1.0267x on the fused SDPA and
-        # is bit-exact against the per-tile loop, which `TT_BIO_SDPA_ADD_GRANULARITY=1` restores.
+        # STATS_GRANULARITY is priced against. Batching it is worth 1.0317x on the fused SDPA on
+        # Blackhole (2.8299 -> 2.7430 ms at 512x512, perf/b2z_levers/addgran_512_qb2c0.json) and
+        # 1.0267x on Wormhole, and is bit-exact against the per-tile loop at every granularity,
+        # which `TT_BIO_SDPA_ADD_GRANULARITY=1` restores.
         "ADD_BLOCK_GRANULARITY": os.environ.get(
             "TT_BIO_SDPA_ADD_GRANULARITY") or str(valid_granularity(p["Sq_chunk_t"], ds)),
         "EXP_APPROX_MODE": str(int(exp_approx_mode)),
