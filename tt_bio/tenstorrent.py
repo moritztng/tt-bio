@@ -10516,6 +10516,18 @@ class TrunkRecycle:
         return s_out, z_out
 
 
+def free(*tensors):
+    """Release device tensors for a caller that owns them but does not import ttnn.
+
+    ``tt_bio.boltz2`` is the host model and deliberately never imports ttnn, yet it owns the
+    trunk's pair tensor for the length of a fold because two device stages read it: the diffusion
+    conditioning before the sampler and the confidence head after it.
+    """
+    for t in tensors:
+        if t is not None:
+            ttnn.deallocate(t)
+
+
 class StageWall:
     """Wall seconds per stage of a device track, with an explicit sync at each boundary.
 

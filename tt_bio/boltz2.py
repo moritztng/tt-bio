@@ -5852,7 +5852,7 @@ class Boltz2(nn.Module):
                 )
             )
         if device_z is not None:
-            tenstorrent.ttnn.deallocate(device_z[0])
+            tenstorrent.free(device_z[0])
             device_z = None
 
         if self.affinity_prediction:
