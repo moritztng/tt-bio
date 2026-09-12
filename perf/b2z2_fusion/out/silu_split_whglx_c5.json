@@ -1,0 +1,101 @@
+{
+ "block": [
+  8,
+  2,
+  2,
+  2,
+  2
+ ],
+ "grid": [
+  8,
+  8
+ ],
+ "inner": 32,
+ "reps": 7,
+ "arms": {
+  "incumbent": {
+   "ms": 0.44555,
+   "x_mm_1": 5.2838,
+   "ratio_vs_incumbent": 1.0,
+   "spread_pct": 0.44
+  },
+  "mm_1": {
+   "ms": 0.08432,
+   "x_mm_1": 1.0,
+   "ratio_vs_incumbent": 5.2838,
+   "spread_pct": 31.43
+  },
+  "mm_1_aa": {
+   "ms": 0.08207,
+   "x_mm_1": 0.9733,
+   "ratio_vs_incumbent": 5.4287,
+   "spread_pct": 21.01
+  },
+  "mm_2": {
+   "ms": 0.61271,
+   "x_mm_1": 7.2661,
+   "ratio_vs_incumbent": 0.7272,
+   "spread_pct": 66.9
+  },
+  "real": {
+   "ms": 0.39236,
+   "x_mm_1": 4.653,
+   "ratio_vs_incumbent": 1.1356,
+   "spread_pct": 0.33,
+   "bit_exact_vs_real": true,
+   "pcc_vs_incumbent": 0.9999983,
+   "max_abs_vs_incumbent": 0.00391,
+   "same_arithmetic": true
+  },
+  "real_bf16silu": {
+   "ms": 0.26928,
+   "x_mm_1": 3.1934,
+   "ratio_vs_incumbent": 1.6546,
+   "spread_pct": 1.27,
+   "bit_exact_vs_real": false,
+   "pcc_vs_incumbent": 0.9999975,
+   "max_abs_vs_incumbent": 0.00391,
+   "same_arithmetic": false
+  },
+  "split_ctl": {
+   "ms": 0.3932,
+   "x_mm_1": 4.6629,
+   "ratio_vs_incumbent": 1.1332,
+   "spread_pct": 1.21,
+   "bit_exact_vs_real": true,
+   "pcc_vs_incumbent": 0.9999983,
+   "max_abs_vs_incumbent": 0.00391,
+   "same_arithmetic": false
+  },
+  "split_e0r1p1": {
+   "ms": 0.27035,
+   "x_mm_1": 3.206,
+   "ratio_vs_incumbent": 1.6481,
+   "spread_pct": 1.3,
+   "bit_exact_vs_real": false,
+   "pcc_vs_incumbent": 0.9999975,
+   "max_abs_vs_incumbent": 0.00391,
+   "same_arithmetic": false
+  },
+  "split_e1r1p0": {
+   "ms": 0.38208,
+   "x_mm_1": 4.5311,
+   "ratio_vs_incumbent": 1.1661,
+   "spread_pct": 0.92,
+   "bit_exact_vs_real": false,
+   "pcc_vs_incumbent": 0.9999983,
+   "max_abs_vs_incumbent": 0.00391,
+   "same_arithmetic": false
+  },
+  "split_e0r2p0": {
+   "ms": 0.27902,
+   "x_mm_1": 3.3089,
+   "ratio_vs_incumbent": 1.5968,
+   "spread_pct": 0.96,
+   "bit_exact_vs_real": false,
+   "pcc_vs_incumbent": 0.9999974,
+   "max_abs_vs_incumbent": 0.00391,
+   "same_arithmetic": false
+  }
+ }
+}

@@ -53,7 +53,9 @@ ap.add_argument("--arms", type=str, default=(
     "p1:1/1/0/1/2;p2_diag:2/1/0/1/2;"
     "real:2/1/0/1/1;real_nosilu:2/1/0/0/1;real_cheapsfpu:2/1/0/2/1;"
     "real_hoist:2/1/1/1/1;real_hoist_b4:2/4/1/1/1;"
-    "real_lut:2/1/0/3/1;real_bf16silu:2/1/0/4/1;real_bf16silu_b4:2/4/0/4/1;real_appx:2/1/0/5/1"))
+    "real_bf16silu:2/1/0/4/1;"
+    "split_ctl:2/1/0/6/1/1/2/0;split_e0r1p1:2/1/0/6/1/0/1/1;"
+    "split_e1r1p0:2/1/0/6/1/1/1/0;split_e0r2p0:2/1/0/6/1/0/2/0"))
 a = ap.parse_args()
 
 import torch                                                                  # noqa: E402
@@ -104,10 +106,13 @@ def mm_2():
     ttnn.deallocate(o2)
 
 
+#: passes/copy_batch/silu_hoist/silu/mul_mode[/silu_exp/silu_recip/silu_preround]
 ARM_SPECS = []
 for tok in a.arms.split(";"):
     name, cfg = tok.split(":")
-    ARM_SPECS.append((name, tuple(int(v) for v in cfg.split("/"))))
+    v = [int(q) for q in cfg.split("/")]
+    v += [1, 2, 0][len(v) - 5:]
+    ARM_SPECS.append((name, tuple(v)))
 
 
 def incumbent():
@@ -122,7 +127,8 @@ def incumbent():
 
 def loop_for(spec):
     def f():
-        TS.PASSES, TS.COPY_BATCH, TS.SILU_HOIST, TS.SILU, TS.MUL_MODE = spec
+        (TS.PASSES, TS.COPY_BATCH, TS.SILU_HOIST, TS.SILU, TS.MUL_MODE,
+         TS.SILU_EXP, TS.SILU_RECIP, TS.SILU_PREROUND) = spec
         o = TS.fused_swiglu(x, w2, w1, ckc4, grid)
         if o is None:
             raise RuntimeError("declined " + json.dumps({str(k): v for k, v in TS.REJECTS.items()}))
@@ -151,6 +157,9 @@ REAL = [n for n, s in ARM_SPECS if s[0] == 2 and s[4] == 1]
 #: only the arms that run the LLK silu are restructures of the same arithmetic; SILU 2 and 3 are a
 #: different function and are scored, not compared bit for bit.
 SAME_MATH = {n for n, s in ARM_SPECS if s[0] == 2 and s[4] == 1 and s[3] == 1}
+#: (arm, the arm it must be bit-exact to). A decomposition that does not reproduce what it claims
+#: to decompose says nothing about which of its knobs matters.
+CONTROLS = [("split_ctl", "real"), ("split_e0r1p1", "real_bf16silu")]
 vals, ref = {}, None
 for name, spec in ARM_SPECS:
     o = loop_for(spec)()
@@ -172,6 +181,13 @@ for name in REAL:
 if exact.get("real_nosilu", False):
     raise SystemExit("real_nosilu matches real bit for bit: the SILU define did nothing, "
                      "so the bit-exactness of every other arm proves nothing. Aborting.")
+for arm, target in CONTROLS:
+    if arm in vals and target in vals:
+        same = bool(torch.equal(vals[arm].float(), vals[target].float()))
+        print("CONTROL  %-14s must be bit-exact to %-14s : %s" % (arm, target, same), flush=True)
+        if not same:
+            raise SystemExit("%s does not reproduce %s bit for bit, so the split is not a faithful "
+                             "decomposition and no single-knob arm below it means anything." % (arm, target))
 for name in SAME_MATH:
     if not exact[name]:
         raise SystemExit("%s is NOT bit-exact against the kernel as it arrived. It is a "

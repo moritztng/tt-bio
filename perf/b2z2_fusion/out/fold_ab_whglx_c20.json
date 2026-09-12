@@ -1,0 +1,103 @@
+{
+ "ttnn": "0.68.0",
+ "host": "j10glx02",
+ "card": "20",
+ "model": "boltz2",
+ "size": 512,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "grid": [
+  8,
+  9
+ ],
+ "compute_grid_main": [
+  8,
+  9
+ ],
+ "fused_grid": "main",
+ "block_config": {
+  "(4, 16)": [
+   8,
+   2,
+   2,
+   2,
+   2
+  ]
+ },
+ "mul_mode": 1,
+ "mul_batch": 1,
+ "round": 2,
+ "timers_installed": [
+  "block:PairformerLayer",
+  "body:Transition"
+ ],
+ "runs": [
+  {
+   "rep": 0,
+   "pos": 0,
+   "arm": "base",
+   "fold_s": 41.422,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "da476491dbb2a847"
+   },
+   "swiglu": {
+    "enabled": false,
+    "served": 0,
+    "declined": 10648,
+    "rejects": {
+     "disabled:": 10648
+    }
+   },
+   "unfused_silu": false,
+   "walls": {
+    "body:Transition": {
+     "n": 960,
+     "s": 6.4161
+    },
+    "block:PairformerLayer": {
+     "n": 280,
+     "s": 24.2862
+    }
+   }
+  },
+  {
+   "rep": 0,
+   "pos": 1,
+   "arm": "swiglu",
+   "fold_s": 41.754,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "bf474b1b01408294"
+   },
+   "swiglu": {
+    "enabled": true,
+    "served": 8960,
+    "declined": 1688,
+    "rejects": {
+     "block_key=2x8:1x16x512x64@64x256": 1024,
+     "block_key=12x48:1x512x384@384x1536": 264,
+     "block_key=24x48:1x512x768@768x1536": 400
+    }
+   },
+   "unfused_silu": false,
+   "walls": {
+    "body:Transition": {
+     "n": 960,
+     "s": 6.7235
+    },
+    "block:PairformerLayer": {
+     "n": 280,
+     "s": 24.5626
+    }
+   }
+  }
+ ],
+ "cold": {
+  "fold_s": 88.185,
+  "plddt": null,
+  "n_tokens": null
+ }
+}

@@ -104,10 +104,18 @@ def main():
         cls.__call__ = (lambda g, k: lambda self, *x, **kw: timed_call(k, g, self, *x, **kw))(f, key)
         installed.append(key)
 
+    #: arm -> (TRIMUL_TAIL_SILU, SILU_EXP, SILU_RECIP, SILU_PREROUND). See
+    #: kernels/transition_swiglu/compute.cpp. `swiglu` is the kernel as b2z2-fusion-rebuild left it;
+    #: the e/r arms are mode 6, which reproduces mode 1 and mode 4 bit-exactly at their corners and
+    #: moves ONE of the LLK's three coupled accuracy decisions at a time.
+    SILU_ARMS = {"swiglu": (1, 1, 2, 0), "swiglu_bf16": (4, 1, 2, 0),
+                 "swiglu_e1r1": (6, 1, 1, 0), "swiglu_e0r2": (6, 0, 2, 0)}
+
     def set_arm(name):
         """Both flags on every arm. Never bool(dict.get(name)) -- that inherits."""
         T._UNFUSED_SILU = (name == "usilu")
-        TS.set_enabled(name == "swiglu")
+        TS.set_enabled(name in SILU_ARMS)
+        (TS.SILU, TS.SILU_EXP, TS.SILU_RECIP, TS.SILU_PREROUND) = SILU_ARMS.get(name, (1, 1, 2, 0))
         TS.REJECTS.clear()
         SERVED[0] = SERVED[1] = 0
 
@@ -140,6 +148,8 @@ def main():
     for rep in range(a.reps):
         for pos, arm in enumerate(a.arms.split(",")):
             set_arm(arm)
+            if arm in SILU_ARMS and not TS.ENABLED:
+                raise SystemExit("arm %r is a fused-kernel arm and the kernel is OFF" % arm)
             WALL.clear()
             fold_s, m = one_fold()
             blk = WALL.get(BLOCK_KEY, {"n": 0, "s": 0.0})

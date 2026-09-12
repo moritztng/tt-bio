@@ -83,6 +83,21 @@
 //      ever stored. A numerics change of at most one bf16 ULP; scored, never assumed.
 //   5  `x * sigmoid(x)` with the SFPU's 6-entry hardware LUT sigmoid (APPROXIMATION_MODE), the
 //      cheapest sigmoid on the part. A coarser approximation than 4; scored.
+//   6  the same silu written out, with the three things that differ between 1 and 4 exposed as
+//      independent knobs: TRIMUL_TAIL_SILU_EXP, _RECIP and _PREROUND. 1 and 4 differ in all three
+//      at once, so neither says which one the 512 aa structure is sensitive to. The decomposition
+//      is only worth anything if it is faithful, so it carries two controls: (EXP 1, RECIP 2,
+//      PREROUND 0) must be bit-exact to mode 1 and (EXP 0, RECIP 1, PREROUND 1) bit-exact to
+//      mode 4. The harness aborts if either fails.
+#ifndef TRIMUL_TAIL_SILU_EXP
+#define TRIMUL_TAIL_SILU_EXP 1      // 1 = _sfpu_exp_fp32_accurate_, 0 = _sfpu_exp_21f_bf16_
+#endif
+#ifndef TRIMUL_TAIL_SILU_RECIP
+#define TRIMUL_TAIL_SILU_RECIP 2    // Newton-Raphson steps: 2 is fp32-tight, 1 is bf16-tight
+#endif
+#ifndef TRIMUL_TAIL_SILU_PREROUND
+#define TRIMUL_TAIL_SILU_PREROUND 0 // round the result to bf16 in the SFPU instead of at the pack
+#endif
 #ifndef TRIMUL_TAIL_SILU
 #define TRIMUL_TAIL_SILU 1
 #endif
@@ -139,6 +154,30 @@ inline void _round_bf16_() {
     }
 }
 
+
+#if TRIMUL_TAIL_SILU == 6
+// silu(x) = x / (1 + exp(-x)), which is what `calculate_silu` computes, with its three accuracy
+// decisions pulled apart. The LLK makes all three off ONE flag, `is_fp32_dest_acc_en` -- which this
+// kernel sets for its MATMUL accumulator, not for its activation.
+template <int ITERATIONS = 8>
+inline void _silu_split_() {
+#pragma GCC unroll 8
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat x = sfpi::dst_reg[0];
+#if TRIMUL_TAIL_SILU_EXP
+        sfpi::vFloat e = _sfpu_exp_fp32_accurate_(-x);
+#else
+        sfpi::vFloat e = _sfpu_exp_21f_bf16_<true>(-x);
+#endif
+        sfpi::vFloat r = x * _sfpu_reciprocal_<TRIMUL_TAIL_SILU_RECIP>(sfpi::vConst1 + e);
+#if TRIMUL_TAIL_SILU_PREROUND
+        r = sfpi::reinterpret<sfpi::vFloat>(sfpi::float_to_fp16b(r, 0));
+#endif
+        sfpi::dst_reg[0] = r;
+        sfpi::dst_reg++;
+    }
+}
+#endif
 }  // namespace sfpu
 }  // namespace ckernel
 #endif  // TRISC_MATH
@@ -163,8 +202,15 @@ ALWI void sigmoid_appx_tile(uint32_t idst) {
         ckernel::sfpu::calculate_sigmoid<true, false, 8>, idst, (int)VectorMode::RC)));
 }
 
+#if TRIMUL_TAIL_SILU == 6
+ALWI void silu_split_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_silu_split_<8>, idst, (int)VectorMode::RC)));
+}
+#endif
+
 ALWI void tail_activation_init() {
-#if TRIMUL_TAIL_SILU == 1 || TRIMUL_TAIL_SILU == 4
+#if TRIMUL_TAIL_SILU == 1 || TRIMUL_TAIL_SILU == 4 || TRIMUL_TAIL_SILU == 6
     silu_tile_init();
 #elif TRIMUL_TAIL_SILU == 3
     sigmoid_tile_init();
@@ -180,6 +226,8 @@ ALWI void tail_activation_tile(uint32_t idst) {
     round_bf16_tile(idst);
 #elif TRIMUL_TAIL_SILU == 4
     silu_bf16_tile(idst);
+#elif TRIMUL_TAIL_SILU == 6
+    silu_split_tile(idst);
 #endif
 }
 

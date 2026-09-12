@@ -68,15 +68,17 @@ def main():
 
     TS.fused_swiglu = counted
 
-    #: arm name -> the TRIMUL_TAIL_SILU the fused kernel folds with. `swiglu` is the kernel as
-    #: `b2z2-fusion-rebuild` left it (the fp32-accuracy LLK silu); 4 is the same silu at bf16
-    #: accuracy and 5 is the SFPU's LUT sigmoid. See kernels/transition_swiglu/compute.cpp.
-    SILU_ARMS = {"swiglu": 1, "swiglu_bf16": 4, "swiglu_appx": 5}
+    #: arm -> (TRIMUL_TAIL_SILU, SILU_EXP, SILU_RECIP, SILU_PREROUND). See
+    #: kernels/transition_swiglu/compute.cpp. `swiglu` is the kernel as b2z2-fusion-rebuild left it;
+    #: the e/r arms are mode 6, which reproduces mode 1 and mode 4 bit-exactly at their corners and
+    #: moves ONE of the LLK's three coupled accuracy decisions at a time.
+    SILU_ARMS = {"swiglu": (1, 1, 2, 0), "swiglu_bf16": (4, 1, 2, 0),
+                 "swiglu_e1r1": (6, 1, 1, 0), "swiglu_e0r2": (6, 0, 2, 0)}
 
     def set_arm(name):
         T._UNFUSED_SILU = (name == "usilu")
         TS.set_enabled(name in SILU_ARMS)
-        TS.SILU = SILU_ARMS.get(name, 1)
+        (TS.SILU, TS.SILU_EXP, TS.SILU_RECIP, TS.SILU_PREROUND) = SILU_ARMS.get(name, (1, 1, 2, 0))
         TS.REJECTS.clear()
         served[0] = served[1] = 0
 
@@ -115,7 +117,8 @@ def main():
                    "plddt": m.get("plddt"), "n_tokens": m.get("n_tokens"),
                    "cif_sha256": sha_dir(struct_dir), "cif_dir": str(dest),
                    "swiglu_served": served[0], "swiglu_declined": served[1],
-                   "unfused_silu": T._UNFUSED_SILU, "silu_mode": TS.SILU}
+                   "unfused_silu": T._UNFUSED_SILU,
+                   "silu": [TS.SILU, TS.SILU_EXP, TS.SILU_RECIP, TS.SILU_PREROUND]}
             res["runs"].append(rec)
             a.out.parent.mkdir(parents=True, exist_ok=True)
             a.out.write_text(json.dumps(res, indent=1))

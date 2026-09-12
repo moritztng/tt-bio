@@ -46,6 +46,9 @@ MUL_MODE = 1       # 0 = two copy_tile + SFPU product, 1 = mul_tiles (one FPU un
 COPY_BATCH = 1     # tiles `copy_block` folds per DST acquire on the fp32 -> bf16 pack; ceiling 4
 SILU_HOIST = 0     # 1 issues `silu_tile_init()` once a block instead of once a tile
 SILU = 1           # DIAGNOSTIC: 0 drops pass 1's silu and computes the WRONG answer
+SILU_EXP = 1       # SILU=6 only: 1 = _sfpu_exp_fp32_accurate_, 0 = _sfpu_exp_21f_bf16_
+SILU_RECIP = 2     # SILU=6 only: Newton-Raphson steps in the reciprocal, 2 or 1
+SILU_PREROUND = 0  # SILU=6 only: round to bf16 in the SFPU instead of leaving it to the pack
 
 #: Core grid the kernel folds on, or None to take the caller's (COMPUTE_GRID_MAIN). The kernel is
 #: not obliged to use every core the trunk's matmuls use, and it measures faster on 11x8 than on
@@ -150,7 +153,8 @@ def _build(device, x, w_plain, w_act, out, grid, ckc, block):
     defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
             "TRIMUL_TAIL_MUL_BATCH": MUL_BATCH, "TRIMUL_TAIL_MUL_MODE": MUL_MODE,
             "TRIMUL_TAIL_COPY_BATCH": COPY_BATCH, "TRIMUL_TAIL_SILU_HOIST": SILU_HOIST,
-            "TRIMUL_TAIL_SILU": SILU}
+            "TRIMUL_TAIL_SILU": SILU, "TRIMUL_TAIL_SILU_EXP": SILU_EXP,
+            "TRIMUL_TAIL_SILU_RECIP": SILU_RECIP, "TRIMUL_TAIL_SILU_PREROUND": SILU_PREROUND}
     entry = MG.build(device, x, w_plain, [out], (block, grid), ckc,
                      defines=defs, kernel_dir=KERNEL_DIR)
 
@@ -213,7 +217,8 @@ def fused_swiglu(x, w_plain, w_act, ckc, grid, memory_config=None):
     mc = memory_config if memory_config is not None else ttnn.L1_MEMORY_CONFIG
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = (spec(x), spec(w_plain), tuple(grid), tuple(str(c) for c in ckc), ROUND, MUL_BATCH,
-           MUL_MODE, PASSES, COPY_BATCH, SILU_HOIST, SILU, str(mc))
+           MUL_MODE, PASSES, COPY_BATCH, SILU_HOIST, SILU, SILU_EXP, SILU_RECIP,
+           SILU_PREROUND, str(mc))
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w_plain.shape[-1])]),
         ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc)
