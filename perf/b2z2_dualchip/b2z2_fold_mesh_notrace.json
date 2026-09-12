@@ -1,0 +1,108 @@
+{
+ "mode": "mesh",
+ "reps": 5,
+ "card": "2,3",
+ "protocol": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0
+ },
+ "diffusion_trace": false,
+ "benchlocked": true,
+ "loadavg_at_start": [
+  "2.51",
+  "1.97",
+  "1.85"
+ ],
+ "model_load_s": 3.37,
+ "device": "MeshDevice(1x2 grid, 2 devices)",
+ "n_devices": 2,
+ "core_grid_main": "ttnn.CoreGrid(x=11, y=10)",
+ "trace_region_size": 0,
+ "cold_s": 21.145,
+ "reps_done": [
+  {
+   "fold_s": 22.6745,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.1121,
+    "sampler_end": 7.9547,
+    "end": 1.2486,
+    "trunk_s": 12.3591
+   }
+  },
+  {
+   "fold_s": 23.2784,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.1013,
+    "sampler_end": 8.5367,
+    "end": 1.3005,
+    "trunk_s": 12.34
+   }
+  },
+  {
+   "fold_s": 20.8967,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.0206,
+    "sampler_end": 6.1916,
+    "end": 1.3039,
+    "trunk_s": 12.3807
+   }
+  },
+  {
+   "fold_s": 21.0692,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.0247,
+    "sampler_end": 6.3958,
+    "end": 1.2825,
+    "trunk_s": 12.3663
+   }
+  },
+  {
+   "fold_s": 20.8531,
+   "plddt": null,
+   "cif": [
+    "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.0017,
+    "sampler_end": 6.2278,
+    "end": 1.2825,
+    "trunk_s": 12.3412
+   }
+  }
+ ],
+ "summary": {
+  "median_s": 21.0692,
+  "min_s": 20.8531,
+  "max_s": 23.2784,
+  "plddt": [
+   null
+  ],
+  "cif_sha256": [
+   "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+  ],
+  "cif_sha256_16": [
+   "dd1c2a12f97772fb"
+  ],
+  "bit_identical_across_reps": true,
+  "trunk_s_median": 12.3591
+ }
+}

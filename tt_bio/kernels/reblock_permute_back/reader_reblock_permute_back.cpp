@@ -47,6 +47,10 @@ void kernel_main() {
     const uint32_t num_groups = get_arg_val<uint32_t>(1);
     const uint32_t Nt = get_arg_val<uint32_t>(2);
     const uint32_t Ct = get_arg_val<uint32_t>(3);
+    // Tiles in ONE source channel plane. The source is [1, C, D1, N] and its two spatial axes are
+    // separate numbers; Nt*Nt is their product only when the move is square. Passed rather than
+    // derived because D1 is otherwise not a kernel argument here.
+    const uint32_t plane_tiles = get_arg_val<uint32_t>(4);
 
     constexpr uint32_t element_size = get_compile_time_arg_val(0);
     constexpr uint32_t scratch_cb_id = get_compile_time_arg_val(1);  // c_24
@@ -65,7 +69,6 @@ void kernel_main() {
 
     const auto s = TensorAccessor(src_args, src_addr);
 
-    const uint32_t NtNt = Nt * Nt;
     const uint32_t NtCt = Nt * Ct;
     const uint32_t end_group = start_group + num_groups;
 
@@ -103,11 +106,11 @@ void kernel_main() {
 
         // 1) the group's 32 input tiles, as 32 aligned 2 KB DRAM reads into contiguous L1
         {
-            uint32_t page = (ct * TILE_HEIGHT) * NtNt + it * Nt + jt;
+            uint32_t page = (ct * TILE_HEIGHT) * plane_tiles + it * Nt + jt;
             uint32_t dst = group_l1_base;
             for (uint32_t cl = 0; cl < TILE_HEIGHT; ++cl) {
                 noc_async_read_page(page, s, dst);
-                page += NtNt;
+                page += plane_tiles;
                 dst += tile_bytes;
             }
         }

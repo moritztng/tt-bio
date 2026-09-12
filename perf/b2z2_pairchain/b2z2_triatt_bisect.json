@@ -1,0 +1,213 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "mesh": "1x2",
+ "S": 512,
+ "half": 256,
+ "sites": {
+  "row_number": [
+   {
+    "i": 0,
+    "axis": 1,
+    "r0": 0,
+    "r1": 256,
+    "shape": [
+     512,
+     512,
+     128
+    ],
+    "layout": "Layout.TILE",
+    "buffer": "BufferType.DRAM",
+    "dtype": "DataType.BFLOAT16",
+    "mesh": false
+   },
+   {
+    "i": 1,
+    "axis": 2,
+    "r0": 0,
+    "r1": 256,
+    "shape": [
+     1,
+     4,
+     512,
+     512
+    ],
+    "layout": "Layout.TILE",
+    "buffer": "BufferType.DRAM",
+    "dtype": "DataType.BFLOAT16",
+    "mesh": false
+   },
+   {
+    "i": 2,
+    "axis": 2,
+    "r0": 0,
+    "r1": 256,
+    "shape": [
+     512,
+     4,
+     512,
+     32
+    ],
+    "layout": "Layout.TILE",
+    "buffer": "BufferType.DRAM",
+    "dtype": "DataType.BFLOAT16",
+    "mesh": false
+   }
+  ],
+  "mesh": [
+   {
+    "i": 0,
+    "axis": 1,
+    "r0": 0,
+    "r1": 256,
+    "shape": [
+     512,
+     512,
+     128
+    ],
+    "layout": "Layout.TILE",
+    "buffer": "BufferType.DRAM",
+    "dtype": "DataType.BFLOAT16",
+    "mesh": true
+   },
+   {
+    "i": 1,
+    "axis": 2,
+    "r0": 0,
+    "r1": 256,
+    "shape": [
+     1,
+     4,
+     512,
+     512
+    ],
+    "layout": "Layout.TILE",
+    "buffer": "BufferType.DRAM",
+    "dtype": "DataType.BFLOAT16",
+    "mesh": true
+   },
+   {
+    "i": 2,
+    "axis": 2,
+    "r0": 0,
+    "r1": 256,
+    "shape": [
+     512,
+     4,
+     512,
+     32
+    ],
+    "layout": "Layout.TILE",
+    "buffer": "BufferType.DRAM",
+    "dtype": "DataType.BFLOAT16",
+    "mesh": true
+   }
+  ]
+ },
+ "arms": {
+  "row_number_slab": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "mesh_all_sites": {
+   "bit_exact": false,
+   "max_abs_diff": 0.49951171875
+  },
+  "mesh_no_sites": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0
+  },
+  "mesh_site_0": {
+   "bit_exact": false,
+   "max_abs_diff": 0.49951171875,
+   "site": {
+    "i": 0,
+    "axis": 1,
+    "r0": 0,
+    "r1": 256,
+    "shape": [
+     512,
+     512,
+     128
+    ],
+    "layout": "Layout.TILE",
+    "buffer": "BufferType.DRAM",
+    "dtype": "DataType.BFLOAT16",
+    "mesh": true
+   }
+  },
+  "mesh_site_1": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0,
+   "site": {
+    "i": 1,
+    "axis": 2,
+    "r0": 0,
+    "r1": 256,
+    "shape": [
+     1,
+     4,
+     512,
+     512
+    ],
+    "layout": "Layout.TILE",
+    "buffer": "BufferType.DRAM",
+    "dtype": "DataType.BFLOAT16",
+    "mesh": true
+   }
+  },
+  "mesh_site_2": {
+   "bit_exact": true,
+   "max_abs_diff": 0.0,
+   "site": {
+    "i": 2,
+    "axis": 2,
+    "r0": 0,
+    "r1": 256,
+    "shape": [
+     512,
+     4,
+     512,
+     32
+    ],
+    "layout": "Layout.TILE",
+    "buffer": "BufferType.DRAM",
+    "dtype": "DataType.BFLOAT16",
+    "mesh": true
+   }
+  }
+ },
+ "byte_compare": {
+  "site_0": {
+   "shape": [
+    512,
+    512,
+    128
+   ],
+   "axis": 1,
+   "same_bytes": false,
+   "max_abs_diff": 6.234375
+  },
+  "site_1": {
+   "shape": [
+    1,
+    4,
+    512,
+    512
+   ],
+   "axis": 2,
+   "same_bytes": true,
+   "max_abs_diff": 0.0
+  },
+  "site_2": {
+   "shape": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "axis": 2,
+   "same_bytes": true,
+   "max_abs_diff": 0.0
+  }
+ }
+}

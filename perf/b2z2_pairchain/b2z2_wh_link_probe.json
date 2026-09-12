@@ -1,0 +1,31 @@
+{
+  "argv": [
+    "perf/b2z2_dualchip/link_probe.py"
+  ],
+  "visible": "12,13",
+  "stages": {
+    "ttnn_import": {
+      "ok": true,
+      "value": 2,
+      "wall_s": 1.2231888440437615
+    },
+    "cluster_eth_api": {
+      "ok": true,
+      "value": {
+        "cluster": [
+          "ClusterType",
+          "get_cluster_type",
+          "serialize_cluster_descriptor"
+        ],
+        "device": []
+      },
+      "wall_s": 4.306493792682886e-05
+    },
+    "set_fabric_config": {
+      "ok": true,
+      "value": "None",
+      "wall_s": 1.8878025002777576e-05
+    },
+    "open_mesh_1x2": {
+      "ok": true,
+      "value": 
