@@ -1,0 +1,2714 @@
+{
+ "env": {
+  "started": "2026-09-12T10:02:53+0000",
+  "card": "1",
+  "shard": "0/1",
+  "level": "base",
+  "reps": 4,
+  "bursts": 2,
+  "grid": "(x=8,y=9)",
+  "baseline_total_ms": 55839.32
+ },
+ "instances": [
+  {
+   "id": "PairformerLayer#002",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "calls_per_fold": 8448,
+   "baseline_ms_per_fold": 4651.728,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi",
+     "us": 453.33,
+     "ratio": 1.0681,
+     "incumbent_us": 484.22,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 448.55,
+     "ratio": 1.1869,
+     "incumbent_us": 532.4,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3",
+     "us": 454.13,
+     "ratio": 1.1657,
+     "incumbent_us": 529.4,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 286.48,
+     "ratio": 1.6837,
+     "incumbent_us": 482.34,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 287.9,
+     "ratio": 1.6791,
+     "incumbent_us": 483.43,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 620.22,
+     "ratio": 0.7777,
+     "incumbent_us": 482.34,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3,fp32acc=0",
+     "us": 286.47,
+     "ratio": 1.6895,
+     "incumbent_us": 483.98,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 632.3,
+     "ratio": 0.7647,
+     "incumbent_us": 483.54,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 294.71,
+     "ratio": 1.6349,
+     "incumbent_us": 481.81,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 83.22,
+     "ratio": 5.8168,
+     "incumbent_us": 484.08,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 72.54,
+     "ratio": 6.6513,
+     "incumbent_us": 482.49,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 92.91,
+     "ratio": 5.2703,
+     "incumbent_us": 489.66,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 79.56,
+     "ratio": 6.1738,
+     "incumbent_us": 491.2,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 101.37,
+     "ratio": 4.7572,
+     "incumbent_us": 482.24,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 89.45,
+     "ratio": 5.3997,
+     "incumbent_us": 483.01,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 127.33,
+     "ratio": 3.7915,
+     "incumbent_us": 482.77,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 107.19,
+     "ratio": 4.4868,
+     "incumbent_us": 480.94,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 126.55,
+     "ratio": 3.8084,
+     "incumbent_us": 481.97,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 83.79,
+     "ratio": 5.7668,
+     "incumbent_us": 483.22,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 225.54,
+     "ratio": 2.1383,
+     "incumbent_us": 482.27,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 176.81,
+     "ratio": 2.7195,
+     "incumbent_us": 480.84,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    481.65,
+    486.78,
+    578.02,
+    480.78,
+    483.89,
+    482.96,
+    481.72,
+    486.25,
+    480.83,
+    482.79,
+    485.38,
+    479.6,
+    499.72,
+    482.69,
+    481.78,
+    484.23,
+    481.32,
+    480.56,
+    483.39,
+    483.05,
+    481.48,
+    480.2
+   ],
+   "aa_floor": 1.2052,
+   "best": {
+    "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+    "us": 72.54,
+    "ratio": 6.6513,
+    "incumbent_us": 482.49,
+    "max_abs": 0.007812,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "PairformerLayer#001",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "calls_per_fold": 8448,
+   "baseline_ms_per_fold": 3998.891,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi",
+     "us": 453.02,
+     "ratio": 1.12,
+     "incumbent_us": 507.39,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 450.53,
+     "ratio": 1.0716,
+     "incumbent_us": 482.81,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3",
+     "us": 452.7,
+     "ratio": 1.0623,
+     "incumbent_us": 480.89,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 667.89,
+     "ratio": 0.7197,
+     "incumbent_us": 480.69,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 286.49,
+     "ratio": 1.6839,
+     "incumbent_us": 482.43,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 286.84,
+     "ratio": 1.6859,
+     "incumbent_us": 483.57,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3,fp32acc=0",
+     "us": 289.54,
+     "ratio": 1.6631,
+     "incumbent_us": 481.55,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 287.69,
+     "ratio": 1.6723,
+     "incumbent_us": 481.11,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 289.32,
+     "ratio": 1.6731,
+     "incumbent_us": 484.06,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 84.02,
+     "ratio": 5.8625,
+     "incumbent_us": 492.56,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 75.07,
+     "ratio": 7.6362,
+     "incumbent_us": 573.26,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 93.67,
+     "ratio": 6.0518,
+     "incumbent_us": 566.87,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 81.2,
+     "ratio": 5.9771,
+     "incumbent_us": 485.36,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 102.68,
+     "ratio": 4.925,
+     "incumbent_us": 505.7,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 85.39,
+     "ratio": 5.9019,
+     "incumbent_us": 503.96,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 127.21,
+     "ratio": 3.7893,
+     "incumbent_us": 482.02,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 110.88,
+     "ratio": 4.3434,
+     "incumbent_us": 481.58,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 110.59,
+     "ratio": 4.3417,
+     "incumbent_us": 480.17,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 82.23,
+     "ratio": 5.8351,
+     "incumbent_us": 479.85,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 222.7,
+     "ratio": 2.1544,
+     "incumbent_us": 479.79,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 175.71,
+     "ratio": 2.7314,
+     "incumbent_us": 479.93,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    529.9,
+    484.87,
+    480.75,
+    481.02,
+    480.36,
+    484.49,
+    482.65,
+    480.45,
+    481.77,
+    486.34,
+    498.78,
+    647.75,
+    486.0,
+    484.71,
+    526.7,
+    481.23,
+    482.82,
+    480.33,
+    480.0,
+    479.7,
+    479.88,
+    479.98
+   ],
+   "aa_floor": 1.3503,
+   "best": {
+    "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+    "us": 75.07,
+    "ratio": 7.6362,
+    "incumbent_us": 573.26,
+    "max_abs": 0.007812,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "PairformerLayer#007",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x512x512x128",
+    "128x128"
+   ],
+   "calls_per_fold": 1056,
+   "baseline_ms_per_fold": 3362.54,
+   "arms": [
+    {
+     "knob": "fp32acc=0",
+     "us": 3014.72,
+     "ratio": 1.0608,
+     "incumbent_us": 3198.05,
+     "max_abs": 0.5,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 3034.24,
+     "ratio": 1.0541,
+     "incumbent_us": 3198.41,
+     "max_abs": 0.5,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 3025.5,
+     "ratio": 1.0582,
+     "incumbent_us": 3201.7,
+     "max_abs": 0.5,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3,fp32acc=0",
+     "us": 3025.75,
+     "ratio": 1.0571,
+     "incumbent_us": 3198.44,
+     "max_abs": 0.5,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 3035.32,
+     "ratio": 1.0536,
+     "incumbent_us": 3197.95,
+     "max_abs": 0.5,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 3030.31,
+     "ratio": 1.0552,
+     "incumbent_us": 3197.5,
+     "max_abs": 0.5,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    3201.5,
+    3194.6,
+    3202.21,
+    3201.19,
+    3195.69,
+    3200.22,
+    3194.78
+   ],
+   "aa_floor": 1.0024,
+   "best": {
+    "knob": "fp32acc=0",
+    "us": 3014.72,
+    "ratio": 1.0608,
+    "incumbent_us": 3198.05,
+    "max_abs": 0.5,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#000",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x512x768",
+    "768x1536"
+   ],
+   "calls_per_fold": 14400,
+   "baseline_ms_per_fold": 2878.547,
+   "arms": [
+    {
+     "knob": "grid=8x8",
+     "us": 61.15,
+     "ratio": 1.0577,
+     "incumbent_us": 64.68,
+     "max_abs": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 60.06,
+     "ratio": 1.0834,
+     "incumbent_us": 65.07,
+     "max_abs": 0.023438,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    64.09,
+    65.27,
+    64.88
+   ],
+   "aa_floor": 1.0183,
+   "best": {
+    "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+    "us": 60.06,
+    "ratio": 1.0834,
+    "incumbent_us": 65.07,
+    "max_abs": 0.023438,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#017",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x64"
+   ],
+   "calls_per_fold": 4800,
+   "baseline_ms_per_fold": 2387.769,
+   "arms": [
+    {
+     "knob": "fp32acc=0",
+     "us": 169.4,
+     "ratio": 1.2257,
+     "incumbent_us": 207.63,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 165.24,
+     "ratio": 1.2668,
+     "incumbent_us": 209.32,
+     "max_abs": 0.03125,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 166.67,
+     "ratio": 1.2594,
+     "incumbent_us": 209.9,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3,fp32acc=0",
+     "us": 167.7,
+     "ratio": 1.2779,
+     "incumbent_us": 214.31,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 161.02,
+     "ratio": 1.331,
+     "incumbent_us": 214.32,
+     "max_abs": 0.03125,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 164.86,
+     "ratio": 1.2688,
+     "incumbent_us": 209.18,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 146.69,
+     "ratio": 1.4259,
+     "incumbent_us": 209.16,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 139.64,
+     "ratio": 1.4988,
+     "incumbent_us": 209.3,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 141.14,
+     "ratio": 1.4857,
+     "incumbent_us": 209.69,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 134.61,
+     "ratio": 1.556,
+     "incumbent_us": 209.45,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 137.84,
+     "ratio": 1.5232,
+     "incumbent_us": 209.97,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 134.24,
+     "ratio": 1.5706,
+     "incumbent_us": 210.84,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 118.51,
+     "ratio": 1.8037,
+     "incumbent_us": 213.76,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 117.99,
+     "ratio": 1.8046,
+     "incumbent_us": 212.93,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 147.06,
+     "ratio": 1.418,
+     "incumbent_us": 208.52,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 142.33,
+     "ratio": 1.4669,
+     "incumbent_us": 208.79,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 95.95,
+     "ratio": 2.1796,
+     "incumbent_us": 209.14,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 84.26,
+     "ratio": 2.4771,
+     "incumbent_us": 208.72,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    207.3,
+    207.96,
+    210.69,
+    209.11,
+    219.51,
+    209.12,
+    209.23,
+    209.08,
+    209.52,
+    209.85,
+    209.06,
+    210.88,
+    210.8,
+    216.72,
+    209.14,
+    207.91,
+    209.66,
+    208.61,
+    208.82
+   ],
+   "aa_floor": 1.0589,
+   "best": {
+    "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+    "us": 84.26,
+    "ratio": 2.4771,
+    "incumbent_us": 208.72,
+    "max_abs": 0.015625,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "PairformerLayer#004",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x16x512x512",
+    "512x128"
+   ],
+   "calls_per_fold": 8448,
+   "baseline_ms_per_fold": 2320.707,
+   "arms": [
+    {
+     "knob": "fidelity=HiFi3",
+     "us": 277.53,
+     "ratio": 1.0185,
+     "incumbent_us": 282.66,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 270.33,
+     "ratio": 1.0483,
+     "incumbent_us": 283.38,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 260.03,
+     "ratio": 1.0909,
+     "incumbent_us": 283.66,
+     "max_abs": 0.035156,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 261.26,
+     "ratio": 1.084,
+     "incumbent_us": 283.21,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3,fp32acc=0",
+     "us": 264.77,
+     "ratio": 1.0688,
+     "incumbent_us": 283.0,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 265.93,
+     "ratio": 1.0638,
+     "incumbent_us": 282.89,
+     "max_abs": 0.03125,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 262.49,
+     "ratio": 1.0766,
+     "incumbent_us": 282.59,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 102.21,
+     "ratio": 2.7695,
+     "incumbent_us": 283.08,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 96.66,
+     "ratio": 2.9385,
+     "incumbent_us": 284.04,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 105.72,
+     "ratio": 2.6801,
+     "incumbent_us": 283.33,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 101.86,
+     "ratio": 2.7752,
+     "incumbent_us": 282.67,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 111.61,
+     "ratio": 2.5396,
+     "incumbent_us": 283.44,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 104.48,
+     "ratio": 2.7144,
+     "incumbent_us": 283.61,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 126.42,
+     "ratio": 2.2424,
+     "incumbent_us": 283.49,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 117.74,
+     "ratio": 2.4041,
+     "incumbent_us": 283.05,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 116.51,
+     "ratio": 2.4247,
+     "incumbent_us": 282.49,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 100.61,
+     "ratio": 2.8077,
+     "incumbent_us": 282.5,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 180.92,
+     "ratio": 1.5664,
+     "incumbent_us": 283.4,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 167.31,
+     "ratio": 1.7008,
+     "incumbent_us": 284.57,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    282.35,
+    282.98,
+    283.78,
+    283.54,
+    282.89,
+    283.11,
+    282.66,
+    282.53,
+    283.63,
+    284.45,
+    282.21,
+    283.13,
+    283.76,
+    283.46,
+    283.53,
+    282.56,
+    282.41,
+    282.58,
+    284.22,
+    284.92
+   ],
+   "aa_floor": 1.0096,
+   "best": {
+    "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+    "us": 96.66,
+    "ratio": 2.9385,
+    "incumbent_us": 284.04,
+    "max_abs": 0.015625,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#029",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x224x32x128",
+    "128x256"
+   ],
+   "calls_per_fold": 3600,
+   "baseline_ms_per_fold": 1987.671,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 529.5,
+     "ratio": 1.0542,
+     "incumbent_us": 558.2,
+     "max_abs": 0.017578,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 113.61,
+     "ratio": 4.9171,
+     "incumbent_us": 558.63,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 113.57,
+     "ratio": 4.9291,
+     "incumbent_us": 559.8,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 115.12,
+     "ratio": 4.8629,
+     "incumbent_us": 559.82,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 111.26,
+     "ratio": 5.0199,
+     "incumbent_us": 558.53,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 115.0,
+     "ratio": 4.8501,
+     "incumbent_us": 557.78,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 114.72,
+     "ratio": 4.8609,
+     "incumbent_us": 557.64,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 119.19,
+     "ratio": 4.681,
+     "incumbent_us": 557.93,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 116.68,
+     "ratio": 4.7991,
+     "incumbent_us": 559.96,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 107.16,
+     "ratio": 5.2188,
+     "incumbent_us": 559.23,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 107.93,
+     "ratio": 5.1613,
+     "incumbent_us": 557.08,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 136.75,
+     "ratio": 4.0841,
+     "incumbent_us": 558.51,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 125.88,
+     "ratio": 4.4444,
+     "incumbent_us": 559.44,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "outbuf=L1",
+     "us": 171.88,
+     "ratio": 3.2538,
+     "incumbent_us": 559.26,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    558.42,
+    557.98,
+    559.29,
+    560.31,
+    559.33,
+    557.74,
+    557.81,
+    557.48,
+    558.38,
+    561.54,
+    556.93,
+    557.24,
+    559.78,
+    559.11,
+    559.41
+   ],
+   "aa_floor": 1.0083,
+   "best": {
+    "knob": "grid=4x8",
+    "us": 107.16,
+    "ratio": 5.2188,
+    "incumbent_us": 559.23,
+    "max_abs": 0.003906,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#035",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x224x32x128",
+    "128x128",
+    "128"
+   ],
+   "calls_per_fold": 2400,
+   "baseline_ms_per_fold": 1331.867,
+   "arms": [
+    {
+     "knob": "grid=8x8",
+     "us": 79.39,
+     "ratio": 7.0655,
+     "incumbent_us": 560.94,
+     "max_abs": 0.000977,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 79.13,
+     "ratio": 7.1153,
+     "incumbent_us": 563.05,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 81.31,
+     "ratio": 6.9306,
+     "incumbent_us": 563.51,
+     "max_abs": 0.000977,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 76.42,
+     "ratio": 7.3462,
+     "incumbent_us": 561.4,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 81.92,
+     "ratio": 6.863,
+     "incumbent_us": 562.23,
+     "max_abs": 0.000977,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 82.6,
+     "ratio": 6.8174,
+     "incumbent_us": 563.11,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 85.99,
+     "ratio": 6.5588,
+     "incumbent_us": 563.97,
+     "max_abs": 0.000977,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 82.46,
+     "ratio": 6.8657,
+     "incumbent_us": 566.13,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 81.04,
+     "ratio": 6.9593,
+     "incumbent_us": 564.01,
+     "max_abs": 0.000977,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 75.51,
+     "ratio": 7.4187,
+     "incumbent_us": 560.16,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 97.11,
+     "ratio": 5.7756,
+     "incumbent_us": 560.85,
+     "max_abs": 0.000977,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 90.33,
+     "ratio": 6.2328,
+     "incumbent_us": 563.03,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "outbuf=L1",
+     "us": 156.49,
+     "ratio": 3.609,
+     "incumbent_us": 564.76,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    561.17,
+    560.7,
+    565.39,
+    561.62,
+    561.19,
+    563.27,
+    562.96,
+    564.99,
+    567.27,
+    560.76,
+    559.56,
+    562.14,
+    563.92,
+    565.61
+   ],
+   "aa_floor": 1.0138,
+   "best": {
+    "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+    "us": 75.51,
+    "ratio": 7.4187,
+    "incumbent_us": 560.16,
+    "max_abs": 0.005859,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#036",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x224x32x128",
+    "128x128"
+   ],
+   "calls_per_fold": 2400,
+   "baseline_ms_per_fold": 1317.294,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi",
+     "us": 533.8,
+     "ratio": 1.0462,
+     "incumbent_us": 558.45,
+     "max_abs": 0.017578,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 525.37,
+     "ratio": 1.0718,
+     "incumbent_us": 563.11,
+     "max_abs": 0.017578,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 533.47,
+     "ratio": 1.0608,
+     "incumbent_us": 565.9,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3,fp32acc=0",
+     "us": 539.35,
+     "ratio": 1.0494,
+     "incumbent_us": 566.02,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 518.23,
+     "ratio": 1.0862,
+     "incumbent_us": 562.89,
+     "max_abs": 0.017578,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 531.15,
+     "ratio": 1.0589,
+     "incumbent_us": 562.46,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 79.53,
+     "ratio": 7.0755,
+     "incumbent_us": 562.74,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 75.66,
+     "ratio": 7.4,
+     "incumbent_us": 559.89,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 76.11,
+     "ratio": 7.3229,
+     "incumbent_us": 557.34,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 73.78,
+     "ratio": 7.5168,
+     "incumbent_us": 554.55,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 77.73,
+     "ratio": 7.1432,
+     "incumbent_us": 555.23,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 77.22,
+     "ratio": 7.1873,
+     "incumbent_us": 554.98,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 78.46,
+     "ratio": 7.0623,
+     "incumbent_us": 554.11,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 76.13,
+     "ratio": 7.2799,
+     "incumbent_us": 554.21,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 74.29,
+     "ratio": 7.4729,
+     "incumbent_us": 555.12,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 72.35,
+     "ratio": 7.6817,
+     "incumbent_us": 555.81,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 83.98,
+     "ratio": 6.6223,
+     "incumbent_us": 556.12,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 83.12,
+     "ratio": 6.6924,
+     "incumbent_us": 556.29,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "outbuf=L1",
+     "us": 121.59,
+     "ratio": 4.5727,
+     "incumbent_us": 556.01,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    557.35,
+    559.54,
+    566.68,
+    565.11,
+    566.92,
+    558.86,
+    566.06,
+    559.42,
+    560.37,
+    554.31,
+    554.8,
+    555.65,
+    554.31,
+    553.91,
+    554.52,
+    555.73,
+    555.89,
+    556.36,
+    556.23,
+    555.79
+   ],
+   "aa_floor": 1.0235,
+   "best": {
+    "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+    "us": 72.35,
+    "ratio": 7.6817,
+    "incumbent_us": 555.81,
+    "max_abs": 0.005859,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#043",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x224x128x128",
+    "128x256"
+   ],
+   "calls_per_fold": 1200,
+   "baseline_ms_per_fold": 1258.41,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 826.27,
+     "ratio": 1.061,
+     "incumbent_us": 876.68,
+     "max_abs": 0.017578,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 401.73,
+     "ratio": 2.185,
+     "incumbent_us": 877.78,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 395.91,
+     "ratio": 2.2171,
+     "incumbent_us": 877.76,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 408.49,
+     "ratio": 2.1454,
+     "incumbent_us": 876.36,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 403.81,
+     "ratio": 2.1681,
+     "incumbent_us": 875.48,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 410.54,
+     "ratio": 2.1335,
+     "incumbent_us": 875.88,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 407.67,
+     "ratio": 2.1505,
+     "incumbent_us": 876.7,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 411.22,
+     "ratio": 2.1338,
+     "incumbent_us": 877.46,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 419.82,
+     "ratio": 2.0887,
+     "incumbent_us": 876.88,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 380.15,
+     "ratio": 2.309,
+     "incumbent_us": 877.75,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 392.56,
+     "ratio": 2.2375,
+     "incumbent_us": 878.37,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 502.0,
+     "ratio": 1.7462,
+     "incumbent_us": 876.59,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 440.53,
+     "ratio": 1.989,
+     "incumbent_us": 876.19,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "outbuf=L1",
+     "us": 637.96,
+     "ratio": 1.3746,
+     "incumbent_us": 876.93,
+     "max_abs": 0.007812,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    876.08,
+    877.27,
+    878.28,
+    877.24,
+    875.48,
+    875.47,
+    876.28,
+    877.12,
+    877.81,
+    875.95,
+    879.55,
+    877.19,
+    875.99,
+    876.39,
+    877.47
+   ],
+   "aa_floor": 1.0047,
+   "best": {
+    "knob": "grid=4x8",
+    "us": 380.15,
+    "ratio": 2.309,
+    "incumbent_us": 877.75,
+    "max_abs": 0.0,
+    "bit_exact": true
+   }
+  },
+  {
+   "id": "PairformerLayer#017",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "shapes": [
+    "1x128x512x512",
+    "1x128x512x512"
+   ],
+   "calls_per_fold": 528,
+   "baseline_ms_per_fold": 1233.1,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi",
+     "us": 2200.75,
+     "ratio": 1.0671,
+     "incumbent_us": 2348.4,
+     "max_abs": 0.999023,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 2214.17,
+     "ratio": 1.0604,
+     "incumbent_us": 2347.94,
+     "max_abs": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 2206.43,
+     "ratio": 1.0634,
+     "incumbent_us": 2346.23,
+     "max_abs": 1.00293,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 2111.28,
+     "ratio": 1.1123,
+     "incumbent_us": 2348.3,
+     "max_abs": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 2139.63,
+     "ratio": 1.0965,
+     "incumbent_us": 2346.18,
+     "max_abs": 1.00293,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3,fp32acc=0",
+     "us": 2168.27,
+     "ratio": 1.0822,
+     "incumbent_us": 2346.49,
+     "max_abs": 1.00293,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 2043.02,
+     "ratio": 1.1499,
+     "incumbent_us": 2349.24,
+     "max_abs": 0.999023,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 2144.91,
+     "ratio": 1.0955,
+     "incumbent_us": 2349.81,
+     "max_abs": 1.00293,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 1343.35,
+     "ratio": 1.7494,
+     "incumbent_us": 2350.04,
+     "max_abs": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 1443.92,
+     "ratio": 1.6273,
+     "incumbent_us": 2349.72,
+     "max_abs": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 1442.66,
+     "ratio": 1.629,
+     "incumbent_us": 2350.07,
+     "max_abs": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 1599.91,
+     "ratio": 1.4689,
+     "incumbent_us": 2350.15,
+     "max_abs": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 1590.89,
+     "ratio": 1.4771,
+     "incumbent_us": 2349.83,
+     "max_abs": 1.0,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    2346.05,
+    2350.75,
+    2345.12,
+    2347.34,
+    2349.25,
+    2343.12,
+    2349.87,
+    2348.6,
+    2351.01,
+    2349.06,
+    2350.37,
+    2349.77,
+    2350.53,
+    2349.13
+   ],
+   "aa_floor": 1.0034,
+   "best": {
+    "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+    "us": 1343.35,
+    "ratio": 1.7494,
+    "incumbent_us": 2350.04,
+    "max_abs": 1.0,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#016",
+   "unit": "DiffusionStep",
+   "kind": "softmax",
+   "api": "ttnn.softmax",
+   "shapes": [
+    "1x16x512x512"
+   ],
+   "calls_per_fold": 4800,
+   "baseline_ms_per_fold": 1088.861,
+   "arms": [
+    {
+     "knob": "fp32acc=0",
+     "us": 134.52,
+     "ratio": 1.7412,
+     "incumbent_us": 234.22,
+     "max_abs": 9.2e-05,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 128.12,
+     "ratio": 1.8256,
+     "incumbent_us": 233.9,
+     "max_abs": 0.000122,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 130.04,
+     "ratio": 1.8034,
+     "incumbent_us": 234.52,
+     "max_abs": 9.2e-05,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3,fp32acc=0",
+     "us": 132.3,
+     "ratio": 1.7691,
+     "incumbent_us": 234.05,
+     "max_abs": 9.2e-05,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 130.93,
+     "ratio": 1.7823,
+     "incumbent_us": 233.35,
+     "max_abs": 0.000122,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 132.37,
+     "ratio": 1.7663,
+     "incumbent_us": 233.8,
+     "max_abs": 9.2e-05,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    234.19,
+    234.24,
+    233.56,
+    235.47,
+    232.62,
+    234.08,
+    233.52
+   ],
+   "aa_floor": 1.0123,
+   "best": {
+    "knob": "fidelity=LoFi,fp32acc=0",
+    "us": 128.12,
+    "ratio": 1.8256,
+    "incumbent_us": 233.9,
+    "max_abs": 0.000122,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "MSALayer#015",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "shapes": [
+    "1024x32x512",
+    "1x512x512"
+   ],
+   "calls_per_fold": 128,
+   "baseline_ms_per_fold": 1052.608,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 7834.06,
+     "ratio": 1.0507,
+     "incumbent_us": 8231.5,
+     "max_abs": 1.00293,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 1157.04,
+     "ratio": 7.1108,
+     "incumbent_us": 8227.51,
+     "max_abs": 0.996094,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 1127.17,
+     "ratio": 7.2997,
+     "incumbent_us": 8228.03,
+     "max_abs": 0.999023,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 1632.82,
+     "ratio": 5.0404,
+     "incumbent_us": 8230.06,
+     "max_abs": 0.996094,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 1600.88,
+     "ratio": 5.1387,
+     "incumbent_us": 8226.49,
+     "max_abs": 0.999023,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 1632.38,
+     "ratio": 5.0387,
+     "incumbent_us": 8225.02,
+     "max_abs": 0.996094,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 1599.55,
+     "ratio": 5.1424,
+     "incumbent_us": 8225.56,
+     "max_abs": 0.999023,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 1608.17,
+     "ratio": 5.1169,
+     "incumbent_us": 8228.88,
+     "max_abs": 0.996094,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 1276.45,
+     "ratio": 6.452,
+     "incumbent_us": 8235.69,
+     "max_abs": 0.999023,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 1544.34,
+     "ratio": 5.3312,
+     "incumbent_us": 8233.14,
+     "max_abs": 0.996094,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 1125.53,
+     "ratio": 7.3092,
+     "incumbent_us": 8226.67,
+     "max_abs": 0.999023,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 2535.24,
+     "ratio": 3.2448,
+     "incumbent_us": 8226.4,
+     "max_abs": 0.996094,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 1609.94,
+     "ratio": 5.1104,
+     "incumbent_us": 8227.49,
+     "max_abs": 0.999023,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    8233.73,
+    8229.27,
+    8225.75,
+    8230.31,
+    8229.81,
+    8223.17,
+    8226.87,
+    8224.26,
+    8233.5,
+    8237.87,
+    8228.42,
+    8224.91,
+    8227.89,
+    8227.09
+   ],
+   "aa_floor": 1.0018,
+   "best": {
+    "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+    "us": 1125.53,
+    "ratio": 7.3092,
+    "incumbent_us": 8226.67,
+    "max_abs": 0.999023,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "PairformerLayer#005",
+   "unit": "PairformerLayer",
+   "kind": "layernorm",
+   "api": "ttnn.layer_norm",
+   "shapes": [
+    "1x512x512x128",
+    "128",
+    "128"
+   ],
+   "calls_per_fold": 1056,
+   "baseline_ms_per_fold": 988.474,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi",
+     "us": 880.71,
+     "ratio": 1.0692,
+     "incumbent_us": 941.68,
+     "max_abs": 0.070312,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 742.14,
+     "ratio": 1.27,
+     "incumbent_us": 942.54,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 750.31,
+     "ratio": 1.2582,
+     "incumbent_us": 944.05,
+     "max_abs": 0.058594,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 742.86,
+     "ratio": 1.2755,
+     "incumbent_us": 947.51,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi3,fp32acc=0",
+     "us": 765.63,
+     "ratio": 1.2377,
+     "incumbent_us": 947.64,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 745.49,
+     "ratio": 1.2688,
+     "incumbent_us": 945.86,
+     "max_abs": 0.058594,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 755.67,
+     "ratio": 1.2508,
+     "incumbent_us": 945.19,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    940.66,
+    942.7,
+    942.38,
+    945.73,
+    949.29,
+    946.0,
+    945.73,
+    944.66
+   ],
+   "aa_floor": 1.0092,
+   "best": {
+    "knob": "fidelity=HiFi2,fp32acc=0",
+    "us": 742.86,
+    "ratio": 1.2755,
+    "incumbent_us": 947.51,
+    "max_abs": 0.015625,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#053",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1x224x32x256",
+    "256x128"
+   ],
+   "calls_per_fold": 1200,
+   "baseline_ms_per_fold": 985.002,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 785.19,
+     "ratio": 1.0529,
+     "incumbent_us": 826.74,
+     "max_abs": 0.023438,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 761.55,
+     "ratio": 1.086,
+     "incumbent_us": 827.01,
+     "max_abs": 0.023438,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0,dstfull=1",
+     "us": 785.08,
+     "ratio": 1.0543,
+     "incumbent_us": 827.7,
+     "max_abs": 0.011719,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 102.03,
+     "ratio": 8.1101,
+     "incumbent_us": 827.45,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 100.07,
+     "ratio": 8.2559,
+     "incumbent_us": 826.16,
+     "max_abs": 0.011719,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 101.03,
+     "ratio": 8.1704,
+     "incumbent_us": 825.49,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 99.59,
+     "ratio": 8.2992,
+     "incumbent_us": 826.55,
+     "max_abs": 0.011719,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 104.4,
+     "ratio": 7.9185,
+     "incumbent_us": 826.69,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 103.55,
+     "ratio": 7.9712,
+     "incumbent_us": 825.45,
+     "max_abs": 0.011719,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 112.35,
+     "ratio": 7.3611,
+     "incumbent_us": 827.03,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 107.56,
+     "ratio": 7.6928,
+     "incumbent_us": 827.42,
+     "max_abs": 0.011719,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 96.4,
+     "ratio": 8.5696,
+     "incumbent_us": 826.14,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 95.19,
+     "ratio": 8.6854,
+     "incumbent_us": 826.77,
+     "max_abs": 0.011719,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 121.26,
+     "ratio": 6.8181,
+     "incumbent_us": 826.73,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 121.19,
+     "ratio": 6.819,
+     "incumbent_us": 826.38,
+     "max_abs": 0.011719,
+     "bit_exact": false
+    },
+    {
+     "knob": "outbuf=L1",
+     "us": 213.81,
+     "ratio": 3.8736,
+     "incumbent_us": 828.2,
+     "max_abs": 0.013672,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    826.42,
+    827.06,
+    826.97,
+    828.42,
+    826.48,
+    825.83,
+    825.15,
+    827.96,
+    825.41,
+    825.49,
+    828.57,
+    826.28,
+    826.01,
+    827.54,
+    825.93,
+    826.82,
+    829.59
+   ],
+   "aa_floor": 1.0054,
+   "best": {
+    "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+    "us": 95.19,
+    "ratio": 8.6854,
+    "incumbent_us": 826.77,
+    "max_abs": 0.011719,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "PairformerLayer#019",
+   "unit": "PairformerLayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "512x512x128",
+    "128x4"
+   ],
+   "calls_per_fold": 528,
+   "baseline_ms_per_fold": 855.372,
+   "arms": [
+    {
+     "knob": "grid=8x8",
+     "us": 1220.15,
+     "ratio": 1.3378,
+     "incumbent_us": 1632.33,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 1210.54,
+     "ratio": 1.346,
+     "incumbent_us": 1629.35,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 1084.22,
+     "ratio": 1.5066,
+     "incumbent_us": 1633.52,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 1266.58,
+     "ratio": 1.2901,
+     "incumbent_us": 1634.0,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 1128.99,
+     "ratio": 1.4442,
+     "incumbent_us": 1630.54,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 1253.58,
+     "ratio": 1.3014,
+     "incumbent_us": 1631.45,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 1266.04,
+     "ratio": 1.2885,
+     "incumbent_us": 1631.29,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 1289.54,
+     "ratio": 1.2644,
+     "incumbent_us": 1630.54,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 1100.58,
+     "ratio": 1.4808,
+     "incumbent_us": 1629.69,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 1096.56,
+     "ratio": 1.486,
+     "incumbent_us": 1629.48,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 1466.5,
+     "ratio": 1.1109,
+     "incumbent_us": 1629.1,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 1456.93,
+     "ratio": 1.119,
+     "incumbent_us": 1630.38,
+     "max_abs": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "outbuf=L1",
+     "us": 1447.16,
+     "ratio": 1.127,
+     "incumbent_us": 1630.99,
+     "max_abs": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us_runs": [
+    1634.79,
+    1629.86,
+    1628.84,
+    1638.2,
+    1629.8,
+    1631.28,
+    1631.62,
+    1630.95,
+    1630.14,
+    1629.24,
+    1629.71,
+    1628.49,
+    1632.27,
+    1629.7
+   ],
+   "aa_floor": 1.006,
+   "best": {
+    "knob": "grid=8x7",
+    "us": 1084.22,
+    "ratio": 1.5066,
+    "incumbent_us": 1633.52,
+    "max_abs": 0.001953,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#013",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "shapes": [
+    "1x16x512x64",
+    "1x16x64x512"
+   ],
+   "calls_per_fold": 4800,
+   "baseline_ms_per_fold": 719.023,
+   "arms": [
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 146.15,
+     "ratio": 1.0714,
+     "incumbent_us": 156.59,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 149.09,
+     "ratio": 1.0671,
+     "incumbent_us": 159.1,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 115.99,
+     "ratio": 2.3091,
+     "incumbent_us": 267.84,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 94.39,
+     "ratio": 2.8225,
+     "incumbent_us": 266.41,
+     "max_abs": 0.003906,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us_runs": [
+    155.65,
+    157.53,
+    160.68,
+    374.99,
+    157.83
+   ],
+   "aa_floor": 2.4092,
+   "best": {
+    "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+    "us": 94.39,
+    "ratio": 2.8225,
+    "incumbent_us": 266.41,
+    "max_abs": 0.003906,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "DiffusionStep#040",
+   "unit": "DiffusionStep",
+   "kind": "matmul",
+   "api": "ttnn.matmul",
+   "shapes": [
+    "1x16x128x448",
+    "448x1792"
+   ],
+   "calls_per_fold": 1200,
+   "baseline_ms_per_fold": 715.581,
+   "arms": [
+    {
+     "knob": "fidelity=LoFi,fp32acc=0,packerl1=0",
+     "us": 363.12,
+     "ratio": 1.0597,
+     "incumbent_us": 384.79,
+     "max_abs": 0.023438,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 182.54,
+     "ratio": 2.1081,
+     "incumbent_us": 384.81,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 168.87,
+     "ratio": 2.2784,
+     "incumbent_us": 384.77,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 200.45,
+     "ratio": 1.9597,
+     "incumbent_us": 392.82,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 155.75,
+     "ratio": 2.5208,
+     "incumbent_us": 392.63,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 188.52,
+     "ratio": 2.0389,
+     "incumbent_us": 384.37,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 151.65,
+     "ratio": 2.5374,
+     "incumbent_us": 384.81,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 261.83,
+     "ratio": 1.4702,
+     "incumbent_us": 384.94,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 235.46,
+     "ratio": 1.6367,
+     "incumbent_us": 385.37,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 229.47,
+     "ratio": 1.6787,
+     "incumbent_us": 385.21,
+     "max_abs": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 188.4,
+     "ratio": 2.0437,
+     "incumbent_us": 385.04,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 343.09,
+     "ratio": 1.1234,
+     "incumbent_us": 385.42,
+     "max_abs": 0.015625,
+     "bit_exact": false
+    },
+    {
+     "knob": "outbuf=L1",
+     "us": 276.39,
+     "ratio": 1.3921,
+     "incumbent_us": 384.76,
+     "max_abs": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us_runs": [
+    384.88,
+    384.7,
+    384.93,
+    384.61,
+    401.03,
+    384.23,
+    384.51,
+    385.11,
+    384.77,
+    385.96,
+    384.47,
+    385.62,
+    385.22,
+    384.31
+   ],
+   "aa_floor": 1.0437,
+   "best": {
+    "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+    "us": 151.65,
+    "ratio": 2.5374,
+    "incumbent_us": 384.81,
+    "max_abs": 0.015625,
+    "bit_exact": false
+   }
+  },
+  {
+   "id": "MSALayer#010",
+   "unit": "MSALayer",
+   "kind": "matmul",
+   "api": "ttnn.linear",
+   "shapes": [
+    "1024x512x64",
+    "64x32"
+   ],
+   "calls_per_fold": 288,
+   "baseline_ms_per_fold": 654.292,
+   "arms": [
+    {
+     "knob": "grid=8x8",
+     "us": 1321.81,
+     "ratio": 1.6821,
+     "incumbent_us": 2223.46,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8,fidelity=HiFi2,fp32acc=0",
+     "us": 1308.26,
+     "ratio": 1.7015,
+     "incumbent_us": 2226.06,
+     "max_abs": 0.004883,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7",
+     "us": 1471.41,
+     "ratio": 1.513,
+     "incumbent_us": 2226.31,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x7,fidelity=HiFi2,fp32acc=0",
+     "us": 1439.35,
+     "ratio": 1.546,
+     "incumbent_us": 2225.19,
+     "max_abs": 0.004883,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7",
+     "us": 1229.23,
+     "ratio": 1.8144,
+     "incumbent_us": 2230.36,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=7x7,fidelity=HiFi2,fp32acc=0",
+     "us": 1213.64,
+     "ratio": 1.839,
+     "incumbent_us": 2231.92,
+     "max_abs": 0.004883,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 1413.76,
+     "ratio": 1.577,
+     "incumbent_us": 2229.48,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4,fidelity=HiFi2,fp32acc=0",
+     "us": 1414.25,
+     "ratio": 1.5755,
+     "incumbent_us": 2228.13,
+     "max_abs": 0.004883,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8",
+     "us": 1155.73,
+     "ratio": 1.9256,
+     "incumbent_us": 2225.44,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+     "us": 1130.96,
+     "ratio": 1.9671,
+     "incumbent_us": 2224.68,
+     "max_abs": 0.004883,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2",
+     "us": 1635.41,
+     "ratio": 1.3596,
+     "incumbent_us": 2223.57,
+     "max_abs": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x2,fidelity=HiFi2,fp32acc=0",
+     "us": 1571.7,
+     "ratio": 1.4158,
+     "incumbent_us": 2225.24,
+     "max_abs": 0.004883,
+     "bit_exact": false
+    },
+    {
+     "knob": "outbuf=L1",
+     "us": 1878.9,
+     "ratio": 1.1839,
+     "incumbent_us": 2224.47,
+     "max_abs": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us_runs": [
+    2222.46,
+    2224.47,
+    2227.64,
+    2224.97,
+    2225.41,
+    2235.31,
+    2228.52,
+    2230.44,
+    2225.82,
+    2225.07,
+    2224.29,
+    2222.85,
+    2227.63,
+    2221.3
+   ],
+   "aa_floor": 1.0063,
+   "best": {
+    "knob": "grid=4x8,fidelity=HiFi2,fp32acc=0",
+    "us": 1130.96,
+    "ratio": 1.9671,
+    "incumbent_us": 2224.68,
+    "max_abs": 0.004883,
+    "bit_exact": false
+   }
+  }
+ ]
+}
