@@ -83,3 +83,47 @@ writes costs more than the N-hop chain it replaced, which would be a measurement
 of the chain. Bit-exactness is `torch.equal` with the same negative control.
 
 (Written while the correctness smoke test was on the card; no block A/B number existed yet.)
+
+---
+
+## MEASURED — 2026-09-12, whglx card 16, WH 8x9. Both predictions falsified, in the same direction.
+
+**On one settled Pairformer block at 512 aa: the multicast is 0.93837x, i.e. 6.6 % SLOWER than the
+daisy chain.** `perf/b2z2_mcast/block_mcast_whglx_c16.json`. chain 85.692 ms, mcast 91.3202 ms,
+7 mirrored A B B A reps spanning 0.93806-0.93937 (0.14 %), A/A floors 0.99971 and 1.00118, all 4
+generic matmul program shapes in the block on the arm. Predicted 1.02x-1.10x; falsifier 3 fired.
+
+**Parity holds and the check reads something.** `torch.equal` on both outputs, `max_abs_diff` 0.0
+and 0.0. The negative control (one element of the 1x512x512x128 pair track moved) correctly breaks
+the comparison, and the round-trip-only control correctly does not, so the control is not detecting
+the torch round trip.
+
+**The fan-out arm is 0.69918x, 1.43x slower, also bit-exact.**
+
+**What the two arms together say. The chain is not paying for hops. It is buying skew tolerance.**
+
+| where | what the axis looks like | chain vs multicast |
+|---|---|---|
+| one matmul, back to back, nothing else on the grid | every core arrives together | **1.01845x for the multicast** |
+| inside a Pairformer block | cores arrive skewed by the ops in front of the matmul | **0.93837x, the chain wins** |
+
+A multicast cannot send until the LAST receiver has posted its credit, so it is a barrier across the
+grid axis. The chain never waits for the axis: core i sends as soon as core i-1 asks, so it is a
+pipeline, and a pipeline absorbs per-core skew that a barrier converts into stall. The isolated
+matmul removes the skew and the multicast wins there, which is the control that makes the mechanism
+a measurement rather than a story. The fan-out arm says the same thing from the other side: it
+deletes the chain and concentrates all N transaction issues on the injector's one RISC, and loses
+by more.
+
+**The Blackhole prediction inverts, and it is still the same model.** It was
+`1 + 1.235 x (R - 1)` from the hop count, 10-11 hops on the cell against 8-9 on whglx. With
+R = 0.93837 that now predicts **0.9239x on the cell** — a deeper chain is a deeper pipeline, so the
+multicast should lose by MORE on Blackhole, not win there. The sign is what is being predicted; a
+cell measurement at or above 1.0 would refute the skew reading.
+
+**The one thing that could rescue it**, unbuilt and unpriced: the barrier only bites because a
+receiver can run at most one block ahead (the in0/in1 circular buffers are two blocks deep). A
+deeper credit window would let early cores post credits for later blocks and let the injector send
+without waiting on the laggard. That is a different lever from `b2z2-cb-depth-prefetch`'s, which
+swept the K ring where `K_num_blocks == 1` left nothing to prefetch; this is the M/N block loop,
+which does iterate.
