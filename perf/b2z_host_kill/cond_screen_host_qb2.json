@@ -1,0 +1,49 @@
+{
+ "env": {
+  "started": "2026-09-12T09:58:13+0000",
+  "host": "tt-quietbox2",
+  "torch": "2.8.0+cpu",
+  "threads": 8,
+  "cpus": 16,
+  "card": null,
+  "commit": "27b57d71",
+  "loadavg": [
+   "0.30",
+   "0.89",
+   "1.18"
+  ],
+  "tokens": 512,
+  "reps": 5,
+  "ckpt": "/home/ttuser/.boltz/boltz2_conf.ckpt",
+  "ckpt_load_s": 0.53
+ },
+ "shape": {
+  "token_z": 128,
+  "transitions": 2,
+  "bias_layers": 24,
+  "bias_heads": 16,
+  "transition_hidden": 256,
+  "n": 512
+ },
+ "host_s": {
+  "pairwise_conditioner": 0.57212,
+  "token_trans_bias": 0.21938,
+  "both": 0.7915
+ },
+ "host_reps": {
+  "pairwise_conditioner": [
+   0.54991,
+   0.57212,
+   0.58222,
+   0.5906,
+   0.56806
+  ],
+  "token_trans_bias": [
+   0.21949,
+   0.21812,
+   0.21938,
+   0.21759,
+   0.21986
+  ]
+ }
+}

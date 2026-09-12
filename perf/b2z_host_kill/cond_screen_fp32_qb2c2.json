@@ -1,0 +1,141 @@
+{
+ "env": {
+  "started": "2026-09-12T10:04:22+0000",
+  "host": "tt-quietbox2",
+  "torch": "2.8.0+cpu",
+  "threads": 8,
+  "cpus": 16,
+  "card": "2",
+  "commit": "27b57d71",
+  "loadavg": [
+   "1.98",
+   "2.23",
+   "1.78"
+  ],
+  "tokens": 512,
+  "reps": 5,
+  "ckpt": "/home/ttuser/.boltz/boltz2_conf.ckpt",
+  "ckpt_load_s": 0.53,
+  "grid": "(x=11,y=10)",
+  "arch": "blackhole",
+  "device_dtype": "fp32"
+ },
+ "shape": {
+  "token_z": 128,
+  "transitions": 2,
+  "bias_layers": 24,
+  "bias_heads": 16,
+  "transition_hidden": 256,
+  "n": 512
+ },
+ "host_s": {
+  "pairwise_conditioner": 0.55698,
+  "token_trans_bias": 0.21234,
+  "both": 0.76932,
+  "token_trans_bias_fused": 0.07423
+ },
+ "host_reps": {
+  "pairwise_conditioner": [
+   0.54061,
+   0.54737,
+   0.55698,
+   0.55929,
+   0.56268
+  ],
+  "token_trans_bias": [
+   0.21288,
+   0.21234,
+   0.21232,
+   0.2121,
+   0.21261
+  ],
+  "token_trans_bias_fused": [
+   0.07423,
+   0.07236,
+   0.07477,
+   0.075,
+   0.07138
+  ]
+ },
+ "numerics_host_fused": {
+  "max_abs": 2.1e-05,
+  "mean_abs": 3.2e-07,
+  "rel_mean": 2e-07,
+  "ref_mean_abs": 1.455169
+ },
+ "device_s": {
+  "pairwise_conditioner": 0.02541,
+  "token_trans_bias": 0.08193,
+  "both": 0.10733,
+  "upload_z": 0.04789,
+  "token_trans_bias_fused": 0.00375,
+  "download_bias": 0.22926
+ },
+ "device_reps": {
+  "pairwise_conditioner": [
+   0.02541,
+   0.02538,
+   0.02547,
+   0.02544,
+   0.02533
+  ],
+  "token_trans_bias": [
+   0.08192,
+   0.08197,
+   0.08198,
+   0.08193,
+   0.08174
+  ],
+  "token_trans_bias_fused": [
+   0.00373,
+   0.00377,
+   0.00375,
+   0.00373,
+   0.00375
+  ],
+  "upload_z": [
+   0.04783,
+   0.04813,
+   0.04784,
+   0.0482,
+   0.04789
+  ],
+  "download_bias": [
+   0.22949,
+   0.22923,
+   0.22917,
+   0.22961,
+   0.22926
+  ]
+ },
+ "numerics": {
+  "token_trans_bias_fused_dev": {
+   "max_abs": 0.258409,
+   "mean_abs": 0.00322548,
+   "rel_mean": 0.0022166,
+   "ref_mean_abs": 1.455169
+  },
+  "z": {
+   "max_abs": 0.483139,
+   "mean_abs": 0.01416744,
+   "rel_mean": 0.0041511,
+   "ref_mean_abs": 3.412895
+  },
+  "token_trans_bias": {
+   "max_abs": 0.256613,
+   "mean_abs": 0.00413826,
+   "rel_mean": 0.0028438,
+   "ref_mean_abs": 1.455169
+  }
+ },
+ "verdict": {
+  "host_s": 0.7693,
+  "isolated_device_plus_xfer_s": 0.3845,
+  "isolated_saved_s": 0.3848,
+  "isolated_fold_ratio": 1.0164,
+  "resident_device_s": 0.0292,
+  "resident_saved_s": 0.7402,
+  "resident_fold_ratio": 1.032,
+  "note": "isolated adds an upload and a download that the INTEGRATED port does not pay: z_trunk is already on the device when the trunk ends (today's code downloads it) and bias_token is re-uploaded by the tt diffusion module (today's code downloads it and uploads it again). resident_* is the integrated price."
+ }
+}
