@@ -1,0 +1,294 @@
+{
+ "atom_layer_starts": [
+  9,
+  61,
+  113,
+  1435,
+  1487,
+  1539
+ ],
+ "n_atom_layers": 6,
+ "layers": [
+  {
+   "label": "encoder[0]",
+   "i0": 9,
+   "i1": 61,
+   "us": 2021.073,
+   "programs": 36
+  },
+  {
+   "label": "encoder[1]",
+   "i0": 61,
+   "i1": 113,
+   "us": 2012.504,
+   "programs": 36
+  },
+  {
+   "label": "encoder[2]",
+   "i0": 113,
+   "i1": 165,
+   "us": 2290.012,
+   "programs": 34
+  },
+  {
+   "label": "decoder[0]",
+   "i0": 1435,
+   "i1": 1487,
+   "us": 2008.408,
+   "programs": 36
+  },
+  {
+   "label": "decoder[1]",
+   "i0": 1487,
+   "i1": 1539,
+   "us": 2015.515,
+   "programs": 36
+  },
+  {
+   "label": "decoder[2]",
+   "i0": 1539,
+   "i1": 1590,
+   "us": 1992.605,
+   "programs": 33
+  }
+ ],
+ "atom_encoder_us": 6323.589,
+ "atom_path_us": 12340.117,
+ "token_block": {
+  "i0": 165,
+  "i1": 1435,
+  "us": 27892.502
+ },
+ "step_us": 40366.315,
+ "atom_layer_detail": [
+  {
+   "i": 1,
+   "ttnn": "ttnn.reshape",
+   "code": "ReshapeView",
+   "us": 66.38
+  },
+  {
+   "i": 2,
+   "ttnn": "ttnn.permute",
+   "code": "Permute",
+   "us": 67.106
+  },
+  {
+   "i": 3,
+   "ttnn": "ttnn.matmul",
+   "code": "Matmul",
+   "us": 96.655
+  },
+  {
+   "i": 4,
+   "ttnn": "ttnn.permute",
+   "code": "Permute",
+   "us": 199.333
+  },
+  {
+   "i": 5,
+   "ttnn": "ttnn.reshape",
+   "code": "ReshapeView",
+   "us": 206.658
+  },
+  {
+   "i": 6,
+   "ttnn": "ttnn.linear",
+   "code": "Matmul",
+   "us": 41.93
+  },
+  {
+   "i": 7,
+   "ttnn": "ttnn.linear",
+   "code": "Matmul",
+   "us": 251.157
+  },
+  {
+   "i": 8,
+   "ttnn": "ttnn.pad",
+   "code": "Pad",
+   "us": 68.731
+  },
+  {
+   "i": 11,
+   "ttnn": "ttnn.experimental.nlp_create_qkv_heads",
+   "code": "NlpCreateHeads",
+   "us": 158.399
+  },
+  {
+   "i": 15,
+   "ttnn": "ttnn.Tensor.__getitem__",
+   "code": "Slice",
+   "us": 23.609
+  },
+  {
+   "i": 17,
+   "ttnn": "ttnn.transformer.scaled_dot_product_attention",
+   "code": "SDPA",
+   "us": 84.953
+  },
+  {
+   "i": 19,
+   "ttnn": "ttnn.experimental.nlp_concat_heads",
+   "code": "NLPConcatHeads",
+   "us": 14.273
+  },
+  {
+   "i": 22,
+   "ttnn": "ttnn.linear",
+   "code": "Matmul",
+   "us": 40.422
+  },
+  {
+   "i": 23,
+   "ttnn": "ttnn.multiply",
+   "code": "BinaryNg",
+   "us": 27.266
+  },
+  {
+   "i": 25,
+   "ttnn": "ttnn.linear",
+   "code": "Matmul",
+   "us": 40.99
+  },
+  {
+   "i": 27,
+   "ttnn": "ttnn.multiply",
+   "code": "BinaryNg",
+   "us": 22.813
+  },
+  {
+   "i": 28,
+   "ttnn": "ttnn.add",
+   "code": "BinaryNg",
+   "us": 24.288
+  },
+  {
+   "i": 29,
+   "ttnn": "ttnn.to_memory_config",
+   "code": "Copy",
+   "us": 8.361
+  },
+  {
+   "i": 30,
+   "ttnn": "ttnn.layer_norm",
+   "code": "LayerNorm",
+   "us": 19.057
+  },
+  {
+   "i": 31,
+   "ttnn": "ttnn.multiply_",
+   "code": "BinaryNg",
+   "us": 25.321
+  },
+  {
+   "i": 32,
+   "ttnn": "ttnn.add_",
+   "code": "BinaryNg",
+   "us": 11.487
+  },
+  {
+   "i": 33,
+   "ttnn": "ttnn.to_memory_config",
+   "code": "Copy",
+   "us": 10.702
+  },
+  {
+   "i": 34,
+   "ttnn": "ttnn.linear",
+   "code": "Matmul",
+   "us": 63.598
+  },
+  {
+   "i": 35,
+   "ttnn": "ttnn.linear",
+   "code": "Matmul",
+   "us": 63.866
+  },
+  {
+   "i": 36,
+   "ttnn": "ttnn.multiply_",
+   "code": "BinaryNg",
+   "us": 50.395
+  },
+  {
+   "i": 37,
+   "ttnn": "ttnn.linear",
+   "code": "Matmul",
+   "us": 63.336
+  },
+  {
+   "i": 39,
+   "ttnn": "ttnn.multiply_",
+   "code": "BinaryNg",
+   "us": 36.133
+  },
+  {
+   "i": 41,
+   "ttnn": "ttnn.linear",
+   "code": "Matmul",
+   "us": 42.016
+  },
+  {
+   "i": 42,
+   "ttnn": "ttnn.linear",
+   "code": "Matmul",
+   "us": 55.795
+  },
+  {
+   "i": 44,
+   "ttnn": "ttnn.multiply_",
+   "code": "BinaryNg",
+   "us": 27.603
+  },
+  {
+   "i": 46,
+   "ttnn": "ttnn.add",
+   "code": "BinaryNg",
+   "us": 24.392
+  },
+  {
+   "i": 47,
+   "ttnn": "ttnn.to_memory_config",
+   "code": "Copy",
+   "us": 8.335
+  },
+  {
+   "i": 48,
+   "ttnn": "ttnn.layer_norm",
+   "code": "LayerNorm",
+   "us": 19.068
+  },
+  {
+   "i": 49,
+   "ttnn": "ttnn.multiply_",
+   "code": "BinaryNg",
+   "us": 25.352
+  },
+  {
+   "i": 50,
+   "ttnn": "ttnn.add_",
+   "code": "BinaryNg",
+   "us": 11.74
+  },
+  {
+   "i": 51,
+   "ttnn": "ttnn.to_memory_config",
+   "code": "Copy",
+   "us": 10.984
+  }
+ ],
+ "atom_layer_by_code": {
+  "Matmul": 759.765,
+  "BinaryNg": 286.79,
+  "ReshapeView": 273.038,
+  "Permute": 266.439,
+  "NlpCreateHeads": 158.399,
+  "SDPA": 84.953,
+  "Pad": 68.731,
+  "Copy": 38.382,
+  "LayerNorm": 38.125,
+  "Slice": 23.609,
+  "NLPConcatHeads": 14.273
+ }
+}

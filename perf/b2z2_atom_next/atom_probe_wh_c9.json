@@ -1,0 +1,78 @@
+{
+ "env": {
+  "card": "9",
+  "started": "2026-09-12T20:12:31+0000",
+  "commit": "e225d7e6",
+  "arch": "wormhole_b0",
+  "grid": "ttnn.CoreGrid(x=8, y=9)",
+  "shape": {
+   "B": 1,
+   "K": 140,
+   "W": 32,
+   "H": 128,
+   "D": 128
+  },
+  "loadavg": [
+   "18.65",
+   "14.65",
+   "12.14"
+  ]
+ },
+ "window_shape": [
+  1,
+  140,
+  128,
+  128
+ ],
+ "P1_kv_preprojection": {
+  "shape_shipped": [
+   1,
+   140,
+   128,
+   256
+  ],
+  "shape_preproj": [
+   1,
+   140,
+   128,
+   256
+  ],
+  "bit_exact": true,
+  "max_abs": 0.0,
+  "us_shipped_chain": 424.578,
+  "us_preproj_chain": 347.172,
+  "us_window_128": 169.939,
+  "us_window_256": 346.659,
+  "us_kv_linear_17920": 254.102,
+  "us_kv_linear_4480": 67.127,
+  "us_window_256_alone": 280.045,
+  "speedup": 1.22296,
+  "negative_control_differs": true
+ },
+ "P3_shift_before_projection": {
+  "shape": [
+   1,
+   140,
+   128,
+   256
+  ],
+  "bit_exact_vs_preproj": true,
+  "max_abs_vs_preproj": 0.0,
+  "bit_exact_vs_shipped": true,
+  "us_chain": 327.648,
+  "us_shift_128": 93.515,
+  "us_shift_256": 154.513,
+  "speedup_vs_shipped": 1.29584,
+  "speedup_vs_preproj": 1.05959
+ },
+ "P2_q_pad": {
+  "shipped_q_shape": [
+   1,
+   560,
+   32,
+   32
+  ],
+  "us_shipped": 262.156,
+  "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/transformer/nlp_create_qkv_heads/device/nlp_create_qkv_heads_device_operation.cpp:128: input_shape_kv[2] == input_shape[2]\ninfo:\nKV tensor seq_len dim must be same as Q tensor seq_len!\nbacktrace:\n --- /home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x767c1575d668]\n --- ttnn::operations::experimental::transformer::NlpCreateHeadsDeviceOperation::validate_on_program_cache_miss(ttnn::operati"
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "env": {
+  "card": "9",
+  "started": "2026-09-12T20:11:05+0000",
+  "commit": "247b6f35",
+  "arch": "wormhole_b0",
+  "loadavg": [
+   "12.24",
+   "13.18",
+   "11.49"
+  ]
+ },
+ "head_split": {
+  "shapes_shipped": [
+   [
+    1,
+    560,
+    32,
+    32
+   ],
+   [
+    1,
+    560,
+    128,
+    32
+   ],
+   [
+    1,
+    560,
+    128,
+    32
+   ]
+  ],
+  "shapes_unpadded": [
+   [
+    1,
+    560,
+    32,
+    32
+   ],
+   [
+    1,
+    560,
+    128,
+    32
+   ],
+   [
+    1,
+    560,
+    128,
+    32
+   ]
+  ],
+  "bit_exact_q": true,
+  "max_abs_q": 0.0,
+  "bit_exact_k": true,
+  "max_abs_k": 0.0,
+  "bit_exact_v": true,
+  "max_abs_v": 0.0,
+  "negative_control_differs": true,
+  "us_shipped": 263.365,
+  "us_unpadded": 3203.496,
+  "speedup": 0.08221
+ }
+}

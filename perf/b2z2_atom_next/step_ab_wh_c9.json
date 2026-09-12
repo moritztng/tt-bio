@@ -1,0 +1,151 @@
+{
+ "env": {
+  "card": "9",
+  "started": "2026-09-12T20:13:27+0000",
+  "commit": "c8feba36",
+  "arch": "wormhole_b0",
+  "profiler": "0",
+  "arms": [
+   "base",
+   "akw",
+   "akwpre"
+  ],
+  "reps": 10,
+  "blocks": 5,
+  "loadavg_start": [
+   "19.04",
+   "15.18",
+   "12.46"
+  ],
+  "grid": "ttnn.CoreGrid(x=8, y=9)",
+  "loadavg_end": [
+   "13.99",
+   "14.63",
+   "12.49"
+  ]
+ },
+ "rows": [
+  {
+   "block": 0,
+   "arm": "base",
+   "ms": 42.0496,
+   "loadavg": "13.64"
+  },
+  {
+   "block": 0,
+   "arm": "akw",
+   "ms": 38.6805,
+   "loadavg": "13.64"
+  },
+  {
+   "block": 0,
+   "arm": "akwpre",
+   "ms": 38.0829,
+   "loadavg": "13.64"
+  },
+  {
+   "block": 1,
+   "arm": "base",
+   "ms": 41.5778,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 1,
+   "arm": "akw",
+   "ms": 38.6896,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 1,
+   "arm": "akwpre",
+   "ms": 38.0921,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 2,
+   "arm": "base",
+   "ms": 41.5745,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 2,
+   "arm": "akw",
+   "ms": 38.7015,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 2,
+   "arm": "akwpre",
+   "ms": 38.1017,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 3,
+   "arm": "base",
+   "ms": 41.5652,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 3,
+   "arm": "akw",
+   "ms": 38.7009,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 3,
+   "arm": "akwpre",
+   "ms": 38.1203,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 4,
+   "arm": "base",
+   "ms": 41.5683,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 4,
+   "arm": "akw",
+   "ms": 38.6984,
+   "loadavg": "13.99"
+  },
+  {
+   "block": 4,
+   "arm": "akwpre",
+   "ms": 38.1344,
+   "loadavg": "13.99"
+  }
+ ],
+ "parity": {
+  "base_vs_akw": {
+   "bit_exact": false,
+   "max_abs": 3.57421875
+  },
+  "base_vs_akwpre": {
+   "bit_exact": false,
+   "max_abs": 3.57421875
+  },
+  "akw_vs_akwpre": {
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "self_repeat_bit_exact": true,
+  "negative_control_differs": true
+ },
+ "median_ms": {
+  "base": 41.5745,
+  "akw": 38.6984,
+  "akwpre": 38.1017
+ },
+ "spread_pct": {
+  "base": 1.165,
+  "akw": 0.054,
+  "akwpre": 0.135
+ },
+ "ratio_vs_first": {
+  "base": 1.0,
+  "akw": 1.07432,
+  "akwpre": 1.09115
+ },
+ "ratio_akwpre_vs_akw": 1.01566
+}
