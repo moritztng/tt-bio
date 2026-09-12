@@ -702,58 +702,76 @@ ATOM_SHIFT_GATHER_STATS = [0, 0]        # [slice+concat, one-hot matmul]
 class _AtomShiftGather:
     """Stands in for the gather matrix once it has been proven to be the centred window.
 
+    Carries `windows`, the real window count the matrix gathers for: the atom axis is bucketed,
+    and the matrix is zero-padded out to the bucket, so the windows past `windows` gather nothing
+    at all. Reproducing that is what keeps the two arms byte-identical.
+
     Cached in place of the device one-hot, so the decision is made once per fold where the torch
     matrix is in hand and every call site downstream needs one identity check, not a new argument
     threaded through three layers.
     """
 
-    __slots__ = ()
+    __slots__ = ("windows",)
+
+    def __init__(self, windows: int):
+        self.windows = windows
 
 
-ATOM_SHIFT_GATHER = _AtomShiftGather()
-
-
-def _atom_gather_is_shift(ki) -> bool:
-    """Is `ki` exactly the centred sliding-window gather, and nothing else?
+def _atom_gather_shift_windows(ki):
+    """The real window count if `ki` is the centred sliding-window gather, else None.
 
     Gates on the matrix, never on a model: any model whose atom attention gathers a different
     key set (or clamps its edges instead of zeroing them) fails this and keeps the matmul.
     """
     import torch
     if _ATOM_SHIFT_GATHER_OFF or ki.dim() != 2:
-        return False
+        return None
     half = ATOM_WINDOW // 2
     rows, cols = ki.shape
     per = ATOM_DIM // half                       # half-blocks in one key window
     off = ATOM_KEY_SHIFT // half                 # how far back the key window starts
     if rows % 2 or ATOM_KEY_SHIFT % half or cols != (rows // 2) * per:
-        return False
+        return None
+    live = (ki != 0).any(dim=0).view(rows // 2, per).any(dim=1)
+    nz = live.nonzero()
+    real = int(nz[-1]) + 1 if len(nz) else 0     # windows the matrix actually gathers for
+    if real and not bool(live[:real].all()):
+        return None                              # a hole: not the bucketed zero tail
     want = torch.zeros_like(ki)
-    for k in range(rows // 2):
-        for j in range(per):
-            srow = 2 * k - off + j
-            if 0 <= srow < rows:
-                want[srow, per * k + j] = 1.0
-    return bool(torch.equal(ki, want))
+    for k in range(real):
+        for c in range(per):
+            srow = 2 * k - off + c
+            if 0 <= srow < 2 * real:
+                want[srow, per * k + c] = 1.0
+    return real if torch.equal(ki, want) else None
 
 
-def _atom_shift_gather(s: "ttnn.Tensor") -> "ttnn.Tensor":
+def _atom_shift_gather(s: "ttnn.Tensor", windows: int) -> "ttnn.Tensor":
     """The centred key window as four window-axis slices, no matmul and no permutes.
 
     One misaligned op survives: the 48-row shift, which is 48 % 32 != 0 and so cannot be a tile
     boundary move. It goes through ROW_MAJOR on 1.2 MB. A tiled `ttnn.pad` with the same front
     padding was also measured and did not reproduce the matmul path, so it is not used.
+
+    `windows` bounds both ends of the bucket. The source is cut there so a key window straddling
+    the boundary picks up zeros for the padded half exactly as the one-hot did, and the output is
+    padded back out on the window axis so the padded windows gather nothing at all.
     """
     b, k, w, d = s.shape
     pieces = ATOM_DIM // w
     flat = ttnn.reshape(s, (b, 1, k * w, d))
+    if windows < k:
+        flat = flat[:, :, :windows * w, :]
     rm = ttnn.to_layout(flat, ttnn.ROW_MAJOR_LAYOUT)
-    shifted = ttnn.pad(
-        rm, [(0, 0), (0, 0), (ATOM_KEY_SHIFT, pieces * w - ATOM_KEY_SHIFT), (0, 0)], 0.0)
+    tail = (k + pieces) * w - ATOM_KEY_SHIFT - windows * w
+    shifted = ttnn.pad(rm, [(0, 0), (0, 0), (ATOM_KEY_SHIFT, tail), (0, 0)], 0.0)
     ttnn.deallocate(rm)
     shifted = ttnn.to_layout(shifted, ttnn.TILE_LAYOUT, dtype=s.dtype)
-    windows = ttnn.reshape(shifted, (b, k + pieces, w, d))
-    return ttnn.concat([windows[:, j:j + k] for j in range(pieces)], dim=2)
+    src = ttnn.reshape(shifted, (b, k + pieces, w, d))
+    out = ttnn.concat([src[:, j:j + windows] for j in range(pieces)], dim=2)
+    if windows < k:
+        out = ttnn.pad(out, [(0, 0), (0, k - windows), (0, 0), (0, 0)], 0.0)
+    return out
 
 
 TOKEN_DIM = 2 * 384
@@ -7163,9 +7181,9 @@ class AttentionPairBias(Module):
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
-            if keys_indexing is ATOM_SHIFT_GATHER:
+            if isinstance(keys_indexing, _AtomShiftGather):
                 ATOM_SHIFT_GATHER_STATS[0] += 1
-                s_kv = _atom_shift_gather(s)
+                s_kv = _atom_shift_gather(s, keys_indexing.windows)
             else:
                 ATOM_SHIFT_GATHER_STATS[1] += 1
                 s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
@@ -10178,8 +10196,9 @@ class DiffusionModule(TorchWrapper):
             keys_indexing_tt = self._from_torch(keys_indexing, dtype=ttnn.bfloat4_b)
             # The mask below still contracts against the real matrix; only the per-step gather
             # gets the sentinel, and only if the matrix really is the centred window.
+            shift_windows = _atom_gather_shift_windows(keys_indexing)
             self._cache_set("keys_indexing",
-                            ATOM_SHIFT_GATHER if _atom_gather_is_shift(keys_indexing)
+                            _AtomShiftGather(shift_windows) if shift_windows
                             else keys_indexing_tt)
 
             if atom_pad:
