@@ -1,0 +1,28 @@
+{
+ "mode": "single",
+ "rows": 256,
+ "reps": 15,
+ "layer_ms": 0.5315750022418797,
+ "min_ms": 0.5286899977363646,
+ "max_ms": 0.5361830044421367,
+ "token_transformer_ms": 12.757800053805113,
+ "shard_stats": [
+  0,
+  0
+ ],
+ "parity": {
+  "role": "reference",
+  "shape": [
+   1,
+   256,
+   768
+  ]
+ },
+ "trace": {
+  "captured": true,
+  "token_transformer_ms": 12.42510599695379,
+  "per_layer_ms": 0.5177127498730746,
+  "min_ms": 12.417410995112732,
+  "max_ms": 12.438520003343001
+ }
+}

@@ -1141,6 +1141,17 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 _B2_TOKEN_DIT_SDPA = env_flag("BOLTZ2_TOKEN_DIT_SDPA", True)
 B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
 
+# Sequence-parallel token DiT: each device of a multi-device mesh owns half the token rows of
+# `a`/`s` and computes its own rows end to end. Every op in a DiffusionTransformerLayer is
+# row-local in the token axis EXCEPT the attention, which needs all keys and values, so the
+# shard costs exactly one collective per layer and nothing else changes. The split is on the M
+# axis of every matmul and the row axis of every LayerNorm, so each output row is produced by
+# the identical contraction over the identical K in the identical order: bit-exact, not an
+# accuracy trade. Gated on a PROPERTY (a token-level DiT whose activations live on a mesh
+# device), never on a model name.
+_TOKEN_DIT_SEQ_SHARD = env_flag("TT_BIO_TOKEN_DIT_SEQ_SHARD", False)
+TOKEN_DIT_SEQ_SHARD_STATS = [0, 0]   # [sharded, declined] at the token-DiT attention
+
 # C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
 # fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
 # 1.000000, but W9 measured z rmsd/std 0.04179 on a block at N=320 against a shipped band of
@@ -6687,6 +6698,14 @@ class TriangleAttention(Module):
         return x
 
 
+def _is_mesh_tensor(t) -> bool:
+    """True when this tensor lives on a multi-device mesh, so a collective is meaningful."""
+    try:
+        return t.device().get_num_devices() > 1
+    except Exception:
+        return False
+
+
 class AttentionPairBias(Module):
     def __init__(
         self,
@@ -6975,6 +6994,16 @@ class AttentionPairBias(Module):
                 transpose_k_heads=False,
             )
             ttnn.deallocate(qkv)
+            if _TOKEN_DIT_SEQ_SHARD and self.token_dit:
+                # q keeps the device-local rows; k and v must span the whole token axis.
+                # `dim=2` is the token axis of the (1, n_heads, S, head_dim) head layout.
+                shard_ok = _is_mesh_tensor(k)
+                TOKEN_DIT_SEQ_SHARD_STATS[0 if shard_ok else 1] += 1
+                if shard_ok:
+                    k, k_local = ttnn.all_gather(k, dim=2), k
+                    v, v_local = ttnn.all_gather(v, dim=2), v
+                    ttnn.deallocate(k_local)
+                    ttnn.deallocate(v_local)
             # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
             if self.compute_pair_bias and not bias_precomputed:
                 # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to

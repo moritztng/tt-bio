@@ -1,0 +1,30 @@
+{
+ "mode": "mesh_shard",
+ "reps": 15,
+ "layer_ms": 0.9989359969040379,
+ "min_ms": 0.931891001528129,
+ "max_ms": 1.1950479965889826,
+ "token_transformer_ms": 23.97446392569691,
+ "shard_stats": [
+  91,
+  0
+ ],
+ "parity": {
+  "role": "arm",
+  "bitexact": false,
+  "max_abs_diff": 0.0078125,
+  "negctrl_rejected": true,
+  "shape": [
+   1,
+   512,
+   768
+  ]
+ },
+ "trace": {
+  "captured": true,
+  "token_transformer_ms": 15.307043999200687,
+  "per_layer_ms": 0.6377934999666953,
+  "min_ms": 15.298578000511043,
+  "max_ms": 15.327502005675342
+ }
+}
