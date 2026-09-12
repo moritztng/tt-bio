@@ -1,0 +1,266 @@
+{
+ "doc": "Boltz-2 A/B for the three levers `b2z-levers-default-on` turned on: coordinates and wall time.\n\nThe levers are the fused bias stacks in the diffusion conditioning (TT_BIO_FUSE_BIAS_STACKS, not\nbit-exact), the batched DST acquire in the fused SDPA's mask add (TT_BIO_SDPA_ADD_GRANULARITY,\nbit-exact) and the same treatment in the gated channel permute (TT_BIO_GATE_GRANULARITY,\nbit-exact). Two questions, one harness, because they want the same folds:\n\n  correctness     do the shipped defaults move the structure past the 0.35 A bar, and does 512 aa\n                  still fold at all? Run it on Wormhole as well as Blackhole --\n                  `b2x-integrate-wh-neutral` is the precedent, and the reason is that the last two\n                  flipped-on Boltz-2 levers shipped fleet-wide having only ever run on qb2.\n  speed           what did flipping the defaults actually bank on the fold? --reps --warmup.\n\nArms in ONE process so the A/A floor and the A/B share a program cache:\n\n    base    every lever forced off -- the pre-merge path\n    ship    every lever at its shipped default\n\nThe default order is base/base/ship: the repeated base arm IS the A/A floor, and a non-zero floor\ninvalidates the third arm. Same fixtures and protocol as the Blackhole control, so hosts compare\ndirectly. The 298 aa fixture is the one the 0.35 A bar is written against; 512 aa answers the\ncrash-and-OOM half and is the size the published cell is measured at.\n\nThe arms are applied in-process, which is legal for each lever but for a different reason each\ntime: TT_BIO_FUSE_BIAS_STACKS is read per call, TT_BIO_SDPA_ADD_GRANULARITY is read inside\n`sdpa_generic.build` AND is in the program-cache key, and GATE_GRANULARITY is a module constant\nso it is assigned rather than exported -- it is in that kernel's cache key too. Without those two\nkeys both arms would get the first arm's compiled program back and read a parity that means\nnothing.\n\n    fold_ab.py --out <json> --cifdir <dir> [--reps N] [--sizes 512,298] [--warmup]\n\nDefaults reproduce the Wormhole neutrality run exactly: one warmup-free pass of base/base/ship at\n512 then 298 aa. --reps interleaves base and ship N times each for a paired timing run, and\n--warmup discards one fold per arm first so the program cache is not in the first rep.\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "0",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z-perfpage-recell/tt_bio/__init__.py",
+  "commit": "0f3f9f673472e6d2fc94430599adf7492bafef19",
+  "started_utc": "2026-09-12T18:48:57Z",
+  "loadavg": [
+   1.9228515625,
+   2.12841796875,
+   1.84326171875
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "seed": 0,
+   "diffusion_trace": false
+  },
+  "shipped_defaults": {
+   "gate_granularity": 2
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "fold_s": 24.158,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.801141,
+   "warmup": true
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_512",
+   "fold_s": 21.318,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "warmup": true
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "fold_s": 20.203,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.801141,
+   "rep": 0
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_512",
+   "fold_s": 20.185,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 0
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "fold_s": 20.341,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.801141,
+   "rep": 1
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_512",
+   "fold_s": 20.113,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 1
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "fold_s": 20.19,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.801141,
+   "rep": 2
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_512",
+   "fold_s": 20.172,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 2
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "fold_s": 20.081,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.801141,
+   "rep": 3
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_512",
+   "fold_s": 20.001,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 3
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "fold_s": 20.037,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.801141,
+   "rep": 4
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_512",
+   "fold_s": 19.932,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 4
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_512",
+   "fold_s": 20.102,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.801141,
+   "rep": 5
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_512",
+   "fold_s": 20.087,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 5
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "fold_s": 14.633,
+   "sha256": "5be7dda326485303",
+   "plddt": 0.917806,
+   "warmup": true
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_298",
+   "fold_s": 12.983,
+   "sha256": "0cf1b879dca3c0d5",
+   "plddt": 0.917809,
+   "warmup": true
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "fold_s": 12.312,
+   "sha256": "5be7dda326485303",
+   "plddt": 0.917806,
+   "rep": 0
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_298",
+   "fold_s": 12.163,
+   "sha256": "0cf1b879dca3c0d5",
+   "plddt": 0.917809,
+   "rep": 0
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "fold_s": 12.309,
+   "sha256": "5be7dda326485303",
+   "plddt": 0.917806,
+   "rep": 1
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_298",
+   "fold_s": 12.288,
+   "sha256": "0cf1b879dca3c0d5",
+   "plddt": 0.917809,
+   "rep": 1
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "fold_s": 12.354,
+   "sha256": "5be7dda326485303",
+   "plddt": 0.917806,
+   "rep": 2
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_298",
+   "fold_s": 12.275,
+   "sha256": "0cf1b879dca3c0d5",
+   "plddt": 0.917809,
+   "rep": 2
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "fold_s": 12.24,
+   "sha256": "5be7dda326485303",
+   "plddt": 0.917806,
+   "rep": 3
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_298",
+   "fold_s": 12.201,
+   "sha256": "0cf1b879dca3c0d5",
+   "plddt": 0.917809,
+   "rep": 3
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "fold_s": 12.213,
+   "sha256": "5be7dda326485303",
+   "plddt": 0.917806,
+   "rep": 4
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_298",
+   "fold_s": 12.15,
+   "sha256": "0cf1b879dca3c0d5",
+   "plddt": 0.917809,
+   "rep": 4
+  },
+  {
+   "arm": "base",
+   "target": "cdk2x2_298",
+   "fold_s": 12.29,
+   "sha256": "5be7dda326485303",
+   "plddt": 0.917806,
+   "rep": 5
+  },
+  {
+   "arm": "ship",
+   "target": "cdk2x2_298",
+   "fold_s": 12.152,
+   "sha256": "0cf1b879dca3c0d5",
+   "plddt": 0.917809,
+   "rep": 5
+  }
+ ],
+ "model_load_s": 3.02,
+ "median_512_s": {
+  "base": 20.19,
+  "ship": 20.113
+ },
+ "fold_speedup_512": 1.00383,
+ "aa_floor_identical": {
+  "512": true,
+  "298": true
+ }
+}

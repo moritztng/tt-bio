@@ -1,0 +1,125 @@
+{
+ "root": "perf/b2z-perfpage/cif512",
+ "split_seq_id": 298,
+ "ref": "base_0",
+ "n_atoms": 4116,
+ "arms": {
+  "base_1": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "base_2": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "base_3": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "base_4": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "base_5": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "ship_0": {
+   "whole_all_atom_A": 0.50506,
+   "whole_ca_A": 0.39542,
+   "domain1_all_atom_A": 0.35256,
+   "domain2_all_atom_A": 0.30573,
+   "hinge_free_all_atom_A": 0.3338,
+   "hinge_deg": 3.219,
+   "hinge_artifact_signature": false
+  },
+  "ship_1": {
+   "whole_all_atom_A": 0.50506,
+   "whole_ca_A": 0.39542,
+   "domain1_all_atom_A": 0.35256,
+   "domain2_all_atom_A": 0.30573,
+   "hinge_free_all_atom_A": 0.3338,
+   "hinge_deg": 3.219,
+   "hinge_artifact_signature": false
+  },
+  "ship_2": {
+   "whole_all_atom_A": 0.50506,
+   "whole_ca_A": 0.39542,
+   "domain1_all_atom_A": 0.35256,
+   "domain2_all_atom_A": 0.30573,
+   "hinge_free_all_atom_A": 0.3338,
+   "hinge_deg": 3.219,
+   "hinge_artifact_signature": false
+  },
+  "ship_3": {
+   "whole_all_atom_A": 0.50506,
+   "whole_ca_A": 0.39542,
+   "domain1_all_atom_A": 0.35256,
+   "domain2_all_atom_A": 0.30573,
+   "hinge_free_all_atom_A": 0.3338,
+   "hinge_deg": 3.219,
+   "hinge_artifact_signature": false
+  },
+  "ship_4": {
+   "whole_all_atom_A": 0.50506,
+   "whole_ca_A": 0.39542,
+   "domain1_all_atom_A": 0.35256,
+   "domain2_all_atom_A": 0.30573,
+   "hinge_free_all_atom_A": 0.3338,
+   "hinge_deg": 3.219,
+   "hinge_artifact_signature": false
+  },
+  "ship_5": {
+   "whole_all_atom_A": 0.50506,
+   "whole_ca_A": 0.39542,
+   "domain1_all_atom_A": 0.35256,
+   "domain2_all_atom_A": 0.30573,
+   "hinge_free_all_atom_A": 0.3338,
+   "hinge_deg": 3.219,
+   "hinge_artifact_signature": false
+  },
+  "warm_base": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "warm_ship": {
+   "whole_all_atom_A": 0.50506,
+   "whole_ca_A": 0.39542,
+   "domain1_all_atom_A": 0.35256,
+   "domain2_all_atom_A": 0.30573,
+   "hinge_free_all_atom_A": 0.3338,
+   "hinge_deg": 3.219,
+   "hinge_artifact_signature": false
+  }
+ }
+}

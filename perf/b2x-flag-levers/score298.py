@@ -75,6 +75,14 @@ def main() -> int:
     print(f"\n  atom identity identical across all {len(data)} folds ({len(ref_keys)} atoms), "
           f"so every comparison is atom-for-atom\n")
 
+    def arm_of(tag: str) -> str:
+        """`base_3` and `warm_base` are one arm. The warmup directories a timing run leaves behind
+        carry the arm in the SECOND field, so splitting on the first alone pairs warm_base with
+        warm_ship and calls it A/A -- the floor then reports the A/B difference and announces that
+        the measurement is void, on a run whose real floor is exactly 0."""
+        head, _, rest = tag.partition("_")
+        return rest if head == "warm" else head
+
     def pair(x, y):
         ax, ay = data[x], data[y]
         return (kabsch_rmsd(ax["xyz"], ay["xyz"]),
@@ -89,7 +97,7 @@ def main() -> int:
     print("  every pair, all-atom / CA Kabsch RMSD in A:")
     for x, y in itertools.combinations(sorted(data), 2):
         aa, ca = pair(x, y)
-        kind = "A/A" if x.split("_")[0] == y.split("_")[0] else "A/B"
+        kind = "A/A" if arm_of(x) == arm_of(y) else "A/B"
         out["pairwise"].append({"kind": kind, "a": x, "b": y,
                                 "all_atom_A": round(aa, 6), "ca_A": round(ca, 6)})
         print(f"    {kind}  {x:10s} vs {y:10s}  {aa:10.6f} / {ca:10.6f}")
