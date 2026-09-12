@@ -1,0 +1,315 @@
+benchlock: b2z-integrate acquired after 0s, loadavg 0.04 0.82 1.44
+[plan] {
+ "arms": {
+  "base": [],
+  "bias": [
+   [
+    "env",
+    "TT_BIO_FUSE_BIAS_STACKS",
+    "1"
+   ]
+  ],
+  "msa": [
+   [
+    "env",
+    "TT_BIO_MSA_DEPTH_LADDER",
+    "1"
+   ]
+  ],
+  "all": [
+   [
+    "env",
+    "TT_BIO_FUSE_BIAS_STACKS",
+    "1"
+   ],
+   [
+    "env",
+    "TT_BIO_MSA_DEPTH_LADDER",
+    "1"
+   ]
+  ],
+  "allsteps": [
+   [
+    "env",
+    "TT_BIO_FUSE_BIAS_STACKS",
+    "1"
+   ],
+   [
+    "env",
+    "TT_BIO_MSA_DEPTH_LADDER",
+    "1"
+   ],
+   [
+    "cfg",
+    "sampling_steps",
+    50
+   ]
+  ]
+ },
+ "order": [
+  "base",
+  "bias",
+  "base",
+  "msa",
+  "base",
+  "all",
+  "base",
+  "allsteps"
+ ],
+ "reps": 4,
+ "folds_incl_warmup": 37,
+ "combined": "all",
+ "fixture": "cdk2x2_512",
+ "control": "cdk2x2_298"
+}
+2026-09-12 10:31:37.371 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[defaults] {
+ "env:TT_BIO_FUSE_BIAS_STACKS": "None",
+ "env:TT_BIO_MSA_DEPTH_LADDER": "None"
+}
+[defaults] cfg levers resolved after build_cfg: cfg:sampling_steps
+[defaults:cfg] {
+ "sampling_steps": 200
+}
+[warmup] one fold per arm, discarded (program cache, per-arm shapes)
+  warm base          20.034s shape=(512, 4128, 4480) cif dd1c2a12f97772fb
+  warm bias          19.616s shape=(512, 4128, 4480) cif a91aa44441f0d9c5
+  warm msa           21.913s shape=(512, 4128, 4480) cif 92f73dc095418c95
+  warm all           18.644s shape=(512, 4128, 4480) cif 2f24490aeed0b6a7
+  warm allsteps      15.012s shape=(512, 4128, 4480) cif 02f74923b4d328c6
+  rep0 base          19.595s sampler 5.2408 26.3154ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.62
+  rep0 bias          19.551s sampler 5.2661 26.4563ms/step plddt 0.842856 cif a91aa44441f0d9c5 load 1.44
+  rep0 base          19.629s sampler 5.2243 26.2367ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.32
+  rep0 msa           18.726s sampler 5.2281 26.2565ms/step plddt 0.849502 cif 92f73dc095418c95 load 1.79
+  rep0 base          19.707s sampler 5.2551 26.3982ms/step plddt 0.845488 cif dd1c2a12f97772fb load 2.12
+  rep0 all           18.596s sampler 5.2691 26.4604ms/step plddt 0.845483 cif 2f24490aeed0b6a7 load 1.87
+  rep0 base          19.890s sampler 5.2721 26.4814ms/step plddt 0.845488 cif dd1c2a12f97772fb load 2.06
+  rep0 allsteps      14.981s sampler 1.663 35.4523ms/step plddt 0.881302 cif 02f74923b4d328c6 load 2.3
+  rep1 base          19.615s sampler 5.2543 26.3844ms/step plddt 0.845488 cif dd1c2a12f97772fb load 2.24
+  rep1 bias          19.476s sampler 5.2684 26.4567ms/step plddt 0.842856 cif a91aa44441f0d9c5 load 1.89
+  rep1 base          19.672s sampler 5.2609 26.4271ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.64
+  rep1 msa           18.747s sampler 5.2707 26.4687ms/step plddt 0.849502 cif 92f73dc095418c95 load 2.53
+  rep1 base          19.673s sampler 5.2768 26.5005ms/step plddt 0.845488 cif dd1c2a12f97772fb load 2.61
+  rep1 all           18.545s sampler 5.2219 26.2239ms/step plddt 0.845483 cif 2f24490aeed0b6a7 load 2.15
+  rep1 base          19.581s sampler 5.2522 26.3835ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.9
+  rep1 allsteps      14.949s sampler 1.6333 34.8087ms/step plddt 0.881302 cif 02f74923b4d328c6 load 1.7
+  rep2 base          19.711s sampler 5.2708 26.4809ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.5
+  rep2 bias          19.509s sampler 5.2671 26.4504ms/step plddt 0.842856 cif a91aa44441f0d9c5 load 1.36
+  rep2 base          19.641s sampler 5.2732 26.4814ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.25
+  rep2 msa           18.800s sampler 5.2834 26.5361ms/step plddt 0.849502 cif 92f73dc095418c95 load 1.18
+  rep2 base          19.634s sampler 5.2536 26.3901ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.65
+  rep2 all           18.614s sampler 5.2441 26.3261ms/step plddt 0.845483 cif 2f24490aeed0b6a7 load 1.46
+  rep2 base          19.677s sampler 5.2737 26.4847ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.89
+  rep2 allsteps      14.994s sampler 1.6376 34.9079ms/step plddt 0.881302 cif 02f74923b4d328c6 load 2.32
+  rep3 base          19.863s sampler 5.2468 26.3544ms/step plddt 0.845488 cif dd1c2a12f97772fb load 2.59
+  rep3 bias          19.577s sampler 5.2739 26.4841ms/step plddt 0.842856 cif a91aa44441f0d9c5 load 2.2
+  rep3 base          19.598s sampler 5.2327 26.2786ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.86
+  rep3 msa           18.779s sampler 5.2722 26.4768ms/step plddt 0.849502 cif 92f73dc095418c95 load 1.61
+  rep3 base          19.615s sampler 5.2332 26.2771ms/step plddt 0.845488 cif dd1c2a12f97772fb load 1.88
+  rep3 all           18.592s sampler 5.2681 26.4556ms/step plddt 0.845483 cif 2f24490aeed0b6a7 load 2.19
+  rep3 base          19.664s sampler 5.2753 26.5034ms/step plddt 0.845488 cif dd1c2a12f97772fb load 2.93
+  rep3 allsteps      14.948s sampler 1.6418 35.0058ms/step plddt 0.881302 cif 02f74923b4d328c6 load 3.06
+
+[AA floor] {"base_folds": [19.595, 19.629, 19.707, 19.89, 19.615, 19.672, 19.673, 19.581, 19.711, 19.641, 19.634, 19.677, 19.863, 19.598, 19.615, 19.664], "position_medians_s": [19.663, 19.635, 19.6535, 19.6705], "fold_AA_ratio": 1.00181, "fold_spread_pct": 1.57}
+[summary] {
+ "base": {
+  "n": 16,
+  "fold_s": 19.6525,
+  "folds": [
+   19.595,
+   19.629,
+   19.707,
+   19.89,
+   19.615,
+   19.672,
+   19.673,
+   19.581,
+   19.711,
+   19.641,
+   19.634,
+   19.677,
+   19.863,
+   19.598,
+   19.615,
+   19.664
+  ],
+  "sampler_s": 5.2547,
+  "ms_per_step": 26.3941,
+  "trunk_s": 12.2173,
+  "confidence_s": 1.2198,
+  "shape": [
+   512,
+   4128,
+   4480
+  ],
+  "cif_sha256": [
+   "dd1c2a12f97772fb9911fce45c2825cd5e9391005c209a3f2923a5c8fe831351"
+  ],
+  "plddt": [
+   0.845488
+  ]
+ },
+ "bias": {
+  "n": 4,
+  "fold_s": 19.53,
+  "folds": [
+   19.551,
+   19.476,
+   19.509,
+   19.577
+  ],
+  "sampler_s": 5.2677,
+  "ms_per_step": 26.4565,
+  "trunk_s": 12.2158,
+  "confidence_s": 1.2196,
+  "shape": [
+   512,
+   4128,
+   4480
+  ],
+  "cif_sha256": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ],
+  "plddt": [
+   0.842856
+  ],
+  "paired_ratios": [
+   1.00225,
+   1.00714,
+   1.01035,
+   1.01461
+  ],
+  "paired_speedup": 1.00875,
+  "median_speedup": 1.00627,
+  "fold_saved_s": 0.1225,
+  "bit_exact_vs_base": false
+ },
+ "msa": {
+  "n": 4,
+  "fold_s": 18.763,
+  "folds": [
+   18.726,
+   18.747,
+   18.8,
+   18.779
+  ],
+  "sampler_s": 5.2714,
+  "ms_per_step": 26.4727,
+  "trunk_s": 11.3182,
+  "confidence_s": 1.2295,
+  "shape": [
+   512,
+   4128,
+   4480
+  ],
+  "cif_sha256": [
+   "92f73dc095418c95e1fad263074318919ce413cbebdc1784378c2d1de0176c35"
+  ],
+  "plddt": [
+   0.849502
+  ],
+  "paired_ratios": [
+   1.04822,
+   1.04934,
+   1.04473,
+   1.04361
+  ],
+  "paired_speedup": 1.04648,
+  "median_speedup": 1.04741,
+  "fold_saved_s": 0.8895,
+  "bit_exact_vs_base": false
+ },
+ "all": {
+  "n": 4,
+  "fold_s": 18.594,
+  "folds": [
+   18.596,
+   18.545,
+   18.614,
+   18.592
+  ],
+  "sampler_s": 5.2561,
+  "ms_per_step": 26.3909,
+  "trunk_s": 11.3209,
+  "confidence_s": 1.2119,
+  "shape": [
+   512,
+   4128,
+   4480
+  ],
+  "cif_sha256": [
+   "2f24490aeed0b6a7f4c16ecf7b27068c6eb4888784529fdce9b5e3913dce04e8"
+  ],
+  "plddt": [
+   0.845483
+  ],
+  "paired_ratios": [
+   1.05974,
+   1.06083,
+   1.0548,
+   1.05502
+  ],
+  "paired_speedup": 1.05738,
+  "median_speedup": 1.05693,
+  "fold_saved_s": 1.0585,
+  "bit_exact_vs_base": false
+ },
+ "allsteps": {
+  "n": 4,
+  "fold_s": 14.965,
+  "folds": [
+   14.981,
+   14.949,
+   14.994,
+   14.948
+  ],
+  "sampler_s": 1.6397,
+  "ms_per_step": 34.9569,
+  "trunk_s": 11.3009,
+  "confidence_s": 1.2218,
+  "shape": [
+   512,
+   4128,
+   4480
+  ],
+  "cif_sha256": [
+   "02f74923b4d328c669cb477fc6415584fc886ab302f9050afe94ba9741861aa6"
+  ],
+  "plddt": [
+   0.881302
+  ],
+  "paired_ratios": [
+   1.32768,
+   1.30985,
+   1.31232,
+   1.31549
+  ],
+  "paired_speedup": 1.31391,
+  "median_speedup": 1.31323,
+  "fold_saved_s": 4.6875,
+  "bit_exact_vs_base": false
+ },
+ "additivity": {
+  "parts": [
+   "bias",
+   "msa",
+   "allsteps"
+  ],
+  "sum_of_separate_saved_s": 5.6995,
+  "measured_combined_saved_s": 1.0585,
+  "discount": 0.1857,
+  "note": "measured, not projected: the discount is an output of this run"
+ }
+}
+
+[control] cdk2x2_298
+  base_0          12.192s shape=(298, 2400, 2688) plddt 0.913597 cif 5be7dda326485303
+  bias_0          12.137s shape=(298, 2400, 2688) plddt 0.913091 cif 0cf1b879dca3c0d5
+  msa_0           14.475s shape=(298, 2400, 2688) plddt 0.908569 cif f80c1497a26bb68a
+  all_0           11.658s shape=(298, 2400, 2688) plddt 0.908428 cif ca66e653f491e45a
+  allsteps_0       7.871s shape=(298, 2400, 2688) plddt 0.911982 cif b5f0c0bc548ef9e9
+  base_1          12.106s shape=(298, 2400, 2688) plddt 0.913597 cif 5be7dda326485303
+
+wrote /home/ttuser/wt-b2z-orch/perf/b2z-integrate/integ.json
+benchlock: b2z-integrate released, rc=0, loadavg 2.46 2.03 1.75
