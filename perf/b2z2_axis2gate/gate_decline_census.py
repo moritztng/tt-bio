@@ -10,9 +10,9 @@ Three things come out, and the first is the one the gate never gave anybody:
 
   DECLINE   `reblock_permute.REJECTS` delta per op per fraction, so "declined" is a line in the
             log with a reason and a shape on it instead of a lever that reads as doing nothing.
-  COST      the same op timed with the window shipped and with it open, in one process against one
-            weight set, plus the engagement counter (`STATS_GATED[0]`) for each -- a timing
-            without an engagement delta under it is not evidence the gate moved.
+  COST      the same op timed with the edge read off the narrow axis and off the long one, in one
+            process against one weight set, plus the engagement counter (`STATS_GATED[0]`) for each --
+            a timing without an engagement delta under it is not evidence the gate moved.
   PARITY    `torch.equal` of the two arms' outputs at every fraction. The fused path and the
             four-way split are the same arithmetic; if they ever differ the window is not a
             performance knob and the whole change is off.
@@ -46,11 +46,11 @@ WARM = int(os.environ.get("SLABC_WARM", "2"))
 OUT_PATH = os.environ.get("GATE_OUT", f"/tmp/b2z2_gatecensus_{S}.json")
 C_Z, C_S = 128, 384
 
-# The two arms. "shipped" is the window as it stands: a slab is declined the moment its
-# destination row falls under GATED_DRAM_N_MIN. "open" drops the group-count clause to 1, which
-# admits every slab, so the per-fraction ratio between the arms IS the decline's price and the
-# fraction where it stops paying is where the shipped threshold belongs.
-ARMS = {"shipped": 10 ** 9, "open": 1}
+# The two arms. "narrow" is the window as it stood: the DRAM edge read off the destination's last
+# axis alone, which a row slab of the ending trimul makes S/f wide. "long" reads the longer of the
+# destination's two spatial extents, which is the fix. The ratio between them at each fraction IS
+# the decline's price, and the fraction where it stops paying is where the edge belongs.
+ARMS = {"narrow": False, "long": True}
 
 
 def log(m):
@@ -146,10 +146,10 @@ RES = {"S": S, "fractions": FRACTIONS, "reps": REPS, "arch": str(dev.arch()),
        "arms": ARMS, "by_arm": {a: {} for a in ARMS}, "parity": {}}
 
 HOST = {}
-for arm, gmin in ARMS.items():
-    _reblock.GATED_DRAM_GROUPS_MIN = gmin
+for arm, long_axis in ARMS.items():
+    _reblock.GATED_DRAM_LONG_AXIS = long_axis
     log(f"=== arm {arm}: GATED_DRAM_N_MIN={_reblock.GATED_DRAM_N_MIN} "
-        f"GATED_DRAM_GROUPS_MIN={gmin} ===")
+        f"GATED_DRAM_LONG_AXIS={long_axis} ===")
     for f in FRACTIONS:
         if S % (32 * f):
             log(f"f={f} skipped: {S}/{f} rows is not a whole number of tiles")
@@ -169,7 +169,7 @@ for arm, gmin in ARMS.items():
 # --- parity: the two arms must be the same bytes -------------------------------------------------
 for name in OPS:
     for f in FRACTIONS + [1]:
-        a, b = HOST.get(("shipped", name, f)), HOST.get(("open", name, f))
+        a, b = HOST.get(("narrow", name, f)), HOST.get(("long", name, f))
         if a is None or b is None:
             continue
         eq = bool(torch.equal(a, b))
@@ -179,15 +179,15 @@ for name in OPS:
 
 # --- the ratio table -----------------------------------------------------------------------------
 RES["ratio"] = {}
-for k in RES["by_arm"]["shipped"]:
-    s_, o_ = RES["by_arm"]["shipped"][k], RES["by_arm"]["open"].get(k)
+for k in RES["by_arm"]["narrow"]:
+    s_, o_ = RES["by_arm"]["narrow"][k], RES["by_arm"]["long"].get(k)
     if not o_:
         continue
-    RES["ratio"][k] = {"shipped_ms": s_["median_ms"], "open_ms": o_["median_ms"],
+    RES["ratio"][k] = {"narrow_ms": s_["median_ms"], "long_ms": o_["median_ms"],
                        "speedup": s_["median_ms"] / o_["median_ms"],
-                       "served_shipped": s_["gated_moves_served"],
-                       "served_open": o_["gated_moves_served"]}
-    log(f"  {k:22s} shipped {s_['median_ms']:8.3f}  open {o_['median_ms']:8.3f}  "
+                       "served_narrow": s_["gated_moves_served"],
+                       "served_long": o_["gated_moves_served"]}
+    log(f"  {k:22s} narrow {s_['median_ms']:8.3f}  long {o_['median_ms']:8.3f}  "
         f"{s_['median_ms']/o_['median_ms']:.4f}x   served {s_['gated_moves_served']} -> "
         f"{o_['gated_moves_served']}")
 

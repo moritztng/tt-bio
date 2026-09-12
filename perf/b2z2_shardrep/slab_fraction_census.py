@@ -33,6 +33,7 @@ if _ROOT not in sys.path[:1]:
 
 import torch  # noqa: E402
 import ttnn  # noqa: E402
+from tt_bio import reblock_permute as _reblock  # noqa: E402
 from tt_bio import reference as ref  # noqa: E402
 from tt_bio import tenstorrent as tt  # noqa: E402
 
@@ -42,6 +43,12 @@ REPS = int(os.environ.get("SLABC_REPS", "9"))
 WARM = int(os.environ.get("SLABC_WARM", "2"))
 OUT_PATH = os.environ.get("SLABC_OUT", f"/tmp/b2z2_slabcensus_{S}.json")
 C_Z, C_S = 128, 384
+# Which spatial extent of the destination the fused move's DRAM window reads. The default is the
+# engine's, so an unset run is the run this file has always made; `SLABC_LONG_AXIS=0` reproduces
+# the pre-fix window, which declined the ending trimul's slab from S/f=128 down and is why that
+# op fit at R2 0.70 (`perf/b2z2_axis2gate/`). One process per arm, so no program cache is shared.
+if "SLABC_LONG_AXIS" in os.environ:
+    _reblock.GATED_DRAM_LONG_AXIS = os.environ["SLABC_LONG_AXIS"] == "1"
 
 
 def log(m):
@@ -135,7 +142,9 @@ OPS = {
 }
 
 RES = {"S": S, "fractions": FRACTIONS, "reps": REPS, "arch": str(dev.arch()),
-       "visible": os.environ.get("TT_VISIBLE_DEVICES"), "by_fraction": {}, "fit": {}}
+       "visible": os.environ.get("TT_VISIBLE_DEVICES"),
+       "gated_dram_long_axis": _reblock.GATED_DRAM_LONG_AXIS,
+       "by_fraction": {}, "fit": {}}
 
 for f in FRACTIONS:
     if S % (32 * f):

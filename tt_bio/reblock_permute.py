@@ -271,25 +271,25 @@ def reblock_permute(x, memory_config=None, device=None):
 L1_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MIN", "288"))
 L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 
-# The DRAM leg's edge, and the second reading of it that a non-square destination needs.
+# The DRAM leg's edge, and which of the destination's two spatial axes has to clear it.
 #
-# `N >= 256` was measured on SQUARE moves, where N fixes two things at once: how wide a destination
-# row is, and how many tile groups the move splits into (Nt*Nt of them). The amortisation argument
-# `eligible`'s docstring records -- "below that there are fewer work groups than cores and the
-# per-call cost is not amortised" -- is about the second one, and on a square move you cannot tell
-# the two apart.
+# `N >= 256` was measured on SQUARE moves, where the destination's two spatial extents are one
+# number. They are not one number on a row slab: the ending triangle product's a-role slab writes
+# [1, C, 512, S/f], 512 tall and as narrow as 32, and reading only the narrow one declined the
+# fused kernel from four chips up. Measured on card 20, 512 aa, against the four-way split it falls
+# back to (`perf/b2z2_axis2gate/out/gate_census_512_c20.json`): the fused move wins **1.3234x at
+# S/f=128, 1.3563x at 64 and 1.4005x at 32**, torch.equal at every one. The narrow axis was never
+# the thing the edge was measuring.
 #
-# A row SLAB of the ending triangle product separates them: its destination is [1, C, S, S/f],
-# which at f=4 is 512x128 -- the tile count of a 256x256 square, split into as many groups, with
-# half the row width. Reading only N declined it, and that decline is worth 1.2x-1.3x of the op at
-# every mesh width from four chips up (`perf/b2z2_axis2gate/`).
-#
-# So the window is a disjunction of the two things the one number was standing for: a destination
-# row wide enough on its own, OR enough spatial tile groups to amortise the call. 64 is exactly
-# Nt*Nt at the measured edge, so for a square move the second clause is redundant and this is
-# byte-for-byte the window that shipped. Both are properties of the tensors, not of the mesh.
+# So the window asks whether EITHER spatial extent clears the edge. On a square move the two are
+# equal and this is byte-for-byte the window that shipped; a short-and-wide row block (R rows into
+# a full-width destination) keeps passing on its width, exactly as it did. The only shapes it newly
+# admits are tall-and-narrow ones, which is the class measured above. A move that is short AND
+# narrow is still declined, on the evidence that measured the edge in the first place.
 GATED_DRAM_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_GATED_DRAM_N_MIN", "256"))
-GATED_DRAM_GROUPS_MIN = int(os.environ.get("TT_BIO_REBLOCK_GATED_DRAM_GROUPS_MIN", "64"))
+# A/B switch, in the manner of `set_enabled_gated`: False reads the narrow axis alone, which is the
+# window as it stood, so a paired harness can price the change in one process on one device open.
+GATED_DRAM_LONG_AXIS = True
 
 
 def eligible(x, memory_config) -> bool:
@@ -857,15 +857,14 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_in", shape)
     bt = memory_config.buffer_type
-    # `nrt * nt` is this call's own spatial group count, the number `_build_gated` splits over the
-    # grid (times Ct, which the window deliberately leaves out -- the chunk width is the trunk's
-    # business). See GATED_DRAM_GROUPS_MIN for why the DRAM leg reads both it and N.
-    nt = (N + TILE_H - 1) // TILE_H
-    nrt = (shape[1] + TILE_H - 1) // TILE_H
-    if not ((bt == ttnn.BufferType.DRAM
-             and (N >= GATED_DRAM_N_MIN or nrt * nt >= GATED_DRAM_GROUPS_MIN))
+    # The destination is [1, slice_c, shape[1], shape[2]]; `N` is its last axis and `shape[1]` its
+    # other spatial one. See GATED_DRAM_N_MIN for why the DRAM leg reads the longer of the two.
+    dram_extent = max(shape[1], N) if GATED_DRAM_LONG_AXIS else N
+    if not ((bt == ttnn.BufferType.DRAM and dram_extent >= GATED_DRAM_N_MIN)
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"gated_window_{bt}", shape)
+    nt = (N + TILE_H - 1) // TILE_H
+    nrt = (shape[1] + TILE_H - 1) // TILE_H
     # Screen the group count the DESCRIPTOR actually builds -- Nrt * Nt * Ct, exactly as
     # `_build_gated` computes it and asserts on. The old `Nt ** 2` is a different number, and a
     # gate that screens a different number from the one the build uses can pass a shape the build

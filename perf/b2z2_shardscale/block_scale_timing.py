@@ -44,12 +44,18 @@ REPS = int(os.environ.get("SCALE_REPS", "15"))
 WARM = int(os.environ.get("SCALE_WARM", "3"))
 OUT_PATH = os.environ.get("SCALE_OUT", f"/tmp/b2z2_scale_{N}.json")
 ARMS_BSHARD = os.environ.get("SCALE_BSHARD", "0") == "1"
+# Add the fused-move window as a second axis of the arm table. `SCALE_GATE=narrow,long` times every
+# sharded arm twice, once with the DRAM edge read off the destination's last axis alone (the window
+# as it stood, which declines the ending trimul's slab from four chips up) and once off the longer
+# of its two extents. Unset, nothing changes: one arm per shard setting at the engine's default.
+GATE_ARMS = [a for a in os.environ.get("SCALE_GATE", "").split(",") if a]
 C_Z, C_S = 128, 384
 
 if N > 1:
     meshdesc.install(N)
 
 import ttnn  # noqa: E402
+from tt_bio import reblock_permute as _reblock  # noqa: E402
 from tt_bio import reference as ref  # noqa: E402
 from tt_bio import tenstorrent as tt  # noqa: E402
 
@@ -79,7 +85,8 @@ assert OPENS[0] == 1, "the mesh was opened more than once"
 log(f"device={dev} arch={dev.arch()} grid={tt.CORE_GRID_MAIN} N={N} sizes={SIZES}")
 
 RES = {"mesh_n": N, "sizes": SIZES, "reps": REPS, "arch": str(dev.arch()), "bshard": ARMS_BSHARD,
-       "visible": os.environ.get("TT_VISIBLE_DEVICES"), "by_size": {}, "gather": []}
+       "gate_arms": GATE_ARMS, "visible": os.environ.get("TT_VISIBLE_DEVICES"),
+       "by_size": {}, "gather": []}
 
 kernel_cls = (ttnn.types.WormholeComputeKernelConfig
               if dev.arch() == ttnn.Arch.WORMHOLE_B0
@@ -147,10 +154,27 @@ for S in SIZES:
             continue
         if bs and not ARMS_BSHARD:
             continue
-        arms[arm] = time_block(rs, s_host, z_host, PAIR_MASK, ATTN, b_shard=bs)
-        a = arms[arm]
-        log(f"S={S:4d} {arm:6s} block {a['median_ms']:8.3f} ms  (min {a['min_ms']:.3f} "
-            f"max {a['max_ms']:.3f}, spread {a['spread_pct']:.1f} %)")
+        # `whole` is the denominator and is never gate-split: an unsharded block has no slab in it,
+        # so both window readings serve it the identical programs.
+        for g in (GATE_ARMS if (rs and GATE_ARMS) else [None]):
+            if g is not None:
+                _reblock.GATED_DRAM_LONG_AXIS = (g == "long")
+            name = arm if g is None else f"{arm}_{g}"
+            eng0 = _reblock.STATS_GATED[0]
+            arms[name] = time_block(rs, s_host, z_host, PAIR_MASK, ATTN, b_shard=bs)
+            arms[name]["gated_moves_per_block"] = (
+                (_reblock.STATS_GATED[0] - eng0) // (WARM + REPS))
+            a = arms[name]
+            log(f"S={S:4d} {name:14s} block {a['median_ms']:8.3f} ms  (min {a['min_ms']:.3f} "
+                f"max {a['max_ms']:.3f}, spread {a['spread_pct']:.1f} %)  "
+                f"gated moves/block {a['gated_moves_per_block']}")
+        # The ratio lines below and `fit_curve.py` read `shard` and `bshard`. Point them at the
+        # LAST gate arm asked for, so `SCALE_GATE=narrow,long` fits the fixed window and keeps the
+        # unfixed one beside it as `<arm>_narrow` rather than replacing the file's old meaning
+        # silently.
+        if GATE_ARMS and rs:
+            arms[arm] = arms[f"{arm}_{GATE_ARMS[-1]}"]
+            arms[f"{arm}_is"] = GATE_ARMS[-1]
     if "shard" in arms:
         arms["shard_ratio_same_mesh"] = arms["whole"]["median_ms"] / arms["shard"]["median_ms"]
         log(f"S={S:4d} shard vs whole ON THIS MESH: {arms['shard_ratio_same_mesh']:.4f}x")
