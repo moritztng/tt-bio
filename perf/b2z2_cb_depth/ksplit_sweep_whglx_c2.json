@@ -1,0 +1,166 @@
+{
+ "env": {
+  "started": "2026-09-12T14:43:41+0000",
+  "card": "2",
+  "size": 512,
+  "reps": 3,
+  "visits": 5,
+  "commit": "b82a5f03",
+  "loadavg": [
+   "10.14",
+   "9.10",
+   "6.44"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "precursor_s": 46.21,
+ "blocks_in_precursor": 5,
+ "arg_shapes": [
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   512,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  "NoneType"
+ ],
+ "generic_op_census_per_block": {
+  "mm_generic.generic_minimal_matmul": 8,
+  "reblock_permute.reblock_permute_gated": 4,
+  "reblock_permute.reblock_permute_back": 2,
+  "sdpa_generic.sdpa": 2
+ },
+ "arms": [
+  "base",
+  "ks2",
+  "ks4",
+  "mm4+bu1450",
+  "ks2+mm4"
+ ],
+ "samples": {
+  "base": [
+   86.1671,
+   86.2134,
+   86.1863,
+   86.3149,
+   86.2626
+  ],
+  "ks2": [
+   86.5229,
+   86.5522,
+   86.4398,
+   86.5387,
+   86.5028
+  ],
+  "ks4": [
+   89.1342,
+   89.0578,
+   89.0851,
+   89.1021,
+   89.1137
+  ],
+  "mm4+bu1450": [],
+  "ks2+mm4": [
+   86.6714,
+   86.6695,
+   86.6139,
+   86.6833,
+   86.6353
+  ]
+ },
+ "bit_exact": {
+  "ks2": false,
+  "ks4": false,
+  "ks2+mm4": false
+ },
+ "refused": {
+  "mm4+bu1450": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+ },
+ "setup": {
+  "base": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 1,
+   "mm_depths_built": {
+    "(4, 4, 1, 2048, 2048)": 2,
+    "(8, 8, 8, 2048, 2048)": 2
+   }
+  },
+  "ks2": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 2,
+   "budget": 1300000,
+   "mm_depths_built": {
+    "(4, 2, 1, 2048, 2048)": 2,
+    "(8, 4, 8, 2048, 2048)": 2
+   }
+  },
+  "ks4": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 4,
+   "budget": 1300000,
+   "mm_depths_built": {
+    "(4, 1, 1, 2048, 2048)": 2,
+    "(8, 2, 8, 2048, 2048)": 2
+   }
+  },
+  "mm4+bu1450": {
+   "mm": 4,
+   "rp": 2,
+   "ksplit": 1,
+   "budget": 1450000
+  },
+  "ks2+mm4": {
+   "mm": 4,
+   "rp": 2,
+   "ksplit": 2,
+   "budget": 1300000,
+   "mm_depths_built": {
+    "(4, 2, 1, 2048, 2048)": 4,
+    "(8, 4, 8, 2048, 2048)": 3
+   }
+  }
+ },
+ "median_ms": {
+  "base": 86.2134,
+  "ks2": 86.5229,
+  "ks4": 89.1021,
+  "ks2+mm4": 86.6695
+ },
+ "aa_floor_pct": 0.084,
+ "ratio_vs_base": {
+  "base": 1.0,
+  "ks2": 0.9964,
+  "ks4": 0.9676,
+  "ks2+mm4": 0.9947
+ }
+}
