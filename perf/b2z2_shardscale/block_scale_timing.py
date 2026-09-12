@@ -39,7 +39,7 @@ import torch  # noqa: E402
 import meshdesc  # noqa: E402
 
 N = int(os.environ.get("MESH_N", "2"))
-S = int(os.environ.get("SCALE_S", "512"))
+SIZES = [int(x) for x in os.environ.get("SCALE_S", "512").split(",")]
 REPS = int(os.environ.get("SCALE_REPS", "15"))
 WARM = int(os.environ.get("SCALE_WARM", "3"))
 OUT_PATH = os.environ.get("SCALE_OUT", f"/tmp/b2z2_scale_{N}.json")
@@ -75,10 +75,10 @@ def _mesh_open(device_id, kwargs):
 tt._open_device_locked = _mesh_open
 dev = tt.get_device()
 assert OPENS[0] == 1, "the mesh was opened more than once"
-log(f"device={dev} arch={dev.arch()} grid={tt.CORE_GRID_MAIN} N={N} S={S}")
+log(f"device={dev} arch={dev.arch()} grid={tt.CORE_GRID_MAIN} N={N} sizes={SIZES}")
 
-RES = {"mesh_n": N, "S": S, "reps": REPS, "arch": str(dev.arch()),
-       "visible": os.environ.get("TT_VISIBLE_DEVICES"), "arms": {}, "gather": []}
+RES = {"mesh_n": N, "sizes": SIZES, "reps": REPS, "arch": str(dev.arch()),
+       "visible": os.environ.get("TT_VISIBLE_DEVICES"), "by_size": {}, "gather": []}
 
 kernel_cls = (ttnn.types.WormholeComputeKernelConfig
               if dev.arch() == ttnn.Arch.WORMHOLE_B0
@@ -100,14 +100,7 @@ def up(t):
                            mesh_mapper=REPL)
 
 
-m1 = torch.ones(1, S)
-z_host = torch.randn(1, S, S, C_Z, dtype=torch.float32)
-s_host = torch.randn(1, S, C_S, dtype=torch.float32)
-PAIR_MASK = up(m1[:, :, None] * m1[:, None, :])
-ATTN = up((1 - m1).unsqueeze(1).unsqueeze(1) * -1e9)
-
-
-def time_block(row_shard):
+def time_block(row_shard, s_host, z_host, PAIR_MASK, ATTN):
     """Median block wall. The residual updates are in place, so the block returns the tensor it
     was given: s and z are rebuilt every rep and uploaded OUTSIDE the timed region, and it is
     those handles that get freed, not the returned ones."""
@@ -133,24 +126,38 @@ def time_block(row_shard):
             "samples_ms": [x * 1e3 for x in v]}
 
 
-for arm, rs in (("whole", False), ("shard", True)):
-    if rs and N == 1:
+for S in SIZES:
+    # mesh_partition splits evenly and a slab has to stay tile-aligned, so the token axis must be
+    # a multiple of 32*N at width N. 640 aa is on the bit-exact ladder at 2 chips and off it at 8.
+    if S % (32 * N):
+        log(f"S={S} skipped at N={N}: {S}/{N} rows is not a whole number of tiles")
         continue
-    RES["arms"][arm] = time_block(rs)
-    a = RES["arms"][arm]
-    log(f"{arm:6s} block {a['median_ms']:8.3f} ms  (min {a['min_ms']:.3f} max {a['max_ms']:.3f}, "
-        f"spread {a['spread_pct']:.1f} %)")
-
-if "shard" in RES["arms"]:
-    RES["shard_ratio_same_mesh"] = RES["arms"]["whole"]["median_ms"] / RES["arms"]["shard"]["median_ms"]
-    log(f"shard vs whole ON THIS MESH: {RES['shard_ratio_same_mesh']:.4f}x")
+    m1 = torch.ones(1, S)
+    z_host = torch.randn(1, S, S, C_Z, dtype=torch.float32)
+    s_host = torch.randn(1, S, C_S, dtype=torch.float32)
+    PAIR_MASK = up(m1[:, :, None] * m1[:, None, :])
+    ATTN = up((1 - m1).unsqueeze(1).unsqueeze(1) * -1e9)
+    arms = {}
+    for arm, rs in (("whole", False), ("shard", True)):
+        if rs and N == 1:
+            continue
+        arms[arm] = time_block(rs, s_host, z_host, PAIR_MASK, ATTN)
+        a = arms[arm]
+        log(f"S={S:4d} {arm:6s} block {a['median_ms']:8.3f} ms  (min {a['min_ms']:.3f} "
+            f"max {a['max_ms']:.3f}, spread {a['spread_pct']:.1f} %)")
+    if "shard" in arms:
+        arms["shard_ratio_same_mesh"] = arms["whole"]["median_ms"] / arms["shard"]["median_ms"]
+        log(f"S={S:4d} shard vs whole ON THIS MESH: {arms['shard_ratio_same_mesh']:.4f}x")
+    RES["by_size"][str(S)] = arms
+    for t_ in (PAIR_MASK, ATTN):
+        ttnn.deallocate(t_)
 
 # --- the collective, on this mesh, priced by the bytes it actually moves -------------------------
 # Sizes are the FULL tensor each device ends up holding. The block's own gather is the pair track
 # at [1, S, S, 128] bf16; the sweep brackets it so the latency knee at this width is visible and
 # not assumed.
 if N > 1:
-    full_bytes = S * S * C_Z * 2
+    full_bytes = max(SIZES) ** 2 * C_Z * 2
     sizes = [b for b in (0.25e6, 1e6, 2e6, 8e6, 33e6, full_bytes, 2 * full_bytes) if b >= N * 2048]
     shard_map = ttnn.shard_tensor_to_mesh_mapper(dev, dim=1)
     for b in sizes:
