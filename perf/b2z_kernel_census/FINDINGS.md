@@ -236,3 +236,81 @@ Containment check, which is the other thing that makes the corrected table belie
 PairformerLayer holds 2 TriangleMultiplication + 2 TriangleAttention + 1 pair Transition + 1
 AttentionPairBias = 2(6.8577) + 2(4.3797) + 8.7075 + ~1.0 = **32.2 ms** of the block's measured
 **36.4994 ms**, 88 %. The old numbers do not fit in the block at all.
+
+---
+
+# (a) vs (b): the math thread is starved of input, 6 parts in 7
+
+`--enable-sum-profiling` turns on two compute-thread stall accumulators the default profiler leaves
+blank: `DEVICE COMPUTE CB WAIT FRONT` (math thread blocked on input tiles) and `CB RESERVE BACK`
+(blocked on room to write output). That measures (b) directly instead of inferring it from a roof.
+Same block, same card, third independent capture: GAP-FRACTION **0.9 %** against 1.1 %, synced wall
+36.8693 ms against 36.4994, so the census repeats.
+
+Per-core-averaged compute-thread budget over the 36.3438 ms block:
+
+| | ms | % of span | % of TRISC1 |
+|---|---|---|---|
+| TRISC1 resident | 32.1443 | 88.4 | 100 |
+| CB wait-front, blocked on input | **18.3366** | 50.5 | **57.0** |
+| CB reserve-back, blocked on output | 3.1066 | 8.5 | 9.7 |
+| not stalled on a CB | **10.7010** | 29.4 | **33.3** |
+
+**The math thread is resident for 88 % of the block and stalled on a circular buffer for two thirds
+of that.** Input stalls beat output stalls **5.9:1**, so the compute engine is starved, not backed
+up. That is the answer the pass was for: the lever is feeding the math engine (layout, sharding,
+CB depth, data reuse, NoC), not more FLOPs and not fewer programs.
+
+**The error bar, stated.** The accumulators are summed over cores and the report's `CORE COUNT` is
+the only available divisor, but that normalisation is not exact: across 232 ops with a compute
+kernel the ratio `(cb_wait + cb_reserve) / cores / TRISC1` has median **0.686** and **50 of 232 ops
+exceed 1.0** (max 1.97), which is impossible and means the divisor is wrong for those ops. Two op
+codes come out with negative "busy" time on this normalisation (BinaryNg −8.7 %, Transpose −9.4 %)
+and those two readings should be taken as "essentially all stall", not as numbers. So: the
+**direction is unambiguous and the ordering is safe; the 57 / 9.7 / 33.3 split is ±, not exact.**
+Nailing it needs the FPU/INSTRN hardware counters, which cost ~21x the marker budget.
+
+Per op code, per-core-averaged (ms per block):
+
+| op code | n | kernel | TRISC1 | CB wait | CB reserve | not stalled |
+|---|---|---|---|---|---|---|
+| GenericOp (fused trimul/TriAtt) | 16 | 13.4429 | 13.2567 | 7.4981 | 0.4879 | 39.8 % |
+| Matmul | 113 | 9.2213 | 8.3761 | 3.3172 | 0.2248 | 57.7 % |
+| BinaryNg | 52 | 5.8944 | 5.8583 | 4.5969 | 1.7685 | ~0 |
+| LayerNorm | 41 | 3.6217 | 3.5884 | 2.1667 | 0.1220 | 36.2 % |
+| Transpose | 8 | 2.1650 | 0.6949 | 0.4737 | 0.2864 | ~0 |
+
+`ReshapeView`, `Slice` and `Concat` emit no TRISC1 row at all: pure data movement, 1.25 ms/block.
+
+## Getting the profiler to emit these at all
+
+`--enable-sum-profiling` drops to tt-metal's legacy Python post-processor, and on pandas 3 that path
+dies with `TypeError: Invalid value for dtype 'str'` at `tools/tracy/process_device_log.py:143` — it
+writes an int column in place over a pyarrow-backed string column. Two `df.iloc[:, n] = ...` lines
+become `df.isetitem(n, ...)`, which replaces the column wholesale and is allowed to change dtype.
+Patched in the local build at `/home/ttuser/tt-metal-b2z`; worth upstreaming.
+`--process-logs-only` is not a way around it: it appends `.logs` to a path that already ends in
+`.logs` and then fails looking for a capture file that was never there.
+
+# Top 5 offenders by deficit seconds per fold
+
+Kernel time per block times calls per fold, all of it category **(b)** — nothing in this block is
+(c) and nothing is compute-bound.
+
+| # | offender | s/fold | (a)(b)(c) | what it actually is | who should own it |
+|---|---|---|---|---|---|
+| 1 | GenericOp, fused trimul + TriAtt, 16/block | **3.76** | (b) | 60 % of its math-thread time is an input-side CB stall. The fused kernel is already the biggest win in the block and it is still starved. | the trimul/TriAtt kernel workstream — CB depth and operand staging inside the existing kernel, not a new fusion |
+| 2 | Matmul, 113/block | **2.58** | (b) | 42 % input stall; per-program cost spans 7.5-816.8 µs, so this is 113 different problems | `b2z-op-knob-sweep` — per-matmul memory config and sharding, priced per program not per class |
+| 3 | BinaryNg, 52/block | **1.65** | (b) | essentially **all** stall, no useful math. 52 elementwise programs that exist only to read and rewrite a tensor | fusion into the producer kernel — this is the cleanest delete in the block |
+| 4 | LayerNorm, 41/block | **1.01** | (b) | 36 % not-stalled, 60 % input stall | same fusion axis as 3 |
+| 5 | Transpose, 8/block | **0.61** | (b) | TRISC1 is 0.69 ms of a 2.17 ms kernel: this is a reblock, not a computation | layout — pick a layout that does not need it, rather than making it faster |
+
+Those five are **9.61 s of the pairformer track's 10.22 s**. The diffusion step's own top three are
+Matmul 1.81 s/fold, BinaryNg 0.72 s and SDPA 0.50 s.
+
+**What this closes.** The falsifier in the brief said: if kernels are busy > 85 % of the block with
+high per-core math utilization and a small gap fraction, the roofs are wrong and the only axis left
+is fewer-and-larger ops. Half of that fired and half did not. Kernels *are* busy 98.9 % of the block
+and the gap fraction *is* small — but per-core math utilization is **low**, a third at most. So the
+deficit is neither the roofs being wrong nor op granularity. It is that the math engine spends most
+of its time waiting for tiles to arrive, and that is a memory-layout and data-staging problem.
