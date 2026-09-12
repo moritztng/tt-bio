@@ -10559,6 +10559,20 @@ class PairConditioningDevice:
         self.zp_norm_eps = z_to_p_trans[0].eps
         self.zp_proj_weight = w(z_to_p_trans[1].weight, transpose=True)
 
+    def _mark(self, label):
+        """Wall seconds per stage, with an explicit device sync at each boundary.
+
+        Off unless TT_BIO_DEVICE_CONDITIONING_PROFILE is set, because the syncs it inserts are
+        the measurement: without them the first `to_torch` would collect the whole track's device
+        time and every stage before it would read as free.
+        """
+        if not self._profile:
+            return
+        ttnn.synchronize_device(get_device())
+        now = time.perf_counter()
+        print(f"[paircond] {label:24s} {1e3 * (now - self._t0):8.2f} ms", flush=True)
+        self._t0 = now
+
     def _linear(self, x, weight, bias=None, activation=None):
         return ttnn.linear(
             x, weight, bias=bias, activation=activation,
@@ -10572,11 +10586,14 @@ class PairConditioningDevice:
         ``token_trans_bias`` stays on the device padded, which is the shape the diffusion cache
         wants.
         """
+        self._profile = env_flag("TT_BIO_DEVICE_CONDITIONING_PROFILE", False)
+        self._t0 = time.perf_counter()
         rel_pos = relative_position_encoding
         if seq_pad:
             rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, seq_pad, 0, seq_pad))
         rel_pos_tt = ttnn.from_torch(rel_pos, layout=ttnn.TILE_LAYOUT, device=get_device(),
                                      dtype=ttnn.bfloat16)
+        self._mark("relpos upload")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(z)
         ttnn.deallocate(rel_pos_tt)
@@ -10587,6 +10604,7 @@ class PairConditioningDevice:
         ttnn.deallocate(x)
         z = self._linear(x_norm, self.init_proj_weight)
         ttnn.deallocate(x_norm)
+        self._mark("init proj")
 
         for norm_weight, norm_bias, eps, fc1, fc2, fc3 in self.transitions:
             z_norm = ttnn.layer_norm(
@@ -10602,6 +10620,7 @@ class PairConditioningDevice:
             ttnn.deallocate(hidden)
             z = ttnn.add_(z, delta)
             ttnn.deallocate(delta)
+            self._mark("transition")
 
         z_norm = ttnn.layer_norm(
             z, epsilon=self.bias_eps, compute_kernel_config=self.compute_kernel_config)
@@ -10617,6 +10636,7 @@ class PairConditioningDevice:
             bias = ttnn.multiply_(bias, keep_tt)
             ttnn.deallocate(keep_tt)
 
+        self._mark("token bias")
         z_norm = ttnn.layer_norm(
             z, weight=self.zp_norm_weight, bias=self.zp_norm_bias, epsilon=self.zp_norm_eps,
             compute_kernel_config=self.compute_kernel_config,
@@ -10626,6 +10646,7 @@ class PairConditioningDevice:
         ttnn.deallocate(z_norm)
         out = torch.Tensor(ttnn.to_torch(z_to_p)).to(torch.float32)[:, :seq_len, :seq_len, :]
         ttnn.deallocate(z_to_p)
+        self._mark("z_to_p download")
         return out, bias
 
 
