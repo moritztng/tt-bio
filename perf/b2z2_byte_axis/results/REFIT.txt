@@ -1,0 +1,28 @@
+=== leg 1: the published model, on the published aggregates
+  as published: 40 sites, wait 18.3696 ms, delivered 5,989.9 MB
+    R2 =  -0.5559   tile arrivals only         5.00415
+    R2 =  -0.5744   tile-pair MACs only        0.405012
+    R2 =   0.7011   DRAM bytes only            0.00293771
+    R2 =   0.7872   DRAM + L1 bytes            0.00283913  0.00153392
+    R2 =   0.7903   DRAM + L1 + per-program    0.0028274  0.00131771  2997.17
+    spearman +0.909   bytes delivered (DRAM + L1 read)
+    spearman +0.767   CB tile arrivals per core
+
+=== leg 2: gated channel move read corrected 4 slices -> 2 (1 site(s))
+    1x512x512x512 -> 1x128x512x512, n=4: 1,073.7 MB -> 536.9 MB  (x0.500)
+  corrected: 40 sites, wait 18.3696 ms, delivered 5,453.0 MB
+    R2 =  -0.5559   tile arrivals only         5.00415
+    R2 =  -0.5744   tile-pair MACs only        0.405012
+    R2 =   0.7082   DRAM bytes only            0.00386122
+    R2 =   0.7694   DRAM + L1 bytes            0.0037176  0.00130051
+    R2 =   0.7729   DRAM + L1 + per-program    0.00370165  0.00106989  3209.29
+    spearman +0.907   bytes delivered (DRAM + L1 read)
+    spearman +0.767   CB tile arrivals per core
+
+=== what the corrected fit says about the block (BH, qb2 card 0, 11x10, 512 aa)
+  delivered per core-averaged PairformerLayer   5,453.0 MB   (published: 5,989.9 MB)
+  fitted DRAM delivery rate                       269.0 GB/s (published: 352.2 GB/s, 60 % of roof)
+  fitted L1-interleaved delivery rate              768.9 GB/s (published: 651.9 GB/s)
+  byte terms as a share of the 18.3696 ms wait      89.5 %    (published: 81.3 %)
+  wait as a share of the 36.3438 ms block span      50.5 %
+  => byte-proportional share of the block           45.2 %
