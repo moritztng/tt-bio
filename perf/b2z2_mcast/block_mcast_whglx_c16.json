@@ -1,0 +1,136 @@
+{
+ "env": {
+  "started": "2026-09-12T21:13:25+0000",
+  "card": "16",
+  "commit": "50df40e3",
+  "loadavg": [
+   "13.58",
+   "12.42",
+   "8.51"
+  ],
+  "grid": [
+   8,
+   9
+  ],
+  "size": 512,
+  "reps": 12,
+  "n": 7,
+  "hardware": "wormhole_b0",
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "cold_s": 107.845,
+ "fold2_s": 41.303,
+ "pairformer_calls_per_fold": 280,
+ "parity": {
+  "arm": "mcast",
+  "bit_exact": true,
+  "negative_control_equal": false,
+  "control_is_valid": true,
+  "roundtrip_only_equal": true,
+  "perturbed_tensor_shape": [
+   1,
+   512,
+   512,
+   128
+  ],
+  "out_shapes": [
+   [
+    1,
+    512,
+    384
+   ],
+   [
+    1,
+    512,
+    512,
+    128
+   ]
+  ],
+  "max_abs_diff": [
+   0.0,
+   0.0
+  ]
+ },
+ "armed_programs_built": 4,
+ "total_programs_built": 8,
+ "rows": [
+  {
+   "chain": [
+    85.6841,
+    85.7093
+   ],
+   "arm": [
+    91.3484,
+    91.2331
+   ]
+  },
+  {
+   "chain": [
+    85.6532,
+    85.7219
+   ],
+   "arm": [
+    91.3458,
+    91.3127
+   ]
+  },
+  {
+   "chain": [
+    85.6891,
+    85.7243
+   ],
+   "arm": [
+    91.1992,
+    91.3288
+   ]
+  },
+  {
+   "chain": [
+    85.6842,
+    85.6949
+   ],
+   "arm": [
+    91.3874,
+    91.2131
+   ]
+  },
+  {
+   "chain": [
+    85.6552,
+    85.7183
+   ],
+   "arm": [
+    91.3276,
+    91.361
+   ]
+  },
+  {
+   "chain": [
+    85.7116,
+    85.7086
+   ],
+   "arm": [
+    91.3411,
+    91.1618
+   ]
+  },
+  {
+   "chain": [
+    85.6778,
+    85.679
+   ],
+   "arm": [
+    91.1972,
+    91.2198
+   ]
+  }
+ ],
+ "result": {
+  "arm": "mcast",
+  "chain_block_ms": 85.692,
+  "arm_block_ms": 91.3202,
+  "ratio_chain_over_arm": 0.93837,
+  "aa_floor_chain": 0.99971,
+  "aa_floor_arm": 1.00118
+ }
+}

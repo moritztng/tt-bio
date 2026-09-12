@@ -343,12 +343,16 @@ def patch_compute(src: str) -> str:
 
 
 def main() -> int:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tt_bio/kernels is not a package
+    import mm_mcast
     kd = wheel_kernel_dir()
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "matmul_dataflow_common.hpp").write_text(
         (kd / "matmul_dataflow_common.hpp").read_text())
-    (OUT / "dm_in0_sender.cpp").write_text(patch_in0((kd / "dm_in0_sender.cpp").read_text()))
-    (OUT / "dm_in1_sender_out.cpp").write_text(patch_in1((kd / "dm_in1_sender_out.cpp").read_text()))
+    (OUT / "dm_in0_sender.cpp").write_text(
+        mm_mcast.apply(patch_in0((kd / "dm_in0_sender.cpp").read_text()), "dm_in0_sender.cpp"))
+    (OUT / "dm_in1_sender_out.cpp").write_text(
+        mm_mcast.apply(patch_in1((kd / "dm_in1_sender_out.cpp").read_text()), "dm_in1_sender_out.cpp"))
     (OUT / "compute.cpp").write_text(patch_compute((kd / "compute.cpp").read_text()))
     print(f"generated from {kd}")
     for f in ("matmul_dataflow_common.hpp", "dm_in0_sender.cpp", "dm_in1_sender_out.cpp",

@@ -19,7 +19,12 @@ fused activation, no ternary, no all-gather fusion, N_chunks = 1.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import ttnn
+
+from .envflags import env_flag
 
 # tt_metal/hostdevcommon/api/hostdevcommon/common_values.hpp
 INVALID, VALID = 0, 1
@@ -44,6 +49,61 @@ def tile_bytes(dtype):
                          "fold issues, which is bf16 and fp32 only") from None
 
 _CACHE: dict = {}
+
+
+def bcast_mode(k_blocks):
+    """How this block config gets the injector's operand block to the rest of its grid axis.
+
+    ``"chain"`` (the default) is the shipped daisy chain: every core takes a semaphore-gated unicast
+    hop from its predecessor, 8-9 hops on an 8x9 Wormhole grid and 10-11 on an 11x10 Blackhole one.
+    `b2z2-tile-arrival-latency` measured the handshakes at 67.6 % of the reader's own time and the
+    forward at another 15.2 %.
+
+    ``"fanout"`` has the injector write to every receiver itself, which deletes the chain and keeps
+    the bytes. ``"mcast"`` sends one `noc_async_write_multicast` to the whole axis, which deletes
+    both -- and is NOT yet correct, see `tt_bio/kernels/mm_mcast.py`.
+
+    ``TT_BIO_MM_BCAST`` selects. The gate is `K_num_blocks == 1`, a property of the block config and
+    not a model name: the chain's one advantage is that a core can forward block k while it reads
+    block k+1, and with a single K block there is no such overlap left to buy.
+    ``TT_BIO_MM_BCAST_ANY_K`` lifts the gate so the gate itself can be measured.
+    """
+    mode = (os.environ.get("TT_BIO_MM_BCAST") or "chain").strip().casefold()
+    if mode not in ("chain", "fanout", "mcast"):
+        raise ValueError(f"TT_BIO_MM_BCAST={mode!r}: expected chain, fanout or mcast")
+    if mode == "chain":
+        return "chain"
+    if k_blocks != 1 and not env_flag("TT_BIO_MM_BCAST_ANY_K", False):
+        return "chain"
+    return mode
+
+
+def _bcast_key():
+    return (os.environ.get("TT_BIO_MM_BCAST", ""), os.environ.get("TT_BIO_MM_BCAST_ANY_K", ""))
+
+
+#: Our copy of the wheel's two operand readers, which is the wheel's source plus guarded arms and
+#: so is a byte-for-byte no-op on the default path. It is where a non-chain mode comes from when the
+#: caller named no kernel directory of its own.
+_ARMED_KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "mm_split"
+
+_HAS_ARM: dict = {}
+
+
+def _dm_dir_has_arm(d):
+    """Does this directory's `dm_in0_sender.cpp` actually carry the broadcast arms?
+
+    A non-chain mode adds runtime args to the injector, and a kernel source without the arm reads
+    straight past them into the output addresses. That does not fail, it writes the output block to
+    a garbage address and hangs the grid on a semaphore that never arrives -- MEASURED twice on
+    whglx card 16, 2026-09-12, once badly enough to need `tt-smi -r`. So the mode is refused rather
+    than trusted whenever the source cannot honour it.
+    """
+    key = str(d)
+    if key not in _HAS_ARM:
+        f = Path(d) / "dm_in0_sender.cpp"
+        _HAS_ARM[key] = f.is_file() and "MM_BCAST_FANOUT" in f.read_text()
+    return _HAS_ARM[key]
 
 
 def ttnn_cpp_root():
@@ -117,6 +177,24 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
     fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=data_format, page_size=page_size)
     return ttnn.CBDescriptor(
         total_size=num_tiles * page_size, core_ranges=core_grid, format_descriptors=[fmt])
+
+
+def _bcast_args(order, phys, mode):
+    """``(dest, injector, tail)`` for one axis, with the receivers already in NOC order.
+
+    The multicast rectangle is the chain minus its injector, and ``order`` was built in this NOC's
+    own traversal direction, so ``order[1]`` is the corner the packet reaches first and ``order[-1]``
+    the one it reaches last, which is the corner convention `get_noc_multicast_addr` wants on either
+    NOC. The fan-out wants the same cores enumerated rather than bounded.
+    """
+    recv = [phys(c) for c in order[1:]]
+    dest = recv[0] if recv else phys(order[0])
+    if mode == "mcast":
+        last = recv[-1] if recv else dest
+        tail = [last[0], last[1], len(recv)]
+    else:
+        tail = [len(recv)] + [v for c in recv for v in c]
+    return dest, phys(order[0]), tail
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
@@ -197,6 +275,17 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     M_blocks_per_core = _div_up(M_tiles_per_core, M_block_tiles)
     N_blocks_per_core = _div_up(N_tiles_per_core, N_block_tiles)
 
+    # One K block means the chain has nothing left to pipeline over, which is the only thing it
+    # buys over a multicast. See `mcast_enabled`.
+    mode = bcast_mode(K_blocks)
+    dm_dir = Path(kernel_dir) if kernel_dir else (
+        _ARMED_KERNEL_DIR if mode != "chain" else _kernel_dir())
+    if mode != "chain" and not _dm_dir_has_arm(dm_dir):
+        mode = "chain"
+    if mode != "chain":
+        defines = defines + [
+            ("MM_MCAST_OPERAND" if mode == "mcast" else "MM_BCAST_FANOUT", "1")]
+
     in0_block = M_block_tiles * K_block_tiles
     in1_block = K_block_tiles * N_block_tiles
     out_block = M_block_tiles * N_block_tiles
@@ -241,8 +330,8 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in1_recv_cores = cr((1, 0) if transpose else (0, 1), (gx - 1, gy - 1))
 
     kd = _kernel_dir()
-    dmd = kernel_dir or kd
-    in0_src, in1_src = str(dmd / "dm_in0_sender.cpp"), str(dmd / "dm_in1_sender_out.cpp")
+    in0_src = str(dm_dir / "dm_in0_sender.cpp")
+    in1_src = str(dm_dir / "dm_in1_sender_out.cpp")
     compute_src = str(kd / "compute.cpp")          # never patched, always the wheel's own
 
     k_blocks_per_core = _div_up(K_blocks, in1_axis_cores if transpose else in0_axis_cores)
@@ -274,17 +363,27 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
             in1_prev = phys(in1_order[max(in1_i - 1, 0)])
             in1_next = phys(in1_order[min(in1_i + 1, len(in1_order) - 1)])
 
+            # Every core credits the injector instead of its predecessor and carries the same
+            # destination set, so the runtime args do not depend on where in the chain it sits.
+            in0_bcast = _bcast_args(in0_order, phys, mode)
+            in1_bcast = _bcast_args(in1_order, phys, mode)
+
             M_start, M_end = M_tiles_per_core * in0_idx, M_tiles_per_core * (in0_idx + 1)
             N_start, N_end = N_tiles_per_core * in1_idx, N_tiles_per_core * (in1_idx + 1)
             defer_k = min(cy * k_blocks_per_core, K_blocks - 1)
 
             cc = ttnn.CoreCoord(cx, cy)
+            if mode != "chain":
+                (in0_next, in0_prev, in0_tail) = in0_bcast
+                (in1_next, in1_prev, in1_tail) = in1_bcast
+            else:
+                in0_tail = in1_tail = []
             a0 = [in0_addr, 0, 0, int(core == in0_order[-1]),
                   in0_next[0], in0_next[1], in0_prev[0], in0_prev[1],
-                  M_start, M_end, N_start, N_end, defer_k, *out_addrs]
+                  M_start, M_end, N_start, N_end, defer_k, *in0_tail, *out_addrs]
             a1 = [in1_addr, 0, int(core == in1_order[-1]),
                   in1_next[0], in1_next[1], in1_prev[0], in1_prev[1],
-                  M_start, M_end, N_start, N_end, defer_k, *out_addrs]
+                  M_start, M_end, N_start, N_end, defer_k, *in1_tail, *out_addrs]
             rt["in0_sender" if in1_idx == 0 else "in0_recv"].append((cc, a0))
             rt["in1_sender" if in0_idx == 0 else "in1_recv"].append((cc, a1))
             rt["compute"].append((cc, [M_start, M_end, N_start, N_end]))
@@ -330,7 +429,8 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                      "M_blocks_per_core": M_blocks_per_core,
                      "N_blocks_per_core": N_blocks_per_core, "K_blocks": K_blocks,
                      "N_tiles_per_chunk": N_tiles_per_chunk,
-                     "transpose_core_grid": transpose, "defines": defines}}
+                     "transpose_core_grid": transpose, "defines": defines,
+                     "bcast_mode": mode, "dm_kernel_dir": str(dm_dir)}}
 
 
 def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None):
@@ -339,7 +439,8 @@ def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
-            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode))
+            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode),
+            _bcast_key())
 
 
 def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,
