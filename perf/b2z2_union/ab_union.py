@@ -4,6 +4,13 @@
     HOST   TT_BIO_DEVICE_CONDITIONING   the diffusion conditioning pair track on the device
     SILU   TT_BIO_UNFUSED_SILU          silu as its own op instead of inside ttnn.linear
     AKW    TT_BIO_ATOM_KEY_WINDOW       the atom key window as tile-aligned slices, not a matmul
+    LN     BOLTZ2_ADALN_SHARED_SNORM    one shared LayerNorm for the 48 AdaLN sites of a step
+    LAY    TT_BIO_HEAD_PAD_TAIL         the head-split tail carried padded, four layout programs gone
+
+LN and LAY are the two step levers this pass adds. Both were measured on Wormhole only, 1.03932x
+and 1.02574x ON THE STEP, and neither has ever held a Blackhole chip. The third step lever the
+brief names, `wk/b2z2-step-program-fusion`, is ALREADY IN THE UNION: it is AKW, and its Blackhole
+number is the union row's 1.02744x. Anything that stacks it a second time is double counting.
 
 Each was measured alone and none of them has been measured beside the other two. HOST carries the
 campaign's largest single factor (1.06704x) and it was taken in a session whose own A/A floor was
@@ -27,6 +34,13 @@ thing any ratio here is a ratio of.
 
     ab_union.py --out <json> --cifdir <dir> --mode parity --sizes 512,298
     ab_union.py --out <json> --mode timing --reps 5 --order base,HOST,base,SILU,base,AKW,base,UNION
+    ab_union.py --out <json> --mode timing --reps 5 --order base,LN,base,LAY,base,UNION,base,STACK
+
+The step wall is recorded per fold beside the PairformerLayer wall, because LN and LAY are step
+levers: a null on the fold with a moved step is a different finding from a lever that never fired.
+`DiffusionModule.forward` returns a torch tensor, so it already reads back from the device and no
+extra synchronize is added around it; the Pairformer wrap keeps the explicit syncs it was built
+with so its numbers stay comparable with `b2z2-bh-union-clean`'s.
 """
 import argparse
 import hashlib
@@ -52,13 +66,21 @@ FLAGS = {
     "SILU": ("attr", "_UNFUSED_SILU"),
     "AKW": ("attr", "_ATOM_KEY_WINDOW"),
     "HOST": ("env", "TT_BIO_DEVICE_CONDITIONING"),
+    "LN": ("attr", "_B2_ADALN_SHARED_SNORM"),
+    "LAY": ("attr", "_HEAD_PAD_TAIL"),
 }
+UNION = ("HOST", "SILU", "AKW")
 ARMS = {
     "base": (),
     "HOST": ("HOST",),
     "SILU": ("SILU",),
     "AKW": ("AKW",),
-    "UNION": ("HOST", "SILU", "AKW"),
+    "LN": ("LN",),
+    "LAY": ("LAY",),
+    "UNION": UNION,
+    "U_LN": UNION + ("LN",),
+    "U_LAY": UNION + ("LAY",),
+    "STACK": UNION + ("LN", "LAY"),
 }
 
 
@@ -77,8 +99,11 @@ def apply_arm(arm, T):
 def read_back(T):
     """What the tree actually believes, read from where the model reads it, after apply_arm."""
     import tt_bio.boltz2 as B
-    return {"SILU": bool(T._UNFUSED_SILU), "AKW": bool(T._ATOM_KEY_WINDOW),
-            "HOST": bool(B._device_conditioning())}
+    got = {}
+    for flag, (kind, name) in FLAGS.items():
+        got[flag] = bool(getattr(T, name)) if kind == "attr" else None
+    got["HOST"] = bool(B._device_conditioning())
+    return got
 
 
 def occupancy():
@@ -193,6 +218,24 @@ def main() -> int:
 
         layer.__call__ = timed
 
+    # The 200-step sampler. `DiffusionModule.forward` hands a torch tensor back to the torch
+    # sampler loop, so it has already read back from the device and a bare wall clock around it
+    # is the step's real cost. No synchronize is added: forcing one per step would delete the
+    # exposed-dispatch overlap that is part of what a step costs.
+    step = {"n": 0, "s": 0.0}
+    dmod = getattr(T, "DiffusionModule", None)
+    if dmod is not None:
+        _fwd = dmod.forward
+
+        def timed_step(self, *a, **kw):
+            t = time.perf_counter()
+            r = _fwd(self, *a, **kw)
+            step["n"] += 1
+            step["s"] += time.perf_counter() - t
+            return r
+
+        dmod.forward = timed_step
+
     def fold(arm, seed, target, keep):
         apply_arm(arm, T)
         flags = read_back(T)
@@ -207,6 +250,8 @@ def main() -> int:
             p.unlink() if p.is_file() else shutil.rmtree(p)
         wall["n"] = 0
         wall["s"] = 0.0
+        step["n"] = 0
+        step["s"] = 0.0
         ttnn.synchronize_device(dev)
         load_before = os.getloadavg()
         t = time.perf_counter()
@@ -221,6 +266,8 @@ def main() -> int:
         return {"arm": arm, "seed": seed, "target": target.stem, "fold_s": round(elapsed, 3),
                 "sha256": hashlib.sha256(body).hexdigest()[:16], "flags": flags,
                 "block_s": round(wall["s"], 4), "block_n": wall["n"],
+                "step_s": round(step["s"], 4), "step_n": step["n"],
+                "step_ms": round(1000 * step["s"] / step["n"], 4) if step["n"] else None,
                 "loadavg_before": [round(x, 2) for x in load_before],
                 "loadavg_after": [round(x, 2) for x in os.getloadavg()],
                 "occupancy": occupancy(),
@@ -261,8 +308,9 @@ def main() -> int:
             r.update(rep=rep, pos=pos, cold=rep < 0, tag="t{}_{}_{}".format(rep, pos, arm))
             out["runs"].append(r)
             print("  rep{:<2d} {:6s} pos{:<2d} fold {:7.3f}s  block {:7.3f}s/{:<4d} "
-                  "load {:5.2f} sha={}".format(rep, arm, pos, r["fold_s"], r["block_s"],
-                                               r["block_n"], r["loadavg_before"][0], r["sha256"]),
+                  "step {:6.3f}s/{:<4d} load {:5.2f} sha={}".format(
+                      rep, arm, pos, r["fold_s"], r["block_s"], r["block_n"],
+                      r["step_s"], r["step_n"], r["loadavg_before"][0], r["sha256"]),
                   flush=True)
             dump()
     summarise_timing(out, dump, order)
@@ -287,6 +335,7 @@ def summarise_timing(out, dump, order):
     warm = [r for r in out["runs"] if not r["cold"]]
     by = {a: [r["fold_s"] for r in warm if r["arm"] == a] for a in set(order)}
     blk = {a: [r["block_s"] for r in warm if r["arm"] == a] for a in set(order)}
+    stp = {a: [r["step_s"] for r in warm if r["arm"] == a and r["step_n"]] for a in set(order)}
     base = st.median(by["base"])
 
     # The A/A floor of THIS run: base at its first position against base at each later position,
@@ -319,21 +368,36 @@ def summarise_timing(out, dump, order):
         if blk[arm] and blk["base"]:
             row["median_block_s"] = round(st.median(blk[arm]), 3)
             row["block_ratio_vs_base"] = round(st.median(blk["base"]) / st.median(blk[arm]), 5)
+        if stp[arm] and stp["base"]:
+            row["median_step_s"] = round(st.median(stp[arm]), 3)
+            row["step_ratio_vs_base"] = round(st.median(stp["base"]) / st.median(stp[arm]), 5)
         summary["arms"][arm] = row
 
-    # The union discount: the product of the singles against the measured union.
-    singles = [summary["arms"][a]["ratio_vs_base"] for a in ("HOST", "SILU", "AKW")
-               if a in summary["arms"]]
-    if len(singles) == 3 and "UNION" in summary["arms"]:
-        prod = singles[0] * singles[1] * singles[2]
-        meas = summary["arms"]["UNION"]["ratio_vs_base"]
-        summary["union_discount"] = {
-            "product_of_singles": round(prod, 5), "measured_union": round(meas, 5),
+    # Composition: the product of the parts against the measured whole, for every whole this
+    # run has both halves of. Each entry names its own parts so nothing is charged twice.
+    def compose(name, parts, whole):
+        if whole not in summary["arms"] or any(p not in summary["arms"] for p in parts):
+            return
+        prod = 1.0
+        for p in parts:
+            prod *= summary["arms"][p]["ratio_vs_base"]
+        meas = summary["arms"][whole]["ratio_vs_base"]
+        summary.setdefault("composition", {})[name] = {
+            "parts": list(parts), "whole": whole,
+            "product_of_parts": round(prod, 5), "measured": round(meas, 5),
             "discount_ratio": round(prod / meas, 5),
             "discount_pct": round(100 * (prod / meas - 1), 2),
             "product_seconds_saved": round(base - base / prod, 3),
             "measured_seconds_saved": round(base - base / meas, 3),
             "inside_aa_floor": bool(aa is not None and abs(prod / meas - 1) < (aa - 1))}
+
+    compose("union_from_singles", ("HOST", "SILU", "AKW"), "UNION")
+    compose("u_ln_from_union_and_ln", ("UNION", "LN"), "U_LN")
+    compose("u_lay_from_union_and_lay", ("UNION", "LAY"), "U_LAY")
+    compose("stack_from_union_ln_lay", ("UNION", "LN", "LAY"), "STACK")
+    compose("stack_from_u_ln_and_lay", ("U_LN", "LAY"), "STACK")
+    if "union_from_singles" in summary.get("composition", {}):
+        summary["union_discount"] = summary["composition"]["union_from_singles"]
     summary["identical_across_arms"] = len({r["sha256"] for r in warm}) == 1
     summary["sha_by_arm"] = {a: sorted({r["sha256"] for r in warm if r["arm"] == a})
                              for a in sorted(by)}
