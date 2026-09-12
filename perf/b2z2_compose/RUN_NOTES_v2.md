@@ -70,3 +70,58 @@ nothing to certify here; the CIF sha256 across arms is the parity evidence.
 
 Output lands in `perf/b2z2_compose/out/eli_512_qb2c3.json` (written incrementally, one dump per
 fold, so a partial run is still readable).
+
+## 3. How the next pass resumes
+
+Nothing needs rebuilding. The composed tree is committed and pushed
+(`wk/b2z2-bh-compose-v2` @ `d8342a43`, on origin via the pc/laptop relay — qb2 has no GitHub
+credential, `git push` there dies with `could not read Username for 'https://github.com'`).
+
+1. **Check the queued run first.** `perf/b2z2_compose/out/eli_run.log` on qb2.
+   * If it contains `benchlock: ... acquired after Ns` and then `rep0 base ...` lines, it ran.
+     `perf/b2z2_compose/out/eli_512_qb2c3.json` is written one dump per fold, so even a partial
+     run is readable and n>=5 per arm is already a usable answer.
+   * **If it contains `benchlock: WARNING after 3000s ... Proceeding, RECORD THIS`, the timing
+     leg is contaminated and must not be quoted.** Re-run it. The parity leg (CIF sha256 across
+     arms) survives contamination and is still usable.
+   * If the process is gone with neither, relaunch the command in §4.
+2. **Score it:**
+   `python3 perf/b2z2_compose/score.py --run perf/b2z2_compose/out/eli_512_qb2c3.json
+   --cifdir perf/b2z2_compose/out/cif --out perf/b2z2_compose/out/scored_eli_qb2c3.json`
+3. **Read the prediction before the numbers**, `perf/b2z2_compose/PREDICTION_v2.md`, committed at
+   `02434441` before the first fold existed. Six falsifiers, each able to fire.
+
+The arms cannot silently run their base: every fold asserts its own lever counters
+(`ATOM_SHIFT_GATHER_STATS` must read 1200/0 with ELI on and 0/1200 with it off, `FUSED_STATS`
+likewise for K2) and aborts the run if they contradict the arm. That is brief bar 5 enforced at
+the fold rather than inspected afterwards.
+
+`STATS_GATED` still cannot distinguish DST's two variants — it counts served calls in both arms,
+because DST is a compile-time switch inside the same op. `_cache_key_gated` carries
+`GATE_DST_RESIDENT`, so the arms are genuinely different compiled programs; the counter just
+cannot witness it. Unchanged from the predecessor's pass and unchanged in its consequence: DST
+measured 0.99748x on this cell and nothing turns on it.
+
+## 4. Reproduce
+
+    cd /home/ttuser/.coworker/wt/b2z2-bh-compose-v2
+    setsid nohup env BENCHLOCK_WAIT_S=2400 BENCHLOCK_LOAD_WAIT_S=3000 \
+      ~/.coworker/scripts/benchlock.sh worker:b2z2-bh-compose-v2 -- \
+      env TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 \
+          TT_BIO_LEASE_HOLDER=worker:b2z2-bh-compose-v2 \
+      /home/ttuser/tt-bio-dev/env/bin/python3 -u perf/b2z2_compose/ab_compose.py \
+        --out perf/b2z2_compose/out/eli_512_qb2c3.json \
+        --cifdir perf/b2z2_compose/out/cif --reps 10 --skip-298 \
+      > perf/b2z2_compose/out/eli_run.log 2>&1 < /dev/null &
+
+## 5. Deliverable lines — NOT YET EARNED
+
+FOLD-SECONDS-BH: pending — the run is queued behind another worker's parity gate.
+FOLD-RATIO-BH: pending.
+UNION-DISCOUNT: pending.
+ARMS-COMPOSED: 3 merged and verified disjoint (ELI, K2, DST); 0 measured so far.
+PARITY: pending (CIF sha256 across base/ELI/UNION).
+
+No number is quoted in this pass. The prediction is registered, the tree is composed and
+checked, the harness is instrumented, and the run is queued — but a fold ratio that was never
+measured is not a result, and a fold ratio measured under a live parity gate is a wrong one.
