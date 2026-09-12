@@ -46,10 +46,8 @@ def main() -> int:
     torch.set_grad_enabled(False)
     import ttnn
     import tt_bio.tenstorrent as T
-    import tt_bio.boltz2 as B2
     import step_probe as SP
-    sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
-    import bench_common as B
+    import tt_baseline as B
 
     SP.OUT_PATH = a.out
     SP.OUT["env"] = {"card": os.environ.get("TT_VISIBLE_DEVICES"),
