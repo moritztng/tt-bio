@@ -1,0 +1,17 @@
+[confheads] z transpose               16.01 ms
+[confheads] heads                     73.57 ms
+[confheads] same-chain select         40.17 ms
+[confheads] untilize                  16.51 ms
+[confheads] download                  28.22 ms
+[confheads] z transpose                4.31 ms
+[confheads] heads                     10.97 ms
+[confheads] same-chain select          5.82 ms
+[confheads] untilize                   1.82 ms
+[confheads] download                  20.53 ms
+  plain[a0] 39.800 s  plddt None  6be82118d47812d0
+[confheads] z transpose                4.66 ms
+[confheads] heads                     10.49 ms
+[confheads] same-chain select          4.11 ms
+[confheads] untilize                   1.05 ms
+[confheads] download                  18.31 ms
+  plain[a1] 41.111 s  plddt None  6be82118d47812d0
