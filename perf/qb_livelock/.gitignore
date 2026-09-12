@@ -1,0 +1,3 @@
+# run artifacts: probe traces and fold outputs, tens of MB per sweep. The harness is the
+# asset here; the measurements are written up in state/qb-livelock-mm-teardown.md.
+out/

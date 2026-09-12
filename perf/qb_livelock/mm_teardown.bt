@@ -1,0 +1,59 @@
+#!/usr/bin/env bpftrace
+/*
+ * What the livelock is actually paid for: the cost of tearing down one address space.
+ *
+ * exit_mmap() does the unmapping. It runs in the dying task's own context when that task
+ * dropped the last mm reference (harmless, preemptible), and on a bounded per-CPU system_wq
+ * worker via mmput_async_fn when somebody else dropped it last (the livelock path). Same work
+ * either way, so its duration is the metric, and it is measurable on every exit rather than
+ * only when the kernel decides to print its ladder.
+ *
+ * The kernel's own "hogged CPU for >10000us N times" line only appears at N = 4,5,7,11,19,35,
+ * 67,131, i.e. a log2-coarse cumulative counter that never resets within a boot. Useful as the
+ * published signal, useless as a per-run measurement. These probes give every event.
+ *
+ * map_count and total_vm are read from the mm at entry: the real VMA count and mapped size the
+ * teardown walks, taken from the kernel at the exact instant, not from a Python hook that runs
+ * a little too early.
+ */
+BEGIN { printf("MMPROBE-START %lld\n", nsecs); }
+
+/* the livelock path: teardown deferred onto system_wq */
+kprobe:mmput_async_fn { @t[tid] = nsecs; }
+
+kretprobe:mmput_async_fn /@t[tid]/ {
+    $d = (nsecs - @t[tid]) / 1000;
+    delete(@t[tid]);
+    @async_n = count();
+    @async_us_hist = hist($d);
+    @async_us_max = max($d);
+    if ($d >= 10000) { @async_over_10ms = count(); }
+    printf("MMPUT %lld us=%lld\n", nsecs, $d);
+}
+
+/* who queues it, i.e. who drops the last mm reference from a context that cannot sleep */
+tracepoint:workqueue:workqueue_queue_work /args->function == kaddr("mmput_async_fn")/ {
+    @queued_by[comm] = count();
+    printf("QUEUE %lld by=%s pid=%d\n", nsecs, comm, pid);
+}
+
+/* every teardown, sync or async, with the size of what it had to walk */
+kprobe:exit_mmap {
+    $mm = (struct mm_struct *)arg0;
+    @e[tid] = nsecs;
+    @mc[tid] = $mm->map_count;
+    @tv[tid] = $mm->total_vm;
+}
+
+kretprobe:exit_mmap /@e[tid]/ {
+    $d = (nsecs - @e[tid]) / 1000;
+    printf("EXITMMAP %lld us=%lld map_count=%d total_vm_kB=%lld comm=%s pid=%d\n",
+           nsecs, $d, @mc[tid], @tv[tid] * 4, comm, pid);
+    delete(@e[tid]);
+    delete(@mc[tid]);
+    delete(@tv[tid]);
+    @sync_us_hist = hist($d);
+    @sync_n = count();
+    @sync_us_max = max($d);
+    if ($d >= 10000) { @sync_over_10ms = count(); }
+}

@@ -4911,7 +4911,56 @@ def cleanup():
         _device_lease = None
 
 
+def _drop_cycles_at_exit():
+    """Collect cycles while the device is still open. See runtime.drop_cycles."""
+    from . import runtime
+
+    if env_flag("TT_BIO_EXIT_TRIM", True):
+        runtime.drop_cycles()
+
+
+def _release_at_exit():
+    """Give the fold's heap back to the kernel while we still own a sleepable context.
+
+    Whatever drops the last reference to this address space afterwards may have to run the
+    unmapping as one work item on the bounded per-CPU system_wq, and a long one there is the
+    documented host livelock. See tt_bio.runtime.release_address_space for the mechanism.
+    """
+    from . import runtime
+
+    if env_flag("TT_BIO_EXIT_TRIM", True):
+        runtime.release_address_space()
+
+
+def _footprint_at_exit():
+    """Record what the kernel is left to unmap, when $TT_BIO_EXIT_FOOTPRINT names a file.
+
+    Measurement only, off unless asked for: the pair of numbers the teardown is paid by.
+    """
+    path = os.environ.get("TT_BIO_EXIT_FOOTPRINT")
+    if not path:
+        return
+    from . import runtime
+
+    rss, vmas = runtime.address_space()
+    with open(path, "a") as f:
+        f.write(f"pid={os.getpid()} tag={os.environ.get('TT_BIO_EXIT_TAG', '-')} "
+                f"rss_kB={rss} vmas={vmas}\n")
+    # the same numbers broken down by mapping class, so a residual can be named rather than
+    # guessed at. perf/qb_livelock/vma_census.py reads it.
+    try:
+        with open("/proc/self/smaps", "rb") as src, open(f"{path}.smaps.{os.getpid()}", "wb") as dst:
+            dst.write(src.read())
+    except OSError:
+        pass
+
+
+# atexit runs its registrations in reverse, so read these bottom-up: collect cycles while the
+# chip is still open, close the device, hand the freed heap back, then record what is left.
+atexit.register(_footprint_at_exit)
+atexit.register(_release_at_exit)
 atexit.register(cleanup)
+atexit.register(_drop_cycles_at_exit)
 
 
 class WeightScope:
