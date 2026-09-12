@@ -7685,6 +7685,9 @@ class Transition(Module):
         ], dim=1)
 
 
+_ROW_SHARD_FOLD = os.environ.get("TT_BIO_ROW_SHARD_FOLD", "0") == "1"
+
+
 class PairformerLayer(Module):
     def __init__(
         self,
@@ -7768,30 +7771,82 @@ class PairformerLayer(Module):
                 self.scope("transition_s"), compute_kernel_config
             )
 
+    def _pair_track_row_sharded_mesh(self, z, mask, attn_mask_start, attn_mask_end, n_dev):
+        """The pair-track chain with each chip computing its own rows of every update it can.
+
+        `RowSlab.mesh(n)` addresses a chip's own rows through `ttnn.mesh_partition`, which is what
+        an SPMD mesh needs: every chip runs the same program, so a Python row range would hand them
+        all the same rows. Each op returns this chip's rows of its update, one `all_gather` rebuilds
+        the full-height update, and it is added to a z that is therefore FULL AND FRESH at the input
+        of every op. Correctness holds by construction and does not rest on reasoning about which op
+        tolerates a stale far half.
+
+        `triangle_attention_end` runs WHOLE on both chips. It refuses a mesh slab by its own guard,
+        because its qkv projection is not sharded and a slab would change that projection's M and
+        risk a different routing decision. Running it replicated is the honest thing to do until
+        that is fixed, and it costs this chain the 1.290x that op measures as a slab.
+
+        Four gathers, not three. The chain could carry a half-fresh z out of
+        `triangle_multiplication_end` into the row-local `triangle_attention_start` and save one,
+        worth about 1.68 ms a block, but that is exactly where a silent correctness bug would live
+        and it is not worth taking before the simple version has been measured.
+        """
+        slab = RowSlab.mesh(n_dev)
+
+        def apply(op, extra, needs_full_z):
+            nonlocal z
+            if needs_full_z:
+                u = op(z, *extra, row_slab=slab)
+            else:
+                rows = slab.take(z, 1)
+                try:
+                    u = op(rows, *extra)
+                finally:
+                    ttnn.deallocate(rows)
+            g = ttnn.all_gather(u, dim=1)
+            ttnn.deallocate(u)
+            z = ttnn.add_(z, g)
+            ttnn.deallocate(g)
+
+        apply(self.triangle_multiplication_start, (mask,), True)
+        apply(self.triangle_multiplication_end, (mask,), True)
+        apply(self.triangle_attention_start, (attn_mask_start,), False)
+
+        z_update = self.triangle_attention_end(z, attn_mask_end)   # whole, see the docstring
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
+
+        apply(self.transition_z, (), False)
+        return z
+
     def __call__(
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
         extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
-        z_update = self.triangle_multiplication_start(z, mask)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        n_dev = getattr(self.device, "get_num_devices", lambda: 1)()
+        if _ROW_SHARD_FOLD and n_dev > 1:
+            z = self._pair_track_row_sharded_mesh(z, mask, attn_mask_start, attn_mask_end, n_dev)
+        else:
+            z_update = self.triangle_multiplication_start(z, mask)
+            z = ttnn.add_(z, z_update)
+            ttnn.deallocate(z_update)
 
-        z_update = self.triangle_multiplication_end(z, mask)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+            z_update = self.triangle_multiplication_end(z, mask)
+            z = ttnn.add_(z, z_update)
+            ttnn.deallocate(z_update)
 
-        z_update = self.triangle_attention_start(z, attn_mask_start)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+            z_update = self.triangle_attention_start(z, attn_mask_start)
+            z = ttnn.add_(z, z_update)
+            ttnn.deallocate(z_update)
 
-        z_update = self.triangle_attention_end(z, attn_mask_end)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+            z_update = self.triangle_attention_end(z, attn_mask_end)
+            z = ttnn.add_(z, z_update)
+            ttnn.deallocate(z_update)
 
-        z_update = self.transition_z(z)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+            z_update = self.transition_z(z)
+            z = ttnn.add_(z, z_update)
+            ttnn.deallocate(z_update)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
                 s,
