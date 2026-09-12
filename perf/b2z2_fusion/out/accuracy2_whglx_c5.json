@@ -1,0 +1,129 @@
+{
+ "ttnn": "0.68.0",
+ "host": "j10glx02",
+ "model": "boltz2",
+ "card": "5",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "fused_grid": [
+  8,
+  8
+ ],
+ "block_config": {
+  "(4, 16)": [
+   8,
+   2,
+   2,
+   2,
+   2
+  ]
+ },
+ "mul_mode": 1,
+ "runs": [
+  {
+   "size": 512,
+   "arm": "base",
+   "run": 0,
+   "fold_s": 41.578,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "da476491dbb2a847"
+   },
+   "cif_dir": "perf/b2z2_fusion/cif_wh2/512_base_0",
+   "swiglu_served": 0,
+   "swiglu_declined": 10648,
+   "unfused_silu": false,
+   "silu": [
+    1,
+    1,
+    2,
+    0
+   ]
+  },
+  {
+   "size": 512,
+   "arm": "base",
+   "run": 1,
+   "fold_s": 40.805,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "da476491dbb2a847"
+   },
+   "cif_dir": "perf/b2z2_fusion/cif_wh2/512_base_1",
+   "swiglu_served": 0,
+   "swiglu_declined": 10648,
+   "unfused_silu": false,
+   "silu": [
+    1,
+    1,
+    2,
+    0
+   ]
+  },
+  {
+   "size": 512,
+   "arm": "swiglu",
+   "run": 0,
+   "fold_s": 41.083,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "bf474b1b01408294"
+   },
+   "cif_dir": "perf/b2z2_fusion/cif_wh2/512_swiglu_0",
+   "swiglu_served": 8960,
+   "swiglu_declined": 1688,
+   "unfused_silu": false,
+   "silu": [
+    1,
+    1,
+    2,
+    0
+   ]
+  },
+  {
+   "size": 512,
+   "arm": "swiglu_e1r1",
+   "run": 0,
+   "fold_s": 41.359,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "f3fe3f97c1524d13"
+   },
+   "cif_dir": "perf/b2z2_fusion/cif_wh2/512_swiglu_e1r1_0",
+   "swiglu_served": 8960,
+   "swiglu_declined": 1688,
+   "unfused_silu": false,
+   "silu": [
+    6,
+    1,
+    1,
+    0
+   ]
+  },
+  {
+   "size": 512,
+   "arm": "swiglu_e0r2",
+   "run": 0,
+   "fold_s": 40.099,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "2b9d958f3020cca9"
+   },
+   "cif_dir": "perf/b2z2_fusion/cif_wh2/512_swiglu_e0r2_0",
+   "swiglu_served": 8960,
+   "swiglu_declined": 1688,
+   "unfused_silu": false,
+   "silu": [
+    6,
+    0,
+    2,
+    0
+   ]
+  }
+ ]
+}
