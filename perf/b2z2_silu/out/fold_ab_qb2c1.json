@@ -1,0 +1,268 @@
+{
+ "doc": "The folds a per-pseudo-domain reading of the unfused-silu lever needs.\n\n`b2z2-fusion-rebuild` killed `TT_BIO_UNFUSED_SILU` on 0.805 A whole-molecule all-atom RMSD at\n512 aa. `cdk2x2_512` is CDK2 fused to its own first 214 residues with no inter-domain interface,\nso the hinge between the two pseudo-domains saturates whole-molecule RMSD for any reassociation:\nthe shipped default itself moves 8.60 A on it. That run also had no stochastic floor -- its\n0.000000 A A/A pair is two identical arms, which measures the device's determinism, not the\nsampler's spread. So the 0.805 A was read on the wrong axis against the wrong floor.\n\nThis run produces what a per-domain reading needs: the same arm at four seeds, so the sampler's own\nspread is measured, and every arm at each of those seeds, so each lever's move is priced against it.\nScored by `perf/b2z2_fusebias/score.py`, the shared instrument `b2z2-fusebias-512-parity` built --\nper pseudo-domain, CA-lDDT arm-against-arm and against the experimental 1HCL, hinge angle.\n\nArms, in ONE process so they share a device, a program cache and a model load:\n\n    base      the shipped default: ttnn.linear(activation=\"silu\")\n    usilu     TT_BIO_UNFUSED_SILU, silu as its own op on the bf16 projection\n    usilu32   the same with TT_BIO_UNFUSED_SILU_FP32: the projection is packed fp32, silu runs on\n              it and the result is rounded once, which is the fused arm's arithmetic\n\nBoth gates are module-level in `tt_bio.tenstorrent` (they pick a device program, so they are read\nat build time, not per call), so they are set on the module here rather than in the environment,\nand asserted absent from the environment so a pinned value cannot silently serve every arm.\nDifferent activations are different programs, so the program cache cannot serve one arm the\nother's kernel. The last fold repeats the first: that repeat is the A/A floor and must come back\nbyte-identical or nothing else here is interpretable.\n\n    fold_silu.py --out <json> --cifdir <dir> [--plan base:0,1,2,3;usilu:0,1,2,3;usilu32:0,1]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "1",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-silu-bh-land/tt_bio/__init__.py",
+  "commit": "cb1430eadd84610574896e582b552223dd474a53",
+  "started_utc": "2026-09-12T18:39:06Z",
+  "loadavg": [
+   0.1708984375,
+   1.3271484375,
+   1.4951171875
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3;usilu:0,1,2,3;usilu32:0,1",
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.987,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": -1,
+   "pos": 0,
+   "cold": true,
+   "block_s": 10.2034,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.684,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 0,
+   "pos": 0,
+   "cold": false,
+   "block_s": 10.1419,
+   "block_n": 280
+  },
+  {
+   "arm": "usilu",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.27,
+   "sha256": "188e835079a67544",
+   "plddt": 0.800202,
+   "rep": 0,
+   "pos": 1,
+   "cold": false,
+   "block_s": 9.7261,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.733,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 0,
+   "pos": 2,
+   "cold": false,
+   "block_s": 10.1511,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.67,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 1,
+   "pos": 0,
+   "cold": false,
+   "block_s": 10.1422,
+   "block_n": 280
+  },
+  {
+   "arm": "usilu",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.235,
+   "sha256": "188e835079a67544",
+   "plddt": 0.800202,
+   "rep": 1,
+   "pos": 1,
+   "cold": false,
+   "block_s": 9.7295,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.75,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 1,
+   "pos": 2,
+   "cold": false,
+   "block_s": 10.1521,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.655,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 2,
+   "pos": 0,
+   "cold": false,
+   "block_s": 10.1487,
+   "block_n": 280
+  },
+  {
+   "arm": "usilu",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.212,
+   "sha256": "188e835079a67544",
+   "plddt": 0.800202,
+   "rep": 2,
+   "pos": 1,
+   "cold": false,
+   "block_s": 9.7192,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.685,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 2,
+   "pos": 2,
+   "cold": false,
+   "block_s": 10.1579,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.747,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 3,
+   "pos": 0,
+   "cold": false,
+   "block_s": 10.1566,
+   "block_n": 280
+  },
+  {
+   "arm": "usilu",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.383,
+   "sha256": "188e835079a67544",
+   "plddt": 0.800202,
+   "rep": 3,
+   "pos": 1,
+   "cold": false,
+   "block_s": 9.727,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.675,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 3,
+   "pos": 2,
+   "cold": false,
+   "block_s": 10.1463,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.596,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 4,
+   "pos": 0,
+   "cold": false,
+   "block_s": 10.1424,
+   "block_n": 280
+  },
+  {
+   "arm": "usilu",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.162,
+   "sha256": "188e835079a67544",
+   "plddt": 0.800202,
+   "rep": 4,
+   "pos": 1,
+   "cold": false,
+   "block_s": 9.7214,
+   "block_n": 280
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.69,
+   "sha256": "a91aa44441f0d9c5",
+   "plddt": 0.800144,
+   "rep": 4,
+   "pos": 2,
+   "cold": false,
+   "block_s": 10.1443,
+   "block_n": 280
+  }
+ ],
+ "model_load_s": 2.372,
+ "timing": {
+  "arms": [
+   "base",
+   "usilu",
+   "base"
+  ],
+  "reps": 5,
+  "seed": 0,
+  "block_timed": true,
+  "summary": {
+   "base": {
+    "n": 10,
+    "median_fold_s": 19.684,
+    "fold_ratio_vs_base": 1.0,
+    "spread_pct": 0.78,
+    "median_block_s": 10.148,
+    "block_ratio_vs_base": 1.0
+   },
+   "usilu": {
+    "n": 5,
+    "median_fold_s": 19.235,
+    "fold_ratio_vs_base": 1.02337,
+    "spread_pct": 1.15,
+    "median_block_s": 9.726,
+    "block_ratio_vs_base": 1.04333
+   },
+   "aa_floor": 0.99898,
+   "identical_across_arms": false
+  }
+ }
+}
