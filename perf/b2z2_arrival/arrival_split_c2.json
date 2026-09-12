@@ -1,0 +1,100 @@
+{
+ "reps": 3,
+ "gcc_window": [
+  4555776,
+  5390336
+ ],
+ "freq_mhz": 1000.0,
+ "rows": 10131438,
+ "unclosed_zone_begins": 0,
+ "zones": {
+  "B2Z2-IN0-CBRES": {
+   "summed_us_per_block": 32546.0337,
+   "us_per_core_per_block": 452.0282,
+   "max_core_us_per_block": 877.023,
+   "entries_per_block": 19968.0,
+   "cores": 72
+  },
+  "B2Z2-IN0-CHAINWAIT": {
+   "summed_us_per_block": 118357.4803,
+   "us_per_core_per_block": 1849.3356,
+   "max_core_us_per_block": 4904.3987,
+   "entries_per_block": 17856.0,
+   "cores": 64
+  },
+  "B2Z2-IN0-DOWNWAIT": {
+   "summed_us_per_block": 4334.584,
+   "us_per_core_per_block": 67.7279,
+   "max_core_us_per_block": 234.7353,
+   "entries_per_block": 15488.0,
+   "cores": 64
+  },
+  "B2Z2-IN0-FWD": {
+   "summed_us_per_block": 27992.3727,
+   "us_per_core_per_block": 437.3808,
+   "max_core_us_per_block": 483.191,
+   "entries_per_block": 15488.0,
+   "cores": 64
+  },
+  "B2Z2-IN0-SRC": {
+   "summed_us_per_block": 5839.9517,
+   "us_per_core_per_block": 729.994,
+   "max_core_us_per_block": 791.6893,
+   "entries_per_block": 1600.0,
+   "cores": 8
+  },
+  "B2Z2-IN1-CBRES": {
+   "summed_us_per_block": 869.9947,
+   "us_per_core_per_block": 12.0833,
+   "max_core_us_per_block": 22.2677,
+   "entries_per_block": 20160.0,
+   "cores": 72
+  },
+  "B2Z2-IN1-CHAINWAIT": {
+   "summed_us_per_block": 28684.7517,
+   "us_per_core_per_block": 455.3135,
+   "max_core_us_per_block": 908.242,
+   "entries_per_block": 17856.0,
+   "cores": 63
+  },
+  "B2Z2-IN1-DOWNWAIT": {
+   "summed_us_per_block": 10781.0353,
+   "us_per_core_per_block": 171.1275,
+   "max_core_us_per_block": 739.4923,
+   "entries_per_block": 15192.0,
+   "cores": 63
+  },
+  "B2Z2-IN1-FWD": {
+   "summed_us_per_block": 8422.3757,
+   "us_per_core_per_block": 133.6885,
+   "max_core_us_per_block": 170.4947,
+   "entries_per_block": 15192.0,
+   "cores": 63
+  },
+  "B2Z2-IN1-SRC": {
+   "summed_us_per_block": 1883.7547,
+   "us_per_core_per_block": 209.3061,
+   "max_core_us_per_block": 291.4257,
+   "entries_per_block": 1800.0,
+   "cores": 9
+  },
+  "B2Z2-RDBAR": {
+   "summed_us_per_block": 1516.3457,
+   "us_per_core_per_block": 89.1968,
+   "max_core_us_per_block": 123.3083,
+   "entries_per_block": 3400.0,
+   "cores": 17
+  }
+ },
+ "derived": {
+  "IN0-SRC_us": 729.994,
+  "IN1-SRC_us": 209.3061,
+  "RDBAR_us": 89.1968,
+  "CHAINWAIT_us": 2304.6491,
+  "DOWNWAIT_us": 238.8554,
+  "FWD_us": 571.0693,
+  "CBRES_us": 464.1115,
+  "SRC_total_us": 939.3001,
+  "SRC_issue_minus_barrier_us": 850.1033
+ }
+}

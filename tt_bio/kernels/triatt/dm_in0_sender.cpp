@@ -6,6 +6,7 @@
 #include "api/dataflow/dataflow_api.h"
 #include "matmul_dataflow_common.hpp"
 #include "ttnn/operations/experimental/ccl/strided_all_gather_async/device/kernels/fused_receiver_utils.hpp"
+#include "tools/profiler/kernel_profiler.hpp"
 
 void kernel_main() {
     constexpr uint32_t M_tiles = get_compile_time_arg_val(0);
@@ -261,7 +262,7 @@ void kernel_main() {
                     continue;
                 }
                 uint32_t k_block = k_forward ? k_block_iter : (K_num_blocks - 1) - k_block_iter;
-                cb_reserve_back(cb_id_in0, in0_block_num_tiles);
+                { DeviceZoneScopedN("B2Z2-IN0-CBRES"); cb_reserve_back(cb_id_in0, in0_block_num_tiles); }
 
                 uint32_t in0_start_address = get_write_ptr(cb_id_in0);
                 if constexpr (is_injector_core) {
@@ -288,9 +289,12 @@ void kernel_main() {
                         (k_block + 1) * K_block_tiles);
                 } else {
                     // Get from previous device
-                    noc_semaphore_set(in0_receiver_semaphore_addr_ptr, INVALID);
-                    noc_semaphore_inc(in0_sender_semaphore_noc_addr, 1);
-                    noc_semaphore_wait(in0_receiver_semaphore_addr_ptr, VALID);
+                    {
+                        DeviceZoneScopedN("B2Z2-IN0-CHAINWAIT");
+                        noc_semaphore_set(in0_receiver_semaphore_addr_ptr, INVALID);
+                        noc_semaphore_inc(in0_sender_semaphore_noc_addr, 1);
+                        noc_semaphore_wait(in0_receiver_semaphore_addr_ptr, VALID);
+                    }
                 }
 
                 // Critical to performance for sender to push data to compute before mcasting
@@ -338,22 +342,25 @@ void kernel_main() {
                 }
 #else
                 if (!is_sink_core) {
-                    noc_semaphore_wait(in0_sender_semaphore_addr_ptr, 1);
-                    noc_semaphore_set(in0_sender_semaphore_addr_ptr, 0);
+                    { DeviceZoneScopedN("B2Z2-IN0-DOWNWAIT"); noc_semaphore_wait(in0_sender_semaphore_addr_ptr, 1); }
+                    {
+                        DeviceZoneScopedN("B2Z2-IN0-FWD");
+                        noc_semaphore_set(in0_sender_semaphore_addr_ptr, 0);
 
-                    uint64_t in0_unicast_data_addr = get_noc_addr(in0_dest_noc_x, in0_dest_noc_y, in0_start_address);
+                        uint64_t in0_unicast_data_addr = get_noc_addr(in0_dest_noc_x, in0_dest_noc_y, in0_start_address);
 
-                    /**
-                     * in0 is M_block_tiles x K_block_tiles. When M block is partial, we don't need to write the
-                     * padded tiles. Use `current_block_bytes`.
-                     */
-                    noc_async_write(in0_start_address, in0_unicast_data_addr, current_block_bytes);
+                        /**
+                        * in0 is M_block_tiles x K_block_tiles. When M block is partial, we don't need to write the
+                        * padded tiles. Use `current_block_bytes`.
+                        */
+                        noc_async_write(in0_start_address, in0_unicast_data_addr, current_block_bytes);
 
-#ifdef ARCH_BLACKHOLE
-                    noc_async_writes_flushed();
-#endif
+                        #ifdef ARCH_BLACKHOLE
+                        noc_async_writes_flushed();
+                        #endif
 
-                    noc_semaphore_set_remote(in0_valid_semaphore_addr, in0_receiver_semaphore_noc_addr);
+                        noc_semaphore_set_remote(in0_valid_semaphore_addr, in0_receiver_semaphore_noc_addr);
+                    }
                 }
 #endif  // MM_MCAST_OPERAND || MM_BCAST_FANOUT
             }

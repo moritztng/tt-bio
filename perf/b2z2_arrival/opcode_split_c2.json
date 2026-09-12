@@ -1,0 +1,93 @@
+{
+ "per_block_us": {
+  "LayerNormDeviceOperation": {
+   "dur": 8000.368,
+   "trisc1": 7926.2983,
+   "wait": 5664.4861,
+   "res": 368.8309,
+   "n": 41.0
+  },
+  "ReshapeViewDeviceOperation": {
+   "dur": 1055.007,
+   "trisc1": 0.0,
+   "wait": 0.0,
+   "res": 0.0,
+   "n": 3.0
+  },
+  "GenericOpDeviceOperation": {
+   "dur": 29079.3703,
+   "trisc1": 28838.4963,
+   "wait": 16746.6476,
+   "res": 804.1869,
+   "n": 16.0
+  },
+  "TransposeDeviceOperation": {
+   "dur": 4378.536,
+   "trisc1": 1353.7307,
+   "wait": 1161.1118,
+   "res": 444.1359,
+   "n": 8.0
+  },
+  "BinaryNgDeviceOperation": {
+   "dur": 12825.5647,
+   "trisc1": 12778.0947,
+   "wait": 10926.1078,
+   "res": 3955.0569,
+   "n": 52.0
+  },
+  "MatmulDeviceOperation": {
+   "dur": 27709.7643,
+   "trisc1": 24935.6497,
+   "wait": 12383.5885,
+   "res": 2173.4934,
+   "n": 113.0
+  },
+  "PermuteDeviceOperation": {
+   "dur": 646.15,
+   "trisc1": 619.965,
+   "wait": 560.7111,
+   "res": 567.6458,
+   "n": 3.0
+  },
+  "SliceDeviceOperation": {
+   "dur": 652.8437,
+   "trisc1": 0.0,
+   "wait": 0.0,
+   "res": 0.0,
+   "n": 33.0
+  },
+  "ConcatDeviceOperation": {
+   "dur": 638.7223,
+   "trisc1": 0.0,
+   "wait": 0.0,
+   "res": 0.0,
+   "n": 1.0
+  },
+  "NlpCreateHeadsDeviceOperation": {
+   "dur": 32.5213,
+   "trisc1": 0.0,
+   "wait": 0.0,
+   "res": 0.0,
+   "n": 1.0
+  },
+  "SoftmaxDeviceOperation": {
+   "dur": 220.544,
+   "trisc1": 218.1747,
+   "wait": 97.4042,
+   "res": 11.7813,
+   "n": 1.0
+  }
+ },
+ "total_us": {
+  "dur": 85239.3917,
+  "trisc1": 76670.4093,
+  "wait": 47540.0571,
+  "res": 8325.1311,
+  "n": 272.0
+ },
+ "reps": 3,
+ "window": [
+  4448,
+  5263
+ ]
+}
