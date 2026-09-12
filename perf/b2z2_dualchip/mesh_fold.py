@@ -114,7 +114,12 @@ OUT = {"mode": MODE, "reps": REPS, "card": os.environ.get("TT_VISIBLE_DEVICES"),
                     "recycling_steps": RECYCLING_STEPS, "sampling_steps": SAMPLING_STEPS,
                     "diffusion_samples": DIFFUSION_SAMPLES, "seed": SEED},
        "diffusion_trace": None,  # set below
-       "benchlocked": True,
+       # Recorded, not asserted. This field was once a hardcoded True/False and drifted from
+       # what the run actually did: b2z2_fold_mesh.json says benchlocked=false for a run that
+       # WAS under benchlock. The caller passes FOLD_BENCHLOCKED and the loadavg is captured
+       # either way, so a reader can check the claim against a number.
+       "benchlocked": os.environ.get("FOLD_BENCHLOCKED") == "1",
+       "loadavg_at_start": open("/proc/loadavg").read().split()[:3],
        }
 
 
