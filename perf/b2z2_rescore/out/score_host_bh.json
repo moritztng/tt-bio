@@ -1,0 +1,335 @@
+{
+ "cifdir": "perf/b2z2_rescore/cif_host",
+ "split_seq_id": 298,
+ "gt": "1hcl.cif",
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "1",
+  "lease_cards": "1",
+  "grid": [
+   11,
+   10
+  ],
+  "torch": "2.8.0+cpu",
+  "arch": "Arch.BLACKHOLE",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-bh-compose-landed/tt_bio/__init__.py",
+  "started_utc": "2026-09-12T15:56:15Z",
+  "loadavg": [
+   1.75537109375,
+   3.23779296875,
+   4.025390625
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "diffusion_trace": false,
+   "fixtures": [
+    "cdk2x2_512.yaml",
+    "cdk2x2_298.yaml"
+   ]
+  },
+  "lever_defaults": {
+   "TRIATT_QKV_GATE_FUSED": true,
+   "TRIATT_HEAD_MAJOR_QKV": true,
+   "GATE_DST_RESIDENT": false,
+   "MSA_LADDER": false,
+   "WORK_CB_DEPTH": 2,
+   "MM_CB_DEPTH": 2,
+   "MM_BLOCK_OVERRIDE": {},
+   "TRIMUL_TAIL_DIRECT_PACK": 1,
+   "F1_BLOCK_KEYS": [
+    "(8, 8)"
+   ]
+  },
+  "msa_bucket_for_35_rows": {
+   "ladder_off": 1024,
+   "ladder_on": 64
+  },
+  "ttnn": "0.68.0",
+  "cbd_keys_present": {
+   "(4, 4)": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ],
+   "(4, 12)": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ],
+   "(4, 16)": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ]
+  },
+  "rescored_from": "perf/b2z2_rescore/out/union5_512_qb2c1.json",
+  "arm_under_test": "HOST"
+ },
+ "sizes": {
+  "512": {
+   "n_atoms": 4116,
+   "arms": [
+    "off-s0",
+    "off-s0_r1",
+    "on-s0"
+   ],
+   "seeds": [
+    0
+   ],
+   "plddt": {
+    "off-s0": 0.845488,
+    "off-s0_r1": 0.845488,
+    "on-s0": 0.846169
+   },
+   "sha256": {
+    "off-s0": "dd1c2a12f97772fb",
+    "off-s0_r1": "dd1c2a12f97772fb",
+    "on-s0": "4ebbe47869032c91"
+   },
+   "fold_s": {
+    "off-s0": 20.06,
+    "off-s0_r1": 20.06,
+    "on-s0": 18.892
+   },
+   "aa_floor": {
+    "whole_all_atom_A": 0.0,
+    "whole_ca_A": 0.0,
+    "domain1_all_atom_A": 0.0,
+    "domain1_ca_A": 0.0,
+    "domain2_all_atom_A": 0.0,
+    "domain2_ca_A": 0.0,
+    "hinge_deg": 0.0,
+    "hinge_free_all_atom_A": 0.0,
+    "lddt_ca": 1.0,
+    "lddt_ca_domain1": 1.0,
+    "lddt_ca_domain2": 1.0
+   },
+   "aa_floor_bitexact": true,
+   "lever": {
+    "seed0": {
+     "whole_all_atom_A": 0.77139,
+     "whole_ca_A": 0.62996,
+     "domain1_all_atom_A": 0.57995,
+     "domain1_ca_A": 0.32278,
+     "domain2_all_atom_A": 0.40258,
+     "domain2_ca_A": 0.25842,
+     "hinge_deg": 4.37307,
+     "hinge_free_all_atom_A": 0.51338,
+     "lddt_ca": 0.98416,
+     "lddt_ca_domain1": 0.99304,
+     "lddt_ca_domain2": 0.99612
+    }
+   },
+   "seed_floor": {},
+   "native": {
+    "off-s0": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 1.61008,
+      "lddt_ca": 0.92001
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 1.44707,
+      "lddt_ca": 0.8976
+     }
+    },
+    "off-s0_r1": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 1.61008,
+      "lddt_ca": 0.92001
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 1.44707,
+      "lddt_ca": 0.8976
+     }
+    },
+    "on-s0": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 1.53391,
+      "lddt_ca": 0.92235
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 1.39982,
+      "lddt_ca": 0.89917
+     }
+    }
+   },
+   "summary": {
+    "domain1_all_atom_A": {
+     "lever": {
+      "n": 1,
+      "min": 0.57995,
+      "max": 0.57995,
+      "mean": 0.57995
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "domain2_all_atom_A": {
+     "lever": {
+      "n": 1,
+      "min": 0.40258,
+      "max": 0.40258,
+      "mean": 0.40258
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "hinge_free_all_atom_A": {
+     "lever": {
+      "n": 1,
+      "min": 0.51338,
+      "max": 0.51338,
+      "mean": 0.51338
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "domain1_ca_A": {
+     "lever": {
+      "n": 1,
+      "min": 0.32278,
+      "max": 0.32278,
+      "mean": 0.32278
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "domain2_ca_A": {
+     "lever": {
+      "n": 1,
+      "min": 0.25842,
+      "max": 0.25842,
+      "mean": 0.25842
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "lddt_ca": {
+     "lever": {
+      "n": 1,
+      "min": 0.98416,
+      "max": 0.98416,
+      "mean": 0.98416
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "lddt_ca_domain1": {
+     "lever": {
+      "n": 1,
+      "min": 0.99304,
+      "max": 0.99304,
+      "mean": 0.99304
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "lddt_ca_domain2": {
+     "lever": {
+      "n": 1,
+      "min": 0.99612,
+      "max": 0.99612,
+      "mean": 0.99612
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "whole_all_atom_A": {
+     "lever": {
+      "n": 1,
+      "min": 0.77139,
+      "max": 0.77139,
+      "mean": 0.77139
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    },
+    "hinge_deg": {
+     "lever": {
+      "n": 1,
+      "min": 4.37307,
+      "max": 4.37307,
+      "mean": 4.37307
+     },
+     "seed_floor": {
+      "n": 0
+     }
+    }
+   },
+   "native_summary": {
+    "off copy1(res 1-298) ca_rmsd_A": {
+     "n": 1,
+     "min": 1.61008,
+     "max": 1.61008,
+     "mean": 1.61008
+    },
+    "off copy2(res 299-512) ca_rmsd_A": {
+     "n": 1,
+     "min": 1.44707,
+     "max": 1.44707,
+     "mean": 1.44707
+    },
+    "off copy1(res 1-298) lddt_ca": {
+     "n": 1,
+     "min": 0.92001,
+     "max": 0.92001,
+     "mean": 0.92001
+    },
+    "off copy2(res 299-512) lddt_ca": {
+     "n": 1,
+     "min": 0.8976,
+     "max": 0.8976,
+     "mean": 0.8976
+    },
+    "on copy1(res 1-298) ca_rmsd_A": {
+     "n": 1,
+     "min": 1.53391,
+     "max": 1.53391,
+     "mean": 1.53391
+    },
+    "on copy2(res 299-512) ca_rmsd_A": {
+     "n": 1,
+     "min": 1.39982,
+     "max": 1.39982,
+     "mean": 1.39982
+    },
+    "on copy1(res 1-298) lddt_ca": {
+     "n": 1,
+     "min": 0.92235,
+     "max": 0.92235,
+     "mean": 0.92235
+    },
+    "on copy2(res 299-512) lddt_ca": {
+     "n": 1,
+     "min": 0.89917,
+     "max": 0.89917,
+     "mean": 0.89917
+    }
+   }
+  }
+ }
+}

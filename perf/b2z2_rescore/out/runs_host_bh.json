@@ -1,0 +1,106 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "1",
+  "lease_cards": "1",
+  "grid": [
+   11,
+   10
+  ],
+  "torch": "2.8.0+cpu",
+  "arch": "Arch.BLACKHOLE",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-bh-compose-landed/tt_bio/__init__.py",
+  "started_utc": "2026-09-12T15:56:15Z",
+  "loadavg": [
+   1.75537109375,
+   3.23779296875,
+   4.025390625
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "diffusion_trace": false,
+   "fixtures": [
+    "cdk2x2_512.yaml",
+    "cdk2x2_298.yaml"
+   ]
+  },
+  "lever_defaults": {
+   "TRIATT_QKV_GATE_FUSED": true,
+   "TRIATT_HEAD_MAJOR_QKV": true,
+   "GATE_DST_RESIDENT": false,
+   "MSA_LADDER": false,
+   "WORK_CB_DEPTH": 2,
+   "MM_CB_DEPTH": 2,
+   "MM_BLOCK_OVERRIDE": {},
+   "TRIMUL_TAIL_DIRECT_PACK": 1,
+   "F1_BLOCK_KEYS": [
+    "(8, 8)"
+   ]
+  },
+  "msa_bucket_for_35_rows": {
+   "ladder_off": 1024,
+   "ladder_on": 64
+  },
+  "ttnn": "0.68.0",
+  "cbd_keys_present": {
+   "(4, 4)": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ],
+   "(4, 12)": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ],
+   "(4, 16)": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ]
+  },
+  "rescored_from": "perf/b2z2_rescore/out/union5_512_qb2c1.json",
+  "arm_under_test": "HOST"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off-s0",
+   "target": "cdk2x2_512",
+   "fold_s": 20.06,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.845488,
+   "src_dir": "512_base_0"
+  },
+  {
+   "arm": "on",
+   "seed": 0,
+   "tag": "on-s0",
+   "target": "cdk2x2_512",
+   "fold_s": 18.892,
+   "sha256": "4ebbe47869032c91",
+   "plddt": 0.846169,
+   "src_dir": "512_HOST_0"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off-s0_r1",
+   "target": "cdk2x2_512",
+   "fold_s": 20.06,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.845488,
+   "src_dir": "512_base_1"
+  }
+ ]
+}

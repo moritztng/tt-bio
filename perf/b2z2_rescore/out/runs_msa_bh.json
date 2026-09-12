@@ -1,0 +1,80 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "1",
+  "lease_cards": "1",
+  "grid": [
+   11,
+   10
+  ],
+  "torch": "2.8.0+cpu",
+  "arch": "Arch.BLACKHOLE",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-bh-compose-landed/tt_bio/__init__.py",
+  "started_utc": "2026-09-12T15:20:26Z",
+  "loadavg": [
+   1.81396484375,
+   2.55322265625,
+   4.57421875
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "diffusion_trace": false,
+   "fixtures": [
+    "cdk2x2_512.yaml",
+    "cdk2x2_298.yaml"
+   ]
+  },
+  "lever_defaults": {
+   "TRIATT_QKV_GATE_FUSED": true,
+   "TRIATT_HEAD_MAJOR_QKV": true,
+   "GATE_DST_RESIDENT": false,
+   "MSA_LADDER": false,
+   "TRIMUL_TAIL_DIRECT_PACK": 1,
+   "F1_BLOCK_KEYS": [
+    "(8, 8)"
+   ]
+  },
+  "msa_bucket_for_35_rows": {
+   "ladder_off": 1024,
+   "ladder_on": 64
+  },
+  "ttnn": "0.68.0",
+  "rescored_from": "perf/b2z2_rescore/out/compose_512_qb2c1.json",
+  "arm_under_test": "MSA"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off-s0",
+   "target": "cdk2x2_512",
+   "fold_s": 20.315,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.845488,
+   "src_dir": "512_base_0"
+  },
+  {
+   "arm": "on",
+   "seed": 0,
+   "tag": "on-s0",
+   "target": "cdk2x2_512",
+   "fold_s": 19.197,
+   "sha256": "92f73dc095418c95",
+   "plddt": 0.849502,
+   "src_dir": "512_MSA_0"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off-s0_r1",
+   "target": "cdk2x2_512",
+   "fold_s": 20.315,
+   "sha256": "dd1c2a12f97772fb",
+   "plddt": 0.845488,
+   "src_dir": "512_base_1"
+  }
+ ]
+}
