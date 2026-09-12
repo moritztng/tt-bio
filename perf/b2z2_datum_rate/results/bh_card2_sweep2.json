@@ -1,0 +1,678 @@
+[
+ {
+  "ns_per_tile": 0.8382246079463584,
+  "t_lo_s": 0.00023082199913915247,
+  "t_hi_s": 0.0010891639976762235,
+  "tiles_delta": 1024000,
+  "packed_nonzero": false,
+  "name": "mode3",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 3,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.45690189599918085
+ },
+ {
+  "ns_per_tile": 20.8243554702392,
+  "t_lo_s": 0.005377030000090599,
+  "t_hi_s": 0.026701170001615537,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "mode4",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 4,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.7390467170007469
+ },
+ {
+  "ns_per_tile": 29.950914040455245,
+  "t_lo_s": 0.0009635640017222613,
+  "t_hi_s": 0.004797280998900533,
+  "tiles_delta": 128000,
+  "packed_nonzero": true,
+  "name": "nt8",
+  "cfg": {
+   "nt": 8,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.5493077710016223
+ },
+ {
+  "ns_per_tile": 30.552298831310054,
+  "t_lo_s": 0.003935280998121016,
+  "t_hi_s": 0.019578057999751763,
+  "tiles_delta": 512000,
+  "packed_nonzero": true,
+  "name": "nt32",
+  "cfg": {
+   "nt": 32,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.647564021001017
+ },
+ {
+  "ns_per_tile": 30.34298632798027,
+  "t_lo_s": 0.0156195520030451,
+  "t_hi_s": 0.0777619880027487,
+  "tiles_delta": 2048000,
+  "packed_nonzero": true,
+  "name": "nt128",
+  "cfg": {
+   "nt": 128,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 1.0940221800010477
+ },
+ {
+  "ns_per_tile": 36.69823925989135,
+  "t_lo_s": 0.00945608699839795,
+  "t_hi_s": 0.047035084000526695,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "binary_gran1",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 1,
+   "mode": 4,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.8634727999997267
+ },
+ {
+  "ns_per_tile": 0.1911498579622937,
+  "t_lo_s": 0.0004916910002066288,
+  "t_hi_s": 0.0018373860002611764,
+  "tiles_delta": 7040000,
+  "packed_nonzero": true,
+  "name": "binary_grid_full",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 4,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    11,
+    10
+   ]
+  },
+  "reps": [
+   250,
+   1250
+  ],
+  "wall_s": 0.02197435400012182
+ },
+ {
+  "ns_per_tile": 23.14087793209296,
+  "t_lo_s": 0.005945017997873947,
+  "t_hi_s": 0.02964127700033714,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "binary_fp32dest",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 4,
+   "mode": 4,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": true,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.7235408230008034
+ },
+ {
+  "ns_per_tile": 20.76493456826256,
+  "t_lo_s": 0.00538987500112853,
+  "t_hi_s": 0.026653167999029392,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "binary_hifi4",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 4,
+   "dtype": "bf16",
+   "fidelity": "HiFi4",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.6725015049996728
+ },
+ {
+  "ns_per_tile": 21.195005860619172,
+  "t_lo_s": 0.0054493089992320165,
+  "t_hi_s": 0.027152995000506053,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "binary_bfp8",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 4,
+   "dtype": "bfp8_b",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.6907940429991868
+ },
+ {
+  "ns_per_tile": 30.435825195240795,
+  "t_lo_s": 0.007866774998547044,
+  "t_hi_s": 0.03903305999847362,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "mode0",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.8405298640027468
+ },
+ {
+  "ns_per_tile": 30.411080079062454,
+  "t_lo_s": 0.00787585299985949,
+  "t_hi_s": 0.039016799000819447,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "mode1",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 1,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.8476282869996794
+ },
+ {
+  "ns_per_tile": 20.74412402919279,
+  "t_lo_s": 0.005407728996942751,
+  "t_hi_s": 0.026649712002836168,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "mode2",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 2,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.7020605649995559
+ },
+ {
+  "ns_per_tile": 36.63737206949235,
+  "t_lo_s": 0.009548223002639133,
+  "t_hi_s": 0.04706489200179931,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "gran1",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 1,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.7369048690015916
+ },
+ {
+  "ns_per_tile": 33.51195605816315,
+  "t_lo_s": 0.008659521998197306,
+  "t_hi_s": 0.04297576500175637,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "gran2",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 2,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.830753664002259
+ },
+ {
+  "ns_per_tile": 31.442850588092593,
+  "t_lo_s": 0.008206766000512289,
+  "t_hi_s": 0.04040424500271911,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "gran4",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 4,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.777089311999589
+ },
+ {
+  "ns_per_tile": 30.419457029751133,
+  "t_lo_s": 0.007935495999845443,
+  "t_hi_s": 0.0390850199983106,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "gran8",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.2890674600021157
+ },
+ {
+  "ns_per_tile": 30.379985354045402,
+  "t_lo_s": 0.007926779999252176,
+  "t_hi_s": 0.03903588500179467,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "dtype_bf16",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.28953691799688386
+ },
+ {
+  "ns_per_tile": 20.791459959923486,
+  "t_lo_s": 0.005333868000889197,
+  "t_hi_s": 0.026624322999850847,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "dtype_bf16_packonly",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 2,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.1958840980005334
+ },
+ {
+  "ns_per_tile": 30.41939648795733,
+  "t_lo_s": 0.007807231999322539,
+  "t_hi_s": 0.038956694002990844,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "dtype_fp32",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "fp32",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.7685101030001533
+ },
+ {
+  "ns_per_tile": 28.338580079889653,
+  "t_lo_s": 0.007272667997312965,
+  "t_hi_s": 0.03629137399911997,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "dtype_fp32_packonly",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 2,
+   "dtype": "fp32",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.7406035969979712
+ },
+ {
+  "ns_per_tile": 30.38362695306773,
+  "t_lo_s": 0.007845033000194235,
+  "t_hi_s": 0.03895786700013559,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "dtype_bfp8_b",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "bfp8_b",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.6186429109984601
+ },
+ {
+  "ns_per_tile": 21.052927731801677,
+  "t_lo_s": 0.005537738001294201,
+  "t_hi_s": 0.027095935998659115,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "dtype_bfp8_b_packonly",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 2,
+   "dtype": "bfp8_b",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.6934770180014311
+ },
+ {
+  "ns_per_tile": 31.441597656112208,
+  "t_lo_s": 0.008091856001556152,
+  "t_hi_s": 0.04028805200141505,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "fp32dest",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 4,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": true,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.7121424990000378
+ },
+ {
+  "ns_per_tile": 30.392636720222296,
+  "t_lo_s": 0.007864179999160115,
+  "t_hi_s": 0.03898624000066775,
+  "tiles_delta": 1024000,
+  "packed_nonzero": true,
+  "name": "hifi4",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "HiFi4",
+   "fp32_dest": false,
+   "grid": [
+    1,
+    1
+   ]
+  },
+  "reps": [
+   4000,
+   20000
+  ],
+  "wall_s": 0.7008696949997102
+ },
+ {
+  "ns_per_tile": 0.28117443197185243,
+  "t_lo_s": 0.0005551829999603797,
+  "t_hi_s": 0.0025346510010422207,
+  "tiles_delta": 7040000,
+  "packed_nonzero": true,
+  "name": "grid_full",
+  "cfg": {
+   "nt": 64,
+   "out_slots": 8,
+   "gran": 8,
+   "mode": 0,
+   "dtype": "bf16",
+   "fidelity": "LoFi",
+   "fp32_dest": false,
+   "grid": [
+    11,
+    10
+   ]
+  },
+  "reps": [
+   250,
+   1250
+  ],
+  "wall_s": 0.02278492600089521
+ }
+]
