@@ -1,0 +1,223 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "24",
+  "arch": "wormhole_b0",
+  "grid": "ttnn.CoreGrid(x=8, y=9)",
+  "trace_region": 536870912,
+  "commit": "84da2a49",
+  "started": "2026-09-12T21:21:49+0000",
+  "loadavg_start": [
+   "19.47",
+   "21.82",
+   "15.40"
+  ],
+  "reps": 20,
+  "blocks": 5,
+  "seed": 0,
+  "loadavg_end": [
+   "21.88",
+   "22.27",
+   "15.62"
+  ]
+ },
+ "rows": [
+  {
+   "part": "encoder",
+   "NW": 28,
+   "n_atoms": 896,
+   "ms": 1.7009,
+   "spread_pct": 4.879,
+   "blocks_ms": [
+    1.70063,
+    1.69996,
+    1.70238,
+    1.78294,
+    1.7009
+   ],
+   "loadavg": "21.44"
+  },
+  {
+   "part": "encoder",
+   "NW": 56,
+   "n_atoms": 1792,
+   "ms": 2.9126,
+   "spread_pct": 0.125,
+   "blocks_ms": [
+    2.9126,
+    2.91374,
+    2.9116,
+    2.9101,
+    2.91309
+   ],
+   "loadavg": "21.44"
+  },
+  {
+   "part": "encoder",
+   "NW": 84,
+   "n_atoms": 2688,
+   "ms": 3.96152,
+   "spread_pct": 2.961,
+   "blocks_ms": [
+    3.96388,
+    3.96152,
+    3.96068,
+    4.0763,
+    3.95899
+   ],
+   "loadavg": "21.44"
+  },
+  {
+   "part": "encoder",
+   "NW": 112,
+   "n_atoms": 3584,
+   "ms": 5.21019,
+   "spread_pct": 0.123,
+   "blocks_ms": [
+    5.20892,
+    5.21019,
+    5.21499,
+    5.20858,
+    5.21033
+   ],
+   "loadavg": "21.44"
+  },
+  {
+   "part": "encoder",
+   "NW": 140,
+   "n_atoms": 4480,
+   "ms": 6.17879,
+   "spread_pct": 0.096,
+   "blocks_ms": [
+    6.17635,
+    6.17879,
+    6.18227,
+    6.17896,
+    6.17647
+   ],
+   "loadavg": "21.44"
+  },
+  {
+   "part": "decoder",
+   "NW": 28,
+   "n_atoms": 896,
+   "ms": 1.70245,
+   "spread_pct": 0.132,
+   "blocks_ms": [
+    1.70196,
+    1.7019,
+    1.70303,
+    1.70414,
+    1.70245
+   ],
+   "loadavg": "21.44"
+  },
+  {
+   "part": "decoder",
+   "NW": 56,
+   "n_atoms": 1792,
+   "ms": 2.91586,
+   "spread_pct": 0.052,
+   "blocks_ms": [
+    2.91517,
+    2.91577,
+    2.91669,
+    2.91663,
+    2.91586
+   ],
+   "loadavg": "21.44"
+  },
+  {
+   "part": "decoder",
+   "NW": 84,
+   "n_atoms": 2688,
+   "ms": 3.96405,
+   "spread_pct": 0.096,
+   "blocks_ms": [
+    3.96185,
+    3.9643,
+    3.96234,
+    3.96564,
+    3.96405
+   ],
+   "loadavg": "21.44"
+  },
+  {
+   "part": "decoder",
+   "NW": 112,
+   "n_atoms": 3584,
+   "ms": 5.21523,
+   "spread_pct": 2.093,
+   "blocks_ms": [
+    5.21902,
+    5.21264,
+    5.21523,
+    5.3218,
+    5.21415
+   ],
+   "loadavg": "21.88"
+  },
+  {
+   "part": "decoder",
+   "NW": 140,
+   "n_atoms": 4480,
+   "ms": 6.18079,
+   "spread_pct": 0.067,
+   "blocks_ms": [
+    6.18079,
+    6.17945,
+    6.18234,
+    6.18359,
+    6.17988
+   ],
+   "loadavg": "21.88"
+  }
+ ],
+ "fit": {
+  "encoder": {
+   "a_ms": 0.61679,
+   "b_ms_per_atom": 0.00125596,
+   "r2": 0.99863,
+   "resid_pct": [
+    -2.424,
+    1.55,
+    -0.79,
+    1.767,
+    -1.047
+   ],
+   "t_at_production_ms": 6.24347,
+   "constant_fraction_pct": 9.879,
+   "perfect_2chip_ratio": 1.82019
+  },
+  "decoder": {
+   "a_ms": 0.61886,
+   "b_ms_per_atom": 0.00125626,
+   "r2": 0.998577,
+   "resid_pct": [
+    -2.468,
+    1.57,
+    -0.798,
+    1.801,
+    -1.069
+   ],
+   "t_at_production_ms": 6.24689,
+   "constant_fraction_pct": 9.907,
+   "perfect_2chip_ratio": 1.81973
+  },
+  "both": {
+   "a_ms": 1.23565,
+   "b_ms_per_atom": 0.00251221,
+   "r2": 0.998604,
+   "resid_pct": [
+    -2.446,
+    1.56,
+    -0.794,
+    1.784,
+    -1.058
+   ],
+   "t_at_production_ms": 12.49036,
+   "constant_fraction_pct": 9.893,
+   "perfect_2chip_ratio": 1.81995
+  }
+ }
+}

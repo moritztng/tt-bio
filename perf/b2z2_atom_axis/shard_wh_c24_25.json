@@ -1,0 +1,91 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "24,25",
+  "arch": "wormhole_b0",
+  "grid": "ttnn.CoreGrid(x=8, y=9)",
+  "mesh": "1x2",
+  "NW": 140,
+  "n_atoms": 4480,
+  "halo_windows": 2,
+  "commit": "84da2a49",
+  "started": "2026-09-12T21:26:47+0000",
+  "loadavg_start": [
+   "22.77",
+   "24.41",
+   "18.42"
+  ],
+  "reps": 15,
+  "blocks": 4,
+  "loadavg_end": [
+   "18.00",
+   "23.20",
+   "18.15"
+  ]
+ },
+ "parity": {
+  "shard_vs_whole": {
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "self_repeat": {
+   "bit_exact": true,
+   "max_abs": 0.0
+  },
+  "control_nohalo_differs": true,
+  "control_nohalo_max_abs": 0.0078125,
+  "control_perturbed_differs": true,
+  "collectives_per_run": 2,
+  "both_chips_agree_after_gather": true
+ },
+ "timing": {
+  "whole": {
+   "ms": 6.18552,
+   "spread_pct": 0.162,
+   "blocks_ms": [
+    6.18256,
+    6.18293,
+    6.19257,
+    6.1881
+   ]
+  },
+  "shard_no_outgather": {
+   "ms": 3.68362,
+   "spread_pct": 0.053,
+   "blocks_ms": [
+    3.68318,
+    3.68513,
+    3.68381,
+    3.68342
+   ]
+  },
+  "shard": {
+   "ms": 3.79953,
+   "spread_pct": 0.147,
+   "blocks_ms": [
+    3.79963,
+    3.79604,
+    3.79943,
+    3.80163
+   ]
+  },
+  "shard_no_halo": {
+   "ms": 3.58327,
+   "spread_pct": 0.118,
+   "blocks_ms": [
+    3.58031,
+    3.58295,
+    3.58453,
+    3.58359
+   ]
+  }
+ },
+ "result": {
+  "track_ratio": 1.62797,
+  "track_ratio_no_outgather": 1.6792,
+  "perfect_ratio_from_curve": 1.81995,
+  "halo_cost_ms": 0.10035,
+  "halo_cost_us_per_layer": 33.45,
+  "outgather_cost_ms": 0.11591
+ }
+}
