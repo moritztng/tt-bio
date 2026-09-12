@@ -7823,6 +7823,10 @@ _MIN_ROW_SHARD = os.environ.get("TT_BIO_MIN_ROW_SHARD", "0") == "1"
 #: still passing its own gate, so those stay whole.
 _ROW_SHARD_FOLD = os.environ.get("TT_BIO_ROW_SHARD_FOLD", "0") == "1"
 _B_SHARD_FOLD = os.environ.get("TT_BIO_B_SHARD_FOLD", "0") == "1"
+#: How many blocks actually took the sharded chain, and how many of those split `b` as well.
+#: A fold-level digest that matches proves nothing if the chain never ran -- the gate would be
+#: certifying the unsharded path under a sharded name. The harness asserts on these.
+ROW_SHARD_CALLS = {"chain": 0, "b_shard": 0, "extents": {}}
 
 class PairformerLayer(Module):
     def __init__(
@@ -7945,6 +7949,15 @@ class PairformerLayer(Module):
         """
         # One partition per block. Every later `z_rows` comes from a local add, because
         # partition(z + u) == partition(z) + partition(u) and the adds are elementwise.
+        ROW_SHARD_CALLS["chain"] += 1
+        ROW_SHARD_CALLS["b_shard"] += 1 if b_shard else 0
+        # Which pair-track extents the shard actually sees. The block gate was run at 512; if a
+        # fold carries any other extent then that gate never covered what the fold does, and a
+        # shape-routed kernel config is free to flip between the whole tensor and its slab at an
+        # extent nobody checked.
+        _k = f"{int(z.shape[1])}x{int(z.shape[2])}x{int(z.shape[3])}"
+        ROW_SHARD_CALLS["extents"][_k] = ROW_SHARD_CALLS["extents"].get(_k, 0) + 1
+
         z_rows = ttnn.mesh_partition(z, dim=1)
 
         def step(op, *args, **kw):

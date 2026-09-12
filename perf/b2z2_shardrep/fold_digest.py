@@ -291,6 +291,20 @@ OUT["config_rungs_detail"] = {
     name: sorted(map(str, getattr(T, name)))[:12] if hasattr(T, name) else None
     for name in ("_L1_OUT_RUNG", "_BMM_CFG_RUNG", "_BMM_CFG_REFUSED", "_OPM_JOIN_REFUSED")
 }
+# Did the chain actually run? A matching digest from an arm that never entered the shard is the
+# `pcc-gate-can-pass-without-the-op-it-names` failure, and the trunk stage wall does not
+# distinguish the two on its own.
+OUT["row_shard_calls"] = dict(T.ROW_SHARD_CALLS)
+log("row-shard chain calls: " + json.dumps(OUT["row_shard_calls"]))
+if MODE in ("shard", "bshard"):
+    assert OUT["row_shard_calls"]["chain"] > 0, \
+        f"{MODE} arm never entered the sharded chain -- the digest certifies nothing"
+if MODE == "bshard":
+    assert OUT["row_shard_calls"]["b_shard"] == OUT["row_shard_calls"]["chain"], \
+        "bshard arm ran the chain without splitting b on every block"
+if MODE in ("single", "mesh"):
+    assert OUT["row_shard_calls"]["chain"] == 0, \
+        "a control arm entered the sharded chain"
 log("config rungs fired: " + json.dumps(OUT["config_rungs"]))
 for _n, _v in OUT["config_rungs_detail"].items():
     if _v:
