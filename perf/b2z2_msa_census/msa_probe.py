@@ -257,6 +257,7 @@ ARMS = {                       # name -> env overrides. `base` is the shipped se
     "h24": {"TT_BIO_TRANSITION_H_CHUNK": "24"},
     "h32": {"TT_BIO_TRANSITION_H_CHUNK": "32"},
     "h64": {"TT_BIO_TRANSITION_H_CHUNK": "64"},
+    "batchw": {"TT_BIO_PWA_BATCH_HEAD_WEIGHTS": "1"},
 }
 
 
@@ -304,6 +305,43 @@ def mode_ab(ttnn, T, dev, g, arms, reps, blocks):
     for a in arms:
         print(f"  {a:8s} {med[a]:9.4f} ms/call  {base/med[a]:.5f}x  "
               f"{[round(1e3*x,2) for x in walls[a]]}", flush=True)
+
+
+def mode_parity(ttnn, T, dev, g, arm):
+    """Run the grabbed call twice from IDENTICAL inputs, base vs `arm`, and compare exactly."""
+    import torch
+    obj, args, kw = g["obj"], list(g["args"]), g["kwargs"]
+
+    def once(env):
+        keep = {}
+        for k, v in env.items():
+            keep[k] = os.environ.get(k)
+            os.environ[k] = v
+        T._L1_OUT_RUNG.clear()
+        a = [ttnn.clone(x) if isinstance(x, ttnn.Tensor) else x for x in args]
+        z, m = obj(*a, **kw)
+        out = (ttnn.to_torch(z).clone(), ttnn.to_torch(m).clone())
+        for k, v in keep.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        return out
+
+    base_z, base_m = once({})
+    aa_z, aa_m = once({})
+    arm_z, arm_m = once(ARMS[arm])
+    eq = {"A/A z": torch.equal(base_z, aa_z), "A/A m": torch.equal(base_m, aa_m),
+          "arm z": torch.equal(base_z, arm_z), "arm m": torch.equal(base_m, arm_m)}
+    # negative control: a check that cannot pass must not pass
+    eq["negative control (must be False)"] = torch.equal(base_z, base_z + 1)
+    d_z = float((base_z.float() - arm_z.float()).abs().max())
+    d_m = float((base_m.float() - arm_m.float()).abs().max())
+    OUT["parity"] = {"arm": arm, "equal": eq, "max_abs_diff_z": d_z, "max_abs_diff_m": d_m,
+                     "sha_base_z": None}
+    for k, v in eq.items():
+        print(f"  {k:34s} {v}", flush=True)
+    print(f"  max |delta| z {d_z:g}   m {d_m:g}", flush=True)
 
 
 def mode_fold(ttnn, T, B, size, folds, recycles):
@@ -381,7 +419,7 @@ def main() -> int:
     global OUT_PATH
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--mode", required=True, choices=("ops", "time", "prof", "fold", "ab"))
+    ap.add_argument("--mode", required=True, choices=("ops", "time", "prof", "fold", "ab", "parity"))
     ap.add_argument("--arms", default="base,base,h24,h32",
                     help="comma-separated arm names; the FIRST is the ratio denominator and "
                          "repeating it gives the A/A floor")
@@ -435,6 +473,8 @@ def main() -> int:
                 arms.append(nm)
                 ARMS.setdefault(nm, ARMS[n])
             mode_ab(ttnn, T, dev, g, arms, a.reps, a.blocks)
+        elif a.mode == "parity":
+            mode_parity(ttnn, T, dev, g, a.arms.split(",")[-1])
         else:
             mode_prof(ttnn, dev, g, a.reps)
     dump()
