@@ -86,3 +86,19 @@ per-forward `disable_and_clear_program_cache()` / `enable_program_cache()` pair,
 Row 3's addressable seconds are therefore **rel_pos 0.109 + contact_cond 0.182 + pair arithmetic
 0.085 + the two bond linears (inside the glue, not yet split) ~= 0.43 s**, not 0.647 s. Quoting
 0.647 s for a device port of `z_init` overstates it by ~1.5x.
+
+## And what the rest of the glue is — measured, not guessed
+
+`--phases cacheclear` prices the one suspect that would have been free to fix. `Boltz2.forward`
+clears and re-enables the device program cache on every call; on a populated cache that pair
+costs **0.026 s** to clear and **0.000 s** to re-enable (two repeats, whglx card 11, loadavg 22).
+So it is 7 % of the 0.356 s glue, not the glue.
+
+That leaves `token_bonds` — a `[1, n, n, 1]` -> 128 linear — and `token_bonds_type`, an embedding
+over `[1, n, n]`. Each materialises another 134 MB on the host, and both sit inside
+`Boltz2.forward` rather than in a named region. Together with the 0.085 s of adds they account
+for the glue, and all three are inside what a device `z_init` deletes.
+
+(The instance-level brackets added for those two terms did not take: assigning a timing wrapper
+over an `nn.Module` child raises in `nn.Module.__setattr__` and the harness swallowed it, so the
+rows are absent rather than zero. Raw: `glue_hoston_whglx_c11.json`.)
