@@ -27,17 +27,41 @@ FENCE_N = 3
 
 
 def f(row, key, default=0.0):
+    """Numeric cell. The shape columns are `padded[logical]`, e.g. `512[500]`; take padded.
+
+    Which of the two forms a report uses depends on whether it was generated with
+    `--no-op-info-cache`, so both have to parse or the shapes silently read as zero.
+    """
     v = row.get(key, "")
     if v in ("", None):
         return default
+    v = str(v).split("[", 1)[0].strip()
     try:
         return float(v)
     except ValueError:
         return default
 
 
+SHAPE_KEYS = ("{p}_{d}_PAD[LOGICAL]", "{p}_{d}")
+
+
 def shape(row, pfx):
-    return tuple(int(f(row, f"{pfx}_{d}", 0)) for d in ("W", "Z", "Y", "X"))
+    """Padded WZYX of an operand.
+
+    The column is `INPUT_0_W_PAD[LOGICAL]`, not `INPUT_0_W`. Reading the short name returns
+    the default for every row, which is how a shape table comes out all zeros and looks like
+    a program-cache artifact instead of a wrong key.
+    """
+    out = []
+    for d in ("W", "Z", "Y", "X"):
+        v = 0.0
+        for k in SHAPE_KEYS:
+            key = k.format(p=pfx, d=d)
+            if key in row:
+                v = f(row, key, 0.0)
+                break
+        out.append(int(v))
+    return tuple(out)
 
 
 def is_fence(row):
@@ -46,7 +70,7 @@ def is_fence(row):
     return shape(row, "INPUT_0")[2:] in ((FENCE_DIM, FENCE_DIM), (0, 0))
 
 
-def find_region(rows):
+def fence_runs(rows):
     runs, i = [], 0
     while i < len(rows):
         if is_fence(rows[i]):
@@ -58,9 +82,41 @@ def find_region(rows):
             i = j
         else:
             i += 1
-    if len(runs) < 2:
-        raise SystemExit(f"expected >=2 fence runs, found {len(runs)}")
-    return rows[runs[-2][1]:runs[-1][0]]
+    return runs
+
+
+def find_region(rows, reps, period=None):
+    """The `reps` repetitions of the profiled call.
+
+    Two anchorings, because the device's marker buffer can wrap on a long precursor and drop
+    the opening fence (seen on qb2: 9936 rows survived where 10 calls alone need 10 660):
+
+      * both fences present -> everything strictly between the last two fence runs;
+      * only the closing fence -> walk back `reps * period` rows from it.
+
+    Either way the split into repetitions is *checked*, not assumed: the op-code sequence of
+    every repetition must be identical. A wrapped buffer that cut a call in half fails here.
+    """
+    runs = fence_runs(rows)
+    if not runs:
+        raise SystemExit("no fence run found; the profiled region cannot be located")
+    end = runs[-1][0]
+    if len(runs) >= 2:
+        region = rows[runs[-2][1]:end]
+        if len(region) % reps:
+            raise SystemExit(f"{len(region)} ops between the fences is not divisible by {reps}")
+    else:
+        if not period:
+            raise SystemExit("only one fence run survived; pass --period to anchor on it")
+        region = rows[end - reps * period:end]
+        if len(region) != reps * period:
+            raise SystemExit(f"only {end} rows before the fence, need {reps * period}")
+    n = len(region) // reps
+    seqs = {tuple(r.get("OP CODE", "?") for r in region[i * n:(i + 1) * n]) for i in range(reps)}
+    if len(seqs) != 1:
+        raise SystemExit(f"the {reps} repetitions are not the same program sequence "
+                         f"({len(seqs)} distinct); the region is mis-anchored")
+    return region
 
 
 def read_csv(path):
@@ -76,13 +132,13 @@ def main() -> int:
     ap.add_argument("--calls-per-fold", type=int, default=200)
     ap.add_argument("--label", default="DiffusionStep")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--period", type=int, default=0,
+                    help="programs per call, needed when only the closing fence survived")
     ap.add_argument("--half", type=float, default=0.5,
                     help="an op is 'under-grid' below this fraction of the grid")
     a = ap.parse_args()
 
-    region = find_region(read_csv(a.csv))
-    if len(region) % a.reps:
-        raise SystemExit(f"{len(region)} ops is not divisible by {a.reps} reps")
+    region = find_region(read_csv(a.csv), a.reps, a.period)
     n = len(region) // a.reps
     chunks = [region[i * n:(i + 1) * n] for i in range(a.reps)]
 

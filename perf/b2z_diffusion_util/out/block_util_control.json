@@ -1,0 +1,8719 @@
+{
+ "label": "PairformerLayer-qb2-control",
+ "source": "/tmp/ops_block.csv.gz",
+ "available_worker_cores": 110,
+ "programs_per_call": 272,
+ "calls_per_fold": 280,
+ "kernel_ms_per_call": 35.839738,
+ "kernel_s_per_fold": 10.035126640000001,
+ "duration_weighted_mean_core_utilization": 0.9436242342863312,
+ "idle_core_fraction_seconds_per_fold_all_ops": 0.5657379483636363,
+ "under_grid_threshold": 0.5,
+ "under_grid_ops": 8,
+ "under_grid_kernel_ms_per_call": 0.15702,
+ "under_grid_share_of_call_time": 0.004381170420386444,
+ "core_seconds_lost_per_fold_under_grid": 0.031709949090909094,
+ "time_share_by_util_band": {
+  "100%": 0.793028313990465,
+  "90-100%": 0.0,
+  "75-90%": 0.15630415601810482,
+  "50-75%": 0.04628635957104374,
+  "<50%": 0.004381170420386444
+ },
+ "by_op_code": {
+  "MatmulDeviceOperation": {
+   "n": 113,
+   "kernel_ns": 9211765.0,
+   "idle_core_ns": 1981757.8363636355,
+   "util": 0.7848666529852166,
+   "kernel_ms": 9.211765
+  },
+  "LayerNormDeviceOperation": {
+   "n": 41,
+   "kernel_ns": 3651140.0,
+   "idle_core_ns": 19872.454545454544,
+   "util": 0.9945571918509138,
+   "kernel_ms": 3.65114
+  },
+  "NlpCreateHeadsDeviceOperation": {
+   "n": 1,
+   "kernel_ns": 22073.0,
+   "idle_core_ns": 18862.381818181817,
+   "util": 0.1454545454545455,
+   "kernel_ms": 0.022073
+  },
+  "ReshapeViewDeviceOperation": {
+   "n": 3,
+   "kernel_ns": 511246.0,
+   "idle_core_ns": 0.0,
+   "util": 1.0,
+   "kernel_ms": 0.511246
+  },
+  "GenericOpDeviceOperation": {
+   "n": 16,
+   "kernel_ns": 13297294.0,
+   "idle_core_ns": 0.0,
+   "util": 1.0,
+   "kernel_ms": 13.297294
+  },
+  "TransposeDeviceOperation": {
+   "n": 8,
+   "kernel_ns": 2166319.0,
+   "idle_core_ns": 0.0,
+   "util": 1.0,
+   "kernel_ms": 2.166319
+  },
+  "BinaryNgDeviceOperation": {
+   "n": 52,
+   "kernel_ns": 5853822.0,
+   "idle_core_ns": 0.0,
+   "util": 1.0,
+   "kernel_ms": 5.853822
+  },
+  "PermuteDeviceOperation": {
+   "n": 3,
+   "kernel_ns": 272662.0,
+   "idle_core_ns": 0.0,
+   "util": 1.0,
+   "kernel_ms": 0.272662
+  },
+  "SliceDeviceOperation": {
+   "n": 33,
+   "kernel_ns": 388549.0,
+   "idle_core_ns": 0.0,
+   "util": 1.0,
+   "kernel_ms": 0.388549
+  },
+  "ConcatDeviceOperation": {
+   "n": 1,
+   "kernel_ns": 347553.0,
+   "idle_core_ns": 0.0,
+   "util": 1.0,
+   "kernel_ms": 0.347553
+  },
+  "SoftmaxDeviceOperation": {
+   "n": 1,
+   "kernel_ns": 117315.0,
+   "idle_core_ns": 0.0,
+   "util": 1.0,
+   "kernel_ms": 0.117315
+  }
+ },
+ "top_idle": [
+  {
+   "i": 7,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "cores_varies": null,
+   "kernel_ns": 816791.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.5818181818181818,
+   "idle_core_ns": 341567.14545454545
+  },
+  {
+   "i": 22,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "cores_varies": null,
+   "kernel_ns": 782233.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.5818181818181818,
+   "idle_core_ns": 327115.61818181816
+  },
+  {
+   "i": 253,
+   "op": "MatmulDeviceOperation",
+   "cores": 32,
+   "cores_varies": null,
+   "kernel_ns": 43583.0,
+   "in0": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "in1": [
+    1,
+    16,
+    32,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.2909090909090909,
+   "idle_core_ns": 30904.30909090909
+  },
+  {
+   "i": 257,
+   "op": "MatmulDeviceOperation",
+   "cores": 32,
+   "cores_varies": null,
+   "kernel_ns": 35901.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.2909090909090909,
+   "idle_core_ns": 25457.072727272727
+  },
+  {
+   "i": 94,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113874.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24845.236363636363
+  },
+  {
+   "i": 129,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113870.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24844.363636363636
+  },
+  {
+   "i": 149,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113861.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24842.4
+  },
+  {
+   "i": 209,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113854.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24840.872727272726
+  },
+  {
+   "i": 239,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113851.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24840.21818181818
+  },
+  {
+   "i": 184,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113841.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24838.036363636365
+  },
+  {
+   "i": 194,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113824.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24834.327272727274
+  },
+  {
+   "i": 109,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113821.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24833.672727272726
+  },
+  {
+   "i": 104,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113813.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24831.927272727273
+  },
+  {
+   "i": 164,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113794.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24827.78181818182
+  },
+  {
+   "i": 189,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113794.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24827.78181818182
+  },
+  {
+   "i": 214,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113794.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24827.78181818182
+  },
+  {
+   "i": 124,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113790.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24826.909090909092
+  },
+  {
+   "i": 84,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113783.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24825.381818181817
+  },
+  {
+   "i": 119,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113773.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24823.2
+  },
+  {
+   "i": 114,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113770.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24822.545454545456
+  },
+  {
+   "i": 89,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113767.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24821.890909090907
+  },
+  {
+   "i": 139,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113762.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24820.8
+  },
+  {
+   "i": 144,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113756.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24819.49090909091
+  },
+  {
+   "i": 134,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113747.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24817.52727272727
+  },
+  {
+   "i": 229,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113747.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24817.52727272727
+  }
+ ],
+ "ops": [
+  {
+   "i": 0,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 346355.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 1,
+   "op": "ReshapeViewDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 249574.0,
+   "in0": [
+    1,
+    1,
+    512,
+    512
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 2,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 1182912.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 3,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 965063.0,
+   "in0": [
+    1,
+    512,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 4,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 1014912.0,
+   "in0": [
+    1,
+    512,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 5,
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 348967.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 6,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 450668.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 7,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "cores_varies": null,
+   "kernel_ns": 816791.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.5818181818181818,
+   "idle_core_ns": 341567.14545454545
+  },
+  {
+   "i": 8,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 490923.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi2",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 9,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 541125.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 10,
+   "op": "MatmulDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 289204.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 11,
+   "op": "MatmulDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 289859.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 12,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 508342.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 13,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 346202.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 14,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 426656.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 15,
+   "op": "ReshapeViewDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 249719.0,
+   "in0": [
+    1,
+    1,
+    512,
+    512
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 16,
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 2916.0,
+   "in0": [
+    1,
+    1,
+    512,
+    512
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 17,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 1180119.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 18,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 971883.0,
+   "in0": [
+    1,
+    512,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 19,
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 345159.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 20,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 1009302.0,
+   "in0": [
+    1,
+    512,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 21,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 449856.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 22,
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "cores_varies": null,
+   "kernel_ns": 782233.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.5818181818181818,
+   "idle_core_ns": 327115.61818181816
+  },
+  {
+   "i": 23,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 496101.0,
+   "in0": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi2",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 24,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 481388.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 25,
+   "op": "MatmulDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 291314.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 26,
+   "op": "MatmulDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 287201.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 27,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 508384.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 28,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 343268.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 29,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 414031.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 30,
+   "op": "MatmulDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 279413.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    32
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 31,
+   "op": "PermuteDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 70540.0,
+   "in0": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    4,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 32,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 861287.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    384
+   ],
+   "out0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 33,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 410288.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "out0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 34,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 15903.0,
+   "in0": [
+    1,
+    4,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    512
+   ],
+   "out0": [
+    1,
+    4,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 35,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 1309889.0,
+   "in0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "in1": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "out0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi2",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 36,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 509330.0,
+   "in0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "in1": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "out0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 37,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 414318.0,
+   "in0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 38,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 440601.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 39,
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 730490.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 40,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 334238.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 41,
+   "op": "MatmulDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 278398.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    32
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 42,
+   "op": "PermuteDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 70861.0,
+   "in0": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    4,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 43,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 856408.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    384
+   ],
+   "out0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 44,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 409412.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "out0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 45,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 15242.0,
+   "in0": [
+    1,
+    4,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    512
+   ],
+   "out0": [
+    1,
+    4,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 46,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 1311404.0,
+   "in0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "in1": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "out0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi2",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 47,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 509512.0,
+   "in0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "in1": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "out0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 48,
+   "op": "GenericOpDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 413073.0,
+   "in0": [
+    512,
+    4,
+    512,
+    32
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 49,
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 729151.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 50,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 341953.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 51,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11884.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 52,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11885.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 53,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11804.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 54,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12065.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 55,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11806.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 56,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12019.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 57,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11942.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 58,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12036.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 59,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12076.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 60,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12306.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 61,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12146.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 62,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11809.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 63,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11527.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 64,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12249.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 65,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11885.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 66,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12408.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 67,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11937.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 68,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12346.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 69,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12068.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 70,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12101.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 71,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12198.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 72,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11890.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 73,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12256.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 74,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12133.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 75,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12360.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 76,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11857.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 77,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11859.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 78,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11776.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 79,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12281.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 80,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12002.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 81,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12223.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 82,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 12153.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 83,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 22133.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 84,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113783.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24825.381818181817
+  },
+  {
+   "i": 85,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25219.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5502.327272727272
+  },
+  {
+   "i": 86,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26161.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 87,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35548.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7755.927272727273
+  },
+  {
+   "i": 88,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23626.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 89,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113767.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24821.890909090907
+  },
+  {
+   "i": 90,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25613.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5588.290909090909
+  },
+  {
+   "i": 91,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 25784.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 92,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35873.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7826.836363636364
+  },
+  {
+   "i": 93,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23321.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 94,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113874.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24845.236363636363
+  },
+  {
+   "i": 95,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25861.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5642.4
+  },
+  {
+   "i": 96,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26055.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 97,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35747.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7799.345454545454
+  },
+  {
+   "i": 98,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23361.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 99,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113613.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24788.29090909091
+  },
+  {
+   "i": 100,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25910.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5653.090909090909
+  },
+  {
+   "i": 101,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 25667.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 102,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35467.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7738.254545454545
+  },
+  {
+   "i": 103,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23145.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 104,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113813.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24831.927272727273
+  },
+  {
+   "i": 105,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25351.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5531.127272727273
+  },
+  {
+   "i": 106,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26022.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 107,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35732.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7796.072727272727
+  },
+  {
+   "i": 108,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23301.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 109,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113821.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24833.672727272726
+  },
+  {
+   "i": 110,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25833.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5636.290909090909
+  },
+  {
+   "i": 111,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26012.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 112,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35444.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7733.236363636363
+  },
+  {
+   "i": 113,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23121.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 114,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113770.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24822.545454545456
+  },
+  {
+   "i": 115,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 26073.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5688.654545454546
+  },
+  {
+   "i": 116,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26009.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 117,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35749.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7799.781818181818
+  },
+  {
+   "i": 118,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23213.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 119,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113773.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24823.2
+  },
+  {
+   "i": 120,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25504.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5564.509090909091
+  },
+  {
+   "i": 121,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26049.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 122,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35745.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7798.909090909091
+  },
+  {
+   "i": 123,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23764.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 124,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113790.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24826.909090909092
+  },
+  {
+   "i": 125,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25479.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5559.054545454545
+  },
+  {
+   "i": 126,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26049.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 127,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35688.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7786.472727272727
+  },
+  {
+   "i": 128,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23168.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 129,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113870.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24844.363636363636
+  },
+  {
+   "i": 130,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25293.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5518.472727272727
+  },
+  {
+   "i": 131,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26245.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 132,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35813.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7813.745454545455
+  },
+  {
+   "i": 133,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23371.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 134,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113747.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24817.52727272727
+  },
+  {
+   "i": 135,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25624.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5590.690909090909
+  },
+  {
+   "i": 136,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26087.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 137,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35740.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7797.818181818182
+  },
+  {
+   "i": 138,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23099.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 139,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113762.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24820.8
+  },
+  {
+   "i": 140,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25708.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5609.018181818182
+  },
+  {
+   "i": 141,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26008.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 142,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35778.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7806.109090909091
+  },
+  {
+   "i": 143,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23016.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 144,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113756.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24819.49090909091
+  },
+  {
+   "i": 145,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25477.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5558.618181818182
+  },
+  {
+   "i": 146,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26030.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 147,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35684.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7785.6
+  },
+  {
+   "i": 148,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23454.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 149,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113861.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24842.4
+  },
+  {
+   "i": 150,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25634.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5592.872727272727
+  },
+  {
+   "i": 151,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26065.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 152,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35697.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7788.436363636363
+  },
+  {
+   "i": 153,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23328.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 154,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113603.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24786.109090909093
+  },
+  {
+   "i": 155,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25470.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5557.090909090909
+  },
+  {
+   "i": 156,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26016.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 157,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35637.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7775.345454545454
+  },
+  {
+   "i": 158,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23150.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 159,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113724.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24812.50909090909
+  },
+  {
+   "i": 160,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25895.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5649.818181818182
+  },
+  {
+   "i": 161,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26046.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 162,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35781.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7806.763636363637
+  },
+  {
+   "i": 163,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23361.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 164,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113794.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24827.78181818182
+  },
+  {
+   "i": 165,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25553.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5575.2
+  },
+  {
+   "i": 166,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26226.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 167,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35879.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7828.145454545454
+  },
+  {
+   "i": 168,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23655.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 169,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113587.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24782.618181818183
+  },
+  {
+   "i": 170,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25636.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5593.309090909091
+  },
+  {
+   "i": 171,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26028.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 172,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35551.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7756.581818181819
+  },
+  {
+   "i": 173,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23426.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 174,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113737.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24815.345454545455
+  },
+  {
+   "i": 175,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25587.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5582.618181818182
+  },
+  {
+   "i": 176,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26114.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 177,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35689.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7786.690909090909
+  },
+  {
+   "i": 178,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23002.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 179,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113732.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24814.254545454547
+  },
+  {
+   "i": 180,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25640.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5594.181818181818
+  },
+  {
+   "i": 181,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 25734.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 182,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35416.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7727.127272727273
+  },
+  {
+   "i": 183,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23520.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 184,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113841.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24838.036363636365
+  },
+  {
+   "i": 185,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25623.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5590.472727272727
+  },
+  {
+   "i": 186,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 25684.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 187,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35451.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7734.763636363637
+  },
+  {
+   "i": 188,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23259.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 189,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113794.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24827.78181818182
+  },
+  {
+   "i": 190,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25378.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5537.018181818182
+  },
+  {
+   "i": 191,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 25755.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 192,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35624.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7772.509090909091
+  },
+  {
+   "i": 193,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23414.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 194,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113824.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24834.327272727274
+  },
+  {
+   "i": 195,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25546.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5573.672727272728
+  },
+  {
+   "i": 196,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26079.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 197,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35714.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7792.145454545454
+  },
+  {
+   "i": 198,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23522.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 199,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113644.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24795.054545454546
+  },
+  {
+   "i": 200,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25856.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5641.309090909091
+  },
+  {
+   "i": 201,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 25630.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 202,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35639.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7775.781818181818
+  },
+  {
+   "i": 203,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23511.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 204,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113722.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24812.072727272727
+  },
+  {
+   "i": 205,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25834.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5636.509090909091
+  },
+  {
+   "i": 206,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 25597.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 207,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35776.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7805.672727272728
+  },
+  {
+   "i": 208,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23390.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 209,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113854.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24840.872727272726
+  },
+  {
+   "i": 210,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25479.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5559.054545454545
+  },
+  {
+   "i": 211,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26053.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 212,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35870.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7826.181818181818
+  },
+  {
+   "i": 213,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23370.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 214,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113794.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24827.78181818182
+  },
+  {
+   "i": 215,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25386.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5538.763636363637
+  },
+  {
+   "i": 216,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26053.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 217,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35790.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7808.727272727273
+  },
+  {
+   "i": 218,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23168.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 219,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113712.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24809.890909090907
+  },
+  {
+   "i": 220,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25711.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5609.672727272728
+  },
+  {
+   "i": 221,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26039.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 222,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35647.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7777.527272727273
+  },
+  {
+   "i": 223,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23489.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 224,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113720.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24811.636363636364
+  },
+  {
+   "i": 225,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25333.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5527.2
+  },
+  {
+   "i": 226,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26036.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 227,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35930.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7839.272727272727
+  },
+  {
+   "i": 228,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23367.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 229,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113747.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24817.52727272727
+  },
+  {
+   "i": 230,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25836.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5636.945454545455
+  },
+  {
+   "i": 231,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 25767.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 232,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35614.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7770.327272727272
+  },
+  {
+   "i": 233,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23464.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 234,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113732.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24814.254545454547
+  },
+  {
+   "i": 235,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25459.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5554.690909090909
+  },
+  {
+   "i": 236,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 26032.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 237,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35584.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7763.781818181818
+  },
+  {
+   "i": 238,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 23866.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 239,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 113851.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 24840.21818181818
+  },
+  {
+   "i": 240,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 25614.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 5588.509090909091
+  },
+  {
+   "i": 241,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 25982.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 242,
+   "op": "MatmulDeviceOperation",
+   "cores": 86,
+   "cores_varies": null,
+   "kernel_ns": 35776.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7818181818181819,
+   "idle_core_ns": 7805.672727272728
+  },
+  {
+   "i": 243,
+   "op": "ConcatDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 347553.0,
+   "in0": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 244,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 441207.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 245,
+   "op": "LayerNormDeviceOperation",
+   "cores": 16,
+   "cores_varies": null,
+   "kernel_ns": 11306.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    384
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.14545454545454545,
+   "idle_core_ns": 9661.49090909091
+  },
+  {
+   "i": 246,
+   "op": "MatmulDeviceOperation",
+   "cores": 80,
+   "cores_varies": null,
+   "kernel_ns": 17492.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    384,
+    1536
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7272727272727273,
+   "idle_core_ns": 4770.545454545455
+  },
+  {
+   "i": 247,
+   "op": "NlpCreateHeadsDeviceOperation",
+   "cores": 16,
+   "cores_varies": null,
+   "kernel_ns": 22073.0,
+   "in0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 0.14545454545454545,
+   "idle_core_ns": 18862.381818181817
+  },
+  {
+   "i": 248,
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 337737.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 249,
+   "op": "MatmulDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 123893.0,
+   "in0": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    32
+   ],
+   "out0": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 250,
+   "op": "PermuteDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 131261.0,
+   "in0": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 251,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 28223.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 252,
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 3256.0,
+   "in0": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    32,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 253,
+   "op": "MatmulDeviceOperation",
+   "cores": 32,
+   "cores_varies": null,
+   "kernel_ns": 43583.0,
+   "in0": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "in1": [
+    1,
+    16,
+    32,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.2909090909090909,
+   "idle_core_ns": 30904.30909090909
+  },
+  {
+   "i": 254,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 42221.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 255,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 48743.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 256,
+   "op": "SoftmaxDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 117315.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 257,
+   "op": "MatmulDeviceOperation",
+   "cores": 32,
+   "cores_varies": null,
+   "kernel_ns": 35901.0,
+   "in0": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "in1": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.2909090909090909,
+   "idle_core_ns": 25457.072727272727
+  },
+  {
+   "i": 258,
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 3262.0,
+   "in0": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 259,
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 3415.0,
+   "in0": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    16,
+    32,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 260,
+   "op": "ReshapeViewDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 11953.0,
+   "in0": [
+    1,
+    16,
+    32,
+    512
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    1,
+    384,
+    512
+   ],
+   "strategy": "",
+   "fidelity": "",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 261,
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 2965.0,
+   "in0": [
+    1,
+    1,
+    384,
+    512
+   ],
+   "in1": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 262,
+   "op": "MatmulDeviceOperation",
+   "cores": 48,
+   "cores_varies": null,
+   "kernel_ns": 7470.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    384,
+    384
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.43636363636363634,
+   "idle_core_ns": 4210.363636363636
+  },
+  {
+   "i": 263,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 6402.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 264,
+   "op": "MatmulDeviceOperation",
+   "cores": 48,
+   "cores_varies": null,
+   "kernel_ns": 7697.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    384,
+    384
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.43636363636363634,
+   "idle_core_ns": 4338.309090909091
+  },
+  {
+   "i": 265,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 5167.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 266,
+   "op": "LayerNormDeviceOperation",
+   "cores": 16,
+   "cores_varies": null,
+   "kernel_ns": 11949.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    32,
+    384
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.14545454545454545,
+   "idle_core_ns": 10210.963636363636
+  },
+  {
+   "i": 267,
+   "op": "MatmulDeviceOperation",
+   "cores": 80,
+   "cores_varies": null,
+   "kernel_ns": 31155.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    384,
+    1536
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7272727272727273,
+   "idle_core_ns": 8496.818181818182
+  },
+  {
+   "i": 268,
+   "op": "MatmulDeviceOperation",
+   "cores": 80,
+   "cores_varies": null,
+   "kernel_ns": 11220.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    384,
+    1536
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.7272727272727273,
+   "idle_core_ns": 3060.0
+  },
+  {
+   "i": 269,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 6686.0,
+   "in0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  },
+  {
+   "i": 270,
+   "op": "MatmulDeviceOperation",
+   "cores": 48,
+   "cores_varies": null,
+   "kernel_ns": 17041.0,
+   "in0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "in1": [
+    1,
+    1,
+    1536,
+    384
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 0.43636363636363634,
+   "idle_core_ns": 9604.927272727273
+  },
+  {
+   "i": 271,
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "cores_varies": null,
+   "kernel_ns": 4798.0,
+   "in0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "in1": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    384
+   ],
+   "strategy": "",
+   "fidelity": "HiFi4",
+   "util": 1.0,
+   "idle_core_ns": 0.0
+  }
+ ]
+}

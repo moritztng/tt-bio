@@ -1,0 +1,95 @@
+{
+ "env": {
+  "started": "2026-09-12T10:47:00+0000",
+  "card": "0",
+  "reps": 5,
+  "size": 512,
+  "commit": "9db1ad88",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "profiler_env": {
+   "TT_METAL_DEVICE_PROFILER": "1",
+   "TT_METAL_PROFILER_MID_RUN_DUMP": "1",
+   "TT_METAL_PROFILER_CPP_POST_PROCESS": "1"
+  },
+  "loadavg": [
+   "0.33",
+   "1.29",
+   "1.51"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "stacks_truncated": 3,
+  "keep_blocks": 2
+ },
+ "precursor_s": 57.111,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "api_available": true,
+ "api_programs_before": 9936,
+ "solo_synced_wall_ms_per_call": 62.0651,
+ "solo_synced_wall_ms_all": [
+  70.2626,
+  62.5996,
+  62.0651,
+  61.8205,
+  61.7723
+ ],
+ "back_to_back_ms_per_call": 62.2198,
+ "api_programs_after": 20599,
+ "api_programs_new": 10663,
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

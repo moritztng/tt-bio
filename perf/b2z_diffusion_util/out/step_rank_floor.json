@@ -1,0 +1,1251 @@
+{
+ "available_worker_cores": 110,
+ "bw_roof_GBs": 429.9,
+ "tflops_roof": 85.96,
+ "idle_core_seconds_per_fold": 1.0682099072727274,
+ "recoverable_seconds_per_fold_at_the_roof": 1.020502059509687,
+ "groups": [
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "n": 193,
+   "ms_per_call": 3.874518,
+   "us_each": 20.075222797927463,
+   "core_ideal_us": 11.680129627885067,
+   "roof_us": 7.026288692415077,
+   "bytes": 2752512,
+   "flops": 603979776.0,
+   "byte_roof_frac": 0.3189344276474408,
+   "flop_roof_frac": 0.3499980430175082,
+   "idle_core_s_per_fold": 0.32405059636363637,
+   "recoverable_s_per_fold": 0.32405059636363637
+  },
+  {
+   "op": "LayerNormDeviceOperation",
+   "cores": 16,
+   "in0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "n": 100,
+   "ms_per_call": 1.593476,
+   "us_each": 15.93476,
+   "core_ideal_us": 2.3177832727272727,
+   "roof_us": 3.6586741102581994,
+   "bytes": 1572864,
+   "flops": 0.0,
+   "byte_roof_frac": 0.22960333950798126,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.27233953454545456,
+   "recoverable_s_per_fold": 0.24552171779483598
+  },
+  {
+   "op": "NlpCreateHeadsDeviceOperation",
+   "cores": 16,
+   "in0": [
+    1,
+    1,
+    512,
+    3072
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "n": 24,
+   "ms_per_call": 1.02078,
+   "us_each": 42.5325,
+   "core_ideal_us": 6.186545454545455,
+   "roof_us": 9.756464294021866,
+   "bytes": 4194304,
+   "flops": 0.0,
+   "byte_roof_frac": 0.2293884510438339,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.1744605818181818,
+   "recoverable_s_per_fold": 0.15732497138869506
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 80,
+   "in0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "n": 76,
+   "ms_per_call": 1.689871,
+   "us_each": 22.235144736842106,
+   "core_ideal_us": 16.171014354066987,
+   "roof_us": 14.052577384830155,
+   "bytes": 4718592,
+   "flops": 1207959552.0,
+   "byte_roof_frac": 0.49363395024760437,
+   "flop_roof_frac": 0.6319984668930893,
+   "idle_core_s_per_fold": 0.09217478181818183,
+   "recoverable_s_per_fold": 0.09217478181818183
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "n": 26,
+   "ms_per_call": 0.59571,
+   "us_each": 22.911923076923078,
+   "core_ideal_us": 13.330573426573427,
+   "roof_us": 14.052577384830155,
+   "bytes": 4718592,
+   "flops": 1207959552.0,
+   "byte_roof_frac": 0.4790528622990038,
+   "flop_roof_frac": 0.6133303318822648,
+   "idle_core_s_per_fold": 0.04982301818181818,
+   "recoverable_s_per_fold": 0.0460685975988832
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 88,
+   "in0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    3072
+   ],
+   "n": 24,
+   "ms_per_call": 0.951353,
+   "us_each": 39.63970833333334,
+   "core_ideal_us": 31.711766666666666,
+   "roof_us": 28.10515476966031,
+   "bytes": 8650752,
+   "flops": 2415919104.0,
+   "byte_roof_frac": 0.5076401530810145,
+   "flop_roof_frac": 0.7090151757253589,
+   "idle_core_s_per_fold": 0.03805412,
+   "recoverable_s_per_fold": 0.03805412000000002
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 70,
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    140,
+    32,
+    256
+   ],
+   "n": 18,
+   "ms_per_call": 0.442239,
+   "us_each": 24.56883333333333,
+   "core_ideal_us": 15.63471212121212,
+   "roof_us": 8.155794370783903,
+   "bytes": 3506176,
+   "flops": 293601280.0,
+   "byte_roof_frac": 0.331956925269165,
+   "flop_roof_frac": 0.1390199101812186,
+   "idle_core_s_per_fold": 0.032162836363636364,
+   "recoverable_s_per_fold": 0.032162836363636364
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 70,
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "n": 24,
+   "ms_per_call": 0.38426,
+   "us_each": 16.010833333333334,
+   "core_ideal_us": 10.188712121212122,
+   "roof_us": 5.411788788090254,
+   "bytes": 2326528,
+   "flops": 146800640.0,
+   "byte_roof_frac": 0.33800793971312676,
+   "flop_roof_frac": 0.10666393597847278,
+   "idle_core_s_per_fold": 0.027946181818181825,
+   "recoverable_s_per_fold": 0.027946181818181818
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 94,
+   "in0": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "out0": [
+    1,
+    140,
+    128,
+    256
+   ],
+   "n": 6,
+   "ms_per_call": 0.488048,
+   "us_each": 81.34133333333332,
+   "core_ideal_us": 69.50986666666667,
+   "roof_us": 32.165843219353334,
+   "bytes": 13828096,
+   "flops": 1174405120.0,
+   "byte_roof_frac": 0.3954427829150412,
+   "flop_roof_frac": 0.16796169245274215,
+   "idle_core_s_per_fold": 0.014197759999999999,
+   "recoverable_s_per_fold": 0.014197759999999993
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 70,
+   "in0": [
+    1,
+    140,
+    32,
+    256
+   ],
+   "out0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "n": 6,
+   "ms_per_call": 0.189787,
+   "us_each": 31.63116666666667,
+   "core_ideal_us": 20.128924242424244,
+   "roof_us": 8.155794370783903,
+   "bytes": 3506176,
+   "flops": 293601280.0,
+   "byte_roof_frac": 0.2578404539020239,
+   "flop_roof_frac": 0.10798074694022232,
+   "idle_core_s_per_fold": 0.013802690909090911,
+   "recoverable_s_per_fold": 0.013802690909090908
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 64,
+   "in0": [
+    1,
+    1,
+    4480,
+    768
+   ],
+   "out0": [
+    1,
+    1,
+    768,
+    512
+   ],
+   "n": 1,
+   "ms_per_call": 0.12285,
+   "us_each": 122.85,
+   "core_ideal_us": 71.47636363636363,
+   "roof_us": 40.98668403908795,
+   "bytes": 8454144,
+   "flops": 3523215360.0,
+   "byte_roof_frac": 0.16007629908537097,
+   "flop_roof_frac": 0.33363194171011756,
+   "idle_core_s_per_fold": 0.010274727272727272,
+   "recoverable_s_per_fold": 0.010274727272727274
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 90,
+   "in0": [
+    1,
+    16,
+    128,
+    288
+   ],
+   "out0": [
+    1,
+    16,
+    128,
+    1120
+   ],
+   "n": 6,
+   "ms_per_call": 0.220485,
+   "us_each": 36.7475,
+   "core_ideal_us": 30.066136363636364,
+   "roof_us": 15.37000651465798,
+   "bytes": 6412288,
+   "flops": 1321205760.0,
+   "byte_roof_frac": 0.4058988082812614,
+   "flop_roof_frac": 0.4182599228425874,
+   "idle_core_s_per_fold": 0.008017636363636364,
+   "recoverable_s_per_fold": 0.008017636363636364
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 70,
+   "in0": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "out0": [
+    1,
+    1,
+    128,
+    4480
+   ],
+   "n": 1,
+   "ms_per_call": 0.027544,
+   "us_each": 27.544,
+   "core_ideal_us": 17.528,
+   "roof_us": 13.643805536171204,
+   "bytes": 5865472,
+   "flops": 587202560.0,
+   "byte_roof_frac": 0.495345829805809,
+   "flop_roof_frac": 0.24800733395711075,
+   "idle_core_s_per_fold": 0.0020032,
+   "recoverable_s_per_fold": 0.0020032
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 80,
+   "in0": [
+    1,
+    1,
+    4480,
+    128
+   ],
+   "out0": [
+    1,
+    1,
+    4480,
+    768
+   ],
+   "n": 1,
+   "ms_per_call": 0.035266,
+   "us_each": 35.266,
+   "core_ideal_us": 25.648,
+   "roof_us": 19.131816701558503,
+   "bytes": 8224768,
+   "flops": 880803840.0,
+   "byte_roof_frac": 0.5425003318084983,
+   "flop_roof_frac": 0.29055381981999623,
+   "idle_core_s_per_fold": 0.0019236,
+   "recoverable_s_per_fold": 0.0019236
+  },
+  {
+   "op": "LayerNormDeviceOperation",
+   "cores": 1,
+   "in0": [
+    1,
+    1,
+    32,
+    256
+   ],
+   "out0": [
+    1,
+    1,
+    32,
+    256
+   ],
+   "n": 1,
+   "ms_per_call": 0.008465,
+   "us_each": 8.465,
+   "core_ideal_us": 0.07695454545454546,
+   "roof_us": 0.07622237729704583,
+   "bytes": 32768,
+   "flops": 0.0,
+   "byte_roof_frac": 0.00900441551057836,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0016776090909090908,
+   "recoverable_s_per_fold": 0.0016776090909090908
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 32,
+   "in0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "n": 1,
+   "ms_per_call": 0.010559,
+   "us_each": 10.559,
+   "core_ideal_us": 3.0717090909090907,
+   "roof_us": 2.591560828099558,
+   "bytes": 1114112,
+   "flops": 100663296.0,
+   "byte_roof_frac": 0.2454361992707224,
+   "flop_roof_frac": 0.11090521028530285,
+   "idle_core_s_per_fold": 0.0014974581818181817,
+   "recoverable_s_per_fold": 0.0014974581818181817
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 24,
+   "in0": [
+    1,
+    1,
+    32,
+    256
+   ],
+   "out0": [
+    1,
+    1,
+    32,
+    768
+   ],
+   "n": 1,
+   "ms_per_call": 0.00763,
+   "us_each": 7.63,
+   "core_ideal_us": 1.6647272727272728,
+   "roof_us": 1.0671132821586415,
+   "bytes": 458752,
+   "flops": 12582912.0,
+   "byte_roof_frac": 0.13985757302210244,
+   "flop_roof_frac": 0.019184929806725308,
+   "idle_core_s_per_fold": 0.0011930545454545455,
+   "recoverable_s_per_fold": 0.0011930545454545455
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 70,
+   "in0": [
+    1,
+    1,
+    4480,
+    32
+   ],
+   "out0": [
+    1,
+    1,
+    4480,
+    128
+   ],
+   "n": 1,
+   "ms_per_call": 0.014896,
+   "us_each": 14.896,
+   "core_ideal_us": 9.479272727272727,
+   "roof_us": 3.3537846010700165,
+   "bytes": 1441792,
+   "flops": 36700160.0,
+   "byte_roof_frac": 0.22514665689245544,
+   "flop_roof_frac": 0.028661696120244773,
+   "idle_core_s_per_fold": 0.0010833454545454545,
+   "recoverable_s_per_fold": 0.0010833454545454543
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 8,
+   "in0": [
+    1,
+    1,
+    32,
+    32
+   ],
+   "out0": [
+    1,
+    1,
+    32,
+    256
+   ],
+   "n": 1,
+   "ms_per_call": 0.004643,
+   "us_each": 4.643,
+   "core_ideal_us": 0.3376727272727273,
+   "roof_us": 0.08098627587811119,
+   "bytes": 34816,
+   "flops": 524288.0,
+   "byte_roof_frac": 0.017442661184172127,
+   "flop_roof_frac": 0.0013136353509343285,
+   "idle_core_s_per_fold": 0.0008610654545454545,
+   "recoverable_s_per_fold": 0.0008610654545454545
+  },
+  {
+   "op": "MatmulDeviceOperation",
+   "cores": 70,
+   "in0": [
+    1,
+    1,
+    4480,
+    128
+   ],
+   "out0": [
+    1,
+    1,
+    4480,
+    32
+   ],
+   "n": 1,
+   "ms_per_call": 0.009159,
+   "us_each": 9.159,
+   "core_ideal_us": 5.828454545454545,
+   "roof_us": 3.3537846010700165,
+   "bytes": 1441792,
+   "flops": 36700160.0,
+   "byte_roof_frac": 0.3661736653641245,
+   "flop_roof_frac": 0.046614764210849015,
+   "idle_core_s_per_fold": 0.0006661090909090909,
+   "recoverable_s_per_fold": 0.0006661090909090909
+  },
+  {
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1,
+    4480,
+    128
+   ],
+   "out0": [
+    1,
+    1,
+    4480,
+    128
+   ],
+   "n": 2,
+   "ms_per_call": 0.017513,
+   "us_each": 8.7565,
+   "core_ideal_us": 8.7565,
+   "roof_us": 5.335566410793208,
+   "bytes": 2293760,
+   "flops": 0.0,
+   "byte_roof_frac": 0.609326375925679,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "CopyDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "n": 24,
+   "ms_per_call": 0.106548,
+   "us_each": 4.4395,
+   "core_ideal_us": 4.4395,
+   "roof_us": 5.335566410793208,
+   "bytes": 2293760,
+   "flops": 0.0,
+   "byte_roof_frac": 1.2018394888598283,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "n": 12,
+   "ms_per_call": 0.113641,
+   "us_each": 9.470083333333333,
+   "core_ideal_us": 9.470083333333333,
+   "roof_us": 5.335566410793208,
+   "bytes": 2293760,
+   "flops": 0.0,
+   "byte_roof_frac": 0.5634128257364727,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "n": 54,
+   "ms_per_call": 0.514612,
+   "us_each": 9.529851851851852,
+   "core_ideal_us": 9.529851851851852,
+   "roof_us": 5.335566410793208,
+   "bytes": 2293760,
+   "flops": 0.0,
+   "byte_roof_frac": 0.5598792608466829,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "ReshapeViewDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    280,
+    32,
+    128
+   ],
+   "n": 6,
+   "ms_per_call": 0.193768,
+   "us_each": 32.294666666666664,
+   "core_ideal_us": 32.294666666666664,
+   "roof_us": 8.003349616189812,
+   "bytes": 3440640,
+   "flops": 0.0,
+   "byte_roof_frac": 0.2478226420107493,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "PermuteDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    280,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    16,
+    128,
+    288
+   ],
+   "n": 6,
+   "ms_per_call": 0.719616,
+   "us_each": 119.936,
+   "core_ideal_us": 119.936,
+   "roof_us": 8.079571993486857,
+   "bytes": 3473408,
+   "flops": 0.0,
+   "byte_roof_frac": 0.0673656949830481,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "PermuteDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    16,
+    128,
+    1120
+   ],
+   "out0": [
+    1,
+    1120,
+    32,
+    128
+   ],
+   "n": 6,
+   "ms_per_call": 0.745301,
+   "us_each": 124.21683333333333,
+   "core_ideal_us": 124.21683333333333,
+   "roof_us": 32.01339846475925,
+   "bytes": 13762560,
+   "flops": 0.0,
+   "byte_roof_frac": 0.2577219013372523,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "ReshapeViewDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1120,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "n": 6,
+   "ms_per_call": 0.644679,
+   "us_each": 107.4465,
+   "core_ideal_us": 107.4465,
+   "roof_us": 32.01339846475925,
+   "bytes": 13762560,
+   "flops": 0.0,
+   "byte_roof_frac": 0.2979473362534773,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "PadDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out0": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "n": 6,
+   "ms_per_call": 0.144111,
+   "us_each": 24.0185,
+   "core_ideal_us": 24.0185,
+   "roof_us": 13.33891602698302,
+   "bytes": 5734400,
+   "flops": 0.0,
+   "byte_roof_frac": 0.5553600777310415,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "NlpCreateHeadsDeviceOperation",
+   "cores": 110,
+   "in0": [
+    140,
+    1,
+    128,
+    128
+   ],
+   "out0": [
+    140,
+    4,
+    128,
+    32
+   ],
+   "n": 6,
+   "ms_per_call": 0.445535,
+   "us_each": 74.25583333333333,
+   "core_ideal_us": 74.25583333333333,
+   "roof_us": 21.342265643172833,
+   "bytes": 9175040,
+   "flops": 0.0,
+   "byte_roof_frac": 0.2874153407903689,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    560,
+    128,
+    32
+   ],
+   "out0": [
+    1,
+    560,
+    32,
+    32
+   ],
+   "n": 6,
+   "ms_per_call": 0.082489,
+   "us_each": 13.748166666666666,
+   "core_ideal_us": 13.748166666666666,
+   "roof_us": 13.33891602698302,
+   "bytes": 5734400,
+   "flops": 0.0,
+   "byte_roof_frac": 0.9702323480936624,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "SDPAOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    560,
+    32,
+    32
+   ],
+   "out0": [
+    1,
+    560,
+    32,
+    32
+   ],
+   "n": 6,
+   "ms_per_call": 0.307874,
+   "us_each": 51.312333333333335,
+   "core_ideal_us": 51.312333333333335,
+   "roof_us": 5.335566410793208,
+   "bytes": 2293760,
+   "flops": 0.0,
+   "byte_roof_frac": 0.1039821435546985,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "NLPConcatHeadsDeviceOperation",
+   "cores": 110,
+   "in0": [
+    140,
+    4,
+    32,
+    32
+   ],
+   "out0": [
+    140,
+    1,
+    32,
+    128
+   ],
+   "n": 6,
+   "ms_per_call": 0.064991,
+   "us_each": 10.831833333333334,
+   "core_ideal_us": 10.831833333333334,
+   "roof_us": 5.335566410793208,
+   "bytes": 2293760,
+   "flops": 0.0,
+   "byte_roof_frac": 0.49258202619992375,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    140,
+    32,
+    256
+   ],
+   "out0": [
+    1,
+    140,
+    32,
+    256
+   ],
+   "n": 12,
+   "ms_per_call": 0.240541,
+   "us_each": 20.04508333333333,
+   "core_ideal_us": 20.04508333333333,
+   "roof_us": 10.671132821586417,
+   "bytes": 4587520,
+   "flops": 0.0,
+   "byte_roof_frac": 0.5323566205305416,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1,
+    768,
+    512
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "n": 25,
+   "ms_per_call": 0.118826,
+   "us_each": 4.75304,
+   "core_ideal_us": 4.75304,
+   "roof_us": 3.6586741102581994,
+   "bytes": 1572864,
+   "flops": 0.0,
+   "byte_roof_frac": 0.7697545382025398,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1,
+    32,
+    256
+   ],
+   "out0": [
+    1,
+    1,
+    32,
+    256
+   ],
+   "n": 1,
+   "ms_per_call": 0.002447,
+   "us_each": 2.447,
+   "core_ideal_us": 2.447,
+   "roof_us": 0.07622237729704583,
+   "bytes": 32768,
+   "flops": 0.0,
+   "byte_roof_frac": 0.031149316427072263,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "UnaryNgDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1,
+    32,
+    256
+   ],
+   "out0": [
+    1,
+    1,
+    32,
+    256
+   ],
+   "n": 1,
+   "ms_per_call": 0.00182,
+   "us_each": 1.82,
+   "core_ideal_us": 1.82,
+   "roof_us": 0.07622237729704583,
+   "bytes": 32768,
+   "flops": 0.0,
+   "byte_roof_frac": 0.04188042708628891,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "n": 220,
+   "ms_per_call": 2.169586,
+   "us_each": 9.861754545454545,
+   "core_ideal_us": 9.861754545454545,
+   "roof_us": 3.6586741102581994,
+   "bytes": 1572864,
+   "flops": 0.0,
+   "byte_roof_frac": 0.3709962657653598,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "BinaryNgDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "out0": [
+    1,
+    1,
+    512,
+    1536
+   ],
+   "n": 50,
+   "ms_per_call": 0.649649,
+   "us_each": 12.99298,
+   "core_ideal_us": 12.99298,
+   "roof_us": 7.317348220516399,
+   "bytes": 3145728,
+   "flops": 0.0,
+   "byte_roof_frac": 0.5631770556497739,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "SDPAOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "n": 24,
+   "ms_per_call": 2.197803,
+   "us_each": 91.575125,
+   "core_ideal_us": 91.575125,
+   "roof_us": 4.878232147010933,
+   "bytes": 2097152,
+   "flops": 0.0,
+   "byte_roof_frac": 0.05327027560170879,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "out0": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "n": 24,
+   "ms_per_call": 0.144996,
+   "us_each": 6.0415,
+   "core_ideal_us": 6.0415,
+   "roof_us": 4.878232147010933,
+   "bytes": 2097152,
+   "flops": 0.0,
+   "byte_roof_frac": 0.8074538023687714,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "out0": [
+    1,
+    16,
+    64,
+    512
+   ],
+   "n": 24,
+   "ms_per_call": 0.148831,
+   "us_each": 6.201291666666667,
+   "core_ideal_us": 6.201291666666667,
+   "roof_us": 4.878232147010933,
+   "bytes": 2097152,
+   "flops": 0.0,
+   "byte_roof_frac": 0.7866477516664027,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "ReshapeViewDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    16,
+    64,
+    512
+   ],
+   "out0": [
+    1,
+    1,
+    768,
+    512
+   ],
+   "n": 24,
+   "ms_per_call": 0.521405,
+   "us_each": 21.72520833333333,
+   "core_ideal_us": 21.72520833333333,
+   "roof_us": 4.268453128634566,
+   "bytes": 1835008,
+   "flops": 0.0,
+   "byte_roof_frac": 0.19647466957016063,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1,
+    512,
+    128
+   ],
+   "out0": [
+    1,
+    1,
+    128,
+    512
+   ],
+   "n": 1,
+   "ms_per_call": 0.001422,
+   "us_each": 1.422,
+   "core_ideal_us": 1.422,
+   "roof_us": 0.6097790183763666,
+   "bytes": 262144,
+   "flops": 0.0,
+   "byte_roof_frac": 0.4288178750888654,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "TransposeDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1,
+    128,
+    4480
+   ],
+   "out0": [
+    1,
+    1,
+    4480,
+    128
+   ],
+   "n": 1,
+   "ms_per_call": 0.005755,
+   "us_each": 5.755,
+   "core_ideal_us": 5.755,
+   "roof_us": 5.335566410793208,
+   "bytes": 2293760,
+   "flops": 0.0,
+   "byte_roof_frac": 0.9271184032655444,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  },
+  {
+   "op": "LayerNormDeviceOperation",
+   "cores": 110,
+   "in0": [
+    1,
+    1,
+    4480,
+    128
+   ],
+   "out0": [
+    1,
+    1,
+    4480,
+    128
+   ],
+   "n": 1,
+   "ms_per_call": 0.020969,
+   "us_each": 20.969,
+   "core_ideal_us": 20.969,
+   "roof_us": 5.335566410793208,
+   "bytes": 2293760,
+   "flops": 0.0,
+   "byte_roof_frac": 0.2544502079638136,
+   "flop_roof_frac": 0.0,
+   "idle_core_s_per_fold": 0.0,
+   "recoverable_s_per_fold": 0.0
+  }
+ ]
+}

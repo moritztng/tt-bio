@@ -1,0 +1,30 @@
+{
+ "source": "perf/b2z_diffusion_util/out/step_util_mine_api.json",
+ "duration_keys_seen": [
+  "DEVICE FW DURATION [ns]"
+ ],
+ "num_available_cores": 110,
+ "programs_captured": 10663,
+ "programs_counted": 10650,
+ "programs_per_call": 1065.0,
+ "calls_captured": 10,
+ "kernel_ms_per_call": 25.0692941,
+ "duration_weighted_mean_core_utilization": 0.7693590751578587,
+ "idle_core_fraction_seconds_per_fold_all_ops": 1.1564010352727274,
+ "under_grid_ops_per_call": 127.0,
+ "core_seconds_lost_per_fold_under_grid": 0.46662840363636365,
+ "core_count_histogram": {
+  "8": 10,
+  "16": 1240,
+  "24": 10,
+  "32": 10,
+  "64": 2200,
+  "70": 510,
+  "80": 770,
+  "88": 240,
+  "90": 60,
+  "94": 60,
+  "110": 5540
+ },
+ "median_kernel_ns": 16576.0
+}
