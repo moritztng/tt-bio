@@ -140,29 +140,68 @@ log(f"device={OUT['device']} n_devices={OUT['n_devices']} grid={OUT['core_grid_m
 dump()
 
 
+class Splitter:
+    """Stage boundaries off the model's own progress callback.
+
+    The trunk stage wall this row prices its lever against has been a number borrowed from another
+    build and scaled. This measures it here: the first `diffusion` callback is the end of the trunk,
+    so trunk = fold wall - (everything from that mark to the end). Four synchronize_device calls per
+    fold, which is nothing against a 20 s fold.
+    """
+
+    def __init__(self):
+        self.marks = []
+
+    def _mark(self, label):
+        ttnn.synchronize_device(dev)
+        self.marks.append((label, time.perf_counter()))
+
+    def __call__(self, stage=None, step=0, total=0, *a, **k):
+        if stage == "diffusion":
+            if not self.marks:
+                self._mark("trunk_end")
+            elif len(self.marks) == 1:
+                self._mark("diffusion_conditioning_end")
+        elif stage == "confidence":
+            self._mark("sampler_end")
+
+    def close(self, t0, wall):
+        self._mark("end")
+        out, prev = {}, t0
+        for lab, t in self.marks:
+            out[lab] = round(t - prev, 4)
+            prev = t
+        out["trunk_s"] = out.pop("trunk_end", None)
+        return out
+
+
 def fold_once():
     for p in struct_dir.glob("*"):
         p.unlink() if p.is_file() else shutil.rmtree(p)
+    sp = Splitter()
+    state.pfn = sp
+    state.model.progress_fn = sp
     ttnn.synchronize_device(dev)
     t = time.perf_counter()
     metrics, _b, _f = state.predict_one(tgt, cfg)
     ttnn.synchronize_device(dev)
     wall = time.perf_counter() - t
+    stages = sp.close(t, wall)
     cifs = sorted(hashlib.sha256(f.read_bytes()).hexdigest()
                   for f in sorted(struct_dir.glob("*.cif")))
-    return wall, metrics, cifs
+    return wall, metrics, cifs, stages
 
 
-w, m, c = fold_once()
+w, m, c, st_ = fold_once()
 OUT["cold_s"] = round(w, 3)
 log(f"cold {w:.3f}s plddt={m.get('plddt')} cif={c[0][:16] if c else 'NONE'} (discarded)")
 dump()
 
 rows_out = []
 for i in range(REPS):
-    w, m, c = fold_once()
-    rows_out.append({"fold_s": round(w, 4), "plddt": m.get("plddt"), "cif": c})
-    log(f"rep {i+1}/{REPS}  {w:.4f}s  plddt={m.get('plddt')}  cif={c[0][:16] if c else 'NONE'}")
+    w, m, c, st_ = fold_once()
+    rows_out.append({"fold_s": round(w, 4), "plddt": m.get("plddt"), "cif": c, "stages": st_})
+    log(f"rep {i+1}/{REPS}  {w:.4f}s  cif={c[0][:16] if c else 'NONE'}  stages={st_}")
     OUT["reps_done"] = rows_out
     dump()
 
@@ -173,6 +212,9 @@ OUT["summary"] = {
     "plddt": sorted({r["plddt"] for r in rows_out}),
     "cif_sha256": digests, "cif_sha256_16": sorted({d[:16] for d in digests}),
     "bit_identical_across_reps": len(digests) == 1,
+    "trunk_s_median": round(st.median([r["stages"]["trunk_s"] for r in rows_out
+                                       if r["stages"].get("trunk_s")]), 4)
+                      if any(r["stages"].get("trunk_s") for r in rows_out) else None,
 }
 dump()
 log(json.dumps(OUT["summary"], indent=1))
