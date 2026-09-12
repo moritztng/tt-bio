@@ -120,6 +120,126 @@
    "cold": true,
    "size": 1024,
    "tag": "t-1_0_base"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 173.763,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": false
+   },
+   "block_s": 127.7108,
+   "block_n": 280,
+   "step_s": 18.2588,
+   "step_n": 200,
+   "step_ms": 91.2938,
+   "atom_l1": {
+    "l1": 0,
+    "dram": 0
+   },
+   "loadavg_before": [
+    60.55,
+    39.1,
+    24.91
+   ],
+   "loadavg_after": [
+    35.76,
+    36.37,
+    26.19
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1334770",
+     "1343682",
+     "1343683",
+     "1343684",
+     "1343685",
+     "1343686"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1",
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/6",
+     "/dev/tenstorrent/7",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 0,
+   "pos": 0,
+   "cold": false,
+   "size": 1024,
+   "tag": "t0_0_base"
+  },
+  {
+   "arm": "L1",
+   "seed": 0,
+   "target": "cdk2x2_1024",
+   "fold_s": 176.291,
+   "sha256": "17bd0c67e2bb4128",
+   "flags": {
+    "L1": true
+   },
+   "block_s": 128.2924,
+   "block_n": 280,
+   "step_s": 21.9126,
+   "step_n": 200,
+   "step_ms": 109.5631,
+   "atom_l1": {
+    "l1": 1200,
+    "dram": 0
+   },
+   "loadavg_before": [
+    35.76,
+    36.37,
+    26.19
+   ],
+   "loadavg_after": [
+    23.04,
+    31.09,
+    25.94
+   ],
+   "occupancy": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1334770",
+     "1343682",
+     "1343683",
+     "1343684",
+     "1343685",
+     "1343686"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/0",
+     "/dev/tenstorrent/1",
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/2",
+     "/dev/tenstorrent/4",
+     "/dev/tenstorrent/6",
+     "/dev/tenstorrent/7",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "plddt": 0.762602,
+   "rep": 0,
+   "pos": 1,
+   "cold": false,
+   "size": 1024,
+   "tag": "t0_1_L1"
   }
  ],
  "model_load_s": 16.558
