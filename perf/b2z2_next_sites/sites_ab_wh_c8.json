@@ -1,0 +1,161 @@
+{
+ "env": {
+  "started": "2026-09-12T20:07:24+0000",
+  "card": "8",
+  "size": 512,
+  "arms": [
+   "base",
+   "l1",
+   "heads",
+   "both"
+  ],
+  "reps": 10,
+  "blocks": 5,
+  "commit": "dd6c2989",
+  "profiler": "0",
+  "loadavg": [
+   "12.01",
+   "11.27",
+   "10.41"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3,
+  "arch": "Arch.WORMHOLE_B0"
+ },
+ "precursor_s": 89.023,
+ "diffusion_calls_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "parity": {
+  "base": {
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "atom_l1_stats": {
+    "l1": 0,
+    "dram": 0
+   }
+  },
+  "l1": {
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "atom_l1_stats": {
+    "l1": 6,
+    "dram": 0
+   }
+  },
+  "heads": {
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "atom_l1_stats": {
+    "l1": 0,
+    "dram": 0
+   }
+  },
+  "both": {
+   "bit_exact": true,
+   "max_abs": 0.0,
+   "atom_l1_stats": {
+    "l1": 6,
+    "dram": 0
+   }
+  }
+ },
+ "walls": {
+  "base": [
+   41.9899,
+   41.4799,
+   41.5039,
+   41.5028,
+   41.4875
+  ],
+  "l1": [
+   38.2582,
+   38.3217,
+   38.2797,
+   38.2651,
+   38.2637
+  ],
+  "heads": [
+   56.3162,
+   56.2996,
+   56.339,
+   56.3657,
+   56.3407
+  ],
+  "both": [
+   49.836,
+   49.7901,
+   49.8328,
+   49.8232,
+   49.7989
+  ]
+ },
+ "ms_per_step": {
+  "base": 41.5028,
+  "l1": 38.2651,
+  "heads": 56.339,
+  "both": 49.8232
+ },
+ "spread_pct": {
+  "base": 1.229,
+  "l1": 0.166,
+  "heads": 0.117,
+  "both": 0.092
+ },
+ "ratio_vs_base": {
+  "base": 1.0,
+  "l1": 1.08461,
+  "heads": 0.73666,
+  "both": 0.833
+ }
+}

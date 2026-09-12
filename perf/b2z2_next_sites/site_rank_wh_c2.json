@@ -1,0 +1,570 @@
+{
+ "kernel_sum_ms": 40.3663,
+ "n_programs": 1066,
+ "ms_unowned": 14.0142,
+ "sites": [
+  {
+   "code": "Matmul",
+   "n": 103,
+   "us_each": 49.27,
+   "ms_step": 5.0751,
+   "first_idx": [
+    51,
+    103,
+    155,
+    223
+   ],
+   "site": "transition swish gate chunks",
+   "owner": "b2z2-step-matmul-group (roofline: no single term)"
+  },
+  {
+   "code": "Matmul",
+   "n": 169,
+   "us_each": 28.91,
+   "ms_step": 4.8862,
+   "first_idx": [
+    194,
+    199,
+    200,
+    218
+   ],
+   "site": "AdaLN s_scale / s_bias projections",
+   "owner": "b2z2-step-matmul-group (N-stacking REFUTED)"
+  },
+  {
+   "code": "Matmul",
+   "n": 31,
+   "us_each": 104.71,
+   "ms_step": 3.2461,
+   "first_idx": [
+    12,
+    64,
+    116,
+    161
+   ],
+   "site": "atom key gather: one-hot matmul",
+   "owner": "b2z2-layout-op-elision / b2z2-step-program-fusion"
+  },
+  {
+   "code": "LayerNorm",
+   "n": 97,
+   "us_each": 29.92,
+   "ms_step": 2.9024,
+   "first_idx": [
+    197,
+    198,
+    226,
+    227
+   ],
+   "site": "AdaLN norm of a",
+   "owner": ""
+  },
+  {
+   "code": "BinaryNg",
+   "n": 132,
+   "us_each": 21.69,
+   "ms_step": 2.8627,
+   "first_idx": [
+    1,
+    36,
+    55,
+    88
+   ],
+   "site": "AdaLN scale/shift elementwise",
+   "owner": "b2z2-step-binaryng-fusion (NO-GO, measured slower)"
+  },
+  {
+   "code": "SDPA",
+   "n": 24,
+   "us_each": 114.39,
+   "ms_step": 2.7453,
+   "first_idx": [
+    210,
+    261,
+    312,
+    363
+   ],
+   "site": "token SDPA",
+   "owner": ""
+  },
+  {
+   "code": "Matmul",
+   "n": 48,
+   "us_each": 42.65,
+   "ms_step": 2.0472,
+   "first_idx": [
+    15,
+    31,
+    34,
+    50
+   ],
+   "site": "atom q projection",
+   "owner": "b2z2-step-fusion-next-sites (TT_BIO_ATOM_L1)"
+  },
+  {
+   "code": "Matmul",
+   "n": 7,
+   "us_each": 248.04,
+   "ms_step": 1.7363,
+   "first_idx": [
+    16,
+    68,
+    120,
+    162
+   ],
+   "site": "atom kv projection",
+   "owner": "b2z2-step-fusion-next-sites (TT_BIO_ATOM_L1)"
+  },
+  {
+   "code": "BinaryNg",
+   "n": 106,
+   "us_each": 14.3,
+   "ms_step": 1.516,
+   "first_idx": [
+    171,
+    181,
+    191,
+    202
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "NlpCreateHeads",
+   "n": 24,
+   "us_each": 61.83,
+   "ms_step": 1.4839,
+   "first_idx": [
+    208,
+    259,
+    310,
+    361
+   ],
+   "site": "token head split",
+   "owner": "b2z2-step-layout-elision (arm B, screened not built)"
+  },
+  {
+   "code": "ReshapeView",
+   "n": 6,
+   "us_each": 207.56,
+   "ms_step": 1.2454,
+   "first_idx": [
+    14,
+    66,
+    118,
+    1440
+   ],
+   "site": "atom key gather: reshape back",
+   "owner": "b2z2-layout-op-elision / b2z2-step-program-fusion"
+  },
+  {
+   "code": "Permute",
+   "n": 6,
+   "us_each": 201.66,
+   "ms_step": 1.21,
+   "first_idx": [
+    13,
+    65,
+    117,
+    1439
+   ],
+   "site": "atom key gather: inverse permute",
+   "owner": "b2z2-layout-op-elision / b2z2-step-program-fusion"
+  },
+  {
+   "code": "Matmul",
+   "n": 18,
+   "us_each": 63.51,
+   "ms_step": 1.1432,
+   "first_idx": [
+    43,
+    44,
+    46,
+    95
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "BinaryNg",
+   "n": 30,
+   "us_each": 34.49,
+   "ms_step": 1.0346,
+   "first_idx": [
+    48,
+    100,
+    152,
+    237
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "ReshapeView",
+   "n": 24,
+   "us_each": 41.48,
+   "ms_step": 0.9956,
+   "first_idx": [
+    216,
+    267,
+    318,
+    369
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "NlpCreateHeads",
+   "n": 6,
+   "us_each": 158.79,
+   "ms_step": 0.9527,
+   "first_idx": [
+    20,
+    72,
+    124,
+    1446
+   ],
+   "site": "atom head split",
+   "owner": "b2z2-step-fusion-next-sites (TT_BIO_ATOM_HEADS_UNPADDED)"
+  },
+  {
+   "code": "BinaryNg",
+   "n": 32,
+   "us_each": 26.02,
+   "ms_step": 0.8326,
+   "first_idx": [
+    6,
+    32,
+    37,
+    40
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "SDPA",
+   "n": 6,
+   "us_each": 85.77,
+   "ms_step": 0.5146,
+   "first_idx": [
+    26,
+    78,
+    130,
+    1452
+   ],
+   "site": "atom SDPA",
+   "owner": ""
+  },
+  {
+   "code": "Transpose",
+   "n": 46,
+   "us_each": 9.69,
+   "ms_step": 0.4457,
+   "first_idx": [
+    163,
+    215,
+    217,
+    268
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Pad",
+   "n": 6,
+   "us_each": 69.53,
+   "ms_step": 0.4172,
+   "first_idx": [
+    17,
+    69,
+    121,
+    1443
+   ],
+   "site": "atom query pad 32 -> 128",
+   "owner": "b2z2-step-fusion-next-sites (TT_BIO_ATOM_HEADS_UNPADDED)"
+  },
+  {
+   "code": "BinaryNg",
+   "n": 32,
+   "us_each": 12.96,
+   "ms_step": 0.4149,
+   "first_idx": [
+    7,
+    41,
+    59,
+    93
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Permute",
+   "n": 6,
+   "us_each": 66.85,
+   "ms_step": 0.4011,
+   "first_idx": [
+    11,
+    63,
+    115,
+    1437
+   ],
+   "site": "atom key gather: permute",
+   "owner": "b2z2-layout-op-elision / b2z2-step-program-fusion"
+  },
+  {
+   "code": "ReshapeView",
+   "n": 6,
+   "us_each": 65.13,
+   "ms_step": 0.3908,
+   "first_idx": [
+    10,
+    62,
+    114,
+    1436
+   ],
+   "site": "atom key gather: reshape",
+   "owner": "b2z2-layout-op-elision / b2z2-step-program-fusion"
+  },
+  {
+   "code": "BinaryNg",
+   "n": 6,
+   "us_each": 50.32,
+   "ms_step": 0.3019,
+   "first_idx": [
+    45,
+    97,
+    149,
+    1471
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Slice",
+   "n": 24,
+   "us_each": 10.7,
+   "ms_step": 0.2567,
+   "first_idx": [
+    214,
+    265,
+    316,
+    367
+   ],
+   "site": "token attention epilogue",
+   "owner": "b2z2-step-layout-elision (arm A, BUILT 1.02574x)"
+  },
+  {
+   "code": "LayerNorm",
+   "n": 11,
+   "us_each": 18.98,
+   "ms_step": 0.2088,
+   "first_idx": [
+    5,
+    39,
+    57,
+    91
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Matmul",
+   "n": 5,
+   "us_each": 35.96,
+   "ms_step": 0.1798,
+   "first_idx": [
+    0,
+    175,
+    179,
+    185
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Matmul",
+   "n": 2,
+   "us_each": 82.1,
+   "ms_step": 0.1642,
+   "first_idx": [
+    174,
+    184
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "LayerNorm",
+   "n": 4,
+   "us_each": 37.54,
+   "ms_step": 0.1502,
+   "first_idx": [
+    173,
+    183,
+    193,
+    1422
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Slice",
+   "n": 6,
+   "us_each": 23.46,
+   "ms_step": 0.1407,
+   "first_idx": [
+    24,
+    76,
+    128,
+    1450
+   ],
+   "site": "atom query unpad",
+   "owner": "b2z2-step-fusion-next-sites (TT_BIO_ATOM_HEADS_UNPADDED)"
+  },
+  {
+   "code": "Copy",
+   "n": 14,
+   "us_each": 8.69,
+   "ms_step": 0.1217,
+   "first_idx": [
+    4,
+    38,
+    56,
+    90
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Copy",
+   "n": 10,
+   "us_each": 10.71,
+   "ms_step": 0.1071,
+   "first_idx": [
+    8,
+    42,
+    60,
+    94
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "NLPConcatHeads",
+   "n": 6,
+   "us_each": 14.21,
+   "ms_step": 0.0853,
+   "first_idx": [
+    28,
+    80,
+    132,
+    1454
+   ],
+   "site": "atom head concat",
+   "owner": ""
+  },
+  {
+   "code": "LayerNorm",
+   "n": 2,
+   "us_each": 17.14,
+   "ms_step": 0.0343,
+   "first_idx": [
+    168,
+    1431
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Transpose",
+   "n": 3,
+   "us_each": 11.01,
+   "ms_step": 0.033,
+   "first_idx": [
+    266,
+    1031,
+    1133
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Matmul",
+   "n": 1,
+   "us_each": 22.75,
+   "ms_step": 0.0227,
+   "first_idx": [
+    1588
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Matmul",
+   "n": 1,
+   "us_each": 18.7,
+   "ms_step": 0.0187,
+   "first_idx": [
+    1423
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Matmul",
+   "n": 2,
+   "us_each": 8.49,
+   "ms_step": 0.017,
+   "first_idx": [
+    165,
+    169
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Transpose",
+   "n": 1,
+   "us_each": 14.48,
+   "ms_step": 0.0145,
+   "first_idx": [
+    1426
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "BinaryNg",
+   "n": 1,
+   "us_each": 4.91,
+   "ms_step": 0.0049,
+   "first_idx": [
+    166
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "UnaryNg",
+   "n": 1,
+   "us_each": 2.68,
+   "ms_step": 0.0027,
+   "first_idx": [
+    167
+   ],
+   "site": "",
+   "owner": ""
+  },
+  {
+   "code": "Transpose",
+   "n": 1,
+   "us_each": 2.53,
+   "ms_step": 0.0025,
+   "first_idx": [
+    1424
+   ],
+   "site": "",
+   "owner": ""
+  }
+ ]
+}
