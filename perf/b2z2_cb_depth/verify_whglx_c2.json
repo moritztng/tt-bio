@@ -1,0 +1,145 @@
+{
+ "env": {
+  "started": "2026-09-12T15:01:17+0000",
+  "card": "2",
+  "size": 512,
+  "reps": 3,
+  "visits": 2,
+  "commit": "b82a5f03",
+  "loadavg": [
+   "15.20",
+   "18.53",
+   "14.39"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l"
+ },
+ "precursor_s": 3.51,
+ "blocks_in_precursor": 5,
+ "arg_shapes": [
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   512,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  "NoneType"
+ ],
+ "generic_op_census_per_block": {
+  "mm_generic.generic_minimal_matmul": 8,
+  "reblock_permute.reblock_permute_gated": 4,
+  "reblock_permute.reblock_permute_back": 2,
+  "sdpa_generic.sdpa": 2
+ },
+ "arms": [
+  "base",
+  "mm4",
+  "rp8",
+  "ks2"
+ ],
+ "samples": {
+  "base": [
+   86.1771,
+   86.185
+  ],
+  "mm4": [
+   86.2416,
+   86.1845
+  ],
+  "rp8": [
+   86.0767,
+   86.08
+  ],
+  "ks2": [
+   86.4744,
+   86.5341
+  ]
+ },
+ "_base_ref": true,
+ "bit_exact": {
+  "base": true,
+  "mm4": true,
+  "rp8": true,
+  "ks2": false
+ },
+ "setup": {
+  "base": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 1,
+   "mm_depths_built": {
+    "(4, 4, 1, 2048, 2048)": 2,
+    "(8, 8, 8, 2048, 2048)": 2
+   }
+  },
+  "mm4": {
+   "mm": 4,
+   "rp": 2,
+   "ksplit": 1,
+   "budget": 1300000,
+   "mm_depths_built": {
+    "(4, 4, 1, 2048, 2048)": 4,
+    "(8, 8, 8, 2048, 2048)": 2
+   }
+  },
+  "rp8": {
+   "mm": 2,
+   "rp": 8,
+   "ksplit": 1,
+   "budget": 1300000,
+   "mm_depths_built": {
+    "(4, 4, 1, 2048, 2048)": 2,
+    "(8, 8, 8, 2048, 2048)": 2
+   }
+  },
+  "ks2": {
+   "mm": 2,
+   "rp": 2,
+   "ksplit": 2,
+   "budget": 1300000,
+   "mm_depths_built": {
+    "(4, 2, 1, 2048, 2048)": 2,
+    "(8, 4, 8, 2048, 2048)": 2
+   }
+  }
+ },
+ "median_ms": {
+  "base": 86.181,
+  "mm4": 86.2131,
+  "rp8": 86.0784,
+  "ks2": 86.5042
+ },
+ "aa_floor_pct": 0.009,
+ "ratio_vs_base": {
+  "base": 1.0,
+  "mm4": 0.9996,
+  "rp8": 1.0012,
+  "ks2": 0.9963
+ }
+}
