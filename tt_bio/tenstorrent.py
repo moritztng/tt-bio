@@ -5317,9 +5317,23 @@ def _slab_take(t: ttnn.Tensor, axis: int, r0: int, r1: int, shard: bool) -> ttnn
     it is the identity on a 1x1 mesh, so the two are not interchangeable and the caller picks.
 
     Gated on whether a shard was asked for, never on a device count or a model name.
+
+    The partition is always taken at RANK 4. `ttnn.mesh_partition` 0.68.0 returns the right SHAPE
+    and the wrong BYTES for a rank-3 tensor on any axis but 0: measured on a 1x2 mesh, a rank-4
+    `[1, S, S, C]` partitions correctly on dims 1, 2 and 3, and a rank-3 `[S, S, C]` on dim 0, but
+    rank-3 dim 1 and dim 2 match no slab of the input on either device
+    (`perf/b2z2_pairchain/mesh_partition_rank_probe.py`). Adding leading 1s is free -- a TILE
+    tensor's last two axes are untouched -- and it is what made `triangle_attention_end` shardable:
+    the ending variant slabs axis 1 of the rank-3 transposed pair tensor, the starting one axis 0
+    of the same tensor, which is why one of them was bit-exact and the other was out by 0.4995.
     """
     if shard:
-        return ttnn.mesh_partition(t, dim=axis)
+        pad = max(0, 4 - len(t.shape))
+        if not pad:
+            return ttnn.mesh_partition(t, dim=axis)
+        shp = [int(d) for d in t.shape]
+        part = ttnn.mesh_partition(ttnn.reshape(t, tuple([1] * pad + shp)), dim=axis + pad)
+        return ttnn.reshape(part, tuple(int(d) for d in part.shape)[pad:])
     lo = [0] * len(t.shape)
     hi = [int(d) for d in t.shape]
     lo[axis], hi[axis] = r0, r1
