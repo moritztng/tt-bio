@@ -11,7 +11,13 @@
     1.4,
     1.49
   ],
-  "sampler_shards": false,
+  "sampler_token_axis_shards": false,
+  "sampler_atom_axis_step": {
+    "1": 1.0,
+    "2": 1.13353,
+    "4": 1.22779
+  },
+  "sampler_atom_axis_step_cap": 1.3237,
   "trunk_s": 10.22,
   "split_A_trunk_rest": [
     10.22,
@@ -51,6 +57,24 @@
       "block_ratio": 2.99,
       "fold_lo": 1.7743193459367854,
       "fold_hi": 1.8253118900820047
+    },
+    {
+      "route": "+ BOTH shards, N=2 (WH, PROJECTED)",
+      "block_ratio": 1.3422,
+      "fold_lo": 1.3570987376563572,
+      "fold_hi": 1.3654749249344589
+    },
+    {
+      "route": "+ BOTH shards, N=4 (WH, PROJECTED)",
+      "block_ratio": 1.6404,
+      "fold_lo": 1.5232271887182403,
+      "fold_hi": 1.5393007648228922
+    },
+    {
+      "route": "+ BOTH shards at their caps (any N)",
+      "block_ratio": 2.299,
+      "fold_lo": 1.7887698898403763,
+      "fold_hi": 1.8221112747573678
     }
   ],
   "wh_to_bh_shard_calibration": 1.0745320486447063,

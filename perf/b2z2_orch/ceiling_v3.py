@@ -63,10 +63,20 @@ SHARD_CAP_FREE_LINK = 2.990       # any width, link cost zero
 # C3 against the row's own benchlocked base (the published 1.1142x/1.1301x divided by the cell,
 # which is 1.01634x that base, and booked cross-session drift as shard win).
 SHARD_FOLD_BH_N2 = 1.0857
-# Sampler shard: b2z2-sharded-sampler, MEASURED NO-GO. 56.3 % of the token DiT does not depend on
-# token count, so a token-axis shard tops out at 1.2825x with a FREE link and measures 1.0411x
-# with the real one. No axis of a token-DiT matmul halves it.
-SAMPLER_SHARDS = False
+# Sampler shard. The TOKEN axis is a measured NO-GO (b2z2-sharded-sampler): 56.3 % of the token DiT
+# does not depend on token count, so a token shard tops out at 1.2825x with a free link and measures
+# 1.0411x with the real one. The ATOM axis is a measured GO (b2z2-atom-axis-shard, 2026-09-12) and
+# that verdict did not transfer: an atom layer's weights are ~0.55 MB against 4.6 MB of activations,
+# so a row split divides the LARGE term there and the small one in the token DiT. Fitted over five
+# widths, traced: t = 1.23565 ms + 0.00251221 ms/atom, R2 0.998604 -> 9.893 % constant on the work
+# side. The TIME floor is worse than the work floor because the collectives grow with the mesh where
+# the halo does not: t(N) = 1.24185 ms + 4.96906 ms/N, R2 0.998766 -> 19.995 % replicated.
+# Bit-exact (torch.equal, max abs 0.0) at four atom counts and at both mesh widths.
+SAMPLER_TOKEN_AXIS_SHARDS = False
+SAMPLER_S = 5.365                 # BH sampler stage wall, CONTEXT §1
+SAMPLER_STEP = {1: 1.0, 2: 1.13353, 4: 1.22779}   # atom shard composed onto the step, WH
+SAMPLER_STEP_CAP = 1.3237         # atom track capped at 5.0x by its 19.995 % time floor, composed
+                                  # onto a step in which the atom track is 12.340 of 40.366 ms
 # Single-processor bracket after the bandwidth intersection: b2z2-redteam-v2.
 ONE_CHIP_BRACKET = (1.35, 1.66)
 ONE_CHIP_BEST_SUPPORTED = (1.40, 1.49)
@@ -152,6 +162,27 @@ def main() -> int:
         lo, hi = sorted((composite(tB, rB, ratio), composite(tA, rA, ratio)))
         rows.append({"route": label, "block_ratio": ratio, "fold_lo": lo, "fold_hi": hi})
 
+    # The multi-chip route WITH the sampler's atom-axis shard. One extra assumption, stated: the
+    # sampler keeps its proportional share of whatever the stack left in `rest`. The overlap is real
+    # and it is why this is not simply the row above times a sampler factor -- three of the stack's
+    # five levers live in the sampler stage that this term divides.
+    srows = []
+    for n in (2, 4):
+        for lbl, (tr, rs) in (("A", (tA, rA)), ("B", (tB, rB))):
+            frac = SAMPLER_S / (CELL_S - TRUNK_S)
+            samp, other = rs * frac, rs * (1.0 - frac)
+            srows.append(CELL_S / (other + samp / SAMPLER_STEP[n] + tr / SHARD_BLOCK[n]))
+        lo, hi = sorted(srows[-2:])
+        rows.append({"route": f"+ BOTH shards, N={n} (WH, PROJECTED)",
+                     "block_ratio": SHARD_BLOCK[n], "fold_lo": lo, "fold_hi": hi})
+    caps = []
+    for tr, rs in ((tA, rA), (tB, rB)):
+        frac = SAMPLER_S / (CELL_S - TRUNK_S)
+        samp, other = rs * frac, rs * (1.0 - frac)
+        caps.append(CELL_S / (other + samp / SAMPLER_STEP_CAP + tr / SHARD_CAP_MEASURED_LINK))
+    rows.append({"route": "+ BOTH shards at their caps (any N)", "block_ratio": SHARD_CAP_MEASURED_LINK,
+                 "fold_lo": min(caps), "fold_hi": max(caps)})
+
     # Calibration check: the WH block curve at N=2 against the BH fold measurement of the same
     # shard. If they disagree, every larger-N row inherits the same transfer error.
     n2_lo, n2_hi = rows[0]["fold_lo"], rows[0]["fold_hi"]
@@ -165,7 +196,9 @@ def main() -> int:
         "measured_single_chip_stack_s": CELL_S / STACK_RATIO,
         "one_chip_bracket": ONE_CHIP_BRACKET,
         "one_chip_best_supported": ONE_CHIP_BEST_SUPPORTED,
-        "sampler_shards": SAMPLER_SHARDS,
+        "sampler_token_axis_shards": SAMPLER_TOKEN_AXIS_SHARDS,
+        "sampler_atom_axis_step": SAMPLER_STEP,
+        "sampler_atom_axis_step_cap": SAMPLER_STEP_CAP,
         "trunk_s": TRUNK_S,
         "split_A_trunk_rest": [tA, rA],
         "split_B_trunk_rest": [tB, rB],
@@ -183,7 +216,7 @@ def main() -> int:
           f"   (best supported {ONE_CHIP_BEST_SUPPORTED[0]:.2f}x - {ONE_CHIP_BEST_SUPPORTED[1]:.2f}x)")
     print(f"trunk / rest of fold           {TRUNK_S:.3f} s / {CELL_S-TRUNK_S:.3f} s")
     print()
-    print("stack + trunk shard, the whole measured route (sampler does NOT shard):")
+    print("stack + shards. The TOKEN axis of the sampler does not shard; the ATOM axis does.")
     print(f"  {'route':<36} {'block':>7}  {'fold ratio':>18}")
     for r in rows:
         print(f"  {r['route']:<36} {r['block_ratio']:>6.3f}x  "
