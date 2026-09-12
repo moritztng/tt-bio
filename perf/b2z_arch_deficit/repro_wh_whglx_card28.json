@@ -1,85 +1,85 @@
 {
  "env": {
-  "started": "2026-09-12T10:44:46+0000",
-  "label": "BH qb2 card1",
-  "host": "tt-quietbox2",
-  "card": "1",
-  "arch": "BLACKHOLE",
-  "mesh_graph_desc": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto",
+  "started": "2026-09-12T10:39:33+0000",
+  "label": "WH whglx logical28",
+  "host": "j10glx02",
+  "card": "28",
+  "arch": "WORMHOLE_B0",
+  "mesh_graph_desc": null,
   "trace_region_MB": 64,
-  "grid": "(x=11,y=10)",
+  "grid": "(x=8,y=9)",
   "loadavg": [
-   "1.92",
-   "1.93",
-   "1.72"
+   "8.91",
+   "14.53",
+   "35.85"
   ]
  },
  "calibration": [
   {
    "MB": 0.0655,
-   "us": 6.398,
+   "us": 5.3,
    "moved_MB": 0.1966,
-   "GBs": 30.73
+   "GBs": 37.1
   },
   {
    "MB": 0.1311,
-   "us": 6.418,
+   "us": 5.308,
    "moved_MB": 0.3932,
-   "GBs": 61.27
+   "GBs": 74.08
   },
   {
    "MB": 0.2621,
-   "us": 6.409,
+   "us": 6.744,
    "moved_MB": 0.7864,
-   "GBs": 122.7
+   "GBs": 116.61
   },
   {
    "MB": 0.5243,
-   "us": 6.482,
+   "us": 13.761,
    "moved_MB": 1.5729,
-   "GBs": 242.63
+   "GBs": 114.3
   },
   {
    "MB": 1.0486,
-   "us": 9.893,
+   "us": 15.685,
    "moved_MB": 3.1457,
-   "GBs": 317.97
+   "GBs": 200.55
   },
   {
    "MB": 2.0972,
-   "us": 15.679,
+   "us": 30.351,
    "moved_MB": 6.2915,
-   "GBs": 401.27
+   "GBs": 207.29
   },
   {
    "MB": 4.1943,
-   "us": 30.118,
+   "us": 60.949,
    "moved_MB": 12.5829,
-   "GBs": 417.79
+   "GBs": 206.45
   },
   {
    "MB": 8.3886,
-   "us": 58.067,
+   "us": 111.194,
    "moved_MB": 25.1658,
-   "GBs": 433.39
+   "GBs": 226.32
   },
   {
    "MB": 16.7772,
-   "us": 114.702,
+   "us": 222.848,
    "moved_MB": 50.3316,
-   "GBs": 438.81
+   "GBs": 225.86
   },
   {
    "MB": 33.5544,
-   "us": 226.33,
+   "us": 443.247,
    "moved_MB": 100.6633,
-   "GBs": 444.76
+   "GBs": 227.1
   },
   {
    "MB": 67.1089,
-   "us": 452.216,
+   "us": 840.851,
    "moved_MB": 201.3266,
-   "GBs": 445.2
+   "GBs": 239.43
   }
  ],
  "instances": [
@@ -94,23 +94,23 @@
     512
    ],
    "issued_by": "pair-track Transition, the 128 -> 512 expand (one of two)",
-   "R": 53,
+   "R": 29,
    "out_kwarg": "optional_output_tensor",
-   "us": 1667.144,
+   "us": 5556.131,
    "all_us": [
-    1667.144,
-    1667.273,
-    1666.8,
-    1666.737,
-    1667.34
+    5556.601,
+    5555.099,
+    5554.866,
+    5558.013,
+    5556.131
    ],
    "bytes_MB": 335.675,
    "GFLOP": 34.36,
-   "predicted_us": 760.386,
-   "ratio": 2.1925,
-   "achieved_GBs": 201.35,
-   "achieved_TFLOPs": 20.61,
-   "pct_of_BW_eff": 45.23
+   "predicted_us": 1407.277,
+   "ratio": 3.9481,
+   "achieved_GBs": 60.42,
+   "achieved_TFLOPs": 6.184,
+   "pct_of_BW_eff": 25.23
   },
   {
    "name": "transition_out",
@@ -123,23 +123,23 @@
     128
    ],
    "issued_by": "pair-track Transition, the 512 -> 128 contract",
-   "R": 53,
+   "R": 29,
    "out_kwarg": "optional_output_tensor",
-   "us": 3773.508,
+   "us": 4755.388,
    "all_us": [
-    3784.391,
-    3788.787,
-    3748.321,
-    3767.455,
-    3773.508
+    4755.228,
+    4755.388,
+    4748.502,
+    4778.771,
+    4758.035
    ],
    "bytes_MB": 335.675,
    "GFLOP": 34.36,
-   "predicted_us": 760.386,
-   "ratio": 4.9626,
-   "achieved_GBs": 88.96,
-   "achieved_TFLOPs": 9.106,
-   "pct_of_BW_eff": 19.98
+   "predicted_us": 1407.277,
+   "ratio": 3.3791,
+   "achieved_GBs": 70.59,
+   "achieved_TFLOPs": 7.225,
+   "pct_of_BW_eff": 29.48
   },
   {
    "name": "trimul_core",
@@ -154,23 +154,23 @@
     512
    ],
    "issued_by": "TriangleMultiplication, the per-channel 512-cube batched matmul",
-   "R": 64,
+   "R": 48,
    "out_kwarg": "optional_output_tensor",
-   "us": 1837.691,
+   "us": 2124.872,
    "all_us": [
-    1837.691,
-    1837.732,
-    1837.342,
-    1837.72,
-    1837.624
+    2124.393,
+    2124.041,
+    2124.872,
+    2124.891,
+    2125.424
    ],
    "bytes_MB": 201.327,
    "GFLOP": 34.36,
-   "predicted_us": 458.614,
-   "ratio": 4.0071,
-   "achieved_GBs": 109.55,
-   "achieved_TFLOPs": 18.697,
-   "pct_of_BW_eff": 24.61
+   "predicted_us": 846.158,
+   "ratio": 2.5112,
+   "achieved_GBs": 94.75,
+   "achieved_TFLOPs": 16.17,
+   "pct_of_BW_eff": 39.57
   },
   {
    "name": "pair_proj",
@@ -185,35 +185,35 @@
    "issued_by": "the square 128 -> 128 projections either side of every sub-unit",
    "R": 64,
    "out_kwarg": "optional_output_tensor",
-   "us": 765.1,
+   "us": 1592.695,
    "all_us": [
-    765.649,
-    764.49,
-    765.1,
-    764.65,
-    765.609
+    1592.79,
+    1591.902,
+    1592.393,
+    1592.695,
+    1593.064
    ],
    "bytes_MB": 134.25,
    "GFLOP": 8.59,
-   "predicted_us": 307.949,
-   "ratio": 2.4845,
-   "achieved_GBs": 175.47,
-   "achieved_TFLOPs": 11.227,
-   "pct_of_BW_eff": 39.41
+   "predicted_us": 566.009,
+   "ratio": 2.8139,
+   "achieved_GBs": 84.29,
+   "achieved_TFLOPs": 5.393,
+   "pct_of_BW_eff": 35.21
   }
  ],
  "roofs": {
-  "t_fixed_us": 6.398,
-  "BW_eff_GBs": 445.2,
-  "flat_band_points": 4,
-  "flat_band_max_MB": 0.5243
+  "t_fixed_us": 5.3,
+  "BW_eff_GBs": 239.43,
+  "flat_band_points": 2,
+  "flat_band_max_MB": 0.1311
  },
  "control_add": {
   "MB": 16.7772,
-  "us": 114.702,
+  "us": 222.848,
   "moved_MB": 50.3316,
-  "GBs": 438.81,
-  "predicted_us": 119.452,
-  "ratio": 0.9602
+  "GBs": 225.86,
+  "predicted_us": 215.514,
+  "ratio": 1.034
  }
 }

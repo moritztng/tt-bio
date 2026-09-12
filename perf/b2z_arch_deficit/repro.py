@@ -76,6 +76,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--label", default="")
+    ap.add_argument("--trace-mb", type=int, default=64,
+                    help="ttnn trace region. 64 MB holds every trace this script captures. Do "
+                         "NOT raise it on a Wormhole Galaxy chip: 1 GiB opens fine and then the "
+                         "FIRST device op never completes (measured on whglx, ttnn 0.68.0; "
+                         "64 and 256 MB are clean, 1024 MB hangs in synchronize_device).")
     a = ap.parse_args()
 
     import torch
@@ -83,23 +88,30 @@ def main() -> int:
     import ttnn
 
     # A single Blackhole processor of a p300c reads as a CUSTOM cluster (one chip on a two-chip
-    # board), and ttnn.open_device then refuses with "Custom fabric mesh graph descriptor path
-    # must be specified". The descriptor ships inside the ttnn wheel; point at it and the open
-    # succeeds. No effect on any part that does not need it.
-    if not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+    # board) and ttnn.open_device refuses with "Custom fabric mesh graph descriptor path must be
+    # specified". The descriptor ships inside the ttnn wheel. Applied only after that exact
+    # failure, so a part that does not need it never has a foreign descriptor forced on it.
+    def _open():
+        return ttnn.open_device(device_id=0, trace_region_size=a.trace_mb << 20)
+
+    try:
+        dev = _open()
+    except Exception as e:                                                  # noqa: BLE001
+        if "mesh graph descriptor" not in str(e):
+            raise
         for root in (Path(ttnn.__file__).parent, Path(ttnn.__file__).parent / "build"):
             mgd = root / "tt_metal" / "fabric" / "mesh_graph_descriptors" / \
                 "p150_mesh_graph_descriptor.textproto"
             if mgd.is_file():
                 os.environ["TT_MESH_GRAPH_DESC_PATH"] = str(mgd)
                 break
-
-    dev = ttnn.open_device(device_id=0, trace_region_size=1 << 30)
+        dev = _open()
     out = {"env": {"started": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "label": a.label,
                    "host": os.uname().nodename,
                    "card": os.environ.get("TT_VISIBLE_DEVICES"),
                    "arch": str(dev.arch()).rsplit(".", 1)[-1],
                    "mesh_graph_desc": os.environ.get("TT_MESH_GRAPH_DESC_PATH"),
+                   "trace_region_MB": a.trace_mb,
                    "grid": str(dev.compute_with_storage_grid_size()),
                    "loadavg": open("/proc/loadavg").read().split()[:3]},
            "calibration": [], "instances": []}
