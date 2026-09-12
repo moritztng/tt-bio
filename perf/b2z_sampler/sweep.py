@@ -170,6 +170,39 @@ def main() -> int:
     if spec.get("single_sequence"):
         base_cfg["single_sequence"] = True
         base_cfg["use_msa_server"] = False
+    # Boltz-2's feature prep is a partial bound in bind_run, so the MSA flags come from the BOUND
+    # cfg, not from the cfg handed to predict_one. Rebind, or a single-sequence target quietly
+    # folds with whatever the load-time cfg said.
+    state.bind_run("b2z", base_cfg)
+    state.pfn = lambda *a, **k: None
+
+    # What alignment this target will actually read, checked before the first fold rather than
+    # inferred from a metrics key that the boltz-2 path does not emit. Every panel member is
+    # either seeded from a committed a3m, carries an ``msa:`` path in its own yaml, or is declared
+    # single-sequence; anything else would reach for the network and is an error here.
+    def preflight_msa() -> dict:
+        import yaml as _yaml
+        if spec.get("single_sequence"):
+            return {"source": "single_sequence", "rows": 0}
+        if "a3m" in spec:
+            return {"source": str(ROOT / spec["a3m"]), "rows": meta["n_msa"]}
+        doc = _yaml.safe_load(tgt.read_text()) or {}
+        rows = {}
+        for ent in doc.get("sequences", []):
+            prot = ent.get("protein")
+            if not prot:
+                continue
+            m = prot.get("msa")
+            assert m and m != "empty", f"{tgt} chain {prot.get('id')} has no committed MSA"
+            mp = ROOT / m
+            cands = [mp] if mp.is_file() else sorted(mp.glob("*.a3m")) + sorted(mp.glob("*.csv"))
+            assert cands, f"{mp} does not exist"
+            rows[prot["id"]] = sum(c.read_text().count(">") or c.read_text().count(chr(10))
+                                   for c in cands[:1])
+        return {"source": "yaml msa: paths", "rows": rows}
+
+    OUT["env"]["msa"] = preflight_msa()
+    print(f"  msa: {OUT['env']['msa']}", flush=True)
     dump()
 
     grid = build_grid([int(x) for x in args.steps.split(",")],
@@ -222,6 +255,10 @@ def main() -> int:
         t0 = time.perf_counter()
         metrics, _best, _feats = state.predict_one(tgt, cfg)
         dt = time.perf_counter() - t0
+        try:                                   # the alignment the fold really saw, per fold
+            metrics = dict(metrics, msa_depth=int(_feats["msa"].shape[-2]))
+        except Exception:
+            pass
         counts = dict(CNT)
         cifs = {}
         for f in sorted(struct_dir.glob("*.cif")):
@@ -232,7 +269,6 @@ def main() -> int:
 
     print(f"=== cold fold {args.target} ({args.base_steps}/{args.base_recycles}) ===", flush=True)
     cold_s, cold_m, _, cold_c = fold(args.base_steps, args.base_recycles, 0, "cold")
-    assert cold_m.get("msa") or spec.get("single_sequence"), "fold ran without an MSA"
     OUT["cold"] = {"fold_s": round(cold_s, 3), "plddt": cold_m.get("plddt"),
                    "n_tokens": cold_m.get("n_tokens"), "n_residues": cold_m.get("n_residues"),
                    "msa": cold_m.get("msa"), "counts": cold_c}
@@ -252,7 +288,7 @@ def main() -> int:
         rec = {**g, "tag": tag, "fold_s": round(dt, 3),
                "plddt": m.get("plddt", m.get("complex_plddt")), "ptm": m.get("ptm"),
                "n_tokens": m.get("n_tokens"), "n_residues": m.get("n_residues"),
-               "cifs": cifs, "counts": counts,
+               "msa_depth": m.get("msa_depth"), "cifs": cifs, "counts": counts,
                "loadavg": open("/proc/loadavg").read().split()[:3]}
         # Structure diffusion plus the confidence head's own rollout both go through the denoiser,
         # so the count is asserted to be a multiple of the requested step count rather than equal
