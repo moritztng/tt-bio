@@ -1,0 +1,200 @@
+{
+ "env": {
+  "started": "2026-09-12T19:22:14+0000",
+  "card": "8",
+  "commit": "0374cad6",
+  "ttnn": "/home/tt-admin/b2z2-env/lib/python3.10/site-packages/ttnn/__init__.py"
+ },
+ "results": {
+  "1x140x32x128": {
+   "chain_mul_add": {
+    "programs": 3,
+    "codes": [
+     "ttnn.multiply",
+     "ttnn.add",
+     "ttnn.deallocate"
+    ],
+    "us": 48.19,
+    "us_all": [
+     48.23,
+     48.15,
+     48.02,
+     48.19,
+     48.32
+    ],
+    "out_shape": [
+     1,
+     140,
+     32,
+     128
+    ]
+   },
+   "chain_sigmul_add": {
+    "programs": 3,
+    "codes": [
+     "ttnn.multiply",
+     "ttnn.add",
+     "ttnn.deallocate"
+    ],
+    "us": 53.77,
+    "us_all": [
+     53.86,
+     53.98,
+     53.74,
+     53.67,
+     53.77
+    ],
+    "out_shape": [
+     1,
+     140,
+     32,
+     128
+    ]
+   },
+   "chain_silumul_mul": {
+    "programs": 3,
+    "codes": [
+     "ttnn.multiply",
+     "ttnn.multiply",
+     "ttnn.deallocate"
+    ],
+    "us": 52.93,
+    "us_all": [
+     53.32,
+     52.93,
+     52.98,
+     52.89,
+     52.92
+    ],
+    "out_shape": [
+     1,
+     140,
+     32,
+     128
+    ]
+   },
+   "mac": {
+    "programs": 1,
+    "codes": [
+     "ttnn.mac"
+    ],
+    "us": 48.59,
+    "us_all": [
+     48.57,
+     48.59,
+     48.47,
+     48.7,
+     48.6
+    ],
+    "out_shape": [
+     1,
+     140,
+     32,
+     128
+    ],
+    "bit_exact_vs_chain_mul_add": true,
+    "max_abs_vs_chain": 0.0,
+    "max_abs_vs_fp32": 0.02407575
+   },
+   "addcmul": {
+    "error": "TypeError: \nttnn.addcmul(): incompatible function arguments.\n\nCalled with:\n  addcmul(ttnn.Tensor, ttnn.Tensor, ttnn.Tensor, float)\n\nAvailable signatures:\n  addcmul(input_a: ttnn.Tensor, input_b: ttnn.Tensor, input_c: ttnn.Tensor, *, value: float | int | int = 1.0, memory_config: ttnn.MemoryConfig | "
+   },
+   "chain_vs_fp32": 0.02407575
+  },
+  "1x140x32x256": {
+   "chain_mul_add": {
+    "programs": 3,
+    "codes": [
+     "ttnn.multiply",
+     "ttnn.add",
+     "ttnn.deallocate"
+    ],
+    "us": 72.19,
+    "us_all": [
+     72.12,
+     72.16,
+     72.19,
+     72.32,
+     72.22
+    ],
+    "out_shape": [
+     1,
+     140,
+     32,
+     256
+    ]
+   },
+   "chain_sigmul_add": {
+    "programs": 3,
+    "codes": [
+     "ttnn.multiply",
+     "ttnn.add",
+     "ttnn.deallocate"
+    ],
+    "us": 86.77,
+    "us_all": [
+     86.77,
+     86.76,
+     86.74,
+     86.77,
+     86.93
+    ],
+    "out_shape": [
+     1,
+     140,
+     32,
+     256
+    ]
+   },
+   "chain_silumul_mul": {
+    "programs": 3,
+    "codes": [
+     "ttnn.multiply",
+     "ttnn.multiply",
+     "ttnn.deallocate"
+    ],
+    "us": 88.22,
+    "us_all": [
+     88.22,
+     88.32,
+     88.19,
+     88.16,
+     88.22
+    ],
+    "out_shape": [
+     1,
+     140,
+     32,
+     256
+    ]
+   },
+   "mac": {
+    "programs": 1,
+    "codes": [
+     "ttnn.mac"
+    ],
+    "us": 72.25,
+    "us_all": [
+     72.09,
+     72.28,
+     72.09,
+     72.25,
+     72.42
+    ],
+    "out_shape": [
+     1,
+     140,
+     32,
+     256
+    ],
+    "bit_exact_vs_chain_mul_add": true,
+    "max_abs_vs_chain": 0.0,
+    "max_abs_vs_fp32": 0.02028728
+   },
+   "addcmul": {
+    "error": "TypeError: \nttnn.addcmul(): incompatible function arguments.\n\nCalled with:\n  addcmul(ttnn.Tensor, ttnn.Tensor, ttnn.Tensor, float)\n\nAvailable signatures:\n  addcmul(input_a: ttnn.Tensor, input_b: ttnn.Tensor, input_c: ttnn.Tensor, *, value: float | int | int = 1.0, memory_config: ttnn.MemoryConfig | "
+   },
+   "chain_vs_fp32": 0.02028728
+  }
+ }
+}

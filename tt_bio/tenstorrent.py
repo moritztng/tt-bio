@@ -1176,6 +1176,14 @@ _B2_BIAS_SLICE_HOIST = env_flag("BOLTZ2_BIAS_SLICE_HOIST", True)
 # whole rollout and clash with a later op's circular buffers.
 _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 
+# The diffusion step spends 339 elementwise programs, and 286 of them are 143 chains of exactly
+# two: a product written to L1 and read straight back by an add or a second product. `ttnn.mac`
+# is ONE program for `x * y + z` and is bit-identical to the pair it replaces (checked with
+# `torch.equal` at both production shapes, [1, 512, 768] and [1, 140, 32, 128], bf16). The step's
+# math thread is input-stalled with a 9.76 us per-program constant, so a deleted program is the
+# currency here. Gated on the chain shape, not on a model: every DiT that scales-and-shifts gets it.
+_MAC_FUSE = env_flag("TT_BIO_MAC_FUSE", False)
+
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
 # ON by default since 2026-09-11: **1.0522x on the 512 aa fold**, 1.170x on the diffusion
@@ -8367,6 +8375,10 @@ class AdaLN(Module):
             bias=self.s_scale_bias,
             compute_kernel_config=self.compute_kernel_config,
             memory_config=memory_config,
+            # `__call__` needs sigmoid(s_scale). Taking it in the matmul's epilogue instead of in
+            # the multiply's operand activation is bit-identical (both round to bf16 on the way to
+            # L1) and leaves a plain product, which `ttnn.mac` can do in one program with the add.
+            activation="sigmoid" if _MAC_FUSE else None,
             #core_grid=ttnn.CoreGrid(y=10, x=11), CAUSES ACCURACY ISSUE
         )
         s_bias = ttnn.linear(
@@ -8403,8 +8415,12 @@ class AdaLN(Module):
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
-        a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a = ttnn.add_(a, s_bias)
+        if _MAC_FUSE:           # sigmoid is already in s_scale, see `s_terms`
+            normed, a = a, ttnn.mac(a, s_scale, s_bias)
+            ttnn.deallocate(normed)     # `mac` allocates where the in-place pair did not
+        else:
+            a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+            a = ttnn.add_(a, s_bias)
         if own:                     # a cached pair belongs to the caller
             ttnn.deallocate(s_scale)
             ttnn.deallocate(s_bias)
@@ -8440,9 +8456,13 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_weight = self.torch_to_tt("output_projection.0.weight")
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
-    def __call__(
-        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False
-    ) -> ttnn.Tensor:
+    def out_terms(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False):
+        """``(s, b_a)``: the pair whose elementwise product is this block's output.
+
+        Split out for the same reason `AdaLN.s_terms` is: the only caller adds that product to
+        its own residual, and `ttnn.mac` does the multiply and the add in one program. With the
+        fusion off the pair comes back un-activated and `__call__` multiplies it exactly as
+        before, so the split costs nothing when it is not used."""
         a = self.adaln(a, s, large_seq_len=large_seq_len)
         a_swish = ttnn.linear(
             a,
@@ -8476,6 +8496,7 @@ class ConditionedTransitionBlock(Module):
             bias=self.output_projection_bias,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            activation="sigmoid" if _MAC_FUSE else None,
         )
         b_a = ttnn.linear(
             b,
@@ -8484,7 +8505,16 @@ class ConditionedTransitionBlock(Module):
             core_grid=CORE_GRID_MAIN,
         )
         ttnn.deallocate(b)
-        a = ttnn.multiply_(s, b_a, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
+        return s, b_a
+
+    def __call__(
+        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False
+    ) -> ttnn.Tensor:
+        s, b_a = self.out_terms(a, s, large_seq_len=large_seq_len)
+        if _MAC_FUSE:           # sigmoid is already in s, see `out_terms`
+            a = ttnn.multiply_(s, b_a)
+        else:
+            a = ttnn.multiply_(s, b_a, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(b_a)
         return a
 
@@ -8566,6 +8596,28 @@ class DiffusionTransformerLayer(Module):
                 self.s_o, self._s_o_key = s_o, key
         else:
             s_o = self.s_o
+        # Both residuals here are `a + x * y`, which is one `ttnn.mac` program and two without it.
+        if _MAC_FUSE:
+            def absorb(a):
+                """``a + s_o * b``, and the attention output is dead the moment it lands."""
+                out = ttnn.mac(s_o, b, a)   # `a` belongs to the caller and is left alone
+                ttnn.deallocate(b)
+                if s_o is not self.s_o:         # a cached projection outlives the call
+                    ttnn.deallocate(s_o)
+                return out
+            if self.no_residual:
+                # transition reads the block input, so it must be evaluated BEFORE a
+                # absorbs the attention output
+                t_s, t_b = self.transition.out_terms(a, s, large_seq_len=large_seq_len)
+                a = absorb(a)
+            else:
+                a = absorb(a)
+                t_s, t_b = self.transition.out_terms(a, s, large_seq_len=large_seq_len)
+            residual, a = a, ttnn.mac(t_s, t_b, a)
+            ttnn.deallocate(residual)
+            ttnn.deallocate(t_s)
+            ttnn.deallocate(t_b)
+            return a
         b = ttnn.multiply(s_o, b)
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
