@@ -9,6 +9,7 @@
 #include <tuple>
 #include <utility>
 #include "api/dataflow/dataflow_api.h"
+#include "tools/profiler/kernel_profiler.hpp"
 
 // --- tt-bio: the two screen arms, see tt_bio/kernels/mm_split/patch_mm_split.py -----------------
 #if defined(MM_DUAL_NOC)
@@ -127,6 +128,7 @@ void read_in0_block_sync(
     uint32_t d1_end) {
     ASSERT(d0_end > d0_start);
     ASSERT(d1_end > d1_start);
+    DeviceZoneScopedN("B2Z2-IN0-SRC");
 
     for (uint32_t i = d0_start; i < d0_end; i++) {
         if (i >= shape.logical_d0) {
@@ -154,7 +156,7 @@ void read_in0_block_sync(
         // finish up incrementing write_ptr if (d1_end - d1_start) < K_block_tiles
         write_ptr += (K_block_tiles - (d1_end - d1_start)) * tile_size_bytes;
     }
-    noc_async_read_barrier();
+    { DeviceZoneScopedN("B2Z2-RDBAR"); noc_async_read_barrier(); }
 }
 
 /**
@@ -174,6 +176,7 @@ void read_in1_block_sync(
     uint32_t d1_end) {
     ASSERT(d0_end > d0_start);
     ASSERT(d1_end > d1_start);
+    DeviceZoneScopedN("B2Z2-IN1-SRC");
     for (uint32_t i = d0_start; i < d0_end; i++) {
         for (uint32_t j = d1_start; j < d1_end; j++) {
             if (j >= shape.logical_d1) {
@@ -191,7 +194,7 @@ void read_in1_block_sync(
         // finish up incrementing write_ptr if (d1_end - d1_start) < K_block_tiles
         write_ptr += (N_block_tiles - (d1_end - d1_start)) * tile_size_bytes;
     }
-    noc_async_read_barrier();
+    { DeviceZoneScopedN("B2Z2-RDBAR"); noc_async_read_barrier(); }
 }
 
 /**
