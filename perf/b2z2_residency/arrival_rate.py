@@ -58,26 +58,31 @@ OPS = {
     "abs": ttnn.abs,
     "relu": ttnn.relu,
     "exp": ttnn.exp,
+    "sigmoid": ttnn.sigmoid,
+    "erf": ttnn.erf,
 }
 
 
 def time_arm(dev, opfn, host, arm, crs, sh, sw, iters, want_out=False):
     """Enqueue `iters` back-to-back copies of the op; return (seconds per op, optional output)."""
     mc = memcfg(arm, crs, sh, sw)
+    # A shard spec already names the core set, and the sharded unary factory rejects being told
+    # twice (`args.sub_core_grids == std::nullopt`), so the L1S arm passes the grid only once.
+    kw = {} if arm == "L1S" else {"sub_core_grids": crs}
     x = None
     outs = []
     keep = None
     try:
         x = ttnn.from_torch(host, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
                             memory_config=mc)
-        y = opfn(x, memory_config=mc, sub_core_grids=crs)  # first call compiles the program
+        y = opfn(x, memory_config=mc, **kw)  # first call compiles the program
         ttnn.synchronize_device(dev)
         if want_out:
             keep = ttnn.to_torch(y)
         ttnn.deallocate(y)
         t0 = time.perf_counter()
         for _ in range(iters):
-            outs.append(opfn(x, memory_config=mc, sub_core_grids=crs))
+            outs.append(opfn(x, memory_config=mc, **kw))
             if len(outs) > 2:
                 ttnn.deallocate(outs.pop(0))
         ttnn.synchronize_device(dev)
@@ -191,6 +196,7 @@ def run(args):
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--op", default="neg", choices=sorted(OPS))
+    p.add_argument("--tag", default="")
     p.add_argument("--cores", default="1,2,4,8,16,32,64")
     p.add_argument("--tiles-per-core", type=int, default=128)
     p.add_argument("--width-tiles", type=int, default=8)

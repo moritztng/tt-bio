@@ -102,21 +102,26 @@ def run(args):
                         cell[k] = {"ns_per_tile_per_core": med / tpc * 1e9,
                                    "us_per_op": med * 1e6,
                                    "spread_pct": (max(samples[k]) - min(samples[k])) / med * 100}
-                n = lambda k: cell[k]["ns_per_tile_per_core"]
-                cell["aa_floor"] = cell["AA"]["us_per_op"] / cell["D>D"]["us_per_op"]
+                # A cell whose program failed to build is reported as a hole, not as a crash:
+                # one unavailable combination must not cost the whole sweep its other rows.
+                def n(k):
+                    return cell[k]["ns_per_tile_per_core"] if k in cell else float("nan")
+                if "AA" in cell and "D>D" in cell:
+                    cell["aa_floor"] = cell["AA"]["us_per_op"] / cell["D>D"]["us_per_op"]
                 # read side: hold the destination fixed, move the source
                 cell["read_cost_ns_at_dram_dst"] = n("D>D") - n("L>D")
                 cell["read_cost_ns_at_l1_dst"] = n("D>L") - n("L>L")
                 # write side: hold the source fixed, move the destination
                 cell["write_cost_ns_at_dram_src"] = n("D>D") - n("D>L")
                 cell["write_cost_ns_at_l1_src"] = n("L>D") - n("L>L")
+                cell["missing"] = [k for k in keys if k not in cell]
                 out["cells"][f"{ncores}c/{opname}"] = cell
                 print(f"[{ncores}c {opname}] D>D {n('D>D'):7.1f}  D>L {n('D>L'):7.1f}  "
                       f"L>D {n('L>D'):7.1f}  L>L {n('L>L'):7.1f}  | read "
                       f"{cell['read_cost_ns_at_dram_dst']:6.1f}/{cell['read_cost_ns_at_l1_dst']:6.1f}"
                       f"  write {cell['write_cost_ns_at_dram_src']:6.1f}/"
-                      f"{cell['write_cost_ns_at_l1_src']:6.1f}  A/A {cell['aa_floor']:.4f}",
-                      flush=True)
+                      f"{cell['write_cost_ns_at_l1_src']:6.1f}  A/A "
+                      f"{cell.get('aa_floor', float('nan')):.4f}", flush=True)
         print(json.dumps(out, indent=2))
         if args.out:
             with open(args.out, "w") as f:
