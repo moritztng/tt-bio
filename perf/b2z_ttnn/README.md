@@ -99,3 +99,39 @@ bump is not blocked at all and only needs a quiet box.
 Blackhole is exempt either way: the same function carries an explicit carve-out,
 `if (tt_device->get_arch() != ARCH::BLACKHOLE && !eth_heartbeat_running(...))`, so a p300c is very
 likely to open 0.78 today -- and Blackhole is the architecture the published cell is on.
+
+## Update: the new stack does run, and here is what it took
+
+The heartbeat gate is not the end of the road. Three things, in order, and each is a real finding:
+
+**1. UMD's heartbeat gate, worked around in three bytes.** `umd_patch.py` rewrites the prologue of
+`tt::umd::TopologyDiscovery::eth_heartbeat_running` to `return true`, which is the effect upstream's
+`TopologyDiscoveryOptions::eth_fw_heartbeat_failure != Action::THROW` already has and the released
+wheels do not expose. Returning *false* is not enough: there is a second throw site in
+`create_ethernet_map` (0.78 line 314) that raises when the helper reports a bad core, and it named a
+**second** stuck core, `e9-0` with post code `3030000`, after `e7-0` was silenced. So at least two
+ETH cores on that chip have a frozen heartbeat, not one. This patch is a screen instrument, it lives
+in one private venv next to a `.orig` copy, and any number taken through it says so.
+
+**2. SFPI.** 0.78.0 pins **7.72.0** (`tt_metal/sfpi-version`, sha256 verified against the release
+asset); whglx has 7.35.3 in `/opt/tenstorrent/sfpi`, which is what every other task on the box uses.
+tt-metal looks for `<runtime root>/runtime/sfpi` **before** `/opt/tenstorrent/sfpi`, so the new
+toolchain goes inside the venv and the system one is untouched. That is the way to run two stacks on
+one shared box, and it is worth knowing generally.
+
+**3. tt-bio's own fused kernels do not compile on 0.78.** `tt_bio/kernels/triatt_sdpa` and friends
+are written against 0.68's LLK headers and hit dozens of errors in `compute_common.hpp`:
+`VectorMode`, `RoundMode`, `InputClamping`, `PackMode` and `DataCopyType` became typed enums where
+they were ints or bools, `exp_tile`/`exp_tile_init` changed arity, `ReluConfig`'s constructor went
+private, and `mm_block_init_short`, `_sfpu_reciprocal_` and
+`llk_math_eltwise_unary_sfpu_binop_with_scalar` are gone. **This, not the Python op surface, is the
+cost of moving the pin** — and it falls entirely on the hand-written kernels, which is exactly the
+surface this campaign is adding to.
+
+So the A/B runs with every fused kernel off **on both arms** (`FUSED_KERNEL_FLAGS` in
+`drive_ab.py`). That makes it an A/B of the stock op path, which is the right question anyway: it
+asks whether tt-metal is the limit, without our kernels in between.
+
+One transient to know about: a 0.78 process that dies during JIT build can leave sysmem mapped, and
+the next open fails with `Sysmem mapped at unexpected NOC address` from
+`silicon_sysmem_manager.cpp:417`. It clears by itself; it is not a wedged chip.
