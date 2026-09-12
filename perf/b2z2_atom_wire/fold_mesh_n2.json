@@ -1,0 +1,99 @@
+{
+ "mode": "mesh",
+ "reps": 3,
+ "mesh_n": 2,
+ "atom_window_shard": false,
+ "card": "12,13",
+ "protocol": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0
+ },
+ "diffusion_trace": false,
+ "benchlocked": false,
+ "loadavg_at_start": [
+  "10.88",
+  "11.85",
+  "11.60"
+ ],
+ "model_load_s": 7.76,
+ "device": "MeshDevice(1x2 grid, 2 devices)",
+ "n_devices": 2,
+ "core_grid_main": "ttnn.CoreGrid(x=8, y=9)",
+ "shard_flag": false,
+ "trace_region_size": 536870912,
+ "cold_s": 105.366,
+ "reps_done": [
+  {
+   "fold_s": 43.6401,
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 1.1195,
+    "sampler_end": 12.1222,
+    "end": 2.3225,
+    "trunk_s": 28.076
+   }
+  },
+  {
+   "fold_s": 41.8501,
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9423,
+    "sampler_end": 10.7041,
+    "end": 2.2645,
+    "trunk_s": 27.9393
+   }
+  },
+  {
+   "fold_s": 41.714,
+   "plddt": null,
+   "cif": [
+    "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+   ],
+   "stages": {
+    "diffusion_conditioning_end": 0.9788,
+    "sampler_end": 10.6923,
+    "end": 2.2874,
+    "trunk_s": 27.7555
+   }
+  }
+ ],
+ "summary": {
+  "median_s": 41.8501,
+  "min_s": 41.714,
+  "max_s": 43.6401,
+  "plddt": [
+   null
+  ],
+  "cif_sha256": [
+   "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+  ],
+  "cif_sha256_16": [
+   "da476491dbb2a847"
+  ],
+  "bit_identical_across_reps": true,
+  "trunk_s_median": 27.9393
+ },
+ "config_rungs": {
+  "_L1_OUT_RUNG": 1,
+  "_BMM_CFG_RUNG": 0,
+  "_BMM_CFG_REFUSED": 0,
+  "_OPM_JOIN_REFUSED": 0
+ },
+ "config_rungs_detail": {
+  "_L1_OUT_RUNG": [
+   "((1, 512, 512, 128), (128, 128), 'DataType.BFLOAT16', None, None)"
+  ],
+  "_BMM_CFG_RUNG": [],
+  "_BMM_CFG_REFUSED": [],
+  "_OPM_JOIN_REFUSED": []
+ }
+}
