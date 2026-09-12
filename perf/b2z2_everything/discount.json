@@ -1,0 +1,76 @@
+{
+ "fold_session": {
+  "floor": 1.00136,
+  "ratios": {
+   "base": 1.0,
+   "BX": 1.04112,
+   "ALL": 1.10789
+  },
+  "loadavg": [
+   7.14697265625,
+   14.880859375
+  ]
+ },
+ "singles_session": {
+  "floor": 1.00708,
+  "ratios": {
+   "base": 1.0,
+   "SAMP": 1.0217,
+   "TRUNK": 1.00693,
+   "MSA": 1.0066,
+   "HOSTONLY": 1.0683
+  },
+  "loadavg": [
+   6.564453125,
+   46.74755859375
+  ]
+ },
+ "A_in_session_singles": {
+  "product": 1.1063,
+  "measured_union": 1.10789,
+  "discount_pct": -0.144
+ },
+ "A_bitexact_subset": {
+  "product": 1.03557,
+  "measured": 1.04112,
+  "discount_pct": -0.536
+ },
+ "B_host_marginal": {
+  "marginal_on_top_of_BX": 1.06413,
+  "alone_same_box": 1.0683,
+  "alone_published": 1.06495,
+  "discount_vs_alone_pct": 0.39,
+  "discount_vs_published_pct": 0.077
+ },
+ "readable_vs_floor": {
+  "SAMP": {
+   "ratio": 1.0217,
+   "floor": 1.00708,
+   "multiple_of_floor": 3.06,
+   "readable": true
+  },
+  "TRUNK": {
+   "ratio": 1.00693,
+   "floor": 1.00708,
+   "multiple_of_floor": 0.98,
+   "readable": false
+  },
+  "MSA": {
+   "ratio": 1.0066,
+   "floor": 1.00708,
+   "multiple_of_floor": 0.93,
+   "readable": false
+  },
+  "HOSTONLY": {
+   "ratio": 1.0683,
+   "floor": 1.00708,
+   "multiple_of_floor": 9.65,
+   "readable": true
+  }
+ },
+ "falsifier": {
+  "bar": "union more than 5 % BELOW the product of the surviving singles",
+  "worst_discount_pct": 0.39,
+  "fires": false
+ }
+}
