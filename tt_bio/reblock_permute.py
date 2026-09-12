@@ -569,10 +569,16 @@ STATS_GATED = [0, 0]
 
 def _cache_key_gated(x, out, device, reader_ct, writer_ct):
     """As `_cache_key`, plus the slice width. The two slice OFFSETS are deliberately absent: they
-    are common runtime args, so one descriptor serves both the `a` and the `b` call."""
+    are common runtime args, so one descriptor serves both the `a` and the `b` call.
+
+    `GATE_DST_RESIDENT` is in the key because it is baked into the compute kernel's compile-time
+    args and into the CB list. Without it an interleaved A/B hands the second arm the first arm's
+    compiled program and reads exactly 1.000x -- an instrument failure that looks like a clean
+    refutation."""
     g = device.compute_with_storage_grid_size()
     return (
         device.id(),
+        bool(GATE_DST_RESIDENT),
         int(x.shape[1]), int(x.shape[3]), int(out.shape[1]), int(out.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
@@ -615,8 +621,11 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # c_16 keeps the 32-tile group multiple the writer's L1 window needs. The four working CBs are
     # double-buffered singles: the compute kernel consumes and produces one tile at a time, and a
     # deeper ring would only hold more of a stream the writer is already the slow end of.
-    cbs = [cb(P_CB, 2), cb(G_CB, 2), cb(SIG_CB, 2), cb(MUL_CB, 2), cb(OUT_CB, GROUP_TILES * 2),
-           cb(STAGE_CB, 2)]
+    cbs = [cb(P_CB, 2), cb(G_CB, 2), cb(SIG_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
+    if not GATE_DST_RESIDENT:
+        # The staging CB between the multiply and the transpose. The resident variant transposes on
+        # the way in and packs the product straight to c_16, so this buffer has nothing to hold.
+        cbs.insert(3, cb(MUL_CB, 2))
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     start = 0
@@ -648,7 +657,8 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         kernel_source=str(KERNEL_DIR_GATED / "compute_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
-        compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SKIP_SIGMOID)],
+        compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SKIP_SIGMOID),
+                           int(GATE_DST_RESIDENT)],
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
@@ -687,6 +697,25 @@ GATE_FIDELITY = ttnn.MathFidelity.HiFi4
 GATE_FP32_ACC = False
 # Diagnostic, never on in production: drops the activation so the multiply can be measured alone.
 GATE_SKIP_SIGMOID = False
+
+# Keep the gated product in DST from the multiply through to the pack, by moving the within-tile WH
+# transpose from the end of the chain to the two unpacks at its start. transpose_wh is a pure index
+# permutation and commutes elementwise with both the sigmoid and the multiply, so this is bit-exact
+# with the variant above -- verified by `perf/b2z2_dst_fusion/gate_dst_parity.py`, which runs both
+# arms in one process and compares with `torch.equal`.
+#
+# 3 packs + 4 unpacks per output tile become 2 + 3, and 3 DST acquires become 2. Whether that is
+# worth anything depends on which thread is the slow one: this op reads 4 Z and writes 2 Z of DRAM
+# per trimul, so if the reader is the slow end the deleted math-thread passes hide behind it and the
+# op does not move. That is the measurement, not an assumption -- see the state doc.
+GATE_DST_RESIDENT = os.environ.get("TT_BIO_GATE_DST_RESIDENT", "0") == "1"
+
+
+def set_gate_dst_resident(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global GATE_DST_RESIDENT
+    prev, GATE_DST_RESIDENT = GATE_DST_RESIDENT, bool(on)
+    return prev
 
 
 def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, device=None,
