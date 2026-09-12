@@ -227,13 +227,26 @@ def fold_once(arm):
 
 # A cold fold per DISTINCT arm, all discarded: the first fold of an arm compiles its programs and
 # populates the config-rung caches, and a cold fold in the timed set is a lever-shaped artifact.
-OUT["cold"] = []
-for arm in dict.fromkeys(ARMS):
-    r = fold_once(arm)
+# An arm whose COLD fold raises is dropped rather than fatal. The pair is this row's only device
+# window tonight, and the `trunk` arm has never been fold-run on this merged tree: one untried arm
+# must not cost the other three their measurement. A drop is recorded and reported, never hidden.
+OUT["cold"], OUT["dropped"] = [], {}
+for arm in list(dict.fromkeys(ARMS)):
+    try:
+        r = fold_once(arm)
+    except Exception as e:  # noqa: BLE001
+        OUT["dropped"][arm] = f"{type(e).__name__}: {e}"[:600]
+        log(f"cold[{arm}] RAISED, dropping the arm: {OUT['dropped'][arm]}")
+        dump()
+        continue
     OUT["cold"].append(r)
     log(f"cold[{arm}] {r['fold_s']:.3f}s cif={r['cif']} rungs={r['rungs']} "
         f"atom={r['atom_shard']}")
     dump()
+
+ARMS = [a for a in ARMS if a not in OUT["dropped"]]
+assert ARMS, f"every arm's cold fold raised: {OUT['dropped']}"
+OUT["arms_run"] = list(dict.fromkeys(ARMS))
 
 for arm in dict.fromkeys(ARMS):
     got = [r for r in OUT["cold"] if r["arm"] == arm][0]["atom_shard"]
@@ -241,8 +254,18 @@ for arm in dict.fromkeys(ARMS):
     assert bool(got["sharded"]) == want, (
         f"arm {arm!r} wanted atom-shard={want} and the gate reports {got}")
 
+OUT["rep_errors"] = []
 for i, arm in enumerate(ARMS):
-    r = fold_once(arm)
+    try:
+        r = fold_once(arm)
+    except Exception as e:  # noqa: BLE001
+        OUT["rep_errors"].append({"i": i, "arm": arm, "err": f"{type(e).__name__}: {e}"[:600]})
+        log(f"rep {i+1}/{len(ARMS)} [{arm}] RAISED: {OUT['rep_errors'][-1]['err']}")
+        dump()
+        if len(OUT["rep_errors"]) >= 3:
+            log("three timed folds raised; stopping rather than spinning on a wedged device")
+            break
+        continue
     OUT["reps"].append(r)
     log(f"rep {i+1}/{len(ARMS)} [{arm}] {r['fold_s']:.4f}s trunk={r['stages'].get('trunk_s')} "
         f"sampler={r['stages'].get('sampler_s')} cif={r['cif']} load={r['loadavg'][0]}")
@@ -256,6 +279,8 @@ def med(xs):
 summ = {}
 for arm in dict.fromkeys(ARMS):
     rs = [r for r in OUT["reps"] if r["arm"] == arm]
+    if not rs:
+        continue
     summ[arm] = {
         "n": len(rs), "fold_median_s": med([r["fold_s"] for r in rs]),
         "fold_min_s": min([r["fold_s"] for r in rs]), "fold_max_s": max([r["fold_s"] for r in rs]),
