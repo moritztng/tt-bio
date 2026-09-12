@@ -1,0 +1,33 @@
+298_base_1           coords IDENTICAL  max 0.000000 A  rmsd 0.000000 A  | plddt max 0.000 mean 0.0000  | sha 8af5840b8f08fa44 -> 8af5840b8f08fa44
+298_devconf_0        coords IDENTICAL  max 0.000000 A  rmsd 0.000000 A  | plddt max 0.300 mean 0.0246  | sha 8af5840b8f08fa44 -> b1aa3a3faa667fdb
+{
+ "ref": "298_base_0",
+ "arms": {
+  "298_base_1": {
+   "file": "cdk2x2_298.cif",
+   "atoms": 2397,
+   "coord_max_abs_delta_A": 0.0,
+   "coord_rmsd_A": 0.0,
+   "coords_identical": true,
+   "plddt_max_abs_delta": 0.0,
+   "plddt_mean_abs_delta": 0.0,
+   "plddt_mean_ref": 90.9126,
+   "plddt_mean_arm": 90.9126,
+   "sha_ref": "8af5840b8f08fa44",
+   "sha_arm": "8af5840b8f08fa44"
+  },
+  "298_devconf_0": {
+   "file": "cdk2x2_298.cif",
+   "atoms": 2397,
+   "coord_max_abs_delta_A": 0.0,
+   "coord_rmsd_A": 0.0,
+   "coords_identical": true,
+   "plddt_max_abs_delta": 0.3,
+   "plddt_mean_abs_delta": 0.024648,
+   "plddt_mean_ref": 90.9126,
+   "plddt_mean_arm": 90.9283,
+   "sha_ref": "8af5840b8f08fa44",
+   "sha_arm": "b1aa3a3faa667fdb"
+  }
+ }
+}
