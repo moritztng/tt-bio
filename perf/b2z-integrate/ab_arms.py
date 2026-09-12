@@ -91,10 +91,23 @@ def parse_value(s: str):
         return s
 
 
+# Protocol constants that may be moved per-arm. Deliberately a short allowlist: these change what
+# the model COMPUTES, not how fast it computes it, so each one needs an accuracy argument of its
+# own and none of them may be flipped as a default without Moritz. `sampling_steps` is here because
+# b2z-sampler-steps measured the 200->50 quality case on 130 folds and the TIME half was left as a
+# projection off the closed BH decomposition; this is what turns it into a paired measurement.
+CFG_LEVERS = {"sampling_steps", "recycling_steps", "diffusion_samples"}
+
+
 def parse_arm(spec: str) -> tuple[str, list[tuple[str, str, object]]]:
     """`name=mod.attr=v,env:VAR=v` -> (name, [(kind, target, value), ...]).
 
-    kind is 'attr' (a module global, the form every tt-bio lever actually takes) or 'env'.
+    kind is 'attr' (a module global, the form every tt-bio lever actually takes), 'env', or
+    'cfg' (a protocol constant in the run config, e.g. `cfg:sampling_steps=50`).
+
+    'cfg' exists because the protocol constants are baked into cfg by build_cfg BEFORE any arm
+    runs, so setting the module global per-arm would silently do nothing -- every arm would fold
+    at the same step count and the A/B would read 1.00x for a lever that is really worth 1.28x.
     """
     if "=" not in spec:
         return spec.strip(), []
@@ -103,6 +116,14 @@ def parse_arm(spec: str) -> tuple[str, list[tuple[str, str, object]]]:
     for part in rest.split(","):
         part = part.strip()
         if not part:
+            continue
+        if part.lower().startswith("cfg:"):
+            key, _, val = part[4:].partition("=")
+            key = key.strip()
+            if key not in CFG_LEVERS:
+                raise SystemExit(f"cfg:{key} is not a protocol constant this harness can move; "
+                                 f"known: {sorted(CFG_LEVERS)}")
+            levers.append(("cfg", key, parse_value(val)))
             continue
         if part.lower().startswith("env:"):
             var, _, val = part[4:].partition("=")
@@ -113,6 +134,21 @@ def parse_arm(spec: str) -> tuple[str, list[tuple[str, str, object]]]:
             raise SystemExit(f"lever {part!r} in arm {name!r} is not <mod.attr>=<value>")
         levers.append(("attr", target.strip(), parse_value(val)))
     return name.strip(), levers
+
+
+def _set_cfg(cfg: dict, key: str, val) -> None:
+    """Set a protocol constant everywhere cfg keeps it.
+
+    build_cfg stores sampling_steps/recycling_steps/diffusion_samples BOTH at the top level and
+    again inside cfg["predict_args"], and it is the nested copy the diffusion loop actually reads.
+    Setting only the top-level one runs the shipped 200 steps while reporting 50 -- a silent
+    no-op that would look like "the lever is worth nothing".
+    """
+    if key in cfg:
+        cfg[key] = val
+    pa = cfg.get("predict_args")
+    if isinstance(pa, dict) and key in pa:
+        pa[key] = val
 
 
 def split_target(dotted: str) -> tuple[str, str]:
@@ -270,6 +306,9 @@ def main() -> int:
     sites: dict[str, object] = {}
     for name, levers in arms.items():
         for kind, target, _v in levers:
+            if kind == "cfg":
+                sites.setdefault(f"cfg:{target}", None)   # default filled in once cfg exists
+                continue
             if kind == "env":
                 if target in os.environ:
                     raise SystemExit(f"{target} is pinned in the environment; arm {name!r} sets it "
@@ -319,6 +358,13 @@ def main() -> int:
         _seed_msa(FIX / f"{name}.yaml", (FIX / f"{name}.a3m").read_text(), msa_dir)
 
     cfg = build_cfg(msa_dir, struct_dir)
+    for key in list(sites):
+        if key.startswith("cfg:"):
+            k = key[4:]
+            if k not in cfg:
+                raise SystemExit(f"cfg:{k} is not in this tree's run config: {sorted(cfg)}")
+            sites[key] = cfg[k]
+    OUT["cfg_defaults"] = {k[4:]: sites[k] for k in sites if k.startswith("cfg:")}
     _ensure_local_artifacts(cfg)
     t_load = time.perf_counter()
     state = _WorkerState("tenstorrent")
@@ -340,13 +386,17 @@ def main() -> int:
     def apply_arm(name: str) -> None:
         """Restore every site to its shipped default, then apply this arm's overrides."""
         for key, default in sites.items():
-            if key.startswith("env:"):
+            if key.startswith("cfg:"):
+                _set_cfg(cfg, key[4:], default)
+            elif key.startswith("env:"):
                 os.environ.pop(key[4:], None)
             else:
                 mod, attr = split_target(key)
                 setattr(importlib.import_module(mod), attr, default)
         for kind, target, val in arms[name]:
-            if kind == "env":
+            if kind == "cfg":
+                _set_cfg(cfg, target, val)
+            elif kind == "env":
                 os.environ[target] = val
             else:
                 mod, attr = split_target(target)

@@ -87,5 +87,76 @@ def main() -> int:
     return 1 if fails else 0
 
 
+
+
+# ---------------------------------------------------------------------------------------------
+# cfg: protocol levers. The failure these guard against is silent: build_cfg keeps
+# sampling_steps BOTH at cfg top level and inside cfg["predict_args"], and the diffusion loop
+# reads the nested one. A setter that moves only the top-level copy folds at the shipped 200
+# steps while the output reports 50 -- the A/B then reads ~1.00x and the lever looks worthless.
+def _cfg_like():
+    return {"sampling_steps": 200, "recycling_steps": 3, "diffusion_samples": 1,
+            "predict_args": {"sampling_steps": 200, "recycling_steps": 3,
+                             "diffusion_samples": 1, "max_parallel_samples": 5}}
+
+
+def test_set_cfg_moves_both_copies():
+    cfg = _cfg_like()
+    AB._set_cfg(cfg, "sampling_steps", 50)
+    assert cfg["sampling_steps"] == 50
+    assert cfg["predict_args"]["sampling_steps"] == 50, \
+        "nested predict_args copy not moved -- the fold would run 200 steps and report 50"
+
+
+def test_set_cfg_leaves_siblings_alone():
+    cfg = _cfg_like()
+    AB._set_cfg(cfg, "sampling_steps", 50)
+    assert cfg["recycling_steps"] == 3
+    assert cfg["predict_args"]["recycling_steps"] == 3
+    assert cfg["predict_args"]["max_parallel_samples"] == 5
+
+
+def test_negative_control_top_level_only_setter_is_caught():
+    """The bug this file exists to catch must actually fail the test above."""
+    cfg = _cfg_like()
+    cfg["sampling_steps"] = 50            # a setter that forgot the nested copy
+    assert cfg["predict_args"]["sampling_steps"] == 200
+    try:
+        assert cfg["predict_args"]["sampling_steps"] == 50, "nested copy not moved"
+    except AssertionError:
+        return
+    raise AssertionError("negative control did not fire")
+
+
+def test_parse_arm_accepts_cfg_lever():
+    name, levers = AB.parse_arm("steps50=cfg:sampling_steps=50")
+    assert name == "steps50"
+    assert levers == [("cfg", "sampling_steps", 50)], levers
+
+
+def test_parse_arm_rejects_unknown_cfg_lever():
+    try:
+        AB.parse_arm("x=cfg:step_scale=1.2")
+    except SystemExit:
+        return
+    raise AssertionError("an unlisted protocol constant must be refused, not silently applied")
+
+
+def _run_all() -> int:
+    """Run main()'s summarize checks AND every test_* in this module.
+
+    The __main__ guard used to sit above the cfg-lever tests, so script mode exited before they
+    were defined and printed PASS having never run them. Collect by introspection so a test
+    appended to the end of this file can never again be silently skipped.
+    """
+    rc = main()
+    names = [n for n in sorted(globals()) if n.startswith("test_")]
+    for n in names:
+        globals()[n]()
+        print(f"PASS: {n}")
+    print(f"PASS: {len(names)} cfg-lever checks")
+    return rc
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_run_all())
