@@ -1,0 +1,360 @@
+{
+ "size": 512,
+ "trace_region": 1073741824,
+ "grid": [
+  11,
+  10
+ ],
+ "default_threads": [
+  8,
+  16
+ ],
+ "runs": [
+  {
+   "label": "cold",
+   "threads": 8,
+   "traced": false,
+   "instrumented": false,
+   "fold_s": 20.142,
+   "metrics": {
+    "confidence_score": 0.801141,
+    "ptm": 0.623752,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845488,
+    "complex_iplddt": 0.845488,
+    "complex_pde": 0.642348,
+    "complex_ipde": 0.0
+   },
+   "cif": {
+    "cdk2x2_512.cif": "dd1c2a12f97772fb"
+   },
+   "wall": {},
+   "loadavg": [
+    "1.38",
+    "3.00",
+    "6.08"
+   ]
+  },
+  {
+   "label": "eager_0",
+   "threads": 8,
+   "traced": false,
+   "instrumented": false,
+   "fold_s": 19.937,
+   "metrics": {
+    "confidence_score": 0.801141,
+    "ptm": 0.623752,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845488,
+    "complex_iplddt": 0.845488,
+    "complex_pde": 0.642348,
+    "complex_ipde": 0.0
+   },
+   "cif": {
+    "cdk2x2_512.cif": "dd1c2a12f97772fb"
+   },
+   "wall": {},
+   "loadavg": [
+    "1.75",
+    "2.97",
+    "6.00"
+   ]
+  },
+  {
+   "label": "traced_1",
+   "threads": 8,
+   "traced": true,
+   "instrumented": false,
+   "fold_s": 19.916,
+   "metrics": {
+    "confidence_score": 0.801141,
+    "ptm": 0.623752,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845488,
+    "complex_iplddt": 0.845488,
+    "complex_pde": 0.642348,
+    "complex_ipde": 0.0
+   },
+   "cif": {
+    "cdk2x2_512.cif": "dd1c2a12f97772fb"
+   },
+   "wall": {},
+   "loadavg": [
+    "2.61",
+    "3.07",
+    "5.97"
+   ]
+  },
+  {
+   "label": "eager_2",
+   "threads": 8,
+   "traced": false,
+   "instrumented": false,
+   "fold_s": 19.91,
+   "metrics": {
+    "confidence_score": 0.801141,
+    "ptm": 0.623752,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845488,
+    "complex_iplddt": 0.845488,
+    "complex_pde": 0.642348,
+    "complex_ipde": 0.0
+   },
+   "cif": {
+    "cdk2x2_512.cif": "dd1c2a12f97772fb"
+   },
+   "wall": {},
+   "loadavg": [
+    "2.72",
+    "3.05",
+    "5.90"
+   ]
+  },
+  {
+   "label": "traced_3",
+   "threads": 8,
+   "traced": true,
+   "instrumented": false,
+   "fold_s": 20.041,
+   "metrics": {
+    "confidence_score": 0.801141,
+    "ptm": 0.623752,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845488,
+    "complex_iplddt": 0.845488,
+    "complex_pde": 0.642348,
+    "complex_ipde": 0.0
+   },
+   "cif": {
+    "cdk2x2_512.cif": "dd1c2a12f97772fb"
+   },
+   "wall": {},
+   "loadavg": [
+    "3.01",
+    "3.09",
+    "5.85"
+   ]
+  },
+  {
+   "label": "eager_4",
+   "threads": 8,
+   "traced": false,
+   "instrumented": false,
+   "fold_s": 20.107,
+   "metrics": {
+    "confidence_score": 0.801141,
+    "ptm": 0.623752,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845488,
+    "complex_iplddt": 0.845488,
+    "complex_pde": 0.642348,
+    "complex_ipde": 0.0
+   },
+   "cif": {
+    "cdk2x2_512.cif": "dd1c2a12f97772fb"
+   },
+   "wall": {},
+   "loadavg": [
+    "3.36",
+    "3.15",
+    "5.81"
+   ]
+  },
+  {
+   "label": "traced_5",
+   "threads": 8,
+   "traced": true,
+   "instrumented": false,
+   "fold_s": 20.059,
+   "metrics": {
+    "confidence_score": 0.801141,
+    "ptm": 0.623752,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845488,
+    "complex_iplddt": 0.845488,
+    "complex_pde": 0.642348,
+    "complex_ipde": 0.0
+   },
+   "cif": {
+    "cdk2x2_512.cif": "dd1c2a12f97772fb"
+   },
+   "wall": {},
+   "loadavg": [
+    "2.83",
+    "3.04",
+    "5.72"
+   ]
+  },
+  {
+   "label": "eager_instrumented",
+   "threads": 8,
+   "traced": false,
+   "instrumented": true,
+   "fold_s": 20.042,
+   "metrics": {
+    "confidence_score": 0.801141,
+    "ptm": 0.623752,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845488,
+    "complex_iplddt": 0.845488,
+    "complex_pde": 0.642348,
+    "complex_ipde": 0.0
+   },
+   "cif": {
+    "cdk2x2_512.cif": "dd1c2a12f97772fb"
+   },
+   "wall": {
+    "sample": {
+     "n": 1,
+     "ms": 5294.34
+    },
+    "pnf": {
+     "n": 200,
+     "ms": 5090.58
+    },
+    "out": {
+     "n": 204,
+     "ms": 3132.23
+    },
+    "align": {
+     "n": 200,
+     "ms": 87.52
+    },
+    "augment": {
+     "n": 200,
+     "ms": 20.65
+    }
+   },
+   "loadavg": [
+    "2.46",
+    "2.94",
+    "5.63"
+   ],
+   "split_ms": {
+    "sample": 5294.3,
+    "pnf": 5090.6,
+    "device_wait_out": 3132.2,
+    "pnf_minus_device": 1958.4,
+    "stage_in": 0.0,
+    "replay_issue": 0.0,
+    "augment": 20.7,
+    "align": 87.5,
+    "loop_residual": 95.6,
+    "host_serial": 2162.1
+   }
+  },
+  {
+   "label": "traced_instrumented",
+   "threads": 8,
+   "traced": true,
+   "instrumented": true,
+   "fold_s": 20.561,
+   "metrics": {
+    "confidence_score": 0.801141,
+    "ptm": 0.623752,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845488,
+    "complex_iplddt": 0.845488,
+    "complex_pde": 0.642348,
+    "complex_ipde": 0.0
+   },
+   "cif": {
+    "cdk2x2_512.cif": "dd1c2a12f97772fb"
+   },
+   "wall": {
+    "sample": {
+     "n": 1,
+     "ms": 5537.66
+    },
+    "pnf": {
+     "n": 200,
+     "ms": 5196.34
+    },
+    "forward_traced": {
+     "n": 200,
+     "ms": 5177.24
+    },
+    "out": {
+     "n": 204,
+     "ms": 5023.28
+    },
+    "align": {
+     "n": 200,
+     "ms": 155.61
+    },
+    "stage_in": {
+     "n": 800,
+     "ms": 63.95
+    },
+    "augment": {
+     "n": 200,
+     "ms": 25.75
+    },
+    "replay": {
+     "n": 200,
+     "ms": 1.15
+    }
+   },
+   "loadavg": [
+    "2.97",
+    "3.01",
+    "5.59"
+   ],
+   "split_ms": {
+    "sample": 5537.7,
+    "pnf": 5196.3,
+    "device_wait_out": 5023.3,
+    "pnf_minus_device": 173.1,
+    "stage_in": 63.9,
+    "replay_issue": 1.2,
+    "augment": 25.7,
+    "align": 155.6,
+    "loop_residual": 160.0,
+    "host_serial": 514.4
+   }
+  }
+ ],
+ "summary": {
+  "eager": {
+   "n": 3,
+   "median_fold_s": 19.937,
+   "folds": [
+    19.937,
+    19.91,
+    20.107
+   ]
+  },
+  "traced": {
+   "n": 3,
+   "median_fold_s": 20.041,
+   "folds": [
+    19.916,
+    20.041,
+    20.059
+   ]
+  },
+  "ratio_eager_over_traced": 0.9948,
+  "cif_identical_across_arms": true,
+  "cif_digests": [
+   "{\"cdk2x2_512.cif\": \"dd1c2a12f97772fb\"}"
+  ]
+ }
+}

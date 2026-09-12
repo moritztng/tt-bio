@@ -67,11 +67,11 @@ def main():
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, default=ROOT / "perf" / "b2z2_diff" / "loop_host_split.json")
-    ap.add_argument("--arms", default="base:0,t1:1,base:0,t1:1,base:0,t1:1",
-                    help="label:threads pairs run in order; threads 0 leaves torch alone")
-    ap.add_argument("--instrument-arms", default="base:0,t1:1",
+    ap.add_argument("--arms", default="base:0:1,t1:1:1,base:0:1,t1:1:1,base:0:1,t1:1:1",
+                    help="label:threads:traced triples run in order; threads 0 leaves torch alone, "
+                         "traced 1 replays the captured per-step graph")
+    ap.add_argument("--instrument-arms", default="base:0:1,t1:1:1",
                     help="run each of these once more with the region brackets on")
-    ap.add_argument("--traced", type=int, default=1, help="1 = diffusion trace on, 0 = eager")
     a = ap.parse_args()
 
     import torch, ttnn
@@ -110,13 +110,13 @@ def main():
 
     default_threads = (torch.get_num_threads(), torch.get_num_interop_threads())
     res = {"size": a.size, "trace_region": T.trace_region_size(),
-           "grid": list(T.COMPUTE_GRID_MAIN), "traced": bool(a.traced),
+           "grid": list(T.COMPUTE_GRID_MAIN),
            "default_threads": list(default_threads), "runs": []}
 
-    def run(label, threads, instrument):
+    def run(label, threads, traced, instrument):
         W.clear()
         ON["v"] = instrument
-        sm._diffusion_trace = bool(a.traced)
+        sm._diffusion_trace = bool(traced)
         # interop threads cannot be changed after the pool starts, so only intra-op moves; that is
         # the pool the small tensor ops in the loop actually use.
         torch.set_num_threads(threads or default_threads[0])
@@ -124,7 +124,8 @@ def main():
             q.unlink()
         fold_s, m = one_fold()
         ON["v"] = False
-        rec = {"label": label, "threads": torch.get_num_threads(), "instrumented": instrument,
+        rec = {"label": label, "threads": torch.get_num_threads(), "traced": bool(traced),
+               "instrumented": instrument,
                "fold_s": round(fold_s, 3), "metrics": {k: v for k, v in m.items()
                                                        if isinstance(v, (int, float, str, bool))},
                "cif": sha_dir(struct_dir),
@@ -148,29 +149,32 @@ def main():
         res["runs"].append(rec)
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))
-        print("%-22s threads=%d fold %.2fs %s %s"
-              % (label, rec["threads"], fold_s, json.dumps(rec.get("split_ms", {})),
-                 json.dumps(rec["cif"])), flush=True)
+        print("%-22s threads=%d traced=%d fold %.2fs %s %s"
+              % (label, rec["threads"], int(bool(traced)), fold_s,
+                 json.dumps(rec.get("split_ms", {})), json.dumps(rec["cif"])), flush=True)
 
     def parse(spec):
         out = []
         for item in spec.split(","):
             if not item.strip():
                 continue
-            lab, _, th = item.partition(":")
-            out.append((lab, int(th or 0)))
+            parts = item.split(":")
+            lab = parts[0]
+            th = int(parts[1]) if len(parts) > 1 and parts[1] else 0
+            tr = int(parts[2]) if len(parts) > 2 and parts[2] else 0
+            out.append((lab, th, tr))
         return out
 
     timed_arms = parse(a.arms)
-    run("cold", timed_arms[0][1], False)
-    for i, (lab, th) in enumerate(timed_arms):
-        run(f"{lab}_{i}", th, False)
-    for lab, th in parse(a.instrument_arms):
-        run(f"{lab}_instrumented", th, True)
+    run("cold", timed_arms[0][1], timed_arms[0][2], False)
+    for i, (lab, th, tr) in enumerate(timed_arms):
+        run(f"{lab}_{i}", th, tr, False)
+    for lab, th, tr in parse(a.instrument_arms):
+        run(f"{lab}_instrumented", th, tr, True)
 
     # Summary: per-label median fold, the paired ratio, and whether the CIF moved.
     import statistics as st
-    labels = sorted({lab for lab, _ in timed_arms})
+    labels = sorted({lab for lab, _, _ in timed_arms})
     summary = {}
     for lab in labels:
         folds = [r["fold_s"] for r in res["runs"]
