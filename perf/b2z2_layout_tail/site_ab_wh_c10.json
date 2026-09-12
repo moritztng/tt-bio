@@ -1,0 +1,157 @@
+{
+ "env": {
+  "started": "2026-09-12T19:47:19+0000",
+  "card": "10",
+  "size": "512",
+  "commit": "a9caf7e3",
+  "loadavg": [
+   "7.41",
+   "7.86",
+   "9.07"
+  ]
+ },
+ "fold_s": 58.874,
+ "census": {
+  "n_heads=4 head_dim=32 padded=32 eligible=False": {
+   "calls": 1200,
+   "wall_ms": 607.94,
+   "us_per_call": 506.62
+  },
+  "n_heads=16 head_dim=24 padded=32 eligible=True": {
+   "calls": 264,
+   "wall_ms": 2571.34,
+   "us_per_call": 9739.92
+  },
+  "n_heads=16 head_dim=48 padded=64 eligible=True": {
+   "calls": 4800,
+   "wall_ms": 975.08,
+   "us_per_call": 203.14
+  }
+ },
+ "ab": {
+  "n_heads=16 head_dim=24 padded=32": {
+   "us_off": 3283.74,
+   "us_on": 3257.22,
+   "ratio": 1.00814,
+   "delta_us_per_call": 26.52,
+   "aa_floor": 0.99773,
+   "calls_per_fold": 264,
+   "fold_ms_if_it_holds": 7.001,
+   "parity": {
+    "bit_exact": false,
+    "max_abs": 0.5,
+    "bf16_ulp_at_max": 0.423828125,
+    "ulp_fraction": 1.1797235023041475,
+    "shape": [
+     1,
+     512,
+     384
+    ]
+   },
+   "order": [
+    [
+     "off",
+     3271.47
+    ],
+    [
+     "on",
+     3255.16
+    ],
+    [
+     "on",
+     3255.7
+    ],
+    [
+     "off",
+     3281.76
+    ],
+    [
+     "off",
+     3284.06
+    ],
+    [
+     "on",
+     3260.12
+    ],
+    [
+     "on",
+     3258.49
+    ],
+    [
+     "off",
+     3285.71
+    ],
+    [
+     "off",
+     3283.74
+    ],
+    [
+     "on",
+     3257.22
+    ]
+   ]
+  },
+  "n_heads=16 head_dim=48 padded=64": {
+   "us_off": 461.42,
+   "us_on": 418.92,
+   "ratio": 1.10143,
+   "delta_us_per_call": 42.49,
+   "aa_floor": 0.97884,
+   "calls_per_fold": 4800,
+   "fold_ms_if_it_holds": 203.966,
+   "parity": {
+    "bit_exact": false,
+    "max_abs": 0.0078125,
+    "bf16_ulp_at_max": 0.00750732421875,
+    "ulp_fraction": 1.0406504065040652,
+    "shape": [
+     1,
+     512,
+     768
+    ]
+   },
+   "order": [
+    [
+     "off",
+     461.42
+    ],
+    [
+     "on",
+     416.18
+    ],
+    [
+     "on",
+     425.84
+    ],
+    [
+     "off",
+     457.14
+    ],
+    [
+     "off",
+     455.58
+    ],
+    [
+     "on",
+     495.96
+    ],
+    [
+     "on",
+     418.92
+    ],
+    [
+     "off",
+     496.44
+    ],
+    [
+     "off",
+     469.2
+    ],
+    [
+     "on",
+     415.81
+    ]
+   ]
+  }
+ }
+}
