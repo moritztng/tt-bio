@@ -45,16 +45,38 @@ SAMPLING_STEPS = 200
 DIFFUSION_SAMPLES = 1
 SEED = 0
 
-# (k2, dst, msa)
+#: One arm is the set of levers it turns on. Everything absent is shipped-default off.
+#:   k2     triatt_qkv._FUSED_ENABLED          [Wq|Wk|Wv|Wg] in one operand pass
+#:   dst    TT_BIO_GATE_DST_RESIDENT           the gated move keeps its product in DST
+#:   msa    TT_BIO_MSA_DEPTH_LADDER            35 real rows land on 64, not 1024
+#:   host   TT_BIO_DEVICE_CONDITIONING         the diffusion conditioning runs on the device
+#:   cbd    _MM_BLOCK M_block 4 -> 8           on the c_z=128 projection keys
+#:   trace  Boltz2._diffusion_trace            replay the per-step DiT as one captured trace
+LEVERS = ("k2", "dst", "msa", "host", "cbd", "trace")
 ARMS = {
-    "base":  (False, False, False),
-    "K2":    (True,  False, False),
-    "DST":   (False, True,  False),
-    "MSA":   (False, False, True),
-    "K2DST": (True,  True,  False),
-    "UNION": (True,  True,  True),
+    "base":     (),
+    "K2":       ("k2",),
+    "DST":      ("dst",),
+    "MSA":      ("msa",),
+    "HOST":     ("host",),
+    "CBD":      ("cbd",),
+    "TRACE":    ("trace",),
+    "K2DST":    ("k2", "dst"),
+    "UNION_BE": ("k2", "dst", "cbd"),
+    "UNION_ALL": ("k2", "dst", "cbd", "host"),
+    "UNION":    ("k2", "dst", "msa"),
 }
 ORDER = ["base", "K2", "DST", "base", "MSA", "UNION"]
+
+#: `_MM_BLOCK` entries the CBD arm rewrites, and what it rewrites them to. `b2z2-cb-depth-prefetch`
+#: measured M_block 4 -> 8 at 1.0138x on a Wormhole block and found ring depth worth nothing, so
+#: the arm is the block shape and not the depth. Going through the table rather than
+#: `mm_generic.BLOCK_OVERRIDE` is deliberate: `_CACHE`'s key carries `cfg`, which carries the table
+#: entry, so a changed entry gets its own compiled program. BLOCK_OVERRIDE is applied INSIDE
+#: `build()` after the key is formed, so an A/B over it is handed the other arm's program -- the
+#: same instrument failure `_cache_key_gated` exists to prevent.
+CBD_KEYS = ((4, 4), (4, 12), (4, 16))
+CBD_M_BLOCK = 8
 
 OUT: dict = {}
 OUT_PATH: Path | None = None
@@ -124,6 +146,10 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=RECYCLING_STEPS)
     ap.add_argument("--skip-298", action="store_true")
+    ap.add_argument("--trace-region", action="store_true",
+                    help="reserve a 1 GiB ttnn trace region before the device opens. Required by "
+                         "the TRACE arm and by nothing else, so it is opt-in: reserving it "
+                         "changes what every arm in the session has to work with.")
     ap.add_argument("--order", default=None,
                     help="comma-separated arm order per rep, overriding ORDER. Must contain at "
                          "least two base positions or the A/A floor has nothing to pair.")
@@ -134,6 +160,8 @@ def main() -> int:
         "two base positions per rep, minimum -- one gives no A/A pair at all, which is how wave 1 "
         "got a null fold_AA_ratio")
     assert set(order) <= set(ARMS), f"unknown arm in --order: {set(order) - set(ARMS)}"
+    assert args.trace_region or not any("trace" in ARMS[a] for a in order), \
+        "the TRACE arm needs --trace-region: the region is reserved before the device opens"
 
     import torch
     torch.set_grad_enabled(False)
@@ -142,6 +170,7 @@ def main() -> int:
     import tt_bio.triatt_qkv as QKV
     import tt_bio.reblock_permute as RP
     import tt_bio.trimul_tail as TTAIL
+    import tt_bio.mm_generic as MG
     from tt_bio.token_axis import msa_depth_bucket, msa_ladder_enabled
     from tt_bio.tenstorrent import get_device
     from tt_bio.worker import _WorkerState, _ensure_local_artifacts
@@ -154,9 +183,12 @@ def main() -> int:
 
     # The arms are set in-process. An env pin would silently make every arm the same arm.
     assert not (set(os.environ) & {"TT_BIO_TRIATT_QKV_GATE_FUSED", "TT_BIO_GATE_DST_RESIDENT",
-                                  "TT_BIO_MSA_DEPTH_LADDER", "TT_BIO_MSA_PAD_POISON"}), \
+                                  "TT_BIO_MSA_DEPTH_LADDER", "TT_BIO_MSA_PAD_POISON",
+                                  "TT_BIO_DEVICE_CONDITIONING", "TT_BIO_HOST_LEVERS"}), \
         "no lever may be pinned in the environment"
 
+    if args.trace_region:
+        os.environ.setdefault("TT_BIO_TRACE_REGION_SIZE", str(1 << 30))
     dev = get_device()
     try:
         g = dev.compute_with_storage_grid_size()
@@ -181,6 +213,9 @@ def main() -> int:
                            "TRIATT_HEAD_MAJOR_QKV": QKV._ENABLED,
                            "GATE_DST_RESIDENT": RP.GATE_DST_RESIDENT,
                            "MSA_LADDER": msa_ladder_enabled(),
+                           "WORK_CB_DEPTH": RP.WORK_CB_DEPTH,
+                           "MM_CB_DEPTH": MG.CB_DEPTH,
+                           "MM_BLOCK_OVERRIDE": dict(MG.BLOCK_OVERRIDE),
                            "TRIMUL_TAIL_DIRECT_PACK": TTAIL.DIRECT_PACK,
                            "F1_BLOCK_KEYS": sorted(str(k) for k in TTAIL.F1_BLOCK_KEYS)},
         "msa_bucket_for_35_rows": {"ladder_off": None, "ladder_on": None},
@@ -252,17 +287,27 @@ def main() -> int:
             return {lab: round(t1 - t0, 4)
                     for (lab, t0), (_l, t1) in zip(self.marks, self.marks[1:])}
 
+    mm_block_shipped = {k: TT._MM_BLOCK[k] for k in CBD_KEYS if k in TT._MM_BLOCK}
+    OUT["env"]["cbd_keys_present"] = {str(k): list(v) for k, v in mm_block_shipped.items()}
+
     def set_arm(arm: str):
-        k2, dst, msa = ARMS[arm]
-        QKV._FUSED_ENABLED = k2
-        RP.set_gate_dst_resident(dst)
-        if msa:
-            os.environ["TT_BIO_MSA_DEPTH_LADDER"] = "1"
-        else:
-            os.environ.pop("TT_BIO_MSA_DEPTH_LADDER", None)
+        on = set(ARMS[arm])
+        assert on <= set(LEVERS), f"unknown lever in arm {arm}: {on - set(LEVERS)}"
+        QKV._FUSED_ENABLED = "k2" in on
+        RP.set_gate_dst_resident("dst" in on)
+        for flag, lever in (("TT_BIO_MSA_DEPTH_LADDER", "msa"),
+                            ("TT_BIO_DEVICE_CONDITIONING", "host")):
+            if lever in on:
+                os.environ[flag] = "1"
+            else:
+                os.environ.pop(flag, None)
+        for k, shipped in mm_block_shipped.items():
+            TT._MM_BLOCK[k] = ((CBD_M_BLOCK,) + tuple(shipped[1:])) if "cbd" in on else shipped
+        state.model._diffusion_trace = ("trace" in on) and state.model.use_tenstorrent
 
     def counters():
         return {"k2_served": QKV.FUSED_STATS[0], "k2_declined": QKV.FUSED_STATS[1],
+                "mm_programs": len(MG._CACHE),
                 "headmajor_served": QKV.STATS[0], "headmajor_declined": QKV.STATS[1],
                 "gated_served": RP.STATS_GATED[0], "gated_declined": RP.STATS_GATED[1],
                 "f1_served": TTAIL.STATS[0], "f1_declined": TTAIL.STATS[1]}
@@ -297,7 +342,7 @@ def main() -> int:
             shutil.copy2(cifs[0], keep / cifs[0].name)
         return {
             "arm": arm, "target": target.stem,
-            "levers": {"k2": ARMS[arm][0], "dst": ARMS[arm][1], "msa": ARMS[arm][2]},
+            "levers": {lv: (lv in ARMS[arm]) for lv in LEVERS},
             "diffusion_shape": seen.get("shape"),
             "fold_s": round(wall, 3),
             "prepare_and_trunk_s": round(sp.marks[0][1] - t0, 4),
@@ -306,6 +351,9 @@ def main() -> int:
             "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
             "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest(),
             "calls": {k: after[k] - before[k] for k in after},
+            "mm_programs_total": len(MG._CACHE),
+            "mm_block_now": {str(k): list(TT._MM_BLOCK[k]) for k in mm_block_shipped},
+            "diffusion_trace": bool(getattr(state.model, "_diffusion_trace", False)),
             "loadavg1": round(os.getloadavg()[0], 2),
         }
 

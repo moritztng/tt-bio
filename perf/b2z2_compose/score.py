@@ -51,11 +51,19 @@ def main() -> int:
     ap.add_argument("--run", type=Path, required=True)
     ap.add_argument("--cifdir", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--singles", default=None,
+                    help="comma-separated single-lever arms the union is the composition of. "
+                         "Defaults to every non-base, non-UNION* arm in the run.")
+    ap.add_argument("--singles-union", default=None,
+                    help="which UNION* arm the discount is computed against")
     a = ap.parse_args()
     d = json.loads(a.run.read_text())
     timed = [r for r in d["phase1"] if not r["warmup"]]
-    arms = ["base", "K2", "DST", "MSA", "UNION"]
-    singles = ["K2", "DST", "MSA"]
+    seen = list(dict.fromkeys(r["arm"] for r in timed))
+    arms = [a for a in seen]
+    union = a.singles_union or next((a_ for a_ in arms if a_.startswith("UNION")), None)
+    singles = [x.strip() for x in a.singles.split(",")] if a.singles else \
+        [x for x in arms if x != "base" and not x.startswith("UNION")]
 
     per = {}
     for arm in arms:
@@ -74,16 +82,18 @@ def main() -> int:
             aa.append(max(b) / min(b))
     floor = round(st.median(aa), 5) if aa else None
 
-    ratio = {arm: round(base / per[arm]["median_s"], 5) for arm in singles + ["UNION"]}
+    others = [x for x in arms if x != "base"]
+    ratio = {arm: round(base / per[arm]["median_s"], 5) for arm in others}
     # An arm's WORST rep against the base median: the pessimistic reading of the same data.
-    worst = {arm: round(base / per[arm]["max_s"], 5) for arm in singles + ["UNION"]}
+    worst = {arm: round(base / per[arm]["max_s"], 5) for arm in others}
     product = 1.0
     for arm in singles:
         product *= ratio[arm]
-    discount_pct = round(100 * (1 - ratio["UNION"] / product), 3)
+    discount_pct = (round(100 * (1 - ratio[union] / product), 3)
+                    if union and union in ratio else None)
 
     # Movement: seconds, not just ratios, against the base arm measured in this same session.
-    delta_s = {arm: round(base - per[arm]["median_s"], 3) for arm in singles + ["UNION"]}
+    delta_s = {arm: round(base - per[arm]["median_s"], 3) for arm in others}
     sum_singles_s = round(sum(delta_s[arm] for arm in singles), 3)
 
     trunk = {arm: round(st.median([r["prepare_and_trunk_s"] for r in timed if r["arm"] == arm]), 4)
@@ -101,6 +111,7 @@ def main() -> int:
         "fold_AA_ratio": floor, "AA_pairs": len(aa),
         "ratio_vs_base": ratio, "worst_rep_ratio_vs_base": worst,
         "delta_s_vs_base": delta_s, "sum_of_singles_s": sum_singles_s,
+        "union_arm": union, "union_singles": singles,
         "union_product_of_singles": round(product, 5),
         "union_additivity_discount_pct": discount_pct,
         "cif_sha256_by_arm": sha, "bit_exact_vs_base": bitexact,
@@ -116,7 +127,7 @@ def main() -> int:
         if not ref_dirs:
             continue
         ref = one_cif(ref_dirs[0])
-        for arm in singles + ["UNION"]:
+        for arm in others:
             ds = sorted(a.cifdir.glob(f"{size}_{arm}_*"))
             if not ds:
                 continue
