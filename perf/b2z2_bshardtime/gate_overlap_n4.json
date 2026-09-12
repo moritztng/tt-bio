@@ -1,0 +1,195 @@
+{
+ "mesh_n": 4,
+ "S": 512,
+ "arch": "Arch.WORMHOLE_B0",
+ "visible": "24,25,26,27",
+ "arms": {
+  "whole": {
+   "gate_calls": 2,
+   "accepts": 2,
+   "declines": 0,
+   "by_shape": [
+    [
+     "[1, 512, 512, 512]",
+     true
+    ]
+   ],
+   "calls": [
+    {
+     "shape": [
+      1,
+      512,
+      512,
+      512
+     ],
+     "slice_c": 128,
+     "buffer": "BufferType.DRAM",
+     "verdict": true
+    },
+    {
+     "shape": [
+      1,
+      512,
+      512,
+      512
+     ],
+     "slice_c": 128,
+     "buffer": "BufferType.DRAM",
+     "verdict": true
+    }
+   ],
+   "rejects": {}
+  },
+  "shard": {
+   "gate_calls": 3,
+   "accepts": 2,
+   "declines": 1,
+   "by_shape": [
+    [
+     "[1, 128, 512, 256]",
+     true
+    ],
+    [
+     "[1, 512, 128, 256]",
+     false
+    ],
+    [
+     "[1, 512, 512, 256]",
+     true
+    ]
+   ],
+   "calls": [
+    {
+     "shape": [
+      1,
+      128,
+      512,
+      256
+     ],
+     "slice_c": 128,
+     "buffer": "BufferType.DRAM",
+     "verdict": true
+    },
+    {
+     "shape": [
+      1,
+      512,
+      512,
+      256
+     ],
+     "slice_c": 128,
+     "buffer": "BufferType.DRAM",
+     "verdict": true
+    },
+    {
+     "shape": [
+      1,
+      512,
+      128,
+      256
+     ],
+     "slice_c": 128,
+     "buffer": "BufferType.DRAM",
+     "verdict": false
+    }
+   ],
+   "rejects": {
+    "gated_window_BufferType.DRAM|[1, 512, 128, 256]": 1,
+    "shape|[1, 512, 128, 128]": 1
+   }
+  },
+  "bshard": {
+   "gate_calls": 3,
+   "accepts": 2,
+   "declines": 1,
+   "by_shape": [
+    [
+     "[1, 128, 512, 256]",
+     true
+    ],
+    [
+     "[1, 512, 128, 256]",
+     false
+    ]
+   ],
+   "calls": [
+    {
+     "shape": [
+      1,
+      128,
+      512,
+      256
+     ],
+     "slice_c": 128,
+     "buffer": "BufferType.DRAM",
+     "verdict": true
+    },
+    {
+     "shape": [
+      1,
+      128,
+      512,
+      256
+     ],
+     "slice_c": 128,
+     "buffer": "BufferType.DRAM",
+     "verdict": true
+    },
+    {
+     "shape": [
+      1,
+      512,
+      128,
+      256
+     ],
+     "slice_c": 128,
+     "buffer": "BufferType.DRAM",
+     "verdict": false
+    }
+   ],
+   "rejects": {
+    "gated_window_BufferType.DRAM|[1, 512, 128, 256]": 1,
+    "shape|[1, 512, 128, 128]": 2
+   }
+  }
+ },
+ "direct_probe": {
+  "a role, ending, slab (checked today)": {
+   "shape": [
+    1,
+    512,
+    128,
+    256
+   ],
+   "verdict": false
+  },
+  "b role, ending, slab (short-circuited)": {
+   "shape": [
+    1,
+    512,
+    128,
+    256
+   ],
+   "verdict": false
+  },
+  "b role, ending, WHOLE z (plain row shard)": {
+   "shape": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "verdict": true
+  },
+  "b role, starting, slab": {
+   "shape": [
+    1,
+    128,
+    512,
+    256
+   ],
+   "verdict": true
+  }
+ },
+ "short_circuit_hides": true
+}
