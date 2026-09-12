@@ -100,7 +100,6 @@ def main() -> int:
     else:
         assert hasattr(T, args.attr), f"{args.attr} is not a tt_bio.tenstorrent global"
         targets = [(T, args.attr)]
-    out["env"]["arm_targets"] = [f"{m.__name__}:{a}" for m, a in targets]
 
     AB.SAMPLING_STEPS, AB.RECYCLING_STEPS = args.steps, args.recycles
     dev = get_device()
@@ -116,6 +115,7 @@ def main() -> int:
         "protocol": {"recycling_steps": args.recycles, "sampling_steps": args.steps,
                      "seeds": seeds, "diffusion_trace": False, "flag": args.flag},
     }, "runs": []}
+    out["env"]["arm_targets"] = [f"{m.__name__}:{a}" for m, a in targets]
     args.out.parent.mkdir(parents=True, exist_ok=True)
 
     def dump():
