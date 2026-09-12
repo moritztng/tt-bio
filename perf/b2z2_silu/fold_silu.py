@@ -35,6 +35,7 @@ import json
 import os
 import shutil
 import socket
+import statistics as st
 import sys
 import tempfile
 import time
@@ -58,6 +59,12 @@ def main() -> int:
     ap.add_argument("--sizes", default="512")
     ap.add_argument("--steps", type=int, default=AB.SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
+    ap.add_argument("--timing-reps", type=int, default=0,
+                    help="run the TIMING protocol instead of the seed plan: this many reps of "
+                         "--timing-arms at one seed, in one process")
+    ap.add_argument("--timing-arms", default="base,usilu,base",
+                    help="arms per rep, in order. base at two positions gives the A/A floor")
+    ap.add_argument("--timing-seed", type=int, default=0)
     args = ap.parse_args()
 
     plan = {}
@@ -140,6 +147,9 @@ def main() -> int:
                 "sha256": hashlib.sha256(body).hexdigest()[:16],
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
 
+    if args.timing_reps:
+        return timing(args, out, dump, fold, T, ttnn, dev)
+
     first = next(iter(plan))
     for size in sizes:
         target = AB.FIX / f"cdk2x2_{size}.yaml"
@@ -163,6 +173,80 @@ def main() -> int:
         size: len({r["sha256"] for r in aa if r["target"].endswith(size)}) == 1 for size in sizes}
     dump()
     print(json.dumps(out["aa_floor_identical"], indent=1))
+    return 0
+
+
+def timing(args, out, dump, fold, T, ttnn, dev):
+    """The fold A/B, on the same protocol the rest of the campaign times on.
+
+    One process, one device open, arms interleaved inside every rep so a drift across the run
+    cannot land on one arm. `base` runs at two positions in each rep, so the A/A floor is a
+    measurement of this run rather than a number quoted from another one, and the cold fold is
+    discarded. The PairformerLayer wall is recorded next to the fold wall: a null on the fold with
+    a moved block is a lever that fired and was swallowed, which is a different finding from a
+    lever that never fired at all.
+    """
+    wall = {"n": 0, "s": 0.0}
+    layer = getattr(T, "PairformerLayer", None)
+    if layer is not None:
+        inner = layer.__call__
+
+        def timed(self, *a, **kw):
+            ttnn.synchronize_device(dev)
+            t = time.perf_counter()
+            r = inner(self, *a, **kw)
+            ttnn.synchronize_device(dev)
+            wall["n"] += 1
+            wall["s"] += time.perf_counter() - t
+            return r
+
+        layer.__call__ = timed
+
+    size = args.sizes.split(",")[0]
+    target = AB.FIX / f"cdk2x2_{size}.yaml"
+    arms = args.timing_arms.split(",")
+    out["timing"] = {"arms": arms, "reps": args.timing_reps, "seed": args.timing_seed,
+                     "block_timed": layer is not None}
+    cif = Path(tempfile.mkdtemp(prefix="b2z2-silu-timing-"))
+
+    for rep in range(-1, args.timing_reps):                # rep -1 is the cold fold, discarded
+        for pos, arm in enumerate(arms if rep >= 0 else arms[:1]):
+            wall["n"] = 0
+            wall["s"] = 0.0
+            r = fold(arm, args.timing_seed, target, cif / f"{rep}_{pos}_{arm}")
+            r.update(rep=rep, pos=pos, cold=rep < 0,
+                     block_s=round(wall["s"], 4), block_n=wall["n"])
+            out["runs"].append(r)
+            print(f"  rep{rep:<2d} {arm:7s} pos{pos} fold {r['fold_s']:7.3f}s  "
+                  f"block {r['block_s']:7.3f}s/{r['block_n']:<4d} sha={r['sha256']}", flush=True)
+            dump()
+
+    warm = [r for r in out["runs"] if not r["cold"]]
+    by = {a: [r["fold_s"] for r in warm if r["arm"] == a] for a in set(arms)}
+    blk = {a: [r["block_s"] for r in warm if r["arm"] == a] for a in set(arms)}
+    base = st.median(by["base"])
+    summary = {}
+    for arm in sorted(by):
+        v = by[arm]
+        row = {"n": len(v), "median_fold_s": round(st.median(v), 3),
+               "fold_ratio_vs_base": round(base / st.median(v), 5),
+               "spread_pct": round(100 * (max(v) - min(v)) / st.median(v), 2)}
+        if blk[arm] and blk["base"]:
+            row["median_block_s"] = round(st.median(blk[arm]), 3)
+            row["block_ratio_vs_base"] = round(st.median(blk["base"]) / st.median(blk[arm]), 5)
+        summary[arm] = row
+        print(f"{arm:8s} n={row['n']} fold {row['median_fold_s']:.3f}s "
+              f"{row['fold_ratio_vs_base']:.5f}x  block {row.get('median_block_s')}s "
+              f"{row.get('block_ratio_vs_base')}x  spread {row['spread_pct']:.2f}%", flush=True)
+
+    p0 = [r["fold_s"] for r in warm if r["arm"] == "base" and r["pos"] == 0]
+    pn = [r["fold_s"] for r in warm if r["arm"] == "base" and r["pos"] != 0]
+    if p0 and pn:
+        summary["aa_floor"] = round(st.median(p0) / st.median(pn), 5)
+        print(f"A/A floor (base pos0 / base pos-last): {summary['aa_floor']:.5f}x", flush=True)
+    summary["identical_across_arms"] = len({r["sha256"] for r in warm}) == 1
+    out["timing"]["summary"] = summary
+    dump()
     return 0
 
 
