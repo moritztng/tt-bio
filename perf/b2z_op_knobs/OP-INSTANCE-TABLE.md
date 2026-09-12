@@ -7,6 +7,13 @@ and UMD brings up all 32 chips on every device open, so the absolutes are inflat
 varying amount. The column that matters is *share*: which instances are worth sweeping. Every
 perf claim in `BEST-CONFIG-TABLE.md` is a paired interleaved ratio taken in one process.
 
+> **SUPERSEDED for the matmul rows.** Every matmul below was timed as a bare `ttnn.linear(a, b)`.
+> The engine never makes that call: each of its 39 hot-path matmul call sites already passes
+> `core_grid=CORE_GRID_MAIN` or a hand-tuned program config, and on the pair-track Transition the
+> default resolver costs 6.2x what the shipped call costs. So the matmul rows here are inflated by
+> up to 6-9x and the ranking they produce is wrong. The corrected ranking, priced at the shipped
+> cost, is in `BEST-CONFIG-TABLE.md`. The non-matmul rows stand.
+
 Replayed total 55.84 s/fold over 323 instances (11 instances failed to build).
 
 | # | instance | op | share | ms/fold | us/call | calls/fold | operands |

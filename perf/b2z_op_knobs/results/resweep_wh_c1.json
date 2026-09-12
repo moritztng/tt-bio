@@ -1,0 +1,1822 @@
+{
+ "env": {
+  "started": "2026-09-12T10:13:37+0000",
+  "grid": "8x9",
+  "arch": "Arch.WORMHOLE_B0",
+  "reps": 16,
+  "bursts": 5,
+  "incumbent": "shipped (core_grid where the engine passes one)"
+ },
+ "instances": [
+  {
+   "id": "PairformerLayer#002",
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "ms_per_fold": 4651.728,
+   "unit_path": "PairformerLayer/TriangleMultiplication/TriangleMultiplication/TriangleAttention/TriangleAttention/Transition",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 475.47,
+     "ratio": 0.1625,
+     "rel_max_err": 0.003016,
+     "rms_err": 0.000193,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 69.61,
+     "ratio": 1.119,
+     "rel_max_err": 0.011287,
+     "rms_err": 0.000634,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 76.39,
+     "ratio": 1.0114,
+     "rel_max_err": 0.00631,
+     "rms_err": 0.000513,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 65.85,
+     "ratio": 1.1648,
+     "rel_max_err": 0.010907,
+     "rms_err": 0.000637,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 65.87,
+     "ratio": 1.1697,
+     "rel_max_err": 0.027266,
+     "rms_err": 0.002881,
+     "max_abs_vs_incumbent": 0.01758,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 83.95,
+     "ratio": 0.921,
+     "rel_max_err": 0.003381,
+     "rms_err": 0.000206,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 77.18,
+     "ratio": 0.9936,
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 68.03,
+     "ratio": 1.1247,
+     "rel_max_err": 0.011287,
+     "rms_err": 0.000634,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 76.51,
+     "ratio": 0.9981,
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 120.8,
+     "ratio": 0.6334,
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 76.13,
+   "incumbent_rel_max_err": 0.003168,
+   "incumbent_rms_err": 0.000194,
+   "aa_floor": 1.0299
+  },
+  {
+   "id": "PairformerLayer#001",
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "ms_per_fold": 3998.891,
+   "unit_path": "PairformerLayer/TriangleMultiplication/TriangleMultiplication/TriangleAttention/TriangleAttention/Transition",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 473.64,
+     "ratio": 0.1614,
+     "rel_max_err": 0.003016,
+     "rms_err": 0.000193,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 68.09,
+     "ratio": 1.1229,
+     "rel_max_err": 0.011287,
+     "rms_err": 0.000634,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 76.06,
+     "ratio": 1.0072,
+     "rel_max_err": 0.00631,
+     "rms_err": 0.000513,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 66.34,
+     "ratio": 1.1597,
+     "rel_max_err": 0.010907,
+     "rms_err": 0.000637,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 66.1,
+     "ratio": 1.1723,
+     "rel_max_err": 0.027266,
+     "rms_err": 0.002881,
+     "max_abs_vs_incumbent": 0.01758,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 83.96,
+     "ratio": 0.9184,
+     "rel_max_err": 0.003381,
+     "rms_err": 0.000206,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 76.17,
+     "ratio": 1.0031,
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 67.8,
+     "ratio": 1.1251,
+     "rel_max_err": 0.011287,
+     "rms_err": 0.000634,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 76.31,
+     "ratio": 1.002,
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 119.38,
+     "ratio": 0.6388,
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 76.64,
+   "incumbent_rel_max_err": 0.003168,
+   "incumbent_rms_err": 0.000194,
+   "aa_floor": 1.0234
+  },
+  {
+   "id": "PairformerLayer#007",
+   "shapes": [
+    "1x512x512x128",
+    "128x128"
+   ],
+   "ms_per_fold": 3362.54,
+   "unit_path": "PairformerLayer/TriangleMultiplication",
+   "api": "ttnn.linear",
+   "shipped_config": "program_config",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 3251.15,
+     "ratio": 0.9804,
+     "rel_max_err": 0.714688,
+     "rms_err": 0.000212,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 3022.28,
+     "ratio": 1.0548,
+     "rel_max_err": 0.013013,
+     "rms_err": 0.000723,
+     "max_abs_vs_incumbent": 0.5,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 3069.37,
+     "ratio": 1.0425,
+     "rel_max_err": 0.006634,
+     "rms_err": 0.000507,
+     "max_abs_vs_incumbent": 0.499,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 3086.47,
+     "ratio": 1.0363,
+     "rel_max_err": 0.013013,
+     "rms_err": 0.000723,
+     "max_abs_vs_incumbent": 0.5,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 3018.47,
+     "ratio": 1.0777,
+     "rel_max_err": 0.013013,
+     "rms_err": 0.000723,
+     "max_abs_vs_incumbent": 0.5,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 3184.16,
+     "ratio": 1.0214,
+     "rel_max_err": 0.714688,
+     "rms_err": 0.000212,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 3318.98,
+     "ratio": 0.9594,
+     "rel_max_err": 0.714688,
+     "rms_err": 0.000212,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 3022.74,
+     "ratio": 1.0539,
+     "rel_max_err": 0.013013,
+     "rms_err": 0.000723,
+     "max_abs_vs_incumbent": 0.5,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 39 clash with L1 buffers on cor"
+    },
+    {
+     "knob": "grid=8x4",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 41 clash with L1 buffers on cor"
+    }
+   ],
+   "incumbent_us": 3187.62,
+   "incumbent_rel_max_err": 0.714688,
+   "incumbent_rms_err": 0.000212,
+   "aa_floor": 1.0431
+  },
+  {
+   "id": "DiffusionStep#000",
+   "shapes": [
+    "1x512x768",
+    "768x1536"
+   ],
+   "ms_per_fold": 2878.547,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 56.12,
+     "ratio": 0.9609,
+     "rel_max_err": 0.003091,
+     "rms_err": 0.000478,
+     "max_abs_vs_incumbent": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 53.86,
+     "ratio": 1.0026,
+     "rel_max_err": 0.015789,
+     "rms_err": 0.002981,
+     "max_abs_vs_incumbent": 1.002,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 54.12,
+     "ratio": 0.9869,
+     "rel_max_err": 0.005722,
+     "rms_err": 0.001266,
+     "max_abs_vs_incumbent": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 51.79,
+     "ratio": 1.0369,
+     "rel_max_err": 0.015448,
+     "rms_err": 0.002752,
+     "max_abs_vs_incumbent": 1.004,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 52.14,
+     "ratio": 1.0303,
+     "rel_max_err": 0.026005,
+     "rms_err": 0.00664,
+     "max_abs_vs_incumbent": 0.9961,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 54.7,
+     "ratio": 0.9779,
+     "rel_max_err": 0.003619,
+     "rms_err": 0.000558,
+     "max_abs_vs_incumbent": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 53.61,
+     "ratio": 1.0002,
+     "rel_max_err": 0.697219,
+     "rms_err": 0.001225,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 51.75,
+     "ratio": 1.0313,
+     "rel_max_err": 0.015789,
+     "rms_err": 0.002981,
+     "max_abs_vs_incumbent": 1.002,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 52.93,
+     "ratio": 1.0235,
+     "rel_max_err": 0.697219,
+     "rms_err": 0.001225,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 73.03,
+     "ratio": 0.7511,
+     "rel_max_err": 0.697219,
+     "rms_err": 0.001225,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 53.39,
+   "incumbent_rel_max_err": 0.697219,
+   "incumbent_rms_err": 0.001225,
+   "aa_floor": 1.0378
+  },
+  {
+   "id": "DiffusionStep#017",
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x64"
+   ],
+   "ms_per_fold": 2387.769,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "api": "ttnn.matmul",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 202.83,
+     "ratio": 0.7056,
+     "rel_max_err": 0.003761,
+     "rms_err": 0.00039,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 138.05,
+     "ratio": 1.0351,
+     "rel_max_err": 0.013162,
+     "rms_err": 0.001625,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 311.13,
+     "ratio": 0.7982,
+     "rel_max_err": 0.005829,
+     "rms_err": 0.001038,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 371.14,
+     "ratio": 0.8423,
+     "rel_max_err": 0.013043,
+     "rms_err": 0.001623,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 271.1,
+     "ratio": 0.8199,
+     "rel_max_err": 0.029467,
+     "rms_err": 0.005866,
+     "max_abs_vs_incumbent": 0.03125,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 145.29,
+     "ratio": 1.0968,
+     "rel_max_err": 0.00544,
+     "rms_err": 0.000804,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 422.99,
+     "ratio": 0.5679,
+     "rel_max_err": 0.003761,
+     "rms_err": 0.000391,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 136.89,
+     "ratio": 1.748,
+     "rel_max_err": 0.013162,
+     "rms_err": 0.001625,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 240.76,
+     "ratio": 0.6,
+     "rel_max_err": 0.003761,
+     "rms_err": 0.000391,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 119.02,
+     "ratio": 1.281,
+     "rel_max_err": 0.003761,
+     "rms_err": 0.000391,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 143.78,
+   "incumbent_rel_max_err": 0.003761,
+   "incumbent_rms_err": 0.000391,
+   "aa_floor": 2.4801
+  },
+  {
+   "id": "PairformerLayer#004",
+   "shapes": [
+    "1x16x512x512",
+    "512x128"
+   ],
+   "ms_per_fold": 2320.707,
+   "unit_path": "PairformerLayer/TriangleMultiplication/TriangleMultiplication/TriangleAttention/TriangleAttention/Transition",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 810.9,
+     "ratio": 0.3386,
+     "rel_max_err": 0.003064,
+     "rms_err": 0.000389,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 93.38,
+     "ratio": 2.9654,
+     "rel_max_err": 0.012391,
+     "rms_err": 0.001628,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 94.94,
+     "ratio": 1.9641,
+     "rel_max_err": 0.005213,
+     "rms_err": 0.001038,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 96.96,
+     "ratio": 1.4001,
+     "rel_max_err": 0.012125,
+     "rms_err": 0.001625,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 89.27,
+     "ratio": 1.5258,
+     "rel_max_err": 0.027985,
+     "rms_err": 0.005869,
+     "max_abs_vs_incumbent": 0.03516,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 98.54,
+     "ratio": 0.9779,
+     "rel_max_err": 0.006501,
+     "rms_err": 0.000799,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 95.56,
+     "ratio": 1.0053,
+     "rel_max_err": 0.003064,
+     "rms_err": 0.00039,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 92.6,
+     "ratio": 1.0507,
+     "rel_max_err": 0.012391,
+     "rms_err": 0.001628,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 95.86,
+     "ratio": 1.0066,
+     "rel_max_err": 0.003064,
+     "rms_err": 0.00039,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 118.93,
+     "ratio": 1.4895,
+     "rel_max_err": 0.003064,
+     "rms_err": 0.00039,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 271.84,
+   "incumbent_rel_max_err": 0.003064,
+   "incumbent_rms_err": 0.00039,
+   "aa_floor": 2.9144
+  },
+  {
+   "id": "DiffusionStep#029",
+   "shapes": [
+    "1x224x32x128",
+    "128x256"
+   ],
+   "ms_per_fold": 1987.671,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 551.47,
+     "ratio": 0.3986,
+     "rel_max_err": 0.003086,
+     "rms_err": 0.000193,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 105.57,
+     "ratio": 1.9085,
+     "rel_max_err": 0.012352,
+     "rms_err": 0.000634,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 106.71,
+     "ratio": 1.7348,
+     "rel_max_err": 0.005842,
+     "rms_err": 0.000513,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 104.84,
+     "ratio": 1.7671,
+     "rel_max_err": 0.011253,
+     "rms_err": 0.000637,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 104.7,
+     "ratio": 1.0205,
+     "rel_max_err": 0.027296,
+     "rms_err": 0.002897,
+     "max_abs_vs_incumbent": 0.01758,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 108.53,
+     "ratio": 1.205,
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000206,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 108.43,
+     "ratio": 1.2111,
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000195,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 106.65,
+     "ratio": 1.0067,
+     "rel_max_err": 0.012352,
+     "rms_err": 0.000634,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 107.24,
+     "ratio": 1.0002,
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000195,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 143.0,
+     "ratio": 0.7494,
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000195,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 143.27,
+   "incumbent_rel_max_err": 0.003385,
+   "incumbent_rms_err": 0.000195,
+   "aa_floor": 2.7811
+  },
+  {
+   "id": "DiffusionStep#035",
+   "shapes": [
+    "1x224x32x128",
+    "128x128",
+    "128"
+   ],
+   "ms_per_fold": 1331.867,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 554.63,
+     "ratio": 0.1304,
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026,
+     "max_abs_vs_incumbent": 0.0009766,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 70.04,
+     "ratio": 1.0202,
+     "rel_max_err": 0.008593,
+     "rms_err": 0.000623,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 73.32,
+     "ratio": 0.9808,
+     "rel_max_err": 0.004928,
+     "rms_err": 0.000525,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 74.84,
+     "ratio": 0.965,
+     "rel_max_err": 0.007456,
+     "rms_err": 0.000638,
+     "max_abs_vs_incumbent": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 69.68,
+     "ratio": 2.2034,
+     "rel_max_err": 0.022458,
+     "rms_err": 0.002892,
+     "max_abs_vs_incumbent": 0.01758,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 73.25,
+     "ratio": 2.0924,
+     "rel_max_err": 0.003083,
+     "rms_err": 0.000272,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 71.13,
+     "ratio": 1.0075,
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 69.73,
+     "ratio": 1.0256,
+     "rel_max_err": 0.008593,
+     "rms_err": 0.000623,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 125.9,
+     "ratio": 0.5729,
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 75.46,
+     "ratio": 0.9667,
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 73.02,
+   "incumbent_rel_max_err": 0.002812,
+   "incumbent_rms_err": 0.00026,
+   "aa_floor": 3.3112
+  },
+  {
+   "id": "DiffusionStep#036",
+   "shapes": [
+    "1x224x32x128",
+    "128x128"
+   ],
+   "ms_per_fold": 1317.294,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 623.7,
+     "ratio": 0.112,
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000193,
+     "max_abs_vs_incumbent": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 68.36,
+     "ratio": 1.0212,
+     "rel_max_err": 0.013166,
+     "rms_err": 0.000636,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 69.62,
+     "ratio": 1.0068,
+     "rel_max_err": 0.00689,
+     "rms_err": 0.000514,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 68.17,
+     "ratio": 1.0282,
+     "rel_max_err": 0.009502,
+     "rms_err": 0.000638,
+     "max_abs_vs_incumbent": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 72.16,
+     "ratio": 0.9683,
+     "rel_max_err": 0.030236,
+     "rms_err": 0.00291,
+     "max_abs_vs_incumbent": 0.01758,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 70.47,
+     "ratio": 0.9955,
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000206,
+     "max_abs_vs_incumbent": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 73.67,
+     "ratio": 0.9478,
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000194,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 68.6,
+     "ratio": 1.0141,
+     "rel_max_err": 0.013166,
+     "rms_err": 0.000636,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 69.41,
+     "ratio": 1.0024,
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000194,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 73.94,
+     "ratio": 0.9465,
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000194,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 69.79,
+   "incumbent_rel_max_err": 0.003462,
+   "incumbent_rms_err": 0.000194,
+   "aa_floor": 1.0163
+  },
+  {
+   "id": "DiffusionStep#043",
+   "shapes": [
+    "1x224x128x128",
+    "128x256"
+   ],
+   "ms_per_fold": 1258.41,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 870.35,
+     "ratio": 0.5734,
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 1188.02,
+     "ratio": 0.5564,
+     "rel_max_err": 0.011006,
+     "rms_err": 0.000637,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 399.16,
+     "ratio": 2.2297,
+     "rel_max_err": 0.006362,
+     "rms_err": 0.000515,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 811.52,
+     "ratio": 0.9891,
+     "rel_max_err": 0.010837,
+     "rms_err": 0.00064,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 812.8,
+     "ratio": 0.9589,
+     "rel_max_err": 0.028668,
+     "rms_err": 0.002899,
+     "max_abs_vs_incumbent": 0.01758,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 588.96,
+     "ratio": 1.3769,
+     "rel_max_err": 0.00366,
+     "rms_err": 0.000206,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 398.22,
+     "ratio": 1.5185,
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 1033.43,
+     "ratio": 0.3851,
+     "rel_max_err": 0.011006,
+     "rms_err": 0.000637,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 913.2,
+     "ratio": 0.4363,
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 1185.78,
+     "ratio": 0.6682,
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 598.95,
+   "incumbent_rel_max_err": 0.003572,
+   "incumbent_rms_err": 0.000195,
+   "aa_floor": 2.9811
+  },
+  {
+   "id": "PairformerLayer#017",
+   "shapes": [
+    "1x128x512x512",
+    "1x128x512x512"
+   ],
+   "ms_per_fold": 1233.1,
+   "unit_path": "PairformerLayer/TriangleMultiplication",
+   "api": "ttnn.matmul",
+   "shipped_config": "program_config",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 2356.48,
+     "ratio": 1.0217,
+     "rel_max_err": 0.808471,
+     "rms_err": 0.000478,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 2196.58,
+     "ratio": 1.1324,
+     "rel_max_err": 0.014747,
+     "rms_err": 0.001802,
+     "max_abs_vs_incumbent": 1.003,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 2289.01,
+     "ratio": 1.0576,
+     "rel_max_err": 0.007044,
+     "rms_err": 0.001035,
+     "max_abs_vs_incumbent": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 2372.99,
+     "ratio": 0.9854,
+     "rel_max_err": 0.014713,
+     "rms_err": 0.001693,
+     "max_abs_vs_incumbent": 1.003,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 2322.37,
+     "ratio": 1.0486,
+     "rel_max_err": 0.029853,
+     "rms_err": 0.005685,
+     "max_abs_vs_incumbent": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 2490.0,
+     "ratio": 0.9789,
+     "rel_max_err": 0.201581,
+     "rms_err": 0.000511,
+     "max_abs_vs_incumbent": 1.0,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 2337.69,
+     "ratio": 1.0341,
+     "rel_max_err": 0.808471,
+     "rms_err": 0.000478,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 2310.14,
+     "ratio": 1.0918,
+     "rel_max_err": 0.014747,
+     "rms_err": 0.001802,
+     "max_abs_vs_incumbent": 1.003,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 2473.13,
+     "ratio": 0.9879,
+     "rel_max_err": 0.808471,
+     "rms_err": 0.000478,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 3123.01,
+     "ratio": 0.7937,
+     "rel_max_err": 0.808471,
+     "rms_err": 0.000478,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 2341.4,
+   "incumbent_rel_max_err": 0.808471,
+   "incumbent_rms_err": 0.000478,
+   "aa_floor": 1.1219
+  },
+  {
+   "id": "MSALayer#015",
+   "shapes": [
+    "1024x32x512",
+    "1x512x512"
+   ],
+   "ms_per_fold": 1052.608,
+   "unit_path": "MSALayer/PairWeightedAveraging",
+   "api": "ttnn.matmul",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 8313.27,
+     "ratio": 0.2001,
+     "rel_max_err": 0.79981,
+     "rms_err": 0.000475,
+     "max_abs_vs_incumbent": 0.9961,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 1290.61,
+     "ratio": 1.2845,
+     "rel_max_err": 0.013634,
+     "rms_err": 0.001625,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 1631.4,
+     "ratio": 1.0007,
+     "rel_max_err": 0.006706,
+     "rms_err": 0.001036,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 1810.53,
+     "ratio": 0.9765,
+     "rel_max_err": 0.012909,
+     "rms_err": 0.001622,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 1311.88,
+     "ratio": 1.32,
+     "rel_max_err": 0.031386,
+     "rms_err": 0.005847,
+     "max_abs_vs_incumbent": 0.03906,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 1651.05,
+     "ratio": 1.0047,
+     "rel_max_err": 0.005594,
+     "rms_err": 0.000801,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 1589.01,
+     "ratio": 1.1093,
+     "rel_max_err": 0.003638,
+     "rms_err": 0.00039,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 1145.22,
+     "ratio": 1.5384,
+     "rel_max_err": 0.013634,
+     "rms_err": 0.001625,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 1151.46,
+     "ratio": 1.4677,
+     "rel_max_err": 0.003638,
+     "rms_err": 0.00039,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 1603.49,
+     "ratio": 1.0658,
+     "rel_max_err": 0.003638,
+     "rms_err": 0.00039,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 1600.16,
+   "incumbent_rel_max_err": 0.003638,
+   "incumbent_rms_err": 0.00039,
+   "aa_floor": 1.1704
+  },
+  {
+   "id": "DiffusionStep#053",
+   "shapes": [
+    "1x224x32x256",
+    "256x128"
+   ],
+   "ms_per_fold": 985.002,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 821.74,
+     "ratio": 0.1152,
+     "rel_max_err": 0.002686,
+     "rms_err": 0.000277,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 144.21,
+     "ratio": 0.6577,
+     "rel_max_err": 0.011585,
+     "rms_err": 0.001014,
+     "max_abs_vs_incumbent": 0.01172,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 192.63,
+     "ratio": 0.4967,
+     "rel_max_err": 0.006071,
+     "rms_err": 0.000737,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 95.89,
+     "ratio": 1.0567,
+     "rel_max_err": 0.011585,
+     "rms_err": 0.001012,
+     "max_abs_vs_incumbent": 0.01172,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 95.04,
+     "ratio": 1.106,
+     "rel_max_err": 0.029538,
+     "rms_err": 0.00415,
+     "max_abs_vs_incumbent": 0.02344,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 96.44,
+     "ratio": 1.0292,
+     "rel_max_err": 0.003911,
+     "rms_err": 0.000364,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 95.36,
+     "ratio": 0.996,
+     "rel_max_err": 0.002808,
+     "rms_err": 0.000278,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 95.43,
+     "ratio": 0.9996,
+     "rel_max_err": 0.011585,
+     "rms_err": 0.001014,
+     "max_abs_vs_incumbent": 0.01172,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 95.35,
+     "ratio": 1.0052,
+     "rel_max_err": 0.002808,
+     "rms_err": 0.000278,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 103.83,
+     "ratio": 0.9232,
+     "rel_max_err": 0.002808,
+     "rms_err": 0.000278,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 94.88,
+   "incumbent_rel_max_err": 0.002808,
+   "incumbent_rms_err": 0.000278,
+   "aa_floor": 1.128
+  },
+  {
+   "id": "PairformerLayer#019",
+   "shapes": [
+    "512x512x128",
+    "128x4"
+   ],
+   "ms_per_fold": 855.372,
+   "unit_path": "PairformerLayer/TriangleMultiplication/TriangleMultiplication/TriangleAttention",
+   "api": "ttnn.linear",
+   "shipped_config": "program_config",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 1748.37,
+     "ratio": 0.9992,
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000196,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 1874.68,
+     "ratio": 0.9342,
+     "rel_max_err": 0.010663,
+     "rms_err": 0.000741,
+     "max_abs_vs_incumbent": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 1603.05,
+     "ratio": 1.0781,
+     "rel_max_err": 0.006418,
+     "rms_err": 0.000514,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 1568.85,
+     "ratio": 1.0588,
+     "rel_max_err": 0.010636,
+     "rms_err": 0.000707,
+     "max_abs_vs_incumbent": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 1566.85,
+     "ratio": 1.0342,
+     "rel_max_err": 0.027102,
+     "rms_err": 0.002912,
+     "max_abs_vs_incumbent": 0.01758,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 1624.27,
+     "ratio": 0.9986,
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000196,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 1621.54,
+     "ratio": 1.0014,
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000196,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 1578.33,
+     "ratio": 1.0282,
+     "rel_max_err": 0.010663,
+     "rms_err": 0.000741,
+     "max_abs_vs_incumbent": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 1217.36,
+     "ratio": 1.3323,
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000197,
+     "max_abs_vs_incumbent": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 1302.37,
+     "ratio": 1.2454,
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000197,
+     "max_abs_vs_incumbent": 0.001953,
+     "bit_exact": false
+    }
+   ],
+   "incumbent_us": 1747.19,
+   "incumbent_rel_max_err": 0.003226,
+   "incumbent_rms_err": 0.000196,
+   "aa_floor": 1.0844
+  },
+  {
+   "id": "DiffusionStep#013",
+   "shapes": [
+    "1x16x512x64",
+    "1x16x64x512"
+   ],
+   "ms_per_fold": 719.023,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "api": "ttnn.matmul",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 148.8,
+     "ratio": 1.0032,
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 173.64,
+     "ratio": 0.8623,
+     "rel_max_err": 0.010474,
+     "rms_err": 0.000389,
+     "max_abs_vs_incumbent": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 323.88,
+     "ratio": 0.4658,
+     "rel_max_err": 0.005242,
+     "rms_err": 0.000359,
+     "max_abs_vs_incumbent": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 169.53,
+     "ratio": 1.191,
+     "rel_max_err": 0.00833,
+     "rms_err": 0.000405,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 196.06,
+     "ratio": 1.2843,
+     "rel_max_err": 0.033104,
+     "rms_err": 0.002057,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 149.87,
+     "ratio": 1.3396,
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 150.19,
+     "ratio": 1.0585,
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 258.86,
+     "ratio": 0.6125,
+     "rel_max_err": 0.010474,
+     "rms_err": 0.000389,
+     "max_abs_vs_incumbent": 0.005859,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 149.9,
+     "ratio": 1.4719,
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 250.0,
+     "ratio": 1.2595,
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 149.62,
+   "incumbent_rel_max_err": 0.002888,
+   "incumbent_rms_err": 0.000137,
+   "aa_floor": 2.2704
+  },
+  {
+   "id": "DiffusionStep#040",
+   "shapes": [
+    "1x16x128x448",
+    "448x1792"
+   ],
+   "ms_per_fold": 715.581,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "api": "ttnn.matmul",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 432.67,
+     "ratio": 0.6352,
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 168.62,
+     "ratio": 1.6245,
+     "rel_max_err": 0.11101,
+     "rms_err": 0.023912,
+     "max_abs_vs_incumbent": 0.01172,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 182.04,
+     "ratio": 1.3331,
+     "rel_max_err": 0.110169,
+     "rms_err": 0.023838,
+     "max_abs_vs_incumbent": 0.007812,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 160.58,
+     "ratio": 1.5103,
+     "rel_max_err": 0.110169,
+     "rms_err": 0.023882,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 271.35,
+     "ratio": 0.6409,
+     "rel_max_err": 0.110169,
+     "rms_err": 0.023882,
+     "max_abs_vs_incumbent": 0.01562,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 623.35,
+     "ratio": 0.283,
+     "rel_max_err": 0.11101,
+     "rms_err": 0.023851,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 173.56,
+     "ratio": 1.0163,
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 170.4,
+     "ratio": 1.6103,
+     "rel_max_err": 0.11101,
+     "rms_err": 0.023912,
+     "max_abs_vs_incumbent": 0.01172,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 374.11,
+     "ratio": 0.735,
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 590.92,
+     "ratio": 0.2971,
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 175.83,
+   "incumbent_rel_max_err": 0.11101,
+   "incumbent_rms_err": 0.02386,
+   "aa_floor": 2.1571
+  },
+  {
+   "id": "MSALayer#010",
+   "shapes": [
+    "1024x512x64",
+    "64x32"
+   ],
+   "ms_per_fold": 654.292,
+   "unit_path": "MSALayer/PairWeightedAveraging",
+   "api": "ttnn.linear",
+   "shipped_config": "core_grid",
+   "arms": [
+    {
+     "knob": "nogrid=1",
+     "us": 2309.59,
+     "ratio": 0.6559,
+     "rel_max_err": 0.002454,
+     "rms_err": 0.000134,
+     "max_abs_vs_incumbent": 0.001953,
+     "bit_exact": false
+    },
+    {
+     "knob": "fp32acc=0",
+     "us": 1491.12,
+     "ratio": 1.009,
+     "rel_max_err": 0.0098,
+     "rms_err": 0.000386,
+     "max_abs_vs_incumbent": 0.004883,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "us": 1358.72,
+     "ratio": 1.0722,
+     "rel_max_err": 0.006604,
+     "rms_err": 0.000357,
+     "max_abs_vs_incumbent": 0.003906,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "us": 1518.82,
+     "ratio": 0.9383,
+     "rel_max_err": 0.009672,
+     "rms_err": 0.000403,
+     "max_abs_vs_incumbent": 0.004883,
+     "bit_exact": false
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "us": 1355.23,
+     "ratio": 1.098,
+     "rel_max_err": 0.030796,
+     "rms_err": 0.002072,
+     "max_abs_vs_incumbent": 0.01367,
+     "bit_exact": false
+    },
+    {
+     "knob": "packerl1=0",
+     "us": 1358.28,
+     "ratio": 1.074,
+     "rel_max_err": 0.002498,
+     "rms_err": 0.000136,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "dstfull=1",
+     "us": 1582.79,
+     "ratio": 0.8581,
+     "rel_max_err": 0.002498,
+     "rms_err": 0.000136,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "us": 1374.56,
+     "ratio": 1.0623,
+     "rel_max_err": 0.0098,
+     "rms_err": 0.000386,
+     "max_abs_vs_incumbent": 0.004883,
+     "bit_exact": false
+    },
+    {
+     "knob": "grid=8x8",
+     "us": 1440.92,
+     "ratio": 1.0126,
+     "rel_max_err": 0.002498,
+     "rms_err": 0.000136,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    },
+    {
+     "knob": "grid=8x4",
+     "us": 1406.28,
+     "ratio": 1.0375,
+     "rel_max_err": 0.002498,
+     "rms_err": 0.000136,
+     "max_abs_vs_incumbent": 0.0,
+     "bit_exact": true
+    }
+   ],
+   "incumbent_us": 1498.79,
+   "incumbent_rel_max_err": 0.002498,
+   "incumbent_rms_err": 0.000136,
+   "aa_floor": 1.1512
+  }
+ ]
+}
