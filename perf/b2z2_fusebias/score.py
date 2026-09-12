@@ -176,8 +176,13 @@ def main() -> int:
     for size, sec in report["sizes"].items():
         print(f"\n=== {size} aa ===  A/A bit-exact: {sec.get('aa_floor_bitexact')}")
         for k, v in sec["summary"].items():
-            lev = "  ".join(f"{arm} max {v[arm].get('max'):>9}" for arm in arms[1:] if arm in v)
-            print(f"  {k:24s} {lev} | seed floor max {v['seed_floor'].get('max'):>9}")
+            # A one-seed run has no seed floor, so `spread` returns {"n": 0} and there is no max
+            # to format. Print the reading that does exist rather than raising over the one that
+            # cannot: bar 1 is a per-domain absolute and does not need the floor.
+            def _m(d):
+                return f"{d.get('max'):>9}" if d.get("max") is not None else "        -"
+            lev = "  ".join(f"{arm} max {_m(v[arm])}" for arm in arms[1:] if arm in v)
+            print(f"  {k:24s} {lev} | seed floor max {_m(v['seed_floor'])}")
         for k, v in sec.get("native_summary", {}).items():
             print(f"  native {k:28s} {v}")
     print("\nwrote", a.out)

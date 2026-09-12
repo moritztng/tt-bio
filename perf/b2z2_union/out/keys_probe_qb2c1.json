@@ -1,0 +1,58 @@
+{
+ "env": {
+  "card": "1",
+  "started": "2026-09-12T19:21:02+0000",
+  "B K W H D": [
+   1,
+   140,
+   32,
+   128,
+   128
+  ]
+ },
+ "keys_indexing_shape": [
+  280,
+  1120
+ ],
+ "stock_bfloat4_b": {
+  "shape": [
+   1,
+   140,
+   128,
+   128
+  ],
+  "us": 626.645,
+  "torch": null
+ },
+ "stock_bfloat16": {
+  "shape": [
+   1,
+   140,
+   128,
+   128
+  ],
+  "us": 625.719,
+  "torch": null
+ },
+ "stock_bf4_vs_bf16_bit_exact": true,
+ "stock_bf4_vs_bf16_max_abs": 0.0,
+ "stock_bf4_vs_exact_max_abs": 0.03125,
+ "stock_bf4_vs_exact_bit_exact": false,
+ "window": {
+  "tile": {
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/pad/pad.cpp:278: front_padding_is_zero\ninfo:\nttnn.pad: on device tile padding does not support front padding\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7b8257b5d668]\n --- ttnn::operations::data_movement::detail::invoke_tile(tt::tt_metal::Tensor const&, ttsl::SmallVector"
+  },
+  "row_major": {
+   "shape": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "bit_exact_vs_bf4": false,
+   "max_abs_vs_bf4": 0.03125,
+   "bit_exact_vs_exact": true,
+   "us": 95.965
+  }
+ }
+}

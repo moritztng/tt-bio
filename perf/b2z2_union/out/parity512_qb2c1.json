@@ -1,0 +1,257 @@
+{
+ "doc": "The three credible Blackhole levers, singly and together, in one interleaved process.\n\n    HOST   TT_BIO_DEVICE_CONDITIONING   the diffusion conditioning pair track on the device\n    SILU   TT_BIO_UNFUSED_SILU          silu as its own op instead of inside ttnn.linear\n    AKW    TT_BIO_ATOM_KEY_WINDOW       the atom key window as tile-aligned slices, not a matmul\n\nEach was measured alone and none of them has been measured beside the other two. HOST carries the\ncampaign's largest single factor (1.06704x) and it was taken in a session whose own A/A floor was\n1.02155x on a box a co-tenant joined mid-run, so the number it carries is not one this wave can\npublish. This driver retakes all three on one tree, one device open, arms interleaved inside every\nrep, and records the loadavg and the device occupancy of every single fold, so a co-tenant arriving\nmid-run is visible in the artifact instead of inside a ratio.\n\nThe flags live in two different places and both are handled here rather than in the environment of\nthe process, because an A/B has to flip arms inside one process:\n\n  * `_UNFUSED_SILU` and `_ATOM_KEY_WINDOW` pick a device program, so they are read at build time\n    and are module attributes of `tt_bio.tenstorrent`;\n  * `TT_BIO_DEVICE_CONDITIONING` is read per call by `tt_bio.boltz2._device_conditioning`, so it\n    is an environment variable this driver sets per fold.\n\nEVERY arm applies the FULL flag set, not just the flags it turns on. An arm that only sets its own\nflags inherits whatever the previous arm left behind, which is how an interleaved run silently\nmeasures the union five times. `base` is therefore all three explicitly off, and it is the only\nthing any ratio here is a ratio of.\n\n    ab_union.py --out <json> --cifdir <dir> --mode parity --sizes 512,298\n    ab_union.py --out <json> --mode timing --reps 5 --order base,HOST,base,SILU,base,AKW,base,UNION\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "ttnn": "?",
+  "tt_visible_devices": "1",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-bh-union-clean/tt_bio/__init__.py",
+  "commit": "5d903e18eef4680f695d19e6bc7bcb34dc9f73cc",
+  "started_utc": "2026-09-12T19:18:33Z",
+  "loadavg_at_start": [
+   0.064453125,
+   0.162109375,
+   0.7265625
+  ],
+  "occupancy_at_start": {
+   "pids": [
+    "905939"
+   ],
+   "nodes": [
+    "/dev/tenstorrent/1"
+   ]
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "mode": "parity",
+   "order": "base,HOST,base,SILU,base,AKW,base,UNION,base,UNION",
+   "reps": 5,
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 23.091,
+   "sha256": "a91aa44441f0d9c5",
+   "flags": {
+    "SILU": false,
+    "AKW": false,
+    "HOST": false
+   },
+   "block_s": 13.2801,
+   "block_n": 280,
+   "loadavg_before": [
+    0.14,
+    0.18,
+    0.73
+   ],
+   "loadavg_after": [
+    0.61,
+    0.29,
+    0.75
+   ],
+   "occupancy": {
+    "pids": [
+     "905939"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.800144,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "HOST",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 18.8,
+   "sha256": "6267c8e4b151212f",
+   "flags": {
+    "SILU": false,
+    "AKW": false,
+    "HOST": true
+   },
+   "block_s": 10.1398,
+   "block_n": 280,
+   "loadavg_before": [
+    0.61,
+    0.29,
+    0.75
+   ],
+   "loadavg_after": [
+    0.69,
+    0.33,
+    0.76
+   ],
+   "occupancy": {
+    "pids": [
+     "905939"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.797881,
+   "tag": "HOST-s0"
+  },
+  {
+   "arm": "SILU",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.173,
+   "sha256": "188e835079a67544",
+   "flags": {
+    "SILU": true,
+    "AKW": false,
+    "HOST": false
+   },
+   "block_s": 9.7176,
+   "block_n": 280,
+   "loadavg_before": [
+    0.69,
+    0.33,
+    0.76
+   ],
+   "loadavg_after": [
+    1.53,
+    0.53,
+    0.82
+   ],
+   "occupancy": {
+    "pids": [
+     "905939"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.800202,
+   "tag": "SILU-s0"
+  },
+  {
+   "arm": "AKW",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.485,
+   "sha256": "a91aa44441f0d9c5",
+   "flags": {
+    "SILU": false,
+    "AKW": true,
+    "HOST": false
+   },
+   "block_s": 10.1454,
+   "block_n": 280,
+   "loadavg_before": [
+    1.53,
+    0.53,
+    0.82
+   ],
+   "loadavg_after": [
+    1.38,
+    0.56,
+    0.82
+   ],
+   "occupancy": {
+    "pids": [
+     "905939"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.800144,
+   "tag": "AKW-s0"
+  },
+  {
+   "arm": "UNION",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 17.907,
+   "sha256": "b7709671d2665f96",
+   "flags": {
+    "SILU": true,
+    "AKW": true,
+    "HOST": true
+   },
+   "block_s": 9.7181,
+   "block_n": 280,
+   "loadavg_before": [
+    1.38,
+    0.56,
+    0.82
+   ],
+   "loadavg_after": [
+    2.35,
+    0.82,
+    0.9
+   ],
+   "occupancy": {
+    "pids": [
+     "905939"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.801672,
+   "tag": "UNION-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.831,
+   "sha256": "a91aa44441f0d9c5",
+   "flags": {
+    "SILU": false,
+    "AKW": false,
+    "HOST": false
+   },
+   "block_s": 10.1502,
+   "block_n": 280,
+   "loadavg_before": [
+    2.35,
+    0.82,
+    0.9
+   ],
+   "loadavg_after": [
+    2.33,
+    0.92,
+    0.93
+   ],
+   "occupancy": {
+    "pids": [
+     "905939"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/1"
+    ]
+   },
+   "plddt": 0.800144,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 2.984,
+ "bit_exact_vs_base": {
+  "cdk2x2_512": {
+   "base": true,
+   "HOST": false,
+   "SILU": false,
+   "AKW": true,
+   "UNION": false
+  }
+ },
+ "aa_floor_identical": {
+  "cdk2x2_512": true
+ }
+}
