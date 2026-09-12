@@ -231,3 +231,89 @@ def out_proj(gated, w, ckc, dtype):
         G.ckc_args(ckc), {"HEAD_MAJOR_IN0_MT": pad[-2] // TILE}, KERNEL_DIR,
         m_k=(pad[0] * pad[-2], H * D))
     return out
+
+
+# --- K2: the gate rides in the qkv projection, so the normed pair tensor is read once ------------
+#
+# `qkv_heads` and `gate_proj` are two matmuls over the SAME operand: the layer-normed pair tensor,
+# 67.11 MB at 512 aa. Measured on whglx card 5 (WH, `perf/b2z2_algebra/ledger_512_whglx_c5.json`)
+# that tensor is read THREE times per triangle attention -- once by the bias projection, once by
+# qkv, once by the gate -- for 134.22 MB of the call's 1178.79 MB.
+#
+# `[x@Wq | x@Wk | x@Wv] == x @ [Wq|Wk|Wv]` is the identity `qkv_heads` already rests on; appending
+# the gate is the same identity one column block further. The descriptor makes it bit-exact rather
+# than merely equal: the shipped block entry for this shape is `(M=4, K=4, N=1, sub 4x1)`, N_block
+# is ONE TILE, and K_block equals kt, so every output tile is computed by the same single-K-block
+# contraction whether the weight is 12 tiles wide or 16. No output column sees another column's
+# arithmetic. `_MM_BLOCK[(4, 16)]` is that same entry under the fused key.
+#
+# Head-major `g` is what the tail already wants (`gate_and_project` branches on a 4-D gate), so this
+# subsumes `gate_proj` rather than sitting beside it, and it inherits every one of that function's
+# tail guards -- an eligible fused call is a call `gate_proj` would have served anyway.
+
+# (fused calls served, calls declined)
+FUSED_STATS = [0, 0]
+FUSED_REJECTS: dict = {}
+
+TRIATT_QKV_GATE_FUSED = True
+_FUSED_ENABLED = os.environ.get(
+    "TT_BIO_TRIATT_QKV_GATE_FUSED", "1" if TRIATT_QKV_GATE_FUSED else "0") == "1"
+
+
+def _fused_reject(reason, shape):
+    k = (reason, tuple(shape))
+    FUSED_REJECTS[k] = FUSED_REJECTS.get(k, 0) + 1
+    FUSED_STATS[1] += 1
+    return None
+
+
+def qkv_gate_heads(x, w_qkvg, w_o, ckc, n_heads, head_dim, dtype, mm_config):
+    """`(q, k, v, g)` head-major from ONE pass over `x`, or `None` to leave the pair alone.
+
+    `w_qkvg` is `[Wq|Wk|Wv|Wg]`, four equal column blocks of `n_heads * head_dim`. Byte-identical
+    to `qkv_heads(x, [Wq|Wk|Wv])` plus `gate_proj(x, Wg)`; `w_o` is only inspected, exactly as in
+    `gate_proj`, to ask whether the `out` projection it will feed wants the L1-output leg.
+    """
+    if not (_ENABLED and _TAIL_ENABLED and _FUSED_ENABLED) or w_qkvg is None:
+        return None
+    shape = [int(d) for d in x.shape]
+    if head_dim != TILE or n_heads * head_dim * 4 != int(w_qkvg.shape[-1]):
+        return _fused_reject("head_dim_or_width", shape)
+    if not _common_ok(x, w_qkvg, dtype) or mm_config is None:
+        return _fused_reject("dtype_or_memory_or_config", shape)
+
+    from .tenstorrent import (_mm_block_for, COMPUTE_GRID_MAIN, _PAIR_PROJ_L1_OUT, _L1_OUT_REFUSED,
+                              _PAIR_PROJ_MM, _MM_DEFAULT)
+    blk = _mm_block_for(w_qkvg)
+    if blk is None:
+        return _fused_reject("no_block_entry", shape)
+    # Every tail guard `gate_proj` applies, for the same reasons, because a 4-D gate commits the
+    # rest of the block to the head-major tail.
+    if not _PAIR_PROJ_MM:
+        return _fused_reject("pair_proj_mm_off", shape)
+    if len(w_o.shape) != 2 or int(w_o.shape[-2]) // TILE != n_heads * head_dim // TILE:
+        return _fused_reject("out_weight_shape", shape)
+    if _mm_block_for(w_o) is None:
+        return _fused_reject("no_block_entry_out", shape)
+    if _mm_block_for(w_o) is _MM_DEFAULT:
+        return _fused_reject("mm_default_entry_k1a_only", shape)
+    if _PAIR_PROJ_L1_OUT and not _TAIL_OVER_L1:
+        key = (tuple(x.padded_shape), tuple(w_o.shape), str(dtype))
+        if key not in _L1_OUT_REFUSED:
+            return _fused_reject("l1_out_leg_live", shape)
+
+    pad = [int(d) for d in x.padded_shape]
+    if pad[0] * pad[-2] <= int(w_qkvg.shape[-1]):
+        return _fused_reject("m_le_n", shape)
+
+    dev = x.device()
+    outs = [ttnn.allocate_tensor_on_device(
+        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+        dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
+    G.generic_minimal_matmul(
+        dev, x, w_qkvg, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
+        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR)
+    FUSED_STATS[0] += 1
+    STATS[0] += 1
+    TAIL_STATS[0] += 1
+    return tuple(outs)
