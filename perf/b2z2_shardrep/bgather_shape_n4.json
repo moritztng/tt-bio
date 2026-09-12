@@ -1,0 +1,55 @@
+{
+ "mesh_n": 4,
+ "S": 512,
+ "reps": 9,
+ "points": [
+  {
+   "label": "post-move, last axis",
+   "shape": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "dim": 3,
+   "c": 128,
+   "exact": true,
+   "out_bytes": 67108864,
+   "median_us": 1972.170999579248,
+   "gbps_per_dir": 25.520935056208607,
+   "per_trimul_ms": 1.972170999579248
+  },
+  {
+   "label": "pre-move, row axis",
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "dim": 1,
+   "c": 128,
+   "exact": true,
+   "out_bytes": 67108864,
+   "median_us": 1957.8000001274631,
+   "gbps_per_dir": 25.708268462929382,
+   "per_trimul_ms": 1.9578000001274631
+  },
+  {
+   "label": "pre-move, column axis",
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "dim": 2,
+   "c": 128,
+   "exact": true,
+   "out_bytes": 67108864,
+   "median_us": 4486.9370003652875,
+   "gbps_per_dir": 11.21737345451974,
+   "per_trimul_ms": 4.4869370003652875
+  }
+ ]
+}
