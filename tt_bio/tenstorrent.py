@@ -7152,6 +7152,18 @@ class AttentionPairBias(Module):
         return x
 
 
+def _swiglu_fused(x_norm, w_plain, w_act, ckc, grid):
+    """`transition_swiglu.fused_swiglu`, imported late and never allowed to break a fold."""
+    from . import transition_swiglu as TS
+    return TS.fused_swiglu(x_norm, w_plain, w_act, _mm_ckc(ckc), tuple(grid))
+
+
+def _mm_ckc(ckc):
+    """The four fields `mm_generic.build` wants, off a DeviceComputeKernelConfig."""
+    from . import mm_generic as MG
+    return MG.ckc_args(ckc)
+
+
 class Transition(Module):
     def __init__(
         self,
@@ -7179,28 +7191,41 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
             )
-            x_1 = ttnn.linear(
-                x_norm,
-                self.fc1_weight,
-                activation=None if _UNFUSED_SILU else "silu",
-                compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=dtype,
-                core_grid=CORE_GRID_MAIN,
-            )
-            if _UNFUSED_SILU:
-                x_1 = ttnn.silu(x_1, memory_config=ttnn.L1_MEMORY_CONFIG, output_tensor=x_1)
-            x_2 = ttnn.linear(
-                x_norm,
-                self.fc2_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=dtype,
-                core_grid=CORE_GRID_MAIN,
-            )
-            ttnn.deallocate(x_norm)
-            x = ttnn.multiply_(x_1, x_2)
-            ttnn.deallocate(x_2)
+            # Both projections and their product as one kernel. It reads x_norm twice and
+            # writes the product once, where the three ops below write the hidden tensor twice
+            # and read it twice more -- 16,384 tile passes a chunk at c_z = 128, all of them L1
+            # passes (perf/b2z2_megakernel/LEDGER.md). Declines to None outside its shape/dtype
+            # class, and the three ops run unchanged.
+            fused = (None if (_UNFUSED_SILU or dtype not in (None, ttnn.bfloat16))
+                     else _swiglu_fused(
+                         x_norm, self.fc2_weight, self.fc1_weight,
+                         self.compute_kernel_config, COMPUTE_GRID_MAIN))
+            if fused is not None:
+                ttnn.deallocate(x_norm)
+                x = fused
+            else:
+                x_1 = ttnn.linear(
+                    x_norm,
+                    self.fc1_weight,
+                    activation=None if _UNFUSED_SILU else "silu",
+                    compute_kernel_config=self.compute_kernel_config,
+                    memory_config=ttnn.L1_MEMORY_CONFIG,
+                    dtype=dtype,
+                    core_grid=CORE_GRID_MAIN,
+                )
+                if _UNFUSED_SILU:
+                    x_1 = ttnn.silu(x_1, memory_config=ttnn.L1_MEMORY_CONFIG, output_tensor=x_1)
+                x_2 = ttnn.linear(
+                    x_norm,
+                    self.fc2_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    memory_config=ttnn.L1_MEMORY_CONFIG,
+                    dtype=dtype,
+                    core_grid=CORE_GRID_MAIN,
+                )
+                ttnn.deallocate(x_norm)
+                x = ttnn.multiply_(x_1, x_2)
+                ttnn.deallocate(x_2)
             x_dram = ttnn.linear(
                 x,
                 self.fc3_weight,
