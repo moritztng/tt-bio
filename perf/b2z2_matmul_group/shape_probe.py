@@ -61,7 +61,13 @@ def main():
     import tt_bio.tenstorrent as T
 
     dev = T.get_device()
-    ckc = T.COMPUTE_KERNEL_CONFIG_HIFI2 if hasattr(T, "COMPUTE_KERNEL_CONFIG_HIFI2") else None
+    # The exact config the diffusion stack builds (DiffusionModule.__init__): HiFi4, fp32 dest
+    # accumulate, packer L1 accumulate. The capture confirms all 387 matmuls run HiFi4.
+    kernel_cls = (ttnn.types.WormholeComputeKernelConfig
+                  if dev.arch() == ttnn.Arch.WORMHOLE_B0
+                  else ttnn.types.BlackholeComputeKernelConfig)
+    ckc = kernel_cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                     fp32_dest_acc_en=True, packer_l1_acc=True)
     out = {"env": {"card": os.environ.get("TT_VISIBLE_DEVICES"),
                    "arch": str(dev.arch()), "grid": str(dev.compute_with_storage_grid_size()),
                    "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
