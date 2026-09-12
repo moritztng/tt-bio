@@ -4497,10 +4497,10 @@ def get_device(trace_region_size=0):
     trace_region_size: bytes to reserve for ttnn trace capture. Pass a nonzero
     size (e.g. 1 << 30) to enable the Protenix denoise trace via fold(trace=True)
     or BoltzGen's diffusion trace (Boltz.__init__(diffusion_trace=True)); the
-    default 0 leaves the device layout unchanged. If the arg is 0,
-    ``TT_BIO_TRACE_REGION_SIZE`` is consulted as a dev-only escape hatch so a
-    single-BH open can reserve a trace region without the caller threading the
-    kwarg.
+    default 0 leaves the device layout unchanged. ``TT_BIO_TRACE_REGION_SIZE``
+    supplies the size when the arg is 0, and caps it when the arg is nonzero --
+    a caller's hardcoded 1 GiB hangs the first dispatch on a Wormhole mesh, so
+    the cap is the only way to trace a mesh run (see ``_open_and_init_device``).
     """
     global _device, _trace_region_size, _device_lease
     if _device is None:
@@ -4840,10 +4840,21 @@ def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
 def _open_and_init_device(trace_region_size):
     """Open + configure TT device 0 (the physical card is already leased by the caller)."""
     global _trace_region_size
-    if trace_region_size == 0:
-        env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
-        if env_sz:
-            trace_region_size = int(env_sz)
+    # TT_BIO_TRACE_REGION_SIZE is both the size a caller that asked for nothing gets, and a
+    # CEILING on the size a caller that asked explicitly gets. It has to be a ceiling because
+    # the callers that ask do not ask for a number they chose: boltz2 passes a hardcoded 1 GiB
+    # ("what the denoiser trace asks for"), and on a whglx 1xN Wormhole mesh a 1 GiB trace region
+    # hangs the FIRST program dispatch on the mesh, forever -- ttnn.add on a 32x32 zero tensor
+    # never completes its synchronize_device, at 95 % CPU. Bisected 2026-09-12 on cards 18-21,
+    # one variable: same chips, same code, trace_region_size=0 and 512 MiB both dispatch in
+    # under 0.1 s, 1 GiB never returns. Same family as the >= 4 GiB refusal below (a completion
+    # that never arrives) but two orders of magnitude lower, and on a mesh rather than one chip,
+    # so the existing guard does not catch it. Without the ceiling there is no way to run a
+    # traced mesh fold at all.
+    env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
+    if env_sz:
+        trace_region_size = int(env_sz) if trace_region_size == 0 else min(trace_region_size,
+                                                                          int(env_sz))
     if trace_region_size >= 2 ** 32:
         # A trace region of exactly 4 GiB or more wedges tt-metal instead of erroring: the
         # capture records fine, then end_trace_capture blocks forever inside
