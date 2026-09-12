@@ -184,6 +184,97 @@ for idx, (op_name, need) in enumerate(row_shard.PAIR_CHAIN):
         failures.append(f"negative control 2 was NOT rejected for {op_name}: it does not need a "
                         "gather and the inventory over-counts them")
 
+# --- localisation: when the block is not bit-exact, name the op -----------------------------------
+# The split regroups no reduction, so a divergence is never the arithmetic: it is a kernel PICK.
+# Several projections here are routed by shape, and a slab changes M. `tenstorrent.py:6820` says so
+# in as many words and names this script's job -- "a shape where a pick DID flip would take a
+# different kernel and would not be bit-exact, and the parity script is what says which of the two
+# a shape is". So when the chain differs, run each op on its own, whole against slabs, and report
+# the ones that moved. An op that is bit-exact alone but not in the chain would be a different and
+# much worse finding than one that is wrong on its own.
+per_op = {}
+if not (z_ok and s_ok):
+    log("localising: each op on its own, whole against slabs")
+    ops = {
+        "triangle_multiplication_start": lambda z, sl: layer.triangle_multiplication_start(
+            z, MASK, row_slab=sl),
+        "triangle_multiplication_end": lambda z, sl: layer.triangle_multiplication_end(
+            z, MASK, row_slab=sl),
+        "triangle_attention_start": lambda z, sl: layer.triangle_attention_start(
+            z, AM, row_slab=sl),
+        "triangle_attention_end": lambda z, sl: layer.triangle_attention_end(z, AM, row_slab=sl),
+        "transition_z": lambda z, sl: layer.transition_z(z, row_slab=sl),
+    }
+    MASK, AM = up(pair_mask_t), up(attn_t)
+
+    def routes():
+        """Which kernel each shape-routed site served, so a divergence names the leg that moved."""
+        out = {}
+        for mod, attr in (("_triatt_qkv", "STATS"), ("_triatt_sdpa", "STATS"),
+                          ("_reblock", "STATS_GATED")):
+            m = getattr(tt, mod, None)
+            if m is not None and hasattr(m, attr):
+                v = getattr(m, attr)
+                # served/declined counters are plain lists in some modules, dicts in others
+                out[mod] = dict(v) if isinstance(v, dict) else list(v)
+        out["sdpa_picks"] = dict(tt.SDPA_CHUNK_PICKS)
+        out["sdpa_routes"] = dict(tt.SDPA_ROUTE_COUNTS)
+        return out
+
+    def _delta(a, b):
+        """Only the counters that moved between two snapshots."""
+        out = {}
+        for k in set(a) | set(b):
+            x, y = a.get(k), b.get(k)
+            if x == y:
+                continue
+            if isinstance(y, dict):
+                out[k] = {kk: y.get(kk, 0) - (x or {}).get(kk, 0)
+                          for kk in set(y) | set(x or {}) if y.get(kk, 0) != (x or {}).get(kk, 0)}
+            else:
+                out[k] = [b - a_ for a_, b in zip(x or [0] * len(y), y)]
+        return out
+
+    for name, fn in ops.items():
+        zt = up(z_t)
+        r_before = routes()
+        whole = ttnn.to_torch(fn(zt, None))
+        r_whole = routes()
+        parts = []
+        for r0, r1 in BOUNDS:
+            o = fn(zt, (r0, r1))
+            parts.append(ttnn.to_torch(o))
+            ttnn.deallocate(o)
+        r_slab = routes()
+        ttnn.deallocate(zt)
+        joined = torch.cat(parts, dim=1)
+        ok, d = cmp(joined, whole)
+        per_op[name] = {"bit_exact": ok, "max_abs_diff": d,
+                        "routes_whole": _delta(r_before, r_whole),
+                        "routes_slab": _delta(r_whole, r_slab)}
+        log(f"  {name}: equal={ok} max abs diff {d}")
+        if not ok:
+            # Rounding regrouped by a different block config, or a wrong answer? A regroup moves
+            # a last bit or two on a few elements; a bug moves a large fraction of them by a large
+            # relative amount. The numbers below are what tells those apart, and the difference
+            # decides whether the shape is merely unsupported or actively broken.
+            a, b = joined.float(), whole.float()
+            diff = (a - b).abs()
+            n = int((diff > 0).sum())
+            rel = (diff / b.abs().clamp_min(1e-6)).max().item()
+            per_op[name].update({"n_differing": n, "n_elements": int(diff.numel()),
+                                 "frac_differing": n / diff.numel(),
+                                 "mean_abs_diff": diff.mean().item(),
+                                 "max_rel_diff": rel,
+                                 "ref_abs_max": b.abs().max().item()})
+            log(f"    {n}/{diff.numel()} elements differ ({100 * n / diff.numel():.2f} %), "
+                f"mean abs {diff.mean().item():.3e}, max rel {rel:.3e}, "
+                f"|ref| max {b.abs().max().item():.3f}")
+            log(f"    whole took {per_op[name]['routes_whole']}")
+            log(f"    slabs took {per_op[name]['routes_slab']}")
+    ttnn.deallocate(MASK)
+    ttnn.deallocate(AM)
+
 # --- negative control 3: the slabs, concatenated in the wrong order ------------------------------
 log("negative control 3: slabs concatenated in the wrong order")
 if len(BOUNDS) > 1 and len({r1 - r0 for r0, r1 in BOUNDS}) == 1:
@@ -204,6 +295,7 @@ res = {
     "gathers_per_block": row_shard.gathers_per_block(),
     "gathers_per_block_with_injectable_bias": row_shard.gathers_per_block(injectable_bias=True),
     "chain": [list(c) for c in row_shard.PAIR_CHAIN],
+    "per_op": per_op,
     "z_bit_exact": z_ok, "z_max_abs_diff": z_d,
     "s_bit_exact": s_ok, "s_max_abs_diff": s_d,
     "nc1_rejected": not nc1_ok, "nc1_max_abs_diff": nc1_d,
