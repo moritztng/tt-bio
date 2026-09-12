@@ -58,6 +58,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", type=Path, required=True)
     ap.add_argument("--out", type=Path)
+    ap.add_argument("--wh-bare-wall-ms", type=float, default=41.4820,
+                    help="the same step, same chip, profiler off (n=10 reps)")
     a = ap.parse_args()
     d = json.loads(a.split.read_text())
 
@@ -70,6 +72,11 @@ def main() -> int:
     samp_mult = step_free_ms / STEP_WALL_MS
     samp_cons_mult = LAUNCH_HELD_STALE + (1 - LAUNCH_HELD_STALE) * samp_mult
 
+    # The same multiplier built entirely inside Wormhole, as the cross-arch control: the step's
+    # own bare wall on the chip the fractions were taken on, minus the stall measured there.
+    wh_wait = d["median_ms"]["wait_in_ms"] + d["median_ms"]["wait_out_ms"]
+    wh_mult_x = a.wh_bare_wall_ms / (a.wh_bare_wall_ms - wh_wait)
+
     pub = rungs(MOVE_FREE_MULT, LAUNCH_HELD_STALE + (1 - LAUNCH_HELD_STALE) * MOVE_FREE_MULT)
     mea = rungs(samp_mult, samp_cons_mult)
 
@@ -80,6 +87,8 @@ def main() -> int:
         "sampler_movement_free_mult_transferred": MOVE_FREE_MULT,
         "sampler_s_measured_floor": held(SPLIT["sampler"], samp_mult, HOST_IN_SAMPLER_S),
         "sampler_s_transferred_floor": held(SPLIT["sampler"], MOVE_FREE_MULT, HOST_IN_SAMPLER_S),
+        "wh_native_bare_wall_ms": a.wh_bare_wall_ms, "wh_native_stall_ms": wh_wait,
+        "wh_native_movement_free_x": wh_mult_x,
         "rungs_as_published": pub, "rungs_with_measured_sampler": mea,
     }
     if a.out:
@@ -100,6 +109,10 @@ def main() -> int:
     P(f"  sampler at its own floor    {res['sampler_s_measured_floor']:.4f} s   "
       f"transferred {res['sampler_s_transferred_floor']:.4f} s   "
       f"difference {res['sampler_s_measured_floor']-res['sampler_s_transferred_floor']:+.4f} s")
+    P(f"\nCross-arch control, the same multiplier built entirely on Wormhole:")
+    P(f"  bare step wall {a.wh_bare_wall_ms:.4f} ms - stall {wh_wait:.4f} ms"
+      f"  ->  {wh_mult_x:.4f}x   (BH projection {STEP_WALL_MS/step_free_ms:.4f}x,"
+      f" {100*abs(wh_mult_x/(STEP_WALL_MS/step_free_ms)-1):.1f} % apart)")
     P(f"\nb2z2-final-ceiling's rungs, quoted against its own 18.594 s levered arm:")
     P(f"  {'rung':26s} {'as published':>14s} {'with measured':>14s}")
     for k in pub:

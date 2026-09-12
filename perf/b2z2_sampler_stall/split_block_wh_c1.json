@@ -1,5 +1,5 @@
 {
- "label": "WH PairformerLayer, committed",
+ "label": "WH-block",
  "arch": "WH",
  "csv": "perf/b2z2_sampler_stall/src/ops_perf_block_whglx_c1.csv.gz",
  "programs_per_step": 272,
@@ -74,7 +74,11 @@
    "compute_ms": 11.303915208333335,
    "kernel_ms": 29.006582666666667,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 2152.267776,
+   "dram_wr_MB": 1744.830464,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "MatmulDeviceOperation": {
    "n": 113,
@@ -84,7 +88,11 @@
    "compute_ms": 10.380888729166665,
    "kernel_ms": 27.683985,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 767.483904,
+   "dram_wr_MB": 531.759104,
+   "l1_rd_MB": 405.01248,
+   "l1_wr_MB": 540.01664
   },
   "BinaryNgDeviceOperation": {
    "n": 52,
@@ -94,7 +102,11 @@
    "compute_ms": -2.1168162083333395,
    "kernel_ms": 12.814897333333334,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 1324.711936,
+   "dram_wr_MB": 768.73728,
+   "l1_rd_MB": 607.125504,
+   "l1_wr_MB": 270.00832
   },
   "LayerNormDeviceOperation": {
    "n": 41,
@@ -104,7 +116,11 @@
    "compute_ms": 1.8897668541666643,
    "kernel_ms": 7.996235333333333,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 471.28576,
+   "dram_wr_MB": 470.155264,
+   "l1_rd_MB": 67.108864,
+   "l1_wr_MB": 67.50208
   },
   "TransposeDeviceOperation": {
    "n": 8,
@@ -114,7 +130,11 @@
    "compute_ms": -0.2541218703703701,
    "kernel_ms": 4.379368,
    "dead_kernel_ms": 3.0142373333333334,
-   "dead_n": 2
+   "dead_n": 2,
+   "dram_rd_MB": 270.401536,
+   "dram_wr_MB": 136.183808,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 134.217728
   },
   "ReshapeViewDeviceOperation": {
    "n": 3,
@@ -124,7 +144,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 1.053916,
    "dead_kernel_ms": 1.053916,
-   "dead_n": 3
+   "dead_n": 3,
+   "dram_rd_MB": 33.947648,
+   "dram_wr_MB": 33.947648,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "SliceDeviceOperation": {
    "n": 33,
@@ -134,7 +158,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 0.65945,
    "dead_kernel_ms": 0.65945,
-   "dead_n": 33
+   "dead_n": 33,
+   "dram_rd_MB": 67.633152,
+   "dram_wr_MB": 67.633152,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "PermuteDeviceOperation": {
    "n": 3,
@@ -144,7 +172,11 @@
    "compute_ms": -0.5119577824074074,
    "kernel_ms": 0.639977,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 50.331648,
+   "dram_wr_MB": 12.582912,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "ConcatDeviceOperation": {
    "n": 1,
@@ -154,7 +186,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 0.637202,
    "dead_kernel_ms": 0.637202,
-   "dead_n": 1
+   "dead_n": 1,
+   "dram_rd_MB": 67.108864,
+   "dram_wr_MB": 67.108864,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "SoftmaxDeviceOperation": {
    "n": 1,
@@ -164,7 +200,11 @@
    "compute_ms": 0.10988159259259259,
    "kernel_ms": 0.220336,
    "dead_kernel_ms": 0.0,
-   "dead_n": 0
+   "dead_n": 0,
+   "dram_rd_MB": 8.388608,
+   "dram_wr_MB": 8.388608,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   },
   "NlpCreateHeadsDeviceOperation": {
    "n": 1,
@@ -174,7 +214,11 @@
    "compute_ms": 0.0,
    "kernel_ms": 0.032285,
    "dead_kernel_ms": 0.032285,
-   "dead_n": 1
+   "dead_n": 1,
+   "dram_rd_MB": 0.524288,
+   "dram_wr_MB": 0.524288,
+   "l1_rd_MB": 0.0,
+   "l1_wr_MB": 0.0
   }
  },
  "site_fits": {
@@ -760,5 +804,17 @@
    "output": "1x16x512x512",
    "cores": 72
   }
- ]
+ ],
+ "zero_residency": {
+  "programs": 40,
+  "kernel_ms": 5.397090333333333,
+  "MB": 879.230976,
+  "gbps": 162.9083305442791
+ },
+ "three_term_decomposition_ms": {
+  "DRAM bytes": 31.376360218259574,
+  "L1 bytes": 2.107454266550998,
+  "per-program x 232 programs": 3.3266513351672207
+ },
+ "per_program_ns": 14339.014375720779
 }

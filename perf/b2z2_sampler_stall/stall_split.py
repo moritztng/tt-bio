@@ -281,6 +281,21 @@ def main() -> int:
     if coef and coef[0] > 0 and coef[1] > 0:
         P(f"    two-bandwidth fit: DRAM {1/coef[0]:,.1f} GB/s, "
           f"L1-interleaved {1/coef[1]:,.1f} GB/s")
+    if have_wait:
+        c3 = fit_out["DRAM + L1 + per-program"]["coef"]
+        terms = {"DRAM bytes": c3[0] * sum(s["dram_rd"] for s in S),
+                 "L1 bytes": c3[1] * sum(s["l1_rd"] for s in S),
+                 "per-program x %d programs" % int(sum(s["n"] for s in S)):
+                     c3[2] * sum(s["n"] for s in S)}
+        out["three_term_decomposition_ms"] = {k: v / 1e6 for k, v in terms.items()}
+        out["per_program_ns"] = c3[2]
+        P(f"\n  Where the {med['wait_in_ms']:.3f} ms of input wait sits, in the 3-term fit"
+          f" (per-program constant {c3[2]/1e3:.2f} us):")
+        for k, v in terms.items():
+            P(f"    {v/1e6:8.3f} ms  {100*v/1e6/med['wait_in_ms']:5.1f} %   {k}")
+        P(f"    {sum(terms.values())/1e6:8.3f} ms  "
+          f"{100*sum(terms.values())/1e6/med['wait_in_ms']:5.1f} %   fitted total")
+        a.out.write_text(json.dumps(out, indent=1))
     P("\n  Spearman rank correlation against the measured per-site wait:")
     for name, v in rank_out.items():
         P(f"    {v:+.3f}   {name}")
