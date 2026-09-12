@@ -57,6 +57,11 @@ def main() -> int:
     acc = defaultdict(lambda: defaultdict(float))
     op_cores = defaultdict(set)
     want = set(ZONES)
+    # the CB zones are ZONE_TOTAL accumulators and carry their value in `data`; the B2Z2 zones the
+    # sibling added are ZONE_START/ZONE_END pairs and carry 0 there, so they have to be paired.
+    totals = {"CB-COMPUTE-WAIT-FRONT", "CB-COMPUTE-RESERVE-BACK"}
+    open_at = {}
+    unclosed = 0
     with open(a.log) as fh:
         fh.readline(), fh.readline()
         for line in fh:
@@ -69,9 +74,24 @@ def main() -> int:
                     op = int(f[7]) // 1024
                 except ValueError:
                     continue
-                if int(f[5]) == 0:
+                t = int(f[5])
+                if t == 0:
                     continue
-                acc[(op, (int(f[1]), int(f[2])))][zone] += float(f[6])
+                core = (int(f[1]), int(f[2]))
+                if zone in totals:
+                    acc[(op, core)][zone] += float(f[6])
+                    continue
+                key = (core, f[3], zone)
+                if f[11] == "ZONE_START":
+                    if key in open_at:
+                        unclosed += 1
+                    open_at[key] = (t, op)
+                elif f[11] == "ZONE_END":
+                    prev = open_at.pop(key, None)
+                    if prev is None:
+                        unclosed += 1
+                    else:
+                        acc[(prev[1], core)][zone] += t - prev[0]
             elif zone == "BRISC-KERNEL" and f[11] == "ZONE_START":
                 try:
                     op_cores[int(f[7]) // 1024].add((int(f[1]), int(f[2])))
@@ -106,7 +126,7 @@ def main() -> int:
     yi = {v: i for i, v in enumerate(ys)}
     US = 1e3
 
-    R = {"log": a.log, "window": [lo, hi], "blocks_in_window": nblocks, "block_index": bi,
+    R = {"log": a.log, "unpaired_zone_markers": unclosed + len(open_at), "window": [lo, hi], "blocks_in_window": nblocks, "block_index": bi,
          "ops_in_block": len(block), "cores": len(cores), "grid": [len(xs), len(ys)], "zones": {}}
     for z in ZONES:
         vals = [per_core[c].get(z, 0.0) for c in cores]
@@ -132,6 +152,7 @@ def main() -> int:
         }
     open(a.out, "w").write(json.dumps(R, indent=1))
 
+    print(f"unpaired zone markers {unclosed + len(open_at)}")
     print(f"window {lo}..{hi}  blocks {nblocks}  block#{bi} ops {len(block)}  "
           f"cores {len(cores)}  grid {len(xs)}x{len(ys)}")
     print(f"{'zone':26s} {'core-us':>10s} {'cores':>6s} {'max':>9s} {'med':>9s} {'min':>9s} "
