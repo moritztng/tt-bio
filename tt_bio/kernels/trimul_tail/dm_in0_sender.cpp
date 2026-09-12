@@ -73,6 +73,11 @@ void kernel_main() {
     const uint32_t in0_mcast_end_noc_y = get_arg_val<uint32_t>(argidx++);
     const uint32_t in0_mcast_num_dests = get_arg_val<uint32_t>(argidx++);
 #endif
+#ifdef MM_BCAST_FANOUT
+    const uint32_t in0_bcast_num_dests = get_arg_val<uint32_t>(argidx++);
+    tt_l1_ptr uint32_t* in0_bcast_noc_xy = (tt_l1_ptr uint32_t*)get_arg_addr(argidx);
+    argidx += 2 * in0_bcast_num_dests;
+#endif
 
 #ifdef FUSE_TERNARY
     // Fuse addcmul - read runtime addresses before setting out_addr_rt_arg_idx
@@ -316,8 +321,9 @@ void kernel_main() {
                 // This frees sender to start next read earlier
                 cb_push_back(cb_id_in0, in0_block_num_tiles);
 
-#ifdef MM_MCAST_OPERAND
+#if defined(MM_MCAST_OPERAND) || defined(MM_BCAST_FANOUT)
                 if constexpr (is_injector_core) {
+#ifdef MM_MCAST_OPERAND
                     if (in0_mcast_num_dests) {
                         noc_semaphore_wait(in0_sender_semaphore_addr_ptr, in0_mcast_num_dests);
                         noc_semaphore_set(in0_sender_semaphore_addr_ptr, 0);
@@ -334,6 +340,25 @@ void kernel_main() {
                             in0_mcast_receiver_semaphore_noc_addr,
                             in0_mcast_num_dests);
                     }
+#else
+                    if (in0_bcast_num_dests) {
+                        noc_semaphore_wait(in0_sender_semaphore_addr_ptr, in0_bcast_num_dests);
+                        noc_semaphore_set(in0_sender_semaphore_addr_ptr, 0);
+                        for (uint32_t d = 0; d < in0_bcast_num_dests; d++) {
+                            const uint32_t dx = in0_bcast_noc_xy[2 * d];
+                            const uint32_t dy = in0_bcast_noc_xy[2 * d + 1];
+                            noc_async_write(in0_start_address,
+                                            get_noc_addr(dx, dy, in0_start_address),
+                                            current_block_bytes);
+#ifdef ARCH_BLACKHOLE
+                            noc_async_writes_flushed();
+#endif
+                            noc_semaphore_set_remote(
+                                in0_valid_semaphore_addr,
+                                get_noc_addr(dx, dy, in0_receiver_semaphore_addr));
+                        }
+                    }
+#endif
                 }
 #else
                 if (!is_sink_core) {
@@ -354,7 +379,7 @@ void kernel_main() {
 
                     noc_semaphore_set_remote(in0_valid_semaphore_addr, in0_receiver_semaphore_noc_addr);
                 }
-#endif  // MM_MCAST_OPERAND
+#endif  // MM_MCAST_OPERAND || MM_BCAST_FANOUT
             }
             }
 #ifdef FUSE_BIAS

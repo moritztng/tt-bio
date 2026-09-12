@@ -5,11 +5,11 @@ The shipped kernel's comment says the author chose the chain on purpose: *"Criti
 for sender to push data to compute before mcasting. This frees sender to start next read earlier"*.
 The honest reading is that the chain buys pipelining across K blocks -- a core forwards block k
 while it reads k+1 -- and `b2z2-cb-depth-prefetch` measured that every shipped block config has
-`K_num_blocks == 1`, so there is no K loop left to pipeline. That is why `mm_generic.mcast_for`
+`K_num_blocks == 1`, so there is no K loop left to pipeline. That is why `mm_generic.bcast_mode`
 gates on `K_num_blocks == 1` and not on a model name.
 
 The gate is a claim about a regime this tree never enters, so it is worth measuring rather than
-asserting. `TT_BIO_MM_MCAST_ANY_K` lifts it, and this sweeps one matmul across K_num_blocks
+asserting. `TT_BIO_MM_BCAST_ANY_K` lifts it, and this sweeps one matmul across K_num_blocks
 1, 2, 4 and 8 at a fixed block config, A/B-ing chain against multicast at each. A ratio that falls
 towards 1 as the K loop lengthens confirms the gate; a ratio that stays flat says the gate is
 narrower than it needs to be, and a ratio below 1 at K_num_blocks > 1 is the reason it exists.
@@ -55,11 +55,12 @@ def main() -> int:
     ap.add_argument("--kblocks", default="1,2,4,8")
     ap.add_argument("--reps", type=int, default=30)
     ap.add_argument("--n-rep", type=int, default=5)
+    ap.add_argument("--arm", default="fanout", choices=("fanout", "mcast"))
     a = ap.parse_args()
     OUT_PATH = a.out
 
-    os.environ["TT_BIO_MM_MCAST"] = "0"
-    os.environ["TT_BIO_MM_MCAST_ANY_K"] = "1"
+    os.environ["TT_BIO_MM_BCAST"] = "chain"
+    os.environ["TT_BIO_MM_BCAST_ANY_K"] = "1"
     import torch
     import ttnn
     import tt_bio.tenstorrent as T
@@ -97,30 +98,30 @@ def main() -> int:
             MG.generic_minimal_matmul(dev, x, w, out, (cfg_block, grid), ckc)
             return out
 
-        os.environ["TT_BIO_MM_MCAST"] = "0"
+        os.environ["TT_BIO_MM_BCAST"] = "chain"
         ref = ttnn.to_torch(run())
-        os.environ["TT_BIO_MM_MCAST"] = "1"
+        os.environ["TT_BIO_MM_BCAST"] = a.arm
         got_t = run()
         got = ttnn.to_torch(got_t)
         bit_exact = bool(torch.equal(ref, got))
-        built = [(k[-1], e["dims"]["mcast"], e["dims"]["K_blocks"]) for k, e in MG._CACHE.items()]
+        built = [(e["dims"]["bcast_mode"], e["dims"]["K_blocks"]) for e in MG._CACHE.values()]
 
-        def slot(on):
-            os.environ["TT_BIO_MM_MCAST"] = "1" if on else "0"
+        def slot(mode):
+            os.environ["TT_BIO_MM_BCAST"] = mode
             return timed(ttnn, dev, lambda: ttnn.deallocate(run()), a.reps)
 
         for _ in range(2):
-            slot(False), slot(True)
-        chain, mcast = [], []
+            slot("chain"), slot(a.arm)
+        chain, arm = [], []
         for _ in range(a.n_rep):
-            c1, m1, m2, c2 = slot(False), slot(True), slot(True), slot(False)
+            c1, m1, m2, c2 = slot("chain"), slot(a.arm), slot(a.arm), slot("chain")
             chain += [c1, c2]
-            mcast += [m1, m2]
-        row = {"K_num_blocks": kb, "K": K, "bit_exact": bit_exact,
-               "chain_ms": round(st.median(chain), 5), "mcast_ms": round(st.median(mcast), 5),
-               "ratio_chain_over_mcast": round(st.median(chain) / st.median(mcast), 5),
+            arm += [m1, m2]
+        row = {"K_num_blocks": kb, "K": K, "arm": a.arm, "bit_exact": bit_exact,
+               "chain_ms": round(st.median(chain), 5), "arm_ms": round(st.median(arm), 5),
+               "ratio_chain_over_arm": round(st.median(chain) / st.median(arm), 5),
                "aa_floor": round(st.median(chain[0::2]) / st.median(chain[1::2]), 5),
-               "mcast_gate_saw": sorted({(bool(b), int(k)) for _, b, k in built})}
+               "gate_saw": sorted({(str(m), int(k)) for m, k in built})}
         rows.append(row)
         print("  " + json.dumps(row), flush=True)
         OUT["rows"] = rows
@@ -131,7 +132,7 @@ def main() -> int:
 
     OUT["verdict"] = {
         "all_bit_exact": all(r["bit_exact"] for r in rows),
-        "ratio_by_k": {r["K_num_blocks"]: r["ratio_chain_over_mcast"] for r in rows}}
+        "ratio_by_k": {r["K_num_blocks"]: r["ratio_chain_over_arm"] for r in rows}}
     print(json.dumps(OUT["verdict"], indent=1), flush=True)
     dump()
     return 0

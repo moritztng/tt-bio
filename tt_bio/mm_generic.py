@@ -19,6 +19,8 @@ fused activation, no ternary, no all-gather fusion, N_chunks = 1.
 
 from __future__ import annotations
 
+import os
+
 import ttnn
 
 from .envflags import env_flag
@@ -48,26 +50,35 @@ def tile_bytes(dtype):
 _CACHE: dict = {}
 
 
-def mcast_for(k_blocks):
-    """Whether this block config broadcasts its operands by multicast instead of a daisy chain.
+def bcast_mode(k_blocks):
+    """How this block config gets the injector's operand block to the rest of its grid axis.
 
-    The kernels reach every core on a grid axis by forwarding the injector's block from one core to
-    the next, 8-9 hops on an 8x9 Wormhole grid and 10-11 on an 11x10 Blackhole one, each gated by a
-    semaphore round trip. `MM_MCAST_OPERAND` (`tt_bio/kernels/mm_mcast.py`) sends it to the whole
-    axis in one transaction instead.
+    ``"chain"`` (the default) is the shipped daisy chain: every core takes a semaphore-gated unicast
+    hop from its predecessor, 8-9 hops on an 8x9 Wormhole grid and 10-11 on an 11x10 Blackhole one.
+    `b2z2-tile-arrival-latency` measured the handshakes at 67.6 % of the reader's own time and the
+    forward at another 15.2 %.
 
-    The gate is `K_num_blocks == 1`, a property of the block config and not a model name. The
-    chain's one advantage over a multicast is that a core can forward block k while it reads block
-    k+1, and with a single K block there is no such overlap left to buy.
-    ``TT_BIO_MM_MCAST_ANY_K`` lifts the gate so the gate itself can be measured.
+    ``"fanout"`` has the injector write to every receiver itself, which deletes the chain and keeps
+    the bytes. ``"mcast"`` sends one `noc_async_write_multicast` to the whole axis, which deletes
+    both -- and is NOT yet correct, see `tt_bio/kernels/mm_mcast.py`.
+
+    ``TT_BIO_MM_BCAST`` selects. The gate is `K_num_blocks == 1`, a property of the block config and
+    not a model name: the chain's one advantage is that a core can forward block k while it reads
+    block k+1, and with a single K block there is no such overlap left to buy.
+    ``TT_BIO_MM_BCAST_ANY_K`` lifts the gate so the gate itself can be measured.
     """
-    if not env_flag("TT_BIO_MM_MCAST", False):
-        return False
-    return k_blocks == 1 or env_flag("TT_BIO_MM_MCAST_ANY_K", False)
+    mode = (os.environ.get("TT_BIO_MM_BCAST") or "chain").strip().casefold()
+    if mode not in ("chain", "fanout", "mcast"):
+        raise ValueError(f"TT_BIO_MM_BCAST={mode!r}: expected chain, fanout or mcast")
+    if mode == "chain":
+        return "chain"
+    if k_blocks != 1 and not env_flag("TT_BIO_MM_BCAST_ANY_K", False):
+        return "chain"
+    return mode
 
 
-def _mcast_key():
-    return (env_flag("TT_BIO_MM_MCAST", False), env_flag("TT_BIO_MM_MCAST_ANY_K", False))
+def _bcast_key():
+    return (os.environ.get("TT_BIO_MM_BCAST", ""), os.environ.get("TT_BIO_MM_BCAST_ANY_K", ""))
 
 
 def ttnn_cpp_root():
@@ -143,10 +154,22 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
         total_size=num_tiles * page_size, core_ranges=core_grid, format_descriptors=[fmt])
 
 
-def _mcast_args(order, phys):
-    """``(dest, injector, [end_x, end_y, num_dests])`` for one axis's multicast, in NOC order."""
-    first, last = phys(order[min(1, len(order) - 1)]), phys(order[-1])
-    return first, phys(order[0]), [last[0], last[1], len(order) - 1]
+def _bcast_args(order, phys, mode):
+    """``(dest, injector, tail)`` for one axis, with the receivers already in NOC order.
+
+    The multicast rectangle is the chain minus its injector, and ``order`` was built in this NOC's
+    own traversal direction, so ``order[1]`` is the corner the packet reaches first and ``order[-1]``
+    the one it reaches last, which is the corner convention `get_noc_multicast_addr` wants on either
+    NOC. The fan-out wants the same cores enumerated rather than bounded.
+    """
+    recv = [phys(c) for c in order[1:]]
+    dest = recv[0] if recv else phys(order[0])
+    if mode == "mcast":
+        last = recv[-1] if recv else dest
+        tail = [last[0], last[1], len(recv)]
+    else:
+        tail = [len(recv)] + [v for c in recv for v in c]
+    return dest, phys(order[0]), tail
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
@@ -229,9 +252,10 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
 
     # One K block means the chain has nothing left to pipeline over, which is the only thing it
     # buys over a multicast. See `mcast_enabled`.
-    use_mcast = mcast_for(K_blocks)
-    if use_mcast:
-        defines = defines + [("MM_MCAST_OPERAND", "1")]
+    mode = bcast_mode(K_blocks)
+    if mode != "chain":
+        defines = defines + [
+            ("MM_MCAST_OPERAND" if mode == "mcast" else "MM_BCAST_FANOUT", "1")]
 
     in0_block = M_block_tiles * K_block_tiles
     in1_block = K_block_tiles * N_block_tiles
@@ -310,23 +334,19 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
             in1_prev = phys(in1_order[max(in1_i - 1, 0)])
             in1_next = phys(in1_order[min(in1_i + 1, len(in1_order) - 1)])
 
-            # The multicast rectangle is the chain minus its injector, and `*_order` was already
-            # built in this NOC's own traversal direction, so order[1] is the corner the packet
-            # reaches first and order[-1] the one it reaches last -- which is exactly the corner
-            # convention `get_noc_multicast_addr` wants, on either NOC. Every core credits the
-            # injector instead of its predecessor, and carries the same rectangle so the runtime
-            # args do not depend on where in the chain the core sits.
-            in0_mcast = _mcast_args(in0_order, phys)
-            in1_mcast = _mcast_args(in1_order, phys)
+            # Every core credits the injector instead of its predecessor and carries the same
+            # destination set, so the runtime args do not depend on where in the chain it sits.
+            in0_bcast = _bcast_args(in0_order, phys, mode)
+            in1_bcast = _bcast_args(in1_order, phys, mode)
 
             M_start, M_end = M_tiles_per_core * in0_idx, M_tiles_per_core * (in0_idx + 1)
             N_start, N_end = N_tiles_per_core * in1_idx, N_tiles_per_core * (in1_idx + 1)
             defer_k = min(cy * k_blocks_per_core, K_blocks - 1)
 
             cc = ttnn.CoreCoord(cx, cy)
-            if use_mcast:
-                (in0_next, in0_prev, in0_tail) = in0_mcast
-                (in1_next, in1_prev, in1_tail) = in1_mcast
+            if mode != "chain":
+                (in0_next, in0_prev, in0_tail) = in0_bcast
+                (in1_next, in1_prev, in1_tail) = in1_bcast
             else:
                 in0_tail = in1_tail = []
             a0 = [in0_addr, 0, 0, int(core == in0_order[-1]),
@@ -381,7 +401,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                      "N_blocks_per_core": N_blocks_per_core, "K_blocks": K_blocks,
                      "N_tiles_per_chunk": N_tiles_per_chunk,
                      "transpose_core_grid": transpose, "defines": defines,
-                     "mcast": use_mcast}}
+                     "bcast_mode": mode}}
 
 
 def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None):
@@ -391,7 +411,7 @@ def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None)
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
             tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode),
-            _mcast_key())
+            _bcast_key())
 
 
 def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,

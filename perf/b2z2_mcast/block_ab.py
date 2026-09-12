@@ -7,14 +7,15 @@ injector's DRAM read 3.2 %, bytes genuinely in flight 0.63 %. The first two term
 chain -- one injector core per grid axis reads DRAM and every other core takes a semaphore-gated
 hop from its predecessor -- and they are 82.8 % of the reader's own time.
 
-`MM_MCAST_OPERAND` (`tt_bio/kernels/mm_mcast.py`) replaces the chain with one
-`noc_async_write_multicast` per block. The prediction, its two pricings and its falsifiers are in
+`tt_bio/kernels/mm_mcast.py` replaces the chain two ways: `MM_BCAST_FANOUT` has the
+injector write to every receiver itself, and `MM_MCAST_OPERAND` sends one
+`noc_async_write_multicast` to the whole axis. `--arm` picks which one is measured. The prediction, its two pricings and its falsifiers are in
 `perf/b2z2_mcast/PREDICTION.md`, pre-registered before this script ever ran.
 
 What this does, in one process so no arm can be compared across a tree change:
 
 1. **Parity first, and it is scored, not assumed.** One settled `PairformerLayer` call is replayed
-   with the chain and with the multicast off the same cloned inputs, and both outputs must be
+   with the chain and with the armed broadcast off the same cloned inputs, and both outputs must be
    `torch.equal`. A negative control perturbs one element of the input and must make that same
    comparison fail -- otherwise the check reads nothing.
 2. **A paired, mirrored A/B.** Each arm is captured into its own trace and replayed back to back
@@ -46,8 +47,8 @@ def dump():
         OUT_PATH.write_text(json.dumps(OUT, indent=1))
 
 
-def set_arm(on):
-    os.environ["TT_BIO_MM_MCAST"] = "1" if on else "0"
+def set_arm(mode):
+    os.environ["TT_BIO_MM_BCAST"] = mode
 
 
 def clone_args(ttnn, args, kwargs):
@@ -94,10 +95,11 @@ def main() -> int:
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--reps", type=int, default=12, help="trace replays per timed slot")
     ap.add_argument("--n", type=int, default=7, help="mirrored A B B A reps")
+    ap.add_argument("--arm", default="fanout", choices=("fanout", "mcast"))
     a = ap.parse_args()
     OUT_PATH = a.out
 
-    set_arm(False)
+    set_arm("chain")
     import torch
     import ttnn
     import tt_bio.tenstorrent as T
@@ -162,15 +164,15 @@ def main() -> int:
     layer, gargs, gkwargs = grab["obj"], grab["args"], grab["kwargs"]
     dump()
 
-    def run(on):
-        set_arm(on)
+    def run(mode):
+        set_arm(mode)
         ca, ck = clone_args(ttnn, gargs, gkwargs)
         return to_torch(ttnn, layer(*ca, **ck))
 
     # ---- 1. parity, with a negative control that must break the same comparison ------------
     print("=== parity ===", flush=True)
-    chain, mcast = run(False), run(True)
-    base_equal = equal(chain, mcast)
+    chain, arm_out = run("chain"), run(a.arm)
+    base_equal = equal(chain, arm_out)
     shapes = [list(t.shape) for t in chain]
 
     # The control perturbs the pair track by one element and must break the same comparison. It
@@ -183,7 +185,7 @@ def main() -> int:
         return v
 
     def rebuilt(bump):
-        set_arm(False)
+        set_arm("chain")
         ca, ck = clone_args(ttnn, gargs, gkwargs)
         ca = list(ca)
         zi = max((i for i, x in enumerate(ca) if isinstance(x, ttnn.Tensor)),
@@ -202,11 +204,11 @@ def main() -> int:
     roundtrip_equal = equal(chain, roundtrip)
     control_equal = equal(chain, perturbed)
 
-    OUT["parity"] = {"bit_exact": base_equal, "negative_control_equal": control_equal,
+    OUT["parity"] = {"arm": a.arm, "bit_exact": base_equal, "negative_control_equal": control_equal,
                      "control_is_valid": roundtrip_equal and not control_equal,
                      "roundtrip_only_equal": roundtrip_equal,
                      "perturbed_tensor_shape": zshape, "out_shapes": shapes,
-                     "max_abs_diff": [float((x - y).abs().max()) for x, y in zip(chain, mcast)]}
+                     "max_abs_diff": [float((x - y).abs().max()) for x, y in zip(chain, arm_out)]}
     print("  " + json.dumps(OUT["parity"]), flush=True)
     dump()
     if not base_equal or not OUT["parity"]["control_is_valid"]:
@@ -216,15 +218,15 @@ def main() -> int:
 
     # ---- 2. the paired, mirrored A/B -------------------------------------------------------
     print("=== capture ===", flush=True)
-    set_arm(False)
+    set_arm("chain")
     tid_a = capture(ttnn, dev, layer, gargs, gkwargs)
-    set_arm(True)
+    set_arm(a.arm)
     tid_b = capture(ttnn, dev, layer, gargs, gkwargs)
-    OUT["mcast_programs_built"] = sum(
-        1 for e in MG._CACHE.values() if e["dims"].get("mcast"))
+    OUT["armed_programs_built"] = sum(
+        1 for e in MG._CACHE.values() if e["dims"].get("bcast_mode") != "chain")
     OUT["total_programs_built"] = len(MG._CACHE)
     print(f"  generic matmul programs: {OUT['total_programs_built']} total, "
-          f"{OUT['mcast_programs_built']} multicast", flush=True)
+          f"{OUT['armed_programs_built']} on the {a.arm} arm", flush=True)
     dump()
 
     for tid in (tid_a, tid_b):
@@ -239,22 +241,23 @@ def main() -> int:
         b2 = replay_ms(ttnn, dev, tid_b, a.reps)
         a2 = replay_ms(ttnn, dev, tid_a, a.reps)
         rows.append({"chain": [round(a1, 4), round(a2, 4)],
-                     "mcast": [round(b1, 4), round(b2, 4)]})
-        print(f"  rep {i}: chain {a1:.4f} {a2:.4f}  mcast {b1:.4f} {b2:.4f}  "
+                     "arm": [round(b1, 4), round(b2, 4)]})
+        print(f"  rep {i}: chain {a1:.4f} {a2:.4f}  {a.arm} {b1:.4f} {b2:.4f}  "
               f"ratio {(a1 + a2) / (b1 + b2):.5f}", flush=True)
         OUT["rows"] = rows
         dump()
 
     chain_ms = st.median([x for r in rows for x in r["chain"]])
-    mcast_ms = st.median([x for r in rows for x in r["mcast"]])
+    arm_ms = st.median([x for r in rows for x in r["arm"]])
     OUT["result"] = {
+        "arm": a.arm,
         "chain_block_ms": round(chain_ms, 4),
-        "mcast_block_ms": round(mcast_ms, 4),
-        "ratio_chain_over_mcast": round(chain_ms / mcast_ms, 5),
+        "arm_block_ms": round(arm_ms, 4),
+        "ratio_chain_over_arm": round(chain_ms / arm_ms, 5),
         "aa_floor_chain": round(st.median([r["chain"][0] for r in rows])
                                 / st.median([r["chain"][1] for r in rows]), 5),
-        "aa_floor_mcast": round(st.median([r["mcast"][0] for r in rows])
-                                / st.median([r["mcast"][1] for r in rows]), 5),
+        "aa_floor_arm": round(st.median([r["arm"][0] for r in rows])
+                              / st.median([r["arm"][1] for r in rows]), 5),
     }
     print(json.dumps(OUT["result"], indent=1), flush=True)
     ttnn.release_trace(dev, tid_a)
