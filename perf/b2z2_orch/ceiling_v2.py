@@ -190,6 +190,45 @@ BANKED_LO, BANKED_HI = 1.00383, 1.00814
 BANKED_ON_MAIN = BANKED_LO
 
 
+# --- The union, MEASURED. This supersedes the contested envelope above -------------------------
+# `b2z2-bh-union-clean`, qb2 card 1, benchlock, 51 folds in one process, base n=25 / union n=10,
+# interleaved, A/A floor 1.00899x. Re-derived from the raw folds by perf/b2z2_orch/union_recheck.py.
+# The envelope above priced HOST and silu as contested estimates and topped out at 1.0914x; the
+# measured union is larger than that bound and includes a third lever the envelope had filed as
+# "built but no Blackhole number". Everything below the union line is a PROJECTION and says so.
+UNION_BASE_S = 19.658          # the union row's own interleaved base, BH
+UNION_S = 17.894               # median of n=10, BH
+UNION_BLOCK_S = 9.721          # PairformerLayer wall in the union arm, same run
+UNION_SAMPLER_S = 4.840        # sampler stage, base 5.365 s less the 0.525 s AKW takes out of it
+# Step levers, all measured on WORMHOLE, none on the cell. `b2z2-bh-union-step` is taking them there.
+STEP_LEVERS_WH = {
+    "layernorm fusion": 1.03932,
+    "layout elision (arm A)": 1.02574,
+    "short-program fusion": 1.07444,
+}
+SHARD_BLOCK = 1.1914           # MEASURED on the p300c pair, block only
+
+
+def union() -> dict:
+    """What is measured, and the two projections that sit on top of it."""
+    measured = UNION_BASE_S / UNION_S
+    step_stack = 1.0
+    for r in STEP_LEVERS_WH.values():
+        step_stack *= r
+    # A step lever worth R on the step is worth sampler_s * (1 - 1/R) on the fold.
+    step_s = UNION_SAMPLER_S * (1 - 1 / step_stack)
+    with_step = UNION_S - step_s
+    shard_s = UNION_BLOCK_S * (1 - 1 / SHARD_BLOCK)
+    with_both = with_step - shard_s
+    return {
+        "measured_paired": measured,
+        "measured_vs_published_cell_UNPAIRED": CELL_S / UNION_S,
+        "step_stack_on_step_WH": step_stack,
+        "proj_union_plus_step": UNION_BASE_S / with_step,
+        "proj_union_plus_step_plus_shard": UNION_BASE_S / with_both,
+        "proj_fold_s": with_both,
+    }
+
 def contested_envelope() -> dict:
     """An UPPER bound if every contested kill is overturned, with the overlaps taken out.
 
@@ -296,6 +335,21 @@ def main() -> int:
           f" came in under its product")
     print(f"  With the trunk shard on top: "
           f"{ce['upper_if_all_resurrect'] * (CELL_S / 18.052):.4f}x -- still under 2x.")
+
+    u = union()
+    out["union"] = u
+    print(f"\nMEASURED, and it supersedes the envelope above:")
+    print(f"  the three-lever union on the cell   {u['measured_paired']:.5f}x   "
+          f"{UNION_BASE_S:.3f} -> {UNION_S:.3f} s, paired, n=10 vs n=25, A/A floor 1.00899x")
+    print(f"  the same union vs the published cell {u['measured_vs_published_cell_UNPAIRED']:.5f}x   "
+          f"UNPAIRED -- historical cell, different tree. Do not quote this one alone.")
+    print(f"\nPROJECTED from here, and every line below is a projection:")
+    print(f"  + the three step levers ({u['step_stack_on_step_WH']:.4f}x on the step, all WORMHOLE "
+          f"numbers)   {u['proj_union_plus_step']:.4f}x")
+    print(f"  + the trunk shard on the p300c pair ({SHARD_BLOCK:.4f}x on the block, MEASURED, mesh "
+          f"tax not charged)   {u['proj_union_plus_step_plus_shard']:.4f}x  = {u['proj_fold_s']:.3f} s")
+    print(f"  2x on the published cell is {CELL_S / 2:.3f} s. Everything named, measured or "
+          f"projected, built or unbuilt, still lands short of it.")
 
     if a.json:
         a.json.write_text(json.dumps(out, indent=2))

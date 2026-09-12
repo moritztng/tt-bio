@@ -91,5 +91,13 @@
     "upper_if_all_resurrect": 1.0914005232,
     "with_trunk_shard": 1.2160059119832485,
     "note": "multiplicative and therefore optimistic; every stacked pair in this campaign has measured below its product"
+  },
+  "union": {
+    "measured_paired": 1.0985805297865208,
+    "measured_vs_published_cell_UNPAIRED": 1.1240080473901868,
+    "step_stack_on_step_WH": 1.1454305036857921,
+    "proj_union_plus_step": 1.1376496125817375,
+    "proj_union_plus_step_plus_shard": 1.2506844241230697,
+    "proj_fold_s": 15.71779389016011
   }
 }
