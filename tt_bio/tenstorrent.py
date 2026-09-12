@@ -10516,6 +10516,25 @@ class TrunkRecycle:
         return s_out, z_out
 
 
+def pair_gather(index, table, padded):
+    """``table[index]`` for an ``[n, n]`` integer map, zero-padded to ``[1, padded, padded, c]``.
+
+    Every per-``(i, j)`` embedding in this model family -- relative position, distogram bucket,
+    bond type -- is one row of a small table per token pair, so what crosses the bus is the
+    index map (1 MB at 512 tokens) and not the tensor it selects (134 MB at ``c = 128``).
+    ``table`` must already be a ROW_MAJOR device tensor, which is what ``ttnn.embedding`` takes.
+    """
+    index = index.reshape(index.shape[-2], index.shape[-1]).to(torch.int32)
+    pad = padded - index.shape[-1]
+    if pad:
+        index = torch.nn.functional.pad(index, (0, pad, 0, pad))
+    index_tt = ttnn.from_torch(index, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
+                               dtype=ttnn.uint32)
+    rows = ttnn.embedding(index_tt, table, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+    ttnn.deallocate(index_tt)
+    return ttnn.reshape(rows, (1, padded, padded, -1))
+
+
 class RelPosGather:
     """``RelativePositionEncoder`` as four table gathers, where the tensor is needed.
 
@@ -10544,16 +10563,7 @@ class RelPosGather:
         out = None
         for table, index in zip(self.tables,
                                 (d_residue, d_token, same_entity.long(), d_chain)):
-            index = index.reshape(index.shape[-2], index.shape[-1]).to(torch.int32)
-            pad = padded - index.shape[-1]
-            if pad:
-                index = torch.nn.functional.pad(index, (0, pad, 0, pad))
-            index_tt = ttnn.from_torch(index, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
-                                       dtype=ttnn.uint32)
-            rows = ttnn.embedding(index_tt, table, layout=ttnn.TILE_LAYOUT,
-                                  dtype=ttnn.bfloat16)
-            ttnn.deallocate(index_tt)
-            rows = ttnn.reshape(rows, (1, padded, padded, -1))
+            rows = pair_gather(index, table, padded)
             if out is None:
                 out = rows
             else:
@@ -10716,10 +10726,11 @@ class ConfidencePairDevice:
     index map or an ``[n, c]`` vector: the rel_pos indices, the distogram bucket indices, the
     bond and contact features.
 
-    ``supports`` is the gate. The head is configurable (``add_z_input_to_z``, ``bond_type_feature``,
-    ``add_s_to_z_prod``, ``no_update_s``) and the flags come from the checkpoint, so the device
-    path declares which shapes it computes and the caller falls back to torch for the rest. The
-    gate reads the module, never a model name.
+    ``supports`` is the gate, and it reads the module, never a model name. The head is
+    configurable and the flags come from the checkpoint, so the device path declares what it
+    computes and the caller falls back to torch for the rest. ``bond_type_feature`` and
+    ``add_s_to_z_prod`` are both implemented here; ``add_z_input_to_z=False`` is not, because
+    then there is no pair assembly left to move.
 
     Padding: the trunk's tensor is padded to the pairformer's own multiple, which is exactly the
     padding ``PairformerModule`` would have applied, and every op here is per-``(i, j)``. The one
@@ -10732,7 +10743,6 @@ class ConfidencePairDevice:
     def supports(conf) -> bool:
         return (
             getattr(conf, "add_z_input_to_z", False)
-            and not getattr(conf, "bond_type_feature", False)
             and isinstance(getattr(conf, "pairformer_stack", None), PairformerModule)
         )
 
@@ -10756,6 +10766,10 @@ class ConfidencePairDevice:
         self.z_norm_eps = conf.z_norm.eps
         self.rel_pos = RelPosGather(conf.rel_pos)
         self.bonds_weight = w(conf.token_bonds.weight, transpose=True)
+        self.bonds_type_table = (
+            ttnn.from_torch(conf.token_bonds_type.weight.detach().contiguous(),
+                            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+            if getattr(conf, "bond_type_feature", False) else None)
 
         cc = conf.contact_conditioning
         self.cutoff_min, self.cutoff_max = cc.cutoff_min, cc.cutoff_max
@@ -10860,6 +10874,11 @@ class ConfidencePairDevice:
         z = ttnn.add_(z, bonds)
         ttnn.deallocate(bonds)
 
+        if self.bonds_type_table is not None:
+            types = pair_gather(feats["type_bonds"].long(), self.bonds_type_table, padded)
+            z = ttnn.add_(z, types)
+            ttnn.deallocate(types)
+
         contact = self._contact(feats, padded)
         z = ttnn.add_(z, contact)
         ttnn.deallocate(contact)
@@ -10885,15 +10904,7 @@ class ConfidencePairDevice:
             ttnn.deallocate(p)
         ttnn.deallocate(s_in)
 
-        index = dist_index.reshape(seq_len, seq_len).to(torch.int32)
-        if seq_pad:
-            index = torch.nn.functional.pad(index, (0, seq_pad, 0, seq_pad))
-        index_tt = ttnn.from_torch(index, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
-                                   dtype=ttnn.uint32)
-        dist = ttnn.embedding(index_tt, self.dist_table, layout=ttnn.TILE_LAYOUT,
-                              dtype=ttnn.bfloat16)
-        ttnn.deallocate(index_tt)
-        dist = ttnn.reshape(dist, (1, padded, padded, -1))
+        dist = pair_gather(dist_index, self.dist_table, padded)
         z = ttnn.add_(z, dist)
         ttnn.deallocate(dist)
 
