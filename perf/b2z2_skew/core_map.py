@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Dump the matmul operand chain: which core is the injector, and how far down each core sits.
 
-`skew_split.py` reads device-profiler timestamps keyed by PHYSICAL core coordinates, and the hop
-index it needs is a property of the LOGICAL grid walk `mm_generic._build_core_order_for_axis`
-builds. Deriving the hop order from the timestamps themselves would fit the answer to the data, so
-it is taken from the same code the kernels are configured by, and joined on the physical map the
-device reports.
+The hop index `skew_split.py` needs is a property of the LOGICAL grid walk
+`mm_generic._build_core_order_for_axis` builds, so it is taken from the same code the kernels are
+configured by rather than inferred from the timestamps it is supposed to explain.
 
-Writes {"in0": {"<px>,<py>": {"group": g, "hop": i}}, "in1": {...}} plus the grid it was taken on.
+Written keyed by LOGICAL core, because that is the space the walk is defined in. The device
+profiler log reports physical coordinates and `ttnn` exposes no physical mapping, so `skew_split.py`
+joins by rank -- translated coordinates enumerate the unharvested workers in physical order, so the
+i-th distinct physical column is logical column i -- and checks that join against which cores
+actually issued a DRAM read.
+
+Writes {"in0": {"<lx>,<ly>": {"group": g, "hop": i}}, "in1": {...}} plus the grid it was taken on.
 """
 import argparse
 import json
@@ -46,7 +50,7 @@ def main() -> int:
         return int(p.x), int(p.y)
 
     out = {"grid": [gx, gy], "transpose": transpose,
-           "card": os.environ.get("TT_VISIBLE_DEVICES"), "in0": {}, "in1": {}, "logical": {}}
+           "card": os.environ.get("TT_VISIBLE_DEVICES"), "in0": {}, "in1": {}, "virtual": {}}
     for cx in range(gx):
         for cy in range(gy):
             core = (cx, cy)
@@ -57,17 +61,16 @@ def main() -> int:
             in1_order, in1_i = MG._build_core_order_for_axis(
                 core, transpose, in1_walk, in1_noc, False,
                 left_core if transpose else top_core)
-            px, py = phys(core)
-            key = f"{px},{py}"
+            key = f"{cx},{cy}"
             # the chain group is the set of cores sharing one injector: a row for in0, a column
             # for in1 in the untransposed case, and the other way round when transposed.
             out["in0"][key] = {"group": cx if transpose else cy, "hop": in0_i,
                                "injector": in0_i == 0, "sink": core == in0_order[-1]}
             out["in1"][key] = {"group": cy if transpose else cx, "hop": in1_i,
                                "injector": in1_i == 0, "sink": core == in1_order[-1]}
-            out["logical"][key] = [cx, cy]
+            out["virtual"][key] = list(phys(core))
     a.out.write_text(json.dumps(out, indent=1))
-    print(json.dumps({"grid": [gx, gy], "cores": len(out["logical"]),
+    print(json.dumps({"grid": [gx, gy], "cores": len(out["virtual"]),
                       "in0_walk": in0_walk, "in1_walk": in1_walk,
                       "out": str(a.out)}))
     return 0

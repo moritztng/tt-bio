@@ -105,6 +105,7 @@ def main() -> int:
     a = ap.parse_args()
 
     cmap = json.loads(a.coremap.read_text())
+    gx, gy = cmap["grid"]
     stream = load(a.log)
     try:
         first = next(stream)
@@ -131,6 +132,8 @@ def main() -> int:
 
     # (axis, run, core) -> [(ask, arrive), ...] in issue order, one per block iteration
     waits = defaultdict(list)
+    src_cores = defaultdict(set)          # which cores read DRAM: the injectors, per axis
+    seen_x, seen_y = set(), set()
     open_at = {}
     fwd_end = defaultdict(list)
     fwd_open = {}
@@ -141,8 +144,12 @@ def main() -> int:
         run = r[c_run]
         if not (run.isdigit() and a.gcc_min <= int(run) <= a.gcc_max):
             continue
-        axis = z.split("-")[1].lower()          # in0 / in1
+        axis = z.split("-")[1].lower()          # in0 / in1, or "rdbar" which is nested in SRC
         core = (int(r[c_x]), int(r[c_y]))
+        seen_x.add(core[0])
+        seen_y.add(core[1])
+        if z.endswith("-SRC"):
+            src_cores[axis].add(core)
         t, ph = int(r[c_time]), r[c_phase].lower()
         begin = ph.startswith("beg") or ph.endswith("start")
         if z.endswith("CHAINWAIT"):
@@ -164,11 +171,30 @@ def main() -> int:
         return 1
 
     ns = 1000.0 / a.freq_mhz
+
+    # Physical -> logical by rank. Translated coordinates enumerate the unharvested workers in
+    # physical order, so the i-th distinct physical column the grid used is logical column i.
+    # Checked below against which cores actually issued a DRAM read, which no ranking could fake.
+    xs, ys = sorted(seen_x), sorted(seen_y)
+    to_logical = {}
+    for core in {c for _, _, c in waits} | {c for v in src_cores.values() for c in v}:
+        if core[0] in xs and core[1] in ys:
+            to_logical[core] = (xs.index(core[0]), ys.index(core[1]))
+    map_check = {"grid": [gx, gy], "distinct_x": len(xs), "distinct_y": len(ys)}
+    for axis in ("in0", "in1"):
+        want = {c for c, lg in to_logical.items()
+                if cmap[axis].get(f"{lg[0]},{lg[1]}", {}).get("injector")}
+        got = src_cores.get(axis, set())
+        map_check[axis + "_injectors_expected"] = len(want)
+        map_check[axis + "_injectors_with_dram_read"] = len(got)
+        map_check[axis + "_injector_mismatch"] = len(want ^ got)
+
     # group cores of one chain together: (axis, run, chain group) -> {core: [(ask, arr), ...]}
     groups = defaultdict(dict)
     unmapped = 0
     for (axis, run, core), v in waits.items():
-        ent = cmap[axis].get(f"{core[0]},{core[1]}")
+        lg = to_logical.get(core)
+        ent = cmap[axis].get(f"{lg[0]},{lg[1]}") if lg else None
         if ent is None:
             unmapped += 1
             continue
@@ -252,7 +278,7 @@ def main() -> int:
             "total_wait_us": round(sum(ally), 3)}
 
     res = {
-        "samples": len(samples), "unmapped_cores": unmapped,
+        "samples": len(samples), "unmapped_cores": unmapped, "core_map_check": map_check,
         "causality": {"checked": causality_checked, "violations": causality_bad,
                       "note": "a core's operand arriving before its predecessor finished "
                               "forwarding would mean cross-core timestamps are not comparable"},
