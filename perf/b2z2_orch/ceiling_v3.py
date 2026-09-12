@@ -58,7 +58,21 @@ SILU_FOLD_RATIO = 1.02423
 # Trunk shard, block ratios vs one chip: b2z2-trunk-shard-scale-wh, WH, 512 aa, median of 15 warm
 # reps, bit-exact at every width. Fit compute(N) = 28.679 + 58.916/N, R2 0.9964.
 SHARD_BLOCK = {1: 1.0000, 2: 1.3422, 4: 1.6404, 8: 1.9424}
-SHARD_CAP_MEASURED_LINK = 2.299   # any width, measured link
+SHARD_CAP_MEASURED_LINK = 2.600   # any width, measured link. WAS 2.299 until b2z2-reblock-axis2-gate
+                                  # fixed `_reblock.eligible_gated`, whose DRAM window used one number
+                                  # (N) for two things -- on a square move N fixes both the row width
+                                  # and the group count; on the ending trimul's slab only the first.
+                                  # The fused channel-move was therefore silently declined at N>=4,
+                                  # bending the curve in the direction that looks like replicated
+                                  # work. Re-fit: A 28.581 -> 24.330 ms, floor 33.3 % -> 28.3 %,
+                                  # trimul_end's own R2 0.7247 -> 0.9991 (the bad R2 WAS the defect).
+                                  # The unfixed arm reproduces the parent's 28.679 ms to 0.3 %.
+SHARD_CAP_PREFIX = 2.299        # the cap redteam-v3 audited, kept so the guard below still bites
+SHARD_CAP_WITH_BSHARD = 2.740     # the same fit with b_shard also on: A 22.640 ms, floor 26.4 %.
+                                  # NOT 2.600 x a b_shard factor -- the two levers OVERLAP 45 %
+                                  # (window 4.251 ms alone / 1.553 on top of b_shard; b_shard 4.388
+                                  # alone / 1.690 on top), joint 5.941 ms against 8.639 ms if added.
+                                  # Published as a square, never as a product.
 SHARD_CAP_FREE_LINK = 2.990       # any width, link cost zero
 # The same shard, measured on a BH fold at N=2: b2z2-dual-chip-fold, corrected by b2z2-redteam-v2
 # C3 against the row's own benchlocked base (the published 1.1142x/1.1301x divided by the cell,
@@ -198,6 +212,9 @@ def main() -> int:
     cap_fold = composite(trunk, samp, rest, SHARD_CAP_MEASURED_LINK, sr_cap)
     rows.append({"route": "+ BOTH shards at their caps (any N)",
                  "block_ratio": SHARD_CAP_MEASURED_LINK, "step_ratio": sr_cap, "fold": cap_fold})
+    bs_fold = composite(trunk, samp, rest, SHARD_CAP_WITH_BSHARD, sr_cap)
+    rows.append({"route": "+ both shards, gate fix AND b_shard", "block_ratio": SHARD_CAP_WITH_BSHARD,
+                 "step_ratio": sr_cap, "fold": bs_fold})
 
     # The WH->BH calibration this file used to print and never apply. redteam-v3's point: the WH
     # block curve over-predicts the BH fold contribution of the same shard, so applying it is not
@@ -205,6 +222,12 @@ def main() -> int:
     n2_marginal = rows[0]["fold"] / STACK_RATIO
     calib = n2_marginal / SHARD_FOLD_BH_N2
     cap_calibrated = CELL_S / (rest + samp / sr_cap + trunk / (SHARD_CAP_MEASURED_LINK / calib))
+    bs_calibrated = CELL_S / (rest + samp / sr_cap + trunk / (SHARD_CAP_WITH_BSHARD / calib))
+    # redteam-v3's published figures predate b2z2-reblock-axis2-gate, so the audit compares the
+    # PRE-FIX recomputation against them. Silencing the guard by moving its reference would retire
+    # the only independent check this file has.
+    pre = composite(trunk, samp, rest, SHARD_CAP_PREFIX, sr_cap)
+    pre_cal = CELL_S / (rest + samp / sr_cap + trunk / (SHARD_CAP_PREFIX / calib))
 
     out = {
         "cell_s": CELL_S,
@@ -220,6 +243,7 @@ def main() -> int:
         "trunk_s": TRUNK_S,
         "stack_split_trunk_sampler_rest": [trunk, samp, rest],
         "cap_fold": cap_fold, "cap_fold_calibrated": cap_calibrated,
+        "cap_with_bshard": bs_fold, "cap_with_bshard_calibrated": bs_calibrated,
         "redteam3_cap": REDTEAM3_CAP, "redteam3_cap_calibrated": REDTEAM3_CAP_CALIBRATED,
         "routes": rows,
         "wh_to_bh_shard_calibration": calib,
@@ -245,10 +269,13 @@ def main() -> int:
     print(f"WH-block -> BH-fold shard calibration at N=2: {calib:.3f}x, NOW APPLIED")
     print(f"  cap route {cap_fold:.4f}x uncalibrated -> **{cap_calibrated:.4f}x = "
           f"{CELL_S/cap_calibrated:.2f} s** calibrated")
-    print(f"  redteam-v3 published {REDTEAM3_CAP:.4f}x / {REDTEAM3_CAP_CALIBRATED:.4f}x calibrated;"
-          f" this file reproduces to {abs(cap_fold/REDTEAM3_CAP-1)*100:.2f} % / "
-          f"{abs(cap_calibrated/REDTEAM3_CAP_CALIBRATED-1)*100:.2f} %")
-    if max(abs(cap_fold/REDTEAM3_CAP-1), abs(cap_calibrated/REDTEAM3_CAP_CALIBRATED-1)) > 0.02:
+    print(f"  with b_shard too (joint fit, NOT a product): {bs_fold:.4f}x -> "
+          f"**{bs_calibrated:.4f}x = {CELL_S/bs_calibrated:.2f} s** calibrated")
+    print(f"  AUDIT, like for like: at the pre-gate-fix cap {SHARD_CAP_PREFIX:.3f}x this file gives "
+          f"{pre:.4f}x / {pre_cal:.4f}x against redteam-v3's {REDTEAM3_CAP:.4f}x / "
+          f"{REDTEAM3_CAP_CALIBRATED:.4f}x -> {abs(pre/REDTEAM3_CAP-1)*100:.2f} % / "
+          f"{abs(pre_cal/REDTEAM3_CAP_CALIBRATED-1)*100:.2f} %")
+    if max(abs(pre/REDTEAM3_CAP-1), abs(pre_cal/REDTEAM3_CAP_CALIBRATED-1)) > 0.02:
         print("  !! DIVERGES from redteam-v3 by more than 2 % -- one of the two is wrong, "
               "and theirs re-derives host-only in perf/b2z2_redteam3/redteam3.py")
     print()
