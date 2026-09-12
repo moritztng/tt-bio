@@ -6,10 +6,16 @@ at the perf fixture's 35 rows is a fixture-shaped number
 (`metric-spec-from-one-example-encodes-its-accidents`), so the curve needs real folds at real
 depths.
 
-Deepening by repeating the non-query rows changes the model's answer -- more (duplicate) evidence
--- and that is fine and deliberate: these fixtures exist to put a given number of rows through the
-MSA track, not to be biologically better alignments. The query row is never touched, so
-`seed_msa_cache`'s "a3m query row matches the target sequence" assertion still holds.
+Plain repetition does NOT work and the first attempt at this was wrong: the Boltz-2 featurizer
+DEDUPLICATES the alignment, so a 256-row file built from 35 distinct rows arrives at the model as
+35 (measured -- `prepare_features` returned `feats["msa"]` of shape (35, 512) for a 256-row a3m,
+and the fold digest came back bit-identical to the shallow one, which is what gave it away). Each
+copy therefore gets one substituted column so the rows are distinct.
+
+That changes the model's answer -- more, and partly synthetic, evidence -- and that is fine and
+deliberate: these fixtures exist to put a given number of rows through the MSA track, not to be
+biologically better alignments. The query row is never touched, so `seed_msa_cache`'s "a3m query
+row matches the target sequence" assertion still holds.
 """
 import argparse
 from pathlib import Path
@@ -24,7 +30,14 @@ def deepen(src: Path, dst: Path, depth: int) -> int:
     i = 0
     while len(out) < depth:
         h, s = rest[i % len(rest)]
-        out.append((f"{h}_r{i // len(rest)}" if i >= len(rest) else h, s))
+        copy = i // len(rest)
+        if copy:
+            # one substituted column per copy, so the featurizer's dedup keeps the row
+            pos = (i * 7 + copy * 13) % len(s)
+            sub = "G" if s[pos] == "A" else "A"
+            s = s[:pos] + sub + s[pos + 1:]
+            h = f"{h}_r{copy}"
+        out.append((h, s))
         i += 1
     dst.write_text("\n".join(f"{h}\n{s}" for h, s in out) + "\n")
     return len(out)
