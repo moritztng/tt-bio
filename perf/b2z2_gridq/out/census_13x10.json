@@ -1,0 +1,343 @@
+{
+ "grid": [
+  13,
+  10
+ ],
+ "cores": 130,
+ "small_grid": false,
+ "device_probes": false,
+ "probes": {
+  "sdpa.capped_q_chunk": {
+   "what": "SDPA q_chunk (and k_chunk) for every non-tri-att call",
+   "parallel": true,
+   "value": {
+    "320": 256,
+    "512": 256,
+    "768": 256,
+    "1024": 256,
+    "1536": 256
+   }
+  },
+  "sdpa.grid_q_chunk": {
+   "what": "THIS ROW'S LEVER -- control, must move with the grid",
+   "parallel": true,
+   "value": {
+    "320/8": 32,
+    "320/16": 64,
+    "512/8": 32,
+    "512/16": 64,
+    "768/8": 64,
+    "768/16": 96,
+    "1024/8": 64,
+    "1024/16": 128,
+    "1536/8": 96,
+    "1536/16": 192
+   }
+  },
+  "sdpa.dividing_k_chunk": {
+   "what": "k_chunk for the fused tri-att kernel",
+   "parallel": true,
+   "value": {
+    "320": 160,
+    "448": 224,
+    "512": 256,
+    "640": 160,
+    "896": 224
+   }
+  },
+  "sdpa.shipped_band": {
+   "what": "the 256<seq<=384 (64,64) band",
+   "parallel": true,
+   "value": {
+    "288": [
+     64,
+     64
+    ],
+    "320": [
+     64,
+     64
+    ],
+    "352": [
+     64,
+     64
+    ],
+    "384": [
+     64,
+     64
+    ],
+    "512": [
+     256,
+     256
+    ]
+   }
+  },
+  "sdpa.tri_att_q_ladder": {
+   "what": "q_chunks the tri-att SDPA tries, widest first",
+   "parallel": true,
+   "value": {
+    "320": [
+     320,
+     160,
+     64
+    ],
+    "512": [
+     512,
+     256
+    ],
+    "768": [
+     768,
+     384,
+     256
+    ],
+    "896": [
+     896,
+     448,
+     256
+    ],
+    "1024": [
+     1024,
+     512,
+     256
+    ]
+   }
+  },
+  "sdpa.fp32_softmax_cores": {
+   "what": "cores the ragged fp32-softmax shard may use",
+   "parallel": true,
+   "value": 110
+  },
+  "mm.trimul_per_core": {
+   "what": "per_core_M/N of the triangle-mult matmul",
+   "parallel": true,
+   "value": {
+    "320": [
+     1,
+     1
+    ],
+    "512": [
+     2,
+     2
+    ],
+    "1024": [
+     4,
+     3
+    ]
+   }
+  },
+  "mm.trimul_in0_block_w": {
+   "what": "K blocking of the trimul matmul",
+   "parallel": true,
+   "value": {
+    "320": 10,
+    "512": 8,
+    "544": 1,
+    "1024": 8
+   }
+  },
+  "chunk.trimul": {
+   "what": "channel chunk of the triangle multiplication",
+   "parallel": false,
+   "value": {
+    "320/128": 64,
+    "320/256": 64,
+    "512/128": 32,
+    "512/256": 32,
+    "1024/128": 32,
+    "1024/256": 32
+   }
+  },
+  "chunk.transition_h": {
+   "what": "H chunk of the pair transition",
+   "parallel": false,
+   "value": [
+    16,
+    32,
+    32,
+    1024
+   ]
+  },
+  "chunk.seq_len_more": {
+   "what": "SEQ_LEN_MORE_CHUNKING and the transition thresholds",
+   "parallel": false,
+   "value": [
+    1536,
+    1024,
+    1024
+   ]
+  },
+  "rows.pair_row_tile": {
+   "what": "rows per block of a pair [B,L,L,*] op",
+   "parallel": false,
+   "value": {
+    "320": 0,
+    "512": 0,
+    "1024": 0,
+    "1536": 320
+   }
+  },
+  "rows.msa_row_tile": {
+   "what": "rows per block of an MSA [B,L,M,*] op",
+   "parallel": false,
+   "value": {
+    "512/1024": 0,
+    "512/8192": 0,
+    "1024/1024": 0,
+    "1024/8192": 0
+   }
+  },
+  "rows.row_block": {
+   "what": "rows per block from the L1 residency budget",
+   "parallel": false,
+   "value": {
+    "skipped": "needs a pinned device"
+   }
+  },
+  "rows.pwa_depth_block": {
+   "what": "MSA depth block of the pair-weighted average",
+   "parallel": false,
+   "value": {
+    "skipped": "needs a pinned device"
+   }
+  },
+  "budget.l1_resident": {
+   "what": "L1 a row-blocked op may hold",
+   "parallel": false,
+   "value": {
+    "skipped": "needs a pinned device"
+   }
+  },
+  "budget.atom_pair": {
+   "what": "DRAM an atom-pair section may hold",
+   "parallel": false,
+   "value": {
+    "skipped": "needs a pinned device"
+   }
+  },
+  "budget.trimul_l1": {
+   "what": "trimul L1 residency thresholds",
+   "parallel": false,
+   "value": [
+    352,
+    640,
+    6553600
+   ]
+  },
+  "esmc.pair_ffn_row_block": {
+   "what": "ESMC pair-FFN row block",
+   "parallel": false,
+   "value": [
+    32,
+    [
+     320,
+     1024
+    ],
+    8
+   ]
+  },
+  "esmfold2.msa_row_blocks": {
+   "what": "ESMFold2 MSA row blocks",
+   "parallel": false,
+   "value": {
+    "error": "TypeError: 'NoneType' object is not iterable"
+   }
+  },
+  "esmfold2.opm_fallback_rows": {
+   "what": "ESMFold2 outer-product-mean fallback rows",
+   "parallel": false,
+   "value": {
+    "512": 128,
+    "1024": 256
+   }
+  },
+  "boltz2.row_block": {
+   "what": "Boltz-2 host row block",
+   "parallel": false,
+   "value": {
+    "4096": 4096,
+    "65536": 256,
+    "1048576": 16
+   }
+  },
+  "rfd3.attn_row_block": {
+   "what": "RFdiffusion3 attention row block / pair transition H chunk",
+   "parallel": true,
+   "value": [
+    256,
+    64
+   ]
+  },
+  "protenix.paircond": {
+   "what": "Protenix pair-conditioning narrow-matmul tile cap",
+   "parallel": true,
+   "value": [
+    4
+   ]
+  },
+  "exposure.sdpa_units": {
+   "what": "work units the shipped q_chunk leaves, per shipped SDPA shape",
+   "parallel": true,
+   "value": {
+    "boltz2.diffusion.token": {
+     "shipped_chunk": 256,
+     "shipped_units": 32,
+     "shipped_occupancy": 0.246,
+     "shipped_passes": 1,
+     "rule_chunk": 64,
+     "rule_units": 128,
+     "rule_occupancy": 0.985,
+     "rule_passes": 1
+    },
+    "boltz2.diffusion.atom": {
+     "shipped_chunk": 32,
+     "shipped_units": 560,
+     "shipped_occupancy": 1.0,
+     "shipped_passes": 5,
+     "rule_chunk": 32,
+     "rule_units": 560,
+     "rule_occupancy": 1.0,
+     "rule_passes": 5
+    },
+    "boltz2.trunk.tri_att": {
+     "shipped_chunk": 256,
+     "shipped_units": 4096,
+     "shipped_occupancy": 1.0,
+     "shipped_passes": 32,
+     "rule_chunk": 256,
+     "rule_units": 4096,
+     "rule_occupancy": 1.0,
+     "rule_passes": 32
+    },
+    "esmc.attn.L512": {
+     "shipped_chunk": 256,
+     "shipped_units": 40,
+     "shipped_occupancy": 0.308,
+     "shipped_passes": 1,
+     "rule_chunk": 128,
+     "rule_units": 80,
+     "rule_occupancy": 0.615,
+     "rule_passes": 1
+    },
+    "esmfold2.attn.L512": {
+     "shipped_chunk": 256,
+     "shipped_units": 64,
+     "shipped_occupancy": 0.492,
+     "shipped_passes": 1,
+     "rule_chunk": 128,
+     "rule_units": 128,
+     "rule_occupancy": 0.985,
+     "rule_passes": 1
+    },
+    "saprot.attn.L512": {
+     "shipped_chunk": 256,
+     "shipped_units": 40,
+     "shipped_occupancy": 0.308,
+     "shipped_passes": 1,
+     "rule_chunk": 128,
+     "rule_units": 80,
+     "rule_occupancy": 0.615,
+     "rule_passes": 1
+    }
+   }
+  }
+ }
+}
