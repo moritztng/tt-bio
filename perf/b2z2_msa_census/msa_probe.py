@@ -52,6 +52,7 @@ OUT_PATH: Path | None = None
 
 FENCE_N, FENCE_DIM = 3, 32
 GRAB_CALL = 2               # second MSALayer of the first trunk pass: block 0 warmed the kernels
+SUBUNITS = ("pair_weighted_averaging", "msa_transition", "outer_product_mean", "pairformer_layer")
 
 
 class Grabbed(Exception):
@@ -73,6 +74,44 @@ def make_fence(ttnn, dev):
             ttnn.exp(t)
         ttnn.synchronize_device(dev)
     return fence
+
+
+class _Marked:
+    """Wrap a sub-unit so the program stream carries a labelled boundary.
+
+    One `ttnn.exp` on a 32x32 tile in front of each of the layer's four sub-units. It is a
+    single program, so `stall_split.py`'s fence detector (a run of >=3) does not confuse it
+    with a window fence, and it costs a few microseconds against a 238 ms call. The marker
+    goes into BOTH the graph capture and the armed capture, which is the point: it is the only
+    thing that makes the aligned per-program table segmentable by sub-unit without a device
+    sync per sub-unit, and a sync per sub-unit is what the earlier census had to pay.
+    """
+
+    def __init__(self, inner, ttnn, tile):
+        self._inner, self._ttnn, self._tile = inner, ttnn, tile
+
+    def __call__(self, *a, **k):
+        self._ttnn.exp(self._tile)
+        return self._inner(*a, **k)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
+def mark_subunits(ttnn, dev, g):
+    """Replace the grabbed layer's four sub-units with marked proxies. Returns the undo."""
+    import torch
+    tile = ttnn.from_torch(torch.ones(1, 1, FENCE_DIM, FENCE_DIM), layout=ttnn.TILE_LAYOUT,
+                           dtype=ttnn.bfloat16, device=dev)
+    obj = g["obj"]
+    saved = {n: getattr(obj, n) for n in SUBUNITS}
+    for n, inner in saved.items():
+        setattr(obj, n, _Marked(inner, ttnn, tile))
+
+    def undo():
+        for n, inner in saved.items():
+            setattr(obj, n, inner)
+    return undo
 
 
 def patch_cfg():
@@ -290,6 +329,9 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=5)
     ap.add_argument("--folds", type=int, default=3)
     ap.add_argument("--recycles", type=int, default=3)
+    ap.add_argument("--mark", action="store_true",
+                    help="one 32x32 ttnn.exp in front of each sub-unit, so the aligned "
+                         "per-program table can be cut by sub-unit")
     ap.add_argument("--label", default="")
     a = ap.parse_args()
     OUT_PATH = a.out
@@ -316,6 +358,9 @@ def main() -> int:
         mode_fold(ttnn, T, B, a.size, a.folds, a.recycles)
     else:
         dev, g = grab(ttnn, T, B, a.size)
+        if a.mark:
+            mark_subunits(ttnn, dev, g)
+            OUT["marked"] = list(SUBUNITS)
         if a.mode == "ops":
             mode_ops(ttnn, dev, g)
         elif a.mode == "time":
