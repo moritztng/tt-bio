@@ -6108,6 +6108,15 @@ _MM_BLOCK = {
     (8, 8): (4, 8, 1, 4, 1),    # protenix-v2 gate + pair  -- unchanged
     (4, 12): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv   at c_z=128
     (4, 4): (4, 4, 1, 4, 1),    # boltz2 / openfold3 gate  at c_z=128
+    # [Wq|Wk|Wv|Wg], the keys only the K2 fused projection produces (nt = 4/3 of the qkv nt).
+    # Each one repeats its own qkv entry verbatim, which is what makes the fusion bit-exact and
+    # not merely equal: N_block is one tile and K_block == kt, so widening the weight cannot
+    # change how any single output tile is contracted. OpenDDE's (12, 48) is deliberately absent
+    # -- its two shipped entries are the ones flagged NOT bit-exact above, and a fused key would
+    # inherit that without ever having been scored at the fold.
+    (4, 16): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv+gate fused at c_z=128
+    (2, 16): (4, 2, 1, 4, 1),   # openfold3            qkv+gate fused at c_z=64
+    (8, 32): (4, 8, 1, 4, 1),   # protenix-v2          qkv+gate fused at c_z=256
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
     # opendde tri-att at c_z=384. These two are NOT bit-exact -- K_block = 12 folds the contraction
@@ -6370,6 +6379,18 @@ class TriangleAttention(Module):
             dtype=_dtype(),
         )
         self.g_weight = self.torch_to_tt("linear_g.weight", dtype=_dtype())
+        # [Wq|Wk|Wv|Wg]: one operand pass for four head-major outputs (K2, see
+        # tt_bio/triatt_qkv.py::qkv_gate_heads). Built only where that op can take the call --
+        # tile-aligned heads and an unbiased gate -- so a block that will never use it pays no
+        # bytes. 128 KiB at c_z=128 against the 67.11 MB operand read it deletes per call.
+        self.qkvg_weight = None
+        if not self.subtile and "linear_g.bias" not in self.weights:
+            self.qkvg_weight = ttnn.from_torch(
+                torch.cat([self.weights[k] for k in ("linear_q.weight", "linear_k.weight",
+                                                     "linear_v.weight", "linear_g.weight")],
+                          dim=0).t(),
+                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(),
+            )
         # RF3 and AF2-IG bias both the gate and the output projection; Boltz-2, Protenix-v2,
         # OpenFold3 and OpenDDE bias neither, and q/k/v carry no bias in any of them. Read them
         # only when the weights carry them: with no bias present every branch below is the one it
@@ -6606,7 +6627,13 @@ class TriangleAttention(Module):
                 end = min(s + chunk, S)
                 x_chunk = normed_rows(s, end)
                 qkv_cfg_chunk = _qkv_mm_config(x_chunk, self.qkv_weight)
-                qkv_chunk = _triatt_qkv.qkv_heads(
+                qkvg_chunk = _triatt_qkv.qkv_gate_heads(
+                    x_chunk, self.qkvg_weight, self.o_weight, self.compute_kernel_config,
+                    self.n_heads, self.head_dim, _dtype(),
+                    None if self.qkvg_weight is None
+                    else _qkv_mm_config(x_chunk, self.qkvg_weight),
+                )
+                qkv_chunk = qkvg_chunk[:3] if qkvg_chunk is not None else _triatt_qkv.qkv_heads(
                     x_chunk, self.qkv_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), qkv_cfg_chunk,
                 )
@@ -6619,8 +6646,8 @@ class TriangleAttention(Module):
                         config=qkv_cfg_chunk,
                     )
                 g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
-                g_chunk = None
-                if isinstance(qkv_chunk, tuple) and not self.biased:
+                g_chunk = qkvg_chunk[3] if qkvg_chunk is not None else None
+                if g_chunk is None and isinstance(qkv_chunk, tuple) and not self.biased:
                     g_chunk = _triatt_qkv.gate_proj(
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
                         self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
@@ -6726,9 +6753,18 @@ class TriangleAttention(Module):
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
-            qkv = None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
-                x, self.qkv_weight, self.compute_kernel_config,
-                self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
+            # The fused form returns four tensors -- the gate rides in the same operand pass --
+            # and `g` below then skips its own projection entirely.
+            qkvg = None if qkv_cfg is not None else _triatt_qkv.qkv_gate_heads(
+                x, self.qkvg_weight, self.o_weight, self.compute_kernel_config,
+                self.n_heads, self.head_dim, _dtype(),
+                None if self.qkvg_weight is None else _qkv_mm_config(x, self.qkvg_weight),
+            )
+            qkv = qkvg[:3] if qkvg is not None else (
+                None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
+                    x, self.qkv_weight, self.compute_kernel_config,
+                    self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
+                )
             )
             if qkv is None:
                 if qkv_cfg is not None:
@@ -6748,8 +6784,8 @@ class TriangleAttention(Module):
                         dtype=_dtype(),
                         config=_qkv_mm_config(x, self.qkv_weight),
                     )
-            g = None
-            if isinstance(qkv, tuple) and not self.biased:
+            g = qkvg[3] if qkvg is not None else None
+            if g is None and isinstance(qkv, tuple) and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),

@@ -467,6 +467,21 @@ void kernel_main() {
 
             for (uint32_t pass = 0; pass < TRIMUL_TAIL_PASSES; pass++) {
             const uint32_t pass_cb = (pass == 0) ? p_cb : g_cb;
+            // `intermediate_cb` exists to hold the running sum when the contraction takes more
+            // than one K block. This kernel's eligibility rule is that it never does --
+            // `trimul_tail.eligible` declines any weight whose block entry does not set
+            // K_block == kt, and "one K block is the fusion's whole simplification". So with
+            // K_num_blocks == 1 the matmul's fp32 DST is already the final value and staging it
+            // through `intermediate_cb` is an unpack and a pack of the WHOLE output block, twice
+            // per tail call, that produce the number they were handed.
+            //
+            // Packing DST straight to the bf16 `pass_cb` is bit-identical, not merely close: the
+            // round trip stores the fp32 DST value losslessly into an fp32 CB and reads it back
+            // losslessly, so the fp32 -> bf16 conversion that reaches `pass_cb` is the SAME
+            // packer conversion of the SAME fp32 value either way. `copy_block` also carries an
+            // optional SFPU activation, and this kernel is built without one.
+            constexpr bool direct_pack = (K_num_blocks == 1) && TRIMUL_TAIL_DIRECT_PACK;
+            const uint32_t mm_dest_cb = direct_pack ? pass_cb : intermediate_cb;
             mm_block_init_short(
                 in0_cb,
                 in1_cb,
@@ -475,9 +490,9 @@ void kernel_main() {
                 current_subblock_h /*rt_dim*/,
                 K_block_tiles /*kt_dim*/);
             reconfig_data_format(in1_cb, in0_cb);
-            pack_reconfig_data_format(intermediate_cb);
+            pack_reconfig_data_format(mm_dest_cb);
             // Accumulation buffer
-            cb_reserve_back(intermediate_cb, out_block_num_tiles);
+            cb_reserve_back(mm_dest_cb, out_block_num_tiles);
             for (uint32_t k_block = 0; k_block < K_num_blocks; k_block++) {
                 cb_wait_front(in0_cb, in0_block_num_tiles);
                 cb_wait_front(in1_cb, in1_block_num_tiles);
@@ -485,7 +500,7 @@ void kernel_main() {
                 matmul_blocks(
                     in0_cb,
                     in1_cb,
-                    intermediate_cb,
+                    mm_dest_cb,
                     current_M_block_tiles,
                     current_N_block_tiles,
                     N_block_tiles,
@@ -508,20 +523,26 @@ void kernel_main() {
                 }
                 cb_pop_front(in1_cb, in1_block_num_tiles);
                 reuse_in0_block = false;
-                if (k_block == 0) {
-                    PACK((llk_pack_reconfig_l1_acc(1)));
+                // L1 accumulation is what makes the running sum work across K blocks. With one
+                // K block there is nothing to accumulate into, and the destination is a bf16 CB.
+                if constexpr (!direct_pack) {
+                    if (k_block == 0) {
+                        PACK((llk_pack_reconfig_l1_acc(1)));
+                    }
                 }
             }
 
-            cb_push_back(intermediate_cb, out_block_num_tiles);
-            PACK((llk_pack_reconfig_l1_acc(0)));
+            cb_push_back(mm_dest_cb, out_block_num_tiles);
 
-            // The fp32 accumulator -> bf16, through the wheel's own copy_block: this is the
-            // identical pack that writes p_out and g_out to DRAM in production.
-            cb_reserve_back(pass_cb, out_block_num_tiles);
-            cb_wait_front(intermediate_cb, out_block_num_tiles);
-            copy_block(intermediate_cb, pass_cb, M_block_tiles, N_block_tiles);
-            cb_pop_front(intermediate_cb, out_block_num_tiles);
+            if constexpr (!direct_pack) {
+                PACK((llk_pack_reconfig_l1_acc(0)));
+                // The fp32 accumulator -> bf16, through the wheel's own copy_block: this is the
+                // identical pack that writes p_out and g_out to DRAM in production.
+                cb_reserve_back(pass_cb, out_block_num_tiles);
+                cb_wait_front(intermediate_cb, out_block_num_tiles);
+                copy_block(intermediate_cb, pass_cb, M_block_tiles, N_block_tiles);
+                cb_pop_front(intermediate_cb, out_block_num_tiles);
+            }
             }  // pass
 
             cb_reserve_back(out_cb, out_block_num_tiles);

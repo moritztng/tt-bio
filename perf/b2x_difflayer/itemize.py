@@ -134,9 +134,13 @@ def itemize(call):
             "buffer": b, "size": size, "kind": buf_kind[b],
             "alloc_op": (ops[buf_alloc_op[b]]["name"] if buf_alloc_op[b] is not None else None),
             "alloc_op_i": buf_alloc_op[b],
-            "n_consumers": len(consumers[b]),
-            "consumers": consumers[b],
-            "consumer_names": [ops[i]["name"] for i in consumers[b]],
+            # A buffer with no tensor node attached never entered `tensor_of_buffer`, so it has
+            # no entry here. That is device-op scratch, not an error: it is written and consumed
+            # inside one op and never becomes a ttnn-level tensor. `real_traffic` already charges
+            # a consumer-less buffer one read; before this it crashed the itemisation instead.
+            "n_consumers": len(consumers.get(b, ())),
+            "consumers": list(consumers.get(b, ())),
+            "consumer_names": [ops[i]["name"] for i in consumers.get(b, ())],
         })
     return ops, rows
 
