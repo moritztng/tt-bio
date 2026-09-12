@@ -1,0 +1,50 @@
+{
+ "env": {
+  "started": "2026-09-12T21:16:07+0000",
+  "card": "20",
+  "host": "j10glx02",
+  "size": 512,
+  "msa_dir": "/home/tt-admin/wt-b2z2compose/perf/b2z2_hostzero/.msa_512",
+  "commit": "40f89f2f",
+  "recycling_steps": 3,
+  "sampling_steps": 200
+ },
+ "folds": [
+  {
+   "tag": "base_0",
+   "flags": [
+    "TT_BIO_DEVICE_CONDITIONING",
+    "TT_BIO_DEVICE_ZINIT",
+    "TT_BIO_DEVICE_CONFIDENCE"
+   ],
+   "value": "0",
+   "wall_s": 44.4638,
+   "plddt": null,
+   "dir": "512_base_0"
+  },
+  {
+   "tag": "base_1",
+   "flags": [
+    "TT_BIO_DEVICE_CONDITIONING",
+    "TT_BIO_DEVICE_ZINIT",
+    "TT_BIO_DEVICE_CONFIDENCE"
+   ],
+   "value": "0",
+   "wall_s": 49.8266,
+   "plddt": null,
+   "dir": "512_base_1"
+  },
+  {
+   "tag": "union_0",
+   "flags": [
+    "TT_BIO_DEVICE_CONDITIONING",
+    "TT_BIO_DEVICE_ZINIT",
+    "TT_BIO_DEVICE_CONFIDENCE"
+   ],
+   "value": "1",
+   "wall_s": 39.0335,
+   "plddt": null,
+   "dir": "512_union_0"
+  }
+ ]
+}

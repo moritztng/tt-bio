@@ -1,0 +1,26 @@
+{
+ "root": "perf/b2z2_compose/cif512",
+ "split_seq_id": 298,
+ "ref": "base_0",
+ "n_atoms": 4116,
+ "arms": {
+  "base_1": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "union_0": {
+   "whole_all_atom_A": 0.71388,
+   "whole_ca_A": 0.63986,
+   "domain1_all_atom_A": 0.35152,
+   "domain2_all_atom_A": 0.32031,
+   "hinge_free_all_atom_A": 0.33884,
+   "hinge_deg": 4.362,
+   "hinge_artifact_signature": true
+  }
+ }
+}

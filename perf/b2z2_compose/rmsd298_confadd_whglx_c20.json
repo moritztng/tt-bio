@@ -1,0 +1,49 @@
+{
+ "cifdir": "perf/b2z2_compose/cifconf298",
+ "ref": "base_0",
+ "thresholds_A": {
+  "pass": 0.35,
+  "hold": 0.6,
+  "source": "state/answered/4649-decision.md"
+ },
+ "n_atoms": 2397,
+ "n_ca": 298,
+ "pairwise": [
+  {
+   "kind": "A/A",
+   "a": "base_0",
+   "b": "base_1",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_0",
+   "b": "confadd_0",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  {
+   "kind": "A/B",
+   "a": "base_1",
+   "b": "confadd_0",
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  }
+ ],
+ "vs_ref": {
+  "base_1": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  },
+  "confadd_0": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0,
+   "verdict_all_atom": "PASS",
+   "verdict_ca": "PASS"
+  }
+ },
+ "AA_structural_floor_A": 0.0
+}
