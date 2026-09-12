@@ -26,7 +26,15 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--reps", type=int, default=20)
+    # The models on this path do not all run the five lengths above: ESMC and SaProt ask at
+    # q=128 with 15 and 20 work units (perf/b2z2_gridq/out/picks_*.json), which is off the bottom
+    # of CASES. `--cases S,H,D;S,H,D` sweeps the shapes a census actually recorded.
+    ap.add_argument("--cases", default="")
     a = ap.parse_args()
+
+    global CASES
+    if a.cases:
+        CASES = [tuple(int(v) for v in c.split(",")) for c in a.cases.split(";") if c]
 
     import torch
     torch.set_grad_enabled(False)

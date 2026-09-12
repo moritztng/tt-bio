@@ -1,0 +1,170 @@
+{
+ "env": {
+  "started": "2026-09-13T00:13:21+0200",
+  "card": "0",
+  "commit": "d4702cd65",
+  "arch": "Arch.BLACKHOLE",
+  "n_cores": 110,
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "ladder": [
+  {
+   "S": 128,
+   "heads": 15,
+   "shipped": 128,
+   "rule": 32,
+   "measured_best": 64,
+   "rule_us": 27.5,
+   "best_us": 13.1,
+   "shipped_us": 15.9,
+   "rule_vs_shipped": 0.5782,
+   "best_vs_shipped": 1.2137,
+   "all_bit_exact": true,
+   "sweep": {
+    "32": {
+     "us": 27.5,
+     "units": 60,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "64": {
+     "us": 13.1,
+     "units": 30,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "128": {
+     "us": 15.9,
+     "units": 15,
+     "bit_exact": true,
+     "max_abs": 0.0
+    }
+   }
+  },
+  {
+   "S": 128,
+   "heads": 20,
+   "shipped": 128,
+   "rule": 32,
+   "measured_best": 32,
+   "rule_us": 26.4,
+   "best_us": 26.4,
+   "shipped_us": 27.6,
+   "rule_vs_shipped": 1.0455,
+   "best_vs_shipped": 1.0455,
+   "all_bit_exact": true,
+   "sweep": {
+    "32": {
+     "us": 26.4,
+     "units": 80,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "64": {
+     "us": 26.5,
+     "units": 40,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "128": {
+     "us": 27.6,
+     "units": 20,
+     "bit_exact": true,
+     "max_abs": 0.0
+    }
+   }
+  },
+  {
+   "S": 256,
+   "heads": 15,
+   "shipped": 256,
+   "rule": 64,
+   "measured_best": 64,
+   "rule_us": 28.8,
+   "best_us": 28.8,
+   "shipped_us": 40.5,
+   "rule_vs_shipped": 1.4062,
+   "best_vs_shipped": 1.4062,
+   "all_bit_exact": true,
+   "sweep": {
+    "32": {
+     "us": 29.6,
+     "units": 120,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "64": {
+     "us": 28.8,
+     "units": 60,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "128": {
+     "us": 32.0,
+     "units": 30,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "256": {
+     "us": 40.5,
+     "units": 15,
+     "bit_exact": true,
+     "max_abs": 0.0
+    }
+   }
+  },
+  {
+   "S": 256,
+   "heads": 20,
+   "shipped": 256,
+   "rule": 64,
+   "measured_best": 64,
+   "rule_us": 30.2,
+   "best_us": 30.2,
+   "shipped_us": 41.4,
+   "rule_vs_shipped": 1.3709,
+   "best_vs_shipped": 1.3709,
+   "all_bit_exact": true,
+   "sweep": {
+    "32": {
+     "us": 32.1,
+     "units": 160,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "64": {
+     "us": 30.2,
+     "units": 80,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "128": {
+     "us": 33.0,
+     "units": 40,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "256": {
+     "us": 41.4,
+     "units": 20,
+     "bit_exact": true,
+     "max_abs": 0.0
+    }
+   }
+  }
+ ],
+ "rule_misses": [
+  {
+   "S": 128,
+   "heads": 15,
+   "rule": 32,
+   "measured_best": 64,
+   "rule_us": 27.5,
+   "best_us": 13.1
+  }
+ ],
+ "worst_rule_vs_shipped": 0.5782
+}

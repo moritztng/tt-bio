@@ -1,0 +1,59 @@
+{
+ "env": {
+  "started": "2026-09-13T00:12:57+0200",
+  "card": "0",
+  "commit": "d4702cd65",
+  "arch": "Arch.BLACKHOLE",
+  "n_cores": 110,
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "ladder": [
+  {
+   "S": 128,
+   "heads": 15,
+   "shipped": 128,
+   "rule": 32,
+   "measured_best": 64,
+   "rule_us": 14.3,
+   "best_us": 12.2,
+   "shipped_us": 15.8,
+   "rule_vs_shipped": 1.1049,
+   "best_vs_shipped": 1.2951,
+   "all_bit_exact": true,
+   "sweep": {
+    "32": {
+     "us": 14.3,
+     "units": 60,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "64": {
+     "us": 12.2,
+     "units": 30,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "128": {
+     "us": 15.8,
+     "units": 15,
+     "bit_exact": true,
+     "max_abs": 0.0
+    }
+   }
+  }
+ ],
+ "rule_misses": [
+  {
+   "S": 128,
+   "heads": 15,
+   "rule": 32,
+   "measured_best": 64,
+   "rule_us": 14.3,
+   "best_us": 12.2
+  }
+ ],
+ "worst_rule_vs_shipped": 1.1049
+}

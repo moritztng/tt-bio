@@ -1,0 +1,50 @@
+{
+ "env": {
+  "started": "2026-09-13T00:13:02+0200",
+  "card": "0",
+  "commit": "d4702cd65",
+  "arch": "Arch.BLACKHOLE",
+  "n_cores": 110,
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "ladder": [
+  {
+   "S": 128,
+   "heads": 15,
+   "shipped": 128,
+   "rule": 32,
+   "measured_best": 32,
+   "rule_us": 12.5,
+   "best_us": 12.5,
+   "shipped_us": 15.7,
+   "rule_vs_shipped": 1.256,
+   "best_vs_shipped": 1.256,
+   "all_bit_exact": true,
+   "sweep": {
+    "32": {
+     "us": 12.5,
+     "units": 60,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "64": {
+     "us": 13.0,
+     "units": 30,
+     "bit_exact": true,
+     "max_abs": 0.0
+    },
+    "128": {
+     "us": 15.7,
+     "units": 15,
+     "bit_exact": true,
+     "max_abs": 0.0
+    }
+   }
+  }
+ ],
+ "rule_misses": [],
+ "worst_rule_vs_shipped": 1.256
+}
