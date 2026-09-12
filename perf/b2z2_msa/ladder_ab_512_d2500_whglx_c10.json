@@ -1,0 +1,127 @@
+{
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "chip": "10",
+  "ttnn": "0.68.0",
+  "tokens": 512,
+  "sampling_steps": 200,
+  "a3m": "deep/cdk2x2_512_d2500.a3m",
+  "n_msa_true": 2500,
+  "recycling_steps": 3,
+  "n_msa": 2500,
+  "padded_depth_base": 3072,
+  "padded_depth_ladder": 3072,
+  "median_base_s": 46.6129,
+  "median_ladder_s": 46.2223,
+  "ratio": 1.0085,
+  "aa_floor_pct": 2.024,
+  "bit_exact": true,
+  "sha_base": [
+    "{\"cdk2x2_512.cif\": \"969efcd085ba8e04\"}"
+  ],
+  "sha_ladder": [
+    "{\"cdk2x2_512.cif\": \"969efcd085ba8e04\"}"
+  ],
+  "rows": [
+    {
+      "arm": "cold",
+      "wall_s": 65.5404,
+      "elapsed_s": 65.5405,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 49.3052,
+      "elapsed_s": 49.3052,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    },
+    {
+      "arm": "ladder",
+      "wall_s": 45.9854,
+      "elapsed_s": 45.9854,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 46.3122,
+      "elapsed_s": 46.3122,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 46.4918,
+      "elapsed_s": 46.4918,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    },
+    {
+      "arm": "ladder",
+      "wall_s": 47.3394,
+      "elapsed_s": 47.3394,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 47.4524,
+      "elapsed_s": 47.4524,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 46.4152,
+      "elapsed_s": 46.4153,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    },
+    {
+      "arm": "ladder",
+      "wall_s": 46.2223,
+      "elapsed_s": 46.2224,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    },
+    {
+      "arm": "base",
+      "wall_s": 46.7341,
+      "elapsed_s": 46.7341,
+      "plddt": null,
+      "n_msa": null,
+      "sha": {
+        "cdk2x2_512.cif": "969efcd085ba8e04"
+      }
+    }
+  ]
+}

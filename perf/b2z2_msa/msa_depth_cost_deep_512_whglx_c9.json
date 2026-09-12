@@ -1,0 +1,61 @@
+{
+  "host": "j10glx02",
+  "arch": "wormhole_b0",
+  "chip": "9",
+  "ttnn": "0.68.0",
+  "fit": {
+    "intercept_ms": 139.4502,
+    "slope_ms_per_row": 0.105304,
+    "depth_free_share_at_1024": 0.5639
+  },
+  "rows": [
+    {
+      "padded_depth": 1024,
+      "true_rows": 35,
+      "tokens": 512,
+      "padded_tokens": 512,
+      "n_blocks": 4,
+      "module_ms": 969.8378,
+      "per_layer_ms": 242.4594,
+      "min_ms": 969.3695,
+      "max_ms": 970.6841,
+      "reps": 5
+    },
+    {
+      "padded_depth": 2048,
+      "true_rows": 35,
+      "tokens": 512,
+      "padded_tokens": 512,
+      "n_blocks": 4,
+      "module_ms": 1415.8561,
+      "per_layer_ms": 353.964,
+      "min_ms": 1414.6937,
+      "max_ms": 1416.8842,
+      "reps": 5
+    },
+    {
+      "padded_depth": 3072,
+      "true_rows": 35,
+      "tokens": 512,
+      "padded_tokens": 512,
+      "n_blocks": 4,
+      "module_ms": 1918.8221,
+      "per_layer_ms": 479.7055,
+      "min_ms": 1918.5737,
+      "max_ms": 1919.3546,
+      "reps": 5
+    },
+    {
+      "padded_depth": 4096,
+      "true_rows": 35,
+      "tokens": 512,
+      "padded_tokens": 512,
+      "n_blocks": 4,
+      "module_ms": 2239.93,
+      "per_layer_ms": 559.9825,
+      "min_ms": 2239.6205,
+      "max_ms": 2240.1082,
+      "reps": 5
+    }
+  ]
+}
