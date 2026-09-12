@@ -47,14 +47,16 @@ if _DIR:
                 m._sdpa_program_config_for_lengths = wrapped
 
     class _Hook(importlib.abc.Loader):
-        def __init__(self, spec):
-            self._spec = spec
+        # Hold the ORIGINAL loader, not the spec: `spec.loader = _Hook(spec)` below makes
+        # `self._spec.loader` this same object, and every call recurses until the stack dies.
+        def __init__(self, loader):
+            self._loader = loader
 
         def create_module(self, spec):
-            return self._spec.loader.create_module(spec)
+            return self._loader.create_module(spec)
 
         def exec_module(self, module):
-            self._spec.loader.exec_module(module)
+            self._loader.exec_module(module)
             try:
                 _patch(module)
             except Exception:                                        # noqa: BLE001
@@ -67,13 +69,11 @@ if _DIR:
             # BEFORE they import from it, which is what a meta-path finder guarantees.
             if fullname != "tt_bio.tenstorrent":
                 return None
-            sys.meta_path.remove(self)
             spec = importlib.machinery.PathFinder.find_spec(fullname, path)
-            sys.meta_path.insert(0, self)
             if spec is None or spec.loader is None:
                 return None
             sys.meta_path.remove(self)
-            spec.loader = _Hook(spec)
+            spec.loader = _Hook(spec.loader)
             return spec
 
     sys.meta_path.insert(0, _Finder())
