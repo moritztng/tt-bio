@@ -1,0 +1,74 @@
+{
+  "claimed_paired": 1.12862,
+  "claimed_global": 1.1229,
+  "rederived_global": 1.122900743169977,
+  "aa_floor_estimator_matched": 1.0286005823207067,
+  "aa_worst_single_pair": 1.1010981434973162,
+  "distributions_separate": false,
+  "pairing_sensitivity": 1.004692025625344,
+  "schemes": [
+    {
+      "pairing": "adjacent base in own rep (the row's method)",
+      "n": 10,
+      "median": 1.1286218027228676,
+      "mean": 1.1137748297188352,
+      "min": 1.0322118141846683,
+      "max": 1.1807489597780862
+    },
+    {
+      "pairing": "median base of own rep",
+      "n": 10,
+      "median": 1.1240630108149734,
+      "mean": 1.1122662960715377,
+      "min": 1.043705792391512,
+      "max": 1.1913453536754508
+    },
+    {
+      "pairing": "global median base",
+      "n": 10,
+      "median": 1.1233510109930323,
+      "mean": 1.1128269712080503,
+      "min": 1.0145765627987,
+      "max": 1.196876585668377
+    }
+  ],
+  "arms": [
+    {
+      "arm": "LAY",
+      "n": 5,
+      "paired_median": 1.0218487394957982,
+      "readable": false
+    },
+    {
+      "arm": "LN",
+      "n": 5,
+      "paired_median": 1.0075209859770002,
+      "readable": false
+    },
+    {
+      "arm": "STACK",
+      "n": 10,
+      "paired_median": 1.1286218027228676,
+      "readable": true
+    },
+    {
+      "arm": "UNION",
+      "n": 5,
+      "paired_median": 1.0852462549843733,
+      "readable": true
+    },
+    {
+      "arm": "U_LAY",
+      "n": 5,
+      "paired_median": 1.0756315308917521,
+      "readable": true
+    },
+    {
+      "arm": "U_LN",
+      "n": 5,
+      "paired_median": 1.1128750595332595,
+      "readable": true
+    }
+  ],
+  "base_digest_is_published": true
+}
