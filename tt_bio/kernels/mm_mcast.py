@@ -66,12 +66,16 @@ _IN0_FORWARD = """                if (!is_sink_core) {
 # The two multicasts ride the same NOC, VC and command buffer, so they are ordered against each
 # other and need no barrier between them. Blackhole still needs the flush: its NOC latency is above
 # the L1-to-RISCV latency, so the source block can be overwritten before the write has issued.
+#
+# `linked` stays false. A linked transaction holds the NOC path until the next unlinked one on the
+# SAME command buffer, and `noc_semaphore_set_multicast` issues on the register command buffer, not
+# the write one, so a linked block multicast would never be released. MEASURED as a device hang on
+# the first parity call, whglx card 16, 2026-09-12.
 _IN0_SEND = """                        noc_async_write_multicast(
                             in0_start_address,
                             in0_mcast_data_base_addr | in0_start_address,
                             current_block_bytes,
-                            in0_mcast_num_dests,
-                            true);
+                            in0_mcast_num_dests);
 #ifdef ARCH_BLACKHOLE
                         noc_async_writes_flushed();
 #endif
@@ -112,8 +116,7 @@ _IN1_SEND = """                        uint32_t in1_mcast_src_address = in1_star
                                 in1_mcast_src_address,
                                 in1_mcast_data_base_addr | in1_mcast_src_address,
                                 current_N_tiles_bytes,
-                                in1_mcast_num_dests,
-                                true);
+                                in1_mcast_num_dests);
                             in1_mcast_src_address += full_N_tiles_bytes;
                         }
 #ifdef ARCH_BLACKHOLE

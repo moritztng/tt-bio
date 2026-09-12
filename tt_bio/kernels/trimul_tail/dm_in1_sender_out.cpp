@@ -277,8 +277,7 @@ void kernel_main() {
                                 in1_mcast_src_address,
                                 in1_mcast_data_base_addr | in1_mcast_src_address,
                                 current_N_tiles_bytes,
-                                in1_mcast_num_dests,
-                                true);
+                                in1_mcast_num_dests);
                             in1_mcast_src_address += full_N_tiles_bytes;
                         }
 #ifdef ARCH_BLACKHOLE

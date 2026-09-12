@@ -48,19 +48,26 @@ def tile_bytes(dtype):
 _CACHE: dict = {}
 
 
-def mcast_enabled():
-    """Whether the operand broadcast goes out as one multicast instead of a daisy chain.
+def mcast_for(k_blocks):
+    """Whether this block config broadcasts its operands by multicast instead of a daisy chain.
 
     The kernels reach every core on a grid axis by forwarding the injector's block from one core to
     the next, 8-9 hops on an 8x9 Wormhole grid and 10-11 on an 11x10 Blackhole one, each gated by a
     semaphore round trip. `MM_MCAST_OPERAND` (`tt_bio/kernels/mm_mcast.py`) sends it to the whole
     axis in one transaction instead.
 
-    Gated on `K_num_blocks == 1` at the call site, which is a property of the block config and not a
-    model name. The chain's one advantage is that a core can forward block k while it reads block
+    The gate is `K_num_blocks == 1`, a property of the block config and not a model name. The
+    chain's one advantage over a multicast is that a core can forward block k while it reads block
     k+1, and with a single K block there is no such overlap left to buy.
+    ``TT_BIO_MM_MCAST_ANY_K`` lifts the gate so the gate itself can be measured.
     """
-    return env_flag("TT_BIO_MM_MCAST", False)
+    if not env_flag("TT_BIO_MM_MCAST", False):
+        return False
+    return k_blocks == 1 or env_flag("TT_BIO_MM_MCAST_ANY_K", False)
+
+
+def _mcast_key():
+    return (env_flag("TT_BIO_MM_MCAST", False), env_flag("TT_BIO_MM_MCAST_ANY_K", False))
 
 
 def ttnn_cpp_root():
@@ -222,7 +229,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
 
     # One K block means the chain has nothing left to pipeline over, which is the only thing it
     # buys over a multicast. See `mcast_enabled`.
-    use_mcast = mcast_enabled() and K_blocks == 1
+    use_mcast = mcast_for(K_blocks)
     if use_mcast:
         defines = defines + [("MM_MCAST_OPERAND", "1")]
 
@@ -384,7 +391,7 @@ def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None)
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
             tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode),
-            mcast_enabled())
+            _mcast_key())
 
 
 def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,

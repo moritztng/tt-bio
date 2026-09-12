@@ -325,8 +325,7 @@ void kernel_main() {
                             in0_start_address,
                             in0_mcast_data_base_addr | in0_start_address,
                             current_block_bytes,
-                            in0_mcast_num_dests,
-                            true);
+                            in0_mcast_num_dests);
 #ifdef ARCH_BLACKHOLE
                         noc_async_writes_flushed();
 #endif
