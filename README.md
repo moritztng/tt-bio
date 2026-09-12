@@ -751,6 +751,18 @@ Model-specific options are labelled below.
 | `--path` | `~/.boltz/msa_db` | Where to store the databases |
 | `--install-tools` | `True` | Auto-install missing `mmseqs`/`colabfold_search` |
 
+### Tuning Flags
+
+The engine ships its device optimizations on. Each one is an environment variable you can set to
+`0` to fall back to the path it replaced, which is what you want if you are bisecting a result.
+
+| Flag | Default | What it does |
+|------|---------|--------------|
+| `TT_BIO_ATOM_KEY_WINDOW` | on | Reads each atom's attention neighbourhood straight out of the atom sequence instead of selecting it with a matrix multiply. Same structure, bit for bit. |
+
+More on how these were measured, and what "same structure" means for each of them, in
+[`docs/tuning-flags.md`](docs/tuning-flags.md).
+
 ### MSA Server Authentication
 
 For `--use_msa_server`:
