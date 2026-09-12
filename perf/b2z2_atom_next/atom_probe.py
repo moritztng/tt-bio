@@ -125,6 +125,45 @@ def main():
     ctrl = ttnn.to_torch(win(lin(s, kvw2)))
     p1["negative_control_differs"] = bool(not torch.equal(t_ship, ctrl))
 
+    # --- P3: shift on the NARROW side, project, then take the tile-aligned blocks ---------
+    # The gather is one sub-tile front shift (48 rows, ROW_MAJOR) plus four tile-aligned block
+    # slices. Only the shift cares about the channel count, and the projection commutes with
+    # both halves, so the shift can run on D_S channels and the blocks on 2*n_heads*head_dim.
+    # The shift's pad rows are zeros and the K/V projection carries no bias, so zeros stay zeros.
+    plan_wide = T._atom_window_plan((B, K, W, 2 * D), ki_tt)
+
+    def shift(x, D_):
+        n_blk, front, back = plan["n_blk"], plan["front"], plan["back"]
+        flat = ttnn.reshape(x, (B, 1, K * W, D_))
+        rm = ttnn.to_layout(flat, ttnn.ROW_MAJOR_LAYOUT)
+        rm = ttnn.pad(rm, [[0, 0], [0, 0], [front, back], [0, 0]], 0.0)
+        t = ttnn.to_layout(rm, ttnn.TILE_LAYOUT, dtype=x.dtype)
+        ttnn.deallocate(rm)
+        return ttnn.reshape(t, (B, n_blk, W, D_))
+
+    def blocks(p_):
+        n_chunk, K_ = plan["n_chunk"], plan["K"]
+        return ttnn.concat([p_[:, c:c + K_] for c in range(n_chunk)], dim=2)
+
+    def narrow_shift():
+        return blocks(lin(shift(s, D), kvw))
+
+    r_nar = narrow_shift()
+    t_nar = ttnn.to_torch(r_nar)
+    out["P3_shift_before_projection"] = {
+        "shape": list(r_nar.shape),
+        "bit_exact_vs_preproj": bool(torch.equal(t_nar, t_pre)),
+        "max_abs_vs_preproj": float((t_nar.float() - t_pre.float()).abs().max()),
+        "bit_exact_vs_shipped": bool(torch.equal(t_nar, t_ship)),
+        "us_chain": timed(ttnn, dev, narrow_shift),
+        "us_shift_128": timed(ttnn, dev, lambda: shift(s, D)),
+        "us_shift_256": timed(ttnn, dev, lambda: shift(lin(s, kvw), 2 * D)),
+    }
+    p3 = out["P3_shift_before_projection"]
+    p3["speedup_vs_shipped"] = round(p1["us_shipped_chain"] / p3["us_chain"], 5)
+    p3["speedup_vs_preproj"] = round(p1["us_preproj_chain"] / p3["us_chain"], 5)
+    print("P3", json.dumps(p3, indent=1), flush=True)
+
     # --- P2: the q pad, and whether the head split needs it -------------------------------
     qw = ttnn.from_torch(torch.randn(D, D) * 0.05, layout=ttnn.TILE_LAYOUT,
                          dtype=ttnn.bfloat16, device=dev)
