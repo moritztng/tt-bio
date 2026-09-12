@@ -174,8 +174,16 @@ def main() -> int:
               if f is not None and hasattr(f, "cache_clear")]
     OUT["caches_cleared"] = len(caches)
 
-    def set_arm(fp32_acc: bool):
-        T._DST_SUBBLOCK_TILES = 4 if fp32_acc else 8
+    # (fp32_dest_acc_en, subblock tile cap). C splits the two halves of B apart: same
+    # 16-bit dest, but every program config still asks for the 4-tile subblock the shipped
+    # 32-bit dest forces. B - C is what widening the subblock is worth; C - A is what the
+    # narrower interm CB and the bf16 accumulate are worth on their own.
+    ARMS = {"A": (True, 4), "A0": (True, 4), "A1": (True, 4),
+            "B": (False, 8), "C": (False, 4)}
+
+    def set_arm(name: str):
+        fp32_acc, dst = ARMS[name]
+        T._DST_SUBBLOCK_TILES = dst
         for c in ckcs:
             c.fp32_dest_acc_en = fp32_acc
         for f in caches:
@@ -200,19 +208,20 @@ def main() -> int:
 
     # --- warm both arms so neither pays a program compile inside a timed rep -----------
     ref = {}
-    for name, acc in (("A", True), ("B", False)):
-        set_arm(acc)
+    for name in ("A", "B", "C"):
+        set_arm(name)
         for _ in range(2):
             _, out = one_rep()
         ref[name] = digest(out)
-        print(f"  warmed arm {name} (fp32_dest_acc_en={acc})", flush=True)
+        print(f"  warmed arm {name} {ARMS[name]}", flush=True)
     dump()
 
     # --- parity, block level ----------------------------------------------------------
     par = []
-    for x, y in zip(ref["A"], ref["B"]):
+    for name in ("B", "C"):
+      for x, y in zip(ref["A"], ref[name]):
         d = (x - y).abs()
-        par.append({"shape": list(x.shape),
+        par.append({"arm": name, "shape": list(x.shape),
                     "max_abs": float(d.max()), "mean_abs": float(d.mean()),
                     "ref_max_abs": float(x.abs().max()),
                     "rel_rms": float((d.pow(2).mean().sqrt() /
@@ -224,22 +233,22 @@ def main() -> int:
 
     def leg(tag, arms):
         """Interleave the given arms rep by rep and return per-arm sample lists."""
-        samples = {k: [] for k, _ in arms}
+        samples = {k: [] for k in arms}
         for i in range(a.reps if tag == "AB" else a.aa):
-            for k, acc in arms:
-                set_arm(acc)
+            for k in arms:
+                set_arm(k)
                 ms, _ = one_rep()
                 samples[k].append(round(ms, 4))
             print(f"  {tag} rep {i + 1}: " +
-                  " ".join(f"{k}={samples[k][-1]:.4f}" for k, _ in arms), flush=True)
+                  " ".join(f"{k}={samples[k][-1]:.4f}" for k in arms), flush=True)
             OUT[f"leg_{tag}"] = samples
             dump()
         return samples
 
     print("=== A/A floor leg ===", flush=True)
-    aa = leg("AA", [("A0", True), ("A1", True)])
+    aa = leg("AA", ["A0", "A1"])
     print("=== A/B leg ===", flush=True)
-    ab = leg("AB", [("A", True), ("B", False)])
+    ab = leg("AB", ["A", "B", "C"])
 
     def med(v):
         return statistics.median(v)
@@ -249,9 +258,13 @@ def main() -> int:
         "AA_median_ms": [round(med(aa["A0"]), 4), round(med(aa["A1"]), 4)],
         "A_median_ms": round(med(ab["A"]), 4),
         "B_median_ms": round(med(ab["B"]), 4),
+        "C_median_ms": round(med(ab["C"]), 4),
         "AB_ratio": round(med(ab["A"]) / med(ab["B"]), 5),
+        "AC_ratio": round(med(ab["A"]) / med(ab["C"]), 5),
+        "CB_ratio": round(med(ab["C"]) / med(ab["B"]), 5),
         "A_spread_ms": [min(ab["A"]), max(ab["A"])],
         "B_spread_ms": [min(ab["B"]), max(ab["B"])],
+        "C_spread_ms": [min(ab["C"]), max(ab["C"])],
         "loadavg_end": loadavg(),
     }
     print("RESULT " + json.dumps(OUT["result"]), flush=True)
