@@ -44,6 +44,13 @@ MUL_MODE = 1       # 0 = two copy_tile + SFPU product, 1 = mul_tiles (one FPU un
                    # 1 is the default because it is faster at an identical PCC 0.9999983:
                    # 1.0229x -> 1.0743x on the production chunk, qb2 card 1, n=9, A/A floor 0.03 %.
 
+#: Which silu the activated pass applies; see kernels/transition_swiglu/compute.cpp.
+#: 0 is `silu_tile`, i.e. bit-for-bit what `ttnn.linear(activation="silu")` applies. 1 computes the
+#: same sigmoid at bf16 precision, which is what the pack that follows keeps anyway.
+SILU_MODE = 0
+#: Issue the silu init once a copy_block call instead of once an output tile.
+SILU_HOIST = 0
+
 #: Core grid the kernel folds on, or None to take the caller's (COMPUTE_GRID_MAIN). The kernel is
 #: not obliged to use every core the trunk's matmuls use, and it measures faster on 11x8 than on
 #: the cell's 11x10: 1.0743x against 1.0516x on the production chunk. Two idle core rows cost less
@@ -145,7 +152,8 @@ def _cb(idx, core_grid, tiles):
 
 def _build(device, x, w_plain, w_act, out, grid, ckc, block):
     defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
-            "TRIMUL_TAIL_MUL_BATCH": MUL_BATCH, "TRIMUL_TAIL_MUL_MODE": MUL_MODE}
+            "TRIMUL_TAIL_MUL_BATCH": MUL_BATCH, "TRIMUL_TAIL_MUL_MODE": MUL_MODE,
+            "TRIMUL_TAIL_SILU_MODE": SILU_MODE, "TRIMUL_TAIL_SILU_HOIST": SILU_HOIST}
     entry = MG.build(device, x, w_plain, [out], (block, grid), ckc,
                      defines=defs, kernel_dir=KERNEL_DIR)
 
@@ -207,7 +215,8 @@ def fused_swiglu(x, w_plain, w_act, ckc, grid, memory_config=None):
     grid = tuple(GRID) if GRID is not None else tuple(grid)
     mc = memory_config if memory_config is not None else ttnn.L1_MEMORY_CONFIG
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = (spec(x), spec(w_plain), tuple(grid), tuple(str(c) for c in ckc), ROUND, MUL_BATCH, MUL_MODE, PASSES, str(mc))
+    key = (spec(x), spec(w_plain), tuple(grid), tuple(str(c) for c in ckc), ROUND, MUL_BATCH,
+           MUL_MODE, PASSES, SILU_MODE, SILU_HOIST, str(mc))
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w_plain.shape[-1])]),
         ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc)

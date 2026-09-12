@@ -48,6 +48,24 @@
 #ifndef TRIMUL_TAIL_MUL_MODE
 #define TRIMUL_TAIL_MUL_MODE 0
 #endif
+// Which silu the activated pass applies. silu is `x * sigmoid(x)`, and on Blackhole `silu_tile`
+// resolves that sigmoid through `_sfpu_exp_fp32_accurate_` and a 2-iteration Newton reciprocal,
+// because DST is fp32. The result is packed to bf16 one instruction later, so the precision is
+// computed and then thrown away.
+//   0  `silu_tile`: exactly what `ttnn.linear(activation="silu")` applies. The incumbent.
+//   1  the same sigmoid at bf16 precision, `_sfpu_sigmoid_<false>` -- `exp_21f` (~1 ULP on bf16)
+//      and a 1-iteration reciprocal. Scored on PCC and on the fold, never assumed equivalent.
+//   3  DIAGNOSTIC ONLY, computes the WRONG answer: no activation at all, so the silu's own cost can
+//      be read off directly instead of inferred by subtraction.
+#ifndef TRIMUL_TAIL_SILU_MODE
+#define TRIMUL_TAIL_SILU_MODE 0
+#endif
+// Issue the silu init once a `copy_block` call instead of once an output tile. Nothing between the
+// tiles of one `copy_block` touches the SFPU, so the init is still live; the per-tile form exists
+// because the EPILOGUE's binary init runs between block iterations, which is outside this loop.
+#ifndef TRIMUL_TAIL_SILU_HOIST
+#define TRIMUL_TAIL_SILU_HOIST 0
+#endif
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -97,6 +115,19 @@ inline void _round_bf16_() {
         sfpi::dst_reg++;
     }
 }
+
+// silu at bf16 precision: the sigmoid `_sfpu_sigmoid_<false>` computes, which is `exp_21f` plus a
+// single Newton reciprocal step instead of the fp32-accurate exp plus two. The value is packed to
+// bf16 by the `pack_tile` that follows, so the discarded precision was never observable.
+template <int ITERATIONS = 8>
+inline void _silu_bf16_() {
+#pragma GCC unroll 8
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat x = sfpi::dst_reg[0];
+        sfpi::dst_reg[0] = x * _sfpu_sigmoid_<false>(x);
+        sfpi::dst_reg++;
+    }
+}
 }  // namespace sfpu
 }  // namespace ckernel
 #endif  // TRISC_MATH
@@ -106,6 +137,24 @@ ALWI void round_bf16_tile(uint32_t idst) {
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
         ckernel::sfpu::_round_bf16_<8>, idst, (int)VectorMode::RC)));
 }
+
+ALWI void silu_bf16_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_silu_bf16_<8>, idst, (int)VectorMode::RC)));
+}
+
+// Both non-diagnostic modes want the same init: `silu_tile_init()` is `sigmoid_init<false>()` is
+// `_init_sfpu_reciprocal_<false>()`, and `_sfpu_sigmoid_<false>` needs exactly that.
+#if TRIMUL_TAIL_SILU_MODE == 3
+#define TT_SILU_INIT() ((void)0)
+#define TT_SILU_APPLY(d) ((void)(d))
+#elif TRIMUL_TAIL_SILU_MODE == 1
+#define TT_SILU_INIT() silu_tile_init()
+#define TT_SILU_APPLY(d) silu_bf16_tile(d)
+#else
+#define TT_SILU_INIT() silu_tile_init()
+#define TT_SILU_APPLY(d) silu_tile(d)
+#endif
 
 // out = p * g, tile by tile, with production's rounding points. `g` already carries silu and is
 // already bf16 (pass 1's copy_block did both), so there is no second activation here and no
@@ -197,6 +246,11 @@ void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
     reconfig_data_format_srca(in_cb);
     pack_reconfig_data_format(out_cb);
     uint32_t fused_act_dst_id = 0;
+#if TRIMUL_TAIL_SILU_HOIST
+    if (apply_silu) {
+        TT_SILU_INIT();
+    }
+#endif
 
     uint32_t tile_id = 0;
     for (uint32_t m = 0; m < M_block_tiles; m++) {
@@ -210,12 +264,16 @@ void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
             // fp32 accumulator to bf16, so silu sees the same fp32 value and the same single
             // rounding that `ttnn.linear(activation="silu")` gives it.
             if (apply_silu) {
-                // Re-init on every tile, not once at the top of the kernel. The wheel's generated
-                // kernel can hoist its SFPU_OP_INIT_ACTIVATION because nothing else in it touches
-                // the SFPU; this one runs `mul_binary_tile_init()` in its epilogue between block
-                // iterations, so a hoisted init is live only for the first block a core folds.
-                silu_tile_init();
-                silu_tile(fused_act_dst_id);
+                // Re-init on every tile at HOIST = 0, not once at the top of the kernel. The
+                // wheel's generated kernel can hoist its SFPU_OP_INIT_ACTIVATION because nothing
+                // else in it touches the SFPU; this one runs the epilogue's binary init between
+                // block iterations, so an init hoisted out of the KERNEL is live only for the first
+                // block a core folds. Hoisting it to the top of this function is a different and
+                // safe move: nothing between these tiles touches the SFPU.
+#if !TRIMUL_TAIL_SILU_HOIST
+                TT_SILU_INIT();
+#endif
+                TT_SILU_APPLY(fused_act_dst_id);
             }
             pack_tile(fused_act_dst_id, out_cb);
             release_dst();
@@ -612,7 +670,8 @@ void kernel_main() {
             // identical pack that writes p_out and g_out to DRAM in production.
             cb_reserve_back(pass_cb, out_block_num_tiles);
             cb_wait_front(intermediate_cb, out_block_num_tiles);
-            copy_block(intermediate_cb, pass_cb, M_block_tiles, N_block_tiles, pass == 1);
+            copy_block(intermediate_cb, pass_cb, M_block_tiles, N_block_tiles,
+                       pass == TRIMUL_TAIL_PASSES - 1);
             cb_pop_front(intermediate_cb, out_block_num_tiles);
             }  // pass
 

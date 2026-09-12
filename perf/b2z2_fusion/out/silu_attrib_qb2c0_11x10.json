@@ -1,0 +1,124 @@
+{
+ "block": [
+  8,
+  2,
+  2,
+  2,
+  2
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "inner": 64,
+ "reps": 15,
+ "arms": {
+  "mm_1": {
+   "ms": 0.02871,
+   "x_mm1": 1.0,
+   "x_incumbent": 5.7859,
+   "spread_pct": 19.74
+  },
+  "mm_1_aa": {
+   "ms": 0.02741,
+   "x_mm1": 0.9546,
+   "x_incumbent": 6.0613,
+   "spread_pct": 16.56
+  },
+  "p1_none": {
+   "ms": 0.03049,
+   "x_mm1": 1.0621,
+   "x_incumbent": 5.4476,
+   "spread_pct": 19.89
+  },
+  "p1_silu0": {
+   "ms": 0.12542,
+   "x_mm1": 4.3686,
+   "x_incumbent": 1.3244,
+   "spread_pct": 0.86
+  },
+  "p1_silu1": {
+   "ms": 0.07567,
+   "x_mm1": 2.6358,
+   "x_incumbent": 2.1951,
+   "spread_pct": 1.46
+  },
+  "p1_silu1h": {
+   "ms": 0.07512,
+   "x_mm1": 2.6164,
+   "x_incumbent": 2.2113,
+   "spread_pct": 1.2
+  },
+  "p2_none": {
+   "ms": 0.04321,
+   "x_mm1": 1.505,
+   "x_incumbent": 3.8443,
+   "spread_pct": 3.11
+  },
+  "p2_silu0": {
+   "ms": 0.13911,
+   "x_mm1": 4.8453,
+   "x_incumbent": 1.1941,
+   "spread_pct": 0.83
+  },
+  "incumbent": {
+   "ms": 0.16611,
+   "x_mm1": 5.7859,
+   "x_incumbent": 1.0,
+   "spread_pct": 0.47,
+   "pcc_torch": 0.9999957,
+   "pcc_incumbent": 1.0,
+   "max_abs_vs_incumbent": 0.0,
+   "bit_exact_vs_incumbent": true
+  },
+  "incumbent_aa": {
+   "ms": 0.16602,
+   "x_mm1": 5.7827,
+   "x_incumbent": 1.0005,
+   "spread_pct": 0.36,
+   "pcc_torch": 0.9999957,
+   "pcc_incumbent": 1.0,
+   "max_abs_vs_incumbent": 0.0,
+   "bit_exact_vs_incumbent": true
+  },
+  "fused_s0": {
+   "ms": 0.15465,
+   "x_mm1": 5.3866,
+   "x_incumbent": 1.0741,
+   "spread_pct": 0.87,
+   "pcc_torch": 0.9999957,
+   "pcc_incumbent": 0.9999982,
+   "max_abs_vs_incumbent": 0.003906,
+   "bit_exact_vs_incumbent": false
+  },
+  "fused_s1": {
+   "ms": 0.10402,
+   "x_mm1": 3.6233,
+   "x_incumbent": 1.5968,
+   "spread_pct": 1.21,
+   "pcc_torch": 0.9999956,
+   "pcc_incumbent": 0.9999974,
+   "max_abs_vs_incumbent": 0.003906,
+   "bit_exact_vs_incumbent": false
+  },
+  "fused_s1nh": {
+   "ms": 0.10432,
+   "x_mm1": 3.6336,
+   "x_incumbent": 1.5923,
+   "spread_pct": 1.65,
+   "pcc_torch": 0.9999956,
+   "pcc_incumbent": 0.9999974,
+   "max_abs_vs_incumbent": 0.003906,
+   "bit_exact_vs_incumbent": false
+  }
+ },
+ "derived": {
+  "silu0_cost_ms": 0.09493,
+  "silu1_cost_ms": 0.04518,
+  "silu1h_cost_ms": 0.04463,
+  "second_pass_no_silu_ms": 0.01272,
+  "loop_overhead_1pass_ms": 0.00178,
+  "twopass_vs_two_matmuls": 2.4227,
+  "twopass_nosilu_vs_two_matmuls": 0.7525
+ }
+}
