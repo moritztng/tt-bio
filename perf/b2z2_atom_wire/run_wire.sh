@@ -5,7 +5,7 @@
 set -u
 cd "$(dirname "$0")/../.."
 ROOT=$PWD
-PY=/home/agent/env/bin/python3
+PY=${PY:-/home/mthuening/work/tt-bio/env/bin/python3}
 N=${N:-2}
 CARDS=${CARDS:-12,13}
 ONE=${ONE:-12}

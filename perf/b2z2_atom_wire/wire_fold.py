@@ -114,8 +114,9 @@ from tt_bio.worker import _WorkerState, _ensure_local_artifacts  # noqa: E402
 
 fix = ROOT / "perf" / "size512" / "fixtures"
 tgt, a3m = fix / "cdk2x2_512.yaml", fix / "cdk2x2_512.a3m"
-msa_dir = Path(f"/tmp/b2z2_msa512_{MODE}")
-struct_dir = Path(f"/tmp/b2z2_struct_{MODE}")
+SCRATCH = Path(os.environ.get("FOLD_SCRATCH", f"/tmp/b2z2_atomwire_{os.getuid()}"))
+msa_dir = SCRATCH / f"msa512_{MODE}"
+struct_dir = SCRATCH / f"struct_{MODE}"
 struct_dir.mkdir(parents=True, exist_ok=True)
 
 seq = _read_bio_chains(tgt)[0][1]
