@@ -419,6 +419,31 @@ _TEMPLATE_L1_NORM = True
 _TRUNK_MATH_FIDELITY = os.environ.get("TT_BIO_TRUNK_MATH_FIDELITY", "hifi4").lower()
 _MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
 
+# --- 16-bit DST for a trunk whose operands and outputs are all 16-bit -------------------------
+# `fp32_dest_acc_en` is not a precision knob on its own: it is a CAPACITY knob. The dest register
+# file holds 8 tiles at 16 bits and 4 at 32, and out_subblock_h * out_subblock_w has to fit it
+# (the same constant is spelled out at `_batched_matmul_search` below). Halving the subblock
+# halves the tiles a single DST pass produces, so the same output costs twice as many packer
+# passes and twice as many trips round the input circular buffers. On a fold whose math thread
+# spends 57 % of its resident time waiting for input tiles, that is a movement term, not a
+# precision one.
+#
+# MEASURED on the shipped Boltz-2 512 aa Pairformer block (qb2 card 0, one Blackhole of a p300c,
+# device profiler, perf/b2z2_layout/census.json): 155 of the block's 272 device programs carry
+# `fp32_dest_acc_en=1`, and they are 12.77 ms of its 36.25 ms span -- 35.2 %. The diffusion step
+# carries it on 501 of 1066 programs, 23.8 % of its span. Nothing in the folding path stores
+# fp32: 0 of 272 block programs and 0 of 1066 step programs have an fp32 operand or result, so
+# the accumulator is the only fp32 left in the fold.
+#
+# It is NOT free: with a 16-bit DST a matmul accumulates its in0_block_w-deep partial in bf16
+# before `packer_l1_acc` takes over, so this is a parity decision scored on the fold, not a
+# mechanical one. Default off = production unchanged.
+_TRUNK_FP32_DEST_ACC = env_flag("TT_BIO_TRUNK_FP32_DEST_ACC", True)
+#: Largest `out_subblock_h * out_subblock_w` a program config may ask for. Process-global on
+#: purpose: the config factories below are reached from call sites that do not carry a compute
+#: kernel config, and one process folds one model.
+_DST_SUBBLOCK_TILES = 4 if _TRUNK_FP32_DEST_ACC else 8
+
 
 def trunk_compute_kernel_config(base):
     """`base` with the trunk's matmul fidelity, as a distinct object.
@@ -1982,8 +2007,9 @@ def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int,
     per_core_M = order[rung]
     # out_subblock_h * out_subblock_w must fit the dest register file, which fp32_dest_acc_en
     # halves to 4 tiles. Take the widest legal w, then the tallest h that still fits.
-    sub_w = max(w for w in range(1, min(4, n_tiles) + 1) if n_tiles % w == 0)
-    sub_h = max(h for h in range(1, min(4 // sub_w, per_core_M) + 1) if per_core_M % h == 0)
+    dst = _DST_SUBBLOCK_TILES
+    sub_w = max(w for w in range(1, min(dst, n_tiles) + 1) if n_tiles % w == 0)
+    sub_h = max(h for h in range(1, min(dst // sub_w, per_core_M) + 1) if per_core_M % h == 0)
     return ttnn.MatmulMultiCoreReuseProgramConfig(
         compute_with_storage_grid_size=grid,
         in0_block_w=block_w,
@@ -3540,7 +3566,8 @@ def _tri_att_qkv_l1_config(
         return None
     if 2 * m_tiles * n_tiles * 1024 * elem_bytes > 0.6 * num_cores * l1:
         return None
-    out_subblock_w = max((w for w in range(min(4, n_tiles), 0, -1) if n_tiles % w == 0), default=1)
+    out_subblock_w = max((w for w in range(min(_DST_SUBBLOCK_TILES, n_tiles), 0, -1)
+                          if n_tiles % w == 0), default=1)
     return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=k_tiles,
@@ -3620,8 +3647,9 @@ def _pair_proj_program_config(
     if not 0 <= rung < len(rungs):
         return None
     out_block_h, out_block_w = rungs[rung]
-    sh = max(h for h in range(min(4, out_block_h), 0, -1) if out_block_h % h == 0)
-    sw = max(w for w in range(min(4 // sh, out_block_w), 0, -1) if out_block_w % w == 0)
+    sh = max(h for h in range(min(_DST_SUBBLOCK_TILES, out_block_h), 0, -1) if out_block_h % h == 0)
+    sw = max(w for w in range(min(_DST_SUBBLOCK_TILES // sh, out_block_w), 0, -1)
+             if out_block_w % w == 0)
     # An L1 output takes bank space on top of the plan's own buffers and has to be counted --
     # a program-config budget that forgets its output term is how a gate lets through a config
     # the allocator then refuses at the real call site.
@@ -3957,8 +3985,8 @@ def _attn_value_program_config(
             + per_core_M * n_tiles * (tile + 4096))
     if need > _l1_bank_bytes():
         return None
-    sh = max(h for h in range(min(4, per_core_M), 0, -1) if per_core_M % h == 0)
-    sw = max(w for w in range(min(4 // sh, n_tiles), 0, -1) if n_tiles % w == 0)
+    sh = max(h for h in range(min(_DST_SUBBLOCK_TILES, per_core_M), 0, -1) if per_core_M % h == 0)
+    sw = max(w for w in range(min(_DST_SUBBLOCK_TILES // sh, n_tiles), 0, -1) if n_tiles % w == 0)
     return ttnn.MatmulMultiCoreReuseProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=in0_block_w,
@@ -9626,7 +9654,7 @@ class TorchWrapper(nn.Module):
         self.compute_kernel_config = kernel_cls(
             math_fidelity=ttnn.MathFidelity.HiFi4,
             math_approx_mode=False,
-            fp32_dest_acc_en=True,
+            fp32_dest_acc_en=_TRUNK_FP32_DEST_ACC,
             packer_l1_acc=True,
         )
 
