@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import itertools
 import json
 import math
 import statistics as st
@@ -31,12 +32,23 @@ from pathlib import Path
 
 
 def load(path: Path):
-    """Rows of a raw device profiler log, skipping its two-line preamble."""
-    lines = path.read_text().splitlines()
-    start = next(i for i, l in enumerate(lines) if l.lstrip().startswith("PCIe slot"))
-    for row in csv.DictReader(lines[start:], skipinitialspace=True):
-        yield {(k.strip() if k else k): (v.strip() if isinstance(v, str) else v)
-               for k, v in row.items() if k}
+    """Rows of a raw device profiler log, streamed.
+
+    The log is 1.4 GB for three replays of one Pairformer block, so it is read a line at a time and
+    everything without a B2Z2 zone on it is dropped before the CSV reader ever sees it.
+    """
+    with path.open() as fh:
+        header = None
+        for line in fh:
+            if header is None:
+                if line.lstrip().startswith("PCIe slot"):
+                    header = [c.strip() for c in next(csv.reader([line]))]
+                continue
+            if "B2Z2" not in line:
+                continue
+            vals = next(csv.reader([line]))
+            yield {k: (v.strip() if isinstance(v, str) else v)
+                   for k, v in zip(header, vals) if k}
 
 
 def spearman(xs, ys):
@@ -93,11 +105,14 @@ def main() -> int:
     a = ap.parse_args()
 
     cmap = json.loads(a.coremap.read_text())
-    rows = list(load(a.log))
-    if not rows:
-        print("no rows", file=sys.stderr)
+    stream = load(a.log)
+    try:
+        first = next(stream)
+    except StopIteration:
+        print("no B2Z2 zone rows in log", file=sys.stderr)
         return 1
-    cols = {c.lower(): c for c in rows[0]}
+    rows = itertools.chain([first], stream)
+    cols = {c.lower(): c for c in first}
 
     def col(*cands):
         for c in cands:
@@ -111,7 +126,7 @@ def main() -> int:
     c_x, c_y, c_risc = col("core_x"), col("core_y"), col("risc processor type", "risc")
     c_run = col("run host id") or col("run id")
     if not all([c_zone, c_phase, c_time, c_x, c_y, c_risc, c_run]):
-        print("missing columns in " + ",".join(rows[0]), file=sys.stderr)
+        print("missing columns in " + ",".join(first), file=sys.stderr)
         return 1
 
     # (axis, run, core) -> [(ask, arrive), ...] in issue order, one per block iteration

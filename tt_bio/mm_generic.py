@@ -78,8 +78,39 @@ def bcast_mode(k_blocks):
     return mode
 
 
+def chain_splits(axis_len):
+    """How many injector cores this grid axis gets, each feeding its own stretch of the chain.
+
+    One (the default) is the shipped arrangement: a single core per axis reads the operand block
+    from DRAM and it walks the whole axis, so the core at hop i waits out i forwards.
+    `b2z2-arrival-skew-attack` measured that wait, and if it is a ramp in the hop index the lever
+    is arithmetic: k injectors cut the longest walk from ``axis_len - 1`` to about
+    ``axis_len / k - 1``, at the price of k DRAM reads of the same block instead of one.
+
+    ``TT_BIO_MM_CHAIN_SPLIT`` selects; ``max`` gives every core its own DRAM read and no chain at
+    all. The knob counts against the axis length, a property of the grid, so it carries no model
+    name, and nothing about the arithmetic changes: the same bytes reach the same cores.
+    """
+    v = (os.environ.get("TT_BIO_MM_CHAIN_SPLIT") or "1").strip().casefold()
+    k = axis_len if v in ("max", "all") else int(v)
+    if k < 1:
+        raise ValueError(f"TT_BIO_MM_CHAIN_SPLIT={v!r}: expected a positive count or 'max'")
+    return min(k, axis_len)
+
+
+def _chain_roles(hop, axis_len, k):
+    """``(is_injector, is_sink)`` for the core at ``hop`` on an axis cut into ``k`` chains.
+
+    Segment boundaries sit ``ceil(axis_len / k)`` apart, so an axis that does not divide evenly
+    leaves the last chain short rather than leaving a core unfed.
+    """
+    seg = -(-axis_len // k)
+    return hop % seg == 0, (hop + 1) % seg == 0 or hop == axis_len - 1
+
+
 def _bcast_key():
-    return (os.environ.get("TT_BIO_MM_BCAST", ""), os.environ.get("TT_BIO_MM_BCAST_ANY_K", ""))
+    return (os.environ.get("TT_BIO_MM_BCAST", ""), os.environ.get("TT_BIO_MM_BCAST_ANY_K", ""),
+            os.environ.get("TT_BIO_MM_CHAIN_SPLIT", ""))
 
 
 #: Our copy of the wheel's two operand readers, which is the wheel's source plus guarded arms and
@@ -321,13 +352,14 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in0_sems = [in0_sender_sem, in0_recv_sem, in0_valid_sem]
     in1_sems = [in1_sender_sem, in1_recv_sem, in1_valid_sem]
 
-    def cr(a, b):
-        return ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(*a), ttnn.CoreCoord(*b))])
-
-    in0_sender_cores = cr((0, 0), (gx - 1, 0) if transpose else (0, gy - 1))
-    in0_recv_cores = cr((0, 1) if transpose else (1, 0), (gx - 1, gy - 1))
-    in1_sender_cores = cr((0, 0), (0, gy - 1) if transpose else (gx - 1, 0))
-    in1_recv_cores = cr((1, 0) if transpose else (0, 1), (gx - 1, gy - 1))
+    # How long a walk each operand's chain makes, and how many injectors it is cut into. At the
+    # default of one, the roles below reproduce the shipped arrangement exactly: hop 0 reads DRAM,
+    # the last hop is the sink, everything between forwards. The broadcast arms replace the chain
+    # outright, so they keep their single injector.
+    in0_walk, in1_walk = in1_axis_cores, in0_axis_cores
+    in0_k = chain_splits(in0_walk) if mode == "chain" else 1
+    in1_k = chain_splits(in1_walk) if mode == "chain" else 1
+    roles = {"in0_sender": [], "in0_recv": [], "in1_sender": [], "in1_recv": []}
 
     kd = _kernel_dir()
     in0_src = str(dm_dir / "dm_in0_sender.cpp")
@@ -378,15 +410,43 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                 (in1_next, in1_prev, in1_tail) = in1_bcast
             else:
                 in0_tail = in1_tail = []
-            a0 = [in0_addr, 0, 0, int(core == in0_order[-1]),
+            in0_inject, in0_sink = _chain_roles(in0_i, in0_walk, in0_k)
+            in1_inject, in1_sink = _chain_roles(in1_i, in1_walk, in1_k)
+            a0 = [in0_addr, 0, 0, int(in0_sink),
                   in0_next[0], in0_next[1], in0_prev[0], in0_prev[1],
                   M_start, M_end, N_start, N_end, defer_k, *in0_tail, *out_addrs]
-            a1 = [in1_addr, 0, int(core == in1_order[-1]),
+            a1 = [in1_addr, 0, int(in1_sink),
                   in1_next[0], in1_next[1], in1_prev[0], in1_prev[1],
                   M_start, M_end, N_start, N_end, defer_k, *in1_tail, *out_addrs]
-            rt["in0_sender" if in1_idx == 0 else "in0_recv"].append((cc, a0))
-            rt["in1_sender" if in0_idx == 0 else "in1_recv"].append((cc, a1))
+            k0 = "in0_sender" if in0_inject else "in0_recv"
+            k1 = "in1_sender" if in1_inject else "in1_recv"
+            rt[k0].append((cc, a0))
+            rt[k1].append((cc, a1))
+            roles[k0].append(core)
+            roles[k1].append(core)
             rt["compute"].append((cc, [M_start, M_end, N_start, N_end]))
+
+    def crs(cores):
+        """A CoreRangeSet over an arbitrary core list, merged into column runs.
+
+        With one injector per axis these are the two ranges the fixed code used to write out by
+        hand; with several they are a handful more, and a kernel cannot take a bare core list.
+        """
+        by_x = {}
+        for x, y in sorted(cores):
+            by_x.setdefault(x, []).append(y)
+        ranges = []
+        for x, ys in by_x.items():
+            start = prev = ys[0]
+            for y in ys[1:] + [None]:
+                if y != prev + 1:
+                    ranges.append(ttnn.CoreRange(ttnn.CoreCoord(x, start), ttnn.CoreCoord(x, prev)))
+                    start = y
+                prev = y
+        return ttnn.CoreRangeSet(ranges)
+
+    in0_sender_cores, in0_recv_cores = crs(roles["in0_sender"]), crs(roles["in0_recv"])
+    in1_sender_cores, in1_recv_cores = crs(roles["in1_sender"]), crs(roles["in1_recv"])
 
     def dm_kernel(src, cores, ct, args, risc, noc):
         dmc = (ttnn.DataMovementConfigDescriptor(processor=risc, noc=noc)
@@ -430,7 +490,8 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                      "N_blocks_per_core": N_blocks_per_core, "K_blocks": K_blocks,
                      "N_tiles_per_chunk": N_tiles_per_chunk,
                      "transpose_core_grid": transpose, "defines": defines,
-                     "bcast_mode": mode, "dm_kernel_dir": str(dm_dir)}}
+                     "bcast_mode": mode, "chain_split": (in0_k, in1_k),
+                     "chain_walk": (in0_walk, in1_walk), "dm_kernel_dir": str(dm_dir)}}
 
 
 def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None):
