@@ -1,0 +1,216 @@
+{
+ "denominators": {
+  "live_cell_s": 20.079,
+  "paired_incumbent_s": 19.6525,
+  "retired_s": 23.841,
+  "two_x_s": 10.0395
+ },
+ "phase_split_s": {
+  "trunk": 12.2173,
+  "sampler": 5.2547,
+  "rest": 2.1805
+ },
+ "trunk_floor_s": 4.6888000000000005,
+ "step_ms": {
+  "wall_measured": 26.4,
+  "kernel_measured": 22.015239,
+  "exposed_dispatch_gap_derived": 4.3847609999999975,
+  "gap_pct_of_wall": 16.608943181818173,
+  "grid_underfill_measured": 5.341165318181814,
+  "grid_underfill_recoverable": 5.1026579359712985,
+  "perfectly_spread_kernel": 16.674073681818186,
+  "zero_math_layout_ops_ms": 3.3693779999999998,
+  "zero_math_ops": [
+   "NlpCreateHeadsDeviceOperation",
+   "ReshapeViewDeviceOperation",
+   "SliceDeviceOperation",
+   "PadDeviceOperation",
+   "CopyDeviceOperation",
+   "NLPConcatHeadsDeviceOperation"
+  ],
+  "zero_math_share_of_underfill": 0.8727754727272727,
+  "sdpa_ms": 2.504462,
+  "sdpa_plumbing_ms": 3.392982,
+  "plumbing_over_sdpa": 1.3547747979406355,
+  "binaryng_ms": 3.590732
+ },
+ "required": {
+  "sampler_s_for_2x_with_trunk_at_floor": 3.1702,
+  "sampler_ratio_required": 1.657529493407356,
+  "sampler_ms_per_step_required": 15.850999999999999,
+  "sampler_seconds_to_remove": 2.0845
+ },
+ "launch_latency": {
+  "us_per_program_blackhole": 1.277941176470588,
+  "source": "PairformerLayer span-minus-kernel, host fully ahead, b2z-kernel-cycle-census",
+  "step_gap_us_per_program": 4.113284240150092,
+  "host_excess_s_per_fold_derived": 0.6044951411764703,
+  "host_excess_s_per_fold_measured_by_b2z_host_residual_kill": 0.647
+ },
+ "grid_lever_corrected": {
+  "wave1_claim_s_per_fold": 0.5042,
+  "matmul_recoverable_ms_per_step": 0.0269,
+  "matmul_recoverable_s_per_fold": 0.00538,
+  "layernorm_idle_ms_per_step": 1.3697681000000004,
+  "nlpcreateheads_idle_ms_per_step": 0.8727754727272727,
+  "total_recoverable_ms_per_step": 2.1693037782888807,
+  "total_recoverable_s_per_fold": 0.4338607556577761,
+  "wave1_overprice_factor": 93.7174721189591
+ },
+ "sampler_floor": {
+  "today, untraced": {
+   "step_ms": 26.4,
+   "sampler_s": 5.28,
+   "sampler_ratio": 0.9952083333333333,
+   "fold_s_with_trunk_at_floor": 12.149300000000002,
+   "fold_ratio_vs_cell": 1.6526878091741908,
+   "short_of_2x_s": 2.1098000000000017,
+   "kernel_ms": 22.015239,
+   "programs": 1066,
+   "traced": false
+  },
+  "+ trace (already built, --diffusion_trace, default off)": {
+   "step_ms": 23.37752429411765,
+   "sampler_s": 4.67550485882353,
+   "sampler_ratio": 1.1238786310067508,
+   "fold_s_with_trunk_at_floor": 11.54480485882353,
+   "fold_ratio_vs_cell": 1.739223853979126,
+   "short_of_2x_s": 1.5053048588235303,
+   "kernel_ms": 22.015239,
+   "programs": 1066,
+   "traced": true
+  },
+  "+ distributed LayerNorm (+ the one bad matmul grid)": {
+   "step_ms": 21.208220515828767,
+   "sampler_s": 4.241644103165753,
+   "sampler_ratio": 1.238835666594034,
+   "fold_s_with_trunk_at_floor": 11.110944103165755,
+   "fold_ratio_vs_cell": 1.8071371625638046,
+   "short_of_2x_s": 1.0714441031657547,
+   "kernel_ms": 19.84593522171112,
+   "programs": 1066,
+   "traced": true
+  },
+  "+ fuse the SDPA head plumbing": {
+   "step_ms": 18.45351558465313,
+   "sampler_s": 3.6907031169306257,
+   "sampler_ratio": 1.4237666464947396,
+   "fold_s_with_trunk_at_floor": 10.560003116930627,
+   "fold_ratio_vs_cell": 1.9014198933149715,
+   "short_of_2x_s": 0.5205031169306267,
+   "kernel_ms": 17.28675529053548,
+   "programs": 913,
+   "traced": true
+  },
+  "+ fuse half of BinaryNg into its producers": {
+   "step_ms": 16.4421775258296,
+   "sampler_s": 3.28843550516592,
+   "sampler_ratio": 1.5979331179660374,
+   "fold_s_with_trunk_at_floor": 10.15773550516592,
+   "fold_ratio_vs_cell": 1.9767201055578207,
+   "short_of_2x_s": 0.11823550516592007,
+   "kernel_ms": 15.491389290535482,
+   "programs": 744,
+   "traced": true
+  }
+ },
+ "sampler_floor_zero_launch": {
+  "today, untraced": {
+   "step_ms": 22.015239,
+   "sampler_s": 4.4030478,
+   "sampler_ratio": 1.1934233373528216,
+   "fold_s_with_trunk_at_floor": 11.2723478,
+   "fold_ratio_vs_cell": 1.7812615753392562,
+   "short_of_2x_s": 1.2328478
+  },
+  "+ trace (already built, --diffusion_trace, default off)": {
+   "step_ms": 22.015239,
+   "sampler_s": 4.4030478,
+   "sampler_ratio": 1.1934233373528216,
+   "fold_s_with_trunk_at_floor": 11.2723478,
+   "fold_ratio_vs_cell": 1.7812615753392562,
+   "short_of_2x_s": 1.2328478
+  },
+  "+ distributed LayerNorm (+ the one bad matmul grid)": {
+   "step_ms": 19.84593522171112,
+   "sampler_s": 3.969187044342224,
+   "sampler_ratio": 1.3238731108654043,
+   "fold_s_with_trunk_at_floor": 10.838487044342225,
+   "fold_ratio_vs_cell": 1.8525648384182363,
+   "short_of_2x_s": 0.7989870443422245
+  },
+  "+ fuse the SDPA head plumbing": {
+   "step_ms": 17.28675529053548,
+   "sampler_s": 3.4573510581070965,
+   "sampler_ratio": 1.519863014106804,
+   "fold_s_with_trunk_at_floor": 10.326651058107098,
+   "fold_ratio_vs_cell": 1.9443864121114725,
+   "short_of_2x_s": 0.2871510581070975
+  },
+  "+ fuse half of BinaryNg into its producers": {
+   "step_ms": 15.491389290535482,
+   "sampler_s": 3.0982778581070964,
+   "sampler_ratio": 1.69600669812435,
+   "fold_s_with_trunk_at_floor": 9.967577858107097,
+   "fold_ratio_vs_cell": 2.0144312174766523,
+   "short_of_2x_s": -0.07192214189290347
+  }
+ },
+ "levers": [
+  {
+   "lever": "trace the 200-step loop (--diffusion_trace, ALREADY BUILT, default False)",
+   "ms_per_step": 3.022475705882351,
+   "s_per_fold": 0.6044951411764702,
+   "pct_of_step_wall": 11.448771613190724,
+   "fold_ratio_alone_vs_cell": 1.0310403343016235,
+   "build_effort": 1,
+   "s_per_unit_effort": 0.6044951411764702,
+   "falsifier": "traced step wall > 24 ms => the 3.02 ms/step is not host dispatch and this row mis-attributed it; the gap would then be device-side and trace cannot touch it",
+   "note": "score_model.forward_traced, boltz2.py:4160. Measure it, do not build it. Two independent instruments agree it is worth 0.605-0.647 s/fold."
+  },
+  {
+   "lever": "fuse the SDPA head plumbing (NlpCreateHeads/Reshape/Slice/Transpose/Concat, 153 programs)",
+   "ms_per_step": 2.559179931175639,
+   "s_per_fold": 0.5118359862351278,
+   "pct_of_step_wall": 9.6938633756653,
+   "fold_ratio_alone_vs_cell": 1.0261579034077226,
+   "build_effort": 8,
+   "s_per_unit_effort": 0.06397949827939098,
+   "falsifier": "a fused head path does not beat the 5-op chain => the plumbing is bandwidth-bound and only a layout change upstream, not a fusion, can touch it",
+   "note": "costs 1.35x the SDPA it feeds, and deletes 153 of 1066 programs, so it takes launch latency with it."
+  },
+  {
+   "lever": "distributed / width-sharded LayerNorm (114 calls/step, 100 of them on 16 of 110 cores)",
+   "ms_per_step": 1.3086017094645201,
+   "s_per_fold": 0.261720341892904,
+   "pct_of_step_wall": 4.956824657062576,
+   "fold_ratio_alone_vs_cell": 1.0132066734894078,
+   "build_effort": 5,
+   "s_per_unit_effort": 0.0523440683785808,
+   "falsifier": "a width-sharded LayerNorm at [512,768] does not beat the 16-core row-parallel one => it is bandwidth-bound, not core-bound, and the 14.5 %-of-grid figure is not a lever",
+   "note": "the programs log DistributedLayerNormStage::NOT_DISTRIBUTED; tt-metal already ships the distributed variant."
+  },
+  {
+   "lever": "fuse BinaryNg into its producers (339 calls/step: AdaLN modulation + residual adds)",
+   "ms_per_step": 1.795366,
+   "s_per_fold": 0.3590732,
+   "pct_of_step_wall": 6.800628787878788,
+   "fold_ratio_alone_vs_cell": 1.0182086477116132,
+   "build_effort": 8,
+   "s_per_unit_effort": 0.04488415,
+   "falsifier": "DST-resident fusion of an eltwise into its producer returns <50 % of the eltwise => the trunk's 'BinaryNg is the cleanest delete in the block' finding does not transfer",
+   "note": "half credited; b2z2-dst-resident-fusion owns the mechanism. 339 ops at 10.6 us."
+  },
+  {
+   "lever": "re-spread the diffusion matmuls onto more cores  [REFUTED, priced for the record]",
+   "ms_per_step": 0.0269,
+   "s_per_fold": 0.00538,
+   "pct_of_step_wall": 0.1018939393939394,
+   "fold_ratio_alone_vs_cell": 1.000268013442518,
+   "build_effort": 5,
+   "s_per_unit_effort": 0.0010760000000000001,
+   "falsifier": "n/a -- already refuted: 386 of 387 matmuls are on their optimal grid",
+   "note": "wave 1 priced this at 0.5042 s/fold. It is worth 0.0054 s/fold."
+  }
+ ]
+}

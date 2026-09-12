@@ -1,0 +1,310 @@
+{
+ "census": {
+  "source": "wk/b2z-kernel-cycle-census perf/b2z_kernel_census/step_census.json",
+  "commit": "57b3a806",
+  "card": "qb2 card 0",
+  "arch": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "programs_per_step": 1066,
+  "reps": 3,
+  "span_ms": 45.50475185185185,
+  "kernel_ms": 22.02521,
+  "fw_ms": 25.676026,
+  "gap_ms": 23.478426
+ },
+ "join": {
+  "csv": "perf/b2z_kernel_census/ops_perf_step_qb2c0.csv.gz (same run as the census JSON)",
+  "sequence_occurrences_same_run": 7,
+  "sequence_occurrences_other_commit_9db1ad88": 4,
+  "core_count_spread_across_reps": 0.0,
+  "n": 1066
+ },
+ "op_table": [
+  {
+   "op": "MatmulDeviceOperation",
+   "calls_per_step": 387,
+   "ms_per_step": 9.067792,
+   "us_per_call": 23.430987080103357,
+   "share_of_kernel_pct": 41.188705696086245,
+   "mean_cores": 70.0,
+   "min_cores": 8.0,
+   "occupancy_pct": 65.82826618150764,
+   "trisc1_residency_pct": 74.29913478385917,
+   "brisc_residency_pct": 99.9696839098206,
+   "s_per_fold": 1.8135584
+  },
+  {
+   "op": "BinaryNgDeviceOperation",
+   "calls_per_step": 339,
+   "ms_per_step": 3.590732,
+   "us_per_call": 10.592129793510324,
+   "share_of_kernel_pct": 16.310211304088046,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 100.0,
+   "trisc1_residency_pct": 84.14852459052918,
+   "brisc_residency_pct": 99.74013655154437,
+   "s_per_fold": 0.7181464
+  },
+  {
+   "op": "SDPAOperation",
+   "calls_per_step": 30,
+   "ms_per_step": 2.504462,
+   "us_per_call": 83.48206666666667,
+   "share_of_kernel_pct": 11.376038206989259,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 100.0,
+   "trisc1_residency_pct": 98.46757507201147,
+   "brisc_residency_pct": 99.95671725105032,
+   "s_per_fold": 0.5008924
+  },
+  {
+   "op": "LayerNormDeviceOperation",
+   "calls_per_step": 114,
+   "ms_per_step": 1.736453,
+   "us_per_call": 15.232043859649123,
+   "share_of_kernel_pct": 7.887504650755779,
+   "mean_cores": 26.587719298245613,
+   "min_cores": 1.0,
+   "occupancy_pct": 21.116891732744854,
+   "trisc1_residency_pct": 92.26567030607796,
+   "brisc_residency_pct": 99.48878547245448,
+   "s_per_fold": 0.3472906
+  },
+  {
+   "op": "PermuteDeviceOperation",
+   "calls_per_step": 12,
+   "ms_per_step": 1.469715,
+   "us_per_call": 122.47625,
+   "share_of_kernel_pct": 6.6758984537937565,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 100.0,
+   "trisc1_residency_pct": 86.82002973365584,
+   "brisc_residency_pct": 99.98741252555767,
+   "s_per_fold": 0.293943
+  },
+  {
+   "op": "NlpCreateHeadsDeviceOperation",
+   "calls_per_step": 30,
+   "ms_per_step": 1.467241,
+   "us_per_call": 48.908033333333336,
+   "share_of_kernel_pct": 6.664660783378277,
+   "mean_cores": 34.8,
+   "min_cores": 16.0,
+   "occupancy_pct": 40.51587484760357,
+   "trisc1_residency_pct": 0.0,
+   "brisc_residency_pct": 99.99829612176867,
+   "s_per_fold": 0.2934482
+  },
+  {
+   "op": "ReshapeViewDeviceOperation",
+   "calls_per_step": 36,
+   "ms_per_step": 1.35933,
+   "us_per_call": 37.759166666666665,
+   "share_of_kernel_pct": 6.174495766318958,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 100.0,
+   "trisc1_residency_pct": 0.0,
+   "brisc_residency_pct": 99.98241780877343,
+   "s_per_fold": 0.271866
+  },
+  {
+   "op": "TransposeDeviceOperation",
+   "calls_per_step": 51,
+   "ms_per_step": 0.274887,
+   "us_per_call": 5.389941176470589,
+   "share_of_kernel_pct": 1.2486214662489015,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 100.0,
+   "trisc1_residency_pct": 38.63114661660973,
+   "brisc_residency_pct": 98.96102762225932,
+   "s_per_fold": 0.0549774
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "calls_per_step": 30,
+   "ms_per_step": 0.227238,
+   "us_per_call": 7.5746,
+   "share_of_kernel_pct": 1.0321850242007367,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 99.99999999999999,
+   "trisc1_residency_pct": 0.0,
+   "brisc_residency_pct": 99.98547778100493,
+   "s_per_fold": 0.0454476
+  },
+  {
+   "op": "PadDeviceOperation",
+   "calls_per_step": 6,
+   "ms_per_step": 0.144656,
+   "us_per_call": 24.109333333333332,
+   "share_of_kernel_pct": 0.6570721308090274,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 100.0,
+   "trisc1_residency_pct": 0.0,
+   "brisc_residency_pct": 99.99654352394647,
+   "s_per_fold": 0.0289312
+  },
+  {
+   "op": "CopyDeviceOperation",
+   "calls_per_step": 24,
+   "ms_per_step": 0.106627,
+   "us_per_call": 4.442791666666667,
+   "share_of_kernel_pct": 0.4843326933675351,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 100.0,
+   "trisc1_residency_pct": 0.0,
+   "brisc_residency_pct": 99.8790175096364,
+   "s_per_fold": 0.0213254
+  },
+  {
+   "op": "NLPConcatHeadsDeviceOperation",
+   "calls_per_step": 6,
+   "ms_per_step": 0.064286,
+   "us_per_call": 10.714333333333334,
+   "share_of_kernel_pct": 0.2920068230919501,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 100.0,
+   "trisc1_residency_pct": 0.0,
+   "brisc_residency_pct": 99.98911115950595,
+   "s_per_fold": 0.0128572
+  },
+  {
+   "op": "UnaryNgDeviceOperation",
+   "calls_per_step": 1,
+   "ms_per_step": 0.00182,
+   "us_per_call": 1.82,
+   "share_of_kernel_pct": 0.008267000871532669,
+   "mean_cores": 110.0,
+   "min_cores": 110.0,
+   "occupancy_pct": 100.0,
+   "trisc1_residency_pct": 80.0,
+   "brisc_residency_pct": 99.06593406593407,
+   "s_per_fold": 0.000364
+  }
+ ],
+ "kernel_ms_from_table": 22.015239,
+ "residency_identity": {
+  "span_ms": 45.50475185185185,
+  "kernel_ms": 22.015239,
+  "gap_outside_any_kernel_ms": 23.48951285185185,
+  "trisc1_resident_ms": 15.210727,
+  "trisc1_resident_pct_of_kernel": 69.09180954156345,
+  "trisc1_resident_pct_of_span": 33.42667827202092,
+  "brisc_resident_ms": 21.989702,
+  "brisc_resident_pct_of_kernel": 99.88400307623279,
+  "note": "cb_wait_front/cb_reserve_back absent for the step; inner split unmeasured"
+ },
+ "occupancy": {
+  "duration_weighted_pct": 75.73878113164332,
+  "idle_core_fraction_ms_per_step": 5.341165318181814,
+  "idle_core_fraction_s_per_fold": 1.0682330636363628,
+  "by_shape_class": {
+   "token-axis 512 rows": {
+    "calls": 787,
+    "ms_per_step": 15.043949,
+    "idle_ms_per_step": 4.762343545454542,
+    "share_of_idle_pct": 89.16300585647647,
+    "mean_cores": 78.72172808132147
+   },
+   "atom-axis": {
+    "calls": 204,
+    "ms_per_step": 4.798402,
+    "idle_ms_per_step": 0.5286423181818183,
+    "share_of_idle_pct": 9.8975090020575,
+    "mean_cores": 97.8970588235294
+   },
+   "other y=128": {
+    "calls": 26,
+    "ms_per_step": 1.532878,
+    "idle_ms_per_step": 0.05017945454545454,
+    "share_of_idle_pct": 0.9394851414660222,
+    "mean_cores": 103.84615384615384
+   },
+   "other y=768": {
+    "calls": 25,
+    "ms_per_step": 0.118526,
+    "idle_ms_per_step": 0.0,
+    "share_of_idle_pct": 0.0,
+    "mean_cores": 110.0
+   },
+   "other y=64": {
+    "calls": 24,
+    "ms_per_step": 0.521484,
+    "idle_ms_per_step": 0.0,
+    "share_of_idle_pct": 0.0,
+    "mean_cores": 110.0
+   }
+  },
+  "by_op_top": {
+   "MatmulDeviceOperation": 3.0986217454545444,
+   "LayerNormDeviceOperation": 1.3697681000000004,
+   "NlpCreateHeadsDeviceOperation": 0.8727754727272727,
+   "BinaryNgDeviceOperation": 0.0,
+   "CopyDeviceOperation": 0.0,
+   "ReshapeViewDeviceOperation": 0.0,
+   "PermuteDeviceOperation": 0.0,
+   "PadDeviceOperation": 0.0
+  }
+ },
+ "core_histogram": {
+  "1": {
+   "programs": 1,
+   "kernel_ms": 0.008467
+  },
+  "8": {
+   "programs": 1,
+   "kernel_ms": 0.004875
+  },
+  "16": {
+   "programs": 124,
+   "kernel_ms": 2.614435
+  },
+  "24": {
+   "programs": 1,
+   "kernel_ms": 0.007587
+  },
+  "32": {
+   "programs": 1,
+   "kernel_ms": 0.010377
+  },
+  "64": {
+   "programs": 220,
+   "kernel_ms": 4.5940579999999995
+  },
+  "70": {
+   "programs": 51,
+   "kernel_ms": 1.06811
+  },
+  "80": {
+   "programs": 77,
+   "kernel_ms": 1.7232230000000004
+  },
+  "88": {
+   "programs": 24,
+   "kernel_ms": 0.9504819999999998
+  },
+  "90": {
+   "programs": 6,
+   "kernel_ms": 0.221403
+  },
+  "94": {
+   "programs": 6,
+   "kernel_ms": 0.487677
+  },
+  "110": {
+   "programs": 554,
+   "kernel_ms": 10.32454499999999
+  }
+ }
+}
