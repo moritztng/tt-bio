@@ -5562,7 +5562,7 @@ class Boltz2(nn.Module):
             weight, bias, _shape, eps = _fuse_bias_stack(dc.token_trans_proj_z)
             cond = tenstorrent.PairConditioningDevice(
                 dc.pairwise_conditioner, weight, bias, eps, dc.atom_encoder.z_to_p_trans,
-                self.msa_module.compute_kernel_config,
+                self.rel_pos, self.msa_module.compute_kernel_config,
             )
             self._tt_cond = cond
         return cond
@@ -5722,7 +5722,7 @@ class Boltz2(nn.Module):
             if device_conditioning:
                 z_device, seq_pad = _trunk.pop_device_z()
                 z_to_p, token_trans_bias = self._tt_cond_module()(
-                    z_device, relative_position_encoding, z.shape[1], seq_pad,
+                    z_device, feats, z.shape[1], seq_pad,
                 )
                 q, c, to_keys, atom_enc_bias, atom_dec_bias = (
                     self.diffusion_conditioning.forward_atoms(

@@ -10528,8 +10528,9 @@ class PairConditioningDevice:
     """
 
     def __init__(self, pairwise_conditioner, bias_weight, bias_bias, bias_eps, z_to_p_trans,
-                 compute_kernel_config):
+                 rel_pos, compute_kernel_config):
         self.compute_kernel_config = compute_kernel_config
+        self.rel_pos = rel_pos
         device = get_device()
 
         def w(tensor, transpose=False):
@@ -10558,6 +10559,14 @@ class PairConditioningDevice:
         self.zp_norm_bias = w(z_to_p_trans[0].bias)
         self.zp_norm_eps = z_to_p_trans[0].eps
         self.zp_proj_weight = w(z_to_p_trans[1].weight, transpose=True)
+        # `RelativePositionEncoder` is four table gathers (see its `tables`), so what has to
+        # reach the device is the tables plus 4 MB of indices, not the 134 MB tensor they add up
+        # to. ROW_MAJOR because that is what ttnn.embedding takes.
+        self.rel_pos_tables = [
+            ttnn.from_torch(t.detach().contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                            device=device, dtype=ttnn.bfloat16)
+            for t in rel_pos.tables()
+        ]
 
     def _mark(self, label):
         """Wall seconds per stage, with an explicit device sync at each boundary.
@@ -10573,13 +10582,36 @@ class PairConditioningDevice:
         print(f"[paircond] {label:24s} {1e3 * (now - self._t0):8.2f} ms", flush=True)
         self._t0 = now
 
+    def _rel_pos_device(self, feats, padded):
+        """``RelativePositionEncoder.forward``, as four gathers where the tensor is needed."""
+        d_residue, d_token, d_chain, same_entity = self.rel_pos.index_features(feats)
+        out = None
+        for table, index in zip(self.rel_pos_tables,
+                                (d_residue, d_token, same_entity.long(), d_chain)):
+            index = index.reshape(index.shape[-2], index.shape[-1]).to(torch.int32)
+            pad = padded - index.shape[-1]
+            if pad:
+                index = torch.nn.functional.pad(index, (0, pad, 0, pad))
+            index_tt = ttnn.from_torch(index, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
+                                       dtype=ttnn.uint32)
+            rows = ttnn.embedding(index_tt, table, layout=ttnn.TILE_LAYOUT,
+                                  dtype=ttnn.bfloat16)
+            ttnn.deallocate(index_tt)
+            rows = ttnn.reshape(rows, (1, padded, padded, -1))
+            if out is None:
+                out = rows
+            else:
+                out = ttnn.add_(out, rows)
+                ttnn.deallocate(rows)
+        return out
+
     def _linear(self, x, weight, bias=None, activation=None):
         return ttnn.linear(
             x, weight, bias=bias, activation=activation,
             compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
         )
 
-    def __call__(self, z, relative_position_encoding, seq_len, seq_pad):
+    def __call__(self, z, feats, seq_len, seq_pad):
         """``(z_to_p, token_trans_bias)`` from the trunk's device pair tensor.
 
         ``z`` is consumed (deallocated); ``z_to_p`` comes back as torch sliced to ``seq_len``,
@@ -10588,12 +10620,8 @@ class PairConditioningDevice:
         """
         self._profile = env_flag("TT_BIO_DEVICE_CONDITIONING_PROFILE", False)
         self._t0 = time.perf_counter()
-        rel_pos = relative_position_encoding
-        if seq_pad:
-            rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, seq_pad, 0, seq_pad))
-        rel_pos_tt = ttnn.from_torch(rel_pos, layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                     dtype=ttnn.bfloat16)
-        self._mark("relpos upload")
+        rel_pos_tt = self._rel_pos_device(feats, seq_len + seq_pad)
+        self._mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(z)
         ttnn.deallocate(rel_pos_tt)
