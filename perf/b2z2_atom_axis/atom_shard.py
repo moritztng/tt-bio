@@ -108,6 +108,14 @@ def main() -> int:
     assert NW % MESH == 0, "the window axis must split evenly"
     NWL = NW // MESH
 
+    # ttnn ships a descriptor for the systems it knows (n300 is 1x2) and nothing for a line of N
+    # chips cut out of a galaxy, and it reads the path at import. `b2z2-trunk-shard-scale-wh`
+    # already wrote the generator, so this reuses that file at its own path rather than a copy.
+    if not os.environ.get("TT_MESH_GRAPH_DESC_PATH") and MESH > 1:
+        sys.path.insert(0, str(ROOT / "perf" / "b2z2_shardscale"))
+        import meshdesc
+        print(f"mesh descriptor: {meshdesc.install(MESH)}", flush=True)
+
     import torch
     torch.set_grad_enabled(False)
     import ttnn
@@ -259,7 +267,11 @@ def main() -> int:
     out["result"] = {
         "track_ratio": round(t_whole / t_shard, 5),
         "track_ratio_no_outgather": round(t_whole / t_shard_nog, 5),
-        "perfect_ratio_from_curve": 1.81995,
+        # the free-split ceiling for THIS mesh width, from atom_curve.py's pooled fit
+        # (one 3-layer stack: 0.617825 ms + 0.001256105 ms/atom)
+        "perfect_ratio_from_curve": round(
+            (0.617825 + 0.001256105 * W * NW)
+            / (0.617825 + 0.001256105 * W * NW / MESH), 5),
         "halo_cost_ms": round(t_shard_nog - t_nohalo, 5),
         "halo_cost_us_per_layer": round(1e3 * (t_shard_nog - t_nohalo) / DEPTH, 2),
         "outgather_cost_ms": round(t_shard - t_shard_nog, 5),
