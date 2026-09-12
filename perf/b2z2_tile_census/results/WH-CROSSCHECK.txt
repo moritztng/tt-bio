@@ -1,0 +1,17 @@
+=== PairformerLayer on WORMHOLE: 272 programs, span 85.2996 ms
+    whglx card 1, 8x9 = 72 cores, profiler-enabled source build (b2z2-whglx-profiler-build)
+  CB tile arrivals per core                       251,933
+  DRAM read   5,214.1 MB    L1 read   1,079.2 MB
+  MEASURED CB wait-front/core 47.5204 ms of TRISC1 76.5675 ms  = 62.1 %
+    (b2z2-whglx-profiler-build publishes 47.4499 ms = 62.0 %; this independent window reads 47.5204 = 62.1 %)
+  arrivals x 71.3 ns/tile (the WH rate) = 17.9628 ms  = 37.8 % of the WH wait
+  DRAM read at the 239.8 GB/s WH roof = 21.7435 ms  = 45.8 % of the wait
+
+  What predicts the per-site wait? 40 sites that run a compute kernel:
+    R2 = -0.5684   tile arrivals only         13.65
+    R2 = -0.5977   tile-pair MACs only        1.0336
+    R2 =  0.4997   DRAM bytes only            0.0065737
+    R2 =  0.5465   DRAM + L1 bytes            0.0064756  0.0032432
+    R2 =  0.5560   DRAM + L1 + per-program    0.0063968  0.0019734  14140
+  two-bandwidth fit: DRAM 154.4 GB/s (64 % of the 239.8 roof), L1-interleaved 308.3 GB/s
+  Spearman against the measured per-site wait:  bytes +0.911   tile arrivals +0.776   programs +0.463
