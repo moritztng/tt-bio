@@ -27,6 +27,8 @@ def main() -> int:
     ap.add_argument("--baseline", required=True)
     ap.add_argument("--resweep", required=True)
     ap.add_argument("--sweep", required=True, help="the first, straw-man sweep (non-matmul rows)")
+    ap.add_argument("--renoise", required=True, help="the paired-repeat sweep, authoritative")
+    ap.add_argument("--bitexact", default="")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -36,6 +38,8 @@ def main() -> int:
     rsi = {i["id"]: i for i in rs["instances"]}
     old = json.load(open(a.sweep))
     oldi = {i["id"]: i for i in old.get("instances", [])}
+    rn = {i["id"]: i for i in json.load(open(a.renoise))["instances"]}
+    bx = {r["id"]: r for r in json.load(open(a.bitexact))["rows"]} if a.bitexact else {}
 
     # corrected ms/fold
     corrected = {}
@@ -81,21 +85,30 @@ def main() -> int:
     w("")
     w(f"Replayed total, corrected: **{total/1000:.2f} s/fold** over {len(corrected)} instances.")
     w("")
-    w("## Every point, corrected sweep (matmul instances)")
+    w("## Every point, paired-repeat sweep (matmul instances) — authoritative")
     w("")
-    w("| instance | shipped config | ms/fold | knob | ratio | rel vs fp32 | bit-exact |")
-    w("|---|---|---|---|---|---|---|")
-    for iid, i in rsi.items():
+    w("Each ratio is the median of three independent (incumbent, arm) pairs; `spread` is the range")
+    w("across those three. The first row of every instance is the A/A control, the same estimator")
+    w("with the arm replaced by another incumbent run. It lands at 0.989-1.006 on all seventeen,")
+    w("which is the noise floor every other row has to clear.")
+    w("")
+    w("| instance | shipped config | shipped out | ms/fold | knob | ratio | spread | bit-exact |")
+    w("|---|---|---|---|---|---|---|---|")
+    for iid, i in rn.items():
         ms = corrected.get(iid, (0, ""))[0]
-        head = f"| `{iid}` | {i['shipped_config']} | {ms:.0f} "
-        w(head + f"| _(incumbent)_ | 1.000x | {i.get('incumbent_rel_max_err','')} | — |")
+        ob = recs[iid]["out_mem"]["buffer"]
+        first = True
         for arm in i["arms"]:
+            head = (f"| `{iid}` | {i['shipped_config']} | {ob} | {ms:.0f} " if first
+                    else "|  |  |  |  ")
+            first = False
             if "error" in arm:
-                w(f"|  |  |  | `{arm['knob']}` | {arm['error'][:60]} |  |  |")
+                w(head + f"| `{arm['knob']}` | {arm['error'][:58]} |  |  |")
                 continue
-            w(f"|  |  |  | `{arm['knob']}` | {arm['ratio']:.3f}x | {arm.get('rel_max_err','')} | "
-              f"{'yes' if arm.get('bit_exact') else 'no'} |")
-        w(f"|  |  |  | **A/A floor** | **{i.get('aa_floor')}** |  |  |")
+            be = ""
+            if arm["raw_knob"] == "outbuf=L1" and iid in bx:
+                be = "**yes**" if bx[iid].get("bit_exact") else "no"
+            w(head + f"| `{arm['knob']}` | {arm['ratio']:.3f}x | {arm['ratio_spread']:.3f} | {be} |")
     w("")
     w("## Every point, first sweep (non-matmul instances, unaffected by the straw man)")
     w("")

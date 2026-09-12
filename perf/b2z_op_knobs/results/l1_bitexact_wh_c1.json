@@ -1,0 +1,119 @@
+{
+ "env": {
+  "started": "2026-09-12T10:39:27+0000",
+  "arch": "Arch.WORMHOLE_B0"
+ },
+ "rows": [
+  {
+   "id": "DiffusionStep#000",
+   "ratio": 1.3694,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "1,512,768",
+    "768,1536"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  {
+   "id": "PairformerLayer#004",
+   "ratio": 1.4534,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "1,16,512,512",
+    "512,128"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  {
+   "id": "DiffusionStep#029",
+   "ratio": 1.9137,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "1,224,32,128",
+    "128,256"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  {
+   "id": "DiffusionStep#035",
+   "ratio": 1.5719,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "1,224,32,128",
+    "128,128",
+    "128"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  {
+   "id": "DiffusionStep#036",
+   "ratio": 1.5656,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "1,224,32,128",
+    "128,128"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  {
+   "id": "DiffusionStep#043",
+   "ratio": 2.1585,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "1,224,128,128",
+    "128,256"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  {
+   "id": "MSALayer#015",
+   "ratio": 1.4325,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "1024,32,512",
+    "1,512,512"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  {
+   "id": "DiffusionStep#053",
+   "ratio": 1.3778,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "1,224,32,256",
+    "256,128"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  {
+   "id": "PairformerLayer#019",
+   "ratio": 1.1237,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "512,512,128",
+    "128,4"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  },
+  {
+   "id": "DiffusionStep#040",
+   "ratio": 1.7582,
+   "shipped_out_buffer": "DRAM",
+   "shapes": [
+    "1,16,128,448",
+    "448,1792"
+   ],
+   "max_abs": 0.0,
+   "bit_exact": true
+  }
+ ]
+}

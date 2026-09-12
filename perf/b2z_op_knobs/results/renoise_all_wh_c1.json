@@ -1,0 +1,3089 @@
+{
+ "env": {
+  "started": "2026-09-12T10:33:10+0000",
+  "grid": "8x9",
+  "arch": "Arch.WORMHOLE_B0",
+  "reps": 16,
+  "bursts": 5,
+  "pairs": 3,
+  "estimator": "median of per-pair (incumbent/arm) ratios"
+ },
+ "instances": [
+  {
+   "id": "PairformerLayer#002",
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "ms_per_fold": 4651.728,
+   "unit_path": "PairformerLayer/TriangleMultiplication/TriangleMultiplication/TriangleAttention/TriangleAttention/Transition",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 1.0299,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 1.0021,
+     "ratio_spread": 1.0074,
+     "us": 76.1,
+     "pair_ratios": [
+      0.9973,
+      1.0047,
+      1.0021
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.1609,
+     "ratio_spread": 1.002,
+     "us": 473.8,
+     "pair_ratios": [
+      0.1611,
+      0.1608,
+      0.1609
+     ],
+     "rel_max_err": 0.003016,
+     "rms_err": 0.000193
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.1194,
+     "ratio_spread": 1.0093,
+     "us": 68.78,
+     "pair_ratios": [
+      1.1194,
+      1.1167,
+      1.1271
+     ],
+     "rel_max_err": 0.011287,
+     "rms_err": 0.000634
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.1702,
+     "ratio_spread": 1.011,
+     "us": 65.09,
+     "pair_ratios": [
+      1.1719,
+      1.1702,
+      1.1592
+     ],
+     "rel_max_err": 0.010907,
+     "rms_err": 0.000637
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.1765,
+     "ratio_spread": 1.0068,
+     "us": 65.17,
+     "pair_ratios": [
+      1.1773,
+      1.1694,
+      1.1765
+     ],
+     "rel_max_err": 0.027266,
+     "rms_err": 0.002881
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 0.9994,
+     "ratio_spread": 1.0138,
+     "us": 76.24,
+     "pair_ratios": [
+      0.9994,
+      0.9926,
+      1.0063
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0,
+     "ratio_spread": 1.0083,
+     "us": 75.93,
+     "pair_ratios": [
+      1.0,
+      0.9977,
+      1.006
+     ],
+     "rel_max_err": 0.00631,
+     "rms_err": 0.000513
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9103,
+     "ratio_spread": 1.0049,
+     "us": 83.61,
+     "pair_ratios": [
+      0.9114,
+      0.9103,
+      0.907
+     ],
+     "rel_max_err": 0.003381,
+     "rms_err": 0.000206
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 0.9957,
+     "ratio_spread": 1.0018,
+     "us": 76.35,
+     "pair_ratios": [
+      0.9975,
+      0.9957,
+      0.9956
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.1189,
+     "ratio_spread": 1.0018,
+     "us": 68.02,
+     "pair_ratios": [
+      1.1187,
+      1.1189,
+      1.1208
+     ],
+     "rel_max_err": 0.011287,
+     "rms_err": 0.000634
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.639,
+     "ratio_spread": 1.0077,
+     "us": 119.25,
+     "pair_ratios": [
+      0.639,
+      0.637,
+      0.6419
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 0.9977,
+     "ratio_spread": 1.0065,
+     "us": 76.25,
+     "pair_ratios": [
+      1.0041,
+      0.9976,
+      0.9977
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    }
+   ],
+   "aa_floor": 1.0074,
+   "aa_ratio": 1.0021
+  },
+  {
+   "id": "PairformerLayer#001",
+   "shapes": [
+    "1x16x512x128",
+    "128x512"
+   ],
+   "ms_per_fold": 3998.891,
+   "unit_path": "PairformerLayer/TriangleMultiplication/TriangleMultiplication/TriangleAttention/TriangleAttention/Transition",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 1.0234,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 1.0049,
+     "ratio_spread": 1.0004,
+     "us": 75.81,
+     "pair_ratios": [
+      1.0049,
+      1.0052,
+      1.0048
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.1619,
+     "ratio_spread": 1.0131,
+     "us": 473.94,
+     "pair_ratios": [
+      0.1603,
+      0.1619,
+      0.1624
+     ],
+     "rel_max_err": 0.003016,
+     "rms_err": 0.000193
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.1286,
+     "ratio_spread": 1.0244,
+     "us": 68.14,
+     "pair_ratios": [
+      1.1286,
+      1.1404,
+      1.1133
+     ],
+     "rel_max_err": 0.011287,
+     "rms_err": 0.000634
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.1672,
+     "ratio_spread": 1.0052,
+     "us": 65.53,
+     "pair_ratios": [
+      1.1672,
+      1.1623,
+      1.1683
+     ],
+     "rel_max_err": 0.010907,
+     "rms_err": 0.000637
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.1744,
+     "ratio_spread": 1.0138,
+     "us": 65.28,
+     "pair_ratios": [
+      1.1847,
+      1.1686,
+      1.1744
+     ],
+     "rel_max_err": 0.027266,
+     "rms_err": 0.002881
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 0.9966,
+     "ratio_spread": 1.0072,
+     "us": 76.37,
+     "pair_ratios": [
+      0.9992,
+      0.9921,
+      0.9966
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0045,
+     "ratio_spread": 1.0125,
+     "us": 76.2,
+     "pair_ratios": [
+      0.9934,
+      1.0045,
+      1.0058
+     ],
+     "rel_max_err": 0.00631,
+     "rms_err": 0.000513
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9111,
+     "ratio_spread": 1.0033,
+     "us": 83.58,
+     "pair_ratios": [
+      0.912,
+      0.9111,
+      0.909
+     ],
+     "rel_max_err": 0.003381,
+     "rms_err": 0.000206
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 0.9982,
+     "ratio_spread": 1.0037,
+     "us": 76.29,
+     "pair_ratios": [
+      0.9972,
+      1.0009,
+      0.9982
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.1155,
+     "ratio_spread": 1.0048,
+     "us": 68.33,
+     "pair_ratios": [
+      1.1155,
+      1.1201,
+      1.1147
+     ],
+     "rel_max_err": 0.011287,
+     "rms_err": 0.000634
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.6395,
+     "ratio_spread": 1.0112,
+     "us": 119.14,
+     "pair_ratios": [
+      0.6451,
+      0.6395,
+      0.6379
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.0004,
+     "ratio_spread": 1.0003,
+     "us": 76.26,
+     "pair_ratios": [
+      1.0001,
+      1.0004,
+      1.0005
+     ],
+     "rel_max_err": 0.003168,
+     "rms_err": 0.000194
+    }
+   ],
+   "aa_floor": 1.0004,
+   "aa_ratio": 1.0049
+  },
+  {
+   "id": "PairformerLayer#007",
+   "shapes": [
+    "1x512x512x128",
+    "128x128"
+   ],
+   "ms_per_fold": 3362.54,
+   "unit_path": "PairformerLayer/TriangleMultiplication",
+   "shipped_config": "program_config",
+   "prev_aa_floor": 1.0431,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 0.9999,
+     "ratio_spread": 1.0006,
+     "us": 3186.47,
+     "pair_ratios": [
+      0.9999,
+      0.9998,
+      1.0004
+     ],
+     "rel_max_err": 0.714688,
+     "rms_err": 0.000212
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 1.0,
+     "ratio_spread": 1.0015,
+     "us": 3186.23,
+     "pair_ratios": [
+      1.0,
+      1.001,
+      0.9995
+     ],
+     "rel_max_err": 0.714688,
+     "rms_err": 0.000212
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0581,
+     "ratio_spread": 1.0049,
+     "us": 3012.73,
+     "pair_ratios": [
+      1.053,
+      1.0581,
+      1.0582
+     ],
+     "rel_max_err": 0.013013,
+     "rms_err": 0.000723
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.053,
+     "ratio_spread": 1.0003,
+     "us": 3025.85,
+     "pair_ratios": [
+      1.053,
+      1.0528,
+      1.0532
+     ],
+     "rel_max_err": 0.013013,
+     "rms_err": 0.000723
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0548,
+     "ratio_spread": 1.0028,
+     "us": 3020.83,
+     "pair_ratios": [
+      1.0548,
+      1.0535,
+      1.0564
+     ],
+     "rel_max_err": 0.013013,
+     "rms_err": 0.000723
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on cor"
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0385,
+     "ratio_spread": 1.0004,
+     "us": 3068.04,
+     "pair_ratios": [
+      1.0383,
+      1.0385,
+      1.0386
+     ],
+     "rel_max_err": 0.006634,
+     "rms_err": 0.000507
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 1.0001,
+     "ratio_spread": 1.0006,
+     "us": 3185.97,
+     "pair_ratios": [
+      1.0001,
+      0.9997,
+      1.0002
+     ],
+     "rel_max_err": 0.714688,
+     "rms_err": 0.000212
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 0.9996,
+     "ratio_spread": 1.0023,
+     "us": 3188.1,
+     "pair_ratios": [
+      0.9996,
+      0.9993,
+      1.0016
+     ],
+     "rel_max_err": 0.714688,
+     "rms_err": 0.000212
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.056,
+     "ratio_spread": 1.0017,
+     "us": 3017.19,
+     "pair_ratios": [
+      1.0564,
+      1.056,
+      1.0545
+     ],
+     "rel_max_err": 0.013013,
+     "rms_err": 0.000723
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 41 clash with L1 buffers on cor"
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 0.9998,
+     "ratio_spread": 1.0008,
+     "us": 3183.51,
+     "pair_ratios": [
+      0.9993,
+      1.0001,
+      0.9998
+     ],
+     "rel_max_err": 0.714688,
+     "rms_err": 0.000212
+    }
+   ],
+   "aa_floor": 1.0006,
+   "aa_ratio": 0.9999
+  },
+  {
+   "id": "DiffusionStep#000",
+   "shapes": [
+    "1x512x768",
+    "768x1536"
+   ],
+   "ms_per_fold": 2878.547,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 1.0378,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 1.0036,
+     "ratio_spread": 1.0093,
+     "us": 52.97,
+     "pair_ratios": [
+      1.0005,
+      1.0036,
+      1.0097
+     ],
+     "rel_max_err": 0.697219,
+     "rms_err": 0.001225
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.9447,
+     "ratio_spread": 1.0018,
+     "us": 56.14,
+     "pair_ratios": [
+      0.9447,
+      0.9447,
+      0.9464
+     ],
+     "rel_max_err": 0.003091,
+     "rms_err": 0.000478
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.025,
+     "ratio_spread": 1.004,
+     "us": 52.08,
+     "pair_ratios": [
+      1.0251,
+      1.021,
+      1.025
+     ],
+     "rel_max_err": 0.015789,
+     "rms_err": 0.002981
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.033,
+     "ratio_spread": 1.0083,
+     "us": 51.53,
+     "pair_ratios": [
+      1.0393,
+      1.033,
+      1.0307
+     ],
+     "rel_max_err": 0.015448,
+     "rms_err": 0.002752
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0301,
+     "ratio_spread": 1.0047,
+     "us": 51.53,
+     "pair_ratios": [
+      1.0316,
+      1.0301,
+      1.0268
+     ],
+     "rel_max_err": 0.026005,
+     "rms_err": 0.00664
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 0.9991,
+     "ratio_spread": 1.0023,
+     "us": 53.11,
+     "pair_ratios": [
+      1.0002,
+      0.9979,
+      0.9991
+     ],
+     "rel_max_err": 0.697219,
+     "rms_err": 0.001225
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0159,
+     "ratio_spread": 1.0295,
+     "us": 53.44,
+     "pair_ratios": [
+      0.9912,
+      1.0159,
+      1.0204
+     ],
+     "rel_max_err": 0.005722,
+     "rms_err": 0.001266
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9799,
+     "ratio_spread": 1.014,
+     "us": 54.61,
+     "pair_ratios": [
+      0.9846,
+      0.9799,
+      0.971
+     ],
+     "rel_max_err": 0.003619,
+     "rms_err": 0.000558
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 0.9972,
+     "ratio_spread": 1.0049,
+     "us": 53.36,
+     "pair_ratios": [
+      0.9972,
+      0.9928,
+      0.9977
+     ],
+     "rel_max_err": 0.697219,
+     "rms_err": 0.001225
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0191,
+     "ratio_spread": 1.009,
+     "us": 52.07,
+     "pair_ratios": [
+      1.0185,
+      1.0276,
+      1.0191
+     ],
+     "rel_max_err": 0.015789,
+     "rms_err": 0.002981
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.7353,
+     "ratio_spread": 1.0027,
+     "us": 72.6,
+     "pair_ratios": [
+      0.7356,
+      0.7353,
+      0.7336
+     ],
+     "rel_max_err": 0.697219,
+     "rms_err": 0.001225
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.3694,
+     "ratio_spread": 1.02,
+     "us": 38.74,
+     "pair_ratios": [
+      1.3694,
+      1.3642,
+      1.3915
+     ],
+     "rel_max_err": 0.697219,
+     "rms_err": 0.001225
+    }
+   ],
+   "aa_floor": 1.0093,
+   "aa_ratio": 1.0036
+  },
+  {
+   "id": "DiffusionStep#017",
+   "shapes": [
+    "1x16x512x512",
+    "1x16x512x64"
+   ],
+   "ms_per_fold": 2387.769,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 2.4801,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 1.0058,
+     "ratio_spread": 1.0052,
+     "us": 142.18,
+     "pair_ratios": [
+      1.0058,
+      1.0019,
+      1.0071
+     ],
+     "rel_max_err": 0.003761,
+     "rms_err": 0.000391
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.7093,
+     "ratio_spread": 1.0153,
+     "us": 201.1,
+     "pair_ratios": [
+      0.707,
+      0.7093,
+      0.7179
+     ],
+     "rel_max_err": 0.003761,
+     "rms_err": 0.00039
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0454,
+     "ratio_spread": 1.0006,
+     "us": 136.73,
+     "pair_ratios": [
+      1.0454,
+      1.0448,
+      1.0454
+     ],
+     "rel_max_err": 0.013162,
+     "rms_err": 0.001625
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0569,
+     "ratio_spread": 1.0091,
+     "us": 135.39,
+     "pair_ratios": [
+      1.0569,
+      1.0595,
+      1.0499
+     ],
+     "rel_max_err": 0.013043,
+     "rms_err": 0.001623
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0582,
+     "ratio_spread": 1.0031,
+     "us": 135.35,
+     "pair_ratios": [
+      1.0584,
+      1.0582,
+      1.0551
+     ],
+     "rel_max_err": 0.029467,
+     "rms_err": 0.005866
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.009,
+     "ratio_spread": 1.0139,
+     "us": 140.95,
+     "pair_ratios": [
+      1.0039,
+      1.009,
+      1.0178
+     ],
+     "rel_max_err": 0.003761,
+     "rms_err": 0.000391
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.001,
+     "ratio_spread": 1.0152,
+     "us": 142.69,
+     "pair_ratios": [
+      0.9903,
+      1.0054,
+      1.001
+     ],
+     "rel_max_err": 0.005829,
+     "rms_err": 0.001038
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9882,
+     "ratio_spread": 1.0083,
+     "us": 144.75,
+     "pair_ratios": [
+      0.9829,
+      0.991,
+      0.9882
+     ],
+     "rel_max_err": 0.00544,
+     "rms_err": 0.000804
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 1.0019,
+     "ratio_spread": 1.0149,
+     "us": 142.76,
+     "pair_ratios": [
+      0.9935,
+      1.0019,
+      1.0083
+     ],
+     "rel_max_err": 0.003761,
+     "rms_err": 0.000391
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0513,
+     "ratio_spread": 1.0209,
+     "us": 136.77,
+     "pair_ratios": [
+      1.0625,
+      1.0513,
+      1.0407
+     ],
+     "rel_max_err": 0.013162,
+     "rms_err": 0.001625
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 1.2403,
+     "ratio_spread": 1.019,
+     "us": 115.06,
+     "pair_ratios": [
+      1.2403,
+      1.2332,
+      1.2566
+     ],
+     "rel_max_err": 0.003761,
+     "rms_err": 0.000391
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.0034,
+     "ratio_spread": 1.0146,
+     "us": 141.87,
+     "pair_ratios": [
+      1.014,
+      0.9994,
+      1.0034
+     ],
+     "rel_max_err": 0.003761,
+     "rms_err": 0.000391
+    }
+   ],
+   "aa_floor": 1.0052,
+   "aa_ratio": 1.0058
+  },
+  {
+   "id": "PairformerLayer#004",
+   "shapes": [
+    "1x16x512x512",
+    "512x128"
+   ],
+   "ms_per_fold": 2320.707,
+   "unit_path": "PairformerLayer/TriangleMultiplication/TriangleMultiplication/TriangleAttention/TriangleAttention/Transition",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 2.9144,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 0.9985,
+     "ratio_spread": 1.0068,
+     "us": 95.27,
+     "pair_ratios": [
+      0.9985,
+      1.0041,
+      0.9973
+     ],
+     "rel_max_err": 0.003064,
+     "rms_err": 0.00039
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.3478,
+     "ratio_spread": 1.0091,
+     "us": 274.88,
+     "pair_ratios": [
+      0.347,
+      0.3501,
+      0.3478
+     ],
+     "rel_max_err": 0.003064,
+     "rms_err": 0.000389
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0404,
+     "ratio_spread": 1.0214,
+     "us": 91.81,
+     "pair_ratios": [
+      1.0404,
+      1.0587,
+      1.0365
+     ],
+     "rel_max_err": 0.012391,
+     "rms_err": 0.001628
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0642,
+     "ratio_spread": 1.0021,
+     "us": 89.57,
+     "pair_ratios": [
+      1.0646,
+      1.0623,
+      1.0642
+     ],
+     "rel_max_err": 0.012125,
+     "rms_err": 0.001625
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0739,
+     "ratio_spread": 1.0075,
+     "us": 88.81,
+     "pair_ratios": [
+      1.0752,
+      1.0739,
+      1.0672
+     ],
+     "rel_max_err": 0.027985,
+     "rms_err": 0.005869
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 0.9995,
+     "ratio_spread": 1.0053,
+     "us": 95.21,
+     "pair_ratios": [
+      1.0047,
+      0.9995,
+      0.9995
+     ],
+     "rel_max_err": 0.003064,
+     "rms_err": 0.00039
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0055,
+     "ratio_spread": 1.006,
+     "us": 94.58,
+     "pair_ratios": [
+      1.0072,
+      1.0012,
+      1.0055
+     ],
+     "rel_max_err": 0.005213,
+     "rms_err": 0.001038
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9671,
+     "ratio_spread": 1.0155,
+     "us": 98.49,
+     "pair_ratios": [
+      0.98,
+      0.9651,
+      0.9671
+     ],
+     "rel_max_err": 0.006501,
+     "rms_err": 0.000799
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 1.003,
+     "ratio_spread": 1.0126,
+     "us": 95.21,
+     "pair_ratios": [
+      1.003,
+      0.9969,
+      1.0094
+     ],
+     "rel_max_err": 0.003064,
+     "rms_err": 0.00039
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0336,
+     "ratio_spread": 1.0052,
+     "us": 91.97,
+     "pair_ratios": [
+      1.0386,
+      1.0336,
+      1.0333
+     ],
+     "rel_max_err": 0.012391,
+     "rms_err": 0.001628
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.8044,
+     "ratio_spread": 1.0006,
+     "us": 118.44,
+     "pair_ratios": [
+      0.8048,
+      0.8043,
+      0.8044
+     ],
+     "rel_max_err": 0.003064,
+     "rms_err": 0.00039
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.4534,
+     "ratio_spread": 1.03,
+     "us": 65.83,
+     "pair_ratios": [
+      1.4178,
+      1.4602,
+      1.4534
+     ],
+     "rel_max_err": 0.003064,
+     "rms_err": 0.00039
+    }
+   ],
+   "aa_floor": 1.0068,
+   "aa_ratio": 0.9985
+  },
+  {
+   "id": "DiffusionStep#029",
+   "shapes": [
+    "1x224x32x128",
+    "128x256"
+   ],
+   "ms_per_fold": 1987.671,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 2.7811,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 0.9964,
+     "ratio_spread": 1.003,
+     "us": 106.48,
+     "pair_ratios": [
+      0.9964,
+      0.9952,
+      0.9983
+     ],
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000195
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.1934,
+     "ratio_spread": 1.002,
+     "us": 552.85,
+     "pair_ratios": [
+      0.1934,
+      0.1932,
+      0.1936
+     ],
+     "rel_max_err": 0.003086,
+     "rms_err": 0.000193
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0092,
+     "ratio_spread": 1.0085,
+     "us": 106.21,
+     "pair_ratios": [
+      1.0147,
+      1.0061,
+      1.0092
+     ],
+     "rel_max_err": 0.012352,
+     "rms_err": 0.000634
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0173,
+     "ratio_spread": 1.0031,
+     "us": 105.24,
+     "pair_ratios": [
+      1.018,
+      1.0173,
+      1.0149
+     ],
+     "rel_max_err": 0.011253,
+     "rms_err": 0.000637
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0148,
+     "ratio_spread": 1.0073,
+     "us": 105.13,
+     "pair_ratios": [
+      1.0148,
+      1.016,
+      1.0086
+     ],
+     "rel_max_err": 0.027296,
+     "rms_err": 0.002897
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.0024,
+     "ratio_spread": 1.0029,
+     "us": 106.17,
+     "pair_ratios": [
+      1.0015,
+      1.0044,
+      1.0024
+     ],
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000195
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 0.9975,
+     "ratio_spread": 1.0017,
+     "us": 106.94,
+     "pair_ratios": [
+      0.9975,
+      0.9963,
+      0.9981
+     ],
+     "rel_max_err": 0.005842,
+     "rms_err": 0.000513
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9921,
+     "ratio_spread": 1.0032,
+     "us": 107.8,
+     "pair_ratios": [
+      0.9921,
+      0.9918,
+      0.9949
+     ],
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000206
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 1.0004,
+     "ratio_spread": 1.0047,
+     "us": 106.79,
+     "pair_ratios": [
+      1.0004,
+      1.0009,
+      0.9962
+     ],
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000195
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0091,
+     "ratio_spread": 1.0018,
+     "us": 105.93,
+     "pair_ratios": [
+      1.0086,
+      1.0105,
+      1.0091
+     ],
+     "rel_max_err": 0.012352,
+     "rms_err": 0.000634
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.9745,
+     "ratio_spread": 1.0102,
+     "us": 110.34,
+     "pair_ratios": [
+      0.9671,
+      0.977,
+      0.9745
+     ],
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000195
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.9137,
+     "ratio_spread": 1.0119,
+     "us": 55.83,
+     "pair_ratios": [
+      1.8972,
+      1.9197,
+      1.9137
+     ],
+     "rel_max_err": 0.003385,
+     "rms_err": 0.000195
+    }
+   ],
+   "aa_floor": 1.003,
+   "aa_ratio": 0.9964
+  },
+  {
+   "id": "DiffusionStep#035",
+   "shapes": [
+    "1x224x32x128",
+    "128x128",
+    "128"
+   ],
+   "ms_per_fold": 1331.867,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 3.3112,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 0.9984,
+     "ratio_spread": 1.0084,
+     "us": 72.26,
+     "pair_ratios": [
+      0.9923,
+      0.9984,
+      1.0006
+     ],
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.1286,
+     "ratio_spread": 1.0116,
+     "us": 555.18,
+     "pair_ratios": [
+      0.1285,
+      0.1286,
+      0.13
+     ],
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0238,
+     "ratio_spread": 1.0225,
+     "us": 70.58,
+     "pair_ratios": [
+      1.0095,
+      1.0238,
+      1.0322
+     ],
+     "rel_max_err": 0.008593,
+     "rms_err": 0.000623
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0221,
+     "ratio_spread": 1.0166,
+     "us": 70.19,
+     "pair_ratios": [
+      1.0192,
+      1.0221,
+      1.0361
+     ],
+     "rel_max_err": 0.007456,
+     "rms_err": 0.000638
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0251,
+     "ratio_spread": 1.0116,
+     "us": 69.7,
+     "pair_ratios": [
+      1.0179,
+      1.0251,
+      1.0297
+     ],
+     "rel_max_err": 0.022458,
+     "rms_err": 0.002892
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.0017,
+     "ratio_spread": 1.0046,
+     "us": 71.39,
+     "pair_ratios": [
+      0.9982,
+      1.0028,
+      1.0017
+     ],
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0029,
+     "ratio_spread": 1.0043,
+     "us": 71.25,
+     "pair_ratios": [
+      1.0029,
+      1.0056,
+      1.0013
+     ],
+     "rel_max_err": 0.004928,
+     "rms_err": 0.000525
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9759,
+     "ratio_spread": 1.0028,
+     "us": 72.92,
+     "pair_ratios": [
+      0.9773,
+      0.9746,
+      0.9759
+     ],
+     "rel_max_err": 0.003083,
+     "rms_err": 0.000272
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 1.0011,
+     "ratio_spread": 1.0041,
+     "us": 71.24,
+     "pair_ratios": [
+      0.9995,
+      1.0036,
+      1.0011
+     ],
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0205,
+     "ratio_spread": 1.0045,
+     "us": 69.65,
+     "pair_ratios": [
+      1.0205,
+      1.0174,
+      1.022
+     ],
+     "rel_max_err": 0.008593,
+     "rms_err": 0.000623
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.9453,
+     "ratio_spread": 1.0028,
+     "us": 76.08,
+     "pair_ratios": [
+      0.9464,
+      0.9438,
+      0.9453
+     ],
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.5719,
+     "ratio_spread": 1.0172,
+     "us": 45.85,
+     "pair_ratios": [
+      1.5719,
+      1.5483,
+      1.5748
+     ],
+     "rel_max_err": 0.002812,
+     "rms_err": 0.00026
+    }
+   ],
+   "aa_floor": 1.0084,
+   "aa_ratio": 0.9984
+  },
+  {
+   "id": "DiffusionStep#036",
+   "shapes": [
+    "1x224x32x128",
+    "128x128"
+   ],
+   "ms_per_fold": 1317.294,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 1.0163,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 0.9885,
+     "ratio_spread": 1.0158,
+     "us": 70.26,
+     "pair_ratios": [
+      0.9885,
+      0.9994,
+      0.9839
+     ],
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.1282,
+     "ratio_spread": 1.0164,
+     "us": 550.24,
+     "pair_ratios": [
+      0.1264,
+      0.1282,
+      0.1285
+     ],
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000193
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0183,
+     "ratio_spread": 1.0111,
+     "us": 70.09,
+     "pair_ratios": [
+      1.0089,
+      1.0201,
+      1.0183
+     ],
+     "rel_max_err": 0.013166,
+     "rms_err": 0.000636
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0235,
+     "ratio_spread": 1.014,
+     "us": 68.5,
+     "pair_ratios": [
+      1.0235,
+      1.0167,
+      1.0309
+     ],
+     "rel_max_err": 0.009502,
+     "rms_err": 0.000638
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0234,
+     "ratio_spread": 1.0009,
+     "us": 68.5,
+     "pair_ratios": [
+      1.0244,
+      1.0234,
+      1.0234
+     ],
+     "rel_max_err": 0.030236,
+     "rms_err": 0.00291
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.0045,
+     "ratio_spread": 1.0059,
+     "us": 69.3,
+     "pair_ratios": [
+      1.0045,
+      0.9992,
+      1.0051
+     ],
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0028,
+     "ratio_spread": 1.0111,
+     "us": 69.27,
+     "pair_ratios": [
+      1.0109,
+      0.9998,
+      1.0028
+     ],
+     "rel_max_err": 0.00689,
+     "rms_err": 0.000514
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9924,
+     "ratio_spread": 1.002,
+     "us": 69.84,
+     "pair_ratios": [
+      0.9924,
+      0.9918,
+      0.9937
+     ],
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000206
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 1.0022,
+     "ratio_spread": 1.0028,
+     "us": 69.42,
+     "pair_ratios": [
+      1.0022,
+      1.0023,
+      0.9995
+     ],
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0138,
+     "ratio_spread": 1.0059,
+     "us": 68.3,
+     "pair_ratios": [
+      1.0137,
+      1.0138,
+      1.0197
+     ],
+     "rel_max_err": 0.013166,
+     "rms_err": 0.000636
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.9641,
+     "ratio_spread": 1.005,
+     "us": 72.03,
+     "pair_ratios": [
+      0.9641,
+      0.9647,
+      0.9599
+     ],
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000194
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.5656,
+     "ratio_spread": 1.0246,
+     "us": 44.51,
+     "pair_ratios": [
+      1.5359,
+      1.5656,
+      1.5737
+     ],
+     "rel_max_err": 0.003462,
+     "rms_err": 0.000194
+    }
+   ],
+   "aa_floor": 1.0158,
+   "aa_ratio": 0.9885
+  },
+  {
+   "id": "DiffusionStep#043",
+   "shapes": [
+    "1x224x128x128",
+    "128x256"
+   ],
+   "ms_per_fold": 1258.41,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 2.9811,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 0.999,
+     "ratio_spread": 1.0051,
+     "us": 398.37,
+     "pair_ratios": [
+      1.0029,
+      0.999,
+      0.9978
+     ],
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.4571,
+     "ratio_spread": 1.007,
+     "us": 870.52,
+     "pair_ratios": [
+      0.4568,
+      0.4571,
+      0.46
+     ],
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0069,
+     "ratio_spread": 1.0026,
+     "us": 394.7,
+     "pair_ratios": [
+      1.0086,
+      1.0069,
+      1.006
+     ],
+     "rel_max_err": 0.011006,
+     "rms_err": 0.000637
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0108,
+     "ratio_spread": 1.0047,
+     "us": 393.86,
+     "pair_ratios": [
+      1.0083,
+      1.0131,
+      1.0108
+     ],
+     "rel_max_err": 0.010837,
+     "rms_err": 0.00064
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0138,
+     "ratio_spread": 1.0067,
+     "us": 394.18,
+     "pair_ratios": [
+      1.0073,
+      1.014,
+      1.0138
+     ],
+     "rel_max_err": 0.028668,
+     "rms_err": 0.002899
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.0079,
+     "ratio_spread": 1.0091,
+     "us": 394.31,
+     "pair_ratios": [
+      0.9996,
+      1.0079,
+      1.0087
+     ],
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0003,
+     "ratio_spread": 1.0167,
+     "us": 397.97,
+     "pair_ratios": [
+      0.9857,
+      1.0003,
+      1.0022
+     ],
+     "rel_max_err": 0.006362,
+     "rms_err": 0.000515
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9882,
+     "ratio_spread": 1.0096,
+     "us": 404.94,
+     "pair_ratios": [
+      0.9802,
+      0.9882,
+      0.9896
+     ],
+     "rel_max_err": 0.00366,
+     "rms_err": 0.000206
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 0.9977,
+     "ratio_spread": 1.0043,
+     "us": 398.26,
+     "pair_ratios": [
+      0.9977,
+      1.0001,
+      0.9958
+     ],
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0069,
+     "ratio_spread": 1.0038,
+     "us": 394.66,
+     "pair_ratios": [
+      1.0061,
+      1.0069,
+      1.0099
+     ],
+     "rel_max_err": 0.011006,
+     "rms_err": 0.000637
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.9852,
+     "ratio_spread": 1.002,
+     "us": 403.45,
+     "pair_ratios": [
+      0.9842,
+      0.9852,
+      0.9862
+     ],
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 2.1585,
+     "ratio_spread": 1.0316,
+     "us": 185.18,
+     "pair_ratios": [
+      2.0926,
+      2.1585,
+      2.1587
+     ],
+     "rel_max_err": 0.003572,
+     "rms_err": 0.000195
+    }
+   ],
+   "aa_floor": 1.0051,
+   "aa_ratio": 0.999
+  },
+  {
+   "id": "PairformerLayer#017",
+   "shapes": [
+    "1x128x512x512",
+    "1x128x512x512"
+   ],
+   "ms_per_fold": 1233.1,
+   "unit_path": "PairformerLayer/TriangleMultiplication",
+   "shipped_config": "program_config",
+   "prev_aa_floor": 1.1219,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 0.9989,
+     "ratio_spread": 1.0012,
+     "us": 2339.25,
+     "pair_ratios": [
+      0.9997,
+      0.9985,
+      0.9989
+     ],
+     "rel_max_err": 0.808471,
+     "rms_err": 0.000478
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 1.0004,
+     "ratio_spread": 1.0014,
+     "us": 2334.59,
+     "pair_ratios": [
+      1.0011,
+      0.9997,
+      1.0004
+     ],
+     "rel_max_err": 0.808471,
+     "rms_err": 0.000478
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0638,
+     "ratio_spread": 1.0001,
+     "us": 2195.2,
+     "pair_ratios": [
+      1.0638,
+      1.0637,
+      1.0638
+     ],
+     "rel_max_err": 0.014747,
+     "rms_err": 0.001802
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0977,
+     "ratio_spread": 1.0002,
+     "us": 2130.31,
+     "pair_ratios": [
+      1.0976,
+      1.0977,
+      1.0978
+     ],
+     "rel_max_err": 0.014713,
+     "rms_err": 0.001693
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.1108,
+     "ratio_spread": 1.0007,
+     "us": 2104.24,
+     "pair_ratios": [
+      1.1108,
+      1.1106,
+      1.1114
+     ],
+     "rel_max_err": 0.029853,
+     "rms_err": 0.005685
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.0,
+     "ratio_spread": 1.0009,
+     "us": 2337.91,
+     "pair_ratios": [
+      0.9996,
+      1.0005,
+      1.0
+     ],
+     "rel_max_err": 0.808471,
+     "rms_err": 0.000478
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0595,
+     "ratio_spread": 1.0005,
+     "us": 2205.98,
+     "pair_ratios": [
+      1.0595,
+      1.0596,
+      1.0591
+     ],
+     "rel_max_err": 0.007044,
+     "rms_err": 0.001035
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9406,
+     "ratio_spread": 1.0008,
+     "us": 2487.56,
+     "pair_ratios": [
+      0.9406,
+      0.9404,
+      0.9411
+     ],
+     "rel_max_err": 0.201581,
+     "rms_err": 0.000511
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 0.9998,
+     "ratio_spread": 1.0009,
+     "us": 2337.69,
+     "pair_ratios": [
+      0.9997,
+      1.0006,
+      0.9998
+     ],
+     "rel_max_err": 0.808471,
+     "rms_err": 0.000478
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0642,
+     "ratio_spread": 1.0006,
+     "us": 2198.9,
+     "pair_ratios": [
+      1.0638,
+      1.0645,
+      1.0642
+     ],
+     "rel_max_err": 0.014747,
+     "rms_err": 0.001802
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.7872,
+     "ratio_spread": 1.0019,
+     "us": 2968.63,
+     "pair_ratios": [
+      0.7883,
+      0.7869,
+      0.7872
+     ],
+     "rel_max_err": 0.808471,
+     "rms_err": 0.000478
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 231 clash with L1 buffers on co"
+    }
+   ],
+   "aa_floor": 1.0012,
+   "aa_ratio": 0.9989
+  },
+  {
+   "id": "MSALayer#015",
+   "shapes": [
+    "1024x32x512",
+    "1x512x512"
+   ],
+   "ms_per_fold": 1052.608,
+   "unit_path": "MSALayer/PairWeightedAveraging",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 1.1704,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 1.0001,
+     "ratio_spread": 1.001,
+     "us": 1589.49,
+     "pair_ratios": [
+      1.0004,
+      0.9994,
+      1.0001
+     ],
+     "rel_max_err": 0.003638,
+     "rms_err": 0.00039
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.1939,
+     "ratio_spread": 1.0011,
+     "us": 8208.26,
+     "pair_ratios": [
+      0.194,
+      0.1939,
+      0.1938
+     ],
+     "rel_max_err": 0.79981,
+     "rms_err": 0.000475
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.3897,
+     "ratio_spread": 1.0014,
+     "us": 1144.58,
+     "pair_ratios": [
+      1.3886,
+      1.3897,
+      1.3906
+     ],
+     "rel_max_err": 0.013634,
+     "rms_err": 0.001625
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.3991,
+     "ratio_spread": 1.0059,
+     "us": 1136.96,
+     "pair_ratios": [
+      1.3951,
+      1.4033,
+      1.3991
+     ],
+     "rel_max_err": 0.012909,
+     "rms_err": 0.001622
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.4007,
+     "ratio_spread": 1.0018,
+     "us": 1135.32,
+     "pair_ratios": [
+      1.399,
+      1.4015,
+      1.4007
+     ],
+     "rel_max_err": 0.031386,
+     "rms_err": 0.005847
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.3808,
+     "ratio_spread": 1.0021,
+     "us": 1151.27,
+     "pair_ratios": [
+      1.3808,
+      1.3795,
+      1.3824
+     ],
+     "rel_max_err": 0.003638,
+     "rms_err": 0.00039
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0,
+     "ratio_spread": 1.0009,
+     "us": 1590.22,
+     "pair_ratios": [
+      1.0,
+      1.0004,
+      0.9995
+     ],
+     "rel_max_err": 0.006706,
+     "rms_err": 0.001036
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9933,
+     "ratio_spread": 1.0038,
+     "us": 1602.23,
+     "pair_ratios": [
+      0.9916,
+      0.9953,
+      0.9933
+     ],
+     "rel_max_err": 0.005594,
+     "rms_err": 0.000801
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 0.9999,
+     "ratio_spread": 1.0019,
+     "us": 1591.09,
+     "pair_ratios": [
+      0.9999,
+      0.9982,
+      1.0
+     ],
+     "rel_max_err": 0.003638,
+     "rms_err": 0.00039
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.3889,
+     "ratio_spread": 1.0035,
+     "us": 1144.46,
+     "pair_ratios": [
+      1.3909,
+      1.3889,
+      1.386
+     ],
+     "rel_max_err": 0.013634,
+     "rms_err": 0.001625
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.9919,
+     "ratio_spread": 1.0017,
+     "us": 1602.63,
+     "pair_ratios": [
+      0.9925,
+      0.9909,
+      0.9919
+     ],
+     "rel_max_err": 0.003638,
+     "rms_err": 0.00039
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.4325,
+     "ratio_spread": 1.0028,
+     "us": 1109.09,
+     "pair_ratios": [
+      1.4317,
+      1.4357,
+      1.4325
+     ],
+     "rel_max_err": 0.003638,
+     "rms_err": 0.00039
+    }
+   ],
+   "aa_floor": 1.001,
+   "aa_ratio": 1.0001
+  },
+  {
+   "id": "DiffusionStep#053",
+   "shapes": [
+    "1x224x32x256",
+    "256x128"
+   ],
+   "ms_per_fold": 985.002,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 1.128,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 1.0024,
+     "ratio_spread": 1.0047,
+     "us": 94.74,
+     "pair_ratios": [
+      1.0024,
+      0.9999,
+      1.0046
+     ],
+     "rel_max_err": 0.002808,
+     "rms_err": 0.000278
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.1148,
+     "ratio_spread": 1.0036,
+     "us": 824.23,
+     "pair_ratios": [
+      0.1152,
+      0.1148,
+      0.1148
+     ],
+     "rel_max_err": 0.002686,
+     "rms_err": 0.000277
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0047,
+     "ratio_spread": 1.0167,
+     "us": 94.19,
+     "pair_ratios": [
+      1.0047,
+      0.99,
+      1.0066
+     ],
+     "rel_max_err": 0.011585,
+     "rms_err": 0.001014
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0104,
+     "ratio_spread": 1.0031,
+     "us": 93.68,
+     "pair_ratios": [
+      1.0098,
+      1.0129,
+      1.0104
+     ],
+     "rel_max_err": 0.011585,
+     "rms_err": 0.001012
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0144,
+     "ratio_spread": 1.0034,
+     "us": 93.27,
+     "pair_ratios": [
+      1.0118,
+      1.0144,
+      1.0152
+     ],
+     "rel_max_err": 0.029538,
+     "rms_err": 0.00415
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.0009,
+     "ratio_spread": 1.0047,
+     "us": 94.64,
+     "pair_ratios": [
+      1.0009,
+      1.0013,
+      0.9966
+     ],
+     "rel_max_err": 0.002808,
+     "rms_err": 0.000278
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 0.9987,
+     "ratio_spread": 1.0041,
+     "us": 94.87,
+     "pair_ratios": [
+      0.9987,
+      0.9963,
+      1.0004
+     ],
+     "rel_max_err": 0.006071,
+     "rms_err": 0.000737
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 1.0032,
+     "ratio_spread": 1.0079,
+     "us": 94.35,
+     "pair_ratios": [
+      1.0025,
+      1.0104,
+      1.0032
+     ],
+     "rel_max_err": 0.003911,
+     "rms_err": 0.000364
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 1.0005,
+     "ratio_spread": 1.0023,
+     "us": 94.76,
+     "pair_ratios": [
+      0.9983,
+      1.0005,
+      1.0005
+     ],
+     "rel_max_err": 0.002808,
+     "rms_err": 0.000278
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0058,
+     "ratio_spread": 1.0051,
+     "us": 94.16,
+     "pair_ratios": [
+      1.0058,
+      1.0058,
+      1.0109
+     ],
+     "rel_max_err": 0.011585,
+     "rms_err": 0.001014
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.915,
+     "ratio_spread": 1.0032,
+     "us": 103.37,
+     "pair_ratios": [
+      0.9147,
+      0.915,
+      0.9176
+     ],
+     "rel_max_err": 0.002808,
+     "rms_err": 0.000278
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.3778,
+     "ratio_spread": 1.0116,
+     "us": 68.86,
+     "pair_ratios": [
+      1.3822,
+      1.3664,
+      1.3778
+     ],
+     "rel_max_err": 0.002808,
+     "rms_err": 0.000278
+    }
+   ],
+   "aa_floor": 1.0047,
+   "aa_ratio": 1.0024
+  },
+  {
+   "id": "PairformerLayer#019",
+   "shapes": [
+    "512x512x128",
+    "128x4"
+   ],
+   "ms_per_fold": 855.372,
+   "unit_path": "PairformerLayer/TriangleMultiplication/TriangleMultiplication/TriangleAttention",
+   "shipped_config": "program_config",
+   "prev_aa_floor": 1.0844,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 0.9997,
+     "ratio_spread": 1.0024,
+     "us": 1622.4,
+     "pair_ratios": [
+      1.0019,
+      0.9997,
+      0.9995
+     ],
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000196
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 1.0014,
+     "ratio_spread": 1.0014,
+     "us": 1621.81,
+     "pair_ratios": [
+      1.0014,
+      1.0015,
+      1.0001
+     ],
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000196
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0277,
+     "ratio_spread": 1.0028,
+     "us": 1579.15,
+     "pair_ratios": [
+      1.0289,
+      1.0277,
+      1.026
+     ],
+     "rel_max_err": 0.010663,
+     "rms_err": 0.000741
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0336,
+     "ratio_spread": 1.0005,
+     "us": 1570.33,
+     "pair_ratios": [
+      1.0341,
+      1.0336,
+      1.0336
+     ],
+     "rel_max_err": 0.010636,
+     "rms_err": 0.000707
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0345,
+     "ratio_spread": 1.002,
+     "us": 1568.7,
+     "pair_ratios": [
+      1.033,
+      1.0345,
+      1.035
+     ],
+     "rel_max_err": 0.027102,
+     "rms_err": 0.002912
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.3347,
+     "ratio_spread": 1.0031,
+     "us": 1216.07,
+     "pair_ratios": [
+      1.3384,
+      1.3347,
+      1.3342
+     ],
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000197
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0129,
+     "ratio_spread": 1.0027,
+     "us": 1603.46,
+     "pair_ratios": [
+      1.0129,
+      1.011,
+      1.0138
+     ],
+     "rel_max_err": 0.006418,
+     "rms_err": 0.000514
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 1.0001,
+     "ratio_spread": 1.0032,
+     "us": 1622.45,
+     "pair_ratios": [
+      1.0001,
+      1.0009,
+      0.9978
+     ],
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000196
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 0.9995,
+     "ratio_spread": 1.0039,
+     "us": 1622.18,
+     "pair_ratios": [
+      0.9995,
+      0.9967,
+      1.0005
+     ],
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000196
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0279,
+     "ratio_spread": 1.0005,
+     "us": 1579.34,
+     "pair_ratios": [
+      1.0277,
+      1.0279,
+      1.0282
+     ],
+     "rel_max_err": 0.010663,
+     "rms_err": 0.000741
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 1.2839,
+     "ratio_spread": 1.0044,
+     "us": 1263.61,
+     "pair_ratios": [
+      1.2844,
+      1.2839,
+      1.2788
+     ],
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000197
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.1237,
+     "ratio_spread": 1.0042,
+     "us": 1443.8,
+     "pair_ratios": [
+      1.121,
+      1.1257,
+      1.1237
+     ],
+     "rel_max_err": 0.003226,
+     "rms_err": 0.000196
+    }
+   ],
+   "aa_floor": 1.0024,
+   "aa_ratio": 0.9997
+  },
+  {
+   "id": "DiffusionStep#013",
+   "shapes": [
+    "1x16x512x64",
+    "1x16x64x512"
+   ],
+   "ms_per_fold": 719.023,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 2.2704,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 1.0034,
+     "ratio_spread": 1.0134,
+     "us": 149.81,
+     "pair_ratios": [
+      1.0072,
+      1.0034,
+      0.9939
+     ],
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.9996,
+     "ratio_spread": 1.0009,
+     "us": 149.26,
+     "pair_ratios": [
+      0.9998,
+      0.9996,
+      0.9989
+     ],
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 0.8578,
+     "ratio_spread": 1.003,
+     "us": 174.19,
+     "pair_ratios": [
+      0.8578,
+      0.8569,
+      0.8595
+     ],
+     "rel_max_err": 0.010474,
+     "rms_err": 0.000389
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 0.8855,
+     "ratio_spread": 1.0098,
+     "us": 169.66,
+     "pair_ratios": [
+      0.8794,
+      0.888,
+      0.8855
+     ],
+     "rel_max_err": 0.00833,
+     "rms_err": 0.000405
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 0.8859,
+     "ratio_spread": 1.0105,
+     "us": 169.31,
+     "pair_ratios": [
+      0.8859,
+      0.8812,
+      0.8905
+     ],
+     "rel_max_err": 0.033104,
+     "rms_err": 0.002057
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 0.9964,
+     "ratio_spread": 1.0054,
+     "us": 149.23,
+     "pair_ratios": [
+      1.0016,
+      0.9962,
+      0.9964
+     ],
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0141,
+     "ratio_spread": 1.0075,
+     "us": 147.2,
+     "pair_ratios": [
+      1.0079,
+      1.0141,
+      1.0155
+     ],
+     "rel_max_err": 0.005242,
+     "rms_err": 0.000359
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.9993,
+     "ratio_spread": 1.0088,
+     "us": 148.86,
+     "pair_ratios": [
+      0.999,
+      1.0078,
+      0.9993
+     ],
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 1.0005,
+     "ratio_spread": 1.0026,
+     "us": 149.43,
+     "pair_ratios": [
+      0.999,
+      1.0005,
+      1.0016
+     ],
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 0.8596,
+     "ratio_spread": 1.0061,
+     "us": 173.6,
+     "pair_ratios": [
+      0.8605,
+      0.8552,
+      0.8596
+     ],
+     "rel_max_err": 0.010474,
+     "rms_err": 0.000389
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.9508,
+     "ratio_spread": 1.0026,
+     "us": 156.93,
+     "pair_ratios": [
+      0.9508,
+      0.9484,
+      0.9509
+     ],
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000137
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 0.4763,
+     "ratio_spread": 1.0195,
+     "us": 312.3,
+     "pair_ratios": [
+      0.4731,
+      0.4763,
+      0.4823
+     ],
+     "rel_max_err": 0.002888,
+     "rms_err": 0.000135
+    }
+   ],
+   "aa_floor": 1.0134,
+   "aa_ratio": 1.0034
+  },
+  {
+   "id": "DiffusionStep#040",
+   "shapes": [
+    "1x16x128x448",
+    "448x1792"
+   ],
+   "ms_per_fold": 715.581,
+   "unit_path": "Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 2.1571,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 1.0002,
+     "ratio_spread": 1.0179,
+     "us": 173.44,
+     "pair_ratios": [
+      1.0163,
+      0.9985,
+      1.0002
+     ],
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.4595,
+     "ratio_spread": 1.0126,
+     "us": 377.8,
+     "pair_ratios": [
+      0.457,
+      0.4627,
+      0.4595
+     ],
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0295,
+     "ratio_spread": 1.0237,
+     "us": 168.06,
+     "pair_ratios": [
+      1.0094,
+      1.0332,
+      1.0295
+     ],
+     "rel_max_err": 0.11101,
+     "rms_err": 0.023912
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0813,
+     "ratio_spread": 1.0042,
+     "us": 160.37,
+     "pair_ratios": [
+      1.0804,
+      1.0813,
+      1.085
+     ],
+     "rel_max_err": 0.110169,
+     "rms_err": 0.023882
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0812,
+     "ratio_spread": 1.0085,
+     "us": 160.68,
+     "pair_ratios": [
+      1.0774,
+      1.0865,
+      1.0812
+     ],
+     "rel_max_err": 0.110169,
+     "rms_err": 0.023882
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 0.9997,
+     "ratio_spread": 1.0041,
+     "us": 173.28,
+     "pair_ratios": [
+      0.9971,
+      0.9997,
+      1.0012
+     ],
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 0.9559,
+     "ratio_spread": 1.0012,
+     "us": 181.25,
+     "pair_ratios": [
+      0.9559,
+      0.9553,
+      0.9564
+     ],
+     "rel_max_err": 0.110169,
+     "rms_err": 0.023838
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 0.8242,
+     "ratio_spread": 1.0065,
+     "us": 209.99,
+     "pair_ratios": [
+      0.822,
+      0.8273,
+      0.8242
+     ],
+     "rel_max_err": 0.11101,
+     "rms_err": 0.023851
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 0.9995,
+     "ratio_spread": 1.0044,
+     "us": 173.46,
+     "pair_ratios": [
+      0.9965,
+      0.9995,
+      1.0009
+     ],
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.0306,
+     "ratio_spread": 1.0021,
+     "us": 168.2,
+     "pair_ratios": [
+      1.0297,
+      1.0306,
+      1.0319
+     ],
+     "rel_max_err": 0.11101,
+     "rms_err": 0.023912
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.6857,
+     "ratio_spread": 1.0011,
+     "us": 252.83,
+     "pair_ratios": [
+      0.6857,
+      0.6853,
+      0.6861
+     ],
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "ratio": 1.7582,
+     "ratio_spread": 1.0202,
+     "us": 98.45,
+     "pair_ratios": [
+      1.7358,
+      1.7708,
+      1.7582
+     ],
+     "rel_max_err": 0.11101,
+     "rms_err": 0.02386
+    }
+   ],
+   "aa_floor": 1.0179,
+   "aa_ratio": 1.0002
+  },
+  {
+   "id": "MSALayer#010",
+   "shapes": [
+    "1024x512x64",
+    "64x32"
+   ],
+   "ms_per_fold": 654.292,
+   "unit_path": "MSALayer/PairWeightedAveraging",
+   "shipped_config": "core_grid",
+   "prev_aa_floor": 1.1512,
+   "arms": [
+    {
+     "knob": "(A/A control)",
+     "raw_knob": "",
+     "ratio": 0.9995,
+     "ratio_spread": 1.0005,
+     "us": 1359.1,
+     "pair_ratios": [
+      0.9997,
+      0.9991,
+      0.9995
+     ],
+     "rel_max_err": 0.002498,
+     "rms_err": 0.000136
+    },
+    {
+     "knob": "nogrid=1",
+     "raw_knob": "nogrid=1",
+     "ratio": 0.6134,
+     "ratio_spread": 1.0033,
+     "us": 2215.54,
+     "pair_ratios": [
+      0.6149,
+      0.6129,
+      0.6134
+     ],
+     "rel_max_err": 0.002454,
+     "rms_err": 0.000134
+    },
+    {
+     "knob": "fp32acc=0",
+     "raw_knob": "fp32acc=0",
+     "ratio": 1.0175,
+     "ratio_spread": 1.006,
+     "us": 1335.38,
+     "pair_ratios": [
+      1.0194,
+      1.0134,
+      1.0175
+     ],
+     "rel_max_err": 0.0098,
+     "rms_err": 0.000386
+    },
+    {
+     "knob": "fidelity=HiFi2,fp32acc=0",
+     "raw_knob": "fidelity=HiFi2,fp32acc=0",
+     "ratio": 1.0169,
+     "ratio_spread": 1.0039,
+     "us": 1335.81,
+     "pair_ratios": [
+      1.0142,
+      1.0169,
+      1.0181
+     ],
+     "rel_max_err": 0.009672,
+     "rms_err": 0.000403
+    },
+    {
+     "knob": "fidelity=LoFi,fp32acc=0",
+     "raw_knob": "fidelity=LoFi,fp32acc=0",
+     "ratio": 1.0161,
+     "ratio_spread": 1.0011,
+     "us": 1336.91,
+     "pair_ratios": [
+      1.0158,
+      1.0169,
+      1.0161
+     ],
+     "rel_max_err": 0.030796,
+     "rms_err": 0.002072
+    },
+    {
+     "knob": "grid=8x8",
+     "raw_knob": "grid=8x8",
+     "ratio": 1.0291,
+     "ratio_spread": 1.0032,
+     "us": 1319.7,
+     "pair_ratios": [
+      1.0291,
+      1.0283,
+      1.0316
+     ],
+     "rel_max_err": 0.002498,
+     "rms_err": 0.000136
+    },
+    {
+     "knob": "fidelity=HiFi2",
+     "raw_knob": "fidelity=HiFi2",
+     "ratio": 1.0001,
+     "ratio_spread": 1.0006,
+     "us": 1359.32,
+     "pair_ratios": [
+      1.0002,
+      0.9995,
+      1.0001
+     ],
+     "rel_max_err": 0.006604,
+     "rms_err": 0.000357
+    },
+    {
+     "knob": "packerl1=0",
+     "raw_knob": "packerl1=0",
+     "ratio": 1.001,
+     "ratio_spread": 1.0008,
+     "us": 1357.81,
+     "pair_ratios": [
+      1.0014,
+      1.0006,
+      1.001
+     ],
+     "rel_max_err": 0.002498,
+     "rms_err": 0.000136
+    },
+    {
+     "knob": "dstfull=1",
+     "raw_knob": "dstfull=1",
+     "ratio": 1.0006,
+     "ratio_spread": 1.0027,
+     "us": 1358.74,
+     "pair_ratios": [
+      1.0009,
+      0.9983,
+      1.0006
+     ],
+     "rel_max_err": 0.002498,
+     "rms_err": 0.000136
+    },
+    {
+     "knob": "fp32acc=0,dstfull=1",
+     "raw_knob": "fp32acc=0,dstfull=1",
+     "ratio": 1.017,
+     "ratio_spread": 1.0017,
+     "us": 1336.66,
+     "pair_ratios": [
+      1.017,
+      1.0179,
+      1.0162
+     ],
+     "rel_max_err": 0.0098,
+     "rms_err": 0.000386
+    },
+    {
+     "knob": "grid=8x4",
+     "raw_knob": "grid=8x4",
+     "ratio": 0.9638,
+     "ratio_spread": 1.0064,
+     "us": 1409.02,
+     "pair_ratios": [
+      0.9685,
+      0.9638,
+      0.9623
+     ],
+     "rel_max_err": 0.002498,
+     "rms_err": 0.000136
+    },
+    {
+     "knob": "outbuf=L1",
+     "raw_knob": "outbuf=L1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 373 clash with L1 buffers on co"
+    }
+   ],
+   "aa_floor": 1.0005,
+   "aa_ratio": 0.9995
+  }
+ ]
+}

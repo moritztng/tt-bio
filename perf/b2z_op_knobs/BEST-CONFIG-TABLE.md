@@ -16,48 +16,93 @@ incumbent measures ttnn's default resolver and nothing the fold can reach. The `
 below is that straw man, kept on purpose: it is 0.11x-0.16x on the pair-track Transition
 matmuls, i.e. the default resolver is 6-9x slower than what already ships.
 
-## The projection, and what it is worth
+## The projection
 
-`projection.py` sums the per-op wins that clear three filters: the instance's A/A floor is under
-1.20 (seven of twenty-four ran while the box was contended and came back with A/A above 2, so
-their arms say nothing), the arm's ratio exceeds that floor, and the shipped call is one the
-replay can reproduce. Instances whose shipped call goes through a hand-tuned program config are
-held out, because there the replay's incumbent is ttnn's default resolver and the ratio is
-against something the fold never runs.
+Two levers, and they are not the same kind of thing.
 
-    saved                  1026 ms of 37957 ms replayed device time = 2.70 %
-    PROJECTED-FOLD         1.0231x undiscounted
-                           1.0168x at the 0.73 additivity discount
-                           1.0144x at 0.63
-    optimistic ceiling     1.0271x, if the held-out program-config
-                           instances are credited with their straw-man ratios anyway
+**Placement — `outbuf=L1`, bit-exact.** Ten instances whose shipped call writes its result to
+interleaved DRAM run 1.12x-2.16x faster writing to L1 instead. Same kernel, same accumulation
+order, different destination buffer, and `l1_bitexact.py` confirms all ten outputs are identical
+bit for bit against the shipped config. This lever needs no accuracy argument.
 
-Against the 22.3142 s fold / 18.6287 s device split re-measured on current main.
+| instance | ms/fold | shipped out | ratio | saved ms |
+|---|---|---|---|---|
+| `PairformerLayer#004` | 2296 | DRAM | 1.453x | 716 |
+| `DiffusionStep#043` | 719 | DRAM | 2.159x | 386 |
+| `DiffusionStep#029` | 516 | DRAM | 1.914x | 246 |
+| `DiffusionStep#000` | 769 | DRAM | 1.369x | 207 |
+| `PairformerLayer#019` | 922 | DRAM | 1.124x | 102 |
+| `DiffusionStep#040` | 211 | DRAM | 1.758x | 91 |
+| `DiffusionStep#035` | 175 | DRAM | 1.572x | 64 |
+| `MSALayer#015` | 205 | DRAM | 1.433x | 62 |
+| `DiffusionStep#036` | 168 | DRAM | 1.566x | 60 |
+| `DiffusionStep#053` | 114 | DRAM | 1.378x | 31 |
 
-Where that 1026 ms comes from matters more than its size. **755 ms of it, 74 %, is `LoFi` on one
-softmax and one layer_norm** — the fidelity axis, which `b2x-hifi3-endtoend` already closed end to
-end at 0.6 % of the fold, and LoFi is two steps further down than the HiFi3 that closed it. Not
-one arm in the whole table that clears its A/A floor is bit-exact. The arms that ARE bit-exact —
-`grid=8x8`, `dstfull=1` — are 0.998x to 1.003x, which is to say nothing.
+    saved              1966 ms of 37957 ms = 5.18 % of replayed device time
+    PROJECTED-FOLD     1.0452x undiscounted, 1.0326x at the 0.73 additivity discount
+
+**Numerics — fidelity and `fp32_dest_acc_en`.** Worth 827 ms, 1.0135x on the fold, and
+every arm of it changes numerics. Most of it is `LoFi`, two steps below the HiFi3 that
+`b2x-hifi3-endtoend` already closed end to end at 0.6 % of the fold. Not worth its control.
+
+Both together: 1.0654x undiscounted, **1.0469x** discounted.
+
+### The caveat that decides whether any of this is real
+
+**An isolated bench has an empty L1. The fold does not.** Every `outbuf=L1` number above was taken
+with one op on the chip and nothing else resident, which is the most favourable possible condition
+for a lever whose whole mechanism is "put the result somewhere closer". In the fold those same
+matmuls run beside live pair tensors, and the engine already carries the machinery that exists
+because of exactly this — `_l1_memory_config_if_it_fits` takes a `reserve_per_core` argument
+precisely because an allocation succeeding is not the test, a later consumer's circular buffers
+failing at program creation is. `b2x-pair-l1-residency` closed the 67 MB pair tensor's version of
+this as NO-GO.
+
+So 1.0326x is an **upper bound taken under the friendliest conditions the lever will ever see**, not
+a result. What separates the two is an integrated arm: route these matmul outputs through the
+existing `_l1_memory_config_if_it_fits` derivation and run a paired interleaved fold A/B. That is
+the next pass, and it is now worth running — the previous pass declined an integrated arm because
+1.7 % could not be resolved against fold-level noise, and 5.2 % bit-exact can.
 
 ## The mechanism to hand back
 
-There is no new derivation here. The finding is that the existing one is already right, and by
-how much:
-
 * **`core_grid` on a batched matmul is worth 6-9x, and the engine already passes it.** The
-  Transition's `1x16x512x128 @ 128x512` runs at 76.1 us as the fold calls it and 475.5 us as
-  ttnn's default resolver would (`nogrid=1`, 0.162x, reproduced on two independent instances with
-  A/A floors of 1.023 and 1.030). The cliff is shape-dependent, not universal: on the unbatched
-  `1x512x768 @ 768x1536` the default resolver is within 4 %.
-* **`CORE_GRID_MAIN` is the right width.** Full 8x9 against 8x8 is 0.998x-1.002x and bit-exact;
-  against 8x4 it is 1.58x. Wider is monotone, so the resolver has nothing to tune.
-* **`packer_l1_acc=1` is worth 1.09x** and the engine sets it. `packerl1=0` is 0.92x on both
-  Transition instances.
-* The one place the engine leaves a matmul to the default resolver is the atom/token
-  scatter-gather pair in `Diffusion` (tt_bio/tenstorrent.py:9445 and :9530), both of which use
-  `transpose_a` / `transpose_b`. Neither is in the top 47 instances, so this pass did not price
-  them; given the 6-9x cliff they are worth a look on the models where that path is hot.
+  Transition's `1x16x512x128 @ 128x512` runs at 76.1 us as the fold calls it and 475.5 us as ttnn's
+  default resolver would (`nogrid=1`, 0.161x / 0.162x on two independent instances). Shape
+  dependent, not universal: on `1x512x768 @ 768x1536` the default is within 6 %, and on the two
+  instances where both operands are batched it makes no difference at all.
+* **`CORE_GRID_MAIN` is the right width.** 8x9 against 8x8 is 0.997x-1.009x; against 8x4 it is
+  0.639x-0.985x. Monotone in width, nothing to tune. The one exception is `PairformerLayer#019`
+  (`512x512x128 @ 128x4`), where a *narrower* 8x8 is 1.335x — a 4-wide output on a 9-row grid,
+  which is the shape class worth a derivation if it turns up elsewhere.
+* **`packer_l1_acc=1` is worth up to 1.21x** and the engine sets it (`packerl1=0` runs 0.824x-1.003x).
+* **The placement derivation already exists and is under-applied.** `_l1_memory_config_if_it_fits`
+  is the engine's own answer to this question and the Transition already uses it; the diffusion
+  trunk's matmuls and `PairformerLayer#004` do not. That is the unified fix — extend an existing
+  derivation to more call sites, not a table of per-shape constants.
+* The only two hot-path matmuls the engine leaves to the default resolver outright are the
+  atom/token scatter-gather pair at `tt_bio/tenstorrent.py:9445` and `:9530`, both using
+  `transpose_a`/`transpose_b`, which the `core_grid` path does not take. Not in Boltz-2's top 47,
+  but given the 6-9x cliff they are worth pricing where that path is hot.
+
+## How much of the bench is trustworthy
+
+Job 2 of this workstream asks the replay to reproduce in-fold cost to within ~15 %. **It does not.**
+Summed per container against the costs re-measured on current main:
+
+| unit | replayed (shipped incumbent) | container, BH | ratio |
+|---|---|---|---|
+| PairformerLayer | 19.48 s | 10.20 s | 1.91x |
+| DiffusionStep | 14.23 s | 6.50 s | 2.19x |
+| MSALayer | 4.25 s | 1.92 s | 2.21x |
+
+Two causes are confounded here and this pass did not separate them: the replay runs on Wormhole and
+the container numbers are Blackhole, and a WH chip is genuinely slower. The spread across the three
+units is 1.91x-2.21x, i.e. within 16 % of each other, which is what a uniform silicon difference
+would look like and not what a per-op replay artifact would. That matters for the projection only
+through the shares, and a uniform factor cancels out of a ratio. Separating the two needs one
+PairformerLayer trace-replayed on the same WH chip as the instances; that is a job for the next pass
+and it is called out rather than assumed.
 
 ## Corrected ranking
 
@@ -98,214 +143,219 @@ The first ranking priced every matmul at the straw man's cost. Re-priced at the 
 
 Replayed total, corrected: **37.96 s/fold** over 323 instances.
 
-## Every point, corrected sweep (matmul instances)
+## Every point, paired-repeat sweep (matmul instances) — authoritative
 
-| instance | shipped config | ms/fold | knob | ratio | rel vs fp32 | bit-exact |
-|---|---|---|---|---|---|---|
-| `PairformerLayer#002` | core_grid | 643 | _(incumbent)_ | 1.000x | 0.003168 | — |
-|  |  |  | `nogrid=1` | 0.163x | 0.003016 | no |
-|  |  |  | `fp32acc=0` | 1.119x | 0.011287 | no |
-|  |  |  | `fidelity=HiFi2` | 1.011x | 0.00631 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.165x | 0.010907 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.170x | 0.027266 | no |
-|  |  |  | `packerl1=0` | 0.921x | 0.003381 | no |
-|  |  |  | `dstfull=1` | 0.994x | 0.003168 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.125x | 0.011287 | no |
-|  |  |  | `grid=8x8` | 0.998x | 0.003168 | yes |
-|  |  |  | `grid=8x4` | 0.633x | 0.003168 | yes |
-|  |  |  | **A/A floor** | **1.0299** |  |  |
-| `PairformerLayer#001` | core_grid | 647 | _(incumbent)_ | 1.000x | 0.003168 | — |
-|  |  |  | `nogrid=1` | 0.161x | 0.003016 | no |
-|  |  |  | `fp32acc=0` | 1.123x | 0.011287 | no |
-|  |  |  | `fidelity=HiFi2` | 1.007x | 0.00631 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.160x | 0.010907 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.172x | 0.027266 | no |
-|  |  |  | `packerl1=0` | 0.918x | 0.003381 | no |
-|  |  |  | `dstfull=1` | 1.003x | 0.003168 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.125x | 0.011287 | no |
-|  |  |  | `grid=8x8` | 1.002x | 0.003168 | yes |
-|  |  |  | `grid=8x4` | 0.639x | 0.003168 | yes |
-|  |  |  | **A/A floor** | **1.0234** |  |  |
-| `PairformerLayer#007` | program_config | 3366 | _(incumbent)_ | 1.000x | 0.714688 | — |
-|  |  |  | `nogrid=1` | 0.980x | 0.714688 | yes |
-|  |  |  | `fp32acc=0` | 1.055x | 0.013013 | no |
-|  |  |  | `fidelity=HiFi2` | 1.042x | 0.006634 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.036x | 0.013013 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.078x | 0.013013 | no |
-|  |  |  | `packerl1=0` | 1.021x | 0.714688 | yes |
-|  |  |  | `dstfull=1` | 0.959x | 0.714688 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.054x | 0.013013 | no |
-|  |  |  | `grid=8x8` | RuntimeError: TT_THROW @ /project/tt_metal/impl/program/prog |  |  |
-|  |  |  | `grid=8x4` | RuntimeError: TT_THROW @ /project/tt_metal/impl/program/prog |  |  |
-|  |  |  | **A/A floor** | **1.0431** |  |  |
-| `DiffusionStep#000` | core_grid | 769 | _(incumbent)_ | 1.000x | 0.697219 | — |
-|  |  |  | `nogrid=1` | 0.961x | 0.003091 | no |
-|  |  |  | `fp32acc=0` | 1.003x | 0.015789 | no |
-|  |  |  | `fidelity=HiFi2` | 0.987x | 0.005722 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.037x | 0.015448 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.030x | 0.026005 | no |
-|  |  |  | `packerl1=0` | 0.978x | 0.003619 | no |
-|  |  |  | `dstfull=1` | 1.000x | 0.697219 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.031x | 0.015789 | no |
-|  |  |  | `grid=8x8` | 1.024x | 0.697219 | yes |
-|  |  |  | `grid=8x4` | 0.751x | 0.697219 | yes |
-|  |  |  | **A/A floor** | **1.0378** |  |  |
-| `DiffusionStep#017` | core_grid | 690 | _(incumbent)_ | 1.000x | 0.003761 | — |
-|  |  |  | `nogrid=1` | 0.706x | 0.003761 | no |
-|  |  |  | `fp32acc=0` | 1.035x | 0.013162 | no |
-|  |  |  | `fidelity=HiFi2` | 0.798x | 0.005829 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 0.842x | 0.013043 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 0.820x | 0.029467 | no |
-|  |  |  | `packerl1=0` | 1.097x | 0.00544 | no |
-|  |  |  | `dstfull=1` | 0.568x | 0.003761 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.748x | 0.013162 | no |
-|  |  |  | `grid=8x8` | 0.600x | 0.003761 | yes |
-|  |  |  | `grid=8x4` | 1.281x | 0.003761 | yes |
-|  |  |  | **A/A floor** | **2.4801** |  |  |
-| `PairformerLayer#004` | core_grid | 2297 | _(incumbent)_ | 1.000x | 0.003064 | — |
-|  |  |  | `nogrid=1` | 0.339x | 0.003064 | no |
-|  |  |  | `fp32acc=0` | 2.965x | 0.012391 | no |
-|  |  |  | `fidelity=HiFi2` | 1.964x | 0.005213 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.400x | 0.012125 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.526x | 0.027985 | no |
-|  |  |  | `packerl1=0` | 0.978x | 0.006501 | no |
-|  |  |  | `dstfull=1` | 1.005x | 0.003064 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.051x | 0.012391 | no |
-|  |  |  | `grid=8x8` | 1.007x | 0.003064 | yes |
-|  |  |  | `grid=8x4` | 1.490x | 0.003064 | yes |
-|  |  |  | **A/A floor** | **2.9144** |  |  |
-| `DiffusionStep#029` | core_grid | 516 | _(incumbent)_ | 1.000x | 0.003385 | — |
-|  |  |  | `nogrid=1` | 0.399x | 0.003086 | no |
-|  |  |  | `fp32acc=0` | 1.909x | 0.012352 | no |
-|  |  |  | `fidelity=HiFi2` | 1.735x | 0.005842 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.767x | 0.011253 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.020x | 0.027296 | no |
-|  |  |  | `packerl1=0` | 1.205x | 0.003385 | no |
-|  |  |  | `dstfull=1` | 1.211x | 0.003385 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.007x | 0.012352 | no |
-|  |  |  | `grid=8x8` | 1.000x | 0.003385 | yes |
-|  |  |  | `grid=8x4` | 0.749x | 0.003385 | yes |
-|  |  |  | **A/A floor** | **2.7811** |  |  |
-| `DiffusionStep#035` | core_grid | 175 | _(incumbent)_ | 1.000x | 0.002812 | — |
-|  |  |  | `nogrid=1` | 0.130x | 0.002812 | no |
-|  |  |  | `fp32acc=0` | 1.020x | 0.008593 | no |
-|  |  |  | `fidelity=HiFi2` | 0.981x | 0.004928 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 0.965x | 0.007456 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 2.203x | 0.022458 | no |
-|  |  |  | `packerl1=0` | 2.092x | 0.003083 | no |
-|  |  |  | `dstfull=1` | 1.008x | 0.002812 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.026x | 0.008593 | no |
-|  |  |  | `grid=8x8` | 0.573x | 0.002812 | yes |
-|  |  |  | `grid=8x4` | 0.967x | 0.002812 | yes |
-|  |  |  | **A/A floor** | **3.3112** |  |  |
-| `DiffusionStep#036` | core_grid | 167 | _(incumbent)_ | 1.000x | 0.003462 | — |
-|  |  |  | `nogrid=1` | 0.112x | 0.003462 | no |
-|  |  |  | `fp32acc=0` | 1.021x | 0.013166 | no |
-|  |  |  | `fidelity=HiFi2` | 1.007x | 0.00689 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.028x | 0.009502 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 0.968x | 0.030236 | no |
-|  |  |  | `packerl1=0` | 0.996x | 0.003462 | no |
-|  |  |  | `dstfull=1` | 0.948x | 0.003462 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.014x | 0.013166 | no |
-|  |  |  | `grid=8x8` | 1.002x | 0.003462 | yes |
-|  |  |  | `grid=8x4` | 0.947x | 0.003462 | yes |
-|  |  |  | **A/A floor** | **1.0163** |  |  |
-| `DiffusionStep#043` | core_grid | 719 | _(incumbent)_ | 1.000x | 0.003572 | — |
-|  |  |  | `nogrid=1` | 0.573x | 0.003572 | yes |
-|  |  |  | `fp32acc=0` | 0.556x | 0.011006 | no |
-|  |  |  | `fidelity=HiFi2` | 2.230x | 0.006362 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 0.989x | 0.010837 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 0.959x | 0.028668 | no |
-|  |  |  | `packerl1=0` | 1.377x | 0.00366 | no |
-|  |  |  | `dstfull=1` | 1.518x | 0.003572 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 0.385x | 0.011006 | no |
-|  |  |  | `grid=8x8` | 0.436x | 0.003572 | yes |
-|  |  |  | `grid=8x4` | 0.668x | 0.003572 | yes |
-|  |  |  | **A/A floor** | **2.9811** |  |  |
-| `PairformerLayer#017` | program_config | 1236 | _(incumbent)_ | 1.000x | 0.808471 | — |
-|  |  |  | `nogrid=1` | 1.022x | 0.808471 | yes |
-|  |  |  | `fp32acc=0` | 1.132x | 0.014747 | no |
-|  |  |  | `fidelity=HiFi2` | 1.058x | 0.007044 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 0.985x | 0.014713 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.049x | 0.029853 | no |
-|  |  |  | `packerl1=0` | 0.979x | 0.201581 | no |
-|  |  |  | `dstfull=1` | 1.034x | 0.808471 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.092x | 0.014747 | no |
-|  |  |  | `grid=8x8` | 0.988x | 0.808471 | yes |
-|  |  |  | `grid=8x4` | 0.794x | 0.808471 | yes |
-|  |  |  | **A/A floor** | **1.1219** |  |  |
-| `MSALayer#015` | core_grid | 205 | _(incumbent)_ | 1.000x | 0.003638 | — |
-|  |  |  | `nogrid=1` | 0.200x | 0.79981 | no |
-|  |  |  | `fp32acc=0` | 1.284x | 0.013634 | no |
-|  |  |  | `fidelity=HiFi2` | 1.001x | 0.006706 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 0.977x | 0.012909 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.320x | 0.031386 | no |
-|  |  |  | `packerl1=0` | 1.005x | 0.005594 | no |
-|  |  |  | `dstfull=1` | 1.109x | 0.003638 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.538x | 0.013634 | no |
-|  |  |  | `grid=8x8` | 1.468x | 0.003638 | yes |
-|  |  |  | `grid=8x4` | 1.066x | 0.003638 | yes |
-|  |  |  | **A/A floor** | **1.1704** |  |  |
-| `DiffusionStep#053` | core_grid | 114 | _(incumbent)_ | 1.000x | 0.002808 | — |
-|  |  |  | `nogrid=1` | 0.115x | 0.002686 | no |
-|  |  |  | `fp32acc=0` | 0.658x | 0.011585 | no |
-|  |  |  | `fidelity=HiFi2` | 0.497x | 0.006071 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.057x | 0.011585 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.106x | 0.029538 | no |
-|  |  |  | `packerl1=0` | 1.029x | 0.003911 | no |
-|  |  |  | `dstfull=1` | 0.996x | 0.002808 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.000x | 0.011585 | no |
-|  |  |  | `grid=8x8` | 1.005x | 0.002808 | yes |
-|  |  |  | `grid=8x4` | 0.923x | 0.002808 | yes |
-|  |  |  | **A/A floor** | **1.128** |  |  |
-| `PairformerLayer#019` | program_config | 923 | _(incumbent)_ | 1.000x | 0.003226 | — |
-|  |  |  | `nogrid=1` | 0.999x | 0.003226 | yes |
-|  |  |  | `fp32acc=0` | 0.934x | 0.010663 | no |
-|  |  |  | `fidelity=HiFi2` | 1.078x | 0.006418 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.059x | 0.010636 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.034x | 0.027102 | no |
-|  |  |  | `packerl1=0` | 0.999x | 0.003226 | yes |
-|  |  |  | `dstfull=1` | 1.001x | 0.003226 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.028x | 0.010663 | no |
-|  |  |  | `grid=8x8` | 1.332x | 0.003226 | no |
-|  |  |  | `grid=8x4` | 1.245x | 0.003226 | no |
-|  |  |  | **A/A floor** | **1.0844** |  |  |
-| `DiffusionStep#013` | core_grid | 718 | _(incumbent)_ | 1.000x | 0.002888 | — |
-|  |  |  | `nogrid=1` | 1.003x | 0.002888 | yes |
-|  |  |  | `fp32acc=0` | 0.862x | 0.010474 | no |
-|  |  |  | `fidelity=HiFi2` | 0.466x | 0.005242 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.191x | 0.00833 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.284x | 0.033104 | no |
-|  |  |  | `packerl1=0` | 1.340x | 0.002888 | yes |
-|  |  |  | `dstfull=1` | 1.058x | 0.002888 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 0.613x | 0.010474 | no |
-|  |  |  | `grid=8x8` | 1.472x | 0.002888 | yes |
-|  |  |  | `grid=8x4` | 1.260x | 0.002888 | yes |
-|  |  |  | **A/A floor** | **2.2704** |  |  |
-| `DiffusionStep#040` | core_grid | 211 | _(incumbent)_ | 1.000x | 0.11101 | — |
-|  |  |  | `nogrid=1` | 0.635x | 0.11101 | yes |
-|  |  |  | `fp32acc=0` | 1.625x | 0.11101 | no |
-|  |  |  | `fidelity=HiFi2` | 1.333x | 0.110169 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.510x | 0.110169 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 0.641x | 0.110169 | no |
-|  |  |  | `packerl1=0` | 0.283x | 0.11101 | no |
-|  |  |  | `dstfull=1` | 1.016x | 0.11101 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.610x | 0.11101 | no |
-|  |  |  | `grid=8x8` | 0.735x | 0.11101 | yes |
-|  |  |  | `grid=8x4` | 0.297x | 0.11101 | yes |
-|  |  |  | **A/A floor** | **2.1571** |  |  |
-| `MSALayer#010` | core_grid | 432 | _(incumbent)_ | 1.000x | 0.002498 | — |
-|  |  |  | `nogrid=1` | 0.656x | 0.002454 | no |
-|  |  |  | `fp32acc=0` | 1.009x | 0.0098 | no |
-|  |  |  | `fidelity=HiFi2` | 1.072x | 0.006604 | no |
-|  |  |  | `fidelity=HiFi2,fp32acc=0` | 0.938x | 0.009672 | no |
-|  |  |  | `fidelity=LoFi,fp32acc=0` | 1.098x | 0.030796 | no |
-|  |  |  | `packerl1=0` | 1.074x | 0.002498 | yes |
-|  |  |  | `dstfull=1` | 0.858x | 0.002498 | yes |
-|  |  |  | `fp32acc=0,dstfull=1` | 1.062x | 0.0098 | no |
-|  |  |  | `grid=8x8` | 1.013x | 0.002498 | yes |
-|  |  |  | `grid=8x4` | 1.038x | 0.002498 | yes |
-|  |  |  | **A/A floor** | **1.1512** |  |  |
+Each ratio is the median of three independent (incumbent, arm) pairs; `spread` is the range
+across those three. The first row of every instance is the A/A control, the same estimator
+with the arm replaced by another incumbent run. It lands at 0.989-1.006 on all seventeen,
+which is the noise floor every other row has to clear.
+
+| instance | shipped config | shipped out | ms/fold | knob | ratio | spread | bit-exact |
+|---|---|---|---|---|---|---|---|
+| `PairformerLayer#002` | core_grid | L1 | 643 | `(A/A control)` | 1.002x | 1.007 |  |
+|  |  |  |  | `nogrid=1` | 0.161x | 1.002 |  |
+|  |  |  |  | `fp32acc=0` | 1.119x | 1.009 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.170x | 1.011 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.177x | 1.007 |  |
+|  |  |  |  | `grid=8x8` | 0.999x | 1.014 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.000x | 1.008 |  |
+|  |  |  |  | `packerl1=0` | 0.910x | 1.005 |  |
+|  |  |  |  | `dstfull=1` | 0.996x | 1.002 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.119x | 1.002 |  |
+|  |  |  |  | `grid=8x4` | 0.639x | 1.008 |  |
+|  |  |  |  | `outbuf=L1` | 0.998x | 1.006 |  |
+| `PairformerLayer#001` | core_grid | L1 | 647 | `(A/A control)` | 1.005x | 1.000 |  |
+|  |  |  |  | `nogrid=1` | 0.162x | 1.013 |  |
+|  |  |  |  | `fp32acc=0` | 1.129x | 1.024 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.167x | 1.005 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.174x | 1.014 |  |
+|  |  |  |  | `grid=8x8` | 0.997x | 1.007 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.004x | 1.012 |  |
+|  |  |  |  | `packerl1=0` | 0.911x | 1.003 |  |
+|  |  |  |  | `dstfull=1` | 0.998x | 1.004 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.115x | 1.005 |  |
+|  |  |  |  | `grid=8x4` | 0.639x | 1.011 |  |
+|  |  |  |  | `outbuf=L1` | 1.000x | 1.000 |  |
+| `PairformerLayer#007` | program_config | L1 | 3366 | `(A/A control)` | 1.000x | 1.001 |  |
+|  |  |  |  | `nogrid=1` | 1.000x | 1.002 |  |
+|  |  |  |  | `fp32acc=0` | 1.058x | 1.005 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.053x | 1.000 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.055x | 1.003 |  |
+|  |  |  |  | `grid=8x8` | RuntimeError: TT_THROW @ /project/tt_metal/impl/program/pr |  |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.038x | 1.000 |  |
+|  |  |  |  | `packerl1=0` | 1.000x | 1.001 |  |
+|  |  |  |  | `dstfull=1` | 1.000x | 1.002 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.056x | 1.002 |  |
+|  |  |  |  | `grid=8x4` | RuntimeError: TT_THROW @ /project/tt_metal/impl/program/pr |  |  |
+|  |  |  |  | `outbuf=L1` | 1.000x | 1.001 |  |
+| `DiffusionStep#000` | core_grid | DRAM | 769 | `(A/A control)` | 1.004x | 1.009 |  |
+|  |  |  |  | `nogrid=1` | 0.945x | 1.002 |  |
+|  |  |  |  | `fp32acc=0` | 1.025x | 1.004 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.033x | 1.008 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.030x | 1.005 |  |
+|  |  |  |  | `grid=8x8` | 0.999x | 1.002 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.016x | 1.030 |  |
+|  |  |  |  | `packerl1=0` | 0.980x | 1.014 |  |
+|  |  |  |  | `dstfull=1` | 0.997x | 1.005 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.019x | 1.009 |  |
+|  |  |  |  | `grid=8x4` | 0.735x | 1.003 |  |
+|  |  |  |  | `outbuf=L1` | 1.369x | 1.020 | **yes** |
+| `DiffusionStep#017` | core_grid | DRAM | 690 | `(A/A control)` | 1.006x | 1.005 |  |
+|  |  |  |  | `nogrid=1` | 0.709x | 1.015 |  |
+|  |  |  |  | `fp32acc=0` | 1.045x | 1.001 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.057x | 1.009 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.058x | 1.003 |  |
+|  |  |  |  | `grid=8x8` | 1.009x | 1.014 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.001x | 1.015 |  |
+|  |  |  |  | `packerl1=0` | 0.988x | 1.008 |  |
+|  |  |  |  | `dstfull=1` | 1.002x | 1.015 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.051x | 1.021 |  |
+|  |  |  |  | `grid=8x4` | 1.240x | 1.019 |  |
+|  |  |  |  | `outbuf=L1` | 1.003x | 1.015 |  |
+| `PairformerLayer#004` | core_grid | DRAM | 2297 | `(A/A control)` | 0.999x | 1.007 |  |
+|  |  |  |  | `nogrid=1` | 0.348x | 1.009 |  |
+|  |  |  |  | `fp32acc=0` | 1.040x | 1.021 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.064x | 1.002 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.074x | 1.008 |  |
+|  |  |  |  | `grid=8x8` | 1.000x | 1.005 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.006x | 1.006 |  |
+|  |  |  |  | `packerl1=0` | 0.967x | 1.016 |  |
+|  |  |  |  | `dstfull=1` | 1.003x | 1.013 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.034x | 1.005 |  |
+|  |  |  |  | `grid=8x4` | 0.804x | 1.001 |  |
+|  |  |  |  | `outbuf=L1` | 1.453x | 1.030 | **yes** |
+| `DiffusionStep#029` | core_grid | DRAM | 516 | `(A/A control)` | 0.996x | 1.003 |  |
+|  |  |  |  | `nogrid=1` | 0.193x | 1.002 |  |
+|  |  |  |  | `fp32acc=0` | 1.009x | 1.008 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.017x | 1.003 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.015x | 1.007 |  |
+|  |  |  |  | `grid=8x8` | 1.002x | 1.003 |  |
+|  |  |  |  | `fidelity=HiFi2` | 0.998x | 1.002 |  |
+|  |  |  |  | `packerl1=0` | 0.992x | 1.003 |  |
+|  |  |  |  | `dstfull=1` | 1.000x | 1.005 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.009x | 1.002 |  |
+|  |  |  |  | `grid=8x4` | 0.975x | 1.010 |  |
+|  |  |  |  | `outbuf=L1` | 1.914x | 1.012 | **yes** |
+| `DiffusionStep#035` | core_grid | DRAM | 175 | `(A/A control)` | 0.998x | 1.008 |  |
+|  |  |  |  | `nogrid=1` | 0.129x | 1.012 |  |
+|  |  |  |  | `fp32acc=0` | 1.024x | 1.022 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.022x | 1.017 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.025x | 1.012 |  |
+|  |  |  |  | `grid=8x8` | 1.002x | 1.005 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.003x | 1.004 |  |
+|  |  |  |  | `packerl1=0` | 0.976x | 1.003 |  |
+|  |  |  |  | `dstfull=1` | 1.001x | 1.004 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.020x | 1.004 |  |
+|  |  |  |  | `grid=8x4` | 0.945x | 1.003 |  |
+|  |  |  |  | `outbuf=L1` | 1.572x | 1.017 | **yes** |
+| `DiffusionStep#036` | core_grid | DRAM | 167 | `(A/A control)` | 0.989x | 1.016 |  |
+|  |  |  |  | `nogrid=1` | 0.128x | 1.016 |  |
+|  |  |  |  | `fp32acc=0` | 1.018x | 1.011 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.024x | 1.014 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.023x | 1.001 |  |
+|  |  |  |  | `grid=8x8` | 1.004x | 1.006 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.003x | 1.011 |  |
+|  |  |  |  | `packerl1=0` | 0.992x | 1.002 |  |
+|  |  |  |  | `dstfull=1` | 1.002x | 1.003 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.014x | 1.006 |  |
+|  |  |  |  | `grid=8x4` | 0.964x | 1.005 |  |
+|  |  |  |  | `outbuf=L1` | 1.566x | 1.025 | **yes** |
+| `DiffusionStep#043` | core_grid | DRAM | 719 | `(A/A control)` | 0.999x | 1.005 |  |
+|  |  |  |  | `nogrid=1` | 0.457x | 1.007 |  |
+|  |  |  |  | `fp32acc=0` | 1.007x | 1.003 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.011x | 1.005 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.014x | 1.007 |  |
+|  |  |  |  | `grid=8x8` | 1.008x | 1.009 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.000x | 1.017 |  |
+|  |  |  |  | `packerl1=0` | 0.988x | 1.010 |  |
+|  |  |  |  | `dstfull=1` | 0.998x | 1.004 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.007x | 1.004 |  |
+|  |  |  |  | `grid=8x4` | 0.985x | 1.002 |  |
+|  |  |  |  | `outbuf=L1` | 2.159x | 1.032 | **yes** |
+| `PairformerLayer#017` | program_config | DRAM | 1236 | `(A/A control)` | 0.999x | 1.001 |  |
+|  |  |  |  | `nogrid=1` | 1.000x | 1.001 |  |
+|  |  |  |  | `fp32acc=0` | 1.064x | 1.000 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.098x | 1.000 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.111x | 1.001 |  |
+|  |  |  |  | `grid=8x8` | 1.000x | 1.001 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.060x | 1.000 |  |
+|  |  |  |  | `packerl1=0` | 0.941x | 1.001 |  |
+|  |  |  |  | `dstfull=1` | 1.000x | 1.001 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.064x | 1.001 |  |
+|  |  |  |  | `grid=8x4` | 0.787x | 1.002 |  |
+|  |  |  |  | `outbuf=L1` | RuntimeError: TT_THROW @ /project/tt_metal/impl/program/pr |  |  |
+| `MSALayer#015` | core_grid | DRAM | 205 | `(A/A control)` | 1.000x | 1.001 |  |
+|  |  |  |  | `nogrid=1` | 0.194x | 1.001 |  |
+|  |  |  |  | `fp32acc=0` | 1.390x | 1.001 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.399x | 1.006 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.401x | 1.002 |  |
+|  |  |  |  | `grid=8x8` | 1.381x | 1.002 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.000x | 1.001 |  |
+|  |  |  |  | `packerl1=0` | 0.993x | 1.004 |  |
+|  |  |  |  | `dstfull=1` | 1.000x | 1.002 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.389x | 1.004 |  |
+|  |  |  |  | `grid=8x4` | 0.992x | 1.002 |  |
+|  |  |  |  | `outbuf=L1` | 1.433x | 1.003 | **yes** |
+| `DiffusionStep#053` | core_grid | DRAM | 114 | `(A/A control)` | 1.002x | 1.005 |  |
+|  |  |  |  | `nogrid=1` | 0.115x | 1.004 |  |
+|  |  |  |  | `fp32acc=0` | 1.005x | 1.017 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.010x | 1.003 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.014x | 1.003 |  |
+|  |  |  |  | `grid=8x8` | 1.001x | 1.005 |  |
+|  |  |  |  | `fidelity=HiFi2` | 0.999x | 1.004 |  |
+|  |  |  |  | `packerl1=0` | 1.003x | 1.008 |  |
+|  |  |  |  | `dstfull=1` | 1.000x | 1.002 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.006x | 1.005 |  |
+|  |  |  |  | `grid=8x4` | 0.915x | 1.003 |  |
+|  |  |  |  | `outbuf=L1` | 1.378x | 1.012 | **yes** |
+| `PairformerLayer#019` | program_config | DRAM | 923 | `(A/A control)` | 1.000x | 1.002 |  |
+|  |  |  |  | `nogrid=1` | 1.001x | 1.001 |  |
+|  |  |  |  | `fp32acc=0` | 1.028x | 1.003 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.034x | 1.000 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.034x | 1.002 |  |
+|  |  |  |  | `grid=8x8` | 1.335x | 1.003 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.013x | 1.003 |  |
+|  |  |  |  | `packerl1=0` | 1.000x | 1.003 |  |
+|  |  |  |  | `dstfull=1` | 1.000x | 1.004 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.028x | 1.000 |  |
+|  |  |  |  | `grid=8x4` | 1.284x | 1.004 |  |
+|  |  |  |  | `outbuf=L1` | 1.124x | 1.004 | **yes** |
+| `DiffusionStep#013` | core_grid | DRAM | 718 | `(A/A control)` | 1.003x | 1.013 |  |
+|  |  |  |  | `nogrid=1` | 1.000x | 1.001 |  |
+|  |  |  |  | `fp32acc=0` | 0.858x | 1.003 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 0.885x | 1.010 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 0.886x | 1.010 |  |
+|  |  |  |  | `grid=8x8` | 0.996x | 1.005 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.014x | 1.008 |  |
+|  |  |  |  | `packerl1=0` | 0.999x | 1.009 |  |
+|  |  |  |  | `dstfull=1` | 1.000x | 1.003 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 0.860x | 1.006 |  |
+|  |  |  |  | `grid=8x4` | 0.951x | 1.003 |  |
+|  |  |  |  | `outbuf=L1` | 0.476x | 1.020 |  |
+| `DiffusionStep#040` | core_grid | DRAM | 211 | `(A/A control)` | 1.000x | 1.018 |  |
+|  |  |  |  | `nogrid=1` | 0.460x | 1.013 |  |
+|  |  |  |  | `fp32acc=0` | 1.030x | 1.024 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.081x | 1.004 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.081x | 1.008 |  |
+|  |  |  |  | `grid=8x8` | 1.000x | 1.004 |  |
+|  |  |  |  | `fidelity=HiFi2` | 0.956x | 1.001 |  |
+|  |  |  |  | `packerl1=0` | 0.824x | 1.006 |  |
+|  |  |  |  | `dstfull=1` | 1.000x | 1.004 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.031x | 1.002 |  |
+|  |  |  |  | `grid=8x4` | 0.686x | 1.001 |  |
+|  |  |  |  | `outbuf=L1` | 1.758x | 1.020 | **yes** |
+| `MSALayer#010` | core_grid | DRAM | 432 | `(A/A control)` | 1.000x | 1.000 |  |
+|  |  |  |  | `nogrid=1` | 0.613x | 1.003 |  |
+|  |  |  |  | `fp32acc=0` | 1.018x | 1.006 |  |
+|  |  |  |  | `fidelity=HiFi2,fp32acc=0` | 1.017x | 1.004 |  |
+|  |  |  |  | `fidelity=LoFi,fp32acc=0` | 1.016x | 1.001 |  |
+|  |  |  |  | `grid=8x8` | 1.029x | 1.003 |  |
+|  |  |  |  | `fidelity=HiFi2` | 1.000x | 1.001 |  |
+|  |  |  |  | `packerl1=0` | 1.001x | 1.001 |  |
+|  |  |  |  | `dstfull=1` | 1.001x | 1.003 |  |
+|  |  |  |  | `fp32acc=0,dstfull=1` | 1.017x | 1.002 |  |
+|  |  |  |  | `grid=8x4` | 0.964x | 1.006 |  |
+|  |  |  |  | `outbuf=L1` | RuntimeError: TT_THROW @ /project/tt_metal/impl/program/pr |  |  |
 
 ## Every point, first sweep (non-matmul instances, unaffected by the straw man)
 

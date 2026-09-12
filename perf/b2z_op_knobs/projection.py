@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-"""Fold-level projection from the corrected per-op sweep, with its additivity discount.
+"""Fold-level projection from the per-op sweep, split by whether the lever changes numerics.
 
-Three rules, all of them there to stop the number being flattering:
+Reads `renoise_all_wh_c1.json`, the paired-repeat sweep, NOT the earlier single-bracket one. The
+single-bracket estimator scored an arm against the median of the two incumbent runs bracketing it,
+which a host-load excursion lasting longer than one bracket walks straight through: it produced
+seven A/A floors between 2.16 and 3.31 and seven wins up to 2.97x, all of which vanished when the
+same instances were re-run as independent (incumbent, arm) pairs. Every ratio here is the median of
+three such pairs, and the A/A control is the same estimator with the arm replaced by another
+incumbent run, so the control breaks exactly what the measurement reads.
 
-  * an arm only counts if its instance's A/A floor is under `--aa-cap`. Seven instances ran while
-    the box was contended and came back with A/A above 2; their arms say nothing and are dropped
-    rather than averaged in.
-  * an arm only counts if its ratio EXCEEDS its own A/A floor.
-  * instances whose shipped call goes through a hand-tuned program config are excluded from the
-    headline. The replay cannot reproduce that config, so its incumbent is ttnn's default
-    resolver and the ratio is against something the fold never runs. They are reported as an
-    optimistic upper bound instead.
+The split that matters is bit-exactness, not size:
 
-The discount is `trimul-e6-fusion-returns-third-of-deleted-cost`: a deleted byte returns 63-73 %
-of its modelled cost, so per-op wins summed across a block do not add.
+  * `outbuf=L1` is pure placement -- same kernel, same accumulation order, different destination
+    buffer -- and `l1_bitexact.py` confirms all ten winning instances are bit-exact. It needs no
+    accuracy argument.
+  * the fidelity and `fp32_dest_acc_en` arms all change numerics and belong behind the
+    cdk2x2_298 control.
+
+The discount is `trimul-e6-fusion-returns-third-of-deleted-cost`: a deleted byte returns 63-73 % of
+its modelled cost, so per-op wins summed across a block do not add.
 """
 from __future__ import annotations
 
@@ -24,70 +29,79 @@ import pathlib
 HERE = pathlib.Path(__file__).resolve().parent
 # CONTEXT.md section 6, re-measured on current main by b2z-kernel-cycle-census.
 FOLD_S, DEVICE_S = 22.3142, 18.6287
+PLACEMENT = {"outbuf=L1"}
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", default=str(HERE / "bench_manifest.json"))
     ap.add_argument("--baseline", required=True)
-    ap.add_argument("--resweep", required=True)
-    ap.add_argument("--sweep", required=True)
-    ap.add_argument("--aa-cap", type=float, default=1.20)
+    ap.add_argument("--resweep", required=True, help="for the shipped incumbent us/call")
+    ap.add_argument("--renoise", required=True, help="the paired-repeat ratios")
+    ap.add_argument("--bitexact", default="")
+    ap.add_argument("--min-ratio", type=float, default=1.03,
+                    help="an arm must beat this to count; the A/A controls all land under 1.02")
     ap.add_argument("--out", default="")
     a = ap.parse_args()
 
     recs = {r["id"]: r for r in json.load(open(a.manifest))}
     base = {r["id"]: r for r in json.load(open(a.baseline))["rows"] if "ms_per_fold" in r}
     rsi = {i["id"]: i for i in json.load(open(a.resweep))["instances"]}
-    old = {i["id"]: i for i in json.load(open(a.sweep))["instances"]}
+    rn = {i["id"]: i for i in json.load(open(a.renoise))["instances"]}
+    bx = {r["id"]: r for r in json.load(open(a.bitexact))["rows"]} if a.bitexact else {}
 
     corr = {i: (rsi[i]["incumbent_us"] * recs[i]["calls_per_fold"] / 1000.0
                 if i in rsi and rsi[i].get("incumbent_us") else r["ms_per_fold"])
             for i, r in base.items()}
     total = sum(corr.values())
 
-    picks, excluded = [], []
-    pool = list(rsi.items()) + [(k, v) for k, v in old.items() if recs[k]["kind"] != "matmul"]
-    for iid, i in pool:
-        aa = i.get("aa_floor")
-        if aa is None or aa > a.aa_cap:
-            continue
-        cands = [x for x in i["arms"]
-                 if "ratio" in x and x["knob"] != "nogrid=1" and x["ratio"] > aa]
-        if not cands:
-            continue
-        b = max(cands, key=lambda x: x["ratio"])
+    place, numer, aa_ctrl = [], [], []
+    for iid, i in rn.items():
         ms = corr[iid]
-        row = {"id": iid, "kind": recs[iid]["kind"], "ms_per_fold": round(ms, 1),
-               "knob": b["knob"], "ratio": b["ratio"], "aa_floor": aa,
-               "saved_ms": round(ms * (1 - 1 / b["ratio"]), 1),
-               "bit_exact": bool(b.get("bit_exact")),
-               "rel_err": b.get("rel_max_err"), "rms_err": b.get("rms_err"),
-               "incumbent_rel_err": i.get("incumbent_rel_max_err"),
-               "incumbent_rms_err": i.get("incumbent_rms_err")}
-        (excluded if i.get("shipped_config") == "program_config" else picks).append(row)
+        arms = {x["raw_knob"]: x for x in i["arms"]}
+        if "" in arms and arms[""].get("ratio"):
+            aa_ctrl.append(arms[""]["ratio"])
 
-    def fold_ratio(saved_ms, disc):
-        frac = saved_ms * disc / total
-        return FOLD_S / (FOLD_S - DEVICE_S * frac)
+        def pick(keys):
+            c = [(k, v["ratio"]) for k, v in arms.items()
+                 if k in keys and v.get("ratio", 0) >= a.min_ratio]
+            return max(c, key=lambda x: x[1]) if c else (None, None)
 
-    s_head = sum(r["saved_ms"] for r in picks)
-    s_opt = s_head + sum(r["saved_ms"] for r in excluded)
+        k, r = pick(PLACEMENT)
+        if k:
+            place.append({"id": iid, "ms_per_fold": round(ms, 1), "knob": k, "ratio": r,
+                          "saved_ms": round(ms * (1 - 1 / r), 1),
+                          "shipped_out": recs[iid]["out_mem"]["buffer"],
+                          "bit_exact": bx.get(iid, {}).get("bit_exact")})
+        nk = {x for x in arms if x and x not in PLACEMENT and not x.startswith("grid")
+              and x != "nogrid=1"}
+        k2, r2 = pick(nk)
+        if k2:
+            numer.append({"id": iid, "ms_per_fold": round(ms, 1), "knob": k2, "ratio": r2,
+                          "saved_ms": round(ms * (1 - 1 / r2), 1)})
+
+    def fold(saved, disc):
+        return FOLD_S / (FOLD_S - DEVICE_S * (saved * disc / total))
+
+    sp = sum(r["saved_ms"] for r in place)
+    sn = sum(r["saved_ms"] for r in numer)
     out = {
-        "corrected_replayed_total_ms": round(total, 1),
-        "fold_s": FOLD_S, "device_s": DEVICE_S, "aa_cap": a.aa_cap,
-        "headline": {"saved_ms": round(s_head, 1),
-                     "device_frac": round(s_head / total, 5),
-                     "fold_x_undiscounted": round(fold_ratio(s_head, 1.0), 4),
-                     "fold_x_at_0.73": round(fold_ratio(s_head, 0.73), 4),
-                     "fold_x_at_0.63": round(fold_ratio(s_head, 0.63), 4)},
-        "optimistic_incl_program_config": {
-            "saved_ms": round(s_opt, 1),
-            "fold_x_at_0.73": round(fold_ratio(s_opt, 0.73), 4)},
-        "picks": sorted(picks, key=lambda r: -r["saved_ms"]),
-        "excluded_program_config": sorted(excluded, key=lambda r: -r["saved_ms"]),
+        "replayed_total_ms": round(total, 1), "fold_s": FOLD_S, "device_s": DEVICE_S,
+        "aa_control": {"n": len(aa_ctrl), "min": min(aa_ctrl), "max": max(aa_ctrl)},
+        "placement_bit_exact": {
+            "saved_ms": round(sp, 1), "device_frac": round(sp / total, 5),
+            "fold_x_undiscounted": round(fold(sp, 1.0), 4),
+            "fold_x_at_0.73": round(fold(sp, 0.73), 4),
+            "all_bit_exact": all(r["bit_exact"] for r in place) if bx else None},
+        "numerics_changing": {
+            "saved_ms": round(sn, 1), "fold_x_at_0.73": round(fold(sn, 0.73), 4)},
+        "both": {"saved_ms": round(sp + sn, 1),
+                 "fold_x_undiscounted": round(fold(sp + sn, 1.0), 4),
+                 "fold_x_at_0.73": round(fold(sp + sn, 0.73), 4)},
+        "placement_rows": sorted(place, key=lambda r: -r["saved_ms"]),
+        "numerics_rows": sorted(numer, key=lambda r: -r["saved_ms"]),
     }
-    print(json.dumps(out, indent=1))
+    print(json.dumps({k: v for k, v in out.items() if not k.endswith("_rows")}, indent=1))
     if a.out:
         json.dump(out, open(a.out, "w"), indent=1)
     return 0
