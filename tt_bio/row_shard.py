@@ -21,7 +21,8 @@ from __future__ import annotations
 
 from .token_axis import TOKEN_BUCKET
 
-__all__ = ["row_shard_bounds", "row_shard_ceiling", "shard_rows", "gather_rows"]
+__all__ = ["row_shard_bounds", "row_shard_ceiling", "gathers_per_block",
+           "pairformer_block_sharded", "PAIR_CHAIN"]
 
 
 def row_shard_bounds(
@@ -67,18 +68,6 @@ def row_shard_ceiling(n_rows: int, n_shards: int, align: int = TOKEN_BUCKET) -> 
     """
     bounds = row_shard_bounds(n_rows, n_shards, align)
     return n_rows / max(r1 - r0 for r0, r1 in bounds)
-
-
-def shard_rows(t, bounds, dim: int = 1):
-    """Slice ``t`` into the slabs ``bounds`` names, along ``dim``. Works on torch and ttnn alike."""
-    return tuple(t[(slice(None),) * dim + (slice(r0, r1),)] for r0, r1 in bounds)
-
-
-def gather_rows(slabs, dim: int = 1):
-    """Concatenate row slabs back into the full axis. The inverse of :func:`shard_rows`."""
-    import torch
-
-    return torch.cat(list(slabs), dim=dim)
 
 
 # --- the Pairformer block, run as row slabs -----------------------------------------------------
