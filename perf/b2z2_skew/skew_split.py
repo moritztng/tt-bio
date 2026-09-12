@@ -99,6 +99,10 @@ def main() -> int:
     ap.add_argument("--coremap", type=Path, required=True)
     ap.add_argument("--freq-mhz", type=float, default=1000.0,
                     help="Tensix clock; WH galaxy 1.0 GHz, BH p300c 1.35 GHz")
+    ap.add_argument("--split", type=int, default=1,
+                    help="the TT_BIO_MM_CHAIN_SPLIT the profiled run used; the core map is always "
+                         "written for the shipped single chain, and k injectors turn one walk into "
+                         "k independent ones with the hop index restarting at each")
     ap.add_argument("--gcc-min", type=int, default=0)
     ap.add_argument("--gcc-max", type=int, default=1 << 62)
     ap.add_argument("--out", type=Path)
@@ -190,6 +194,22 @@ def main() -> int:
     def lg(core):
         return to_logical.get(core)
 
+    def role(name, axis, core):
+        """The core's place on its chain, after the run's chain split is applied.
+
+        The map on disk describes the shipped single chain. With k injectors the same walk is k
+        independent chains, so the group gains a segment index and the hop index restarts inside
+        each segment -- which is exactly what the arm does on the device.
+        """
+        l = lg(core)
+        ent = cmap["variants"][name][axis].get("%d,%d" % l) if l else None
+        if ent is None:
+            return None
+        walk = cmap["variants"][name][axis + "_walk"]
+        seg = -(-walk // a.split)
+        hop, grp = ent["hop"], ent["group"]
+        return {"group": (grp, hop // seg), "hop": hop % seg, "injector": hop % seg == 0}
+
     # Pick the geometry per program rather than assuming one. `build` sets `transpose = M > N`, so
     # one Pairformer block contains both walks; the cores that issued a DRAM read ARE the injector
     # set, so the variant whose injectors match them exactly is the one that program ran, and a
@@ -198,9 +218,8 @@ def main() -> int:
     for (axis, run), got in src_cores.items():
         cores = {c for (ax, rn, c) in waits if ax == axis and rn == run} | got
         for name, var in cmap["variants"].items():
-            want = {c for c in cores
-                    if var[axis].get("%d,%d" % lg(c), {}).get("injector")} if all(
-                        lg(c) for c in cores) else set()
+            want = {c for c in cores if (role(name, axis, c) or {}).get("injector")} \
+                if all(lg(c) for c in cores) else set()
             if want and want == got:
                 variant_of[(axis, run)] = name
                 map_check["variant_used"][axis + ":" + name] += 1
@@ -213,8 +232,7 @@ def main() -> int:
     unmapped = 0
     for (axis, run, core), v in waits.items():
         name = variant_of.get((axis, run))
-        l = lg(core)
-        ent = cmap["variants"][name][axis].get("%d,%d" % l) if (name and l) else None
+        ent = role(name, axis, core) if name else None
         if ent is None:
             unmapped += 1
             continue
@@ -224,7 +242,7 @@ def main() -> int:
     hop_wait = defaultdict(list)
     causality_checked = causality_bad = 0
     for (axis, run, grp), members in groups.items():
-        if len(members) < 3:
+        if len(members) < 2:
             continue
         akey = axis + ":" + variant_of[(axis, run)]
         n_iter = min(len(v) for _, v in members.values())
@@ -268,7 +286,7 @@ def main() -> int:
                         causality_bad += 1
 
     if not samples:
-        print("no chain groups with >= 3 cores", file=sys.stderr)
+        print("no chain groups with >= 2 cores", file=sys.stderr)
         return 1
 
     def med(k):
@@ -315,7 +333,7 @@ def main() -> int:
                 for i, v in sorted(by_iter.items())}
 
     res = {
-        "samples": len(samples),
+        "chain_split": a.split, "samples": len(samples),
         "ask_spread_us_by_iteration": iter_ask,
         "arr_spread_us_by_iteration": iter_arr,
         "median_rho_hop_vs_ask": round(st.median([x["rho_hop_vs_ask"] for x in samples]), 4),
