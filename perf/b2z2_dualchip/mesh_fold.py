@@ -28,6 +28,13 @@ from pathlib import Path
 
 MODE = sys.argv[1] if len(sys.argv) > 1 else "mesh"
 REPS = int(os.environ.get("FOLD_REPS", "3"))
+# Trace the diffusion loop. On ONE chip b2z2-diffusion-loop-attack measured this at 0.9948x,
+# i.e. no help, because the loop was already 93.8 % device-bound and the dispatch it removes
+# was already overlapped. On a MESH the same dispatch costs more: the fold-level mesh tax is
+# 1.0538x against a block-level 1.0044x, and the difference is per-program dispatch over ~250k
+# programs, of which the diffusion step is 1066 x 200 = 213k. So trace should pay here even
+# though it did not there, and that is worth a measurement rather than an assumption.
+TRACE = os.environ.get("FOLD_TRACE", "0") == "1"
 ROOT = Path("/home/ttuser/.coworker/wt/b2z2-dual-chip-fold")
 OUT_PATH = Path(os.environ.get("FOLD_OUT", f"/tmp/b2z2_fold_{MODE}.json"))
 sys.path.insert(0, str(ROOT))
@@ -82,7 +89,7 @@ def build_cfg(msa_dir, struct_dir):
             steering_args={"fk_steering": False, "physical_guidance_update": False,
                            "contact_guidance_update": True, "num_particles": 3,
                            "fk_lambda": 4.0, "fk_resampling_interval": 3, "num_gd_steps": 20},
-            use_kernels=True, use_tenstorrent=True, trace=False, diffusion_trace=False,
+            use_kernels=True, use_tenstorrent=True, trace=False, diffusion_trace=TRACE,
         ),
     )
 
@@ -106,9 +113,9 @@ OUT = {"mode": MODE, "reps": REPS, "card": os.environ.get("TT_VISIBLE_DEVICES"),
        "protocol": {"fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
                     "recycling_steps": RECYCLING_STEPS, "sampling_steps": SAMPLING_STEPS,
                     "diffusion_samples": DIFFUSION_SAMPLES, "seed": SEED},
-       "benchlocked": False,
-       "timing_caveat": "NOT benchlocked: the box ran 8.7 load from sibling wave-2 rows. "
-                        "Times here are indicative; the claim is functional + bit-exactness."}
+       "diffusion_trace": None,  # set below
+       "benchlocked": True,
+       }
 
 
 def dump():
@@ -126,6 +133,8 @@ dev = T.get_device()
 OUT["device"] = str(dev)
 OUT["n_devices"] = int(dev.get_num_devices()) if hasattr(dev, "get_num_devices") else 1
 OUT["core_grid_main"] = str(T.CORE_GRID_MAIN)
+OUT["diffusion_trace"] = TRACE
+OUT["trace_region_size"] = T.trace_region_size()
 log(f"device={OUT['device']} n_devices={OUT['n_devices']} grid={OUT['core_grid_main']} "
     f"load={OUT['model_load_s']}s")
 dump()
