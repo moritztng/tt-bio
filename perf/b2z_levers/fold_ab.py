@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""Are the b2z levers correctness-neutral on Wormhole? They were all measured on Blackhole.
+"""Boltz-2 A/B for the three levers `b2z-levers-default-on` turned on: coordinates and wall time.
 
-Three levers ship default-on after `b2z-levers-default-on`: the fused bias stacks in Boltz-2's
-diffusion conditioning (TT_BIO_FUSE_BIAS_STACKS, not bit-exact), the batched DST acquire in the
-fused SDPA's mask add (TT_BIO_SDPA_ADD_GRANULARITY, bit-exact) and the same treatment in the gated
-channel permute (TT_BIO_GATE_GRANULARITY, bit-exact). `b2x-integrate-wh-neutral` is the precedent
-and the reason this exists: the last two flipped-on Boltz-2 levers shipped fleet-wide having only
-ever run on qb2.
+The levers are the fused bias stacks in the diffusion conditioning (TT_BIO_FUSE_BIAS_STACKS, not
+bit-exact), the batched DST acquire in the fused SDPA's mask add (TT_BIO_SDPA_ADD_GRANULARITY,
+bit-exact) and the same treatment in the gated channel permute (TT_BIO_GATE_GRANULARITY,
+bit-exact). Two questions, one harness, because they want the same folds:
 
-Three arms in ONE process so the A/A floor and the A/B are measured on the same program cache:
+  correctness     do the shipped defaults move the structure past the 0.35 A bar, and does 512 aa
+                  still fold at all? Run it on Wormhole as well as Blackhole --
+                  `b2x-integrate-wh-neutral` is the precedent, and the reason is that the last two
+                  flipped-on Boltz-2 levers shipped fleet-wide having only ever run on qb2.
+  speed           what did flipping the defaults actually bank on the fold? --reps --warmup.
+
+Arms in ONE process so the A/A floor and the A/B share a program cache:
 
     base    every lever forced off -- the pre-merge path
-    base    again, which is the A/A floor. A non-zero floor invalidates the third arm.
     ship    every lever at its shipped default
 
-Same fixtures, protocol and 0.35 A bar as the Blackhole control, so the two platforms compare
-directly. The 298 aa fixture is the one the bar is written against; 512 aa runs for the crash and
-OOM answer, which is the other half of the question.
+The default order is base/base/ship: the repeated base arm IS the A/A floor, and a non-zero floor
+invalidates the third arm. Same fixtures and protocol as the Blackhole control, so hosts compare
+directly. The 298 aa fixture is the one the 0.35 A bar is written against; 512 aa answers the
+crash-and-OOM half and is the size the published cell is measured at.
 
 The arms are applied in-process, which is legal for each lever but for a different reason each
 time: TT_BIO_FUSE_BIAS_STACKS is read per call, TT_BIO_SDPA_ADD_GRANULARITY is read inside
@@ -25,7 +29,11 @@ so it is assigned rather than exported -- it is in that kernel's cache key too. 
 keys both arms would get the first arm's compiled program back and read a parity that means
 nothing.
 
-    wh_neutral.py --out perf/b2z_levers/wh_neutral_whglx.json --cifdir <dir>
+    fold_ab.py --out <json> --cifdir <dir> [--reps N] [--sizes 512,298] [--warmup]
+
+Defaults reproduce the Wormhole neutrality run exactly: one warmup-free pass of base/base/ship at
+512 then 298 aa. --reps interleaves base and ship N times each for a paired timing run, and
+--warmup discards one fold per arm first so the program cache is not in the first rep.
 """
 import argparse
 import hashlib
@@ -43,7 +51,7 @@ sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 
 import ab_flag_levers as AB  # noqa: E402  -- the fixtures, cfg and MSA seeding, unmodified
 
-ORDER = ["base", "base", "ship"]
+BASE_ORDER = ["base", "base", "ship"]
 
 
 def apply_arm(arm, RB):
@@ -64,7 +72,15 @@ def main() -> int:
     ap.add_argument("--cifdir", type=Path, required=True)
     ap.add_argument("--steps", type=int, default=AB.SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
+    ap.add_argument("--reps", type=int, default=0,
+                    help="interleave base/ship this many times each instead of the default "
+                         "base/base/ship. The A/A floor then comes from the base arm's own reps.")
+    ap.add_argument("--sizes", default="512,298")
+    ap.add_argument("--warmup", action="store_true",
+                    help="discard one fold per arm first. Required for a timing run; the "
+                         "neutrality run does not need it because it compares coordinates.")
     args = ap.parse_args()
+    order = BASE_ORDER if args.reps < 1 else ["base", "ship"] * args.reps
 
     import torch
     torch.set_grad_enabled(False)
@@ -143,10 +159,17 @@ def main() -> int:
 
     # 512 aa first: it is the crash-and-OOM question, and a failure there should not wait behind
     # the accuracy fixture.
-    for size in ("512", "298"):
+    for size in args.sizes.split(","):
         target = AB.FIX / f"cdk2x2_{size}.yaml"
+        if args.warmup:
+            for arm in ("base", "ship"):
+                r = fold(arm, target, args.cifdir / f"{size}_warm_{arm}")
+                r["warmup"] = True
+                out["runs"].append(r)
+                print(f"  {size} warm {arm:5s} {r['fold_s']:7.3f}s", flush=True)
+            dump()
         n = {}
-        for arm in ORDER:
+        for arm in order:
             i = n[arm] = n.get(arm, -1) + 1
             keep = args.cifdir / f"{size}_{arm}_{i}"
             r = fold(arm, target, keep)
@@ -156,12 +179,21 @@ def main() -> int:
                   f"plddt={r['plddt']}", flush=True)
             dump()
 
-    aa = [r for r in out["runs"] if r["arm"] == "base"]
+    warm = [r for r in out["runs"] if not r.get("warmup")]
+    for arm in ("base", "ship"):
+        v = sorted(r["fold_s"] for r in warm if r["arm"] == arm and "512" in r["target"])
+        if v:
+            out.setdefault("median_512_s", {})[arm] = v[len(v) // 2]
+    m = out.get("median_512_s", {})
+    if "base" in m and "ship" in m and m["ship"]:
+        out["fold_speedup_512"] = round(m["base"] / m["ship"], 5)
+    aa = [r for r in warm if r["arm"] == "base"]
     out["aa_floor_identical"] = {
         s: len({r["sha256"] for r in aa if r["target"].endswith(s)}) == 1
         for s in ("512", "298")}
     dump()
-    print(json.dumps({"aa_floor_identical": out["aa_floor_identical"]}, indent=1))
+    print(json.dumps({k: out[k] for k in ("aa_floor_identical", "median_512_s",
+                                          "fold_speedup_512") if k in out}, indent=1))
     return 0
 
 
