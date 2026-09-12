@@ -1,0 +1,64 @@
+{
+ "head": {
+  "wk/b2z2-step-fusion-next-sites": "9cd6c2ff1",
+  "wk/b2z2-step-program-fusion": "7ea55dd92",
+  "wk/b2z2-atom-window-next": "6d575f829",
+  "wk/b2z2-layout-op-elision": "9ca6c3308",
+  "wk/b2z2-step-matmul-group": "4e96fe7e2",
+  "wk/b2z2-step-binaryng-fusion": "ae0812ed6"
+ },
+ "ancestry": {
+  "wk/b2z2-step-fusion-next-sites -> wk/b2z2-step-program-fusion": false,
+  "wk/b2z2-step-fusion-next-sites -> wk/b2z2-atom-window-next": false,
+  "wk/b2z2-step-fusion-next-sites -> wk/b2z2-layout-op-elision": false,
+  "wk/b2z2-step-fusion-next-sites -> wk/b2z2-step-matmul-group": false,
+  "wk/b2z2-step-fusion-next-sites -> wk/b2z2-step-binaryng-fusion": false,
+  "wk/b2z2-step-program-fusion -> wk/b2z2-step-fusion-next-sites": true,
+  "wk/b2z2-step-program-fusion -> wk/b2z2-atom-window-next": true,
+  "wk/b2z2-step-program-fusion -> wk/b2z2-layout-op-elision": false,
+  "wk/b2z2-step-program-fusion -> wk/b2z2-step-matmul-group": true,
+  "wk/b2z2-step-program-fusion -> wk/b2z2-step-binaryng-fusion": true,
+  "wk/b2z2-atom-window-next -> wk/b2z2-step-fusion-next-sites": false,
+  "wk/b2z2-atom-window-next -> wk/b2z2-step-program-fusion": false,
+  "wk/b2z2-atom-window-next -> wk/b2z2-layout-op-elision": false,
+  "wk/b2z2-atom-window-next -> wk/b2z2-step-matmul-group": false,
+  "wk/b2z2-atom-window-next -> wk/b2z2-step-binaryng-fusion": false,
+  "wk/b2z2-layout-op-elision -> wk/b2z2-step-fusion-next-sites": false,
+  "wk/b2z2-layout-op-elision -> wk/b2z2-step-program-fusion": false,
+  "wk/b2z2-layout-op-elision -> wk/b2z2-atom-window-next": false,
+  "wk/b2z2-layout-op-elision -> wk/b2z2-step-matmul-group": false,
+  "wk/b2z2-layout-op-elision -> wk/b2z2-step-binaryng-fusion": false,
+  "wk/b2z2-step-matmul-group -> wk/b2z2-step-fusion-next-sites": false,
+  "wk/b2z2-step-matmul-group -> wk/b2z2-step-program-fusion": false,
+  "wk/b2z2-step-matmul-group -> wk/b2z2-atom-window-next": false,
+  "wk/b2z2-step-matmul-group -> wk/b2z2-layout-op-elision": false,
+  "wk/b2z2-step-matmul-group -> wk/b2z2-step-binaryng-fusion": false,
+  "wk/b2z2-step-binaryng-fusion -> wk/b2z2-step-fusion-next-sites": false,
+  "wk/b2z2-step-binaryng-fusion -> wk/b2z2-step-program-fusion": false,
+  "wk/b2z2-step-binaryng-fusion -> wk/b2z2-atom-window-next": false,
+  "wk/b2z2-step-binaryng-fusion -> wk/b2z2-layout-op-elision": false,
+  "wk/b2z2-step-binaryng-fusion -> wk/b2z2-step-matmul-group": false
+ },
+ "tt_bio_source_bytes_vs_merge_base": {
+  "wk/b2z2-step-fusion-next-sites": 13287,
+  "wk/b2z2-step-program-fusion": 4767,
+  "wk/b2z2-atom-window-next": 9131,
+  "wk/b2z2-layout-op-elision": 9641,
+  "wk/b2z2-step-matmul-group": 4767,
+  "wk/b2z2-step-binaryng-fusion": 11747
+ },
+ "tt_bio_source_bytes_vs_program_fusion": {
+  "wk/b2z2-step-fusion-next-sites": 9908,
+  "wk/b2z2-step-program-fusion": 0,
+  "wk/b2z2-atom-window-next": 7486,
+  "wk/b2z2-layout-op-elision": 35932,
+  "wk/b2z2-step-matmul-group": 0,
+  "wk/b2z2-step-binaryng-fusion": 7128
+ },
+ "ancestry_true": [
+  "wk/b2z2-step-program-fusion -> wk/b2z2-atom-window-next",
+  "wk/b2z2-step-program-fusion -> wk/b2z2-step-binaryng-fusion",
+  "wk/b2z2-step-program-fusion -> wk/b2z2-step-fusion-next-sites",
+  "wk/b2z2-step-program-fusion -> wk/b2z2-step-matmul-group"
+ ]
+}
