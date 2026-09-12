@@ -54,6 +54,7 @@ OUT_PATH = os.environ.get("CHAIN_OUT", f"/tmp/b2z2_chain_{N}.json")
 C_Z, C_S = 128, 384
 
 import ttnn  # noqa: E402
+from tt_bio import reblock_permute as _reblock
 from tt_bio import reference as ref  # noqa: E402
 from tt_bio import tenstorrent as tt  # noqa: E402
 
@@ -263,11 +264,21 @@ def run_block(row_shard, z_host=None):
 
 log("chain: the engine's PairformerLayer(row_shard=True) against the replicated block")
 t0 = time.perf_counter()
+_eng = _reblock.STATS_GATED[0]
 s_rep, z_rep = run_block(False)
+RES["chain"]["gated_moves_replicated"] = _reblock.STATS_GATED[0] - _eng
 t_rep = time.perf_counter() - t0
 t0 = time.perf_counter()
+_eng = _reblock.STATS_GATED[0]
 try:
     s_shd, z_shd = run_block(True)
+    # Engagement, not just a digest: an absent shard produces a perfect digest, and so does a
+    # shard whose ending trimul quietly fell back to the four-way split. Four fused moves per
+    # block is both triangle products served; two is the ending one declined.
+    RES["chain"]["gated_moves_sharded"] = _reblock.STATS_GATED[0] - _eng
+    RES["chain"]["gated_dram_long_axis"] = _reblock.GATED_DRAM_LONG_AXIS
+    log(f"  fused channel moves served: replicated "
+        f"{RES['chain']['gated_moves_replicated']}, sharded {RES['chain']['gated_moves_sharded']}")
     RES["chain"]["ran"] = True
 except Exception as e:  # noqa: BLE001
     RES["chain"] = {"ran": False, "raised": f"{type(e).__name__}: {str(e)[:400]}"}
