@@ -48,12 +48,27 @@ def summarise(path: Path) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ab", type=Path, required=True)
+    ap.add_argument("--ab", type=Path, required=True, nargs="+",
+                    help="one or more A/B runs; pairs are pooled for the sign test")
     ap.add_argument("--aa", type=Path)
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
 
-    ab = summarise(a.ab)
+    runs = [summarise(f) for f in a.ab]
+    # Pooling is legitimate only for the SIGN: the runs share a fixture, a card and a commit, but
+    # not the load the box happened to carry, so their seconds are not one sample and their
+    # medians are not poolable. The sign of a paired delta is.
+    pooled = [d for r in runs for d in r["paired_deltas_s"]]
+    ab = dict(runs[0])
+    ab["runs"] = [{"file": r["file"], "n_pairs": r["n_pairs"], "pairs_positive": r["pairs_positive"],
+                   "paired_mean_s": round(r["paired_mean_s"], 4),
+                   "ratio_median": round(r["ratio_median"], 5),
+                   "paired_deltas_s": r["paired_deltas_s"]} for r in runs]
+    ab["pooled_n_pairs"] = len(pooled)
+    ab["pooled_pairs_positive"] = sum(1 for d in pooled if d > 0)
+    ab["pooled_sign_p"] = 2.0 ** -len(pooled) * sum(
+        __import__("math").comb(len(pooled), k)
+        for k in range(ab["pooled_pairs_positive"], len(pooled) + 1))
     out = {"union": ab, "singles": {k: v[0] for k, v in SINGLES.items()}}
     product = 1.0
     for r, _ in SINGLES.values():
