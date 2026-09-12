@@ -243,9 +243,13 @@ TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
 # The round trip above is what costs the accuracy: the fused form applies silu to the fp32 matmul
 # accumulator and rounds once, the unfused form rounds first and applies silu to the rounded value.
-# With this on, the projection is packed as fp32 and silu runs on it, so the unfused arm reproduces
-# the fused arm's arithmetic at the price of a wider intermediate. Only read when _UNFUSED_SILU is on.
-_UNFUSED_SILU_FP32 = env_flag("TT_BIO_UNFUSED_SILU_FP32", True)
+# With this on the projection is packed fp32, silu runs on it and the product rounds once, which
+# reproduces the fused arm's error exactly (1.227e-4 RMS against an fp32 evaluation of the same
+# algebra, the fused arm's own figure, against 1.454e-4 for the plain unfused form). It is off
+# because it costs more than it recovers: the wider intermediate takes the chunk from 1.4549x to
+# 0.8788x of the fused incumbent, so it is a net loss, measured on whglx card 6 (WH, 8x8) by
+# perf/b2z2_silu/chunk_probe.py. Only read when _UNFUSED_SILU is on.
+_UNFUSED_SILU_FP32 = env_flag("TT_BIO_UNFUSED_SILU_FP32", False)
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False

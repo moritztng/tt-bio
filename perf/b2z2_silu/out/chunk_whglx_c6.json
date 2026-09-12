@@ -1,0 +1,80 @@
+{
+ "doc": "Unfused silu at the Transition chunk: what it costs, and which arm is actually closer to truth.\n\n`b2z2-fusion-rebuild` measured `ttnn.linear(activation=\"silu\")` at 0.11432 ms against 0.02663 ms\nfor the same matmul with no activation (BH, qb2 card 1) and 1.4025x for the chunk with silu split\nout. It then killed the lever on a whole-molecule RMSD move at 512 aa. Two things that run never\ndid, and both are cheap:\n\n  1. **Score every arm against fp32 truth, not against the incumbent.** The incumbent is not the\n     reference. Boltz-2's own Transition is `silu(fc1(x)) * fc2(x)` (tt_bio/boltz2.py:1391), i.e.\n     silu applied to the projection's OUTPUT tensor. \"Distance from the incumbent\" cannot tell a\n     worse arm from a differently-rounded one; distance from the fp32 evaluation of the same\n     algebra on the same operands can.\n  2. **Try the fix.** Packing the projection as fp32 puts silu back on an unrounded value, which\n     is what the fused activation does inside the matmul kernel. It costs bytes, so it is timed\n     here in the same interleaved run rather than assumed.\n\nArms, paired and interleaved in one process, with an A/A floor from the incumbent run twice:\n\n  incumbent      ttnn.linear(activation=\"silu\"), product in place        (what ships)\n  split_bf16     linear -> silu on the bf16 projection                   (TT_BIO_UNFUSED_SILU)\n  split_fp32     linear(dtype=fp32) -> silu -> multiply back to bf16     (+ _FP32, the candidate fix)\n  split_fp32_c   same, with an explicit typecast before the product      (fallback if mixed multiply\n                                                                          is unsupported)\n\n    chunk_probe.py --out <json> [--rows 16 --n 512 --c 128 --hidden 512]\n",
+ "env": {
+  "host": "j10glx02",
+  "arch": "Arch.WORMHOLE_B0",
+  "grid": [
+   8,
+   9
+  ],
+  "core_grid_main": [
+   8,
+   9
+  ],
+  "tt_visible_devices": "6",
+  "shape": [
+   1,
+   16,
+   512,
+   128
+  ],
+  "hidden": 512,
+  "inner": 32,
+  "reps": 9,
+  "commit": "",
+  "loadavg": [
+   9.8994140625,
+   10.189453125,
+   7.7109375
+  ]
+ },
+ "arms": {
+  "incumbent": {
+   "ms": 0.44715,
+   "chunk_ratio_vs_incumbent": 1.0,
+   "spread_pct": 0.66,
+   "max_abs_vs_fp32": 0.004307,
+   "rms_vs_fp32": 0.0001227,
+   "mean_rel_vs_fp32": 0.0024688,
+   "pcc_vs_fp32": 0.999995708
+  },
+  "incumbent_aa": {
+   "ms": 0.44745,
+   "chunk_ratio_vs_incumbent": 0.9993,
+   "spread_pct": 0.57
+  },
+  "split_bf16": {
+   "ms": 0.30734,
+   "chunk_ratio_vs_incumbent": 1.4549,
+   "spread_pct": 0.55,
+   "max_abs_vs_fp32": 0.006004,
+   "rms_vs_fp32": 0.0001454,
+   "mean_rel_vs_fp32": 0.002868,
+   "pcc_vs_fp32": 0.999994099,
+   "max_abs_vs_incumbent": 0.003906,
+   "bit_exact_vs_incumbent": false
+  },
+  "split_fp32": {
+   "ms": 0.48164,
+   "chunk_ratio_vs_incumbent": 0.9284,
+   "spread_pct": 0.45,
+   "max_abs_vs_fp32": 0.006004,
+   "rms_vs_fp32": 0.0001835,
+   "mean_rel_vs_fp32": 0.0037256,
+   "pcc_vs_fp32": 0.999995589,
+   "max_abs_vs_incumbent": 0.003906,
+   "bit_exact_vs_incumbent": false
+  },
+  "split_fp32_c": {
+   "ms": 0.50883,
+   "chunk_ratio_vs_incumbent": 0.8788,
+   "spread_pct": 0.4,
+   "max_abs_vs_fp32": 0.004307,
+   "rms_vs_fp32": 0.0001227,
+   "mean_rel_vs_fp32": 0.0024687,
+   "pcc_vs_fp32": 0.999995649,
+   "max_abs_vs_incumbent": 0.000977,
+   "bit_exact_vs_incumbent": false
+  }
+ }
+}

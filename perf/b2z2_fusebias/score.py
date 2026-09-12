@@ -168,7 +168,7 @@ def main() -> int:
                 for dom in GT_SEGMENTS[n]:
                     sec.setdefault("native_summary", {})[f"{who} {dom} {metric}"] = spread(
                         [sec["native"][t][dom][metric] for t in tags
-                         if t.startswith(who) and not t.endswith("_r1")])
+                         if t.split("-")[0] == who and not t.endswith("_r1")])
         report["sizes"][size] = sec
 
     a.out.parent.mkdir(parents=True, exist_ok=True)
