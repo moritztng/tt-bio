@@ -334,6 +334,12 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                 sub_tiles_bcast_cols(in0_cb, in1_cb, j, i, j);
                 constexpr int iterations = (vector_mode == VectorMode::RC) ? 32 : 8;
                 constexpr int vector_mode_exp = (vector_mode == VectorMode::RC) ? VectorMode::None : vector_mode;
+#ifndef ABLATE_EXP
+                // ABLATE_EXP is an INSTRUMENT, not a knob: dropping the exponential leaves the
+                // subtraction, the L1-accumulated row sum and both matmuls exactly where they are,
+                // so the difference between the two arms is the SFPU's exp and nothing else. The
+                // output is wrong by construction and the define is unreachable from any shipped
+                // path -- `tt_bio/triatt_sdpa.py` only sets it from TT_BIO_TRIATT_ABLATE.
                 exp_tile<
                     true /* approx */,
                     true /* fast+approx */,
@@ -341,6 +347,7 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                     false /* skip +ve check */,
                     InputClamping::None,
                     iterations>(j, vector_mode_exp);
+#endif
             }
             tile_regs_commit();
 
@@ -1808,7 +1815,13 @@ void sdpa_inner_loop(
                         local_n_mask_chunk_id,
                         joint_n_mask_chunk_id);
                 } else {
-#ifdef PERSISTENT_MASK
+#if defined(PERSISTENT_MASK) && defined(ABLATE_MASKADD)
+                    // Instrument arm: the reader still fills the whole fronted mask, so this
+                    // prices the ADD alone, not the mask's bytes. With pop_in1 false the call
+                    // it replaces pops and re-pushes in0 with no net effect, so dropping it
+                    // leaves every circular buffer in the same state.
+                    (void)qk_chunk_tiles;
+#elif defined(PERSISTENT_MASK)
                     // The whole head's mask is fronted once; index block k_chunk
                     // and never pop, so the next batch reuses the same tiles.
                     add_block_inplace<false>(
