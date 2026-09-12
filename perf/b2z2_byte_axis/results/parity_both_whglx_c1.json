@@ -1,0 +1,43 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "1",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "utc": "2026-09-12T16:16:57Z",
+  "tt_bio": "/home/mthuening/work/wt/b2z2-byte-axis-reopened/tt_bio/__init__.py",
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0
+  },
+  "bar": "<=0.35 pass / 0.35-0.60 hold / >0.60 reject, all-atom on cdk2x2_298",
+  "arms": {
+   "base": [],
+   "trimul_out": [
+    "trimul_out"
+   ],
+   "z": [
+    "z"
+   ],
+   "trimul_mm": [
+    "trimul_mm"
+   ],
+   "triatt_qkv": [
+    "triatt_qkv"
+   ],
+   "all": [
+    "triatt_qkv",
+    "trimul_mm",
+    "trimul_out",
+    "z"
+   ]
+  },
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 5.31
+}

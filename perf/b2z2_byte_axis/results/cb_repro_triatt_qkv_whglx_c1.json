@@ -1,0 +1,27 @@
+{
+ "host": "j10glx02",
+ "card": "1",
+ "grid": [
+  8,
+  9
+ ],
+ "arch": "Arch.WORMHOLE_B0",
+ "site": "triatt_qkv",
+ "seq": 512,
+ "tt_bio": "/home/mthuening/work/wt/b2z2-byte-axis-reopened/tt_bio/__init__.py",
+ "result": "THREW",
+ "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1644960 B which is beyond max L1 size of 1499136 B",
+ "traceback": "o(+0x3f7549) [0x75fbb1ff7549]\n --- /home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x3f72b7) [0x75fbb1ff72b7]\n --- /home/mthuening/work/tt-bio/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x75fbb1e6f895]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_FastCallDictTstate+0x16d) [0x64e281c07e2d]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x64e281c1cd5c]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x29dea4) [0x64e281d24ea4]\n --- /home/mthuening/work/tt-bio/env/bin/python3(PyObject_Call+0xbb) [0x64e281c2083b]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x64e281bfeee9]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x64e281c12aec]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_FastCallDictTstate+0x16d) [0x64e281c07e2d]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x64e281c1cd5c]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x29dea4) [0x64e281d24ea4]\n --- /home/mthuening/work/tt-bio/env/bin/python3(PyObject_Call+0xbb) [0x64e281c2083b]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x64e281bfeee9]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x64e281c12aec]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x1992) [0x64e281bfdf92]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x64e281c12aec]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x1992) [0x64e281bfdf92]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x64e281c12aec]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x64e281bfccc0]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_FastCallDictTstate+0xc4) [0x64e281c07d84]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x64e281c1cd5c]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x29dea4) [0x64e281d24ea4]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_MakeTpCall+0x25b) [0x64e281c08bab]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x609e) [0x64e281c0269e]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_FastCallDictTstate+0xc4) [0x64e281c07d84]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_Call_Prepend+0xc1) [0x64e281c1cdc1]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x29dea4) [0x64e281d24ea4]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyObject_MakeTpCall+0x25b) [0x64e281c08bab]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x5a67) [0x64e281c02067]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x64e281c12aec]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x64e281bfccc0]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x25b036) [0x64e281ce2036]\n --- /home/mthuening/work/tt-bio/env/bin/python3(PyEval_EvalCode+0x86) [0x64e281ce1f06]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x281a88) [0x64e281d08a88]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x27c0df) [0x64e281d030df]\n --- /home/mthuening/work/tt-bio/env/bin/python3(+0x281825) [0x64e281d08825]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyRun_SimpleFileObject+0x1a8) [0x64e281d07d68]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_PyRun_AnyFileObject+0x47) [0x64e281d07a47]\n --- /home/mthuening/work/tt-bio/env/bin/python3(Py_RunMain+0x2be) [0x64e281cfbeae]\n --- /home/mthuening/work/tt-bio/env/bin/python3(Py_BytesMain+0x2d) [0x64e281cd5f4d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x75fd0f229d90]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80) [0x75fd0f229e40]\n --- /home/mthuening/work/tt-bio/env/bin/python3(_start+0x25) [0x64e281cd5e45]\n\n",
+ "last_op": {
+  "op": "ttnn.linear",
+  "args": [
+   "512x512x128:DataType.BFLOAT8_B:BufferType.DRAM",
+   "128x128:DataType.BFLOAT16:BufferType.DRAM"
+  ],
+  "kwargs": {
+   "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+   "dtype": "DataType.BFLOAT16"
+  }
+ },
+ "elapsed_s": 0.56
+}

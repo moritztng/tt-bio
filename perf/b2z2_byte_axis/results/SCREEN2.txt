@@ -1,0 +1,9 @@
+j10glx02 card 1 grid 8x9 Arch.WORMHOLE_B0 seq 512 ttnn 0.68.0 reps 5
+base x6: median 90.63 ms, spread 4.877 %, A/A floor 1.05120x, 8447.0 MB
+
+arm             block_ms    ratio        MB   dbytes  realiz  note
+trimul_out         83.50   1.0340x    7373.3  -12.71%   0.258  eligible:24decl _pair_proj_minimal_matmul:24decl
+z                  91.95   0.9623x    9409.9   +5.53%   0.709  eligible:24decl _pair_proj_minimal_matmul:72decl qkv_heads:2
+trimul_mm          95.75   0.9472x    9688.5   +3.22%   1.734  eligible_back:24decl eligible:24decl _pair_proj_minimal_matm
+triatt_qkv         96.24   0.9429x    9323.6   -0.67%  -9.043  eligible:24decl _pair_proj_minimal_matmul:72decl qkv_heads:2
+all                92.75   0.9777x    7497.3  -20.13%  -0.113  eligible_back:24decl eligible:24decl _pair_proj_minimal_matm
