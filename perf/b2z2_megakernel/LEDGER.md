@@ -91,3 +91,22 @@ unowned"*).
   `[512,512,16]` write is half padding.
 * The column is op-boundary traffic. It does NOT include an operand re-streamed from L1 inside one
   op, which is the larger term — see above. Both are lower bounds on what the unpacker moves.
+
+## Measured: what one op-boundary tile pass actually costs
+
+`pass_cost.py`, pc card 0, 13x10 = 130 cores, pure-movement ops only, 8 inner reps per timed
+window, median of 9.
+
+| arm | ms | passes | ns/pass/core | GB/s | spread |
+|---|---|---|---|---|---|
+| `multiply_` 24,576 t, L1 | 1.0122 | 589,824 | **223.09** | 1,193.4 | 1.9 % |
+| `multiply_` 32,768 t, DRAM | 3.7447 | 786,432 | **619.02** | 430.1 | 0.4 % |
+| `add_` z, DRAM (the block's residual) | 3.7726 | 786,432 | **623.63** | 426.9 | 6.2 % |
+
+The two DRAM arms agree to 0.7 % and reach 96 % of the measured 444.9 GB/s streaming roof.
+
+**So an L1 op boundary costs 3.13x, and a DRAM one 8.68x, the 71.3 ns packer pass this campaign has
+been pricing fusion with.** Re-priced, deleting every op boundary in the block is 19.07 ms of
+35.851 = **2.14x on the block**, not the 1.10x the same ledger gives at 71.3 ns. The caveat that
+has to travel with that number: the block moves 7.10 GB of DRAM in 35.851 ms = 198 GB/s, 46 % of
+the 430 GB/s it could reach, so the 2.14x assumes the deleted traffic is on the critical path.
