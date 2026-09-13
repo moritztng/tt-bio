@@ -216,12 +216,25 @@ def build_arms(ttnn, rig, G, grid, base_m, args):
         gen(f"gen.mdiv{d}", "quantum", f"M/{d}", m=base_m // d)
         mm(f"mm.mdiv{d}", "quantum", f"M/{d}", m=base_m // d)
 
-    # ---- grid shape. The control is `util-grid-coverage`: 88 cores engaged either way on 11x10
-    # against 11x8, 61.98 us against 61.93 us, 0.08 % apart. Grid shape at a fixed quantum is a
-    # null, so a sweep that says otherwise is a broken sweep.
-    for g in args.grids:
-        gen(f"gen.grid{g[0]}x{g[1]}", "grid", f"{g[0]}x{g[1]}", g=g)
-        mm(f"mm.grid{g[0]}x{g[1]}", "grid", f"{g[0]}x{g[1]}", g=g)
+    # ---- grid shape AT A FIXED PER-CORE QUANTUM. The control is `util-grid-coverage`: 88 cores
+    # engaged either way on 11x10 against 11x8, 61.98 us against 61.93 us, 0.08 % apart -- a null,
+    # so a sweep that says otherwise is a broken sweep.
+    #
+    # 72 has no second factorisation inside an 8x9 device, so shape cannot be changed with the
+    # core count held fixed on this part. It CAN be changed with the per-core quantum held fixed,
+    # which is the interpretable version: `transpose` is true here so in0_axis_cores == gx, and
+    # halving gx while halving M leaves M_tiles_per_core identical (8192/8 == 4096/4 == 1024) and
+    # N_tiles_per_core untouched at gy. Each core sees exactly the work it saw before, on half the
+    # cores and half the total problem.
+    for gx2, gy2 in args.grids:
+        assert base_m % (gx / gx2) == 0
+        m2 = int(base_m * gx2 / gx)
+        gen(f"gen.gridq{gx2}x{gy2}", "gridq", f"{gx2}x{gy2} @ M/{gx // gx2}", m=m2, g=(gx2, gy2))
+        mm(f"mm.gridq{gx2}x{gy2}", "gridq", f"{gx2}x{gy2} @ M/{gx // gx2}", m=m2, g=(gx2, gy2))
+        # the confound control: same core count, half the quantum (this IS `quantum` M/2 above,
+        # restated here so the two rows sit next to each other in the table)
+        gen(f"gen.gridq{gx}x{gy}.m{m2}", "gridq", f"{gx}x{gy} @ M/{gx // gx2} (quantum halved)",
+            m=m2)
 
     return arms
 
