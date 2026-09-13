@@ -1,0 +1,199 @@
+{
+ "source": "perf/b2z2_trunk_ship/cell_512_guard_benchlock.json",
+ "source_env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-trunk-byte-round2-ship/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-13T07:56:41Z",
+  "loadavg": [
+   1.16015625,
+   1.54248046875,
+   5.4755859375
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "commit": "84c052df176b1d0cf8a14a3cb86a05a5945dcf65"
+ },
+ "maxload": 5.0,
+ "reps_kept": [
+  {
+   "rep": 0,
+   "peak_loadavg1": 2.89,
+   "folds": [
+    [
+     "off",
+     19.412,
+     2.29
+    ],
+    [
+     "on",
+     19.275,
+     2.65
+    ],
+    [
+     "on",
+     19.119,
+     2.46
+    ],
+    [
+     "off",
+     19.547,
+     2.89
+    ]
+   ]
+  },
+  {
+   "rep": 1,
+   "peak_loadavg1": 3.39,
+   "folds": [
+    [
+     "off",
+     19.546,
+     3.22
+    ],
+    [
+     "on",
+     19.163,
+     3.39
+    ],
+    [
+     "on",
+     19.159,
+     3.0
+    ],
+    [
+     "off",
+     19.522,
+     2.71
+    ]
+   ]
+  },
+  {
+   "rep": 2,
+   "peak_loadavg1": 3.79,
+   "folds": [
+    [
+     "off",
+     19.65,
+     3.11
+    ],
+    [
+     "on",
+     19.207,
+     3.79
+    ],
+    [
+     "on",
+     19.247,
+     3.35
+    ],
+    [
+     "off",
+     19.441,
+     2.96
+    ]
+   ]
+  }
+ ],
+ "reps_dropped": [
+  {
+   "rep": 3,
+   "peak_loadavg1": 8.74,
+   "folds": [
+    [
+     "off",
+     19.432,
+     3.77
+    ],
+    [
+     "on",
+     22.434,
+     6.33
+    ],
+    [
+     "on",
+     22.742,
+     7.64
+    ],
+    [
+     "off",
+     23.195,
+     8.74
+    ]
+   ]
+  }
+ ],
+ "folds_kept": 12,
+ "median_fold_s": {
+  "off": 19.534,
+  "on": 19.185000000000002
+ },
+ "ratio_median": 1.01819,
+ "ab_paired_ratios": [
+  1.00711,
+  1.02239,
+  1.01999,
+  1.01895,
+  1.02306,
+  1.01008
+ ],
+ "ab_paired_median": 1.01947,
+ "ab_paired_all_positive": true,
+ "aa_ratios": [
+  1.00695,
+  1.00816,
+  1.00123,
+  1.00021,
+  1.01075,
+  1.00208
+ ],
+ "aa_floor_max": 1.01075,
+ "plddt": {
+  "off": [
+   0.842856
+  ],
+  "on": [
+   0.842856
+  ]
+ },
+ "cif_sha256": {
+  "off": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ],
+  "on": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ]
+ },
+ "bit_exact": true,
+ "served": {
+  "off": {
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ]
+  },
+  "on": {
+   "qkvg": [
+    3360,
+    0
+   ],
+   "qkvgb": [
+    3360,
+    0
+   ],
+   "gout": [
+    3360,
+    0
+   ]
+  }
+ }
+}

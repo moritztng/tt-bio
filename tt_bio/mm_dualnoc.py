@@ -68,12 +68,17 @@ def _reject(reason, shape):
     return None
 
 
-def in_proj(x, w, ckc, dtype, memory_config):
+def in_proj(x, w, ckc, dtype, memory_config, split=None):
     """`minimal_matmul(x, w)` with half the drain on the other NOC, or `None` to leave it alone.
 
     Byte-identical to the unconfigured `ttnn.experimental.minimal_matmul` the caller would
     otherwise run: the block config passed in is `_MM_DEFAULT`, which IS what
     `determine_default_block_sizes` returns under `fp32_dest_acc_en`.
+
+    `split` is the output CHANNEL width of each destination, summing to `w`'s width, for a caller
+    that has concatenated two projections of one activation so the activation is read once. The
+    return is then a list of tensors in that order. Each output tile is its own contraction, so
+    which buffer it lands in cannot change its value.
     """
     if not _ENABLED:
         return None
@@ -104,11 +109,20 @@ def in_proj(x, w, ckc, dtype, memory_config):
     if m % TILE or n % TILE or int(w.shape[-2]) % TILE:
         return _reject("not_tile_aligned", shape)
 
+    widths = [n] if split is None else list(split)
+    if sum(widths) != n or any(c % TILE for c in widths):
+        return _reject("split_widths", shape)
+    if len(set(widths[:-1])) > 1:
+        # the kernel carries one uniform width and a differing last chunk, nothing else
+        return _reject("split_not_uniform", shape)
+
     dev = x.device()
-    out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape(shape[:-1] + [n]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, memory_config)
+    outs = [ttnn.allocate_tensor_on_device(
+        ttnn.Shape(shape[:-1] + [c]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, memory_config)
+        for c in widths]
     G.generic_minimal_matmul(
-        dev, x, w, out, (_MM_DEFAULT, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"MM_DUAL_NOC": 1}, KERNEL_DIR, None, ttnn.NOC_MODE.DM_DYNAMIC_NOC)
+        dev, x, w, outs, (_MM_DEFAULT, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
+        {"MM_DUAL_NOC": 1}, KERNEL_DIR, None, ttnn.NOC_MODE.DM_DYNAMIC_NOC,
+        None if split is None else [c // TILE for c in widths])
     STATS[0] += 1
-    return out
+    return outs[0] if split is None else outs

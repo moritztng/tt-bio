@@ -120,7 +120,7 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
-          noc_mode=None):
+          noc_mode=None, n_widths=None):
     """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
@@ -134,6 +134,11 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     ``m_k`` overrides the ``(M, K)`` the factory would infer from ``in0``'s shape, which a
     head-major activation reports wrongly: ``[S, 8, S, 32]`` is the same tile grid as
     ``[S*S, 256]`` but its last dim is 32.
+
+    ``n_widths`` is the N tile count of each output chunk, for the case where they are not all
+    the same -- a 512-wide projection and a 128-wide one sharing one pass over the activation.
+    Only a differing LAST chunk is supported, which is what the kernel's ``MM_SPLIT_LAST_TILES``
+    covers and what every call site needs. ``None`` means the stock equal split.
 
     ``noc_mode`` is for a DM kernel that issues transactions on the NOC it was NOT configured
     with. Under the default ``DM_DEDICATED_NOC`` the firmware only runs ``noc_local_state_init``
@@ -168,7 +173,14 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
 
     M_tiles, K_tiles, N_tiles = M // TILE_HW, K // TILE_HW, N // TILE_HW
     N_chunks = len(outs)
-    N_tiles_per_chunk = N_tiles // N_chunks
+    if n_widths is None:
+        N_tiles_per_chunk = N_tiles // N_chunks
+    else:
+        assert len(n_widths) == N_chunks and sum(n_widths) == N_tiles, (n_widths, N_tiles)
+        assert len(set(n_widths[:-1])) <= 1, ("only the last chunk may differ", n_widths)
+        N_tiles_per_chunk = n_widths[0]
+        if n_widths[-1] != n_widths[0]:
+            defines = defines + [("MM_SPLIT_LAST_TILES", str(int(n_widths[-1])))]
 
     in0_tile_size = tile_bytes(in0.dtype)
     in1_tile_size = tile_bytes(in1.dtype)
@@ -333,25 +345,26 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                      "transpose_core_grid": transpose, "defines": defines}}
 
 
-def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None):
+def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None, n_widths=None):
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
-            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode))
+            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode),
+            None if n_widths is None else tuple(n_widths))
 
 
 def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,
-                           m_k=None, noc_mode=None):
+                           m_k=None, noc_mode=None, n_widths=None):
     """``minimal_matmul`` through ``generic_op``, descriptor cached per shape/config."""
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
-    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode)
+    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode, n_widths)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = build(device, in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k,
-                                    noc_mode)
+                                    noc_mode, n_widths)
     addrs = (in0.buffer_address(), in1.buffer_address(),
              tuple(o.buffer_address() for o in outs))
     if addrs != entry["addrs"]:

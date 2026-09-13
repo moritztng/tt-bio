@@ -72,3 +72,103 @@ call and an engaged one write the same structure, so an identical digest on its 
 consistent with the optimization never having run. Every fold is recorded with the number of batched
 and per-head projections it actually made: 16 on Boltz-2, 30 on Protenix-v2, 12 on OpenFold3, and
 zero in every arm that had the flag off.
+
+## `TT_BIO_TRIATT_FUSED_QKVG` — on
+
+A triangle attention's query, key, value and gate projections all read the same normed pair tensor,
+and the two matrix multiplies that produce them each read all of it: 67.1 MB at 512 residues, twice
+per attention. Concatenating the gate's weight onto the qkv weight makes the four results four
+output chunks of one pass, and the second read never happens.
+
+**Accuracy: identical.** Every output tile is its own contraction over the whole contraction axis in
+both forms, so which buffer a tile lands in cannot change its value. Measured rather than argued:
+`torch.equal` at max abs 0.0 on the block outputs (`perf/b2z2_byte_round2/probe_opclass.py`), with
+negative controls that move the block by 1.74 and 0.49. The 512, 640, 1024 and 1536 residue folds of
+`perf/b2z2_size_ladder/` write byte-identical structures with the flag on and off.
+
+**Speed:** the three flags in this group together are **1.01573x on the Blackhole benchmark cell**
+(19.336 s to 19.0375 s, eight folds per arm interleaved ABBA, all eight pairs positive, worst-case
+A/A floor 1.00805x, `perf/b2z2_trunk_ship/cell_512_qb2_c0.json`) and 1.02648x on a Wormhole fold. A
+second session on the same box and fixture read 1.01947x over twelve folds against a floor of
+1.01075x (`perf/b2z2_trunk_ship/cell_512_guard_benchlock_clean.json`); the number quoted here is the
+lower of the two.
+On the pairformer block alone, where the reads are, they are 1.05106x. This flag is the smallest of
+the three on its own and does not separate from the floor of a single fold.
+
+tt-bio asks for the fused pass only where it declines to exactly what the separate calls would have
+declined to: one tile per head, no zero padding in the head channels, the same weight dtype, and no
+bias on the gate or the output projection. A model that biases either keeps the separate
+projections. No model name appears in the condition.
+
+## `TT_BIO_TRIATT_FUSED_QKVGB` — on
+
+The pair-bias projection is the third reader of that same normed tensor, one tile wide against the
+other four's four. This flag puts it in the pass as well, so the tensor is read once per triangle
+attention instead of three times. It needs `TT_BIO_TRIATT_FUSED_QKVG`; with that off it does
+nothing.
+
+**Accuracy: identical.** One detail matters for reproducing the shipped numbers: the bias
+weight is taken back off the device rather than rebuilt, because it has already been scaled there in
+bfloat16, and scaling in float32 and converting afterwards rounds differently. bfloat16 to float and
+back is exact, so the fused form carries the same bits.
+
+**One shape is declined to keep it that way: chains that fit in a single tile.** The tile-level
+argument the other two flags rest on does not carry this one all the way down. The bias projection is
+one tile wide against the other four's four, so adding it widens the fused result, and on a small
+enough target that changes how the multiply is split across cores and therefore the order its partial
+sums are added. Measured, not argued. Synthetic chains folded with this flag as the only difference
+(`perf/b2z2_trunk_ship/qkvgb_boundary.json`) are byte-identical at 48, 64, 96 and 112 residues and
+differ at 32; `trpcage_no_msa` at 20 residues differs too, and
+`perf/b2z2_trunk_ship/trpcage_pairs.json` puts that change on this flag alone, the other two
+reproducing the flags-off structure exactly. `prot_no_msa` at 117, `hsa_no_msa` at 585 and the 512 to
+1536 residue ladder are all clean. A chain of 32 residues or fewer occupies one tile on the token
+axis and 48 pads to two, so the fused pass declines whenever either axis of the pair tensor is a
+single tile, and the bias projection runs where it always ran.
+
+With that guard the flag is bit-identical at every length: 20, 32, 48 and 64 residues all write
+byte-identical structures with the three flags on and off
+(`perf/b2z2_trunk_ship/qkvgb_guard_verify.json`). It costs nothing, because a chain that short is not
+a performance case. It declines nothing at the sizes that matter: 560 fused calls served per fold at
+512, 1024 and 1536 residues, with the same structure digests the tree wrote before the guard existed
+(`perf/b2z2_trunk_ship/cell_512_guard_qb2_c0.json`,
+`perf/b2z2_size_ladder/out/ladder_guard_bh_c0.json`).
+
+**Speed:** the largest of the three. 1.02491x on the pairformer block by itself.
+
+## `TT_BIO_TRIMUL_FUSED_GOUT` — on
+
+A triangle multiplication reads its normed input twice: once for the four-way input projection and
+once for the output gate at the tail, with no write in between. Concatenating the gate's weight onto
+the input projection's makes the gate a second destination of one pass.
+
+**Accuracy: identical.** Same tile-level argument as above, and the same `torch.equal` at max abs 0.0
+at the production shape. The op class does change, so it was measured and not assumed.
+
+**Speed:** 1.01080x on the pairformer block by itself.
+
+**It switches itself off on large targets, and that is not a failure.** Above roughly 1024 residues
+the input projection runs a multi-iteration channel loop, which would recompute the gate once per
+iteration, so the fused form declines and the tail runs the projection it always ran. The structure
+is byte-identical either way, verified at 1536 residues where the gate declines all 560 calls. It
+also declines under `--fast`, on row-blocked norms, on an L1 channel path, and where the output gate
+carries a bias.
+
+## What the three cost in memory
+
+A fused pass holds a wider weight and a wider result, so peak device memory rises. Measured with all
+three on against all three off, one Blackhole processor of a p300c, `cdk2x2` at four sizes
+(`perf/b2z2_size_ladder/out/ladder_bh_c2.json`):
+
+| residues | peak, off | peak, on | delta |
+|---|---|---|---|
+| 512 | 1.678 GiB | 1.875 GiB | +11.7 % |
+| 640 | 2.090 GiB | 2.264 GiB | +8.3 % |
+| 1024 | 3.473 GiB | 3.918 GiB | +12.8 % |
+| 1536 | 5.694 GiB | 7.259 GiB | +27.5 % |
+
+The 1536 row is the two triangle-attention flags on their own, because the trimul gate has already
+declined every call by then. The 1024 and 1536 sizes were re-run after the single-tile guard landed
+(`perf/b2z2_size_ladder/out/ladder_guard_bh_c0.json`): same digests, same engagement, peak within
+0.8 percentage points of the table. No size refused an allocation: 7.26 GiB is 22.8 % of the 31.87 GiB
+part, and the smallest largest-contiguous free block per bank at the high-water mark is 3013 MiB
+with the flags on against 3157 MiB without them.

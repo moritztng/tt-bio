@@ -1,0 +1,49 @@
+{
+  "legs": [
+    {
+      "leg": "boltz2-trpcage-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst kabsch_rmsd: num=0.0778 env=0.1446 ratio=0.54; kabsch_rmsd r=0.54",
+      "wall": 30.00839119098964,
+      "committed": "PASS",
+      "report": "boltz2-trpcage-nomsa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 30.008620217995485,
+  "card_grant": [
+    3
+  ],
+  "skipped_for_card_grant": [],
+  "workers": [
+    "localhost:3"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "1": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "2": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      },
+      "3": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      }
+    }
+  }
+}
