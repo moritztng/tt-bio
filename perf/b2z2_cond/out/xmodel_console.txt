@@ -1,0 +1,16 @@
+=== protenix-v2 ===
+2026-09-13 13:59:11.655 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== protenix-v2 512: cold fold (discarded) ===
+  cold 79.08s n_tokens=512 plddt=0.824303 pwa=[30, 0]
+  on: 73.79s plddt=0.824303 batched=30 per_head=0 cif={'cdk2x2_512.cif': '15772214c5b9e990'}
+FAILED protenix-v2
+=== openfold3 ===
+2026-09-13 14:01:49.028 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== openfold3 512: cold fold (discarded) ===
+  [fold] sample 0: xl_final std=16.1532 range=[-48.95,44.87]
+  cold 55.37s n_tokens=512 plddt=0.547851 pwa=[12, 0]
+  [fold] sample 0: xl_final std=16.1532 range=[-48.95,44.87]
+  on: 53.89s plddt=0.547851 batched=12 per_head=0 cif={'cdk2x2_512.cif': '6ee6ac7a3e730688'}
+FAILED openfold3

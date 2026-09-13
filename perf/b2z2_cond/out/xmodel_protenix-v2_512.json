@@ -1,0 +1,29 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "2",
+ "model": "protenix-v2",
+ "size": 512,
+ "sampling_steps": 200,
+ "diffusion_samples": 1,
+ "recycling_steps": 10,
+ "seed": 0,
+ "n_msa": 35,
+ "runs": [
+  {
+   "arm": "on",
+   "flag": true,
+   "fold_s": 73.794,
+   "wall_s": 73.795,
+   "n_tokens": 512,
+   "plddt": 0.824303,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "15772214c5b9e990"
+   },
+   "pwa_batch_head_stats": {
+    "batched": 30,
+    "per_head": 0
+   }
+  }
+ ]
+}
