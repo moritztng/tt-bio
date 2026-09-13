@@ -14,7 +14,9 @@ from pathlib import Path
 
 
 def _load(root: Path, arm: str) -> dict:
-    return json.loads((root / arm / "arm.json").read_text())
+    """An arm's record, or None if that arm never wrote one -- a crashed arm is a result too."""
+    f = root / arm / "arm.json"
+    return json.loads(f.read_text()) if f.is_file() else None
 
 
 def _coords(root: Path, arm: str):
@@ -59,6 +61,12 @@ def _deviation(root: Path, a: str, b: str) -> str:
 def main() -> int:
     root = Path(sys.argv[1])
     arms = {a: _load(root, a) for a in ("base", "l1", "base2")}
+    missing = [a for a, r in arms.items() if r is None]
+    if missing:
+        print(f"arms that produced no record: {', '.join(missing)}")
+        print("\nVERDICT: NO-GO -- an arm did not finish. A lever that crashes the pipeline is a "
+              "NO-GO whatever the surviving arms agree on; read that arm's log for the throw.")
+        return 1
 
     print(f"{'arm':6} {'wall_s':>9}  {'ATOM_L1_STATS':38} file_sha256")
     for name, rec in arms.items():
