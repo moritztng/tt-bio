@@ -1,0 +1,25 @@
+{
+  "arm": "l1",
+  "atom_l1_env": "1",
+  "atom_l1_stats": {
+    "dram": 0,
+    "l1": 3000,
+    "off": 0,
+    "shape": 0
+  },
+  "designs": {
+    "bg768.cif": {
+      "coord_sha256": "d2a6248fa2b00657c812ead455f92b019bc4b5220a7f4877a6079ee14557ad91",
+      "file_sha256": "1ee1921bc525bb7f2539e86cd9b2223c53143f4e80e175ead8e1e2ee1ce68684"
+    }
+  },
+  "device_ids": "3",
+  "protocol": [
+    "diffusion_samples: ${diffusion_samples}",
+    "recycling_steps: 3",
+    "sampling_steps: 500",
+    "diffusion_samples: 1"
+  ],
+  "seed": 0,
+  "wall_s": 230.145
+}
