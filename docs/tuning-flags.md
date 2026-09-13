@@ -53,7 +53,10 @@ negative controls that move the block by 1.74 and 0.49. The 512, 640, 1024 and 1
 
 **Speed:** the three flags in this group together are **1.01573x on the Blackhole benchmark cell**
 (19.336 s to 19.0375 s, eight folds per arm interleaved ABBA, all eight pairs positive, worst-case
-A/A floor 1.00805x, `perf/b2z2_trunk_ship/cell_512_qb2_c0.json`) and 1.02648x on a Wormhole fold.
+A/A floor 1.00805x, `perf/b2z2_trunk_ship/cell_512_qb2_c0.json`) and 1.02648x on a Wormhole fold. A
+second session on the same box and fixture read 1.01947x over twelve folds against a floor of
+1.01075x (`perf/b2z2_trunk_ship/cell_512_guard_benchlock_clean.json`); the number quoted here is the
+lower of the two.
 On the pairformer block alone, where the reads are, they are 1.05106x. This flag is the smallest of
 the three on its own and does not separate from the floor of a single fold.
 
@@ -90,8 +93,10 @@ single tile, and the bias projection runs where it always ran.
 With that guard the flag is bit-identical at every length: 20, 32, 48 and 64 residues all write
 byte-identical structures with the three flags on and off
 (`perf/b2z2_trunk_ship/qkvgb_guard_verify.json`). It costs nothing, because a chain that short is not
-a performance case. At 512 residues the guard declines nothing: 560 fused calls served per fold and
-the same structure digest (`perf/b2z2_trunk_ship/cell_512_guard_qb2_c0.json`).
+a performance case. It declines nothing at the sizes that matter: 560 fused calls served per fold at
+512, 1024 and 1536 residues, with the same structure digests the tree wrote before the guard existed
+(`perf/b2z2_trunk_ship/cell_512_guard_qb2_c0.json`,
+`perf/b2z2_size_ladder/out/ladder_guard_bh_c0.json`).
 
 **Speed:** the largest of the three. 1.02491x on the pairformer block by itself.
 
@@ -127,6 +132,8 @@ three on against all three off, one Blackhole processor of a p300c, `cdk2x2` at 
 | 1536 | 5.694 GiB | 7.259 GiB | +27.5 % |
 
 The 1536 row is the two triangle-attention flags on their own, because the trimul gate has already
-declined every call by then. No size refused an allocation: 7.26 GiB is 22.8 % of the 31.87 GiB
+declined every call by then. The 1024 and 1536 sizes were re-run after the single-tile guard landed
+(`perf/b2z2_size_ladder/out/ladder_guard_bh_c0.json`): same digests, same engagement, peak within
+0.8 percentage points of the table. No size refused an allocation: 7.26 GiB is 22.8 % of the 31.87 GiB
 part, and the smallest largest-contiguous free block per bank at the high-water mark is 3013 MiB
 with the flags on against 3157 MiB without them.
