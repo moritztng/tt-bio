@@ -1,0 +1,51 @@
+2026-09-13 17:04:53.470 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/agent/.cache/ttnn,model_cache_path=/home/agent/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+
+=== ROOF (Arch.WORMHOLE_B0 WH galaxy j10glx02 card28, grid 8x9) ===
+copy   clone 512x512x128          67.1 MB              0.6358 ms  DRAM   211.1 GB/s  mem   211.1 GB/s  alias=False  spread 1.055x
+rw     add   512x512x128          67.1 MB              0.9035 ms  DRAM   222.8 GB/s  mem   222.8 GB/s  alias=False  spread 1.036x
+copy   clone 1x128x512x512        67.1 MB              0.6333 ms  DRAM   211.9 GB/s  mem   211.9 GB/s  alias=False  spread 1.063x
+rw     add   1x128x512x512        67.1 MB              0.8982 ms  DRAM   224.1 GB/s  mem   224.1 GB/s  alias=False  spread 1.046x
+copy   clone 2048x2048             8.4 MB              0.1218 ms  DRAM   137.8 GB/s  mem   137.8 GB/s  alias=False  spread 1.299x
+rw     add   2048x2048             8.4 MB              0.1652 ms  DRAM   152.3 GB/s  mem   152.3 GB/s  alias=False  spread 1.190x
+copy   clone 4096x4096            33.6 MB              0.3456 ms  DRAM   194.2 GB/s  mem   194.2 GB/s  alias=False  spread 1.095x
+rw     add   4096x4096            33.6 MB              0.4936 ms  DRAM   204.0 GB/s  mem   204.0 GB/s  alias=False  spread 1.074x
+copy   clone 8192x8192           134.2 MB              1.2114 ms  DRAM   221.6 GB/s  mem   221.6 GB/s  alias=False  spread 1.044x
+rw     add   8192x8192           134.2 MB              1.7299 ms  DRAM   232.8 GB/s  mem   232.8 GB/s  alias=False  spread 1.023x
+
+MEASURED DRAM ROOF 232.8 GB/s  (rw     add   8192x8192           134.2 MB)
+
+=== INSTRUMENT-CONTROL ===
+control STARVED add 8192x8192 bf16 (predict ~roof)     1.7442 ms  DRAM   230.9 GB/s  mem   230.9 GB/s  alias=False  spread 1.033x
+control COMPUTE matmul 2048^3 HiFi4 (predict << roof)   0.4842 ms  DRAM    52.0 GB/s  mem    52.0 GB/s  alias=False  spread 1.056x
+  control STARVED add 8192x8192 bf16 (predict ~roof)    99.2 % of roof
+  control COMPUTE matmul 2048^3 HiFi4 (predict << roof)  22.3 % of roof  35.48 TFLOP/s
+
+=== THE FIVE ROWS (in-place; bytes = read a + read b + write a) ===
+row trimul pair mask  mul_(CH DRAM, mask DRAM)         0.8886 ms  DRAM   151.6 GB/s  mem   151.6 GB/s  alias=True  spread 1.025x
+row triatt out gate   mul_(HM DRAM, HM DRAM) sigmoid   1.2758 ms  DRAM   157.8 GB/s  mem   157.8 GB/s  alias=True  spread 1.024x
+row residual          add_(P DRAM, P DRAM)             0.8763 ms  DRAM   229.7 GB/s  mem   229.7 GB/s  alias=True  spread 1.038x
+row trimul out gate   mul_(P L1, P DRAM) sigmoid       1.2769 ms  DRAM    52.6 GB/s  mem   157.7 GB/s  alias=True  spread 1.011x
+row residual          add_(P DRAM, P L1)               0.6602 ms  DRAM   203.3 GB/s  mem   305.0 GB/s  alias=True  spread 1.075x
+
+=== SWEEP add_(DRAM, DRAM) vs size ===
+sweep add_ 1x512x512x8          12.6 MB DRAM           0.2559 ms  DRAM    49.2 GB/s  mem    49.2 GB/s  alias=True  spread 1.015x
+sweep add_ 1x512x512x16         25.2 MB DRAM           0.2554 ms  DRAM    98.6 GB/s  mem    98.6 GB/s  alias=True  spread 1.040x
+sweep add_ 1x512x512x32         50.3 MB DRAM           0.2560 ms  DRAM   196.6 GB/s  mem   196.6 GB/s  alias=True  spread 1.018x
+sweep add_ 1x512x512x64        100.7 MB DRAM           0.4738 ms  DRAM   212.5 GB/s  mem   212.5 GB/s  alias=True  spread 1.011x
+sweep add_ 1x512x512x128       201.3 MB DRAM           0.8699 ms  DRAM   231.4 GB/s  mem   231.4 GB/s  alias=True  spread 1.015x
+FIT  marginal 292.0 GB/s (125.4 % of roof), intercept 0.1551 ms, r2 0.96521
+
+=== ABLATION residency: add_(P DRAM, b DRAM) vs add_(P DRAM, b L1) ===
+abl c=8   b DRAM   12.6 MB DRAM                        0.2559 ms  DRAM    49.2 GB/s  mem    49.2 GB/s  alias=True  spread 1.024x
+abl c=8   b L1      8.4 MB DRAM                        0.1884 ms  DRAM    44.5 GB/s  mem    66.8 GB/s  alias=True  spread 1.106x
+abl c=16  b DRAM   25.2 MB DRAM                        0.2560 ms  DRAM    98.3 GB/s  mem    98.3 GB/s  alias=True  spread 1.036x
+abl c=16  b L1     16.8 MB DRAM                        0.1840 ms  DRAM    91.2 GB/s  mem   136.8 GB/s  alias=True  spread 1.059x
+abl c=32  b DRAM   50.3 MB DRAM                        0.2549 ms  DRAM   197.4 GB/s  mem   197.4 GB/s  alias=True  spread 1.025x
+abl c=32  b L1     33.6 MB DRAM                        0.1878 ms  DRAM   178.7 GB/s  mem   268.0 GB/s  alias=True  spread 1.076x
+abl c=64  b DRAM  100.7 MB DRAM                        0.4753 ms  DRAM   211.8 GB/s  mem   211.8 GB/s  alias=True  spread 1.016x
+abl c=64  b L1     67.1 MB DRAM                        0.3399 ms  DRAM   197.4 GB/s  mem   296.1 GB/s  alias=True  spread 1.070x
+abl c=128 b DRAM  201.3 MB DRAM                        0.8719 ms  DRAM   230.9 GB/s  mem   230.9 GB/s  alias=True  spread 1.015x
+abl c=128 b L1    134.2 MB DRAM                        0.6586 ms  DRAM   203.8 GB/s  mem   305.7 GB/s  alias=True  spread 1.075x
+
+WROTE /home/agent/k10bngout/site_roof_whglx_c28.json
