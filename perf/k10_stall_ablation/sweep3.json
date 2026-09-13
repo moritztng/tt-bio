@@ -1,0 +1,711 @@
+{
+ "env": {
+  "started": "2026-09-13T17:13:53+0000",
+  "host": "j10glx02",
+  "card_TT_VISIBLE_DEVICES": "2",
+  "commit": "d7277c5b7",
+  "profiler": "1",
+  "ttnn": "/home/mthuening/work/b2z2-profiler/tt-metal/ttnn/ttnn/__init__.py",
+  "host_thread_cap": {
+   "OMP_NUM_THREADS": "8",
+   "MKL_NUM_THREADS": "8",
+   "OPENBLAS_NUM_THREADS": "8",
+   "NUMEXPR_NUM_THREADS": "8"
+  },
+  "host_workers_assumed": 8,
+  "cpu_count": 64,
+  "loadavg_start": [
+   "5.01",
+   "8.13",
+   "14.88"
+  ],
+  "reps": 5,
+  "warmup": 2,
+  "m": 512,
+  "small_m": 64,
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "loadavg_end": [
+   "4.79",
+   "7.98",
+   "14.75"
+  ]
+ },
+ "arms": [
+  {
+   "name": "ctl.starved.add",
+   "opcode": "BinaryNgDeviceOperation",
+   "knob": "control",
+   "level": "starved"
+  },
+  {
+   "name": "ctl.compute.matmul",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "control",
+   "level": "compute"
+  },
+  {
+   "name": "gen.AA.a",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "AA",
+   "level": "a"
+  },
+  {
+   "name": "gen.AA.b",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "AA",
+   "level": "b"
+  },
+  {
+   "name": "mm.AA.a",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "AA",
+   "level": "a"
+  },
+  {
+   "name": "mm.AA.b",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "AA",
+   "level": "b"
+  },
+  {
+   "name": "gen.kblock2",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "kblock",
+   "level": "2"
+  },
+  {
+   "name": "gen.kblock1",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "kblock",
+   "level": "1"
+  },
+  {
+   "name": "gen.mblk8",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "rec1159",
+   "level": "M_block 8 alone"
+  },
+  {
+   "name": "gen.g8x8",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "rec1159",
+   "level": "grid 8x8 alone"
+  },
+  {
+   "name": "gen.kb2.g8x8",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "rec1159",
+   "level": "K_block 2 + grid 8x8"
+  },
+  {
+   "name": "gen.mblk8.kb2.g8x8",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "rec1159",
+   "level": "the recorded config (8,2,1,4,1) 8x8"
+  },
+  {
+   "name": "gen.in1L1",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_in1",
+   "level": "L1"
+  },
+  {
+   "name": "mm.in1L1",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "residency_in1",
+   "level": "L1"
+  },
+  {
+   "name": "gen.smallM.dram",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_in0",
+   "level": "DRAM"
+  },
+  {
+   "name": "gen.smallM.in0L1",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_in0",
+   "level": "L1"
+  },
+  {
+   "name": "gen.smallM.outL1",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_out",
+   "level": "L1"
+  },
+  {
+   "name": "gen.smallM.dram2",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_out",
+   "level": "DRAM"
+  },
+  {
+   "name": "mm.smallM.dram",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "residency_in0",
+   "level": "DRAM"
+  },
+  {
+   "name": "mm.smallM.in0L1",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "residency_in0",
+   "level": "L1"
+  },
+  {
+   "name": "gen.cb3x",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "cbdepth",
+   "level": "3x"
+  },
+  {
+   "name": "gen.cb4x",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "cbdepth",
+   "level": "4x"
+  },
+  {
+   "name": "gen.kb2.cb4x",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "cbdepth_kb2",
+   "level": "4x"
+  },
+  {
+   "name": "gen.kb2.cb2x",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "cbdepth_kb2",
+   "level": "2x"
+  },
+  {
+   "name": "gen.hifi2",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "fidelity",
+   "level": "HiFi2"
+  },
+  {
+   "name": "gen.lofi",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "fidelity",
+   "level": "LoFi"
+  },
+  {
+   "name": "mm.hifi2",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "fidelity",
+   "level": "HiFi2"
+  },
+  {
+   "name": "mm.lofi",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "fidelity",
+   "level": "LoFi"
+  },
+  {
+   "name": "mm.bfp8.in1",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "dtype",
+   "level": "bfp8_in1"
+  },
+  {
+   "name": "mm.bfp8.both",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "dtype",
+   "level": "bfp8_both"
+  },
+  {
+   "name": "gen.mdiv2",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "quantum",
+   "level": "M/2"
+  },
+  {
+   "name": "mm.mdiv2",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "quantum",
+   "level": "M/2"
+  },
+  {
+   "name": "gen.mdiv4",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "quantum",
+   "level": "M/4"
+  },
+  {
+   "name": "mm.mdiv4",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "quantum",
+   "level": "M/4"
+  },
+  {
+   "name": "gen.gridq4x9",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "gridq",
+   "level": "4x9 @ M/2"
+  },
+  {
+   "name": "mm.gridq4x9",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "gridq",
+   "level": "4x9 @ M/2"
+  },
+  {
+   "name": "gen.gridq8x9.m256",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "gridq",
+   "level": "8x9 @ M/2 (quantum halved)"
+  }
+ ],
+ "warmup_s": 3.76,
+ "measured_s": 0.35,
+ "dispatch_order": [
+  "ctl.starved.add",
+  "ctl.compute.matmul",
+  "gen.AA.a",
+  "gen.AA.b",
+  "mm.AA.a",
+  "mm.AA.b",
+  "gen.kblock2",
+  "gen.kblock1",
+  "gen.mblk8",
+  "gen.g8x8",
+  "gen.kb2.g8x8",
+  "gen.mblk8.kb2.g8x8",
+  "gen.in1L1",
+  "mm.in1L1",
+  "gen.smallM.dram",
+  "gen.smallM.in0L1",
+  "gen.smallM.outL1",
+  "gen.smallM.dram2",
+  "mm.smallM.dram",
+  "mm.smallM.in0L1",
+  "gen.cb3x",
+  "gen.cb4x",
+  "gen.kb2.cb4x",
+  "gen.kb2.cb2x",
+  "gen.hifi2",
+  "gen.lofi",
+  "mm.hifi2",
+  "mm.lofi",
+  "mm.bfp8.in1",
+  "mm.bfp8.both",
+  "gen.mdiv2",
+  "mm.mdiv2",
+  "gen.mdiv4",
+  "mm.mdiv4",
+  "gen.gridq4x9",
+  "mm.gridq4x9",
+  "gen.gridq8x9.m256",
+  "ctl.starved.add",
+  "ctl.compute.matmul",
+  "gen.AA.a",
+  "gen.AA.b",
+  "mm.AA.a",
+  "mm.AA.b",
+  "gen.kblock2",
+  "gen.kblock1",
+  "gen.mblk8",
+  "gen.g8x8",
+  "gen.kb2.g8x8",
+  "gen.mblk8.kb2.g8x8",
+  "gen.in1L1",
+  "mm.in1L1",
+  "gen.smallM.dram",
+  "gen.smallM.in0L1",
+  "gen.smallM.outL1",
+  "gen.smallM.dram2",
+  "mm.smallM.dram",
+  "mm.smallM.in0L1",
+  "gen.cb3x",
+  "gen.cb4x",
+  "gen.kb2.cb4x",
+  "gen.kb2.cb2x",
+  "gen.hifi2",
+  "gen.lofi",
+  "mm.hifi2",
+  "mm.lofi",
+  "mm.bfp8.in1",
+  "mm.bfp8.both",
+  "gen.mdiv2",
+  "mm.mdiv2",
+  "gen.mdiv4",
+  "mm.mdiv4",
+  "gen.gridq4x9",
+  "mm.gridq4x9",
+  "gen.gridq8x9.m256",
+  "ctl.starved.add",
+  "ctl.compute.matmul",
+  "gen.AA.a",
+  "gen.AA.b",
+  "mm.AA.a",
+  "mm.AA.b",
+  "gen.kblock2",
+  "gen.kblock1",
+  "gen.mblk8",
+  "gen.g8x8",
+  "gen.kb2.g8x8",
+  "gen.mblk8.kb2.g8x8",
+  "gen.in1L1",
+  "mm.in1L1",
+  "gen.smallM.dram",
+  "gen.smallM.in0L1",
+  "gen.smallM.outL1",
+  "gen.smallM.dram2",
+  "mm.smallM.dram",
+  "mm.smallM.in0L1",
+  "gen.cb3x",
+  "gen.cb4x",
+  "gen.kb2.cb4x",
+  "gen.kb2.cb2x",
+  "gen.hifi2",
+  "gen.lofi",
+  "mm.hifi2",
+  "mm.lofi",
+  "mm.bfp8.in1",
+  "mm.bfp8.both",
+  "gen.mdiv2",
+  "mm.mdiv2",
+  "gen.mdiv4",
+  "mm.mdiv4",
+  "gen.gridq4x9",
+  "mm.gridq4x9",
+  "gen.gridq8x9.m256",
+  "ctl.starved.add",
+  "ctl.compute.matmul",
+  "gen.AA.a",
+  "gen.AA.b",
+  "mm.AA.a",
+  "mm.AA.b",
+  "gen.kblock2",
+  "gen.kblock1",
+  "gen.mblk8",
+  "gen.g8x8",
+  "gen.kb2.g8x8",
+  "gen.mblk8.kb2.g8x8",
+  "gen.in1L1",
+  "mm.in1L1",
+  "gen.smallM.dram",
+  "gen.smallM.in0L1",
+  "gen.smallM.outL1",
+  "gen.smallM.dram2",
+  "mm.smallM.dram",
+  "mm.smallM.in0L1",
+  "gen.cb3x",
+  "gen.cb4x",
+  "gen.kb2.cb4x",
+  "gen.kb2.cb2x",
+  "gen.hifi2",
+  "gen.lofi",
+  "mm.hifi2",
+  "mm.lofi",
+  "mm.bfp8.in1",
+  "mm.bfp8.both",
+  "gen.mdiv2",
+  "mm.mdiv2",
+  "gen.mdiv4",
+  "mm.mdiv4",
+  "gen.gridq4x9",
+  "mm.gridq4x9",
+  "gen.gridq8x9.m256",
+  "ctl.starved.add",
+  "ctl.compute.matmul",
+  "gen.AA.a",
+  "gen.AA.b",
+  "mm.AA.a",
+  "mm.AA.b",
+  "gen.kblock2",
+  "gen.kblock1",
+  "gen.mblk8",
+  "gen.g8x8",
+  "gen.kb2.g8x8",
+  "gen.mblk8.kb2.g8x8",
+  "gen.in1L1",
+  "mm.in1L1",
+  "gen.smallM.dram",
+  "gen.smallM.in0L1",
+  "gen.smallM.outL1",
+  "gen.smallM.dram2",
+  "mm.smallM.dram",
+  "mm.smallM.in0L1",
+  "gen.cb3x",
+  "gen.cb4x",
+  "gen.kb2.cb4x",
+  "gen.kb2.cb2x",
+  "gen.hifi2",
+  "gen.lofi",
+  "mm.hifi2",
+  "mm.lofi",
+  "mm.bfp8.in1",
+  "mm.bfp8.both",
+  "gen.mdiv2",
+  "mm.mdiv2",
+  "gen.mdiv4",
+  "mm.mdiv4",
+  "gen.gridq4x9",
+  "mm.gridq4x9",
+  "gen.gridq8x9.m256"
+ ],
+ "synced_wall_ms": {
+  "ctl.starved.add": [
+   0.6272,
+   0.6205,
+   0.6175,
+   0.6229,
+   0.6233
+  ],
+  "ctl.compute.matmul": [
+   0.5831,
+   0.5622,
+   0.5587,
+   0.8472,
+   0.571
+  ],
+  "gen.AA.a": [
+   2.7615,
+   2.6941,
+   2.7066,
+   2.7148,
+   2.7512
+  ],
+  "gen.AA.b": [
+   2.6858,
+   2.6746,
+   2.7156,
+   2.7282,
+   2.7058
+  ],
+  "mm.AA.a": [
+   1.9318,
+   1.9333,
+   1.9318,
+   1.936,
+   1.9403
+  ],
+  "mm.AA.b": [
+   1.9146,
+   1.9186,
+   1.937,
+   1.9175,
+   1.923
+  ],
+  "gen.kblock2": [
+   2.9238,
+   2.9451,
+   2.9374,
+   2.9211,
+   2.8716
+  ],
+  "gen.kblock1": [
+   3.1849,
+   3.1812,
+   3.1792,
+   3.2029,
+   3.1973
+  ],
+  "gen.mblk8": [
+   2.6899,
+   2.5994,
+   2.5209,
+   2.6444,
+   2.6152
+  ],
+  "gen.g8x8": [
+   2.7025,
+   2.6914,
+   2.6618,
+   2.7059,
+   2.6922
+  ],
+  "gen.kb2.g8x8": [
+   2.8489,
+   2.9096,
+   2.8492,
+   2.8728,
+   2.8852
+  ],
+  "gen.mblk8.kb2.g8x8": [
+   2.9048,
+   2.9454,
+   2.9375,
+   3.038,
+   2.8897
+  ],
+  "gen.in1L1": [
+   2.6114,
+   2.634,
+   2.6253,
+   2.6303,
+   2.6541
+  ],
+  "mm.in1L1": [
+   1.943,
+   1.9473,
+   1.9454,
+   1.9377,
+   1.9405
+  ],
+  "gen.smallM.dram": [
+   0.6151,
+   0.616,
+   0.6261,
+   0.6336,
+   0.5869
+  ],
+  "gen.smallM.in0L1": [
+   0.5876,
+   0.627,
+   0.6109,
+   0.6162,
+   0.5764
+  ],
+  "gen.smallM.outL1": [
+   0.5497,
+   0.5424,
+   0.5493,
+   0.5605,
+   0.5035
+  ],
+  "gen.smallM.dram2": [
+   0.5774,
+   0.5683,
+   0.6021,
+   0.6008,
+   0.5504
+  ],
+  "mm.smallM.dram": [
+   0.453,
+   0.4383,
+   0.4424,
+   0.4329,
+   0.6054
+  ],
+  "mm.smallM.in0L1": [
+   0.3935,
+   0.7485,
+   0.8124,
+   0.399,
+   0.3457
+  ],
+  "gen.cb3x": [
+   2.699,
+   2.7029,
+   2.7348,
+   2.715,
+   2.6698
+  ],
+  "gen.cb4x": [
+   2.7865,
+   2.6876,
+   2.711,
+   2.6956,
+   2.6881
+  ],
+  "gen.kb2.cb4x": [
+   3.0489,
+   2.9392,
+   2.9868,
+   3.0356,
+   2.7242
+  ],
+  "gen.kb2.cb2x": [
+   2.8618,
+   2.8439,
+   2.8857,
+   2.8916,
+   2.8003
+  ],
+  "gen.hifi2": [
+   2.6565,
+   2.7208,
+   2.6502,
+   2.6575,
+   2.6262
+  ],
+  "gen.lofi": [
+   2.6363,
+   2.6389,
+   2.709,
+   2.6492,
+   2.6368
+  ],
+  "mm.hifi2": [
+   1.9286,
+   1.928,
+   1.9277,
+   1.9312,
+   1.921
+  ],
+  "mm.lofi": [
+   1.9098,
+   1.9007,
+   1.9295,
+   1.898,
+   1.8858
+  ],
+  "mm.bfp8.in1": [
+   2.0048,
+   1.9183,
+   1.9161,
+   1.9236,
+   1.9092
+  ],
+  "mm.bfp8.both": [
+   1.9321,
+   1.757,
+   1.7598,
+   1.7728,
+   1.7606
+  ],
+  "gen.mdiv2": [
+   1.5986,
+   1.5175,
+   1.5322,
+   1.5318,
+   1.4942
+  ],
+  "mm.mdiv2": [
+   1.4028,
+   1.392,
+   1.383,
+   1.4189,
+   1.3839
+  ],
+  "gen.mdiv4": [
+   0.9264,
+   0.9086,
+   0.9369,
+   0.9305,
+   0.891
+  ],
+  "mm.mdiv4": [
+   0.7196,
+   0.7166,
+   0.7256,
+   0.7155,
+   0.7229
+  ],
+  "gen.gridq4x9": [
+   2.1323,
+   2.1634,
+   2.1804,
+   2.1507,
+   2.1323
+  ],
+  "mm.gridq4x9": [
+   1.0744,
+   1.0838,
+   1.0785,
+   1.0828,
+   1.073
+  ],
+  "gen.gridq8x9.m256": [
+   1.5215,
+   1.4886,
+   1.5127,
+   1.502,
+   1.465
+  ]
+ }
+}
