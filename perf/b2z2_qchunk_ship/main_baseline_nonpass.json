@@ -1,0 +1,65 @@
+{
+ "doc": "The non-PASS legs of the current-main parity gate, extracted so the ship run is controlled leg\nby leg against digits rather than against a summary.\n\n`perf/b2z2_gate/gate_asg.json` was produced on `wk/b2z2-asg-ship` @ `2f5072d88`, and\n`git diff 2f5072d88 origin/main -- tt_bio/ scripts/` is empty, so it IS main's report: a second\n141-minute control run would reproduce it. A leg that is not PASS here must reproduce these digits\non the ship branch, or it is a regression this branch caused and not a gap it inherited.\n",
+ "source": "perf/b2z2_gate/gate_asg.json",
+ "verdict_counts": {
+  "PASS": 38,
+  "GAP": 4,
+  "PASS-caveated": 1,
+  "BLOCKED-REF-REGEN-NEEDED": 1
+ },
+ "tally": {
+  "PASS": 38,
+  "GAP": 4,
+  "BLOCKED-REF-REGEN-NEEDED": 1,
+  "PASS-caveated": 1
+ },
+ "total_wall_s": 8475.055202283002,
+ "non_pass": {
+  "af2ig-trunk-device": {
+   "leg": "af2ig-trunk-device",
+   "verdict": "GAP",
+   "detail": "13/94 taps and 2/6 scalars on the committed bf16 floor (tol 1.10x)",
+   "wall": 203.4056915290057,
+   "committed": "GAP-evidenced",
+   "report": "af2ig-trunk-device.json"
+  },
+  "af2ig-trunk-monomer": {
+   "leg": "af2ig-trunk-monomer",
+   "verdict": "PASS-caveated",
+   "detail": "monomer: 90 taps, 0 failed, 32 in the float32 envelope; worst structure_module#3/final_atom_positions pcc=0.971828",
+   "wall": 9.563416447002965,
+   "committed": null,
+   "report": "af2ig-trunk-monomer.json"
+  },
+  "boltz2-9ncy-nomsa": {
+   "leg": "boltz2-9ncy-nomsa",
+   "verdict": "GAP",
+   "detail": "envelope worst kabsch_rmsd: num=6.6175 env=1.6594 ratio=3.99; kabsch_rmsd r=3.99",
+   "wall": 30.0408068129982,
+   "committed": "GAP-evidenced",
+   "report": "boltz2-9ncy-nomsa.json"
+  },
+  "boltz2-prot-nomsa": {
+   "leg": "boltz2-prot-nomsa",
+   "verdict": "GAP",
+   "detail": "envelope worst kabsch_rmsd: num=7.0631 env=3.4501 ratio=2.05; kabsch_rmsd r=2.05",
+   "wall": 14.012395290999848,
+   "committed": "GAP-evidenced",
+   "report": "boltz2-prot-nomsa.json"
+  },
+  "openfold3-7xi5-notmpl": {
+   "leg": "openfold3-7xi5-notmpl",
+   "verdict": "GAP",
+   "detail": "7xi5_notmpl: X=5.390 R=2.867 D=0.614 within=False",
+   "wall": 238.78632696699788,
+   "committed": "GAP-evidenced",
+   "report": "openfold3-7xi5-notmpl.json"
+  },
+  "protenix-9ncy-msa": {
+   "leg": "protenix-9ncy-msa",
+   "verdict": "BLOCKED-REF-REGEN-NEEDED",
+   "detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/9ncy.cif (run scripts/fetch_parity_fixtures.sh to restore the externalized reference binaries; if it already ran clean, the release asset itself is missing them (scripts/full_parity_gate.py --verify-fixtures))",
+   "wall": 0
+  }
+ }
+}

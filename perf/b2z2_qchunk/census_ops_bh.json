@@ -1,0 +1,171 @@
+{
+ "doc": "`TT_BIO_SDPA_GRID_Q_CHUNK` on Blackhole, isolated: does the lever have one sign, or one per site?\n\nThree phases in ONE process on ONE device, each written to --out as it finishes.\n\n  census   one fold per arm, discarded for timing, with `SDPA_GRID_Q_CHUNK_PICKS` snapshotted\n           after each. That counter sits outside the rule's lru_cache, so it counts CALLS, and\n           it records the shipped chunk beside the chosen one: a site where they are equal is a\n           site the rule DECLINED to move, which is the reading that has been mistaken for a win.\n           The previous row could not read this counter at all -- it censused the CLI parent while\n           the fold ran in spawned device workers. This harness drives `predict_one` in-process.\n\n  ops      an isolated A/B at every shape the census saw, shipped chunk against the rule's chunk,\n           interleaved, `torch.equal` on the outputs. This is also the arm-switching CONTROL: if\n           the two chunks do not produce measurably different programs here, the in-process fold\n           arms below are sharing a compiled program and the fold A/B would be meaningless.\n\n  fold     paired interleaved A/B, `base ship ship base` per rep so the order reverses inside the\n           rep, cold folds discarded, loadavg per fold, CIF sha256 per fold. The A/A floor comes\n           from THIS session's same-arm adjacent pairs, never from another row's draws.\n\nThe arms are set in-process by assigning the module constant the rule reads per call; nothing is\nexported, so neither arm can inherit the other's environment.\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "arch": "Arch.BLACKHOLE",
+  "storage_grid": [
+   11,
+   10
+  ],
+  "compute_grid_main": [
+   11,
+   10
+  ],
+  "cores": 110,
+  "tt_visible_devices": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-qchunk-isolated-bh/tt_bio/__init__.py",
+  "torch": "2.8.0+cpu",
+  "commit": "c132db069b81f50dc0e90233038a393693ad1997",
+  "started_utc": "2026-09-13T01:19:03Z",
+  "loadavg_start": [
+   1.591796875,
+   1.380859375,
+   1.11572265625
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "steps": 200,
+   "seed": 0,
+   "size_aa": "512",
+   "atom_l1": false
+  }
+ },
+ "census": {
+  "base": [
+   {
+    "site": "atom",
+    "q_len": 32,
+    "k_len": 128,
+    "work": 560,
+    "d": 32,
+    "calls": 1200,
+    "shipped_chunk": 32,
+    "chunk": 32,
+    "units": 560,
+    "moved": false
+   },
+   {
+    "site": "token_dit",
+    "q_len": 512,
+    "k_len": 512,
+    "work": 16,
+    "d": 64,
+    "calls": 4800,
+    "shipped_chunk": 256,
+    "chunk": 256,
+    "units": 32,
+    "moved": false
+   }
+  ],
+  "ship": [
+   {
+    "site": "atom",
+    "q_len": 32,
+    "k_len": 128,
+    "work": 560,
+    "d": 32,
+    "calls": 1200,
+    "shipped_chunk": 32,
+    "chunk": 32,
+    "units": 560,
+    "moved": false
+   },
+   {
+    "site": "token_dit",
+    "q_len": 512,
+    "k_len": 512,
+    "work": 16,
+    "d": 64,
+    "calls": 4800,
+    "shipped_chunk": 256,
+    "chunk": 128,
+    "units": 64,
+    "moved": true
+   }
+  ]
+ },
+ "ops": [
+  {
+   "site": "atom",
+   "q_len": 32,
+   "k_len": 128,
+   "work": 560,
+   "heads": 560,
+   "calls_in_fold": 1200,
+   "shipped_chunk": 32,
+   "chunk": 32,
+   "units": 560,
+   "cores": 110,
+   "moved": false,
+   "base_us": 715.8,
+   "ship_us": 525.47,
+   "ratio": 1.36222,
+   "base_spread_pct": 128.07,
+   "ship_spread_pct": 166.23,
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "fold_s_delta": 0.2284
+  },
+  {
+   "site": "token_dit",
+   "q_len": 512,
+   "k_len": 512,
+   "work": 16,
+   "heads": 16,
+   "calls_in_fold": 4800,
+   "shipped_chunk": 256,
+   "chunk": 128,
+   "units": 64,
+   "cores": 110,
+   "moved": true,
+   "base_us": 118.74,
+   "ship_us": 104.23,
+   "ratio": 1.13918,
+   "base_spread_pct": 61.36,
+   "ship_spread_pct": 70.88,
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "fold_s_delta": 0.0696
+  }
+ ],
+ "folds": [
+  {
+   "arm": "base",
+   "tag": "cold",
+   "fold_s": 23.219,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.54
+  },
+  {
+   "arm": "ship",
+   "tag": "cold",
+   "fold_s": 20.775,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.73
+  }
+ ],
+ "model_load_s": 2.999,
+ "census_summary": {
+  "base": {
+   "calls": 6000,
+   "calls_moved": 0,
+   "sites_moved": [],
+   "sites_declined": [
+    "atom",
+    "token_dit"
+   ]
+  },
+  "ship": {
+   "calls": 6000,
+   "calls_moved": 4800,
+   "sites_moved": [
+    "token_dit"
+   ],
+   "sites_declined": [
+    "atom"
+   ]
+  }
+ }
+}

@@ -1,0 +1,49 @@
+{
+  "legs": [
+    {
+      "leg": "capacity",
+      "verdict": "PASS",
+      "detail": "peak 8.85 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 8.85 GiB; capacity:9ivj 8.03 GiB)",
+      "wall": 970.722002711,
+      "committed": null,
+      "report": "capacity.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 970.7220400180001,
+  "card_grant": [
+    0
+  ],
+  "skipped_for_card_grant": [],
+  "workers": [
+    "localhost:0"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "1": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "2": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      },
+      "3": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      }
+    }
+  }
+}

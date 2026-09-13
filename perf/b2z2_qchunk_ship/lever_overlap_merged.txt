@@ -1,0 +1,19 @@
+# Re-run 2026-09-13 10:4x UTC against main @ fa859d9e, which since the pass-1 run has taken
+# wk/b2z2-pwa-residency-ship, wk/b2z2-trunk-byte-round2-ship and the host thread-pool row.
+# Base is the common ancestor 84da2a49.
+
+origin/main: 858 changed lines in 8 file(s), 30 hunk context(s)
+origin/wk/b2z2-qchunk-isolated-bh: 71 changed lines in 4 file(s), 7 hunk context(s)
+
+=== origin/main  vs  origin/wk/b2z2-qchunk-isolated-bh
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    class AttentionPairBias(Module):
+  => not proof: a class is big and two branches can edit different methods of it. READ the two diffs before you compose them, and say in your doc which you did. This is where the atom-gather duplicate hid.
+
+1 of 1 pair(s) are not independent.
+
+# Line-level check behind the class-granularity COLLISION RISK verdict: the two diffs touch
+# 115 and 11 old-side lines under tt_bio/ and share NONE of them. main edits the s_kv
+# construction and the triangle projections; the lever edits the program_config argument of
+# the attention that consumes s_kv, plus the same rule in esmc.py, esmfold2.py and saprot.py.
+OVERLAPPING OLD-SIDE LINES: 0

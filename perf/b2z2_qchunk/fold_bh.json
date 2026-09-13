@@ -1,0 +1,1290 @@
+{
+ "doc": "`TT_BIO_SDPA_GRID_Q_CHUNK` on Blackhole, isolated: does the lever have one sign, or one per site?\n\nThree phases in ONE process on ONE device, each written to --out as it finishes.\n\n  census   one fold per arm, discarded for timing, with `SDPA_GRID_Q_CHUNK_PICKS` snapshotted\n           after each. That counter sits outside the rule's lru_cache, so it counts CALLS, and\n           it records the shipped chunk beside the chosen one: a site where they are equal is a\n           site the rule DECLINED to move, which is the reading that has been mistaken for a win.\n           The previous row could not read this counter at all -- it censused the CLI parent while\n           the fold ran in spawned device workers. This harness drives `predict_one` in-process.\n\n  ops      an isolated A/B at every shape the census saw, shipped chunk against the rule's chunk,\n           interleaved, `torch.equal` on the outputs. This is also the arm-switching CONTROL: if\n           the two chunks do not produce measurably different programs here, the in-process fold\n           arms below are sharing a compiled program and the fold A/B would be meaningless.\n\n  fold     paired interleaved A/B, `base ship ship base` per rep so the order reverses inside the\n           rep, cold folds discarded, loadavg per fold, CIF sha256 per fold. The A/A floor comes\n           from THIS session's same-arm adjacent pairs, never from another row's draws.\n\nThe arms are set in-process by assigning the module constant the rule reads per call; nothing is\nexported, so neither arm can inherit the other's environment.\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "arch": "Arch.BLACKHOLE",
+  "storage_grid": [
+   11,
+   10
+  ],
+  "compute_grid_main": [
+   11,
+   10
+  ],
+  "cores": 110,
+  "tt_visible_devices": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-qchunk-isolated-bh/tt_bio/__init__.py",
+  "torch": "2.8.0+cpu",
+  "commit": "c132db069b81f50dc0e90233038a393693ad1997",
+  "started_utc": "2026-09-13T01:27:31Z",
+  "loadavg_start": [
+   1.06591796875,
+   0.99560546875,
+   0.98388671875
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "steps": 200,
+   "seed": 0,
+   "size_aa": "512",
+   "atom_l1": false
+  },
+  "finished_utc": "2026-09-13T01:37:26Z",
+  "loadavg_end": [
+   1.46435546875,
+   1.71484375,
+   1.3857421875
+  ]
+ },
+ "census": {
+  "base": [
+   {
+    "site": "atom",
+    "q_len": 32,
+    "k_len": 128,
+    "work": 560,
+    "d": 32,
+    "calls": 1200,
+    "shipped_chunk": 32,
+    "chunk": 32,
+    "units": 560,
+    "moved": false
+   },
+   {
+    "site": "token_dit",
+    "q_len": 512,
+    "k_len": 512,
+    "work": 16,
+    "d": 64,
+    "calls": 4800,
+    "shipped_chunk": 256,
+    "chunk": 256,
+    "units": 32,
+    "moved": false
+   }
+  ],
+  "ship": [
+   {
+    "site": "atom",
+    "q_len": 32,
+    "k_len": 128,
+    "work": 560,
+    "d": 32,
+    "calls": 1200,
+    "shipped_chunk": 32,
+    "chunk": 32,
+    "units": 560,
+    "moved": false
+   },
+   {
+    "site": "token_dit",
+    "q_len": 512,
+    "k_len": 512,
+    "work": 16,
+    "d": 64,
+    "calls": 4800,
+    "shipped_chunk": 256,
+    "chunk": 128,
+    "units": 64,
+    "moved": true
+   }
+  ]
+ },
+ "ops": [
+  {
+   "site": "atom",
+   "q_len": 32,
+   "k_len": 128,
+   "work": 560,
+   "head_dim": 32,
+   "calls_in_fold": 1200,
+   "shipped_chunk": 32,
+   "chunk": 32,
+   "units": 560,
+   "cores": 110,
+   "moved": false,
+   "base_us": 77.88,
+   "ship_us": 77.22,
+   "paired_median_ratio": 1.00595,
+   "aa_floor_min_max": [
+    0.87535,
+    1.08595
+   ],
+   "aa_n": 49,
+   "n_pairs": 50,
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "fold_s_delta": 0.0008,
+   "draws_us": [
+    [
+     "base",
+     89.24
+    ],
+    [
+     "ship",
+     82.8
+    ],
+    [
+     "ship",
+     76.24
+    ],
+    [
+     "base",
+     78.06
+    ],
+    [
+     "base",
+     77.11
+    ],
+    [
+     "ship",
+     75.4
+    ],
+    [
+     "ship",
+     78.91
+    ],
+    [
+     "base",
+     76.6
+    ],
+    [
+     "base",
+     83.19
+    ],
+    [
+     "ship",
+     75.65
+    ],
+    [
+     "ship",
+     73.54
+    ],
+    [
+     "base",
+     79.79
+    ],
+    [
+     "base",
+     77.15
+    ],
+    [
+     "ship",
+     76.57
+    ],
+    [
+     "ship",
+     77.82
+    ],
+    [
+     "base",
+     74.99
+    ],
+    [
+     "base",
+     80.36
+    ],
+    [
+     "ship",
+     78.0
+    ],
+    [
+     "ship",
+     78.19
+    ],
+    [
+     "base",
+     78.65
+    ],
+    [
+     "base",
+     75.74
+    ],
+    [
+     "ship",
+     73.44
+    ],
+    [
+     "ship",
+     79.05
+    ],
+    [
+     "base",
+     77.73
+    ],
+    [
+     "base",
+     83.22
+    ],
+    [
+     "ship",
+     76.54
+    ],
+    [
+     "ship",
+     77.08
+    ],
+    [
+     "base",
+     73.6
+    ],
+    [
+     "base",
+     78.4
+    ],
+    [
+     "ship",
+     77.43
+    ],
+    [
+     "ship",
+     76.44
+    ],
+    [
+     "base",
+     76.22
+    ],
+    [
+     "base",
+     77.51
+    ],
+    [
+     "ship",
+     78.94
+    ],
+    [
+     "ship",
+     77.89
+    ],
+    [
+     "base",
+     76.56
+    ],
+    [
+     "base",
+     77.79
+    ],
+    [
+     "ship",
+     76.07
+    ],
+    [
+     "ship",
+     74.8
+    ],
+    [
+     "base",
+     78.35
+    ],
+    [
+     "base",
+     82.59
+    ],
+    [
+     "ship",
+     78.73
+    ],
+    [
+     "ship",
+     76.24
+    ],
+    [
+     "base",
+     73.65
+    ],
+    [
+     "base",
+     77.42
+    ],
+    [
+     "ship",
+     78.54
+    ],
+    [
+     "ship",
+     77.66
+    ],
+    [
+     "base",
+     75.28
+    ],
+    [
+     "base",
+     78.86
+    ],
+    [
+     "ship",
+     79.04
+    ],
+    [
+     "ship",
+     79.12
+    ],
+    [
+     "base",
+     77.64
+    ],
+    [
+     "base",
+     76.86
+    ],
+    [
+     "ship",
+     76.42
+    ],
+    [
+     "ship",
+     74.65
+    ],
+    [
+     "base",
+     78.97
+    ],
+    [
+     "base",
+     80.8
+    ],
+    [
+     "ship",
+     77.98
+    ],
+    [
+     "ship",
+     76.31
+    ],
+    [
+     "base",
+     73.85
+    ],
+    [
+     "base",
+     79.17
+    ],
+    [
+     "ship",
+     79.49
+    ],
+    [
+     "ship",
+     77.42
+    ],
+    [
+     "base",
+     77.53
+    ],
+    [
+     "base",
+     79.56
+    ],
+    [
+     "ship",
+     74.26
+    ],
+    [
+     "ship",
+     77.34
+    ],
+    [
+     "base",
+     78.66
+    ],
+    [
+     "base",
+     80.98
+    ],
+    [
+     "ship",
+     78.47
+    ],
+    [
+     "ship",
+     74.72
+    ],
+    [
+     "base",
+     79.49
+    ],
+    [
+     "base",
+     83.67
+    ],
+    [
+     "ship",
+     76.86
+    ],
+    [
+     "ship",
+     76.02
+    ],
+    [
+     "base",
+     76.35
+    ],
+    [
+     "base",
+     73.37
+    ],
+    [
+     "ship",
+     78.24
+    ],
+    [
+     "ship",
+     76.39
+    ],
+    [
+     "base",
+     76.85
+    ],
+    [
+     "base",
+     81.79
+    ],
+    [
+     "ship",
+     75.41
+    ],
+    [
+     "ship",
+     79.04
+    ],
+    [
+     "base",
+     78.3
+    ],
+    [
+     "base",
+     77.99
+    ],
+    [
+     "ship",
+     76.39
+    ],
+    [
+     "ship",
+     76.45
+    ],
+    [
+     "base",
+     74.02
+    ],
+    [
+     "base",
+     84.56
+    ],
+    [
+     "ship",
+     77.96
+    ],
+    [
+     "ship",
+     77.11
+    ],
+    [
+     "base",
+     77.07
+    ],
+    [
+     "base",
+     73.64
+    ],
+    [
+     "ship",
+     78.01
+    ],
+    [
+     "ship",
+     79.8
+    ],
+    [
+     "base",
+     77.04
+    ],
+    [
+     "base",
+     80.04
+    ],
+    [
+     "ship",
+     73.49
+    ],
+    [
+     "ship",
+     80.03
+    ],
+    [
+     "base",
+     77.97
+    ]
+   ],
+   "floor_matched_95": [
+    0.97422,
+    0.99494
+   ],
+   "clears_floor": true
+  },
+  {
+   "site": "token_dit",
+   "q_len": 512,
+   "k_len": 512,
+   "work": 16,
+   "head_dim": 64,
+   "calls_in_fold": 4800,
+   "shipped_chunk": 256,
+   "chunk": 128,
+   "units": 64,
+   "cores": 110,
+   "moved": true,
+   "base_us": 117.48,
+   "ship_us": 103.9,
+   "paired_median_ratio": 1.12928,
+   "aa_floor_min_max": [
+    0.95834,
+    1.07843
+   ],
+   "aa_n": 49,
+   "n_pairs": 50,
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "fold_s_delta": 0.0652,
+   "draws_us": [
+    [
+     "base",
+     142.93
+    ],
+    [
+     "ship",
+     106.34
+    ],
+    [
+     "ship",
+     108.11
+    ],
+    [
+     "base",
+     125.23
+    ],
+    [
+     "base",
+     118.5
+    ],
+    [
+     "ship",
+     109.52
+    ],
+    [
+     "ship",
+     101.55
+    ],
+    [
+     "base",
+     114.24
+    ],
+    [
+     "base",
+     117.91
+    ],
+    [
+     "ship",
+     104.24
+    ],
+    [
+     "ship",
+     104.12
+    ],
+    [
+     "base",
+     118.46
+    ],
+    [
+     "base",
+     112.83
+    ],
+    [
+     "ship",
+     111.2
+    ],
+    [
+     "ship",
+     105.41
+    ],
+    [
+     "base",
+     117.62
+    ],
+    [
+     "base",
+     116.73
+    ],
+    [
+     "ship",
+     101.63
+    ],
+    [
+     "ship",
+     98.99
+    ],
+    [
+     "base",
+     119.26
+    ],
+    [
+     "base",
+     117.05
+    ],
+    [
+     "ship",
+     109.78
+    ],
+    [
+     "ship",
+     101.98
+    ],
+    [
+     "base",
+     114.12
+    ],
+    [
+     "base",
+     118.85
+    ],
+    [
+     "ship",
+     103.63
+    ],
+    [
+     "ship",
+     102.5
+    ],
+    [
+     "base",
+     116.66
+    ],
+    [
+     "base",
+     117.22
+    ],
+    [
+     "ship",
+     101.67
+    ],
+    [
+     "ship",
+     105.49
+    ],
+    [
+     "base",
+     117.41
+    ],
+    [
+     "base",
+     117.95
+    ],
+    [
+     "ship",
+     102.97
+    ],
+    [
+     "ship",
+     101.17
+    ],
+    [
+     "base",
+     117.71
+    ],
+    [
+     "base",
+     117.34
+    ],
+    [
+     "ship",
+     108.94
+    ],
+    [
+     "ship",
+     102.54
+    ],
+    [
+     "base",
+     117.84
+    ],
+    [
+     "base",
+     112.3
+    ],
+    [
+     "ship",
+     105.74
+    ],
+    [
+     "ship",
+     102.84
+    ],
+    [
+     "base",
+     117.08
+    ],
+    [
+     "base",
+     115.52
+    ],
+    [
+     "ship",
+     105.62
+    ],
+    [
+     "ship",
+     105.85
+    ],
+    [
+     "base",
+     118.22
+    ],
+    [
+     "base",
+     118.76
+    ],
+    [
+     "ship",
+     102.74
+    ],
+    [
+     "ship",
+     100.88
+    ],
+    [
+     "base",
+     121.25
+    ],
+    [
+     "base",
+     119.37
+    ],
+    [
+     "ship",
+     108.9
+    ],
+    [
+     "ship",
+     103.5
+    ],
+    [
+     "base",
+     115.23
+    ],
+    [
+     "base",
+     114.69
+    ],
+    [
+     "ship",
+     106.25
+    ],
+    [
+     "ship",
+     103.77
+    ],
+    [
+     "base",
+     118.23
+    ],
+    [
+     "base",
+     116.92
+    ],
+    [
+     "ship",
+     104.03
+    ],
+    [
+     "ship",
+     106.38
+    ],
+    [
+     "base",
+     118.46
+    ],
+    [
+     "base",
+     118.9
+    ],
+    [
+     "ship",
+     103.04
+    ],
+    [
+     "ship",
+     102.69
+    ],
+    [
+     "base",
+     115.15
+    ],
+    [
+     "base",
+     119.33
+    ],
+    [
+     "ship",
+     108.03
+    ],
+    [
+     "ship",
+     102.49
+    ],
+    [
+     "base",
+     115.77
+    ],
+    [
+     "base",
+     114.38
+    ],
+    [
+     "ship",
+     105.25
+    ],
+    [
+     "ship",
+     104.12
+    ],
+    [
+     "base",
+     117.55
+    ],
+    [
+     "base",
+     116.74
+    ],
+    [
+     "ship",
+     106.6
+    ],
+    [
+     "ship",
+     100.59
+    ],
+    [
+     "base",
+     117.87
+    ],
+    [
+     "base",
+     118.88
+    ],
+    [
+     "ship",
+     103.48
+    ],
+    [
+     "ship",
+     101.72
+    ],
+    [
+     "base",
+     115.48
+    ],
+    [
+     "base",
+     119.75
+    ],
+    [
+     "ship",
+     109.08
+    ],
+    [
+     "ship",
+     102.22
+    ],
+    [
+     "base",
+     116.59
+    ],
+    [
+     "base",
+     116.91
+    ],
+    [
+     "ship",
+     100.98
+    ],
+    [
+     "ship",
+     105.37
+    ],
+    [
+     "base",
+     117.25
+    ],
+    [
+     "base",
+     116.02
+    ],
+    [
+     "ship",
+     107.45
+    ],
+    [
+     "ship",
+     100.16
+    ],
+    [
+     "base",
+     118.82
+    ],
+    [
+     "base",
+     118.66
+    ],
+    [
+     "ship",
+     104.43
+    ],
+    [
+     "ship",
+     103.02
+    ],
+    [
+     "base",
+     114.3
+    ]
+   ],
+   "floor_matched_95": [
+    0.98276,
+    1.00176
+   ],
+   "clears_floor": true
+  }
+ ],
+ "folds": [
+  {
+   "arm": "base",
+   "tag": "cold",
+   "fold_s": 20.119,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.06
+  },
+  {
+   "arm": "ship",
+   "tag": "cold",
+   "fold_s": 19.791,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.6
+  },
+  {
+   "arm": "base",
+   "tag": "rep0.0",
+   "fold_s": 19.859,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.43
+  },
+  {
+   "arm": "ship",
+   "tag": "rep0.1",
+   "fold_s": 19.759,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.31
+  },
+  {
+   "arm": "ship",
+   "tag": "rep0.2",
+   "fold_s": 19.751,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.24
+  },
+  {
+   "arm": "base",
+   "tag": "rep0.3",
+   "fold_s": 19.814,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.17
+  },
+  {
+   "arm": "base",
+   "tag": "rep1.0",
+   "fold_s": 19.806,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.12
+  },
+  {
+   "arm": "ship",
+   "tag": "rep1.1",
+   "fold_s": 19.773,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.52
+  },
+  {
+   "arm": "ship",
+   "tag": "rep1.2",
+   "fold_s": 19.665,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.37
+  },
+  {
+   "arm": "base",
+   "tag": "rep1.3",
+   "fold_s": 19.715,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.35
+  },
+  {
+   "arm": "base",
+   "tag": "rep2.0",
+   "fold_s": 19.675,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.25
+  },
+  {
+   "arm": "ship",
+   "tag": "rep2.1",
+   "fold_s": 19.623,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.18
+  },
+  {
+   "arm": "ship",
+   "tag": "rep2.2",
+   "fold_s": 19.869,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.61
+  },
+  {
+   "arm": "base",
+   "tag": "rep2.3",
+   "fold_s": 19.707,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.95
+  },
+  {
+   "arm": "base",
+   "tag": "rep3.0",
+   "fold_s": 19.683,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.76
+  },
+  {
+   "arm": "ship",
+   "tag": "rep3.1",
+   "fold_s": 19.708,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.77
+  },
+  {
+   "arm": "ship",
+   "tag": "rep3.2",
+   "fold_s": 19.697,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.78
+  },
+  {
+   "arm": "base",
+   "tag": "rep3.3",
+   "fold_s": 19.784,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.84
+  },
+  {
+   "arm": "base",
+   "tag": "rep4.0",
+   "fold_s": 19.755,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.88
+  },
+  {
+   "arm": "ship",
+   "tag": "rep4.1",
+   "fold_s": 19.734,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.9
+  },
+  {
+   "arm": "ship",
+   "tag": "rep4.2",
+   "fold_s": 19.619,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.36
+  },
+  {
+   "arm": "base",
+   "tag": "rep4.3",
+   "fold_s": 19.758,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.54
+  },
+  {
+   "arm": "base",
+   "tag": "rep5.0",
+   "fold_s": 19.779,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.76
+  },
+  {
+   "arm": "ship",
+   "tag": "rep5.1",
+   "fold_s": 19.691,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.26
+  },
+  {
+   "arm": "ship",
+   "tag": "rep5.2",
+   "fold_s": 19.701,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 2.34
+  },
+  {
+   "arm": "base",
+   "tag": "rep5.3",
+   "fold_s": 19.778,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.96
+  },
+  {
+   "arm": "base",
+   "tag": "rep6.0",
+   "fold_s": 19.791,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.68
+  },
+  {
+   "arm": "ship",
+   "tag": "rep6.1",
+   "fold_s": 19.585,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.49
+  },
+  {
+   "arm": "ship",
+   "tag": "rep6.2",
+   "fold_s": 19.683,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.35
+  },
+  {
+   "arm": "base",
+   "tag": "rep6.3",
+   "fold_s": 19.872,
+   "sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "plddt": 0.800144,
+   "loadavg_1m": 1.65
+  }
+ ],
+ "model_load_s": 2.424,
+ "census_summary": {
+  "base": {
+   "calls": 6000,
+   "calls_moved": 0,
+   "sites_moved": [],
+   "sites_declined": [
+    "atom",
+    "token_dit"
+   ]
+  },
+  "ship": {
+   "calls": 6000,
+   "calls_moved": 4800,
+   "sites_moved": [
+    "token_dit"
+   ],
+   "sites_declined": [
+    "atom"
+   ]
+  }
+ },
+ "analysis": {
+  "n_folds": 28,
+  "n_ab_pairs": 14,
+  "n_aa_pairs": 13,
+  "paired_median_ratio": 1.00355,
+  "paired_ratio_95ci": [
+   1.0018,
+   1.00506
+  ],
+  "aa_floor_95": [
+   0.99934,
+   1.00147
+  ],
+  "clears_floor": true,
+  "verdict": "ship faster, outside the floor",
+  "median_s": {
+   "base": 19.779,
+   "ship": 19.699
+  },
+  "min_s": {
+   "base": 19.675,
+   "ship": 19.585
+  },
+  "ratio_of_medians": 1.00404,
+  "bit_exact_all_folds": true,
+  "distinct_sha256": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ],
+  "plddt": [
+   0.800144
+  ],
+  "loadavg_1m": {
+   "min": 1.12,
+   "max": 2.9
+  },
+  "ab_ratios": [
+   1.00506,
+   1.00319,
+   1.00167,
+   1.00254,
+   1.00265,
+   0.99185,
+   0.99873,
+   1.00442,
+   1.00106,
+   1.00708,
+   1.00447,
+   1.00391,
+   1.01052,
+   1.0096
+  ],
+  "aa_ratios": [
+   1.00041,
+   1.0004,
+   1.00549,
+   1.00203,
+   0.98762,
+   1.00122,
+   1.00056,
+   1.00147,
+   1.00586,
+   0.99894,
+   0.99949,
+   0.99934,
+   0.99502
+  ]
+ }
+}

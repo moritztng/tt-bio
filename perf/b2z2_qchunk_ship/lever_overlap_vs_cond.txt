@@ -1,0 +1,28 @@
+# lever_overlap.py --base fee8c08e --path tt_bio/ HEAD origin/main
+# HEAD = wk/b2z2-qchunk-ship ad789354 ; origin/main = 8984b95d (b2z2-cond-ship row)
+
+HEAD: 90 changed lines in 4 file(s), 7 hunk context(s)
+origin/main: 228 changed lines in 2 file(s), 7 hunk context(s)
+
+=== HEAD  vs  origin/main
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+0 of 1 pair(s) are not independent.
+
+# functions each side touches:
+# main:
+@@ -10460,3 +10460,9 @@ class DiffusionModule(TorchWrapper):
+@@ -10833,0 +10840,124 @@ class TrunkRecycle:
+@@ -11051,0 +11182,3 @@ class TrunkModule(TorchWrapper):
+@@ -11279 +11412,4 @@ class TrunkModule(TorchWrapper):
+@@ -11297 +11433,4 @@ class TrunkModule(TorchWrapper):
+@@ -11298,0 +11438,10 @@ class TrunkModule(TorchWrapper):
+# lever:
+@@ -1026,0 +1027,38 @@ def _capped_sdpa_chunk_size(seq_len: int) -> int:
+@@ -1028 +1066,10 @@ def _capped_sdpa_chunk_size(seq_len: int) -> int:
+@@ -1030 +1077 @@ def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgram
+@@ -1034,0 +1082,24 @@ def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgram
+@@ -4254 +4325,3 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
+@@ -7116 +7189,4 @@ class AttentionPairBias(Module):
+@@ -7141 +7217,4 @@ class AttentionPairBias(Module):
+@@ -7343 +7422,2 @@ class AttentionPairBias(Module):
