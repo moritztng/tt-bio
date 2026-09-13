@@ -1,0 +1,476 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-union-gate-ship/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-13T01:37:29Z",
+  "loadavg": [
+   2.62841796875,
+   1.9521484375,
+   1.46435546875
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "atom_key_shift": 48,
+  "lever": "tierb",
+  "mode": "cell",
+  "commit": "a7f620e02d0fd876f3eda5c65ac9b350f1b7aa2a"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 19.724,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 2.73,
+   "warmup": true
+  },
+  {
+   "arm": "on",
+   "fold_s": 18.064,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.847207,
+   "metrics": {
+    "confidence_score": 0.801672,
+    "ptm": 0.619529,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.847207,
+    "complex_iplddt": 0.847207,
+    "complex_pde": 0.632478,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "b7709671d2665f9691e6424bbb7f0f04043384629aad32eb59b264ead89f1f29",
+   "loadavg1": 3.31,
+   "warmup": true
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.363,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 3.22,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 18.066,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.847207,
+   "metrics": {
+    "confidence_score": 0.801672,
+    "ptm": 0.619529,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.847207,
+    "complex_iplddt": 0.847207,
+    "complex_pde": 0.632478,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "b7709671d2665f9691e6424bbb7f0f04043384629aad32eb59b264ead89f1f29",
+   "loadavg1": 2.72,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.961,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.847207,
+   "metrics": {
+    "confidence_score": 0.801672,
+    "ptm": 0.619529,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.847207,
+    "complex_iplddt": 0.847207,
+    "complex_pde": 0.632478,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "b7709671d2665f9691e6424bbb7f0f04043384629aad32eb59b264ead89f1f29",
+   "loadavg1": 2.23,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.322,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 1.88,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.275,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 1.69,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.99,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.847207,
+   "metrics": {
+    "confidence_score": 0.801672,
+    "ptm": 0.619529,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.847207,
+    "complex_iplddt": 0.847207,
+    "complex_pde": 0.632478,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "b7709671d2665f9691e6424bbb7f0f04043384629aad32eb59b264ead89f1f29",
+   "loadavg1": 2.05,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.965,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.847207,
+   "metrics": {
+    "confidence_score": 0.801672,
+    "ptm": 0.619529,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.847207,
+    "complex_iplddt": 0.847207,
+    "complex_pde": 0.632478,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "b7709671d2665f9691e6424bbb7f0f04043384629aad32eb59b264ead89f1f29",
+   "loadavg1": 1.75,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.279,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 2.1,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.269,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 1.85,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.909,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.847207,
+   "metrics": {
+    "confidence_score": 0.801672,
+    "ptm": 0.619529,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.847207,
+    "complex_iplddt": 0.847207,
+    "complex_pde": 0.632478,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "b7709671d2665f9691e6424bbb7f0f04043384629aad32eb59b264ead89f1f29",
+   "loadavg1": 2.05,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 18.253,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.847207,
+   "metrics": {
+    "confidence_score": 0.801672,
+    "ptm": 0.619529,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.847207,
+    "complex_iplddt": 0.847207,
+    "complex_pde": 0.632478,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "b7709671d2665f9691e6424bbb7f0f04043384629aad32eb59b264ead89f1f29",
+   "loadavg1": 1.75,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.266,
+   "stages_s": {},
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    1200,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 1.58,
+   "warmup": false,
+   "rep": 2
+  }
+ ],
+ "median_fold_s": {
+  "off": 19.277,
+  "on": 17.9775
+ },
+ "ratio": 1.0722848004450007,
+ "aa_floor": 0.9949904456953984,
+ "plddt": {
+  "off": [
+   0.842856
+  ],
+  "on": [
+   0.847207
+  ]
+ },
+ "paired_deltas_s": [
+  1.297,
+  1.361,
+  1.285,
+  1.314,
+  1.36,
+  1.013
+ ],
+ "cif_sha256": {
+  "off": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ],
+  "on": [
+   "b7709671d2665f9691e6424bbb7f0f04043384629aad32eb59b264ead89f1f29"
+  ]
+ },
+ "bit_exact": false,
+ "within_arm_identical": {
+  "off": true,
+  "on": true
+ },
+ "derived": {
+  "doc": "Score an ABBA cell run: the paired A/B, and the A/A floor of that same estimator.\n\nA ratio of medians and a floor taken from a spread are two different statistics, and quoting one\nagainst the other is how a lever gets called real or unreal for the wrong reason. The ABBA order\ngives both from one run: within a rep the two `off` folds bracket the two `on` folds, so\n`off_first` against `off_last` is an A/A pair drawn the same way the A/B pairs are.\n\nDerivation only, no measurement. Reads the runs the harness wrote and writes `derived` back.\n",
+  "arms": {
+   "off": {
+    "n": 6,
+    "median_s": 19.277,
+    "mean_s": 19.2957,
+    "min_s": 19.266,
+    "max_s": 19.363,
+    "spread_pct": 0.5
+   },
+   "on": {
+    "n": 6,
+    "median_s": 17.9775,
+    "mean_s": 18.024,
+    "min_s": 17.909,
+    "max_s": 18.253,
+    "spread_pct": 1.92
+   }
+  },
+  "ratio_median": 1.07228,
+  "ab_paired_ratios": [
+   1.07179,
+   1.07578,
+   1.07143,
+   1.07314,
+   1.07594,
+   1.0555
+  ],
+  "ab_paired_median": 1.07247,
+  "ab_paired_all_positive": true,
+  "aa_paired_ratios": [
+   1.00212,
+   1.00585,
+   1.00021,
+   1.00139,
+   1.00016,
+   1.01921
+  ],
+  "aa_paired_max": 1.01921,
+  "aa_paired_median": 1.00175,
+  "lever_s": 1.2995,
+  "plddt": [
+   0.842856,
+   0.847207
+  ],
+  "cif_sha256": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "b7709671d2665f9691e6424bbb7f0f04043384629aad32eb59b264ead89f1f29"
+  ],
+  "gather_stats": [
+   [
+    1200,
+    0
+   ]
+  ]
+ }
+}
