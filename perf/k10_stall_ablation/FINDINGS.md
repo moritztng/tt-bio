@@ -45,7 +45,13 @@ DRAM-interleaved pair activation reads 82.8 % in the rig against 85.1 % for the 
 the committed WH Pairformer block.
 
 A/A floor, interleaved, same session: **generic wall 1.0021x / in-frac 0.00 pp**, **matmul wall
-1.0003x / 0.01 pp**. Across the three separate sessions the same arm reads 2347.99 / 2367.73 /
+1.0003x / 0.01 pp**. The reduced-M arms carry their own, wider floor -- `gen.smallM.dram` against
+`gen.smallM.dram2` are the same program hash and read 1.0020x, 1.0045x and **1.0215x** across the
+three sessions -- so a reduced-M row is scored against 1.0215x, not against 1.0021x. That is what
+demotes generic in0 -> L1 at M/8 from a 1.9 % result to a row sitting on its own floor: it reads
+1.0148x, 1.0198x and 1.0191x across the three sessions, always in the same direction but never
+clear of the worst-case floor. Generic out -> L1 at the same M is 1.2220x, 1.2189x, 1.2309x and is
+not in doubt. Across the three separate sessions the same arm reads 2347.99 / 2367.73 /
 2354.55 us (generic, **1.0084x**) and 1736.69 / 1738.84 / 1739.14 us (matmul, **1.0014x**). The
 within-session floor is the bar for every row below, because every row is an interleaved arm.
 
@@ -76,9 +82,9 @@ at the same activation against a 128x128 weight (1739.14 us, in/T0 **82.8 %**).
 | the recorded `(8,2,1,4,1)` on 8x8 | gen | +2.10 pp | **0.9078x** | 0.932 | 1.0021x / 0.00 pp | 9.2 % SLOWER |
 | in1 -> L1 | gen | -0.40 pp | 1.0235x | 0.998 | 1.0021x / 0.00 pp | 2.3 %, at the floor's edge |
 | in1 -> L1 | mm | +0.02 pp | 0.9998x | n/a | 1.0003x / 0.01 pp | NULL |
-| in0 -> L1, M/8 | gen | -0.60 pp | 1.0191x | 0.881 | 1.0021x / 0.00 pp | 1.9 % |
+| in0 -> L1, M/8 | gen | -0.60 pp | 1.0191x | 0.881 | **1.0215x** / 0.13 pp | at its own floor |
 | in0 -> L1, M/8 | mm | **-27.19 pp** | **1.3976x** | 1.065 | 1.0003x / 0.01 pp | **the lever** |
-| out -> L1, M/8 | gen | -3.51 pp | **1.2309x** | 1.047 | 1.0021x / 0.00 pp | real |
+| out -> L1, M/8 | gen | -3.51 pp | **1.2309x** | 1.047 | **1.0215x** / 0.13 pp | real |
 | CB depth 2x -> 3x, `K_block`=4 | gen | -0.08 pp | 0.9968x | n/a | 1.0021x / 0.00 pp | NULL, program engaged |
 | CB depth 2x -> 4x, `K_block`=4 | gen | -0.37 pp | 1.0022x | n/a | 1.0021x / 0.00 pp | NULL, program engaged |
 | CB depth 2x -> 4x, `K_block`=2 | gen | +0.75 pp | 0.9528x | 1.001 | 1.0021x / 0.00 pp | 4.7 % SLOWER |
@@ -189,7 +195,7 @@ single scalar: layout k = 1.23 +/- 15 %, arithmetic k = 0.59 +/- 20 %.
    **1.0234x**. Cheapest lever in the sweep: it is one tuple in `_MM_BLOCK`.
    Guard: changing `M_block` changes neither the contraction order nor the accumulation order, so
    unlike `K_block` it should stay bit-exact -- unverified here, verify before shipping.
-3. **Output residency on the generic op**, 1.2309x at M/8 (WH). Same L1-capacity problem as (1),
+3. **Output residency on the generic op**, 1.2220-1.2309x at M/8 over three sessions (WH). Same L1-capacity problem as (1),
    and the output is the bigger tensor, so it is strictly harder. Listed because it is real, not
    because it is near.
 4. **`K_block`: predicted value NEGATIVE. Do not build it.** 0.9194x at 2, 0.8266x at 1, and the
