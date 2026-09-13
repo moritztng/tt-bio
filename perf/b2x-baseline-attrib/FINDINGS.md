@@ -7,6 +7,16 @@ commit `13604183`, protocol `perf/size512/fixtures/cdk2x2_512.yaml` + its fixed 
 `benchlock` (`acquired after 2s, loadavg 1.93 3.38 4.44` for the `--fast` run; the default run
 acquired first and released at `loadavg 5.91 4.93 5.13`).
 
+> **This baseline expired on 2026-09-11.** `93f75b10` landed two default-on Boltz-2 diffusion
+> levers, so 23.841 s is no longer what main folds this cell in. `b2z-host-residual-kill`
+> measured current main at 19.64-20.05 s on the same fixture and card type. Everything below
+> remains an accurate record of commit `13604183`, but do not carry 23.841 s forward as a
+> denominator. Dividing a post-lever wall by this pre-lever one is what manufactured the
+> phantom 1.20x "wheel vs source build" speedup that `util-wheel-vs-source` then had to
+> retract: the two builds are byte-identical on device and fold within 1.5 % of each other,
+> inside that run's own A/A floor, with the direction depending on which arm you pool
+> (`perf/util_wheel_source/`). A quiet-box re-measure of the live cell is still owed.
+
 ## 1. The baseline has not moved
 
 **23.841 s**, median of n=3 warm (23.841 / 23.795 / 24.200), cold fold discarded. Host 0.323 s,
@@ -17,6 +27,9 @@ and nothing improved: current main folds the published cell at the published spe
 
 Use 23.841 s as the campaign's denominator, not 23.504 s, because every child's arm is measured
 against this session's instrument on this card.
+
+(Retired 2026-09-13. See the note above: this holds for children measured
+against commit `13604183`, and for nothing merged after 2026-09-11.)
 
 ## 2. The published CIF digest is dead, and that is not a regression
 

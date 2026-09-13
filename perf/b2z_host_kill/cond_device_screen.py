@@ -70,6 +70,11 @@ def main() -> int:
     ap.add_argument("--tokens", type=int, default=512)
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--host-only", action="store_true")
+    ap.add_argument("--fold-s", type=float, required=True,
+                    help="end-to-end fold seconds the saving is priced against. No default "
+                         "on purpose: this was hardcoded to 23.841 s, which 93f75b10 killed "
+                         "on 2026-09-11, and a stale denominator misreports every ratio "
+                         "below without saying so.")
     ap.add_argument("--dtype", default="bf16", choices=("bf16", "fp32"),
                     help="device math dtype. fp32 is the accuracy-safe arm")
     a = ap.parse_args()
@@ -318,13 +323,14 @@ def main() -> int:
     devtot = out["device_s"]["both"] + t_upload + t_download
     resident = t_dev_pc + t_dev_bsf          # z already on device, bias stays on device
     out["verdict"] = {
+        "fold_s_denominator": a.fold_s,
         "host_s": round(host, 4),
         "isolated_device_plus_xfer_s": round(devtot, 4),
         "isolated_saved_s": round(host - devtot, 4),
-        "isolated_fold_ratio": round(23.841 / (23.841 - (host - devtot)), 4),
+        "isolated_fold_ratio": round(a.fold_s / (a.fold_s - (host - devtot)), 4),
         "resident_device_s": round(resident, 4),
         "resident_saved_s": round(host - resident, 4),
-        "resident_fold_ratio": round(23.841 / (23.841 - (host - resident)), 4),
+        "resident_fold_ratio": round(a.fold_s / (a.fold_s - (host - resident)), 4),
         "note": "isolated adds an upload and a download that the INTEGRATED port does not pay: "
                 "z_trunk is already on the device when the trunk ends (today's code downloads "
                 "it) and bias_token is re-uploaded by the tt diffusion module (today's code "
