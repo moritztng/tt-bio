@@ -121,3 +121,41 @@ aggregate cannot show, and the first three reproduce on both parts:
   and layout levers do not — arrived at from stall structure rather than from lever ratios.
 
 None of this measures TRISC1, and none of it prices a lever. It says where to point Phase 1.
+
+## The dataflow envelope, bounded from the discriminator's own numbers: 1.15x, not 3.4x
+
+`dataflow_bound.py`, host only, six measured numbers per op class quoted in the source so the
+arithmetic is checkable without rerunning anything.
+
+`k10-instrument` measured, per op class, both how long the compute cluster is blocked on input **and**
+how long the reader is actually waiting on DRAM/NoC. Those bound each other: making memory infinitely
+fast removes at most the time the reader spends waiting for memory, and relieves at most the compute
+stall that exists. So the per-class ceiling is `min(compute input stall, reader NoC wait)`.
+
+| op class | s/fold | compute stall | reader NoC | bound | s recoverable |
+|---|---|---|---|---|---|
+| GenericOp (fused trimul+TriAtt) | 3.907 | 58.0 % | 22.6 % | 22.6 % | 0.883 |
+| Matmul | 2.358 | 29.3 % | 11.2 % | 11.2 % | 0.264 |
+| BinaryNg | 1.724 | 79.0 % | 52.8 % | 52.8 % | 0.910 |
+| LayerNorm | 1.103 | 57.2 % | 18.2 % | 18.2 % | 0.201 |
+| Transpose | 0.636 | 22.2 % | 24.9 % | 22.2 % | 0.141 |
+| **top five, total** | | | | | **2.399** |
+
+**Remove all of it at zero cost and the fold goes 17.989 s -> 15.590 s, which is 1.1539x.** The
+campaign was sized on 3.4x. Reaching 10 s needs 1.7989x, i.e. 7.989 s out; perfect dataflow work on
+the entire pairformer track supplies at most **2.399 s of that, 30 %**.
+
+**This is a generous upper bound and it should be read as one.** It assumes every nanosecond of
+reader NoC-wait converts one-for-one into removable compute stall, it charges nothing for the work of
+removing it, and it credits the full minimum on every op simultaneously. The one end-to-end check
+available says the bound is loose by about 4x in practice: `util-op-deletes` attacked `BinaryNg` and
+`Transpose`, whose bound here is 0.910 + 0.141 = 1.051 s (1.062x), and actually banked **1.015x**.
+
+**Its stated weak point, which the red team is asked to attack:** if a late tile can idle the consumer
+for longer than the reader waited — a granularity effect rather than a latency one — the one-for-one
+assumption is too tight and the true bound is higher. That is the single line of attack that could
+restore the campaign's premise.
+
+Two things this does **not** bound. Compute-side and kernel-internal levers are not dataflow and are
+not covered. And the **diffusion step, 32.5 % of the fold, is not in this table at all** because it
+has never been measured — it is the one place a large prize could still be hiding.
