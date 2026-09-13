@@ -1,0 +1,133 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "arch": "Arch.BLACKHOLE",
+  "shape": {
+    "N": 512,
+    "Cw": 512,
+    "slice_c": 128
+  },
+  "reps": 25,
+  "rounds": 3,
+  "num_groups": 1024,
+  "aa_floor": 1.001817510655816,
+  "results": {
+    "base": {
+      "us": 1207.6512002386153,
+      "all": [
+        1204.6320002991706,
+        1207.6512002386153,
+        1215.4669198207557
+      ],
+      "spread": 1.0089943812873094,
+      "delta_us": 0.0,
+      "ratio": 1.0,
+      "note": "shipped kernels, GATE_GRANULARITY=2",
+      "wrong_data": false
+    },
+    "noread": {
+      "us": 590.0696793105453,
+      "all": [
+        591.9038807041943,
+        590.0696793105453,
+        588.8125207275152
+      ],
+      "spread": 1.005250160055801,
+      "delta_us": -617.58152092807,
+      "ratio": 2.046624733624121,
+      "note": "reader DRAM page reads deleted (WRONG DATA)",
+      "wrong_data": true
+    },
+    "b1": {
+      "us": 803.279560059309,
+      "all": [
+        802.6708394754678,
+        803.279560059309,
+        805.5020798929036
+      ],
+      "spread": 1.0035272745416863,
+      "delta_us": -404.37164017930627,
+      "ratio": 1.5034008834352142,
+      "note": "B1 exact page pattern, 2 banks a core, p/g CB 4 (WRONG DATA)",
+      "wrong_data": true
+    },
+    "b1b2": {
+      "us": 755.429599666968,
+      "all": [
+        755.2717195358127,
+        762.4493993353099,
+        755.429599666968
+      ],
+      "spread": 1.0095034404358587,
+      "delta_us": -452.2216005716473,
+      "ratio": 1.5986283841287259,
+      "note": "B1+B2 exact page pattern, 8 banks a core, p/g CB 4 (WRONG DATA)",
+      "wrong_data": true
+    },
+    "b1b2d32": {
+      "us": 725.2204010728747,
+      "all": [
+        722.9457597713917,
+        725.2204010728747,
+        726.9820396322757
+      ],
+      "spread": 1.0055831019220036,
+      "delta_us": -482.4307991657406,
+      "ratio": 1.6652195642208125,
+      "note": "B1+B2 exact page pattern, 8 banks a core, p/g CB 32 (WRONG DATA)",
+      "wrong_data": true
+    },
+    "bank8": {
+      "us": 764.1277194488794,
+      "all": [
+        764.1277194488794,
+        763.3619208354503,
+        765.6389195472002
+      ],
+      "spread": 1.0029828560340788,
+      "delta_us": -443.5234807897359,
+      "ratio": 1.58043108436064,
+      "note": "reader pages XOR il&7: 8 DRAM banks a core (WRONG DATA)",
+      "wrong_data": true
+    },
+    "deepcb32": {
+      "us": 1168.7378399074078,
+      "all": [
+        1163.2536409888417,
+        1168.7378399074078,
+        1171.7117601074278
+      ],
+      "spread": 1.0072710875947881,
+      "delta_us": -38.913360331207514,
+      "ratio": 1.0332952001744808,
+      "note": "p/g CBs 32 tiles deep, one barrier per pair as shipped",
+      "wrong_data": false
+    },
+    "base_aa": {
+      "us": 1209.846119163558,
+      "all": [
+        1209.929040633142,
+        1208.4442807827145,
+        1209.846119163558
+      ],
+      "spread": 1.0012286539595072,
+      "delta_us": 2.1949189249426126,
+      "ratio": 0.9981857866961956,
+      "note": "shipped kernels, GATE_GRANULARITY=2",
+      "wrong_data": false
+    }
+  },
+  "parity": {
+    "base_vs_fp32_host": {
+      "max_abs_diff": 0.017985820770263672
+    },
+    "deepcb32": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    }
+  }
+}

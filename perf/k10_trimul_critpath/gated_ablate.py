@@ -287,18 +287,43 @@ def _mk_bankspread(mask, depth=4):
     return f
 
 
+
+def _mk_b1b2(ct_inner, depth=4):
+    """The EXACT page pattern B1 (+ B2) would produce, not the XOR proxy.
+
+    B1 permutes the fused projection's output columns so a call's gate slice sits 4 channel-tiles
+    from its value slice: `p` keeps low4 = 8 + ct (banks 0-3), `g` becomes low4 = 4 + ct (banks
+    4-7). B2 makes `ct` vary inside the inner loop, which the group key `(it, jt)` with the channel
+    tiles read inside would do. Both stay inside the same 16-page (row, jt) block, so every address
+    is valid; only the data is wrong.
+    """
+    x = "((ct + il) & 3u)" if ct_inner else "(ct & 3u)"
+    def f():
+        r, c, w = _srcs()
+        r = edit(r, "noc_async_read_page(p_page, s, get_write_ptr(cb_p));",
+                 f"noc_async_read_page((p_page & ~3u) | {x}, s, get_write_ptr(cb_p));", "b1b2.p")
+        r = edit(r, "noc_async_read_page(g_page, s, get_write_ptr(cb_g));",
+                 f"noc_async_read_page((g_page & ~7u) | 4u | {x}, s, get_write_ptr(cb_g));", "b1b2.g")
+        return (r, c, w, 2, depth,
+                f"B1{'+B2' if ct_inner else ''} exact page pattern, "
+                f"{'8' if ct_inner else '2'} banks a core, p/g CB {depth} (WRONG DATA)")
+    return f
+
+
 ARMS = {
     "base": arm_base, "nogather": arm_nogather, "nowrite": arm_nowrite,
     "nosigmoid": arm_nosigmoid, "notranspose": arm_notranspose,
     "fusedsig": arm_fusedsig, "readbatch8": arm_readbatch8, "deepcb": arm_deepcb,
     "noread": arm_noread, "nomul": arm_nomul, "passthru": arm_passthru,
+    "b1": _mk_b1b2(False), "b1b2": _mk_b1b2(True), "b1b2d32": _mk_b1b2(True, 32),
     "bank2": _mk_bankspread(1), "bank4": _mk_bankspread(3), "bank8": _mk_bankspread(7),
     "bank8d32": _mk_bankspread(7, 32),
     "deepcb32": _mk_deep(32), "deepcb64": _mk_deep(64),
     "batch4d32": _mk_batch(4, 32), "batch8d64": _mk_batch(8, 64), "batch2d16": _mk_batch(2, 16),
 }
 WRONG = {"nogather", "nowrite", "nosigmoid", "notranspose", "noread", "nomul",
-         "passthru", "bank2", "bank4", "bank8", "bank8d32"}
+         "passthru", "bank2", "bank4", "bank8", "bank8d32",
+         "b1", "b1b2", "b1b2d32"}
 
 
 def materialise(name):
