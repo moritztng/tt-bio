@@ -38,6 +38,31 @@ windows wrong, and still wrote the identical structure, because the attention ma
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
 
+## `TT_BIO_DEVICE_CONDITIONING` — on, Boltz-2 only
+
+Boltz-2's diffusion conditioning reads the trunk's pair tensor three times, and upstream does all
+three on the host: the pairwise conditioner, the 24-layer token bias stack, and the atom encoder's
+`z_to_p_trans`. Each one is a channel map applied independently at every (i, j), so this flag runs
+them on the card, where the trunk has just left the tensor. Only the `[n, n, 16]` projection the
+atom encoder actually consumes comes back, and the token bias never leaves the device at all: it
+goes straight into the diffusion cache, which used to upload the host's copy of it.
+
+**Accuracy: not identical.** The device does this in bf16 where the host did it in fp32, and it
+uses the fused bias stack, so the structure moves. It is scored against the experimental structure
+1HCL rather than against the previous coordinates, four seeds per arm, both arms in one process.
+Native CA-lDDT goes up on both pseudo-domains at 512 residues, 0.93732 to 0.94036 and 0.91573 to
+0.91860 as a mean of four seeds, and is flat at 298 residues, 0.96742 against 0.96741. Native
+CA-RMSD moves the same way. The per-seed structural move is 0.15 to 0.29 Å per pseudo-domain
+against a seed floor of 0.97 to 1.87 Å, and 0.38 Å at 298 residues against a 1.25 Å seed floor.
+
+**Speed: SPEED_PLACEHOLDER**
+
+`TT_BIO_DEVICE_CONDITIONING=0` restores the host path and the previous coordinates.
+
+BoltzGen shares Boltz-2's `TrunkModule` but does not get this flag: it never asks the trunk to keep
+the pair tensor on the device, so it takes the same deallocate it always did. No other model
+reaches the pair track at all.
+
 ## `TT_BIO_FUSE_BIAS_STACKS` — on, Boltz-2 only
 
 Boltz-2's diffusion conditioning builds a per-layer bias stack with one call per layer. This flag
@@ -87,7 +112,10 @@ the same arithmetic in the same order, not an approximation of it. Off the devic
 per-head loop under `torch.equal` on both outputs, max absolute difference 0, and a negative control
 fails the same comparison. On the device the three models that share this code all fold to the same
 structure byte for byte at 512 residues: Boltz-2 `a91aa44441f0d9c5`, Protenix-v2 `15772214c5b9e990`,
-OpenFold3 `6ee6ac7a3e730688`, each in both arms, pLDDT equal to six places.
+OpenFold3 `6ee6ac7a3e730688`, each in both arms, pLDDT equal to six places. Boltz-2's digest is
+the one it wrote then. `TT_BIO_DEVICE_CONDITIONING` shipped after this was measured and the default
+now writes `2bc758a1fb24ef30`; the other two are unchanged, because neither model reaches that
+flag.
 
 BoltzGen reaches the same code on its design path and takes the batched projection 192 times in one four-binder design. Its designs are drawn unseeded, so two runs of the same build do not produce the same binders and there is no structure to compare between arms; what is comparable is the designability gate, which passes in every run of either arm.
 

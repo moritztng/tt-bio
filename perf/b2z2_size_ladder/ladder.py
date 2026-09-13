@@ -58,7 +58,8 @@ sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 
 import ab_flag_levers as AB  # noqa: E402  -- the fixtures, cfg and MSA seeding, unmodified
 
-EXPECTED_512_DIGEST = "a91aa44441f0d9c5"
+EXPECTED_512_DIGEST = "2bc758a1fb24ef30"   # moved off a91aa44441f0d9c5 when
+# TT_BIO_DEVICE_CONDITIONING shipped on by default (perf/b2z2_cond/out/acc_qb2c1.json).
 
 
 def _free_block_census(path: Path) -> dict:

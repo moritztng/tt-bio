@@ -765,6 +765,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | Flag | Default | What it does |
 |------|---------|--------------|
 | `TT_BIO_ATOM_SHIFT_GATHER` | on | Builds each atom's attention key window by slicing the atom sequence instead of selecting it with a matrix multiply. Same structure, bit for bit. |
+| `TT_BIO_DEVICE_CONDITIONING` | on | Boltz-2 only: runs the diffusion conditioning's pair track on the card, where the trunk already left the tensor. **Not bit-exact** — device bf16 where the host path was fp32. Scored against 1HCL it is flat to slightly closer. |
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass instead of one call per layer. **Not bit-exact** — moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |
 | `TT_BIO_GATE_GRANULARITY` | 2 | Tiles per DST acquire in the reblock-permute gate kernel. Same structure, bit for bit at every value; 2 is the setting that wins on Blackhole without losing much on Wormhole. |
 | `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | Computes every attention head's MSA row weights from one projection of the pair tensor instead of one projection per head. Same structure, bit for bit. |
