@@ -976,13 +976,19 @@ def compute_frame_pred(
     return frames_idx_pred, mask_collinear_pred * feats["token_pad_mask"][:, None, :]
 
 
+def bin_centres(num_bins, end=1.0, device=None):
+    """The centre of each of ``num_bins`` equal bins over ``[0, end)``.
+
+    Both the aggregated metric and the pTM contraction weight the softmax by this vector, and a
+    device port needs the same numbers, so it lives in one place.
+    """
+    bin_width = end / num_bins
+    return torch.arange(start=0.5 * bin_width, end=end, step=bin_width, device=device)
+
+
 def compute_aggregated_metric(logits, end=1.0):
     # Compute aggregated metric from logits
-    num_bins = logits.shape[-1]
-    bin_width = end / num_bins
-    bounds = torch.arange(
-        start=0.5 * bin_width, end=end, step=bin_width, device=logits.device
-    )
+    bounds = bin_centres(logits.shape[-1], end, logits.device)
     probs = nn.functional.softmax(logits, dim=-1)
     plddt = torch.sum(
         probs * bounds.view(*((1,) * len(probs.shape[:-1])), *bounds.shape),
@@ -996,7 +1002,14 @@ def tm_function(d, Nres):
     return 1 / (1 + (d / d0) ** 2)
 
 
-def compute_ptms(logits, x_preds, feats, multiplicity):
+def compute_ptms(logits, x_preds, feats, multiplicity, tm_expected_value=None):
+    """``tm_expected_value`` is the ``[B, N, N]`` bin expectation of the TM curve.
+
+    Everything below it is mask arithmetic over ``[N, N]``; the only heavy term is the softmax
+    over the 64 pae bins that produces it, so a caller that already has that expectation --
+    ``ConfidenceHeadsDevice`` computes it on the card, where the logits are -- passes it in and
+    the logits are never needed.
+    """
     # It needs to take as input the mask of the frames as they are not used to compute the PTM
     _, mask_collinear_pred = compute_frame_pred(
         x_preds, feats["frames_idx"], feats, multiplicity, inference=True
@@ -1012,19 +1025,15 @@ def compute_ptms(logits, x_preds, feats, multiplicity):
         * mask_pad[:, None, :]
         * mask_pad[:, :, None]
     )
-    num_bins = logits.shape[-1]
-    bin_width = 32.0 / num_bins
-    end = 32.0
-    pae_value = torch.arange(
-        start=0.5 * bin_width, end=end, step=bin_width, device=logits.device
-    ).unsqueeze(0)
-    N_res = mask_pad.sum(dim=-1, keepdim=True)
-    tm_value = tm_function(pae_value, N_res).unsqueeze(1).unsqueeze(2)
-    probs = nn.functional.softmax(logits, dim=-1)
-    tm_expected_value = torch.sum(
-        probs * tm_value,
-        dim=-1,
-    )  # shape (B, N, N)
+    if tm_expected_value is None:
+        pae_value = bin_centres(logits.shape[-1], 32.0, logits.device).unsqueeze(0)
+        N_res = mask_pad.sum(dim=-1, keepdim=True)
+        tm_value = tm_function(pae_value, N_res).unsqueeze(1).unsqueeze(2)
+        probs = nn.functional.softmax(logits, dim=-1)
+        tm_expected_value = torch.sum(
+            probs * tm_value,
+            dim=-1,
+        )  # shape (B, N, N)
     ptm = torch.max(
         torch.sum(tm_expected_value * pair_mask_ptm, dim=-1)
         / (torch.sum(pair_mask_ptm, dim=-1) + 1e-5),
@@ -1184,6 +1193,22 @@ def _device_conditioning() -> bool:
     # 1HCL goes up on both pseudo-domains at 512 aa and is flat at 298 aa over 4 seeds per
     # arm (perf/b2z2_cond/out/score_acc_qb2c1.json). See docs/tuning-flags.md.
     return env_flag("TT_BIO_DEVICE_CONDITIONING", True)
+
+
+def _device_confidence() -> bool:
+    # Runs the confidence head's pair assembly on the device instead of in torch, reading the
+    # pair tensor the trunk already left there. Not bit-exact (bf16 device math against fp32
+    # torch), but it cannot move a coordinate: the head runs after the sampler and its outputs
+    # are scores. Read per call so an A/B can flip arms inside one process.
+    return env_flag("TT_BIO_DEVICE_CONFIDENCE", False)
+
+
+def _device_conf_heads() -> bool:
+    # Runs the confidence head's pae/pde projections and their bin contractions on the device,
+    # reading the tensor its own pairformer just produced there instead of downloading it.
+    # Same argument as `_device_confidence`: the head runs after the sampler, so it cannot move
+    # an atom. Read per call so an A/B can flip arms inside one process.
+    return env_flag("TT_BIO_DEVICE_CONF_HEADS", False)
 
 
 def _row_block(bytes_per_row: int) -> int:
@@ -2729,37 +2754,41 @@ class ConfidenceHeads(nn.Module):
         feats,
         pred_distogram_logits,
         multiplicity=1,
+        pair_dev=None,
     ):
-        if self.use_separate_heads:
-            asym_id_token = feats["asym_id"]
-            is_same_chain = asym_id_token.unsqueeze(-1) == asym_id_token.unsqueeze(-2)
-            is_different_chain = ~is_same_chain
+        # `pair_dev` is {"pae", "pde", "tm"} already reduced over the bins by
+        # `tenstorrent.ConfidenceHeadsDevice`, which ran the four projections where the
+        # pairformer left z. Nothing here reads the logits themselves, so on that path they are
+        # never materialised and `out_dict` does not carry them.
+        pae_logits = pde_logits = None
+        if pair_dev is None:
+            if self.use_separate_heads:
+                asym_id_token = feats["asym_id"]
+                is_same_chain = asym_id_token.unsqueeze(-1) == asym_id_token.unsqueeze(-2)
+                is_different_chain = ~is_same_chain
 
-        if self.use_separate_heads:
-            pae_intra_logits = self.to_pae_intra_logits(z)
-            pae_intra_logits = pae_intra_logits * is_same_chain.float().unsqueeze(-1)
+                pae_intra_logits = self.to_pae_intra_logits(z)
+                pae_intra_logits = pae_intra_logits * is_same_chain.float().unsqueeze(-1)
 
-            pae_inter_logits = self.to_pae_inter_logits(z)
-            pae_inter_logits = pae_inter_logits * is_different_chain.float().unsqueeze(
-                -1
-            )
+                pae_inter_logits = self.to_pae_inter_logits(z)
+                pae_inter_logits = pae_inter_logits * is_different_chain.float().unsqueeze(
+                    -1
+                )
 
-            pae_logits = pae_inter_logits + pae_intra_logits
-        else:
-            pae_logits = self.to_pae_logits(z)
+                pae_logits = pae_inter_logits + pae_intra_logits
 
-        if self.use_separate_heads:
-            pde_intra_logits = self.to_pde_intra_logits(z + z.transpose(1, 2))
-            pde_intra_logits = pde_intra_logits * is_same_chain.float().unsqueeze(-1)
+                pde_intra_logits = self.to_pde_intra_logits(z + z.transpose(1, 2))
+                pde_intra_logits = pde_intra_logits * is_same_chain.float().unsqueeze(-1)
 
-            pde_inter_logits = self.to_pde_inter_logits(z + z.transpose(1, 2))
-            pde_inter_logits = pde_inter_logits * is_different_chain.float().unsqueeze(
-                -1
-            )
+                pde_inter_logits = self.to_pde_inter_logits(z + z.transpose(1, 2))
+                pde_inter_logits = pde_inter_logits * is_different_chain.float().unsqueeze(
+                    -1
+                )
 
-            pde_logits = pde_inter_logits + pde_intra_logits
-        else:
-            pde_logits = self.to_pde_logits(z + z.transpose(1, 2))
+                pde_logits = pde_inter_logits + pde_intra_logits
+            else:
+                pae_logits = self.to_pae_logits(z)
+                pde_logits = self.to_pde_logits(z + z.transpose(1, 2))
         resolved_logits = self.to_resolved_logits(s)
         plddt_logits = self.to_plddt_logits(s)
 
@@ -2879,7 +2908,8 @@ class ConfidenceHeads(nn.Module):
             ) / torch.sum(feats["atom_pad_mask"] * iplddt_weight, dim=-1)
 
         # Compute the gPDE and giPDE
-        pde = compute_aggregated_metric(pde_logits, end=32)
+        pde = pair_dev["pde"] if pair_dev is not None else compute_aggregated_metric(
+            pde_logits, end=32)
         pred_distogram_prob = nn.functional.softmax(
             pred_distogram_logits, dim=-1
         ).repeat_interleave(multiplicity, 0)
@@ -2911,7 +2941,6 @@ class ConfidenceHeads(nn.Module):
             token_interface_pair_mask.sum(dim=(1, 2)) + 1e-5
         )
         out_dict = dict(
-            pde_logits=pde_logits,
             plddt_logits=plddt_logits,
             resolved_logits=resolved_logits,
             pde=pde,
@@ -2921,12 +2950,16 @@ class ConfidenceHeads(nn.Module):
             complex_pde=complex_pde,
             complex_ipde=complex_ipde,
         )
-        out_dict["pae_logits"] = pae_logits
-        out_dict["pae"] = compute_aggregated_metric(pae_logits, end=32)
+        if pair_dev is None:
+            out_dict["pde_logits"] = pde_logits
+            out_dict["pae_logits"] = pae_logits
+        out_dict["pae"] = pair_dev["pae"] if pair_dev is not None else (
+            compute_aggregated_metric(pae_logits, end=32))
 
         try:
             ptm, iptm, ligand_iptm, protein_iptm, pair_chains_iptm = compute_ptms(
-                pae_logits, x_pred, feats, multiplicity
+                pae_logits, x_pred, feats, multiplicity,
+                tm_expected_value=None if pair_dev is None else pair_dev["tm"],
             )
             out_dict["ptm"] = ptm
             out_dict["iptm"] = iptm
@@ -4825,6 +4858,60 @@ class ConfidenceModule(nn.Module):
             **confidence_args,
         )
 
+    def _tt_pair_device(self, z_device, multiplicity):
+        """The device pair assembly for this call, or ``None`` when torch still owns it.
+
+        Gated on the module, never on a model name: the trunk has to have left its pair tensor
+        on the card, the head has to be a configuration ``ConfidencePairDevice`` implements, and
+        one sample at a time -- the multi-sample path reaches here through its own sequential
+        recursion, and each recursion reads the same device tensor because the assembly does not
+        consume it.
+        """
+        if z_device is None or multiplicity != 1:
+            return None
+        if not tenstorrent.ConfidencePairDevice.supports(self):
+            return None
+        pair = getattr(self, "_tt_pair", None)
+        if pair is None:
+            pair = tenstorrent.ConfidencePairDevice(
+                self, self.pairformer_stack.compute_kernel_config)
+            self._tt_pair = pair
+        return pair
+
+    def _tt_heads_device(self, multiplicity):
+        """The device pae/pde heads for this call, or ``None`` with a printed reason.
+
+        A lever that can decline needs an instrument that says it declined: the parent row's
+        gate fell back to torch for two folds because `bond_type_feature` arrives from the
+        `Boltz2` constructor and not from `confidence_model_args`, and the fold simply read as
+        "the lever did nothing". So every operand is named here, and a refusal prints once.
+        """
+        if not _device_conf_heads():
+            return None
+        heads = self.confidence_heads
+        operands = {
+            "pairformer_stack is a device PairformerModule":
+                isinstance(getattr(self, "pairformer_stack", None), tenstorrent.PairformerModule),
+            "ConfidenceHeadsDevice.supports(confidence_heads)":
+                tenstorrent.ConfidenceHeadsDevice.supports(heads),
+            "one sample (multiplicity == 1)": multiplicity == 1,
+            "no latent feats asked for (return_latent_feats is False)":
+                not getattr(self, "return_latent_feats", False),
+        }
+        declined = [k for k, v in operands.items() if not v]
+        if declined:
+            if not getattr(self, "_tt_heads_declined", False):
+                self._tt_heads_declined = True
+                print("[boltz2] TT_BIO_DEVICE_CONF_HEADS declines, torch owns the head: "
+                      + "; ".join(f"NOT {d}" for d in declined), flush=True)
+            return None
+        dev = getattr(self, "_tt_heads", None)
+        if dev is None:
+            dev = tenstorrent.ConfidenceHeadsDevice(
+                heads, self.pairformer_stack.compute_kernel_config)
+            self._tt_heads = dev
+        return dev
+
     def forward(
         self,
         s_inputs,  # Float['b n ts']
@@ -4836,6 +4923,7 @@ class ConfidenceModule(nn.Module):
         multiplicity=1,
         run_sequentially=False,
         use_kernels: bool = False,
+        z_device=None,
     ):
         if run_sequentially and multiplicity > 1:
             assert z.shape[0] == 1, "Not supported with batch size > 1"
@@ -4852,6 +4940,7 @@ class ConfidenceModule(nn.Module):
                         multiplicity=1,
                         run_sequentially=False,
                         use_kernels=use_kernels,
+                        z_device=z_device,
                     )
                 )
 
@@ -4879,32 +4968,9 @@ class ConfidenceModule(nn.Module):
         if self.add_s_input_to_s:
             s = s + self.s_input_to_s(s_inputs)
 
-        z = self.z_norm(z)
-
-        if self.add_z_input_to_z:
-            relative_position_encoding = self.rel_pos(feats)
-            z = z + relative_position_encoding
-            z = z + self.token_bonds(feats["token_bonds"].float())
-            if self.bond_type_feature:
-                z = z + self.token_bonds_type(feats["type_bonds"].long())
-            z = z + self.contact_conditioning(feats)
-
-        s = s.repeat_interleave(multiplicity, 0)
-
-        z = (
-            z
-            + self.s_to_z(s_inputs)[:, :, None, :]
-            + self.s_to_z_transpose(s_inputs)[:, None, :, :]
-        )
-        if self.add_s_to_z_prod:
-            z = z + self.s_to_z_prod_out(
-                self.s_to_z_prod_in1(s_inputs)[:, :, None, :]
-                * self.s_to_z_prod_in2(s_inputs)[:, None, :, :]
-            )
-
-        z = z.repeat_interleave(multiplicity, 0)
-        s_inputs = s_inputs.repeat_interleave(multiplicity, 0)
-
+        # Hoisted above the pair assembly. Nothing here reads z, both paths need `d` (the
+        # confidence heads read it) and the distogram bucket index it produces, and on the
+        # device path the index is what goes up instead of the embedding it selects.
         token_to_rep_atom = feats["token_to_rep_atom"]
         token_to_rep_atom = token_to_rep_atom.repeat_interleave(multiplicity, 0)
         if len(x_pred.shape) == 4:
@@ -4914,20 +4980,69 @@ class ConfidenceModule(nn.Module):
             BM, N, _ = x_pred.shape
         x_pred_repr = torch.bmm(token_to_rep_atom.float(), x_pred)
         d = torch.cdist(x_pred_repr, x_pred_repr)
-        distogram = (d.unsqueeze(-1) > self.boundaries).sum(dim=-1).long()
-        distogram = self.dist_bin_pairwise_embed(distogram)
-        z = z + distogram
+        dist_index = (d.unsqueeze(-1) > self.boundaries).sum(dim=-1).long()
 
         mask = feats["token_pad_mask"].repeat_interleave(multiplicity, 0)
         pair_mask = mask[:, :, None] * mask[:, None, :]
 
-        s_t, z_t = self.pairformer_stack(
-            s, z, mask=mask, pair_mask=pair_mask, use_kernels=use_kernels
-        )
+        seq_len = z.shape[1]
+        s = s.repeat_interleave(multiplicity, 0)
+
+        pair_device = self._tt_pair_device(z_device, multiplicity)
+        heads_device = self._tt_heads_device(multiplicity)
+        keep_z = heads_device is not None
+        if pair_device is not None:
+            z_tt = pair_device(z_device[0], s_inputs, feats, dist_index, seq_len, z_device[1])
+            s_t, z_t = self.pairformer_stack(
+                s, None, mask=mask, pair_mask=pair_mask, use_kernels=use_kernels,
+                z_device=z_tt, seq_len=seq_len, keep_z_device=keep_z,
+            )
+        else:
+            z = self.z_norm(z)
+
+            if self.add_z_input_to_z:
+                relative_position_encoding = self.rel_pos(feats)
+                z = z + relative_position_encoding
+                z = z + self.token_bonds(feats["token_bonds"].float())
+                if self.bond_type_feature:
+                    z = z + self.token_bonds_type(feats["type_bonds"].long())
+                z = z + self.contact_conditioning(feats)
+
+            z = (
+                z
+                + self.s_to_z(s_inputs)[:, :, None, :]
+                + self.s_to_z_transpose(s_inputs)[:, None, :, :]
+            )
+            if self.add_s_to_z_prod:
+                z = z + self.s_to_z_prod_out(
+                    self.s_to_z_prod_in1(s_inputs)[:, :, None, :]
+                    * self.s_to_z_prod_in2(s_inputs)[:, None, :, :]
+                )
+
+            z = z.repeat_interleave(multiplicity, 0)
+            z = z + self.dist_bin_pairwise_embed(dist_index)
+
+            s_t, z_t = self.pairformer_stack(
+                s, z, mask=mask, pair_mask=pair_mask, use_kernels=use_kernels,
+                **({"keep_z_device": True} if keep_z else {}),
+            )
 
         # AF3 has residual connections, we remove them
         s = s_t
         z = z_t
+
+        pair_dev = None
+        if keep_z:
+            # `z` is the device tensor, not a host one: the heads read it in place and hand back
+            # the three [1, n, n] reductions that are all anyone downstream wants.
+            pae_c = bin_centres(heads_device.n_pae_bins, 32.0)
+            n_res = mask.sum(dim=-1, keepdim=True)
+            pair_dev = heads_device(
+                z, feats["asym_id"],
+                (pae_c, tm_function(pae_c.unsqueeze(0), n_res).reshape(-1),
+                 bin_centres(heads_device.n_pde_bins, 32.0)),
+                seq_len, int(z.shape[1]))
+            z = None
 
         out_dict = {}
 
@@ -4945,6 +5060,7 @@ class ConfidenceModule(nn.Module):
                 feats=feats,
                 multiplicity=multiplicity,
                 pred_distogram_logits=pred_distogram_logits,
+                pair_dev=pair_dev,
             )
         )
         return out_dict
@@ -5640,10 +5756,25 @@ class Boltz2(nn.Module):
             and not self.skip_run_structure
             and _device_conditioning()
         )
+        # Same argument one stage later: the confidence head's pair assembly is channel maps
+        # over the same tensor, and the pairformer that consumes the result is already on the
+        # device, so the [1, n, n, token_z] upload disappears with the host seconds.
+        device_confidence = (
+            use_resident_trunk
+            and self.confidence_prediction
+            and _device_confidence()
+            and tenstorrent.ConfidencePairDevice.supports(self.confidence_module)
+        )
+        device_z = None
         if use_resident_trunk:
             _trunk = self._tt_trunk_module()
             s, z = _trunk(s_inputs, s_init, z_init, feats, recycling_steps,
-                          progress_fn=_pfn, keep_device_z=device_conditioning)
+                          progress_fn=_pfn,
+                          keep_device_z=device_conditioning or device_confidence)
+            if device_conditioning or device_confidence:
+                # Taken once and owned here, because two stages read it: the diffusion
+                # conditioning before the sampler and the confidence head after it.
+                device_z = _trunk.pop_device_z()
         elif self.run_trunk_and_structure:
             for i in range(recycling_steps + 1):
                 if _pfn:
@@ -5705,9 +5836,8 @@ class Boltz2(nn.Module):
             if self.trace:
                 print("[boltz2] diffusion_conditioning")
             if device_conditioning:
-                z_device, seq_pad = _trunk.pop_device_z()
                 z_to_p, token_trans_bias = self._tt_cond_module()(
-                    z_device, relative_position_encoding, z.shape[1], seq_pad,
+                    device_z[0], relative_position_encoding, z.shape[1], device_z[1],
                 )
                 q, c, to_keys, atom_enc_bias, atom_dec_bias = (
                     self.diffusion_conditioning.forward_atoms(
@@ -5777,8 +5907,12 @@ class Boltz2(nn.Module):
                     multiplicity=diffusion_samples,
                     run_sequentially=run_confidence_sequentially,
                     use_kernels=self.use_kernels,
+                    z_device=device_z if device_confidence else None,
                 )
             )
+        if device_z is not None:
+            tenstorrent.free(device_z[0])
+            device_z = None
 
         if self.affinity_prediction:
             if self.trace:
