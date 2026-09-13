@@ -81,6 +81,8 @@ def main() -> int:
                     help="host_thread_cap_env worker count; 8 is the whglx K10 standard")
     ap.add_argument("--host-threads", type=int, default=None)
     ap.add_argument("--trace-region-mib", type=int, default=512)
+    ap.add_argument("--series", action="store_true",
+                    help="record every step's wall, not just the summary")
     ap.add_argument("--open-lock", type=Path, default=None,
                     help="flock this path across the device open. tt_bio's own lock lives in "
                          "/tmp under another account here and _device_init_lock() swallows the "
@@ -177,6 +179,7 @@ def main() -> int:
                "step_ms_total_settled": round(1e3 * sum(settled), 3),
                "settled_calls": len(settled),
                "step_ms_first5": [round(1e3 * x, 3) for x in per[:5]],
+               "step_ms_series": [round(1e3 * x, 3) for x in per] if a.series else None,
                "loadavg": loadavg()}
         OUT.setdefault("folds", []).append(rec)
         dump()
