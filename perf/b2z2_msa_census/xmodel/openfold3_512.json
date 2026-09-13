@@ -1,0 +1,47 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "3",
+ "model": "openfold3",
+ "size": 512,
+ "sampling_steps": 200,
+ "diffusion_samples": 1,
+ "recycling_steps": 3,
+ "seed": 0,
+ "n_msa": 35,
+ "runs": [
+  {
+   "arm": "on",
+   "flag": true,
+   "fold_s": 45.687,
+   "wall_s": 45.688,
+   "n_tokens": 512,
+   "plddt": 0.547851,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "6ee6ac7a3e730688"
+   },
+   "pwa_batch_head_stats": {
+    "batched": 12,
+    "per_head": 0
+   }
+  },
+  {
+   "arm": "off",
+   "flag": false,
+   "fold_s": 44.755,
+   "wall_s": 44.757,
+   "n_tokens": 512,
+   "plddt": 0.547851,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "6ee6ac7a3e730688"
+   },
+   "pwa_batch_head_stats": {
+    "batched": 0,
+    "per_head": 12
+   }
+  }
+ ],
+ "identical": true,
+ "lever_fired": true,
+ "verdict": "BIT-IDENTICAL, lever fired"
+}
