@@ -138,10 +138,11 @@ def build_arms(ttnn, rig, G, grid, base_m, args):
     BLK = (4, 4, 1, 4, 1)      # the shipped _MM_BLOCK[(4, 16)] entry. K_block == kt == full K.
     arms = []
 
-    def gen(name, knob, level, *, m=base_m, kblock=4, in0_mem=DRAM, in1_mem=DRAM,
+    def gen(name, knob, level, *, m=base_m, kblock=4, mblock=None, in0_mem=DRAM, in1_mem=DRAM,
             out_mem=DRAM, ckc=HIFI4, g=None, cbscale=1.0):
         g = g or grid
         mb, _kb, nb, sh, sw = BLK
+        mb = mblock or mb
         cfg = ((mb, kblock, nb, sh, sw), tuple(g))
         in0 = rig.t(f"in0m{m}", (1, m, 512, K), BF16, in0_mem)
         in1 = rig.t(f"w{N}", (1, 1, K, N), BF16, in1_mem)
@@ -181,6 +182,16 @@ def build_arms(ttnn, rig, G, grid, base_m, args):
     # operand daisy chain has exactly one block to pipeline over.
     for kb in (2, 1):
         gen(f"gen.kblock{kb}", "kblock", str(kb), kblock=kb)
+
+    # ---- the recorded "K_block = 2 is worth 1.159x" is a THREE-variable change. Its source
+    # (`b2z2-genericop-matmul-gap`) compares (8,2,1,4,1) on 8x8 against the shipped (4,4,1,4,1) on
+    # 8x9, so M_block, K_block and the grid all move at once. Decompose it: one arm per variable,
+    # plus the recorded pair itself.
+    gen("gen.mblk8", "rec1159", "M_block 8 alone", mblock=8)
+    gen("gen.g8x8", "rec1159", "grid 8x8 alone", g=(8, 8))
+    gen("gen.kb2.g8x8", "rec1159", "K_block 2 + grid 8x8", kblock=2, g=(8, 8))
+    gen("gen.mblk8.kb2.g8x8", "rec1159", "the recorded config (8,2,1,4,1) 8x8",
+        mblock=8, kblock=2, g=(8, 8))
 
     # ---- operand residency, one operand at a time.
     gen("gen.in1L1", "residency_in1", "L1", in1_mem=L1)
