@@ -122,40 +122,47 @@ aggregate cannot show, and the first three reproduce on both parts:
 
 None of this measures TRISC1, and none of it prices a lever. It says where to point Phase 1.
 
-## The dataflow envelope, bounded from the discriminator's own numbers: 1.15x, not 3.4x
+## The producer-side envelope, bounded from the discriminator's own numbers: 1.15-1.29x, not 3.4x
 
-`dataflow_bound.py`, host only, six measured numbers per op class quoted in the source so the
-arithmetic is checkable without rerunning anything.
+`dataflow_bound.py`, host only, the measured numbers quoted in the source so the arithmetic is
+checkable without rerunning anything. Inputs are `k10-instrument`'s closing five-zone capture.
 
-`k10-instrument` measured, per op class, both how long the compute cluster is blocked on input **and**
-how long the reader is actually waiting on DRAM/NoC. Those bound each other: making memory infinitely
-fast removes at most the time the reader spends waiting for memory, and relieves at most the compute
-stall that exists. So the per-class ceiling is `min(compute input stall, reader NoC wait)`.
+The compute cluster's input stall and the reader's own time bound each other: producer-side work
+removes at most what the producer is actually spending, and relieves at most the stall that exists.
+Two bounds, because "producer-side" has a tight and a loose reading:
 
-| op class | s/fold | compute stall | reader NoC | bound | s recoverable |
-|---|---|---|---|---|---|
-| GenericOp (fused trimul+TriAtt) | 3.907 | 58.0 % | 22.6 % | 22.6 % | 0.883 |
-| Matmul | 2.358 | 29.3 % | 11.2 % | 11.2 % | 0.264 |
-| BinaryNg | 1.724 | 79.0 % | 52.8 % | 52.8 % | 0.910 |
-| LayerNorm | 1.103 | 57.2 % | 18.2 % | 18.2 % | 0.201 |
-| Transpose | 0.636 | 22.2 % | 24.9 % | 22.2 % | 0.141 |
-| **top five, total** | | | | | **2.399** |
+* **TIGHT** = `min(compute stall, reader DRAM)` — bandwidth and latency work only.
+* **LOOSE** = `min(compute stall, reader DRAM + reader ISSUING)` — also credits driving address
+  generation and NoC issue to **zero**, which no real change achieves. Coalescing reduces issue
+  work; it does not abolish it. This end is physically unreachable and is here to be conservative.
 
-**Remove all of it at zero cost and the fold goes 17.989 s -> 15.590 s, which is 1.1539x.** The
-campaign was sized on 3.4x. Reaching 10 s needs 1.7989x, i.e. 7.989 s out; perfect dataflow work on
-the entire pairformer track supplies at most **2.399 s of that, 30 %**.
+| op class | s/fold | compute stall | reader DRAM | reader issuing | tight s | loose s |
+|---|---|---|---|---|---|---|
+| GenericOp (fused trimul+TriAtt) | 3.889 | 57.9 % | 22.7 % | 25.6 % | 0.883 | 1.878 |
+| Matmul | 2.361 | 29.4 % | 11.2 % | 4.3 % | 0.264 | 0.366 |
+| BinaryNg | 1.719 | 79.1 % | 52.7 % | 20.2 % | 0.906 | 1.253 |
+| LayerNorm | 1.053 | 59.5 % | 18.8 % | 22.4 % | 0.198 | 0.434 |
+| Transpose | 0.638 | 22.1 % | 24.8 % | 13.5 % | 0.141 | 0.141 |
+| **top five, total** | | | | | **2.392** | **4.073** |
 
-**This is a generous upper bound and it should be read as one.** It assumes every nanosecond of
-reader NoC-wait converts one-for-one into removable compute stall, it charges nothing for the work of
-removing it, and it credits the full minimum on every op simultaneously. The one end-to-end check
-available says the bound is loose by about 4x in practice: `util-op-deletes` attacked `BinaryNg` and
-`Transpose`, whose bound here is 0.910 + 0.141 = 1.051 s (1.062x), and actually banked **1.015x**.
+**Remove every second of it at zero cost: 17.989 s -> 15.597 s (1.1534x) at the tight end, 13.916 s
+(1.2926x) at the unreachable loose end.** The campaign was sized on 3.4x. Reaching 10 s needs
+1.7989x, i.e. 7.989 s out, so producer-side work on the entire pairformer track supplies **29.9 % to
+51.0 %** of it. **Neither end of the range reaches the target, so the conclusion does not depend on
+where in the range the truth sits.**
 
-**Its stated weak point, which the red team is asked to attack:** if a late tile can idle the consumer
-for longer than the reader waited — a granularity effect rather than a latency one — the one-for-one
-assumption is too tight and the true bound is higher. That is the single line of attack that could
-restore the campaign's premise.
+**Three independent derivations of the tight figure agree.** This script gives 2.392 s from the
+closing capture and 2.399 s from the earlier one; `k10-instrument` computed **2.51 s** by its own
+route from the same data. Within 5 %.
 
-Two things this does **not** bound. Compute-side and kernel-internal levers are not dataflow and are
-not covered. And the **diffusion step, 32.5 % of the fold, is not in this table at all** because it
-has never been measured — it is the one place a large prize could still be hiding.
+**And one end-to-end check says all of them are loose in practice.** `util-op-deletes` attacked
+`BinaryNg` and `Transpose`, bounded here at 1.047 s tight (1.062x), and actually banked **1.015x**.
+
+**What this does NOT bound**, and it is where anything left has to come from:
+
+1. **Consumer-side and kernel-internal work.** On the fused op the reader spends **38.5 %** of its
+   time idled *by the compute cluster* (16.1 % on a CB it has already filled, 22.4 % waiting for
+   compute output) against the starved control's **3.7 %** — ten times. That is the compute side
+   being the constraint, and no amount of dataflow work touches it.
+2. **The diffusion step, 32.5 % of the fold**, which appears nowhere in this table because nobody has
+   ever measured it.
