@@ -1,0 +1,39 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "lever": "gategran",
+  "kind": "arithmetic",
+  "what": "tiles per DST acquire in the gated reblock-permute kernel, 1 against the shipped 2",
+  "fixture": "cdk2x2_512",
+  "steps": 200,
+  "recycles": 3,
+  "tt_bio_file": "/home/ttuser/wt-k10xfer/tt_bio/__init__.py",
+  "commit": "0cd6c4152bbe3c2fbcdde74c9c54ac16bb3c5e82",
+  "started_utc": "2026-09-13T18:57:31Z",
+  "loadavg_at_start": [
+   1.8115234375,
+   1.96142578125,
+   2.63330078125
+  ],
+  "lease_dir": "/tmp/tt-bio-device-leases",
+  "open_lock": "NONE (library lock only)",
+  "width": 1,
+  "omp_num_threads": null,
+  "compute_grid": "11x10",
+  "arch": "Arch.BLACKHOLE"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 18.802,
+   "stats": {},
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 2.32,
+   "t_end": 1789325872.7,
+   "warmup": true,
+   "rep": -1
+  }
+ ]
+}
