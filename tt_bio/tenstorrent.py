@@ -958,12 +958,27 @@ def _grid_q_chunk(q_len: int, work: int, cap: int, n_cores: int) -> int:
     return ceiling
 
 
-@lru_cache(maxsize=None)
-def _sdpa_program_config_for_lengths(q_len: int, k_len: int, work: int = 0) -> ttnn.SDPAProgramConfig:
-    q_chunk = _capped_sdpa_chunk_size(q_len)
+# Every chunk this rule hands out, counted per CALL SITE and per call. It has to sit outside the
+# lru_cache: a cached hit is still a call that runs with that chunk, and the question the census
+# answers -- how many of a fold's SDPA calls actually took a narrower chunk than the shipped cap --
+# is a count of calls, not of distinct shapes. Keyed `(site, q_len, k_len, work)`, holding
+# `[calls, shipped_chunk, chunk, units]`; `chunk == shipped_chunk` means the rule declined to move
+# that site, which is the reading that has been mistaken for "the lever worked" before.
+SDPA_GRID_Q_CHUNK_PICKS: dict = {}
+
+
+def _sdpa_program_config_for_lengths(q_len: int, k_len: int, work: int = 0,
+                                     site: str = "?") -> ttnn.SDPAProgramConfig:
+    shipped = _capped_sdpa_chunk_size(q_len)
+    q_chunk = shipped
     if _SDPA_GRID_Q_CHUNK and work:
-        q_chunk = _grid_q_chunk(q_len, int(work), q_chunk,
+        q_chunk = _grid_q_chunk(q_len, int(work), shipped,
                                 COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
+    rec = SDPA_GRID_Q_CHUNK_PICKS.get((site, q_len, k_len, work))
+    if rec is None:
+        rec = SDPA_GRID_Q_CHUNK_PICKS[(site, q_len, k_len, work)] = [
+            0, shipped, q_chunk, work * (_padded_sdpa_len(q_len) // q_chunk)]
+    rec[0] += 1
     return _sdpa_program_config(
         q_chunk_size=q_chunk,
         k_chunk_size=_capped_sdpa_chunk_size(k_len),
@@ -4183,7 +4198,6 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     COMPUTE_GRID_MAIN = (gx, gy)
     _apply_grid_thresholds((gx, gy), device)
     _sdpa_program_config.cache_clear()
-    _sdpa_program_config_for_lengths.cache_clear()
     _grid_q_chunk.cache_clear()
     _triangle_mul_program_config.cache_clear()
     _tri_att_qkv_l1_config.cache_clear()
@@ -6862,7 +6876,8 @@ class AttentionPairBias(Module):
                     is_causal=False,
                     scale=self.head_dim**-0.5,
                     program_config=_sdpa_program_config_for_lengths(
-                        q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1]),
+                        q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
+                        site="atom" if self.atom_level else "pair_bias"),
                 ),
                 q, k, v, bias, site="attn_pair_bias",
             )
@@ -6888,7 +6903,8 @@ class AttentionPairBias(Module):
                 is_causal=False,
                 scale=self.head_dim**-0.5,
                 program_config=_sdpa_program_config_for_lengths(
-                        q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1]),
+                    q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
+                    site="atom_fp32" if self.atom_level else "pair_bias_fp32"),
             ),
             q_bf16, k_bf16, v_bf16, bias_bf16, site="attn_pair_bias_fp32",
         )
@@ -7090,7 +7106,8 @@ class AttentionPairBias(Module):
                         is_causal=False,
                         scale=self.head_dim**-0.5,
                         program_config=_sdpa_program_config_for_lengths(
-                            q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1]),
+                            q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
+                            site="token_dit"),
                     ),
                     q, k, v, z, site="token_dit",
                 )
