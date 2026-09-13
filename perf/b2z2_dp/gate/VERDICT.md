@@ -63,3 +63,14 @@ The rule fires only when `host_thread_cap` hands a worker 2 threads or fewer, wh
 pre-change child environment byte for byte, and
 `tests/test_runtime.py::test_host_thread_cap_env_is_byte_identical_above_the_line` pins that
 equality mechanically rather than leaving it to a timing run.
+
+## What this gate does and does not cover after the merge
+
+The gate ran 05:29-08:27Z, against main as it stood at `4e607e072`. Two sibling ship rows merged
+later the same morning (`wk/b2z2-pwa-residency-ship`, `wk/b2z2-trunk-byte-round2-ship`, main tip
+`622b4acf7`), and this branch now carries them, so those commits are inside the tree here but were
+not inside the tree this gate scored. Each of them ran its own 44-leg gate before being merged.
+
+What this gate establishes is the part that is actually this branch's: `tt_bio/runtime.py` plus the
+environment every model's child workers inherit. That part is disjoint from both sibling rows, which
+are kernel-level flags, and it is inert at the concurrency any gate leg runs at.
