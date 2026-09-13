@@ -1,0 +1,438 @@
+{
+ "host": "j10glx02",
+ "card_env": "28",
+ "arch": "Arch.WORMHOLE_B0",
+ "board": "WH galaxy j10glx02 card28",
+ "grid": [
+  8,
+  9
+ ],
+ "rounds": 7,
+ "reps_per_round": 16,
+ "groups": {
+  "broadcast": [
+   {
+    "key": "bcast  mul_((1, 16,512,512), (1,1,512,512))",
+    "note": "naive byte count: mask read ONCE",
+    "ms": 0.1136,
+    "dram_MB": 17.302,
+    "Melem": 4.19,
+    "dram_GBps": 152.3,
+    "in_place_alias": true,
+    "spread": 1.0271,
+    "samples_ms": [
+     0.1163,
+     0.1139,
+     0.1133,
+     0.1136,
+     0.1135,
+     0.1144,
+     0.1136
+    ]
+   },
+   {
+    "key": "full   mul_((1, 16,512,512), same)",
+    "note": "non-broadcast twin",
+    "ms": 0.1137,
+    "dram_MB": 25.166,
+    "Melem": 4.19,
+    "dram_GBps": 221.4,
+    "in_place_alias": true,
+    "spread": 1.0076,
+    "samples_ms": [
+     0.1142,
+     0.1137,
+     0.1139,
+     0.1135,
+     0.1137,
+     0.1134,
+     0.1134
+    ]
+   },
+   {
+    "key": "bcast  mul_((1, 32,512,512), (1,1,512,512))",
+    "note": "naive byte count: mask read ONCE",
+    "ms": 0.2249,
+    "dram_MB": 34.079,
+    "Melem": 8.39,
+    "dram_GBps": 151.5,
+    "in_place_alias": true,
+    "spread": 1.0072,
+    "samples_ms": [
+     0.2246,
+     0.2252,
+     0.2245,
+     0.2261,
+     0.2245,
+     0.2258,
+     0.2249
+    ]
+   },
+   {
+    "key": "full   mul_((1, 32,512,512), same)",
+    "note": "non-broadcast twin",
+    "ms": 0.2305,
+    "dram_MB": 50.332,
+    "Melem": 8.39,
+    "dram_GBps": 218.3,
+    "in_place_alias": true,
+    "spread": 1.0073,
+    "samples_ms": [
+     0.2294,
+     0.2297,
+     0.2299,
+     0.2305,
+     0.2309,
+     0.2307,
+     0.2311
+    ]
+   },
+   {
+    "key": "bcast  mul_((1, 64,512,512), (1,1,512,512))",
+    "note": "naive byte count: mask read ONCE",
+    "ms": 0.4429,
+    "dram_MB": 67.633,
+    "Melem": 16.78,
+    "dram_GBps": 152.7,
+    "in_place_alias": true,
+    "spread": 1.0099,
+    "samples_ms": [
+     0.4408,
+     0.4417,
+     0.4418,
+     0.4451,
+     0.4429,
+     0.4431,
+     0.4445
+    ]
+   },
+   {
+    "key": "full   mul_((1, 64,512,512), same)",
+    "note": "non-broadcast twin",
+    "ms": 0.4492,
+    "dram_MB": 100.663,
+    "Melem": 16.78,
+    "dram_GBps": 224.1,
+    "in_place_alias": true,
+    "spread": 1.015,
+    "samples_ms": [
+     0.4479,
+     0.4488,
+     0.4462,
+     0.4509,
+     0.4492,
+     0.4502,
+     0.4529
+    ]
+   },
+   {
+    "key": "bcast  mul_((1,128,512,512), (1,1,512,512))",
+    "note": "naive byte count: mask read ONCE",
+    "ms": 0.8534,
+    "dram_MB": 134.742,
+    "Melem": 33.55,
+    "dram_GBps": 157.9,
+    "in_place_alias": true,
+    "spread": 1.0052,
+    "samples_ms": [
+     0.8529,
+     0.8551,
+     0.8528,
+     0.8534,
+     0.853,
+     0.8573,
+     0.8568
+    ]
+   },
+   {
+    "key": "full   mul_((1,128,512,512), same)",
+    "note": "non-broadcast twin",
+    "ms": 0.848,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 237.4,
+    "in_place_alias": true,
+    "spread": 1.0083,
+    "samples_ms": [
+     0.8439,
+     0.8455,
+     0.8458,
+     0.8487,
+     0.848,
+     0.8492,
+     0.8509
+    ]
+   }
+  ],
+  "activation_menu": [
+   {
+    "key": "act NONE         mul_(P DRAM, P DRAM)",
+    "note": "identical bytes for every row",
+    "ms": 0.8452,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 238.2,
+    "in_place_alias": true,
+    "spread": 1.007,
+    "samples_ms": [
+     0.8434,
+     0.8448,
+     0.8448,
+     0.8455,
+     0.8452,
+     0.8493,
+     0.8477
+    ]
+   },
+   {
+    "key": "act RELU         mul_(P DRAM, P DRAM)",
+    "note": "identical bytes for every row",
+    "ms": 0.8631,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 233.3,
+    "in_place_alias": true,
+    "spread": 1.0058,
+    "samples_ms": [
+     0.8655,
+     0.8631,
+     0.8629,
+     0.8648,
+     0.8629,
+     0.865,
+     0.8605
+    ]
+   },
+   {
+    "key": "act HARDSIGMOID  mul_(P DRAM, P DRAM)",
+    "note": "identical bytes for every row",
+    "ms": 0.8673,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 232.1,
+    "in_place_alias": true,
+    "spread": 1.0058,
+    "samples_ms": [
+     0.8673,
+     0.8653,
+     0.8675,
+     0.8703,
+     0.8669,
+     0.8657,
+     0.8683
+    ]
+   },
+   {
+    "key": "act TANH         mul_(P DRAM, P DRAM)",
+    "note": "identical bytes for every row",
+    "ms": 0.9294,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 216.6,
+    "in_place_alias": true,
+    "spread": 1.0026,
+    "samples_ms": [
+     0.9314,
+     0.9294,
+     0.93,
+     0.9299,
+     0.9291,
+     0.9292,
+     0.929
+    ]
+   },
+   {
+    "key": "act SILU         mul_(P DRAM, P DRAM)",
+    "note": "identical bytes for every row",
+    "ms": 1.2669,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 158.9,
+    "in_place_alias": true,
+    "spread": 1.0014,
+    "samples_ms": [
+     1.2683,
+     1.2669,
+     1.2669,
+     1.2665,
+     1.2669,
+     1.2668,
+     1.267
+    ]
+   },
+   {
+    "key": "act SIGMOID      mul_(P DRAM, P DRAM)",
+    "note": "identical bytes for every row",
+    "ms": 1.2362,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 162.9,
+    "in_place_alias": true,
+    "spread": 1.0018,
+    "samples_ms": [
+     1.2378,
+     1.2362,
+     1.2363,
+     1.2363,
+     1.2356,
+     1.2362,
+     1.2361
+    ]
+   },
+   {
+    "key": "act EXP          mul_(P DRAM, P DRAM)",
+    "note": "identical bytes for every row",
+    "ms": 1.0629,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 189.4,
+    "in_place_alias": true,
+    "spread": 1.0043,
+    "samples_ms": [
+     1.064,
+     1.0607,
+     1.0615,
+     1.0629,
+     1.0627,
+     1.0652,
+     1.064
+    ]
+   },
+   {
+    "key": "act GELU         mul_(P DRAM, P DRAM)",
+    "note": "identical bytes for every row",
+    "ms": 0.8624,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 233.5,
+    "in_place_alias": true,
+    "spread": 1.0068,
+    "samples_ms": [
+     0.8645,
+     0.8591,
+     0.8624,
+     0.865,
+     0.8605,
+     0.8646,
+     0.8605
+    ]
+   }
+  ],
+  "sigmoid_scaling": [
+   {
+    "key": "scal c=32  mul_          (gate off)",
+    "note": "c=32 off",
+    "ms": 0.2287,
+    "dram_MB": 50.332,
+    "Melem": 8.39,
+    "dram_GBps": 220.1,
+    "in_place_alias": true,
+    "spread": 1.0072,
+    "samples_ms": [
+     0.2298,
+     0.2285,
+     0.2287,
+     0.2286,
+     0.2281,
+     0.2296,
+     0.2289
+    ]
+   },
+   {
+    "key": "scal c=32  mul_ sigmoid  (gate on)",
+    "note": "c=32 on",
+    "ms": 0.3228,
+    "dram_MB": 50.332,
+    "Melem": 8.39,
+    "dram_GBps": 155.9,
+    "in_place_alias": true,
+    "spread": 1.0065,
+    "samples_ms": [
+     0.3217,
+     0.3238,
+     0.3229,
+     0.3228,
+     0.3222,
+     0.3227,
+     0.3236
+    ]
+   },
+   {
+    "key": "scal c=64  mul_          (gate off)",
+    "note": "c=64 off",
+    "ms": 0.4489,
+    "dram_MB": 100.663,
+    "Melem": 16.78,
+    "dram_GBps": 224.2,
+    "in_place_alias": true,
+    "spread": 1.0084,
+    "samples_ms": [
+     0.4495,
+     0.4475,
+     0.4497,
+     0.4479,
+     0.4489,
+     0.4479,
+     0.4513
+    ]
+   },
+   {
+    "key": "scal c=64  mul_ sigmoid  (gate on)",
+    "note": "c=64 on",
+    "ms": 0.642,
+    "dram_MB": 100.663,
+    "Melem": 16.78,
+    "dram_GBps": 156.8,
+    "in_place_alias": true,
+    "spread": 1.0035,
+    "samples_ms": [
+     0.6406,
+     0.641,
+     0.6411,
+     0.6424,
+     0.6428,
+     0.642,
+     0.6426
+    ]
+   },
+   {
+    "key": "scal c=128 mul_          (gate off)",
+    "note": "c=128 off",
+    "ms": 0.8463,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 237.9,
+    "in_place_alias": true,
+    "spread": 1.0036,
+    "samples_ms": [
+     0.8439,
+     0.8465,
+     0.8469,
+     0.847,
+     0.8463,
+     0.8461,
+     0.8462
+    ]
+   },
+   {
+    "key": "scal c=128 mul_ sigmoid  (gate on)",
+    "note": "c=128 on",
+    "ms": 1.2379,
+    "dram_MB": 201.327,
+    "Melem": 33.55,
+    "dram_GBps": 162.6,
+    "in_place_alias": true,
+    "spread": 1.0147,
+    "samples_ms": [
+     1.236,
+     1.2379,
+     1.2375,
+     1.2376,
+     1.2401,
+     1.2379,
+     1.2542
+    ]
+   }
+  ]
+ }
+}

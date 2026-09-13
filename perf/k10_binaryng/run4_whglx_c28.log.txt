@@ -1,0 +1,6 @@
+mask DRAM  mul_(CH DRAM, mask DRAM)        0.8566 ms   134.74 MB DRAM   157.3 GB/s  spread 1.002x
+mask L1    mul_(CH DRAM, mask L1)          0.6238 ms   134.22 MB DRAM   215.1 GB/s  spread 1.019x
+gate DRAM  mul_(HM DRAM, HM DRAM) sig      1.2424 ms   201.33 MB DRAM   162.0 GB/s  spread 1.005x
+gate L1    mul_(HM DRAM, HM L1)   sig      1.2404 ms   134.22 MB DRAM   108.2 GB/s  spread 1.004x
+
+WROTE /home/agent/k10bngout/pass4_whglx_c28.json

@@ -1,0 +1,30 @@
+
+=== BROADCAST: is the 0.5 MB mask read once, or once per channel block? ===
+bcast  mul_((1, 16,512,512), (1,1,512,512))      0.1136 ms    17.3 MB DRAM   152.3 GB/s    4.19 Melem  spread 1.027x
+full   mul_((1, 16,512,512), same)               0.1137 ms    25.2 MB DRAM   221.4 GB/s    4.19 Melem  spread 1.008x
+bcast  mul_((1, 32,512,512), (1,1,512,512))      0.2249 ms    34.1 MB DRAM   151.5 GB/s    8.39 Melem  spread 1.007x
+full   mul_((1, 32,512,512), same)               0.2305 ms    50.3 MB DRAM   218.3 GB/s    8.39 Melem  spread 1.007x
+bcast  mul_((1, 64,512,512), (1,1,512,512))      0.4429 ms    67.6 MB DRAM   152.7 GB/s   16.78 Melem  spread 1.010x
+full   mul_((1, 64,512,512), same)               0.4492 ms   100.7 MB DRAM   224.1 GB/s   16.78 Melem  spread 1.015x
+bcast  mul_((1,128,512,512), (1,1,512,512))      0.8534 ms   134.7 MB DRAM   157.9 GB/s   33.55 Melem  spread 1.005x
+full   mul_((1,128,512,512), same)               0.8480 ms   201.3 MB DRAM   237.4 GB/s   33.55 Melem  spread 1.008x
+
+=== ACTIVATION MENU on (1,512,512,128) DRAM, 201.3 MB, 33.55 Melem ===
+act NONE         mul_(P DRAM, P DRAM)            0.8452 ms   201.3 MB DRAM   238.2 GB/s   33.55 Melem  spread 1.007x
+act RELU         mul_(P DRAM, P DRAM)            0.8631 ms   201.3 MB DRAM   233.3 GB/s   33.55 Melem  spread 1.006x
+act HARDSIGMOID  mul_(P DRAM, P DRAM)            0.8673 ms   201.3 MB DRAM   232.1 GB/s   33.55 Melem  spread 1.006x
+act TANH         mul_(P DRAM, P DRAM)            0.9294 ms   201.3 MB DRAM   216.6 GB/s   33.55 Melem  spread 1.003x
+act SILU         mul_(P DRAM, P DRAM)            1.2669 ms   201.3 MB DRAM   158.9 GB/s   33.55 Melem  spread 1.001x
+act SIGMOID      mul_(P DRAM, P DRAM)            1.2362 ms   201.3 MB DRAM   162.9 GB/s   33.55 Melem  spread 1.002x
+act EXP          mul_(P DRAM, P DRAM)            1.0629 ms   201.3 MB DRAM   189.4 GB/s   33.55 Melem  spread 1.004x
+act GELU         mul_(P DRAM, P DRAM)            0.8624 ms   201.3 MB DRAM   233.5 GB/s   33.55 Melem  spread 1.007x
+
+=== SIGMOID SCALING: overhead per element, or per program? ===
+scal c=32  mul_          (gate off)              0.2287 ms    50.3 MB DRAM   220.1 GB/s    8.39 Melem  spread 1.007x
+scal c=32  mul_ sigmoid  (gate on)               0.3228 ms    50.3 MB DRAM   155.9 GB/s    8.39 Melem  spread 1.006x
+scal c=64  mul_          (gate off)              0.4489 ms   100.7 MB DRAM   224.2 GB/s   16.78 Melem  spread 1.008x
+scal c=64  mul_ sigmoid  (gate on)               0.6420 ms   100.7 MB DRAM   156.8 GB/s   16.78 Melem  spread 1.004x
+scal c=128 mul_          (gate off)              0.8463 ms   201.3 MB DRAM   237.9 GB/s   33.55 Melem  spread 1.004x
+scal c=128 mul_ sigmoid  (gate on)               1.2379 ms   201.3 MB DRAM   162.6 GB/s   33.55 Melem  spread 1.015x
+
+WROTE /home/agent/k10bngout/pass3_whglx_c28.json

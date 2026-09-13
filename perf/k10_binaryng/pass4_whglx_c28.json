@@ -1,0 +1,79 @@
+{
+ "host": "j10glx02",
+ "card_env": "28",
+ "arch": "Arch.WORMHOLE_B0",
+ "grid": [
+  8,
+  9
+ ],
+ "rows": [
+  {
+   "key": "mask DRAM  mul_(CH DRAM, mask DRAM)",
+   "ms": 0.8566,
+   "dram_MB": 134.742,
+   "dram_GBps": 157.3,
+   "in_place_alias": true,
+   "spread": 1.0025,
+   "samples_ms": [
+    0.8566,
+    0.8566,
+    0.857,
+    0.8569,
+    0.8575,
+    0.8554,
+    0.856
+   ]
+  },
+  {
+   "key": "mask L1    mul_(CH DRAM, mask L1)  ",
+   "ms": 0.6238,
+   "dram_MB": 134.218,
+   "dram_GBps": 215.1,
+   "in_place_alias": true,
+   "spread": 1.0193,
+   "samples_ms": [
+    0.6299,
+    0.6193,
+    0.6251,
+    0.6245,
+    0.618,
+    0.6238,
+    0.6196
+   ]
+  },
+  {
+   "key": "gate DRAM  mul_(HM DRAM, HM DRAM) sig",
+   "ms": 1.2424,
+   "dram_MB": 201.327,
+   "dram_GBps": 162.0,
+   "in_place_alias": true,
+   "spread": 1.0046,
+   "samples_ms": [
+    1.2424,
+    1.2423,
+    1.2419,
+    1.2408,
+    1.2465,
+    1.244,
+    1.2435
+   ]
+  },
+  {
+   "key": "gate L1    mul_(HM DRAM, HM L1)   sig",
+   "ms": 1.2404,
+   "dram_MB": 134.218,
+   "dram_GBps": 108.2,
+   "in_place_alias": true,
+   "spread": 1.0044,
+   "samples_ms": [
+    1.2397,
+    1.2416,
+    1.2383,
+    1.2361,
+    1.2412,
+    1.2409,
+    1.2404
+   ]
+  }
+ ]
+}

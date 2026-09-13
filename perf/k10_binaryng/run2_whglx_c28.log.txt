@@ -1,0 +1,55 @@
+
+=== ROOF amortised ===
+roof add_  1x512x512x32         50.3 MB              0.2315 ms (1-call  0.3662, host +0.1347)  DRAM  217.4  mem  217.4 GB/s
+roof clone 1x512x512x32         33.6 MB              0.1612 ms (1-call 11.4836, host +11.3223)  DRAM  208.1  mem  208.1 GB/s
+roof add_  1x512x512x64        100.7 MB              0.4481 ms (1-call  0.5073, host +0.0593)  DRAM  224.7  mem  224.7 GB/s
+roof clone 1x512x512x64         67.1 MB              0.3090 ms (1-call  1.1665, host +0.8576)  DRAM  217.2  mem  217.2 GB/s
+roof add_  1x512x512x128       201.3 MB              0.8426 ms (1-call  0.9012, host +0.0586)  DRAM  238.9  mem  238.9 GB/s
+roof clone 1x512x512x128       134.2 MB              0.5946 ms (1-call  1.4388, host +0.8442)  DRAM  225.7  mem  225.7 GB/s
+roof add_  8192x8192           402.7 MB              1.6787 ms (1-call  1.7657, host +0.0870)  DRAM  239.9  mem  239.9 GB/s
+roof clone 8192x8192           268.4 MB              1.1822 ms (1-call  2.1358, host +0.9536)  DRAM  227.1  mem  227.1 GB/s
+roof add_  8192x16384          805.3 MB              3.3534 ms (1-call  3.4085, host +0.0551)  DRAM  240.1  mem  240.1 GB/s
+roof clone 8192x16384          536.9 MB              2.3509 ms (1-call  3.2192, host +0.8682)  DRAM  228.4  mem  228.4 GB/s
+
+MEASURED DRAM ROOF (amortised) 240.1 GB/s  (roof add_  8192x16384          805.3 MB)
+
+=== INSTRUMENT-CONTROL amortised ===
+ctl STARVED add 8192x8192 (predict ~roof)            1.6819 ms (1-call  1.8414, host +0.1594)  DRAM  239.4  mem  239.4 GB/s   99.7 % roof
+ctl COMPUTE matmul 2048^3 HiFi4 (predict <<roof)     0.4215 ms (1-call 641.9109, host +641.4894)  DRAM   59.7  mem   59.7 GB/s   24.9 % roof
+  matmul 40.76 TFLOP/s at 24.9 % of the DRAM roof
+
+=== ROWS amortised ===
+row trimul pair mask  mul_(CH DRAM, mask DRAM)       0.8565 ms (1-call 21.6692, host +20.8126)  DRAM  157.3  mem  157.3 GB/s   65.5 % roof
+row triatt out gate   mul_(HM DRAM, HM DRAM) sig     1.2418 ms (1-call 26.8185, host +25.5767)  DRAM  162.1  mem  162.1 GB/s   67.5 % roof
+row residual          add_(P DRAM, P DRAM)           0.8464 ms (1-call  0.9330, host +0.0866)  DRAM  237.9  mem  237.9 GB/s   99.1 % roof
+
+=== ROWS amortised, L1 operand ===
+row trimul out gate   mul_(P L1, P DRAM) sig         1.2375 ms (1-call 13.9773, host +12.7398)  DRAM   54.2  mem  162.7 GB/s   67.8 % roof
+
+=== ROWS amortised, L1 operand b ===
+row residual          add_(P DRAM, P L1)             0.6204 ms (1-call 12.3511, host +11.7307)  DRAM  216.3  mem  324.5 GB/s  135.2 % roof
+
+=== SIGMOID ABLATION (identical bytes, gate on vs off) ===
+abl P  DRAM mul_          (no activation)            0.8493 ms (1-call  0.9689, host +0.1196)  DRAM  237.1  mem  237.1 GB/s   98.8 % roof
+abl P  DRAM mul_ sigmoid(b)                          1.2397 ms (1-call  1.2919, host +0.0523)  DRAM  162.4  mem  162.4 GB/s   67.6 % roof
+abl HM DRAM mul_          (no activation)            0.8476 ms (1-call  0.8914, host +0.0438)  DRAM  237.5  mem  237.5 GB/s   98.9 % roof
+abl HM DRAM mul_ sigmoid(b)                          1.2424 ms (1-call  1.2731, host +0.0307)  DRAM  162.0  mem  162.0 GB/s   67.5 % roof
+abl P  DRAM add_          (reference)                0.8432 ms (1-call  0.8885, host +0.0452)  DRAM  238.8  mem  238.8 GB/s   99.5 % roof
+
+=== ACTIVATION COST (P DRAM, identical bytes) ===
+act none                                             0.8507 ms (1-call  0.9646, host +0.1140)  DRAM  236.7  mem  236.7 GB/s   98.6 % roof
+act relu(b)                                          0.8634 ms (1-call 648.1201, host +647.2567)  DRAM  233.2  mem  233.2 GB/s   97.1 % roof
+act sigmoid(b)                                       1.2414 ms (1-call  1.3627, host +0.1213)  DRAM  162.2  mem  162.2 GB/s   67.6 % roof
+act sigmoid standalone then mul_ (2 programs)        1.5830 ms (1-call 796.3347, host +794.7517)  DRAM  254.4  mem  254.4 GB/s  106.0 % roof
+
+=== RESIDENCY ABLATION ===
+res c=32  add_(DRAM, DRAM)   50.3 MB                 0.2279 ms (1-call  0.3283, host +0.1004)  DRAM  220.9  mem  220.9 GB/s   92.0 % roof
+res c=32  add_(DRAM, L1)     33.6 MB                 0.1586 ms (1-call  0.2062, host +0.0476)  DRAM  211.6  mem  317.4 GB/s  132.2 % roof
+res c=64  add_(DRAM, DRAM)  100.7 MB                 0.4456 ms (1-call  0.4729, host +0.0273)  DRAM  225.9  mem  225.9 GB/s   94.1 % roof
+res c=64  add_(DRAM, L1)     67.1 MB                 0.3162 ms (1-call  0.3462, host +0.0300)  DRAM  212.3  mem  318.4 GB/s  132.6 % roof
+res c=128 add_(DRAM, DRAM)  201.3 MB                 0.8416 ms (1-call  0.8711, host +0.0295)  DRAM  239.2  mem  239.2 GB/s   99.6 % roof
+res c=128 add_(DRAM, L1)    134.2 MB               ALLOC TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+info:
+Out of Memory: Not enough space to allocate 67108864 B L1 buffer across 72 banks, 
+
+WROTE /home/agent/k10bngout/amort_whglx_c28.json
