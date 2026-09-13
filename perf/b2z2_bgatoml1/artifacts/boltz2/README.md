@@ -17,6 +17,11 @@ a3m named in the yaml, shipped protocol (3 recycles, 200 sampling steps):
     [(x=0,y=0) - (x=7,y=7)]. L1 buffer allocated at 1026048 and static circular buffer region
     ends at 1041696
 
+Boltz-2's own gate trace at 1152 aa reads **`arm=l1 shape=1x294x32x128 live=40943616`** — the
+same K and the same byte count as BoltzGen's two crashes, measured rather than extrapolated from
+the size-curve's aa ladder. One atom-layer call, then the throw, at `tenstorrent.py:7161` in
+`kv = ttnn.linear(` — the same line.
+
 Byte-identical to both BoltzGen crashes — same addresses, same core range, three different
 program ids (770, 791, 999) across two models and three targets.
 

@@ -16,6 +16,13 @@ so the gate's admit limit is K <= 360.
 | 294 | bg1024 |  80 | 40,943,616 | 81.5 % | `l1 1`    | **CRASH**, identical addresses |
 | 364 | bg1300 |  80 | 50,692,096 | 100.9 % | `dram 3000` | declines, completes in 511.8 s |
 
+And the same axis on Boltz-2, which is a different model on the same code path:
+
+| K | fold | live B | census | outcome |
+|---|---|---|---|---|
+| 266 | cdk2x2_1024 | 37,044,224 | `l1` | clean, 214.6 s |
+| 294 | cdk2x2_1152 | 40,943,616 | `l1 1` | **CRASH**, identical addresses, `tenstorrent.py:7161` |
+
 Both K = 294 crashes throw the same thing at the same addresses from different targets and
 different program ids (791 and 999):
 

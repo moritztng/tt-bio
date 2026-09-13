@@ -1,0 +1,6 @@
+[ATOM_L1] arm=l1 shape=1x294x32x128 live=40943616 budget=50235264
+2026-09-13 03:06:20.124 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 770 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)]. L1 buffer allocated at 1026048 and static circular buffer region ends at 1041696 (assert.hpp:104)
+  File "/home/agent/wt-bgatoml1/tt_bio/tenstorrent.py", line 7161, in __call__
+    kv = ttnn.linear(
+Statically allocated circular buffers in program 770 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)]. L1 buffer allocated at 1026048 and static circular buffer region ends at 1041696
+      Statically allocated circular buffers in program 770 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)]. L1 buffer allocated at 1026048 and static circular buffer region ends at 1041696
