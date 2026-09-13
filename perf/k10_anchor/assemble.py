@@ -26,7 +26,7 @@ TT_CIF = REPO / "perf" / "b2z2_cond" / "cif"
 TT_RUNS = REPO / "perf" / "b2z2_cond" / "out" / "acc_qb2c1.json"
 # `default-s0` is the untouched checkout and its digest equals `cond-s0`, so `cond` IS the
 # shipped default. Renamed to `ttmain` here because that is what it stands for downstream.
-TT_ARM, TT_NAME = "cond", "ttmain"
+TT_ARMS = {"cond": "ttmain", "base": "ttbase"}   # base = TT_BIO_DEVICE_CONDITIONING=0
 
 
 def main() -> int:
@@ -44,16 +44,16 @@ def main() -> int:
     runs, env = [], {"tt": tt["env"]}
 
     for r in tt["runs"]:
-        if r["arm"] != TT_ARM:
+        if r["arm"] not in TT_ARMS or r["tag"].endswith("_r1"):
             continue
         size = r["target"].split("_")[-1]
-        src = TT_CIF / f"{size}_{TT_ARM}-s{r['seed']}"
+        src = TT_CIF / f"{size}_{r['arm']}-s{r['seed']}"
         cif = next(src.glob("*.cif"))
-        tag = f"{TT_NAME}-s{r['seed']}"
+        tag = f"{TT_ARMS[r['arm']]}-s{r['seed']}"
         dst = a.out_cifdir / f"{size}_{tag}"
         dst.mkdir()
         shutil.copy(cif, dst / cif.name)
-        runs.append({**r, "arm": TT_NAME, "tag": tag,
+        runs.append({**r, "arm": TT_ARMS[r["arm"]], "tag": tag,
                      "sha256_full": hashlib.sha256(cif.read_bytes()).hexdigest()})
 
     for p in a.gpu_runs.split(","):
