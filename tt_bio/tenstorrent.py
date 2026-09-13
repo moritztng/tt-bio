@@ -361,6 +361,22 @@ _NARROW_PROJ_BW: int | None = 1
 # DRAM; the projections themselves do not get faster. In-fold op walls against three baseline
 # folds, perf/p3l1/ops_*.json.
 _PAIR_PROJ_L1_OUT = True
+# The trimul's pair mask, in L1 instead of DRAM. The mask is [1,1,L,L] against a [1,C,L,L] chunk,
+# so the multiply broadcasts it over the channel axis and reads it once per channel BLOCK, not
+# once: at C = 16/32/64/128 the broadcast form and a full-size operand cost the same to within
+# 2.5 %, so a 0.52 MB operand is priced like a 67.11 MB one. Measured on Wormhole at the
+# production shape, 0.8566 -> 0.6238 ms a call (`k10-p1-binaryng-why`, perf/k10_binaryng/).
+# A memory config decides which banks a tile lands in, not what is in it, so this is bit-exact.
+_TRIMUL_MASK_L1 = env_flag("TT_BIO_TRIMUL_MASK_L1", True)
+# The Pairformer residual's update operand, in L1 instead of DRAM. Three of the five residual
+# adds in a block already read an L1 update, because their producer's destination was moved there
+# by the levers above; the starting triangle attention's output projection and the pair
+# transition's concat still write DRAM and are read straight back. Blackhole prices that round
+# trip at 0.4923 -> 0.3805 ms a call (`util-op-deletes`, perf/util_op_deletes/). Both producers
+# fall back to DRAM when the pair tensor does not fit, which is what happens above 512 aa.
+_RESIDUAL_L1 = env_flag("TT_BIO_RESIDUAL_L1", True)
+TRIMUL_MASK_L1_STATS = [0, 0]           # [mask read from L1, mask read from DRAM]
+RESIDUAL_L1_STATS = [0, 0]              # [update produced into L1, into DRAM]
 # in0_block_w cap for the L1-output members. It must track _PAIR_PROJ_BW: at the same cap the L1
 # output is `torch.equal` against the DRAM output of the identical config (max abs 0.0, and a live
 # 298 aa fold returns the same plDDT to six decimals), so moving the destination is free of any
@@ -3587,22 +3603,65 @@ def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float,
     `reserve_per_core` prices that same need in bytes per core instead, for a caller whose
     consumer's buffers do not grow with the tensor.
     """
+    nbytes = _padded_bytes(t.shape, 4 if t.dtype == ttnn.float32 else 2)
+    if nbytes and _l1_fits(nbytes, headroom, reserve_per_core):
+        return ttnn.L1_MEMORY_CONFIG
+    return ttnn.DRAM_MEMORY_CONFIG
+
+
+def _padded_bytes(shape, elem: int) -> int:
+    """Tile-padded size of a tensor of `shape` at `elem` bytes an element, 0 if it has no tiles.
+
+    The last two axes are the tiled ones, so both round up to 32 before they are multiplied.
+    """
+    dims = [int(d) for d in shape]
+    if len(dims) < 2:
+        return 0
+    volume = elem
+    for d in dims[:-2]:
+        volume *= d
+    return volume * ((dims[-2] + 31) // 32) * 32 * ((dims[-1] + 31) // 32) * 32
+
+
+def _residual_update_memory_config(z: ttnn.Tensor) -> ttnn.MemoryConfig | None:
+    """L1 for a residual update the size of `z` when the grid has room, else None.
+
+    Headroom 1.0 and a per-core reserve: the update is the only pair-sized tensor L1 holds at the
+    assembly, since the row blocks it is assembled from live in DRAM. `z` itself is in DRAM.
+    """
+    nbytes = _padded_bytes(z.shape, 4 if z.dtype == ttnn.float32 else 2)
+    fits = bool(nbytes) and _l1_fits(nbytes, 1.0, _PAIR_L1_CONSUMER_RESERVE)
+    RESIDUAL_L1_STATS[0 if fits else 1] += 1
+    return ttnn.L1_MEMORY_CONFIG if fits else None
+
+
+def _out_proj_memory_config(gated: ttnn.Tensor, w: ttnn.Tensor) -> ttnn.MemoryConfig | None:
+    """L1 for the head-major output projection's result when the grid has room, else None.
+
+    Headroom 2.0: the gated activation this projection reads is the same size as what it writes
+    and stays live until the caller frees it. `None` means "leave the destination alone", which is
+    what every caller that has not opted in passes.
+    """
+    nbytes = _padded_bytes(
+        [int(gated.shape[0]), int(gated.shape[2]), int(w.shape[-1])],
+        4 if gated.dtype == ttnn.float32 else 2)
+    fits = bool(nbytes) and _l1_fits(nbytes, 2.0, _PAIR_L1_CONSUMER_RESERVE)
+    RESIDUAL_L1_STATS[0 if fits else 1] += 1
+    return ttnn.L1_MEMORY_CONFIG if fits else None
+
+
+def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
+    """`headroom` copies of `nbytes` fit across the grid's banks with `reserve_per_core` spare.
+
+    The byte-level form of `_l1_memory_config_if_it_fits`, for a caller deciding where to put a
+    result it has not allocated yet and therefore has no tensor for.
+    """
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())
     except Exception:
-        return ttnn.DRAM_MEMORY_CONFIG
-    shape = [int(d) for d in t.shape]
-    if len(shape) < 2:
-        return ttnn.DRAM_MEMORY_CONFIG
-    volume = 1
-    for d in shape[:-2]:
-        volume *= d
-    volume *= ((shape[-2] + 31) // 32) * 32 * ((shape[-1] + 31) // 32) * 32
-    elem = 4 if t.dtype == ttnn.float32 else 2
+        return False
     cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
-    if headroom * volume * elem <= max(per_core - reserve_per_core, 0) * cores:
-        return ttnn.L1_MEMORY_CONFIG
-    return ttnn.DRAM_MEMORY_CONFIG
+    return headroom * nbytes <= max(per_core - reserve_per_core, 0) * cores
 
 
 # The divisor band the trimul K block is tuned in. `in0_block_w` must divide Kt, and the widest
@@ -4949,7 +5008,14 @@ def _host_concat(x: ttnn.Tensor) -> bool:
             and x.logical_volume() * 2 > concat_host_bytes())
 
 
-def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
+def _concat_to(parts: list, dim: int, memory_config) -> ttnn.Tensor:
+    """`ttnn.concat` into `memory_config`, or wherever it lands by default when that is None."""
+    if memory_config is None:
+        return ttnn.concat(parts, dim=dim)
+    return ttnn.concat(parts, dim=dim, memory_config=memory_config)
+
+
+def _acc_concat(acc: list, dim: int, host: bool, memory_config=None) -> ttnn.Tensor:
     """Assemble accumulated row/channel blocks, on the host when they were offloaded.
 
     Host branch: the blocks are torch tensors (bit-identical bytes); the upload is one
@@ -4966,7 +5032,7 @@ def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
         # whose hidden width equals its chunk width (n_pairs == 1, e.g. the protenix
         # template pair stack) and for a row-blocked tail shorter than one row block.
         return acc[0]
-    out = ttnn.concat(acc, dim=dim)
+    out = _concat_to(acc, dim, memory_config)
     for t in acc:
         ttnn.deallocate(t)
     return out
@@ -5942,8 +6008,25 @@ class TriangleMultiplication(Module):
                 # same bytes for an all-ones and a random mask, because both were reading freed
                 # memory. Only the transpose is ours to free.
                 m = ttnn.unsqueeze(mask, 1)
+                # L1 when it fits: the multiply below re-reads this operand once per channel
+                # block, so moving 0.52 MB on chip removes a whole pair tensor's worth of DRAM
+                # reads. The transpose takes the destination directly; the untransposed view is
+                # the caller's buffer, so it needs a copy of its own. Both are this call's to
+                # free and go when the memo does. `_PAIR_L1_CONSUMER_RESERVE` keeps the matmul's
+                # per-core circular buffers clear underneath it.
+                l1 = _TRIMUL_MASK_L1 and _l1_fits(
+                    _padded_bytes(m.shape, 4 if m.dtype == ttnn.float32 else 2), 1.0,
+                    _PAIR_L1_CONSUMER_RESERVE)
                 if transposed:
-                    m = ttnn.transpose(m, -2, -1)
+                    m = (ttnn.transpose(m, -2, -1, memory_config=ttnn.L1_MEMORY_CONFIG)
+                         if l1 else ttnn.transpose(m, -2, -1))
+                elif l1:
+                    try:
+                        m = ttnn.to_memory_config(m, ttnn.L1_MEMORY_CONFIG)
+                    except Exception:                                          # noqa: BLE001
+                        m = ttnn.unsqueeze(mask, 1)
+                TRIMUL_MASK_L1_STATS[0 if m.memory_config().buffer_type
+                                      == ttnn.BufferType.L1 else 1] += 1
                 _mask_moved_memo[transposed] = m
             return _mask_moved_memo[transposed]
         # Collect the per-channel output chunks and concat them ONCE at the end. A
@@ -6898,7 +6981,8 @@ class TriangleAttention(Module):
                 o = ttnn.squeeze(o_heads, 1)
             return o
 
-        def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor) -> ttnn.Tensor:
+        def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor,
+                             l1_dest: bool = False) -> ttnn.Tensor:
             head_major = len(g_in.shape) == 4
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
@@ -6908,8 +6992,14 @@ class TriangleAttention(Module):
             assert not (head_major and self.o_bias is not None), \
                 "head-major output projection cannot carry linear_o.bias"
             if head_major:
+                # `l1_dest` is the whole block's last op writing where its consumer reads. The
+                # layer's residual `add_` takes this tensor straight back, so in L1 the
+                # projection's write and the add's operand read both stop crossing DRAM. The
+                # ending variant does not ask for it: `_pair_transpose` below already places its
+                # result, and two pair tensors do not fit where one does.
                 x_out = _triatt_qkv.out_proj(
-                    o_in, self.o_weight, self.compute_kernel_config, _dtype())
+                    o_in, self.o_weight, self.compute_kernel_config, _dtype(),
+                    memory_config=_out_proj_memory_config(o_in, self.o_weight) if l1_dest else None)
             else:
                 o_in_mm = self.o_bias is not None and "o" in self.bias_in_matmul
                 x_out = _pair_proj_linear(
@@ -7105,7 +7195,7 @@ class TriangleAttention(Module):
             if not isinstance(qkv, tuple):        # the triple is freed inside attend
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)
-            x = gate_and_project(o, g)
+            x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending)
         if self.ending:
             x = _pair_transpose(
                 x, _transpose_memory_config(x, self.transpose_l1_reserve))
@@ -7606,7 +7696,14 @@ class Transition(Module):
         self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
-    def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
+    def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None
+                 ) -> ttnn.Tensor:
+        """`memory_config` names where the assembled result lands; None keeps it in DRAM.
+
+        Only the pair-track (4-D) exits honour it. The row blocks themselves are unaffected, so
+        the assembly reads the same bytes from the same places and writes the same bytes to
+        different banks.
+        """
         def swiglu(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
             x_norm = ttnn.layer_norm(
@@ -7836,15 +7933,16 @@ class Transition(Module):
                     for wp in w_parts:
                         ttnn.deallocate(wp)
             dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
-            return _acc_concat(parts, 1, host_acc)
+            return _acc_concat(parts, 1, host_acc, memory_config)
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
         if not w_chunked:
-            return ttnn.concat([swiglu(c) for c in chunks], dim=1)
-        return ttnn.concat([
+            return _concat_to(
+                [swiglu(c) for c in chunks], 1, memory_config)
+        return _concat_to([
             ttnn.concat([swiglu(c[:, :, w:min(w + w_chunk, W), :]) for w in range(0, W, w_chunk)], dim=2)
             for c in chunks
-        ], dim=1)
+        ], 1, memory_config)
 
 
 class PairformerLayer(Module):
@@ -7951,7 +8049,10 @@ class PairformerLayer(Module):
         z = ttnn.add_(z, z_update)
         ttnn.deallocate(z_update)
 
-        z_update = self.transition_z(z)
+        # Same lever as the starting triangle attention: the residual reads this update back
+        # immediately, so assembling the row blocks into L1 removes the write and the read.
+        z_update = self.transition_z(
+            z, memory_config=_residual_update_memory_config(z) if _RESIDUAL_L1 else None)
         z = ttnn.add_(z, z_update)
         ttnn.deallocate(z_update)
         if self.transform_s:
