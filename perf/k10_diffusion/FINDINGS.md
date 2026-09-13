@@ -105,6 +105,22 @@ with more than that: `forward_traced` pads `r`, stages two tensors through
 That mechanism is a hypothesis -- the split of the 0.89 ms between staging, launch and readback
 was not measured -- but the sign and the size are not.
 
+**The penalty is flat, not a drift, and an independent run says the same thing.** A third run
+(`series_wh_c16.json`, one eager fold and one traced fold, every step's wall recorded) reads
+**39.465 ms eager against 40.4074 ms traced, 0.9767x**, within 0.06 % of the two-round numbers
+above from a separate process and a separate device open. Over the 180 settled steps:
+
+| | median | p10 | p90 | min | steps over 40 ms |
+|---|---|---|---|---|---|
+| eager | 39.465 | 39.425 | 39.504 | 39.394 | **0 %** |
+| traced | 40.407 | 40.120 | 40.492 | 39.461 | **90 %** |
+
+Both arms are flat end to end -- bucketed 20 steps at a time, the eager medians run 39.470,
+39.472, 39.474, 39.469, 39.455, 39.453, 39.464, 39.451, 39.470 and the traced ones 40.391,
+40.415, 40.422, 40.380, 40.449, 40.431, 40.380, 40.403, 40.418. There is no warm-up, no
+accumulation and no thermal ramp in either. The traced arm has a 10 % tail that reaches eager
+speed and never goes below it; the eager arm never reaches traced speed.
+
 **The census's "51.6 % eager / <=32 % traced" is a share-of-fold bound, not a gap fraction, and
 the two are unrelated.** On this box the step is **7.897 s of a 37.888 s fold, 20.8 %**, eager.
 
