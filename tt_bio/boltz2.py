@@ -1192,7 +1192,10 @@ def _device_zinit() -> bool:
     # was built. Not bit-exact (bf16 device math against fp32 torch, and the terms are summed in
     # a different order), so it owes the cdk2x2_298 control. Read per call so an A/B can flip
     # arms inside one process.
-    return env_flag("TT_BIO_DEVICE_ZINIT", False)
+    #
+    # ON by default. See docs/tuning-flags.md for the measured Blackhole ratio and the
+    # structural reading that carries it.
+    return env_flag("TT_BIO_DEVICE_ZINIT", True)
 
 
 def _device_confidence() -> bool:
