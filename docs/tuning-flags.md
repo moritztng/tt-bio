@@ -52,8 +52,12 @@ uses the fused bias stack, so the structure moves. It is scored against the expe
 1HCL rather than against the previous coordinates, four seeds per arm, both arms in one process.
 Native CA-lDDT goes up on both pseudo-domains at 512 residues, 0.93732 to 0.94036 and 0.91573 to
 0.91860 as a mean of four seeds, and is flat at 298 residues, 0.96742 against 0.96741. Native
-CA-RMSD moves the same way. The per-seed structural move is 0.15 to 0.29 Å per pseudo-domain
-against a seed floor of 0.97 to 1.87 Å, and 0.38 Å at 298 residues against a 1.25 Å seed floor.
+CA-RMSD moves the same way. Three of the four seeds move 0.15 to 0.29 Å per pseudo-domain at 512
+residues and the fourth moves 1.26 to 1.51 Å, against a seed floor of 0.97 to 1.87 Å over the same
+pairs. That fourth seed is a basin, not a loss: it is the worst fold either arm produced, native
+CA-lDDT 0.92021 and 0.89702 on the host path where every other host seed is above 0.9397 and
+0.9136, and the device arm puts it back with the rest at 0.93585 and 0.91317. At 298 residues the
+move is 0.19 to 0.39 Å against a 0.79 to 1.25 Å floor.
 
 **Speed: SPEED_PLACEHOLDER**
 
