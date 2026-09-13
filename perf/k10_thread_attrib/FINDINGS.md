@@ -202,3 +202,86 @@ conclusion whose margin is 0.706 s.
 **This is denominated in the 20.113 s cell, which is the tree the map was built against.** It is not
 restated for today's 17.989 s cell: the trunk and `rest` brackets belong to that tree. The structure
 carries; the absolutes do not.
+
+---
+
+## Red-team corrections to this document, 2026-09-13
+
+`k10-p1-redteam` (concluded, **VERDICT: PARTIAL — "the campaign's STOP survives, three of the
+arguments holding it up do not"**) audited this work by independent re-derivation. What it confirmed,
+what it broke, and what I got wrong.
+
+**CONFIRMED.** It reproduced the census stall split from a different capture on a different build,
+dividing by each counter's own thread: **57.7 % / 10.2 % = 5.66:1** against the census's 57.0 / 9.7 /
+5.9:1 — **1.2 % apart on the headline**. And it attacked the falsifier above by running the control
+I did not: if TRISC0 and TRISC1 durations were within 1 % of each other, 0/4441 would be vacuous.
+They are not — TRISC0 is the longer on 1266 rows and `wf > TRISC1` fires **51** times where
+`wf > TRISC0` never does. **Its 1010 is exactly my 1010.** The wait-front attribution is confirmed by
+a route that tried to break it.
+
+**CORRECTION 1 — my reserve-back row is VACUOUS and this document overstated it.** `rb` exceeds *no*
+thread's duration — not TRISC0, TRISC1 or TRISC2 — so **0/4441 against TRISC2 carries no
+information** and must not be quoted as proof that TRISC2 owns it. That attribution rests on the
+source declaration in `llk_io_pack.h` alone, which is sound, but this document should have said so.
+Only the wait-front half of the falsifier is load-bearing.
+
+**CORRECTION 2 — "the divisor was the problem, not the normalisation" is right but not the whole
+cure.** Switching TRISC1 -> TRISC0 while still *summing* the two counters leaves **975** anomalies
+against 1010. The cure is per-thread attribution, not a better denominator.
+
+**CORRECTION 3 — the error bar I implied was zero is not zero.** Saying the split "carries no error
+bar from this source" reads as though it has none. Moving the normalisation moves the ratio
+**1.0 %**; moving the *population* (fenced block 5.88 vs whole capture 4.86) moves it **17 %**. The
+defensible band on 5.9:1 is roughly **4.9 to 5.9**, set by which region of the capture is fenced. At
+the worst end input still beats output 4.9:1, so the conclusion survives the whole range.
+
+**CORRECTION 4 — this document and `k10-instrument` normalise differently and neither said so.** Its
+table is normalised to **op span**; the `--by-op` table here is normalised to **TRISC0 duration**.
+They agree to under 2 % on any op whose TRISC0 residency is near 1 and diverge badly where it is not.
+**Transpose is the case: 22.1 % published against 68.2 % here, because Transpose's TRISC0 is resident
+only 33.1 % of its span.** The red team's own reduction gives 66.8 %, agreeing with this document.
+**Transpose is not a low-input-stall op; it is the second-highest in the block**, and any row that
+de-prioritised it on the 22.1 % figure did so on a normalisation artifact. Matmul has the same shape
+and an **unreconciled 34.0 % vs 64.5 %** between the two, which is 23 % of the block and is not
+closed — the likely cause is the differing populations (fenced block vs whole capture).
+
+**CORRECTION 5 — the 39 % conversion bound is measurably too tight; it is 44 %.** The 1:1 assumption
+is calibratable from the starved control itself, which ran at 98.9 % of the DRAM roof so essentially
+all of its compute stall is memory-caused: it reads compute wait-front **89.25 %** against reader DRAM
+**80.65 %**, i.e. **1.107 ns of compute stall per ns of reader DRAM wait**. Applying the measured
+conversion takes the bound to **44.4 %**. That is 5 pp and does not move the verdict.
+
+**CORRECTION 6 — the "loose by ~4x in practice" claim above is wrong and I withdraw it.** It compared
+`util-op-deletes`'s 1.015x against a bound taken over the *whole* BinaryNg and Transpose classes,
+which is not what that row deleted — D1 removed 560 `ttnn.unsqueeze` calls and D4 folded one trimul
+operand transpose into its consuming matmul. **On the one deletion where a prediction and a
+measurement both exist, D4's op bench predicted 0.1545 s/fold and the paired A/B banked 0.1130 s/fold:
+73 %, not 12 %.** Prediction-to-measurement realisation on this stack is high, not low. (Note also
+that the 1.015x is `1.00894 x 1.00613` composed from a two-commit chain; the direct stack A/B was
+refused for host contention and never ran.)
+
+**Net effect on the envelope: it survives, and the reasons for it are narrower than stated.** The
+producer-side verdict is unchanged and independently reproduced — the target sits at **23.2 %** on
+the NoC read barrier against a starved control's **80.7 %** and a compute-bound control's **3.6 %**,
+a 22x separation with the target near the compute-bound end. But see CORRECTION 7 below for the
+argument that does **not** survive.
+
+**CORRECTION 7 — "the target's consumer-side figure is ten times the starved control's" does not
+survive, and I had repeated it.** Both figures were NCRISC-only. Reduced over **both** DM threads the
+starved control is **72.5 %** and the target **77.2 %** — a ratio of **1.06x, not 10x**. The reason is
+structural: in `ttnn.add` NCRISC reads and BRISC writes, so that kernel's NCRISC never calls
+`cb_wait_front` at all and its writer-side blocking sits on BRISC at **68.8 %**, uncounted. A writer
+blocked in `cb_wait_front` is what a *starved* pipeline looks like too, because the block propagates.
+**`DM-CB-WAIT-FRONT` on a writer thread cannot discriminate, and the starved control proves it.**
+The zone that *does* discriminate is reserve-back: starved **3.7 %**, target **20.4 %**, compute-bound
+**89.9 %** — the target sits about a fifth of the way from starved to compute-bound. Still
+(b)-leaning, still not producer-late, but the "ten times" framing must not be repeated.
+
+**CORRECTION 8 — "issuing" is a residual, not a measurement, so the LOOSE end of the envelope rests
+on unmeasured time.** `dm_report.py` defines issuing as whatever remains of residency after the five
+zones, so the budget closes by construction. The residual is **82.9 %** of Transpose's BRISC, 73.3 %
+of Permute's, 66.5 % of ReshapeView's — those cannot all be address generation, and the known blind
+spots (`noc_async_read_barrier_with_trid`, `noc_async_writes_flushed`) land in exactly this bucket.
+It cuts both ways: the LOOSE bound credits unmeasured time to the producer side, **and the TIGHT
+bound may be an under-estimate if trid-barrier reads are hiding there.** The target op is the least
+affected (25.6 % NCRISC, 28.2 % BRISC), which is luck rather than something established.
