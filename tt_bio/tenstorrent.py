@@ -1078,6 +1078,56 @@ _SDPA_WIDE_Q = env_flag("TT_BIO_SDPA_WIDE_Q", True)
 # 160.53 us, pad in TILE 57.31 us (2.8011x). At the fold: -0.124 s at 512 aa, bit-exact.
 _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
 
+# The atom-level AttentionPairBias branch forces its own input to DRAM and then runs 54 matmuls
+# over it. Those matmuls sit at ~63 FLOP/byte against this part's ~241 FLOP/byte crossover, so
+# bytes are what binds them. Keeping the branch's live set in L1 instead of round-tripping DRAM
+# moves bytes and not values: it adds no op, removes no op and changes no operand, so it is
+# `torch.equal` bit-exact by construction. The only thing it can do is run out of L1, which is
+# what the budget below is for.
+_ATOM_L1 = env_flag("TT_BIO_ATOM_L1", False)
+_ATOM_L1_SHARE = float(os.environ.get("TT_BIO_ATOM_L1_SHARE", "0.5"))
+ATOM_L1_STATS = {"l1": 0, "dram": 0, "shape": 0, "off": 0}
+# Per-call decision log, so a call that never reached the L1 branch cannot read as one that did.
+_ATOM_L1_TRACE = env_flag("TT_BIO_ATOM_L1_TRACE", False)
+
+
+def _atom_branch_memory_config(s: "ttnn.Tensor"):
+    """L1 for the atom attention branch when its live set fits the grid's banks, else None.
+
+    Priced on the branch's own bytes per bank, the way `_trimul_tail_memory_config` is, and never
+    on a sequence length or a model name. The live set is `s` itself (B K W D), the key window it
+    gathers (B K H D), that window's kv projection (B K H 2D) and the query padded up to the
+    window (B K H D), so it grows linearly with the atom count and the gate flips on its own at
+    the size where it stops fitting.
+
+    Returning None hands every call site ttnn's default, which is what the branch did before.
+
+    Every call records the arm it took in ``ATOM_L1_STATS``, including the two that return None
+    without ever pricing the budget -- ``off`` (the flag is not set) and ``shape`` (the branch is
+    not the 32-wide atom window this gate is written for). Counting only ``l1``/``dram`` made a
+    model that never reaches the gate look identical to one that reaches it and declines.
+    """
+    B, K, W, D = (int(v) for v in s.shape)
+    elem = 4 if s.dtype == ttnn.float32 else 2
+    live = B * K * D * (W + 4 * ATOM_DIM) * elem
+    gx, gy = COMPUTE_GRID_MAIN
+    budget = _ATOM_L1_SHARE * _l1_bank_bytes() * gx * gy
+
+    if not _ATOM_L1:
+        arm = "off"
+    elif W != ATOM_WINDOW:
+        arm = "shape"
+    elif live <= budget:
+        arm = "l1"
+    else:
+        arm = "dram"
+    ATOM_L1_STATS[arm] += 1
+    if _ATOM_L1_TRACE:
+        print(f"[ATOM_L1] arm={arm} shape={B}x{K}x{W}x{D} live={live} budget={int(budget)}",
+              flush=True)
+    return ttnn.L1_MEMORY_CONFIG if arm == "l1" else None
+
+
 # ON by default since 2026-09-11. It sizes the atom axis on the real atom count
 # (ceil(N/448)*448 = 4480 at 512 aa) instead of padded_seq * 14 = 7168, so the atom transformer
 # runs 140 windows where the token-derived pad ran 224. **1.0470x on the 512 aa fold**, 1.157x on
@@ -6957,6 +7007,8 @@ class AttentionPairBias(Module):
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
         self._load_kq_norm()
+        # None everywhere except the atom branch, where it is L1 while the branch's live set fits.
+        atom_mc = None
         if not self.atom_level:
             qkv = ttnn.linear(
                 s,
@@ -7082,7 +7134,8 @@ class AttentionPairBias(Module):
             o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
             o = ttnn.permute(o, (0, 2, 1))
         else:
-            s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
+            atom_mc = _atom_branch_memory_config(s)
+            s = ttnn.to_memory_config(s, atom_mc or ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
             s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
             s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
@@ -7091,9 +7144,10 @@ class AttentionPairBias(Module):
                 keys_indexing,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
+                memory_config=atom_mc,
             )
-            s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
-            s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
+            s_kv = ttnn.permute(s_kv, (0, 3, 1, 2), memory_config=atom_mc)
+            s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S), memory_config=atom_mc)
 
             q = ttnn.linear(
                 s,
@@ -7102,6 +7156,7 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
+                memory_config=atom_mc,
             )
             kv = ttnn.linear(
                 s_kv,
@@ -7109,6 +7164,7 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
+                memory_config=atom_mc,
             )
 
             if self.kq_norm:
@@ -7139,14 +7195,16 @@ class AttentionPairBias(Module):
             self.g_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            memory_config=atom_mc,
         )
         if _FAST_MODE:
             o = ttnn.typecast(o, ttnn.bfloat16)
-        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
+        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
+                          dtype=self.dtype, memory_config=atom_mc)
         ttnn.deallocate(g)
         x = ttnn.linear(
             o, self.o_weight, compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
+            core_grid=CORE_GRID_MAIN, memory_config=atom_mc,
         )
         ttnn.deallocate(o)
         return x
