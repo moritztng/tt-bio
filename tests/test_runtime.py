@@ -115,3 +115,20 @@ def test_host_thread_cap_env_leaves_an_operator_wait_policy_alone(monkeypatch):
     # all three, not just the one they named: GOMP_SPINCOUNT=0 would undo their ACTIVE anyway
     assert not set(runtime.IDLE_THREADS_PARK) & set(env)
     assert env["OMP_NUM_THREADS"] == "2"         # the thread cap is still ours
+
+
+def test_host_thread_cap_env_is_byte_identical_above_the_line(monkeypatch):
+    """A caller above the parking line gets exactly the env it got before parking existed.
+
+    This is the perf-regression argument for the single-fold and low-concurrency paths, and it is
+    mechanical rather than timed: a lone ``tt-bio predict`` sees n_workers == 1, so its share is
+    every thread on the box and nothing about its environment moves. Timing it could only measure
+    noise.
+    """
+    for var in runtime.HOST_THREAD_VARS + tuple(runtime.IDLE_THREADS_PARK):
+        monkeypatch.delenv(var, raising=False)
+    for n_workers, host_threads in ((1, 64), (1, None), (4, 64), (16, 64), (20, 64), (2, 8)):
+        env = runtime.host_thread_cap_env(n_workers, host_threads)
+        cap = runtime.host_thread_cap(n_workers, host_threads)
+        if cap > runtime.IDLE_PARK_THREAD_SHARE:
+            assert env == {var: str(cap) for var in runtime.HOST_THREAD_VARS}
