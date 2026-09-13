@@ -1,0 +1,48 @@
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: b2z2-cond-ship acquired after 441s, loadavg 1.83 3.98 2.95
+2026-09-13 13:41:52.066 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  rep-1 base    pos0 fold  19.117s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep0  base    pos0 fold  18.776s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep0  cond    pos1 fold  18.021s  block   0.000s/0    sha=2bc758a1fb24ef30
+  rep0  base    pos2 fold  18.792s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep1  base    pos0 fold  18.770s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep1  cond    pos1 fold  18.018s  block   0.000s/0    sha=2bc758a1fb24ef30
+  rep1  base    pos2 fold  19.906s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep2  base    pos0 fold  19.040s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep2  cond    pos1 fold  17.926s  block   0.000s/0    sha=2bc758a1fb24ef30
+  rep2  base    pos2 fold  18.901s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep3  base    pos0 fold  18.769s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep3  cond    pos1 fold  17.906s  block   0.000s/0    sha=2bc758a1fb24ef30
+  rep3  base    pos2 fold  18.813s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep4  base    pos0 fold  18.813s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep4  cond    pos1 fold  17.976s  block   0.000s/0    sha=2bc758a1fb24ef30
+  rep4  base    pos2 fold  18.750s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep5  base    pos0 fold  18.742s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep5  cond    pos1 fold  17.986s  block   0.000s/0    sha=2bc758a1fb24ef30
+  rep5  base    pos2 fold  18.766s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep6  base    pos0 fold  18.731s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep6  cond    pos1 fold  17.992s  block   0.000s/0    sha=2bc758a1fb24ef30
+  rep6  base    pos2 fold  18.730s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep7  base    pos0 fold  18.768s  block   0.000s/0    sha=a91aa44441f0d9c5
+  rep7  cond    pos1 fold  18.068s  block   0.000s/0    sha=2bc758a1fb24ef30
+  rep7  base    pos2 fold  18.842s  block   0.000s/0    sha=a91aa44441f0d9c5
+base     n=16 fold 18.773s 1.00000x  block Nones Nonex  spread 6.26%
+cond     n=8 fold 17.989s 1.04358x  block Nones Nonex  spread 0.90%
+A/A floor (base pos0 / base pos-last): 0.99824x
+benchlock: b2z2-cond-ship released, rc=0, loadavg 2.62 3.19 2.97

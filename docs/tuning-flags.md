@@ -20,9 +20,10 @@ gather under `torch.equal` at every window count the fold produces, padded and u
 four negative controls (`perf/b2z2_elision/test_shift_equiv.py`).
 
 **Speed: 1.01985x on the fold** (19.8545 s to 19.4680 s, 20 folds per arm, all 10 paired reps
-positive), 1.07562x on the sampling stage, which is where the whole gain is. Re-measured on the tree
-the published benchmark cell comes from: 19.7275 s to 19.324 s, eight folds per arm interleaved
-ABBA, every pair positive, median 1.02138x against an A/A floor of 1.00886x worst case.
+positive), 1.07562x on the sampling stage, which is where the whole gain is. Re-measured at
+2f5072d8, the tree the benchmark cell was published from then: 19.7275 s to 19.324 s, eight folds
+per arm interleaved ABBA, every pair positive, median 1.02138x against an A/A floor of 1.00886x
+worst case.
 
 tt-bio decides on the selection matrix, not on the shape of it: it reconstructs the matrix a centred
 sliding window would produce and compares entry by entry, once per fold, for 2.6 ms of host time at
@@ -59,7 +60,14 @@ CA-lDDT 0.92021 and 0.89702 on the host path where every other host seed is abov
 0.9136, and the device arm puts it back with the rest at 0.93585 and 0.91317. At 298 residues the
 move is 0.19 to 0.39 Å against a 0.79 to 1.25 Å floor.
 
-**Speed: SPEED_PLACEHOLDER**
+**Speed: 17.989 s against 18.773 s, a 512-residue fold.** Both arms in one process on one card,
+interleaved as base / device / base inside every rep so drift cannot land on one arm, cold fold
+discarded, 8 device folds against 16 host folds, under benchlock on an idle box. qb2, one Blackhole
+processor of a p300c board, physical card 0, ttnn 0.68.0, 3 recycles, 200 sampling steps, one
+sample, seed 0, templates off. Median ratio 1.04358x against an A/A floor of 0.99824x drawn from
+the two host folds that bracket each device fold, and every device fold in the run is faster than
+every host fold in it. Spread is 0.90 % on the device arm
+(`perf/b2z2_cond/out/timing_qb2c0.json`).
 
 `TT_BIO_DEVICE_CONDITIONING=0` restores the host path and the previous coordinates.
 

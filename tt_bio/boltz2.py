@@ -1179,7 +1179,10 @@ def _device_conditioning() -> bool:
     # owes the same cdk2x2_298 control TT_BIO_FUSE_BIAS_STACKS ran. Read per call so an A/B can
     # flip arms inside one process.
     #
-    # ON by default: PLACEHOLDER_EVIDENCE
+    # ON by default: 1.04358x on a 512 aa fold, 17.989 s against 18.773 s, benchlocked and
+    # interleaved on one card (perf/b2z2_cond/out/timing_qb2c0.json). Native CA-lDDT against
+    # 1HCL goes up on both pseudo-domains at 512 aa and is flat at 298 aa over 4 seeds per
+    # arm (perf/b2z2_cond/out/score_acc_qb2c1.json). See docs/tuning-flags.md.
     return env_flag("TT_BIO_DEVICE_CONDITIONING", True)
 
 
