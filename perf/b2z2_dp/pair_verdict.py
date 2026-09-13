@@ -29,7 +29,12 @@ def arm(p: Path):
     rec = {k: r[k] for k in KEYS}
     rec["total_host_cores"] = rec.pop("total_cores")
     rec |= {"artifact": p.name, "started_utc": a["started_utc"],
-            "loadavg_at_start": a["loadavg_at_start"]}
+            "loadavg_at_start": a["loadavg_at_start"],
+            # What the arm ACTUALLY ran at. A fixed-cap arm is not at the share the width
+            # implies, and reporting the implied one made the re-verification pair read cap 2
+            # when it ran at 8 -- the single number that whole comparison turns on.
+            "threads_per_worker": int(a["host_thread_cap"]["cap_env"]["OMP_NUM_THREADS"]),
+            "cap_fixed": a["host_thread_cap"]["fixed"]}
     return rec
 
 
@@ -58,7 +63,9 @@ def main() -> int:
             row["bit_exact"] = (row["active"]["cif_digests"] == row["passive"]["cif_digests"]
                                 and row["active"]["digest_unanimous"]
                                 and row["passive"]["digest_unanimous"])
-        row["host_thread_cap"] = max(1, args.host_threads // w)
+        row["host_thread_cap_implied"] = max(1, args.host_threads // w)
+        row["threads_per_worker"] = next(
+            (row[p]["threads_per_worker"] for p in ("active", "passive") if p in row), None)
         pairs[str(w)] = row
 
     out = {"dir": str(args.dir), "host_threads": args.host_threads, "widths": pairs,
@@ -70,7 +77,8 @@ def main() -> int:
         args.out.write_text(text + "\n")
         for w, r in pairs.items():
             if "folds_per_hour_ratio" in r:
-                print(f"w={w:>3} cap={r['host_thread_cap']:>2} "
+                print(f"w={w:>3} cap={r['threads_per_worker']:>2}"
+                      f"{'(fixed)' if r['active']['cap_fixed'] else '       '} "
                       f"active={r['active']['folds_per_hour']:>8.2f} "
                       f"passive={r['passive']['folds_per_hour']:>8.2f} "
                       f"ratio={r['folds_per_hour_ratio']:.4f} bit_exact={r['bit_exact']}")

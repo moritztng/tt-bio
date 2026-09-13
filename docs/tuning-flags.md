@@ -37,3 +37,40 @@ identical dimensions. An earlier version of this optimization looked at the shap
 windows wrong, and still wrote the identical structure, because the attention mask is built from the
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
+
+## Idle host threads when a box is full
+
+Not a flag of ours. `OMP_WAIT_POLICY`, `GOMP_SPINCOUNT` and `KMP_BLOCKTIME` are OpenMP's own, and
+tt-bio fills them in for the per-card workers it spawns when, and only when, each worker is down to
+two host threads. Set any of the three yourself and tt-bio leaves all three alone: they are one
+setting spelled three ways, and `GOMP_SPINCOUNT=0` beside your `OMP_WAIT_POLICY=ACTIVE` would undo
+it through the back door.
+
+A fold's host work is small but constant, roughly 1.85 cores at 512 aa whether one fold is running
+or thirty-two. Those threads spend most of their time waiting on the device, and OpenMP waits by
+spinning. Spinning costs nothing while cores are spare and costs a core once they are not, so the
+rule keys on the share each worker gets rather than on how many cards are busy: a small host with
+four folds on eight threads is in the same regime as a full server with thirty-two on sixty-four.
+
+Measured on a 32-chip Wormhole Galaxy (AMD EPYC 9354P, 32 cores / 64 threads), Boltz-2 512 aa, 200
+sampling steps, 3 recycles, full MSA, one independent fold per chip, three timed folds per chip
+after a barrier. Both arms of a row run back to back in one session, and each row is at the thread
+share tt-bio itself hands that width:
+
+| concurrent folds | threads each | spinning | parked | |
+|---|---|---|---|---|
+| 16 | 4 | 1131.6 folds/h | 1123.7 folds/h | 0.993x |
+| 20 | 3 | 1344.8 folds/h | 1331.6 folds/h | 0.990x |
+| 24 | 2 | 1534.7 folds/h | 1541.0 folds/h | 1.004x |
+| 32 | 2 | 1789.4 folds/h | 1813.9 folds/h | **1.014x** |
+
+Repeating the 32-fold row reads 1783.2 against 1811.4, so the same-configuration floor is 0.35 %
+and the win at that width is real but small. The rows above the line are why it is a rule and not a
+default: with three threads a worker still has a spare core to absorb the spinning, and parking
+costs more in wake latency than it saves. Every row is bit-exact, both arms writing one CIF digest.
+
+A much larger number is easy to measure here and it belongs to the line above, not to this one. Give
+each of 32 workers a fixed 8 threads on the same box and spinning collapses to 1311.2 folds/h while
+parking holds 1839.5, a 1.40x. That is 256 threads of demand on 64, and the fix for it is the thread
+cap tt-bio already applies by default, which on its own takes that configuration from 1311.2 to
+1789.4. Parking is the last 1.4 %.

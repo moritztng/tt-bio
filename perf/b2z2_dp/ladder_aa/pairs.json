@@ -21,7 +21,9 @@
      18.1,
      24.51,
      29.48
-    ]
+    ],
+    "threads_per_worker": 2,
+    "cap_fixed": false
    },
    "passive": {
     "n_timed_folds": 96,
@@ -41,12 +43,15 @@
      35.31,
      38.48,
      34.61
-    ]
+    ],
+    "threads_per_worker": 2,
+    "cap_fixed": false
    },
    "folds_per_hour_ratio": 1.01581,
    "median_fold_ratio": 0.98966,
    "bit_exact": true,
-   "host_thread_cap": 2
+   "host_thread_cap_implied": 2,
+   "threads_per_worker": 2
   }
  },
  "cif_digests_all_arms": [

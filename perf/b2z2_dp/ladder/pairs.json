@@ -21,7 +21,9 @@
      25.94,
      28.06,
      32.97
-    ]
+    ],
+    "threads_per_worker": 4,
+    "cap_fixed": false
    },
    "passive": {
     "n_timed_folds": 48,
@@ -41,12 +43,15 @@
      24.54,
      26.83,
      31.38
-    ]
+    ],
+    "threads_per_worker": 4,
+    "cap_fixed": false
    },
    "folds_per_hour_ratio": 0.99298,
    "median_fold_ratio": 1.00388,
    "bit_exact": true,
-   "host_thread_cap": 4
+   "host_thread_cap_implied": 4,
+   "threads_per_worker": 4
   },
   "20": {
    "active": {
@@ -67,7 +72,9 @@
      26.66,
      32.01,
      36.87
-    ]
+    ],
+    "threads_per_worker": 3,
+    "cap_fixed": false
    },
    "passive": {
     "n_timed_folds": 60,
@@ -87,12 +94,15 @@
      27.25,
      30.19,
      34.95
-    ]
+    ],
+    "threads_per_worker": 3,
+    "cap_fixed": false
    },
    "folds_per_hour_ratio": 0.99012,
    "median_fold_ratio": 1.0129,
    "bit_exact": true,
-   "host_thread_cap": 3
+   "host_thread_cap_implied": 3,
+   "threads_per_worker": 3
   },
   "24": {
    "active": {
@@ -113,7 +123,9 @@
      34.56,
      41.29,
      41.64
-    ]
+    ],
+    "threads_per_worker": 2,
+    "cap_fixed": false
    },
    "passive": {
     "n_timed_folds": 72,
@@ -133,12 +145,15 @@
      32.71,
      35.99,
      39.26
-    ]
+    ],
+    "threads_per_worker": 2,
+    "cap_fixed": false
    },
    "folds_per_hour_ratio": 1.00406,
    "median_fold_ratio": 0.99922,
    "bit_exact": true,
-   "host_thread_cap": 2
+   "host_thread_cap_implied": 2,
+   "threads_per_worker": 2
   },
   "32": {
    "active": {
@@ -159,7 +174,9 @@
      32.7,
      59.61,
      44.49
-    ]
+    ],
+    "threads_per_worker": 2,
+    "cap_fixed": false
    },
    "passive": {
     "n_timed_folds": 96,
@@ -179,12 +196,15 @@
      35.7,
      47.24,
      43.14
-    ]
+    ],
+    "threads_per_worker": 2,
+    "cap_fixed": false
    },
    "folds_per_hour_ratio": 1.0137,
    "median_fold_ratio": 0.98496,
    "bit_exact": true,
-   "host_thread_cap": 2
+   "host_thread_cap_implied": 2,
+   "threads_per_worker": 2
   }
  },
  "cif_digests_all_arms": [
