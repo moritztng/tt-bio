@@ -17,6 +17,45 @@ def _load(root: Path, arm: str) -> dict:
     return json.loads((root / arm / "arm.json").read_text())
 
 
+def _coords(root: Path, arm: str):
+    """(labels, Nx3 array) for the one design an arm wrote, or None if gemmi is unavailable."""
+    try:
+        import gemmi
+        import numpy as np
+    except Exception:  # noqa: BLE001
+        return None
+    cif = sorted((root / arm / "intermediate_designs").glob("*.cif"))[0]
+    st = gemmi.read_structure(str(cif))
+    labels, xyz = [], []
+    for model in st:
+        for chain in model:
+            for res in chain:
+                for atom in res:
+                    labels.append(f"{chain.name}/{res.seqid.num}/{res.name}/{atom.name}")
+                    xyz.append((atom.pos.x, atom.pos.y, atom.pos.z))
+        break
+    return labels, np.asarray(xyz)
+
+
+def _deviation(root: Path, a: str, b: str) -> str:
+    """Max per-atom displacement in Angstrom, so a failed digest still has a size.
+
+    Only meaningful when both arms placed the same atoms; a sequence that differs between arms
+    is a bigger difference than any distance, and says so instead of averaging over a mismatch.
+    """
+    ca, cb = _coords(root, a), _coords(root, b)
+    if ca is None or cb is None:
+        return "unavailable (no gemmi)"
+    if ca[0] != cb[0]:
+        common = sum(1 for x, y in zip(ca[0], cb[0]) if x == y)
+        return (f"atom sets differ: {len(ca[0])} vs {len(cb[0])} atoms, "
+                f"{common} labels agree in order -- not a distance")
+    import numpy as np
+
+    d = np.linalg.norm(ca[1] - cb[1], axis=1)
+    return f"max {d.max():.4f} A, mean {d.mean():.4f} A over {len(d)} atoms"
+
+
 def main() -> int:
     root = Path(sys.argv[1])
     arms = {a: _load(root, a) for a in ("base", "l1", "base2")}
@@ -41,8 +80,10 @@ def main() -> int:
     base_clean = base_st.get("l1", 0) == 0 and base_st.get("off", 0) > 0
 
     print()
-    print(f"A/A  base vs base2 : file {aa_file}  coord {aa_coord}")
-    print(f"A/B  base vs l1    : file {ab_file}  coord {ab_coord}")
+    print(f"A/A  base vs base2 : file {aa_file}  coord {aa_coord}  "
+          f"[{_deviation(root, 'base', 'base2')}]")
+    print(f"A/B  base vs l1    : file {ab_file}  coord {ab_coord}  "
+          f"[{_deviation(root, 'base', 'l1')}]")
     print(f"gate l1 arm fired  : {fired}  ({st})")
     print(f"gate base arm off  : {base_clean}  ({base_st})")
 
