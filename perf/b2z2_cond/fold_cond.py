@@ -65,6 +65,7 @@ def check_arms(arms, B2):
 
 
 def main() -> int:
+    global FLAG, READER
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--cifdir", type=Path, required=True)
@@ -85,7 +86,6 @@ def main() -> int:
                     help="arms per rep, in order. base at two positions gives the A/A floor")
     ap.add_argument("--timing-seed", type=int, default=0)
     args = ap.parse_args()
-    global FLAG, READER
     FLAG, READER = args.flag, args.reader
 
     plan = {}
