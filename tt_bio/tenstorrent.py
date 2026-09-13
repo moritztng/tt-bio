@@ -1251,6 +1251,17 @@ _SDPA_WIDE_Q = env_flag("TT_BIO_SDPA_WIDE_Q", True)
 # 160.53 us, pad in TILE 57.31 us (2.8011x). At the fold: -0.124 s at 512 aa, bit-exact.
 _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
 
+# A head_dim that is not a multiple of 32 is padded up per head at load, so the SDPA output
+# carries n_heads * padded_head_dim channels whose pad lanes are exactly zero. The shipped tail
+# spends four programs stripping them (slice, permute, a reshape that merges a sub-tile axis,
+# permute) before the gate multiply and the output projection, both of which are defined on the
+# unpadded width. Padding the gate projection's output lanes and the output projection's input
+# rows with zeros instead lets both run in the padded width, and the four programs collapse to
+# one `nlp_concat_heads`. Zero lanes multiply zero weights, so the arithmetic is an identity;
+# what is not an identity is the ORDER the wider matmul accumulates in, which is why this is
+# scored against a float64 reference and not asserted bit-exact.
+_HEAD_PAD_TAIL = env_flag("TT_BIO_HEAD_PAD_TAIL", False)
+
 # Kill switch for the slice+concat atom key gather (see ATOM_KEY_SHIFT). The gather it replaces
 # is a pure index permutation, so the arm is bit-exact and defaults on; the switch exists so a
 # model whose gather matrix passes the structural check but whose fold regresses can be pinned
@@ -7256,6 +7267,31 @@ class AttentionPairBias(Module):
                 self._bias_scale,
             )
         self.o_weight = self.torch_to_tt("proj_o.weight", dtype=self.dtype)
+        # Gated on the sub-tile property, never on a model: any site whose head_dim is already
+        # a multiple of 32 has no pad lanes to carry and keeps the shipped tail.
+        self.pad_tail = (not atom_level
+                         and getattr(self, "padded_head_dim", head_dim) != head_dim)
+        self._pad_tail_weights = None
+
+    def _padded_tail_weights(self):
+        """`(g, o)` with the pad lanes carried: g writes them as zeros, o reads them as zeros.
+
+        Built on first use rather than at load so a site that never takes this tail allocates
+        nothing. Both projections keep their unpadded form alongside, which is what lets one
+        process interleave the two arms of an A/B.
+        """
+        if self._pad_tail_weights is None:
+            pad = self.padded_head_dim - self.head_dim
+            g = torch.nn.functional.pad(
+                self.weights["proj_g.weight"].reshape(self.n_heads, self.head_dim, -1),
+                (0, 0, 0, pad)).reshape(self.n_heads * self.padded_head_dim, -1)
+            o = torch.nn.functional.pad(
+                self.weights["proj_o.weight"].reshape(-1, self.n_heads, self.head_dim),
+                (0, pad)).reshape(-1, self.n_heads * self.padded_head_dim)
+            self._pad_tail_weights = tuple(
+                ttnn.from_torch(t.t().contiguous(), layout=ttnn.TILE_LAYOUT,
+                                device=self.device, dtype=self.dtype) for t in (g, o))
+        return self._pad_tail_weights
 
     def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
@@ -7449,6 +7485,9 @@ class AttentionPairBias(Module):
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
         self._load_kq_norm()
+        pad_tail = self.pad_tail and _HEAD_PAD_TAIL
+        g_weight, o_weight = (self._padded_tail_weights() if pad_tail
+                              else (self.g_weight, self.o_weight))
         if not self.atom_level:
             qkv = ttnn.linear(
                 s,
@@ -7570,10 +7609,17 @@ class AttentionPairBias(Module):
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
-            o = o[:, :, :, :self.head_dim]
-            o = ttnn.permute(o, (0, 1, 3, 2))
-            o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
-            o = ttnn.permute(o, (0, 2, 1))
+            if pad_tail:
+                # The pad lanes are exactly zero (v's are, and o is a weighted sum of v), so
+                # concatenating the heads padded and letting g and o carry the pad lanes costs
+                # nothing arithmetically: it deletes three programs and makes the fourth a
+                # tile-aligned op.
+                o = ttnn.squeeze(ttnn.experimental.nlp_concat_heads(o), 1)
+            else:
+                o = o[:, :, :, :self.head_dim]
+                o = ttnn.permute(o, (0, 1, 3, 2))
+                o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
+                o = ttnn.permute(o, (0, 2, 1))
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
@@ -7634,7 +7680,7 @@ class AttentionPairBias(Module):
             o = ttnn.reshape(o, (B, K, W, D_S))
         g = ttnn.linear(
             s,
-            self.g_weight,
+            g_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
@@ -7643,7 +7689,7 @@ class AttentionPairBias(Module):
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
         x = ttnn.linear(
-            o, self.o_weight, compute_kernel_config=self.compute_kernel_config,
+            o, o_weight, compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
         ttnn.deallocate(o)
