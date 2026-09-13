@@ -3,3 +3,10 @@ Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/
   protenix-v2 512 cold (discarded) 75.99s
   protenix-v2 512 base-s2          59.15s sha=af744fefbdf43d39 plddt=0.824579
   protenix-v2 512 usilu-s2         55.55s sha=6e1fa1515fde5b48 plddt=0.813464
+  protenix-v2 512 base-s3          56.44s sha=bdf17826d878e6a3 plddt=0.824872
+  protenix-v2 512 usilu-s3         55.10s sha=3af9ef701d6a1f3a plddt=0.791412
+  protenix-v2 512 base-s2_r1       65.57s sha=af744fefbdf43d39 plddt=0.824579
+{
+ "aa_floor_bitexact": true,
+ "arms_differ": true
+}

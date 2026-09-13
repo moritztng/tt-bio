@@ -244,13 +244,15 @@ TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 # STAYS OFF. It was staged for default-on at 1.024x on the Boltz-2 fold and Boltz-2 parity is clean
 # (0.418 A at 512 aa against a 1.869 A seed floor, native CA-lDDT flat). It does not survive the
 # cross-model check, and this class is built by PairformerLayer, MiniformerLayer, MSALayer and
-# Diffusion, so Boltz-2 is not the only caller. Protenix-v2 loses 0.0480 and 0.0707 CA-lDDT against
-# the experimental structure 1HCL, per pseudo-domain, four seeds, against a per-arm seed spread of
-# 0.0011 on that metric -- 44x and 64x the noise, same sign in every seed and both domains. OpenFold3
-# moves inside its own spread and is neutral. Do not read the per-domain RMSD reading as clearance:
-# it CLEARS Protenix-v2 (2.969 / 3.443 A moved against a 3.233 / 3.743 A seed floor) because that
-# model's structures scatter widely on cdk2x2_512 while landing at the same quality every time. Only
-# the comparison against the experimental answer separates the arms.
+# Diffusion, so Boltz-2 is not the only caller. Protenix-v2 loses 0.0509 and 0.0721 CA-lDDT against
+# the experimental structure 1HCL, per pseudo-domain, four seeds per arm. The two arms are fully
+# rank-separated on both domains: the worst flag-off fold scores 0.0391 and 0.0511 above the best
+# flag-on one, so no seed of one arm reaches any seed of the other. OpenFold3 moves inside its own
+# spread and is neutral.
+# Do not read the per-domain RMSD reading as clearance: it CLEARS Protenix-v2 (2.969 / 3.443 A moved
+# against a 3.233 / 3.743 A seed floor) because that model's structures scatter widely on cdk2x2_512
+# while landing at the same quality every time. Only the comparison against the experimental answer
+# separates the arms.
 # perf/b2z2_silu/xmodel_silu_ab.py, out/score_xm_protenix_qb2c3.json, state/b2z2-union-land.md.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
 _FAST_MODE = False

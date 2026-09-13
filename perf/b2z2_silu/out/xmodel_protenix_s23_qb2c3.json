@@ -43,7 +43,39 @@
    "sha256": "6e1fa1515fde5b48",
    "unfused_silu": true,
    "plddt": 0.813464
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "tag": "base-s3",
+   "target": "cdk2x2_512",
+   "fold_s": 56.444,
+   "sha256": "bdf17826d878e6a3",
+   "unfused_silu": false,
+   "plddt": 0.824872
+  },
+  {
+   "arm": "usilu",
+   "seed": 3,
+   "tag": "usilu-s3",
+   "target": "cdk2x2_512",
+   "fold_s": 55.101,
+   "sha256": "3af9ef701d6a1f3a",
+   "unfused_silu": true,
+   "plddt": 0.791412
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "tag": "base-s2_r1",
+   "target": "cdk2x2_512",
+   "fold_s": 65.571,
+   "sha256": "af744fefbdf43d39",
+   "unfused_silu": false,
+   "plddt": 0.824579
   }
  ],
- "cold_fold_s": 75.988
+ "cold_fold_s": 75.988,
+ "aa_floor_bitexact": true,
+ "arms_differ": true
 }

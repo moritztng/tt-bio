@@ -1,0 +1,389 @@
+{
+ "cifdir": "perf/b2z2_silu/cif_xm_protenix_s23",
+ "split_seq_id": 298,
+ "gt": "1hcl.cif",
+ "env": {
+  "host": "tt-quietbox2",
+  "model": "protenix-v2",
+  "size": 512,
+  "ttnn": "0.68.0",
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "3",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "n_msa": 35,
+  "commit": "c3aa6a6849bb63c26deae1c235ff734724e811f6",
+  "started_utc": "2026-09-13T11:23:50Z",
+  "loadavg": [
+   28.94970703125,
+   33.08154296875,
+   27.4267578125
+  ]
+ },
+ "sizes": {
+  "512": {
+   "n_atoms": 4117,
+   "arms": [
+    "base-s2",
+    "base-s2_r1",
+    "base-s3",
+    "usilu-s2",
+    "usilu-s3"
+   ],
+   "seeds": [
+    2,
+    3
+   ],
+   "plddt": {
+    "base-s2": 0.824579,
+    "base-s2_r1": 0.824579,
+    "base-s3": 0.824872,
+    "usilu-s2": 0.813464,
+    "usilu-s3": 0.791412
+   },
+   "sha256": {
+    "base-s2": "af744fefbdf43d39",
+    "base-s2_r1": "af744fefbdf43d39",
+    "base-s3": "bdf17826d878e6a3",
+    "usilu-s2": "6e1fa1515fde5b48",
+    "usilu-s3": "3af9ef701d6a1f3a"
+   },
+   "fold_s": {
+    "base-s2": 59.154,
+    "base-s2_r1": 65.571,
+    "base-s3": 56.444,
+    "usilu-s2": 55.55,
+    "usilu-s3": 55.101
+   },
+   "aa_floor": {
+    "whole_all_atom_A": 0.0,
+    "whole_ca_A": 0.0,
+    "domain1_all_atom_A": 0.0,
+    "domain1_ca_A": 0.0,
+    "domain2_all_atom_A": 0.0,
+    "domain2_ca_A": 0.0,
+    "hinge_deg": 0.0,
+    "hinge_free_all_atom_A": 0.0,
+    "lddt_ca": 1.0,
+    "lddt_ca_domain1": 1.0,
+    "lddt_ca_domain2": 1.0
+   },
+   "aa_floor_bitexact": true,
+   "lever": {
+    "usilu seed2": {
+     "whole_all_atom_A": 5.09577,
+     "whole_ca_A": 4.83365,
+     "domain1_all_atom_A": 2.81131,
+     "domain1_ca_A": 2.37261,
+     "domain2_all_atom_A": 3.25638,
+     "domain2_ca_A": 2.74543,
+     "hinge_deg": 26.96216,
+     "hinge_free_all_atom_A": 3.00528,
+     "lddt_ca": 0.86177,
+     "lddt_ca_domain1": 0.89773,
+     "lddt_ca_domain2": 0.84901
+    },
+    "usilu seed3": {
+     "whole_all_atom_A": 16.36399,
+     "whole_ca_A": 16.0884,
+     "domain1_all_atom_A": 2.23587,
+     "domain1_ca_A": 1.93359,
+     "domain2_all_atom_A": 2.67895,
+     "domain2_ca_A": 2.26568,
+     "hinge_deg": 129.58633,
+     "hinge_free_all_atom_A": 2.43082,
+     "lddt_ca": 0.84875,
+     "lddt_ca_domain1": 0.89923,
+     "lddt_ca_domain2": 0.85373
+    }
+   },
+   "seed_floor": {
+    "base: s2 vs s3": {
+     "whole_all_atom_A": 2.10653,
+     "whole_ca_A": 1.78955,
+     "domain1_all_atom_A": 1.74489,
+     "domain1_ca_A": 1.40305,
+     "domain2_all_atom_A": 1.99849,
+     "domain2_ca_A": 1.59208,
+     "hinge_deg": 7.41823,
+     "hinge_free_all_atom_A": 1.85506,
+     "lddt_ca": 0.93805,
+     "lddt_ca_domain1": 0.95484,
+     "lddt_ca_domain2": 0.93314
+    },
+    "usilu: s2 vs s3": {
+     "whole_all_atom_A": 18.02316,
+     "whole_ca_A": 17.7045,
+     "domain1_all_atom_A": 4.14519,
+     "domain1_ca_A": 3.88006,
+     "domain2_all_atom_A": 4.74523,
+     "domain2_ca_A": 4.40576,
+     "hinge_deg": 137.83604,
+     "hinge_free_all_atom_A": 4.40582,
+     "lddt_ca": 0.76297,
+     "lddt_ca_domain1": 0.86968,
+     "lddt_ca_domain2": 0.80556
+    }
+   },
+   "native": {
+    "base-s2": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 2.30197,
+      "lddt_ca": 0.93347
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 2.70019,
+      "lddt_ca": 0.90599
+     }
+    },
+    "base-s2_r1": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 2.30197,
+      "lddt_ca": 0.93347
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 2.70019,
+      "lddt_ca": 0.90599
+     }
+    },
+    "base-s3": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 1.62537,
+      "lddt_ca": 0.94242
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 1.87422,
+      "lddt_ca": 0.91868
+     }
+    },
+    "usilu-s2": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 3.46178,
+      "lddt_ca": 0.87572
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 4.00034,
+      "lddt_ca": 0.82283
+     }
+    },
+    "usilu-s3": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 2.03057,
+      "lddt_ca": 0.89267
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 2.23354,
+      "lddt_ca": 0.85492
+     }
+    }
+   },
+   "summary": {
+    "domain1_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.23587,
+      "max": 2.81131,
+      "mean": 2.52359
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 1.74489,
+      "max": 4.14519,
+      "mean": 2.94504
+     }
+    },
+    "domain2_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.67895,
+      "max": 3.25638,
+      "mean": 2.96767
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 1.99849,
+      "max": 4.74523,
+      "mean": 3.37186
+     }
+    },
+    "hinge_free_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.43082,
+      "max": 3.00528,
+      "mean": 2.71805
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 1.85506,
+      "max": 4.40582,
+      "mean": 3.13044
+     }
+    },
+    "domain1_ca_A": {
+     "usilu": {
+      "n": 2,
+      "min": 1.93359,
+      "max": 2.37261,
+      "mean": 2.1531
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 1.40305,
+      "max": 3.88006,
+      "mean": 2.64155
+     }
+    },
+    "domain2_ca_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.26568,
+      "max": 2.74543,
+      "mean": 2.50556
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 1.59208,
+      "max": 4.40576,
+      "mean": 2.99892
+     }
+    },
+    "lddt_ca": {
+     "usilu": {
+      "n": 2,
+      "min": 0.84875,
+      "max": 0.86177,
+      "mean": 0.85526
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.76297,
+      "max": 0.93805,
+      "mean": 0.85051
+     }
+    },
+    "lddt_ca_domain1": {
+     "usilu": {
+      "n": 2,
+      "min": 0.89773,
+      "max": 0.89923,
+      "mean": 0.89848
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.86968,
+      "max": 0.95484,
+      "mean": 0.91226
+     }
+    },
+    "lddt_ca_domain2": {
+     "usilu": {
+      "n": 2,
+      "min": 0.84901,
+      "max": 0.85373,
+      "mean": 0.85137
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.80556,
+      "max": 0.93314,
+      "mean": 0.86935
+     }
+    },
+    "whole_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 5.09577,
+      "max": 16.36399,
+      "mean": 10.72988
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 2.10653,
+      "max": 18.02316,
+      "mean": 10.06485
+     }
+    },
+    "hinge_deg": {
+     "usilu": {
+      "n": 2,
+      "min": 26.96216,
+      "max": 129.58633,
+      "mean": 78.27425
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 7.41823,
+      "max": 137.83604,
+      "mean": 72.62713
+     }
+    }
+   },
+   "native_summary": {
+    "base copy1(res 1-298) ca_rmsd_A": {
+     "n": 2,
+     "min": 1.62537,
+     "max": 2.30197,
+     "mean": 1.96367
+    },
+    "base copy2(res 299-512) ca_rmsd_A": {
+     "n": 2,
+     "min": 1.87422,
+     "max": 2.70019,
+     "mean": 2.28721
+    },
+    "base copy1(res 1-298) lddt_ca": {
+     "n": 2,
+     "min": 0.93347,
+     "max": 0.94242,
+     "mean": 0.93795
+    },
+    "base copy2(res 299-512) lddt_ca": {
+     "n": 2,
+     "min": 0.90599,
+     "max": 0.91868,
+     "mean": 0.91234
+    },
+    "usilu copy1(res 1-298) ca_rmsd_A": {
+     "n": 2,
+     "min": 2.03057,
+     "max": 3.46178,
+     "mean": 2.74618
+    },
+    "usilu copy2(res 299-512) ca_rmsd_A": {
+     "n": 2,
+     "min": 2.23354,
+     "max": 4.00034,
+     "mean": 3.11694
+    },
+    "usilu copy1(res 1-298) lddt_ca": {
+     "n": 2,
+     "min": 0.87572,
+     "max": 0.89267,
+     "mean": 0.8842
+    },
+    "usilu copy2(res 299-512) lddt_ca": {
+     "n": 2,
+     "min": 0.82283,
+     "max": 0.85492,
+     "mean": 0.83888
+    }
+   }
+  }
+ }
+}
