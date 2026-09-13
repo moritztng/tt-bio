@@ -93,12 +93,29 @@ def main() -> int:
 
     state = _WorkerState("tenstorrent")
     state.load_model(cfg)
+
+    # The fold wall cannot resolve this lever on its own: the MSA track is single-digit percent of
+    # a fold, so a 3-4 % track win lands under the cell's own A/A floor. Bracket `MSA.__call__`
+    # with device syncs the way msa_probe.py --mode fold does, so every fold reports both.
+    TRACK_MS: list[float] = []
+    _o_msa = TT.MSA.__dict__["__call__"]
+
+    def _w_msa(self_obj, *a, **k):
+        ttnn.synchronize_device(dev)
+        t0 = time.perf_counter()
+        out = _o_msa(self_obj, *a, **k)
+        ttnn.synchronize_device(dev)
+        TRACK_MS.append(1e3 * (time.perf_counter() - t0))
+        return out
+
+    TT.MSA.__call__ = _w_msa
     state.bind_run("b2z2-pwa-residency-ship", cfg)
     diff_mod = state.model.structure_module.score_model
 
     def fold(arm: str) -> dict:
         TT._PWA_BATCH_HEAD_WEIGHTS = (arm == "on")
         TT.PWA_BATCH_HEAD_STATS[0] = TT.PWA_BATCH_HEAD_STATS[1] = 0
+        TRACK_MS.clear()
         try:
             diff_mod.reset_static_cache()
         except Exception:
@@ -122,6 +139,8 @@ def main() -> int:
             ps = round(1e3 * (sp.loop[-1][1] - sp.loop[0][1])
                        / (sp.loop[-1][0] - sp.loop[0][0]), 4)
         return {"arm": arm, "fold_s": round(wall, 3), "stages_s": stages,
+                "msa_track_s": round(sum(TRACK_MS) / 1e3, 4),
+                "msa_track_calls": len(TRACK_MS),
                 "sampler_ms_per_step": ps,
                 "pwa_stats": list(TT.PWA_BATCH_HEAD_STATS),
                 "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
@@ -142,7 +161,7 @@ def main() -> int:
                      f"sampler {r['stages_s'].get('sampler')} "
                      f"{r['sampler_ms_per_step']} ms/step ")
             print(f"  rep{i} {arm:3s} {r['fold_s']:7.3f}s {stage}"
-                  f"pwa={r['pwa_stats']} plddt={r['plddt']} "
+                  f"pwa={r['pwa_stats']} track={r['msa_track_s']:.4f}s plddt={r['plddt']} "
                   f"load={r['loadavg1']} cif {r['cif_sha256'][:16]}", flush=True)
             OUT["runs"] = runs; dump()
 
@@ -153,9 +172,15 @@ def main() -> int:
             for a in ("off", "on")} if not args.cell else {}
     offs = [r["fold_s"] for r in timed if r["arm"] == "off"]
     shas = {a: sorted({r["cif_sha256"] for r in timed if r["arm"] == a}) for a in ("off", "on")}
+    tmed = {a: st.median([r["msa_track_s"] for r in timed if r["arm"] == a])
+            for a in ("off", "on")}
+    toffs = [r["msa_track_s"] for r in timed if r["arm"] == "off"]
     OUT["median_fold_s"] = med
     OUT["ratio"] = med["off"] / med["on"]
     OUT["aa_floor"] = (min(offs) / max(offs)) if len(offs) > 1 else None
+    OUT["median_msa_track_s"] = tmed
+    OUT["track_ratio"] = tmed["off"] / tmed["on"] if tmed["on"] else None
+    OUT["track_aa_floor"] = (max(toffs) / min(toffs)) if len(toffs) > 1 else None
     if smed:
         OUT["median_sampler_ms_per_step"] = smed
         OUT["sampler_ratio"] = smed["off"] / smed["on"]
