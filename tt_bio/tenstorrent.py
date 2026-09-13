@@ -5309,7 +5309,7 @@ def set_trimul_fused_gout(on: bool) -> bool:
 # P4 step 1: apply the trimul's pair mask on the FAR side of the channel move, so that it stops
 # making E6 (`reblock_permute_gated`) ineligible.
 #
-# `gated` requires `mask_u is None`, and every Boltz-2 pairformer call site passes a pair mask
+# `gated` requires `mask is None`, and every Boltz-2 pairformer call site passes a pair mask
 # (boltz2.py:4758 confidence, boltz2.py:5499 trunk, boltz2.py:4903 affinity; the resident trunk
 # builds pf_mask_tt unconditionally). So the fused chunk+gate+move is ineligible on 100 % of
 # Boltz-2's pairformer trimuls, which is what "loses on boltz2's call mix" actually was.
@@ -5441,7 +5441,7 @@ class TriangleMultiplication(Module):
         # Opt in to the fused chunk+gate forward move (E6). Per instance and not a global, because
         # the same kernel wins on opendde's channel widths and was recorded as losing on boltz2's
         # call mix. That reading is wrong and is kept here only to say so: `gated` required
-        # `mask_u is None` and every boltz2 pairformer call site passes a pair mask, so E6 was
+        # `mask is None` and every boltz2 pairformer call site passes a pair mask, so E6 was
         # ineligible on 100 % of boltz2's pairformer trimuls and never ran there at all. Move the
         # mask past the channel move (_TRIMUL_MASK_AFTER_MOVE) and the same kernel is worth
         # 1.2981x on the starting trimul and 1.3329x on the ending one at 512 aa, and 1.0555x on
@@ -5821,8 +5821,20 @@ class TriangleMultiplication(Module):
         if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)
-        # Unsqueeze mask once before chunk loop (mask is [1,S,S] or [1,S])
-        mask_u = ttnn.unsqueeze(mask, -1) if mask is not None else None
+        # The channel-axis mask, built on first read and not before. `unsqueeze(mask, -1)` is a
+        # view only when the last axis is already tile-wide: on a [1,S,S] pair mask it pads that
+        # axis from 1 to 32, so it writes a 16.8 MB tensor for a 0.52 MB mask and dispatches a
+        # 249.6 us ReshapeView (qb2 card 0, 512 aa, `b2z-kernel-cycle-census` i=1 and i=15). Every
+        # other use of it in this method is the sentinel `mask is None` spelled through the tensor,
+        # and the one site that multiplies by it (below) is unreachable whenever the mask has been
+        # moved past the channel move -- which is the default route. Eagerly it cost 0.4993 ms of
+        # every pairformer block, 0.1398 s/fold at 512 aa, for a tensor nothing read.
+        _mask_u_memo: list = []
+
+        def mask_u():
+            if not _mask_u_memo:
+                _mask_u_memo.append(ttnn.unsqueeze(mask, -1))
+            return _mask_u_memo[0]
         # The same mask in the MOVED layout, for `_TRIMUL_MASK_AFTER_MOVE`. After perm_a the chunk
         # is [1, C, S, S] indexed (c, i, j) and reads pre[x, y, c], so the mask it needs is
         # m[i, j] for the starting variant (perm_a = (0,3,1,2)) and m[j, i] for the ending one
@@ -5830,11 +5842,11 @@ class TriangleMultiplication(Module):
         # 0.52 MB at 512 aa, 0.008 Z, against the 2 Z multiply it lets us keep and the 12 Z it
         # unblocks.
         mask_moved = mask_moved_owned = None
-        if mask_u is not None and _TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3:
-            # `unsqueeze` is a metadata VIEW over the caller's buffer, exactly as `mask_u` above
-            # is, so it must never be deallocated here: the pair mask is built once per fold and
-            # read by every trimul, and freeing it on the first one hands every later block a dead
-            # buffer. Measured: the ending trimul then returned the same bytes for an all-ones and
+        if mask is not None and _TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3:
+            # This `unsqueeze` keeps the last axis tile-wide, so it is a metadata VIEW over
+            # the caller's buffer and must never be deallocated here: the pair mask is built
+            # once per fold and read by every trimul, and freeing it on the first one hands
+            # every later block a dead buffer. Measured: the ending trimul then returned the same bytes for an all-ones and
             # a random mask, because both were reading freed memory. Only the transpose below is
             # ours to free.
             mask_moved = ttnn.unsqueeze(mask, 1)
@@ -5872,7 +5884,7 @@ class TriangleMultiplication(Module):
                     a_chunk = b_chunk = None
                     if (_TRIMUL_INPROJ_ROWBLOCK and not row_norm and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
-                            and (mask_u is None or mask_moved is not None)
+                            and (mask is None or mask_moved is not None)
                             and memory_config.buffer_type == ttnn.BufferType.DRAM):
                         a_chunk, b_chunk = self._gated_rowblocked(
                             x_norm_in, gp_in_chunks[i], bias_i, H,
@@ -5918,7 +5930,7 @@ class TriangleMultiplication(Module):
                         # fused pair. Without the flag this is the condition it always was.
                         gated = (
                             (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
-                            and (mask_u is None or mask_moved is not None)
+                            and (mask is None or mask_moved is not None)
                             and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and memory_config.buffer_type == ttnn.BufferType.DRAM
@@ -5945,8 +5957,8 @@ class TriangleMultiplication(Module):
                             )
                             ttnn.deallocate(g_in_a)
                             ttnn.deallocate(g_in_b)
-                            if mask_u is not None and mask_moved is None:
-                                a_chunk = ttnn.multiply_(a_chunk, mask_u)
+                            if mask is not None and mask_moved is None:
+                                a_chunk = ttnn.multiply_(a_chunk, mask_u())
 
                             a_chunk = self._transform_chunk(
                                 a_chunk, perm_a, memory_config=tail_mc, realloc=n_pairs // group > 1,
