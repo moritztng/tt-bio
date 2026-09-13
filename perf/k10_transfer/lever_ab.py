@@ -168,6 +168,9 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--recycles", type=int, default=3)
     ap.add_argument("--fixture", default="cdk2x2_512")
+    ap.add_argument("--width", type=int, default=1,
+                    help="how many sibling folds share the host; sets this process's thread cap")
+    ap.add_argument("--host-threads", dest="host_threads", type=int, default=0)
     ap.add_argument("--open-lock", dest="open_lock", default="",
                     help="flock this path around the device open. On whglx the library's own "
                          "host-wide /tmp/tt-bio-device-open.lock is owned by another account and "
@@ -185,8 +188,18 @@ def main() -> int:
                 f"{item[1]} is pinned in the environment; the arms are set in process and an "
                 f"outside pin would make both arms the same arm")
 
+    # A fanout of independent processes gets no thread cap from anybody: tt-bio caps the per-card
+    # workers IT spawns, not siblings launched side by side. Eight uncapped folds took this 32-core
+    # box to loadavg 133 and stretched the warm fold from 41.7 s to 96.9 s across chips, which is
+    # noise landing in the arms rather than concurrency being measured. Cap to the share tt-bio's
+    # own arithmetic hands this width, before torch sizes its pools.
+    if args.width > 1:
+        from tt_bio import runtime as _RT
+        os.environ.update(_RT.host_thread_cap_env(args.width, args.host_threads or None))
     import torch
     torch.set_grad_enabled(False)
+    if args.width > 1:
+        _RT.bind_host_threads()
     import ttnn
     from tt_bio.tenstorrent import get_device
     from tt_bio.worker import _WorkerState, _ensure_local_artifacts
@@ -217,6 +230,8 @@ def main() -> int:
         "loadavg_at_start": os.getloadavg(),
         "lease_dir": os.environ.get("TT_BIO_LEASE_DIR", "/tmp/tt-bio-device-leases"),
         "open_lock": args.open_lock or "NONE (library lock only)",
+        "width": args.width,
+        "omp_num_threads": os.environ.get("OMP_NUM_THREADS"),
     }
     dump()
 
