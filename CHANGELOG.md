@@ -7,6 +7,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **Boltz-2 folds 1.0048x faster at 512 residues on Blackhole, and its coordinates do not move.**
+  The diffusion step's token attention now sizes its query chunk to the card's compute grid instead
+  of a fixed cap (`TT_BIO_SDPA_GRID_Q_CHUNK`, on by default, every model on the fused SDPA path).
+  At 512 aa that attention goes from 256 query rows to 128, so it fills 64 work units on 110 cores
+  where the fixed cap filled 32, and runs 1.13x faster on all 4800 of its calls a fold. Two
+  independent 28-fold sessions read 1.00496x and 1.00479x, each clearing its own A/A floor.
+  Bit-exact: `torch.equal` and max abs 0.0 at every call site, one CIF digest across all 84 timed
+  folds. The atom attention's 32 query rows are a single tile with nothing to split, so its 1200
+  calls a fold keep the shipped chunk. The ratio is a Blackhole number and does not transport,
+  because the win is occupancy and occupancy depends on the grid. `TT_BIO_SDPA_GRID_Q_CHUNK=0`
+  restores the fixed cap.
+
 - **Boltz-2 folds 1.008x faster at 512 residues, and its coordinates move again.** Its diffusion
   conditioning now builds its per-layer bias stack in one pass instead of one call per layer
   (`TT_BIO_FUSE_BIAS_STACKS`, on by default, Boltz-2 only — BoltzGen inlines its own conditioning

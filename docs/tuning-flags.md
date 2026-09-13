@@ -122,6 +122,35 @@ adds happen in the same order — only how many run per pass changes.
 **Speed: 1.0317x on the fused SDPA on Blackhole** (2.8299 to 2.7430 ms at 512x512) and **1.0267x on
 Wormhole**. `TT_BIO_SDPA_ADD_GRANULARITY=1` restores the per-tile loop.
 
+## `TT_BIO_SDPA_GRID_Q_CHUNK` — on
+
+Scaled dot-product attention is computed in chunks of query rows, and ttnn hands one chunk to one
+core. The chunk size tt-bio shipped was a fixed cap with no term for the card: an attention with few
+heads produced fewer chunks than the card has cores and left most of the grid idle for the whole op.
+This picks the widest chunk whose work still fills a single pass of the compute grid. The core count
+comes from the device and the head count from the tensor, so no card and no model is named.
+
+**Accuracy: identical.** The query axis partitions independent rows — each chunk computes its own
+rows and nothing is combined across chunks. The softmax reduction order lives in the key axis, which
+this does not touch. `torch.equal` and max abs 0.0 at every call site, and one CIF digest across all
+84 timed folds of the three sessions below, at equal pLDDT.
+
+**Speed: 1.0048x on the 512 aa Blackhole fold.** Two independent sessions on the shipped tree read
+1.00496x (95 % CI [1.00048, 1.00635], same-session A/A floor [1.00075, 1.00393]) and 1.00479x (95 %
+CI [1.00322, 1.00636], floor [0.99845, 1.00262]), 28 folds each, paired median over ABBA reps. At
+the one call site it moves the op is **1.13x** (118 to 104 us, 20 paired reps a session). An earlier
+session measured 1.00355x on a tree without the triangle fusions, where the same fold took 19.324 s
+instead of 18.645 s.
+
+**It moves one call site of two, and that is a property of the shapes.** On the 512 aa reference the
+diffusion step's token attention goes from 256 query rows to 128 — 64 work units on 110 cores where
+the fixed cap gave 32 — on all 4800 of its calls a fold. The atom attention's 32 query rows are a
+single tile, so there is nothing to split, and all 1200 of its calls keep the shipped chunk. The
+ratio is a Blackhole number and does not transport: the same rule is 1.3058x at the op on Wormhole,
+because the win is occupancy and occupancy depends on the grid. Narrower chunks also re-read the
+keys and values once more per chunk, 20.1 GB more traffic over the fold, which the idle cores more
+than pay for here but would not on every card.
+
 ## `TT_BIO_TRIATT_FUSED_QKVG` — on
 
 A triangle attention's query, key, value and gate projections all read the same normed pair tensor,
@@ -221,35 +250,6 @@ declined every call by then. The 1024 and 1536 sizes were re-run after the singl
 0.8 percentage points of the table. No size refused an allocation: 7.26 GiB is 22.8 % of the 31.87 GiB
 part, and the smallest largest-contiguous free block per bank at the high-water mark is 3013 MiB
 with the flags on against 3157 MiB without them.
-
-## `TT_BIO_SDPA_GRID_Q_CHUNK` — on
-
-Scaled dot-product attention is computed in chunks of query rows, and ttnn hands one chunk to one
-core. The chunk size tt-bio shipped was a fixed cap with no term for the card: an attention with few
-heads produced fewer chunks than the card has cores and left most of the grid idle for the whole op.
-This picks the widest chunk whose work still fills a single pass of the compute grid. The core count
-comes from the device and the head count from the tensor, so no card and no model is named.
-
-**Accuracy: identical.** The query axis partitions independent rows — each chunk computes its own
-rows and nothing is combined across chunks. The softmax reduction order lives in the key axis, which
-this does not touch. `torch.equal` and max abs 0.0 at every call site, and one CIF digest across all
-84 timed folds of the three sessions below, at equal pLDDT.
-
-**Speed: 1.0048x on the 512 aa Blackhole fold.** Two independent sessions on the shipped tree read
-1.00496x (95 % CI [1.00048, 1.00635], same-session A/A floor [1.00075, 1.00393]) and 1.00479x (95 %
-CI [1.00322, 1.00636], floor [0.99845, 1.00262]), 28 folds each, paired median over ABBA reps. At
-the one call site it moves the op is **1.13x** (118 to 104 us, 20 paired reps a session). An earlier
-session measured 1.00355x on a tree without the triangle fusions, where the same fold took 19.324 s
-instead of 18.645 s.
-
-**It moves one call site of two, and that is a property of the shapes.** On the 512 aa reference the
-diffusion step's token attention goes from 256 query rows to 128 — 64 work units on 110 cores where
-the fixed cap gave 32 — on all 4800 of its calls a fold. The atom attention's 32 query rows are a
-single tile, so there is nothing to split, and all 1200 of its calls keep the shipped chunk. The
-ratio is a Blackhole number and does not transport: the same rule is 1.3058x at the op on Wormhole,
-because the win is occupancy and occupancy depends on the grid. Narrower chunks also re-read the
-keys and values once more per chunk, 20.1 GB more traffic over the fold, which the idle cores more
-than pay for here but would not on every card.
 
 ## Idle host threads when a box is full
 
