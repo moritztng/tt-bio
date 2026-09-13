@@ -1,0 +1,14 @@
+[boltz2] 1.108454 structures/s  (902 ms/call, load 3s)
+[esmc-300m] 111.991476 seq/s  (71 ms/call, load 2s)
+
+##############################################################################
+PERF REGRESSION GATE — card p150a @ pc — boltz2, esmc-300m  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+boltz2          structures/s           1.19      1.108     -6.9%      PASS
+esmc-300m       seq/s                 100.8        112    +11.1%      PASS
+--------------------------------------------------------------------------
+  card: p150a  |  machine: pc  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: per-model (2 distinct)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
