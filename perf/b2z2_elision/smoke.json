@@ -1,0 +1,131 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "4",
+  "tt_bio_file": "/home/tt-admin/scr-b2z2-elision/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-12T15:13:50Z",
+  "loadavg": [
+   5.03125,
+   11.1005859375,
+   14.28955078125
+  ],
+  "steps": 20,
+  "recycles": 3,
+  "atom_key_shift": 48
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 119.478,
+   "stages_s": {
+    "diffusion_conditioning": 1.1617,
+    "sampler": 40.2228,
+    "confidence": 2.2249
+   },
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    0,
+    120
+   ],
+   "plddt": 0.876631,
+   "cif_sha256": "2522a828bb76dace92a1294372a92bc28acf02ef3fcd261d6e2a9dc9e0163d59",
+   "loadavg1": 9.26,
+   "warmup": true
+  },
+  {
+   "arm": "on",
+   "fold_s": 33.367,
+   "stages_s": {
+    "diffusion_conditioning": 1.1572,
+    "sampler": 1.9155,
+    "confidence": 2.2446
+   },
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    0,
+    120
+   ],
+   "plddt": 0.876631,
+   "cif_sha256": "2522a828bb76dace92a1294372a92bc28acf02ef3fcd261d6e2a9dc9e0163d59",
+   "loadavg1": 6.86,
+   "warmup": true
+  },
+  {
+   "arm": "off",
+   "fold_s": 33.001,
+   "stages_s": {
+    "diffusion_conditioning": 1.1232,
+    "sampler": 1.8501,
+    "confidence": 2.2087
+   },
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    0,
+    120
+   ],
+   "plddt": 0.876631,
+   "cif_sha256": "2522a828bb76dace92a1294372a92bc28acf02ef3fcd261d6e2a9dc9e0163d59",
+   "loadavg1": 7.36,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 32.983,
+   "stages_s": {
+    "diffusion_conditioning": 1.1142,
+    "sampler": 1.8647,
+    "confidence": 2.1899
+   },
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    0,
+    120
+   ],
+   "plddt": 0.876631,
+   "cif_sha256": "2522a828bb76dace92a1294372a92bc28acf02ef3fcd261d6e2a9dc9e0163d59",
+   "loadavg1": 9.09,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 32.939,
+   "stages_s": {
+    "diffusion_conditioning": 1.1048,
+    "sampler": 1.8579,
+    "confidence": 2.1927
+   },
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    0,
+    120
+   ],
+   "plddt": 0.876631,
+   "cif_sha256": "2522a828bb76dace92a1294372a92bc28acf02ef3fcd261d6e2a9dc9e0163d59",
+   "loadavg1": 5.88,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 32.916,
+   "stages_s": {
+    "diffusion_conditioning": 1.0869,
+    "sampler": 1.8579,
+    "confidence": 2.1831
+   },
+   "sampler_ms_per_step": null,
+   "gather_stats": [
+    0,
+    120
+   ],
+   "plddt": 0.876631,
+   "cif_sha256": "2522a828bb76dace92a1294372a92bc28acf02ef3fcd261d6e2a9dc9e0163d59",
+   "loadavg1": 4.76,
+   "warmup": false,
+   "rep": 0
+  }
+ ]
+}
