@@ -1,0 +1,17 @@
+{
+ "case": "compute",
+ "reps": 10,
+ "card": "0",
+ "loadavg": [
+  "14.12",
+  "19.94",
+  "16.12"
+ ],
+ "started": "2026-09-13T16:34:35+0000",
+ "bytes": 25165824,
+ "flops": 17179869184,
+ "back_to_back_ms": 0.257,
+ "solo_synced_ms": 0.2833,
+ "implied_GBps": 97.9,
+ "implied_TFLOPs": 66.85
+}

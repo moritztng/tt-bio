@@ -1,0 +1,17 @@
+{
+ "case": "starved",
+ "reps": 10,
+ "card": "0",
+ "loadavg": [
+  "13.79",
+  "20.78",
+  "16.21"
+ ],
+ "started": "2026-09-13T16:33:52+0000",
+ "bytes": 402653184,
+ "flops": 67108864,
+ "back_to_back_ms": 0.9149,
+ "solo_synced_ms": 0.9415,
+ "implied_GBps": 440.1,
+ "implied_TFLOPs": 0.07
+}

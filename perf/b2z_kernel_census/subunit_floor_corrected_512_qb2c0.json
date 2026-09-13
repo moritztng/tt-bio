@@ -1,0 +1,113 @@
+{
+ "env": {
+  "started": "2026-09-12T09:58:51+0000",
+  "card": "0",
+  "commit": "a0735332",
+  "loadavg": [
+   "1.57",
+   "1.14",
+   "1.25"
+  ],
+  "size": 512,
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c"
+ },
+ "cold_s": 77.44,
+ "fold2_s": 21.177,
+ "class_call_counts_per_fold": {
+  "Transition": 960,
+  "TriangleMultiplication": 560,
+  "TriangleAttention": 560,
+  "AttentionPairBias": 6264
+ },
+ "class_matching_call_counts_per_fold": {
+  "Transition": 296,
+  "TriangleMultiplication": 560,
+  "TriangleAttention": 560
+ },
+ "class_call_shapes_per_fold": {
+  "Transition": {
+   "1x1024x512x64": 16,
+   "1x512x512x128": 280,
+   "1x512x384": 264,
+   "1x512x768": 400
+  },
+  "TriangleMultiplication": {
+   "1x512x512x128": 560
+  },
+  "TriangleAttention": {
+   "1x512x512x128": 560
+  },
+  "AttentionPairBias": {
+   "1x512x384": 264,
+   "1x140x32x128": 1200,
+   "1x512x768": 4800
+  }
+ },
+ "grabbed": [
+  "Transition",
+  "TriangleAttention",
+  "TriangleMultiplication"
+ ],
+ "floor": {
+  "TriangleMultiplication": {
+   "device_ms_per_call": 6.8577,
+   "all_ms": [
+    6.8354,
+    6.8577,
+    6.855,
+    6.8831,
+    6.8785
+   ],
+   "replay_issue_cpu_us_per_call": 2.727,
+   "calls_per_fold": 560,
+   "calls_per_fold_all_shapes": 560,
+   "device_s_per_fold": 3.8403,
+   "shapes_seen": {
+    "1x512x512x128": 560
+   }
+  },
+  "TriangleAttention": {
+   "device_ms_per_call": 4.3797,
+   "all_ms": [
+    4.3797,
+    4.3694,
+    4.4415,
+    4.3783,
+    4.3976
+   ],
+   "replay_issue_cpu_us_per_call": 4.409,
+   "calls_per_fold": 560,
+   "calls_per_fold_all_shapes": 560,
+   "device_s_per_fold": 2.4526,
+   "shapes_seen": {
+    "1x512x512x128": 560
+   }
+  },
+  "Transition": {
+   "device_ms_per_call": 8.7075,
+   "all_ms": [
+    8.7106,
+    8.7083,
+    8.7058,
+    8.7036,
+    8.7075
+   ],
+   "replay_issue_cpu_us_per_call": 2.579,
+   "calls_per_fold": 296,
+   "calls_per_fold_all_shapes": 960,
+   "device_s_per_fold": 2.5774,
+   "note": "664 of 960 calls of this class do NOT match the grabbed call's filter and are NOT priced here; they are a separate, smaller shape. See class_call_shapes_per_fold.",
+   "shapes_seen": {
+    "1x1024x512x64": 16,
+    "1x512x512x128": 280,
+    "1x512x384": 264,
+    "1x512x768": 400
+   }
+  }
+ }
+}

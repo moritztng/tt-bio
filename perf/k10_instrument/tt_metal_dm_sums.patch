@@ -1,0 +1,155 @@
+diff --git a/tools/tracy/device_post_proc_config.py b/tools/tracy/device_post_proc_config.py
+index 8805510d..b1e0c6d1 100644
+--- a/tools/tracy/device_post_proc_config.py
++++ b/tools/tracy/device_post_proc_config.py
+@@ -155,6 +155,36 @@ class default_setup(metaclass=MergeMetaclass):
+             "type": "sum",
+             "marker": {"risc": "TRISC_2", "zone_name": "CB-COMPUTE-RESERVE-BACK"},
+         },
++        "device_dm_cb_reserve_back_brisc": {
++            "across": "ops",
++            "type": "sum",
++            "marker": {"risc": "BRISC", "zone_name": "DM-CB-RESERVE-BACK"},
++        },
++        "device_dm_cb_reserve_back_ncrisc": {
++            "across": "ops",
++            "type": "sum",
++            "marker": {"risc": "NCRISC", "zone_name": "DM-CB-RESERVE-BACK"},
++        },
++        "device_dm_cb_wait_front_brisc": {
++            "across": "ops",
++            "type": "sum",
++            "marker": {"risc": "BRISC", "zone_name": "DM-CB-WAIT-FRONT"},
++        },
++        "device_dm_cb_wait_front_ncrisc": {
++            "across": "ops",
++            "type": "sum",
++            "marker": {"risc": "NCRISC", "zone_name": "DM-CB-WAIT-FRONT"},
++        },
++        "device_dm_noc_read_barrier_brisc": {
++            "across": "ops",
++            "type": "sum",
++            "marker": {"risc": "BRISC", "zone_name": "DM-NOC-READ-BARRIER"},
++        },
++        "device_dm_noc_read_barrier_ncrisc": {
++            "across": "ops",
++            "type": "sum",
++            "marker": {"risc": "NCRISC", "zone_name": "DM-NOC-READ-BARRIER"},
++        },
+         "dispatch_total_cq_cmd_op_time": {
+             "across": "dispatch_ops",
+             "type": "op_first_last",
+diff --git a/tools/tracy/process_device_log.py b/tools/tracy/process_device_log.py
+index 91bba692..f81023c3 100755
+--- a/tools/tracy/process_device_log.py
++++ b/tools/tracy/process_device_log.py
+@@ -140,8 +140,11 @@ def import_device_profile_log(logPath):
+     df = pd.read_csv(logPath, skiprows=1, header=0, na_filter=False)
+ 
+     # Convert trace_id and trace_id_count columns to integers
+-    df.iloc[:, 8] = pd.to_numeric(df.iloc[:, 8], errors="coerce").fillna(-1).astype(int)  # trace_id
+-    df.iloc[:, 9] = pd.to_numeric(df.iloc[:, 9], errors="coerce").fillna(-1).astype(int)  # trace_id_count
++    # pandas >= 3 infers this column as a pyarrow-backed str and refuses an in-place int write
++    # ("Invalid value for dtype str"). isetitem replaces the column wholesale, which is allowed to
++    # change dtype, and behaves identically on pandas 2.
++    df.isetitem(8, pd.to_numeric(df.iloc[:, 8], errors="coerce").fillna(-1).astype(int))  # trace_id
++    df.isetitem(9, pd.to_numeric(df.iloc[:, 9], errors="coerce").fillna(-1).astype(int))  # trace_id_count
+ 
+     for row in df.itertuples():
+         assert len(row) == 16
+diff --git a/tools/tracy/process_ops_logs.py b/tools/tracy/process_ops_logs.py
+index a9e3d947..eac6fd4b 100755
+--- a/tools/tracy/process_ops_logs.py
++++ b/tools/tracy/process_ops_logs.py
+@@ -89,6 +89,12 @@ OPS_CSV_HEADER = [
+     "DEVICE ERISC KERNEL DURATION [ns]",
+     "DEVICE COMPUTE CB WAIT FRONT [ns]",
+     "DEVICE COMPUTE CB RESERVE BACK [ns]",
++    "DEVICE DM CB RESERVE BACK BRISC [ns]",
++    "DEVICE DM CB RESERVE BACK NCRISC [ns]",
++    "DEVICE DM CB WAIT FRONT BRISC [ns]",
++    "DEVICE DM CB WAIT FRONT NCRISC [ns]",
++    "DEVICE DM NOC READ BARRIER BRISC [ns]",
++    "DEVICE DM NOC READ BARRIER NCRISC [ns]",
+     "DISPATCH TOTAL CQ CMD OP TIME [ns]",
+     "DISPATCH GO SEND WAIT TIME [ns]",
+     "INPUTS",
+diff --git a/tt_metal/hostdevcommon/api/hostdevcommon/profiler_common.h b/tt_metal/hostdevcommon/api/hostdevcommon/profiler_common.h
+index 2442f055..819ff8cf 100644
+--- a/tt_metal/hostdevcommon/api/hostdevcommon/profiler_common.h
++++ b/tt_metal/hostdevcommon/api/hostdevcommon/profiler_common.h
+@@ -12,7 +12,7 @@
+ 
+ namespace kernel_profiler {
+ 
+-static constexpr int SUM_COUNT = 2;
++static constexpr int SUM_COUNT = 4;
+ static constexpr uint32_t DRAM_PROFILER_ADDRESS_STALLED = 0xFFFFFFFF;
+ 
+ // Static IDs need to be unique for these features
+diff --git a/tt_metal/hw/inc/api/dataflow/dataflow_api.h b/tt_metal/hw/inc/api/dataflow/dataflow_api.h
+index 89a223e3..3e1b93b4 100644
+--- a/tt_metal/hw/inc/api/dataflow/dataflow_api.h
++++ b/tt_metal/hw/inc/api/dataflow/dataflow_api.h
+@@ -387,6 +387,9 @@ bool cb_pages_reservable_at_back(int32_t operand, int32_t num_pages) {
+ // clang-format on
+ FORCE_INLINE
+ void cb_reserve_back(int32_t operand, int32_t num_pages) {
++#if defined(COMPILE_FOR_BRISC) || defined(COMPILE_FOR_NCRISC)
++    DeviceZoneScopedSumN1("DM-CB-RESERVE-BACK");
++#endif
+     uintptr_t pages_acked_ptr = (uintptr_t)get_cb_tiles_acked_ptr(operand);
+ 
+     // while the producer (write-side interface) is waiting for space to free up "tiles_pushed" is not changing
+@@ -466,6 +469,9 @@ bool cb_pages_available_at_front(int32_t operand, int32_t num_pages) {
+ // clang-format on
+ FORCE_INLINE
+ void cb_wait_front(int32_t operand, int32_t num_pages) {
++#if defined(COMPILE_FOR_BRISC) || defined(COMPILE_FOR_NCRISC)
++    DeviceZoneScopedSumN2("DM-CB-WAIT-FRONT");
++#endif
+     uint32_t pages_acked = get_cb_tiles_acked_ptr(operand)[0];
+     uintptr_t pages_received_ptr = (uintptr_t)get_cb_tiles_received_ptr(operand);
+ 
+@@ -1733,6 +1739,9 @@ inline void noc_async_write_multicast_loopback_src(
+  * | noc      | Which NOC to query on                | uint8_t  | 0 or 1      | False    |
+  */
+ void noc_async_read_barrier(uint8_t noc = noc_index) {
++#if defined(COMPILE_FOR_BRISC) || defined(COMPILE_FOR_NCRISC)
++    DeviceZoneScopedSumN3("DM-NOC-READ-BARRIER");
++#endif
+     RECORD_NOC_EVENT(NocEventType::READ_BARRIER_START, false, noc);
+ 
+     WAYPOINT("NRBW");
+diff --git a/tt_metal/tools/profiler/kernel_profiler.hpp b/tt_metal/tools/profiler/kernel_profiler.hpp
+index cac72d69..1d7772e2 100644
+--- a/tt_metal/tools/profiler/kernel_profiler.hpp
++++ b/tt_metal/tools/profiler/kernel_profiler.hpp
+@@ -713,6 +713,16 @@ __attribute__((noinline)) void trace_only_init() {
+     auto constexpr hash = kernel_profiler::Hash16_CT(PROFILER_MSG_NAME(name)); \
+     kernel_profiler::profileScopeAccumulate<hash, 1> zone = kernel_profiler::profileScopeAccumulate<hash, 1>();
+ 
++#define DeviceZoneScopedSumN3(name)                                            \
++    DO_PRAGMA(message(PROFILER_MSG_NAME(name)));                               \
++    auto constexpr hash = kernel_profiler::Hash16_CT(PROFILER_MSG_NAME(name)); \
++    kernel_profiler::profileScopeAccumulate<hash, 2> zone = kernel_profiler::profileScopeAccumulate<hash, 2>();
++
++#define DeviceZoneScopedSumN4(name)                                            \
++    DO_PRAGMA(message(PROFILER_MSG_NAME(name)));                               \
++    auto constexpr hash = kernel_profiler::Hash16_CT(PROFILER_MSG_NAME(name)); \
++    kernel_profiler::profileScopeAccumulate<hash, 3> zone = kernel_profiler::profileScopeAccumulate<hash, 3>();
++
+ #define DeviceZoneSetCounter(counter)                  \
+     if constexpr (!kernel_profiler::TRACE_ON_TENSIX) { \
+         kernel_profiler::set_host_counter(counter);    \
+@@ -749,6 +759,10 @@ __attribute__((noinline)) void trace_only_init() {
+ 
+ #define DeviceZoneScopedSumN2(name)
+ 
++#define DeviceZoneScopedSumN3(name)
++
++#define DeviceZoneScopedSumN4(name)
++
+ #define DeviceTraceOnlyProfilerInit()
+ 
+ #define DeviceZoneSetCounter(counter)

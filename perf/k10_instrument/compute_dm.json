@@ -1,0 +1,65 @@
+{
+ "csv": "/home/ttuser/scratch/k10_art/compute/reports/2026_09_13_16_34_40/ops_perf_results_2026_09_13_16_34_40.csv",
+ "n_rows": 30,
+ "op_codes": {
+  "MatmulDeviceOperation": {
+   "n_ops": 23,
+   "total_span_ms": 5.59371,
+   "mean_span_us": 243.20478260869564,
+   "cores": [
+    110
+   ],
+   "frac": {
+    "brisc": 1.0,
+    "ncrisc": 0.8463,
+    "trisc0": 0.8638,
+    "trisc1": 0.8636,
+    "trisc2": 0.8655,
+    "cpu_wait_front": 0.0414,
+    "cpu_reserve_back": 0.0508,
+    "br_reserve_back": 0.4932,
+    "nc_reserve_back": 0.401,
+    "br_wait_front": 0.0114,
+    "nc_wait_front": 0.0,
+    "br_noc_read": 0.0124,
+    "nc_noc_read": 0.0246,
+    "dm_noc_read": 0.037,
+    "dm_reserve_back": 0.8943,
+    "dm_wait_front": 0.0114
+   },
+   "rows_over_unity": 0
+  }
+ },
+ "all_op_codes": [
+  "BinaryNgDeviceOperation",
+  "MatmulDeviceOperation",
+  "UnaryDeviceOperation"
+ ],
+ "ALL": {
+  "n_ops": 23,
+  "total_span_ms": 5.59371,
+  "mean_span_us": 243.20478260869564,
+  "cores": [
+   110
+  ],
+  "frac": {
+   "brisc": 1.0,
+   "ncrisc": 0.8463,
+   "trisc0": 0.8638,
+   "trisc1": 0.8636,
+   "trisc2": 0.8655,
+   "cpu_wait_front": 0.0414,
+   "cpu_reserve_back": 0.0508,
+   "br_reserve_back": 0.4932,
+   "nc_reserve_back": 0.401,
+   "br_wait_front": 0.0114,
+   "nc_wait_front": 0.0,
+   "br_noc_read": 0.0124,
+   "nc_noc_read": 0.0246,
+   "dm_noc_read": 0.037,
+   "dm_reserve_back": 0.8943,
+   "dm_wait_front": 0.0114
+  },
+  "rows_over_unity": 0
+ }
+}

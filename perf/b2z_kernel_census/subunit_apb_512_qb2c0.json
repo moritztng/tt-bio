@@ -1,0 +1,59 @@
+{
+ "env": {
+  "started": "2026-09-12T10:01:50+0000",
+  "card": "0",
+  "commit": "a0735332",
+  "loadavg": [
+   "1.87",
+   "2.08",
+   "1.64"
+  ],
+  "size": 512,
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c"
+ },
+ "cold_s": 20.403,
+ "fold2_s": 20.001,
+ "class_call_counts_per_fold": {
+  "AttentionPairBias": 6264
+ },
+ "class_matching_call_counts_per_fold": {
+  "AttentionPairBias": 4800
+ },
+ "class_call_shapes_per_fold": {
+  "AttentionPairBias": {
+   "1x512x384": 264,
+   "1x140x32x128": 1200,
+   "1x512x768": 4800
+  }
+ },
+ "grabbed": [
+  "AttentionPairBias"
+ ],
+ "floor": {
+  "AttentionPairBias": {
+   "device_ms_per_call": 0.2688,
+   "all_ms": [
+    0.2692,
+    0.2688,
+    0.2682,
+    0.2683,
+    0.2694
+   ],
+   "replay_issue_cpu_us_per_call": 0.599,
+   "calls_per_fold": 4800,
+   "calls_per_fold_all_shapes": 6264,
+   "device_s_per_fold": 1.2902,
+   "note": "1464 of 6264 calls of this class do NOT match the grabbed call's filter and are NOT priced here; they are a separate, smaller shape. See class_call_shapes_per_fold.",
+   "shapes_seen": {
+    "1x512x384": 264,
+    "1x140x32x128": 1200,
+    "1x512x768": 4800
+   }
+  }
+ }
+}

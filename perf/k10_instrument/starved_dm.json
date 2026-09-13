@@ -1,0 +1,64 @@
+{
+ "csv": "/home/ttuser/scratch/k10_art/starved/reports/2026_09_13_16_33_58/ops_perf_results_2026_09_13_16_33_58.csv",
+ "n_rows": 30,
+ "op_codes": {
+  "BinaryNgDeviceOperation": {
+   "n_ops": 23,
+   "total_span_ms": 20.822123,
+   "mean_span_us": 905.3096956521739,
+   "cores": [
+    110
+   ],
+   "frac": {
+    "brisc": 1.0,
+    "ncrisc": 0.9996,
+    "trisc0": 0.9996,
+    "trisc1": 0.9978,
+    "trisc2": 0.999,
+    "cpu_wait_front": 0.8943,
+    "cpu_reserve_back": 0.2725,
+    "br_reserve_back": 0.0,
+    "nc_reserve_back": 0.037,
+    "br_wait_front": 0.7014,
+    "nc_wait_front": 0.0,
+    "br_noc_read": 0.0,
+    "nc_noc_read": 0.81,
+    "dm_noc_read": 0.81,
+    "dm_reserve_back": 0.037,
+    "dm_wait_front": 0.7014
+   },
+   "rows_over_unity": 0
+  }
+ },
+ "all_op_codes": [
+  "BinaryNgDeviceOperation",
+  "UnaryDeviceOperation"
+ ],
+ "ALL": {
+  "n_ops": 23,
+  "total_span_ms": 20.822123,
+  "mean_span_us": 905.3096956521739,
+  "cores": [
+   110
+  ],
+  "frac": {
+   "brisc": 1.0,
+   "ncrisc": 0.9996,
+   "trisc0": 0.9996,
+   "trisc1": 0.9978,
+   "trisc2": 0.999,
+   "cpu_wait_front": 0.8943,
+   "cpu_reserve_back": 0.2725,
+   "br_reserve_back": 0.0,
+   "nc_reserve_back": 0.037,
+   "br_wait_front": 0.7014,
+   "nc_wait_front": 0.0,
+   "br_noc_read": 0.0,
+   "nc_noc_read": 0.81,
+   "dm_noc_read": 0.81,
+   "dm_reserve_back": 0.037,
+   "dm_wait_front": 0.7014
+  },
+  "rows_over_unity": 0
+ }
+}
