@@ -19,6 +19,16 @@ mkdir -p "$WORK"
 cp "$SPEC" "$WORK/"
 cp "$(dirname "$SPEC")/$(grep -o '[A-Za-z0-9_]*\.cif' "$SPEC" | head -1)" "$WORK/"
 
+# DESIGN_LEN rewrites the designed chain's length. The committed rungs step K in jumps of 56-70
+# windows, which is too coarse to find a cliff; the designed chain is the free parameter that
+# moves K continuously against a fixed target, because the atom axis is
+# ceil((target_atoms + 14*design_len)/448)*448 and K is that over 32. It also separates "K is
+# what matters" from "this particular target is what matters".
+if [ -n "${DESIGN_LEN:-}" ]; then
+  sed -i "s/sequence: [0-9]*/sequence: $DESIGN_LEN/" "$WORK/$(basename "$SPEC")"
+  echo "design length rewritten to $DESIGN_LEN"
+fi
+
 # ARMS picks which arms run. The A/A control (base2) is what makes a digest compare readable, so
 # it is the default; a rung being bisected only needs "base l1", because the A/A floor is a
 # property of the seeding and was measured exact at bg400.
