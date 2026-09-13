@@ -13,7 +13,7 @@ second digest here is a stop signal rather than something to score in Angstrom.
 
 TMPL takes %(arm)s and %(round)d. Defaults to D1's pass-1 files.
 """
-import argparse, itertools, json, statistics as st
+import argparse, itertools, json, math, statistics as st
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--path", default="/home/ttuser/scratch/uod/ab_%(arm)s_r%(round)d.json")
@@ -64,3 +64,17 @@ print("\nevery %s fold vs every %s fold: %d of %d pairs have %s slower" % (
     slow, fast,
     sum(1 for x in pool[slow] for y in pool[fast] if x > y),
     len(pool[slow]) * len(pool[fast]), slow))
+
+# The A/A number above is a RANGE over the round medians, and a range grows with the number of
+# rounds by construction: adding rounds to resolve a small effect also inflates the floor it has
+# to clear. That made it the right yardstick for D1`s two-round design and the wrong one here.
+# The design is PAIRED -- both arms run back to back inside a round and the lead alternates -- so
+# the drift-immune statistic is the per-round ratio, and the question is whether it is one-sided.
+signs = [st.median(data[(slow, r)][0]) > st.median(data[(fast, r)][0]) for r in ROUNDS]
+k, n = sum(signs), len(ROUNDS)
+# Two-sided sign test against "the lead alternates, so a drift is equally likely either way".
+p = min(1.0, 2 * sum(math.comb(n, i) for i in range(k, n + 1)) / 2 ** n)
+rat = [st.median(data[(slow, r)][0]) / st.median(data[(fast, r)][0]) for r in ROUNDS]
+print("\npaired over rounds: %s slower in %d of %d  sign-test p=%.4f" % (slow, k, n, p))
+print("per-round ratio mean %.5fx  min %.5fx  max %.5fx" % (
+    st.fmean(rat), min(rat), max(rat)))
