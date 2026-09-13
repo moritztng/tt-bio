@@ -1,0 +1,25 @@
+      info:
+      Statically allocated circular buffers in program 770 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)]. L1 buffer allocated at 1026048 and static circular buffer region ends at 1041696
+      backtrace:
+       --- /home/agent/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7038386d3f55]
+       --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)
+       --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)
+       --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)
+       --- /home/agent/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22o ... 48a23cc0]
+       --- /home/agent/env/bin/python(_PyFunction_Vectorcall+0x7c) [0x60bc48a39aec]
+       --- /home/agent/env/bin/python(_PyEval_EvalFrameDefault+0x28e9) [0x60bc48a25ee9]
+       --- /home/agent/env/bin/python(_PyFunction_Vectorcall+0x7c) [0x60bc48a39aec]
+       --- /home/agent/env/bin/python(_PyEval_EvalFrameDefault+0x807) [0x60bc48a23e07]
+       --- /home/agent/env/bin/python(_PyFunction_Vectorcall+0x7c) [0x60bc48a39aec]
+       --- /home/agent/env/bin/python(_PyEval_EvalFrameDefault+0x807) [0x60bc48a23e07]
+       --- /home/agent/env/bin/python(_PyFunction_Vectorcall+0x7c) [0x60bc48a39aec]
+       --- /home/agent/env/bin/python(_PyEval_EvalFrameDefault+0x6c0) [0x60bc48a23cc0]
+       --- /home/agent/env/bin/python(_PyFunction_Vectorcall+0x7c) [0x60bc48a39aec]
+       --- /home/agent/env/bin/python(_PyEval_EvalFrameDefault+0x1992) [0x60bc48a24f92]
+       --- /home/agent/env/bin/python(+0x25b036) [0x60bc48b09036]
+       --- /home/agent/env/bin/python(PyEval_EvalCode+0x86) [0x60bc48b08f06]
+       --- /home/agent/env/bin/python(+0x281a88) [0x60bc48b2fa88]
+      
+      [tt_bio origin: tenstorrent.py:7161 in __call__]
+
+Done: 0 ok, 1 failed — /home/agent/scratch/b2fold_1152_l1/out/boltz2_results_cdk2x2_1152/results.json

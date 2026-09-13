@@ -1,0 +1,25 @@
+02:55:08  [j10glx02:tt3]   diffusion 0/200
+02:55:31  [j10glx02:tt3]   diffusion 10/200
+02:55:32  [j10glx02:tt3]   diffusion 20/200
+02:55:33  [j10glx02:tt3]   diffusion 30/200
+02:55:35  [j10glx02:tt3]   diffusion 40/200
+02:55:36  [j10glx02:tt3]   diffusion 50/200
+02:55:38  [j10glx02:tt3]   diffusion 60/200
+02:55:39  [j10glx02:tt3]   diffusion 70/200
+02:55:41  [j10glx02:tt3]   diffusion 80/200
+02:55:42  [j10glx02:tt3]   diffusion 90/200
+02:55:44  [j10glx02:tt3]   diffusion 100/200
+02:55:45  [j10glx02:tt3]   diffusion 110/200
+02:55:47  [j10glx02:tt3]   diffusion 120/200
+02:55:49  [j10glx02:tt3]   diffusion 130/200
+02:55:50  [j10glx02:tt3]   diffusion 140/200
+02:55:52  [j10glx02:tt3]   diffusion 150/200
+02:55:54  [j10glx02:tt3]   diffusion 160/200
+02:55:55  [j10glx02:tt3]   diffusion 170/200
+02:55:56  [j10glx02:tt3]   diffusion 180/200
+02:55:58  [j10glx02:tt3]   diffusion 190/200
+02:55:59  [j10glx02:tt3]   confidence
+02:56:12  [j10glx02:tt3]   saving
+02:56:12  [j10glx02:tt3] ✓ cdk2x2_1152 — 316.6s
+
+Done: 1 ok, 0 failed — /home/agent/scratch/b2fold_1152_base/out/boltz2_results_cdk2x2_1152/results.json
