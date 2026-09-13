@@ -1025,9 +1025,12 @@ def _capped_sdpa_chunk_size(seq_len: int) -> int:
 #     q_chunk 256   32 units  125.40 us       q_chunk  32  256 units  140.40 us
 #     q_chunk 128   64 units   95.60 us   <-- the first rung that fills the grid in one pass
 #
-# 1.3117x on the op at max abs 0.0, because `q_chunk` partitions independent query rows. The
-# reduction order lives in `k_chunk`, which is NOT free and is not touched here.
-_SDPA_GRID_Q_CHUNK = env_flag("TT_BIO_SDPA_GRID_Q_CHUNK", False)
+# `q_chunk` partitions independent query rows, so the outputs are bit-identical whichever rung is
+# picked: max abs 0.0 at every site, on every fold measured. The reduction order lives in
+# `k_chunk`, which is NOT free and is not touched here. On the Blackhole cell the rule moves the
+# diffusion step's token SDPA and declines everywhere else, because a site whose q axis is one
+# tile has nothing to split -- see `perf/b2z2_qchunk/FINDINGS.md`.
+_SDPA_GRID_Q_CHUNK = env_flag("TT_BIO_SDPA_GRID_Q_CHUNK", True)
 
 
 @lru_cache(maxsize=None)
@@ -1049,31 +1052,45 @@ def _grid_q_chunk(q_len: int, work: int, cap: int, n_cores: int) -> int:
     return ceiling
 
 
-# Every chunk this rule hands out, counted per CALL SITE and per call. It has to sit outside the
-# lru_cache: a cached hit is still a call that runs with that chunk, and the question the census
-# answers -- how many of a fold's SDPA calls actually took a narrower chunk than the shipped cap --
-# is a count of calls, not of distinct shapes. Keyed `(site, q_len, k_len, work)`, holding
-# `[calls, shipped_chunk, chunk, units]`; `chunk == shipped_chunk` means the rule declined to move
-# that site, which is the reading that has been mistaken for "the lever worked" before.
+@lru_cache(maxsize=None)
+def _sdpa_q_chunk(q_len: int, work: int) -> int:
+    q_chunk = _capped_sdpa_chunk_size(q_len)
+    if _SDPA_GRID_Q_CHUNK and work:
+        q_chunk = _grid_q_chunk(q_len, int(work), q_chunk,
+                                COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
+    return q_chunk
+
+
+@lru_cache(maxsize=None)
+def _sdpa_program_config_for_shape(q_len: int, k_len: int, work: int) -> ttnn.SDPAProgramConfig:
+    return _sdpa_program_config(
+        q_chunk_size=_sdpa_q_chunk(q_len, work),
+        k_chunk_size=_capped_sdpa_chunk_size(k_len),
+    )
+
+
+# The chunk this rule hands out, counted per CALL SITE and per call, for the perf harness that
+# settled its sign (`perf/b2z2_qchunk/`). The count has to sit outside the caches above -- a cached
+# hit is still a call that runs with that chunk, and the question is how many of a fold's SDPA calls
+# took a narrower chunk than the shipped cap, not how many distinct shapes did. Keyed
+# `(site, q_len, k_len, work, d)` holding `[calls, shipped_chunk, chunk, units]`, where
+# `chunk == shipped_chunk` means the rule DECLINED to move that site -- the reading that has been
+# mistaken for "the lever worked" before. Off by default: a harness sets it, no user ever does.
+SDPA_GRID_Q_CHUNK_CENSUS = False
 SDPA_GRID_Q_CHUNK_PICKS: dict = {}
 
 
 def _sdpa_program_config_for_lengths(q_len: int, k_len: int, work: int = 0,
                                      site: str = "?", d: int = 0) -> ttnn.SDPAProgramConfig:
-    shipped = _capped_sdpa_chunk_size(q_len)
-    q_chunk = shipped
-    if _SDPA_GRID_Q_CHUNK and work:
-        q_chunk = _grid_q_chunk(q_len, int(work), shipped,
-                                COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
-    rec = SDPA_GRID_Q_CHUNK_PICKS.get((site, q_len, k_len, work, d))
-    if rec is None:
-        rec = SDPA_GRID_Q_CHUNK_PICKS[(site, q_len, k_len, work, d)] = [
-            0, shipped, q_chunk, work * (_padded_sdpa_len(q_len) // q_chunk)]
-    rec[0] += 1
-    return _sdpa_program_config(
-        q_chunk_size=q_chunk,
-        k_chunk_size=_capped_sdpa_chunk_size(k_len),
-    )
+    if SDPA_GRID_Q_CHUNK_CENSUS:
+        rec = SDPA_GRID_Q_CHUNK_PICKS.get((site, q_len, k_len, work, d))
+        if rec is None:
+            chunk = _sdpa_q_chunk(q_len, work)
+            rec = SDPA_GRID_Q_CHUNK_PICKS[(site, q_len, k_len, work, d)] = [
+                0, _capped_sdpa_chunk_size(q_len), chunk,
+                work * (_padded_sdpa_len(q_len) // chunk)]
+        rec[0] += 1
+    return _sdpa_program_config_for_shape(q_len, k_len, work)
 
 
 @lru_cache(maxsize=None)
@@ -4296,6 +4313,8 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _apply_grid_thresholds((gx, gy), device)
     _sdpa_program_config.cache_clear()
     _grid_q_chunk.cache_clear()
+    _sdpa_q_chunk.cache_clear()
+    _sdpa_program_config_for_shape.cache_clear()
     _triangle_mul_program_config.cache_clear()
     _tri_att_qkv_l1_config.cache_clear()
     _pair_proj_program_config.cache_clear()

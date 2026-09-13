@@ -90,7 +90,10 @@ def main() -> int:
     _E.set_progress(lambda *a, **k: None)
     assert Path(_TB.__file__).resolve().is_relative_to(REPO), \
         f"imported tt_bio from {_TB.__file__}, not this worktree"
-    assert not T._SDPA_GRID_Q_CHUNK, "the flag's default must be off"
+    # The default is recorded, not asserted: `arm()` below sets the module constant explicitly
+    # before every fold, so neither arm can inherit it. It was False when this row settled the
+    # sign and True once the ship branch flipped it, and both runs measure the same two arms.
+    OUT["flag_default"] = bool(T._SDPA_GRID_Q_CHUNK)
 
     dev = get_device()
     g = dev.compute_with_storage_grid_size()
@@ -108,9 +111,13 @@ def main() -> int:
     }, "census": {}, "ops": [], "folds": []})
     dump()
 
+    T.SDPA_GRID_Q_CHUNK_CENSUS = True   # the per-call counter is off in the shipped path
+
     def arm(name):
         T._SDPA_GRID_Q_CHUNK = (name == "ship")
         T._grid_q_chunk.cache_clear()
+        T._sdpa_q_chunk.cache_clear()
+        T._sdpa_program_config_for_shape.cache_clear()
 
     if args.shapes_from:
         OUT["census"] = json.loads(args.shapes_from.read_text())["census"]
