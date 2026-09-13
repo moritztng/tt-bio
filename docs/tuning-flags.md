@@ -52,6 +52,8 @@ fails the same comparison. On the device the three models that share this code a
 structure byte for byte at 512 residues: Boltz-2 `a91aa44441f0d9c5`, Protenix-v2 `15772214c5b9e990`,
 OpenFold3 `6ee6ac7a3e730688`, each in both arms, pLDDT equal to six places.
 
+BoltzGen reaches the same code on its design path and takes the batched projection 192 times in one four-binder design. Its designs are drawn unseeded, so two runs of the same build do not produce the same binders and there is no structure to compare between arms; what is comparable is the designability gate, which passes in every run of either arm.
+
 **Speed: 1.01606x on the MSA track, which is too small to read on the fold.** On one Blackhole
 processor the track goes 1.8678 s to 1.8371 s, median of twelve folds, all six paired reps positive
 and the two arms fully rank-separated, against an A/A floor of 1.00859 from the same run. That is
