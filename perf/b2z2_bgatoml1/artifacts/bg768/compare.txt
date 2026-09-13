@@ -1,0 +1,10 @@
+arm       wall_s  ATOM_L1_STATS                          file_sha256
+base       214.9  {'dram': 0, 'l1': 0, 'off': 3000, 'shape': 0} 8598f3d3df86db05  bg768.cif
+l1         158.5  {'dram': 0, 'l1': 3000, 'off': 0, 'shape': 0} 8598f3d3df86db05  bg768.cif
+
+A/A  base vs base2 : not run this rung -- the floor is bg400's, measured exact
+A/B  base vs l1    : file True  coord True  [max 0.0000 A, mean 0.0000 A over 6577 atoms]
+gate l1 arm fired  : True  ({'dram': 0, 'l1': 3000, 'off': 0, 'shape': 0})
+gate base arm off  : True  ({'dram': 0, 'l1': 0, 'off': 3000, 'shape': 0})
+
+VERDICT: GO -- the lever fires on every atom-layer call and BoltzGen writes a byte-identical design.
