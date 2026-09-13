@@ -89,6 +89,7 @@ def main() -> int:
     def fold(arm: str) -> dict:
         TT.set_trimul_gp_bank_split(arm == "on")
         RB.STATS_GATED[0] = RB.STATS_GATED[1] = 0
+        RB.REJECTS.clear()
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
         ttnn.synchronize_device(dev)
@@ -100,6 +101,7 @@ def main() -> int:
         assert cifs, "no CIF written"
         return {"arm": arm, "fold_s": round(wall, 3),
                 "roles": list(TT.gp_roles()), "gated_calls": list(RB.STATS_GATED),
+                "gated_rejects": {str(k): v for k, v in RB.REJECTS.items()},
                 "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
                 "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest(),
                 "loadavg1": round(os.getloadavg()[0], 2)}

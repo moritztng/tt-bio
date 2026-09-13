@@ -1,0 +1,75 @@
+benchlock: k10-b1-permute-land acquired after 0s, loadavg 0.44 1.26 0.83
+2026-09-13 21:12:08.141 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  warm off  20.405s ['g_a', 'g_b', 'p_a', 'p_b'] gated=[1120, 0] cif 2bc758a1fb24ef30
+  warm on   17.681s ['p_a', 'g_a', 'p_b', 'g_b'] gated=[1120, 0] cif 2bc758a1fb24ef30
+  rep0 off  17.691s gated=[1120, 0] plddt=0.864509 load=2.05 cif 2bc758a1fb24ef30
+  rep0 on   17.348s gated=[1120, 0] plddt=0.864509 load=1.82 cif 2bc758a1fb24ef30
+  rep0 on   17.299s gated=[1120, 0] plddt=0.864509 load=1.65 cif 2bc758a1fb24ef30
+  rep0 off  17.943s gated=[1120, 0] plddt=0.864509 load=1.81 cif 2bc758a1fb24ef30
+  rep1 off  17.665s gated=[1120, 0] plddt=0.864509 load=2.27 cif 2bc758a1fb24ef30
+  rep1 on   17.398s gated=[1120, 0] plddt=0.864509 load=1.98 cif 2bc758a1fb24ef30
+  rep1 on   17.375s gated=[1120, 0] plddt=0.864509 load=2.27 cif 2bc758a1fb24ef30
+  rep1 off  17.752s gated=[1120, 0] plddt=0.864509 load=1.98 cif 2bc758a1fb24ef30
+  rep2 off  17.721s gated=[1120, 0] plddt=0.864509 load=1.7 cif 2bc758a1fb24ef30
+  rep2 on   17.260s gated=[1120, 0] plddt=0.864509 load=1.55 cif 2bc758a1fb24ef30
+  rep2 on   17.632s gated=[1120, 0] plddt=0.864509 load=1.55 cif 2bc758a1fb24ef30
+  rep2 off  17.822s gated=[1120, 0] plddt=0.864509 load=1.42 cif 2bc758a1fb24ef30
+  rep3 off  17.763s gated=[1120, 0] plddt=0.864509 load=1.3 cif 2bc758a1fb24ef30
+  rep3 on   17.332s gated=[1120, 0] plddt=0.864509 load=1.24 cif 2bc758a1fb24ef30
+  rep3 on   17.300s gated=[1120, 0] plddt=0.864509 load=1.17 cif 2bc758a1fb24ef30
+  rep3 off  17.670s gated=[1120, 0] plddt=0.864509 load=1.13 cif 2bc758a1fb24ef30
+{
+ "n_per_arm": {
+  "off": 8,
+  "on": 8
+ },
+ "median_fold_s": {
+  "off": 17.7365,
+  "on": 17.34
+ },
+ "ratio": 1.0228662053056516,
+ "aa_floor": 0.9845064927827006,
+ "plddt": {
+  "off": [
+   0.864509
+  ],
+  "on": [
+   0.864509
+  ]
+ },
+ "paired_deltas_s": [
+  0.343,
+  0.644,
+  0.267,
+  0.377,
+  0.461,
+  0.19,
+  0.431,
+  0.37
+ ],
+ "gated_calls": {
+  "off": [
+   [
+    1120,
+    0
+   ]
+  ],
+  "on": [
+   [
+    1120,
+    0
+   ]
+  ]
+ },
+ "bit_exact": true,
+ "cif_sha256": {
+  "off": [
+   "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+  ],
+  "on": [
+   "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+  ]
+ }
+}
+benchlock: k10-b1-permute-land released, rc=0, loadavg 1.12 1.40 1.05

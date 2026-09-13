@@ -5492,8 +5492,7 @@ def set_trimul_inproj_rowblock(on: bool, r: int | None = None) -> tuple[bool, in
 TRIMUL_GP_BANK_SPLIT = True
 _GP_ROLES_SPLIT = ("p_a", "g_a", "p_b", "g_b")
 _GP_ROLES_MAJOR = ("g_a", "g_b", "p_a", "p_b")
-_TRIMUL_GP_BANK_SPLIT = os.environ.get(
-    "TT_BIO_TRIMUL_GP_BANK_SPLIT", "1" if TRIMUL_GP_BANK_SPLIT else "0") == "1"
+_TRIMUL_GP_BANK_SPLIT = env_flag("TT_BIO_TRIMUL_GP_BANK_SPLIT", TRIMUL_GP_BANK_SPLIT)
 
 
 def gp_roles() -> tuple[str, ...]:
