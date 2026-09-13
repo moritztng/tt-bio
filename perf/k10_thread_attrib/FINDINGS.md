@@ -166,3 +166,39 @@ route from the same data. Within 5 %.
    being the constraint, and no amount of dataflow work touches it.
 2. **The diffusion step, 32.5 % of the fold**, which appears nowhere in this table because nobody has
    ever measured it.
+
+## The campaign's own 2x ceiling misses, once its refuted first rung is removed
+
+`ceiling_recheck.py`, host only, every input quoted from a concluded row.
+
+`b2z2-sampler-ceiling-map` concluded that **"2x is arithmetically reachable and it has 1.2 % of
+margin"**, landing at **10.158 s (1.9767x)**. That stack already grants two large concessions: the
+trunk is held at a **"movement-free floor nobody knows how to reach" (4.689 s)** and `rest` at its
+measured 2.1805 s. Its **first rung is `--diffusion_trace`**, "built, default off", credited with
+**26.400 -> 23.378 ms/step**.
+
+**That lever measures 0.9948x on Blackhole** (`b2z2-diffusion-loop-attack`, qb2 card 1, the cell's own
+fixture: eager 19.937 s against traced 20.041 s, ranges overlapping, identical CIF; the loop is 93.8 %
+device with a 0.33 s/fold host side; qb2 dispatches a one-tile op in 9.56 us against qb1's 22.92 us,
+so eager issue cost hides behind a 22.02 ms device step). So on the part that matters that rung is
+worth **zero**, and the three levers above it start from 26.400 ms/step, not 23.378.
+
+| | ms/step | sampler | fold | ratio | vs 2x |
+|---|---|---|---|---|---|
+| as published, all four rungs | 16.442 | 3.288 s | **10.158 s** | **1.9800x** | +0.101 s |
+| trace rung removed, other three land in full | 19.464 | 3.893 s | **10.762 s** | **1.8688x** | **+0.706 s (+7.0 %)** |
+
+**2x misses by 7.0 %, not 1.2 %** — and that is still the optimistic case, because it grants a trunk
+floor nobody knows how to reach and three levers that are projected rather than built. The map's own
+sentence was *"any one lever under-delivering by 15 % kills it"*; one of them under-delivered by
+100 %.
+
+**Reconstruction check, stated rather than buried:** this script reproduces the map's fold seconds
+**exactly** at every rung (12.149 / 11.545 / 11.111 / 10.560 / 10.158 s), so the ladder is rebuilt
+faithfully. Its ratios differ in the third decimal (1.9800 against the map's 1.9767) because the map's
+implied denominator is ~20.079 s rather than the 20.113 s cell it names. That 0.17 % does not touch a
+conclusion whose margin is 0.706 s.
+
+**This is denominated in the 20.113 s cell, which is the tree the map was built against.** It is not
+restated for today's 17.989 s cell: the trunk and `rest` brackets belong to that tree. The structure
+carries; the absolutes do not.
