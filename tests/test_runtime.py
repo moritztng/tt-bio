@@ -96,10 +96,13 @@ def test_host_thread_cap_env_leaves_an_operator_value_alone(monkeypatch):
 def test_host_thread_cap_env_parks_idle_threads_only_when_cores_are_scarce(monkeypatch):
     for var in runtime.HOST_THREAD_VARS + tuple(runtime.IDLE_THREADS_PARK):
         monkeypatch.delenv(var, raising=False)
-    # 64 threads over 32 concurrent folds is 2 each, under one fold's own ~4-thread demand:
-    # the host is the limit, so the children park their idle pool threads instead of spinning
+    # 64 threads over 32 or 24 concurrent folds is 2 each: no core is left to absorb a spinning
+    # pool thread, so the children park theirs. Measured 1.014x and 1.004x on folds per hour.
     assert runtime.IDLE_THREADS_PARK.items() <= runtime.host_thread_cap_env(32, 64).items()
-    # the same box at a width it can actually feed keeps today's spin, which is faster there
+    assert runtime.IDLE_THREADS_PARK.items() <= runtime.host_thread_cap_env(24, 64).items()
+    # Width 20 is the boundary, and it is measured, not assumed: 3 threads each reads 0.990x, so
+    # one share above the line the lever is a LOSS and has to stay off. Width 16 likewise (0.993x).
+    assert not set(runtime.IDLE_THREADS_PARK) & set(runtime.host_thread_cap_env(20, 64))
     assert not set(runtime.IDLE_THREADS_PARK) & set(runtime.host_thread_cap_env(16, 64))
     assert not set(runtime.IDLE_THREADS_PARK) & set(runtime.host_thread_cap_env(1, 64))
 

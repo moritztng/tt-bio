@@ -1,0 +1,56 @@
+{
+ "dir": "ladder_aa",
+ "host_threads": 64,
+ "widths": {
+  "32": {
+   "active": {
+    "n_timed_folds": 96,
+    "window_s": 193.809,
+    "folds_per_hour": 1783.199,
+    "median_fold_s": 64.405,
+    "median_cores_per_fold": 1.2542,
+    "median_step_ms": 49.7734,
+    "cif_digests": [
+     "426aa92b471ed305"
+    ],
+    "digest_unanimous": true,
+    "total_host_cores": 40.184,
+    "artifact": "w32_active.json",
+    "started_utc": "2026-09-13T05:00:55Z",
+    "loadavg_at_start": [
+     18.1,
+     24.51,
+     29.48
+    ]
+   },
+   "passive": {
+    "n_timed_folds": 96,
+    "window_s": 190.793,
+    "folds_per_hour": 1811.387,
+    "median_fold_s": 63.739,
+    "median_cores_per_fold": 1.2107,
+    "median_step_ms": 48.3485,
+    "cif_digests": [
+     "426aa92b471ed305"
+    ],
+    "digest_unanimous": true,
+    "total_host_cores": 38.724,
+    "artifact": "w32_passive.json",
+    "started_utc": "2026-09-13T05:05:41Z",
+    "loadavg_at_start": [
+     35.31,
+     38.48,
+     34.61
+    ]
+   },
+   "folds_per_hour_ratio": 1.01581,
+   "median_fold_ratio": 0.98966,
+   "bit_exact": true,
+   "host_thread_cap": 2
+  }
+ },
+ "cif_digests_all_arms": [
+  "426aa92b471ed305"
+ ],
+ "bit_exact_across_everything": true
+}

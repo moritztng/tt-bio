@@ -27,10 +27,20 @@ def free_cards(n_cards=32):
         if not os.path.exists(f"/dev/tenstorrent/{c}"):
             continue
         p = d / f"{host}-card{c}.json"
+        # The lease file may already exist and belong to another UNIX account -- the fleet runs
+        # this galaxy as tt-admin and a worker shelling in under its own login is not in that
+        # group. O_RDWR then fails with EACCES on a 0664 file, and treating that as "held" made
+        # every one of 32 idle cards read busy. flock needs only an open descriptor, so a
+        # read-only fallback asks the real question. If even reading fails the lease is genuinely
+        # opaque to us: say so rather than guessing in either direction.
         try:
             fd = os.open(p, os.O_RDWR | os.O_CREAT, 0o664)
         except OSError:
-            continue
+            try:
+                fd = os.open(p, os.O_RDONLY)
+            except OSError as e:
+                print(f"card {c}: lease unreadable ({e.strerror}), assuming held", file=sys.stderr)
+                continue
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
