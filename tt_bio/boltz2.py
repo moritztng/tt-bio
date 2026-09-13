@@ -1178,7 +1178,9 @@ def _device_conditioning() -> bool:
     # bit-exact (bf16 device math against fp32 torch, and it uses the fused bias stack), so it
     # owes the same cdk2x2_298 control TT_BIO_FUSE_BIAS_STACKS ran. Read per call so an A/B can
     # flip arms inside one process.
-    return env_flag("TT_BIO_DEVICE_CONDITIONING", False)
+    #
+    # ON by default: PLACEHOLDER_EVIDENCE
+    return env_flag("TT_BIO_DEVICE_CONDITIONING", True)
 
 
 def _row_block(bytes_per_row: int) -> int:
