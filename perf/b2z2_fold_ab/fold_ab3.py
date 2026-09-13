@@ -179,8 +179,13 @@ def main() -> int:
         dump()
 
     for i in range(args.reps):
-        for arm in ARMS:
-            r = fold(arm, args.cifdir / f"{arm}_{i}"); r["rep"] = i
+        # The order REVERSES on alternate reps. Interleaving alone still gives every arm a fixed
+        # slot inside the rep, so a periodic host disturbance -- or simply the cost of being the
+        # fold that follows the cache-cold one -- lands on the same arm every time. This campaign
+        # lost a card to a single-fold screen whose quiet half sat on the treatment arm.
+        order = list(ARMS) if i % 2 == 0 else list(ARMS)[::-1]
+        for arm in order:
+            r = fold(arm, args.cifdir / f"{arm}_{i}"); r["rep"] = i; r["order"] = order
             out["runs"].append(r)
             print(f"  rep{i} {arm:5s} {r['fold_s']:8.3f}s sha={r['sha256']} "
                   f"plddt={r['plddt']:.6f} load={r['loadavg']}", flush=True)
