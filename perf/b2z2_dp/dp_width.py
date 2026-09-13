@@ -80,6 +80,10 @@ def cpu_s():
 
 
 def child(args) -> int:
+    # Before torch: the inter-op pool sizes itself to cores/2 on the first parallel op and is not
+    # settable afterwards, so the cap has to be bound before anything touches it.
+    from tt_bio import runtime as _RT
+    _RT.bind_host_threads()
     import torch
     torch.set_grad_enabled(False)
     import ttnn
@@ -98,7 +102,10 @@ def child(args) -> int:
         f"child for card {args.card} has TT_VISIBLE_DEVICES={visible!r}; an unpinned open "
         "brings up every chip on the box and would make this arm a whole-box arm")
 
-    out = {"card": args.card, "width": args.width, "pid": os.getpid(), "folds": []}
+    out = {"card": args.card, "width": args.width, "pid": os.getpid(), "folds": [],
+           "omp_num_threads": os.environ.get("OMP_NUM_THREADS"),
+           "torch_num_threads": torch.get_num_threads(),
+           "torch_interop_threads": torch.get_num_interop_threads()}
     args.out.parent.mkdir(parents=True, exist_ok=True)
 
     def dump():
@@ -258,9 +265,21 @@ def parent(args) -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(out, indent=1))
 
+    # Each child drives one card and so computes host_thread_cap(1) = every core on the box.
+    # W of them therefore spawn W*cores threads for cores' worth of work. tt_bio.runtime already
+    # names this case ("an external launcher runs one single-card job per chip") and says such a
+    # launcher passes cores // concurrent_jobs; this is that launcher, so it passes it.
+    from tt_bio import runtime as _RT
+    cores = os.cpu_count() or 1
+    cap_env = {} if args.no_thread_cap else _RT.host_thread_cap_env(width, args.host_threads or cores)
+    out["host_thread_cap"] = {"cores": cores, "cap_env": cap_env,
+                              "capped": not args.no_thread_cap}
+    args.out.write_text(json.dumps(out, indent=1))
+
     procs = {}
     for c in cards:
         env = dict(os.environ)
+        env.update(cap_env)
         env["TT_VISIBLE_DEVICES"] = c
         env["TT_BIO_LEASE_CARDS"] = c
         env["TT_BIO_LEASE_HOLDER"] = "worker:b2z2-dp-throughput-linear"
@@ -319,6 +338,8 @@ def parent(args) -> int:
             "cif_digests": digests,
             "digest_unanimous": len(digests) == 1,
             "barrier_wait_s": {c: children[c].get("barrier_wait_s") for c in cards},
+            "omp_num_threads": children[cards[0]].get("omp_num_threads"),
+            "torch_num_threads": children[cards[0]].get("torch_num_threads"),
         }
     args.out.write_text(json.dumps(out, indent=1))
     print(json.dumps(out.get("result", {"all_children_ok": ok, "returncodes": rcs}), indent=1))
@@ -340,6 +361,10 @@ def main() -> int:
     ap.add_argument("--msa-dir", dest="msa_dir", type=Path, default=None)
     ap.add_argument("--barrier", type=Path, default=None)
     ap.add_argument("--workdir", default="")
+    ap.add_argument("--host-threads", dest="host_threads", type=int, default=0,
+                    help="this box's core budget to split across the W children; default nproc")
+    ap.add_argument("--no-thread-cap", dest="no_thread_cap", action="store_true",
+                    help="control arm: let every child claim all cores, as an unaware launcher does")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     assert args.steps == 200, f"the cell is 200 sampling steps; got {args.steps}"
