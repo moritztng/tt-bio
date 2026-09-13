@@ -51,11 +51,17 @@ def loadavg():
 
 
 def set_arm(traced: bool) -> int:
-    """Flip every live AtomDiffusion onto the traced or untraced score-model path."""
+    """Flip every live AtomDiffusion onto the traced or untraced score-model path.
+
+    Match on the class, not on `hasattr`: probing arbitrary gc objects for an attribute walks
+    into `torch.backends.cuda.__getattr__`, which calls `torch.cuda.current_device()` and dies
+    on a box with no NVIDIA driver.
+    """
+    from tt_bio.boltz2 import AtomDiffusion
     n = 0
     for obj in gc.get_objects():
         try:
-            if hasattr(obj, "_diffusion_trace") and hasattr(obj, "score_model"):
+            if isinstance(obj, AtomDiffusion):
                 obj._diffusion_trace = traced
                 n += 1
         except ReferenceError:
