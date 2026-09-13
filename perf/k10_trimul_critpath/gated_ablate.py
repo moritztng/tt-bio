@@ -189,23 +189,116 @@ def _reader_batched(depth):
     return r, c, w
 
 
-def arm_readbatch8():
-    r, c, w = _reader_batched(8)
-    return r, c, w, 2, 16, "reader: 8 tile pairs behind one barrier, p/g CBs 16 tiles deep"
+def _mk_batch(batch, depth):
+    def f():
+        r, c, w = _reader_batched(batch)
+        return (r, c, w, 2, depth,
+                f"reader: {batch} tile pairs behind one barrier, p/g CBs {depth} tiles deep "
+                f"({depth // batch} batches in flight)")
+    return f
 
 
-def arm_deepcb():
-    """Control for readbatch8: the CB deepening alone, barrier granularity unchanged."""
+def _mk_deep(depth):
+    def f():
+        r, c, w = _srcs()
+        return r, c, w, 2, depth, f"p/g CBs {depth} tiles deep, one barrier per pair as shipped"
+    return f
+
+
+arm_readbatch8 = _mk_batch(8, 16)
+arm_deepcb = _mk_deep(16)
+
+
+
+def arm_noread():
+    """Reader: delete the two DRAM page reads and the barrier, keep the CB reserve/push. Prices the
+    DRAM read side of the op (WRONG DATA)."""
     r, c, w = _srcs()
-    return r, c, w, 2, 16, "p/g CBs 16 tiles deep, one barrier per pair as shipped"
+    r = edit(r, """                noc_async_read_page(p_page, s, get_write_ptr(cb_p));
+                noc_async_read_page(g_page, s, get_write_ptr(cb_g));
+                noc_async_read_barrier();
+""", "", "noread.valid")
+    r = edit(r, """                noc_async_read_page(p_pad, s, get_write_ptr(cb_p));
+                noc_async_read_page(g_pad, s, get_write_ptr(cb_g));
+                noc_async_read_barrier();
+""", "", "noread.pad")
+    return r, c, w, 2, 4, "reader DRAM page reads deleted (WRONG DATA)"
+
+
+def arm_nomul():
+    """Compute: drop the SFPU multiply, keep both operand copies and every CB round trip."""
+    r, c, w = _srcs()
+    c = edit(c, """            mul_binary_tile_init();
+            mul_binary_tile(2 * j, 2 * j + 1, 2 * j);
+""", "", "nomul")
+    return r, c, w, 2, 4, "SFPU multiply deleted, both copies and all CB traffic kept (WRONG DATA)"
+
+
+def arm_passthru():
+    """Compute: one stage, p_cb -> out_cb. Deletes the whole three-stage structure: 7 tile moves a
+    tile become 2, and the two intermediate CBs disappear from the dependency chain (WRONG DATA)."""
+    r, c, w = _srcs()
+    body = c[c.index("    for (uint32_t i = 0; i < num_tiles; i += GRAN) {"):c.rindex("}\n")]
+    new = """    for (uint32_t i = 0; i < num_tiles; i += GRAN) {
+        const uint32_t n = (num_tiles - i < GRAN) ? (num_tiles - i) : GRAN;
+        cb_wait_front(p_cb, n);
+        cb_wait_front(g_cb, n);
+        cb_reserve_back(out_cb, n);
+        transpose_wh_init(p_cb, out_cb);
+        tile_regs_acquire();
+        for (uint32_t j = 0; j < n; ++j) {
+            transpose_wh_tile(p_cb, j, j);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < n; ++j) {
+            pack_tile(j, out_cb);
+        }
+        tile_regs_release();
+        cb_pop_front(p_cb, n);
+        cb_pop_front(g_cb, n);
+        cb_push_back(out_cb, n);
+    }
+"""
+    c = edit(c, body, new, "passthru")
+    return r, c, w, 2, 4, "compute collapsed to one transpose stage, 7 tile moves -> 2 (WRONG DATA)"
+
+
+
+def _mk_bankspread(mask, depth=4):
+    """Reader: XOR the low bits of the page index so a core's 32 reads walk DRAM banks instead of
+    hammering one.
+
+    In the shipped kernel `page = 256*row + 16*jt + off + ct` for the 512 aa trimul, so
+    `page % 8 == ct % 8` with `ct` fixed inside a group: EVERY read a core issues for a group lands
+    on the same DRAM bank. XOR-ing `il & mask` into the low bits keeps the page inside the same
+    16-page (row, jt) block, so it is always a valid address, and spreads it over `mask+1` banks.
+    The data is wrong on purpose; this measures what bank parallelism is worth and nothing else.
+    """
+    def f():
+        r, c, w = _srcs()
+        r = edit(r, "noc_async_read_page(p_page, s, get_write_ptr(cb_p));",
+                 f"noc_async_read_page(p_page ^ (il & {mask}u), s, get_write_ptr(cb_p));",
+                 "bank.p")
+        r = edit(r, "noc_async_read_page(g_page, s, get_write_ptr(cb_g));",
+                 f"noc_async_read_page(g_page ^ (il & {mask}u), s, get_write_ptr(cb_g));",
+                 "bank.g")
+        return r, c, w, 2, depth, f"reader pages XOR il&{mask}: {mask+1} DRAM banks a core (WRONG DATA)"
+    return f
 
 
 ARMS = {
     "base": arm_base, "nogather": arm_nogather, "nowrite": arm_nowrite,
     "nosigmoid": arm_nosigmoid, "notranspose": arm_notranspose,
     "fusedsig": arm_fusedsig, "readbatch8": arm_readbatch8, "deepcb": arm_deepcb,
+    "noread": arm_noread, "nomul": arm_nomul, "passthru": arm_passthru,
+    "bank2": _mk_bankspread(1), "bank4": _mk_bankspread(3), "bank8": _mk_bankspread(7),
+    "bank8d32": _mk_bankspread(7, 32),
+    "deepcb32": _mk_deep(32), "deepcb64": _mk_deep(64),
+    "batch4d32": _mk_batch(4, 32), "batch8d64": _mk_batch(8, 64), "batch2d16": _mk_batch(2, 16),
 }
-WRONG = {"nogather", "nowrite", "nosigmoid", "notranspose"}
+WRONG = {"nogather", "nowrite", "nosigmoid", "notranspose", "noread", "nomul",
+         "passthru", "bank2", "bank4", "bank8", "bank8d32"}
 
 
 def materialise(name):
@@ -358,20 +451,26 @@ def main():
     # Parity: every arm that is not timing-only must reproduce `base` on device, and `base` itself
     # must reproduce the two-op reference. Bit-exactness is measured because it is free, not
     # because it is the bar.
-    ref = torch.chunk(xt, 4, dim=-1)
-    ref = (ref[p_slice // sc] * torch.sigmoid(ref[g_slice // sc].float()).bfloat16()
-           ).permute(0, 3, 1, 2).contiguous()
-    par = {}
+    run_once(ttnn, entries["base"], x, out, p_slice, g_slice)
+    ttnn.synchronize_device(device)
+    base_out = ttnn.to_torch(out).float().clone()
+    hostref = torch.chunk(xt, 4, dim=-1)
+    hostref = (hostref[p_slice // sc].float() * torch.sigmoid(hostref[g_slice // sc].float())
+               ).permute(0, 3, 1, 2).contiguous()
+    par = {"base_vs_fp32_host": {"max_abs_diff": (base_out - hostref).abs().max().item()}}
+    print(f"parity base vs fp32 host reference: max|d| = {par['base_vs_fp32_host']['max_abs_diff']:.6g}")
     for lab in entries:
-        if lab in WRONG:
+        if lab in WRONG or lab == "base":
             continue
         run_once(ttnn, entries[lab], x, out, p_slice, g_slice)
         ttnn.synchronize_device(device)
         got = ttnn.to_torch(out).float()
-        d = (got - ref.float()).abs().max().item()
-        par[lab] = {"max_abs_diff_vs_ref": d, "bit_exact_vs_ref": bool(d == 0.0)}
-        print(f"parity {lab:12s} max|d| vs 2-op reference = {d:.6g}"
-              f"{'  BIT-EXACT' if d == 0.0 else ''}")
+        d = (got - base_out).abs().max().item()
+        rel = (got - hostref).abs().max().item()
+        par[lab] = {"max_abs_diff_vs_base": d, "bit_exact_vs_base": bool(d == 0.0),
+                    "max_abs_diff_vs_fp32_host": rel}
+        print(f"parity {lab:12s} vs base max|d| = {d:.6g}"
+              f"{'  BIT-EXACT' if d == 0.0 else ''}   vs fp32 host = {rel:.6g}")
 
     meta = {"grid": [grid.x, grid.y], "cores": grid.x * grid.y, "arch": arch,
             "shape": {"N": N, "Cw": Cw, "slice_c": sc}, "reps": a.reps, "rounds": a.rounds,
