@@ -118,15 +118,21 @@ def bind_host_threads() -> None:
     inter-op pool, which always sizes itself to cores/2 regardless. Bind both
     explicitly so a capped worker really holds only its share of the CPU. Nothing to
     do when the launcher set no cap.
+
+    A cap only ever lowers. The inter-op default is cores/2, so a single-card worker
+    granted the whole box would otherwise have this function RAISE that pool to cores --
+    measured on whglx 2026-09-13 at 512 aa: 40.816 s -> 58.488 s per fold, 4.15 -> 21.96
+    host cores, and a CIF that no longer matched the one every other arm wrote. Raising a
+    pool is not what a cap is for, and it is not free in either wall or bytes.
     """
     cap = os.environ.get("OMP_NUM_THREADS")
     if not cap:
         return
     import torch
 
-    torch.set_num_threads(int(cap))
+    torch.set_num_threads(min(int(cap), torch.get_num_threads()))
     try:
-        torch.set_num_interop_threads(int(cap))
+        torch.set_num_interop_threads(min(int(cap), torch.get_num_interop_threads()))
     except RuntimeError:
         pass  # already started (only settable before the first parallel op)
 

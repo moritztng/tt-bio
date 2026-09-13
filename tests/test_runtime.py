@@ -91,3 +91,28 @@ def test_host_thread_cap_env_leaves_an_operator_value_alone(monkeypatch):
     assert "OMP_NUM_THREADS" not in runtime.host_thread_cap_env(4)
     # explicit budget: the launcher knows how many siblings it started, so it wins
     assert runtime.host_thread_cap_env(4, 32)["OMP_NUM_THREADS"] == "8"
+
+
+def test_bind_host_threads_only_ever_lowers_a_pool(monkeypatch):
+    """A cap above the pool's own default must leave the pool alone.
+
+    Raising the inter-op pool to the whole box is what a single-card worker granted every
+    core used to do here, and it cost 43 % of the fold's wall and changed the CIF.
+    """
+    torch = pytest.importorskip("torch")
+    monkeypatch.setenv("OMP_NUM_THREADS", str(torch.get_num_threads() + 8))
+    intra, inter = torch.get_num_threads(), torch.get_num_interop_threads()
+    runtime.bind_host_threads()
+    assert torch.get_num_threads() == intra
+    assert torch.get_num_interop_threads() == inter
+
+
+def test_bind_host_threads_applies_a_cap_below_the_default(monkeypatch):
+    torch = pytest.importorskip("torch")
+    intra = torch.get_num_threads()
+    if intra < 2:
+        pytest.skip("single-threaded host: nothing to lower to")
+    monkeypatch.setenv("OMP_NUM_THREADS", "1")
+    runtime.bind_host_threads()
+    assert torch.get_num_threads() == 1
+    torch.set_num_threads(intra)
