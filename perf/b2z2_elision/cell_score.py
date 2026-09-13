@@ -8,19 +8,17 @@ gives both from one run: within a rep the two `off` folds bracket the two `on` f
 
 Derivation only, no measurement. Reads the runs the harness wrote and writes `derived` back.
 """
+import argparse
 import json
 import statistics as st
-import sys
 from pathlib import Path
-
-PUBLISHED_S = 20.113          # site/data/perf-512aa.json, boltz2 p150a, as of 84da2a49
 
 
 def pairs(v):
     return [round(a - b, 4) for a, b in zip(v[::2], v[1::2])]
 
 
-def main(path: Path) -> int:
+def main(path: Path, published: float | None) -> int:
     d = json.loads(path.read_text())
     timed = [r for r in d["runs"] if not r["warmup"]]
     rep = {}
@@ -53,17 +51,25 @@ def main(path: Path) -> int:
         "aa_paired_ratios": aa,
         "aa_paired_max": max(aa),
         "aa_paired_median": round(st.median(aa), 5),
-        "published_cell_s": PUBLISHED_S,
-        "control_vs_published_s": round(ctl - PUBLISHED_S, 4),
         "lever_s": round(ctl - arms["on"]["median_s"], 4),
         "plddt": sorted({r["plddt"] for r in timed}),
         "cif_sha256": sorted({r["cif_sha256"] for r in timed}),
         "gather_stats": sorted({tuple(r["gather_stats"]) for r in timed}),
     }
+    if published is not None:
+        # Only for a run at the size the cell publishes: how much of the move is the lever and
+        # how much is the session. Meaningless against a run at another size, so it is opt-in.
+        d["derived"]["published_cell_s"] = published
+        d["derived"]["control_vs_published_s"] = round(ctl - published, 4)
     path.write_text(json.dumps(d, indent=1))
     print(json.dumps(d["derived"], indent=1, default=list))
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(Path(sys.argv[1])))
+    ap = argparse.ArgumentParser()
+    ap.add_argument("json", type=Path)
+    ap.add_argument("--published", type=float, default=None,
+                    help="the cell this run re-measures, in seconds, if it is that size")
+    a = ap.parse_args()
+    raise SystemExit(main(a.json, a.published))
