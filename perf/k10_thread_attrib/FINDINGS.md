@@ -80,3 +80,44 @@ tt-metal. `k10-instrument` is building the data-movement side of exactly this.
 A profiler column named for a stage is not a column named for a thread. Before dividing counter A by
 duration B, check that A is bounded by B — on every row, not on average. Here that check is one line
 and it separates a real instrument defect from a real finding.
+
+## Per-op, with the correct divisor — the block average hides most of the structure
+
+`thread_attrib.py --by-op`. Whole capture, both committed captures. **The two ratios are intensive
+per-op properties and barely depend on which region of the capture you take; the "% tot" column is
+extensive and does, so it is orientation only — for a block-fenced ranking use the census's table.**
+
+| op code | BH in/TRISC0 | BH in:out | WH in/TRISC0 | WH in:out |
+|---|---|---|---|---|
+| `Matmul` | 64.5 % | 6.73 | 61.3 % | 11.40 |
+| `GenericOp` (fused trimul+TriAtt) | 56.6 % | 15.41 | 58.0 % | 20.73 |
+| `BinaryNg` | **76.4 %** | **2.42** | **85.2 %** | **2.43** |
+| `LayerNorm` | 60.1 % | 18.65 | 70.9 % | 14.89 |
+| `Transpose` | 68.2 % | **1.72** | 82.9 % | **2.40** |
+| `Permute` | 85.0 % | 10.02 | 78.1 % | **1.42** |
+| `Untilize` | 29.0 % | **0.55** | 25.6 % | **0.40** |
+| `Tilize` | 60.2 % | 5.02 | 68.3 % | 1.10 |
+| `Softmax` | 20.6 % | 13.71 | 27.1 % | 9.59 |
+
+The block-wide input:output figure is about 5:1. **Per op it ranges from 18.65:1 to 0.40:1**, so the
+block average is the one number that describes none of these ops. Four things fall out that the
+aggregate cannot show, and the first three reproduce on both parts:
+
+- **`BinaryNg` and `Transpose` are blocked at both ends**, in:out 2.4 on both architectures, with
+  `BinaryNg` carrying the **highest input stall of any significant op** (76.4 % BH, 85.2 % WH) *and*
+  31.6 / 35.1 % output stall. An op blocked proportionally at both its input and its output is not
+  starved by a slow producer; it is moving data and waiting on the memory system at both ends. That
+  is the bandwidth-bound hypothesis `k10-p1-binaryng-why` was written to test, and this is evidence
+  for it from data that already existed.
+- **`GenericOp` and `LayerNorm` are overwhelmingly input-dominated**, 15-21:1. These are the ops where
+  "starved" is the right word, and `GenericOp` is the campaign's largest single offender.
+- **`Untilize` is the only output-dominated op**, in:out 0.55 BH / 0.40 WH. Its writer is the
+  constraint, and nothing else in the model looks like it.
+- **`Permute` is where the two architectures disagree most**: in:out **10.02 on Blackhole against
+  1.42 on Wormhole**, a 7x difference in character on the same op, while every other significant row
+  keeps its shape across the parts. Permute is pure layout, and the parts differ in DRAM banking
+  (BH 8 x 3.984 GiB, WH 12 x ~1 GiB). This is independent support for the hypothesis
+  `k10-transfer-function` exists to test — that arithmetic levers carry from Wormhole to Blackhole
+  and layout levers do not — arrived at from stall structure rather than from lever ratios.
+
+None of this measures TRISC1, and none of it prices a lever. It says where to point Phase 1.

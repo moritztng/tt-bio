@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+from collections import defaultdict
 import gzip
 import sys
 
@@ -49,6 +50,8 @@ def num(row: dict, col: str) -> float:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("csv", help="ops_perf_results CSV from a --enable-sum-profiling run (.csv or .csv.gz)")
+    ap.add_argument("--by-op", action="store_true",
+                    help="also break the corrected split down by OP CODE")
     a = ap.parse_args()
 
     op = gzip.open if str(a.csv).endswith(".gz") else open
@@ -96,6 +99,26 @@ def main() -> int:
     if bad_t0 == 0 and bad_t2 == 0 and bad_t1 > 0:
         print("\n  => Both counters are bounded by TRISC0 and TRISC2 respectively and by neither "
               "of\n     them is TRISC1 a bound. The anomaly is the divisor, not the normalisation.")
+
+    if a.by_op:
+        # The two RATIOS are intensive per-op properties and barely depend on which region of the
+        # capture you take. The "% of total" column IS extensive and does depend on it, so it is
+        # printed for orientation only -- for a block-fenced ranking use the census's own table.
+        per = defaultdict(lambda: [0.0] * 6)
+        for r in comp:
+            n = max(num(r, CORES), 1.0)
+            v = per[r.get("OP CODE", "?")]
+            v[0] += num(r, WAIT) / n; v[1] += num(r, RES) / n
+            v[2] += num(r, T0); v[3] += num(r, T1); v[4] += num(r, T2); v[5] += 1
+        tot = sum(v[3] for v in per.values())
+        print(f"\nBY OP CODE (whole capture -- ratios are intensive, '% tot' is not):")
+        print(f"  {'OP CODE':32s} {'n':>5} {'TRISC1 ms':>10} {'% tot':>6} "
+              f"{'in/TRISC0':>10} {'out/TRISC2':>11} {'in:out':>7}")
+        for code, v in sorted(per.items(), key=lambda x: -x[1][3]):
+            wi, wo, t0_, t1_, t2_, cnt = v
+            ratio = wi / wo if wo else float("inf")
+            print(f"  {code[:32]:32s} {int(cnt):5d} {t1_/1e6:10.2f} {100*t1_/tot:5.1f}% "
+                  f"{100*wi/t0_:9.1f}% {100*wo/t2_:10.1f}% {ratio:7.2f}")
     return 0
 
 
