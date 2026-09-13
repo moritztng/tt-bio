@@ -1,0 +1,62 @@
+{
+  "capture": "perf/b2z2_byte_floor/art/ops_perf_blocksum_qb2c0.csv.gz",
+  "weighted_input_stall": 0.5673897886490862,
+  "programs": {
+    "reblock_permute_gated (trimul gate + channel move)": {
+      "n": 44,
+      "mean_us": 994.4508863636363,
+      "share": 0.2961239221588615,
+      "cores": 110.0,
+      "in_over_trisc0": 0.6982892815862193,
+      "out_over_trisc2": 0.01496380579479105
+    },
+    "triatt_sdpa": {
+      "n": 22,
+      "mean_us": 1323.8054545454545,
+      "share": 0.1970989561931718,
+      "cores": 110.0,
+      "in_over_trisc0": 0.2250676962486236,
+      "out_over_trisc2": 0.13283760703416395
+    },
+    "trimul fused in-proj [.,128]@[128,512]": {
+      "n": 22,
+      "mean_us": 1188.7852727272727,
+      "share": 0.176996049976855,
+      "cores": 110.0,
+      "in_over_trisc0": 0.3208077617174289,
+      "out_over_trisc2": 0.002710234137154716
+    },
+    "TriAtt qkv-proj [.,128]@[128,384]": {
+      "n": 22,
+      "mean_us": 865.8430454545454,
+      "share": 0.12891377649203378,
+      "cores": 110.0,
+      "in_over_trisc0": 0.7854064305295566,
+      "out_over_trisc2": 0.014601896107336159
+    },
+    "reblock_permute_back (channel move home)": {
+      "n": 22,
+      "mean_us": 511.8945454545455,
+      "share": 0.07621503616232814,
+      "cores": 110.0,
+      "in_over_trisc0": 0.8003112934634427,
+      "out_over_trisc2": 0.019495628509880288
+    },
+    "TriAtt out-proj [512,4,512,32]@[128,128]": {
+      "n": 22,
+      "mean_us": 420.9141363636364,
+      "share": 0.06266913060326457,
+      "cores": 110.0,
+      "in_over_trisc0": 0.7810482631056361,
+      "out_over_trisc2": 0.015764769556354256
+    },
+    "TriAtt gate-proj [.,128]@[128,128]": {
+      "n": 22,
+      "mean_us": 416.30663636363636,
+      "share": 0.06198312841348521,
+      "cores": 110.0,
+      "in_over_trisc0": 0.7788286194880535,
+      "out_over_trisc2": 0.01595575483263449
+    }
+  }
+}
