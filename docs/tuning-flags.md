@@ -37,3 +37,78 @@ identical dimensions. An earlier version of this optimization looked at the shap
 windows wrong, and still wrote the identical structure, because the attention mask is built from the
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
+
+## `TT_BIO_TRIATT_FUSED_QKVG` — on
+
+A triangle attention's query, key, value and gate projections all read the same normed pair tensor,
+and the two matrix multiplies that produce them each read all of it: 67.1 MB at 512 residues, twice
+per attention. Concatenating the gate's weight onto the qkv weight makes the four results four
+output chunks of one pass, and the second read never happens.
+
+**Accuracy: identical.** Every output tile is its own contraction over the whole contraction axis in
+both forms, so which buffer a tile lands in cannot change its value. Measured rather than argued:
+`torch.equal` at max abs 0.0 on the block outputs (`perf/b2z2_byte_round2/probe_opclass.py`), with
+negative controls that move the block by 1.74 and 0.49. The 512, 640, 1024 and 1536 residue folds of
+`perf/b2z2_size_ladder/` write byte-identical structures with the flag on and off.
+
+**Speed:** the three flags in this group together are **1.01573x on the Blackhole benchmark cell**
+(19.336 s to 19.0375 s, eight folds per arm interleaved ABBA, all eight pairs positive, worst-case
+A/A floor 1.00805x, `perf/b2z2_trunk_ship/cell_512_qb2_c0.json`) and 1.02648x on a Wormhole fold.
+On the pairformer block alone, where the reads are, they are 1.05106x. This flag is the smallest of
+the three on its own and does not separate from the floor of a single fold.
+
+tt-bio asks for the fused pass only where it declines to exactly what the separate calls would have
+declined to: one tile per head, no zero padding in the head channels, the same weight dtype, and no
+bias on the gate or the output projection. A model that biases either keeps the separate
+projections. No model name appears in the condition.
+
+## `TT_BIO_TRIATT_FUSED_QKVGB` — on
+
+The pair-bias projection is the third reader of that same normed tensor, one tile wide against the
+other four's four. This flag puts it in the pass as well, so the tensor is read once per triangle
+attention instead of three times. It needs `TT_BIO_TRIATT_FUSED_QKVG`; with that off it does
+nothing.
+
+**Accuracy: identical**, on the same argument and the same evidence as the flag above, plus one
+detail that matters for reproducing the shipped numbers: the bias weight is taken back off the
+device rather than rebuilt, because it has already been scaled there in bfloat16, and scaling in
+float32 and converting afterwards rounds differently. bfloat16 to float and back is exact, so the
+fused form carries the same bits.
+
+**Speed:** the largest of the three. 1.02491x on the pairformer block by itself.
+
+## `TT_BIO_TRIMUL_FUSED_GOUT` — on
+
+A triangle multiplication reads its normed input twice: once for the four-way input projection and
+once for the output gate at the tail, with no write in between. Concatenating the gate's weight onto
+the input projection's makes the gate a second destination of one pass.
+
+**Accuracy: identical.** Same tile-level argument as above, and the same `torch.equal` at max abs 0.0
+at the production shape. The op class does change, so it was measured and not assumed.
+
+**Speed:** 1.01080x on the pairformer block by itself.
+
+**It switches itself off on large targets, and that is not a failure.** Above roughly 1024 residues
+the input projection runs a multi-iteration channel loop, which would recompute the gate once per
+iteration, so the fused form declines and the tail runs the projection it always ran. The structure
+is byte-identical either way, verified at 1536 residues where the gate declines all 560 calls. It
+also declines under `--fast`, on row-blocked norms, on an L1 channel path, and where the output gate
+carries a bias.
+
+## What the three cost in memory
+
+A fused pass holds a wider weight and a wider result, so peak device memory rises. Measured with all
+three on against all three off, one Blackhole processor of a p300c, `cdk2x2` at four sizes
+(`perf/b2z2_size_ladder/out/ladder_bh_c2.json`):
+
+| residues | peak, off | peak, on | delta |
+|---|---|---|---|
+| 512 | 1.678 GiB | 1.875 GiB | +11.7 % |
+| 640 | 2.090 GiB | 2.264 GiB | +8.3 % |
+| 1024 | 3.473 GiB | 3.918 GiB | +12.8 % |
+| 1536 | 5.694 GiB | 7.259 GiB | +27.5 % |
+
+The 1536 row is the two triangle-attention flags on their own, because the trimul gate has already
+declined every call by then. No size refused an allocation: 7.26 GiB is 22.8 % of the 31.87 GiB
+part, and the smallest largest-contiguous free block per bank at the high-water mark is 3013 MiB
+with the flags on against 3157 MiB without them.
