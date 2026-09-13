@@ -1014,10 +1014,64 @@ def _capped_sdpa_chunk_size(seq_len: int) -> int:
     return min(SDPA_CHUNK_MAX, _padded_sdpa_len(seq_len))
 
 
+# ttnn's SDPA parallelises over (batch * heads * q_chunks), one chunk per core, so `q_chunk` is a
+# GRID parameter -- and `_capped_sdpa_chunk_size` above has no grid term at all: it returns 256
+# whatever card it is on. At 512 tokens and 16 heads that is 32 work units on a 72-core Wormhole,
+# so 40 cores sit idle for the whole op. Measured on the diffusion step's token SDPA
+# (`perf/b2z2_adaln_sdpa/chunks_wh_c12.json`), q/k/v [1, 16, 512, 64] against a [1, 16, 512, 512]
+# bias, every rung checked with `torch.equal` against the shipped config:
+#
+#     q_chunk 512   16 units  182.70 us       q_chunk  64  128 units  106.00 us
+#     q_chunk 256   32 units  125.40 us       q_chunk  32  256 units  140.40 us
+#     q_chunk 128   64 units   95.60 us   <-- the first rung that fills the grid in one pass
+#
+# 1.3117x on the op at max abs 0.0, because `q_chunk` partitions independent query rows. The
+# reduction order lives in `k_chunk`, which is NOT free and is not touched here.
+_SDPA_GRID_Q_CHUNK = env_flag("TT_BIO_SDPA_GRID_Q_CHUNK", False)
+
+
 @lru_cache(maxsize=None)
-def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgramConfig:
+def _grid_q_chunk(q_len: int, work: int, cap: int, n_cores: int) -> int:
+    """The widest `q_chunk` whose work units still fit one pass of the compute grid.
+
+    `units(qc) = work * padded // qc` falls as `qc` grows, so the most parallel configuration
+    that does not spill into a second pass is the SMALLEST `qc` with `units <= n_cores`. Below
+    that the grid runs twice and pays the tail; above it cores idle. No sequence length, no head
+    count and no model name is written down: both come from the tensor and the grid comes from
+    the device."""
+    padded = _padded_sdpa_len(q_len)
+    ceiling = min(cap, padded)
+    if work <= 0 or n_cores <= 0 or padded <= SDPA_CHUNK_TILE:
+        return ceiling
+    for qc in range(SDPA_CHUNK_TILE, ceiling + 1, SDPA_CHUNK_TILE):
+        if padded % qc == 0 and work * (padded // qc) <= n_cores:
+            return qc
+    return ceiling
+
+
+# Every chunk this rule hands out, counted per CALL SITE and per call. It has to sit outside the
+# lru_cache: a cached hit is still a call that runs with that chunk, and the question the census
+# answers -- how many of a fold's SDPA calls actually took a narrower chunk than the shipped cap --
+# is a count of calls, not of distinct shapes. Keyed `(site, q_len, k_len, work)`, holding
+# `[calls, shipped_chunk, chunk, units]`; `chunk == shipped_chunk` means the rule declined to move
+# that site, which is the reading that has been mistaken for "the lever worked" before.
+SDPA_GRID_Q_CHUNK_PICKS: dict = {}
+
+
+def _sdpa_program_config_for_lengths(q_len: int, k_len: int, work: int = 0,
+                                     site: str = "?", d: int = 0) -> ttnn.SDPAProgramConfig:
+    shipped = _capped_sdpa_chunk_size(q_len)
+    q_chunk = shipped
+    if _SDPA_GRID_Q_CHUNK and work:
+        q_chunk = _grid_q_chunk(q_len, int(work), shipped,
+                                COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
+    rec = SDPA_GRID_Q_CHUNK_PICKS.get((site, q_len, k_len, work, d))
+    if rec is None:
+        rec = SDPA_GRID_Q_CHUNK_PICKS[(site, q_len, k_len, work, d)] = [
+            0, shipped, q_chunk, work * (_padded_sdpa_len(q_len) // q_chunk)]
+    rec[0] += 1
     return _sdpa_program_config(
-        q_chunk_size=_capped_sdpa_chunk_size(q_len),
+        q_chunk_size=q_chunk,
         k_chunk_size=_capped_sdpa_chunk_size(k_len),
     )
 
@@ -4241,7 +4295,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     COMPUTE_GRID_MAIN = (gx, gy)
     _apply_grid_thresholds((gx, gy), device)
     _sdpa_program_config.cache_clear()
-    _sdpa_program_config_for_lengths.cache_clear()
+    _grid_q_chunk.cache_clear()
     _triangle_mul_program_config.cache_clear()
     _tri_att_qkv_l1_config.cache_clear()
     _pair_proj_program_config.cache_clear()
@@ -6918,7 +6972,10 @@ class AttentionPairBias(Module):
                     attn_mask=b_,
                     is_causal=False,
                     scale=self.head_dim**-0.5,
-                    program_config=_sdpa_program_config_for_lengths(q_.shape[2], k_.shape[2]),
+                    program_config=_sdpa_program_config_for_lengths(
+                        q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
+                        site="atom" if self.atom_level else "pair_bias",
+                        d=q_.shape[3]),
                 ),
                 q, k, v, bias, site="attn_pair_bias",
             )
@@ -6943,7 +7000,10 @@ class AttentionPairBias(Module):
                 attn_mask=b_,
                 is_causal=False,
                 scale=self.head_dim**-0.5,
-                program_config=_sdpa_program_config_for_lengths(q_.shape[2], k_.shape[2]),
+                program_config=_sdpa_program_config_for_lengths(
+                    q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
+                    site="atom_fp32" if self.atom_level else "pair_bias_fp32",
+                    d=q_.shape[3]),
             ),
             q_bf16, k_bf16, v_bf16, bias_bf16, site="attn_pair_bias_fp32",
         )
@@ -7145,7 +7205,8 @@ class AttentionPairBias(Module):
                         is_causal=False,
                         scale=self.head_dim**-0.5,
                         program_config=_sdpa_program_config_for_lengths(
-                            q_.shape[2], k_.shape[2]),
+                            q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
+                            site="token_dit", d=q_.shape[3]),
                     ),
                     q, k, v, z, site="token_dit",
                 )
