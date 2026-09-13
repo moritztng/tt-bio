@@ -1,0 +1,26 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "lever": "shiftgather",
+  "kind": "layout",
+  "what": "atom key window as a shift+slice instead of a one-hot matmul",
+  "fixture": "cdk2x2_512",
+  "steps": 200,
+  "recycles": 3,
+  "tt_bio_file": "/home/ttuser/wt-k10xfer/tt_bio/__init__.py",
+  "commit": "0cd6c4152bbe3c2fbcdde74c9c54ac16bb3c5e82",
+  "started_utc": "2026-09-13T18:43:50Z",
+  "loadavg_at_start": [
+   1.75439453125,
+   2.7275390625,
+   3.65576171875
+  ],
+  "lease_dir": "/tmp/tt-bio-device-leases",
+  "open_lock": "NONE (library lock only)",
+  "width": 1,
+  "omp_num_threads": null,
+  "compute_grid": "11x10",
+  "arch": "Arch.BLACKHOLE"
+ }
+}
