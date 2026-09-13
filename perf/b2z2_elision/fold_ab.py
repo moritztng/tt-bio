@@ -11,6 +11,12 @@ bar is a matching sha256, not an RMSD.
 
 Protocol, fixtures and cfg come from perf/b2x-flag-levers/ab_flag_levers.py so this is the same
 fold the campaign's other rows time.
+
+`--cell` re-measures the published perf-page cell instead of attributing the gain. It drops the
+stage splitter, whose per-step `synchronize_device` is a host cost the published number does not
+carry, and it runs the arms ABBA inside a rep so a drifting box cancels rather than accumulating
+into whichever arm goes second. What it reports is what the page publishes: median fold seconds,
+the CIF digest and the complex plDDT.
 """
 from __future__ import annotations
 
@@ -27,6 +33,7 @@ _spec.loader.exec_module(LEV)
 
 FIX = REPO / "perf" / "size512" / "fixtures"
 ORDER = ["off", "on", "off", "on"]
+ORDER_CELL = ["off", "on", "on", "off"]     # ABBA, so box drift cancels inside a rep
 OUT: dict = {}
 OUT_PATH: Path | None = None
 
@@ -45,6 +52,8 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--recycles", type=int, default=3)
     ap.add_argument("--fixture", default="cdk2x2_512")
+    ap.add_argument("--cell", action="store_true",
+                    help="re-measure the perf-page cell: no stage splitter, ABBA arms")
     args = ap.parse_args()
     OUT_PATH = args.out
     LEV.SAMPLING_STEPS, LEV.RECYCLING_STEPS = args.steps, args.recycles
@@ -70,6 +79,8 @@ def main() -> int:
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "loadavg": os.getloadavg(), "steps": args.steps, "recycles": args.recycles,
         "atom_key_shift": TT.ATOM_KEY_SHIFT,
+        "mode": "cell" if args.cell else "attrib",
+        "commit": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
     }
     dump()
 
@@ -93,9 +104,10 @@ def main() -> int:
             diff_mod.reset_static_cache()
         except Exception:
             pass
-        sp = LEV_Splitter(ttnn, dev)
-        state.pfn = sp
-        state.model.progress_fn = sp
+        sp = None if args.cell else LEV_Splitter(ttnn, dev)
+        if sp is not None:
+            state.pfn = sp
+            state.model.progress_fn = sp
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
         ttnn.synchronize_device(dev)
@@ -103,17 +115,18 @@ def main() -> int:
         metrics, _b, _f = state.predict_one(FIX / f"{args.fixture}.yaml", cfg)
         ttnn.synchronize_device(dev)
         wall = time.perf_counter() - t0
-        stages = sp.close()
+        stages = sp.close() if sp is not None else {}
         cifs = sorted(struct_dir.glob("*.cif"))
         assert cifs, "no CIF written"
         ps = None
-        if len(sp.loop) > 2:
+        if sp is not None and len(sp.loop) > 2:
             ps = round(1e3 * (sp.loop[-1][1] - sp.loop[0][1])
                        / (sp.loop[-1][0] - sp.loop[0][0]), 4)
         return {"arm": arm, "fold_s": round(wall, 3), "stages_s": stages,
                 "sampler_ms_per_step": ps,
                 "gather_stats": list(TT.ATOM_SHIFT_GATHER_STATS),
                 "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
+                "metrics": {k: v for k, v in metrics.items() if isinstance(v, (int, float))},
                 "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest(),
                 "loadavg1": round(os.getloadavg()[0], 2)}
 
@@ -124,32 +137,40 @@ def main() -> int:
               f"cif {r['cif_sha256'][:16]}", flush=True)
         OUT["runs"] = runs; dump()
     for i in range(args.reps):
-        for arm in ORDER:
+        for arm in (ORDER_CELL if args.cell else ORDER):
             r = fold(arm); r["warmup"] = False; r["rep"] = i; runs.append(r)
-            print(f"  rep{i} {arm:3s} {r['fold_s']:7.3f}s "
-                  f"sampler {r['stages_s'].get('sampler')} "
-                  f"{r['sampler_ms_per_step']} ms/step gather={r['gather_stats']} "
-                  f"cif {r['cif_sha256'][:16]}", flush=True)
+            stage = ("" if args.cell else
+                     f"sampler {r['stages_s'].get('sampler')} "
+                     f"{r['sampler_ms_per_step']} ms/step ")
+            print(f"  rep{i} {arm:3s} {r['fold_s']:7.3f}s {stage}"
+                  f"gather={r['gather_stats']} plddt={r['plddt']} "
+                  f"load={r['loadavg1']} cif {r['cif_sha256'][:16]}", flush=True)
             OUT["runs"] = runs; dump()
 
     timed = [r for r in runs if not r["warmup"]]
     med = {a: st.median([r["fold_s"] for r in timed if r["arm"] == a]) for a in ("off", "on")}
     smed = {a: st.median([r["sampler_ms_per_step"] for r in timed
                           if r["arm"] == a and r["sampler_ms_per_step"]])
-            for a in ("off", "on")}
+            for a in ("off", "on")} if not args.cell else {}
     offs = [r["fold_s"] for r in timed if r["arm"] == "off"]
     shas = {a: sorted({r["cif_sha256"] for r in timed if r["arm"] == a}) for a in ("off", "on")}
     OUT["median_fold_s"] = med
     OUT["ratio"] = med["off"] / med["on"]
     OUT["aa_floor"] = (min(offs) / max(offs)) if len(offs) > 1 else None
-    OUT["median_sampler_ms_per_step"] = smed
-    OUT["sampler_ratio"] = smed["off"] / smed["on"]
+    if smed:
+        OUT["median_sampler_ms_per_step"] = smed
+        OUT["sampler_ratio"] = smed["off"] / smed["on"]
+    OUT["plddt"] = {a: sorted({r["plddt"] for r in timed if r["arm"] == a})
+                    for a in ("off", "on")}
+    OUT["paired_deltas_s"] = [round(o - n, 3) for o, n in
+                              zip([r["fold_s"] for r in timed if r["arm"] == "off"],
+                                  [r["fold_s"] for r in timed if r["arm"] == "on"])]
     OUT["cif_sha256"] = shas
     OUT["bit_exact"] = len(shas["off"]) == 1 and shas["off"] == shas["on"]
     dump()
-    print(json.dumps({k: OUT[k] for k in ("median_fold_s", "ratio", "aa_floor",
-                                          "median_sampler_ms_per_step", "sampler_ratio",
-                                          "bit_exact", "cif_sha256")}, indent=1), flush=True)
+    keys = ("median_fold_s", "ratio", "aa_floor", "median_sampler_ms_per_step",
+            "sampler_ratio", "plddt", "paired_deltas_s", "bit_exact", "cif_sha256")
+    print(json.dumps({k: OUT[k] for k in keys if k in OUT}, indent=1), flush=True)
     return 0
 
 

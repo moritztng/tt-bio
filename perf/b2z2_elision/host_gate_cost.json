@@ -1,0 +1,38 @@
+{
+ "doc": "What the shift gather's host-side matrix check costs, per fold, at the production shape.\n\nThe elision is safe because it reads the selection matrix instead of its shape, and reading it\nis host work the matmul path does not do: one reconstruction of the matrix a centred window\nwould produce, one `torch.equal`. That cost is inside the fold wall the cell publishes, but the\npage also publishes a host/device split, so it is worth a number rather than an assurance.\n\nOnce per fold, in `_populate_diffusion_cache`. No device.\n",
+ "shapes": [
+  {
+   "windows_real": 129,
+   "windows_bucket": 140,
+   "matrix": [
+    280,
+    1120
+   ],
+   "n": 20,
+   "median_ms": 2.6486,
+   "max_ms": 2.8209
+  },
+  {
+   "windows_real": 129,
+   "windows_bucket": 140,
+   "matrix": [
+    280,
+    1120
+   ],
+   "n": 20,
+   "median_ms": 2.66,
+   "max_ms": 2.7413
+  },
+  {
+   "windows_real": 140,
+   "windows_bucket": 140,
+   "matrix": [
+    280,
+    1120
+   ],
+   "n": 20,
+   "median_ms": 2.883,
+   "max_ms": 2.9295
+  }
+ ]
+}
