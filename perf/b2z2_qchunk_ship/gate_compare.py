@@ -5,13 +5,20 @@ The rule the ladder uses: a leg that is not PASS on main is a gap this branch IN
 must reproduce main's digits. A leg that is PASS on main must still be PASS. Anything else is a
 regression this branch caused.
 
-Main's report is `perf/b2z2_gate/gate_asg.json`, produced on `wk/b2z2-asg-ship` @ 2f5072d88, and
-`git diff 2f5072d88 origin/main -- tt_bio/ scripts/` is empty, so it IS main's report. Its control
-worktree has since been torn down, so the comparison is on the `detail` string, which carries the
-digits the gate scored with.
+There are TWO control reports and neither one alone is main. `gate_asg.json` scored
+`wk/b2z2-asg-ship` @ 2f5072d88, which was main until the morning of 2026-09-13;
+`gate_trunkship.json` scored `wk/b2z2-trunk-byte-round2-ship`, the branch main took next. Current
+main is the merge of both, plus `wk/b2z2-pwa-residency-ship` and the host thread-pool row, so no
+report was run on exactly the tree main is now, and producing one costs a 44-leg control arm.
 
-Usage:  gate_compare.py --ship perf/b2z2_gate/gate_qchunkship.json
-        gate_compare.py --partial perf/b2z2_gate/qchunkship_work   # mid-run, raw per-leg reports
+What makes that acceptable is that the two reports AGREE: same verdict on all 44 legs, and the six
+non-PASS legs reproduce each other digit for digit across two trees that differ by four kernel-level
+flags. So the bar is agreement with the control consensus, and a leg the two controls disagree on is
+reported rather than silently resolved. The comparison is on the `detail` string, which carries the
+digits the gate scored with; both control worktrees are gone.
+
+Usage:  gate_compare.py --ship perf/b2z2_gate/gate_qchunkship_merged.json
+        gate_compare.py --partial perf/b2z2_gate/qchunkship_merged_work   # mid-run
 """
 from __future__ import annotations
 
@@ -19,16 +26,39 @@ import argparse
 import json
 from pathlib import Path
 
-CONTROL = Path("perf/b2z2_gate/gate_asg.json")
+CONTROLS = [Path("perf/b2z2_gate/gate_asg.json"), Path("perf/b2z2_gate/gate_trunkship.json")]
 
 
 def by_leg(report: Path) -> dict:
     return {r["leg"]: r for r in json.loads(report.read_text())["legs"]}
 
 
+def control() -> tuple[dict, list]:
+    """The consensus of the control reports, and the legs they do not agree on.
+
+    A leg joins the consensus when every control gives it the same verdict and -- for a non-PASS
+    leg, where the digits are the thing being reproduced -- the same detail string."""
+    reps = [by_leg(p) for p in CONTROLS]
+    consensus, disagree = {}, []
+    for leg in sorted(set().union(*(set(r) for r in reps))):
+        rows = [r.get(leg) for r in reps]
+        if any(r is None for r in rows):
+            disagree.append((leg, "absent from a control"))
+        elif len({r["verdict"] for r in rows}) > 1:
+            disagree.append((leg, " vs ".join(sorted({r["verdict"] for r in rows}))))
+        elif rows[0]["verdict"] != "PASS" and len({r["detail"] for r in rows}) > 1:
+            disagree.append((leg, "same verdict, different digits"))
+        else:
+            consensus[leg] = rows[0]
+    return consensus, disagree
+
+
 def compare(ship: Path) -> int:
-    ctl, shp = by_leg(CONTROL), by_leg(ship)
+    ctl, disagree = control()
+    shp = by_leg(ship)
     rows, bad = [], 0
+    for leg, why in disagree:
+        rows.append((leg, "CONTROL-DISAGREE", why + " -- not scored here"))
     for leg in sorted(set(ctl) | set(shp)):
         c, s = ctl.get(leg), shp.get(leg)
         if c is None or s is None:
@@ -44,7 +74,8 @@ def compare(ship: Path) -> int:
             rows.append((leg, "OK", s["verdict"]))
     for leg, verdict, note in rows:
         print(f"{verdict:14s} {leg:28s} {note}")
-    print(f"\n{len(rows)} legs, {bad} not reproducing main")
+    print(f"\n{len(rows)} legs, {len(disagree)} the controls disagree on, "
+          f"{bad} not reproducing main")
     print("GATE: REPRODUCES MAIN" if bad == 0 else "GATE: DOES NOT REPRODUCE MAIN")
     return 0 if bad == 0 else 1
 
@@ -53,7 +84,7 @@ def partial(workdir: Path) -> int:
     """Mid-run the raw per-leg reports exist before the summary does. Every leg's verdict can be
     read from its raw report; the non-PASS legs additionally get their raw metrics printed beside
     main's detail line, because that is where a regression would show first."""
-    ctl = by_leg(CONTROL)
+    ctl, _ = control()
     done = sorted(p.stem for p in workdir.glob("*.json") if p.stem != "GATE_CODE")
     moved = 0
     print(f"{len(done)}/{len(ctl)} legs have a report")
