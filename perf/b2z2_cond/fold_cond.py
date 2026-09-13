@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """The folds a per-pseudo-domain + CA-lDDT reading of TT_BIO_DEVICE_CONDITIONING needs.
 
-Same protocol and the same scorer as the SiLU campaign (`perf/b2z2_silu/fold_silu.py`, scored by
-`perf/b2z2_fusebias/score.py`): the arm mechanism is the only thing that differs, because this
-lever is a per-call env flag rather than a module-level gate that picks a device program.
+Same protocol and the same scorer as the SiLU campaign (`fold_silu.py` on
+`wk/b2z2-union-land`, scored by `perf/b2z2_fusebias/score.py`): the arm mechanism is the only thing
+that differs, because this lever is a per-call env flag rather than a module-level gate that picks
+a device program.
 
 The reading that has teeth here is CA-lDDT against the experimental structure 1HCL, not per-domain
 RMSD against the seed floor. `b2z2-union-land` showed RMSD-against-the-seed-floor clears an arm
