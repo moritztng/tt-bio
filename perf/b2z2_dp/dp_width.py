@@ -49,11 +49,16 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 
 SIZE = 512
-# A width whose peer died never reaches the barrier, so the timeout is the only floor on how
-# long a dead arm burns the box. It cost 30 minutes of 32 idle chips once (w=16, cards 12 and
-# 13 failed their device open at t+3 s and the other 14 sat at the barrier). The parent now
-# aborts the barrier the moment a child exits early; this is the backstop, not the mechanism.
-BARRIER_TIMEOUT_S = 900
+# A width whose peer died never reaches the barrier, so the timeout used to be the only floor on
+# how long a dead arm burns the box. It cost 30 minutes of 32 idle chips once (w=16, cards 12 and
+# 13 failed their device open at t+3 s and the other 14 sat at the barrier). The parent now aborts
+# the barrier the moment a child exits early, so this is the backstop and not the mechanism -- and
+# it has to stay generous, because the wait here is legitimately long: device open takes
+# /tmp/tt-bio-device-open.lock, which is host-wide, so W chips come up strictly one at a time at
+# roughly 50 s each. The first child of a 32-way arm reaches the barrier while the last one has
+# not opened its chip yet, and waits ~25 minutes for it. A 15-minute backstop would fail every
+# 32-way arm on a healthy box.
+BARRIER_TIMEOUT_S = 3600
 
 
 def occupancy():
