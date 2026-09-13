@@ -3623,29 +3623,16 @@ def _padded_bytes(shape, elem: int) -> int:
     return volume * ((dims[-2] + 31) // 32) * 32 * ((dims[-1] + 31) // 32) * 32
 
 
-def _residual_update_memory_config(z: ttnn.Tensor) -> ttnn.MemoryConfig | None:
-    """L1 for a residual update the size of `z` when the grid has room, else None.
+def _residual_update_memory_config(shape, dtype) -> ttnn.MemoryConfig | None:
+    """L1 for a pair-sized residual update when the grid has room, else None.
 
-    Headroom 1.0 and a per-core reserve: the update is the only pair-sized tensor L1 holds at the
-    assembly, since the row blocks it is assembled from live in DRAM. `z` itself is in DRAM.
+    Headroom 1.0 and a per-core reserve, because the update is the only pair-sized tensor L1 holds
+    while it is alive: the tensors it is produced from are in DRAM, `z` is in DRAM, and the layer
+    frees the update as soon as the residual has added it. `None` means leave the destination
+    alone, which is what every caller that has not opted in gets.
     """
-    nbytes = _padded_bytes(z.shape, 4 if z.dtype == ttnn.float32 else 2)
+    nbytes = _padded_bytes(shape, 4 if dtype == ttnn.float32 else 2)
     fits = bool(nbytes) and _l1_fits(nbytes, 1.0, _PAIR_L1_CONSUMER_RESERVE)
-    RESIDUAL_L1_STATS[0 if fits else 1] += 1
-    return ttnn.L1_MEMORY_CONFIG if fits else None
-
-
-def _out_proj_memory_config(gated: ttnn.Tensor, w: ttnn.Tensor) -> ttnn.MemoryConfig | None:
-    """L1 for the head-major output projection's result when the grid has room, else None.
-
-    Headroom 2.0: the gated activation this projection reads is the same size as what it writes
-    and stays live until the caller frees it. `None` means "leave the destination alone", which is
-    what every caller that has not opted in passes.
-    """
-    nbytes = _padded_bytes(
-        [int(gated.shape[0]), int(gated.shape[2]), int(w.shape[-1])],
-        4 if gated.dtype == ttnn.float32 else 2)
-    fits = bool(nbytes) and _l1_fits(nbytes, 2.0, _PAIR_L1_CONSUMER_RESERVE)
     RESIDUAL_L1_STATS[0 if fits else 1] += 1
     return ttnn.L1_MEMORY_CONFIG if fits else None
 
@@ -6999,7 +6986,9 @@ class TriangleAttention(Module):
                 # result, and two pair tensors do not fit where one does.
                 x_out = _triatt_qkv.out_proj(
                     o_in, self.o_weight, self.compute_kernel_config, _dtype(),
-                    memory_config=_out_proj_memory_config(o_in, self.o_weight) if l1_dest else None)
+                    memory_config=_residual_update_memory_config(
+                        (o_in.shape[0], o_in.shape[2], self.o_weight.shape[-1]),
+                        ttnn.bfloat16) if l1_dest else None)
             else:
                 o_in_mm = self.o_bias is not None and "o" in self.bias_in_matmul
                 x_out = _pair_proj_linear(
@@ -8052,7 +8041,8 @@ class PairformerLayer(Module):
         # Same lever as the starting triangle attention: the residual reads this update back
         # immediately, so assembling the row blocks into L1 removes the write and the read.
         z_update = self.transition_z(
-            z, memory_config=_residual_update_memory_config(z) if _RESIDUAL_L1 else None)
+            z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
+            if _RESIDUAL_L1 else None)
         z = ttnn.add_(z, z_update)
         ttnn.deallocate(z_update)
         if self.transform_s:
