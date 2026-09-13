@@ -1,0 +1,3 @@
+benchlock: WARNING after 240s load=20.83 foreign_folds=0. Proceeding, RECORD THIS.
+benchlock: util-wheel-vs-source acquired after 240s, loadavg 20.83 27.30 30.03
+benchlock: util-wheel-vs-source released, rc=0, loadavg 13.20 13.05 17.77
