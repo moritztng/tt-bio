@@ -1,0 +1,36 @@
+{
+ "doc": "Pairs this task did NOT measure, kept separate from the ones it did so the table never reads as if one session produced all of it. Each row names who took each side and where the number is written down. A row here is weaker evidence than a self-measured pair by exactly one session's worth of reproducibility, which this campaign puts at 4.60 % on this cell.",
+ "pairs": [
+  {
+   "lever": "step layernorm fusion",
+   "kind": "arithmetic",
+   "wh_ratio": 1.03932,
+   "bh_ratio": 1.02694,
+   "who_wh": "b2z2 ladder",
+   "who_bh": "b2z2 ladder",
+   "where": "the b2z2 wave-2 ladder, quoted in this task's brief",
+   "level": "fold"
+  },
+  {
+   "lever": "step layout elision",
+   "kind": "layout",
+   "wh_ratio": 1.02574,
+   "bh_ratio": 1.02936,
+   "who_wh": "b2z2 ladder",
+   "who_bh": "b2z2 ladder",
+   "where": "the b2z2 wave-2 ladder, quoted in this task's brief",
+   "level": "fold"
+  },
+  {
+   "lever": "TT_BIO_SDPA_GRID_Q_CHUNK, at the one call site it moves",
+   "kind": "eligibility",
+   "wh_ratio": 1.3058,
+   "bh_ratio": 1.1269,
+   "who_wh": "b2z2-qchunk",
+   "who_bh": "b2z2-qchunk",
+   "where": "docs/tuning-flags.md and perf/b2z2_qchunk/FINDINGS.md",
+   "level": "op",
+   "note": "The only eligibility evidence that survives. The FOLD pair for this lever is withdrawn: its Wormhole 1.01831x is a diffusion-step ratio taken on another branch from a truncated precursor fold, and this task measures no fold effect on either part."
+  }
+ ]
+}
