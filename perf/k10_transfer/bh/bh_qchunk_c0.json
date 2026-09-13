@@ -1,0 +1,26 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "lever": "qchunk",
+  "kind": "eligibility",
+  "what": "SDPA query chunk sized to fill one pass of the compute grid",
+  "fixture": "cdk2x2_512",
+  "steps": 200,
+  "recycles": 3,
+  "tt_bio_file": "/home/ttuser/wt-k10xfer/tt_bio/__init__.py",
+  "commit": "0cd6c4152bbe3c2fbcdde74c9c54ac16bb3c5e82",
+  "started_utc": "2026-09-13T18:50:50Z",
+  "loadavg_at_start": [
+   1.66552734375,
+   2.15673828125,
+   3.03857421875
+  ],
+  "lease_dir": "/tmp/tt-bio-device-leases",
+  "open_lock": "NONE (library lock only)",
+  "width": 1,
+  "omp_num_threads": null,
+  "compute_grid": "11x10",
+  "arch": "Arch.BLACKHOLE"
+ }
+}
