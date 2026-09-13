@@ -91,3 +91,24 @@ def test_host_thread_cap_env_leaves_an_operator_value_alone(monkeypatch):
     assert "OMP_NUM_THREADS" not in runtime.host_thread_cap_env(4)
     # explicit budget: the launcher knows how many siblings it started, so it wins
     assert runtime.host_thread_cap_env(4, 32)["OMP_NUM_THREADS"] == "8"
+
+
+def test_host_thread_cap_env_parks_idle_threads_only_when_cores_are_scarce(monkeypatch):
+    for var in runtime.HOST_THREAD_VARS + tuple(runtime.IDLE_THREADS_PARK):
+        monkeypatch.delenv(var, raising=False)
+    # 64 threads over 32 concurrent folds is 2 each, under one fold's own ~4-thread demand:
+    # the host is the limit, so the children park their idle pool threads instead of spinning
+    assert runtime.IDLE_THREADS_PARK.items() <= runtime.host_thread_cap_env(32, 64).items()
+    # the same box at a width it can actually feed keeps today's spin, which is faster there
+    assert not set(runtime.IDLE_THREADS_PARK) & set(runtime.host_thread_cap_env(16, 64))
+    assert not set(runtime.IDLE_THREADS_PARK) & set(runtime.host_thread_cap_env(1, 64))
+
+
+def test_host_thread_cap_env_leaves_an_operator_wait_policy_alone(monkeypatch):
+    for var in runtime.HOST_THREAD_VARS + tuple(runtime.IDLE_THREADS_PARK):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("OMP_WAIT_POLICY", "ACTIVE")
+    env = runtime.host_thread_cap_env(32, 64)
+    # all three, not just the one they named: GOMP_SPINCOUNT=0 would undo their ACTIVE anyway
+    assert not set(runtime.IDLE_THREADS_PARK) & set(env)
+    assert env["OMP_NUM_THREADS"] == "2"         # the thread cap is still ours

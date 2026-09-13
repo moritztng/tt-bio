@@ -20,6 +20,17 @@ INPUT_SUFFIXES = (".fa", ".fas", ".fasta", ".yml", ".yaml")
 HOST_THREAD_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
                     "NUMEXPR_NUM_THREADS")
 
+# One concurrent fold's own host demand, in hardware threads. Measured on whglx (32 physical
+# cores, 64 threads, 32 Wormhole chips) folding Boltz-2 at 512 aa: a fold costs ~1.85 host cores,
+# and flatly so -- the same ~1.85 at width 1 and at width 32 -- which is ~3.7 hardware threads.
+# Below this share a worker cannot cover its own host work and the box is oversubscribed.
+WORKER_HOST_THREADS = 4
+
+# What a worker gets instead of spinning when the box is oversubscribed. Idle OpenMP pool threads
+# busy-wait by default, which is free while cores are spare and pure contention once they are not:
+# a fold blocks on ~200 per-step device syncs and spins through every one of them.
+IDLE_THREADS_PARK = {"OMP_WAIT_POLICY": "PASSIVE", "GOMP_SPINCOUNT": "0", "KMP_BLOCKTIME": "0"}
+
 
 # tt-metal ships the OpenMPI it wants (ttnn.libs/libmpi-*.so.40) and single-host prediction
 # needs no MPI setup of yours. A host OpenMPI on the environment does not replace that build, it
@@ -105,10 +116,24 @@ def host_thread_cap_env(n_workers: int, host_threads: int | None = None) -> dict
     Explicit beats inherited: a passed ``host_threads`` overrides a pre-set env var
     (the launcher knows how many siblings it started), while the default only fills in
     what the operator left unset.
+
+    When the split leaves a worker less than ``WORKER_HOST_THREADS`` -- its own host
+    demand -- the host, not the chips, is what limits throughput, and the children are
+    told to park idle pool threads rather than spin. Measured on whglx at 512 aa, 32
+    concurrent folds: 1206 -> 1808 folds/hour, 1.50x, host cores per fold 1.76 -> 1.35,
+    bit-exact (every fold of both arms writes the same CIF digest). It is not free above
+    that line: with cores to spare the spin is absorbed and parking costs ~1 % of a fold,
+    so a single ``predict`` and any lightly-concurrent batch keep today's behaviour. An
+    operator who set any of the three wait-policy variables themselves owns all three,
+    whatever the width: they are one setting spelled three ways and half of a policy is
+    not a policy.
     """
-    cap = str(host_thread_cap(n_workers, host_threads))
-    return {var: cap for var in HOST_THREAD_VARS
-            if host_threads or var not in os.environ}
+    cap = host_thread_cap(n_workers, host_threads)
+    env = {var: str(cap) for var in HOST_THREAD_VARS
+           if host_threads or var not in os.environ}
+    if cap < WORKER_HOST_THREADS and not any(k in os.environ for k in IDLE_THREADS_PARK):
+        env.update(IDLE_THREADS_PARK)
+    return env
 
 
 def bind_host_threads() -> None:
