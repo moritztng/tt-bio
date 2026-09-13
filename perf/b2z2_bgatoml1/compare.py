@@ -60,7 +60,9 @@ def _deviation(root: Path, a: str, b: str) -> str:
 
 def main() -> int:
     root = Path(sys.argv[1])
-    arms = {a: _load(root, a) for a in ("base", "l1", "base2")}
+    names = sys.argv[sys.argv.index("--arms") + 1:] if "--arms" in sys.argv \
+        else ["base", "l1", "base2"]
+    arms = {a: _load(root, a) for a in names}
     missing = [a for a, r in arms.items() if r is None]
     if missing:
         print(f"arms that produced no record: {', '.join(missing)}")
@@ -77,8 +79,11 @@ def main() -> int:
     def digests(rec, key):
         return {c: d[key] for c, d in rec["designs"].items()}
 
-    aa_file = digests(arms["base"], "file_sha256") == digests(arms["base2"], "file_sha256")
-    aa_coord = digests(arms["base"], "coord_sha256") == digests(arms["base2"], "coord_sha256")
+    has_aa = "base2" in arms
+    aa_file = not has_aa or \
+        digests(arms["base"], "file_sha256") == digests(arms["base2"], "file_sha256")
+    aa_coord = not has_aa or \
+        digests(arms["base"], "coord_sha256") == digests(arms["base2"], "coord_sha256")
     ab_file = digests(arms["base"], "file_sha256") == digests(arms["l1"], "file_sha256")
     ab_coord = digests(arms["base"], "coord_sha256") == digests(arms["l1"], "coord_sha256")
 
@@ -88,8 +93,11 @@ def main() -> int:
     base_clean = base_st.get("l1", 0) == 0 and base_st.get("off", 0) > 0
 
     print()
-    print(f"A/A  base vs base2 : file {aa_file}  coord {aa_coord}  "
-          f"[{_deviation(root, 'base', 'base2')}]")
+    if has_aa:
+        print(f"A/A  base vs base2 : file {aa_file}  coord {aa_coord}  "
+              f"[{_deviation(root, 'base', 'base2')}]")
+    else:
+        print("A/A  base vs base2 : not run this rung -- the floor is bg400's, measured exact")
     print(f"A/B  base vs l1    : file {ab_file}  coord {ab_coord}  "
           f"[{_deviation(root, 'base', 'l1')}]")
     print(f"gate l1 arm fired  : {fired}  ({st})")
