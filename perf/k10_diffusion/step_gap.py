@@ -105,7 +105,9 @@ def main() -> int:
     dump()
 
     import tt_baseline as B
+    from tt_bio.main import _resolve_recycling_steps
     B.SAMPLING_STEPS = 200
+    B.RECYCLING_STEPS = _resolve_recycling_steps(None, "boltz2")
     snap = list(sys.path)
     sys.path.insert(0, str(ROOT / "perf" / "other512"))
     from fold_ab_multi import patch_boltz2_cfg
