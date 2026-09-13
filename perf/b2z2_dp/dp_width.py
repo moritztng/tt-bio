@@ -40,6 +40,7 @@ import statistics as st
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -48,7 +49,11 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 
 SIZE = 512
-BARRIER_TIMEOUT_S = 1800
+# A width whose peer died never reaches the barrier, so the timeout is the only floor on how
+# long a dead arm burns the box. It cost 30 minutes of 32 idle chips once (w=16, cards 12 and
+# 13 failed their device open at t+3 s and the other 14 sat at the barrier). The parent now
+# aborts the barrier the moment a child exits early; this is the backstop, not the mechanism.
+BARRIER_TIMEOUT_S = 900
 
 
 def occupancy():
@@ -197,10 +202,14 @@ def child(args) -> int:
     ready = args.barrier / f"ready-{args.card}"
     ready.write_text(str(os.getpid()))
     t_wait = time.perf_counter()
+    abort = args.barrier / "abort"
     while True:
         n = len(list(args.barrier.glob("ready-*")))
         if n >= args.width:
             break
+        if abort.exists():
+            raise RuntimeError(f"barrier aborted by parent at {n}/{args.width} ready: "
+                               f"{abort.read_text().strip()}")
         if time.perf_counter() - t_wait > BARRIER_TIMEOUT_S:
             raise TimeoutError(f"barrier: {n}/{args.width} children ready after "
                                f"{BARRIER_TIMEOUT_S}s")
@@ -241,6 +250,7 @@ def parent(args) -> int:
     barrier.mkdir(parents=True, exist_ok=True)
     for p in barrier.glob("ready-*"):
         p.unlink()
+    (barrier / "abort").unlink(missing_ok=True)
     kids = work / "children"
     kids.mkdir(parents=True, exist_ok=True)
 
@@ -304,10 +314,28 @@ def parent(args) -> int:
         procs[c] = (subprocess.Popen(cmd, env=env, stdout=log, stderr=subprocess.STDOUT,
                                      cwd=str(REPO)), log)
 
+    # A child that dies before the barrier (a wedged chip refuses the open in about three
+    # seconds) leaves the survivors waiting for a width that can no longer be reached. Watch for
+    # that and release them, so a bad card costs one arm's start-up and not BARRIER_TIMEOUT_S.
+    def watch_for_early_exit():
+        while True:
+            dead = [c for c, (p, _) in procs.items() if p.poll() is not None]
+            if len(dead) == len(procs):
+                return
+            if dead and len(list(barrier.glob("ready-*"))) < width:
+                (barrier / "abort").write_text(
+                    f"children {','.join(sorted(dead))} exited before the barrier")
+                return
+            time.sleep(1.0)
+
+    watcher = threading.Thread(target=watch_for_early_exit, daemon=True)
+    watcher.start()
+
     rcs = {}
     for c, (p, log) in procs.items():
         rcs[c] = p.wait()
         log.close()
+    watcher.join(timeout=5)
 
     children = {}
     for c in cards:
