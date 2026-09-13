@@ -53,7 +53,10 @@ marginal on top of the six bit-exact levers is **1.06413x** against **1.0683x** 
 READ-DELETERS: five of the nine levers delete a reader of a tensor somebody else still reads
 (`ATOM_SHIFT_GATHER`, `ATOM_KV_PREPROJ`, `ATOM_L1`, `TRIATT_FUSED_QKVG`, `PWA_RESIDENCY`), three
 delete the LAST reader of what they remove (the host trio) and one deletes no reader at all
-(`SDPA_GRID_Q_CHUNK`). **The split predicts which numbers transfer** and §4-A shows it did.
+(`SDPA_GRID_Q_CHUNK`). **The split predicts which numbers transfer** and §4-A shows it did. The
+one that deletes no reader is also the one that is **path-dependent and must not ship alone** —
+see §4-D, where it costs 15 % of the sampler on `main`'s atom path in the only clean rep of an
+abandoned session.
 PARITY: **PASS at both sizes.** 512 aa worst per-pseudo-domain all-atom **0.40355 Å** against a
 0.60 Å kill bar and a **1.86363 Å** seed floor; 298 aa **0.29521 Å** against a 1.24155 Å seed
 floor. The A/A repeat is byte-identical at both sizes, so the parity leg's own floor is exactly
@@ -271,6 +274,41 @@ what they remove, and the two that do not reach the fold are the two that delete
 readers of a tensor that keeps its other consumers.** That is `b2z2-trunk-fold-ab-bh`'s rule,
 measured independently here on Wormhole, on a different lever set, at a different size.
 
+### 4-D. `TT_BIO_SDPA_GRID_Q_CHUNK` must not ship alone — flagged, not yet measured cleanly
+
+A fifth session was launched to put base, SDPAQ, BX, HOSTONLY and ALL against one base with one
+floor, and **it was abandoned after three reps**: whglx went from loadavg 14 to **176** under other
+workers, folds went from 41 s to 122 s, and the run was stopped by explicit PID and its lease
+released rather than spend sixteen more folds producing a null nobody can read. The partial file is
+committed as `onesession_ABANDONED_wh_c8.json` so the decision is checkable.
+
+**Its first rep is clean — every fold in it ran at loadavg 14.5 to 18.2 — and it says something
+the campaign should act on before this lever ships anywhere.** With nothing else on:
+
+    sampler stage   base 10.3535 s   SDPAQ 11.9271 s   ->  0.868x, the sampler 15.2 % SLOWER
+    fold            base 41.188 s    SDPAQ 43.059 s    ->  0.957x
+
+**One rep is a signal, not a measurement, and this doc will not call it a number.** But the size is
+what makes it worth writing down: the sampler stage's own bootstrapped floor at n=6 was
+[0.98336, 1.01692], and 0.868x is an order of magnitude outside it. And there is a mechanism.
+`_grid_q_chunk` returns the SMALLEST `q_chunk` whose work units still fit one pass of the grid, and
+its work term is `batch * heads`. On the atom path as `main` ships it that term is large, so the
+rule picks a tiny chunk and pays chunk overhead instead of filling the grid. **Its published
+1.01831x was measured on a branch that already carried `TT_BIO_ATOM_L1` and the key window** — a
+different atom path with a different work term.
+
+Composed, it looks like the opposite, which is the same story from the other side. BX's sampler
+stage reads **1.12390x** (fold session, n=6, readable), and the three atom levers without it were
+measured in-fold at 1.08702x by `b2z2-sampler-union-wh`: **1.12390 / 1.08702 = 1.03393x**, so on
+the composed atom path SDPAQ appears to ADD about 3.4 % of the sampler. That is arithmetic across
+two sessions and is labelled as such, not measured here.
+
+**The actionable statement is the same either way: `TT_BIO_SDPA_GRID_Q_CHUNK` is not a standalone
+lever, it is a marginal whose sign depends on the atom path underneath it, and it must not be
+shipped or quoted on its own.** It is also the one member of the union that deletes no reader —
+it is an occupancy lever — and occupancy is exactly the class whose value is path-dependent in a
+way a read deletion is not. One clean paired session on a quiet box settles it.
+
 ## 5. Parity — `parity_seeds_wh_c9.json`, scored to `parity_score_wh_c9.json`
 
 14 folds, card 9, two sizes, three seeds per arm plus an A/A repeat, `base` and the full union as
@@ -371,12 +409,14 @@ edited since.
 1. **No Blackhole number.** This row held whglx cards 8 and 9 and nothing else. `CLOSING.md`'s
    cell is one Blackhole processor of a p300c, and a WH fold ratio is not a BH fold ratio — this
    wave has seen one transfer within 2 % and another under-predict by 41 %.
-2. **No single session timed every arm.** The discount is two constructions, one of which crosses
-   a session boundary on the denominator. A seven-arm session at six reps is 48 folds, about 33
-   minutes, and would collapse both into one number. The two constructions agree to 0.5 %, which
-   is why it was not worth holding the row open for.
-3. **SDPAQ has no isolated fold leg.** It is inside SAMP and inside the union; its own ratio on
-   the fold is unmeasured.
+2. **No single session timed every arm, and one was tried and abandoned.** A five-arm session ran
+   on 2026-09-13 00:0x UTC and was stopped after three reps when whglx hit loadavg 176 and folds
+   tripled (§4-D). The discount therefore stays two constructions, one crossing a session boundary
+   on the denominator; they agree to 0.5 %.
+3. **SDPAQ's isolated leg is one clean rep, not a measurement** — see §4-D. It is the highest
+   priority open item in this row, because the signal is negative on `main`'s atom path and the
+   lever is on the shipping ladder with a positive published number. One paired session on a quiet
+   box, arms base/SDPAQ/GATHER/BX, settles it; both arms already exist in `fold_ab.py`.
 4. **`PWA_RESIDENCY` is unresolved in-fold.** Two sessions put it at 1.00904x and 1.00464x on the
    trunk stage, readable in one and not the other, and both above what its layer ratio predicts.
    It is in the union because it is bit-exact and costs nothing, not because a fold measured it.
