@@ -10,8 +10,8 @@ PY=${PY:-/home/agent/env/bin/python}
 OUT=${OUT:-/home/agent/k10out/width}
 LEASE_DIR=${LEASE_DIR:-/home/agent/leases}
 OPEN_LOCK=${OPEN_LOCK:-$OUT/device-open.lock}
-REPS=${REPS:-2}
-WIDTHS=${WIDTHS:-"1 4 8 16 32"}
+REPS=${REPS:-1}
+WIDTHS=${WIDTHS:-"1 32 16 8 4"}
 mkdir -p "$OUT" "$LEASE_DIR"; : > "$OPEN_LOCK" 2>/dev/null || true
 for W in $WIDTHS; do
   echo "=== width $W $(date -u +%FT%TZ)"
