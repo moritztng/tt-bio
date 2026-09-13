@@ -60,3 +60,47 @@ print(f"  {'composed, optimistic (sub-additive in truth)':34s} {stack:.4f}x "
       f"-> {FOLD_S/stack:.2f} s")
 print(f"\n  measured/predicted Phase 1 total is {100*(stack-1)/(FOLD_S/TARGET_S-1):.1f} % "
       f"of the margin 10 s requires.")
+
+# ---------------------------------------------------------------------------------------------
+# CLOSING THE BUDGET, 2026-09-13 17:31Z. The diffusion step's stall structure, measured at last.
+#
+# k10-p1-diffusion-measure's census (whglx card 16, grid 8x9, --enable-sum-profiling, thread cap
+# applied, EXIT=0 at 17:31:18Z) run through thread_attrib.py --by-op, 11083 compute rows:
+#
+#     wait_front / TRISC0 = 63.1 %      reserve_back / TRISC2 = 13.6 %      in:out = 4.59 : 1
+#     falsifier again 0/11083 on both counters against their own thread, 2483/11083 against TRISC1
+#
+# Against the pairformer block on the same part: 65.7 % / 13.3 % / 4.91:1.
+# THE DIFFUSION STEP HAS THE SAME SHAPE AS THE BLOCK. There is no different regime hiding in it.
+#
+# The whglx profiler is STOCK, so it carries no DM-thread zones: this capture cannot say whether the
+# reader is on DRAM or idle. So bound it two ways instead, and note that both are generous.
+DIFF_INPUT_STALL = 0.631
+BLOCK_CONV_MAX = 0.444   # the most generous measured conversion: at most 44.4 % of the block's input
+                         # stall has a memory-bound producer behind it (k10-p1-redteam's recalibration
+                         # of k10-instrument's 39 %, using the starved arm at 98.9 % of the DRAM roof)
+
+print("\n" + "=" * 96)
+print("CLOSING THE BUDGET: the diffusion step measured, 63.1 % input stall, same shape as the block")
+print("=" * 96)
+absurd = DIFF_DEVICE_S * DIFF_INPUT_STALL
+realistic = absurd * BLOCK_CONV_MAX
+print(f"\n  diffusion device time                                    {DIFF_DEVICE_S:6.3f} s")
+print(f"  x its measured compute input stall (63.1 %)              {absurd:6.3f} s  "
+      f"<- absurd ceiling: assumes ALL of it is producer-caused AND free to remove")
+print(f"  x the block's measured conversion ceiling (44.4 %)       {realistic:6.3f} s  "
+      f"<- the honest one")
+for label, trunk in (("tight", TRUNK_TIGHT_S), ("loose", TRUNK_LOOSE_S)):
+    need_from_diff = NEED_S - trunk
+    print(f"\n  10 s needs {need_from_diff:5.3f} s from diffusion (trunk at its {label} bound).")
+    print(f"     absurd ceiling supplies {absurd:.3f} s -> "
+          f"{'ENOUGH' if absurd >= need_from_diff else 'SHORT by %.3f s' % (need_from_diff - absurd)}")
+    print(f"     honest ceiling supplies {realistic:.3f} s -> "
+          f"SHORT by {need_from_diff - realistic:.3f} s")
+whole = TRUNK_TIGHT_S + realistic
+whole_loose = TRUNK_LOOSE_S + absurd
+print(f"\n  PRODUCER-SIDE CEILING FOR THE WHOLE FOLD, both regions, honest:  "
+      f"{whole:.3f} s -> {FOLD_S/(FOLD_S-whole):.4f}x  ({FOLD_S-whole:.2f} s)")
+print(f"  Same, granting every generous end simultaneously:                 "
+      f"{whole_loose:.3f} s -> {FOLD_S/(FOLD_S-whole_loose):.4f}x  ({FOLD_S-whole_loose:.2f} s)")
+print(f"\n  10 s requires {FOLD_S/TARGET_S:.4f}x. Neither reaches it.")

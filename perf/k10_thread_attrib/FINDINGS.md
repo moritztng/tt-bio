@@ -322,3 +322,43 @@ device time recoverable without doing less of the model's own work"**.
 
 That is **9.6 % of the margin** 10 s requires, and it is the optimistic end because sub-additivity is
 the rule on this stack, not the exception.
+
+## Closing the budget: the diffusion step measured, and 10 s is unreachable
+
+`k10-p1-diffusion-measure`'s census completed 17:31:18Z (whglx card 16, grid 8x9,
+`--enable-sum-profiling`, thread cap applied, EXIT=0). **The numbers below are my read of that row's
+raw capture through `thread_attrib.py --by-op`, not that row's own conclusion, which it has yet to
+publish.** 11083 compute rows:
+
+| | diffusion step | pairformer block (same part) |
+|---|---|---|
+| `wait_front` / TRISC0 | **63.1 %** | 65.7 % |
+| `reserve_back` / TRISC2 | **13.6 %** | 13.3 % |
+| input:output | **4.59 : 1** | 4.91 : 1 |
+
+**The diffusion step has the same shape as the block.** There is no different regime hiding in the
+third of the fold nobody had looked at. And the thread-attribution falsifier held for a third time on
+a third capture: **0/11083** on both counters against their own thread, 2483/11083 against TRISC1.
+
+The whglx profiler is stock and carries no DM-thread zones, so this capture cannot say whether the
+reader is on DRAM or idle. So bound it two ways, both generous:
+
+| | s |
+|---|---|
+| diffusion device time | 5.484 |
+| x its measured compute input stall, 63.1 % | **3.460** — absurd: assumes *all* of it is producer-caused and free |
+| x the block's measured conversion ceiling, 44.4 % | **1.536** — the honest one |
+
+**10 s needs 3.916 s (trunk at its physically unreachable loose bound) to 5.597 s (tight bound) out
+of the diffusion step. The absurd ceiling supplies 3.460 s and falls short at both. The honest one
+supplies 1.536 s.**
+
+| producer-side ceiling, whole fold | s removed | fold | ratio |
+|---|---|---|---|
+| honest | 3.928 | **14.06 s** | **1.2794x** |
+| every generous end granted at once | 7.533 | 10.46 s | 1.7205x |
+
+**10 s requires 1.7989x. Neither reaches it — and the second row is not physically available.** For
+10 s to be reachable, more than 100 % of the diffusion step's compute input stall would have to be
+recoverable *and* the trunk would have to sit at a bound that credits driving address generation to
+zero. That is not a close call.
