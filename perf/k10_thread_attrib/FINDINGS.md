@@ -285,3 +285,40 @@ spots (`noc_async_read_barrier_with_trid`, `noc_async_writes_flushed`) land in e
 It cuts both ways: the LOOSE bound credits unmeasured time to the producer side, **and the TIGHT
 bound may be an under-estimate if trid-barrier reads are hiding there.** The target op is the least
 affected (25.6 % NCRISC, 28.2 % BRISC), which is luck rather than something established.
+
+## The fold budget: where would 7.989 s come from?
+
+`fold_budget.py`, host only, every input a measured number from a concluded row.
+
+| region | s/fold | % fold | what is known about it |
+|---|---|---|---|
+| pairformer track | 10.220 | 56.8 % | producer-side bounded at **2.392-4.073 s** |
+| diffusion step, device | 5.484 | 30.5 % | **never measured — the open question** |
+| diffusion step, host | 0.362 | 2.0 % | dead: `--diffusion_trace` 0.9948x on Blackhole |
+| everything else | 1.923 | 10.7 % | host residual, repeatedly attacked |
+
+**Grant every bound in full, simultaneously, at zero cost:**
+
+- trunk producer-side at its **tight** bound removes 2.392 s, leaving **5.597 s** still to find —
+  which is **102.1 %** of the diffusion step's entire device time.
+- trunk producer-side at its **loose** (physically unreachable) bound removes 4.073 s, leaving
+  **3.916 s** — **71.4 %** of it.
+
+**So 10 s requires the whole trunk producer-side bound AND 71-102 % of the diffusion step's device
+time to vanish.** Removing the diffusion step's *work* is not available — fewer steps is a cheat, not
+a speedup, and the 200-step floor is a hard bound this campaign already established. So the honest
+question for the one unmeasured region is not *"is there a prize"* but **"is over half of 5.5 s of
+device time recoverable without doing less of the model's own work"**.
+
+**For scale, what Phase 1 actually found:**
+
+| lever | fold ratio |
+|---|---|
+| bank permutation B1+B2+B3 | 1.0254x |
+| BinaryNg class, 3 sites | 1.0094x |
+| matmul L1 residency (predicted BH) | 1.0300x |
+| `M_block` 4 -> 8 (predicted BH) | 1.0100x |
+| **composed, optimistic** | **1.0768x -> 16.71 s** |
+
+That is **9.6 % of the margin** 10 s requires, and it is the optimistic end because sub-additivity is
+the rule on this stack, not the exception.
