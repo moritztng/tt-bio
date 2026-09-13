@@ -78,15 +78,21 @@ _CB_DEPTH_SCALE = [1.0]
 
 
 def install_cb_scale(G):
-    base = G._cb
+    base_cb, base_key = G._cb, G._key
 
     def scaled(idx, core_grid, page_size, num_tiles, data_format):
         s = _CB_DEPTH_SCALE[0]
         # CB 3 is the fp32 accumulation intermediate, single-buffered by the factory and not a
         # pipeline stage -- scaling it would change what is measured, not how deep the pipe is.
         n = num_tiles if idx == 3 else max(2, int(round(num_tiles * s)))
-        return base(idx, core_grid, page_size, n, data_format)
-    G._cb = scaled
+        return base_cb(idx, core_grid, page_size, n, data_format)
+
+    def key(*a, **kw):
+        # `generic_minimal_matmul` caches the descriptor per shape/config, and CB depth is in
+        # NEITHER. Without this the deeper arms hit the cached shallow descriptor and read as an
+        # exact null -- a knob that never engaged, reported as a knob that did nothing.
+        return base_key(*a, **kw) + (_CB_DEPTH_SCALE[0],)
+    G._cb, G._key = scaled, key
 
 
 class Rig:

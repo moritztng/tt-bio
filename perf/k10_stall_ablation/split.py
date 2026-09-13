@@ -75,6 +75,7 @@ def main() -> int:
             "in_frac": wf / t0 if t0 else 0.0,
             "out_frac": rb / t2 if t2 else 0.0,
             "anomaly": 1 if (t0 and wf > t0) or (t2 and rb > t2) else 0,
+            "phash": r.get("PROGRAM HASH", ""),
         })
 
     stat = {}
@@ -82,6 +83,7 @@ def main() -> int:
         stat[name] = {k: st.median([x[k] for x in xs])
                       for k in ("wall_us", "in_us", "out_us", "in_frac", "out_frac")}
         stat[name]["cores"] = xs[0]["cores"]
+        stat[name]["phash"] = xs[0]["phash"]
         stat[name]["n"] = len(xs)
         w = sorted(x["wall_us"] for x in xs)
         stat[name]["wall_spread"] = w[-1] / w[0] if w[0] else 0.0
@@ -95,7 +97,7 @@ def main() -> int:
           f"host {run['env'].get('host')}  cap {run['env'].get('host_thread_cap')}")
     print()
     hdr = (f"{'arm':24s} {'cores':>5s} {'wall us':>9s} {'in us':>9s} {'in/T0':>7s} "
-           f"{'out us':>8s} {'out/T2':>7s} {'spread':>7s}")
+           f"{'out us':>8s} {'out/T2':>7s} {'spread':>7s} {'prog':>10s}")
     print(hdr)
     print("-" * len(hdr))
     for name in run["arms"]:
@@ -105,21 +107,17 @@ def main() -> int:
         s = stat[n]
         print(f"{n:24s} {s['cores']:5d} {s['wall_us']:9.2f} {s['in_us']:9.2f} "
               f"{100 * s['in_frac']:6.1f}% {s['out_us']:8.2f} {100 * s['out_frac']:6.1f}% "
-              f"{s['wall_spread']:6.3f}x")
+              f"{s['wall_spread']:6.3f}x {str(s.get('phash', ''))[-9:]:>10s}")
 
     # ---- the response table. Every knob against its OWN control, and the derivative that
     # decides whether the stall is the constraint at all.
-    ctrl = {}
-    for a in run["arms"]:
-        k = a["knob"]
-        if k in ("AA", "control"):
-            continue
-        base = {"kblock": "gen.AA.a", "cbdepth": "gen.AA.a", "fidelity": None,
-                "quantum": None, "grid": None}.get(k)
-        ctrl[k] = base
+    # Arms that ARE somebody's control and must not be scored against the base themselves.
+    CONTROL_ARMS = {"gen.smallM.dram", "gen.smallM.dram2", "mm.smallM.dram", "gen.kb2.cb2x"}
 
     def pick_control(a):
         k, n = a["knob"], a["name"]
+        if n in CONTROL_ARMS:
+            return n
         if n.startswith("gen.smallM.in0L1"):
             return "gen.smallM.dram"
         if n.startswith("gen.smallM.outL1"):
@@ -164,9 +162,14 @@ def main() -> int:
         d_wall_us = stat[n]["wall_us"] - stat[c]["wall_us"]
         deriv = d_wall_us / d_in_us if abs(d_in_us) > 1e-9 else float("nan")
         ratio = stat[c]["wall_us"] / stat[n]["wall_us"] if stat[n]["wall_us"] else 0.0
+        # A knob that produced the SAME program as its control never engaged. Reporting that as
+        # "no response" is the silent-no-op failure this campaign keeps paying for, so it is
+        # called out as its own verdict rather than folded into NULL.
+        same_prog = stat[n].get("phash") and stat[n]["phash"] == stat[c].get("phash")
         moved = abs(d_in) > max(fl["in"], 0.005)
         wall_moved = max(ratio, 1 / ratio if ratio else 0) > fl["wall"]
-        v = ("both" if moved and wall_moved else "stall only" if moved
+        v = ("NOT-ENGAGED" if same_prog else
+             "both" if moved and wall_moved else "stall only" if moved
              else "wall only" if wall_moved else "NULL")
         print(f"{k:16s} {a['level']:12s} {100 * d_in:11.2f} {ratio:8.4f}x {deriv:10.3f} {v:>12s}")
         resp.append({"knob": k, "level": a["level"], "arm": n, "control": c,
