@@ -1,0 +1,573 @@
+{
+ "env": {
+  "started": "2026-09-13T17:08:22+0000",
+  "host": "j10glx02",
+  "card_TT_VISIBLE_DEVICES": "2",
+  "commit": "258dcaef4",
+  "profiler": "1",
+  "ttnn": "/home/mthuening/work/b2z2-profiler/tt-metal/ttnn/ttnn/__init__.py",
+  "host_thread_cap": {
+   "OMP_NUM_THREADS": "8",
+   "MKL_NUM_THREADS": "8",
+   "OPENBLAS_NUM_THREADS": "8",
+   "NUMEXPR_NUM_THREADS": "8"
+  },
+  "host_workers_assumed": 8,
+  "cpu_count": 64,
+  "loadavg_start": [
+   "5.31",
+   "13.56",
+   "18.88"
+  ],
+  "reps": 4,
+  "warmup": 2,
+  "m": 512,
+  "small_m": 64,
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "loadavg_end": [
+   "8.55",
+   "13.61",
+   "18.76"
+  ]
+ },
+ "arms": [
+  {
+   "name": "ctl.starved.add",
+   "opcode": "BinaryNgDeviceOperation",
+   "knob": "control",
+   "level": "starved"
+  },
+  {
+   "name": "ctl.compute.matmul",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "control",
+   "level": "compute"
+  },
+  {
+   "name": "gen.AA.a",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "AA",
+   "level": "a"
+  },
+  {
+   "name": "gen.AA.b",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "AA",
+   "level": "b"
+  },
+  {
+   "name": "mm.AA.a",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "AA",
+   "level": "a"
+  },
+  {
+   "name": "mm.AA.b",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "AA",
+   "level": "b"
+  },
+  {
+   "name": "gen.kblock2",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "kblock",
+   "level": "2"
+  },
+  {
+   "name": "gen.kblock1",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "kblock",
+   "level": "1"
+  },
+  {
+   "name": "gen.in1L1",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_in1",
+   "level": "L1"
+  },
+  {
+   "name": "mm.in1L1",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "residency_in1",
+   "level": "L1"
+  },
+  {
+   "name": "gen.smallM.dram",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_in0",
+   "level": "DRAM"
+  },
+  {
+   "name": "gen.smallM.in0L1",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_in0",
+   "level": "L1"
+  },
+  {
+   "name": "gen.smallM.outL1",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_out",
+   "level": "L1"
+  },
+  {
+   "name": "gen.smallM.dram2",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "residency_out",
+   "level": "DRAM"
+  },
+  {
+   "name": "mm.smallM.dram",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "residency_in0",
+   "level": "DRAM"
+  },
+  {
+   "name": "mm.smallM.in0L1",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "residency_in0",
+   "level": "L1"
+  },
+  {
+   "name": "gen.cb3x",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "cbdepth",
+   "level": "3x"
+  },
+  {
+   "name": "gen.cb4x",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "cbdepth",
+   "level": "4x"
+  },
+  {
+   "name": "gen.kb2.cb4x",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "cbdepth_kb2",
+   "level": "4x"
+  },
+  {
+   "name": "gen.kb2.cb2x",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "cbdepth_kb2",
+   "level": "2x"
+  },
+  {
+   "name": "gen.hifi2",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "fidelity",
+   "level": "HiFi2"
+  },
+  {
+   "name": "gen.lofi",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "fidelity",
+   "level": "LoFi"
+  },
+  {
+   "name": "mm.hifi2",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "fidelity",
+   "level": "HiFi2"
+  },
+  {
+   "name": "mm.lofi",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "fidelity",
+   "level": "LoFi"
+  },
+  {
+   "name": "mm.bfp8.in1",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "dtype",
+   "level": "bfp8_in1"
+  },
+  {
+   "name": "mm.bfp8.both",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "dtype",
+   "level": "bfp8_both"
+  },
+  {
+   "name": "gen.mdiv2",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "quantum",
+   "level": "M/2"
+  },
+  {
+   "name": "mm.mdiv2",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "quantum",
+   "level": "M/2"
+  },
+  {
+   "name": "gen.mdiv4",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "quantum",
+   "level": "M/4"
+  },
+  {
+   "name": "mm.mdiv4",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "quantum",
+   "level": "M/4"
+  },
+  {
+   "name": "gen.gridq4x9",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "gridq",
+   "level": "4x9 @ M/2"
+  },
+  {
+   "name": "mm.gridq4x9",
+   "opcode": "MatmulDeviceOperation",
+   "knob": "gridq",
+   "level": "4x9 @ M/2"
+  },
+  {
+   "name": "gen.gridq8x9.m256",
+   "opcode": "GenericOpDeviceOperation",
+   "knob": "gridq",
+   "level": "8x9 @ M/2 (quantum halved)"
+  }
+ ],
+ "warmup_s": 17.21,
+ "measured_s": 0.23,
+ "dispatch_order": [
+  "ctl.starved.add",
+  "ctl.compute.matmul",
+  "gen.AA.a",
+  "gen.AA.b",
+  "mm.AA.a",
+  "mm.AA.b",
+  "gen.kblock2",
+  "gen.kblock1",
+  "gen.in1L1",
+  "mm.in1L1",
+  "gen.smallM.dram",
+  "gen.smallM.in0L1",
+  "gen.smallM.outL1",
+  "gen.smallM.dram2",
+  "mm.smallM.dram",
+  "mm.smallM.in0L1",
+  "gen.cb3x",
+  "gen.cb4x",
+  "gen.kb2.cb4x",
+  "gen.kb2.cb2x",
+  "gen.hifi2",
+  "gen.lofi",
+  "mm.hifi2",
+  "mm.lofi",
+  "mm.bfp8.in1",
+  "mm.bfp8.both",
+  "gen.mdiv2",
+  "mm.mdiv2",
+  "gen.mdiv4",
+  "mm.mdiv4",
+  "gen.gridq4x9",
+  "mm.gridq4x9",
+  "gen.gridq8x9.m256",
+  "ctl.starved.add",
+  "ctl.compute.matmul",
+  "gen.AA.a",
+  "gen.AA.b",
+  "mm.AA.a",
+  "mm.AA.b",
+  "gen.kblock2",
+  "gen.kblock1",
+  "gen.in1L1",
+  "mm.in1L1",
+  "gen.smallM.dram",
+  "gen.smallM.in0L1",
+  "gen.smallM.outL1",
+  "gen.smallM.dram2",
+  "mm.smallM.dram",
+  "mm.smallM.in0L1",
+  "gen.cb3x",
+  "gen.cb4x",
+  "gen.kb2.cb4x",
+  "gen.kb2.cb2x",
+  "gen.hifi2",
+  "gen.lofi",
+  "mm.hifi2",
+  "mm.lofi",
+  "mm.bfp8.in1",
+  "mm.bfp8.both",
+  "gen.mdiv2",
+  "mm.mdiv2",
+  "gen.mdiv4",
+  "mm.mdiv4",
+  "gen.gridq4x9",
+  "mm.gridq4x9",
+  "gen.gridq8x9.m256",
+  "ctl.starved.add",
+  "ctl.compute.matmul",
+  "gen.AA.a",
+  "gen.AA.b",
+  "mm.AA.a",
+  "mm.AA.b",
+  "gen.kblock2",
+  "gen.kblock1",
+  "gen.in1L1",
+  "mm.in1L1",
+  "gen.smallM.dram",
+  "gen.smallM.in0L1",
+  "gen.smallM.outL1",
+  "gen.smallM.dram2",
+  "mm.smallM.dram",
+  "mm.smallM.in0L1",
+  "gen.cb3x",
+  "gen.cb4x",
+  "gen.kb2.cb4x",
+  "gen.kb2.cb2x",
+  "gen.hifi2",
+  "gen.lofi",
+  "mm.hifi2",
+  "mm.lofi",
+  "mm.bfp8.in1",
+  "mm.bfp8.both",
+  "gen.mdiv2",
+  "mm.mdiv2",
+  "gen.mdiv4",
+  "mm.mdiv4",
+  "gen.gridq4x9",
+  "mm.gridq4x9",
+  "gen.gridq8x9.m256",
+  "ctl.starved.add",
+  "ctl.compute.matmul",
+  "gen.AA.a",
+  "gen.AA.b",
+  "mm.AA.a",
+  "mm.AA.b",
+  "gen.kblock2",
+  "gen.kblock1",
+  "gen.in1L1",
+  "mm.in1L1",
+  "gen.smallM.dram",
+  "gen.smallM.in0L1",
+  "gen.smallM.outL1",
+  "gen.smallM.dram2",
+  "mm.smallM.dram",
+  "mm.smallM.in0L1",
+  "gen.cb3x",
+  "gen.cb4x",
+  "gen.kb2.cb4x",
+  "gen.kb2.cb2x",
+  "gen.hifi2",
+  "gen.lofi",
+  "mm.hifi2",
+  "mm.lofi",
+  "mm.bfp8.in1",
+  "mm.bfp8.both",
+  "gen.mdiv2",
+  "mm.mdiv2",
+  "gen.mdiv4",
+  "mm.mdiv4",
+  "gen.gridq4x9",
+  "mm.gridq4x9",
+  "gen.gridq8x9.m256"
+ ],
+ "synced_wall_ms": {
+  "ctl.starved.add": [
+   0.605,
+   0.5926,
+   0.5885,
+   0.6042
+  ],
+  "ctl.compute.matmul": [
+   0.8414,
+   0.5473,
+   0.5477,
+   0.5682
+  ],
+  "gen.AA.a": [
+   2.7464,
+   2.681,
+   2.6491,
+   2.6495
+  ],
+  "gen.AA.b": [
+   2.668,
+   2.64,
+   2.6579,
+   2.6468
+  ],
+  "mm.AA.a": [
+   1.9279,
+   1.9303,
+   1.9037,
+   1.9207
+  ],
+  "mm.AA.b": [
+   1.9117,
+   1.9132,
+   1.9004,
+   1.899
+  ],
+  "gen.kblock2": [
+   2.9365,
+   2.8513,
+   2.8613,
+   2.9091
+  ],
+  "gen.kblock1": [
+   3.1695,
+   3.1803,
+   3.1679,
+   3.1613
+  ],
+  "gen.in1L1": [
+   2.6237,
+   2.6184,
+   2.6053,
+   2.5971
+  ],
+  "mm.in1L1": [
+   1.9251,
+   1.9195,
+   1.9088,
+   1.9206
+  ],
+  "gen.smallM.dram": [
+   0.6197,
+   0.5899,
+   0.5794,
+   0.5705
+  ],
+  "gen.smallM.in0L1": [
+   0.583,
+   0.5589,
+   0.5565,
+   0.5675
+  ],
+  "gen.smallM.outL1": [
+   0.5101,
+   0.5149,
+   0.5052,
+   0.5094
+  ],
+  "gen.smallM.dram2": [
+   0.5577,
+   0.5518,
+   0.5504,
+   0.5543
+  ],
+  "mm.smallM.dram": [
+   0.8527,
+   0.6979,
+   0.414,
+   0.4108
+  ],
+  "mm.smallM.in0L1": [
+   0.358,
+   0.3537,
+   0.5151,
+   0.69
+  ],
+  "gen.cb3x": [
+   2.6884,
+   2.6688,
+   2.6634,
+   2.6734
+  ],
+  "gen.cb4x": [
+   2.6554,
+   2.6411,
+   2.659,
+   2.6351
+  ],
+  "gen.kb2.cb4x": [
+   2.8449,
+   2.8184,
+   2.8906,
+   2.8224
+  ],
+  "gen.kb2.cb2x": [
+   2.8342,
+   2.82,
+   2.8344,
+   2.8164
+  ],
+  "gen.hifi2": [
+   2.657,
+   2.63,
+   2.6291,
+   2.6146
+  ],
+  "gen.lofi": [
+   2.6203,
+   2.6407,
+   2.6285,
+   2.6197
+  ],
+  "mm.hifi2": [
+   1.9181,
+   1.9055,
+   1.9032,
+   1.9076
+  ],
+  "mm.lofi": [
+   1.8903,
+   1.8877,
+   1.8758,
+   1.8933
+  ],
+  "mm.bfp8.in1": [
+   1.9032,
+   1.9009,
+   1.8994,
+   1.9162
+  ],
+  "mm.bfp8.both": [
+   1.7457,
+   1.7361,
+   1.7426,
+   1.7398
+  ],
+  "gen.mdiv2": [
+   1.4891,
+   1.4777,
+   1.4647,
+   1.4731
+  ],
+  "mm.mdiv2": [
+   1.3835,
+   1.3716,
+   1.3822,
+   1.3693
+  ],
+  "gen.mdiv4": [
+   0.8906,
+   0.9035,
+   0.8907,
+   0.8803
+  ],
+  "mm.mdiv4": [
+   0.7034,
+   0.6956,
+   0.7081,
+   0.7181
+  ],
+  "gen.gridq4x9": [
+   2.1288,
+   2.1355,
+   2.1492,
+   2.0957
+  ],
+  "mm.gridq4x9": [
+   1.064,
+   1.0605,
+   1.0551,
+   1.0592
+  ],
+  "gen.gridq8x9.m256": [
+   1.4763,
+   1.4573,
+   1.5052,
+   1.4512
+  ]
+ }
+}
