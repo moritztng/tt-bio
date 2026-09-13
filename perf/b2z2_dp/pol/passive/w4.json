@@ -1,0 +1,596 @@
+{
+ "doc": "Data-parallel throughput of the Boltz-2 512 aa cell: W independent folds, one per chip.\n\nOne fold per chip, nothing shared between chips. No tensor is split across devices, so this\nmeasures the only multi-chip route the campaign still has: folds per hour per box against W.\n\nHow a width is measured, and why this shape rather than \"run W folds and divide\":\n\n  * one process per card, each pinned with ``TT_VISIBLE_DEVICES=<card>`` so ttnn brings up that\n    chip and no other. An unpinned open starts every visible chip and would silently make a\n    width-1 arm a 32-chip arm.\n  * a **barrier** between the warm-up fold and the timed reps. Without it the first chip to finish\n    loading folds alone and its \"concurrent\" fold is a solo fold; the whole question here is what\n    happens when W folds really are in flight at once.\n  * throughput is taken over the **window where every child is folding**: the reps start after the\n    barrier, so ``W * reps / (max_end - min_start)`` is a measured rate, not a per-fold latency\n    converted into one. The median per-fold latency is reported next to it because the ratio of\n    medians (width-1 median / width-W median) is the efficiency, and the two numbers have to agree.\n  * the CIF sha256 of every fold, from every child. A DP arm that does not emit the width-1 digest\n    is not the same computation and its throughput is meaningless. This is a digest equality check,\n    which the chimeric cdk2x2 fixture can carry; it is not a parity score, which it cannot.\n  * ``step_n`` read off the sampler per fold. 200 steps and 3 recycles are the protocol, asserted\n    per fold by the driver rather than trusted from a config dict.\n\nHost-side instrumentation, recorded per fold so the gap at the widest width can be attributed\nrather than guessed: process CPU seconds (``utime + stime``) over the fold gives **cores per\nconcurrent fold**, which is the quantity the 2026-08-02 galaxy investigation named as the residual\n(~1.007 cores/fold). Wall of ``DiffusionModule.forward`` gives the sampler's share.\n\n    dp_width.py --cards 0,1,2,3 --reps 3 --out perf/b2z2_dp/w4.json\n",
+ "width": 4,
+ "cards": [
+  "0",
+  "1",
+  "2",
+  "3"
+ ],
+ "host": "j10glx02",
+ "commit": "f3c7d9671e38db13d199ac22c5cd622648f4a08e",
+ "started_utc": "2026-09-13T03:21:39Z",
+ "protocol": {
+  "size": 512,
+  "sampling_steps": 200,
+  "recycling_steps": 3,
+  "reps": 3,
+  "warmup": 1,
+  "seed": 0
+ },
+ "loadavg_at_start": [
+  66.53,
+  93.33,
+  55.92
+ ],
+ "occupancy_at_start": {
+  "pids": [],
+  "nodes": []
+ },
+ "workdir": "/home/mthuening/scratch/b2z2dp-policy/passive/w4",
+ "host_thread_cap": {
+  "cores": 64,
+  "cap_env": {
+   "OMP_NUM_THREADS": "8",
+   "MKL_NUM_THREADS": "8",
+   "OPENBLAS_NUM_THREADS": "8",
+   "NUMEXPR_NUM_THREADS": "8"
+  },
+  "capped": true,
+  "fixed": true
+ },
+ "returncodes": {
+  "0": 0,
+  "1": 0,
+  "2": 0,
+  "3": 0
+ },
+ "children": {
+  "0": {
+   "card": "0",
+   "width": 4,
+   "pid": 2927639,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 44.473,
+     "start_epoch": 1789269710.227,
+     "end_epoch": 1789269754.7,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.7379,
+     "step_n": 200,
+     "step_ms": 53.6897,
+     "cpu_s": 66.105,
+     "cores": 1.4864,
+     "loadavg": [
+      36.17,
+      80.22,
+      53.58
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 42.967,
+     "start_epoch": 1789269754.849,
+     "end_epoch": 1789269797.816,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5334,
+     "step_n": 200,
+     "step_ms": 47.6672,
+     "cpu_s": 60.062,
+     "cores": 1.3979,
+     "loadavg": [
+      21.55,
+      70.93,
+      51.58
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 42.254,
+     "start_epoch": 1789269797.817,
+     "end_epoch": 1789269840.071,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5447,
+     "step_n": 200,
+     "step_ms": 47.7233,
+     "cpu_s": 58.345,
+     "cores": 1.3808,
+     "loadavg": [
+      12.56,
+      61.64,
+      49.35
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 42.617,
+     "start_epoch": 1789269840.072,
+     "end_epoch": 1789269882.689,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5411,
+     "step_n": 200,
+     "step_ms": 47.7054,
+     "cpu_s": 58.289,
+     "cores": 1.3677,
+     "loadavg": [
+      15.52,
+      56.0,
+      47.96
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 3.997,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "0",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-passive-policy-verify/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.133,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2927639",
+     "2927640",
+     "2927641",
+     "2927642"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19"
+    ]
+   },
+   "barrier_wait_s": 0.0,
+   "timed_start_epoch": 1789269754.843,
+   "occupancy_at_end": {
+    "pids": [
+     "2927639",
+     "2927640",
+     "2927641",
+     "2927642"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19"
+    ]
+   },
+   "median_fold_s": 42.617,
+   "median_cores": 1.3808,
+   "ok": true
+  },
+  "1": {
+   "card": "1",
+   "width": 4,
+   "pid": 2927640,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 44.551,
+     "start_epoch": 1789269708.638,
+     "end_epoch": 1789269753.188,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.7955,
+     "step_n": 200,
+     "step_ms": 53.9774,
+     "cpu_s": 65.758,
+     "cores": 1.476,
+     "loadavg": [
+      39.14,
+      81.54,
+      53.86
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 42.911,
+     "start_epoch": 1789269754.931,
+     "end_epoch": 1789269797.842,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.4728,
+     "step_n": 200,
+     "step_ms": 47.3638,
+     "cpu_s": 60.272,
+     "cores": 1.4046,
+     "loadavg": [
+      21.55,
+      70.93,
+      51.58
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 42.752,
+     "start_epoch": 1789269797.843,
+     "end_epoch": 1789269840.596,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5044,
+     "step_n": 200,
+     "step_ms": 47.5221,
+     "cpu_s": 59.535,
+     "cores": 1.3926,
+     "loadavg": [
+      12.56,
+      61.64,
+      49.35
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 42.555,
+     "start_epoch": 1789269840.597,
+     "end_epoch": 1789269883.152,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.4871,
+     "step_n": 200,
+     "step_ms": 47.4353,
+     "cpu_s": 58.48,
+     "cores": 1.3742,
+     "loadavg": [
+      15.52,
+      56.0,
+      47.96
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 2.449,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "1",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-passive-policy-verify/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.101,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2927639",
+     "2927640",
+     "2927641",
+     "2927642"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19"
+    ]
+   },
+   "barrier_wait_s": 1.604,
+   "timed_start_epoch": 1789269754.93,
+   "occupancy_at_end": {
+    "pids": [
+     "2927640",
+     "2927641",
+     "2927642"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19"
+    ]
+   },
+   "median_fold_s": 42.752,
+   "median_cores": 1.3926,
+   "ok": true
+  },
+  "2": {
+   "card": "2",
+   "width": 4,
+   "pid": 2927641,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 44.433,
+     "start_epoch": 1789269709.486,
+     "end_epoch": 1789269753.919,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.7065,
+     "step_n": 200,
+     "step_ms": 53.5327,
+     "cpu_s": 65.157,
+     "cores": 1.4664,
+     "loadavg": [
+      39.14,
+      81.54,
+      53.86
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 42.91,
+     "start_epoch": 1789269754.858,
+     "end_epoch": 1789269797.768,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5081,
+     "step_n": 200,
+     "step_ms": 47.5406,
+     "cpu_s": 59.893,
+     "cores": 1.3958,
+     "loadavg": [
+      21.55,
+      70.93,
+      51.58
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 42.757,
+     "start_epoch": 1789269797.769,
+     "end_epoch": 1789269840.526,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.51,
+     "step_n": 200,
+     "step_ms": 47.5501,
+     "cpu_s": 59.632,
+     "cores": 1.3947,
+     "loadavg": [
+      12.56,
+      61.64,
+      49.35
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 42.494,
+     "start_epoch": 1789269840.527,
+     "end_epoch": 1789269883.022,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5148,
+     "step_n": 200,
+     "step_ms": 47.5742,
+     "cpu_s": 57.958,
+     "cores": 1.3639,
+     "loadavg": [
+      15.52,
+      56.0,
+      47.96
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 3.252,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "2",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-passive-policy-verify/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.155,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2927639",
+     "2927640",
+     "2927641",
+     "2927642"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19"
+    ]
+   },
+   "barrier_wait_s": 0.802,
+   "timed_start_epoch": 1789269754.856,
+   "occupancy_at_end": {
+    "pids": [
+     "2927639",
+     "2927640",
+     "2927641",
+     "2927642"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19"
+    ]
+   },
+   "median_fold_s": 42.757,
+   "median_cores": 1.3947,
+   "ok": true
+  },
+  "3": {
+   "card": "3",
+   "width": 4,
+   "pid": 2927642,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 44.839,
+     "start_epoch": 1789269707.956,
+     "end_epoch": 1789269752.796,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.8444,
+     "step_n": 200,
+     "step_ms": 54.2218,
+     "cpu_s": 66.831,
+     "cores": 1.4905,
+     "loadavg": [
+      39.14,
+      81.54,
+      53.86
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 42.845,
+     "start_epoch": 1789269754.956,
+     "end_epoch": 1789269797.802,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5042,
+     "step_n": 200,
+     "step_ms": 47.5209,
+     "cpu_s": 59.893,
+     "cores": 1.3979,
+     "loadavg": [
+      21.55,
+      70.93,
+      51.58
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 42.648,
+     "start_epoch": 1789269797.803,
+     "end_epoch": 1789269840.451,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5014,
+     "step_n": 200,
+     "step_ms": 47.5068,
+     "cpu_s": 59.552,
+     "cores": 1.3964,
+     "loadavg": [
+      12.56,
+      61.64,
+      49.35
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 42.485,
+     "start_epoch": 1789269840.452,
+     "end_epoch": 1789269882.937,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5297,
+     "step_n": 200,
+     "step_ms": 47.6485,
+     "cpu_s": 58.184,
+     "cores": 1.3695,
+     "loadavg": [
+      15.52,
+      56.0,
+      47.96
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 1.707,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "3",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-passive-policy-verify/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.178,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2927639",
+     "2927640",
+     "2927641",
+     "2927642"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19"
+    ]
+   },
+   "barrier_wait_s": 2.004,
+   "timed_start_epoch": 1789269754.955,
+   "occupancy_at_end": {
+    "pids": [
+     "2927639",
+     "2927640",
+     "2927641",
+     "2927642"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19"
+    ]
+   },
+   "median_fold_s": 42.648,
+   "median_cores": 1.3964,
+   "ok": true
+  }
+ },
+ "loadavg_at_end": [
+  14.51,
+  55.12,
+  47.71
+ ],
+ "all_children_ok": true,
+ "result": {
+  "n_timed_folds": 12,
+  "window_s": 128.303,
+  "folds_per_hour": 336.703,
+  "median_fold_s": 42.7,
+  "mean_fold_s": 42.683,
+  "min_fold_s": 42.254,
+  "max_fold_s": 42.967,
+  "per_card_median_fold_s": {
+   "0": 42.617,
+   "1": 42.752,
+   "2": 42.757,
+   "3": 42.648
+  },
+  "median_cores_per_fold": 1.3937,
+  "total_cores": 5.564,
+  "median_step_ms": 47.5453,
+  "cif_digests": [
+   "b3ac07a5d86933a8"
+  ],
+  "digest_unanimous": true,
+  "barrier_wait_s": {
+   "0": 0.0,
+   "1": 1.604,
+   "2": 0.802,
+   "3": 2.004
+  },
+  "omp_num_threads": "8",
+  "torch_num_threads": 8
+ }
+}
