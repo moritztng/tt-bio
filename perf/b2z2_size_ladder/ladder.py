@@ -29,7 +29,7 @@ Per (size, arm):
                  reset per fold. A lever that silently falls back reads as "it worked"; this row
                  asserts on the counter, per size, in both arms.
   digest         sha256[:16] of the CIF. The two arms at one size must be byte-identical, and at
-                 512 aa both must be `a91aa44441f0d9c5`.
+                 512 aa both must be `188e835079a67544`, the structure the shipped defaults write.
 
 Arms are applied in-process. That is legal here for a reason the flag-lever harnesses had to
 argue and this one does not: the fused path is a DIFFERENT op on a DIFFERENT weight, so it cannot
@@ -58,7 +58,11 @@ sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 
 import ab_flag_levers as AB  # noqa: E402  -- the fixtures, cfg and MSA seeding, unmodified
 
-EXPECTED_512_DIGEST = "a91aa44441f0d9c5"
+# The structure the engine writes at 512 aa on its shipped defaults. It moved when
+# TT_BIO_UNFUSED_SILU went default-on: a91aa44441f0d9c5 was the digest while the transition
+# silu was fused, and that fold is still reachable with TT_BIO_UNFUSED_SILU=0. Both were
+# observed on qb2 card 3, four seeds per arm, perf/b2z2_silu/out/land512_qb2c3.json.
+EXPECTED_512_DIGEST = "188e835079a67544"
 
 
 def _free_block_census(path: Path) -> dict:

@@ -765,13 +765,15 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | Flag | Default | What it does |
 |------|---------|--------------|
 | `TT_BIO_ATOM_SHIFT_GATHER` | on | Builds each atom's attention key window by slicing the atom sequence instead of selecting it with a matrix multiply. Same structure, bit for bit. |
+| `TT_BIO_UNFUSED_SILU` | on | Runs the transition blocks' SiLU as its own operation instead of folding it into the matrix multiply, which is faster on this hardware. It rounds one step earlier, so the structure moves slightly: 0.42 A at 512 aa against a sampler that moves 1.87 A between seeds. |
 | `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | Computes every attention head's MSA row weights from one projection of the pair tensor instead of one projection per head. Same structure, bit for bit. |
 | `TT_BIO_TRIATT_FUSED_QKVG` | on | Projects a triangle attention's query, key, value and gate in one pass over the pair tensor instead of two. Same structure, bit for bit. |
 | `TT_BIO_TRIATT_FUSED_QKVGB` | on | Adds the pair-bias projection to that same pass, so the pair tensor is read once instead of three times. Same structure, bit for bit; chains of 32 residues or fewer keep the separate projection. |
 | `TT_BIO_TRIMUL_FUSED_GOUT` | on | Computes a triangle multiplication's output gate as a second output of its input projection. Same structure, bit for bit. |
 
-More on how these were measured, and what "same structure" means for each of them, in
-[`docs/tuning-flags.md`](docs/tuning-flags.md).
+All of these keep the structure bit for bit except `TT_BIO_UNFUSED_SILU`, which is the one
+flag that changes the answer. More on how each was measured, and by how much that one moves,
+in [`docs/tuning-flags.md`](docs/tuning-flags.md).
 
 ### MSA Server Authentication
 
