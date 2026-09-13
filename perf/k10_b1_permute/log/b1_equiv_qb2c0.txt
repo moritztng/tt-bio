@@ -1,0 +1,14 @@
+2026-09-13 21:09:47.121 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  N= 298 C= 32 equal=True/True ctl=True    151.0 ->    149.1 us 1.0127x 
+2026-09-13 21:09:49.524 | critical |          Always | TT_FATAL: Failed to assign all 40 requested cores (assert.hpp:104)
+  N= 298 C=128 equal=True/True ctl=True    620.9 ->    478.0 us 1.2990x 
+  N= 320 C= 32 equal=True/True ctl=True    147.0 ->    149.5 us 0.9833x 
+  N= 320 C=128 equal=True/True ctl=True    621.2 ->    475.3 us 1.3070x 
+  N= 512 C= 32 equal=True/True ctl=True    374.0 ->    424.5 us 0.8810x 
+  N= 512 C=128 equal=True/True ctl=True   1055.1 ->    696.6 us 1.5146x 
+  N= 640 C= 32 equal=True/True ctl=True    527.4 ->    535.7 us 0.9845x 
+2026-09-13 21:09:57.479 | critical |          Always | TT_FATAL: Failed to assign all 50 requested cores (assert.hpp:104)
+  N= 640 C=128 equal=True/True ctl=True   2038.6 ->   1554.6 us 1.3113x 
+
+8/8 cells bit-exact with a live control

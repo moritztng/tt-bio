@@ -20,6 +20,17 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **Boltz-2 folds 1.0229x faster at 512 residues on Blackhole, byte for byte the same structure.**
+  A triangle multiplication projects its gates and values in one matmul, and the channel move that
+  consumes it reads a value slice and its gate slice back to back. Ordered by role those two reads
+  were 8 tiles apart, which on Blackhole's 8 DRAM banks is one bank twice, so every pair serialised.
+  Interleaving the four column quarters (`TT_BIO_TRIMUL_GP_BANK_SPLIT`, on by default) puts them 4
+  banks apart: 1.5146x on the move, 17.7365 s to 17.3400 s at the fold, eight folds an arm
+  interleaved ABBA with all eight pairs positive. It permutes a layout and no arithmetic, so the bar
+  is equality: `torch.equal` at 8 shapes from 298 to 640 residues against a negative control, and
+  one CIF digest across all sixteen folds of both arms at 512 residues and all sixteen at 298.
+  Wormhole has 12 DRAM banks and never had the collision; the reorder is free there.
+
 - **Boltz-2's Pairformer trunk runs 1.01492x faster at 512 residues, byte for byte the same
   structure.** Three tensors that were crossing DRAM for no reason now stay in L1. A triangle
   multiplication's pair mask is a broadcast operand, so the channel-blocked multiply re-reads it

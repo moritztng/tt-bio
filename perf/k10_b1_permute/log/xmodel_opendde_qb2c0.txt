@@ -1,0 +1,16 @@
+2026-09-13 21:43:10.822 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+Fetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]Fetching 21 files: 100%|██████████| 21/21 [00:00<00:00, 5364.87it/s]
+2026-09-13 21:44:44.811 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-13 21:44:45.641 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  opendde      off  117.598s gated=[2464, 0] plddt=0.725233 ['2b4bb96495d4c789']
+  opendde      on    80.695s gated=[2464, 0] plddt=0.725233 ['2b4bb96495d4c789']
+  opendde      off   81.321s gated=[2464, 0] plddt=0.725233 ['2b4bb96495d4c789']
+  -> opendde EQUAL
+{
+ "opendde": {
+  "verdict": "EQUAL",
+  "n_digests": 1,
+  "gated_calls": 2464
+ }
+}

@@ -1,0 +1,75 @@
+benchlock: k10-b1-permute-land-298 acquired after 0s, loadavg 0.27 0.99 1.13
+2026-09-13 21:26:09.789 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  warm off  13.522s ['g_a', 'g_b', 'p_a', 'p_b'] gated=[0, 0] cif de5d77b220e32a7a
+  warm on   10.490s ['p_a', 'g_a', 'p_b', 'g_b'] gated=[0, 0] cif de5d77b220e32a7a
+  rep0 off  10.540s gated=[0, 0] plddt=0.90916 load=0.59 cif de5d77b220e32a7a
+  rep0 on   10.543s gated=[0, 0] plddt=0.90916 load=0.69 cif de5d77b220e32a7a
+  rep0 on   10.516s gated=[0, 0] plddt=0.90916 load=1.29 cif de5d77b220e32a7a
+  rep0 off  10.545s gated=[0, 0] plddt=0.90916 load=1.25 cif de5d77b220e32a7a
+  rep1 off  10.541s gated=[0, 0] plddt=0.90916 load=1.77 cif de5d77b220e32a7a
+  rep1 on   10.479s gated=[0, 0] plddt=0.90916 load=1.65 cif de5d77b220e32a7a
+  rep1 on   10.541s gated=[0, 0] plddt=0.90916 load=1.55 cif de5d77b220e32a7a
+  rep1 off  10.932s gated=[0, 0] plddt=0.90916 load=1.55 cif de5d77b220e32a7a
+  rep2 off  10.517s gated=[0, 0] plddt=0.90916 load=2.02 cif de5d77b220e32a7a
+  rep2 on   10.457s gated=[0, 0] plddt=0.90916 load=1.8 cif de5d77b220e32a7a
+  rep2 on   10.504s gated=[0, 0] plddt=0.90916 load=1.67 cif de5d77b220e32a7a
+  rep2 off  10.497s gated=[0, 0] plddt=0.90916 load=1.57 cif de5d77b220e32a7a
+  rep3 off  10.565s gated=[0, 0] plddt=0.90916 load=2.04 cif de5d77b220e32a7a
+  rep3 on   10.527s gated=[0, 0] plddt=0.90916 load=2.44 cif de5d77b220e32a7a
+  rep3 on   10.514s gated=[0, 0] plddt=0.90916 load=2.78 cif de5d77b220e32a7a
+  rep3 off  10.529s gated=[0, 0] plddt=0.90916 load=2.51 cif de5d77b220e32a7a
+{
+ "n_per_arm": {
+  "off": 8,
+  "on": 8
+ },
+ "median_fold_s": {
+  "off": 10.5405,
+  "on": 10.515
+ },
+ "ratio": 1.002425106990014,
+ "aa_floor": 0.9602085620197585,
+ "plddt": {
+  "off": [
+   0.90916
+  ],
+  "on": [
+   0.90916
+  ]
+ },
+ "paired_deltas_s": [
+  -0.003,
+  0.029,
+  0.062,
+  0.391,
+  0.06,
+  -0.007,
+  0.038,
+  0.015
+ ],
+ "gated_calls": {
+  "off": [
+   [
+    0,
+    0
+   ]
+  ],
+  "on": [
+   [
+    0,
+    0
+   ]
+  ]
+ },
+ "bit_exact": true,
+ "cif_sha256": {
+  "off": [
+   "de5d77b220e32a7a1fd99c53ca71b6f8fd28ec5e0f99578a10dd194e36636df5"
+  ],
+  "on": [
+   "de5d77b220e32a7a1fd99c53ca71b6f8fd28ec5e0f99578a10dd194e36636df5"
+  ]
+ }
+}
+benchlock: k10-b1-permute-land-298 released, rc=0, loadavg 2.51 1.58 1.31
