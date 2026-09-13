@@ -240,7 +240,7 @@ TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 # because the fused path runs silu at half the SFPU rate the standalone op reaches. Release-gated:
 # the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
 # accumulator, so it is not bit-exact.
-_UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
+_UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", True)
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False

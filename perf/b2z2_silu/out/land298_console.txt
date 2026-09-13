@@ -1,0 +1,15 @@
+2026-09-13 11:02:25.216 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  298 base-s0       22.463s sha=0cf1b879dca3c0d5 plddt=0.917809
+  298 usilu-s0      19.618s sha=28069f414bd046c1 plddt=0.914272
+  298 default-s0    18.351s sha=28069f414bd046c1 plddt=0.914272
+  298 base-s1       18.744s sha=2b93753165dd05cc plddt=0.917459
+  298 usilu-s1      19.245s sha=f4964e2c70710daa plddt=0.916385
+  298 base-s2       16.524s sha=7a6d5457eb22e8d7 plddt=0.913234
+  298 usilu-s2      16.654s sha=ff081d30f1d8a84d plddt=0.912221
+  298 base-s3       18.803s sha=e4f07356e36615d5 plddt=0.918224
+  298 usilu-s3      18.354s sha=8367dc714db07a94 plddt=0.917415
+  298 base-s0_r1    18.954s sha=0cf1b879dca3c0d5 plddt=0.917809
+{
+ "298": true
+}
