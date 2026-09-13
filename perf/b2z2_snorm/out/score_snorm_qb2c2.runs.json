@@ -1,0 +1,254 @@
+{
+ "doc": "The folds a per-pseudo-domain + CA-lDDT reading of BOLTZ2_ADALN_SHARED_SNORM needs.\n\nSame protocol and the same scorer as `fold_cond.py` (`perf/b2z2_fusebias/score.py`, arithmetic\nunmodified). One thing differs: this lever is a MODULE-LEVEL gate read once at import\n(`tt_bio.tenstorrent._B2_ADALN_SHARED_SNORM`), not a per-call env lookup, so the arm is selected by\nsetting that attribute per fold and the env var is asserted absent -- a pinned value would be baked\ninto the module at import and would serve every arm.\n\nThis row exists to resolve a contradiction. `state/b2z2-step-layernorm-fusion.md` measured this\nlever alone on WORMHOLE at 0.279-0.349 A per pseudo-domain; `state/b2z2-bh-union-step.md` measured\nthe same lever alone on BLACKHOLE at 0.70391 A (seed 0) and 0.25836 A (seed 1) -- two seeds, a 2.7x\nspread, and only the larger one reached the merge ladder. Two seeds cannot resolve a statistic that\nspreads that far, so this row runs four per arm, on the composed baseline main actually ships today:\nTT_BIO_ATOM_SHIFT_GATHER and TT_BIO_DEVICE_CONDITIONING are both merged and default-on, and neither\nwas on main when either of those two measurements was taken.\n\nThe reading with teeth is CA-lDDT against the experimental structure 1HCL, not per-domain RMSD\nagainst the seed floor: `b2z2-union-land` showed RMSD-against-the-seed-floor clears an arm that has\nlost 0.07 CA-lDDT.\n\nArms, in ONE process so they share a device, a program cache and a model load:\n\n    base      _B2_ADALN_SHARED_SNORM = False, one layer_norm per AdaLN\n    snorm     _B2_ADALN_SHARED_SNORM = True, one layer_norm per DiffusionTransformer stack\n    default   the checkout untouched. Its digest must equal the arm the default is supposed to\n              select, or the default is not what this run measured.\n\n`shared_norms` counts the shared norms a fold actually took, so an arm whose lever never fired is\ndistinguishable from an arm whose lever fired and was swallowed.\n\n    fold_snorm.py --out <json> --cifdir <dir> [--plan base:0,1,2,3;snorm:0,1,2,3]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-adaln-snorm-ship/tt_bio/__init__.py",
+  "commit": "5873fe4e22c777f34b25e766377a30776fe5fb3a",
+  "started_utc": "2026-09-13T23:46:47Z",
+  "loadavg": [
+   23.55322265625,
+   24.12939453125,
+   21.63134765625
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3;snorm:0,1,2,3;default:0",
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 41.5,
+   "sha256": "2bc758a1fb24ef30",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.818912,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "snorm",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 38.177,
+   "sha256": "61fa38612bcfd2ec",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.799958,
+   "tag": "snorm-s0"
+  },
+  {
+   "arm": "default",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 37.862,
+   "sha256": "61fa38612bcfd2ec",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.799958,
+   "tag": "default-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 35.553,
+   "sha256": "b2332fa1c5879260",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.810979,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "snorm",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 34.708,
+   "sha256": "14d8937f83f4e99f",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.813086,
+   "tag": "snorm-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 35.484,
+   "sha256": "d41a6e497bb8854d",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.809839,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "snorm",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 33.393,
+   "sha256": "e8a732e42496df37",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.808138,
+   "tag": "snorm-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 35.242,
+   "sha256": "e8dbab0016348034",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.839716,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "snorm",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 34.256,
+   "sha256": "664c2c61ba9617a3",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.836304,
+   "tag": "snorm-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 38.367,
+   "sha256": "2bc758a1fb24ef30",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.818912,
+   "tag": "base-s0_r1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 31.977,
+   "sha256": "de5d77b220e32a7a",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.913442,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "snorm",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 26.132,
+   "sha256": "ff0671d35e1e5793",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.914427,
+   "tag": "snorm-s0"
+  },
+  {
+   "arm": "default",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 27.015,
+   "sha256": "ff0671d35e1e5793",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.914427,
+   "tag": "default-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 26.644,
+   "sha256": "d7cddcc6f4a71ec1",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.915891,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "snorm",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 26.855,
+   "sha256": "48afcc823d4b7d16",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.914037,
+   "tag": "snorm-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 27.082,
+   "sha256": "fccde60644d6cdbb",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.91173,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "snorm",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 25.61,
+   "sha256": "765ef4e10cd97585",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.913485,
+   "tag": "snorm-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 24.567,
+   "sha256": "acd38fcb6049294e",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.918493,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "snorm",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 26.532,
+   "sha256": "5cbdf388b9fb97f0",
+   "shared_snorm": true,
+   "shared_norms": 200,
+   "plddt": 0.918083,
+   "tag": "snorm-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 24.978,
+   "sha256": "de5d77b220e32a7a",
+   "shared_snorm": false,
+   "shared_norms": 0,
+   "plddt": 0.913442,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 8.768,
+ "aa_floor_identical": {
+  "512": true,
+  "298": true
+ }
+}
