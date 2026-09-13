@@ -1,0 +1,78 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "1",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/k10-binaryng-l1-land/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "order": [
+   "off",
+   "on"
+  ],
+  "started_utc": "2026-09-13T21:01:34Z",
+  "loadavg": [
+   0.1142578125,
+   0.13720703125,
+   0.05859375
+  ],
+  "steps": 20,
+  "recycles": 1,
+  "commit": "f5812b90b1ccaa2d4e32efdc0c8be54e2935527b",
+  "l1_total_bytes": 160793600
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 11.567,
+   "mask_l1": [
+    0,
+    272
+   ],
+   "resid_l1": [
+    0,
+    0
+   ],
+   "plddt": 0.883177,
+   "metrics": {
+    "confidence_score": 0.842515,
+    "ptm": 0.679865,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.883177,
+    "complex_iplddt": 0.883177,
+    "complex_pde": 0.580645,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "9033b6bd46ae28f76f78bbf5080a32b20cea64429e397c9791dbde2a76e62799",
+   "loadavg1": 0.87,
+   "warmup": true
+  },
+  {
+   "arm": "on",
+   "fold_s": 8.286,
+   "mask_l1": [
+    272,
+    0
+   ],
+   "resid_l1": [
+    144,
+    144
+   ],
+   "plddt": 0.883177,
+   "metrics": {
+    "confidence_score": 0.842515,
+    "ptm": 0.679865,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.883177,
+    "complex_iplddt": 0.883177,
+    "complex_pde": 0.580645,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "9033b6bd46ae28f76f78bbf5080a32b20cea64429e397c9791dbde2a76e62799",
+   "loadavg1": 0.89,
+   "warmup": true
+  }
+ ]
+}

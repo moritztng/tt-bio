@@ -769,12 +769,14 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass instead of one call per layer. **Not bit-exact** — moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |
 | `TT_BIO_GATE_GRANULARITY` | 2 | Tiles per DST acquire in the reblock-permute gate kernel. Same structure, bit for bit at every value; 2 is the setting that wins on Blackhole without losing much on Wormhole. |
 | `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | Computes every attention head's MSA row weights from one projection of the pair tensor instead of one projection per head. Same structure, bit for bit. |
+| `TT_BIO_RESIDUAL_L1` | on | Has the two Pairformer sub-layers whose residual update used to go to DRAM and come straight back write it to L1 instead. Same structure, bit for bit; the update stays in DRAM above 512 residues, where it no longer fits. |
 | `TT_BIO_SDPA_ADD_GRANULARITY` | auto | Batches the fused SDPA kernel's running-sum/max and mask adds instead of doing them one tile at a time. Same structure, bit for bit at every granularity. |
 | `TT_BIO_SDPA_GRID_Q_CHUNK` | on | Sizes each attention's query chunk to the card's compute grid instead of a fixed cap, so a small attention fills the cores it has. Same structure, bit for bit. |
 | `TT_BIO_TRIATT_FUSED_QKVG` | on | Projects a triangle attention's query, key, value and gate in one pass over the pair tensor instead of two. Same structure, bit for bit. |
 | `TT_BIO_TRIATT_FUSED_QKVGB` | on | Adds the pair-bias projection to that same pass, so the pair tensor is read once instead of three times. Same structure, bit for bit; chains of 32 residues or fewer keep the separate projection. |
 | `TT_BIO_TRIMUL_FUSED_GOUT` | on | Computes a triangle multiplication's output gate as a second output of its input projection. Same structure, bit for bit. |
 | `TT_BIO_TRIMUL_GP_BANK_SPLIT` | on | Interleaves the gate and value columns of a triangle multiplication's fused input projection so the channel move reads each pair from two DRAM banks instead of one. Same structure, bit for bit; the gain is Blackhole's, free elsewhere. |
+| `TT_BIO_TRIMUL_MASK_L1` | on | Keeps a triangle multiplication's pair mask in L1, where the channel-blocked multiply re-reads it without touching DRAM. Same structure, bit for bit. |
 | `TT_BIO_TRIMUL_MM_TRANSPOSE` | on | Lets the matmul take a triangle multiplication's operand transpose instead of running a separate transpose first. Same structure, bit for bit; `--fast` keeps the separate op, because transposing inside the matmul re-quantises a block-float tile. |
 
 More on how these were measured, and what "same structure" means for each of them, in

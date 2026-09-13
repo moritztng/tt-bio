@@ -115,14 +115,17 @@ class Probe:
         return self.peak["dram"]
 
 
-def apply_arm(arm, TQ, TT):
-    on = arm == "on"
+# A lever set is the only lever-specific thing in this rig: which flags the arms flip, which
+# counters a fold resets, and what the engagement census reads. Everything below it -- the memory
+# probe, the OOM classification, the digest comparison -- is size machinery that does not care
+# which flag moved, so a second campaign picks a set with `--levers` instead of forking the file.
+def _b2z2_apply(on, TQ, TT):
     TQ._QKVG_ENABLED = on
     TQ._QKVGB_ENABLED = on
     TT.set_trimul_fused_gout(on)
 
 
-def reset_counters(TQ, TT):
+def _b2z2_reset(TQ, TT):
     TQ.QKVG_STATS[:] = [0, 0]
     TQ.QKVGB_STATS[:] = [0, 0]
     TQ.QKVG_REJECTS.clear()
@@ -131,7 +134,7 @@ def reset_counters(TQ, TT):
     TT.TRIMUL_GOUT_REJECTS.clear()
 
 
-def census(TQ, TT):
+def _b2z2_census(TQ, TT):
     return {
         "qkvg": {"served": TQ.QKVG_STATS[0], "declined": TQ.QKVG_STATS[1],
                  "rejects": {f"{r}@{'x'.join(map(str, s))}": n
@@ -144,18 +147,51 @@ def census(TQ, TT):
     }
 
 
+def _binaryng_l1_apply(on, TQ, TT):
+    TT._TRIMUL_MASK_L1 = on
+    TT._RESIDUAL_L1 = on
+
+
+def _binaryng_l1_reset(TQ, TT):
+    TT.TRIMUL_MASK_L1_STATS[:] = [0, 0]
+    TT.RESIDUAL_L1_STATS[:] = [0, 0]
+
+
+def _binaryng_l1_census(TQ, TT):
+    # Both counters are [taken L1, left in DRAM]. There is no reject dictionary: the only reason
+    # either site declines is that the tensor does not fit, and the size that produced the
+    # decline is the row's own `size`.
+    return {
+        "trimul_mask_l1": {"served": TT.TRIMUL_MASK_L1_STATS[0],
+                           "declined": TT.TRIMUL_MASK_L1_STATS[1], "rejects": {}},
+        "residual_l1": {"served": TT.RESIDUAL_L1_STATS[0],
+                        "declined": TT.RESIDUAL_L1_STATS[1], "rejects": {}},
+    }
+
+
+LEVER_SETS = {
+    "b2z2": {"pins": ("TT_BIO_TRIATT_FUSED_QKVG", "TT_BIO_TRIATT_FUSED_QKVGB",
+                      "TT_BIO_TRIMUL_FUSED_GOUT"),
+             "apply": _b2z2_apply, "reset": _b2z2_reset, "census": _b2z2_census},
+    "binaryng_l1": {"pins": ("TT_BIO_TRIMUL_MASK_L1", "TT_BIO_RESIDUAL_L1"),
+                    "apply": _binaryng_l1_apply, "reset": _binaryng_l1_reset,
+                    "census": _binaryng_l1_census},
+}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--cifdir", type=Path, required=True)
     ap.add_argument("--sizes", default="512,640,1024,1536")
     ap.add_argument("--arms", default="off,on")
+    ap.add_argument("--levers", default="b2z2", choices=sorted(LEVER_SETS))
     ap.add_argument("--steps", type=int, default=AB.SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
     args = ap.parse_args()
 
-    assert not (set(os.environ) & {"TT_BIO_TRIATT_FUSED_QKVG", "TT_BIO_TRIATT_FUSED_QKVGB",
-                                  "TT_BIO_TRIMUL_FUSED_GOUT"}), \
+    levers = LEVER_SETS[args.levers]
+    assert not (set(os.environ) & set(levers["pins"])), \
         "no lever may be pinned in the environment; the arms are set in-process"
 
     import torch
@@ -201,6 +237,7 @@ def main() -> int:
             "fast_mode": TT._FAST_MODE,
             "dram_total_b": int(mvd.total_bytes_per_bank) * int(mvd.num_banks),
             "l1_total_b": int(mvl.total_bytes_per_bank) * int(mvl.num_banks),
+            "levers": args.levers,
             "protocol": {"sampling_steps": args.steps, "recycling_steps": args.recycles,
                          "seed": AB.SEED, "diffusion_trace": False},
         },
@@ -231,8 +268,8 @@ def main() -> int:
 
     def fold(size, arm):
         target = AB.FIX / f"cdk2x2_{size}.yaml"
-        apply_arm(arm, TQ, TT)
-        reset_counters(TQ, TT)
+        levers["apply"](arm == "on", TQ, TT)
+        levers["reset"](TQ, TT)
         probe.reset()
         try:
             state.model.structure_module.score_model.reset_static_cache()
@@ -282,7 +319,7 @@ def main() -> int:
         rec["free_block_census_at_dram_peak"] = probe.census
         rec["probe_samples"] = probe.samples
         rec["probe_overhead_s"] = round(probe.probe_s, 2)
-        rec["census"] = census(TQ, TT)
+        rec["census"] = levers["census"](TQ, TT)
         return rec
 
     for size in sizes:
@@ -290,17 +327,13 @@ def main() -> int:
             r = fold(size, arm)
             out["runs"].append(r)
             c = r["census"]
+            gates = " ".join(f"{k}={v['served']}/{v['declined']}" for k, v in c.items())
             print(f"  {size:>5} {arm:3s} {r['verdict']:5s} {r.get('wall_s'):8.2f}s "
                   f"dram={r['peak_dram_gib']:6.3f}GiB l1={r['peak_l1_mib']:8.1f}MiB "
-                  f"qkvg={c['qkvg']['served']}/{c['qkvg']['declined']} "
-                  f"qkvgb={c['qkvgb']['served']}/{c['qkvgb']['declined']} "
-                  f"gout={c['trimul_gout']['served']}/{c['trimul_gout']['declined']} "
-                  f"sha={r.get('digest')}", flush=True)
-            if c["trimul_gout"]["rejects"]:
-                print(f"        gout rejects: {c['trimul_gout']['rejects']}", flush=True)
-            if c["qkvg"]["rejects"] or c["qkvgb"]["rejects"]:
-                print(f"        qkv rejects: {c['qkvg']['rejects']} {c['qkvgb']['rejects']}",
-                      flush=True)
+                  f"{gates} sha={r.get('digest')}", flush=True)
+            for k, v in c.items():
+                if v["rejects"]:
+                    print(f"        {k} rejects: {v['rejects']}", flush=True)
             dump()
 
     # Verdicts, computed here rather than by eye.
@@ -320,9 +353,8 @@ def main() -> int:
                     100.0 * (on["peak_l1_b"] - off["peak_l1_b"]) / off["peak_l1_b"], 4)
             c = on["census"]
             e["gates_engaged_on_arm"] = {k: c[k]["served"] > 0 and c[k]["declined"] == 0
-                                         for k in ("qkvg", "qkvgb", "trimul_gout")}
-            e["arm_off_is_silent"] = all(
-                off["census"][k]["served"] == 0 for k in ("qkvg", "qkvgb", "trimul_gout"))
+                                         for k in c}
+            e["arm_off_is_silent"] = all(v["served"] == 0 for v in off["census"].values())
         if size == 512 and on:
             e["digest_is_published_512"] = on.get("digest") == EXPECTED_512_DIGEST
         checks[str(size)] = e

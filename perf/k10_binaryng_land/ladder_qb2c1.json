@@ -1,0 +1,432 @@
+{
+ "doc": "Peak memory and gate engagement for the three trunk byte levers, 512 -> 1536 aa.\n\nThe levers are bit-exact on both architectures across 87 folds, so this row is not a parity row\nand not a perf row. It is the one question the two rows that measured them both left open: does a\nlever that allocates a concatenated qkv+gate+bias weight per triangle attention, and holds the\ntrimul gate live across the channel loop, still fit at a large target?\n\nPass/fail, so contention cannot corrupt it. No ratio is computed here and none may be quoted from\nit -- the probes below are cheap but they are not free, and the arms do not share a wall clock.\n\nPer (size, arm):\n\n  verdict        PASS (a CIF with the right residue count) or OOM (an allocator refusal, classified\n                 by the ENGINE's own pattern) or FAIL.\n  peak           device DRAM and L1 high-water, sampled at the `dram_peak` tag sites the model\n                 already carries -- which sit inside trimul, tri_att, the transition and every\n                 pairformer block, i.e. exactly where these levers act. `ttnn.get_memory_view`\n                 measured at <0.05 ms on this wheel, so every tag is sampled and nothing is\n                 decimated.\n  fragmentation  the smallest `largest_contiguous_bytes_free_per_bank` seen, and the allocator's\n                 own free-block count at the DRAM high-water. A literal live-allocation count is\n                 NOT available: `MemoryView.block_table` does not convert through this wheel's\n                 pybind layer (it returns list[unordered_map<string,string>] and raises). The\n                 free-block census is the observable that `of3-1024aa-oom-allocation-count-not-size`\n                 is actually about -- many co-live allocations show up as a collapsing largest free\n                 block against a still-large total free.\n  engagement     `QKVG_STATS`, `QKVGB_STATS`, `TRIMUL_GOUT_STATS` and every named reject reason,\n                 reset per fold. A lever that silently falls back reads as \"it worked\"; this row\n                 asserts on the counter, per size, in both arms.\n  digest         sha256[:16] of the CIF. The two arms at one size must be byte-identical, and at\n                 512 aa both must be `a91aa44441f0d9c5`.\n\nArms are applied in-process. That is legal here for a reason the flag-lever harnesses had to\nargue and this one does not: the fused path is a DIFFERENT op on a DIFFERENT weight, so it cannot\nbe handed the other arm's compiled program out of the cache.\n\n    ladder.py --out <json> --cifdir <dir> --sizes 512,640,1024,1536\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "1",
+  "commit": "fdb8fc2412161de01f898d176e23489556ae0c11",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/k10-binaryng-l1-land/tt_bio/__init__.py",
+  "started_utc": "2026-09-13T22:12:08Z",
+  "loadavg": [
+   1.080078125,
+   1.03955078125,
+   1.13720703125
+  ],
+  "seq_len_more_chunking": 1536,
+  "fast_mode": false,
+  "dram_total_b": 34225520128,
+  "l1_total_b": 160793600,
+  "levers": "binaryng_l1",
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "size": 298,
+   "arm": "off",
+   "started_utc": "2026-09-13T22:12:11Z",
+   "loadavg": [
+    1.080078125,
+    1.03955078125,
+    1.13720703125
+   ],
+   "wall_s": 13.92,
+   "verdict": "PASS",
+   "digest": "de5d77b220e32a7a",
+   "residues_in_cif": 785,
+   "plddt": 0.913442,
+   "peak_dram_b": 1591384064,
+   "peak_l1_b": 26357760,
+   "peak_dram_gib": 1.482,
+   "peak_l1_mib": 25.137,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=320x320x128]",
+    "l1": "trimul(start) p_out done [z=1x320x320x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 4078780352,
+    "l1": 1222144
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 6
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 4.79,
+   "census": {
+    "trimul_mask_l1": {
+     "served": 0,
+     "declined": 560,
+     "rejects": {}
+    },
+    "residual_l1": {
+     "served": 0,
+     "declined": 0,
+     "rejects": {}
+    }
+   }
+  },
+  {
+   "size": 298,
+   "arm": "on",
+   "started_utc": "2026-09-13T22:12:25Z",
+   "loadavg": [
+    1.98046875,
+    1.2353515625,
+    1.2001953125
+   ],
+   "wall_s": 12.11,
+   "verdict": "PASS",
+   "digest": "de5d77b220e32a7a",
+   "residues_in_cif": 785,
+   "plddt": 0.913442,
+   "peak_dram_b": 1591416832,
+   "peak_l1_b": 26583040,
+   "peak_dram_gib": 1.482,
+   "peak_l1_mib": 25.352,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=320x320x128]",
+    "l1": "trimul(start) p_out done [z=1x320x320x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 4078690240,
+    "l1": 1097216
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 14
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 4.94,
+   "census": {
+    "trimul_mask_l1": {
+     "served": 560,
+     "declined": 0,
+     "rejects": {}
+    },
+    "residual_l1": {
+     "served": 560,
+     "declined": 0,
+     "rejects": {}
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "started_utc": "2026-09-13T22:12:37Z",
+   "loadavg": [
+    1.98388671875,
+    1.2607421875,
+    1.208984375
+   ],
+   "wall_s": 18.43,
+   "verdict": "PASS",
+   "digest": "2bc758a1fb24ef30",
+   "residues_in_cif": 1362,
+   "plddt": 0.818912,
+   "peak_dram_b": 2228434944,
+   "peak_l1_b": 67133440,
+   "peak_dram_gib": 2.075,
+   "peak_l1_mib": 64.023,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=512x512x128]",
+    "l1": "trimul(start) p_out done [z=1x512x512x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3988750272,
+    "l1": 851456
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 18
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 5.25,
+   "census": {
+    "trimul_mask_l1": {
+     "served": 0,
+     "declined": 528,
+     "rejects": {}
+    },
+    "residual_l1": {
+     "served": 0,
+     "declined": 0,
+     "rejects": {}
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "started_utc": "2026-09-13T22:12:55Z",
+   "loadavg": [
+    1.9892578125,
+    1.3095703125,
+    1.2265625
+   ],
+   "wall_s": 18.0,
+   "verdict": "PASS",
+   "digest": "2bc758a1fb24ef30",
+   "residues_in_cif": 1362,
+   "plddt": 0.818912,
+   "peak_dram_b": 2228500480,
+   "peak_l1_b": 67809280,
+   "peak_dram_gib": 2.075,
+   "peak_l1_mib": 64.668,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=512x512x128]",
+    "l1": "trimul(start) p_out done [z=1x512x512x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3985383360,
+    "l1": 845312
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 20
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 5.32,
+   "census": {
+    "trimul_mask_l1": {
+     "served": 528,
+     "declined": 0,
+     "rejects": {}
+    },
+    "residual_l1": {
+     "served": 560,
+     "declined": 0,
+     "rejects": {}
+    }
+   }
+  },
+  {
+   "size": 768,
+   "arm": "off",
+   "started_utc": "2026-09-13T22:13:13Z",
+   "loadavg": [
+    2.5537109375,
+    1.4716796875,
+    1.28173828125
+   ],
+   "wall_s": 39.2,
+   "verdict": "PASS",
+   "digest": "8491d8d888be428a",
+   "residues_in_cif": 2052,
+   "plddt": 0.774493,
+   "peak_dram_b": 3394365440,
+   "peak_l1_b": 0,
+   "peak_dram_gib": 3.161,
+   "peak_l1_mib": 0.0,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=768x768x128]",
+    "l1": null
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3818375104,
+    "l1": 1461760
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 25
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 5.35,
+   "census": {
+    "trimul_mask_l1": {
+     "served": 0,
+     "declined": 528,
+     "rejects": {}
+    },
+    "residual_l1": {
+     "served": 0,
+     "declined": 0,
+     "rejects": {}
+    }
+   }
+  },
+  {
+   "size": 768,
+   "arm": "on",
+   "started_utc": "2026-09-13T22:13:53Z",
+   "loadavg": [
+    2.30810546875,
+    1.53173828125,
+    1.30908203125
+   ],
+   "wall_s": 36.37,
+   "verdict": "PASS",
+   "digest": "8491d8d888be428a",
+   "residues_in_cif": 2052,
+   "plddt": 0.774493,
+   "peak_dram_b": 3394398208,
+   "peak_l1_b": 1351680,
+   "peak_dram_gib": 3.161,
+   "peak_l1_mib": 1.289,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=768x768x128]",
+    "l1": "trimul(start) channel loop done [z=1x768x768x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3818371008,
+    "l1": 1449472
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 25
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 5.42,
+   "census": {
+    "trimul_mask_l1": {
+     "served": 528,
+     "declined": 0,
+     "rejects": {}
+    },
+    "residual_l1": {
+     "served": 0,
+     "declined": 560,
+     "rejects": {}
+    }
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "started_utc": "2026-09-13T22:14:29Z",
+   "loadavg": [
+    2.3955078125,
+    1.6787109375,
+    1.37060546875
+   ],
+   "wall_s": 71.2,
+   "verdict": "PASS",
+   "digest": "e82f34a2b73713c7",
+   "residues_in_cif": 2729,
+   "plddt": 0.761297,
+   "peak_dram_b": 5010089984,
+   "peak_l1_b": 0,
+   "peak_dram_gib": 4.666,
+   "peak_l1_mib": 0.0,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=1024x1024x128]",
+    "l1": null
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3585816512,
+    "l1": 1461760
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 25
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 5.47,
+   "census": {
+    "trimul_mask_l1": {
+     "served": 0,
+     "declined": 528,
+     "rejects": {}
+    },
+    "residual_l1": {
+     "served": 0,
+     "declined": 0,
+     "rejects": {}
+    }
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "on",
+   "started_utc": "2026-09-13T22:15:40Z",
+   "loadavg": [
+    2.2509765625,
+    1.80419921875,
+    1.43994140625
+   ],
+   "wall_s": 65.25,
+   "verdict": "PASS",
+   "digest": "e82f34a2b73713c7",
+   "residues_in_cif": 2729,
+   "plddt": 0.761297,
+   "peak_dram_b": 5010122752,
+   "peak_l1_b": 2252800,
+   "peak_dram_gib": 4.666,
+   "peak_l1_mib": 2.148,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=1024x1024x128]",
+    "l1": "trimul(start) channel loop done [z=1x1024x1024x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3585812416,
+    "l1": 1441280
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 25
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 5.53,
+   "census": {
+    "trimul_mask_l1": {
+     "served": 528,
+     "declined": 0,
+     "rejects": {}
+    },
+    "residual_l1": {
+     "served": 0,
+     "declined": 560,
+     "rejects": {}
+    }
+   }
+  }
+ ],
+ "model_load_s": 2.517,
+ "dram_after_load_b": 1134182400,
+ "checks": {
+  "298": {
+   "both_complete": true,
+   "bit_exact": true,
+   "peak_dram_delta_pct": 0.0021,
+   "peak_l1_delta_pct": 0.8547,
+   "gates_engaged_on_arm": {
+    "trimul_mask_l1": true,
+    "residual_l1": true
+   },
+   "arm_off_is_silent": true
+  },
+  "512": {
+   "both_complete": true,
+   "bit_exact": true,
+   "peak_dram_delta_pct": 0.0029,
+   "peak_l1_delta_pct": 1.0067,
+   "gates_engaged_on_arm": {
+    "trimul_mask_l1": true,
+    "residual_l1": true
+   },
+   "arm_off_is_silent": true,
+   "digest_is_published_512": true
+  },
+  "768": {
+   "both_complete": true,
+   "bit_exact": true,
+   "peak_dram_delta_pct": 0.001,
+   "gates_engaged_on_arm": {
+    "trimul_mask_l1": true,
+    "residual_l1": false
+   },
+   "arm_off_is_silent": true
+  },
+  "1024": {
+   "both_complete": true,
+   "bit_exact": true,
+   "peak_dram_delta_pct": 0.0007,
+   "gates_engaged_on_arm": {
+    "trimul_mask_l1": true,
+    "residual_l1": false
+   },
+   "arm_off_is_silent": true
+  }
+ }
+}
