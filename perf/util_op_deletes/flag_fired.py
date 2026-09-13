@@ -3,9 +3,9 @@
 
 The D4 A/B reports one CIF digest across both arms, which is what a correct layout change should
 do -- and is also exactly what a DEAD flag would do. So run the fold under the real driver and
-read the counter the trimul increments per matmul call, split by whether that call handed an
-operand transpose to the matmul. Arm 0 must be all `kept`, arm 1 must be all `deferred`; anything
-else means the number the A/B measured is not the number this lever is supposed to move.
+read the census the trimul keeps per matmul call. Arm 0 must be all `keep`, arm 1 must be all
+`defer`; anything else means the number the A/B measured is not the number this lever is supposed
+to move. For the per-branch breakdown use `why_kept.py`.
 """
 import atexit, runpy, sys
 
@@ -14,7 +14,9 @@ import tt_bio.tenstorrent as T
 
 @atexit.register
 def _report() -> None:
-    deferred, kept = T.TRIMUL_MM_TRANSPOSE_STATS
+    st = T.TRIMUL_MM_TRANSPOSE_STATS
+    deferred = sum(v for (_b, w), v in st.items() if w == "defer")
+    kept = sum(v for (_b, w), v in st.items() if w == "keep")
     print("FIRED flag=%s deferred=%d kept=%d" % (
         T._TRIMUL_MM_TRANSPOSE, deferred, kept), file=sys.stderr, flush=True)
 

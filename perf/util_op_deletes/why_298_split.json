@@ -1,0 +1,43 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "2",
+  "lease_cards": "2",
+  "git_head": "be16f414aff78f09dd8b4de93877f3f9d005985e",
+  "ttnn": "0.68.0",
+  "torch": "2.8.0+cpu",
+  "fast": false,
+  "protocol": {
+   "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "timed_region": "predict_one (featurise + fold + CIF write)"
+  },
+  "started": "2026-09-13T15:51:06+0000",
+  "phases_requested": [
+   "control"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 3.33,
+  "n_msa": 35,
+  "card_type": "p300c",
+  "aiclk_mhz": " 800"
+ },
+ "cold_s": 28.092,
+ "control_298": {
+  "fold_s": 18.519,
+  "n_msa": 35,
+  "plddt": 0.913091,
+  "n_tokens": null,
+  "cifs": {
+   "cdk2x2_298.cif": "0cf1b879dca3c0d55d060e75d4db735fc5eff1267f2720fa66096489129be334"
+  }
+ },
+ "finished": "2026-09-13T15:51:57+0000"
+}

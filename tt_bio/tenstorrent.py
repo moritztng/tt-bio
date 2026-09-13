@@ -3607,13 +3607,27 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
 # operand tile-transposed. What goes is the separate program and its 67.1 MB allocation.
 TRIMUL_MM_TRANSPOSE = True
 _TRIMUL_MM_TRANSPOSE = env_flag("TT_BIO_TRIMUL_MM_TRANSPOSE", TRIMUL_MM_TRANSPOSE)
-# (calls that deferred both operands to the matmul, calls that transposed as before)
-TRIMUL_MM_TRANSPOSE_STATS = [0, 0]
+# Per-branch call census, keyed (channel-move branch, "defer"|"keep"). A dead flag and a correct
+# layout change look identical from the outside, since both write one CIF digest, so the trimul
+# counts which branch each matmul call took and whether it handed its transpose over. Read it with
+# `perf/util_op_deletes/why_kept.py`; it is what showed the deferral already reaches every call at
+# 512 aa and, before the split path below asked for it, none at 298 aa.
+TRIMUL_MM_TRANSPOSE_STATS: dict = {}
 
 
 def _mm_transpose_deferred(program_config) -> bool:
-    """Whether the moved chunks may skip their transpose and let the matmul take it."""
-    return _TRIMUL_MM_TRANSPOSE and isinstance(
+    """Whether the moved chunks may skip their transpose and let the matmul take it.
+
+    Never in --fast, which is the only route that hands the matmul a bfloat8_b operand. A
+    block-float tile shares one exponent per face, so WHICH values are grouped together is a
+    property of the layout: transposing inside the matmul re-quantises where transposing the chunk
+    beforehand does not, and the two stop agreeing. Measured at both split geometries
+    (`perf/util_op_deletes/mm_transpose_bf8.json`), max_abs 0.5 at [1,32,320,320] in L1 and 0.75 at
+    [1,128,512,512] in DRAM, against `torch.equal` on bfloat16 at the same shapes. It is worth
+    1.0868x on the 512 aa DRAM leg, so it stays a real lever -- just not a layout-only one, and it
+    is not taken here on that basis.
+    """
+    return _TRIMUL_MM_TRANSPOSE and not _FAST_MODE and isinstance(
         program_config, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig)
 
 
@@ -5612,7 +5626,7 @@ class TriangleMultiplication(Module):
 
     def _transform_chunk(
         self, chunk: ttnn.Tensor, permute_dims: tuple[int, ...], memory_config: ttnn.MemoryConfig,
-        realloc: bool = True,
+        realloc: bool = True, defer_transpose: bool = False,
     ) -> ttnn.Tensor:
         # Bring the channel chunk to the batch axis for the per-channel matmul.
         # The two cases are (0,3,1,2) [no inner swap] and (0,3,2,1) [also swaps
@@ -5624,6 +5638,16 @@ class TriangleMultiplication(Module):
         # permute(0,3,2,1) (pure index reordering). On the small-L L1 path the
         # single permute is marginally faster (the extra op's launch overhead
         # outweighs the cheaper transpose), so keep it there.
+        # The matmul can take the inner swap itself (`_mm_transpose_deferred`), which leaves the
+        # chunk needing only the channel move. On the DRAM route that deletes the separate
+        # `ttnn.transpose` below outright; on the L1 route, where the two are one `ttnn.permute`,
+        # it drops (0,3,2,1) to (0,3,1,2) and so lets `_channel_move` reach the hand-written
+        # reblock kernel. Measured at the 298 aa split shape [1,320,320,32] in L1, median of 7 warm
+        # on qb2 card 2 (`perf/util_op_deletes/mm_transpose_l1.json`), `torch.equal` at max_abs 0
+        # on both operands: 0.3824 -> 0.3486 ms for a transposed b, 0.3684 -> 0.3463 ms for a
+        # transposed a.
+        if defer_transpose and permute_dims == (0, 3, 2, 1):
+            permute_dims = (0, 3, 1, 2)
         inner_swap = permute_dims == (0, 3, 2, 1)
         # What makes the single permute expensive is the inner L,L transpose, and that is a
         # function of L, not of where the result lands. The DRAM test above stands in for "L is
@@ -5923,10 +5947,11 @@ class TriangleMultiplication(Module):
                     perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
                     a_chunk = b_chunk = None
-                    # Set only where the chunk really was left in the move's own (0,3,1,2) layout,
-                    # so the ungated fallback below, which permutes straight to `perm`, keeps the
-                    # untransposed matmul it has always had.
+                    # Set only where the chunk really was left in the move's own (0,3,1,2)
+                    # layout. All three channel-move branches can leave it there now; the census
+                    # below records which one each call took.
                     defer_a = defer_b = False
+                    branch = "?"
                     defer = _mm_transpose_deferred(program_config)
                     if (_TRIMUL_INPROJ_ROWBLOCK and not row_norm and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
@@ -5936,6 +5961,7 @@ class TriangleMultiplication(Module):
                             x_norm_in, gp_in_chunks[i], bias_i, H,
                             int(gp_in_chunks[i].shape[-1]) // 4, perm_a, perm_b, memory_config,
                             defer_transpose=defer)
+                        branch = "rowblock" if a_chunk is not None else "rowblock-declined"
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
@@ -5986,6 +6012,7 @@ class TriangleMultiplication(Module):
                             and memory_config.buffer_type == ttnn.BufferType.DRAM
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
                         )
+                        branch = "gated-move" if gated else "four-way-split"
                         if gated:
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
@@ -6015,10 +6042,15 @@ class TriangleMultiplication(Module):
 
                             a_chunk = self._transform_chunk(
                                 a_chunk, perm_a, memory_config=tail_mc, realloc=n_pairs // group > 1,
+                                defer_transpose=defer,
                             )
                             b_chunk = self._transform_chunk(
                                 b_chunk, perm_b, memory_config=tail_mc, realloc=n_pairs // group > 1,
+                                defer_transpose=defer,
                             )
+                            if defer:
+                                defer_a = perm_a == (0, 3, 2, 1)
+                                defer_b = perm_b == (0, 3, 2, 1)
                     if mask_moved_ok:
                         # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
                         # declines the in-place form for a broadcast operand, take `ttnn.multiply`
@@ -6026,7 +6058,8 @@ class TriangleMultiplication(Module):
                         # `a` is transposed iff it was not left for the matmul to transpose.
                         a_chunk = ttnn.multiply_(
                             a_chunk, mask_moved(perm_a == (0, 3, 2, 1) and not defer_a))
-                    TRIMUL_MM_TRANSPOSE_STATS[0 if (defer_a or defer_b) else 1] += 1
+                    _st = (branch, "defer" if (defer_a or defer_b) else "keep")
+                    TRIMUL_MM_TRANSPOSE_STATS[_st] = TRIMUL_MM_TRANSPOSE_STATS.get(_st, 0) + 1
                     x_chunk = ttnn.matmul(
                         a_chunk,
                         b_chunk,

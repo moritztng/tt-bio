@@ -1,0 +1,32 @@
+{
+ "bf8_b 320 L1": {
+  "today_ms": 0.14748299963684985,
+  "dtype": "DataType.BFLOAT8_B",
+  "shape": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "space": "L1",
+  "defer_ms": 0.14288400052464567,
+  "speedup": 1.032186942522028,
+  "equal": false,
+  "max_abs": 0.5
+ },
+ "bf8_b 512 DRAM": {
+  "today_ms": 1.423961999535095,
+  "dtype": "DataType.BFLOAT8_B",
+  "shape": [
+   1,
+   128,
+   512,
+   512
+  ],
+  "space": "DRAM",
+  "defer_ms": 1.310253999690758,
+  "speedup": 1.0867831732405884,
+  "equal": false,
+  "max_abs": 0.75
+ }
+}
