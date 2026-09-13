@@ -1261,6 +1261,9 @@ _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
 # what is not an identity is the ORDER the wider matmul accumulates in, which is why this is
 # scored against a float64 reference and not asserted bit-exact.
 _HEAD_PAD_TAIL = env_flag("TT_BIO_HEAD_PAD_TAIL", False)
+# (tails that carried the pad, tails that stripped it). A lever that never fires has to be
+# able to say so, and this one is gated on a property no caller states out loud.
+HEAD_PAD_TAIL_STATS = [0, 0]
 
 # Kill switch for the slice+concat atom key gather (see ATOM_KEY_SHIFT). The gather it replaces
 # is a pure index permutation, so the arm is bit-exact and defaults on; the switch exists so a
@@ -7619,6 +7622,7 @@ class AttentionPairBias(Module):
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
+            HEAD_PAD_TAIL_STATS[0 if pad_tail else 1] += 1
             if pad_tail:
                 # The pad lanes are exactly zero (v's are, and o is a weighted sum of v), so
                 # concatenating the heads padded and letting g and o carry the pad lanes costs
