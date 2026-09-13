@@ -19,6 +19,44 @@
    "digests": [
     "8cabfca3308ed3cd"
    ]
+  },
+  {
+   "width": 16,
+   "n_chips_reporting": 16,
+   "null_ratio_worst": 1.00917,
+   "null_ratio_median": 1.0023,
+   "aa_floor_worst": 1.01571,
+   "median_fold_s": 39.017,
+   "min_fold_s": 38.313,
+   "max_fold_s": 39.388,
+   "fold_spread_x": 1.0281,
+   "cv_pct": 0.518,
+   "smallest_resolvable_margin_pp": 0.917,
+   "omp_num_threads": [
+    "4"
+   ],
+   "digests": [
+    "2573305a66cf6e75"
+   ]
+  },
+  {
+   "width": 32,
+   "n_chips_reporting": 32,
+   "null_ratio_worst": 1.02085,
+   "null_ratio_median": 1.00558,
+   "aa_floor_worst": 1.04564,
+   "median_fold_s": 41.279,
+   "min_fold_s": 40.122,
+   "max_fold_s": 42.265,
+   "fold_spread_x": 1.0534,
+   "cv_pct": 1.094,
+   "smallest_resolvable_margin_pp": 2.085,
+   "omp_num_threads": [
+    "2"
+   ],
+   "digests": [
+    "2573305a66cf6e75"
+   ]
   }
  ]
 }

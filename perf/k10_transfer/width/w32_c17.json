@@ -1,0 +1,130 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "17",
+  "lever": "null",
+  "kind": "control",
+  "what": "both arms are the shipped default; the answer is 1.0",
+  "fixture": "cdk2x2_512",
+  "steps": 200,
+  "recycles": 3,
+  "tt_bio_file": "/home/agent/wt-k10xfer/tt_bio/__init__.py",
+  "commit": "0cd6c4152bbe3c2fbcdde74c9c54ac16bb3c5e82",
+  "started_utc": "2026-09-13T16:49:17Z",
+  "loadavg_at_start": [
+   11.9248046875,
+   15.4794921875,
+   18.2822265625
+  ],
+  "lease_dir": "/home/agent/leases",
+  "open_lock": "/home/agent/k10out/width/device-open.lock",
+  "width": 32,
+  "omp_num_threads": "2"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 42.415,
+   "stats": {},
+   "plddt": 0.84356,
+   "cif_sha256": "2573305a66cf6e757b707b2ec8c4af6e9c98a4bc2f7011a86588e1cf872921f9",
+   "loadavg1": 26.4,
+   "t_end": 1789318205.2,
+   "warmup": true,
+   "rep": -1
+  },
+  {
+   "arm": "on",
+   "fold_s": 41.884,
+   "stats": {},
+   "plddt": 0.84356,
+   "cif_sha256": "2573305a66cf6e757b707b2ec8c4af6e9c98a4bc2f7011a86588e1cf872921f9",
+   "loadavg1": 32.02,
+   "t_end": 1789318247.1,
+   "warmup": true,
+   "rep": -1
+  },
+  {
+   "arm": "off",
+   "fold_s": 42.016,
+   "stats": {},
+   "plddt": 0.84356,
+   "cif_sha256": "2573305a66cf6e757b707b2ec8c4af6e9c98a4bc2f7011a86588e1cf872921f9",
+   "loadavg1": 40.86,
+   "t_end": 1789318289.1,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 41.64,
+   "stats": {},
+   "plddt": 0.84356,
+   "cif_sha256": "2573305a66cf6e757b707b2ec8c4af6e9c98a4bc2f7011a86588e1cf872921f9",
+   "loadavg1": 42.86,
+   "t_end": 1789318330.7,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 41.765,
+   "stats": {},
+   "plddt": 0.84356,
+   "cif_sha256": "2573305a66cf6e757b707b2ec8c4af6e9c98a4bc2f7011a86588e1cf872921f9",
+   "loadavg1": 41.1,
+   "t_end": 1789318372.5,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 41.704,
+   "stats": {},
+   "plddt": 0.84356,
+   "cif_sha256": "2573305a66cf6e757b707b2ec8c4af6e9c98a4bc2f7011a86588e1cf872921f9",
+   "loadavg1": 41.61,
+   "t_end": 1789318414.2,
+   "warmup": false,
+   "rep": 0
+  }
+ ],
+ "median_fold_s": {
+  "off": 41.86,
+  "on": 41.7025
+ },
+ "ratio": 1.00378,
+ "aa_floors": [
+  1.00748,
+  1.003
+ ],
+ "aa_floor_worst": 1.00748,
+ "paired_ratios": [
+  1.00903,
+  0.99854
+ ],
+ "separates_from_floor": false,
+ "cif_sha256": {
+  "off": [
+   "2573305a66cf6e757b707b2ec8c4af6e9c98a4bc2f7011a86588e1cf872921f9"
+  ],
+  "on": [
+   "2573305a66cf6e757b707b2ec8c4af6e9c98a4bc2f7011a86588e1cf872921f9"
+  ]
+ },
+ "bit_exact": true,
+ "plddt": {
+  "off": [
+   0.84356
+  ],
+  "on": [
+   0.84356
+  ]
+ },
+ "engagement": {
+  "on_served": 0,
+  "off_served": 0,
+  "instrumented": false
+ },
+ "engagement_control": "uninstrumented"
+}
