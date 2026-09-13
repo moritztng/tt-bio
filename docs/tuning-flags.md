@@ -183,12 +183,15 @@ comes from the device and the head count from the tensor, so no card and no mode
 
 **Accuracy: identical.** The query axis partitions independent rows — each chunk computes its own
 rows and nothing is combined across chunks. The softmax reduction order lives in the key axis, which
-this does not touch. `torch.equal` and max abs 0.0 at every call site, and one structure across 28
-timed folds at equal pLDDT.
+this does not touch. `torch.equal` and max abs 0.0 at every call site, and one CIF digest across all
+84 timed folds of the three sessions below, at equal pLDDT.
 
-**Speed: 1.00355x on the fold**, 95 % CI [1.00180, 1.00506] over 28 folds against the same session's
-A/A floor of [0.99934, 1.00147], and **1.1269x at the one call site it moves** (117.5 to 103.9 us,
-50 paired reps).
+**Speed: 1.0048x on the 512 aa Blackhole fold.** Two independent sessions on the shipped tree read
+1.00496x (95 % CI [1.00048, 1.00635], same-session A/A floor [1.00075, 1.00393]) and 1.00479x (95 %
+CI [1.00322, 1.00636], floor [0.99845, 1.00262]), 28 folds each, paired median over ABBA reps. At
+the one call site it moves the op is **1.13x** (118 to 104 us, 20 paired reps a session). An earlier
+session measured 1.00355x on a tree without the triangle fusions, where the same fold took 19.324 s
+instead of 18.645 s.
 
 **It moves one call site of two, and that is a property of the shapes.** On the 512 aa reference the
 diffusion step's token attention goes from 256 query rows to 128 — 64 work units on 110 cores where
