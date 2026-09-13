@@ -15,8 +15,22 @@
 // batch, and the chunk's tile grid as (batch, head, row) instead of (row, head). Same tile, same
 // transaction, different address.
 #ifdef HEAD_MAJOR_MT
-#define MM_SPLIT_TILE_ID(row, tidx, logical_d1) \
-    ((((row) / HEAD_MAJOR_MT) * (logical_d1) + (tidx)) * HEAD_MAJOR_MT + ((row) % HEAD_MAJOR_MT))
+// HEAD_MAJOR_HD_T is the head's width in TILES. It was 1 when only the 32-channel tri-attention
+// heads used this, and the diffusion transformer's heads are 64 channels wide, so the head a
+// column tile belongs to is `tidx / HEAD_MAJOR_HD_T` and its position inside that head is
+// `tidx % HEAD_MAJOR_HD_T`. At HEAD_MAJOR_HD_T = 1 this reduces to the expression it replaces,
+// term for term. `logical_d1` is the chunk's column-tile count, so the head count is
+// `logical_d1 / HEAD_MAJOR_HD_T`.
+#ifndef HEAD_MAJOR_HD_T
+#define HEAD_MAJOR_HD_T 1
+#endif
+#define MM_SPLIT_TILE_ID(row, tidx, logical_d1)                                          \
+    ((((((row) / HEAD_MAJOR_MT) * ((logical_d1) / HEAD_MAJOR_HD_T))                      \
+       + (tidx) / HEAD_MAJOR_HD_T) *                                                     \
+          HEAD_MAJOR_MT +                                                                \
+      ((row) % HEAD_MAJOR_MT)) *                                                         \
+         HEAD_MAJOR_HD_T +                                                               \
+     ((tidx) % HEAD_MAJOR_HD_T))
 #else
 #define MM_SPLIT_TILE_ID(row, tidx, logical_d1) ((row) * (logical_d1) + (tidx))
 #endif
