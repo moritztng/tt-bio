@@ -271,9 +271,19 @@ def parent(args) -> int:
     # launcher passes cores // concurrent_jobs; this is that launcher, so it passes it.
     from tt_bio import runtime as _RT
     cores = os.cpu_count() or 1
-    cap_env = {} if args.no_thread_cap else _RT.host_thread_cap_env(width, args.host_threads or cores)
+    if args.no_thread_cap:
+        cap_env = {}
+    elif args.fixed_cap:
+        # A cap of cores//W makes every width a different thread count, and the fold's CIF bytes
+        # depend on that count (32 threads -> da476491dbb2a847, 16 -> b3ac07a5d86933a8 on the same
+        # fixture, seed and chip). The bit-exact bar across widths therefore needs ONE cap for the
+        # whole curve, so the curve is run at a fixed cap and the adaptive one is kept as evidence.
+        cap_env = {var: str(args.fixed_cap) for var in _RT.HOST_THREAD_VARS}
+    else:
+        cap_env = _RT.host_thread_cap_env(width, args.host_threads or cores)
     out["host_thread_cap"] = {"cores": cores, "cap_env": cap_env,
-                              "capped": not args.no_thread_cap}
+                              "capped": not args.no_thread_cap,
+                              "fixed": bool(args.fixed_cap)}
     args.out.write_text(json.dumps(out, indent=1))
 
     procs = {}
@@ -363,6 +373,9 @@ def main() -> int:
     ap.add_argument("--workdir", default="")
     ap.add_argument("--host-threads", dest="host_threads", type=int, default=0,
                     help="this box's core budget to split across the W children; default nproc")
+    ap.add_argument("--fixed-cap", dest="fixed_cap", type=int, default=0,
+                    help="one host thread cap for every width, so every width is the same "
+                         "computation and the CIF digest can be compared across the curve")
     ap.add_argument("--no-thread-cap", dest="no_thread_cap", action="store_true",
                     help="control arm: let every child claim all cores, as an unaware launcher does")
     ap.add_argument("--out", type=Path, required=True)
