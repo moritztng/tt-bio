@@ -5281,7 +5281,7 @@ _TRIMUL_TAIL_F1 = os.environ.get(
 # instead of after it. Declines wherever anything else in the call wants the normed input for
 # itself -- a row-blocked norm, a multi-iteration channel loop (the gate would be recomputed per
 # iteration), F1's fused tail (which already deletes this read), or an L1 channel path.
-TRIMUL_FUSED_GOUT = False
+TRIMUL_FUSED_GOUT = True
 _TRIMUL_FUSED_GOUT = os.environ.get(
     "TT_BIO_TRIMUL_FUSED_GOUT", "1" if TRIMUL_FUSED_GOUT else "0") == "1"
 

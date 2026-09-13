@@ -237,7 +237,7 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
 # own guards on the `out` projection -- a fused call that served where `gate_proj` would have
 # refused would silently change the tail's op class.
 
-TRIATT_FUSED_QKVG = False
+TRIATT_FUSED_QKVG = True
 _QKVG_ENABLED = os.environ.get(
     "TT_BIO_TRIATT_FUSED_QKVG", "1" if TRIATT_FUSED_QKVG else "0") == "1"
 
@@ -342,7 +342,7 @@ def out_proj(gated, w, ckc, dtype):
 #
 # Declines to exactly what `qkvg_heads` declines to, plus a bias weight that is not one tile wide.
 
-TRIATT_FUSED_QKVGB = False
+TRIATT_FUSED_QKVGB = True
 _QKVGB_ENABLED = os.environ.get(
     "TT_BIO_TRIATT_FUSED_QKVGB", "1" if TRIATT_FUSED_QKVGB else "0") == "1"
 
