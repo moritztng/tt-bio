@@ -1,0 +1,24 @@
+{
+ "doc": "Fold the null-lever width ladder into the number that sets how many agents this box can host.\n\nThroughput is the wrong statistic for this question. Folds per hour says how much work a box does;\nit does not say whether a 1.005x lever measured on one of its chips is real. The statistic that does\nis the NULL RATIO: both arms of the null lever are the shipped default, so its true value is 1.0 and\nwhatever a chip reads instead is the noise a paired A/B carries at that width.\n\nReported per width: the worst null ratio any chip read, the median, and the smallest lever margin\nthat clears the worst chip. A width whose worst null read is 1.02 cannot screen a 1.01 lever on\nevery chip, however many folds per hour it turns out.\n",
+ "widths": [
+  {
+   "width": 1,
+   "n_chips_reporting": 1,
+   "null_ratio_worst": 1.0,
+   "null_ratio_median": 1.0,
+   "aa_floor_worst": 1.00684,
+   "median_fold_s": 37.394,
+   "min_fold_s": 37.266,
+   "max_fold_s": 37.521,
+   "fold_spread_x": 1.0068,
+   "cv_pct": 0.298,
+   "smallest_resolvable_margin_pp": 0.0,
+   "omp_num_threads": [
+    null
+   ],
+   "digests": [
+    "8cabfca3308ed3cd"
+   ]
+  }
+ ]
+}
