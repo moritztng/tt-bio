@@ -51,6 +51,11 @@ def main() -> int:
     ap.add_argument("--fixture", default="cdk2x2_512")
     ap.add_argument("--order", default="off,on,on,off",
                     help="one rep's arm order; ABBA cancels box drift inside the rep")
+    ap.add_argument("--max-load", type=float, default=2.5,
+                    help="drop a whole rep if any of its folds started above this 1-min loadavg. "
+                         "One fold of this harness sits at 1.0-2.0 on an otherwise idle qb2, so "
+                         "anything above 2.5 is a co-tenant and benchlock's admission check is "
+                         "one-shot and blind to one that arrives mid-run.")
     args = ap.parse_args()
     OUT_PATH = args.out
     order = args.order.split(",")
@@ -91,6 +96,23 @@ def main() -> int:
     LEV._ensure_local_artifacts = _ensure_local_artifacts
     _ensure_local_artifacts(cfg)
 
+    # The block wall, not the fold wall, is the headline instrument: this lever is worth ~0.1 s
+    # of a 17.6 s fold and the fold wall's A/A floor on a shared box is the same size. One
+    # synchronised span per PairformerLayer execution costs both arms the same host round trip
+    # and measures the trunk where the lever acts.
+    BLOCK = {"n": 0, "s": 0.0}
+    _layer_call = TT.PairformerLayer.__call__
+
+    def _timed_layer(self, *a, **k):
+        ttnn.synchronize_device(dev)
+        t0 = time.perf_counter()
+        out = _layer_call(self, *a, **k)
+        ttnn.synchronize_device(dev)
+        BLOCK["s"] += time.perf_counter() - t0
+        BLOCK["n"] += 1
+        return out
+    TT.PairformerLayer.__call__ = _timed_layer
+
     state = _WorkerState("tenstorrent")
     state.load_model(cfg)
     state.bind_run("k10-binaryng-l1-land", cfg)
@@ -100,6 +122,8 @@ def main() -> int:
         TT._TRIMUL_MASK_L1, TT._RESIDUAL_L1 = ARMS[arm]
         for s in (TT.TRIMUL_MASK_L1_STATS, TT.RESIDUAL_L1_STATS):
             s[0] = s[1] = 0
+        BLOCK["n"] = 0
+        BLOCK["s"] = 0.0
         try:
             diff_mod.reset_static_cache()
         except Exception:
@@ -114,6 +138,7 @@ def main() -> int:
         cifs = sorted(struct_dir.glob("*.cif"))
         assert cifs, "no CIF written"
         return {"arm": arm, "fold_s": round(wall, 3),
+                "block_s": round(BLOCK["s"], 4), "blocks": BLOCK["n"],
                 "mask_l1": list(TT.TRIMUL_MASK_L1_STATS),
                 "resid_l1": list(TT.RESIDUAL_L1_STATS),
                 "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
@@ -124,47 +149,73 @@ def main() -> int:
     runs = []
     for arm in sorted(set(order)):
         r = fold(arm); r["warmup"] = True; runs.append(r)
-        print(f"  warm {arm:5s} {r['fold_s']:7.3f}s mask={r['mask_l1']} resid={r['resid_l1']} "
-              f"cif {r['cif_sha256'][:16]}", flush=True)
+        print(f"  warm {arm:5s} {r['fold_s']:7.3f}s block {r['block_s']:7.3f}s "
+              f"mask={r['mask_l1']} resid={r['resid_l1']} cif {r['cif_sha256'][:16]}", flush=True)
         OUT["runs"] = runs; dump()
     for i in range(args.reps):
         for arm in order:
             r = fold(arm); r["warmup"] = False; r["rep"] = i; runs.append(r)
-            print(f"  rep{i} {arm:5s} {r['fold_s']:7.3f}s mask={r['mask_l1']} "
-                  f"resid={r['resid_l1']} plddt={r['plddt']} load={r['loadavg1']} "
-                  f"cif {r['cif_sha256'][:16]}", flush=True)
+            print(f"  rep{i} {arm:5s} {r['fold_s']:7.3f}s block {r['block_s']:7.3f}s "
+                  f"mask={r['mask_l1']} resid={r['resid_l1']} plddt={r['plddt']} "
+                  f"load={r['loadavg1']} cif {r['cif_sha256'][:16]}", flush=True)
             OUT["runs"] = runs; dump()
 
     timed = [r for r in runs if not r["warmup"]]
     arms = sorted(set(order))
-    med = {a: st.median([r["fold_s"] for r in timed if r["arm"] == a]) for a in arms}
     rep: dict = {}
     for r in timed:
         rep.setdefault(r["rep"], []).append(r)
-    # Pair each non-baseline arm against the `off` folds that bracket it inside the same rep.
-    paired: dict = {a: [] for a in arms if a != "off"}
-    aa = []
-    for i in sorted(rep):
-        g = rep[i]
-        offs = [x["fold_s"] for x in g if x["arm"] == "off"]
-        if len(offs) > 1:
-            aa.append(round(max(offs) / min(offs), 5))
-        base = st.median(offs) if offs else None
-        for a in paired:
-            xs = [x["fold_s"] for x in g if x["arm"] == a]
-            if len(xs) > 1:
-                aa.append(round(max(xs) / min(xs), 5))
-            if base:
-                paired[a] += [round(base / x, 5) for x in xs]
+    dropped = [i for i in sorted(rep)
+               if max(x["loadavg1"] for x in rep[i]) > args.max_load]
+    OUT["max_load"] = args.max_load
+    OUT["reps_dropped_cotenant"] = dropped
+    clean = [r for r in timed if r["rep"] not in dropped]
+
+    def analyse(rows, key):
+        med = {a: st.median([r[key] for r in rows if r["arm"] == a]) for a in arms
+               if any(r["arm"] == a for r in rows)}
+        byrep: dict = {}
+        for r in rows:
+            byrep.setdefault(r["rep"], []).append(r)
+        paired = {a: [] for a in arms if a != "off"}
+        aa = []
+        for i in sorted(byrep):
+            g = byrep[i]
+            offs = [x[key] for x in g if x["arm"] == "off"]
+            if len(offs) > 1:
+                aa.append(round(max(offs) / min(offs), 5))
+            base = st.median(offs) if offs else None
+            for a in paired:
+                xs = [x[key] for x in g if x["arm"] == a]
+                if len(xs) > 1:
+                    aa.append(round(max(xs) / min(xs), 5))
+                if base:
+                    paired[a] += [round(base / x, 5) for x in xs]
+        return {
+            "n_per_arm": {a: sum(1 for r in rows if r["arm"] == a) for a in arms},
+            "median": {a: round(v, 4) for a, v in med.items()},
+            "delta_s_vs_off": {a: round(med["off"] - med[a], 4) for a in med if a != "off"},
+            "ratio_median": {a: round(med["off"] / med[a], 5) for a in med if a != "off"},
+            "paired_ratios": paired,
+            "paired_median": {a: round(st.median(v), 5) for a, v in paired.items() if v},
+            "paired_all_positive": {a: all(x > 1 for x in v) for a, v in paired.items() if v},
+            "aa_floor_max": max(aa) if aa else None,
+            "aa_ratios": aa,
+        }
+
     shas = {a: sorted({r["cif_sha256"] for r in timed if r["arm"] == a}) for a in arms}
-    OUT["median_fold_s"] = med
-    OUT["ratio_vs_off"] = {a: round(med["off"] / med[a], 5) for a in arms if a != "off"
-                           and "off" in med}
-    OUT["ab_paired_ratios"] = paired
-    OUT["ab_paired_median"] = {a: round(st.median(v), 5) for a, v in paired.items() if v}
-    OUT["ab_paired_all_positive"] = {a: all(x > 1 for x in v) for a, v in paired.items() if v}
-    OUT["aa_floor_max"] = max(aa) if aa else None
-    OUT["aa_ratios"] = aa
+    OUT["fold_all"] = analyse(timed, "fold_s")
+    OUT["fold"] = analyse(clean, "fold_s")
+    OUT["block"] = analyse(clean, "block_s")
+    OUT["block_all"] = analyse(timed, "block_s")
+    OUT["blocks_per_fold"] = sorted({r["blocks"] for r in timed})
+    OUT["median_fold_s"] = OUT["fold"]["median"]
+    OUT["ratio_vs_off"] = OUT["fold"]["ratio_median"]
+    OUT["ab_paired_median"] = OUT["fold"]["paired_median"]
+    OUT["ab_paired_ratios"] = OUT["fold"]["paired_ratios"]
+    OUT["ab_paired_all_positive"] = OUT["fold"]["paired_all_positive"]
+    OUT["aa_floor_max"] = OUT["fold"]["aa_floor_max"]
+    OUT["aa_ratios"] = OUT["fold"]["aa_ratios"]
     OUT["plddt"] = {a: sorted({r["plddt"] for r in timed if r["arm"] == a}) for a in arms}
     OUT["cif_sha256"] = shas
     OUT["bit_exact"] = all(len(shas[a]) == 1 for a in arms) and len({
@@ -172,9 +223,8 @@ def main() -> int:
     OUT["served"] = {a: {k: [sum(x[k][j] for x in timed if x["arm"] == a) for j in (0, 1)]
                          for k in ("mask_l1", "resid_l1")} for a in arms}
     dump()
-    keys = ("median_fold_s", "ratio_vs_off", "ab_paired_median", "ab_paired_ratios",
-            "ab_paired_all_positive", "aa_floor_max", "plddt", "bit_exact", "cif_sha256",
-            "served")
+    keys = ("reps_dropped_cotenant", "blocks_per_fold", "fold", "block", "fold_all",
+            "plddt", "bit_exact", "cif_sha256", "served")
     print(json.dumps({k: OUT[k] for k in keys if k in OUT}, indent=1), flush=True)
     return 0
 
