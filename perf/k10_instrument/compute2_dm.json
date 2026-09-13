@@ -1,0 +1,85 @@
+{
+ "csv": "/home/ttuser/scratch/k10_art/compute2/reports/2026_09_13_16_47_53/ops_perf_results_2026_09_13_16_47_53.csv",
+ "n_rows_file": 30,
+ "n_rows": 30,
+ "fenced": false,
+ "reps": 1,
+ "ops_per_rep": 30,
+ "op_codes": {
+  "MatmulDeviceOperation": {
+   "n_ops": 23,
+   "total_span_ms": 5.594542,
+   "mean_span_us": 243.24095652173912,
+   "cores": [
+    110
+   ],
+   "frac": {
+    "brisc": 1.0,
+    "ncrisc": 0.8468,
+    "trisc0": 0.8646,
+    "trisc1": 0.8643,
+    "trisc2": 0.8663,
+    "cpu_wait_front": 0.0416,
+    "cpu_reserve_back": 0.0517,
+    "br_reserve_back": 0.491,
+    "nc_reserve_back": 0.4083,
+    "br_wait_front": 0.0114,
+    "nc_wait_front": 0.0,
+    "br_noc_read": 0.0122,
+    "nc_noc_read": 0.0243,
+    "br_noc_write": 0.0214,
+    "nc_noc_write": 0.0,
+    "br_sem": 0.3105,
+    "nc_sem": 0.3827,
+    "dm_noc_read": 0.0365,
+    "dm_reserve_back": 0.8993,
+    "dm_wait_front": 0.0114,
+    "br_blocked": 0.8465,
+    "br_unaccounted": 0.1535,
+    "nc_blocked": 0.8154,
+    "nc_unaccounted": 0.0314
+   },
+   "rows_over_unity": 0
+  }
+ },
+ "all_op_codes": [
+  "BinaryNgDeviceOperation",
+  "MatmulDeviceOperation",
+  "UnaryDeviceOperation"
+ ],
+ "ALL": {
+  "n_ops": 23,
+  "total_span_ms": 5.594542,
+  "mean_span_us": 243.24095652173912,
+  "cores": [
+   110
+  ],
+  "frac": {
+   "brisc": 1.0,
+   "ncrisc": 0.8468,
+   "trisc0": 0.8646,
+   "trisc1": 0.8643,
+   "trisc2": 0.8663,
+   "cpu_wait_front": 0.0416,
+   "cpu_reserve_back": 0.0517,
+   "br_reserve_back": 0.491,
+   "nc_reserve_back": 0.4083,
+   "br_wait_front": 0.0114,
+   "nc_wait_front": 0.0,
+   "br_noc_read": 0.0122,
+   "nc_noc_read": 0.0243,
+   "br_noc_write": 0.0214,
+   "nc_noc_write": 0.0,
+   "br_sem": 0.3105,
+   "nc_sem": 0.3827,
+   "dm_noc_read": 0.0365,
+   "dm_reserve_back": 0.8993,
+   "dm_wait_front": 0.0114,
+   "br_blocked": 0.8465,
+   "br_unaccounted": 0.1535,
+   "nc_blocked": 0.8154,
+   "nc_unaccounted": 0.0314
+  },
+  "rows_over_unity": 0
+ }
+}

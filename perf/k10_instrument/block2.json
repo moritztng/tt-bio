@@ -1,0 +1,64 @@
+{
+ "env": {
+  "started": "2026-09-13T16:48:13+0000",
+  "card": "0",
+  "phase": "block",
+  "reps": 3,
+  "size": 512,
+  "commit": "a9ac4aa1",
+  "profiler": "1",
+  "ttnn": "/home/ttuser/tt-metal-k10/ttnn/ttnn/__init__.py",
+  "loadavg": [
+   "14.21",
+   "15.36",
+   "15.23"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c"
+ },
+ "precursor_s": 38.42,
+ "class_calls_in_precursor": {
+  "PairformerLayer": 5
+ },
+ "arg_shapes": [
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   512,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  "NoneType"
+ ],
+ "synced_wall_ms_per_call": 35.694,
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

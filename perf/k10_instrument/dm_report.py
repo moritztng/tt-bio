@@ -31,6 +31,10 @@ COLS = {
     "nc_wait_front": "DEVICE DM CB WAIT FRONT NCRISC [ns]",
     "br_noc_read": "DEVICE DM NOC READ BARRIER BRISC [ns]",
     "nc_noc_read": "DEVICE DM NOC READ BARRIER NCRISC [ns]",
+    "br_noc_write": "DEVICE DM NOC WRITE WAIT BRISC [ns]",
+    "nc_noc_write": "DEVICE DM NOC WRITE WAIT NCRISC [ns]",
+    "br_sem": "DEVICE DM SEM WAIT BRISC [ns]",
+    "nc_sem": "DEVICE DM SEM WAIT NCRISC [ns]",
 }
 SUMS = [k for k in COLS if k.startswith(("cpu_", "br_", "nc_"))]
 
@@ -88,14 +92,16 @@ def per_op(r):
 def frac(o):
     """Fractions of the op span. Reader is whichever DM thread does the NoC reads."""
     s = o["span_ns"] or 1
-    d = {k: o[k] / s for k in ("brisc", "ncrisc", "trisc0", "trisc1", "trisc2",
-                               "cpu_wait_front", "cpu_reserve_back",
-                               "br_reserve_back", "nc_reserve_back",
-                               "br_wait_front", "nc_wait_front",
-                               "br_noc_read", "nc_noc_read")}
+    keys = [k for k in COLS]
+    d = {k: o[k] / s for k in keys}
     d["dm_noc_read"] = d["br_noc_read"] + d["nc_noc_read"]
     d["dm_reserve_back"] = d["br_reserve_back"] + d["nc_reserve_back"]
     d["dm_wait_front"] = d["br_wait_front"] + d["nc_wait_front"]
+    for r in ("br", "nc"):
+        blocked = sum(d[f"{r}_{k}"] for k in
+                      ("noc_read", "noc_write", "sem", "reserve_back", "wait_front"))
+        d[f"{r}_blocked"] = blocked
+        d[f"{r}_unaccounted"] = d["brisc" if r == "br" else "ncrisc"] - blocked
     return d
 
 
@@ -159,10 +165,11 @@ def main():
         print(f"  resident   BRISC {fr['brisc']:6.1%}  NCRISC {fr['ncrisc']:6.1%}  "
               f"TRISC0 {fr['trisc0']:6.1%}  TRISC1 {fr['trisc1']:6.1%}  TRISC2 {fr['trisc2']:6.1%}")
         print(f"  compute    wait-front {fr['cpu_wait_front']:6.1%}   reserve-back {fr['cpu_reserve_back']:6.1%}")
-        print(f"  BRISC      noc-read {fr['br_noc_read']:6.1%}  cb-reserve {fr['br_reserve_back']:6.1%}  "
-              f"cb-wait {fr['br_wait_front']:6.1%}")
-        print(f"  NCRISC     noc-read {fr['nc_noc_read']:6.1%}  cb-reserve {fr['nc_reserve_back']:6.1%}  "
-              f"cb-wait {fr['nc_wait_front']:6.1%}")
+        for r, name in (("br", "BRISC "), ("nc", "NCRISC")):
+            print(f"  {name}     noc-read {fr[f'{r}_noc_read']:6.1%}  noc-write {fr[f'{r}_noc_write']:6.1%}  "
+                  f"sem {fr[f'{r}_sem']:6.1%}  cb-full {fr[f'{r}_reserve_back']:6.1%}  "
+                  f"cb-wait {fr[f'{r}_wait_front']:6.1%}  | blocked {fr[f'{r}_blocked']:6.1%}  "
+                  f"issuing {fr[f'{r}_unaccounted']:6.1%}")
         if g["rows_over_unity"]:
             print(f"  !! {g['rows_over_unity']} of {g['n_ops']} rows exceed 1.05 per-core; "
                   f"partial grid, treat as directional")
