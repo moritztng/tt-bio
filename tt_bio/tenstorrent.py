@@ -3659,6 +3659,49 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     )
 
 
+# The trimul's channel move produces permute (0, 3, 1, 2) and exactly one of the matmul's two
+# operands wants (0, 3, 2, 1), which cost a separate `ttnn.transpose` of a whole moved chunk --
+# 67.1 MB DRAM -> DRAM at 512 aa, once per trimul call, twice per pairformer block. `ttnn.matmul`
+# takes that transpose itself through `transpose_a` / `transpose_b`, and for the three
+# MultiCoreReuse program-config families it folds the flag into the program rather than inserting
+# the same op back (ttnn `matmul.cpp:200`). The trimul pins
+# `MatmulMultiCoreReuseMultiCastProgramConfig`, which is one of the three, so the op disappears
+# instead of moving. Gated on the config type, because outside that set ttnn would insert the
+# transpose again and the mask orientation below would be the only thing that changed.
+#
+# MEASURED on qb2 card 1 at the production shape [1,128,512,512] x [1,128,512,512] with the
+# production program config and ckc, median of 4 warm (perf/util_op_deletes/mm_transpose.json),
+# `torch.equal` against transpose-then-matmul at max_abs 0 on BOTH flags:
+#     transpose(b) + matmul  1.2463 ms  ->  transpose_b=True  0.9421 ms   1.3228x
+#     transpose(a) + matmul  1.2130 ms  ->  transpose_a=True  0.9653 ms   1.2566x
+# The matmul itself gets slower (0.8490 -> 0.9421 ms): the flag is not free, it re-reads the
+# operand tile-transposed. What goes is the separate program and its 67.1 MB allocation.
+TRIMUL_MM_TRANSPOSE = True
+_TRIMUL_MM_TRANSPOSE = env_flag("TT_BIO_TRIMUL_MM_TRANSPOSE", TRIMUL_MM_TRANSPOSE)
+# Per-branch call census, keyed (channel-move branch, "defer"|"keep"). A dead flag and a correct
+# layout change look identical from the outside, since both write one CIF digest, so the trimul
+# counts which branch each matmul call took and whether it handed its transpose over. Read it with
+# `perf/util_op_deletes/why_kept.py`; it is what showed the deferral already reaches every call at
+# 512 aa and, before the split path below asked for it, none at 298 aa.
+TRIMUL_MM_TRANSPOSE_STATS: dict = {}
+
+
+def _mm_transpose_deferred(program_config) -> bool:
+    """Whether the moved chunks may skip their transpose and let the matmul take it.
+
+    Never in --fast, which is the only route that hands the matmul a bfloat8_b operand. A
+    block-float tile shares one exponent per face, so WHICH values are grouped together is a
+    property of the layout: transposing inside the matmul re-quantises where transposing the chunk
+    beforehand does not, and the two stop agreeing. Measured at both split geometries
+    (`perf/util_op_deletes/mm_transpose_bf8.json`), max_abs 0.5 at [1,32,320,320] in L1 and 0.75 at
+    [1,128,512,512] in DRAM, against `torch.equal` on bfloat16 at the same shapes. It is worth
+    1.0868x on the 512 aa DRAM leg, so it stays a real lever -- just not a layout-only one, and it
+    is not taken here on that basis.
+    """
+    return _TRIMUL_MM_TRANSPOSE and not _FAST_MODE and isinstance(
+        program_config, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig)
+
+
 @lru_cache(maxsize=1)
 def _l1_bank_bytes() -> int:
     """Bytes of L1 a program config may plan for, per bank.
@@ -5382,7 +5425,7 @@ def set_trimul_fused_gout(on: bool) -> bool:
 # P4 step 1: apply the trimul's pair mask on the FAR side of the channel move, so that it stops
 # making E6 (`reblock_permute_gated`) ineligible.
 #
-# `gated` requires `mask_u is None`, and every Boltz-2 pairformer call site passes a pair mask
+# `gated` requires `mask is None`, and every Boltz-2 pairformer call site passes a pair mask
 # (boltz2.py:4758 confidence, boltz2.py:5499 trunk, boltz2.py:4903 affinity; the resident trunk
 # builds pf_mask_tt unconditionally). So the fused chunk+gate+move is ineligible on 100 % of
 # Boltz-2's pairformer trimuls, which is what "loses on boltz2's call mix" actually was.
@@ -5514,7 +5557,7 @@ class TriangleMultiplication(Module):
         # Opt in to the fused chunk+gate forward move (E6). Per instance and not a global, because
         # the same kernel wins on opendde's channel widths and was recorded as losing on boltz2's
         # call mix. That reading is wrong and is kept here only to say so: `gated` required
-        # `mask_u is None` and every boltz2 pairformer call site passes a pair mask, so E6 was
+        # `mask is None` and every boltz2 pairformer call site passes a pair mask, so E6 was
         # ineligible on 100 % of boltz2's pairformer trimuls and never ran there at all. Move the
         # mask past the channel move (_TRIMUL_MASK_AFTER_MOVE) and the same kernel is worth
         # 1.2981x on the starting trimul and 1.3329x on the ending one at 512 aa, and 1.0555x on
@@ -5656,7 +5699,7 @@ class TriangleMultiplication(Module):
 
     def _transform_chunk(
         self, chunk: ttnn.Tensor, permute_dims: tuple[int, ...], memory_config: ttnn.MemoryConfig,
-        realloc: bool = True,
+        realloc: bool = True, defer_transpose: bool = False,
     ) -> ttnn.Tensor:
         # Bring the channel chunk to the batch axis for the per-channel matmul.
         # The two cases are (0,3,1,2) [no inner swap] and (0,3,2,1) [also swaps
@@ -5668,6 +5711,16 @@ class TriangleMultiplication(Module):
         # permute(0,3,2,1) (pure index reordering). On the small-L L1 path the
         # single permute is marginally faster (the extra op's launch overhead
         # outweighs the cheaper transpose), so keep it there.
+        # The matmul can take the inner swap itself (`_mm_transpose_deferred`), which leaves the
+        # chunk needing only the channel move. On the DRAM route that deletes the separate
+        # `ttnn.transpose` below outright; on the L1 route, where the two are one `ttnn.permute`,
+        # it drops (0,3,2,1) to (0,3,1,2) and so lets `_channel_move` reach the hand-written
+        # reblock kernel. Measured at the 298 aa split shape [1,320,320,32] in L1, median of 7 warm
+        # on qb2 card 2 (`perf/util_op_deletes/mm_transpose_l1.json`), `torch.equal` at max_abs 0
+        # on both operands: 0.3824 -> 0.3486 ms for a transposed b, 0.3684 -> 0.3463 ms for a
+        # transposed a.
+        if defer_transpose and permute_dims == (0, 3, 2, 1):
+            permute_dims = (0, 3, 1, 2)
         inner_swap = permute_dims == (0, 3, 2, 1)
         # What makes the single permute expensive is the inner L,L transpose, and that is a
         # function of L, not of where the result lands. The DRAM test above stands in for "L is
@@ -5704,7 +5757,7 @@ class TriangleMultiplication(Module):
 
     def _transform_chunk_gated(
         self, gp: ttnn.Tensor, gate: tuple[int, int, int], permute_dims: tuple[int, ...],
-        memory_config: ttnn.MemoryConfig, realloc: bool,
+        memory_config: ttnn.MemoryConfig, realloc: bool, defer_transpose: bool = False,
     ) -> ttnn.Tensor:
         """`_transform_chunk` when the gate rides along inside the channel move.
 
@@ -5718,7 +5771,7 @@ class TriangleMultiplication(Module):
         `gp` stays alive: both roles read the same fused projection, so the caller owns it.
         """
         ops = []
-        if permute_dims == (0, 3, 2, 1):
+        if permute_dims == (0, 3, 2, 1) and not defer_transpose:
             ops.append((ttnn.transpose, -2, -1))
         if realloc:
             ops.append((ttnn.reallocate,))
@@ -5759,7 +5812,8 @@ class TriangleMultiplication(Module):
             ttnn.deallocate(rows)
         return _acc_concat(blocks, 1, host)
 
-    def _gated_rowblocked(self, x_norm_in, w, bias, H, slice_c, perm_a, perm_b, memory_config):
+    def _gated_rowblocked(self, x_norm_in, w, bias, H, slice_c, perm_a, perm_b, memory_config,
+                          defer_transpose=False):
         """`LN(z) @ w` in row blocks in L1, gated and moved straight into the full destination.
 
         The whole-tensor path writes the fused projection to DRAM and the gated move reads it
@@ -5811,7 +5865,10 @@ class TriangleMultiplication(Module):
             return None, None
         # The kernel moves (0, 3, 1, 2). The other variant is that move followed by a transpose,
         # which is what `_transform_chunk_gated` does per chunk and what happens here once the
-        # whole destination is assembled.
+        # whole destination is assembled -- unless the caller is handing the transpose to the
+        # matmul, in which case neither operand is touched here.
+        if defer_transpose:
+            return a, b
         if perm_a == (0, 3, 2, 1):
             a, old = ttnn.transpose(a, -2, -1, memory_config=memory_config), a
             ttnn.deallocate(old)
@@ -5894,26 +5951,46 @@ class TriangleMultiplication(Module):
         if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)
-        # Unsqueeze mask once before chunk loop (mask is [1,S,S] or [1,S])
-        mask_u = ttnn.unsqueeze(mask, -1) if mask is not None else None
+        # The channel-axis mask, built on first read and not before. `unsqueeze(mask, -1)` is a
+        # view only when the last axis is already tile-wide: on a [1,S,S] pair mask it pads that
+        # axis from 1 to 32, so it writes a 16.8 MB tensor for a 0.52 MB mask and dispatches a
+        # 249.6 us ReshapeView (qb2 card 0, 512 aa, `b2z-kernel-cycle-census` i=1 and i=15). Every
+        # other use of it in this method is the sentinel `mask is None` spelled through the tensor,
+        # and the one site that multiplies by it (below) is unreachable whenever the mask has been
+        # moved past the channel move -- which is the default route. Eagerly it cost 0.4993 ms of
+        # every pairformer block, 0.1398 s/fold at 512 aa, for a tensor nothing read.
+        _mask_u_memo: list = []
+
+        def mask_u():
+            if not _mask_u_memo:
+                _mask_u_memo.append(ttnn.unsqueeze(mask, -1))
+            return _mask_u_memo[0]
         # The same mask in the MOVED layout, for `_TRIMUL_MASK_AFTER_MOVE`. After perm_a the chunk
         # is [1, C, S, S] indexed (c, i, j) and reads pre[x, y, c], so the mask it needs is
         # m[i, j] for the starting variant (perm_a = (0,3,1,2)) and m[j, i] for the ending one
         # (perm_a = (0,3,2,1)). Only `a` is masked, so only perm_a matters. [1,1,S,S] bf16 is
         # 0.52 MB at 512 aa, 0.008 Z, against the 2 Z multiply it lets us keep and the 12 Z it
         # unblocks.
-        mask_moved = mask_moved_owned = None
-        if mask_u is not None and _TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3:
-            # `unsqueeze` is a metadata VIEW over the caller's buffer, exactly as `mask_u` above
-            # is, so it must never be deallocated here: the pair mask is built once per fold and
-            # read by every trimul, and freeing it on the first one hands every later block a dead
-            # buffer. Measured: the ending trimul then returned the same bytes for an all-ones and
-            # a random mask, because both were reading freed memory. Only the transpose below is
-            # ours to free.
-            mask_moved = ttnn.unsqueeze(mask, 1)
-            if self.ending:
-                mask_moved = ttnn.transpose(mask_moved, -2, -1)
-                mask_moved_owned = mask_moved
+        # Which orientation is needed is no longer a property of the trimul alone: where the
+        # matmul takes the transpose (`_mm_transpose_deferred`), `a` stays in the (0,3,1,2) layout
+        # and wants m[i, j] even in the ending variant. So the orientation is asked for per chunk
+        # and the one nothing asks for is never built.
+        mask_moved_ok = (mask is not None and _TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
+        _mask_moved_memo: dict = {}
+
+        def mask_moved(transposed: bool):
+            if transposed not in _mask_moved_memo:
+                # This `unsqueeze` keeps the last axis tile-wide, so it is a metadata VIEW over
+                # the caller's buffer and must never be deallocated here: the pair mask is built
+                # once per fold and read by every trimul, and freeing it on the first one hands
+                # every later block a dead buffer. Measured: the ending trimul then returned the
+                # same bytes for an all-ones and a random mask, because both were reading freed
+                # memory. Only the transpose is ours to free.
+                m = ttnn.unsqueeze(mask, 1)
+                if transposed:
+                    m = ttnn.transpose(m, -2, -1)
+                _mask_moved_memo[transposed] = m
+            return _mask_moved_memo[transposed]
         # Collect the per-channel output chunks and concat them ONCE at the end. A
         # running concat copies the accumulator on every step (O(n_pairs^2)
         # channel-bytes moved); one concat of all chunks copies each chunk once.
@@ -5943,13 +6020,24 @@ class TriangleMultiplication(Module):
                     perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
                     a_chunk = b_chunk = None
+                    # Set only where the chunk really was left in the move's own (0,3,1,2)
+                    # layout. All three channel-move branches can leave it there now; the census
+                    # below records which one each call took.
+                    defer_a = defer_b = False
+                    branch = "?"
+                    defer = _mm_transpose_deferred(program_config)
                     if (_TRIMUL_INPROJ_ROWBLOCK and not row_norm and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
-                            and (mask_u is None or mask_moved is not None)
+                            and (mask is None or mask_moved_ok)
                             and memory_config.buffer_type == ttnn.BufferType.DRAM):
                         a_chunk, b_chunk = self._gated_rowblocked(
                             x_norm_in, gp_in_chunks[i], bias_i, H,
-                            int(gp_in_chunks[i].shape[-1]) // 4, perm_a, perm_b, memory_config)
+                            int(gp_in_chunks[i].shape[-1]) // 4, perm_a, perm_b, memory_config,
+                            defer_transpose=defer)
+                        branch = "rowblock" if a_chunk is not None else "rowblock-declined"
+                        if a_chunk is not None and defer:
+                            defer_a = perm_a == (0, 3, 2, 1)
+                            defer_b = perm_b == (0, 3, 2, 1)
                     if a_chunk is not None:
                         gated = True
                         tail_mc = out_mc = memory_config
@@ -5986,27 +6074,31 @@ class TriangleMultiplication(Module):
                         # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
                         # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
                         # ride inside the kernel too, so those keep the four-way split.
-                        # `mask_moved is not None` means the mask has been moved past the channel
+                        # `mask_moved_ok` means the mask has been moved past the channel
                         # move and no longer sits between the gate and it, so it no longer blocks the
                         # fused pair. Without the flag this is the condition it always was.
                         gated = (
                             (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
-                            and (mask_u is None or mask_moved is not None)
+                            and (mask is None or mask_moved_ok)
                             and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and memory_config.buffer_type == ttnn.BufferType.DRAM
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
                         )
+                        branch = "gated-move" if gated else "four-way-split"
                         if gated:
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
-                                n_pairs // group > 1,
+                                n_pairs // group > 1, defer_transpose=defer,
                             )
                             b_chunk = self._transform_chunk_gated(
                                 gp_in_fused, (3 * slice_c, slice_c, slice_c), perm_b, memory_config,
-                                n_pairs // group > 1,
+                                n_pairs // group > 1, defer_transpose=defer,
                             )
                             ttnn.deallocate(gp_in_fused)
+                            if defer:
+                                defer_a = perm_a == (0, 3, 2, 1)
+                                defer_b = perm_b == (0, 3, 2, 1)
                         else:
                             g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
                             ttnn.deallocate(gp_in_fused)
@@ -6018,20 +6110,29 @@ class TriangleMultiplication(Module):
                             )
                             ttnn.deallocate(g_in_a)
                             ttnn.deallocate(g_in_b)
-                            if mask_u is not None and mask_moved is None:
-                                a_chunk = ttnn.multiply_(a_chunk, mask_u)
+                            if mask is not None and not mask_moved_ok:
+                                a_chunk = ttnn.multiply_(a_chunk, mask_u())
 
                             a_chunk = self._transform_chunk(
                                 a_chunk, perm_a, memory_config=tail_mc, realloc=n_pairs // group > 1,
+                                defer_transpose=defer,
                             )
                             b_chunk = self._transform_chunk(
                                 b_chunk, perm_b, memory_config=tail_mc, realloc=n_pairs // group > 1,
+                                defer_transpose=defer,
                             )
-                    if mask_moved is not None:
+                            if defer:
+                                defer_a = perm_a == (0, 3, 2, 1)
+                                defer_b = perm_b == (0, 3, 2, 1)
+                    if mask_moved_ok:
                         # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
                         # declines the in-place form for a broadcast operand, take `ttnn.multiply`
                         # into a fresh tensor and deallocate -- same bytes, one more allocation.
-                        a_chunk = ttnn.multiply_(a_chunk, mask_moved)
+                        # `a` is transposed iff it was not left for the matmul to transpose.
+                        a_chunk = ttnn.multiply_(
+                            a_chunk, mask_moved(perm_a == (0, 3, 2, 1) and not defer_a))
+                    _st = (branch, "defer" if (defer_a or defer_b) else "keep")
+                    TRIMUL_MM_TRANSPOSE_STATS[_st] = TRIMUL_MM_TRANSPOSE_STATS.get(_st, 0) + 1
                     x_chunk = ttnn.matmul(
                         a_chunk,
                         b_chunk,
@@ -6039,6 +6140,8 @@ class TriangleMultiplication(Module):
                         memory_config=out_mc,
                         program_config=program_config,
                         dtype=ttnn.bfloat16,
+                        transpose_a=defer_a,
+                        transpose_b=defer_b,
                     )
                     ttnn.deallocate(a_chunk)
                     ttnn.deallocate(b_chunk)
@@ -6147,8 +6250,11 @@ class TriangleMultiplication(Module):
                     host_acc = _host_concat(x_in)
                     group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
                     gp_in_chunks = self._gp_in_chunks(chunk_size, group)
-        if mask_moved_owned is not None:
-            ttnn.deallocate(mask_moved_owned)
+        for _transposed, _m in _mask_moved_memo.items():
+            # Only the transposed orientation is a tensor this call owns; the other is a view
+            # over the caller's pair mask.
+            if _transposed:
+                ttnn.deallocate(_m)
         if x_norm_in is not None and H > SEQ_LEN_MORE_CHUNKING:
             # x_norm_in is dead on the row-blocked tail path (both norms are
             # recomputed per row block from x_in). Freeing it before the concat

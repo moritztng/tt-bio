@@ -1,0 +1,123 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "3",
+  "lease_cards": "3",
+  "git_head": "0fa9d2199bb340eebbaba4b3b8163102ae7b7bec",
+  "ttnn": "0.68.0",
+  "torch": "2.8.0+cpu",
+  "fast": false,
+  "protocol": {
+   "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "timed_region": "predict_one (featurise + fold + CIF write)"
+  },
+  "started": "2026-09-13T12:59:50+0000",
+  "phases_requested": [
+   "baseline"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 3.66,
+  "n_msa": 35,
+  "card_type": "p300c",
+  "aiclk_mhz": " 800"
+ },
+ "cold_s": 27.06,
+ "baseline": [
+  {
+   "arm": "plain",
+   "rep": 0,
+   "fold_s": 26.41,
+   "plddt": 0.842856,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+   },
+   "loadavg": [
+    "3.34",
+    "1.13",
+    "0.39"
+   ]
+  },
+  {
+   "arm": "instr",
+   "rep": 0,
+   "fold_s": 26.386,
+   "plddt": 0.842856,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+   },
+   "loadavg": [
+    "3.74",
+    "1.44",
+    "0.52"
+   ],
+   "phase": {
+    "host": 0.2507,
+    "device": 26.132,
+    "transfer": 0.0002,
+    "total": 26.3857,
+    "residual": 0.0028,
+    "per_fn": {
+     "prepare": {
+      "s": 0.1934,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:to_batch": {
+      "s": 0.0002,
+      "n": 1,
+      "nested": 0
+     },
+     "model.predict_step": {
+      "s": 26.132,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:write_result": {
+      "s": 0.0573,
+      "n": 1,
+      "nested": 0
+     }
+    }
+   }
+  }
+ ],
+ "baseline_summary": {
+  "n": 1,
+  "plain_s": [
+   26.41
+  ],
+  "instr_s": [
+   26.386
+  ],
+  "plain_median_s": 26.41,
+  "instr_median_s": 26.386,
+  "aa_floor_s": 0.0,
+  "aa_floor_pct": 0.0,
+  "instr_delta_pct": -0.091,
+  "host_s": 0.2507,
+  "device_s": 26.132,
+  "transfer_s": 0.0002,
+  "residual_s": 0.0028,
+  "plddt": [
+   0.842856
+  ],
+  "cif_sha256": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ],
+  "cif_sha256_16": [
+   "a91aa44441f0d9c5"
+  ],
+  "bit_identical_across_folds": true
+ },
+ "finished": "2026-09-13T13:01:14+0000"
+}
