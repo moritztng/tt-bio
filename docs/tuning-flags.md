@@ -222,6 +222,27 @@ declined every call by then. The 1024 and 1536 sizes were re-run after the singl
 part, and the smallest largest-contiguous free block per bank at the high-water mark is 3013 MiB
 with the flags on against 3157 MiB without them.
 
+## `TT_BIO_TRIMUL_MM_TRANSPOSE` — on
+
+A triangle multiplication moves its channels to the batch axis before the per-channel matmul, and
+exactly one of the two operands wants the sequence axes the other way round. That cost a separate
+transpose of a whole moved chunk, 67.1 MB at 512 residues, once per call. `ttnn.matmul` takes the
+transpose itself through `transpose_a` / `transpose_b`, so the flag hands it over and the separate
+op disappears.
+
+**Accuracy: identical.** The structure digest is unchanged at 298 and 512 residues, and the matmul
+is `torch.equal` at max abs 0.0 against transpose-then-matmul at the production shape on both
+operands.
+
+**Speed:** 1.00613x on the fold at 512 residues. The matmul itself gets slightly slower, because it
+re-reads the operand tile-transposed; what goes is the whole extra program and 134.7 MB of
+allocation per pairformer block.
+
+**It switches itself off under `--fast`, and that is not a failure.** `--fast` hands the matmul
+bfloat8_b operands, and a block-float tile shares one exponent per face, so transposing inside the
+matmul re-quantises where transposing beforehand does not. It is worth 1.0868x there, but it stops
+being an exact relayout, so it is declined rather than taken.
+
 ## Idle host threads when a box is full
 
 Not a flag of ours. `OMP_WAIT_POLICY`, `GOMP_SPINCOUNT` and `KMP_BLOCKTIME` are OpenMP's own, and
