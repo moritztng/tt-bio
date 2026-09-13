@@ -774,6 +774,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | `TT_BIO_TRIATT_FUSED_QKVG` | on | Projects a triangle attention's query, key, value and gate in one pass over the pair tensor instead of two. Same structure, bit for bit. |
 | `TT_BIO_TRIATT_FUSED_QKVGB` | on | Adds the pair-bias projection to that same pass, so the pair tensor is read once instead of three times. Same structure, bit for bit; chains of 32 residues or fewer keep the separate projection. |
 | `TT_BIO_TRIMUL_FUSED_GOUT` | on | Computes a triangle multiplication's output gate as a second output of its input projection. Same structure, bit for bit. |
+| `TT_BIO_TRIMUL_MM_TRANSPOSE` | on | Lets the matmul take a triangle multiplication's operand transpose instead of running a separate transpose first. Same structure, bit for bit; `--fast` keeps the separate op, because transposing inside the matmul re-quantises a block-float tile. |
 
 More on how these were measured, and what "same structure" means for each of them, in
 [`docs/tuning-flags.md`](docs/tuning-flags.md).

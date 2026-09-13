@@ -307,6 +307,16 @@ operands.
 re-reads the operand tile-transposed; what goes is the whole extra program and 134.7 MB of
 allocation per pairformer block.
 
+**Smaller targets take it too, and there it is an op-level win.** A target small enough to keep the
+moved chunk in L1 never had a separate transpose to delete: the channel move and the sequence swap
+were one permute. Handing the swap to the matmul leaves only the channel move, which the
+hand-written reblock kernel can do. At the 298-residue shape that is 0.3824 to 0.3486 ms with a
+transposed second operand and 0.3684 to 0.3463 ms with a transposed first one, median of seven warm
+calls, `torch.equal` at max abs 0.0 on both (`perf/util_op_deletes/mm_transpose_l1.json`). Across
+the 2240 calls a 298-residue fold makes that is about 0.063 s, under what a fold A/B can resolve, so
+it is quoted at the op and not at the wall. The structure does not move: `0cf1b879dca3c0d5` at
+pLDDT 0.913091 in both arms.
+
 **It switches itself off under `--fast`, and that is not a failure.** `--fast` hands the matmul
 bfloat8_b operands, and a block-float tile shares one exponent per face, so transposing inside the
 matmul re-quantises where transposing beforehand does not. It is worth 1.0868x there, but it stops
