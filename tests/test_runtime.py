@@ -91,3 +91,44 @@ def test_host_thread_cap_env_leaves_an_operator_value_alone(monkeypatch):
     assert "OMP_NUM_THREADS" not in runtime.host_thread_cap_env(4)
     # explicit budget: the launcher knows how many siblings it started, so it wins
     assert runtime.host_thread_cap_env(4, 32)["OMP_NUM_THREADS"] == "8"
+
+
+def test_host_thread_cap_env_parks_idle_threads_only_when_cores_are_scarce(monkeypatch):
+    for var in runtime.HOST_THREAD_VARS + tuple(runtime.IDLE_THREADS_PARK):
+        monkeypatch.delenv(var, raising=False)
+    # 64 threads over 32 or 24 concurrent folds is 2 each: no core is left to absorb a spinning
+    # pool thread, so the children park theirs. Measured 1.014x and 1.004x on folds per hour.
+    assert runtime.IDLE_THREADS_PARK.items() <= runtime.host_thread_cap_env(32, 64).items()
+    assert runtime.IDLE_THREADS_PARK.items() <= runtime.host_thread_cap_env(24, 64).items()
+    # Width 20 is the boundary, and it is measured, not assumed: 3 threads each reads 0.990x, so
+    # one share above the line the lever is a LOSS and has to stay off. Width 16 likewise (0.993x).
+    assert not set(runtime.IDLE_THREADS_PARK) & set(runtime.host_thread_cap_env(20, 64))
+    assert not set(runtime.IDLE_THREADS_PARK) & set(runtime.host_thread_cap_env(16, 64))
+    assert not set(runtime.IDLE_THREADS_PARK) & set(runtime.host_thread_cap_env(1, 64))
+
+
+def test_host_thread_cap_env_leaves_an_operator_wait_policy_alone(monkeypatch):
+    for var in runtime.HOST_THREAD_VARS + tuple(runtime.IDLE_THREADS_PARK):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("OMP_WAIT_POLICY", "ACTIVE")
+    env = runtime.host_thread_cap_env(32, 64)
+    # all three, not just the one they named: GOMP_SPINCOUNT=0 would undo their ACTIVE anyway
+    assert not set(runtime.IDLE_THREADS_PARK) & set(env)
+    assert env["OMP_NUM_THREADS"] == "2"         # the thread cap is still ours
+
+
+def test_host_thread_cap_env_is_byte_identical_above_the_line(monkeypatch):
+    """A caller above the parking line gets exactly the env it got before parking existed.
+
+    This is the perf-regression argument for the single-fold and low-concurrency paths, and it is
+    mechanical rather than timed: a lone ``tt-bio predict`` sees n_workers == 1, so its share is
+    every thread on the box and nothing about its environment moves. Timing it could only measure
+    noise.
+    """
+    for var in runtime.HOST_THREAD_VARS + tuple(runtime.IDLE_THREADS_PARK):
+        monkeypatch.delenv(var, raising=False)
+    for n_workers, host_threads in ((1, 64), (1, None), (4, 64), (16, 64), (20, 64), (2, 8)):
+        env = runtime.host_thread_cap_env(n_workers, host_threads)
+        cap = runtime.host_thread_cap(n_workers, host_threads)
+        if cap > runtime.IDLE_PARK_THREAD_SHARE:
+            assert env == {var: str(cap) for var in runtime.HOST_THREAD_VARS}

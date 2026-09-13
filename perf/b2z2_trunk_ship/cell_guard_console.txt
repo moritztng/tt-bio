@@ -1,0 +1,75 @@
+2026-09-13 07:41:30.164 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  warm off  19.907s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] cif a91aa44441f0d9c5
+  warm on   19.165s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] cif a91aa44441f0d9c5
+  rep0 off  19.415s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=4.29 cif a91aa44441f0d9c5
+  rep0 on   19.135s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=4.07 cif a91aa44441f0d9c5
+  rep0 on   19.172s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=3.48 cif a91aa44441f0d9c5
+  rep0 off  19.503s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=3.06 cif a91aa44441f0d9c5
+  rep1 off  19.425s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=3.84 cif a91aa44441f0d9c5
+  rep1 on   19.121s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=3.88 cif a91aa44441f0d9c5
+  rep1 on   19.150s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=3.9 cif a91aa44441f0d9c5
+  rep1 off  19.384s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=3.48 cif a91aa44441f0d9c5
+{
+ "median_fold_s": {
+  "off": 19.42,
+  "on": 19.1425
+ },
+ "ratio_median": 1.0145,
+ "ab_paired_median": 1.01526,
+ "ab_paired_ratios": [
+  1.01463,
+  1.01726,
+  1.0159,
+  1.01222
+ ],
+ "ab_paired_all_positive": true,
+ "aa_floor_max": 1.00453,
+ "plddt": {
+  "off": [
+   0.842856
+  ],
+  "on": [
+   0.842856
+  ]
+ },
+ "bit_exact": true,
+ "cif_sha256": {
+  "off": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ],
+  "on": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ]
+ },
+ "served": {
+  "off": {
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ]
+  },
+  "on": {
+   "qkvg": [
+    2240,
+    0
+   ],
+   "qkvgb": [
+    2240,
+    0
+   ],
+   "gout": [
+    2240,
+    0
+   ]
+  }
+ }
+}

@@ -20,6 +20,24 @@ INPUT_SUFFIXES = (".fa", ".fas", ".fasta", ".yml", ".yaml")
 HOST_THREAD_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
                     "NUMEXPR_NUM_THREADS")
 
+# The per-worker thread share at or below which parking idle pool threads beats spinning them.
+# Not derived: measured on whglx (64 hardware threads, 32 Wormhole chips) as paired active/passive
+# arms of Boltz-2 512 aa run back to back in one session, each at the share this module's own
+# arithmetic hands that width. Passive over active, folds per hour:
+#
+#     share 4 (width 16)  0.993     share 3 (width 20)  0.990
+#     share 2 (width 24)  1.004     share 2 (width 32)  1.014, and 1.016 on a repeat
+#
+# A repeat of the width-32 pair puts the same-config floor at 0.35 %, so the sign really does flip
+# between three threads and two: with three a parked thread's wake latency costs more than the
+# core it frees, with two there is no spare core to absorb the spinning in the first place.
+IDLE_PARK_THREAD_SHARE = 2
+
+# What a worker gets instead of spinning when the box is oversubscribed. Idle OpenMP pool threads
+# busy-wait by default, which is free while cores are spare and pure contention once they are not:
+# a fold blocks on ~200 per-step device syncs and spins through every one of them.
+IDLE_THREADS_PARK = {"OMP_WAIT_POLICY": "PASSIVE", "GOMP_SPINCOUNT": "0", "KMP_BLOCKTIME": "0"}
+
 
 # tt-metal ships the OpenMPI it wants (ttnn.libs/libmpi-*.so.40) and single-host prediction
 # needs no MPI setup of yours. A host OpenMPI on the environment does not replace that build, it
@@ -105,10 +123,24 @@ def host_thread_cap_env(n_workers: int, host_threads: int | None = None) -> dict
     Explicit beats inherited: a passed ``host_threads`` overrides a pre-set env var
     (the launcher knows how many siblings it started), while the default only fills in
     what the operator left unset.
+
+    When the split leaves a worker ``IDLE_PARK_THREAD_SHARE`` threads or fewer the
+    children are also told to park idle pool threads rather than spin on them. At 512 aa
+    with 32 concurrent folds on whglx, each on the 2-thread share this arithmetic hands
+    it, that is 1789.4 -> 1813.9 folds/hour, bit-exact, both arms writing one CIF digest.
+    It is worth 1.4 %, not more: the same pair at a fixed cap of 8, which oversubscribes
+    that box fourfold, reads 1311.2 -> 1839.5, and nearly all of that 1.40x is the cap
+    the line above already applies. Above the share, parking costs wake latency the spare
+    cores were absorbing, so it stays off and a single ``predict`` keeps today's latency.
+    An operator who set any of the three wait-policy variables themselves owns all three:
+    they are one setting spelled three ways and half of a policy is not a policy.
     """
-    cap = str(host_thread_cap(n_workers, host_threads))
-    return {var: cap for var in HOST_THREAD_VARS
-            if host_threads or var not in os.environ}
+    cap = host_thread_cap(n_workers, host_threads)
+    env = {var: str(cap) for var in HOST_THREAD_VARS
+           if host_threads or var not in os.environ}
+    if cap <= IDLE_PARK_THREAD_SHARE and not any(k in os.environ for k in IDLE_THREADS_PARK):
+        env.update(IDLE_THREADS_PARK)
+    return env
 
 
 def bind_host_threads() -> None:

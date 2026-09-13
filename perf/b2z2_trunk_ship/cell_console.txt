@@ -1,0 +1,89 @@
+benchlock: b2z2-trunk-byte-round2-ship acquired after 0s, loadavg 0.04 0.05 0.20
+2026-09-13 02:15:26.009 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  warm off  22.848s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] cif a91aa44441f0d9c5
+  warm on   19.975s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] cif a91aa44441f0d9c5
+  rep0 off  19.338s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=1.52 cif a91aa44441f0d9c5
+  rep0 on   19.128s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=1.37 cif a91aa44441f0d9c5
+  rep0 on   19.203s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=1.78 cif a91aa44441f0d9c5
+  rep0 off  19.413s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=2.08 cif a91aa44441f0d9c5
+  rep1 off  19.347s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=2.33 cif a91aa44441f0d9c5
+  rep1 on   19.038s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=2.03 cif a91aa44441f0d9c5
+  rep1 on   19.015s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=1.74 cif a91aa44441f0d9c5
+  rep1 off  19.334s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=1.53 cif a91aa44441f0d9c5
+  rep2 off  19.327s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=1.38 cif a91aa44441f0d9c5
+  rep2 on   19.037s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=1.79 cif a91aa44441f0d9c5
+  rep2 on   18.885s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=1.56 cif a91aa44441f0d9c5
+  rep2 off  19.353s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=1.44 cif a91aa44441f0d9c5
+  rep3 off  19.220s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=1.91 cif a91aa44441f0d9c5
+  rep3 on   19.059s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=2.21 cif a91aa44441f0d9c5
+  rep3 on   18.991s qkvg=[560, 0] qkvgb=[560, 0] gout=[560, 0] plddt=0.842856 load=2.38 cif a91aa44441f0d9c5
+  rep3 off  19.325s qkvg=[0, 0] qkvgb=[0, 0] gout=[0, 0] plddt=0.842856 load=2.51 cif a91aa44441f0d9c5
+{
+ "median_fold_s": {
+  "off": 19.336,
+  "on": 19.0375
+ },
+ "ratio_median": 1.01568,
+ "ab_paired_median": 1.01573,
+ "ab_paired_ratios": [
+  1.01098,
+  1.01094,
+  1.01623,
+  1.01678,
+  1.01523,
+  1.02478,
+  1.00845,
+  1.01759
+ ],
+ "ab_paired_all_positive": true,
+ "aa_floor_max": 1.00805,
+ "plddt": {
+  "off": [
+   0.842856
+  ],
+  "on": [
+   0.842856
+  ]
+ },
+ "bit_exact": true,
+ "cif_sha256": {
+  "off": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ],
+  "on": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ]
+ },
+ "served": {
+  "off": {
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ]
+  },
+  "on": {
+   "qkvg": [
+    4480,
+    0
+   ],
+   "qkvgb": [
+    4480,
+    0
+   ],
+   "gout": [
+    4480,
+    0
+   ]
+  }
+ }
+}
+benchlock: b2z2-trunk-byte-round2-ship released, rc=0, loadavg 2.51 1.49 0.81

@@ -1,0 +1,205 @@
+{
+  "legs": [
+    {
+      "leg": "esmfold2-trpcage",
+      "verdict": "PASS",
+      "detail": "4 proteins scored (4 within floor)",
+      "wall": 780.1171088909978,
+      "committed": "PASS",
+      "report": "esmfold2-trpcage.json"
+    },
+    {
+      "leg": "esmfold2-fast-trpcage",
+      "verdict": "PASS",
+      "detail": "4 proteins scored (4 within floor)",
+      "wall": 450.1749641150018,
+      "committed": "PASS",
+      "report": "esmfold2-fast-trpcage.json"
+    },
+    {
+      "leg": "esmfold2-cocrystal",
+      "verdict": "PASS",
+      "detail": "1 proteins scored (1 within floor)",
+      "wall": 312.5260161299957,
+      "committed": "PASS",
+      "report": "esmfold2-cocrystal.json"
+    }
+  ],
+  "tally": {
+    "PASS": 3
+  },
+  "scored": 3,
+  "total_wall_s": 1542.8190349370052,
+  "card_grant": null,
+  "skipped_for_card_grant": [],
+  "workers": [
+    "localhost:0",
+    "localhost:1",
+    "localhost:2"
+  ],
+  "stack": {
+    "tt_kmd": "2.9.0",
+    "cards": {
+      "0": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "1": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "2": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "3": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "4": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "5": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "6": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "7": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "8": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "9": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "10": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "11": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "12": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "13": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "14": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "15": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "16": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "17": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "18": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "19": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "20": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "21": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "22": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "23": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "24": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "25": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "26": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "27": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "28": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "29": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "30": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      },
+      "31": {
+        "card_type": "galaxy-wormhole",
+        "fw_bundle_ver": "19.6.0.0",
+        "serial": "0100035100000000"
+      }
+    }
+  }
+}

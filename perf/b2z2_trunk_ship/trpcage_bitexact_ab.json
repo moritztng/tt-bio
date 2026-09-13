@@ -1,0 +1,30 @@
+{
+ "leg": "boltz2-trpcage-nomsa",
+ "card": "3",
+ "arms": {
+  "on-1": {
+   "flags": "1",
+   "cif": "perf/b2z2_trunk_ship/trpcage_ab_work/on-1/boltz2_results_trpcage_no_msa/structures/trpcage_no_msa.cif",
+   "sha256": "69659ac8be57478c9fb695bfa8fc91e730fa725c546db894fd520b5828b89d44"
+  },
+  "off": {
+   "flags": "0",
+   "cif": "perf/b2z2_trunk_ship/trpcage_ab_work/off/boltz2_results_trpcage_no_msa/structures/trpcage_no_msa.cif",
+   "sha256": "d8aca4a7e1494c82e3b8626ba351eefdbc047cb7e41768ff323defa276d547b0"
+  },
+  "on-2": {
+   "flags": "1",
+   "cif": "perf/b2z2_trunk_ship/trpcage_ab_work/on-2/boltz2_results_trpcage_no_msa/structures/trpcage_no_msa.cif",
+   "sha256": "69659ac8be57478c9fb695bfa8fc91e730fa725c546db894fd520b5828b89d44"
+  },
+  "gate-run": {
+   "flags": "1 (branch default)",
+   "cif": "perf/b2z2_gate/trunkship_work/boltz2-trpcage-nomsa/seed0/boltz2_results_trpcage_no_msa/structures/trpcage_no_msa.cif",
+   "sha256": "d6f498e049dc3c4df5240fbb071b464304fd8fdb5c3962205858bba2a7abc6dd"
+  }
+ },
+ "verdict": {
+  "lever_bit_exact": false,
+  "run_to_run_deterministic": true
+ }
+}

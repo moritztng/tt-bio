@@ -1,0 +1,76 @@
+2026-09-13 00:41:31.116 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+    512 off PASS     23.70s dram= 1.678GiB l1=    64.0MiB qkvg=0/0 qkvgb=0/0 gout=0/0 sha=a91aa44441f0d9c5
+    512 on  PASS     20.86s dram= 1.875GiB l1=    64.0MiB qkvg=560/0 qkvgb=560/0 gout=560/0 sha=a91aa44441f0d9c5
+2026-09-13 00:42:26.424 | critical |          Always | TT_FATAL: Failed to assign all 50 requested cores (assert.hpp:104)
+2026-09-13 00:42:27.322 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 104857600 B L1 buffer across 110 banks, where each bank needs to store 954368 B, but bank size is 1461760 B (allocated: 954368 B, free: 507392 B, largest free block: 507392 B) (assert.hpp:104)
+2026-09-13 00:42:28.074 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 104857600 B L1 buffer across 110 banks, where each bank needs to store 954368 B, but bank size is 1461760 B (allocated: 954368 B, free: 507392 B, largest free block: 507392 B) (assert.hpp:104)
+2026-09-13 00:42:31.562 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 104857600 B L1 buffer across 110 banks, where each bank needs to store 954368 B, but bank size is 1461760 B (allocated: 954368 B, free: 507392 B, largest free block: 507392 B) (assert.hpp:104)
+2026-09-13 00:42:31.964 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 104857600 B L1 buffer across 110 banks, where each bank needs to store 954368 B, but bank size is 1461760 B (allocated: 954368 B, free: 507392 B, largest free block: 507392 B) (assert.hpp:104)
+2026-09-13 00:42:32.383 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 104857600 B L1 buffer across 110 banks, where each bank needs to store 954368 B, but bank size is 1461760 B (allocated: 954368 B, free: 507392 B, largest free block: 507392 B) (assert.hpp:104)
+2026-09-13 00:42:32.779 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 104857600 B L1 buffer across 110 banks, where each bank needs to store 954368 B, but bank size is 1461760 B (allocated: 954368 B, free: 507392 B, largest free block: 507392 B) (assert.hpp:104)
+    640 off PASS     51.22s dram= 2.090GiB l1=   100.1MiB qkvg=0/0 qkvgb=0/0 gout=0/0 sha=4c86759e21d40af1
+    640 on  PASS     31.66s dram= 2.264GiB l1=     0.0MiB qkvg=560/0 qkvgb=560/0 gout=560/0 sha=4c86759e21d40af1
+2026-09-13 00:43:48.767 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-13 00:43:49.564 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+   1024 off PASS     76.54s dram= 3.473GiB l1=     0.0MiB qkvg=0/0 qkvgb=0/0 gout=0/0 sha=d6ece9fab83c5ca3
+   1024 on  PASS     71.67s dram= 3.918GiB l1=     0.0MiB qkvg=560/0 qkvgb=560/0 gout=560/0 sha=d6ece9fab83c5ca3
+2026-09-13 00:46:28.462 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 6572544 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-13 00:46:29.265 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3424768 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
+[tt-bio] L1 census: grid=(11, 10) cores=110 cb_need=3424768 l1_top=1572864 resident_per_core=0 shortfall=1851904
+2026-09-13 00:46:30.072 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1851904 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
+[tt-bio] L1 census: grid=(11, 10) cores=110 cb_need=1851904 l1_top=1572864 resident_per_core=0 shortfall=279040
+   1536 off PASS    228.73s dram= 5.694GiB l1=     0.0MiB qkvg=0/0 qkvgb=0/0 gout=0/0 sha=fad78661a3672510
+   1536 on  PASS    196.70s dram= 7.259GiB l1=     0.0MiB qkvg=560/0 qkvgb=560/0 gout=0/560 sha=fad78661a3672510
+        gout rejects: {'multi_chunk_channel_loop': 560}
+{
+ "512": {
+  "both_complete": true,
+  "bit_exact": true,
+  "peak_dram_delta_pct": 11.7367,
+  "peak_l1_delta_pct": 0.0,
+  "gates_engaged_on_arm": {
+   "qkvg": true,
+   "qkvgb": true,
+   "trimul_gout": true
+  },
+  "arm_off_is_silent": true,
+  "digest_is_published_512": true
+ },
+ "640": {
+  "both_complete": true,
+  "bit_exact": true,
+  "peak_dram_delta_pct": 8.3158,
+  "peak_l1_delta_pct": -100.0,
+  "gates_engaged_on_arm": {
+   "qkvg": true,
+   "qkvgb": true,
+   "trimul_gout": true
+  },
+  "arm_off_is_silent": true
+ },
+ "1024": {
+  "both_complete": true,
+  "bit_exact": true,
+  "peak_dram_delta_pct": 12.8223,
+  "gates_engaged_on_arm": {
+   "qkvg": true,
+   "qkvgb": true,
+   "trimul_gout": true
+  },
+  "arm_off_is_silent": true
+ },
+ "1536": {
+  "both_complete": true,
+  "bit_exact": true,
+  "peak_dram_delta_pct": 27.4734,
+  "gates_engaged_on_arm": {
+   "qkvg": true,
+   "qkvgb": true,
+   "trimul_gout": false
+  },
+  "arm_off_is_silent": true
+ }
+}

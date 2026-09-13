@@ -35,6 +35,15 @@
 #define MM_WRITES_FLUSHED() noc_async_writes_flushed()
 #define MM_WRITE_BARRIER() noc_async_write_barrier()
 #endif
+
+// A trailing output chunk of a different width. Without MM_SPLIT_LAST_TILES every chunk is
+// N_tiles_per_chunk wide and this is the expression the stock writer already evaluates.
+#ifdef MM_SPLIT_LAST_TILES
+#define MM_CHUNK_TILES(c, n_chunks, uniform) \
+    ((uint32_t)((c) + 1 == (n_chunks) ? (uint32_t)(MM_SPLIT_LAST_TILES) : (uint32_t)(uniform)))
+#else
+#define MM_CHUNK_TILES(c, n_chunks, uniform) ((uint32_t)(uniform))
+#endif
 // -----------------------------------------------------------------------------------------------
 
 namespace detail {
@@ -351,7 +360,7 @@ FORCE_INLINE void write_tile_to_chunk(
     const Tuple& accessors, uint32_t chunk_idx, uint32_t tile_id, uint32_t read_ptr, std::index_sequence<Is...>) {
     // Fold expression: expands to if/else chain at compile time
     // Each branch calls noc_async_write_tile with the concrete type
-    ((chunk_idx == Is ? (noc_async_write_tile(tile_id, std::get<Is>(accessors), read_ptr), void()) : void()), ...);
+    ((chunk_idx == Is ? (MM_WRITE_TILE(tile_id, std::get<Is>(accessors), read_ptr, mm_write_seq), void()) : void()), ...);
 }
 
 /**
@@ -378,8 +387,13 @@ void write_block_sync_split(
     ASSERT(d0_end > d0_start);
     ASSERT(d1_end > d1_start);
 
-    const uint32_t chunk_idx_start = d1_start / N_tiles_per_chunk;
-    const uint32_t tile_idx_in_chunk_start = d1_start % N_tiles_per_chunk;
+    uint32_t chunk_idx_start = 0;
+    uint32_t tile_idx_in_chunk_start = d1_start;
+    while (chunk_idx_start < N_chunks &&
+           tile_idx_in_chunk_start >= MM_CHUNK_TILES(chunk_idx_start, N_chunks, N_tiles_per_chunk)) {
+        tile_idx_in_chunk_start -= MM_CHUNK_TILES(chunk_idx_start, N_chunks, N_tiles_per_chunk);
+        chunk_idx_start++;
+    }
 
     for (uint32_t i = d0_start; i < d0_end; i++) {
         // Assumes that all chunks have same number of tiles on the M-axis
@@ -392,7 +406,7 @@ void write_block_sync_split(
 
         for (uint32_t j = d1_start; j < d1_end; j++, tile_idx_in_chunk++) {
             // If we've reached the end of the current chunk, move to the next one
-            if (tile_idx_in_chunk >= chunk_shape.logical_d1) {
+            if (tile_idx_in_chunk >= MM_CHUNK_TILES(chunk_idx, N_chunks, N_tiles_per_chunk)) {
                 tile_idx_in_chunk = 0;
                 chunk_idx++;  // Move to next chunk; if chunk is past last one then next branch will skip padding
             }
@@ -403,11 +417,13 @@ void write_block_sync_split(
                 continue;
             }
 
-            uint32_t tile_id_in_chunk = i * chunk_shape.logical_d1 + tile_idx_in_chunk;
+            uint32_t tile_id_in_chunk =
+                i * MM_CHUNK_TILES(chunk_idx, N_chunks, N_tiles_per_chunk) + tile_idx_in_chunk;
 
             // Compile-time dispatch preserving concrete types
             write_tile_to_chunk(
                 accessors, chunk_idx, tile_id_in_chunk, read_ptr, std::index_sequence_for<Accessors...>{});
+            mm_write_seq++;
             read_ptr += tile_size_bytes;
         }
         // finish up incrementing read_ptr if (d1_end - d1_start) < N_block_tiles
@@ -435,8 +451,13 @@ void write_block_sync_granular_split(
     uint32_t d0_end,
     uint32_t d1_start,
     uint32_t d1_end) {
-    const uint32_t chunk_idx_start = d1_start / N_tiles_per_chunk;
-    const uint32_t tile_idx_in_chunk_start = d1_start % N_tiles_per_chunk;
+    uint32_t chunk_idx_start = 0;
+    uint32_t tile_idx_in_chunk_start = d1_start;
+    while (chunk_idx_start < N_chunks &&
+           tile_idx_in_chunk_start >= MM_CHUNK_TILES(chunk_idx_start, N_chunks, N_tiles_per_chunk)) {
+        tile_idx_in_chunk_start -= MM_CHUNK_TILES(chunk_idx_start, N_chunks, N_tiles_per_chunk);
+        chunk_idx_start++;
+    }
 
     for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {
         cb_wait_front(cb_id_out, N_block_tiles);
@@ -449,7 +470,7 @@ void write_block_sync_granular_split(
 
             for (uint32_t n_tile_id = d1_start; n_tile_id < d1_end; n_tile_id++, tile_idx_in_chunk++) {
                 // If we've reached the end of the current chunk, move to the next one
-                if (tile_idx_in_chunk >= chunk_shape.logical_d1) {
+                if (tile_idx_in_chunk >= MM_CHUNK_TILES(chunk_idx, N_chunks, N_tiles_per_chunk)) {
                     tile_idx_in_chunk = 0;
                     chunk_idx++;  // Move to next chunk; if chunk is past last one then next branch will skip padding
                 }
@@ -458,10 +479,12 @@ void write_block_sync_granular_split(
                     break;
                 }
 
-                uint32_t tile_id = m_tile * chunk_shape.logical_d1 + tile_idx_in_chunk;
+                uint32_t tile_id =
+                    m_tile * MM_CHUNK_TILES(chunk_idx, N_chunks, N_tiles_per_chunk) + tile_idx_in_chunk;
                 // Compile-time dispatch preserving concrete types
                 write_tile_to_chunk(
                     accessors, chunk_idx, tile_id, out_read_ptr, std::index_sequence_for<Accessors...>{});
+                mm_write_seq++;
 
                 out_read_ptr += tile_size_bytes;
             }
