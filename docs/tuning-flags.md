@@ -69,33 +69,29 @@ other four's four. This flag puts it in the pass as well, so the tensor is read 
 attention instead of three times. It needs `TT_BIO_TRIATT_FUSED_QKVG`; with that off it does
 nothing.
 
-**Accuracy: bit-identical from 48 residues up, and not at 32 or below.** One detail matters for
-reproducing the shipped numbers: the bias weight is taken back off the device rather than rebuilt,
-because it has already been scaled there in bfloat16, and scaling in float32 and converting
-afterwards rounds differently. bfloat16 to float and back is exact, so the fused form carries the
-same bits.
+**Accuracy: identical.** One detail matters for reproducing the shipped numbers: the bias
+weight is taken back off the device rather than rebuilt, because it has already been scaled there in
+bfloat16, and scaling in float32 and converting afterwards rounds differently. bfloat16 to float and
+back is exact, so the fused form carries the same bits.
 
-The tile-level argument the other two flags rest on does not carry this one all the way down. The
-bias projection is one tile wide against the other four's four, so adding it changes the width of
-the fused result, and at a small enough target that changes how the multiply is split across cores
-and therefore the order its partial sums are added. Measured, not argued: folding `trpcage_no_msa`
-(20 residues) with this flag on and off writes two different structures, reproducibly — the fold
-itself is deterministic, two flags-on runs agree to the byte
-(`perf/b2z2_trunk_ship/trpcage_bitexact_ab.json`), and turning the flags on one at a time and in
-pairs puts the change on this flag alone (`perf/b2z2_trunk_ship/trpcage_pairs.json`; the other two
-reproduce the flags-off structure exactly). The difference stays well inside the bf16 envelope: the
-parity gate scores the leg PASS either way, worst kabsch numerator 0.0808 against an envelope of
-0.1446, where main reads 0.0778.
-
-**The boundary is one tile.** Synthetic chains folded with this flag as the only difference
+**One shape is declined to keep it that way: chains that fit in a single tile.** The tile-level
+argument the other two flags rest on does not carry this one all the way down. The bias projection is
+one tile wide against the other four's four, so adding it widens the fused result, and on a small
+enough target that changes how the multiply is split across cores and therefore the order its partial
+sums are added. Measured, not argued. Synthetic chains folded with this flag as the only difference
 (`perf/b2z2_trunk_ship/qkvgb_boundary.json`) are byte-identical at 48, 64, 96 and 112 residues and
-differ at 32, which agrees with `prot_no_msa` at 117, `hsa_no_msa` at 585 and the 512 to 1536
-residue ladder. A chain of 32 residues or fewer occupies a single tile on the token axis and 48
-pads to two, so the flag is bit-identical on everything longer than one tile and differs only on
-chains short enough to fit inside one.
+differ at 32; `trpcage_no_msa` at 20 residues differs too, and
+`perf/b2z2_trunk_ship/trpcage_pairs.json` puts that change on this flag alone, the other two
+reproducing the flags-off structure exactly. `prot_no_msa` at 117, `hsa_no_msa` at 585 and the 512 to
+1536 residue ladder are all clean. A chain of 32 residues or fewer occupies one tile on the token
+axis and 48 pads to two, so the fused pass declines whenever either axis of the pair tensor is a
+single tile, and the bias projection runs where it always ran.
 
-If you need a fold to match a main-branch fold bit for bit on a chain that short, set this flag to
-0; the other two projections stay fused.
+With that guard the flag is bit-identical at every length: 20, 32, 48 and 64 residues all write
+byte-identical structures with the three flags on and off
+(`perf/b2z2_trunk_ship/qkvgb_guard_verify.json`). It costs nothing, because a chain that short is not
+a performance case. At 512 residues the guard declines nothing: 560 fused calls served per fold and
+the same structure digest (`perf/b2z2_trunk_ship/cell_512_guard_qb2_c0.json`).
 
 **Speed:** the largest of the three. 1.02491x on the pairformer block by itself.
 

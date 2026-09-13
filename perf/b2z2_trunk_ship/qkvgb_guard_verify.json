@@ -1,0 +1,41 @@
+{
+ "guard": "single_tile_axis",
+ "card": "3",
+ "arms": "all three flags on vs all off",
+ "lengths": {
+  "20": {
+   "sha256": {
+    "all-off": "d8aca4a7e1494c82e3b8626ba351eefdbc047cb7e41768ff323defa276d547b0",
+    "all-on": "d8aca4a7e1494c82e3b8626ba351eefdbc047cb7e41768ff323defa276d547b0"
+   },
+   "bit_exact": true
+  },
+  "32": {
+   "sha256": {
+    "all-off": "c649edd82e97fe415f6fd29589df4322f761ef3a4aa75d2c022abe20f28e58b5",
+    "all-on": "c649edd82e97fe415f6fd29589df4322f761ef3a4aa75d2c022abe20f28e58b5"
+   },
+   "bit_exact": true
+  },
+  "48": {
+   "sha256": {
+    "all-off": "a4a7cb50cfb62d1c51c21dabe0ea6d54b9c9d2e1acbe081e3cf47f137bc2244c",
+    "all-on": "a4a7cb50cfb62d1c51c21dabe0ea6d54b9c9d2e1acbe081e3cf47f137bc2244c"
+   },
+   "bit_exact": true
+  },
+  "64": {
+   "sha256": {
+    "all-off": "b04b525f3fd791f1d317e3f26882b6dface8acd9d81958640f39d8bf37f40e48",
+    "all-on": "b04b525f3fd791f1d317e3f26882b6dface8acd9d81958640f39d8bf37f40e48"
+   },
+   "bit_exact": true
+  }
+ },
+ "bit_exact": {
+  "20": true,
+  "32": true,
+  "48": true,
+  "64": true
+ }
+}

@@ -395,6 +395,13 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
             return _qkvgb_reject("l1_out_leg_live", shape)
 
     pad = [int(d) for d in x.padded_shape]
+    if pad[0] <= TILE or pad[-2] <= TILE:
+        # One tile on either axis is the single shape where this does not reproduce the three
+        # calls it replaces to the byte: measured different at 32 residues and identical at 48,
+        # 64, 96, 112 and every size on the 512-1536 ladder
+        # (`perf/b2z2_trunk_ship/qkvgb_boundary.json`). A chain that fits in one tile is not a
+        # performance case, so decline it and keep the fused path bit-exact wherever it serves.
+        return _qkvgb_reject("single_tile_axis", shape)
     if pad[0] * pad[-2] <= int(w.shape[-1]):
         return _qkvgb_reject("m_le_n", shape)
 
