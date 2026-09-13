@@ -5631,7 +5631,7 @@ class Boltz2(nn.Module):
             weight, bias, _shape, eps = _fuse_bias_stack(dc.token_trans_proj_z)
             cond = tenstorrent.PairConditioningDevice(
                 dc.pairwise_conditioner, weight, bias, eps, dc.atom_encoder.z_to_p_trans,
-                self.rel_pos, self.msa_module.compute_kernel_config,
+                self.msa_module.compute_kernel_config,
             )
             self._tt_cond = cond
         return cond
@@ -5830,8 +5830,13 @@ class Boltz2(nn.Module):
             if self.trace:
                 print("[boltz2] diffusion_conditioning")
             if device_conditioning:
+                if relative_position_encoding is None:
+                    # `device_zinit` built its own on the card and skipped this one. The
+                    # conditioning still wants the host tensor: it is summed in fp32 and rounded
+                    # once, and that is the rounding the shipped default was measured with.
+                    relative_position_encoding = self.rel_pos(feats)
                 z_to_p, token_trans_bias = self._tt_cond_module()(
-                    device_z[0], feats, z.shape[1], device_z[1],
+                    device_z[0], relative_position_encoding, z.shape[1], device_z[1],
                 )
                 q, c, to_keys, atom_enc_bias, atom_dec_bias = (
                     self.diffusion_conditioning.forward_atoms(

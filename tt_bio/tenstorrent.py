@@ -11164,9 +11164,8 @@ class PairConditioningDevice:
     """
 
     def __init__(self, pairwise_conditioner, bias_weight, bias_bias, bias_eps, z_to_p_trans,
-                 rel_pos, compute_kernel_config):
+                 compute_kernel_config):
         self.compute_kernel_config = compute_kernel_config
-        self.rel_pos = RelPosGather(rel_pos)
         self.wall = StageWall("TT_BIO_DEVICE_CONDITIONING_PROFILE", "paircond")
         device = get_device()
 
@@ -11203,7 +11202,7 @@ class PairConditioningDevice:
             compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
         )
 
-    def __call__(self, z, feats, seq_len, seq_pad):
+    def __call__(self, z, relative_position_encoding, seq_len, seq_pad):
         """``(z_to_p, token_trans_bias)`` from the trunk's device pair tensor.
 
         ``z`` is NOT consumed -- the caller owns it, so the confidence head can read the same
@@ -11212,7 +11211,19 @@ class PairConditioningDevice:
         wants.
         """
         self.wall.start()
-        rel_pos_tt = self.rel_pos(feats, seq_len + seq_pad)
+        # The relative-position tensor comes from the host, already summed in fp32 and rounded to
+        # bf16 exactly once on the way up. `RelPosGather` would build it here for free, but
+        # `ttnn.embedding` only takes bf16 tables, so the device form rounds every term before it
+        # adds them, and this tensor drives the pairwise conditioner, all 24 diffusion bias layers
+        # and the atom encoder through 200 sampling steps: measured, it moves the 512 aa structure
+        # 1.54 A on the worst pseudo-domain against a 0.60 A bar. The z_init assembly gathers its
+        # own copy, which is scored on its own control; this one stays where the shipped default
+        # put it.
+        rel_pos = relative_position_encoding
+        if seq_pad:
+            rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, seq_pad, 0, seq_pad))
+        rel_pos_tt = ttnn.from_torch(rel_pos, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                     dtype=ttnn.bfloat16)
         self.wall.mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(rel_pos_tt)

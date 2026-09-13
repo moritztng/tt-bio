@@ -43,11 +43,13 @@ sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 import ab_flag_levers as AB  # noqa: E402  -- the fixtures, cfg and MSA seeding, unmodified
 
 FLAG = "TT_BIO_DEVICE_CONDITIONING"
+READER = "_device_conditioning"
 
 # arm -> value for FLAG, or None for "touch nothing". `default` tests the SHIPPED DEFAULT rather
 # than a value this driver sets: flipping a default and then measuring an arm that overrides it
-# proves nothing about the default.
-ARMS = {"base": "0", "cond": "1", "default": None}
+# proves nothing about the default. `on` is `cond` under a name that reads for any lever, which
+# --flag makes this driver able to measure.
+ARMS = {"base": "0", "cond": "1", "on": "1", "default": None}
 
 
 def check_arms(arms, B2):
@@ -58,8 +60,8 @@ def check_arms(arms, B2):
     """
     for arm in arms:
         assert arm in ARMS, f"unknown arm {arm}"
-    assert hasattr(B2, "_device_conditioning"), (
-        "this checkout has no tt_bio.boltz2._device_conditioning; both arms would be identical")
+    assert hasattr(B2, READER), (
+        f"this checkout has no tt_bio.boltz2.{READER}; both arms would be identical")
 
 
 def main() -> int:
@@ -67,6 +69,9 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--cifdir", type=Path, required=True)
     ap.add_argument("--plan", default="base:0,1,2,3;cond:0,1,2,3")
+    ap.add_argument("--flag", default=FLAG, help="the TT_BIO_* env flag the arms set")
+    ap.add_argument("--reader", default=READER,
+                    help="the tt_bio.boltz2 function that reads --flag, checked before folding")
     ap.add_argument("--sizes", default="512")
     ap.add_argument("--steps", type=int, default=AB.SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
@@ -80,6 +85,8 @@ def main() -> int:
                     help="arms per rep, in order. base at two positions gives the A/A floor")
     ap.add_argument("--timing-seed", type=int, default=0)
     args = ap.parse_args()
+    global FLAG, READER
+    FLAG, READER = args.flag, args.reader
 
     plan = {}
     for part in args.plan.split(";"):
@@ -162,7 +169,7 @@ def main() -> int:
         body = (keep / cifs[0].name).read_bytes()
         return {"arm": arm, "seed": seed, "target": target.stem, "fold_s": round(wall, 3),
                 "sha256": hashlib.sha256(body).hexdigest()[:16],
-                "device_conditioning": bool(B2._device_conditioning()),
+                "lever_on": bool(getattr(B2, READER)()),
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
 
     if args.timing_reps:
