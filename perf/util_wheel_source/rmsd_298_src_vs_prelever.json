@@ -1,0 +1,17 @@
+{
+ "label": "src298_vs_pre-lever-main",
+ "ref": "perf/b2x-baseline-attrib/ref/main20260911_71653ff7_cdk2x2_298.cif",
+ "arm": "/home/ttuser/scratch/uws_art/cif_prewarm_source/ctl298_cdk2x2_298.cif",
+ "n_atoms_ref": 2397,
+ "n_atoms_arm": 2397,
+ "n_matched": 2397,
+ "n_CA": 298,
+ "allatom_rmsd_A": 0.3758,
+ "ca_rmsd_A": 0.1739,
+ "bar": {
+  "pass_A": 0.35,
+  "hold_A": 0.6
+ },
+ "verdict": "hold",
+ "identical_bytes": false
+}
