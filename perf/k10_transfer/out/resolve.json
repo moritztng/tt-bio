@@ -1,0 +1,225 @@
+{
+ "doc": "Decide whether an arm resolved, on a statistic that does not punish extra data.\n\nThe rule this task preregistered -- \"the margin must exceed the WORST A/A bracket in the run\" -- is\nnot a consistent test, and the Wormhole shift-gather arm is what exposed it. The worst bracket is a\nmaximum over reps, so it grows with the number of reps even when the underlying spread is unchanged:\nat 3 reps that arm's worst bracket was 1.01596 and at 6 reps it was 1.01750, while the effect itself\ndid not move. **Collecting more folds made the test harder to pass.** A criterion with that property\ncannot be used to say what a session can resolve.\n\nWhat replaces it is the standard error of the paired ratios, which falls as 1/sqrt(n) the way a\nresolution statistic must, plus a sign test on the pairs that assumes nothing about their\ndistribution. Both are computed here for every arm, including the ones the change does not rescue --\nq-chunk still reads nothing on either part under this test, which is the evidence that this is a\ncorrection and not a rescue.\n",
+ "arms": [
+  {
+   "file": "wh_trunkfuse_c0.json",
+   "lever": "trunkfuse",
+   "kind": "arithmetic",
+   "host": "j10glx02",
+   "card": "0",
+   "n_pairs": 6,
+   "margin_pp": 2.605,
+   "se_pp": 0.299,
+   "t": 8.71,
+   "ci95_pp": [
+    2.019,
+    3.191
+   ],
+   "pairs_positive": "6/6",
+   "p_sign": 0.03125,
+   "resolved": true,
+   "old_worst_bracket": 1.01052,
+   "old_rule_resolved": true,
+   "bit_exact": true,
+   "engagement": "pass"
+  },
+  {
+   "file": "bh_trunkfuse_c0.json",
+   "lever": "trunkfuse",
+   "kind": "arithmetic",
+   "host": "tt-quietbox2",
+   "card": "0",
+   "n_pairs": 12,
+   "margin_pp": 1.622,
+   "se_pp": 0.144,
+   "t": 11.3,
+   "ci95_pp": [
+    1.341,
+    1.904
+   ],
+   "pairs_positive": "12/12",
+   "p_sign": 0.00049,
+   "resolved": true,
+   "old_worst_bracket": 1.01449,
+   "old_rule_resolved": true,
+   "bit_exact": true,
+   "engagement": "pass"
+  },
+  {
+   "file": "wh_devcond_c3.json",
+   "lever": "devcond",
+   "kind": "placement",
+   "host": "j10glx02",
+   "card": "3",
+   "n_pairs": 6,
+   "margin_pp": 3.665,
+   "se_pp": 0.105,
+   "t": 34.95,
+   "ci95_pp": [
+    3.459,
+    3.871
+   ],
+   "pairs_positive": "6/6",
+   "p_sign": 0.03125,
+   "resolved": true,
+   "old_worst_bracket": 1.00386,
+   "old_rule_resolved": true,
+   "bit_exact": false,
+   "engagement": "uninstrumented"
+  },
+  {
+   "file": "bh_devcond_c0.json",
+   "lever": "devcond",
+   "kind": "placement",
+   "host": "tt-quietbox2",
+   "card": "0",
+   "n_pairs": 10,
+   "margin_pp": 4.254,
+   "se_pp": 0.12,
+   "t": 35.41,
+   "ci95_pp": [
+    4.018,
+    4.489
+   ],
+   "pairs_positive": "10/10",
+   "p_sign": 0.00195,
+   "resolved": true,
+   "old_worst_bracket": 1.01065,
+   "old_rule_resolved": true,
+   "bit_exact": false,
+   "engagement": "uninstrumented"
+  },
+  {
+   "file": "wh_shiftgather_c20.json",
+   "lever": "shiftgather",
+   "kind": "layout",
+   "host": "j10glx02",
+   "card": "20",
+   "n_pairs": 12,
+   "margin_pp": 1.616,
+   "se_pp": 0.153,
+   "t": 10.59,
+   "ci95_pp": [
+    1.317,
+    1.915
+   ],
+   "pairs_positive": "12/12",
+   "p_sign": 0.00049,
+   "resolved": true,
+   "old_worst_bracket": 1.0175,
+   "old_rule_resolved": false,
+   "bit_exact": true,
+   "engagement": "pass"
+  },
+  {
+   "file": "bh_shiftgather_c0.json",
+   "lever": "shiftgather",
+   "kind": "layout",
+   "host": "tt-quietbox2",
+   "card": "0",
+   "n_pairs": 10,
+   "margin_pp": 2.147,
+   "se_pp": 0.151,
+   "t": 14.24,
+   "ci95_pp": [
+    1.852,
+    2.443
+   ],
+   "pairs_positive": "10/10",
+   "p_sign": 0.00195,
+   "resolved": true,
+   "old_worst_bracket": 1.00903,
+   "old_rule_resolved": true,
+   "bit_exact": true,
+   "engagement": "pass"
+  },
+  {
+   "file": "wh_qchunk_c1.json",
+   "lever": "qchunk",
+   "kind": "eligibility",
+   "host": "j10glx02",
+   "card": "1",
+   "n_pairs": 6,
+   "margin_pp": 0.066,
+   "se_pp": 0.198,
+   "t": 0.33,
+   "ci95_pp": [
+    -0.322,
+    0.454
+   ],
+   "pairs_positive": "3/6",
+   "p_sign": 1.0,
+   "resolved": false,
+   "old_worst_bracket": 1.00861,
+   "old_rule_resolved": false,
+   "bit_exact": true,
+   "engagement": "uninstrumented"
+  },
+  {
+   "file": "bh_qchunk_c0_s2.json",
+   "lever": "qchunk",
+   "kind": "eligibility",
+   "host": "tt-quietbox2",
+   "card": "0",
+   "n_pairs": 12,
+   "margin_pp": -0.076,
+   "se_pp": 0.149,
+   "t": -0.51,
+   "ci95_pp": [
+    -0.368,
+    0.217
+   ],
+   "pairs_positive": "7/12",
+   "p_sign": 0.77441,
+   "resolved": false,
+   "old_worst_bracket": 1.00978,
+   "old_rule_resolved": false,
+   "bit_exact": true,
+   "engagement": "uninstrumented"
+  },
+  {
+   "file": "w1_c0.json",
+   "lever": "null",
+   "kind": "control",
+   "host": "j10glx02",
+   "card": "0",
+   "n_pairs": 2,
+   "margin_pp": 0.001,
+   "se_pp": 0.589,
+   "t": 0.0,
+   "ci95_pp": [
+    -1.152,
+    1.155
+   ],
+   "pairs_positive": "1/2",
+   "p_sign": 1.0,
+   "resolved": false,
+   "old_worst_bracket": 1.00684,
+   "old_rule_resolved": false,
+   "bit_exact": true,
+   "engagement": "uninstrumented"
+  },
+  {
+   "file": "bh_null_c0.json",
+   "lever": "null",
+   "kind": "control",
+   "host": "tt-quietbox2",
+   "card": "0",
+   "n_pairs": 6,
+   "margin_pp": -0.677,
+   "se_pp": 0.476,
+   "t": -1.42,
+   "ci95_pp": [
+    -1.61,
+    0.256
+   ],
+   "pairs_positive": "2/6",
+   "p_sign": 0.6875,
+   "resolved": false,
+   "old_worst_bracket": 1.03028,
+   "old_rule_resolved": false,
+   "bit_exact": true,
+   "engagement": "uninstrumented"
+  }
+ ]
+}

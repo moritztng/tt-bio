@@ -1,0 +1,199 @@
+{
+ "doc": "Fit the WH -> BH transfer from paired lever ratios, and state its spread.\n\nLevers are small, so the useful quantity is not the ratio but the MARGIN it carries, r - 1: a lever\nworth 4 % and one worth 0.4 % are a factor of ten apart in margin and 3.6 percentage points apart in\nratio. The transfer is therefore fitted on margins,\n\n    margin_BH = k * margin_WH\n\nwith k estimated per point as the margin ratio, and reported as a median with the full range, not a\nleast-squares line: four points cannot support a line, and the spread IS the deliverable.\n\nA point is admitted only if BOTH arms cleared their own session's A/A floor. A lever inside the\nfloor has no measured margin on that part, so it constrains nothing and is listed as unresolved\nrather than folded into the fit with a noise-sized margin.\n",
+ "points": [
+  {
+   "lever": "devcond",
+   "kind": "placement",
+   "wh": {
+    "lever": "devcond",
+    "kind": "placement",
+    "host": "j10glx02",
+    "card": "3",
+    "ratio": 1.03573,
+    "floor": 1.00386,
+    "resolved": true,
+    "engagement": "uninstrumented",
+    "bit_exact": false,
+    "median_fold_s": {
+     "off": 39.4395,
+     "on": 38.07899999999999
+    },
+    "commit": "0cd6c4152bbe",
+    "width": 8
+   },
+   "bh": {
+    "lever": "devcond",
+    "kind": "placement",
+    "host": "tt-quietbox2",
+    "card": "0",
+    "ratio": 1.04393,
+    "floor": 1.01065,
+    "resolved": true,
+    "engagement": "uninstrumented",
+    "bit_exact": false,
+    "median_fold_s": {
+     "off": 18.843,
+     "on": 18.049999999999997
+    },
+    "commit": "0cd6c4152bbe",
+    "width": 1
+   },
+   "paired": true,
+   "margin_wh_pp": 3.573,
+   "margin_bh_pp": 4.393,
+   "k": 1.229
+  },
+  {
+   "lever": "trunkfuse",
+   "kind": "arithmetic",
+   "wh": {
+    "lever": "trunkfuse",
+    "kind": "arithmetic",
+    "host": "j10glx02",
+    "card": "0",
+    "ratio": 1.02755,
+    "floor": 1.01052,
+    "resolved": true,
+    "engagement": "pass",
+    "bit_exact": true,
+    "median_fold_s": {
+     "off": 39.427,
+     "on": 38.370000000000005
+    },
+    "commit": "0cd6c4152bbe",
+    "width": 8
+   },
+   "bh": {
+    "lever": "trunkfuse",
+    "kind": "arithmetic",
+    "host": "tt-quietbox2",
+    "card": "0",
+    "ratio": 1.01662,
+    "floor": 1.01449,
+    "resolved": true,
+    "engagement": "pass",
+    "bit_exact": true,
+    "median_fold_s": {
+     "off": 18.201,
+     "on": 17.9035
+    },
+    "commit": "0cd6c4152bbe",
+    "width": 1
+   },
+   "paired": true,
+   "margin_wh_pp": 2.755,
+   "margin_bh_pp": 1.662,
+   "k": 0.603
+  }
+ ],
+ "unresolved": [
+  {
+   "lever": "qchunk",
+   "kind": "eligibility",
+   "wh": {
+    "lever": "qchunk",
+    "kind": "eligibility",
+    "host": "j10glx02",
+    "card": "1",
+    "ratio": 0.99843,
+    "floor": 1.00861,
+    "resolved": false,
+    "engagement": "uninstrumented",
+    "bit_exact": true,
+    "median_fold_s": {
+     "off": 38.092,
+     "on": 38.152
+    },
+    "commit": "0cd6c4152bbe",
+    "width": 8
+   },
+   "bh": {
+    "lever": "qchunk",
+    "kind": "eligibility",
+    "host": "tt-quietbox2",
+    "card": "0",
+    "ratio": 0.99831,
+    "floor": 1.01063,
+    "resolved": false,
+    "engagement": "uninstrumented",
+    "bit_exact": true,
+    "median_fold_s": {
+     "off": 17.982,
+     "on": 18.012500000000003
+    },
+    "commit": "0cd6c4152bbe",
+    "width": 1
+   },
+   "paired": true,
+   "unresolved_because": "WH 0.99843 inside its floor 1.00861; BH 0.99831 inside its floor 1.01063"
+  },
+  {
+   "lever": "shiftgather",
+   "kind": "layout",
+   "wh": {
+    "lever": "shiftgather",
+    "kind": "layout",
+    "host": "j10glx02",
+    "card": "2",
+    "ratio": 1.0151,
+    "floor": 1.01596,
+    "resolved": false,
+    "engagement": "pass",
+    "bit_exact": true,
+    "median_fold_s": {
+     "off": 38.516999999999996,
+     "on": 37.944
+    },
+    "commit": "0cd6c4152bbe",
+    "width": 8
+   },
+   "bh": {
+    "lever": "shiftgather",
+    "kind": "layout",
+    "host": "tt-quietbox2",
+    "card": "0",
+    "ratio": 1.02177,
+    "floor": 1.00903,
+    "resolved": true,
+    "engagement": "pass",
+    "bit_exact": true,
+    "median_fold_s": {
+     "off": 18.325499999999998,
+     "on": 17.935000000000002
+    },
+    "commit": "0cd6c4152bbe",
+    "width": 1
+   },
+   "paired": true,
+   "unresolved_because": "WH 1.01510 inside its floor 1.01596"
+  }
+ ],
+ "n_paired_resolved": 2,
+ "transfer": {
+  "k_median": 0.916,
+  "k_min": 0.603,
+  "k_max": 1.229,
+  "k_spread_factor": 2.04,
+  "n": 2
+ },
+ "by_kind": {
+  "placement": {
+   "k_median": 1.229,
+   "k_min": 1.229,
+   "k_max": 1.229,
+   "n": 1,
+   "levers": [
+    "devcond"
+   ]
+  },
+  "arithmetic": {
+   "k_median": 0.603,
+   "k_min": 0.603,
+   "k_max": 0.603,
+   "n": 1,
+   "levers": [
+    "trunkfuse"
+   ]
+  }
+ }
+}
