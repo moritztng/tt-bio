@@ -107,12 +107,12 @@ def main() -> int:
     # The protocol the run actually used, read back off the config it wrote, not off the
     # command line: a design step that silently downshifted its sampling would otherwise
     # read as a clean pass.
-    cfg = args.out / "config.yaml"
+    cfg = args.out / "config" / "design.yaml"
     if cfg.exists():
-        text = cfg.read_text()
-        record["config_sampling_steps"] = [
-            ln.strip() for ln in text.splitlines()
-            if "sampling_steps" in ln or "recycling_steps" in ln
+        record["protocol"] = [
+            ln.strip() for ln in cfg.read_text().splitlines()
+            if ln.split(":")[0].strip() in ("sampling_steps", "recycling_steps",
+                                            "diffusion_samples")
         ]
     (args.out / "arm.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
     print(json.dumps(record, indent=2, sort_keys=True))
