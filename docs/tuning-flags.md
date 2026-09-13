@@ -69,11 +69,29 @@ other four's four. This flag puts it in the pass as well, so the tensor is read 
 attention instead of three times. It needs `TT_BIO_TRIATT_FUSED_QKVG`; with that off it does
 nothing.
 
-**Accuracy: identical**, on the same argument and the same evidence as the flag above, plus one
-detail that matters for reproducing the shipped numbers: the bias weight is taken back off the
-device rather than rebuilt, because it has already been scaled there in bfloat16, and scaling in
-float32 and converting afterwards rounds differently. bfloat16 to float and back is exact, so the
-fused form carries the same bits.
+**Accuracy: bit-identical from 117 residues up, and not at 20.** One detail matters for
+reproducing the shipped numbers: the bias weight is taken back off the device rather than rebuilt,
+because it has already been scaled there in bfloat16, and scaling in float32 and converting
+afterwards rounds differently. bfloat16 to float and back is exact, so the fused form carries the
+same bits.
+
+The tile-level argument the other two flags rest on does not carry this one all the way down. The
+bias projection is one tile wide against the other four's four, so adding it changes the width of
+the fused result, and at a small enough target that changes how the multiply is split across cores
+and therefore the order its partial sums are added. Measured, not argued: folding `trpcage_no_msa`
+(20 residues) with this flag on and off writes two different structures, reproducibly — the fold
+itself is deterministic, two flags-on runs agree to the byte
+(`perf/b2z2_trunk_ship/trpcage_bitexact_ab.json`), and turning the flags on one at a time and in
+pairs puts the change on this flag alone (`perf/b2z2_trunk_ship/trpcage_pairs.json`; the other two
+reproduce the flags-off structure exactly). The difference stays well inside the bf16 envelope: the
+parity gate scores the leg PASS either way, worst kabsch numerator 0.0808 against an envelope of
+0.1446, where main reads 0.0778.
+
+`prot_no_msa` at 117 residues, `hsa_no_msa` at 585, and the 512, 640, 1024 and 1536 residue folds of
+`perf/b2z2_size_ladder/` are all byte-identical with the flag on and off. So the boundary is
+somewhere above 20 residues and at or below 117, and it has not been located. If you need a fold to
+match a main-branch fold bit for bit on a very short chain, set this flag to 0; the other two
+projections stay fused.
 
 **Speed:** the largest of the three. 1.02491x on the pairformer block by itself.
 
