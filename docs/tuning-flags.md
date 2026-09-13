@@ -69,7 +69,7 @@ other four's four. This flag puts it in the pass as well, so the tensor is read 
 attention instead of three times. It needs `TT_BIO_TRIATT_FUSED_QKVG`; with that off it does
 nothing.
 
-**Accuracy: bit-identical from 117 residues up, and not at 20.** One detail matters for
+**Accuracy: bit-identical from 48 residues up, and not at 32 or below.** One detail matters for
 reproducing the shipped numbers: the bias weight is taken back off the device rather than rebuilt,
 because it has already been scaled there in bfloat16, and scaling in float32 and converting
 afterwards rounds differently. bfloat16 to float and back is exact, so the fused form carries the
@@ -87,11 +87,15 @@ reproduce the flags-off structure exactly). The difference stays well inside the
 parity gate scores the leg PASS either way, worst kabsch numerator 0.0808 against an envelope of
 0.1446, where main reads 0.0778.
 
-`prot_no_msa` at 117 residues, `hsa_no_msa` at 585, and the 512, 640, 1024 and 1536 residue folds of
-`perf/b2z2_size_ladder/` are all byte-identical with the flag on and off. So the boundary is
-somewhere above 20 residues and at or below 117, and it has not been located. If you need a fold to
-match a main-branch fold bit for bit on a very short chain, set this flag to 0; the other two
-projections stay fused.
+**The boundary is one tile.** Synthetic chains folded with this flag as the only difference
+(`perf/b2z2_trunk_ship/qkvgb_boundary.json`) are byte-identical at 48, 64, 96 and 112 residues and
+differ at 32, which agrees with `prot_no_msa` at 117, `hsa_no_msa` at 585 and the 512 to 1536
+residue ladder. A chain of 32 residues or fewer occupies a single tile on the token axis and 48
+pads to two, so the flag is bit-identical on everything longer than one tile and differs only on
+chains short enough to fit inside one.
+
+If you need a fold to match a main-branch fold bit for bit on a chain that short, set this flag to
+0; the other two projections stay fused.
 
 **Speed:** the largest of the three. 1.02491x on the pairformer block by itself.
 

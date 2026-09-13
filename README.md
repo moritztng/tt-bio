@@ -760,7 +760,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 |------|---------|--------------|
 | `TT_BIO_ATOM_SHIFT_GATHER` | on | Builds each atom's attention key window by slicing the atom sequence instead of selecting it with a matrix multiply. Same structure, bit for bit. |
 | `TT_BIO_TRIATT_FUSED_QKVG` | on | Projects a triangle attention's query, key, value and gate in one pass over the pair tensor instead of two. Same structure, bit for bit. |
-| `TT_BIO_TRIATT_FUSED_QKVGB` | on | Adds the pair-bias projection to that same pass, so the pair tensor is read once instead of three times. Same structure bit for bit from 117 residues up; on a 20-residue target it moves the structure, well inside the bf16 envelope. |
+| `TT_BIO_TRIATT_FUSED_QKVGB` | on | Adds the pair-bias projection to that same pass, so the pair tensor is read once instead of three times. Same structure bit for bit from 48 residues up; on a chain of 32 or fewer it moves the structure, well inside the bf16 envelope. |
 | `TT_BIO_TRIMUL_FUSED_GOUT` | on | Computes a triangle multiplication's output gate as a second output of its input projection. Same structure, bit for bit. |
 
 More on how these were measured, and what "same structure" means for each of them, in
