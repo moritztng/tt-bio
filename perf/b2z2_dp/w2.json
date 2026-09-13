@@ -1,0 +1,341 @@
+{
+ "doc": "Data-parallel throughput of the Boltz-2 512 aa cell: W independent folds, one per chip.\n\nOne fold per chip, nothing shared between chips. No tensor is split across devices, so this\nmeasures the only multi-chip route the campaign still has: folds per hour per box against W.\n\nHow a width is measured, and why this shape rather than \"run W folds and divide\":\n\n  * one process per card, each pinned with ``TT_VISIBLE_DEVICES=<card>`` so ttnn brings up that\n    chip and no other. An unpinned open starts every visible chip and would silently make a\n    width-1 arm a 32-chip arm.\n  * a **barrier** between the warm-up fold and the timed reps. Without it the first chip to finish\n    loading folds alone and its \"concurrent\" fold is a solo fold; the whole question here is what\n    happens when W folds really are in flight at once.\n  * throughput is taken over the **window where every child is folding**: the reps start after the\n    barrier, so ``W * reps / (max_end - min_start)`` is a measured rate, not a per-fold latency\n    converted into one. The median per-fold latency is reported next to it because the ratio of\n    medians (width-1 median / width-W median) is the efficiency, and the two numbers have to agree.\n  * the CIF sha256 of every fold, from every child. A DP arm that does not emit the width-1 digest\n    is not the same computation and its throughput is meaningless. This is a digest equality check,\n    which the chimeric cdk2x2 fixture can carry; it is not a parity score, which it cannot.\n  * ``step_n`` read off the sampler per fold. 200 steps and 3 recycles are the protocol, asserted\n    per fold by the driver rather than trusted from a config dict.\n\nHost-side instrumentation, recorded per fold so the gap at the widest width can be attributed\nrather than guessed: process CPU seconds (``utime + stime``) over the fold gives **cores per\nconcurrent fold**, which is the quantity the 2026-08-02 galaxy investigation named as the residual\n(~1.007 cores/fold). Wall of ``DiffusionModule.forward`` gives the sampler's share.\n\n    dp_width.py --cards 0,1,2,3 --reps 3 --out perf/b2z2_dp/w4.json\n",
+ "width": 2,
+ "cards": [
+  "0",
+  "1"
+ ],
+ "host": "j10glx02",
+ "commit": "f0e945ee4883c4cdc13725750052bf86c824a1ca",
+ "started_utc": "2026-09-12T23:56:07Z",
+ "protocol": {
+  "size": 512,
+  "sampling_steps": 200,
+  "recycling_steps": 3,
+  "reps": 3,
+  "warmup": 1,
+  "seed": 0
+ },
+ "loadavg_at_start": [
+  13.57,
+  11.44,
+  16.36
+ ],
+ "occupancy_at_start": {
+  "pids": [
+   "1157567",
+   "1224904",
+   "1658112"
+  ],
+  "nodes": [
+   "/dev/tenstorrent/10",
+   "/dev/tenstorrent/11",
+   "/dev/tenstorrent/24",
+   "/dev/tenstorrent/8",
+   "/dev/tenstorrent/9"
+  ]
+ },
+ "workdir": "/home/mthuening/scratch/b2z2dp/w2",
+ "returncodes": {
+  "0": 0,
+  "1": 0
+ },
+ "children": {
+  "0": {
+   "card": "0",
+   "width": 2,
+   "pid": 1679657,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 45.229,
+     "start_epoch": 1789257377.889,
+     "end_epoch": 1789257423.118,
+     "sha256": "da476491dbb2a847",
+     "step_s": 10.6227,
+     "step_n": 200,
+     "step_ms": 53.1136,
+     "cpu_s": 201.141,
+     "cores": 4.4472,
+     "loadavg": [
+      13.69,
+      11.74,
+      16.17
+     ],
+     "plddt": 0.802815
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 42.25,
+     "start_epoch": 1789257423.261,
+     "end_epoch": 1789257465.511,
+     "sha256": "da476491dbb2a847",
+     "step_s": 9.486,
+     "step_n": 200,
+     "step_ms": 47.4299,
+     "cpu_s": 179.911,
+     "cores": 4.2583,
+     "loadavg": [
+      16.27,
+      12.44,
+      16.21
+     ],
+     "plddt": 0.802815
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 42.381,
+     "start_epoch": 1789257465.512,
+     "end_epoch": 1789257507.892,
+     "sha256": "da476491dbb2a847",
+     "step_s": 9.5745,
+     "step_n": 200,
+     "step_ms": 47.8726,
+     "cpu_s": 186.347,
+     "cores": 4.397,
+     "loadavg": [
+      19.37,
+      13.45,
+      16.35
+     ],
+     "plddt": 0.802815
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 41.831,
+     "start_epoch": 1789257507.894,
+     "end_epoch": 1789257549.725,
+     "sha256": "da476491dbb2a847",
+     "step_s": 9.5213,
+     "step_n": 200,
+     "step_ms": 47.6066,
+     "cpu_s": 173.454,
+     "cores": 4.1465,
+     "loadavg": [
+      19.89,
+      14.34,
+      16.53
+     ],
+     "plddt": 0.802815
+    }
+   ],
+   "device_open_s": 2.477,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "0",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 6.231,
+   "occupancy_after_warmup": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1658112",
+     "1679657",
+     "1679658"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "barrier_wait_s": 0.0,
+   "timed_start_epoch": 1789257423.255,
+   "occupancy_at_end": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1658112",
+     "1679657",
+     "1679658"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "median_fold_s": 42.25,
+   "median_cores": 4.2583,
+   "ok": true
+  },
+  "1": {
+   "card": "1",
+   "width": 2,
+   "pid": 1679658,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 44.485,
+     "start_epoch": 1789257376.688,
+     "end_epoch": 1789257421.173,
+     "sha256": "da476491dbb2a847",
+     "step_s": 10.1642,
+     "step_n": 200,
+     "step_ms": 50.8211,
+     "cpu_s": 207.716,
+     "cores": 4.6694,
+     "loadavg": [
+      14.53,
+      11.87,
+      16.24
+     ],
+     "plddt": 0.802815
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 42.205,
+     "start_epoch": 1789257423.338,
+     "end_epoch": 1789257465.542,
+     "sha256": "da476491dbb2a847",
+     "step_s": 9.4927,
+     "step_n": 200,
+     "step_ms": 47.4635,
+     "cpu_s": 180.319,
+     "cores": 4.2725,
+     "loadavg": [
+      16.27,
+      12.44,
+      16.21
+     ],
+     "plddt": 0.802815
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 42.391,
+     "start_epoch": 1789257465.544,
+     "end_epoch": 1789257507.934,
+     "sha256": "da476491dbb2a847",
+     "step_s": 9.5248,
+     "step_n": 200,
+     "step_ms": 47.6239,
+     "cpu_s": 189.664,
+     "cores": 4.4742,
+     "loadavg": [
+      19.37,
+      13.45,
+      16.35
+     ],
+     "plddt": 0.802815
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 41.973,
+     "start_epoch": 1789257507.935,
+     "end_epoch": 1789257549.909,
+     "sha256": "da476491dbb2a847",
+     "step_s": 9.4767,
+     "step_n": 200,
+     "step_ms": 47.3835,
+     "cpu_s": 178.972,
+     "cores": 4.264,
+     "loadavg": [
+      19.89,
+      14.34,
+      16.53
+     ],
+     "plddt": 0.802815
+    }
+   ],
+   "device_open_s": 1.723,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "1",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.808,
+   "occupancy_after_warmup": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1658112",
+     "1679657",
+     "1679658"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "barrier_wait_s": 2.004,
+   "timed_start_epoch": 1789257423.336,
+   "occupancy_at_end": {
+    "pids": [
+     "1157567",
+     "1224904",
+     "1658112",
+     "1679657",
+     "1679658"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/10",
+     "/dev/tenstorrent/11",
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/8",
+     "/dev/tenstorrent/9"
+    ]
+   },
+   "median_fold_s": 42.205,
+   "median_cores": 4.2725,
+   "ok": true
+  }
+ },
+ "loadavg_at_end": [
+  19.89,
+  14.34,
+  16.53
+ ],
+ "all_children_ok": true,
+ "result": {
+  "n_timed_folds": 6,
+  "window_s": 126.648,
+  "folds_per_hour": 170.551,
+  "median_fold_s": 42.227,
+  "mean_fold_s": 42.172,
+  "min_fold_s": 41.831,
+  "max_fold_s": 42.391,
+  "per_card_median_fold_s": {
+   "0": 42.25,
+   "1": 42.205
+  },
+  "median_cores_per_fold": 4.2683,
+  "total_cores": 8.531,
+  "median_step_ms": 47.535,
+  "cif_digests": [
+   "da476491dbb2a847"
+  ],
+  "digest_unanimous": true,
+  "barrier_wait_s": {
+   "0": 0.0,
+   "1": 2.004
+  }
+ }
+}
