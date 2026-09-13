@@ -143,6 +143,21 @@ def apply_arm(spec: list) -> None:
                 os.environ[name] = value
 
 
+def _grid(dev) -> str:
+    try:
+        g = dev.compute_with_storage_grid_size()
+        return f"{g.x}x{g.y}"
+    except Exception as e:
+        return f"unavailable: {e}"
+
+
+def _arch(dev) -> str:
+    try:
+        return str(dev.arch())
+    except Exception as e:
+        return f"unavailable: {e}"
+
+
 def read_stats(paths: list) -> dict:
     out = {}
     for p in paths:
@@ -232,6 +247,10 @@ def main() -> int:
         "open_lock": args.open_lock or "NONE (library lock only)",
         "width": args.width,
         "omp_num_threads": os.environ.get("OMP_NUM_THREADS"),
+        # The grid is the variable the eligibility levers key on, and a firmware move changes it
+        # under a retest without anything else looking different. Record it, never assume it.
+        "compute_grid": _grid(dev),
+        "arch": _arch(dev),
     }
     dump()
 
