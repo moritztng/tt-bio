@@ -75,6 +75,10 @@ def main() -> int:
                     help="host_thread_cap_env worker count; 8 is the whglx K10 standard")
     ap.add_argument("--host-threads", type=int, default=None)
     ap.add_argument("--trace-region-mib", type=int, default=512)
+    ap.add_argument("--open-lock", type=Path, default=None,
+                    help="flock this path across the device open. tt_bio's own lock lives in "
+                         "/tmp under another account here and _device_init_lock() swallows the "
+                         "PermissionError in a bare except, so it serializes nothing.")
     a = ap.parse_args()
     OUT_PATH = a.out
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -109,7 +113,19 @@ def main() -> int:
     patch_boltz2_cfg()
 
     # Open the chip ourselves with a region build_fold would size at 1 GiB, which hangs here.
-    T.get_device(trace_region_size=a.trace_region_mib << 20)
+    lk = None
+    if a.open_lock:
+        import fcntl
+        a.open_lock.parent.mkdir(parents=True, exist_ok=True)
+        lk = open(a.open_lock, "a+")
+        fcntl.flock(lk, fcntl.LOCK_EX)
+    try:
+        T.get_device(trace_region_size=a.trace_region_mib << 20)
+    finally:
+        if lk:
+            import fcntl
+            fcntl.flock(lk, fcntl.LOCK_UN)
+            lk.close()
     fix = ROOT / "perf" / "size512" / "fixtures"
     one_fold, meta, state = B.build_fold(
         "boltz2", HERE / f".msa_{a.size}", fix / f"cdk2x2_{a.size}.yaml",
