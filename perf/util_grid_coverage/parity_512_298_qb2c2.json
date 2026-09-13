@@ -1,0 +1,42 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "2",
+  "git_head": "8acd9f50ae2f3b8cd31b5e371f3d522816d0ded8",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "started": "2026-09-13T12:38:56+0000"
+ },
+ "folds": {
+  "512": {
+   "s": 30.069,
+   "plddt": null,
+   "n_msa": 35,
+   "grid": [
+    11,
+    10
+   ],
+   "aiclk_mhz": " 800",
+   "digests": {
+    "cdk2x2_512.cif": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+   },
+   "reference": "4f3995a69be5d610",
+   "matches_reference": false
+  },
+  "298": {
+   "s": 19.698,
+   "plddt": null,
+   "n_msa": 35,
+   "grid": [
+    11,
+    10
+   ],
+   "aiclk_mhz": " 800",
+   "digests": {
+    "cdk2x2_298.cif": "0cf1b879dca3c0d55d060e75d4db735fc5eff1267f2720fa66096489129be334"
+   },
+   "reference": "71653ff72cbf01b048cf24bfa3b3358b1044d1e2b309d312bb7a646c0c6c1c69",
+   "matches_reference": false
+  }
+ }
+}
