@@ -1,0 +1,26 @@
+2026-09-13 12:15:34.652 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  512 base-s0       26.099s sha=a91aa44441f0d9c5 plddt=0.800144
+  512 cond-s0       21.059s sha=2bc758a1fb24ef30 plddt=0.818912
+  512 default-s0    20.895s sha=2bc758a1fb24ef30 plddt=0.818912
+  512 base-s1       20.615s sha=099907e8ebf1dbda plddt=0.813671
+  512 cond-s1       20.100s sha=b2332fa1c5879260 plddt=0.810979
+  512 base-s2       22.010s sha=b9d0384478b82e75 plddt=0.810197
+  512 cond-s2       20.110s sha=d41a6e497bb8854d plddt=0.809839
+  512 base-s3       21.672s sha=5fc9738577b97386 plddt=0.838634
+  512 cond-s3       19.172s sha=e8dbab0016348034 plddt=0.839716
+  512 base-s0_r1    20.314s sha=a91aa44441f0d9c5 plddt=0.800144
+  298 base-s0       15.127s sha=0cf1b879dca3c0d5 plddt=0.917809
+  298 cond-s0       13.496s sha=de5d77b220e32a7a plddt=0.913442
+  298 default-s0    12.488s sha=de5d77b220e32a7a plddt=0.913442
+  298 base-s1       14.359s sha=2b93753165dd05cc plddt=0.917459
+  298 cond-s1       13.709s sha=d7cddcc6f4a71ec1 plddt=0.915891
+  298 base-s2       13.721s sha=7a6d5457eb22e8d7 plddt=0.913234
+  298 cond-s2       12.127s sha=fccde60644d6cdbb plddt=0.91173
+  298 base-s3       12.927s sha=e4f07356e36615d5 plddt=0.918224
+  298 cond-s3       12.310s sha=acd38fcb6049294e plddt=0.918493
+  298 base-s0_r1    11.780s sha=0cf1b879dca3c0d5 plddt=0.917809
+{
+ "512": true,
+ "298": true
+}

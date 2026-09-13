@@ -1,0 +1,234 @@
+{
+ "doc": "The folds a per-pseudo-domain + CA-lDDT reading of TT_BIO_DEVICE_CONDITIONING needs.\n\nSame protocol and the same scorer as the SiLU campaign (`perf/b2z2_silu/fold_silu.py`, scored by\n`perf/b2z2_fusebias/score.py`): the arm mechanism is the only thing that differs, because this\nlever is a per-call env flag rather than a module-level gate that picks a device program.\n\nThe reading that has teeth here is CA-lDDT against the experimental structure 1HCL, not per-domain\nRMSD against the seed floor. `b2z2-union-land` showed RMSD-against-the-seed-floor clears an arm\nthat has lost 0.07 CA-lDDT, because a model can scatter widely on this fixture while landing at\nthe same quality every time.\n\nArms, in ONE process so they share a device, a program cache and a model load:\n\n    base      TT_BIO_DEVICE_CONDITIONING=0, the host torch pair track\n    cond      TT_BIO_DEVICE_CONDITIONING=1, the pair track on the card\n    default   the checkout untouched. Its digest must equal the arm the default is supposed to\n              select, or the default is not what this run measured.\n\nThe flag is read per call (`boltz2._device_conditioning`), so it is set in the environment per\nfold and asserted absent from the inherited environment: a pinned value would silently serve\nevery arm. The last fold repeats the first, and that repeat is the A/A floor.\n\n    fold_cond.py --out <json> --cifdir <dir> [--plan base:0,1,2,3;cond:0,1,2,3]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "1",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-cond-ship/tt_bio/__init__.py",
+  "commit": "934624338d2dcc632cdfe95f1ed42dcc9a08aa0b",
+  "started_utc": "2026-09-13T12:15:36Z",
+  "loadavg": [
+   10.73046875,
+   12.43603515625,
+   19.08984375
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3;cond:0,1,2,3;default:0",
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 26.099,
+   "sha256": "a91aa44441f0d9c5",
+   "device_conditioning": false,
+   "plddt": 0.800144,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "cond",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 21.059,
+   "sha256": "2bc758a1fb24ef30",
+   "device_conditioning": true,
+   "plddt": 0.818912,
+   "tag": "cond-s0"
+  },
+  {
+   "arm": "default",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 20.895,
+   "sha256": "2bc758a1fb24ef30",
+   "device_conditioning": true,
+   "plddt": 0.818912,
+   "tag": "default-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 20.615,
+   "sha256": "099907e8ebf1dbda",
+   "device_conditioning": false,
+   "plddt": 0.813671,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "cond",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 20.1,
+   "sha256": "b2332fa1c5879260",
+   "device_conditioning": true,
+   "plddt": 0.810979,
+   "tag": "cond-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 22.01,
+   "sha256": "b9d0384478b82e75",
+   "device_conditioning": false,
+   "plddt": 0.810197,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "cond",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 20.11,
+   "sha256": "d41a6e497bb8854d",
+   "device_conditioning": true,
+   "plddt": 0.809839,
+   "tag": "cond-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 21.672,
+   "sha256": "5fc9738577b97386",
+   "device_conditioning": false,
+   "plddt": 0.838634,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "cond",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 19.172,
+   "sha256": "e8dbab0016348034",
+   "device_conditioning": true,
+   "plddt": 0.839716,
+   "tag": "cond-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 20.314,
+   "sha256": "a91aa44441f0d9c5",
+   "device_conditioning": false,
+   "plddt": 0.800144,
+   "tag": "base-s0_r1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 15.127,
+   "sha256": "0cf1b879dca3c0d5",
+   "device_conditioning": false,
+   "plddt": 0.917809,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "cond",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 13.496,
+   "sha256": "de5d77b220e32a7a",
+   "device_conditioning": true,
+   "plddt": 0.913442,
+   "tag": "cond-s0"
+  },
+  {
+   "arm": "default",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 12.488,
+   "sha256": "de5d77b220e32a7a",
+   "device_conditioning": true,
+   "plddt": 0.913442,
+   "tag": "default-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 14.359,
+   "sha256": "2b93753165dd05cc",
+   "device_conditioning": false,
+   "plddt": 0.917459,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "cond",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 13.709,
+   "sha256": "d7cddcc6f4a71ec1",
+   "device_conditioning": true,
+   "plddt": 0.915891,
+   "tag": "cond-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 13.721,
+   "sha256": "7a6d5457eb22e8d7",
+   "device_conditioning": false,
+   "plddt": 0.913234,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "cond",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 12.127,
+   "sha256": "fccde60644d6cdbb",
+   "device_conditioning": true,
+   "plddt": 0.91173,
+   "tag": "cond-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 12.927,
+   "sha256": "e4f07356e36615d5",
+   "device_conditioning": false,
+   "plddt": 0.918224,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "cond",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 12.31,
+   "sha256": "acd38fcb6049294e",
+   "device_conditioning": true,
+   "plddt": 0.918493,
+   "tag": "cond-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 11.78,
+   "sha256": "0cf1b879dca3c0d5",
+   "device_conditioning": false,
+   "plddt": 0.917809,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 3.947,
+ "aa_floor_identical": {
+  "512": true,
+  "298": true
+ }
+}
