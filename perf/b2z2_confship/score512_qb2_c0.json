@@ -1,0 +1,19 @@
+512_conf_r0_1        coords IDENTICAL  max 0.000000 A  rmsd 0.000000 A  | plddt max 0.362 mean 0.0320  | sha 2bc758a1fb24ef30 -> 1f5b388246489fa1
+{
+ "ref": "512_base_r0_0",
+ "arms": {
+  "512_conf_r0_1": {
+   "file": "cdk2x2_512.cif",
+   "atoms": 4116,
+   "coord_max_abs_delta_A": 0.0,
+   "coord_rmsd_A": 0.0,
+   "coords_identical": true,
+   "plddt_max_abs_delta": 0.362,
+   "plddt_mean_abs_delta": 0.03201,
+   "plddt_mean_ref": 86.5506,
+   "plddt_mean_arm": 86.5641,
+   "sha_ref": "2bc758a1fb24ef30",
+   "sha_arm": "1f5b388246489fa1"
+  }
+ }
+}
