@@ -7,6 +7,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **Boltz-2 folds 1.0178x faster at 512 residues, byte for byte the same structure.** Three layout
+  changes inside the triangle multiplication, measured as one arm rather than summed. It no longer
+  materialises a 16.8 MB channel-axis copy of a mask that the default route never reads, and it
+  hands its operand transpose to the matmul through `transpose_a` / `transpose_b` instead of running
+  a separate transpose op first (`TT_BIO_TRIMUL_MM_TRANSPOSE`, on by default), which deletes 134.7
+  MB of allocation per pairformer block at 512 residues and reaches every trimul matmul at 512 and
+  298 residues alike. Four rounds with the lead reversed each round, base slower in all four,
+  per-round ratio mean 1.01780x; all 32 timed folds across both arms write one CIF digest,
+  `a91aa44441f0d9c5` at pLDDT 0.842856, so the fold is byte-identical to the tree before any of the
+  three. `TT_BIO_TRIMUL_MM_TRANSPOSE=0` restores the separate transpose; `--fast` keeps it anyway,
+  because transposing inside the matmul re-quantises a block-float tile.
+
 - **Boltz-2 folds 1.0048x faster at 512 residues on Blackhole, and its coordinates do not move.**
   The diffusion step's token attention now sizes its query chunk to the card's compute grid instead
   of a fixed cap (`TT_BIO_SDPA_GRID_Q_CHUNK`, on by default, every model on the fused SDPA path).
@@ -18,6 +30,62 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   calls a fold keep the shipped chunk. The ratio is a Blackhole number and does not transport,
   because the win is occupancy and occupancy depends on the grid. `TT_BIO_SDPA_GRID_Q_CHUNK=0`
   restores the fixed cap.
+
+- **Boltz-2 folds 18.773 s to 17.989 s at 512 residues, and its coordinates move.** The diffusion
+  conditioning's pair track now runs on the card, where the trunk has just left the pair tensor,
+  instead of pulling that tensor back to the host three times (`TT_BIO_DEVICE_CONDITIONING`, on by
+  default, Boltz-2 only; BoltzGen never asks the trunk to keep the tensor and does not get it).
+  Median ratio 1.04358x against a 0.99824x A/A floor, both arms interleaved in one process on one
+  card under benchlock, every device fold in the run faster than every host fold in it. Not
+  bit-exact: the device does in bf16 what the host did in fp32. Scored against the experimental
+  structure 1HCL over four seeds an arm, native CA-lDDT goes up on both pseudo-domains at 512
+  residues, 0.93732 to 0.94036 and 0.91573 to 0.91860, and is flat at 298, 0.96742 against 0.96741.
+  Three of the four seeds move 0.15-0.29 Å per pseudo-domain against a 0.97-1.87 Å seed floor; the
+  fourth moves 1.26-1.51 Å and is a basin the device arm puts back with the rest, not a loss.
+  `TT_BIO_DEVICE_CONDITIONING=0` restores the host path and the previous coordinates.
+
+- **A full box of concurrent folds gets 1.4 % more throughput, and a single predict is unchanged.**
+  When the thread split leaves each per-card worker two host threads or fewer, tt-bio now tells the
+  worker's OpenMP pools to park instead of spinning through the ~200 per-step device syncs a fold
+  blocks on (`OMP_WAIT_POLICY=PASSIVE`, `GOMP_SPINCOUNT=0`, `KMP_BLOCKTIME=0`). On a 32-chip Wormhole
+  Galaxy with 32 concurrent 512 aa folds that is 1789.4 to 1813.9 folds/hour against a 0.35 %
+  same-configuration floor, bit-exact, both arms writing one CIF digest. Above two threads a worker
+  still has a spare core to absorb the spinning and parking costs more wake latency than it saves,
+  so it stays off there. Set any of the three yourself and tt-bio leaves all three alone.
+
+- **Boltz-2 folds 1.0157x faster at 512 residues, byte for byte the same structure.** Three trunk
+  levers go on by default, all of them reading the normed pair tensor fewer times. A triangle
+  attention projects its query, key, value and gate in one pass instead of two
+  (`TT_BIO_TRIATT_FUSED_QKVG`) and takes the pair-bias projection into that same pass
+  (`TT_BIO_TRIATT_FUSED_QKVGB`), so 67.1 MB at 512 residues is read once instead of three times; a
+  triangle multiplication computes its output gate as a second output of its input projection
+  (`TT_BIO_TRIMUL_FUSED_GOUT`). 19.336 s to 19.0375 s, eight folds an arm interleaved ABBA, all
+  eight pairs positive against a 1.00805x worst-case A/A floor, and 1.05106x on the pairformer block
+  where the reads are. A fused pass holds a wider weight and a wider result, so peak device memory
+  rises 11.7 % at 512 residues and 27.5 % at 1536; no size refused an allocation on a 31.87 GiB part.
+  Two shapes decline by design and stay on the path they were on: chains of 32 residues or fewer keep
+  the separate bias projection, which is what makes `TT_BIO_TRIATT_FUSED_QKVGB` bit-exact at every
+  length, and above roughly 1024 residues the trimul gate declines because the input projection runs
+  a multi-iteration channel loop that would recompute it.
+
+- **The MSA track runs 1.01606x faster, and every model on it folds byte-identically.** It computes
+  all of a layer's attention-head row weights from one projection of the pair tensor instead of one
+  projection per head (`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`, on by default). 1.8678 s to 1.8371 s on one
+  Blackhole processor, median of twelve folds, all six paired reps positive and the arms fully
+  rank-separated against a 1.00859 A/A floor; 1.03672x on a single MSA layer on Wormhole, where the
+  track costs twice as much. That is about 0.03 s of a Boltz-2 fold, too small for the fold wall to
+  resolve, so no fold ratio is claimed for it. Boltz-2, Protenix-v2 and OpenFold3 each write one
+  structure in both arms at 512 residues, with the number of batched projections recorded beside the
+  digest so a match cannot pass vacuously. Head counts above 32 keep the per-head loop.
+
+- **Boltz-2 folds 1.0199x faster at 512 residues, byte for byte the same structure.** The atom
+  transformer builds each attention key window by slicing the atom sequence instead of selecting it
+  with a matrix multiply (`TT_BIO_ATOM_SHIFT_GATHER`, on by default). 19.8545 s to 19.4680 s, 20
+  folds an arm, all 10 paired reps positive; the whole gain is in the sampling stage, 1.07562x.
+  tt-bio decides on the selection matrix and not on the shape of it, reconstructing the matrix a
+  centred sliding window would produce and comparing it entry by entry once per fold, 2.6 ms of host
+  time at 512 residues, so a model whose atom attention selects a different key set keeps the matrix
+  multiply.
 
 - **Boltz-2 folds 1.008x faster at 512 residues, and its coordinates move again.** Its diffusion
   conditioning now builds its per-layer bias stack in one pass instead of one call per layer
