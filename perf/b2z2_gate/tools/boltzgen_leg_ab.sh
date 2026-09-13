@@ -9,6 +9,7 @@
 # sequence so a box-load drift cannot land on one arm
 # (memory op-ab-must-interleave-arms-compile-warmup-bias).
 set -u
+REPS=${*:-1 2}                        # which rep numbers to run: ./boltzgen_leg_ab.sh 3 4
 WT=/home/ttuser/.coworker/wt/b2z2-pwa-residency-ship
 cd "$WT" || exit 1
 export PYTHONPATH=$WT
@@ -17,7 +18,7 @@ export ESM_ROOT=/home/ttuser/esm
 export TT_VISIBLE_DEVICES=1
 export TT_BIO_LEASE_CARDS=1
 export TT_BIO_LEASE_HOLDER=worker:b2z2-pwa-residency-ship
-for rep in 1 2; do
+for rep in $REPS; do
   for arm in on off; do
     if [ "$arm" = on ]; then v=1; else v=0; fi
     echo "=== rep $rep arm $arm (TT_BIO_PWA_BATCH_HEAD_WEIGHTS=$v) $(date -u +%H:%M:%SZ)"
