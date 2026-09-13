@@ -1,0 +1,27 @@
+{
+ "default": {
+  "wall_us": 40.794799951981986,
+  "cores_asked": null
+ },
+ "sharded-8x8": {
+  "wall_us": 112.29985002501053,
+  "cores_asked": 64,
+  "max_abs_vs_default": 0.03125,
+  "bit_exact_vs_default": false
+ },
+ "sharded-8x6": {
+  "wall_us": 113.62635004843469,
+  "cores_asked": 48,
+  "max_abs_vs_default": 0.03125,
+  "bit_exact_vs_default": false
+ },
+ "sharded-4x11": {
+  "refused": "TT_FATAL @ /home/ttuser/tt-metal-b2z/tt_metal/impl/tensor/spec/layout/tensor_layout.cpp:112: (physical_shard_shape.height() % tile_shape[0] == 0 && physical_shard_shape.width() % t"
+ },
+ "sharded-8x11": {
+  "refused": "TT_FATAL @ /home/ttuser/tt-metal-b2z/tt_metal/impl/tensor/spec/layout/tensor_layout.cpp:112: (physical_shard_shape.height() % tile_shape[0] == 0 && physical_shard_shape.width() % t"
+ },
+ "sharded-16x6": {
+  "refused": "TT_FATAL @ /home/ttuser/tt-metal-b2z/tt_metal/impl/program/program.cpp:1067: cr.end_coord.x < grid_size.x && cr.end_coord.y < grid_size.y info: Circular buffer core range [(x=0,y=0"
+ }
+}

@@ -1,0 +1,455 @@
+{
+ "B1-transition-fc1": {
+  "in0": [
+   1,
+   16,
+   512,
+   128
+  ],
+  "in1": [
+   1,
+   1,
+   128,
+   512
+  ],
+  "programs_per_call": 64,
+  "s_per_fold_at_situ": 1.177,
+  "census_us": 113.587,
+  "situ_cores": 86,
+  "situ_us": 191.6195,
+  "situ_vs_census": 1.6869844260346694,
+  "max_cores_reachable": 86,
+  "best_cores": 86,
+  "best_us": 191.6195,
+  "speedup_best_over_situ": 1.0,
+  "s_per_fold_recoverable": 0.0,
+  "lowest_cores": 43,
+  "lowest_us": 374.7225,
+  "parallel_efficiency_pct": 97.77775748292842,
+  "curve": [
+   {
+    "cores_cfg": 43,
+    "cores_device": 43,
+    "per_core_M": 6,
+    "per_core_N": 16,
+    "quantum": 96,
+    "kernel_us": 374.7225,
+    "wall_us": 265.8542500284966
+   },
+   {
+    "cores_cfg": 86,
+    "cores_device": 86,
+    "per_core_M": 3,
+    "per_core_N": 16,
+    "quantum": 48,
+    "kernel_us": 191.6195,
+    "wall_us": 118.3828499961237
+   }
+  ]
+ },
+ "S1-dit-attn-proj": {
+  "in0": [
+   1,
+   1,
+   512,
+   768
+  ],
+  "in1": [
+   1,
+   1,
+   768,
+   768
+  ],
+  "programs_per_call": 97,
+  "s_per_fold_at_situ": 0.33,
+  "census_us": 14.723,
+  "situ_cores": 64,
+  "situ_us": 23.853,
+  "situ_vs_census": 1.620118182435645,
+  "max_cores_reachable": 64,
+  "best_cores": 64,
+  "best_us": 23.853,
+  "speedup_best_over_situ": 1.0,
+  "s_per_fold_recoverable": 0.0,
+  "lowest_cores": 3,
+  "lowest_us": 276.3005,
+  "parallel_efficiency_pct": 54.29751367752484,
+  "curve": [
+   {
+    "cores_cfg": 3,
+    "cores_device": 3,
+    "per_core_M": 16,
+    "per_core_N": 8,
+    "quantum": 128,
+    "kernel_us": 276.3005,
+    "wall_us": 169.96639997159946
+   },
+   {
+    "cores_cfg": 6,
+    "cores_device": 6,
+    "per_core_M": 16,
+    "per_core_N": 4,
+    "quantum": 64,
+    "kernel_us": 144.3695,
+    "wall_us": 91.03165002670721
+   },
+   {
+    "cores_cfg": 15,
+    "cores_device": 15,
+    "per_core_M": 6,
+    "per_core_N": 5,
+    "quantum": 30,
+    "kernel_us": 71.171,
+    "wall_us": 52.92409996400238
+   },
+   {
+    "cores_cfg": 50,
+    "cores_device": 40,
+    "per_core_M": 2,
+    "per_core_N": 5,
+    "quantum": 10,
+    "kernel_us": 30.023,
+    "wall_us": 49.53919997205958
+   },
+   {
+    "cores_cfg": 64,
+    "cores_device": 64,
+    "per_core_M": 2,
+    "per_core_N": 3,
+    "quantum": 6,
+    "kernel_us": 23.853,
+    "wall_us": 49.045250034396304
+   }
+  ]
+ },
+ "B2-trimul-batched": {
+  "in0": [
+   1,
+   128,
+   512,
+   512
+  ],
+  "in1": [
+   1,
+   128,
+   512,
+   512
+  ],
+  "programs_per_call": 2,
+  "s_per_fold_at_situ": 0.422,
+  "census_us": 816.791,
+  "situ_cores": 64,
+  "situ_us": 1639.583,
+  "situ_vs_census": 2.007347044715233,
+  "max_cores_reachable": 64,
+  "best_cores": 64,
+  "best_us": 1639.583,
+  "speedup_best_over_situ": 1.0,
+  "s_per_fold_recoverable": 0.0,
+  "lowest_cores": 3,
+  "lowest_us": 17817.8145,
+  "parallel_efficiency_pct": 50.940394886230216,
+  "curve": [
+   {
+    "cores_cfg": 3,
+    "cores_device": 3,
+    "per_core_M": 16,
+    "per_core_N": 6,
+    "quantum": 96,
+    "kernel_us": 17817.8145,
+    "wall_us": 17687.374799970712
+   },
+   {
+    "cores_cfg": 6,
+    "cores_device": 6,
+    "per_core_M": 16,
+    "per_core_N": 3,
+    "quantum": 48,
+    "kernel_us": 9032.9145,
+    "wall_us": 8759.99165000394
+   },
+   {
+    "cores_cfg": 16,
+    "cores_device": 16,
+    "per_core_M": 8,
+    "per_core_N": 2,
+    "quantum": 16,
+    "kernel_us": 3377.606,
+    "wall_us": 2010.307099953934
+   },
+   {
+    "cores_cfg": 50,
+    "cores_device": 32,
+    "per_core_M": 2,
+    "per_core_N": 4,
+    "quantum": 8,
+    "kernel_us": 2393.553,
+    "wall_us": 1427.2423499278375
+   },
+   {
+    "cores_cfg": 64,
+    "cores_device": 64,
+    "per_core_M": 2,
+    "per_core_N": 2,
+    "quantum": 4,
+    "kernel_us": 1639.583,
+    "wall_us": 997.5532499993278
+   }
+  ]
+ },
+ "S4-dit-ff-up": {
+  "in0": [
+   1,
+   1,
+   512,
+   768
+  ],
+  "in1": [
+   1,
+   1,
+   768,
+   1536
+  ],
+  "programs_per_call": 76,
+  "s_per_fold_at_situ": 0.338,
+  "census_us": 21.921,
+  "situ_cores": 80,
+  "situ_us": 27.55,
+  "situ_vs_census": 1.2567857305779846,
+  "max_cores_reachable": 80,
+  "best_cores": 80,
+  "best_us": 27.55,
+  "speedup_best_over_situ": 1.0,
+  "s_per_fold_recoverable": 0.0,
+  "lowest_cores": 6,
+  "lowest_us": 276.553,
+  "parallel_efficiency_pct": 75.28666061705988,
+  "curve": [
+   {
+    "cores_cfg": 6,
+    "cores_device": 6,
+    "per_core_M": 16,
+    "per_core_N": 8,
+    "quantum": 128,
+    "kernel_us": 276.553,
+    "wall_us": 169.40744999374147
+   },
+   {
+    "cores_cfg": 15,
+    "cores_device": 15,
+    "per_core_M": 6,
+    "per_core_N": 10,
+    "quantum": 60,
+    "kernel_us": 134.766,
+    "wall_us": 88.67024998835404
+   },
+   {
+    "cores_cfg": 50,
+    "cores_device": 40,
+    "per_core_M": 2,
+    "per_core_N": 10,
+    "quantum": 20,
+    "kernel_us": 50.4755,
+    "wall_us": 43.44814997239155
+   },
+   {
+    "cores_cfg": 80,
+    "cores_device": 80,
+    "per_core_M": 2,
+    "per_core_N": 5,
+    "quantum": 10,
+    "kernel_us": 27.55,
+    "wall_us": 59.47800000285497
+   }
+  ]
+ },
+ "B3-transition-fc2": {
+  "in0": [
+   1,
+   16,
+   512,
+   512
+  ],
+  "in1": [
+   1,
+   1,
+   512,
+   128
+  ],
+  "programs_per_call": 32,
+  "s_per_fold_at_situ": 0.302,
+  "census_us": 35.714,
+  "situ_cores": 86,
+  "situ_us": 60.317,
+  "situ_vs_census": 1.688889511116089,
+  "max_cores_reachable": 86,
+  "best_cores": 86,
+  "best_us": 60.317,
+  "speedup_best_over_situ": 1.0,
+  "s_per_fold_recoverable": 0.0,
+  "lowest_cores": 7,
+  "lowest_us": 257.0715,
+  "parallel_efficiency_pct": 34.69075786031243,
+  "curve": [
+   {
+    "cores_cfg": 7,
+    "cores_device": 7,
+    "per_core_M": 37,
+    "per_core_N": 4,
+    "quantum": 148,
+    "kernel_us": 257.0715,
+    "wall_us": 157.98284994161804
+   },
+   {
+    "cores_cfg": 16,
+    "cores_device": 16,
+    "per_core_M": 16,
+    "per_core_N": 4,
+    "quantum": 64,
+    "kernel_us": 131.1635,
+    "wall_us": 81.90544995159144
+   },
+   {
+    "cores_cfg": 43,
+    "cores_device": 43,
+    "per_core_M": 6,
+    "per_core_N": 4,
+    "quantum": 24,
+    "kernel_us": 67.152,
+    "wall_us": 56.14120000245748
+   },
+   {
+    "cores_cfg": 86,
+    "cores_device": 86,
+    "per_core_M": 3,
+    "per_core_N": 4,
+    "quantum": 12,
+    "kernel_us": 60.317,
+    "wall_us": 100.94645003846381
+   }
+  ]
+ },
+ "S5-dit-ff-up-4x": {
+  "in0": [
+   1,
+   1,
+   512,
+   768
+  ],
+  "in1": [
+   1,
+   1,
+   768,
+   3072
+  ],
+  "programs_per_call": 24,
+  "s_per_fold_at_situ": 0.19,
+  "census_us": 39.615,
+  "situ_cores": 88,
+  "situ_us": 61.951,
+  "situ_vs_census": 1.5638268332702259,
+  "max_cores_reachable": 88,
+  "best_cores": 88,
+  "best_us": 61.951,
+  "speedup_best_over_situ": 1.0,
+  "s_per_fold_recoverable": 0.0,
+  "lowest_cores": 15,
+  "lowest_us": 262.2915,
+  "parallel_efficiency_pct": 72.16796889330425,
+  "curve": [
+   {
+    "cores_cfg": 15,
+    "cores_device": 15,
+    "per_core_M": 6,
+    "per_core_N": 20,
+    "quantum": 120,
+    "kernel_us": 262.2915,
+    "wall_us": 163.87550003855722
+   },
+   {
+    "cores_cfg": 50,
+    "cores_device": 40,
+    "per_core_M": 2,
+    "per_core_N": 20,
+    "quantum": 40,
+    "kernel_us": 104.009,
+    "wall_us": 67.5738499921863
+   },
+   {
+    "cores_cfg": 88,
+    "cores_device": 88,
+    "per_core_M": 2,
+    "per_core_N": 9,
+    "quantum": 18,
+    "kernel_us": 61.951,
+    "wall_us": 53.01430001054541
+   }
+  ]
+ },
+ "S6-atom-proj": {
+  "in0": [
+   1,
+   140,
+   32,
+   128
+  ],
+  "in1": [
+   1,
+   1,
+   128,
+   256
+  ],
+  "programs_per_call": 18,
+  "s_per_fold_at_situ": 0.088,
+  "census_us": 24.594,
+  "situ_cores": 70,
+  "situ_us": 40.1935,
+  "situ_vs_census": 1.634280718874522,
+  "max_cores_reachable": 70,
+  "best_cores": 70,
+  "best_us": 40.1935,
+  "speedup_best_over_situ": 1.0,
+  "s_per_fold_recoverable": 0.0,
+  "lowest_cores": 7,
+  "lowest_us": 100.1655,
+  "parallel_efficiency_pct": 24.92082053068282,
+  "curve": [
+   {
+    "cores_cfg": 7,
+    "cores_device": 7,
+    "per_core_M": 20,
+    "per_core_N": 8,
+    "quantum": 160,
+    "kernel_us": 100.1655,
+    "wall_us": 95.31380001135403
+   },
+   {
+    "cores_cfg": 14,
+    "cores_device": 14,
+    "per_core_M": 10,
+    "per_core_N": 8,
+    "quantum": 80,
+    "kernel_us": 67.511,
+    "wall_us": 102.05959997620084
+   },
+   {
+    "cores_cfg": 35,
+    "cores_device": 35,
+    "per_core_M": 4,
+    "per_core_N": 8,
+    "quantum": 32,
+    "kernel_us": 41.9825,
+    "wall_us": 62.085450008453336
+   },
+   {
+    "cores_cfg": 70,
+    "cores_device": 70,
+    "per_core_M": 2,
+    "per_core_N": 8,
+    "quantum": 16,
+    "kernel_us": 40.1935,
+    "wall_us": 200.22930002596695
+   }
+  ]
+ }
+}
