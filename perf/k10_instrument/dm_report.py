@@ -47,6 +47,34 @@ def load(pattern):
     return f, list(csv.DictReader(open(f)))
 
 
+FENCE_DIM, FENCE_N = 32, 3
+
+
+def is_fence(r):
+    """kernel_census.py brackets its profiled region with 3 x ttnn.exp on a 32x32 tile."""
+    if not r.get("OP CODE", "").startswith("Unary"):
+        return False
+    return num(r.get("CORE COUNT")) == 1
+
+
+def fenced_region(rows):
+    """Rows strictly between the last two fence runs -- the profiled repetitions only."""
+    runs, i = [], 0
+    while i < len(rows):
+        if is_fence(rows[i]):
+            j = i
+            while j < len(rows) and is_fence(rows[j]):
+                j += 1
+            if j - i >= FENCE_N:
+                runs.append((i, j))
+            i = j
+        else:
+            i += 1
+    if len(runs) < 2:
+        raise SystemExit(f"expected >=2 fence runs, found {len(runs)}")
+    return rows[runs[-2][1]:runs[-1][0]]
+
+
 def per_op(r):
     """One row -> per-core nanoseconds for every duration and every accumulator."""
     cores = num(r.get("CORE COUNT")) or 1
@@ -99,11 +127,20 @@ def main():
     ap.add_argument("--csv", required=True, help="glob for ops_perf_results_*.csv")
     ap.add_argument("--op", action="append", default=[], help="OP CODE substring; repeatable")
     ap.add_argument("--min-ns", type=float, default=0)
+    ap.add_argument("--fenced", action="store_true",
+                    help="keep only the rows between the harness's two fence runs")
+    ap.add_argument("--reps", type=int, default=1, help="repetitions inside the fenced region")
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
 
     f, rows = load(a.csv)
-    res = {"csv": f, "n_rows": len(rows), "op_codes": {}}
+    n_all = len(rows)
+    if a.fenced:
+        rows = fenced_region(rows)
+        if len(rows) % a.reps:
+            raise SystemExit(f"{len(rows)} fenced ops is not divisible by {a.reps} reps")
+    res = {"csv": f, "n_rows_file": n_all, "n_rows": len(rows), "fenced": a.fenced,
+           "reps": a.reps, "ops_per_rep": len(rows) // a.reps, "op_codes": {}}
     codes = sorted({r["OP CODE"] for r in rows})
     res["all_op_codes"] = codes
     for op in (a.op or codes):
@@ -116,7 +153,8 @@ def main():
         if not g:
             continue
         fr = g["frac"]
-        print(f"\n{op}  n={g['n_ops']}  span={g['total_span_ms']:.4f} ms  "
+        print(f"\n{op}  n={g['n_ops']}  span={g['total_span_ms']:.4f} ms "
+              f"({g['total_span_ms'] / a.reps:.4f} ms/rep)  "
               f"mean={g['mean_span_us']:.1f} us  cores={g['cores']}")
         print(f"  resident   BRISC {fr['brisc']:6.1%}  NCRISC {fr['ncrisc']:6.1%}  "
               f"TRISC0 {fr['trisc0']:6.1%}  TRISC1 {fr['trisc1']:6.1%}  TRISC2 {fr['trisc2']:6.1%}")
