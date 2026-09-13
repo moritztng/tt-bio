@@ -1,0 +1,70 @@
+>>> [1/1] design
+    batch 0/1
+2026-09-13 02:11:15.414 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 3822880 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-09-13 02:11:15.447 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 2315552 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
+[tt-bio] L1 census: grid=(8, 9) cores=72 cb_need=2315552 l1_top=1499136 resident_per_core=0 shortfall=816416
+Switched step_scale to 2.0
+Switched noise_scale to 0.88
+    trunk 4/4
+    diff 0/500
+[ATOM_L1] arm=l1 shape=1x294x32x128 live=40943616 budget=50235264
+2026-09-13 02:14:47.671 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 999 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)]. L1 buffer allocated at 1026048 and static circular buffer region ends at 1041696 (assert.hpp:104)
+<<< ✗
+
+╭─ ✗ failed after 3:54 ───────────────────────╮
+│ output /home/agent/scratch/bgatoml1_1024/l1 │
+╰─────────────────────────────────────────────╯
+Traceback (most recent call last):
+  File "/home/agent/wt-bgatoml1/perf/b2z2_bgatoml1/bg_arm.py", line 123, in <module>
+    sys.exit(main())
+  File "/home/agent/wt-bgatoml1/perf/b2z2_bgatoml1/bg_arm.py", line 92, in main
+    _run_boltzgen_cli("tt-bio design", argv)
+  File "/home/agent/wt-bgatoml1/tt_bio/main.py", line 1732, in _run_boltzgen_cli
+    _bg_main()
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/cli/boltzgen.py", line 2136, in main
+    run_command(args)
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/cli/boltzgen.py", line 733, in run_command
+    execute_command(args)
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/cli/boltzgen.py", line 1221, in execute_command
+    task.run(config)
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/task/predict/predict.py", line 112, in run
+    prediction = model.predict_step(batch, batch_idx=batch_idx)
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/model/models/boltz.py", line 956, in predict_step
+    raise e
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/model/models/boltz.py", line 860, in predict_step
+    out = self(
+  File "/home/agent/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1783, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/agent/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1794, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/model/models/boltz.py", line 619, in forward
+    struct_out = self.structure_module.sample(
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/model/modules/diffusion.py", line 389, in sample
+    atom_coords_denoised, net_out = self.preconditioned_network_forward(
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/model/modules/diffusion.py", line 203, in preconditioned_network_forward
+    net_out = self.score_model(
+  File "/home/agent/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1783, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/agent/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1794, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/agent/wt-bgatoml1/tt_bio/boltzgen/adapter.py", line 143, in forward
+    r_update = fn(
+  File "/home/agent/wt-bgatoml1/tt_bio/tenstorrent.py", line 10284, in forward
+    out = self._run_diffusion_device(
+  File "/home/agent/wt-bgatoml1/tt_bio/tenstorrent.py", line 10246, in _run_diffusion_device
+    return self.module(
+  File "/home/agent/wt-bgatoml1/tt_bio/tenstorrent.py", line 9537, in __call__
+    q = self.encoder(
+  File "/home/agent/wt-bgatoml1/tt_bio/tenstorrent.py", line 8625, in __call__
+    a = layer(a, s, z_layer, keys_indexing, large_seq_len=large_seq_len)
+  File "/home/agent/wt-bgatoml1/tt_bio/tenstorrent.py", line 8557, in __call__
+    b = self.attn_pair_bias(b, z, keys_indexing)
+  File "/home/agent/wt-bgatoml1/tt_bio/tenstorrent.py", line 7161, in __call__
+    kv = ttnn.linear(
+  File "/home/agent/env/lib/python3.10/site-packages/ttnn/decorators.py", line 473, in __call__
+    result = self.function(*function_args, **function_kwargs)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated circular buffers in program 999 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)]. L1 buffer allocated at 1026048 and static circular buffer region ends at 1041696
+backtrace:
