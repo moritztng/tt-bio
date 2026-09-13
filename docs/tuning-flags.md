@@ -387,3 +387,26 @@ each of 32 workers a fixed 8 threads on the same box and spinning collapses to 1
 parking holds 1839.5, a 1.40x. That is 256 threads of demand on 64, and the fix for it is the thread
 cap tt-bio already applies by default, which on its own takes that configuration from 1311.2 to
 1789.4. Parking is the last 1.4 %.
+
+## Off by default: `TT_BIO_DIT_FUSED_QKV`, `TT_BIO_HEAD_PAD_TAIL`
+
+Two optimizations of Boltz-2's diffusion attention ship present but disabled. Setting either to `1`
+turns it on; tt-bio's default fold does not use them.
+
+`TT_BIO_DIT_FUSED_QKV` lets the q/k/v projection write the per-head layout directly, instead of
+projecting and then reordering with a separate op. `TT_BIO_HEAD_PAD_TAIL` lets the gate and output
+projections carry the head padding that the attention output already contains, instead of stripping
+it in four ops first. Both are worth about 1.03-1.04x on the diffusion step alone; neither has a
+measured whole-fold number on Blackhole.
+
+They are off because they change the result, and the scoring says different things about them.
+Against the experimental structure 1HCL at 512 residues, four seeds per arm, both arms in one
+process, mean native CA-lDDT moves by -0.0071 and -0.0091 per pseudo-domain with the fused
+projection on, and by -0.0017 and -0.0021 with the padded tail on. The fused projection is down on
+seven of eight paired seed-domain readings; the padded tail is up on five of eight and is flat at
+298 residues. Coordinates move 0.26-0.48 Å and 0.25-0.31 Å per pseudo-domain against a seed floor
+of 1.07-1.39 Å, except on one seed at 512 residues where the sampler lands in a different basin and
+any arithmetic change moves it about 1.5 Å.
+
+Both are on the same code as the shipped path when they are off: a fold with neither set writes the
+same structure as a tree without them, byte for byte, at 298 and 512 residues.

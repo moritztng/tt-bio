@@ -1,0 +1,123 @@
+{
+ "doc": "The folds a per-pseudo-domain + CA-lDDT reading of the two step-layout elisions needs.\n\nSame protocol, the same fixtures and the same scorer as the conditioning and SiLU campaigns\n(`perf/b2z2_cond/fold_cond.py`, scored by `perf/b2z2_fusebias/score.py`) -- this is that driver\nwith one thing changed, the arm mechanism, because these two levers are read at module scope and\nnot per call, so an env var set after import would serve every arm the same code.\n\n    base   both elisions off: the shipped tail and ttnn.linear + nlp_create_qkv_heads\n    qkv    TT_BIO_DIT_FUSED_QKV -- the projection writes the head split itself\n    pad    TT_BIO_HEAD_PAD_TAIL -- the tail carries the head padding instead of stripping it\n    default   the checkout untouched, to prove the defaults are what this run says they are\n\nThe two are NEVER run together: `b2z2-step-layout-elision` measured the pair at 0.713 A on the\nworst pseudo-domain, over the bar, so the pair is already answered and only the singles are open.\n\nThe reading that has teeth is CA-lDDT against the experimental structure 1HCL, not per-domain RMSD\nagainst the seed floor: `b2z2-union-land` showed the seed-floor screen clears an arm that has lost\n0.07 CA-lDDT, because a model can scatter widely on this fixture while landing at the same quality\nevery time.\n\n    fold_layout.py --out <json> --cifdir <dir> [--plan base:0,1,2,3;qkv:0,1,2,3]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-step-layout-ship/tt_bio/__init__.py",
+  "commit": "800018477d77202c1c30e1faafff7f0208f116fa",
+  "started_utc": "2026-09-13T23:12:23Z",
+  "loadavg": [
+   14.6552734375,
+   11.00439453125,
+   7.875
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,2;silu:0,2",
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 21.827,
+   "sha256": "2bc758a1fb24ef30",
+   "flags": [
+    false,
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.818912,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "silu",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 18.852,
+   "sha256": "4ca72e3a57eeac28",
+   "flags": [
+    false,
+    false,
+    true
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.801621,
+   "tag": "silu-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 20.117,
+   "sha256": "d41a6e497bb8854d",
+   "flags": [
+    false,
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.809839,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "silu",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 18.95,
+   "sha256": "43c2304275b09548",
+   "flags": [
+    false,
+    false,
+    true
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.808854,
+   "tag": "silu-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 23.129,
+   "sha256": "2bc758a1fb24ef30",
+   "flags": [
+    false,
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.818912,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 3.545,
+ "aa_floor_identical": {
+  "512": true
+ }
+}

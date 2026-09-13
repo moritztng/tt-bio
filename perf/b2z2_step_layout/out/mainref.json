@@ -1,0 +1,74 @@
+{
+ "doc": "The folds a per-pseudo-domain + CA-lDDT reading of TT_BIO_DEVICE_CONDITIONING needs.\n\nSame protocol and the same scorer as the SiLU campaign (`fold_silu.py` on\n`wk/b2z2-union-land`, scored by `perf/b2z2_fusebias/score.py`): the arm mechanism is the only thing\nthat differs, because this lever is a per-call env flag rather than a module-level gate that picks\na device program.\n\nThe reading that has teeth here is CA-lDDT against the experimental structure 1HCL, not per-domain\nRMSD against the seed floor. `b2z2-union-land` showed RMSD-against-the-seed-floor clears an arm\nthat has lost 0.07 CA-lDDT, because a model can scatter widely on this fixture while landing at\nthe same quality every time.\n\nArms, in ONE process so they share a device, a program cache and a model load:\n\n    base      TT_BIO_DEVICE_CONDITIONING=0, the host torch pair track\n    cond      TT_BIO_DEVICE_CONDITIONING=1, the pair track on the card\n    default   the checkout untouched. Its digest must equal the arm the default is supposed to\n              select, or the default is not what this run measured.\n\nThe flag is read per call (`boltz2._device_conditioning`), so it is set in the environment per\nfold and asserted absent from the inherited environment: a pinned value would silently serve\nevery arm. The last fold repeats the first, and that repeat is the A/A floor.\n\n    fold_cond.py --out <json> --cifdir <dir> [--plan base:0,1,2,3;cond:0,1,2,3]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-step-layout-ship/tt_bio/__init__.py",
+  "commit": "800018477d77202c1c30e1faafff7f0208f116fa",
+  "started_utc": "2026-09-13T23:15:43Z",
+  "loadavg": [
+   16.40625,
+   15.04931640625,
+   10.20654296875
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "default:0",
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "default",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 35.253,
+   "sha256": "2bc758a1fb24ef30",
+   "device_conditioning": true,
+   "plddt": 0.818912,
+   "tag": "default-s0"
+  },
+  {
+   "arm": "default",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 30.367,
+   "sha256": "2bc758a1fb24ef30",
+   "device_conditioning": true,
+   "plddt": 0.818912,
+   "tag": "default-s0_r1"
+  },
+  {
+   "arm": "default",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 23.016,
+   "sha256": "de5d77b220e32a7a",
+   "device_conditioning": true,
+   "plddt": 0.913442,
+   "tag": "default-s0"
+  },
+  {
+   "arm": "default",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 19.814,
+   "sha256": "de5d77b220e32a7a",
+   "device_conditioning": true,
+   "plddt": 0.913442,
+   "tag": "default-s0_r1"
+  }
+ ],
+ "model_load_s": 8.431,
+ "aa_floor_identical": {
+  "512": true,
+  "298": true
+ }
+}

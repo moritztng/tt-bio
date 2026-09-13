@@ -39,13 +39,17 @@ sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 
 import ab_flag_levers as AB  # noqa: E402  -- the fixtures, cfg and MSA seeding, unmodified
 
-FLAGS = ("TT_BIO_DIT_FUSED_QKV", "TT_BIO_HEAD_PAD_TAIL")
+FLAGS = ("TT_BIO_DIT_FUSED_QKV", "TT_BIO_HEAD_PAD_TAIL", "TT_BIO_UNFUSED_SILU")
 
 # arm -> (fused qkv, padded tail), or None for "touch nothing". `default` tests the SHIPPED
 # DEFAULT rather than a value this driver sets: flipping a default and then measuring an arm
 # that overrides it proves nothing about the default.
-ARMS = {"base": (False, False), "qkv": (True, False), "pad": (False, True),
-        "default": None}
+# `silu` is the CONTROL arm, and it is not a lever this row stages. TT_BIO_UNFUSED_SILU moves
+# only the rounding point of one Transition site -- a different part of the step, already measured
+# and already declined on its own merits -- so if it moves a seed as far as these two do, that
+# seed is bistable under any rounding change and the number is the sampler, not the lever.
+ARMS = {"base": (False, False, False), "qkv": (True, False, False),
+        "pad": (False, True, False), "silu": (False, False, True), "default": None}
 
 
 def check_arms(arms, T, QKV):
@@ -60,7 +64,8 @@ def check_arms(arms, T, QKV):
         "this checkout has no tt_bio.tenstorrent._HEAD_PAD_TAIL; the pad arm would be a null")
     assert hasattr(QKV, "qkv_heads_wide") and hasattr(QKV, "_WIDE_ENABLED"), (
         "this checkout has no triatt_qkv.qkv_heads_wide; the qkv arm would be a null")
-    assert T._HEAD_PAD_TAIL is False and QKV._WIDE_ENABLED is False, (
+    assert (T._HEAD_PAD_TAIL is False and QKV._WIDE_ENABLED is False
+            and T._UNFUSED_SILU is False), (
         "a lever is already on at import; the base arm would not be the shipped path")
 
 
@@ -144,7 +149,7 @@ def main() -> int:
 
     def fold(arm, seed, target, keep):
         if ARMS[arm] is not None:
-            QKV._WIDE_ENABLED, T._HEAD_PAD_TAIL = ARMS[arm]
+            QKV._WIDE_ENABLED, T._HEAD_PAD_TAIL, T._UNFUSED_SILU = ARMS[arm]
         before = (QKV.WIDE_STATS[0], T.HEAD_PAD_TAIL_STATS[0])
         cfg["seed"] = seed
         try:
@@ -165,7 +170,8 @@ def main() -> int:
         body = (keep / cifs[0].name).read_bytes()
         return {"arm": arm, "seed": seed, "target": target.stem, "fold_s": round(wall, 3),
                 "sha256": hashlib.sha256(body).hexdigest()[:16],
-                "flags": [bool(QKV._WIDE_ENABLED), bool(T._HEAD_PAD_TAIL)],
+                "flags": [bool(QKV._WIDE_ENABLED), bool(T._HEAD_PAD_TAIL),
+                          bool(T._UNFUSED_SILU)],
                 "served": [QKV.WIDE_STATS[0] - before[0],
                            T.HEAD_PAD_TAIL_STATS[0] - before[1]],
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
