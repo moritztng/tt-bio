@@ -1,0 +1,476 @@
+{
+ "doc": "The folds a per-pseudo-domain + CA-lDDT reading of the two step-layout elisions needs.\n\nSame protocol, the same fixtures and the same scorer as the conditioning and SiLU campaigns\n(`perf/b2z2_cond/fold_cond.py`, scored by `perf/b2z2_fusebias/score.py`) -- this is that driver\nwith one thing changed, the arm mechanism, because these two levers are read at module scope and\nnot per call, so an env var set after import would serve every arm the same code.\n\n    base   both elisions off: the shipped tail and ttnn.linear + nlp_create_qkv_heads\n    qkv    TT_BIO_DIT_FUSED_QKV -- the projection writes the head split itself\n    pad    TT_BIO_HEAD_PAD_TAIL -- the tail carries the head padding instead of stripping it\n    default   the checkout untouched, to prove the defaults are what this run says they are\n\nThe two are NEVER run together: `b2z2-step-layout-elision` measured the pair at 0.713 A on the\nworst pseudo-domain, over the bar, so the pair is already answered and only the singles are open.\n\nThe reading that has teeth is CA-lDDT against the experimental structure 1HCL, not per-domain RMSD\nagainst the seed floor: `b2z2-union-land` showed the seed-floor screen clears an arm that has lost\n0.07 CA-lDDT, because a model can scatter widely on this fixture while landing at the same quality\nevery time.\n\n    fold_layout.py --out <json> --cifdir <dir> [--plan base:0,1,2,3;qkv:0,1,2,3]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-step-layout-ship/tt_bio/__init__.py",
+  "commit": "a3f2b0142d0938e0dd974cf7a368c72f6d33d25a",
+  "started_utc": "2026-09-13T23:00:21Z",
+  "loadavg": [
+   6.18408203125,
+   6.4921875,
+   3.66064453125
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3;qkv:0,1,2,3;pad:0,1,2,3",
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 32.529,
+   "sha256": "2bc758a1fb24ef30",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.818912,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 32.597,
+   "sha256": "a93d9bc4a4ea35b8",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064,
+    0
+   ],
+   "plddt": 0.798792,
+   "tag": "qkv-s0"
+  },
+  {
+   "arm": "pad",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 26.829,
+   "sha256": "13a7fa95a2702e9f",
+   "flags": [
+    false,
+    true
+   ],
+   "served": [
+    0,
+    5064
+   ],
+   "plddt": 0.801423,
+   "tag": "pad-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 26.183,
+   "sha256": "b2332fa1c5879260",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.810979,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "qkv",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 25.091,
+   "sha256": "45d2e3add6ad6b1b",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064,
+    0
+   ],
+   "plddt": 0.811549,
+   "tag": "qkv-s1"
+  },
+  {
+   "arm": "pad",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 26.575,
+   "sha256": "a1a20b2e67582955",
+   "flags": [
+    false,
+    true
+   ],
+   "served": [
+    0,
+    5064
+   ],
+   "plddt": 0.811387,
+   "tag": "pad-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 25.693,
+   "sha256": "d41a6e497bb8854d",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.809839,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "qkv",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 24.905,
+   "sha256": "14374f31441a7090",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064,
+    0
+   ],
+   "plddt": 0.808017,
+   "tag": "qkv-s2"
+  },
+  {
+   "arm": "pad",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 26.1,
+   "sha256": "6b38c0430cf9e1bd",
+   "flags": [
+    false,
+    true
+   ],
+   "served": [
+    0,
+    5064
+   ],
+   "plddt": 0.809136,
+   "tag": "pad-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 25.223,
+   "sha256": "e8dbab0016348034",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.839716,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "qkv",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 26.55,
+   "sha256": "9f3f5b616580281d",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064,
+    0
+   ],
+   "plddt": 0.838556,
+   "tag": "qkv-s3"
+  },
+  {
+   "arm": "pad",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 25.93,
+   "sha256": "79d6e258277c8e7c",
+   "flags": [
+    false,
+    true
+   ],
+   "served": [
+    0,
+    5064
+   ],
+   "plddt": 0.838522,
+   "tag": "pad-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 27.141,
+   "sha256": "2bc758a1fb24ef30",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.818912,
+   "tag": "base-s0_r1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 17.504,
+   "sha256": "de5d77b220e32a7a",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.913442,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 17.556,
+   "sha256": "951be3c4c099846a",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064,
+    0
+   ],
+   "plddt": 0.914803,
+   "tag": "qkv-s0"
+  },
+  {
+   "arm": "pad",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 17.507,
+   "sha256": "4927957b0d6e699a",
+   "flags": [
+    false,
+    true
+   ],
+   "served": [
+    0,
+    5064
+   ],
+   "plddt": 0.9136,
+   "tag": "pad-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 17.025,
+   "sha256": "d7cddcc6f4a71ec1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.915891,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "qkv",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 17.021,
+   "sha256": "277596f56671660f",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064,
+    0
+   ],
+   "plddt": 0.913667,
+   "tag": "qkv-s1"
+  },
+  {
+   "arm": "pad",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 17.277,
+   "sha256": "d9a27f39eed6ad6a",
+   "flags": [
+    false,
+    true
+   ],
+   "served": [
+    0,
+    5064
+   ],
+   "plddt": 0.914488,
+   "tag": "pad-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 17.384,
+   "sha256": "fccde60644d6cdbb",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.91173,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "qkv",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 18.555,
+   "sha256": "f60c1ee2fe28d7e6",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064,
+    0
+   ],
+   "plddt": 0.914594,
+   "tag": "qkv-s2"
+  },
+  {
+   "arm": "pad",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 17.188,
+   "sha256": "bcfe2a75829867e2",
+   "flags": [
+    false,
+    true
+   ],
+   "served": [
+    0,
+    5064
+   ],
+   "plddt": 0.911976,
+   "tag": "pad-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 17.285,
+   "sha256": "acd38fcb6049294e",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.918493,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "qkv",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 16.895,
+   "sha256": "1079d86a544dd1a9",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064,
+    0
+   ],
+   "plddt": 0.918149,
+   "tag": "qkv-s3"
+  },
+  {
+   "arm": "pad",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 16.892,
+   "sha256": "3e0c6da17e278dcd",
+   "flags": [
+    false,
+    true
+   ],
+   "served": [
+    0,
+    5064
+   ],
+   "plddt": 0.917589,
+   "tag": "pad-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 17.623,
+   "sha256": "de5d77b220e32a7a",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0,
+    0
+   ],
+   "plddt": 0.913442,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 3.769,
+ "aa_floor_identical": {
+  "512": true,
+  "298": true
+ }
+}
