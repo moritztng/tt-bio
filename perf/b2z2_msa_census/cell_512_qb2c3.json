@@ -1,0 +1,505 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "3",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-pwa-residency-ship/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-13T02:52:55Z",
+  "loadavg": [
+   18.185546875,
+   15.322265625,
+   9.90380859375
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "pwa_batch_default": true,
+  "mode": "cell",
+  "commit": "46da4208baef8379abd85d1c4ecc3bf63879a5b0"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 33.77,
+   "stages_s": {},
+   "msa_track_s": 3.5239,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    0,
+    16
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 21.28,
+   "warmup": true
+  },
+  {
+   "arm": "on",
+   "fold_s": 32.833,
+   "stages_s": {},
+   "msa_track_s": 1.8563,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    16,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 25.4,
+   "warmup": true
+  },
+  {
+   "arm": "off",
+   "fold_s": 35.061,
+   "stages_s": {},
+   "msa_track_s": 1.8847,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    0,
+    16
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 27.61,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 33.638,
+   "stages_s": {},
+   "msa_track_s": 1.8369,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    16,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 27.27,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 27.758,
+   "stages_s": {},
+   "msa_track_s": 1.8542,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    16,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 25.09,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 31.91,
+   "stages_s": {},
+   "msa_track_s": 1.8624,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    0,
+    16
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 22.63,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 30.888,
+   "stages_s": {},
+   "msa_track_s": 1.8588,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    0,
+    16
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 24.82,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 32.137,
+   "stages_s": {},
+   "msa_track_s": 1.8356,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    16,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 25.46,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 32.848,
+   "stages_s": {},
+   "msa_track_s": 1.8374,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    16,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 26.67,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 33.516,
+   "stages_s": {},
+   "msa_track_s": 1.8732,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    0,
+    16
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 28.65,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 30.111,
+   "stages_s": {},
+   "msa_track_s": 1.8609,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    0,
+    16
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 27.21,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 31.459,
+   "stages_s": {},
+   "msa_track_s": 1.8461,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    16,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 27.84,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 28.736,
+   "stages_s": {},
+   "msa_track_s": 1.835,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    16,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 26.45,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "off",
+   "fold_s": 28.784,
+   "stages_s": {},
+   "msa_track_s": 1.885,
+   "msa_track_calls": 4,
+   "sampler_ms_per_step": null,
+   "pwa_stats": [
+    0,
+    16
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 24.17,
+   "warmup": false,
+   "rep": 2
+  }
+ ],
+ "median_fold_s": {
+  "off": 31.399,
+  "on": 31.798000000000002
+ },
+ "ratio": 0.9874520410088684,
+ "aa_floor": 0.8209691680214483,
+ "median_msa_track_s": {
+  "off": 1.8678,
+  "on": 1.8371499999999998
+ },
+ "track_ratio": 1.0166834499088262,
+ "track_aa_floor": 1.0140951151280395,
+ "plddt": {
+  "off": [
+   0.842856
+  ],
+  "on": [
+   0.842856
+  ]
+ },
+ "paired_deltas_s": [
+  1.423,
+  4.152,
+  -1.249,
+  0.668,
+  -1.348,
+  0.048
+ ],
+ "cif_sha256": {
+  "off": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ],
+  "on": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ]
+ },
+ "bit_exact": true,
+ "derived": {
+  "doc": "Paired ABBA derivation for the PWA cell run: the A/B and the A/A floor of the same estimator.\n\n`max/min` over an arm pools the box's drift across the whole run, which on a loaded box is a range\nstatistic and not the floor the paired estimator actually faces. Within a rep the two `off` folds\nbracket the two `on` folds, so `off_first` vs `off_last` is an A/A pair drawn exactly the way the\nA/B pairs are. Both are reported; so is the rank separation, which is the statistic that does not\ncare about drift at all.\n",
+  "fold_s": {
+   "median_off_s": 31.399,
+   "median_on_s": 31.798,
+   "ab_pairs": [
+    1.0423,
+    1.14958,
+    0.96114,
+    1.02034,
+    0.95715,
+    1.00167
+   ],
+   "ab_median": 1.011,
+   "ab_positive": "4/6",
+   "aa_pairs": [
+    1.09875,
+    1.21183,
+    1.08508,
+    1.02212,
+    1.0461,
+    1.09476
+   ],
+   "aa_median": 1.08992,
+   "aa_worst": 1.21183,
+   "rank_separated": false,
+   "separation_p": null,
+   "pooled_range_off": 1.21807
+  },
+  "msa_track_s": {
+   "median_off_s": 1.8678,
+   "median_on_s": 1.8371,
+   "ab_pairs": [
+    1.02602,
+    1.00442,
+    1.01264,
+    1.01948,
+    1.00802,
+    1.02725
+   ],
+   "ab_median": 1.01606,
+   "ab_positive": "6/6",
+   "aa_pairs": [
+    1.01197,
+    1.00942,
+    1.00775,
+    1.00098,
+    1.01295,
+    1.00605
+   ],
+   "aa_median": 1.00859,
+   "aa_worst": 1.01295,
+   "rank_separated": true,
+   "separation_p": 0.00108,
+   "pooled_range_off": 1.0141
+  }
+ }
+}
