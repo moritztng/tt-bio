@@ -58,7 +58,7 @@ Wall cost of arming, on this card: precursor 7.9 s -> 126.0 s, replayed call 38.
 its op and is divided by that op's own `CORE COUNT`, never the step's. Against the thread each
 counter is actually declared on, **0 of 2784 compute rows** have a per-core stall exceeding its
 own thread's duration -- no residual error from this source. Against TRISC1, the divisor
-`cb_split.py` and `stall_split.py` use, 683 of those same rows are anomalous. The anomaly is the
+`cb_split.py` and `stall_split.py` use, **633 of those same 2784 rows** are anomalous. The anomaly is the
 divisor. Nothing below is a "useful math" or "recoverable seconds" figure: TRISC1's own stall is
 not measured by any instrument in this campaign.
 
@@ -80,7 +80,7 @@ profiler-off run on the same card, same commit, same build.
 Decomposed, per step:
 
 * **37.2531 ms, 94.34 %** of the eager step is inside a device kernel.
-* **1.0041 ms, 2.62 %** is the device's own program-to-program latency, measured where the host
+* **1.0041 ms, 2.54 %** is the device's own program-to-program latency, measured where the host
   cannot be the cause. 0.92 us per program, 1096 times.
 * **1.2295 ms, 3.11 %** is what the fold pays on top of a tight replay loop: staging `r` and
   `times` onto the card, `ttnn.to_torch` on the way back, and a sampler loop that does host
@@ -89,8 +89,11 @@ Decomposed, per step:
 **The eager step has no dispatch prize.** 5.66 % is the entire budget for every lever that
 removes host work from the step, and more than half of that 5.66 % is device latency that no
 host-side change reaches. The block is 1.1 % gap at 232 programs of 143 us; the step is 5.66 %
-at 1096 programs of 34 us. The step's gap is **5x the block's as a fraction and 2.2x as
-microseconds per program**, and it is still small.
+at 1096 programs of 34 us. **The step's gap fraction is 5x the block's** -- and it is still
+small. Per program the two are close, 2.04 us here against roughly 2 us implied for the block,
+so what makes the step's fraction worse is that it pays the same cost 4.7x as often over a
+kernel a quarter as long, not that any one gap is worse. (The block figure is Blackhole and this
+one is Wormhole; take the ordering, not the difference.)
 
 **`--diffusion_trace` is a regression on this path.** 0.9779x, -0.89 ms/step, -0.18 s/fold at
 200 steps, measured with the arms alternating inside one process on one device open and one
@@ -130,7 +133,7 @@ unpack thread's own duration; `out/T2` is `cb_reserve_back` over the pack thread
 **The step is a different animal from the block.** The block leads with
 `GenericOpDeviceOperation` at 36.7 %, the fused trimul + triangle attention. The step has no
 trimul at all: it is **67.0 % Matmul and BinaryNg**, two op codes and 720 of 1096 programs, and
-the next three together are 22.3 %.
+the next three together are 22.4 %.
 
 **168 of the 1096 programs, 15.45 % of the device kernel time, never touch the compute cluster.**
 `NlpCreateHeads`, `Pad`, `ReshapeView`, `Slice`, `Concat`, `Copy`, `NLPConcatHeads` -- all
@@ -172,7 +175,7 @@ which is the shape-driven core count `util-grid-coverage` already priced at zero
 
 Two numbers moved against the older card-2 capture at `0f3f9f67`, and both moved the way the
 landed levers predict: input stall 56.8 % -> 60.6 % and in:out 4.60 -> 6.07:1. The levers took
-2.1 ms of TRISC2 time out (26.46 -> 24.18 ms) while leaving the input wait where it was
+2.28 ms of TRISC2 time out (26.46 -> 24.18 ms) while leaving the input wait where it was
 (14.49 -> 14.16 ms). **Deleting output-side work makes the step more input-bound, not less.**
 
 ## 5. PREDICTS -- what Phase 2 should and should not build
