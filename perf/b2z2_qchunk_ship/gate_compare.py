@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 CONTROLS = [Path("perf/b2z2_gate/gate_asg.json"), Path("perf/b2z2_gate/gate_trunkship.json")]
@@ -53,7 +54,54 @@ def control() -> tuple[dict, list]:
     return consensus, disagree
 
 
-def compare(ship: Path) -> int:
+RESUMED = re.compile(r"^\(resumed from ")
+
+
+def _floats(node, out):
+    """Every number anywhere in a raw leg report."""
+    if isinstance(node, dict):
+        for v in node.values():
+            _floats(v, out)
+    elif isinstance(node, list):
+        for v in node:
+            _floats(v, out)
+    elif isinstance(node, bool):
+        out.append(node)
+    elif isinstance(node, (int, float)):
+        out.append(float(node))
+    return out
+
+
+def digits_reproduced(control_detail: str, raw: dict) -> tuple[bool, str]:
+    """Does the raw leg report still carry every number the control's detail line printed?
+
+    A leg the gate RESUMED reports ``detail='(resumed from <leg>.json)'`` -- the resume marker
+    replaces the digits, so comparing detail strings calls every resumed non-PASS leg a
+    regression. The digits themselves are still in the workdir's raw report, at full precision,
+    so scoring falls back to them: each ``key=value`` the control printed must appear in the raw
+    report, matched at the precision the control printed it to. The control worktrees are gone,
+    which is why the control side stays a string.
+    """
+    vals = _floats(raw, [])
+    misses = []
+    pairs = re.findall(r"([A-Za-z_][\w]*)=(-?\d+\.?\d*|True|False)", control_detail)
+    if not pairs:
+        return False, "control detail carries no key=value digits to check"
+    for key, tok in pairs:
+        if tok in ("True", "False"):
+            if (tok == "True") not in [v for v in vals if isinstance(v, bool)]:
+                misses.append(f"{key}={tok}")
+            continue
+        want = float(tok)
+        dp = len(tok.split(".")[1]) if "." in tok else 0
+        if not any(not isinstance(v, bool) and round(v, dp) == want for v in vals):
+            misses.append(f"{key}={tok}")
+    if misses:
+        return False, "not found in the raw report: " + ", ".join(misses)
+    return True, f"{len(pairs)}/{len(pairs)} digits reproduce at printed precision"
+
+
+def compare(ship: Path, workdir: Path | None) -> int:
     ctl, disagree = control()
     shp = by_leg(ship)
     rows, bad = [], 0
@@ -68,8 +116,16 @@ def compare(ship: Path) -> int:
             rows.append((leg, "VERDICT-MOVED", f"{c['verdict']} -> {s['verdict']}"))
             bad += 1
         elif c["verdict"] != "PASS" and c["detail"] != s["detail"]:
-            rows.append((leg, "DIGITS-MOVED", f"{c['detail']!r} -> {s['detail']!r}"))
-            bad += 1
+            # A resumed leg's detail is the resume marker, not its digits. Score the raw report.
+            raw_path = (workdir / (s.get("report") or f"{leg}.json")) if workdir else None
+            if RESUMED.match(s["detail"] or "") and raw_path and raw_path.exists():
+                ok, why = digits_reproduced(c["detail"], json.loads(raw_path.read_text()))
+                rows.append((leg, "OK" if ok else "DIGITS-MOVED",
+                             f"{s['verdict']} (resumed; {why})"))
+                bad += not ok
+            else:
+                rows.append((leg, "DIGITS-MOVED", f"{c['detail']!r} -> {s['detail']!r}"))
+                bad += 1
         else:
             rows.append((leg, "OK", s["verdict"]))
     for leg, verdict, note in rows:
@@ -116,5 +172,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--ship", type=Path)
     ap.add_argument("--partial", type=Path)
+    ap.add_argument("--workdir", type=Path,
+                    help="the gate workdir holding the raw per-leg reports. A leg the gate "
+                         "RESUMED reports the resume marker as its detail, not its digits; "
+                         "this is where the digits still are.")
     a = ap.parse_args()
-    raise SystemExit(compare(a.ship) if a.ship else partial(a.partial))
+    raise SystemExit(compare(a.ship, a.workdir) if a.ship else partial(a.partial))
