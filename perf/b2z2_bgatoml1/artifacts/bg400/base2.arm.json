@@ -1,0 +1,19 @@
+{
+  "arm": "base",
+  "atom_l1_env": "0",
+  "atom_l1_stats": {
+    "dram": 0,
+    "l1": 0,
+    "off": 3000,
+    "shape": 0
+  },
+  "designs": {
+    "bg400.cif": {
+      "coord_sha256": "4d561e81ae2d65b0b67c9ea0a8aaa5e9681971e4cf709f332b87d32feeb3434e",
+      "file_sha256": "7369386ed80f055ebd44ce4e46c3e1eb84990d70f19d311ec7e2a05ead684392"
+    }
+  },
+  "device_ids": "31",
+  "seed": 0,
+  "wall_s": 60.049
+}

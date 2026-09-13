@@ -1,0 +1,11 @@
+arm       wall_s  ATOM_L1_STATS                          file_sha256
+base        61.2  {'dram': 0, 'l1': 0, 'off': 3000, 'shape': 0} 7369386ed80f055e  bg400.cif
+l1          60.1  {'dram': 0, 'l1': 3000, 'off': 0, 'shape': 0} 7369386ed80f055e  bg400.cif
+base2       60.0  {'dram': 0, 'l1': 0, 'off': 3000, 'shape': 0} 7369386ed80f055e  bg400.cif
+
+A/A  base vs base2 : file True  coord True
+A/B  base vs l1    : file True  coord True
+gate l1 arm fired  : True  ({'dram': 0, 'l1': 3000, 'off': 0, 'shape': 0})
+gate base arm off  : True  ({'dram': 0, 'l1': 0, 'off': 3000, 'shape': 0})
+
+VERDICT: GO -- the lever fires on every atom-layer call and BoltzGen writes a byte-identical design.
