@@ -1,0 +1,268 @@
+{
+ "env": {
+  "started": "2026-09-12T20:00:21+0000",
+  "card": "11",
+  "commit": "7ea19829",
+  "loadavg": [
+   "8.41",
+   "9.09",
+   "9.42"
+  ],
+  "size": 512,
+  "phases": [
+   "plain",
+   "attrib",
+   "sample"
+  ],
+  "torch_threads": 32,
+  "torch_interop_threads": 32,
+  "gc_thresholds": [
+   700,
+   10,
+   10
+  ],
+  "instruments": {
+   "brackets": "time.perf_counter wall, no synchronize_device",
+   "sampler": "1.0 ms sys._current_frames on the main thread",
+   "gc": "gc.callbacks start/stop timing"
+  },
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "load_s": 6.11,
+  "n_msa": 35,
+  "card_type": "tt-galaxy-wh-l",
+  "recycling_steps": 3,
+  "timed_region": "predict_one (featurize + fold + CIF write)"
+ },
+ "cold_s": 73.195,
+ "plain": {
+  "a0": {
+   "wall_s": 39.5578,
+   "plddt": null,
+   "loadavg": [
+    "12.60",
+    "10.20",
+    "9.77"
+   ],
+   "cif": {
+    "cdk2x2_512.cif": "64978da8b87a3c967f484346ffbe4512565298a7258b2e2c56a0a9b38ff43cb2"
+   }
+  },
+  "a1": {
+   "wall_s": 39.4551,
+   "plddt": null,
+   "loadavg": [
+    "14.11",
+    "11.02",
+    "10.07"
+   ],
+   "cif": {
+    "cdk2x2_512.cif": "64978da8b87a3c967f484346ffbe4512565298a7258b2e2c56a0a9b38ff43cb2"
+   }
+  }
+ },
+ "attrib": {
+  "fold_wall_s": 39.6053,
+  "plddt": null,
+  "loadavg": [
+   "13.09",
+   "11.35",
+   "10.23"
+  ],
+  "patched": {
+   "prepare": true,
+   "to_batch": true,
+   "predict_step": true,
+   "write_result": true,
+   "trunk": true,
+   "denoise_device": true,
+   "pairformer_conf": true,
+   "sampler": true,
+   "denoiser": true,
+   "align": true,
+   "randaug": true,
+   "digest": true,
+   "confidence": true,
+   "rel_pos": true,
+   "input_embedder": true,
+   "diffusion_cond": true,
+   "pairwise_cond": true,
+   "atom_encoder": true,
+   "distogram": true,
+   "contact_cond": true,
+   "confidence_heads": true,
+   "parse_yaml": true,
+   "parse_a3m": true,
+   "parse_csv": true,
+   "tokenize": true,
+   "featurize": true
+  },
+  "notes": [],
+  "tree": {
+   "predict_step": {
+    "calls": 1,
+    "incl_s": 39.07678,
+    "excl_s": 0.35575,
+    "ms_per_call": 39076.77674
+   },
+   "predict_step/atom_encoder": {
+    "calls": 1,
+    "incl_s": 0.17207,
+    "excl_s": 0.17207,
+    "ms_per_call": 172.06845
+   },
+   "predict_step/confidence": {
+    "calls": 1,
+    "incl_s": 1.92734,
+    "excl_s": 0.36502,
+    "ms_per_call": 1927.33717
+   },
+   "predict_step/confidence/confidence_heads": {
+    "calls": 1,
+    "incl_s": 0.23606,
+    "excl_s": 0.23606,
+    "ms_per_call": 236.05755
+   },
+   "predict_step/confidence/contact_cond": {
+    "calls": 1,
+    "incl_s": 0.18694,
+    "excl_s": 0.18694,
+    "ms_per_call": 186.93896
+   },
+   "predict_step/confidence/pairformer_conf": {
+    "calls": 1,
+    "incl_s": 1.03285,
+    "excl_s": 1.03285,
+    "ms_per_call": 1032.85262
+   },
+   "predict_step/confidence/rel_pos": {
+    "calls": 1,
+    "incl_s": 0.10647,
+    "excl_s": 0.10647,
+    "ms_per_call": 106.468
+   },
+   "predict_step/contact_cond": {
+    "calls": 1,
+    "incl_s": 0.18197,
+    "excl_s": 0.18197,
+    "ms_per_call": 181.96913
+   },
+   "predict_step/distogram": {
+    "calls": 1,
+    "incl_s": 0.03751,
+    "excl_s": 0.03751,
+    "ms_per_call": 37.51313
+   },
+   "predict_step/input_embedder": {
+    "calls": 1,
+    "incl_s": 0.14026,
+    "excl_s": 0.04265,
+    "ms_per_call": 140.25536
+   },
+   "predict_step/input_embedder/atom_encoder": {
+    "calls": 1,
+    "incl_s": 0.09761,
+    "excl_s": 0.09761,
+    "ms_per_call": 97.60741
+   },
+   "predict_step/rel_pos": {
+    "calls": 1,
+    "incl_s": 0.10885,
+    "excl_s": 0.10885,
+    "ms_per_call": 108.85433
+   },
+   "predict_step/sampler": {
+    "calls": 1,
+    "incl_s": 9.59659,
+    "excl_s": 0.23935,
+    "ms_per_call": 9596.59321
+   },
+   "predict_step/sampler/align": {
+    "calls": 200,
+    "incl_s": 0.34138,
+    "excl_s": 0.34138,
+    "ms_per_call": 1.70691
+   },
+   "predict_step/sampler/denoiser": {
+    "calls": 200,
+    "incl_s": 8.97737,
+    "excl_s": 0.04025,
+    "ms_per_call": 44.88684
+   },
+   "predict_step/sampler/denoiser/denoise_device": {
+    "calls": 200,
+    "incl_s": 8.93712,
+    "excl_s": 8.93712,
+    "ms_per_call": 44.6856
+   },
+   "predict_step/sampler/digest": {
+    "calls": 1,
+    "incl_s": 1e-05,
+    "excl_s": 1e-05,
+    "ms_per_call": 0.01036
+   },
+   "predict_step/sampler/randaug": {
+    "calls": 200,
+    "incl_s": 0.03848,
+    "excl_s": 0.03848,
+    "ms_per_call": 0.1924
+   },
+   "predict_step/trunk": {
+    "calls": 1,
+    "incl_s": 26.55644,
+    "excl_s": 26.55644,
+    "ms_per_call": 26556.43556
+   },
+   "prepare": {
+    "calls": 1,
+    "incl_s": 0.36163,
+    "excl_s": 0.00033,
+    "ms_per_call": 361.62664
+   },
+   "prepare/featurize": {
+    "calls": 1,
+    "incl_s": 0.24433,
+    "excl_s": 0.24433,
+    "ms_per_call": 244.32665
+   },
+   "prepare/parse_a3m": {
+    "calls": 1,
+    "incl_s": 0.00462,
+    "excl_s": 0.00462,
+    "ms_per_call": 4.62163
+   },
+   "prepare/parse_yaml": {
+    "calls": 1,
+    "incl_s": 0.08936,
+    "excl_s": 0.08936,
+    "ms_per_call": 89.35926
+   },
+   "prepare/tokenize": {
+    "calls": 1,
+    "incl_s": 0.02299,
+    "excl_s": 0.02299,
+    "ms_per_call": 22.9888
+   },
+   "to_batch": {
+    "calls": 1,
+    "incl_s": 0.00018,
+    "excl_s": 0.00018,
+    "ms_per_call": 0.17832
+   },
+   "write_result": {
+    "calls": 1,
+    "incl_s": 0.15445,
+    "excl_s": 0.15445,
+    "ms_per_call": 154.45325
+   }
+  },
+  "top_level_incl_s": 39.593,
+  "unattributed_s": 0.0123,
+  "cif": {
+   "cdk2x2_512.cif": "64978da8b87a3c967f484346ffbe4512565298a7258b2e2c56a0a9b38ff43cb2"
+  }
+ }
+}

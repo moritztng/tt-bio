@@ -1,0 +1,35 @@
+{
+ "env": {
+  "started": "2026-09-12T20:32:28+0000",
+  "card": "6",
+  "host": "j10glx02",
+  "size": 298,
+  "msa_dir": "/home/mthuening/work/wt-hostres2/perf/b2z2_hostzero/.msa_298",
+  "commit": "09e42a0d",
+  "recycling_steps": 3,
+  "sampling_steps": 200
+ },
+ "folds": [
+  {
+   "tag": "base_0",
+   "TT_BIO_DEVICE_ZINIT": "0",
+   "wall_s": 22.3697,
+   "plddt": null,
+   "dir": "298_base_0"
+  },
+  {
+   "tag": "base_1",
+   "TT_BIO_DEVICE_ZINIT": "0",
+   "wall_s": 22.6583,
+   "plddt": null,
+   "dir": "298_base_1"
+  },
+  {
+   "tag": "device_zinit_0",
+   "TT_BIO_DEVICE_ZINIT": "1",
+   "wall_s": 22.0519,
+   "plddt": null,
+   "dir": "298_device_zinit_0"
+  }
+ ]
+}

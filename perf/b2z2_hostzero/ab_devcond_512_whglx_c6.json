@@ -1,0 +1,167 @@
+{
+ "env": {
+  "started": "2026-09-12T14:42:38+0000",
+  "card": "6",
+  "commit": "987345d0",
+  "loadavg": [
+   "9.21",
+   "8.70",
+   "6.13"
+  ],
+  "size": 512,
+  "phases": [
+   "ab"
+  ],
+  "torch_threads": 32,
+  "torch_interop_threads": 32,
+  "gc_thresholds": [
+   700,
+   10,
+   10
+  ],
+  "instruments": {
+   "brackets": "time.perf_counter wall, no synchronize_device",
+   "sampler": "1.0 ms sys._current_frames on the main thread",
+   "gc": "gc.callbacks start/stop timing"
+  },
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "load_s": 4.21,
+  "n_msa": 35,
+  "card_type": "tt-galaxy-wh-l",
+  "recycling_steps": 3,
+  "timed_region": "predict_one (featurize + fold + CIF write)"
+ },
+ "cold_s": 60.228,
+ "ab": {
+  "env": "TT_BIO_DEVICE_CONDITIONING",
+  "rows": [
+   {
+    "i": 0,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 43.8097,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "e1cd105fa5d7747ab23957c17abfdf5fff4939e8dd20005d4c015d01b94df39a"
+    },
+    "loadavg": [
+     "12.06",
+     "9.74",
+     "6.79"
+    ]
+   },
+   {
+    "i": 0,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 41.1361,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1"
+    },
+    "loadavg": [
+     "8.40",
+     "9.14",
+     "6.73"
+    ]
+   },
+   {
+    "i": 1,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 39.7064,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "e1cd105fa5d7747ab23957c17abfdf5fff4939e8dd20005d4c015d01b94df39a"
+    },
+    "loadavg": [
+     "10.89",
+     "9.64",
+     "6.99"
+    ]
+   },
+   {
+    "i": 1,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 41.1434,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1"
+    },
+    "loadavg": [
+     "9.10",
+     "9.20",
+     "6.95"
+    ]
+   },
+   {
+    "i": 2,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 39.8579,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "e1cd105fa5d7747ab23957c17abfdf5fff4939e8dd20005d4c015d01b94df39a"
+    },
+    "loadavg": [
+     "9.35",
+     "9.06",
+     "6.98"
+    ]
+   },
+   {
+    "i": 2,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 40.9193,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1"
+    },
+    "loadavg": [
+     "9.13",
+     "8.98",
+     "7.04"
+    ]
+   },
+   {
+    "i": 3,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 39.6023,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "e1cd105fa5d7747ab23957c17abfdf5fff4939e8dd20005d4c015d01b94df39a"
+    },
+    "loadavg": [
+     "8.70",
+     "8.76",
+     "7.04"
+    ]
+   },
+   {
+    "i": 3,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 41.0391,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "2e3b25a5520c8ff831e702ab35e2841c9ac2ddf07649d1457777c0bca4d31bc1"
+    },
+    "loadavg": [
+     "7.18",
+     "8.31",
+     "6.96"
+    ]
+   }
+  ],
+  "median_A": 39.7822,
+  "median_B": 41.0876,
+  "speedup_B_over_A": 0.9682
+ }
+}
