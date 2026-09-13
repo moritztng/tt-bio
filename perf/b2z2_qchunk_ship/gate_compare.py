@@ -101,9 +101,17 @@ def digits_reproduced(control_detail: str, raw: dict) -> tuple[bool, str]:
     return True, f"{len(pairs)}/{len(pairs)} digits reproduce at printed precision"
 
 
-def compare(ship: Path, workdir: Path | None) -> int:
+def compare(ship: Path, workdir: Path | None, reruns: list[Path]) -> int:
     ctl, disagree = control()
     shp = by_leg(ship)
+    # A leg the full run lost to host contention is re-run alone on a quiet card. Its
+    # result supersedes the timed-out row, and the row it produces says where it came
+    # from -- a substitution nobody can see is a substitution nobody can check.
+    relaunched = {}
+    for r in reruns:
+        for leg, row in by_leg(r).items():
+            relaunched[leg] = r.name
+            shp[leg] = row
     rows, bad = [], 0
     for leg, why in disagree:
         rows.append((leg, "CONTROL-DISAGREE", why + " -- not scored here"))
@@ -127,7 +135,8 @@ def compare(ship: Path, workdir: Path | None) -> int:
                 rows.append((leg, "DIGITS-MOVED", f"{c['detail']!r} -> {s['detail']!r}"))
                 bad += 1
         else:
-            rows.append((leg, "OK", s["verdict"]))
+            src = relaunched.get(leg)
+            rows.append((leg, "OK", s["verdict"] + (f" (from {src})" if src else "")))
     for leg, verdict, note in rows:
         print(f"{verdict:14s} {leg:28s} {note}")
     print(f"\n{len(rows)} legs, {len(disagree)} the controls disagree on, "
@@ -176,5 +185,9 @@ if __name__ == "__main__":
                     help="the gate workdir holding the raw per-leg reports. A leg the gate "
                          "RESUMED reports the resume marker as its detail, not its digits; "
                          "this is where the digits still are.")
+    ap.add_argument("--rerun", type=Path, action="append", default=[],
+                    help="a single-leg gate summary that supersedes the same leg in "
+                         "--ship. A leg the full run lost to host contention is re-run "
+                         "alone on a quiet card; this is where its result comes from.")
     a = ap.parse_args()
-    raise SystemExit(compare(a.ship, a.workdir) if a.ship else partial(a.partial))
+    raise SystemExit(compare(a.ship, a.workdir, a.rerun) if a.ship else partial(a.partial))
