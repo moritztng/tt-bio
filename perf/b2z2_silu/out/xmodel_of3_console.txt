@@ -1,0 +1,18 @@
+2026-09-13 11:17:36.570 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  [fold] sample 0: xl_final std=16.1532 range=[-48.95,44.87]
+  openfold3 512 cold (discarded) 57.04s
+  [fold] sample 0: xl_final std=16.1532 range=[-48.95,44.87]
+  openfold3 512 base-s0          54.73s sha=6ee6ac7a3e730688 plddt=0.547851
+  [fold] sample 0: xl_final std=16.3822 range=[-48.88,46.61]
+  openfold3 512 usilu-s0         51.68s sha=b65e275f50b5c7ac plddt=0.559915
+  [fold] sample 0: xl_final std=15.3342 range=[-38.57,48.21]
+  openfold3 512 base-s1          55.44s sha=a482c199b439d002 plddt=0.557037
+  [fold] sample 0: xl_final std=14.7567 range=[-32.94,41.42]
+  openfold3 512 usilu-s1         53.92s sha=76d89900421343ef plddt=0.556927
+  [fold] sample 0: xl_final std=16.1532 range=[-48.95,44.87]
+  openfold3 512 base-s0_r1       55.82s sha=6ee6ac7a3e730688 plddt=0.547851
+{
+ "aa_floor_bitexact": true,
+ "arms_differ": true
+}

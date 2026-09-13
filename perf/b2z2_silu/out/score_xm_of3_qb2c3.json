@@ -1,0 +1,389 @@
+{
+ "cifdir": "perf/b2z2_silu/cif_xm_of3",
+ "split_seq_id": 298,
+ "gt": "1hcl.cif",
+ "env": {
+  "host": "tt-quietbox2",
+  "model": "openfold3",
+  "size": 512,
+  "ttnn": "0.68.0",
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "3",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "n_msa": 35,
+  "commit": "c3aa6a6849bb63c26deae1c235ff734724e811f6",
+  "started_utc": "2026-09-13T11:17:40Z",
+  "loadavg": [
+   30.525390625,
+   32.38037109375,
+   24.2880859375
+  ]
+ },
+ "sizes": {
+  "512": {
+   "n_atoms": 4116,
+   "arms": [
+    "base-s0",
+    "base-s0_r1",
+    "base-s1",
+    "usilu-s0",
+    "usilu-s1"
+   ],
+   "seeds": [
+    0,
+    1
+   ],
+   "plddt": {
+    "base-s0": 0.547851,
+    "base-s0_r1": 0.547851,
+    "base-s1": 0.557037,
+    "usilu-s0": 0.559915,
+    "usilu-s1": 0.556927
+   },
+   "sha256": {
+    "base-s0": "6ee6ac7a3e730688",
+    "base-s0_r1": "6ee6ac7a3e730688",
+    "base-s1": "a482c199b439d002",
+    "usilu-s0": "b65e275f50b5c7ac",
+    "usilu-s1": "76d89900421343ef"
+   },
+   "fold_s": {
+    "base-s0": 54.734,
+    "base-s0_r1": 55.823,
+    "base-s1": 55.443,
+    "usilu-s0": 51.678,
+    "usilu-s1": 53.916
+   },
+   "aa_floor": {
+    "whole_all_atom_A": 0.0,
+    "whole_ca_A": 0.0,
+    "domain1_all_atom_A": 0.0,
+    "domain1_ca_A": 0.0,
+    "domain2_all_atom_A": 0.0,
+    "domain2_ca_A": 0.0,
+    "hinge_deg": 0.0,
+    "hinge_free_all_atom_A": 0.0,
+    "lddt_ca": 1.0,
+    "lddt_ca_domain1": 1.0,
+    "lddt_ca_domain2": 1.0
+   },
+   "aa_floor_bitexact": true,
+   "lever": {
+    "usilu seed0": {
+     "whole_all_atom_A": 2.41665,
+     "whole_ca_A": 2.2788,
+     "domain1_all_atom_A": 2.05003,
+     "domain1_ca_A": 1.90747,
+     "domain2_all_atom_A": 2.16526,
+     "domain2_ca_A": 1.96587,
+     "hinge_deg": 7.13278,
+     "hinge_free_all_atom_A": 2.09892,
+     "lddt_ca": 0.84774,
+     "lddt_ca_domain1": 0.89058,
+     "lddt_ca_domain2": 0.86929
+    },
+    "usilu seed1": {
+     "whole_all_atom_A": 4.95443,
+     "whole_ca_A": 4.51223,
+     "domain1_all_atom_A": 3.78096,
+     "domain1_ca_A": 3.2369,
+     "domain2_all_atom_A": 3.97999,
+     "domain2_ca_A": 3.42995,
+     "hinge_deg": 3.95341,
+     "hinge_free_all_atom_A": 3.86533,
+     "lddt_ca": 0.73285,
+     "lddt_ca_domain1": 0.77298,
+     "lddt_ca_domain2": 0.77275
+    }
+   },
+   "seed_floor": {
+    "base: s0 vs s1": {
+     "whole_all_atom_A": 7.57459,
+     "whole_ca_A": 7.24841,
+     "domain1_all_atom_A": 4.4041,
+     "domain1_ca_A": 3.89284,
+     "domain2_all_atom_A": 4.53262,
+     "domain2_ca_A": 4.04487,
+     "hinge_deg": 41.52137,
+     "hinge_free_all_atom_A": 4.45823,
+     "lddt_ca": 0.70639,
+     "lddt_ca_domain1": 0.7347,
+     "lddt_ca_domain2": 0.76316
+    },
+    "usilu: s0 vs s1": {
+     "whole_all_atom_A": 9.17228,
+     "whole_ca_A": 8.71503,
+     "domain1_all_atom_A": 6.01124,
+     "domain1_ca_A": 5.4498,
+     "domain2_all_atom_A": 6.34481,
+     "domain2_ca_A": 5.75999,
+     "hinge_deg": 33.78262,
+     "hinge_free_all_atom_A": 6.15275,
+     "lddt_ca": 0.66036,
+     "lddt_ca_domain1": 0.68984,
+     "lddt_ca_domain2": 0.69965
+    }
+   },
+   "native": {
+    "base-s0": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 6.66216,
+      "lddt_ca": 0.64046
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 5.75948,
+      "lddt_ca": 0.61645
+     }
+    },
+    "base-s0_r1": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 6.66216,
+      "lddt_ca": 0.64046
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 5.75948,
+      "lddt_ca": 0.61645
+     }
+    },
+    "base-s1": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 7.62163,
+      "lddt_ca": 0.65282
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 6.29685,
+      "lddt_ca": 0.65394
+     }
+    },
+    "usilu-s0": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 6.65576,
+      "lddt_ca": 0.63657
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 5.72158,
+      "lddt_ca": 0.62647
+     }
+    },
+    "usilu-s1": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 8.2468,
+      "lddt_ca": 0.63196
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 7.19263,
+      "lddt_ca": 0.63889
+     }
+    }
+   },
+   "summary": {
+    "domain1_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.05003,
+      "max": 3.78096,
+      "mean": 2.91549
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 4.4041,
+      "max": 6.01124,
+      "mean": 5.20767
+     }
+    },
+    "domain2_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.16526,
+      "max": 3.97999,
+      "mean": 3.07262
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 4.53262,
+      "max": 6.34481,
+      "mean": 5.43872
+     }
+    },
+    "hinge_free_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.09892,
+      "max": 3.86533,
+      "mean": 2.98212
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 4.45823,
+      "max": 6.15275,
+      "mean": 5.30549
+     }
+    },
+    "domain1_ca_A": {
+     "usilu": {
+      "n": 2,
+      "min": 1.90747,
+      "max": 3.2369,
+      "mean": 2.57219
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 3.89284,
+      "max": 5.4498,
+      "mean": 4.67132
+     }
+    },
+    "domain2_ca_A": {
+     "usilu": {
+      "n": 2,
+      "min": 1.96587,
+      "max": 3.42995,
+      "mean": 2.69791
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 4.04487,
+      "max": 5.75999,
+      "mean": 4.90243
+     }
+    },
+    "lddt_ca": {
+     "usilu": {
+      "n": 2,
+      "min": 0.73285,
+      "max": 0.84774,
+      "mean": 0.79029
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.66036,
+      "max": 0.70639,
+      "mean": 0.68337
+     }
+    },
+    "lddt_ca_domain1": {
+     "usilu": {
+      "n": 2,
+      "min": 0.77298,
+      "max": 0.89058,
+      "mean": 0.83178
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.68984,
+      "max": 0.7347,
+      "mean": 0.71227
+     }
+    },
+    "lddt_ca_domain2": {
+     "usilu": {
+      "n": 2,
+      "min": 0.77275,
+      "max": 0.86929,
+      "mean": 0.82102
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.69965,
+      "max": 0.76316,
+      "mean": 0.7314
+     }
+    },
+    "whole_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.41665,
+      "max": 4.95443,
+      "mean": 3.68554
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 7.57459,
+      "max": 9.17228,
+      "mean": 8.37344
+     }
+    },
+    "hinge_deg": {
+     "usilu": {
+      "n": 2,
+      "min": 3.95341,
+      "max": 7.13278,
+      "mean": 5.5431
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 33.78262,
+      "max": 41.52137,
+      "mean": 37.65199
+     }
+    }
+   },
+   "native_summary": {
+    "base copy1(res 1-298) ca_rmsd_A": {
+     "n": 2,
+     "min": 6.66216,
+     "max": 7.62163,
+     "mean": 7.14189
+    },
+    "base copy2(res 299-512) ca_rmsd_A": {
+     "n": 2,
+     "min": 5.75948,
+     "max": 6.29685,
+     "mean": 6.02816
+    },
+    "base copy1(res 1-298) lddt_ca": {
+     "n": 2,
+     "min": 0.64046,
+     "max": 0.65282,
+     "mean": 0.64664
+    },
+    "base copy2(res 299-512) lddt_ca": {
+     "n": 2,
+     "min": 0.61645,
+     "max": 0.65394,
+     "mean": 0.63519
+    },
+    "usilu copy1(res 1-298) ca_rmsd_A": {
+     "n": 2,
+     "min": 6.65576,
+     "max": 8.2468,
+     "mean": 7.45128
+    },
+    "usilu copy2(res 299-512) ca_rmsd_A": {
+     "n": 2,
+     "min": 5.72158,
+     "max": 7.19263,
+     "mean": 6.45711
+    },
+    "usilu copy1(res 1-298) lddt_ca": {
+     "n": 2,
+     "min": 0.63196,
+     "max": 0.63657,
+     "mean": 0.63426
+    },
+    "usilu copy2(res 299-512) lddt_ca": {
+     "n": 2,
+     "min": 0.62647,
+     "max": 0.63889,
+     "mean": 0.63268
+    }
+   }
+  }
+ }
+}

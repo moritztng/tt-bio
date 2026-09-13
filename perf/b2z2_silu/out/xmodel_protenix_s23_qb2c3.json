@@ -1,0 +1,49 @@
+{
+ "doc": "Does unfusing the transition SiLU change a fold on the models that are NOT Boltz-2?\n\n`TT_BIO_UNFUSED_SILU` is read at one site, in `tt_bio.tenstorrent.Transition`, and that class is\nbuilt by `PairformerLayer`, `MiniformerLayer`, `MSALayer` and `Diffusion`. Protenix-v1/v2 import it\ndirectly (`protenix.py:907`, `:2038`) and OpenFold3 reaches it through\n`openfold3_msa_embedder.py:81` and its template pair stack. So \"shared code, so it is fine\" is an\nargument, not a measurement, and the flag is not bit-exact anywhere: an identical digest is not\navailable as a bar on any of these models.\n\nThe bar that IS available is the one Boltz-2 was scored against: the lever's structural move\nagainst the same model's own seed spread. This folds each model at two seeds in both arms, in one\nprocess on one device, and writes the layout `perf/b2z2_fusebias/score.py` already reads, so every\nmodel is scored by the same instrument on the same axis rather than by a new one per model.\n\nThe last fold repeats the first. That repeat is the A/A floor and must come back byte-identical or\nnothing else here is interpretable.\n\n    xmodel_silu_ab.py --model protenix-v2 --out <json> --cifdir <dir> [--seeds 0,1]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "model": "protenix-v2",
+  "size": 512,
+  "ttnn": "0.68.0",
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "3",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "n_msa": 35,
+  "commit": "c3aa6a6849bb63c26deae1c235ff734724e811f6",
+  "started_utc": "2026-09-13T11:23:50Z",
+  "loadavg": [
+   28.94970703125,
+   33.08154296875,
+   27.4267578125
+  ]
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 2,
+   "tag": "base-s2",
+   "target": "cdk2x2_512",
+   "fold_s": 59.154,
+   "sha256": "af744fefbdf43d39",
+   "unfused_silu": false,
+   "plddt": 0.824579
+  },
+  {
+   "arm": "usilu",
+   "seed": 2,
+   "tag": "usilu-s2",
+   "target": "cdk2x2_512",
+   "fold_s": 55.55,
+   "sha256": "6e1fa1515fde5b48",
+   "unfused_silu": true,
+   "plddt": 0.813464
+  }
+ ],
+ "cold_fold_s": 75.988
+}

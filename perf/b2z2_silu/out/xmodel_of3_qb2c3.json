@@ -1,0 +1,81 @@
+{
+ "doc": "Does unfusing the transition SiLU change a fold on the models that are NOT Boltz-2?\n\n`TT_BIO_UNFUSED_SILU` is read at one site, in `tt_bio.tenstorrent.Transition`, and that class is\nbuilt by `PairformerLayer`, `MiniformerLayer`, `MSALayer` and `Diffusion`. Protenix-v1/v2 import it\ndirectly (`protenix.py:907`, `:2038`) and OpenFold3 reaches it through\n`openfold3_msa_embedder.py:81` and its template pair stack. So \"shared code, so it is fine\" is an\nargument, not a measurement, and the flag is not bit-exact anywhere: an identical digest is not\navailable as a bar on any of these models.\n\nThe bar that IS available is the one Boltz-2 was scored against: the lever's structural move\nagainst the same model's own seed spread. This folds each model at two seeds in both arms, in one\nprocess on one device, and writes the layout `perf/b2z2_fusebias/score.py` already reads, so every\nmodel is scored by the same instrument on the same axis rather than by a new one per model.\n\nThe last fold repeats the first. That repeat is the A/A floor and must come back byte-identical or\nnothing else here is interpretable.\n\n    xmodel_silu_ab.py --model protenix-v2 --out <json> --cifdir <dir> [--seeds 0,1]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "model": "openfold3",
+  "size": 512,
+  "ttnn": "0.68.0",
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "3",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "n_msa": 35,
+  "commit": "c3aa6a6849bb63c26deae1c235ff734724e811f6",
+  "started_utc": "2026-09-13T11:17:40Z",
+  "loadavg": [
+   30.525390625,
+   32.38037109375,
+   24.2880859375
+  ]
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "tag": "base-s0",
+   "target": "cdk2x2_512",
+   "fold_s": 54.734,
+   "sha256": "6ee6ac7a3e730688",
+   "unfused_silu": false,
+   "plddt": 0.547851
+  },
+  {
+   "arm": "usilu",
+   "seed": 0,
+   "tag": "usilu-s0",
+   "target": "cdk2x2_512",
+   "fold_s": 51.678,
+   "sha256": "b65e275f50b5c7ac",
+   "unfused_silu": true,
+   "plddt": 0.559915
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "tag": "base-s1",
+   "target": "cdk2x2_512",
+   "fold_s": 55.443,
+   "sha256": "a482c199b439d002",
+   "unfused_silu": false,
+   "plddt": 0.557037
+  },
+  {
+   "arm": "usilu",
+   "seed": 1,
+   "tag": "usilu-s1",
+   "target": "cdk2x2_512",
+   "fold_s": 53.916,
+   "sha256": "76d89900421343ef",
+   "unfused_silu": true,
+   "plddt": 0.556927
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "tag": "base-s0_r1",
+   "target": "cdk2x2_512",
+   "fold_s": 55.823,
+   "sha256": "6ee6ac7a3e730688",
+   "unfused_silu": false,
+   "plddt": 0.547851
+  }
+ ],
+ "cold_fold_s": 57.041,
+ "aa_floor_bitexact": true,
+ "arms_differ": true
+}

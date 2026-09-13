@@ -1,0 +1,12 @@
+2026-09-13 11:10:40.945 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  protenix-v2 512 cold (discarded) 67.08s
+  protenix-v2 512 base-s0          56.55s sha=15772214c5b9e990 plddt=0.824303
+  protenix-v2 512 usilu-s0         56.47s sha=c528023303de70a8 plddt=0.808444
+  protenix-v2 512 base-s1          56.01s sha=bd7dd4a8ce15e2db plddt=0.827201
+  protenix-v2 512 usilu-s1         54.51s sha=a8708a5e9eba03f0 plddt=0.807953
+  protenix-v2 512 base-s0_r1       71.38s sha=15772214c5b9e990 plddt=0.824303
+{
+ "aa_floor_bitexact": true,
+ "arms_differ": true
+}

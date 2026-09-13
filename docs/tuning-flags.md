@@ -38,38 +38,6 @@ windows wrong, and still wrote the identical structure, because the attention ma
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
 
-## `TT_BIO_UNFUSED_SILU` — on
-
-Transition blocks apply SiLU to the output of a matrix multiply. TT-NN can fold that activation into
-the multiply, but it then runs SiLU at half the rate the standalone operation reaches on this
-hardware: 174.0 us per call fused against 83.7 standalone at the 298 aa pair shape. The penalty is
-specific to SiLU and does not depend on the program config, so tt-bio pays a full L1 round trip and
-still comes out ahead.
-
-**Accuracy: not identical, and this is the only flag on this page that is not.** Both forms compute
-the same function over the same terms into the same bfloat16 output. What moves is where the
-rounding lands: the fused form runs SiLU on the full-precision accumulator and rounds after, the
-unfused form rounds first and runs SiLU on the bfloat16. So the structure moves, and the question is
-whether it moves by more than the model moves on its own.
-
-It does not. Measured on `cdk2x2_512`, four seeds per arm, each pseudo-domain superposed separately:
-
-| | flag off vs on | the same arm at a different seed |
-|---|---|---|
-| 512 aa, domain 1 | 0.40436 A | 1.86867 A |
-| 512 aa, domain 2 | 0.41830 A | 1.69504 A |
-| 298 aa, whole | 0.42868 A | 1.25113 A |
-
-The largest move the flag makes is 4.5 times smaller than the smallest move the sampler makes by
-itself. Accuracy against the experimental structure does not change either: CA-lDDT against 1HCL
-moves -0.00091 and -0.00265 on the four-seed mean at 512 aa and -0.00058 at 298 aa, inside seed
-spreads of 0.029, 0.030 and 0.017, with no consistent sign. Repeating a fold reproduces it byte for
-byte at both sizes, so those figures are the flag and not the card.
-
-Turn it off if you need to reproduce a structure recorded before it shipped. At 512 aa the shipped
-default writes `188e835079a67544` and `TT_BIO_UNFUSED_SILU=0` writes `a91aa44441f0d9c5`, which is
-what earlier versions of tt-bio wrote at that size.
-
 ## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` — on
 
 The MSA track weights each row of the alignment by a softmax over the token axis, one softmax per
@@ -81,11 +49,8 @@ matrix once and slices the heads out of the result.
 the same arithmetic in the same order, not an approximation of it. Off the device it matches the
 per-head loop under `torch.equal` on both outputs, max absolute difference 0, and a negative control
 fails the same comparison. On the device the three models that share this code all fold to the same
-structure byte for byte at 512 residues, each in both arms, pLDDT equal to six places: Protenix-v2
-`15772214c5b9e990`, OpenFold3 `6ee6ac7a3e730688`, Boltz-2 `188e835079a67544`. What that comparison
-asserts is that this flag's two arms agree, and they do at every digest this page has recorded. The
-Boltz-2 number is the one that has moved since: it read `a91aa44441f0d9c5` while the transition SiLU
-was fused, and `TT_BIO_UNFUSED_SILU` changed it.
+structure byte for byte at 512 residues: Boltz-2 `a91aa44441f0d9c5`, Protenix-v2 `15772214c5b9e990`,
+OpenFold3 `6ee6ac7a3e730688`, each in both arms, pLDDT equal to six places.
 
 BoltzGen reaches the same code on its design path and takes the batched projection 192 times in one four-binder design. Its designs are drawn unseeded, so two runs of the same build do not produce the same binders and there is no structure to compare between arms; what is comparable is the designability gate, which passes in every run of either arm.
 

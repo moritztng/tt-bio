@@ -60,7 +60,7 @@ def main() -> int:
     tgt = a.fixdir / f"cdk2x2_{size}.yaml"
     a3m = a.fixdir / f"cdk2x2_{size}.a3m"
     one_fold, meta, _state = B.build_fold(
-        a.model, ROOT / f".msa_silu_{a.model}_{size}", tgt, a3m)
+        a.model, Path(__file__).resolve().parent / "msa" / f"{a.model}_{size}", tgt, a3m)
     struct_dir = Path(meta["struct_dir"])
     job_cfg = meta["job_cfg"]
 

@@ -1,0 +1,389 @@
+{
+ "cifdir": "perf/b2z2_silu/cif_xm_protenix",
+ "split_seq_id": 298,
+ "gt": "1hcl.cif",
+ "env": {
+  "host": "tt-quietbox2",
+  "model": "protenix-v2",
+  "size": 512,
+  "ttnn": "0.68.0",
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "3",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "n_msa": 35,
+  "commit": "407091d80dab4747a020e97091280721dc68368d",
+  "started_utc": "2026-09-13T11:10:45Z",
+  "loadavg": [
+   27.3388671875,
+   26.03515625,
+   17.94482421875
+  ]
+ },
+ "sizes": {
+  "512": {
+   "n_atoms": 4117,
+   "arms": [
+    "base-s0",
+    "base-s0_r1",
+    "base-s1",
+    "usilu-s0",
+    "usilu-s1"
+   ],
+   "seeds": [
+    0,
+    1
+   ],
+   "plddt": {
+    "base-s0": 0.824303,
+    "base-s0_r1": 0.824303,
+    "base-s1": 0.827201,
+    "usilu-s0": 0.808444,
+    "usilu-s1": 0.807953
+   },
+   "sha256": {
+    "base-s0": "15772214c5b9e990",
+    "base-s0_r1": "15772214c5b9e990",
+    "base-s1": "bd7dd4a8ce15e2db",
+    "usilu-s0": "c528023303de70a8",
+    "usilu-s1": "a8708a5e9eba03f0"
+   },
+   "fold_s": {
+    "base-s0": 56.552,
+    "base-s0_r1": 71.377,
+    "base-s1": 56.008,
+    "usilu-s0": 56.465,
+    "usilu-s1": 54.514
+   },
+   "aa_floor": {
+    "whole_all_atom_A": 0.0,
+    "whole_ca_A": 0.0,
+    "domain1_all_atom_A": 0.0,
+    "domain1_ca_A": 0.0,
+    "domain2_all_atom_A": 0.0,
+    "domain2_ca_A": 0.0,
+    "hinge_deg": 0.0,
+    "hinge_free_all_atom_A": 0.0,
+    "lddt_ca": 1.0,
+    "lddt_ca_domain1": 1.0,
+    "lddt_ca_domain2": 1.0
+   },
+   "aa_floor_bitexact": true,
+   "lever": {
+    "usilu seed0": {
+     "whole_all_atom_A": 3.26825,
+     "whole_ca_A": 3.01149,
+     "domain1_all_atom_A": 2.96905,
+     "domain1_ca_A": 2.72959,
+     "domain2_all_atom_A": 3.4425,
+     "domain2_ca_A": 3.141,
+     "hinge_deg": 1.88916,
+     "hinge_free_all_atom_A": 3.17544,
+     "lddt_ca": 0.87999,
+     "lddt_ca_domain1": 0.90248,
+     "lddt_ca_domain2": 0.85444
+    },
+    "usilu seed1": {
+     "whole_all_atom_A": 3.21156,
+     "whole_ca_A": 2.90683,
+     "domain1_all_atom_A": 2.39002,
+     "domain1_ca_A": 2.06637,
+     "domain2_all_atom_A": 2.53368,
+     "domain2_ca_A": 2.10197,
+     "hinge_deg": 12.22051,
+     "hinge_free_all_atom_A": 2.45106,
+     "lddt_ca": 0.89849,
+     "lddt_ca_domain1": 0.91978,
+     "lddt_ca_domain2": 0.88167
+    }
+   },
+   "seed_floor": {
+    "base: s0 vs s1": {
+     "whole_all_atom_A": 4.03111,
+     "whole_ca_A": 3.86606,
+     "domain1_all_atom_A": 1.1172,
+     "domain1_ca_A": 0.70968,
+     "domain2_all_atom_A": 1.32069,
+     "domain2_ca_A": 0.86911,
+     "hinge_deg": 23.08664,
+     "hinge_free_all_atom_A": 1.2064,
+     "lddt_ca": 0.95011,
+     "lddt_ca_domain1": 0.96664,
+     "lddt_ca_domain2": 0.94945
+    },
+    "usilu: s0 vs s1": {
+     "whole_all_atom_A": 5.31828,
+     "whole_ca_A": 5.04024,
+     "domain1_all_atom_A": 3.23349,
+     "domain1_ca_A": 2.90615,
+     "domain2_all_atom_A": 3.74337,
+     "domain2_ca_A": 3.36127,
+     "hinge_deg": 23.00806,
+     "hinge_free_all_atom_A": 3.45567,
+     "lddt_ca": 0.86341,
+     "lddt_ca_domain1": 0.88951,
+     "lddt_ca_domain2": 0.83956
+    }
+   },
+   "native": {
+    "base-s0": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 1.70692,
+      "lddt_ca": 0.94187
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 1.9588,
+      "lddt_ca": 0.91878
+     }
+    },
+    "base-s0_r1": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 1.70692,
+      "lddt_ca": 0.94187
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 1.9588,
+      "lddt_ca": 0.91878
+     }
+    },
+    "base-s1": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 1.61127,
+      "lddt_ca": 0.94077
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 1.82593,
+      "lddt_ca": 0.91988
+     }
+    },
+    "usilu-s0": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 3.10325,
+      "lddt_ca": 0.89442
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 3.60306,
+      "lddt_ca": 0.847
+     }
+    },
+    "usilu-s1": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 2.43758,
+      "lddt_ca": 0.89222
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 2.56607,
+      "lddt_ca": 0.8502
+     }
+    }
+   },
+   "summary": {
+    "domain1_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.39002,
+      "max": 2.96905,
+      "mean": 2.67954
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 1.1172,
+      "max": 3.23349,
+      "mean": 2.17535
+     }
+    },
+    "domain2_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.53368,
+      "max": 3.4425,
+      "mean": 2.98809
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 1.32069,
+      "max": 3.74337,
+      "mean": 2.53203
+     }
+    },
+    "hinge_free_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.45106,
+      "max": 3.17544,
+      "mean": 2.81325
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 1.2064,
+      "max": 3.45567,
+      "mean": 2.33103
+     }
+    },
+    "domain1_ca_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.06637,
+      "max": 2.72959,
+      "mean": 2.39798
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.70968,
+      "max": 2.90615,
+      "mean": 1.80791
+     }
+    },
+    "domain2_ca_A": {
+     "usilu": {
+      "n": 2,
+      "min": 2.10197,
+      "max": 3.141,
+      "mean": 2.62148
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.86911,
+      "max": 3.36127,
+      "mean": 2.11519
+     }
+    },
+    "lddt_ca": {
+     "usilu": {
+      "n": 2,
+      "min": 0.87999,
+      "max": 0.89849,
+      "mean": 0.88924
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.86341,
+      "max": 0.95011,
+      "mean": 0.90676
+     }
+    },
+    "lddt_ca_domain1": {
+     "usilu": {
+      "n": 2,
+      "min": 0.90248,
+      "max": 0.91978,
+      "mean": 0.91113
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.88951,
+      "max": 0.96664,
+      "mean": 0.92807
+     }
+    },
+    "lddt_ca_domain2": {
+     "usilu": {
+      "n": 2,
+      "min": 0.85444,
+      "max": 0.88167,
+      "mean": 0.86806
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 0.83956,
+      "max": 0.94945,
+      "mean": 0.8945
+     }
+    },
+    "whole_all_atom_A": {
+     "usilu": {
+      "n": 2,
+      "min": 3.21156,
+      "max": 3.26825,
+      "mean": 3.23991
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 4.03111,
+      "max": 5.31828,
+      "mean": 4.67469
+     }
+    },
+    "hinge_deg": {
+     "usilu": {
+      "n": 2,
+      "min": 1.88916,
+      "max": 12.22051,
+      "mean": 7.05484
+     },
+     "seed_floor": {
+      "n": 2,
+      "min": 23.00806,
+      "max": 23.08664,
+      "mean": 23.04735
+     }
+    }
+   },
+   "native_summary": {
+    "base copy1(res 1-298) ca_rmsd_A": {
+     "n": 2,
+     "min": 1.61127,
+     "max": 1.70692,
+     "mean": 1.65909
+    },
+    "base copy2(res 299-512) ca_rmsd_A": {
+     "n": 2,
+     "min": 1.82593,
+     "max": 1.9588,
+     "mean": 1.89237
+    },
+    "base copy1(res 1-298) lddt_ca": {
+     "n": 2,
+     "min": 0.94077,
+     "max": 0.94187,
+     "mean": 0.94132
+    },
+    "base copy2(res 299-512) lddt_ca": {
+     "n": 2,
+     "min": 0.91878,
+     "max": 0.91988,
+     "mean": 0.91933
+    },
+    "usilu copy1(res 1-298) ca_rmsd_A": {
+     "n": 2,
+     "min": 2.43758,
+     "max": 3.10325,
+     "mean": 2.77041
+    },
+    "usilu copy2(res 299-512) ca_rmsd_A": {
+     "n": 2,
+     "min": 2.56607,
+     "max": 3.60306,
+     "mean": 3.08457
+    },
+    "usilu copy1(res 1-298) lddt_ca": {
+     "n": 2,
+     "min": 0.89222,
+     "max": 0.89442,
+     "mean": 0.89332
+    },
+    "usilu copy2(res 299-512) lddt_ca": {
+     "n": 2,
+     "min": 0.847,
+     "max": 0.8502,
+     "mean": 0.8486
+    }
+   }
+  }
+ }
+}
