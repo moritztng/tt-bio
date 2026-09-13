@@ -15,6 +15,13 @@
  },
  "stall_split": {
   "compute_rows_with_counters": 0,
+  "brisc_ms_per_call": 21.9999,
+  "ncrisc_ms_per_call": 16.1955,
+  "brisc_residency": 0.9988,
+  "ncrisc_residency": 0.7353,
+  "trisc0_residency": 0.6983,
+  "trisc1_residency": 0.6909,
+  "trisc2_residency": 0.7178,
   "trisc0_ms_per_call": 15.3804,
   "trisc1_ms_per_call": 15.2179,
   "trisc2_ms_per_call": 15.81,

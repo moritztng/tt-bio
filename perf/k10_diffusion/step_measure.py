@@ -34,6 +34,7 @@ WAIT = "DEVICE COMPUTE CB WAIT FRONT [ns]"
 RES = "DEVICE COMPUTE CB RESERVE BACK [ns]"
 T0, T1, T2 = (f"DEVICE TRISC{i} KERNEL DURATION [ns]" for i in (0, 1, 2))
 KERNEL = "DEVICE KERNEL DURATION [ns]"
+BR, NC = "DEVICE BRISC KERNEL DURATION [ns]", "DEVICE NCRISC KERNEL DURATION [ns]"
 GAP = "OP TO OP LATENCY [ns]"
 CORES = "CORE COUNT"
 
@@ -89,6 +90,10 @@ def main() -> int:
                     help="profiler-off synced wall per call, eager dispatch")
     ap.add_argument("--bare-traced-ms", type=float, default=None,
                     help="profiler-off wall per call, ttnn trace capture+replay")
+    ap.add_argument("--bare-replay-ms", type=float, default=None,
+                    help="profiler-off wall of the same call in a tight replay loop, where the "
+                         "host is fully ahead. Isolates the device's own program-to-program "
+                         "latency from the per-step host cost the fold pays on top of it.")
     ap.add_argument("--label", required=True)
     ap.add_argument("--arch", required=True, choices=("WH", "BH"))
     ap.add_argument("--out", type=Path, required=True)
@@ -113,6 +118,13 @@ def main() -> int:
          "eager_gap_ms_per_call": round(a.bare_eager_ms - kern, 4),
          "eager_gap_frac": round(1 - kern / a.bare_eager_ms, 5),
          "eager_gap_us_per_program": round(1e3 * (a.bare_eager_ms - kern) / n_ops, 3)}
+    if a.bare_replay_ms:
+        g.update({"bare_replay_ms_per_call": a.bare_replay_ms,
+                  "device_only_gap_ms": round(a.bare_replay_ms - kern, 4),
+                  "device_only_gap_frac": round(1 - kern / a.bare_replay_ms, 5),
+                  "device_only_gap_us_per_program": round(
+                      1e3 * (a.bare_replay_ms - kern) / n_ops, 3),
+                  "host_per_step_ms": round(a.bare_eager_ms - a.bare_replay_ms, 4)})
     if a.bare_traced_ms:
         g.update({"bare_traced_ms_per_call": a.bare_traced_ms,
                   "traced_gap_ms_per_call": round(a.bare_traced_ms - kern, 4),
@@ -123,7 +135,7 @@ def main() -> int:
 
     # ---- 2. cost by op code, and 3. the stall split ----------------------------------------
     per = defaultdict(lambda: defaultdict(float))
-    tot = dict.fromkeys(("wait", "res", "t0", "t1", "t2", "kernel"), 0.0)
+    tot = dict.fromkeys(("wait", "res", "t0", "t1", "t2", "kernel", "br", "nc"), 0.0)
     bad0 = bad2 = 0
     for r in region:
         n = max(f(r, CORES), 1.0)
@@ -134,6 +146,7 @@ def main() -> int:
         c["wait"] += wi; c["res"] += wo; c["cores"] += f(r, CORES); c["gap"] += f(r, GAP)
         tot["wait"] += wi; tot["res"] += wo; tot["kernel"] += k
         tot["t0"] += t0; tot["t1"] += t1; tot["t2"] += t2
+        tot["br"] += f(r, BR); tot["nc"] += f(r, NC)
         if t0 > 0:
             bad0 += wi > t0
         if t2 > 0:
@@ -142,6 +155,13 @@ def main() -> int:
     n_stall = sum(1 for r in region if f(r, T1) > 0 and f(r, WAIT) + f(r, RES) > 0)
     out["stall_split"] = {
         "compute_rows_with_counters": n_stall,
+        "brisc_ms_per_call": round(tot["br"] / reps / 1e6, 4),
+        "ncrisc_ms_per_call": round(tot["nc"] / reps / 1e6, 4),
+        "brisc_residency": round(tot["br"] / tot["kernel"], 4),
+        "ncrisc_residency": round(tot["nc"] / tot["kernel"], 4),
+        "trisc0_residency": round(tot["t0"] / tot["kernel"], 4),
+        "trisc1_residency": round(tot["t1"] / tot["kernel"], 4),
+        "trisc2_residency": round(tot["t2"] / tot["kernel"], 4),
         "trisc0_ms_per_call": round(tot["t0"] / reps / 1e6, 4),
         "trisc1_ms_per_call": round(tot["t1"] / reps / 1e6, 4),
         "trisc2_ms_per_call": round(tot["t2"] / reps / 1e6, 4),
@@ -184,6 +204,11 @@ def main() -> int:
     print(f"{a.label} ({a.arch}) -- {n_ops} programs/call, {reps} reps\n")
     print(f"GAP: device kernel {kern:.4f} ms  |  bare eager wall {a.bare_eager_ms:.4f} ms  "
           f"-> gap {100*g['eager_gap_frac']:.2f} % ({g['eager_gap_us_per_program']:.2f} us/program)")
+    if a.bare_replay_ms:
+        print(f"     bare replay wall {a.bare_replay_ms:.4f} ms -> device-only gap "
+              f"{100*g['device_only_gap_frac']:.2f} % "
+              f"({g['device_only_gap_us_per_program']:.2f} us/program); the fold pays "
+              f"{g['host_per_step_ms']:.4f} ms/step of host on top")
     if a.bare_traced_ms:
         print(f"     bare traced wall {a.bare_traced_ms:.4f} ms -> gap "
               f"{100*g['traced_gap_frac']:.2f} % ({g['traced_gap_us_per_program']:.2f} us/program)"
@@ -193,6 +218,10 @@ def main() -> int:
           f"   reserve_back/TRISC2 {100*s['reserve_back_over_trisc2']:.1f} %"
           f"   in:out {s['input_output_ratio']}:1")
     print(f"  falsifier: wait>TRISC0 {bad0}, reserve>TRISC2 {bad2} of {n_stall} rows")
+    print(f"RESIDENCY over the {kern:.3f} ms of device kernel time: BRISC "
+          f"{100*s['brisc_residency']:.1f} %  NCRISC {100*s['ncrisc_residency']:.1f} %  "
+          f"TRISC0 {100*s['trisc0_residency']:.1f} %  TRISC1 {100*s['trisc1_residency']:.1f} %  "
+          f"TRISC2 {100*s['trisc2_residency']:.1f} %")
     print(f"\n  {'OP CODE':22s} {'n':>5} {'ms':>8} {'%':>6} {'us':>7} {'cores':>6} "
           f"{'in/T0':>7} {'out/T2':>7} {'in:out':>7}")
     for t in table:
