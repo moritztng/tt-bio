@@ -4,6 +4,9 @@
 # BoltzGen has no seed of its own, so the control has to be measured here.
 set -euo pipefail
 WT="${WT:-$HOME/wt-bgatoml1}"
+# whglx runs two unix accounts against one Galaxy and /tmp/tt-bio-device-leases belongs to
+# whichever created it. It is tt-admin's today, mode 664, so this account cannot take a lease
+# there at all -- TT_BIO_LEASE_DIR points at the one this account can write.
 CARD="${CARD:-1}"
 SPEC="${SPEC:-$WT/tests/fixtures/boltzgen/bg400.yaml}"
 ROOT="${ROOT:-$HOME/scratch/bgatoml1}"
@@ -23,6 +26,7 @@ for arm in base l1 base2; do
   rm -rf "$out"
   TT_BIO_LEASE_CARDS="$CARD" \
   TT_BIO_LEASE_HOLDER=worker:b2z2-boltzgen-atoml1-leg \
+  TT_BIO_LEASE_DIR="${TT_BIO_LEASE_DIR:-$HOME/leases}" \
   PYTHONPATH="$WT" \
   env -u TT_METAL_DEVICE_PROFILER \
   "$HOME/env/bin/python" "$WT/perf/b2z2_bgatoml1/bg_arm.py" \
