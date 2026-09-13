@@ -206,6 +206,11 @@ def main() -> int:
         args.arm = "gpuref" if args.mode == "cuda" else "gpurefshared"
 
     import torch
+    # Set before the env block is captured, not only inside fold_one: otherwise the record shows
+    # cuDNN's default True while the folds themselves ran with it off.
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+    torch.set_float32_matmul_precision("highest")
     env = {"host": os.uname().nodename, "gpu": torch.cuda.get_device_name(0),
            "torch": torch.__version__, "cuda": torch.version.cuda,
            "driver": subprocess.run(["nvidia-smi", "--query-gpu=driver_version",

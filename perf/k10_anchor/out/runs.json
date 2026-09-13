@@ -1,0 +1,231 @@
+{
+ "doc": "TT main vs upstream boltz 2.2.1 GPU reference",
+ "env": {
+  "tt": {
+   "host": "tt-quietbox2",
+   "grid": [
+    11,
+    10
+   ],
+   "arch": "Arch.BLACKHOLE",
+   "torch": "2.8.0+cpu",
+   "tt_visible_devices": "1",
+   "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-cond-ship/tt_bio/__init__.py",
+   "commit": "934624338d2dcc632cdfe95f1ed42dcc9a08aa0b",
+   "started_utc": "2026-09-13T12:15:36Z",
+   "loadavg": [
+    10.73046875,
+    12.43603515625,
+    19.08984375
+   ],
+   "protocol": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "plan": "base:0,1,2,3;cond:0,1,2,3;default:0",
+    "diffusion_trace": false
+   }
+  },
+  "gpu": {
+   "host": "00f6c9d768ef",
+   "gpu": "NVIDIA RTX 6000 Ada Generation",
+   "torch": "2.14.0+cu130",
+   "cuda": "13.0",
+   "driver": "595.58.03",
+   "tf32_matmul": false,
+   "tf32_cudnn": true,
+   "boltz": "2.2.1",
+   "no_kernels": true,
+   "precision": "32",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "mode": "cuda"
+  }
+ },
+ "runs": [
+  {
+   "arm": "ttmain",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 21.059,
+   "sha256": "2bc758a1fb24ef30",
+   "device_conditioning": true,
+   "plddt": 0.818912,
+   "tag": "ttmain-s0",
+   "sha256_full": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+  },
+  {
+   "arm": "ttmain",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 20.1,
+   "sha256": "b2332fa1c5879260",
+   "device_conditioning": true,
+   "plddt": 0.810979,
+   "tag": "ttmain-s1",
+   "sha256_full": "b2332fa1c58792609035f22603f024012ea20ed4a933edfec89a28c6063333e4"
+  },
+  {
+   "arm": "ttmain",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 20.11,
+   "sha256": "d41a6e497bb8854d",
+   "device_conditioning": true,
+   "plddt": 0.809839,
+   "tag": "ttmain-s2",
+   "sha256_full": "d41a6e497bb8854dc3346701c7d95e6e7b8b2e9cc41d07682f8608a92557b307"
+  },
+  {
+   "arm": "ttmain",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 19.172,
+   "sha256": "e8dbab0016348034",
+   "device_conditioning": true,
+   "plddt": 0.839716,
+   "tag": "ttmain-s3",
+   "sha256_full": "e8dbab001634803492711d0d922aacb99a76c17a2aec2068add30ad36f959a6a"
+  },
+  {
+   "arm": "ttmain",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 13.496,
+   "sha256": "de5d77b220e32a7a",
+   "device_conditioning": true,
+   "plddt": 0.913442,
+   "tag": "ttmain-s0",
+   "sha256_full": "de5d77b220e32a7a1fd99c53ca71b6f8fd28ec5e0f99578a10dd194e36636df5"
+  },
+  {
+   "arm": "ttmain",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 13.709,
+   "sha256": "d7cddcc6f4a71ec1",
+   "device_conditioning": true,
+   "plddt": 0.915891,
+   "tag": "ttmain-s1",
+   "sha256_full": "d7cddcc6f4a71ec10b7bdb9669e5c8a925053511dc34885b38af173b1058c612"
+  },
+  {
+   "arm": "ttmain",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 12.127,
+   "sha256": "fccde60644d6cdbb",
+   "device_conditioning": true,
+   "plddt": 0.91173,
+   "tag": "ttmain-s2",
+   "sha256_full": "fccde60644d6cdbba8d864f0ac17e73d9f529682403d60281b02a561f48fedab"
+  },
+  {
+   "arm": "ttmain",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 12.31,
+   "sha256": "acd38fcb6049294e",
+   "device_conditioning": true,
+   "plddt": 0.918493,
+   "tag": "ttmain-s3",
+   "sha256_full": "acd38fcb6049294e64e14ae630967bba175855f0ee3cdf7a7e795d0ff6c7be29"
+  },
+  {
+   "target": "cdk2x2_298",
+   "tag": "gpuref-s0",
+   "seed": 0,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 40.342,
+   "sha256": "64ab4254350a0b789b4a766539287c2022aac876d0ee34d21be8dfa491878cdb",
+   "plddt": 0.911531,
+   "confidence_plddt": 0.9115307927131653,
+   "cif": "/root/results/cif/298_gpuref-s0/cdk2x2_298.cif"
+  },
+  {
+   "target": "cdk2x2_298",
+   "tag": "gpuref-s1",
+   "seed": 1,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 37.865,
+   "sha256": "7d8b16da302079d0758db4e289c961fb1e91fb267000598faf2cbe5e3b50ffc3",
+   "plddt": 0.911292,
+   "confidence_plddt": 0.9112915396690369,
+   "cif": "/root/results/cif/298_gpuref-s1/cdk2x2_298.cif"
+  },
+  {
+   "target": "cdk2x2_298",
+   "tag": "gpuref-s2",
+   "seed": 2,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 36.144,
+   "sha256": "54f6a31f2797b11ddc7cbe31757054b273803345b7f9b009523593f7866e99be",
+   "plddt": 0.909198,
+   "confidence_plddt": 0.9091984033584595,
+   "cif": "/root/results/cif/298_gpuref-s2/cdk2x2_298.cif"
+  },
+  {
+   "target": "cdk2x2_298",
+   "tag": "gpuref-s3",
+   "seed": 3,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 37.48,
+   "sha256": "be06f5fc9f0e1fac74609d171e66bf9fc14eb187126f5146d64185b61b54b780",
+   "plddt": 0.909156,
+   "confidence_plddt": 0.9091564416885376,
+   "cif": "/root/results/cif/298_gpuref-s3/cdk2x2_298.cif"
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "gpuref-s0",
+   "seed": 0,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 59.455,
+   "sha256": "18d70c83f203ec7be1cf3617ed9e6594a35fd36dc34eb936ab38bc770bd129ea",
+   "plddt": 0.881107,
+   "confidence_plddt": 0.8811072111129761,
+   "cif": "/root/results/cif/512_gpuref-s0/cdk2x2_512.cif"
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "gpuref-s1",
+   "seed": 1,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 55.979,
+   "sha256": "f4878c14dae90f504675b9725b735c0051087fc7db14294daef3af40d4093c54",
+   "plddt": 0.88077,
+   "confidence_plddt": 0.8807700276374817,
+   "cif": "/root/results/cif/512_gpuref-s1/cdk2x2_512.cif"
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "gpuref-s2",
+   "seed": 2,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 56.535,
+   "sha256": "c6bc8da3a63e3ab95e5d2880152e19e27b1003e6abed68013f9a4f71877d3e07",
+   "plddt": 0.858483,
+   "confidence_plddt": 0.8584833145141602,
+   "cif": "/root/results/cif/512_gpuref-s2/cdk2x2_512.cif"
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "gpuref-s3",
+   "seed": 3,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 55.509,
+   "sha256": "5c0de3b3b7edab8fdc2de7148a67b3495b73eefcd62c575e9817717f10ebb0d0",
+   "plddt": 0.876713,
+   "confidence_plddt": 0.8767130970954895,
+   "cif": "/root/results/cif/512_gpuref-s3/cdk2x2_512.cif"
+  }
+ ]
+}
