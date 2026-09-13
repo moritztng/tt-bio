@@ -20,6 +20,23 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **Boltz-2's Pairformer trunk runs 1.01492x faster at 512 residues, byte for byte the same
+  structure.** Three tensors that were crossing DRAM for no reason now stay in L1. A triangle
+  multiplication's pair mask is a broadcast operand, so the channel-blocked multiply re-reads it
+  once per channel block rather than once, and at 0.52 MB it buys back a whole pair tensor's worth
+  of DRAM reads (`TT_BIO_TRIMUL_MASK_L1`, on by default). The starting triangle attention's output
+  projection and the pair transition's assembled result were both written to DRAM and read
+  straight back by the residual add that follows them, so both producers now write to L1
+  (`TT_BIO_RESIDUAL_L1`, on by default). Measured as one arm rather than summed: eight folds a
+  side at 512 aa interleaved ABBA in one process, Pairformer block wall 9.5479 s to 9.4087 s, all
+  eight paired ratios positive against a same-arm floor of 1.0042x. On the whole fold that is
+  17.736 s to 17.6325 s, 1.00748x, which is inside the fold wall's own 1.01483x floor at this
+  size — the trunk is where these act and where the number is worth reading. All sixteen timed
+  folds wrote one CIF digest and one plDDT in both arms, and 298, 768 and 1024 aa each wrote a
+  single digest across both arms with peak DRAM moving at most 0.003 %. Both are gates: each site
+  asks whether the tensor fits at the live grid and leaves it in DRAM when it does not, so the
+  residual placement simply stops engaging above 512 residues instead of failing there.
+
 - **Boltz-2 folds 1.0178x faster at 512 residues, byte for byte the same structure.** Three layout
   changes inside the triangle multiplication, measured as one arm rather than summed. It no longer
   materialises a 16.8 MB channel-axis copy of a mask that the default route never reads, and it

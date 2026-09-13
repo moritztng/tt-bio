@@ -150,6 +150,29 @@ consistent with the optimization never having run. Every fold is recorded with t
 and per-head projections it actually made: 16 on Boltz-2, 30 on Protenix-v2, 12 on OpenFold3, and
 zero in every arm that had the flag off.
 
+## `TT_BIO_RESIDUAL_L1` — on
+
+A Pairformer layer adds each sub-layer's output back into the pair tensor. Two of those updates
+used to be written to DRAM and read straight back by the very next op: the starting triangle
+attention's output projection, and the pair transition's assembled result. This flag has both
+producers write into L1 instead, so the update never crosses DRAM in either direction.
+
+It is a gate, not a placement. Each site asks whether the update fits across the grid's banks at
+the live grid size, with the consuming matmul's per-core buffers reserved underneath it, and
+leaves the result in DRAM when it does not. At 512 aa and below it fits; at 768 aa and above it
+does not, and the site falls back. The large-target outcome is "no win", never "no fold".
+
+**Accuracy: identical.** A memory config decides which banks a tile lands in, not what is in it.
+Off the device the projection and the concat reproduce their DRAM output under `torch.equal`, max
+|delta| exactly 0.0, at every size where the gate engages, and the same comparison refuses a
+perturbed control (`perf/k10_binaryng_land/test_l1_equal.py`). At the fold, sixteen timed folds at
+512 aa wrote one CIF sha256 and one plDDT, `0.864509`, in both arms, and 298, 512, 768 and 1024 aa
+each wrote a single digest across both arms.
+
+**Speed: measured with `TT_BIO_TRIMUL_MASK_L1`, not separately.** The two flags touch three
+different sites in the same block and the pair was measured as a pair. See the next section for
+the number.
+
 ## `TT_BIO_SDPA_ADD_GRANULARITY` — auto
 
 The fused SDPA kernel folds three additions into its main loop: the running-sum/max update and the
@@ -290,6 +313,31 @@ declined every call by then. The 1024 and 1536 sizes were re-run after the singl
 0.8 percentage points of the table. No size refused an allocation: 7.26 GiB is 22.8 % of the 31.87 GiB
 part, and the smallest largest-contiguous free block per bank at the high-water mark is 3013 MiB
 with the flags on against 3157 MiB without them.
+
+## `TT_BIO_TRIMUL_MASK_L1` — on
+
+The triangle multiplication masks its pair input before the contraction. The mask is `[1, 1, L, L]`
+against a `[1, C, L, L]` chunk, so the multiply broadcasts it along the channel axis, and a
+broadcast operand is read once per channel block rather than once. This flag puts the mask in L1,
+where those re-reads cost no DRAM traffic.
+
+It is the best ratio of the two: the mask is 0.52 MB, and moving that much on chip removes a whole
+pair tensor's worth of DRAM reads. It fits at every size tested, 298 through 1024 aa, so unlike
+`TT_BIO_RESIDUAL_L1` it does not go dark on large targets.
+
+**Accuracy: identical**, on the same evidence as the section above: `torch.equal` at the op with a
+control that fires, and one digest per size at the fold.
+
+**Speed: 1.01492x on the trunk, taken with `TT_BIO_RESIDUAL_L1`.** The two flags place three
+tensors in the same block, so they were measured together rather than multiplied together. Eight
+folds an arm at 512 aa, interleaved ABBA in one process on an idle box: the Pairformer block wall
+goes 9.5479 s to 9.4087 s, all eight paired ratios positive, against a same-arm floor of 1.0042x.
+
+On the whole fold that is **17.736 s to 17.6325 s, 0.1035 s, 1.00748x**. Read the block number
+rather than this one. The levers act only in the trunk, the fold wall is dominated by 200
+diffusion steps they never touch, and the fold wall's own same-arm floor at this size is 1.01483x,
+which is wider than the effect. All eight paired folds still came out positive, so the direction
+is not in doubt; the size of it is better read where it happens.
 
 ## `TT_BIO_TRIMUL_MM_TRANSPOSE` — on
 
