@@ -6,11 +6,11 @@ reaches that branch through `TTScoreModelAdapter`, which subclasses the same
 `tenstorrent.DiffusionModule` Boltz-2 folds through, so the flag lands on a design job the
 moment it becomes a default.
 
-BoltzGen's CLI has no seed: the sampler draws its noise from torch's global RNG and the
-pipeline never touches it, so two runs of the shipped command produce different structures and
-no digest compare is possible. Seeding here, before anything imports, makes the host draws
-identical between arms. Whatever is left after that is the device, which is the thing under
-test.
+BoltzGen's CLI has no seed and two sources of host randomness feed a design: the sampler's
+noise, drawn from torch's global RNG, and featurization, drawn from a numpy Generator the
+pipeline builds unseeded (`featurizer_rng`). Both are pinned here, before anything imports, so
+the two arms see identical host draws. Whatever is left after that is the device, which is the
+thing under test. The A/A arm is what says the pinning worked.
 
 Writes `arm.json` beside the designs: the arm, the per-arm `ATOM_L1_STATS` census, the
 sampling protocol read back off the config the run actually used, and a digest per produced
@@ -64,6 +64,9 @@ def main() -> int:
     # Set before ttnn or tt_bio.tenstorrent import: the gate reads the flag at module scope.
     os.environ["TT_BIO_ATOM_L1"] = "1" if args.arm == "l1" else "0"
     os.environ.setdefault("TT_BIO_ATOM_L1_TRACE", "1")
+    # Featurization draws from its own numpy Generator, which the pipeline builds unseeded.
+    # Without this the two arms get different input features and the digests cannot be compared.
+    os.environ["TT_BIO_BOLTZGEN_SEED"] = str(args.seed)
 
     import torch
 

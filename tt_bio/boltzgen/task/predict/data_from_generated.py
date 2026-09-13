@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 
 from tt_bio.data import const
 from tt_bio.boltzgen.data.data import Input, Structure, Tokenized
-from tt_bio.boltzgen.data.featurizer import Featurizer
+from tt_bio.boltzgen.data.featurizer import Featurizer, featurizer_rng
 from tt_bio.data.mol import load_canonicals, load_molecules
 from tt_bio.data.pad import pad_to_max
 from tt_bio.boltzgen.data.parse import mmcif
@@ -460,7 +460,7 @@ class FromGeneratedDataset(torch.utils.data.Dataset):
             features = self.featurizer.process(
                 input_data,
                 molecules=molecules,
-                random=np.random.default_rng(None),
+                random=featurizer_rng(),
                 training=False,
                 max_seqs=self.max_seqs,
                 backbone_only=self.backbone_only,

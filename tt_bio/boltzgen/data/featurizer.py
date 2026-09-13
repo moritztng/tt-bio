@@ -1,5 +1,6 @@
 import copy
 import math
+import os
 import re
 from typing import Dict, List, Optional, Tuple
 import numba
@@ -32,6 +33,19 @@ from tt_bio.data.mol import (
 )
 from tt_bio.data.pad import pad_dim
 from tt_bio.boltzgen.model.modules.utils import center_random_augmentation
+
+def featurizer_rng() -> np.random.Generator:
+    """The generator featurization draws from. Unseeded, unless ``TT_BIO_BOLTZGEN_SEED`` says so.
+
+    Featurization is stochastic -- design masking, conformer choice, MSA subsetting -- and the
+    BoltzGen pipeline has no seed of its own, so two runs of the same spec featurize differently
+    and nothing about one run can be compared against another. That is fine for generating
+    diverse designs and fatal for an A/B: it is what made a bit-exactness check on the design
+    path impossible until this existed. Unset is exactly the shipped behaviour.
+    """
+    seed = os.environ.get("TT_BIO_BOLTZGEN_SEED")
+    return np.random.default_rng(None if seed is None else int(seed))
+
 
 ####################################################################################################
 # CONSTANTS
