@@ -968,15 +968,15 @@ SDPA_GRID_Q_CHUNK_PICKS: dict = {}
 
 
 def _sdpa_program_config_for_lengths(q_len: int, k_len: int, work: int = 0,
-                                     site: str = "?") -> ttnn.SDPAProgramConfig:
+                                     site: str = "?", d: int = 0) -> ttnn.SDPAProgramConfig:
     shipped = _capped_sdpa_chunk_size(q_len)
     q_chunk = shipped
     if _SDPA_GRID_Q_CHUNK and work:
         q_chunk = _grid_q_chunk(q_len, int(work), shipped,
                                 COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
-    rec = SDPA_GRID_Q_CHUNK_PICKS.get((site, q_len, k_len, work))
+    rec = SDPA_GRID_Q_CHUNK_PICKS.get((site, q_len, k_len, work, d))
     if rec is None:
-        rec = SDPA_GRID_Q_CHUNK_PICKS[(site, q_len, k_len, work)] = [
+        rec = SDPA_GRID_Q_CHUNK_PICKS[(site, q_len, k_len, work, d)] = [
             0, shipped, q_chunk, work * (_padded_sdpa_len(q_len) // q_chunk)]
     rec[0] += 1
     return _sdpa_program_config(
@@ -6877,7 +6877,8 @@ class AttentionPairBias(Module):
                     scale=self.head_dim**-0.5,
                     program_config=_sdpa_program_config_for_lengths(
                         q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
-                        site="atom" if self.atom_level else "pair_bias"),
+                        site="atom" if self.atom_level else "pair_bias",
+                        d=q_.shape[3]),
                 ),
                 q, k, v, bias, site="attn_pair_bias",
             )
@@ -6904,7 +6905,8 @@ class AttentionPairBias(Module):
                 scale=self.head_dim**-0.5,
                 program_config=_sdpa_program_config_for_lengths(
                     q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
-                    site="atom_fp32" if self.atom_level else "pair_bias_fp32"),
+                    site="atom_fp32" if self.atom_level else "pair_bias_fp32",
+                    d=q_.shape[3]),
             ),
             q_bf16, k_bf16, v_bf16, bias_bf16, site="attn_pair_bias_fp32",
         )
@@ -7107,7 +7109,7 @@ class AttentionPairBias(Module):
                         scale=self.head_dim**-0.5,
                         program_config=_sdpa_program_config_for_lengths(
                             q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
-                            site="token_dit"),
+                            site="token_dit", d=q_.shape[3]),
                     ),
                     q, k, v, z, site="token_dit",
                 )
