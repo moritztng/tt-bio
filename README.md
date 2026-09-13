@@ -759,6 +759,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | Flag | Default | What it does |
 |------|---------|--------------|
 | `TT_BIO_ATOM_SHIFT_GATHER` | on | Builds each atom's attention key window by slicing the atom sequence instead of selecting it with a matrix multiply. Same structure, bit for bit. |
+| `TT_BIO_SDPA_GRID_Q_CHUNK` | on | Sizes each attention's query chunk to the card's compute grid instead of a fixed cap, so a small attention fills the cores it has. Same structure, bit for bit. |
 
 More on how these were measured, and what "same structure" means for each of them, in
 [`docs/tuning-flags.md`](docs/tuning-flags.md).
