@@ -7,6 +7,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **Boltz-2 folds 1.008x faster at 512 residues, and its coordinates move again.** Its diffusion
+  conditioning now builds its per-layer bias stack in one pass instead of one call per layer
+  (`TT_BIO_FUSE_BIAS_STACKS`, on by default, Boltz-2 only — BoltzGen inlines its own conditioning
+  loop and never calls this path). Not bit-exact: a 298-residue control moves 0.218 Å all-atom
+  against a 0.35 Å bar, pLDDT by 0.0026. Two bit-exact kernel levers land alongside it and apply to
+  every model on the affected paths: the fused SDPA's mask and running-sum/max adds now batch
+  several tiles per pass instead of one (`TT_BIO_SDPA_ADD_GRANULARITY`, 1.03x on Blackhole, 1.03x on
+  Wormhole), and the Blackhole channel-gating kernel now acquires its destination register several
+  tiles at a time (`TT_BIO_GATE_GRANULARITY`, default 2). Banked end to end: 1.00814x on the fold.
+
 - **Boltz-2 folds 1.105x faster at 512 residues, and its coordinates move.** Two diffusion levers
   that shipped off are on by default. The token-level DiT attention runs as one fused SDPA instead
   of materialising a 16x512x512 score matrix and reading it back, and the atom axis is sized on the

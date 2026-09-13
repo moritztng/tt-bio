@@ -38,6 +38,43 @@ windows wrong, and still wrote the identical structure, because the attention ma
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
 
+## `TT_BIO_FUSE_BIAS_STACKS` — on, Boltz-2 only
+
+Boltz-2's diffusion conditioning builds a per-layer bias stack with one call per layer. This flag
+builds all of them in one pass instead.
+
+**Accuracy: not identical.** Unlike every other flag on this page, this one ships on a measured
+control rather than on an algebraic argument. `cdk2x2_298` moves 0.218 Å all-atom against a 0.000 Å
+A/A floor and a 0.35 Å bar, and pLDDT moves 0.0026. `TT_BIO_FUSE_BIAS_STACKS=0` restores the
+per-layer stack and the previous coordinates.
+
+**Speed: 1.0085x on the fold.**
+
+The one thing that would have made this Boltz-2-only claim wrong is BoltzGen, which shares Boltz-2's
+diffusion module. It does not call this path: BoltzGen builds its conditioning from
+`tt_bio/boltzgen/model/modules/diffusion_conditioning.py`, which inlines the per-layer loop rather
+than reusing `_fuse_bias_stack`, so a whole design run makes zero calls to it against a Boltz-2
+fold's three. A model that reuses the shared stack builder gets this flag too; one that inlines its
+own loop, like BoltzGen, does not.
+
+## `TT_BIO_GATE_GRANULARITY` — 2
+
+The reblock-permute kernel that Blackhole's channel-gating path uses (mirroring `binary_ng`'s own
+structure: a sigmoid then a multiply, done in one gated kernel instead of two ops) acquires its
+destination register tile by tile. This flag sets how many tiles it acquires per DST acquire, from 1
+(the previous behaviour) to 4.
+
+**Accuracy: identical at every value.** The three stages run in the same order through the same two
+bf16 circular buffers regardless of granularity, so no rounding point moves; pinned by `torch.equal`
+against the two-op sequence, per shape, on both architectures.
+
+**Speed: 2 is the value that ships, not the fastest one measured.** Wormhole reads 1.0420x at
+granularity 2 and 1.0759x at 4; Blackhole reads 1.0149x at 2 and 1.0011x at 4 — 4 is a wash on the
+architecture the published cell is measured on, so 2 is the setting that wins on one architecture
+without losing much on the other. Worth 0.014 s on a 512 aa Blackhole fold, under the fold's own A/A
+floor — it ships because it is free and bit-exact, not because the fold moves. Capped at 4: above
+that the kernel's multiply stage would need more DST slots than a 16-bit DST has to give it.
+
 ## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` — on
 
 The MSA track weights each row of the alignment by a softmax over the token axis, one softmax per
@@ -72,6 +109,18 @@ call and an engaged one write the same structure, so an identical digest on its 
 consistent with the optimization never having run. Every fold is recorded with the number of batched
 and per-head projections it actually made: 16 on Boltz-2, 30 on Protenix-v2, 12 on OpenFold3, and
 zero in every arm that had the flag off.
+
+## `TT_BIO_SDPA_ADD_GRANULARITY` — auto
+
+The fused SDPA kernel folds three additions into its main loop: the running-sum/max update and the
+mask add. Both do one tile at a time by default; this sets how many tiles they batch per pass,
+sized automatically from the query chunk unless you override it.
+
+**Accuracy: identical at every granularity.** Bit-exact against the per-tile loop, because the same
+adds happen in the same order — only how many run per pass changes.
+
+**Speed: 1.0317x on the fused SDPA on Blackhole** (2.8299 to 2.7430 ms at 512x512) and **1.0267x on
+Wormhole**. `TT_BIO_SDPA_ADD_GRANULARITY=1` restores the per-tile loop.
 
 ## `TT_BIO_TRIATT_FUSED_QKVG` — on
 
