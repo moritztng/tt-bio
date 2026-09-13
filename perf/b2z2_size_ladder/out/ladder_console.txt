@@ -22,3 +22,55 @@ Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/
 2026-09-13 00:46:30.072 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1851904 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
 [tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
 [tt-bio] L1 census: grid=(11, 10) cores=110 cb_need=1851904 l1_top=1572864 resident_per_core=0 shortfall=279040
+   1536 off PASS    228.73s dram= 5.694GiB l1=     0.0MiB qkvg=0/0 qkvgb=0/0 gout=0/0 sha=fad78661a3672510
+   1536 on  PASS    196.70s dram= 7.259GiB l1=     0.0MiB qkvg=560/0 qkvgb=560/0 gout=0/560 sha=fad78661a3672510
+        gout rejects: {'multi_chunk_channel_loop': 560}
+{
+ "512": {
+  "both_complete": true,
+  "bit_exact": true,
+  "peak_dram_delta_pct": 11.7367,
+  "peak_l1_delta_pct": 0.0,
+  "gates_engaged_on_arm": {
+   "qkvg": true,
+   "qkvgb": true,
+   "trimul_gout": true
+  },
+  "arm_off_is_silent": true,
+  "digest_is_published_512": true
+ },
+ "640": {
+  "both_complete": true,
+  "bit_exact": true,
+  "peak_dram_delta_pct": 8.3158,
+  "peak_l1_delta_pct": -100.0,
+  "gates_engaged_on_arm": {
+   "qkvg": true,
+   "qkvgb": true,
+   "trimul_gout": true
+  },
+  "arm_off_is_silent": true
+ },
+ "1024": {
+  "both_complete": true,
+  "bit_exact": true,
+  "peak_dram_delta_pct": 12.8223,
+  "gates_engaged_on_arm": {
+   "qkvg": true,
+   "qkvgb": true,
+   "trimul_gout": true
+  },
+  "arm_off_is_silent": true
+ },
+ "1536": {
+  "both_complete": true,
+  "bit_exact": true,
+  "peak_dram_delta_pct": 27.4734,
+  "gates_engaged_on_arm": {
+   "qkvg": true,
+   "qkvgb": true,
+   "trimul_gout": false
+  },
+  "arm_off_is_silent": true
+ }
+}
