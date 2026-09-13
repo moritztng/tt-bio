@@ -8,6 +8,8 @@ set -u
 WT=${WT:-/home/agent/wt-k10xfer}
 PY=${PY:-/home/agent/env/bin/python}
 OUT=${OUT:-/home/agent/k10out/width}
+NOCAP=${NOCAP:-}
+TAG=${TAG:-w}
 LEASE_DIR=${LEASE_DIR:-/home/agent/leases}
 OPEN_LOCK=${OPEN_LOCK:-$OUT/device-open.lock}
 REPS=${REPS:-1}
@@ -20,9 +22,9 @@ for W in $WIDTHS; do
     env -u TT_BIO_DEVICE_CONDITIONING -u TT_BIO_FUSE_BIAS_STACKS -u TT_BIO_SDPA_ADD_GRANULARITY \
       TT_VISIBLE_DEVICES=$c TT_BIO_LEASE_CARDS=$c TT_BIO_LEASE_HOLDER=worker:k10-transfer-function \
       TT_BIO_LEASE_DIR="$LEASE_DIR" \
-      "$PY" "$WT/perf/k10_transfer/lever_ab.py" --lever null --reps "$REPS" --width "$W" \
-      --open-lock "$OPEN_LOCK" --out "$OUT/w${W}_c${c}.json" \
-      > "$OUT/w${W}_c${c}.log" 2>&1 &
+      "$PY" "$WT/perf/k10_transfer/lever_ab.py" --lever null --reps "$REPS" --width "$W" $NOCAP \
+      --open-lock "$OPEN_LOCK" --out "$OUT/${TAG}${W}_c${c}.json" \
+      > "$OUT/${TAG}${W}_c${c}.log" 2>&1 &
     c=$((c+1))
   done
   wait

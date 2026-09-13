@@ -186,6 +186,9 @@ def main() -> int:
     ap.add_argument("--width", type=int, default=1,
                     help="how many sibling folds share the host; sets this process's thread cap")
     ap.add_argument("--host-threads", dest="host_threads", type=int, default=0)
+    ap.add_argument("--no-thread-cap", dest="no_thread_cap", action="store_true",
+                    help="leave the host threads uncapped, which is what every campaign before this "
+                         "one was unknowingly measuring")
     ap.add_argument("--open-lock", dest="open_lock", default="",
                     help="flock this path around the device open. On whglx the library's own "
                          "host-wide /tmp/tt-bio-device-open.lock is owned by another account and "
@@ -208,12 +211,13 @@ def main() -> int:
     # box to loadavg 133 and stretched the warm fold from 41.7 s to 96.9 s across chips, which is
     # noise landing in the arms rather than concurrency being measured. Cap to the share tt-bio's
     # own arithmetic hands this width, before torch sizes its pools.
-    if args.width > 1:
+    capped = args.width > 1 and not args.no_thread_cap
+    if capped:
         from tt_bio import runtime as _RT
         os.environ.update(_RT.host_thread_cap_env(args.width, args.host_threads or None))
     import torch
     torch.set_grad_enabled(False)
-    if args.width > 1:
+    if capped:
         _RT.bind_host_threads()
     import ttnn
     from tt_bio.tenstorrent import get_device
@@ -246,6 +250,7 @@ def main() -> int:
         "lease_dir": os.environ.get("TT_BIO_LEASE_DIR", "/tmp/tt-bio-device-leases"),
         "open_lock": args.open_lock or "NONE (library lock only)",
         "width": args.width,
+        "thread_capped": capped,
         "omp_num_threads": os.environ.get("OMP_NUM_THREADS"),
         # The grid is the variable the eligibility levers key on, and a firmware move changes it
         # under a retest without anything else looking different. Record it, never assume it.
