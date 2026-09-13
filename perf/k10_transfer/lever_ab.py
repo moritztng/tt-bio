@@ -100,6 +100,16 @@ LEVERS: dict[str, dict] = {
         off=[_env("TT_BIO_SDPA_ADD_GRANULARITY", "1")],
         on=[_env("TT_BIO_SDPA_ADD_GRANULARITY", None)],
         stats=[]),
+    # The known-answer control for the whole rig, and the instrument for USABLE-WIDTH. Both arms
+    # are the shipped default, so the true ratio is 1.0 by construction and whatever the run reads
+    # instead is this width's noise floor. A lever ratio smaller than the null read at the same
+    # width is not a measurement of the lever.
+    "null": dict(
+        kind="control",
+        what="both arms are the shipped default; the answer is 1.0",
+        off=[_attr("tt_bio.tenstorrent._SDPA_GRID_Q_CHUNK", True)],
+        on=[_attr("tt_bio.tenstorrent._SDPA_GRID_Q_CHUNK", True)],
+        stats=[]),
     "fusebias": dict(
         kind="arithmetic",
         what="all diffusion bias stacks built in one pass instead of one call per layer",
@@ -158,6 +168,12 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--recycles", type=int, default=3)
     ap.add_argument("--fixture", default="cdk2x2_512")
+    ap.add_argument("--open-lock", dest="open_lock", default="",
+                    help="flock this path around the device open. On whglx the library's own "
+                         "host-wide /tmp/tt-bio-device-open.lock is owned by another account and "
+                         "`open(..., 'w')` raises PermissionError, which tt_bio treats as 'no lock "
+                         "file' and proceeds UNSERIALIZED -- the exact UMD bring-up race the lock "
+                         "exists to prevent. This restores serialization within one fanout.")
     args = ap.parse_args()
     OUT_PATH = args.out
     lev = LEVERS[args.lever]
@@ -180,7 +196,17 @@ def main() -> int:
     assert Path(_TB.__file__).resolve().is_relative_to(REPO), (
         f"imported tt_bio from {_TB.__file__}, not this tree")
 
-    dev = get_device()
+    if args.open_lock:
+        import fcntl
+        _lk = open(args.open_lock, "a+")
+        fcntl.flock(_lk, fcntl.LOCK_EX)
+        print(f"  open-lock held {args.open_lock}", flush=True)
+        try:
+            dev = get_device()
+        finally:
+            fcntl.flock(_lk, fcntl.LOCK_UN)
+    else:
+        dev = get_device()
     OUT["env"] = {
         "host": socket.gethostname(), "card": os.environ.get("TT_VISIBLE_DEVICES"),
         "lever": args.lever, "kind": lev["kind"], "what": lev["what"],
@@ -189,6 +215,8 @@ def main() -> int:
         "commit": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "loadavg_at_start": os.getloadavg(),
+        "lease_dir": os.environ.get("TT_BIO_LEASE_DIR", "/tmp/tt-bio-device-leases"),
+        "open_lock": args.open_lock or "NONE (library lock only)",
     }
     dump()
 
