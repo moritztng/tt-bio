@@ -20,6 +20,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **Boltz-2 folds 1.0474x faster at 512 residues on Blackhole, with every atom unmoved.** The
+  confidence head's pair input was assembled on the host and uploaded — 134 MB of fp32 at 512
+  residues — and its pae/pde bin logits were downloaded whole. Both now happen on the card, where
+  the trunk already left the pair tensor (`TT_BIO_DEVICE_CONFIDENCE` and
+  `TT_BIO_DEVICE_CONF_HEADS`, both on by default), and the readback drops from 67.1 MB to 2.097 MB.
+  The head runs after the sampler and its outputs are scores, so the parity claim is an equality
+  rather than an Ångström bar: coordinates are bit-identical at 298 and 512 residues, max
+  0.000000 Å. The confidence itself moves, in bf16 where the host used fp32 — per-atom pLDDT by at
+  most 0.362 of 100 at 512 residues, 0.185 at 298. 16.537 s against 17.285 s, 8 paired folds an arm
+  interleaved ABBA on one card under benchlock, all 8 pairs positive against a 1.00104x A/A floor.
+
+
 - **Boltz-2 folds 1.0229x faster at 512 residues on Blackhole, byte for byte the same structure.**
   A triangle multiplication projects its gates and values in one matmul, and the channel move that
   consumes it reads a value slice and its gate slice back to back. Ordered by role those two reads
