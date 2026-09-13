@@ -1,0 +1,78 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "size": 512,
+ "started_utc": "2026-09-13T21:43:11Z",
+ "git_head": "e7aa637d",
+ "runs": [
+  {
+   "model": "opendde",
+   "arm": "off",
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "fold_s": 117.598,
+   "plddt": 0.725233,
+   "gated": [
+    2464,
+    0
+   ],
+   "cif": {
+    "cdk2x2_512.cif": "2b4bb96495d4c789"
+   }
+  },
+  {
+   "model": "opendde",
+   "arm": "on",
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "fold_s": 80.695,
+   "plddt": 0.725233,
+   "gated": [
+    2464,
+    0
+   ],
+   "cif": {
+    "cdk2x2_512.cif": "2b4bb96495d4c789"
+   }
+  },
+  {
+   "model": "opendde",
+   "arm": "off",
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "fold_s": 81.321,
+   "plddt": 0.725233,
+   "gated": [
+    2464,
+    0
+   ],
+   "cif": {
+    "cdk2x2_512.cif": "2b4bb96495d4c789"
+   }
+  }
+ ],
+ "verdict": {
+  "opendde": {
+   "verdict": "EQUAL",
+   "n_digests": 1,
+   "gated_calls": 2464
+  }
+ },
+ "cfg": {
+  "recycling_steps": 10,
+  "sampling_steps": 200
+ },
+ "all_equal": true
+}

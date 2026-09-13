@@ -278,8 +278,8 @@ _TRIMUL_MM_OUT = False
 # against 166-335 for pieces of 4-8 tiles (perf/bigswing/chunk_width_rate.py), 11.736 -> 13.208 ms
 # per trimul at G=8, 0.9724x at the fold at G=4 (perf/bigswing/fold_group_512_qb2c0.json).
 #
-# _gp_in_chunks now orders the columns role-major, so the split is 4-way at every G and each piece
-# is G tiles wide. Measured at 512 aa on qb2 card 0 (perf/trimul_root/): the in-projection unit
+# _gp_in_chunks now gives each role its own quarter, so the split is 4-way at every G and each
+# piece is G tiles wide. Measured at 512 aa on qb2 card 0 (perf/trimul_root/): the in-projection unit
 # (matmul + the split the loop consumes) is 11.736 -> 5.658 ms per trimul at G=8, 2.07x, and the
 # whole trimul is 28.483 -> 22.996 ms, 1.239x, torch.equal against G=1 at G=2/4/8 on both the
 # starting and the ending variant. Every downstream op is elementwise, an index move or a
@@ -5470,6 +5470,52 @@ def set_trimul_inproj_rowblock(on: bool, r: int | None = None) -> tuple[bool, in
     return prev
 
 
+# B1: which role each quarter of the fused in-projection holds.
+#
+# The gated channel move reads a value slice and a gate slice back to back and then barriers on
+# both. Its page index is `(row * Nt + jt) * Ctw + off + ct`, and inside a group only `off + ct`
+# can move, so the bank each read lands on is chosen by the slice offset. Role-major
+# `[g_a, g_b, p_a, p_b]` gives call `a` the offsets 8 and 0 tiles and call `b` 12 and 4, and on
+# Blackhole's 8 DRAM banks both pairs are congruent mod 8: every barrier waits on two serialised
+# accesses to ONE bank. Interleaving the roles to `[p_a, g_a, p_b, g_b]` puts each pair's two
+# reads 4 tiles, and so 4 banks, apart.
+#
+# BIT-EXACT by construction. This permutes which column a value is written to and read from, not
+# any arithmetic, and it costs nothing at runtime: the weight is laid out once at load and the
+# reader takes the offsets as runtime args. The weight, the bias and every consumer read their
+# order from `gp_roles()` alone, because a bias laid out against a different order is a silent
+# per-channel permutation that nothing downstream can see.
+#
+# Measured 1.5034x on `reblock_permute_gated` and 1.0212x on the 512 aa fold, on a Blackhole
+# p150a (state/k10-p1-trimul-critpath.md, arm `b1`). Wormhole has 12 DRAM banks, so 256 % 12 = 4
+# and the serialisation this removes cannot happen there; the reorder is free on both.
+TRIMUL_GP_BANK_SPLIT = True
+_GP_ROLES_SPLIT = ("p_a", "g_a", "p_b", "g_b")
+_GP_ROLES_MAJOR = ("g_a", "g_b", "p_a", "p_b")
+_TRIMUL_GP_BANK_SPLIT = env_flag("TT_BIO_TRIMUL_GP_BANK_SPLIT", TRIMUL_GP_BANK_SPLIT)
+
+
+def gp_roles() -> tuple[str, ...]:
+    """The fused in-projection's column order, one role per quarter."""
+    return _GP_ROLES_SPLIT if _TRIMUL_GP_BANK_SPLIT else _GP_ROLES_MAJOR
+
+
+def gp_off(role: str, slice_c: int) -> int:
+    """Where one role's columns start in the fused projection, in channels."""
+    return gp_roles().index(role) * slice_c
+
+
+def set_trimul_gp_bank_split(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state.
+
+    Safe to flip mid-process: the weight caches are keyed on the order, so a flipped arm rebuilds
+    its own layout instead of reading the other arm's.
+    """
+    global _TRIMUL_GP_BANK_SPLIT
+    prev, _TRIMUL_GP_BANK_SPLIT = _TRIMUL_GP_BANK_SPLIT, bool(on)
+    return prev
+
+
 def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     """``permute(chunk, (0, 2, 3, 1))``, through the hand-written kernel where it wins.
 
@@ -5559,7 +5605,8 @@ class TriangleMultiplication(Module):
         an index move, or a per-channel matmul, so a wider group is a different partition of the
         same sum and stays bit-exact. At group = 1 the order is the narrow path's.
         """
-        cached = self._gp_cache.get((C, group))
+        key = (C, group, gp_roles())
+        cached = self._gp_cache.get(key)
         if cached is not None:
             return cached
         chunks = [
@@ -5568,7 +5615,7 @@ class TriangleMultiplication(Module):
             )
             for t in self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
         ]
-        self._gp_cache[(C, group)] = chunks
+        self._gp_cache[key] = chunks
         return chunks
 
     def _gp_in_gout(self, C: int, group: int) -> ttnn.Tensor:
@@ -5578,7 +5625,8 @@ class TriangleMultiplication(Module):
         exactly the projection the channel loop already consumes and the rest is the tail's gate.
         Only ever asked for when the channel loop is a single iteration.
         """
-        cached = self._gp_gout_cache.get((C, group))
+        key = (C, group, gp_roles())
+        cached = self._gp_gout_cache.get(key)
         if cached is None:
             parts = self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
             assert len(parts) == 1, ("the fused gate needs a one-iteration channel loop", len(parts))
@@ -5586,7 +5634,7 @@ class TriangleMultiplication(Module):
                 torch.cat([parts[0], self.weights["g_out.weight"].t()], dim=-1),
                 layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16,
             )
-            self._gp_gout_cache[(C, group)] = cached
+            self._gp_gout_cache[key] = cached
         return cached
 
     def _gout_eligible(self, x_norm_in, H, n_pairs, group, memory_config, row_norm) -> bool:
@@ -5625,11 +5673,12 @@ class TriangleMultiplication(Module):
         g, p = tensors
         n_pairs = g.shape[-1] // C // 2
         assert n_pairs % group == 0, f"group {group} does not divide {n_pairs} pairs"
+        src = {"g_a": (g, 0), "g_b": (g, n_pairs), "p_a": (p, 0), "p_b": (p, n_pairs)}
         return [
             torch.cat(
                 [
                     t[..., (j + off) * C : (j + off + 1) * C]
-                    for t, off in ((g, 0), (g, n_pairs), (p, 0), (p, n_pairs))
+                    for t, off in (src[r] for r in gp_roles())
                     for j in range(i * group, (i + 1) * group)
                 ],
                 dim=-1,
@@ -5641,7 +5690,8 @@ class TriangleMultiplication(Module):
         """The fused input biases in `_gp_in_chunks`' column order, or None without any."""
         if self._g_in_b is None:
             return None
-        cached = self._gp_bias_cache.get((C, group))
+        key = (C, group, gp_roles())
+        cached = self._gp_bias_cache.get(key)
         if cached is None:
             cached = [
                 ttnn.from_torch(
@@ -5649,7 +5699,7 @@ class TriangleMultiplication(Module):
                 )
                 for t in self._gp_fused_order((self._g_in_b, self._p_in_b), C, group)
             ]
-            self._gp_bias_cache[(C, group)] = cached
+            self._gp_bias_cache[key] = cached
         return cached
 
     def _transform_chunk(
@@ -5807,9 +5857,12 @@ class TriangleMultiplication(Module):
                     a, b = [ttnn.allocate_tensor_on_device(
                         ttnn.Shape([1, slice_c, H, H]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                         self.device, memory_config) for _ in range(2)]
-                _reblock.reblock_permute_gated(blk, 2 * slice_c, 0, slice_c, out=a, row_off=s_off)
-                _reblock.reblock_permute_gated(blk, 3 * slice_c, slice_c, slice_c, out=b,
-                                               row_off=s_off)
+                _reblock.reblock_permute_gated(blk, gp_off("p_a", slice_c),
+                                               gp_off("g_a", slice_c), slice_c,
+                                               out=a, row_off=s_off)
+                _reblock.reblock_permute_gated(blk, gp_off("p_b", slice_c),
+                                               gp_off("g_b", slice_c), slice_c,
+                                               out=b, row_off=s_off)
                 ttnn.deallocate(blk)
         except RuntimeError:
             # An L1 refusal here is a budget miss, not a wrong answer: drop what was allocated and
@@ -6043,11 +6096,15 @@ class TriangleMultiplication(Module):
                         branch = "gated-move" if gated else "four-way-split"
                         if gated:
                             a_chunk = self._transform_chunk_gated(
-                                gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
+                                gp_in_fused,
+                                (gp_off("p_a", slice_c), gp_off("g_a", slice_c), slice_c),
+                                perm_a, memory_config,
                                 n_pairs // group > 1, defer_transpose=defer,
                             )
                             b_chunk = self._transform_chunk_gated(
-                                gp_in_fused, (3 * slice_c, slice_c, slice_c), perm_b, memory_config,
+                                gp_in_fused,
+                                (gp_off("p_b", slice_c), gp_off("g_b", slice_c), slice_c),
+                                perm_b, memory_config,
                                 n_pairs // group > 1, defer_transpose=defer,
                             )
                             ttnn.deallocate(gp_in_fused)
@@ -6055,7 +6112,10 @@ class TriangleMultiplication(Module):
                                 defer_a = perm_a == (0, 3, 2, 1)
                                 defer_b = perm_b == (0, 3, 2, 1)
                         else:
-                            g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
+                            q = dict(zip(gp_roles(),
+                                         ttnn.chunk(gp_in_fused, chunks=4, dim=-1)))
+                            g_in_a, g_in_b = q["g_a"], q["g_b"]
+                            p_in_a, p_in_b = q["p_a"], q["p_b"]
                             ttnn.deallocate(gp_in_fused)
                             a_chunk = ttnn.multiply_(
                                 p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]

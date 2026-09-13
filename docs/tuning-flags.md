@@ -322,6 +322,35 @@ bfloat8_b operands, and a block-float tile shares one exponent per face, so tran
 matmul re-quantises where transposing beforehand does not. It is worth 1.0868x there, but it stops
 being an exact relayout, so it is declined rather than taken.
 
+## `TT_BIO_TRIMUL_GP_BANK_SPLIT` — on
+
+A triangle multiplication projects its gates and its values in one matmul, four column quarters
+wide. The channel move that consumes that projection reads a value slice and its own gate slice back
+to back and waits on both, and the slice offset is what picks the DRAM bank a read lands on.
+Ordering the quarters by role, both gates and then both values, puts the two reads of every such
+pair 8 tiles apart at the production width, and on Blackhole's 8 DRAM banks 8 tiles apart is the
+same bank twice, so the pair serialises. This flag interleaves the roles instead and the pair lands
+4 banks apart.
+
+**Accuracy: identical.** The flag permutes which column a value is written to and read from and
+changes no arithmetic, so the bar here is equality and not a band. `perf/k10_b1_permute/b1_equiv.py`
+gets `torch.equal` on both triangle multiplications at 298, 320, 512 and 640 residues and at both
+slice widths, 8 cells of 8, with a negative control that reads the new layout at the old offsets and
+is required to differ. At the fold, one CIF digest across all sixteen folds of both arms at 512
+residues (`2bc758a1fb24ef30`, pLDDT 0.864509) and one across all sixteen at 298 residues
+(`de5d77b220e32a7a`, pLDDT 0.90916).
+
+**Speed: 1.02287x on the fold** at 512 residues (17.7365 s to 17.3400 s, eight folds per arm
+interleaved ABBA, all eight pairs positive), 1.5146x on the channel move itself.
+
+It costs nothing at runtime: the weight is laid out once at load, and the reader takes the slice
+offsets as arguments it was already taking.
+
+**The gain is Blackhole's.** Wormhole has 12 DRAM banks, so the pair was never congruent there and
+there is nothing to recover; the reorder is free on both. The same is true wherever the projection
+runs a narrow slice, at 298 residues among others: the pair is two tiles apart in either order, and
+those sizes read flat.
+
 ## Idle host threads when a box is full
 
 Not a flag of ours. `OMP_WAIT_POLICY`, `GOMP_SPINCOUNT` and `KMP_BLOCKTIME` are OpenMP's own, and

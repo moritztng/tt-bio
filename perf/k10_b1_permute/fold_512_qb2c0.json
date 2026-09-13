@@ -1,0 +1,410 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/k10-b1-permute-land/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-13T21:12:09Z",
+  "loadavg": [
+   0.48291015625,
+   1.25390625,
+   0.830078125
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "commit": "e7aa637d4eccd31c782cd322a9bee9b09af02b2c"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 20.405,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 0.72,
+   "warmup": true
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.681,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 0.86,
+   "warmup": true
+  },
+  {
+   "arm": "off",
+   "fold_s": 17.691,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 2.05,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.348,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.82,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.299,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.65,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 17.943,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.81,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 17.665,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 2.27,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.398,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.98,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.375,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 2.27,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 17.752,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.98,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 17.721,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.7,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.26,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.55,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.632,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.55,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "off",
+   "fold_s": 17.822,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.42,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "off",
+   "fold_s": 17.763,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.3,
+   "warmup": false,
+   "rep": 3
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.332,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.24,
+   "warmup": false,
+   "rep": 3
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.3,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.17,
+   "warmup": false,
+   "rep": 3
+  },
+  {
+   "arm": "off",
+   "fold_s": 17.67,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "plddt": 0.864509,
+   "cif_sha256": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8",
+   "loadavg1": 1.13,
+   "warmup": false,
+   "rep": 3
+  }
+ ],
+ "n_per_arm": {
+  "off": 8,
+  "on": 8
+ },
+ "median_fold_s": {
+  "off": 17.7365,
+  "on": 17.34
+ },
+ "ratio": 1.0228662053056516,
+ "aa_floor": 0.9845064927827006,
+ "plddt": {
+  "off": [
+   0.864509
+  ],
+  "on": [
+   0.864509
+  ]
+ },
+ "paired_deltas_s": [
+  0.343,
+  0.644,
+  0.267,
+  0.377,
+  0.461,
+  0.19,
+  0.431,
+  0.37
+ ],
+ "gated_calls": {
+  "off": [
+   [
+    1120,
+    0
+   ]
+  ],
+  "on": [
+   [
+    1120,
+    0
+   ]
+  ]
+ },
+ "cif_sha256": {
+  "off": [
+   "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+  ],
+  "on": [
+   "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+  ]
+ },
+ "bit_exact": true
+}
