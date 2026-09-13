@@ -1,0 +1,53 @@
+{
+ "flag": "TT_BIO_TRIATT_FUSED_QKVGB",
+ "card": "3",
+ "known_break": 20,
+ "known_clean": [
+  117,
+  585
+ ],
+ "lengths": {
+  "32": {
+   "sha256": {
+    "qkvgb-off": "c649edd82e97fe415f6fd29589df4322f761ef3a4aa75d2c022abe20f28e58b5",
+    "qkvgb-on": "e1e66c3e218e9d27d4e65b98490aa57cee460f4406befe6788fd6943c63b3137"
+   },
+   "bit_exact": false
+  },
+  "48": {
+   "sha256": {
+    "qkvgb-off": "a4a7cb50cfb62d1c51c21dabe0ea6d54b9c9d2e1acbe081e3cf47f137bc2244c",
+    "qkvgb-on": "a4a7cb50cfb62d1c51c21dabe0ea6d54b9c9d2e1acbe081e3cf47f137bc2244c"
+   },
+   "bit_exact": true
+  },
+  "64": {
+   "sha256": {
+    "qkvgb-off": "b04b525f3fd791f1d317e3f26882b6dface8acd9d81958640f39d8bf37f40e48",
+    "qkvgb-on": "b04b525f3fd791f1d317e3f26882b6dface8acd9d81958640f39d8bf37f40e48"
+   },
+   "bit_exact": true
+  },
+  "96": {
+   "sha256": {
+    "qkvgb-off": "04c775c30c27f51dd45ca73d902c6ab1650a2209f221fb80d578e2ffda0e529e",
+    "qkvgb-on": "04c775c30c27f51dd45ca73d902c6ab1650a2209f221fb80d578e2ffda0e529e"
+   },
+   "bit_exact": true
+  },
+  "112": {
+   "sha256": {
+    "qkvgb-off": "d2be6b65fc31e5bfe345a3ae2007e4f1439abcc42f968edeb3c062a1428a5de7",
+    "qkvgb-on": "d2be6b65fc31e5bfe345a3ae2007e4f1439abcc42f968edeb3c062a1428a5de7"
+   },
+   "bit_exact": true
+  }
+ },
+ "bit_exact": {
+  "32": false,
+  "48": true,
+  "64": true,
+  "96": true,
+  "112": true
+ }
+}

@@ -1,0 +1,668 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "0",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-trunk-byte-round2-ship/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-13T07:56:41Z",
+  "loadavg": [
+   1.16015625,
+   1.54248046875,
+   5.4755859375
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "commit": "84c052df176b1d0cf8a14a3cb86a05a5945dcf65"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 19.781,
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 1.85,
+   "warmup": true
+  },
+  {
+   "arm": "on",
+   "fold_s": 19.204,
+   "qkvg": [
+    560,
+    0
+   ],
+   "qkvgb": [
+    560,
+    0
+   ],
+   "gout": [
+    560,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 2.38,
+   "warmup": true
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.412,
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 2.29,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 19.275,
+   "qkvg": [
+    560,
+    0
+   ],
+   "qkvgb": [
+    560,
+    0
+   ],
+   "gout": [
+    560,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 2.65,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 19.119,
+   "qkvg": [
+    560,
+    0
+   ],
+   "qkvgb": [
+    560,
+    0
+   ],
+   "gout": [
+    560,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 2.46,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.547,
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 2.89,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.546,
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 3.22,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 19.163,
+   "qkvg": [
+    560,
+    0
+   ],
+   "qkvgb": [
+    560,
+    0
+   ],
+   "gout": [
+    560,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 3.39,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 19.159,
+   "qkvg": [
+    560,
+    0
+   ],
+   "qkvgb": [
+    560,
+    0
+   ],
+   "gout": [
+    560,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 3.0,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.522,
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 2.71,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.65,
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 3.11,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 19.207,
+   "qkvg": [
+    560,
+    0
+   ],
+   "qkvgb": [
+    560,
+    0
+   ],
+   "gout": [
+    560,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 3.79,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 19.247,
+   "qkvg": [
+    560,
+    0
+   ],
+   "qkvgb": [
+    560,
+    0
+   ],
+   "gout": [
+    560,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 3.35,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.441,
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 2.96,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "off",
+   "fold_s": 19.432,
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 3.77,
+   "warmup": false,
+   "rep": 3
+  },
+  {
+   "arm": "on",
+   "fold_s": 22.434,
+   "qkvg": [
+    560,
+    0
+   ],
+   "qkvgb": [
+    560,
+    0
+   ],
+   "gout": [
+    560,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 6.33,
+   "warmup": false,
+   "rep": 3
+  },
+  {
+   "arm": "on",
+   "fold_s": 22.742,
+   "qkvg": [
+    560,
+    0
+   ],
+   "qkvgb": [
+    560,
+    0
+   ],
+   "gout": [
+    560,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 7.64,
+   "warmup": false,
+   "rep": 3
+  },
+  {
+   "arm": "off",
+   "fold_s": 23.195,
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ],
+   "plddt": 0.842856,
+   "metrics": {
+    "confidence_score": 0.800144,
+    "ptm": 0.629293,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842856,
+    "complex_iplddt": 0.842856,
+    "complex_pde": 0.640822,
+    "complex_ipde": 0.0
+   },
+   "cif_sha256": "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96",
+   "loadavg1": 8.74,
+   "warmup": false,
+   "rep": 3
+  }
+ ],
+ "median_fold_s": {
+  "off": 19.534,
+  "on": 19.227
+ },
+ "ratio_median": 1.01597,
+ "ab_paired_ratios": [
+  1.00711,
+  1.02239,
+  1.01999,
+  1.01895,
+  1.02306,
+  1.01008,
+  0.86619,
+  1.01992
+ ],
+ "ab_paired_median": 1.01944,
+ "ab_paired_all_positive": false,
+ "aa_floor_max": 1.19365,
+ "aa_ratios": [
+  1.00695,
+  1.00816,
+  1.00123,
+  1.00021,
+  1.01075,
+  1.00208,
+  1.19365,
+  1.01373
+ ],
+ "plddt": {
+  "off": [
+   0.842856
+  ],
+  "on": [
+   0.842856
+  ]
+ },
+ "cif_sha256": {
+  "off": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ],
+  "on": [
+   "a91aa44441f0d9c504414c8bbd862b6d45bc29ed8e11397f6197ab6ac1307f96"
+  ]
+ },
+ "bit_exact": true,
+ "served": {
+  "off": {
+   "qkvg": [
+    0,
+    0
+   ],
+   "qkvgb": [
+    0,
+    0
+   ],
+   "gout": [
+    0,
+    0
+   ]
+  },
+  "on": {
+   "qkvg": [
+    4480,
+    0
+   ],
+   "qkvgb": [
+    4480,
+    0
+   ],
+   "gout": [
+    4480,
+    0
+   ]
+  }
+ }
+}

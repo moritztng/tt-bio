@@ -1,0 +1,19 @@
+origin/main: 122 changed lines in 1 file(s), 7 hunk context(s)
+refs/tmp/ladder: 640 changed lines in 7 file(s), 19 hunk context(s)
+refs/tmp/atoml1: 174 changed lines in 1 file(s), 2 hunk context(s)
+
+=== origin/main  vs  refs/tmp/ladder
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+=== origin/main  vs  refs/tmp/atoml1
+  CONFIRMED SAME SITE -- overlapping changed lines on the branch side:
+    tt_bio/tenstorrent.py: 6 line(s), e.g. [1172, 1173, 1174, 1175, 1176, 1177]
+  => do NOT multiply these ratios. Measure the pair, or pick one.
+  COLLISION RISK -- both branches edit inside these, at class/def granularity:
+    _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
+    class AttentionPairBias(Module):
+
+=== refs/tmp/ladder  vs  refs/tmp/atoml1
+  DISJOINT by hunk context and by changed lines. Their ratios may be composed -- but compose them and MEASURE the union; disjoint code is not additive cost.
+
+1 of 3 pair(s) are not independent.

@@ -1,0 +1,21 @@
+{
+ "leg": "boltz2-trpcage-nomsa",
+ "card": "3",
+ "all_off_sha256": "d8aca4a7e1494c82e3b8626ba351eefdbc047cb7e41768ff323defa276d547b0",
+ "all_on_sha256": "69659ac8be57478c9fb695bfa8fc91e730fa725c546db894fd520b5828b89d44",
+ "pairs": {
+  "qkvg+qkvgb": "69659ac8be57478c9fb695bfa8fc91e730fa725c546db894fd520b5828b89d44",
+  "qkvg+gout": "d8aca4a7e1494c82e3b8626ba351eefdbc047cb7e41768ff323defa276d547b0",
+  "qkvgb+gout": "d8aca4a7e1494c82e3b8626ba351eefdbc047cb7e41768ff323defa276d547b0"
+ },
+ "bit_exact_vs_off": {
+  "qkvg+qkvgb": false,
+  "qkvg+gout": true,
+  "qkvgb+gout": true
+ },
+ "equals_all_on": {
+  "qkvg+qkvgb": true,
+  "qkvg+gout": false,
+  "qkvgb+gout": false
+ }
+}

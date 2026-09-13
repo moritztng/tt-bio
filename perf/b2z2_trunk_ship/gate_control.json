@@ -1,0 +1,365 @@
+{
+ "mode": "final",
+ "scored": 44,
+ "baseline_total": 44,
+ "not_yet_scored": [],
+ "rows": [
+  {
+   "leg": "af2ig-featurizer",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "60/60 keys bit-exact",
+   "live_detail": "60/60 keys bit-exact"
+  },
+  {
+   "leg": "af2ig-trunk",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "complex: 94 taps, 0 failed; worst structure_module#3/traj pcc=0.998624",
+   "live_detail": "complex: 94 taps, 0 failed; worst structure_module#3/traj pcc=0.998624"
+  },
+  {
+   "leg": "af2ig-trunk-device",
+   "status": "REPRODUCES",
+   "baseline_verdict": "GAP",
+   "live_verdict": "GAP",
+   "baseline_detail": "13/94 taps and 2/6 scalars on the committed bf16 floor (tol 1.10x)",
+   "live_detail": "13/94 taps and 2/6 scalars on the committed bf16 floor (tol 1.10x)"
+  },
+  {
+   "leg": "af2ig-trunk-monomer",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS-caveated",
+   "live_verdict": "PASS-caveated",
+   "baseline_detail": "monomer: 90 taps, 0 failed, 32 in the float32 envelope; worst structure_module#3/final_atom_positions pcc=0.971828",
+   "live_detail": "monomer: 90 taps, 0 failed, 32 in the float32 envelope; worst structure_module#3/final_atom_positions pcc=0.971828"
+  },
+  {
+   "leg": "boltz2-9ncy-nomsa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "GAP",
+   "live_verdict": "GAP",
+   "baseline_detail": "envelope worst kabsch_rmsd: num=6.6175 env=1.6594 ratio=3.99; kabsch_rmsd r=3.99",
+   "live_detail": "envelope worst kabsch_rmsd: num=6.6175 env=1.6594 ratio=3.99; kabsch_rmsd r=3.99"
+  },
+  {
+   "leg": "boltz2-affinity-dhfr-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "envelope worst affinity_probability_binary: num=0.0043 env=0.0014 ratio=3.07; affinity_pred_value r=0.82, affinity_probability_binary r=3.07",
+   "live_detail": "envelope worst affinity_probability_binary: num=0.0043 env=0.0014 ratio=3.07; affinity_pred_value r=0.82, affinity_probability_binary r=3.07"
+  },
+  {
+   "leg": "boltz2-affinity-dhfr-nomsa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "envelope worst affinity_probability_binary: num=0.0021 env=0.0012 ratio=1.77; affinity_pred_value r=0.33, affinity_probability_binary r=1.77",
+   "live_detail": "envelope worst affinity_probability_binary: num=0.0021 env=0.0012 ratio=1.77; affinity_pred_value r=0.33, affinity_probability_binary r=1.77"
+  },
+  {
+   "leg": "boltz2-affinity-fkbp12-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "envelope worst affinity_pred_value: num=0.0254 env=0.0641 ratio=0.40; affinity_pred_value r=0.40, affinity_probability_binary r=0.27",
+   "live_detail": "envelope worst affinity_pred_value: num=0.0254 env=0.0641 ratio=0.40; affinity_pred_value r=0.40, affinity_probability_binary r=0.27"
+  },
+  {
+   "leg": "boltz2-affinity-fkbp12-nomsa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "envelope worst affinity_probability_binary: num=0.0041 env=0.0005 ratio=8.62; affinity_pred_value r=0.27, affinity_probability_binary r=8.62",
+   "live_detail": "envelope worst affinity_probability_binary: num=0.0041 env=0.0005 ratio=8.62; affinity_pred_value r=0.27, affinity_probability_binary r=8.62"
+  },
+  {
+   "leg": "boltz2-affinity-tryp-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "envelope worst affinity_probability_binary: num=0.0035 env=0.0217 ratio=0.16; affinity_pred_value r=0.16, affinity_probability_binary r=0.16",
+   "live_detail": "envelope worst affinity_probability_binary: num=0.0035 env=0.0217 ratio=0.16; affinity_pred_value r=0.16, affinity_probability_binary r=0.16"
+  },
+  {
+   "leg": "boltz2-affinity-tryp-nomsa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "envelope worst affinity_pred_value: num=0.0263 env=0.0191 ratio=1.38; affinity_pred_value r=1.38, affinity_probability_binary r=0.44",
+   "live_detail": "envelope worst affinity_pred_value: num=0.0263 env=0.0191 ratio=1.38; affinity_pred_value r=1.38, affinity_probability_binary r=0.44"
+  },
+  {
+   "leg": "boltz2-hsa-nomsa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "envelope worst kabsch_rmsd: num=0.8894 env=1.3315 ratio=0.67; kabsch_rmsd r=0.67",
+   "live_detail": "envelope worst kabsch_rmsd: num=0.8894 env=1.3315 ratio=0.67; kabsch_rmsd r=0.67"
+  },
+  {
+   "leg": "boltz2-prot-nomsa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "GAP",
+   "live_verdict": "GAP",
+   "baseline_detail": "envelope worst kabsch_rmsd: num=7.0631 env=3.4501 ratio=2.05; kabsch_rmsd r=2.05",
+   "live_detail": "envelope worst kabsch_rmsd: num=7.0631 env=3.4501 ratio=2.05; kabsch_rmsd r=2.05"
+  },
+  {
+   "leg": "boltz2-trpcage-nomsa",
+   "status": "DETAIL-DIFF",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "envelope worst kabsch_rmsd: num=0.0778 env=0.1446 ratio=0.54; kabsch_rmsd r=0.54",
+   "live_detail": "envelope worst kabsch_rmsd: num=0.0808 env=0.1446 ratio=0.56; kabsch_rmsd r=0.56"
+  },
+  {
+   "leg": "boltzgen",
+   "status": "DETAIL-DIFF",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "scRMSD pass-rate 100% (median 0.8085100000000001)",
+   "live_detail": "scRMSD pass-rate 75% (median 0.7428349999999999)"
+  },
+  {
+   "leg": "capacity",
+   "status": "DETAIL-DIFF",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "peak 8.74 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 8.74 GiB; capacity:9ivj 7.76 GiB)",
+   "live_detail": "peak 8.85 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 8.85 GiB; capacity:9ivj 8.03 GiB)"
+  },
+  {
+   "leg": "esmc-300m",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "min per-res PCC=0.99918",
+   "live_detail": "min per-res PCC=0.99918"
+  },
+  {
+   "leg": "esmc-600m",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "min per-res PCC=0.99943",
+   "live_detail": "min per-res PCC=0.99943"
+  },
+  {
+   "leg": "esmfold2-cocrystal",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "1 proteins scored (1 within floor)",
+   "live_detail": "1 proteins scored (1 within floor)"
+  },
+  {
+   "leg": "esmfold2-fast-trpcage",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "4 proteins scored (4 within floor)",
+   "live_detail": "4 proteins scored (4 within floor)"
+  },
+  {
+   "leg": "esmfold2-trpcage",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "4 proteins scored (4 within floor)",
+   "live_detail": "4 proteins scored (4 within floor)"
+  },
+  {
+   "leg": "nesso1",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "worst scalar 3.486xR (upstream spread), device spread 0",
+   "live_detail": "worst scalar 3.486xR (upstream spread), device spread 0"
+  },
+  {
+   "leg": "openbind-fkg-ligand-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "fkg_ligand: X=0.615 R=0.551 D=0.363 within=True",
+   "live_detail": "fkg_ligand: X=0.615 R=0.551 D=0.363 within=True"
+  },
+  {
+   "leg": "openbind-ubq-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "ubq: X=0.986 R=1.033 D=0.548 within=True",
+   "live_detail": "ubq: X=0.986 R=1.033 D=0.548 within=True"
+  },
+  {
+   "leg": "opendde-abag",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "global DockQ=0.843",
+   "live_detail": "global DockQ=0.843"
+  },
+  {
+   "leg": "opendde-prot-prod",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "prot_no_msa: X=5.141 R=1.499 D=5.117 within=True",
+   "live_detail": "prot_no_msa: X=5.141 R=1.499 D=5.117 within=True"
+  },
+  {
+   "leg": "opendde-trpcage-nomsa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "trpcage_no_msa: X=0.447 R=0.374 D=0.503 within=True",
+   "live_detail": "trpcage_no_msa: X=0.447 R=0.374 D=0.503 within=True"
+  },
+  {
+   "leg": "openfold3-7xi5-notmpl",
+   "status": "REPRODUCES",
+   "baseline_verdict": "GAP",
+   "live_verdict": "GAP",
+   "baseline_detail": "7xi5_notmpl: X=5.390 R=2.867 D=0.614 within=False",
+   "live_detail": "7xi5_notmpl: X=5.390 R=2.867 D=0.614 within=False"
+  },
+  {
+   "leg": "openfold3-7xi5-tmpl",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "7xi5_tmpl: X=4.426 R=4.160 D=0.585 within=True",
+   "live_detail": "7xi5_tmpl: X=4.426 R=4.160 D=0.585 within=True"
+  },
+  {
+   "leg": "openfold3-8hel-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "8hel_msa: X=5.609 R=7.585 D=0.428 within=True",
+   "live_detail": "8hel_msa: X=5.609 R=7.585 D=0.428 within=True"
+  },
+  {
+   "leg": "openfold3-8hel-nomsa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "8hel_nomsa: X=10.940 R=11.571 D=5.742 within=True",
+   "live_detail": "8hel_nomsa: X=10.940 R=11.571 D=5.742 within=True"
+  },
+  {
+   "leg": "openfold3-9bk6-complex-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "9bk6: X=1.735 R=1.448 D=0.484 within=True",
+   "live_detail": "9bk6: X=1.735 R=1.448 D=0.484 within=True"
+  },
+  {
+   "leg": "openfold3-prot-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "prot: X=2.149 R=1.642 D=0.877 within=True",
+   "live_detail": "prot: X=2.149 R=1.642 D=0.877 within=True"
+  },
+  {
+   "leg": "openfold3-ubq-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "ubq: X=1.332 R=1.640 D=0.698 within=True",
+   "live_detail": "ubq: X=1.332 R=1.640 D=0.698 within=True"
+  },
+  {
+   "leg": "protenix-9ncy-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "BLOCKED-REF-REGEN-NEEDED",
+   "live_verdict": "BLOCKED-REF-REGEN-NEEDED",
+   "baseline_detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/9ncy.cif (run scripts/fetch_parity_fixtures.sh to restore the externalized reference binaries; if it already ran clean, the release asset itself is missing them (scripts/full_parity_gate.py --verify-fixtures))",
+   "live_detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/9ncy.cif (run scripts/fetch_parity_fixtures.sh to restore the externalized reference binaries; if it already ran clean, the release asset itself is missing them (scripts/full_parity_gate.py --verify-fixtures))"
+  },
+  {
+   "leg": "protenix-hsa-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "hsa: X=0.672 R=0.695 D=0.571 within=True",
+   "live_detail": "hsa: X=0.672 R=0.695 D=0.571 within=True"
+  },
+  {
+   "leg": "protenix-prot-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "prot: X=2.625 R=2.763 D=1.331 within=True",
+   "live_detail": "prot: X=2.625 R=2.763 D=1.331 within=True"
+  },
+  {
+   "leg": "protenix-ubq-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "ubq: X=1.822 R=1.923 D=1.554 within=True",
+   "live_detail": "ubq: X=1.822 R=1.923 D=1.554 within=True"
+  },
+  {
+   "leg": "protenix-v1-prot-msa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "prot: X=1.839 R=2.045 D=1.757 within=True",
+   "live_detail": "prot: X=1.839 R=2.045 D=1.757 within=True"
+  },
+  {
+   "leg": "pxdesign-featurizer",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "25/25 arms on pdl1_protenix05_noH (196 tokens, 0 conditioned at origin)",
+   "live_detail": "25/25 arms on pdl1_protenix05_noH (196 tokens, 0 conditioned at origin)"
+  },
+  {
+   "leg": "rf3-1024aa",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "xtal 1.959 A worst seed, ref 2.009 A, X 0.587 A, n_ca 966",
+   "live_detail": "xtal 1.959 A worst seed, ref 2.009 A, X 0.587 A, n_ca 966"
+  },
+  {
+   "leg": "rfd3-featurizer",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "43/43 keys bit-exact",
+   "live_detail": "43/43 keys bit-exact"
+  },
+  {
+   "leg": "saprot-35m",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "X_emb=0.99914",
+   "live_detail": "X_emb=0.99914"
+  },
+  {
+   "leg": "saprot-650m",
+   "status": "REPRODUCES",
+   "baseline_verdict": "PASS",
+   "live_verdict": "PASS",
+   "baseline_detail": "X_emb=0.99964",
+   "live_detail": "X_emb=0.99964"
+  }
+ ],
+ "regressions": [
+  "boltz2-trpcage-nomsa",
+  "boltzgen",
+  "capacity"
+ ]
+}

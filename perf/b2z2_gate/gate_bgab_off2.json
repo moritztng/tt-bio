@@ -1,0 +1,49 @@
+{
+  "legs": [
+    {
+      "leg": "boltzgen",
+      "verdict": "PASS",
+      "detail": "scRMSD pass-rate 100% (median 0.811805)",
+      "wall": 152.75629226800004,
+      "committed": "PASS",
+      "report": "boltzgen.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 152.75640736599996,
+  "card_grant": [
+    1
+  ],
+  "skipped_for_card_grant": [],
+  "workers": [
+    "localhost:1"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "1": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "2": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      },
+      "3": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      }
+    }
+  }
+}
