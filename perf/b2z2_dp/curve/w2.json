@@ -1,0 +1,318 @@
+{
+ "doc": "Data-parallel throughput of the Boltz-2 512 aa cell: W independent folds, one per chip.\n\nOne fold per chip, nothing shared between chips. No tensor is split across devices, so this\nmeasures the only multi-chip route the campaign still has: folds per hour per box against W.\n\nHow a width is measured, and why this shape rather than \"run W folds and divide\":\n\n  * one process per card, each pinned with ``TT_VISIBLE_DEVICES=<card>`` so ttnn brings up that\n    chip and no other. An unpinned open starts every visible chip and would silently make a\n    width-1 arm a 32-chip arm.\n  * a **barrier** between the warm-up fold and the timed reps. Without it the first chip to finish\n    loading folds alone and its \"concurrent\" fold is a solo fold; the whole question here is what\n    happens when W folds really are in flight at once.\n  * throughput is taken over the **window where every child is folding**: the reps start after the\n    barrier, so ``W * reps / (max_end - min_start)`` is a measured rate, not a per-fold latency\n    converted into one. The median per-fold latency is reported next to it because the ratio of\n    medians (width-1 median / width-W median) is the efficiency, and the two numbers have to agree.\n  * the CIF sha256 of every fold, from every child. A DP arm that does not emit the width-1 digest\n    is not the same computation and its throughput is meaningless. This is a digest equality check,\n    which the chimeric cdk2x2 fixture can carry; it is not a parity score, which it cannot.\n  * ``step_n`` read off the sampler per fold. 200 steps and 3 recycles are the protocol, asserted\n    per fold by the driver rather than trusted from a config dict.\n\nHost-side instrumentation, recorded per fold so the gap at the widest width can be attributed\nrather than guessed: process CPU seconds (``utime + stime``) over the fold gives **cores per\nconcurrent fold**, which is the quantity the 2026-08-02 galaxy investigation named as the residual\n(~1.007 cores/fold). Wall of ``DiffusionModule.forward`` gives the sampler's share.\n\n    dp_width.py --cards 0,1,2,3 --reps 3 --out perf/b2z2_dp/w4.json\n",
+ "width": 2,
+ "cards": [
+  "0",
+  "1"
+ ],
+ "host": "j10glx02",
+ "commit": "e97247e81db087a89a63a74e6e51c485d0b0aca4",
+ "started_utc": "2026-09-13T01:36:14Z",
+ "protocol": {
+  "size": 512,
+  "sampling_steps": 200,
+  "recycling_steps": 3,
+  "reps": 3,
+  "warmup": 1,
+  "seed": 0
+ },
+ "loadavg_at_start": [
+  9.13,
+  25.8,
+  35.0
+ ],
+ "occupancy_at_start": {
+  "pids": [],
+  "nodes": []
+ },
+ "workdir": "/home/mthuening/scratch/b2z2dp/curve/w2",
+ "host_thread_cap": {
+  "cores": 64,
+  "cap_env": {
+   "OMP_NUM_THREADS": "8",
+   "MKL_NUM_THREADS": "8",
+   "OPENBLAS_NUM_THREADS": "8",
+   "NUMEXPR_NUM_THREADS": "8"
+  },
+  "capped": true,
+  "fixed": true
+ },
+ "returncodes": {
+  "0": 0,
+  "1": 0
+ },
+ "children": {
+  "0": {
+   "card": "0",
+   "width": 2,
+   "pid": 2255015,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.955,
+     "start_epoch": 1789263382.173,
+     "end_epoch": 1789263426.128,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.7167,
+     "step_n": 200,
+     "step_ms": 53.5836,
+     "cpu_s": 86.602,
+     "cores": 1.9702,
+     "loadavg": [
+      7.64,
+      22.96,
+      33.55
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 41.542,
+     "start_epoch": 1789263426.849,
+     "end_epoch": 1789263468.391,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.4783,
+     "step_n": 200,
+     "step_ms": 47.3914,
+     "cpu_s": 78.42,
+     "cores": 1.8877,
+     "loadavg": [
+      6.13,
+      20.67,
+      32.34
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 41.412,
+     "start_epoch": 1789263468.392,
+     "end_epoch": 1789263509.804,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.468,
+     "step_n": 200,
+     "step_ms": 47.3399,
+     "cpu_s": 77.215,
+     "cores": 1.8646,
+     "loadavg": [
+      7.88,
+      19.21,
+      31.3
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 41.364,
+     "start_epoch": 1789263509.805,
+     "end_epoch": 1789263551.169,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.4815,
+     "step_n": 200,
+     "step_ms": 47.4074,
+     "cpu_s": 75.695,
+     "cores": 1.83,
+     "loadavg": [
+      11.0,
+      18.4,
+      30.5
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 1.71,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "0",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.207,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2255015",
+     "2255016"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17"
+    ]
+   },
+   "barrier_wait_s": 0.601,
+   "timed_start_epoch": 1789263426.848,
+   "occupancy_at_end": {
+    "pids": [
+     "2255015",
+     "2255016"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17"
+    ]
+   },
+   "median_fold_s": 41.412,
+   "median_cores": 1.8646,
+   "ok": true
+  },
+  "1": {
+   "card": "1",
+   "width": 2,
+   "pid": 2255016,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.714,
+     "start_epoch": 1789263382.946,
+     "end_epoch": 1789263426.661,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.6586,
+     "step_n": 200,
+     "step_ms": 53.2931,
+     "cpu_s": 85.934,
+     "cores": 1.9658,
+     "loadavg": [
+      7.64,
+      22.96,
+      33.55
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 41.593,
+     "start_epoch": 1789263426.795,
+     "end_epoch": 1789263468.388,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.4816,
+     "step_n": 200,
+     "step_ms": 47.4079,
+     "cpu_s": 77.677,
+     "cores": 1.8676,
+     "loadavg": [
+      6.13,
+      20.67,
+      32.34
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 41.63,
+     "start_epoch": 1789263468.389,
+     "end_epoch": 1789263510.019,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.457,
+     "step_n": 200,
+     "step_ms": 47.2852,
+     "cpu_s": 77.678,
+     "cores": 1.8659,
+     "loadavg": [
+      7.88,
+      19.21,
+      31.3
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 41.527,
+     "start_epoch": 1789263510.02,
+     "end_epoch": 1789263551.547,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.4581,
+     "step_n": 200,
+     "step_ms": 47.2905,
+     "cpu_s": 75.785,
+     "cores": 1.825,
+     "loadavg": [
+      11.0,
+      18.4,
+      30.5
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 2.476,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "1",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.194,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2255015",
+     "2255016"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17"
+    ]
+   },
+   "barrier_wait_s": 0.0,
+   "timed_start_epoch": 1789263426.79,
+   "occupancy_at_end": {
+    "pids": [
+     "2255015",
+     "2255016"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17"
+    ]
+   },
+   "median_fold_s": 41.593,
+   "median_cores": 1.8659,
+   "ok": true
+  }
+ },
+ "loadavg_at_end": [
+  11.0,
+  18.4,
+  30.5
+ ],
+ "all_children_ok": true,
+ "result": {
+  "n_timed_folds": 6,
+  "window_s": 124.752,
+  "folds_per_hour": 173.144,
+  "median_fold_s": 41.535,
+  "mean_fold_s": 41.511,
+  "min_fold_s": 41.364,
+  "max_fold_s": 41.63,
+  "per_card_median_fold_s": {
+   "0": 41.412,
+   "1": 41.593
+  },
+  "median_cores_per_fold": 1.8653,
+  "total_cores": 3.731,
+  "median_step_ms": 47.3657,
+  "cif_digests": [
+   "b3ac07a5d86933a8"
+  ],
+  "digest_unanimous": true,
+  "barrier_wait_s": {
+   "0": 0.601,
+   "1": 0.0
+  },
+  "omp_num_threads": "8",
+  "torch_num_threads": 8
+ }
+}

@@ -1,0 +1,2786 @@
+{
+ "doc": "Data-parallel throughput of the Boltz-2 512 aa cell: W independent folds, one per chip.\n\nOne fold per chip, nothing shared between chips. No tensor is split across devices, so this\nmeasures the only multi-chip route the campaign still has: folds per hour per box against W.\n\nHow a width is measured, and why this shape rather than \"run W folds and divide\":\n\n  * one process per card, each pinned with ``TT_VISIBLE_DEVICES=<card>`` so ttnn brings up that\n    chip and no other. An unpinned open starts every visible chip and would silently make a\n    width-1 arm a 32-chip arm.\n  * a **barrier** between the warm-up fold and the timed reps. Without it the first chip to finish\n    loading folds alone and its \"concurrent\" fold is a solo fold; the whole question here is what\n    happens when W folds really are in flight at once.\n  * throughput is taken over the **window where every child is folding**: the reps start after the\n    barrier, so ``W * reps / (max_end - min_start)`` is a measured rate, not a per-fold latency\n    converted into one. The median per-fold latency is reported next to it because the ratio of\n    medians (width-1 median / width-W median) is the efficiency, and the two numbers have to agree.\n  * the CIF sha256 of every fold, from every child. A DP arm that does not emit the width-1 digest\n    is not the same computation and its throughput is meaningless. This is a digest equality check,\n    which the chimeric cdk2x2 fixture can carry; it is not a parity score, which it cannot.\n  * ``step_n`` read off the sampler per fold. 200 steps and 3 recycles are the protocol, asserted\n    per fold by the driver rather than trusted from a config dict.\n\nHost-side instrumentation, recorded per fold so the gap at the widest width can be attributed\nrather than guessed: process CPU seconds (``utime + stime``) over the fold gives **cores per\nconcurrent fold**, which is the quantity the 2026-08-02 galaxy investigation named as the residual\n(~1.007 cores/fold). Wall of ``DiffusionModule.forward`` gives the sampler's share.\n\n    dp_width.py --cards 0,1,2,3 --reps 3 --out perf/b2z2_dp/w4.json\n",
+ "width": 16,
+ "cards": [
+  "0",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "11",
+  "12",
+  "13",
+  "14",
+  "15"
+ ],
+ "host": "j10glx02",
+ "commit": "e97247e81db087a89a63a74e6e51c485d0b0aca4",
+ "started_utc": "2026-09-13T01:25:40Z",
+ "protocol": {
+  "size": 512,
+  "sampling_steps": 200,
+  "recycling_steps": 3,
+  "reps": 3,
+  "warmup": 1,
+  "seed": 0
+ },
+ "loadavg_at_start": [
+  95.59,
+  95.31,
+  50.02
+ ],
+ "occupancy_at_start": {
+  "pids": [],
+  "nodes": []
+ },
+ "workdir": "/home/mthuening/scratch/b2z2dp/curve/w16",
+ "host_thread_cap": {
+  "cores": 64,
+  "cap_env": {
+   "OMP_NUM_THREADS": "8",
+   "MKL_NUM_THREADS": "8",
+   "OPENBLAS_NUM_THREADS": "8",
+   "NUMEXPR_NUM_THREADS": "8"
+  },
+  "capped": true,
+  "fixed": true
+ },
+ "returncodes": {
+  "0": 0,
+  "1": 0,
+  "2": 0,
+  "3": 0,
+  "4": 0,
+  "5": 0,
+  "6": 0,
+  "7": 0,
+  "8": 0,
+  "9": 0,
+  "10": 0,
+  "11": 0,
+  "12": 0,
+  "13": 0,
+  "14": 0,
+  "15": 0
+ },
+ "children": {
+  "0": {
+   "card": "0",
+   "width": 16,
+   "pid": 2198486,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.494,
+     "start_epoch": 1789262754.728,
+     "end_epoch": 1789262798.221,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.2774,
+     "step_n": 200,
+     "step_ms": 51.3869,
+     "cpu_s": 76.68,
+     "cores": 1.763,
+     "loadavg": [
+      55.79,
+      83.98,
+      48.73
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.8,
+     "start_epoch": 1789262804.687,
+     "end_epoch": 1789262858.487,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7358,
+     "step_n": 200,
+     "step_ms": 48.6788,
+     "cpu_s": 102.392,
+     "cores": 1.9032,
+     "loadavg": [
+      47.11,
+      76.02,
+      48.37
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 48.193,
+     "start_epoch": 1789262858.488,
+     "end_epoch": 1789262906.681,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6231,
+     "step_n": 200,
+     "step_ms": 48.1154,
+     "cpu_s": 88.701,
+     "cores": 1.8405,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 46.98,
+     "start_epoch": 1789262906.683,
+     "end_epoch": 1789262953.663,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7878,
+     "step_n": 200,
+     "step_ms": 48.9391,
+     "cpu_s": 85.614,
+     "cores": 1.8224,
+     "loadavg": [
+      37.01,
+      64.45,
+      46.9
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 6.93,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "0",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.666,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 6.213,
+   "timed_start_epoch": 1789262804.686,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198498",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 48.193,
+   "median_cores": 1.8405,
+   "ok": true
+  },
+  "1": {
+   "card": "1",
+   "width": 16,
+   "pid": 2198487,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.549,
+     "start_epoch": 1789262757.059,
+     "end_epoch": 1789262800.609,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.2042,
+     "step_n": 200,
+     "step_ms": 51.0209,
+     "cpu_s": 78.02,
+     "cores": 1.7915,
+     "loadavg": [
+      53.8,
+      83.1,
+      48.64
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 47.959,
+     "start_epoch": 1789262804.855,
+     "end_epoch": 1789262852.814,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.3836,
+     "step_n": 200,
+     "step_ms": 51.9179,
+     "cpu_s": 85.706,
+     "cores": 1.7871,
+     "loadavg": [
+      50.13,
+      77.55,
+      48.55
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 45.243,
+     "start_epoch": 1789262852.816,
+     "end_epoch": 1789262898.059,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6993,
+     "step_n": 200,
+     "step_ms": 48.4966,
+     "cpu_s": 83.898,
+     "cores": 1.8544,
+     "loadavg": [
+      39.84,
+      70.81,
+      47.64
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 43.377,
+     "start_epoch": 1789262898.06,
+     "end_epoch": 1789262941.437,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.554,
+     "step_n": 200,
+     "step_ms": 47.7699,
+     "cpu_s": 79.385,
+     "cores": 1.8301,
+     "loadavg": [
+      39.4,
+      66.28,
+      47.2
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 9.143,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "1",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.7,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 4.008,
+   "timed_start_epoch": 1789262804.854,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 45.243,
+   "median_cores": 1.8301,
+   "ok": true
+  },
+  "2": {
+   "card": "2",
+   "width": 16,
+   "pid": 2198488,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.375,
+     "start_epoch": 1789262755.516,
+     "end_epoch": 1789262798.891,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.1592,
+     "step_n": 200,
+     "step_ms": 50.796,
+     "cpu_s": 76.169,
+     "cores": 1.7561,
+     "loadavg": [
+      53.8,
+      83.1,
+      48.64
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.726,
+     "start_epoch": 1789262804.773,
+     "end_epoch": 1789262858.5,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6823,
+     "step_n": 200,
+     "step_ms": 48.4115,
+     "cpu_s": 103.22,
+     "cores": 1.9212,
+     "loadavg": [
+      47.11,
+      76.02,
+      48.37
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 47.845,
+     "start_epoch": 1789262858.501,
+     "end_epoch": 1789262906.346,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7943,
+     "step_n": 200,
+     "step_ms": 48.9717,
+     "cpu_s": 86.857,
+     "cores": 1.8154,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 47.191,
+     "start_epoch": 1789262906.348,
+     "end_epoch": 1789262953.539,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.0251,
+     "step_n": 200,
+     "step_ms": 50.1254,
+     "cpu_s": 83.454,
+     "cores": 1.7684,
+     "loadavg": [
+      37.01,
+      64.45,
+      46.9
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 7.62,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "2",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.728,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 5.612,
+   "timed_start_epoch": 1789262804.772,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198498",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 47.845,
+   "median_cores": 1.8154,
+   "ok": true
+  },
+  "3": {
+   "card": "3",
+   "width": 16,
+   "pid": 2198489,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.73,
+     "start_epoch": 1789262750.59,
+     "end_epoch": 1789262794.32,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.3824,
+     "step_n": 200,
+     "step_ms": 51.9118,
+     "cpu_s": 77.226,
+     "cores": 1.766,
+     "loadavg": [
+      55.79,
+      83.98,
+      48.73
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.715,
+     "start_epoch": 1789262804.805,
+     "end_epoch": 1789262858.52,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7537,
+     "step_n": 200,
+     "step_ms": 48.7683,
+     "cpu_s": 101.873,
+     "cores": 1.8966,
+     "loadavg": [
+      47.11,
+      76.02,
+      48.37
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 48.162,
+     "start_epoch": 1789262858.521,
+     "end_epoch": 1789262906.683,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5941,
+     "step_n": 200,
+     "step_ms": 47.9703,
+     "cpu_s": 89.222,
+     "cores": 1.8525,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 46.996,
+     "start_epoch": 1789262906.685,
+     "end_epoch": 1789262953.68,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7653,
+     "step_n": 200,
+     "step_ms": 48.8265,
+     "cpu_s": 86.252,
+     "cores": 1.8353,
+     "loadavg": [
+      37.01,
+      64.45,
+      46.9
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 3.208,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "3",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.22,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 10.219,
+   "timed_start_epoch": 1789262804.804,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198498",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 48.162,
+   "median_cores": 1.8525,
+   "ok": true
+  },
+  "4": {
+   "card": "4",
+   "width": 16,
+   "pid": 2198490,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.545,
+     "start_epoch": 1789262752.255,
+     "end_epoch": 1789262795.8,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.2692,
+     "step_n": 200,
+     "step_ms": 51.3461,
+     "cpu_s": 76.735,
+     "cores": 1.7622,
+     "loadavg": [
+      55.79,
+      83.98,
+      48.73
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.64,
+     "start_epoch": 1789262804.851,
+     "end_epoch": 1789262858.491,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7001,
+     "step_n": 200,
+     "step_ms": 48.5003,
+     "cpu_s": 102.065,
+     "cores": 1.9028,
+     "loadavg": [
+      47.11,
+      76.02,
+      48.37
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 48.19,
+     "start_epoch": 1789262858.493,
+     "end_epoch": 1789262906.682,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.5911,
+     "step_n": 200,
+     "step_ms": 47.9556,
+     "cpu_s": 88.48,
+     "cores": 1.8361,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 46.92,
+     "start_epoch": 1789262906.683,
+     "end_epoch": 1789262953.603,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.8397,
+     "step_n": 200,
+     "step_ms": 49.1987,
+     "cpu_s": 85.436,
+     "cores": 1.8209,
+     "loadavg": [
+      37.01,
+      64.45,
+      46.9
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 4.695,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "4",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.387,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 8.819,
+   "timed_start_epoch": 1789262804.85,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198498",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 48.19,
+   "median_cores": 1.8361,
+   "ok": true
+  },
+  "5": {
+   "card": "5",
+   "width": 16,
+   "pid": 2198491,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.239,
+     "start_epoch": 1789262760.108,
+     "end_epoch": 1789262803.347,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.1299,
+     "step_n": 200,
+     "step_ms": 50.6493,
+     "cpu_s": 78.956,
+     "cores": 1.826,
+     "loadavg": [
+      49.82,
+      81.79,
+      48.4
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 51.656,
+     "start_epoch": 1789262804.778,
+     "end_epoch": 1789262856.434,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.9846,
+     "step_n": 200,
+     "step_ms": 49.9229,
+     "cpu_s": 96.761,
+     "cores": 1.8732,
+     "loadavg": [
+      49.64,
+      76.99,
+      48.53
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 44.476,
+     "start_epoch": 1789262856.435,
+     "end_epoch": 1789262900.911,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7533,
+     "step_n": 200,
+     "step_ms": 48.7666,
+     "cpu_s": 79.9,
+     "cores": 1.7965,
+     "loadavg": [
+      41.29,
+      70.6,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 44.995,
+     "start_epoch": 1789262900.912,
+     "end_epoch": 1789262945.907,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6767,
+     "step_n": 200,
+     "step_ms": 48.3834,
+     "cpu_s": 82.412,
+     "cores": 1.8316,
+     "loadavg": [
+      39.61,
+      65.88,
+      47.17
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 12.228,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "5",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.65,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 1.203,
+   "timed_start_epoch": 1789262804.777,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 44.995,
+   "median_cores": 1.8316,
+   "ok": true
+  },
+  "6": {
+   "card": "6",
+   "width": 16,
+   "pid": 2198492,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.523,
+     "start_epoch": 1789262749.086,
+     "end_epoch": 1789262792.609,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.3646,
+     "step_n": 200,
+     "step_ms": 51.8231,
+     "cpu_s": 77.19,
+     "cores": 1.7736,
+     "loadavg": [
+      57.42,
+      84.77,
+      48.8
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 45.906,
+     "start_epoch": 1789262804.701,
+     "end_epoch": 1789262850.607,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.703,
+     "step_n": 200,
+     "step_ms": 48.5152,
+     "cpu_s": 84.581,
+     "cores": 1.8425,
+     "loadavg": [
+      50.13,
+      77.55,
+      48.55
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 43.776,
+     "start_epoch": 1789262850.608,
+     "end_epoch": 1789262894.384,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7442,
+     "step_n": 200,
+     "step_ms": 48.7209,
+     "cpu_s": 78.555,
+     "cores": 1.7945,
+     "loadavg": [
+      39.84,
+      70.81,
+      47.64
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 42.555,
+     "start_epoch": 1789262894.385,
+     "end_epoch": 1789262936.94,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.482,
+     "step_n": 200,
+     "step_ms": 47.4102,
+     "cpu_s": 76.051,
+     "cores": 1.7871,
+     "loadavg": [
+      35.17,
+      65.91,
+      46.98
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 1.76,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "6",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.188,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 11.824,
+   "timed_start_epoch": 1789262804.7,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 43.776,
+   "median_cores": 1.7945,
+   "ok": true
+  },
+  "7": {
+   "card": "7",
+   "width": 16,
+   "pid": 2198493,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.472,
+     "start_epoch": 1789262760.959,
+     "end_epoch": 1789262804.431,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.1749,
+     "step_n": 200,
+     "step_ms": 50.8743,
+     "cpu_s": 79.932,
+     "cores": 1.8387,
+     "loadavg": [
+      49.82,
+      81.79,
+      48.4
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 48.104,
+     "start_epoch": 1789262804.67,
+     "end_epoch": 1789262852.774,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.7052,
+     "step_n": 200,
+     "step_ms": 53.526,
+     "cpu_s": 84.009,
+     "cores": 1.7464,
+     "loadavg": [
+      50.13,
+      77.55,
+      48.55
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 45.365,
+     "start_epoch": 1789262852.776,
+     "end_epoch": 1789262898.141,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.651,
+     "step_n": 200,
+     "step_ms": 48.2549,
+     "cpu_s": 84.586,
+     "cores": 1.8645,
+     "loadavg": [
+      39.84,
+      70.81,
+      47.64
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 43.321,
+     "start_epoch": 1789262898.143,
+     "end_epoch": 1789262941.464,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6551,
+     "step_n": 200,
+     "step_ms": 48.2757,
+     "cpu_s": 79.131,
+     "cores": 1.8266,
+     "loadavg": [
+      39.4,
+      66.28,
+      47.2
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 13.01,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "7",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.722,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 0.0,
+   "timed_start_epoch": 1789262804.669,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 45.365,
+   "median_cores": 1.8266,
+   "ok": true
+  },
+  "8": {
+   "card": "8",
+   "width": 16,
+   "pid": 2198494,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.528,
+     "start_epoch": 1789262753.058,
+     "end_epoch": 1789262796.586,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.2427,
+     "step_n": 200,
+     "step_ms": 51.2134,
+     "cpu_s": 76.917,
+     "cores": 1.7671,
+     "loadavg": [
+      55.79,
+      83.98,
+      48.73
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.471,
+     "start_epoch": 1789262804.87,
+     "end_epoch": 1789262858.342,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.8684,
+     "step_n": 200,
+     "step_ms": 49.3419,
+     "cpu_s": 99.028,
+     "cores": 1.852,
+     "loadavg": [
+      47.11,
+      76.02,
+      48.37
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 48.326,
+     "start_epoch": 1789262858.343,
+     "end_epoch": 1789262906.669,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6914,
+     "step_n": 200,
+     "step_ms": 48.4568,
+     "cpu_s": 88.089,
+     "cores": 1.8228,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 46.901,
+     "start_epoch": 1789262906.67,
+     "end_epoch": 1789262953.571,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.8074,
+     "step_n": 200,
+     "step_ms": 49.0372,
+     "cpu_s": 84.613,
+     "cores": 1.8041,
+     "loadavg": [
+      37.01,
+      64.45,
+      46.9
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 5.409,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "8",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.455,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 8.016,
+   "timed_start_epoch": 1789262804.869,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198498",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 48.326,
+   "median_cores": 1.8228,
+   "ok": true
+  },
+  "9": {
+   "card": "9",
+   "width": 16,
+   "pid": 2198495,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.429,
+     "start_epoch": 1789262757.814,
+     "end_epoch": 1789262801.243,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.1725,
+     "step_n": 200,
+     "step_ms": 50.8627,
+     "cpu_s": 78.62,
+     "cores": 1.8103,
+     "loadavg": [
+      53.8,
+      83.1,
+      48.64
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.825,
+     "start_epoch": 1789262804.685,
+     "end_epoch": 1789262858.51,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6526,
+     "step_n": 200,
+     "step_ms": 48.2632,
+     "cpu_s": 102.419,
+     "cores": 1.9028,
+     "loadavg": [
+      47.11,
+      76.02,
+      48.37
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 48.17,
+     "start_epoch": 1789262858.511,
+     "end_epoch": 1789262906.68,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6576,
+     "step_n": 200,
+     "step_ms": 48.288,
+     "cpu_s": 88.787,
+     "cores": 1.8432,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 46.908,
+     "start_epoch": 1789262906.682,
+     "end_epoch": 1789262953.589,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.787,
+     "step_n": 200,
+     "step_ms": 48.9352,
+     "cpu_s": 85.655,
+     "cores": 1.826,
+     "loadavg": [
+      37.01,
+      64.45,
+      46.9
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 9.944,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "9",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.679,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 3.207,
+   "timed_start_epoch": 1789262804.684,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198498",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 48.17,
+   "median_cores": 1.8432,
+   "ok": true
+  },
+  "10": {
+   "card": "10",
+   "width": 16,
+   "pid": 2198496,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.62,
+     "start_epoch": 1789262749.7,
+     "end_epoch": 1789262793.321,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.399,
+     "step_n": 200,
+     "step_ms": 51.9948,
+     "cpu_s": 77.536,
+     "cores": 1.7775,
+     "loadavg": [
+      55.79,
+      83.98,
+      48.73
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.053,
+     "start_epoch": 1789262804.78,
+     "end_epoch": 1789262857.833,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.8288,
+     "step_n": 200,
+     "step_ms": 49.1438,
+     "cpu_s": 99.024,
+     "cores": 1.8665,
+     "loadavg": [
+      49.64,
+      76.99,
+      48.53
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 46.617,
+     "start_epoch": 1789262857.835,
+     "end_epoch": 1789262904.451,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.0735,
+     "step_n": 200,
+     "step_ms": 50.3673,
+     "cpu_s": 82.038,
+     "cores": 1.7599,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 44.688,
+     "start_epoch": 1789262904.452,
+     "end_epoch": 1789262949.14,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.0505,
+     "step_n": 200,
+     "step_ms": 50.2527,
+     "cpu_s": 79.707,
+     "cores": 1.7837,
+     "loadavg": [
+      37.88,
+      65.08,
+      47.01
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 2.491,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "10",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.071,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 11.223,
+   "timed_start_epoch": 1789262804.778,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 46.617,
+   "median_cores": 1.7837,
+   "ok": true
+  },
+  "11": {
+   "card": "11",
+   "width": 16,
+   "pid": 2198497,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.443,
+     "start_epoch": 1789262753.66,
+     "end_epoch": 1789262797.103,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.2259,
+     "step_n": 200,
+     "step_ms": 51.1295,
+     "cpu_s": 76.7,
+     "cores": 1.7655,
+     "loadavg": [
+      55.79,
+      83.98,
+      48.73
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 51.116,
+     "start_epoch": 1789262804.765,
+     "end_epoch": 1789262855.88,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.0892,
+     "step_n": 200,
+     "step_ms": 50.4462,
+     "cpu_s": 93.056,
+     "cores": 1.8205,
+     "loadavg": [
+      49.64,
+      76.99,
+      48.53
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 44.176,
+     "start_epoch": 1789262855.882,
+     "end_epoch": 1789262900.057,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7061,
+     "step_n": 200,
+     "step_ms": 48.5303,
+     "cpu_s": 79.613,
+     "cores": 1.8022,
+     "loadavg": [
+      41.29,
+      70.6,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 44.253,
+     "start_epoch": 1789262900.059,
+     "end_epoch": 1789262944.311,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6799,
+     "step_n": 200,
+     "step_ms": 48.3995,
+     "cpu_s": 80.379,
+     "cores": 1.8164,
+     "loadavg": [
+      39.61,
+      65.88,
+      47.17
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 6.11,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "11",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.347,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 7.415,
+   "timed_start_epoch": 1789262804.763,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 44.253,
+   "median_cores": 1.8164,
+   "ok": true
+  },
+  "12": {
+   "card": "12",
+   "width": 16,
+   "pid": 2198498,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.475,
+     "start_epoch": 1789262756.196,
+     "end_epoch": 1789262799.67,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.1537,
+     "step_n": 200,
+     "step_ms": 50.7683,
+     "cpu_s": 77.541,
+     "cores": 1.7836,
+     "loadavg": [
+      53.8,
+      83.1,
+      48.64
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.68,
+     "start_epoch": 1789262804.714,
+     "end_epoch": 1789262858.395,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6781,
+     "step_n": 200,
+     "step_ms": 48.3907,
+     "cpu_s": 102.247,
+     "cores": 1.9047,
+     "loadavg": [
+      47.11,
+      76.02,
+      48.37
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 48.16,
+     "start_epoch": 1789262858.396,
+     "end_epoch": 1789262906.556,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6818,
+     "step_n": 200,
+     "step_ms": 48.4092,
+     "cpu_s": 87.658,
+     "cores": 1.8202,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 47.01,
+     "start_epoch": 1789262906.557,
+     "end_epoch": 1789262953.567,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.8324,
+     "step_n": 200,
+     "step_ms": 49.1621,
+     "cpu_s": 85.251,
+     "cores": 1.8135,
+     "loadavg": [
+      37.01,
+      64.45,
+      46.9
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 8.364,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "12",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.625,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 4.811,
+   "timed_start_epoch": 1789262804.712,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198498",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 48.16,
+   "median_cores": 1.8202,
+   "ok": true
+  },
+  "13": {
+   "card": "13",
+   "width": 16,
+   "pid": 2198499,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.495,
+     "start_epoch": 1789262751.304,
+     "end_epoch": 1789262794.8,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.2876,
+     "step_n": 200,
+     "step_ms": 51.4381,
+     "cpu_s": 77.554,
+     "cores": 1.783,
+     "loadavg": [
+      55.79,
+      83.98,
+      48.73
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.309,
+     "start_epoch": 1789262804.866,
+     "end_epoch": 1789262858.176,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7895,
+     "step_n": 200,
+     "step_ms": 48.9473,
+     "cpu_s": 100.029,
+     "cores": 1.8764,
+     "loadavg": [
+      49.64,
+      76.99,
+      48.53
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 46.551,
+     "start_epoch": 1789262858.177,
+     "end_epoch": 1789262904.728,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.8263,
+     "step_n": 200,
+     "step_ms": 49.1317,
+     "cpu_s": 82.916,
+     "cores": 1.7812,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 44.861,
+     "start_epoch": 1789262904.73,
+     "end_epoch": 1789262949.59,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.1446,
+     "step_n": 200,
+     "step_ms": 50.7231,
+     "cpu_s": 79.305,
+     "cores": 1.7678,
+     "loadavg": [
+      37.88,
+      65.08,
+      47.01
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 3.958,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "13",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.177,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 9.821,
+   "timed_start_epoch": 1789262804.865,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 46.551,
+   "median_cores": 1.7812,
+   "ok": true
+  },
+  "14": {
+   "card": "14",
+   "width": 16,
+   "pid": 2198500,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.457,
+     "start_epoch": 1789262758.734,
+     "end_epoch": 1789262802.191,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.1568,
+     "step_n": 200,
+     "step_ms": 50.784,
+     "cpu_s": 78.689,
+     "cores": 1.8107,
+     "loadavg": [
+      53.8,
+      83.1,
+      48.64
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.636,
+     "start_epoch": 1789262804.826,
+     "end_epoch": 1789262858.463,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6789,
+     "step_n": 200,
+     "step_ms": 48.3944,
+     "cpu_s": 101.85,
+     "cores": 1.8989,
+     "loadavg": [
+      47.11,
+      76.02,
+      48.37
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 48.121,
+     "start_epoch": 1789262858.464,
+     "end_epoch": 1789262906.586,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6882,
+     "step_n": 200,
+     "step_ms": 48.4408,
+     "cpu_s": 87.902,
+     "cores": 1.8267,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 46.954,
+     "start_epoch": 1789262906.587,
+     "end_epoch": 1789262953.541,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.9777,
+     "step_n": 200,
+     "step_ms": 49.8883,
+     "cpu_s": 83.878,
+     "cores": 1.7864,
+     "loadavg": [
+      37.01,
+      64.45,
+      46.9
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 10.761,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "14",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.825,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 2.404,
+   "timed_start_epoch": 1789262804.826,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198498",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 48.121,
+   "median_cores": 1.8267,
+   "ok": true
+  },
+  "15": {
+   "card": "15",
+   "width": 16,
+   "pid": 2198501,
+   "folds": [
+    {
+     "tag": "warmup0",
+     "fold_s": 43.684,
+     "start_epoch": 1789262759.2,
+     "end_epoch": 1789262802.885,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 10.2927,
+     "step_n": 200,
+     "step_ms": 51.4636,
+     "cpu_s": 78.826,
+     "cores": 1.8045,
+     "loadavg": [
+      53.8,
+      83.1,
+      48.64
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep0",
+     "fold_s": 53.849,
+     "start_epoch": 1789262804.726,
+     "end_epoch": 1789262858.575,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6931,
+     "step_n": 200,
+     "step_ms": 48.4655,
+     "cpu_s": 101.017,
+     "cores": 1.8759,
+     "loadavg": [
+      47.11,
+      76.02,
+      48.37
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep1",
+     "fold_s": 48.074,
+     "start_epoch": 1789262858.576,
+     "end_epoch": 1789262906.65,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.6105,
+     "step_n": 200,
+     "step_ms": 48.0527,
+     "cpu_s": 88.596,
+     "cores": 1.8429,
+     "loadavg": [
+      41.75,
+      70.21,
+      47.69
+     ],
+     "plddt": 0.799257
+    },
+    {
+     "tag": "rep2",
+     "fold_s": 47.023,
+     "start_epoch": 1789262906.651,
+     "end_epoch": 1789262953.674,
+     "sha256": "b3ac07a5d86933a8",
+     "step_s": 9.7559,
+     "step_n": 200,
+     "step_ms": 48.7794,
+     "cpu_s": 85.527,
+     "cores": 1.8188,
+     "loadavg": [
+      37.01,
+      64.45,
+      46.9
+     ],
+     "plddt": 0.799257
+    }
+   ],
+   "omp_num_threads": "8",
+   "torch_num_threads": 8,
+   "torch_interop_threads": 8,
+   "device_open_s": 11.465,
+   "env": {
+    "host": "j10glx02",
+    "grid": [
+     8,
+     9
+    ],
+    "arch": "Arch.WORMHOLE_B0",
+    "torch": "2.14.0+cu130",
+    "visible": "15",
+    "tt_bio_file": "/home/mthuening/work/wt/b2z2-dp-throughput-linear/tt_bio/__init__.py"
+   },
+   "model_load_s": 5.517,
+   "occupancy_after_warmup": {
+    "pids": [
+     "2198486",
+     "2198487",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198491",
+     "2198492",
+     "2198493",
+     "2198494",
+     "2198495",
+     "2198496",
+     "2198497",
+     "2198498",
+     "2198499",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/17",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/21",
+     "/dev/tenstorrent/22",
+     "/dev/tenstorrent/23",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/26",
+     "/dev/tenstorrent/27",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/29",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "barrier_wait_s": 1.604,
+   "timed_start_epoch": 1789262804.724,
+   "occupancy_at_end": {
+    "pids": [
+     "2198486",
+     "2198488",
+     "2198489",
+     "2198490",
+     "2198494",
+     "2198495",
+     "2198498",
+     "2198500",
+     "2198501"
+    ],
+    "nodes": [
+     "/dev/tenstorrent/16",
+     "/dev/tenstorrent/18",
+     "/dev/tenstorrent/19",
+     "/dev/tenstorrent/20",
+     "/dev/tenstorrent/24",
+     "/dev/tenstorrent/25",
+     "/dev/tenstorrent/28",
+     "/dev/tenstorrent/30",
+     "/dev/tenstorrent/31"
+    ]
+   },
+   "median_fold_s": 48.074,
+   "median_cores": 1.8429,
+   "ok": true
+  }
+ },
+ "loadavg_at_end": [
+  37.01,
+  64.45,
+  46.9
+ ],
+ "all_children_ok": true,
+ "result": {
+  "n_timed_folds": 48,
+  "window_s": 149.01,
+  "folds_per_hour": 1159.654,
+  "median_fold_s": 47.518,
+  "mean_fold_s": 48.225,
+  "min_fold_s": 42.555,
+  "max_fold_s": 53.849,
+  "per_card_median_fold_s": {
+   "0": 48.193,
+   "1": 45.243,
+   "2": 47.845,
+   "3": 48.162,
+   "4": 48.19,
+   "5": 44.995,
+   "6": 43.776,
+   "7": 45.365,
+   "8": 48.326,
+   "9": 48.17,
+   "10": 46.617,
+   "11": 44.253,
+   "12": 48.16,
+   "13": 46.551,
+   "14": 48.121,
+   "15": 48.074
+  },
+  "median_cores_per_fold": 1.8266,
+  "total_cores": 29.164,
+  "median_step_ms": 48.6998,
+  "cif_digests": [
+   "b3ac07a5d86933a8"
+  ],
+  "digest_unanimous": true,
+  "barrier_wait_s": {
+   "0": 6.213,
+   "1": 4.008,
+   "2": 5.612,
+   "3": 10.219,
+   "4": 8.819,
+   "5": 1.203,
+   "6": 11.824,
+   "7": 0.0,
+   "8": 8.016,
+   "9": 3.207,
+   "10": 11.223,
+   "11": 7.415,
+   "12": 4.811,
+   "13": 9.821,
+   "14": 2.404,
+   "15": 1.604
+  },
+  "omp_num_threads": "8",
+  "torch_num_threads": 8
+ }
+}
