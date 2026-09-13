@@ -119,14 +119,15 @@ def host_thread_cap_env(n_workers: int, host_threads: int | None = None) -> dict
 
     When the split leaves a worker less than ``WORKER_HOST_THREADS`` -- its own host
     demand -- the host, not the chips, is what limits throughput, and the children are
-    told to park idle pool threads rather than spin. Measured on whglx at 512 aa, 32
-    concurrent folds: 1206 -> 1808 folds/hour, 1.50x, host cores per fold 1.76 -> 1.35,
-    bit-exact (every fold of both arms writes the same CIF digest). It is not free above
-    that line: with cores to spare the spin is absorbed and parking costs ~1 % of a fold,
-    so a single ``predict`` and any lightly-concurrent batch keep today's behaviour. An
-    operator who set any of the three wait-policy variables themselves owns all three,
-    whatever the width: they are one setting spelled three ways and half of a policy is
-    not a policy.
+    told to park idle pool threads rather than spin. Measured on whglx at 512 aa with 32
+    concurrent folds, each on the 2-thread share this arithmetic hands it: 1789.4 ->
+    1813.9 folds/hour, and bit-exact, both arms writing one CIF digest. The same pair at
+    a fixed cap of 8, which oversubscribes that box fourfold, reads 1311.2 -> 1839.5, so
+    most of that 1.40x is the cap and not the policy. Above the line parking costs wake
+    latency the spare cores were absorbing, so a single ``predict`` keeps today's
+    behaviour. An operator who set any of the three wait-policy variables themselves owns
+    all three: they are one setting spelled three ways and half of a policy is not a
+    policy.
     """
     cap = host_thread_cap(n_workers, host_threads)
     env = {var: str(cap) for var in HOST_THREAD_VARS

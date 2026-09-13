@@ -237,13 +237,6 @@ Pass `--devices 0,1,2,3` to pick or limit the available cards. A single target
 remains a single-card fold; additional cards increase throughput only when
 multiple targets are queued.
 
-Many folds at once run out of host CPU before they run out of chips. Each worker
-gets a share of the cores, and once that share is below what one fold needs,
-tt-bio has the idle thread pools sleep between device syncs instead of spinning on
-them. On a 32-chip Galaxy server that is 1.40x the folds per hour, with identical
-output. A single fold, or a handful, keeps the spin and today's latency. Set
-`OMP_WAIT_POLICY` yourself to take the decision back.
-
 If you have additional machines with Tenstorrent cards, you can add them to a
 single run; see [Optional: Multi-Machine Prediction](#optional-multi-machine-prediction).
 
@@ -720,7 +713,7 @@ Model-specific options are labelled below.
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
 | `--device_ids`, `--devices` | — | Comma-separated TT device IDs (e.g. `0,2`); `--devices` is the shorter alias (matches `tt-bio embed`) |
-| `--host_threads` | all cores | Total CPU threads this process may use, split across its cards. Set it when you run several single-card predicts side by side on one host: each one otherwise sizes its thread pools to every core and they fight for the CPU. Use cores ÷ concurrent predicts. Below 4 threads per card the pools also stop spinning through device syncs, which is what makes a full server scale |
+| `--host_threads` | all cores | Total CPU threads this process may use, split across its cards. Set it when you run several single-card predicts side by side on one host: each one otherwise sizes its thread pools to every core and they fight for the CPU. Use cores ÷ concurrent predicts |
 | `--fast` | `False` | Makes some operations use a lower-precision numeric format that runs faster; accuracy is typically very close |
 | `--listen` | — | Accept worker connections from other machines; see [Multi-Machine Prediction](#optional-multi-machine-prediction) |
 | `--report-energy` | `False` | **(Boltz-2)** Enables optional energy profiling for one TT device (requires `tt-mgmt` add-on); writes `power_profile.csv` and `power_profile.png` |
