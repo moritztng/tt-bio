@@ -1,0 +1,955 @@
+{
+ "doc": "`TT_BIO_SDPA_GRID_Q_CHUNK` on Blackhole, isolated: does the lever have one sign, or one per site?\n\nThree phases in ONE process on ONE device, each written to --out as it finishes.\n\n  census   one fold per arm, discarded for timing, with `SDPA_GRID_Q_CHUNK_PICKS` snapshotted\n           after each. That counter sits outside the rule's lru_cache, so it counts CALLS, and\n           it records the shipped chunk beside the chosen one: a site where they are equal is a\n           site the rule DECLINED to move, which is the reading that has been mistaken for a win.\n           The previous row could not read this counter at all -- it censused the CLI parent while\n           the fold ran in spawned device workers. This harness drives `predict_one` in-process.\n\n  ops      an isolated A/B at every shape the census saw, shipped chunk against the rule's chunk,\n           interleaved, `torch.equal` on the outputs. This is also the arm-switching CONTROL: if\n           the two chunks do not produce measurably different programs here, the in-process fold\n           arms below are sharing a compiled program and the fold A/B would be meaningless.\n\n  fold     paired interleaved A/B, `base ship ship base` per rep so the order reverses inside the\n           rep, cold folds discarded, loadavg per fold, CIF sha256 per fold. The A/A floor comes\n           from THIS session's same-arm adjacent pairs, never from another row's draws.\n\nThe arms are set in-process by assigning the module constant the rule reads per call; nothing is\nexported, so neither arm can inherit the other's environment.\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "arch": "Arch.BLACKHOLE",
+  "storage_grid": [
+   11,
+   10
+  ],
+  "compute_grid_main": [
+   11,
+   10
+  ],
+  "cores": 110,
+  "tt_visible_devices": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-qchunk-isolated-bh/tt_bio/__init__.py",
+  "torch": "2.8.0+cpu",
+  "commit": "c132db069b81f50dc0e90233038a393693ad1997",
+  "started_utc": "2026-09-13T01:27:14Z",
+  "loadavg_start": [
+   1.3701171875,
+   1.0478515625,
+   1.0
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "steps": 200,
+   "seed": 0,
+   "size_aa": "512",
+   "atom_l1": false
+  }
+ },
+ "census": {
+  "base": [
+   {
+    "site": "atom",
+    "q_len": 32,
+    "k_len": 128,
+    "work": 560,
+    "d": 32,
+    "calls": 1200,
+    "shipped_chunk": 32,
+    "chunk": 32,
+    "units": 560,
+    "moved": false
+   },
+   {
+    "site": "token_dit",
+    "q_len": 512,
+    "k_len": 512,
+    "work": 16,
+    "d": 64,
+    "calls": 4800,
+    "shipped_chunk": 256,
+    "chunk": 256,
+    "units": 32,
+    "moved": false
+   }
+  ],
+  "ship": [
+   {
+    "site": "atom",
+    "q_len": 32,
+    "k_len": 128,
+    "work": 560,
+    "d": 32,
+    "calls": 1200,
+    "shipped_chunk": 32,
+    "chunk": 32,
+    "units": 560,
+    "moved": false
+   },
+   {
+    "site": "token_dit",
+    "q_len": 512,
+    "k_len": 512,
+    "work": 16,
+    "d": 64,
+    "calls": 4800,
+    "shipped_chunk": 256,
+    "chunk": 128,
+    "units": 64,
+    "moved": true
+   }
+  ]
+ },
+ "ops": [
+  {
+   "site": "atom",
+   "q_len": 32,
+   "k_len": 128,
+   "work": 560,
+   "head_dim": 32,
+   "calls_in_fold": 1200,
+   "shipped_chunk": 32,
+   "chunk": 32,
+   "units": 560,
+   "cores": 110,
+   "moved": false,
+   "base_us": 77.85,
+   "ship_us": 77.5,
+   "paired_median_ratio": 0.99017,
+   "aa_floor_min_max": [
+    0.88137,
+    1.11757
+   ],
+   "aa_n": 49,
+   "n_pairs": 50,
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "fold_s_delta": 0.0004,
+   "draws_us": [
+    [
+     "base",
+     76.71
+    ],
+    [
+     "ship",
+     75.96
+    ],
+    [
+     "ship",
+     75.07
+    ],
+    [
+     "base",
+     75.61
+    ],
+    [
+     "base",
+     74.74
+    ],
+    [
+     "ship",
+     82.88
+    ],
+    [
+     "ship",
+     75.76
+    ],
+    [
+     "base",
+     78.93
+    ],
+    [
+     "base",
+     78.48
+    ],
+    [
+     "ship",
+     76.18
+    ],
+    [
+     "ship",
+     74.08
+    ],
+    [
+     "base",
+     78.93
+    ],
+    [
+     "base",
+     78.56
+    ],
+    [
+     "ship",
+     82.35
+    ],
+    [
+     "ship",
+     76.17
+    ],
+    [
+     "base",
+     73.81
+    ],
+    [
+     "base",
+     79.98
+    ],
+    [
+     "ship",
+     76.78
+    ],
+    [
+     "ship",
+     78.42
+    ],
+    [
+     "base",
+     79.16
+    ],
+    [
+     "base",
+     76.53
+    ],
+    [
+     "ship",
+     78.57
+    ],
+    [
+     "ship",
+     76.58
+    ],
+    [
+     "base",
+     77.86
+    ],
+    [
+     "base",
+     78.4
+    ],
+    [
+     "ship",
+     75.55
+    ],
+    [
+     "ship",
+     73.33
+    ],
+    [
+     "base",
+     80.32
+    ],
+    [
+     "base",
+     79.42
+    ],
+    [
+     "ship",
+     81.88
+    ],
+    [
+     "ship",
+     75.17
+    ],
+    [
+     "base",
+     76.56
+    ],
+    [
+     "base",
+     73.56
+    ],
+    [
+     "ship",
+     79.34
+    ],
+    [
+     "ship",
+     78.23
+    ],
+    [
+     "base",
+     75.65
+    ],
+    [
+     "base",
+     76.35
+    ],
+    [
+     "ship",
+     79.3
+    ],
+    [
+     "ship",
+     79.88
+    ],
+    [
+     "base",
+     78.04
+    ],
+    [
+     "base",
+     78.32
+    ],
+    [
+     "ship",
+     77.04
+    ],
+    [
+     "ship",
+     74.16
+    ],
+    [
+     "base",
+     79.0
+    ],
+    [
+     "base",
+     77.84
+    ],
+    [
+     "ship",
+     82.5
+    ],
+    [
+     "ship",
+     77.49
+    ],
+    [
+     "base",
+     76.6
+    ],
+    [
+     "base",
+     73.43
+    ],
+    [
+     "ship",
+     79.47
+    ],
+    [
+     "ship",
+     78.46
+    ],
+    [
+     "base",
+     77.47
+    ],
+    [
+     "base",
+     76.71
+    ],
+    [
+     "ship",
+     80.13
+    ],
+    [
+     "ship",
+     77.51
+    ],
+    [
+     "base",
+     79.29
+    ],
+    [
+     "base",
+     77.52
+    ],
+    [
+     "ship",
+     76.96
+    ],
+    [
+     "ship",
+     76.33
+    ],
+    [
+     "base",
+     72.66
+    ],
+    [
+     "base",
+     82.44
+    ],
+    [
+     "ship",
+     82.24
+    ],
+    [
+     "ship",
+     76.89
+    ],
+    [
+     "base",
+     75.23
+    ],
+    [
+     "base",
+     71.92
+    ],
+    [
+     "ship",
+     79.19
+    ],
+    [
+     "ship",
+     78.77
+    ],
+    [
+     "base",
+     78.87
+    ],
+    [
+     "base",
+     75.72
+    ],
+    [
+     "ship",
+     81.52
+    ],
+    [
+     "ship",
+     74.71
+    ],
+    [
+     "base",
+     80.63
+    ],
+    [
+     "base",
+     78.21
+    ],
+    [
+     "ship",
+     79.12
+    ],
+    [
+     "ship",
+     75.94
+    ],
+    [
+     "base",
+     74.6
+    ],
+    [
+     "base",
+     80.55
+    ],
+    [
+     "ship",
+     83.05
+    ],
+    [
+     "ship",
+     77.6
+    ],
+    [
+     "base",
+     77.27
+    ],
+    [
+     "base",
+     75.0
+    ],
+    [
+     "ship",
+     74.41
+    ],
+    [
+     "ship",
+     80.04
+    ],
+    [
+     "base",
+     78.55
+    ],
+    [
+     "base",
+     77.93
+    ],
+    [
+     "ship",
+     82.29
+    ],
+    [
+     "ship",
+     73.63
+    ],
+    [
+     "base",
+     79.34
+    ],
+    [
+     "base",
+     78.7
+    ],
+    [
+     "ship",
+     76.93
+    ],
+    [
+     "ship",
+     76.28
+    ],
+    [
+     "base",
+     73.52
+    ],
+    [
+     "base",
+     79.75
+    ],
+    [
+     "ship",
+     84.06
+    ],
+    [
+     "ship",
+     77.28
+    ],
+    [
+     "base",
+     77.3
+    ],
+    [
+     "base",
+     76.72
+    ],
+    [
+     "ship",
+     74.97
+    ],
+    [
+     "ship",
+     79.57
+    ],
+    [
+     "base",
+     78.92
+    ]
+   ],
+   "floor_matched_95": [
+    0.97355,
+    1.00744
+   ],
+   "clears_floor": false
+  },
+  {
+   "site": "token_dit",
+   "q_len": 512,
+   "k_len": 512,
+   "work": 16,
+   "head_dim": 64,
+   "calls_in_fold": 4800,
+   "shipped_chunk": 256,
+   "chunk": 128,
+   "units": 64,
+   "cores": 110,
+   "moved": true,
+   "base_us": 117.62,
+   "ship_us": 104.68,
+   "paired_median_ratio": 1.12693,
+   "aa_floor_min_max": [
+    0.79806,
+    1.22784
+   ],
+   "aa_n": 49,
+   "n_pairs": 50,
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "fold_s_delta": 0.0622,
+   "draws_us": [
+    [
+     "base",
+     135.86
+    ],
+    [
+     "ship",
+     103.75
+    ],
+    [
+     "ship",
+     112.16
+    ],
+    [
+     "base",
+     118.66
+    ],
+    [
+     "base",
+     117.04
+    ],
+    [
+     "ship",
+     103.57
+    ],
+    [
+     "ship",
+     101.87
+    ],
+    [
+     "base",
+     118.73
+    ],
+    [
+     "base",
+     122.34
+    ],
+    [
+     "ship",
+     103.33
+    ],
+    [
+     "ship",
+     107.09
+    ],
+    [
+     "base",
+     115.93
+    ],
+    [
+     "base",
+     114.14
+    ],
+    [
+     "ship",
+     106.79
+    ],
+    [
+     "ship",
+     103.79
+    ],
+    [
+     "base",
+     117.85
+    ],
+    [
+     "base",
+     115.46
+    ],
+    [
+     "ship",
+     101.9
+    ],
+    [
+     "ship",
+     109.26
+    ],
+    [
+     "base",
+     118.25
+    ],
+    [
+     "base",
+     118.57
+    ],
+    [
+     "ship",
+     102.05
+    ],
+    [
+     "ship",
+     102.03
+    ],
+    [
+     "base",
+     114.87
+    ],
+    [
+     "base",
+     118.88
+    ],
+    [
+     "ship",
+     104.29
+    ],
+    [
+     "ship",
+     105.84
+    ],
+    [
+     "base",
+     115.03
+    ],
+    [
+     "base",
+     114.15
+    ],
+    [
+     "ship",
+     104.76
+    ],
+    [
+     "ship",
+     104.38
+    ],
+    [
+     "base",
+     118.04
+    ],
+    [
+     "base",
+     115.7
+    ],
+    [
+     "ship",
+     100.91
+    ],
+    [
+     "ship",
+     104.69
+    ],
+    [
+     "base",
+     119.55
+    ],
+    [
+     "base",
+     118.79
+    ],
+    [
+     "ship",
+     103.08
+    ],
+    [
+     "ship",
+     103.36
+    ],
+    [
+     "base",
+     113.97
+    ],
+    [
+     "base",
+     119.1
+    ],
+    [
+     "ship",
+     103.5
+    ],
+    [
+     "ship",
+     108.79
+    ],
+    [
+     "base",
+     116.56
+    ],
+    [
+     "base",
+     112.91
+    ],
+    [
+     "ship",
+     105.76
+    ],
+    [
+     "ship",
+     105.18
+    ],
+    [
+     "base",
+     117.19
+    ],
+    [
+     "base",
+     117.6
+    ],
+    [
+     "ship",
+     103.56
+    ],
+    [
+     "ship",
+     104.66
+    ],
+    [
+     "base",
+     117.64
+    ],
+    [
+     "base",
+     118.79
+    ],
+    [
+     "ship",
+     102.86
+    ],
+    [
+     "ship",
+     104.53
+    ],
+    [
+     "base",
+     113.36
+    ],
+    [
+     "base",
+     118.41
+    ],
+    [
+     "ship",
+     105.26
+    ],
+    [
+     "ship",
+     107.75
+    ],
+    [
+     "base",
+     116.62
+    ],
+    [
+     "base",
+     115.43
+    ],
+    [
+     "ship",
+     100.59
+    ],
+    [
+     "ship",
+     105.44
+    ],
+    [
+     "base",
+     118.72
+    ],
+    [
+     "base",
+     116.68
+    ],
+    [
+     "ship",
+     102.83
+    ],
+    [
+     "ship",
+     104.79
+    ],
+    [
+     "base",
+     118.85
+    ],
+    [
+     "base",
+     119.87
+    ],
+    [
+     "ship",
+     103.99
+    ],
+    [
+     "ship",
+     103.08
+    ],
+    [
+     "base",
+     115.91
+    ],
+    [
+     "base",
+     113.32
+    ],
+    [
+     "ship",
+     109.93
+    ],
+    [
+     "ship",
+     109.19
+    ],
+    [
+     "base",
+     116.59
+    ],
+    [
+     "base",
+     116.18
+    ],
+    [
+     "ship",
+     101.88
+    ],
+    [
+     "ship",
+     127.66
+    ],
+    [
+     "base",
+     170.29
+    ],
+    [
+     "base",
+     138.7
+    ],
+    [
+     "ship",
+     122.97
+    ],
+    [
+     "ship",
+     126.58
+    ],
+    [
+     "base",
+     124.0
+    ],
+    [
+     "base",
+     127.0
+    ],
+    [
+     "ship",
+     109.01
+    ],
+    [
+     "ship",
+     105.97
+    ],
+    [
+     "base",
+     117.64
+    ],
+    [
+     "base",
+     113.44
+    ],
+    [
+     "ship",
+     105.32
+    ],
+    [
+     "ship",
+     110.57
+    ],
+    [
+     "base",
+     115.63
+    ],
+    [
+     "base",
+     116.37
+    ],
+    [
+     "ship",
+     98.9
+    ],
+    [
+     "ship",
+     106.66
+    ],
+    [
+     "base",
+     119.34
+    ],
+    [
+     "base",
+     118.79
+    ],
+    [
+     "ship",
+     103.22
+    ],
+    [
+     "ship",
+     108.58
+    ],
+    [
+     "base",
+     113.39
+    ]
+   ],
+   "floor_matched_95": [
+    1.00126,
+    1.01964
+   ],
+   "clears_floor": true
+  }
+ ],
+ "folds": [],
+ "census_from": "perf/b2z2_qchunk/census_ops_bh_serial_artifact.json"
+}
