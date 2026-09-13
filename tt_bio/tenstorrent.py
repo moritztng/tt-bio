@@ -396,6 +396,7 @@ _PWA_L1_NORM = True
 # weight-slice retiles. One projection over the whole weight gives every head at once.
 # Gated only on the heads fitting one tile, which is a property of the shape, not of a model.
 _PWA_BATCH_HEAD_WEIGHTS = env_flag("TT_BIO_PWA_BATCH_HEAD_WEIGHTS", True)
+PWA_BATCH_HEAD_STATS = [0, 0]           # [one batched projection, per-head projections]
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
 # projection. The wall is per core, and an aggregate multiple of the tensor cannot see it: the
 # tensor scales with its area, its consumers' static circular buffers scale with the row width.
@@ -8767,7 +8768,9 @@ class PairWeightedAveraging(Module):
             # count, but it is only FREE while every head's column still lands in the one 32-wide
             # tile the per-head call already paid for. Above that it would widen the output and
             # the saving would have to be re-measured.
-            return _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
+            on = _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
+            PWA_BATCH_HEAD_STATS[0 if on else 1] += 1
+            return on
 
         def token_weights():
             """Every head's token softmax, from ONE projection of the pair tensor.
