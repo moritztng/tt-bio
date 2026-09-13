@@ -16,6 +16,7 @@ from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from .envflags import env_flag, env_int
+from .device_lease import device_init_lock
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -4520,56 +4521,10 @@ _device_lease = None
 # keeps the dead mesh alive and throws SubDeviceManagerTracker on next use.
 _device_generation = 0
 
-_DEVICE_INIT_LOCK_PATH = "/tmp/tt-bio-device-open.lock"
-
-
-@contextlib.contextmanager
-def _device_init_lock():
-    """Serialize TT device bring-up/teardown across every process on the host.
-
-    Opening (or closing) a chip runs through the user-mode driver's cross-process
-    device-init path: tt::umd::LocalChip::start_device -> LockManager::acquire_mutex,
-    coordinating via robust mutexes in /dev/shm (TT_UMD_LOCK.*). That path is NOT
-    concurrency-safe on a Galaxy, in two ways:
-      * it deadlocks when several processes hit it at once (observed live: many
-        design-shard cold-opens all blocked in acquire_mutex during start_device);
-      * it races the per-chip fabric/MMIO bring-up, so a chip can come up
-        "remote-only" — no local dispatch core, SubDeviceManagerTracker never
-        initialized — and then throws on the FIRST program dispatch
-        ("...contains only remote devices (no local device)", mesh_device.cpp).
-    The platform opens 32 single-chip workers at startup, so WITHOUT serialization
-    that race is hit on many boots (a few workers come up bad and silently fail
-    every job routed to them). Serializing the opens is the fix.
-
-    A single host-wide advisory lock makes every open/close strictly one-at-a-time,
-    so the UMD init path is never raced. Blocking on purpose: a best-effort timeout
-    that let opens proceed concurrently after waiting is exactly what reintroduced
-    the deadlock. The kernel drops the lock if a holder dies, and the pool
-    supervisor + per-run stall watchdog bound any pathological case, so this can
-    never wedge worse than opening unserialized. Opens are one-time per worker (the
-    chip is reused for every job, predict AND design — design runs in-process on the
-    already-open chip, never cold-opening), so serialization only lengthens startup
-    slightly and never adds any runtime latency."""
-    import fcntl
-    try:
-        f = open(_DEVICE_INIT_LOCK_PATH, "w")
-    except Exception:
-        yield  # can't create the lock file -> don't block bring-up
-        return
-    try:
-        fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
-        yield
-    finally:
-        try:
-            fcntl.flock(f, fcntl.LOCK_UN)
-            f.close()
-        except Exception:
-            pass
-
 
 def _open_device_locked(device_id, kwargs):
     """Open + configure the device with bring-up strictly serialized host-wide."""
-    with _device_init_lock():
+    with device_init_lock():
         dev = ttnn.open_device(device_id=device_id, **kwargs)
         _configure_active_compute_grid(dev)
         dev.enable_program_cache()
@@ -4622,10 +4577,10 @@ def _close_device_locked(dev):
 
     Closing and releasing are one operation because a caller has no use for the half-way
     state, and both run through the UMD device path, so both belong inside
-    ``_device_init_lock`` (see ``_open_device_locked``). ``MetalContext`` is recreated on
+    ``device_init_lock`` (see ``_open_device_locked``). ``MetalContext`` is recreated on
     next access, so a later ``get_device()`` in this same process still works.
     """
-    with _device_init_lock():
+    with device_init_lock():
         ttnn.close_device(dev)
         _release_ownership_fn()()
 

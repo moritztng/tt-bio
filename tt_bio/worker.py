@@ -549,7 +549,7 @@ class _WorkerState:
         worker's already-open chip and loads its own models, so we must drop the
         predict weights (free memory) WITHOUT closing the device. Closing and
         re-opening a chip per shard is exactly what deadlocked the UMD
-        device-init path (see tenstorrent._device_init_lock); reusing one
+        device-init path (see device_lease.device_init_lock); reusing one
         persistent open avoids it entirely."""
         self.model = None
         self.aff_model = None
@@ -1874,7 +1874,7 @@ def run_worker_loop(
     # Open this worker's chip once, now, while the fleet is quiescent (startup),
     # and keep it open for every job — predict AND design. Every device open then
     # happens at startup, never during active operation, which is what keeps us
-    # off the UMD concurrent-device-init deadlock (see tenstorrent._device_init_lock).
+    # off the UMD concurrent-device-init deadlock (see device_lease.device_init_lock).
     if state.accelerator == "tenstorrent":
         try:
             from tt_bio.tenstorrent import get_device as _get_device

@@ -39,6 +39,7 @@ than the card grant is refused rather than hidden. The mesh object cannot report
 one device while two chips are open, which is why the lease has to key on visibility.
 """
 
+import contextlib
 import errno
 import fcntl
 import glob
@@ -46,6 +47,7 @@ import json
 import os
 import signal
 import socket
+import sys
 import threading
 import time
 
@@ -68,6 +70,131 @@ class DeviceInUseError(RuntimeError):
 #: "missed the ground-truth floor", "drifted run to run". Eleven legs across two v0.7.0 gate
 #: passes read as model defects when not one of them executed a device instruction.
 CONTENDED_EXIT_CODE = 75
+
+
+# --- Host-wide device bring-up lock -------------------------------------------------------
+#
+# This module holds both of tt-bio's device guards, and they answer a permission error
+# differently on purpose. The card lease answers "may this process have card N": refusing is
+# safe, the job simply does not get the card, so it raises. The bring-up lock answers "may
+# this process bring a chip up right now": refusing would break every box where bring-up
+# works today, so it degrades instead, to a per-user lock file, and says so. What it must
+# never do is degrade silently, which is what it did until 2026-09-13.
+
+DEVICE_INIT_LOCK_PATH = "/tmp/tt-bio-device-open.lock"
+
+_init_lock_path = None      # resolved once per process; "" means nothing was writable
+
+
+def _init_lock_candidates():
+    """Lock files to try for the bring-up lock, best first.
+
+    The shared path is first: it is the only candidate that serializes across unix accounts.
+    Every fallback is keyed on the uid, so it serializes this account's processes and nobody
+    else's. The first fallback is a sibling of the shared path, which is the case that
+    actually happens in the field: one account created ``/tmp/tt-bio-device-open.lock`` with
+    a default umask, a second account cannot write it, but ``/tmp`` itself is world-writable.
+    """
+    name = os.path.basename(DEVICE_INIT_LOCK_PATH)
+    per_user = f"{name}.uid{os.getuid()}"
+    cands = [DEVICE_INIT_LOCK_PATH,
+             os.path.join(os.path.dirname(DEVICE_INIT_LOCK_PATH) or ".", per_user)]
+    cands += [os.path.join(d, per_user)
+              for d in (os.environ.get("XDG_RUNTIME_DIR"), os.environ.get("TMPDIR")) if d]
+    cands.append(os.path.join(os.path.expanduser("~"), "." + per_user))
+    return list(dict.fromkeys(cands))
+
+
+def _open_init_lock_file():
+    """Open the bring-up lock file, falling back to a path this account can actually write.
+
+    Returns an open file, or ``None`` when no candidate is writable. ``None`` means bring-up
+    will run unserialized, and that is announced on stderr rather than assumed harmless.
+    Resolution and both warnings happen once per process.
+    """
+    global _init_lock_path
+    if _init_lock_path == "":
+        return None
+    if _init_lock_path:
+        try:
+            return open(_init_lock_path, "w")
+        except Exception:
+            _init_lock_path = None      # it vanished or changed owner; resolve again
+    refused = []
+    for path in _init_lock_candidates():
+        try:
+            f = open(path, "w")
+        except Exception as e:
+            why = getattr(e, "strerror", None) or repr(e)
+            refused.append(f"{path} ({why})")
+            continue
+        _init_lock_path = path
+        if refused:
+            print(f"[tt-bio] device bring-up lock: cannot use {refused[0]}; serializing on "
+                  f"{path} instead. That covers tt-bio processes running under uid "
+                  f"{os.getuid()} on this host and nothing else, so a tt-bio process running "
+                  f"as a different unix account brings chips up unserialized against this "
+                  f"one.", file=sys.stderr, flush=True)
+        return f
+    _init_lock_path = ""
+    print(f"[tt-bio] WARNING: device bring-up is NOT serialized: no writable lock file "
+          f"({'; '.join(refused)}). Concurrent opens can deadlock in UMD's "
+          f"LockManager::acquire_mutex, or bring a chip up remote-only so it throws on the "
+          f"first program dispatch. Make one of those paths writable.",
+          file=sys.stderr, flush=True)
+    return None
+
+
+@contextlib.contextmanager
+def device_init_lock():
+    """Serialize TT device bring-up/teardown across every process on the host.
+
+    Opening (or closing) a chip runs through the user-mode driver's cross-process
+    device-init path: tt::umd::LocalChip::start_device -> LockManager::acquire_mutex,
+    coordinating via robust mutexes in /dev/shm (TT_UMD_LOCK.*). That path is NOT
+    concurrency-safe on a Galaxy, in two ways:
+      * it deadlocks when several processes hit it at once (observed live: many
+        design-shard cold-opens all blocked in acquire_mutex during start_device);
+      * it races the per-chip fabric/MMIO bring-up, so a chip can come up
+        "remote-only" -- no local dispatch core, SubDeviceManagerTracker never
+        initialized -- and then throws on the FIRST program dispatch
+        ("...contains only remote devices (no local device)", mesh_device.cpp).
+    The platform opens 32 single-chip workers at startup, so WITHOUT serialization
+    that race is hit on many boots (a few workers come up bad and silently fail
+    every job routed to them). Serializing the opens is the fix.
+
+    A single host-wide advisory lock makes every open/close strictly one-at-a-time,
+    so the UMD init path is never raced. Blocking on purpose: a best-effort timeout
+    that let opens proceed concurrently after waiting is exactly what reintroduced
+    the deadlock. The kernel drops the lock if a holder dies, and the pool
+    supervisor + per-run stall watchdog bound any pathological case, so this can
+    never wedge worse than opening unserialized. Opens are one-time per worker (the
+    chip is reused for every job, predict AND design -- design runs in-process on the
+    already-open chip, never cold-opening), so serialization only lengthens startup
+    slightly and never adds any runtime latency.
+
+    What this does NOT cover. The lock file is one file, so two accounts serialize against
+    each other only if both can write it. When they cannot (whglx: ``/tmp/tt-bio-device-
+    open.lock`` owned by ``tt-admin`` mode 664, the ``agent`` account not in that group) each
+    account falls back to its own ``.uidN`` file and the two accounts bring chips up
+    concurrently, unserialized, exactly as the lease directory is already blind across
+    accounts there. A shared, group- or world-writable lock file is the only fix for that,
+    and creating one is an admin decision about /tmp permissions, not something tt-bio should
+    do behind the operator's back. The fallback is announced on stderr when it is taken, so
+    the uncovered case is visible rather than silent."""
+    f = _open_init_lock_file()
+    if f is None:
+        yield                    # unserialized, and already warned about above
+        return
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
+        yield
+    finally:
+        try:
+            fcntl.flock(f, fcntl.LOCK_UN)
+            f.close()
+        except Exception:
+            pass
 
 
 def lease_dir():

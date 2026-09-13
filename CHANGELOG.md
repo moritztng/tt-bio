@@ -5,6 +5,19 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+
+- **A host where the device bring-up lock file is not writable no longer brings chips up
+  unserialized in silence.** `/tmp/tt-bio-device-open.lock` belongs to whichever account created
+  it, so a second account on a shared box got a `PermissionError`, and tt-bio answered it by
+  skipping serialization entirely with nothing printed. That is the exact race the lock exists to
+  prevent: concurrent opens deadlock in the driver's `LockManager`, or bring a chip up remote-only
+  so it throws on the first program dispatch. tt-bio now falls back to a per-uid lock file beside
+  the shared one and says on stderr that it did, and if no path at all is writable it warns loudly
+  and proceeds rather than failing a box where bring-up works today. The fallback serializes one
+  account's processes; two accounts on one box still need a lock file both can write, and the
+  warning says so. Nothing changes where the shared lock already works.
+
 ### Changed
 
 - **Boltz-2 folds 1.0048x faster at 512 residues on Blackhole, and its coordinates do not move.**
