@@ -37,3 +37,36 @@ identical dimensions. An earlier version of this optimization looked at the shap
 windows wrong, and still wrote the identical structure, because the attention mask is built from the
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
+
+## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` — on
+
+The MSA track weights each row of the alignment by a softmax over the token axis, one softmax per
+attention head. Upstream builds each head's weights separately, which means projecting the whole
+pair tensor through one column of a weight matrix, once per head. tt-bio projects through the whole
+matrix once and slices the heads out of the result.
+
+**Accuracy: identical.** The columns pad into the same tile either way, so the batched projection is
+the same arithmetic in the same order, not an approximation of it. Off the device it matches the
+per-head loop under `torch.equal` on both outputs, max absolute difference 0, and a negative control
+fails the same comparison. On the device the three models that share this code all fold to the same
+structure byte for byte at 512 residues: Boltz-2 `a91aa44441f0d9c5`, Protenix-v2 `15772214c5b9e990`,
+OpenFold3 `6ee6ac7a3e730688`, each in both arms, pLDDT equal to six places.
+
+**Speed: 1.01606x on the MSA track, which is too small to read on the fold.** On one Blackhole
+processor the track goes 1.8678 s to 1.8371 s, median of twelve folds, all six paired reps positive
+and the two arms fully rank-separated, against an A/A floor of 1.00859 from the same run. That is
+about 0.03 s of a Boltz-2 fold, so this page does not quote a fold ratio for it: the fold wall
+cannot resolve a win that size and a number that survives only in one session's noise is not a
+measurement. On Wormhole the same track costs twice as much and the saving is correspondingly
+bigger, 3.8337 s to 3.7054 s, or 1.03672x on a single MSA layer.
+
+tt-bio batches the heads only while they all fit the one 32-wide tile a single head's projection
+already pays for, which is a property of the shape and holds at every head count these models use.
+Above 32 heads the batched output would be wider than the per-head one and the saving would have to
+be re-measured, so it keeps the per-head loop there. No model name appears in the condition.
+
+That condition is also why the structures above are quoted with a call count beside them. A declined
+call and an engaged one write the same structure, so an identical digest on its own is equally
+consistent with the optimization never having run. Every fold is recorded with the number of batched
+and per-head projections it actually made: 16 on Boltz-2, 30 on Protenix-v2, 12 on OpenFold3, and
+zero in every arm that had the flag off.

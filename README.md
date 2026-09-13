@@ -759,6 +759,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | Flag | Default | What it does |
 |------|---------|--------------|
 | `TT_BIO_ATOM_SHIFT_GATHER` | on | Builds each atom's attention key window by slicing the atom sequence instead of selecting it with a matrix multiply. Same structure, bit for bit. |
+| `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | Computes every attention head's MSA row weights from one projection of the pair tensor instead of one projection per head. Same structure, bit for bit. |
 
 More on how these were measured, and what "same structure" means for each of them, in
 [`docs/tuning-flags.md`](docs/tuning-flags.md).
