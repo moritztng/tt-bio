@@ -249,7 +249,10 @@ def timing(args, out, dump, fold, T, ttnn, dev):
         row = {"n": len(v), "median_fold_s": round(st.median(v), 3),
                "fold_ratio_vs_base": round(base / st.median(v), 5),
                "spread_pct": round(100 * (max(v) - min(v)) / st.median(v), 2)}
-        if blk[arm] and blk["base"]:
+        # any(), not truth: with --block-timing off every block_s is 0.0, and a non-empty list
+        # of zeros is truthy, so the ratio below would divide 0.0 by 0.0 and lose the summary
+        # after every fold had already been paid for.
+        if any(blk[arm]) and any(blk["base"]):
             row["median_block_s"] = round(st.median(blk[arm]), 3)
             row["block_ratio_vs_base"] = round(st.median(blk["base"]) / st.median(blk[arm]), 5)
         summary[arm] = row
