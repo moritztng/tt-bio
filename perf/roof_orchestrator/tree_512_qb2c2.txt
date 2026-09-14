@@ -1,0 +1,57 @@
+# the fold's call tree, from f072ae02f -- session fold 24.731 s, cell 17.34 s, floor 6.934 s (bandwidth)
+# roofs measured: 424.7 GB/s stream, 104.93 TFLOP/s dense bf16, balance 247.1 FLOP/byte
+
+# unattr* = parent time minus the sum of its measured children, scaled to the cell
+
+unit                                                        calls  s/fold  s>roof unattr*  %roof roof
+PairformerLayer|1x512x384,1x512x512x128                       264  13.708   5.410   0.489   30.6 bandwidth
+  - TriangleMultiplication|1x512x512x128,1x512x512            528   5.175   1.458    leaf   41.9 bandwidth
+  - TriangleAttention|1x512x512x128,1x1x1x512                 528   3.929   1.284    leaf   37.4 bandwidth
+  - Transition|1x512x512x128                                  280   3.397   2.122    leaf    7.6 compute
+  - AttentionPairBias|1x512x384,1x512x512x128                 264   0.458   0.227    leaf   20.6 bandwidth
+  - Transition|1x512x384                                      264   0.052   0.032    leaf    8.8 compute
+DiffusionModule|                                              200   8.226   3.867   0.111   23.1 bandwidth
+  - Diffusion|1x4480x3,1                                      200   8.068   3.757   0.882   23.6 bandwidth
+    - DiffusionTransformer|1x512x768,1x512x768                200   5.439   2.451   0.994   25.1 bandwidth
+      - DiffusionTransformerLayer|1x512x768,1x512x768        4800   4.021   1.448   0.070   34.1 bandwidth
+        - ConditionedTransitionBlock|1x512x768,1x512x768     4800   1.454   0.426    leaf   40.8 bandwidth
+        - AttentionPairBias|1x512x768,1x16x512x512           4800   1.336   0.440    leaf   37.2 bandwidth
+        - AdaLN|1x512x768,1x512x768                          9600   1.131   0.453    leaf   30.1 bandwidth
+    - DiffusionTransformer|1x140x32x128,1x140x32x128          400   1.318   0.421   0.029   38.2 bandwidth
+      - DiffusionTransformerLayer|1x140x32x128,1x140x32x12   1200   1.276   0.369   0.046   41.2 bandwidth
+        - AttentionPairBias|1x140x32x128,140x4x32x128        1200   0.665   0.134    leaf   50.0 bandwidth
+        - ConditionedTransitionBlock|1x140x32x128,1x140x32   1200   0.356   0.113    leaf   38.5 bandwidth
+        - AdaLN|1x140x32x128,1x140x32x128                    2400   0.190   0.068    leaf   34.3 bandwidth
+    - Transition|1x512x768                                    400   0.053   0.023    leaf   26.0 compute
+MSALayer|1x512x512x128,1x1024x512x64                           16   2.710   1.067   0.022   30.7 bandwidth
+  - OuterProductMean|1x1024x512x64,1024x1x1                    16   0.891   0.349    leaf   30.9 bandwidth
+  - PairformerLayer|1x512x512x128                              16   0.817   0.332   0.028   29.5 bandwidth
+    - TriangleMultiplication|1x512x512x128                     32   0.300   0.089    leaf   40.4 bandwidth
+    - TriangleAttention|1x512x512x128                          32   0.271   0.101    leaf   32.8 bandwidth
+    - Transition|1x512x512x128                                280   0.206   0.129    leaf    7.6 compute
+  - PairWeightedAveraging|1x1024x512x64,1x512x512x128          16   0.734   0.244    leaf   36.8 bandwidth
+  - Transition|1x1024x512x64                                   16   0.236   0.143    leaf    9.7 bandwidth
+
+# LEAVES ONLY -- the only rows that can be ranked without double-counting
+  Transition|1x512x512x128                                  2.251 s above roof     7.6 % of compute roof
+  TriangleMultiplication|1x512x512x128,1x512x512            1.458 s above roof    41.9 % of bandwidth roof
+  TriangleAttention|1x512x512x128,1x1x1x512                 1.284 s above roof    37.4 % of bandwidth roof
+  AdaLN|1x512x768,1x512x768                                 0.453 s above roof    30.1 % of bandwidth roof
+  AttentionPairBias|1x512x768,1x16x512x512                  0.440 s above roof    37.2 % of bandwidth roof
+  ConditionedTransitionBlock|1x512x768,1x512x768            0.426 s above roof    40.8 % of bandwidth roof
+  OuterProductMean|1x1024x512x64,1024x1x1                   0.349 s above roof    30.9 % of bandwidth roof
+  PairWeightedAveraging|1x1024x512x64,1x512x512x128         0.244 s above roof    36.8 % of bandwidth roof
+  AttentionPairBias|1x512x384,1x512x512x128                 0.227 s above roof    20.6 % of bandwidth roof
+  Transition|1x1024x512x64                                  0.143 s above roof     9.7 % of bandwidth roof
+  AttentionPairBias|1x140x32x128,140x4x32x128               0.134 s above roof    50.0 % of bandwidth roof
+  ConditionedTransitionBlock|1x140x32x128,1x140x32x128      0.113 s above roof    38.5 % of bandwidth roof
+  TriangleAttention|1x512x512x128                           0.101 s above roof    32.8 % of bandwidth roof
+  TriangleMultiplication|1x512x512x128                      0.089 s above roof    40.4 % of bandwidth roof
+  AdaLN|1x140x32x128,1x140x32x128                           0.068 s above roof    34.3 % of bandwidth roof
+  Transition|1x512x384                                      0.032 s above roof     8.8 % of compute roof
+  Transition|1x512x768                                      0.023 s above roof    26.0 % of compute roof
+  leaf total                                                7.835 s
+  unattributed inside parents, at the cell                  2.671 s
+  leaves + unattributed                                    10.506 s
+  cell above floor                                         10.406 s
+  closure gap (the at-roof share of the unattributed)       0.100 s = 1.0 % of the prize
