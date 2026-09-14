@@ -37,5 +37,19 @@ Roofs measured in this session with dispatch amortised: dense bf16 HiFi4 **104.9
 
 - **219.49 TFLOP executed** over the three disjoint top-level units. Tile padding accounts for 0.15 % of it.
 - **2.9449 TB moved**, deduped on buffer address, of which 0.0011 TB is the counter's terminal-output charge (an upper bound on its overcount).
-- **floor 12.580 s**: traffic 6.934 s at 424.7 GB/s against arithmetic 12.580 s at the rate each shape actually reaches (2.092 s if every FLOP is priced at the 8192-cube rate, which no op in this fold runs at).
+- **floor 6.934 s, set by bandwidth.** Every unit but the pair Transition has an arithmetic intensity under the 247 FLOP/byte machine balance, so the traffic term binds: 2.9449 TB at 424.7 GB/s.
+
+The arithmetic side, three ways, two of them fictions:
+
+| priced at | s | why |
+|---|---|---|
+| the best measured dense-cube HiFi4 rate, 104.93 TFLOP/s | 2.092 | no op in this fold is a dense cube |
+| each shape as a standalone ttnn.matmul | 43.393 | prices the fold's fused kernels as separate DRAM round trips, so it lands above the fold itself |
+| the traffic those same shapes move | 6.934 | the one that binds |
+
+## What is padding and what is work
+
+The MSA axis is padded to 1024 rows. `MSA_PAD_MULTIPLE = 1024` in `tt_bio/tenstorrent.py`, and this fixture has 35 MSA rows, so the MSA block executes 1368.3 GFLOP per call where FlopCounterMode counts 595.2 logical. The three units inside it whose shapes carry the depth axis move 15107.2 MB of the block's 22100.2 MB (68.4 %) and 1.305 s of the 17.340 s cell. A finer MSA ladder is the lever; how much of that is recoverable is a measurement someone else has to take.
+
+Tile padding is not where the FLOPs go: 0.15 %. The atom axis moved the other way since `flops_bytes_512.json` was written, 4480 atoms at the tip against 7168 there, so the atom transformer term is 1.28x its logical count rather than the up to 4x that file self-declares.
 

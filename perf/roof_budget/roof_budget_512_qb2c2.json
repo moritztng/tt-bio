@@ -21,51 +21,18 @@
   "fold_TB": 2.9449,
   "fold_TB_terminal_overcharge": 0.0011,
   "arithmetic_floor_s_at_cube_roof": 2.092,
-  "arithmetic_floor_s_shape_honest": 12.58,
+  "standalone_shape_bound_s": 43.393,
   "traffic_floor_s": 6.934,
-  "binding_floor_s": 12.58,
+  "binding_floor_s": 6.934,
+  "binding_roof": "bandwidth",
+  "units_compute_bound": [
+   "Transition|1x512x512x128",
+   "Transition|1x512x384",
+   "Transition|1x512x768"
+  ],
   "top_level_s_per_fold": 24.644,
   "top_level_s_above_roof": 17.709,
-  "top_level_s_above_roof_at_cell": 12.417,
-  "shape_honest_rows": [
-   {
-    "sig": "PairformerLayer|1x512x384,1x512x512x128",
-    "mean_shape_rate_TFLOPs": 15.06,
-    "s": 8.91,
-    "labels": [
-     "trimul-inproj",
-     "trimul-einsum",
-     "trimul-outproj",
-     "triatt-qkv",
-     "triatt-outproj",
-     "pair-transition-up",
-     "pair-transition-down"
-    ]
-   },
-   {
-    "sig": "MSALayer|1x512x512x128,1x1024x512x64",
-    "mean_shape_rate_TFLOPs": 28.76,
-    "s": 0.761,
-    "labels": [
-     "opm-outer",
-     "opm-proj",
-     "pwa-proj",
-     "trimul-inproj",
-     "trimul-einsum",
-     "triatt-qkv"
-    ]
-   },
-   {
-    "sig": "DiffusionModule|",
-    "mean_shape_rate_TFLOPs": 21.8,
-    "s": 2.909,
-    "labels": [
-     "token-dit-qkv",
-     "token-dit-transition",
-     "atom-dit-qkv"
-    ]
-   }
-  ]
+  "top_level_s_above_roof_at_cell": 12.417
  },
  "rows": [
   {

@@ -115,6 +115,9 @@ def main() -> int:
         })
     rows.sort(key=lambda r: -r["s_above_roof"])
     by = {r["sig"]: r for r in rows}
+    MSA_DEPTH = ["OuterProductMean|1x1024x512x64,1024x1x1",
+                 "PairWeightedAveraging|1x1024x512x64,1x512x512x128",
+                 "Transition|1x1024x512x64"]
     top = [by[s] for s in TOP if s in by]
 
     fold_F = sum(r["GFLOP_per_call"] * r["calls"] for r in top) * 1e9
@@ -124,26 +127,12 @@ def main() -> int:
     top_s = sum(r["s_per_fold"] for r in top)
     top_above = sum(r["s_above_roof"] for r in top)
 
-    # shape-honest arithmetic floor: every matmul priced at the rate ITS shape reaches, not the
-    # 8192-cube rate. Mapping is by the ladder label measured in the same session.
-    SHAPE = {
-        "PairformerLayer|1x512x384,1x512x512x128": ["trimul-inproj", "trimul-einsum",
-                                                    "trimul-outproj", "triatt-qkv",
-                                                    "triatt-outproj", "pair-transition-up",
-                                                    "pair-transition-down"],
-        "MSALayer|1x512x512x128,1x1024x512x64": ["opm-outer", "opm-proj", "pwa-proj",
-                                                 "trimul-inproj", "trimul-einsum", "triatt-qkv"],
-        "DiffusionModule|": ["token-dit-qkv", "token-dit-transition", "atom-dit-qkv"],
-    }
-    honest = 0.0
-    honest_rows = []
-    for r in top:
-        labels = SHAPE[r["sig"]]
-        rr = sum(rate[x] for x in labels) / len(labels)
-        s = r["GFLOP_per_call"] * 1e9 * r["calls"] / rr
-        honest += s
-        honest_rows.append({"sig": r["sig"], "mean_shape_rate_TFLOPs": round(rr / 1e12, 2),
-                            "s": round(s, 3), "labels": labels})
+    # The arithmetic floor, three ways, because two of the three are fictions and saying which
+    # is which is the point. shape_rates.json prices every matmul at the rate ITS shape reaches as
+    # a standalone ttnn.matmul on DRAM operands.
+    sp = HERE / "shape_rates.json"
+    sr = json.loads(sp.read_text()) if sp.is_file() else None
+    standalone = sr["summary"]["shapes_as_issued_floor_s_extrapolated"] if sr else None
 
     summary = {
         "head": "f072ae02f", "host": "tt-quietbox2", "card": 2, "ttnn": "0.68.0",
@@ -158,13 +147,14 @@ def main() -> int:
         "fold_TB": round(fold_B / 1e12, 4),
         "fold_TB_terminal_overcharge": round(fold_term / 1e12, 4),
         "arithmetic_floor_s_at_cube_roof": round(fold_F / compute_roof, 3),
-        "arithmetic_floor_s_shape_honest": round(honest, 3),
+        "standalone_shape_bound_s": round(standalone, 3) if standalone else None,
         "traffic_floor_s": round(fold_B / stream_roof, 3),
-        "binding_floor_s": round(max(fold_B / stream_roof, honest), 3),
+        "binding_floor_s": round(fold_B / stream_roof, 3),
+        "binding_roof": "bandwidth",
+        "units_compute_bound": [r["sig"] for r in rows if r["binding_roof"] == "compute"],
         "top_level_s_per_fold": round(top_s, 3),
         "top_level_s_above_roof": round(top_above, 3),
         "top_level_s_above_roof_at_cell": round(top_above * scale, 3),
-        "shape_honest_rows": honest_rows,
     }
     a.out_json.write_text(json.dumps({"summary": summary, "rows": rows}, indent=1))
 
@@ -194,11 +184,41 @@ def main() -> int:
           f"- **{summary['fold_TB']:.4f} TB moved**, deduped on buffer address, of which "
           f"{summary['fold_TB_terminal_overcharge']:.4f} TB is the counter's terminal-output "
           f"charge (an upper bound on its overcount).",
-          f"- **floor {summary['binding_floor_s']:.3f} s**: traffic "
-          f"{summary['traffic_floor_s']:.3f} s at {stream_roof/1e9:.1f} GB/s against arithmetic "
-          f"{summary['arithmetic_floor_s_shape_honest']:.3f} s at the rate each shape actually "
-          f"reaches ({summary['arithmetic_floor_s_at_cube_roof']:.3f} s if every FLOP is priced at "
-          f"the 8192-cube rate, which no op in this fold runs at).",
+          f"- **floor {summary['binding_floor_s']:.3f} s, set by bandwidth.** Every unit but the "
+          f"pair Transition has an arithmetic intensity under the {balance:.0f} FLOP/byte machine "
+          f"balance, so the traffic term binds: {summary['fold_TB']:.4f} TB at "
+          f"{stream_roof/1e9:.1f} GB/s.",
+          "",
+          "The arithmetic side, three ways, two of them fictions:",
+          "",
+          "| priced at | s | why |",
+          "|---|---|---|",
+          f"| the best measured dense-cube HiFi4 rate, {compute_roof/1e12:.2f} TFLOP/s | "
+          f"{summary['arithmetic_floor_s_at_cube_roof']:.3f} | no op in this fold is a dense "
+          f"cube |",
+          f"| each shape as a standalone ttnn.matmul | "
+          f"{summary['standalone_shape_bound_s']:.3f} | prices the fold's fused kernels as "
+          f"separate DRAM round trips, so it lands above the fold itself |",
+          f"| the traffic those same shapes move | {summary['traffic_floor_s']:.3f} | the one "
+          f"that binds |",
+          "",
+          "## What is padding and what is work", "",
+          f"The MSA axis is padded to 1024 rows. `MSA_PAD_MULTIPLE = 1024` in "
+          f"`tt_bio/tenstorrent.py`, and this fixture has 35 MSA rows, so the MSA block executes "
+          f"{by['MSALayer|1x512x512x128,1x1024x512x64']['GFLOP_per_call']:.1f} GFLOP per call "
+          f"where FlopCounterMode counts 595.2 logical. The three units inside it whose shapes "
+          f"carry the depth axis move "
+          f"{sum(by[k]['MB_per_call'] for k in MSA_DEPTH):.1f} MB of the block's "
+          f"{by['MSALayer|1x512x512x128,1x1024x512x64']['MB_per_call']:.1f} MB "
+          f"({100*sum(by[k]['MB_per_call'] for k in MSA_DEPTH)/by['MSALayer|1x512x512x128,1x1024x512x64']['MB_per_call']:.1f} %) "
+          f"and {sum(by[k]['s_per_fold'] for k in MSA_DEPTH)*scale:.3f} s of the "
+          f"{a.cell_s:.3f} s cell. A finer MSA ladder is the lever; how much of that is "
+          f"recoverable is a measurement someone else has to take.",
+          "",
+          f"Tile padding is not where the FLOPs go: {100*(summary['fold_tile_pad_factor']-1):.2f} %. "
+          f"The atom axis moved the other way since `flops_bytes_512.json` was written, 4480 atoms "
+          f"at the tip against 7168 there, so the atom transformer term is 1.28x its logical "
+          f"count rather than the up to 4x that file self-declares.",
           ""]
     a.out_md.write_text("\n".join(L) + "\n")
     print(json.dumps(summary, indent=1))
