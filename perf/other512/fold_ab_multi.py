@@ -259,6 +259,13 @@ def main():
     ap.add_argument("--arms", default="on,on")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--cif-dir", type=Path, default=None,
+                    help="Where to keep each arm's CIFs. Default `perf/other512/cif`, whose "
+                         "subdirectory name is `<size>_<arm>_<run>` and so carries nothing "
+                         "about the campaign -- two campaigns running the same size and arm "
+                         "name silently overwrite each other's COMMITTED record, which "
+                         "happened to `512_on_1` on 2026-09-14. Pass a campaign-local "
+                         "directory and the default stays put for every other caller.")
     ap.add_argument("--dram-tags", default="",
                     help="Comma-separated tag prefixes the DRAM probe is allowed to sample. "
                          "dram_peak() fires at ~12k sites per opendde fold, most of them inside "
@@ -618,7 +625,7 @@ def main():
             a.out.write_text(json.dumps(res, indent=1))
             continue
 
-        cif_keep = Path(__file__).resolve().parent / "cif"
+        cif_keep = a.cif_dir or (Path(__file__).resolve().parent / "cif")
         run_ix = Counter()
         for arm in a.arms.split(","):
             set_arm(arm)
