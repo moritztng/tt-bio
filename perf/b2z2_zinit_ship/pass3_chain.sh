@@ -22,15 +22,30 @@ say "gate pid gone"
 # missing. Three attempts: contention timeouts (protenix-hsa-msa, protenix-v1-prot-msa) are what
 # this is for, and a leg that fails three times is a real failure, not a flake.
 for try in 1 2 3; do
+  # Count legs that are SETTLED, not legs that are present. An ERROR row is a leg that never
+  # ran -- on this box they are device-contention exits at the lease, and all 44 rows land
+  # in the report regardless -- so counting rows would call a gate finished that scored
+  # nothing.
   n=$($PY - <<PYEOF
 import json,pathlib
 p=pathlib.Path("perf/b2z2_gate/gate_zinitship.json")
-try: print(len(json.loads(p.read_text())["legs"]))
+try:
+    legs=json.loads(p.read_text())["legs"]
+    print(sum(1 for r in legs if r.get("verdict") not in ("ERROR", None)))
 except Exception: print(0)
 PYEOF
 )
-  say "gate report has $n/44 legs (attempt $try)"
+  say "gate report has $n/44 settled legs (attempt $try)"
   [ "$n" -ge 44 ] && break
+  # A leg that errors at device open leaves its worker orphaned on the card, and every
+  # later leg then errors the same way. Clear any PPID-1 holder of card 3 first.
+  for orph in $(lsof /dev/tenstorrent/3 2>/dev/null | tail -n +2 | awk '{print $2}' | sort -u); do
+    if [ "$(ps -o ppid= -p $orph 2>/dev/null | tr -d ' ')" = "1" ]; then
+      say "killing orphaned card-3 holder $orph"
+      kill -KILL "$orph" 2>/dev/null
+      sleep 5
+    fi
+  done
   say "resuming gate"
   TT_BIO_LEASE_CARDS=3 $PY -u scripts/full_parity_gate.py --workers localhost:3 \
     --workdir $W/perf/b2z2_gate/zinitship_work \
