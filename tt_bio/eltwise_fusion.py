@@ -37,11 +37,25 @@ import ttnn
 
 from tt_bio.envflags import env_flag
 
-#: ``addalpha``: attention's scale-then-bias. Highest call count of the three.
-FUSE_SCALE_ADD = env_flag("TT_BIO_FUSE_SCALE_ADD", True)
+#: ``addalpha``: attention's scale-then-bias, 1503 calls per 298 aa fold in both
+#: openfold3 and protenix-v2 -- the highest count of the three. **Default OFF.** It is
+#: bit-exact wherever the site runs fp32 (protenix's DiT, which is 1200 of those calls),
+#: but at bf16 in openfold3 it moves the 298 aa structure 1.475 A all-atom against a
+#: 0.000 A A/A floor. That is 4.0x inside openfold3's own 5.86 A seed floor on the same
+#: fixture, and 4.2x OVER the 0.35 A absolute 298 aa bar -- and the bar is the criterion,
+#: so it stays off until an accuracy reading with teeth (CA-lDDT against an experimental
+#: structure, not RMSD against the seed floor) says otherwise. The deviation is one bf16
+#: ULP per call and it is in the MORE accurate direction; what moves the structure is
+#: that a diffusion trajectory amplifies any perturbation at all.
+FUSE_SCALE_ADD = env_flag("TT_BIO_FUSE_SCALE_ADD", False)
 #: ``addcmul``: the gated-residual write-back (multiply by a mask, add the residual).
+#: Bit-exact at fold level (openfold3 cdk2x2_298, 1504 calls, byte-identical digest), so
+#: it is on: it deletes 1504 dispatches and cannot move the structure.
 FUSE_MASK_ADD = env_flag("TT_BIO_FUSE_MASK_ADD", True)
-#: ``layer_norm(residual_input_tensor=)``: an add whose only consumer is a norm.
+#: ``layer_norm(residual_input_tensor=)``: an add whose only consumer is a norm. Bit-exact
+#: at fold level and the largest per-op win of the three (1.880x on a [1,512,512,128]
+#: norm), but its one site (protenix.py:1637, the confidence head's pde branch) does not
+#: execute in the 298 aa protocol, so the fold-level win is unpriced rather than measured.
 FUSE_NORM_RESIDUAL = env_flag("TT_BIO_FUSE_NORM_RESIDUAL", True)
 
 

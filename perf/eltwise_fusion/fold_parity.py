@@ -51,6 +51,10 @@ ARMS = {
     "off2":   (frozenset(), 0),
     "seed1":  (frozenset(), 1),
     "seed2":  (frozenset(), 2),
+    # The SHIPPED DEFAULT, whatever it currently is -- resolved from the module at run time,
+    # not restated here. A per-gate arm that passes alone does not prove the combination the
+    # default actually selects passes (memory roof-nogo-verdict-prose-vs-shipped-default-disagree).
+    "dflt":   (None, 0),
 }
 OUT: dict = {"arms": []}
 OUT_PATH: Path | None = None
@@ -114,6 +118,9 @@ def main() -> int:
         "package would score a different tree (memory "
         "parity-gate-scores-installed-package-not-checkout)")
     import tt_bio.eltwise_fusion as EF
+    # Captured BEFORE any arm assignment, so the `dflt` arm is the shipped default and not
+    # whatever the previous arm left behind.
+    SHIPPED_DEFAULTS = {g: getattr(EF, g) for g in GATES}
     # An env pin would make every arm the same arm, silently.
     pinned = [g for g in GATES if ("TT_BIO_" + g) in os.environ]
     assert not pinned, f"these gates are pinned in the environment: {pinned}"
@@ -151,6 +158,8 @@ def main() -> int:
 
     def fold(arm, fixture):
         want, seed_off = ARMS[arm]
+        if want is None:
+            want = frozenset(g for g in GATES if SHIPPED_DEFAULTS[g])
         for g in GATES:
             setattr(EF, g, g in want)
         assert {g for g in GATES if getattr(EF, g)} == set(want)
