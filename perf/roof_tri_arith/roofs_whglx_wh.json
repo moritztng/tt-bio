@@ -1,0 +1,69 @@
+{
+ "host": "j10glx02",
+ "arch": "Arch.WORMHOLE_B0",
+ "grid": [
+  8,
+  9
+ ],
+ "loadavg": [
+  "8.59",
+  "7.21",
+  "6.01"
+ ],
+ "refused": {
+  "read_dram_to_l1_48MB": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false",
+  "read_48MB_AA": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false",
+  "read_dram_to_l1_16MB": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false",
+  "read_16MB_AA": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false"
+ },
+ "rows": [
+  {
+   "arm": "write_l1_to_dram_16MB",
+   "ms": 0.14548350009135902,
+   "GBps": 115.32040395965481,
+   "TFLOPs": 0.11532040395965482
+  },
+  {
+   "arm": "write_16MB_AA",
+   "ms": 0.1421057531842962,
+   "GBps": 118.06148325495111,
+   "TFLOPs": 0.11806148325495111
+  },
+  {
+   "arm": "write_l1_to_dram_48MB",
+   "ms": 0.3903762517438736,
+   "GBps": 128.93112164267274,
+   "TFLOPs": 0.12893112164267276
+  },
+  {
+   "arm": "write_48MB_AA",
+   "ms": 0.38851075078127906,
+   "GBps": 129.55020652268988,
+   "TFLOPs": 0.1295502065226899
+  },
+  {
+   "arm": "eltwise_2r1w_add8192",
+   "ms": 1.6982393329575036,
+   "GBps": 237.10037577493554,
+   "TFLOPs": 0.23710037577493553
+  },
+  {
+   "arm": "eltwise_AA",
+   "ms": 1.6954453312791884,
+   "GBps": 237.49110429659456,
+   "TFLOPs": 0.23749110429659454
+  },
+  {
+   "arm": "cube4096_HiFi4",
+   "ms": 4.762823999044485,
+   "GBps": 28856.609754963214,
+   "TFLOPs": 28.856609754963216
+  },
+  {
+   "arm": "cube4096_AA",
+   "ms": 4.74770133344767,
+   "GBps": 28948.525574626878,
+   "TFLOPs": 28.948525574626878
+  }
+ ]
+}
