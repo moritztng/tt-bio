@@ -11312,18 +11312,12 @@ class PairAssemblyDevice:
     Construct it through ``for_trunk`` or ``for_confidence``; the optional terms are exactly the
     difference between the two call sites, so there is one implementation and no model-name gate.
 
-    Boltz-2's confidence-head pair assembly, run where the trunk left the tensor.
+    On the confidence side the pairformer behind the assembly is already device-resident and the
+    trunk still holds the pair tensor, so running it here deletes the host passes AND the upload
+    that used to feed the pairformer. What goes up instead is an index map or an ``[n, c]``
+    vector: the rel_pos indices, the distogram bucket indices, the bond and contact features.
 
-    Everything ``ConfidenceModule.forward`` does to ``z`` before its pairformer is a channel map
-    applied independently at each ``(i, j)``: ``z_norm``, ``+ rel_pos``, ``+ token_bonds``,
-    ``+ contact_conditioning``, the two ``s_to_z`` broadcasts and the distogram embedding. The
-    pairformer behind it is already device-resident and the trunk still holds the pair tensor, so
-    running the assembly here deletes the host passes AND the ``[1, n, n, token_z]`` upload that
-    used to feed the pairformer -- 134 MB of fp32 read at 512 tokens. What goes up instead is an
-    index map or an ``[n, c]`` vector: the rel_pos indices, the distogram bucket indices, the
-    bond and contact features.
-
-    ``supports`` is the gate, and it reads the module, never a model name. The head is
+    ``supports_confidence`` is the gate, and it reads the module, never a model name. The head is
     configurable and the flags come from the checkpoint, so the device path declares what it
     computes and the caller falls back to torch for the rest. ``bond_type_feature`` and
     ``add_s_to_z_prod`` are both implemented here; ``add_z_input_to_z=False`` is not, because
