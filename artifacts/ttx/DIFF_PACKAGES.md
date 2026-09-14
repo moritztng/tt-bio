@@ -34,6 +34,47 @@ single signal for a capability that could not have been used before.
 Packaged: **541,833 of 2,655,962 lines (20.4 %)**, deduped 465,225 lines over 3,920 files (17.5 %),
 the gap being the declared P7/P8 overlap.
 
+## X1 — the precision contract, a cross-cut that serves the porting bill
+
+Not a fifteenth disjoint package; a reading assignment that cuts across P1, P2, P9 and P11, kept
+separate so the coverage arithmetic above stays clean.
+
+`ttx-version-recon` attributed the porting bill to upstream and found the degradation is **graded,
+not a cliff**: the 298 aa control folds at plDDT 0.9132 on 0.68.0, 0.5764 on 0.73.1 and 0.3597 on
+0.78.0, sitting 19.5562 A from upstream's own fp32 reference and 19.1921 A from the 1HCL crystal
+structure, where the pin sits at 0.7457 A inside upstream's four-seed spread of 0.5974-0.7398 A.
+Twenty ops at *default* configs agree, sixteen bit-identically, so the fault is not in the defaults
+and its next step is a probe of the *configured* call signatures tt-bio actually makes.
+
+X1 is the code that decides how a `DeviceComputeKernelConfig` becomes a kernel's rounding and
+accumulation behaviour: `operations/core/compute_kernel/` (+37/-11 and +19/-6 over two files),
+`tt_metal/impl/data_format/` (of which `blockfloat_common.cpp` is +208/-116, which is also the bfp8
+dead lever's own ground), `jit_build/data_format.*`, `api/compute/reconfig_data_format.h`,
+`api/compute/pack.h`, and `kernel_lib/dest_helpers.hpp`. **2,893 lines across the range.** Commits
+touching the three config fields, over the ops we configure plus the Blackhole LLK: 85 for
+`dst_full_sync_en`, 75 for `fp32_dest_acc_en`, 45 for `packer_l1_acc`.
+
+`artifacts/ttx/precision_ladder.py` prices each release step:
+
+| step | contract | the ops we configure |
+|---|---|---|
+| 0.68.0 -> 0.69.0 | 147 L / 20 f | 6,511 L |
+| 0.69.0 -> 0.70.1 | 782 L / 7 f | 3,383 L |
+| 0.70.1 -> 0.71.2 | 40 L / 2 f | 11,843 L |
+| 0.71.2 -> 0.72.0 | **1,492 L** / 12 f | 11,295 L |
+| 0.72.0 -> 0.73.1 | 60 L / 4 f | 7,224 L |
+| 0.73.1 -> 0.74.0 | 347 L / 9 f | 7,684 L |
+| 0.74.0 -> 0.75.0 | 475 L / 18 f | 5,098 L |
+| 0.75.0 -> 0.76.0 | 396 L / 6 f | 10,429 L |
+| 0.76.0 -> 0.77.0 | 715 L / 8 f | 7,346 L |
+| 0.77.0 -> 0.78.0 | 207 L / 7 f | 10,928 L |
+
+No single step dominates, which is what a compounding contract slide looks like from the code side
+and is independent of how the slide was measured. **87.1 % of the contract churn lands at or before
+0.73.1, against 60.8 % of the plDDT drop** — both front-loaded, the churn more so. That is a
+pointer for ordering the ladder, not a cause: churn is where to look, never why something broke.
+The two peak steps, 0.71.2 -> 0.72.0 and 0.69.0 -> 0.70.1, are where a ladder rung buys the most.
+
 ## What is deliberately not packaged
 
 Explicitly excluded: **1,974,643 lines, 74.4 % of the diff.**

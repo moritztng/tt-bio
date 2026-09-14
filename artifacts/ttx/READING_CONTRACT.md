@@ -109,6 +109,15 @@ a maintenance win, usually **not** a speedup. Grade it that way explicitly:
 - **STOP is a pass.** "Nothing in this package unlocked anything" is a complete and valuable answer:
   it saves the porting bill. Say it plainly and say what you read.
 
+## One assignment is not a hunt for unlocks
+
+X1, the precision cross-cut in `DIFF_PACKAGES.md`, serves the porting bill instead: upstream 0.78.0
+folds the 298 aa control 19.5562 A wrong at plDDT 0.3597 against 0.9132 on the pin, and no unlock is
+payable until that is named. An X1 agent reports under the same four-piece evidence rule, but what
+it is looking for is a *contract* that changed — a default flipped, an accumulation width, a
+rounding mode, a format resolution — with the before and after quoted, and it reports that as a
+RISK, not an UNLOCK. Churn is where to look and never why something broke.
+
 ## Report format
 
 One file per package, `~/.coworker/state/ttx-pkg-<name>.md`. Flat. Owes:
