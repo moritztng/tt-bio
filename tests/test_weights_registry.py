@@ -509,3 +509,54 @@ def test_default_layout_is_unchanged(monkeypatch):
     assert weights.ARTIFACTS["rfd3"].derived_dest() == root / "rfd3/weights"
     assert weights.ARTIFACTS["rf3"].dest() == root / "rf3/rf3_foundry_01_24_latest_remapped.ckpt"
     assert weights.ARTIFACTS["openfold3"].filename == "of3-p2-155k.pt"
+
+# ---------------------------------------------------------------------------
+# Hub pins: a repo we do not own must never be read at `main`
+# ---------------------------------------------------------------------------
+
+def test_third_party_repos_are_revision_pinned():
+    """Every hub repo tt-bio does not own is read at a fixed commit.
+
+    2026-09-14: `biohub/ESMFold2` and `biohub/ESMC-6B` were re-published in a new schema
+    and JapanFold served nothing but errors for six hours. Both were read at `main`. This
+    fails the moment a row goes back to tracking a branch somebody else can push to."""
+    unpinned = [(k, a.repo) for k, a in weights.ARTIFACTS.items()
+                if a.repo and weights.is_third_party(a.repo) and not a.revision]
+    assert not unpinned, f"third-party hub repos read at the default branch: {unpinned}"
+
+
+def test_pins_are_commits_or_tags_not_branches():
+    """`main` in the pin dict would satisfy the row check and pin nothing."""
+    branchy = {r: v for r, v in weights.HF_REVISIONS.items()
+               if v in ("main", "master", "HEAD")}
+    assert not branchy, f"pinned to a moving branch: {branchy}"
+
+
+def test_rows_on_one_repo_agree_on_the_revision():
+    """Two rows of one repo fetching two snapshots is 2.6 GB of duplicate cache and two
+    different sets of weights in one process."""
+    by_repo: dict[str, set] = {}
+    for a in weights.ARTIFACTS.values():
+        if a.repo:
+            by_repo.setdefault(a.repo, set()).add(a.revision)
+    split = {r: v for r, v in by_repo.items() if len(v) > 1}
+    assert not split, f"rows disagree about the revision: {split}"
+
+
+def test_fetch_hf_repo_pins_a_bare_repo_id(monkeypatch):
+    """A caller outside the registry (esmc.ESMCLanguageModel.from_pretrained passes a
+    bare repo id) is pinned by fetch_hf_repo itself, not by remembering to pass one."""
+    seen = {}
+
+    def fake_snapshot_download(repo_id, revision=None, force_download=False, **kw):
+        seen["repo"], seen["revision"] = repo_id, revision
+        return "/tmp"
+
+    import huggingface_hub
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", fake_snapshot_download)
+    weights.fetch_hf_repo("biohub/ESMC-6B")
+    assert seen["revision"] == weights.HF_REVISIONS["biohub/ESMC-6B"]
+
+    # Negative control: an unpinned repo still tracks its default branch.
+    weights.fetch_hf_repo("moritztng/boltz-2")
+    assert seen["revision"] is None
