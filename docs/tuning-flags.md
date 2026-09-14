@@ -208,21 +208,34 @@ units read the depth axis and between them they move 68.4 % of the MSA block's b
 rows with garbage instead of zeros and the MSA module's output is bit-identical
 (`perf/roof_msa_ladder/z_parity_512.json`), so the padded region provably cannot reach a real token
 and a shorter rung only reassociates the same terms. It reassociates them at the front of the trunk
-though, ahead of 3 recycles, 64 pairformer blocks and 200 sampling steps, so the structure lands
-1.322 Å from the 1024 arm at 512 residues, and 0.245 Å at 298, against an A/A floor of 0.000 Å over
-twelve folds. Scored against the experimental structure 1HCL instead of against the other arm, the
-ladder is as accurate or more: native CA-lDDT +0.00354 and +0.00530 on the two 512 aa
-pseudo-domains, both bootstrap CIs clear of zero, and −0.00114 at 298 residues inside a seed floor
-0.019 wide. Displacing the same arm's own CA atoms incoherently by that same 1.282 Å costs 0.22
-lDDT, so the metric can see a move this big and this move is not one.
+though, ahead of 3 recycles, 64 pairformer blocks and 200 sampling steps, so the structure moves:
+0.295 Å and 0.267 Å CA per pseudo-domain at 512 residues, 0.475 Å and 0.420 Å all-atom, against an
+A/A floor of 0.000 Å over twenty-two folds. The whole-molecule figure is 0.904 Å CA, and the extra
+comes from a 6.6° hinge between the two copies of this chimeric fixture rather than from either
+copy.
 
-**Speed: 15.703 s against 16.592 s, a 512-residue fold.** 1.0566x, a paired median of 0.869 s over
+Scored against the experimental structure 1HCL instead of against the other arm, the ladder is
+closer on both pseudo-domains: native CA-lDDT 0.91822 to 0.92249 and 0.89503 to 0.90295, per-residue
+paired means +0.00430 and +0.00743 with bootstrap CI95 [+0.00139, +0.00642] and [+0.00374,
++0.01063], both clear of zero. Native CA-RMSD moves the same way, 1.700 Å to 1.565 Å and 1.528 Å to
+1.413 Å. Displacing the same arm's own CA atoms incoherently by that same 0.904 Å costs 0.22 lDDT,
+dropping it to 0.776, so the metric can see a move this big and this move is not one.
+
+At 298 residues, where the fixture is a single copy and the arms sit 0.111 Å apart in CA, the ladder
+arm reads 0.00344 CA-lDDT lower on seed 0. The per-residue bootstrap excludes zero, but that
+bootstrap resamples residues inside one structure, not seeds: the figure is 5.5x smaller than the
+0.019-wide seed spread the same scorer measured across seeds, and smaller than the 0.00516 an
+incoherent displacement of that same 0.111 Å costs. It is a one-seed reading below the floor that
+would make it readable, not a resolved loss, and 298 residues is a size where the lever's own speed
+win is smallest.
+
+**Speed: 15.469 s against 16.361 s, a 512-residue fold.** 1.0577x, a paired median of 0.865 s over
 ten pairs, arms alternating inside a pair with the pair order flipped every block, one process and
 one card. All ten pairs favour the ladder and the two arms' ranges do not overlap: the slowest
-ladder fold, 16.224 s, beats the fastest 1024 fold, 16.524 s. The A/A null on the same harness and
+ladder fold, 15.932 s, beats the fastest 1024 fold, 16.076 s. The A/A null on the same harness and
 host reads 0.9981x. qb2, one Blackhole processor of a p300c, ttnn 0.68.0. A p150a reads 0.795 s on
 the same fixture. Rung 64 costs 0.131 s to compile, once
-(`perf/roof_msa_ladder/ab_512_qb2.json`).
+(`perf/roof_msa_ladder/ab_512_qb2_rebased.json`).
 
 The win tracks how shallow the alignment is: 0.433 s with 300 rows, and exactly nothing above 512
 rows, where both settings pad to the same 1024. A real ColabFold search usually lands above that, so

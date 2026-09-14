@@ -1,0 +1,80 @@
+{
+ "gt": "1hcl.cif",
+ "arms": {
+  "0": "off",
+  "1": "on"
+ },
+ "sizes": {
+  "298": {
+   "n_folds": 8,
+   "domains": [
+    "whole"
+   ],
+   "arm_bitexact": {
+    "off": true,
+    "on": true
+   },
+   "arm_sha256": {
+    "off": [
+     "4974fe4a90ded928"
+    ],
+    "on": [
+     "a8c6fd65f70f4418"
+    ]
+   },
+   "scored_cif": {
+    "off": "perf/roof_msa_ladder/cif_qb2_298_rebased/298_cold_0_cdk2x2_298.cif",
+    "on": "perf/roof_msa_ladder/cif_qb2_298_rebased/298_cold_1_cdk2x2_298.cif"
+   },
+   "native": {
+    "off": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.78269,
+      "lddt_ca": 0.96525
+     }
+    },
+    "on": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.80663,
+      "lddt_ca": 0.96181
+     }
+    }
+   },
+   "deficit_on_minus_off": {
+    "whole": {
+     "lddt_ca": -0.00344,
+     "ca_rmsd_A": 0.02394
+    }
+   },
+   "arm_vs_arm": {
+    "whole_all_atom_A": 0.25767,
+    "whole_ca_A": 0.11093,
+    "domain1_all_atom_A": 0.25767,
+    "domain1_ca_A": 0.11093,
+    "hinge_deg": 0.0,
+    "hinge_free_all_atom_A": 0.25767,
+    "lddt_ca": 1.0,
+    "lddt_ca_domain1": 1.0
+   },
+   "per_residue": {
+    "whole": {
+     "mean": -0.00372,
+     "ci95": [
+      -0.00737,
+      -0.00108
+     ],
+     "frac_residues_improved": 0.1769,
+     "n_residues": 294
+    }
+   },
+   "negative_control": {
+    "whole": {
+     "displacement_A": 0.11093,
+     "lddt_ca": 0.96009
+    }
+   }
+  }
+ }
+}

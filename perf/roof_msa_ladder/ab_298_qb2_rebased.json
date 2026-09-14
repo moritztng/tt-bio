@@ -1,0 +1,201 @@
+{
+  "env": {
+    "started": "2026-09-14T13:02:42+0000",
+    "host": "tt-quietbox2",
+    "card": "0",
+    "ladder": [
+      64,
+      128,
+      256,
+      512,
+      1024
+    ],
+    "bracket": false,
+    "pairs": 3,
+    "aa": false,
+    "commit": "f570d6e63",
+    "ttnn": "?"
+  },
+  "sizes": {
+    "298": {
+      "n_msa": 35,
+      "hardware": "blackhole",
+      "grid": [
+        11,
+        10
+      ],
+      "card_type": "p300c",
+      "recycling_steps": 3,
+      "struct_dir": "/tmp/ttbase-boltz2-jrbkbcyh/out",
+      "folds": [
+        {
+          "arm": "0",
+          "tag": "cold",
+          "s": 10.599,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "4974fe4a90ded928"
+          },
+          "loadavg": [
+            "1.86",
+            "3.37",
+            "4.40"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "cold",
+          "s": 9.761,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "a8c6fd65f70f4418"
+          },
+          "loadavg": [
+            "1.73",
+            "3.29",
+            "4.36"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm0",
+          "s": 10.138,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "4974fe4a90ded928"
+          },
+          "loadavg": [
+            "2.17",
+            "3.33",
+            "4.36"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm0",
+          "s": 9.725,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "a8c6fd65f70f4418"
+          },
+          "loadavg": [
+            "2.55",
+            "3.37",
+            "4.36"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm1",
+          "s": 9.848,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "a8c6fd65f70f4418"
+          },
+          "loadavg": [
+            "2.99",
+            "3.44",
+            "4.38"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm1",
+          "s": 10.332,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "4974fe4a90ded928"
+          },
+          "loadavg": [
+            "2.83",
+            "3.39",
+            "4.35"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm2",
+          "s": 10.569,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "4974fe4a90ded928"
+          },
+          "loadavg": [
+            "3.34",
+            "3.48",
+            "4.37"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm2",
+          "s": 9.751,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "a8c6fd65f70f4418"
+          },
+          "loadavg": [
+            "3.13",
+            "3.43",
+            "4.34"
+          ]
+        }
+      ],
+      "cold_s": {
+        "off": 10.599,
+        "on": 9.761
+      },
+      "warm_s": {
+        "0": [
+          10.138,
+          10.332,
+          10.569
+        ],
+        "1": [
+          9.725,
+          9.848,
+          9.751
+        ]
+      },
+      "warm_median_s": {
+        "0": 10.332,
+        "1": 9.751
+      },
+      "paired_delta_s": [
+        0.413,
+        0.485,
+        0.818
+      ],
+      "paired_delta_median_s": 0.485,
+      "speedup": 1.0596,
+      "rung_compile_s": {
+        "0": 0.267,
+        "1": 0.01
+      }
+    }
+  }
+}

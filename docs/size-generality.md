@@ -201,7 +201,7 @@ The ladder pads instead to the smallest rung of (64, 128, 256, 512, 1024) that h
 to multiples of 1024 above that, so nothing deeper than 1024 rows changes shape.
 **On by default since 2026-09-14**; `TT_BIO_MSA_LADDER=0` restores the single 1024 for an A/B.
 
-Worth 0.869 fold-seconds at 512 aa with a 35-row MSA on a p300c (1.0566x over ten paired folds,
+Worth 0.865 fold-seconds at 512 aa with a 35-row MSA on a p300c (1.0577x over ten paired folds,
 arm ranges that do not overlap) and 0.795 s on a p150a, 0.433 s with a 300-row alignment, and
 exactly nothing above 512 rows, where both settings pad to the same 1024. A real ColabFold search
 usually lands above that, so this lever is worth far more on our benchmark than on a user's target.
@@ -210,13 +210,14 @@ It moves the structure and that was worth getting right. Poison the padded rows 
 of zeros and the MSA module's output is bit-identical, so the padded region provably cannot reach a
 real token and a shorter rung reassociates the same terms. It reassociates them at the front of the
 trunk though, ahead of 3 recycles, 64 pairformer blocks and 200 sampling steps, and the structure
-lands 1.322 Å from the 1024 arm at 512 aa (0.245 Å at 298 aa) with an A/A floor of 0.000 Å over 12
-folds. That distance is displacement, not error: scored against the experimental structure 1HCL
-instead of against the other arm, the ladder is as accurate or more, +0.00354 and +0.00530 CA-lDDT
-on the two 512 aa pseudo-domains with bootstrap CIs clear of zero and −0.00114 at 298 aa inside a
-seed floor 0.019 wide. Displacing the same arm's own CAs incoherently by that same 1.282 Å costs
-0.22 lDDT, so the metric can see a move this big and this move is not one. Measurements, the audit
-of every depth-axis reduction, the poison test and the lDDT scoring are in `perf/roof_msa_ladder/`.
+moves 0.295 Å and 0.267 Å CA per pseudo-domain at 512 aa, 0.904 Å for the whole molecule, where
+the extra is a 6.6° hinge between the two copies of this chimeric fixture, against an A/A floor of
+0.000 Å over 22 folds. That distance is displacement, not error: scored against the experimental
+structure 1HCL instead of against the other arm, the ladder is closer on both pseudo-domains,
++0.00430 and +0.00743 CA-lDDT with bootstrap CIs clear of zero, and CA-RMSD improves 1.700 Å to
+1.565 Å and 1.528 Å to 1.413 Å. Displacing the same arm's own CAs incoherently by that same
+0.904 Å costs 0.22 lDDT, so the metric can see a move this big and this move is not one. Measurements,
+the audit of every depth-axis reduction, the poison test and the lDDT scoring are in `perf/roof_msa_ladder/`.
 
 Note what this does to the ladder. Every rung is a multiple of 64 and therefore of 32 too, so the
 residue axis pads to 0 at all four and the arm cannot price this lever on Protenix-v2. It still sees
