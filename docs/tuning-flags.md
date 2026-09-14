@@ -287,6 +287,7 @@ counts 17216 served, 0 refused, 0 blocked and 0 declined with the flag on, again
 with it off (`perf/ttx_b3/fold_ab_esm512_latch_c1.json`). That is the number to read, because the
 per-call counter next to it counts requests and is incremented before the call that can still
 fall back.
+
 The token axis pads to a multiple of 32, which is why 298 residues gets the lever at all: it runs
 10 row blocks, 10/16 of what 512 runs, and the gated-call census is exactly 10/16 of it. Below
 that nothing is row-blocked. At 768 and 1024 the block's other L1 residents leave too little room,
@@ -299,8 +300,9 @@ No other model reaches it, by construction rather than by luck: the gated path n
 Protenix-v2, OpenDDE, RF3 and OpenFold3's MSA stack use the shared `Transition`, whose two
 matmuls already write to L1, so the round trip this removes does not exist for them. OpenFold3's
 diffusion track and AF2-IG have their own transitions again. Measured rather than assumed for the
-two that were folded: zero gated calls in either arm, and 1.0004x and 0.9998x
-(`perf/ttx_b3/fold_ab_px2_512_c0.json`, `perf/esm3p4close/fold_ab_odde512_c1.json`).
+three that were folded: Boltz-2, Protenix-v2 and OpenDDE at 512 residues all report zero gated
+calls in both arms (`perf/ttx_b3/fold_ab_b2_512_c1.json`, `fold_ab_px2_512_c0.json`,
+`perf/esm3p4close/fold_ab_odde512_c1.json`).
 
 `TT_BIO_PAIR_FFN_L1_FC1=0` restores the DRAM output and the same coordinates.
 
