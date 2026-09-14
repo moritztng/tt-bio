@@ -32,6 +32,36 @@ import split_units as SU                                                     # n
 
 RB = HERE.parents[1] / "perf" / "roof_budget"
 
+# The second estimator. `s_own` above is median(unit) x calls minus the same for each child, which
+# is what CALL_TREE used: it rejects the first-call kernel compiles, but a median of a sum is not
+# the sum of the medians, so a unit whose children are not identical keeps that difference in its
+# own row. The bracket tree carries the exact per-path sums of the SAME fold, so excl/incl on the
+# path is a second, independent share of the unit that is its own work -- biased the other way,
+# because the compiles it keeps land in a child and shrink the share. The two bracket the truth,
+# and where they disagree by an order of magnitude the row is not device work.
+TREE_PATHS = {
+    "DiffusionTransformer|1x512x768,1x512x768":
+        ["DiffusionModule/Diffusion/DiffusionTransformer"],
+    "DiffusionTransformer|1x140x32x128,1x140x32x128":
+        ["DiffusionModule/Diffusion/DiffusionTransformer"],
+    "DiffusionTransformerLayer|1x512x768,1x512x768":
+        ["DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer"],
+    "DiffusionTransformerLayer|1x140x32x128,1x140x32x128":
+        ["DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer"],
+    "ConditionedTransitionBlock|1x512x768,1x512x768":
+        ["DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/"
+         "ConditionedTransitionBlock"],
+    "ConditionedTransitionBlock|1x140x32x128,1x140x32x128":
+        ["DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/"
+         "ConditionedTransitionBlock"],
+    "Diffusion|1x4480x3,1": ["DiffusionModule/Diffusion"],
+    "DiffusionModule|": ["DiffusionModule"],
+    "PairformerLayer|1x512x384,1x512x512x128":
+        ["TrunkModule/Pairformer/PairformerLayer", "PairformerModule/Pairformer/PairformerLayer"],
+    "PairformerLayer|1x512x512x128": ["TrunkModule/MSA/MSALayer/PairformerLayer"],
+    "MSALayer|1x512x512x128,1x1024x512x64": ["TrunkModule/MSA/MSALayer"],
+}
+
 # parent -> measured children, as (child sig, share of that sig's calls).
 #
 # Two rows are shared and have to be split by call count, not assigned whole.
@@ -138,6 +168,16 @@ def own_table(bud, att):
                     for k, v in sorted(agg.items(), key=lambda kv: -kv[1]["B"])},
             "closed_by": sorted({x[3].split()[0] for x in report}),
         })
+        paths = [p for p in TREE_PATHS.get(sig, []) if p in att["tree"]]
+        if paths:
+            incl = sum(att["tree"][p]["incl_s"] for p in paths)
+            excl = sum(att["tree"][p]["excl_s"] for p in paths)
+            f = excl / incl if incl else 0.0
+            rows[-1]["own_share_exact_sums"] = round(f, 5)
+            rows[-1]["s_own_at_cell_exact_sums"] = round(f * r["s_per_fold"] * scale, 4)
+            rows[-1]["estimator_ratio"] = round(
+                rows[-1]["s_own_at_cell"] / rows[-1]["s_own_at_cell_exact_sums"], 2) \
+                if rows[-1]["s_own_at_cell_exact_sums"] > 1e-9 else None
     rows.sort(key=lambda x: -x["s_above_roof_at_cell"])
     return rows, S
 
@@ -186,6 +226,11 @@ def main() -> int:
         "units_with_no_own_op": [r["unit"] for r in dark],
         "adaln_double_count_at_cell_s": round(dbl, 4),
         "adaln_double_count_above_roof_at_cell_s": round(dbl_above, 4),
+        "glue_at_cell_s_exact_sums": round(
+            sum(r.get("s_own_at_cell_exact_sums", 0.0) for r in glue), 4),
+        "estimators_disagree_over_3x": [
+            r["unit"] for r in glue
+            if (r.get("estimator_ratio") or 0) > 3 or (r.get("estimator_ratio") or 9) < 1 / 3],
         "rows": rows,
     }
     a.out_json.write_text(json.dumps(out, indent=1))
@@ -204,14 +249,16 @@ def main() -> int:
          "child. That tiles the fold, so there is no unattributed column left to report -- the "
          "residual is a row.", "",
          "| unit | | calls | own ops/call | MB/call | GFLOP/call | FLOP/byte | roof | s/fold | "
-         "at cell | **above roof** | % of roof |",
-         "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+         "at cell | **above roof** | % of roof | at cell, exact sums |",
+         "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         r = dict(r, unit=r["unit"].replace("|", r"\|"))
         L.append("| `{unit}` | {kind} | {calls} | {ops_per_call} | {MB_per_call:.1f} | "
                  "{GFLOP_per_call:.1f} | {AI_flop_per_byte} | {binding_roof} | "
                  "{s_own_per_fold:.3f} | {s_own_at_cell:.3f} | **{s_above_roof_at_cell:.3f}** | "
-                 "{pct_of_roof_at_cell} % |".format(**r))
+                 "{pct_of_roof_at_cell} % | {alt} |".format(
+                     alt=("%.3f" % r["s_own_at_cell_exact_sums"])
+                     if "s_own_at_cell_exact_sums" in r else "", **r))
     L += ["",
           f"The rows close on the fold: they sum to {own_cell:.3f} s at the cell against "
           f"{top_cell:.3f} s for the three top-level units, a "
@@ -232,6 +279,39 @@ def main() -> int:
                           for n in [v["n"]] if v["MB"] or v["GFLOP"])
         L.append(f"- `{r['unit']}` -- {r['s_own_at_cell']:.3f} s at the cell, "
                  f"{r['MB_per_call']:.1f} MB and {r['GFLOP_per_call']:.1f} GFLOP a call: {items}.")
+    pf = next(r for r in rows if r["unit"] == "PairformerLayer|1x512x384,1x512x512x128")
+    ctb = [r for r in rows if r["unit"].startswith("ConditionedTransitionBlock")]
+    L += ["", "## What this changes", "",
+          f"CALL_TREE's two largest unowned items, "
+          f"`DiffusionTransformer|1x512x768` at 0.994 s and `Diffusion|1x4480x3,1` at 0.882 s, are "
+          f"the two rows where three independent things all say the same: the capture holds no op "
+          f"or almost none (0 and 21 ops a call), the ops that are there account for "
+          f"0.0 % and 2.2 % of the binding roof, and the two timing estimators disagree by 12.6x "
+          f"and 7.1x. Neither is an op class and neither carries a lever.",
+          "",
+          f"What is real is smaller and already fast. The trunk `PairformerLayer` runs 7 residual "
+          f"`add_` and 1 `layer_norm` a block, "
+          f"{pf['MB_per_call']:.1f} MB, and at {pf['pct_of_roof_at_cell']:.1f} % of the {S['stream_roof_GBps']:.1f} GB/s "
+          f"stream roof it is the highest-utilisation row in the fold: "
+          f"{pf['s_above_roof_at_cell']:.3f} s above roof out of {pf['s_own_at_cell']:.3f} s. The "
+          f"`ConditionedTransitionBlock` pair of rows, "
+          f"{sum(r['s_own_at_cell'] for r in ctb):.3f} s at the cell between them, are new "
+          f"only because CALL_TREE ranked the block as a leaf while also charging every one of its "
+          f"AdaLN calls to the layer above it.",
+          "",
+          "## Owed", "",
+          "The timing column is two estimators that bracket the answer rather than one that "
+          "measures it, because the committed fold records a median and a total per unit and "
+          f"nothing between them. The glue is {sum(r['s_own_at_cell'] for r in glue):.3f} s by one "
+          f"and {out['glue_at_cell_s_exact_sums']:.3f} s by the other. Closing that needs the "
+          "attrib fold re-taken with per-call times kept, which is one 25 s fold. It does not "
+          "change which rows are device work: that comes from the captures, and they are the "
+          "committed ones.",
+          "",
+          f"Three rows rest on a child frame that ran to the end of its capture "
+          f"({', '.join('`' + u + '`' for u in sorted(r['unit'] for r in glue if 'to-end' in r['closed_by']))}), "
+          "so their op lists are a floor, not a count: a child that closes late takes the "
+          "parent's next ops with it, never the reverse."]
     a.out_md.write_text("\n".join(L) + "\n")
 
     print("%-52s %-6s %8s %5s %9s %9s %7s" % ("unit", "kind", "at cell", "ops", "MB/call",

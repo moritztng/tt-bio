@@ -21,6 +21,12 @@
  ],
  "adaln_double_count_at_cell_s": 0.4631,
  "adaln_double_count_above_roof_at_cell_s": 0.2605,
+ "glue_at_cell_s_exact_sums": 2.2262,
+ "estimators_disagree_over_3x": [
+  "DiffusionTransformer|1x512x768,1x512x768",
+  "Diffusion|1x4480x3,1",
+  "PairformerLayer|1x512x512x128"
+ ],
  "rows": [
   {
    "unit": "Transition|1x512x512x128",
@@ -217,7 +223,10 @@
    "ops": {},
    "closed_by": [
     "marker-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.02075,
+   "s_own_at_cell_exact_sums": 0.0791,
+   "estimator_ratio": 12.57
   },
   {
    "unit": "Diffusion|1x4480x3,1",
@@ -277,7 +286,10 @@
     "closed-by-Transition",
     "marker-end",
     "to-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.0219,
+   "s_own_at_cell_exact_sums": 0.1239,
+   "estimator_ratio": 7.12
   },
   {
    "unit": "AdaLN|1x512x768,1x512x768",
@@ -485,7 +497,10 @@
    },
    "closed_by": [
     "marker-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.13352,
+   "s_own_at_cell_exact_sums": 0.3764,
+   "estimator_ratio": 1.24
   },
   {
    "unit": "PairWeightedAveraging|1x1024x512x64,1x512x512x128",
@@ -679,7 +694,10 @@
    },
    "closed_by": [
     "marker-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.59155,
+   "s_own_at_cell_exact_sums": 0.603,
+   "estimator_ratio": 1.03
   },
   {
    "unit": "Transition|1x1024x512x64",
@@ -847,7 +865,10 @@
     "closed-by-DiffusionTransformerLayer",
     "closed-by-Transition",
     "marker-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.02738,
+   "s_own_at_cell_exact_sums": 0.1579,
+   "estimator_ratio": 0.7
   },
   {
    "unit": "TriangleAttention|1x512x512x128",
@@ -997,7 +1018,10 @@
    "closed_by": [
     "aligned",
     "marker-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.13352,
+   "s_own_at_cell_exact_sums": 0.1194,
+   "estimator_ratio": 0.93
   },
   {
    "unit": "ConditionedTransitionBlock|1x140x32x128,1x140x32x128",
@@ -1033,7 +1057,10 @@
    },
    "closed_by": [
     "marker-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.59155,
+   "s_own_at_cell_exact_sums": 0.1476,
+   "estimator_ratio": 1.24
   },
   {
    "unit": "AdaLN|1x140x32x128,1x140x32x128",
@@ -1114,7 +1141,10 @@
    "closed_by": [
     "aligned",
     "marker-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.05821,
+   "s_own_at_cell_exact_sums": 0.5595,
+   "estimator_ratio": 0.87
   },
   {
    "unit": "Transition|1x512x384",
@@ -1176,7 +1206,10 @@
     "closed-by-DiffusionTransformerLayer",
     "marker-end",
     "to-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.02075,
+   "s_own_at_cell_exact_sums": 0.0192,
+   "estimator_ratio": 1.55
   },
   {
    "unit": "Transition|1x512x768",
@@ -1246,7 +1279,10 @@
    },
    "closed_by": [
     "aligned"
-   ]
+   ],
+   "own_share_exact_sums": 0.0079,
+   "s_own_at_cell_exact_sums": 0.0045,
+   "estimator_ratio": 6.22
   },
   {
    "unit": "MSALayer|1x512x512x128,1x1024x512x64",
@@ -1274,7 +1310,10 @@
     "aligned",
     "marker-end",
     "to-end"
-   ]
+   ],
+   "own_share_exact_sums": 0.01878,
+   "s_own_at_cell_exact_sums": 0.0357,
+   "estimator_ratio": 0.61
   }
  ]
 }
