@@ -207,6 +207,13 @@ def against(ship_dir: Path, ctl_dir: Path) -> int:
     both = sorted(ship & ctl)
     bad = 0
     print(f"ship {len(ship)} legs, control {len(ctl)} legs, {len(both)} comparable\n")
+    if not both:
+        # A comparison of nothing is not a match. Pointing --partial at a LOG instead of the
+        # gate WORKDIR globs zero reports and used to print IDENTICAL and exit 0, which is a
+        # pass no evidence backs.
+        print("RAW: NOTHING COMPARED -- --partial must be the gate WORKDIR holding the raw "
+              "per-leg <leg>.json reports, not a log or a summary")
+        return 2
     for leg in both:
         a = dict(_walk(json.loads((ship_dir / f"{leg}.json").read_text())))
         b = dict(_walk(json.loads((ctl_dir / f"{leg}.json").read_text())))
