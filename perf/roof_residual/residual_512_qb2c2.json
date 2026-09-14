@@ -1,0 +1,1280 @@
+{
+ "roofs": {
+  "stream_GBps": 424.7,
+  "compute_TFLOPs": 104.93,
+  "machine_balance_flop_per_byte": 247.1,
+  "cell_s": 17.34,
+  "cell_scale": 0.7011,
+  "session_fold_s": 24.731
+ },
+ "closure": {
+  "top_level_at_cell_s": 17.278,
+  "sum_of_own_rows_at_cell_s": 17.278,
+  "gap_pct": -0.0
+ },
+ "glue_at_cell_s": 3.94,
+ "glue_with_device_ops_at_cell_s": 2.9161,
+ "glue_with_no_device_op_at_cell_s": 1.0239,
+ "units_with_no_own_op": [
+  "DiffusionTransformer|1x512x768,1x512x768",
+  "DiffusionTransformer|1x140x32x128,1x140x32x128"
+ ],
+ "adaln_double_count_at_cell_s": 0.4631,
+ "adaln_double_count_above_roof_at_cell_s": 0.2605,
+ "rows": [
+  {
+   "unit": "Transition|1x512x512x128",
+   "terminal_MB_per_call": 0.279,
+   "kind": "leaf",
+   "calls": 280,
+   "s_own_per_fold": 3.603,
+   "s_own_at_cell": 2.5261,
+   "ops_per_call": 258,
+   "MB_per_call": 340.017,
+   "GFLOP_per_call": 103.113,
+   "AI_flop_per_byte": 303.26,
+   "binding_roof": "compute",
+   "s_at_roof": 0.2752,
+   "s_above_roof_at_cell": 2.2509,
+   "pct_of_roof_at_cell": 10.9,
+   "ops": {
+    "chunk": {
+     "n": 1,
+     "MB": 201.327,
+     "GFLOP": 0.0
+    },
+    "linear": {
+     "n": 96,
+     "MB": 138.412,
+     "GFLOP": 103.079
+    },
+    "layer_norm": {
+     "n": 32,
+     "MB": 0.0,
+     "GFLOP": 0.034
+    },
+    "deallocate": {
+     "n": 96,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 32,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "concat": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "TriangleMultiplication|1x512x512x128,1x512x512",
+   "terminal_MB_per_call": 0.721,
+   "kind": "leaf",
+   "calls": 528,
+   "s_own_per_fold": 5.175,
+   "s_own_at_cell": 3.6282,
+   "ops_per_call": 23,
+   "MB_per_call": 1745.584,
+   "GFLOP_per_call": 85.966,
+   "AI_flop_per_byte": 49.25,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 2.1702,
+   "s_above_roof_at_cell": 1.458,
+   "pct_of_roof_at_cell": 59.8,
+   "ops": {
+    "allocate_tensor_on_device": {
+     "n": 5,
+     "MB": 805.306,
+     "GFLOP": 0.0
+    },
+    "layer_norm": {
+     "n": 2,
+     "MB": 402.686,
+     "GFLOP": 0.067
+    },
+    "multiply_": {
+     "n": 2,
+     "MB": 268.435,
+     "GFLOP": 0.0
+    },
+    "matmul": {
+     "n": 1,
+     "MB": 268.435,
+     "GFLOP": 34.36
+    },
+    "generic_op": {
+     "n": 4,
+     "MB": 0.0,
+     "GFLOP": 42.95
+    },
+    "deallocate": {
+     "n": 6,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "unsqueeze": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "to_memory_config": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "linear": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 8.59
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "TriangleAttention|1x512x512x128,1x1x1x512",
+   "terminal_MB_per_call": 67.281,
+   "kind": "leaf",
+   "calls": 528,
+   "s_own_per_fold": 3.929,
+   "s_own_at_cell": 2.7546,
+   "ops_per_call": 26,
+   "MB_per_call": 1183.015,
+   "GFLOP_per_call": 113.851,
+   "AI_flop_per_byte": 96.24,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 1.4708,
+   "s_above_roof_at_cell": 1.2839,
+   "pct_of_roof_at_cell": 53.4,
+   "ops": {
+    "allocate_tensor_on_device": {
+     "n": 7,
+     "MB": 687.866,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 1,
+     "MB": 268.435,
+     "GFLOP": 0.0
+    },
+    "layer_norm": {
+     "n": 1,
+     "MB": 134.234,
+     "GFLOP": 0.034
+    },
+    "permute": {
+     "n": 3,
+     "MB": 18.874,
+     "GFLOP": 0.0
+    },
+    "add": {
+     "n": 1,
+     "MB": 6.324,
+     "GFLOP": 0.001
+    },
+    "reshape": {
+     "n": 2,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "generic_op": {
+     "n": 3,
+     "MB": 0.0,
+     "GFLOP": 113.817
+    },
+    "unsqueeze": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 7,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "DiffusionTransformer|1x512x768,1x512x768",
+   "terminal_MB_per_call": 0.0,
+   "kind": "parent",
+   "calls": 200,
+   "s_own_per_fold": 1.418,
+   "s_own_at_cell": 0.9942,
+   "ops_per_call": 0,
+   "MB_per_call": 0.0,
+   "GFLOP_per_call": 0.0,
+   "AI_flop_per_byte": 0.0,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0,
+   "s_above_roof_at_cell": 0.9942,
+   "pct_of_roof_at_cell": 0.0,
+   "ops": {},
+   "closed_by": [
+    "marker-end"
+   ]
+  },
+  {
+   "unit": "Diffusion|1x4480x3,1",
+   "terminal_MB_per_call": 9.634,
+   "kind": "parent",
+   "calls": 200,
+   "s_own_per_fold": 1.2579,
+   "s_own_at_cell": 0.8819,
+   "ops_per_call": 21,
+   "MB_per_call": 40.665,
+   "GFLOP_per_call": 1.332,
+   "AI_flop_per_byte": 32.75,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0192,
+   "s_above_roof_at_cell": 0.8628,
+   "pct_of_roof_at_cell": 2.2,
+   "ops": {
+    "add": {
+     "n": 5,
+     "MB": 13.959,
+     "GFLOP": 0.002
+    },
+    "matmul": {
+     "n": 1,
+     "MB": 5.865,
+     "GFLOP": 0.587
+    },
+    "linear": {
+     "n": 3,
+     "MB": 5.308,
+     "GFLOP": 0.741
+    },
+    "layer_norm": {
+     "n": 2,
+     "MB": 3.342,
+     "GFLOP": 0.001
+    },
+    "permute": {
+     "n": 2,
+     "MB": 2.556,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 6,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "reshape": {
+     "n": 2,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": [
+    "aligned",
+    "closed-by-DiffusionTransformerLayer",
+    "closed-by-Transition",
+    "marker-end",
+    "to-end"
+   ]
+  },
+  {
+   "unit": "AdaLN|1x512x768,1x512x768",
+   "terminal_MB_per_call": 0.0,
+   "kind": "leaf",
+   "calls": 9600,
+   "s_own_per_fold": 1.131,
+   "s_own_at_cell": 0.7929,
+   "ops_per_call": 9,
+   "MB_per_call": 15.041,
+   "GFLOP_per_call": 1.209,
+   "AI_flop_per_byte": 80.37,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.34,
+   "s_above_roof_at_cell": 0.453,
+   "pct_of_roof_at_cell": 42.9,
+   "ops": {
+    "linear": {
+     "n": 2,
+     "MB": 5.554,
+     "GFLOP": 1.208
+    },
+    "layer_norm": {
+     "n": 2,
+     "MB": 3.195,
+     "GFLOP": 0.001
+    },
+    "multiply_": {
+     "n": 1,
+     "MB": 3.146,
+     "GFLOP": 0.0
+    },
+    "add_": {
+     "n": 1,
+     "MB": 3.146,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 2,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "to_memory_config": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "AttentionPairBias|1x512x768,1x16x512x512",
+   "terminal_MB_per_call": 0.0,
+   "kind": "leaf",
+   "calls": 4800,
+   "s_own_per_fold": 1.336,
+   "s_own_at_cell": 0.9367,
+   "ops_per_call": 17,
+   "MB_per_call": 43.975,
+   "GFLOP_per_call": 3.625,
+   "AI_flop_per_byte": 82.43,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.497,
+   "s_above_roof_at_cell": 0.4397,
+   "pct_of_roof_at_cell": 53.1,
+   "ops": {
+    "linear": {
+     "n": 3,
+     "MB": 15.139,
+     "GFLOP": 3.624
+    },
+    "transformer.scaled_dot_product_attention": {
+     "n": 1,
+     "MB": 12.583,
+     "GFLOP": 0.001
+    },
+    "experimental.nlp_create_qkv_heads": {
+     "n": 1,
+     "MB": 6.291,
+     "GFLOP": 0.0
+    },
+    "permute": {
+     "n": 2,
+     "MB": 4.719,
+     "GFLOP": 0.0
+    },
+    "multiply": {
+     "n": 1,
+     "MB": 2.359,
+     "GFLOP": 0.0
+    },
+    "Tensor.__getitem__": {
+     "n": 1,
+     "MB": 2.097,
+     "GFLOP": 0.0
+    },
+    "reshape": {
+     "n": 1,
+     "MB": 0.786,
+     "GFLOP": 0.0
+    },
+    "unsqueeze": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 6,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "OuterProductMean|1x1024x512x64,1024x1x1",
+   "terminal_MB_per_call": 0.0,
+   "kind": "leaf",
+   "calls": 16,
+   "s_own_per_fold": 0.891,
+   "s_own_at_cell": 0.6247,
+   "ops_per_call": 24,
+   "MB_per_call": 7319.347,
+   "GFLOP_per_call": 622.804,
+   "AI_flop_per_byte": 85.09,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.2757,
+   "s_above_roof_at_cell": 0.3489,
+   "pct_of_roof_at_cell": 44.1,
+   "ops": {
+    "to_layout": {
+     "n": 4,
+     "MB": 2818.572,
+     "GFLOP": 0.0
+    },
+    "permute": {
+     "n": 3,
+     "MB": 1207.96,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 2,
+     "MB": 1145.045,
+     "GFLOP": 0.0
+    },
+    "linear": {
+     "n": 3,
+     "MB": 872.694,
+     "GFLOP": 73.014
+    },
+    "matmul": {
+     "n": 1,
+     "MB": 603.98,
+     "GFLOP": 549.756
+    },
+    "reshape": {
+     "n": 5,
+     "MB": 536.871,
+     "GFLOP": 0.0
+    },
+    "layer_norm": {
+     "n": 1,
+     "MB": 134.226,
+     "GFLOP": 0.034
+    },
+    "deallocate": {
+     "n": 5,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "DiffusionTransformerLayer|1x512x768,1x512x768",
+   "terminal_MB_per_call": 0.0,
+   "kind": "parent",
+   "calls": 4800,
+   "s_own_per_fold": 0.6663,
+   "s_own_at_cell": 0.4671,
+   "ops_per_call": 4,
+   "MB_per_call": 10.666,
+   "GFLOP_per_call": 0.605,
+   "AI_flop_per_byte": 56.74,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.1205,
+   "s_above_roof_at_cell": 0.3466,
+   "pct_of_roof_at_cell": 25.8,
+   "ops": {
+    "add": {
+     "n": 2,
+     "MB": 5.505,
+     "GFLOP": 0.001
+    },
+    "linear": {
+     "n": 1,
+     "MB": 2.802,
+     "GFLOP": 0.604
+    },
+    "multiply": {
+     "n": 1,
+     "MB": 2.359,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": [
+    "marker-end"
+   ]
+  },
+  {
+   "unit": "PairWeightedAveraging|1x1024x512x64,1x512x512x128",
+   "terminal_MB_per_call": 67.133,
+   "kind": "leaf",
+   "calls": 16,
+   "s_own_per_fold": 0.734,
+   "s_own_at_cell": 0.5146,
+   "ops_per_call": 135,
+   "MB_per_call": 7181.664,
+   "GFLOP_per_call": 191.195,
+   "AI_flop_per_byte": 26.62,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.2706,
+   "s_above_roof_at_cell": 0.244,
+   "pct_of_roof_at_cell": 52.6,
+   "ops": {
+    "linear": {
+     "n": 25,
+     "MB": 2416.017,
+     "GFLOP": 53.687
+    },
+    "add_": {
+     "n": 7,
+     "MB": 1879.048,
+     "GFLOP": 0.0
+    },
+    "permute": {
+     "n": 17,
+     "MB": 1073.742,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 8,
+     "MB": 1073.742,
+     "GFLOP": 0.0
+    },
+    "matmul": {
+     "n": 8,
+     "MB": 536.871,
+     "GFLOP": 137.439
+    },
+    "layer_norm": {
+     "n": 2,
+     "MB": 134.226,
+     "GFLOP": 0.067
+    },
+    "Tensor.__getitem__": {
+     "n": 32,
+     "MB": 0.885,
+     "GFLOP": 0.0
+    },
+    "reshape": {
+     "n": 3,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "softmax": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.002
+    },
+    "deallocate": {
+     "n": 32,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "AttentionPairBias|1x512x384,1x512x512x128",
+   "terminal_MB_per_call": 67.133,
+   "kind": "leaf",
+   "calls": 264,
+   "s_own_per_fold": 0.458,
+   "s_own_at_cell": 0.3211,
+   "ops_per_call": 31,
+   "MB_per_call": 151.38,
+   "GFLOP_per_call": 3.628,
+   "AI_flop_per_byte": 23.97,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0941,
+   "s_above_roof_at_cell": 0.227,
+   "pct_of_roof_at_cell": 29.3,
+   "ops": {
+    "matmul": {
+     "n": 2,
+     "MB": 18.874,
+     "GFLOP": 0.537
+    },
+    "add_": {
+     "n": 2,
+     "MB": 16.843,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 1,
+     "MB": 16.777,
+     "GFLOP": 0.0
+    },
+    "softmax": {
+     "n": 1,
+     "MB": 16.777,
+     "GFLOP": 0.004
+    },
+    "linear": {
+     "n": 4,
+     "MB": 5.8,
+     "GFLOP": 3.053
+    },
+    "experimental.nlp_create_qkv_heads": {
+     "n": 1,
+     "MB": 3.146,
+     "GFLOP": 0.0
+    },
+    "permute": {
+     "n": 3,
+     "MB": 2.359,
+     "GFLOP": 0.0
+    },
+    "multiply": {
+     "n": 1,
+     "MB": 1.18,
+     "GFLOP": 0.0
+    },
+    "transpose": {
+     "n": 1,
+     "MB": 1.049,
+     "GFLOP": 0.0
+    },
+    "Tensor.__getitem__": {
+     "n": 1,
+     "MB": 1.049,
+     "GFLOP": 0.0
+    },
+    "reshape": {
+     "n": 1,
+     "MB": 0.393,
+     "GFLOP": 0.0
+    },
+    "unsqueeze": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 11,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "layer_norm": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.034
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "ConditionedTransitionBlock|1x512x768,1x512x768",
+   "terminal_MB_per_call": 0.0,
+   "kind": "parent",
+   "calls": 4800,
+   "s_own_per_fold": 0.8886,
+   "s_own_at_cell": 0.623,
+   "ops_per_call": 12,
+   "MB_per_call": 37.405,
+   "GFLOP_per_call": 5.436,
+   "AI_flop_per_byte": 145.32,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.4228,
+   "s_above_roof_at_cell": 0.2002,
+   "pct_of_roof_at_cell": 67.9,
+   "ops": {
+    "linear": {
+     "n": 5,
+     "MB": 21.676,
+     "GFLOP": 5.436
+    },
+    "multiply_": {
+     "n": 3,
+     "MB": 15.729,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 4,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": [
+    "marker-end"
+   ]
+  },
+  {
+   "unit": "Transition|1x1024x512x64",
+   "terminal_MB_per_call": 0.074,
+   "kind": "leaf",
+   "calls": 16,
+   "s_own_per_fold": 0.236,
+   "s_own_at_cell": 0.1655,
+   "ops_per_call": 514,
+   "MB_per_call": 606.151,
+   "GFLOP_per_call": 51.573,
+   "AI_flop_per_byte": 85.08,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0228,
+   "s_above_roof_at_cell": 0.1426,
+   "pct_of_roof_at_cell": 13.8,
+   "ops": {
+    "concat": {
+     "n": 1,
+     "MB": 335.544,
+     "GFLOP": 0.0
+    },
+    "chunk": {
+     "n": 1,
+     "MB": 201.327,
+     "GFLOP": 0.0
+    },
+    "linear": {
+     "n": 192,
+     "MB": 69.206,
+     "GFLOP": 51.54
+    },
+    "layer_norm": {
+     "n": 64,
+     "MB": 0.0,
+     "GFLOP": 0.034
+    },
+    "deallocate": {
+     "n": 192,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 64,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "AttentionPairBias|1x140x32x128,140x4x32x128",
+   "terminal_MB_per_call": 0.0,
+   "kind": "leaf",
+   "calls": 1200,
+   "s_own_per_fold": 0.665,
+   "s_own_at_cell": 0.4662,
+   "ops_per_call": 41,
+   "MB_per_call": 117.875,
+   "GFLOP_per_call": 1.621,
+   "AI_flop_per_byte": 13.75,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.3331,
+   "s_above_roof_at_cell": 0.1332,
+   "pct_of_roof_at_cell": 71.4,
+   "ops": {
+    "experimental.nlp_create_qkv_heads": {
+     "n": 1,
+     "MB": 27.525,
+     "GFLOP": 0.0
+    },
+    "linear": {
+     "n": 4,
+     "MB": 21.963,
+     "GFLOP": 1.615
+    },
+    "slice": {
+     "n": 6,
+     "MB": 16.884,
+     "GFLOP": 0.0
+    },
+    "pad": {
+     "n": 3,
+     "MB": 16.785,
+     "GFLOP": 0.005
+    },
+    "transformer.scaled_dot_product_attention": {
+     "n": 1,
+     "MB": 16.056,
+     "GFLOP": 0.001
+    },
+    "concat": {
+     "n": 1,
+     "MB": 8.454,
+     "GFLOP": 0.0
+    },
+    "to_layout": {
+     "n": 2,
+     "MB": 4.473,
+     "GFLOP": 0.0
+    },
+    "multiply": {
+     "n": 1,
+     "MB": 3.441,
+     "GFLOP": 0.001
+    },
+    "experimental.nlp_concat_heads": {
+     "n": 1,
+     "MB": 2.294,
+     "GFLOP": 0.0
+    },
+    "to_memory_config": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "reshape": {
+     "n": 10,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "Tensor.__getitem__": {
+     "n": 6,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 3,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "squeeze": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "DiffusionModule|",
+   "terminal_MB_per_call": 9.634,
+   "kind": "parent",
+   "calls": 200,
+   "s_own_per_fold": 0.158,
+   "s_own_at_cell": 0.1107,
+   "ops_per_call": 2,
+   "MB_per_call": 9.923,
+   "GFLOP_per_call": 0.0,
+   "AI_flop_per_byte": 0.0,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0047,
+   "s_above_roof_at_cell": 0.1061,
+   "pct_of_roof_at_cell": 4.2,
+   "ops": {
+    "from_torch": {
+     "n": 2,
+     "MB": 0.289,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": [
+    "aligned",
+    "closed-by-AttentionPairBias",
+    "closed-by-DiffusionTransformerLayer",
+    "closed-by-Transition",
+    "marker-end"
+   ]
+  },
+  {
+   "unit": "TriangleAttention|1x512x512x128",
+   "terminal_MB_per_call": 67.281,
+   "kind": "leaf",
+   "calls": 32,
+   "s_own_per_fold": 0.271,
+   "s_own_at_cell": 0.19,
+   "ops_per_call": 25,
+   "MB_per_call": 1178.788,
+   "GFLOP_per_call": 113.85,
+   "AI_flop_per_byte": 96.58,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0888,
+   "s_above_roof_at_cell": 0.1012,
+   "pct_of_roof_at_cell": 46.7,
+   "ops": {
+    "allocate_tensor_on_device": {
+     "n": 7,
+     "MB": 687.866,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 1,
+     "MB": 268.435,
+     "GFLOP": 0.0
+    },
+    "layer_norm": {
+     "n": 1,
+     "MB": 134.234,
+     "GFLOP": 0.034
+    },
+    "permute": {
+     "n": 3,
+     "MB": 20.972,
+     "GFLOP": 0.0
+    },
+    "reshape": {
+     "n": 2,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "generic_op": {
+     "n": 3,
+     "MB": 0.0,
+     "GFLOP": 113.817
+    },
+    "unsqueeze": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 7,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "TriangleMultiplication|1x512x512x128",
+   "terminal_MB_per_call": 0.197,
+   "kind": "leaf",
+   "calls": 32,
+   "s_own_per_fold": 0.3,
+   "s_own_at_cell": 0.2103,
+   "ops_per_call": 20,
+   "MB_per_call": 1610.842,
+   "GFLOP_per_call": 85.966,
+   "AI_flop_per_byte": 53.37,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.1214,
+   "s_above_roof_at_cell": 0.089,
+   "pct_of_roof_at_cell": 57.7,
+   "ops": {
+    "allocate_tensor_on_device": {
+     "n": 5,
+     "MB": 805.306,
+     "GFLOP": 0.0
+    },
+    "layer_norm": {
+     "n": 2,
+     "MB": 402.686,
+     "GFLOP": 0.067
+    },
+    "matmul": {
+     "n": 1,
+     "MB": 268.435,
+     "GFLOP": 34.36
+    },
+    "multiply_": {
+     "n": 1,
+     "MB": 134.218,
+     "GFLOP": 0.0
+    },
+    "generic_op": {
+     "n": 4,
+     "MB": 0.0,
+     "GFLOP": 42.95
+    },
+    "deallocate": {
+     "n": 6,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "linear": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 8.59
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "DiffusionTransformerLayer|1x140x32x128,1x140x32x128",
+   "terminal_MB_per_call": 0.164,
+   "kind": "parent",
+   "calls": 1200,
+   "s_own_per_fold": 0.1588,
+   "s_own_at_cell": 0.1113,
+   "ops_per_call": 4,
+   "MB_per_call": 13.967,
+   "GFLOP_per_call": 0.149,
+   "AI_flop_per_byte": 10.63,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0395,
+   "s_above_roof_at_cell": 0.0719,
+   "pct_of_roof_at_cell": 35.4,
+   "ops": {
+    "add": {
+     "n": 2,
+     "MB": 8.028,
+     "GFLOP": 0.001
+    },
+    "multiply": {
+     "n": 1,
+     "MB": 3.441,
+     "GFLOP": 0.001
+    },
+    "linear": {
+     "n": 1,
+     "MB": 2.335,
+     "GFLOP": 0.147
+    }
+   },
+   "closed_by": [
+    "aligned",
+    "marker-end"
+   ]
+  },
+  {
+   "unit": "ConditionedTransitionBlock|1x140x32x128,1x140x32x128",
+   "terminal_MB_per_call": 1.229,
+   "kind": "parent",
+   "calls": 1200,
+   "s_own_per_fold": 0.2607,
+   "s_own_at_cell": 0.1828,
+   "ops_per_call": 12,
+   "MB_per_call": 40.526,
+   "GFLOP_per_call": 1.321,
+   "AI_flop_per_byte": 32.6,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.1145,
+   "s_above_roof_at_cell": 0.0683,
+   "pct_of_roof_at_cell": 62.6,
+   "ops": {
+    "multiply_": {
+     "n": 3,
+     "MB": 22.938,
+     "GFLOP": 0.0
+    },
+    "linear": {
+     "n": 5,
+     "MB": 16.359,
+     "GFLOP": 1.321
+    },
+    "deallocate": {
+     "n": 4,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": [
+    "marker-end"
+   ]
+  },
+  {
+   "unit": "AdaLN|1x140x32x128,1x140x32x128",
+   "terminal_MB_per_call": 2.376,
+   "kind": "leaf",
+   "calls": 2400,
+   "s_own_per_fold": 0.19,
+   "s_own_at_cell": 0.1332,
+   "ops_per_call": 11,
+   "MB_per_call": 11.551,
+   "GFLOP_per_call": 0.295,
+   "AI_flop_per_byte": 25.52,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0653,
+   "s_above_roof_at_cell": 0.0679,
+   "pct_of_roof_at_cell": 49.0,
+   "ops": {
+    "to_memory_config": {
+     "n": 5,
+     "MB": 4.588,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 1,
+     "MB": 2.294,
+     "GFLOP": 0.0
+    },
+    "add_": {
+     "n": 1,
+     "MB": 2.294,
+     "GFLOP": 0.0
+    },
+    "layer_norm": {
+     "n": 2,
+     "MB": 0.0,
+     "GFLOP": 0.001
+    },
+    "linear": {
+     "n": 2,
+     "MB": 0.0,
+     "GFLOP": 0.294
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "PairformerLayer|1x512x384,1x512x512x128",
+   "terminal_MB_per_call": 3.973,
+   "kind": "parent",
+   "calls": 264,
+   "s_own_per_fold": 0.698,
+   "s_own_at_cell": 0.4894,
+   "ops_per_call": 16,
+   "MB_per_call": 679.043,
+   "GFLOP_per_call": 0.0,
+   "AI_flop_per_byte": 0.0,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.4221,
+   "s_above_roof_at_cell": 0.0673,
+   "pct_of_roof_at_cell": 86.3,
+   "ops": {
+    "add_": {
+     "n": 7,
+     "MB": 674.234,
+     "GFLOP": 0.0
+    },
+    "layer_norm": {
+     "n": 1,
+     "MB": 0.836,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 8,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": [
+    "aligned",
+    "marker-end"
+   ]
+  },
+  {
+   "unit": "Transition|1x512x384",
+   "terminal_MB_per_call": 2.802,
+   "kind": "leaf",
+   "calls": 264,
+   "s_own_per_fold": 0.052,
+   "s_own_at_cell": 0.0365,
+   "ops_per_call": 8,
+   "MB_per_call": 4.768,
+   "GFLOP_per_call": 1.812,
+   "AI_flop_per_byte": 380.08,
+   "binding_roof": "compute",
+   "s_at_roof": 0.0046,
+   "s_above_roof_at_cell": 0.0319,
+   "pct_of_roof_at_cell": 12.5,
+   "ops": {
+    "linear": {
+     "n": 3,
+     "MB": 1.966,
+     "GFLOP": 1.812
+    },
+    "layer_norm": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 3,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "DiffusionTransformer|1x140x32x128,1x140x32x128",
+   "terminal_MB_per_call": 0.0,
+   "kind": "parent",
+   "calls": 400,
+   "s_own_per_fold": 0.0424,
+   "s_own_at_cell": 0.0297,
+   "ops_per_call": 0,
+   "MB_per_call": 0.0,
+   "GFLOP_per_call": 0.0,
+   "AI_flop_per_byte": 0.0,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0,
+   "s_above_roof_at_cell": 0.0297,
+   "pct_of_roof_at_cell": 0.0,
+   "ops": {},
+   "closed_by": [
+    "aligned",
+    "closed-by-DiffusionTransformerLayer",
+    "marker-end",
+    "to-end"
+   ]
+  },
+  {
+   "unit": "Transition|1x512x768",
+   "terminal_MB_per_call": 5.603,
+   "kind": "leaf",
+   "calls": 400,
+   "s_own_per_fold": 0.053,
+   "s_own_at_cell": 0.0372,
+   "ops_per_call": 8,
+   "MB_per_call": 9.535,
+   "GFLOP_per_call": 3.624,
+   "AI_flop_per_byte": 380.08,
+   "binding_roof": "compute",
+   "s_at_roof": 0.0138,
+   "s_above_roof_at_cell": 0.0233,
+   "pct_of_roof_at_cell": 37.2,
+   "ops": {
+    "linear": {
+     "n": 3,
+     "MB": 3.932,
+     "GFLOP": 3.624
+    },
+    "layer_norm": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 3,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    },
+    "multiply_": {
+     "n": 1,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": []
+  },
+  {
+   "unit": "PairformerLayer|1x512x512x128",
+   "terminal_MB_per_call": 1.016,
+   "kind": "parent",
+   "calls": 16,
+   "s_own_per_fold": 0.04,
+   "s_own_at_cell": 0.028,
+   "ops_per_call": 10,
+   "MB_per_call": 672.104,
+   "GFLOP_per_call": 0.0,
+   "AI_flop_per_byte": 0.0,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0253,
+   "s_above_roof_at_cell": 0.0027,
+   "pct_of_roof_at_cell": 90.3,
+   "ops": {
+    "add_": {
+     "n": 5,
+     "MB": 671.089,
+     "GFLOP": 0.0
+    },
+    "deallocate": {
+     "n": 5,
+     "MB": 0.0,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": [
+    "aligned"
+   ]
+  },
+  {
+   "unit": "MSALayer|1x512x512x128,1x1024x512x64",
+   "terminal_MB_per_call": 1.114,
+   "kind": "parent",
+   "calls": 16,
+   "s_own_per_fold": 0.0313,
+   "s_own_at_cell": 0.0219,
+   "ops_per_call": 3,
+   "MB_per_call": 806.42,
+   "GFLOP_per_call": 0.0,
+   "AI_flop_per_byte": 0.0,
+   "binding_roof": "bandwidth",
+   "s_at_roof": 0.0304,
+   "s_above_roof_at_cell": -0.0085,
+   "pct_of_roof_at_cell": 138.6,
+   "ops": {
+    "add_": {
+     "n": 3,
+     "MB": 805.306,
+     "GFLOP": 0.0
+    }
+   },
+   "closed_by": [
+    "aligned",
+    "marker-end",
+    "to-end"
+   ]
+  }
+ ]
+}
