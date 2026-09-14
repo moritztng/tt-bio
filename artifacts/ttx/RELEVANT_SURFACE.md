@@ -1,6 +1,7 @@
 # What a Boltz-2 fold actually reaches
 
-Most of the 2.9 M-line diff is code our fold never executes. This is the filter that gets applied
+Target `ttnn==0.78.0`, baseline `v0.68.0`. Most of the 2.66 M-line diff is code our fold never
+executes. This is the filter that gets applied
 before anyone reads: which upstream files a fold touches, how it was derived, and how much of the
 fold's time sits behind each one.
 
@@ -61,8 +62,10 @@ is arithmetic is worth less here than its line count suggests.
 | `create_sharded_memory_config`, `to_memory_config`, `MemoryConfig` | 29 | `.../data_movement/sharded/`, `.../operations/core/` | P4 |
 | `DeviceComputeKernelConfig`, `MathFidelity` | 44 | `.../operations/core/compute_kernel/` | P13 |
 
-`ttnn/cpp/ttnn/operations/generic/` changed by only **214 lines over 9 files** across the whole
-range, and `generic_op` still exists at the tip with the same file set. Our nine hand-written kernel
+`ttnn/cpp/ttnn/operations/generic/` changed by only **49 added and 165 removed lines over 9 files**
+across the whole range; `generic_op` exists at 0.78.0 with the same nine files, and
+`ttnn-nanobind/program_descriptors.cpp` — the binding `ProgramDescriptor`, `KernelDescriptor`,
+`CBDescriptor` and `SemaphoreDescriptor` come through — is intact. Our nine hand-written kernel
 directories keep their entry point.
 
 ## The kernels we transcribed from upstream, and what they cost to re-derive
@@ -70,11 +73,11 @@ directories keep their entry point.
 `tt_bio/kernels/mm_split/patch_mm_split.py` and `tt_bio/kernels/trimul_tail/patch_trimul_tail.py`
 regenerate our kernels *from the installed wheel's own* `minimal_matmul` kernels, asserting exact
 anchor counts so a wheel bump raises rather than binding a stale kernel. Those four upstream files
-moved by **886 added / 299 removed lines** in the range:
+moved by **875 added / 297 removed lines** in the range:
 
 | upstream file | +/- |
 |---|---|
-| `.../minimal_matmul/device/kernels/compute.cpp` | +235 / -88 |
+| `.../minimal_matmul/device/kernels/compute.cpp` | +224 / -86 |
 | `.../minimal_matmul/device/kernels/dm_in0_sender.cpp` | +253 / -75 |
 | `.../minimal_matmul/device/kernels/dm_in1_sender_out.cpp` | +220 / -56 |
 | `.../minimal_matmul/device/kernels/matmul_dataflow_common.hpp` | +178 / -80 |
@@ -86,37 +89,39 @@ them; they are for fabric-connected matmul and are not on our path.
 
 ## A verified porting-bill item outside Boltz-2
 
-`tt_bio/kernels/rfd3_softmax/` includes three headers that **do not exist at the tip**:
+`tt_bio/kernels/rfd3_softmax/` includes three headers that **do not exist at 0.78.0**:
 `experimental/noc.h`, `experimental/circular_buffer.h` and `experimental/tensor.h`. The first two
 were renamed to `tt_metal/hw/inc/api/dataflow/noc.h` and `.../api/dataflow/circular_buffer.h`, so
-they cost three `#include` lines. `experimental/tensor.h` has no obvious successor and P3 owes an
-answer. This affects RFdiffusion3, not the Boltz-2 fold, but it is a shipped model.
+they cost three `#include` lines. `tt_metal/hw/inc/experimental/` still exists but holds entirely
+different things now (`blaze_*`, `udm/`, `gddr_dma.h`, `drisc_mode.h`); the closest candidate
+successor to `experimental/tensor.h` is `experimental/udm/accessor/mesh_tensor_accessor.h` and P3
+owes whether that is actually it. This affects RFdiffusion3, not the Boltz-2 fold, but it is a shipped model.
 
 ## The compute-API headers our kernels include, and their churn
 
 Every `tt_metal/hw/inc/api/` header our nine kernel directories include, with lines added/removed in
 the range. This is the only part of P7 (126,338 lines) worth reading:
 
-`compute_kernel_api.h` +453/-270, `eltwise_binary.h` +487/-117, `typecast.h` +414/-5,
+`compute_kernel_api.h` +479/-153, `eltwise_binary.h` +487/-117, `typecast.h` +414/-5,
 `bcast.h` +285/-94, `eltwise_binary_sfpu.h` +236/-22, `tilize.h` +235/-90,
-`tile_move_copy.h` +212/-51, `reduce_custom.h` +206/-52, `reduce.h` +102/-44,
-`sfpu_split_includes.h` +95/-59, `matmul.h` +86/-239, `pack.h` +87/-71,
-`transpose_wh.h` +85/-78, `binary_max_min.h` +116/-11, `dataflow_api.h` +76/-54,
-`eltwise_unary.h` +56/-30, `softplus.h` +33/-4, `exp.h` +25/-48, `untilize.h` +23/-9,
-`fill.h` +26/-5, `recip.h` +15/-10, `negative.h` +10/-4, `sfpu_int_sum.h` +6/-5,
-`binop_with_scalar.h` +82/-9, `matmul_custom.h` +10/-20, `sdpa_sub_custom.h` +18/-9,
-`common.h` +1/-1, `softmax.h` +1/-1, `assert.h` +45/-61.
+`reduce_custom.h` +206/-52, `tile_move_copy.h` +172/-50, `binary_max_min.h` +116/-11,
+`reduce.h` +102/-44, `matmul.h` +86/-239, `transpose_wh.h` +85/-78, `binop_with_scalar.h` +82/-9,
+`assert.h` +77/-61, `dataflow_api.h` +76/-51, `pack.h` +67/-74, `eltwise_unary.h` +56/-30,
+`sfpu_split_includes.h` +53/-17, `softplus.h` +33/-4, `fill.h` +26/-5, `exp.h` +25/-48,
+`untilize.h` +23/-9, `sdpa_sub_custom.h` +18/-9, `recip.h` +15/-10, `matmul_custom.h` +10/-20,
+`negative.h` +10/-4, `sfpu_int_sum.h` +6/-5, `common.h` +1/-1, `softmax.h` +1/-1. Plus
+`experimental/noc.h` +0/-574, deleted outright.
 
-`api/compute/matmul.h` is the one that lost more than it gained. There is also a whole new
-`tt_metal/hw/inc/api/compute/experimental/2_0/` generation of the compute API (bcast, matmul, pack,
-reduce, `pack_untilize`, `reconfig_data_format`, `llk_descriptor`) that did not exist at 0.68.0.
-P7 owes what "2_0" is and whether it is reachable from a `generic_op` kernel.
+`api/compute/matmul.h` is the one that lost more than it gained. There is also a whole
+new `tt_metal/hw/inc/api/compute/experimental/2_0/` generation of the compute API (bcast, matmul,
+pack, reduce, `pack_untilize`, `reconfig_data_format`, `llk_descriptor`) — but it is **nightly-only
+and absent from 0.78.0**, so it is a preview, not something P7 can hand us today.
 
 ## Dead levers, and which package owns the gate that killed each
 
 | lever | the gate | pkg |
 |---|---|---|
-| pair-tensor L1 residency | `ttnn.matmul` refuses a sharded in0 unless `fuse_batch`. At 0.68.0 that is three separate `TT_FATAL`s in `matmul_device_operation.cpp` (lines 493, 588, 776). See the worked example in `READING_CONTRACT.md`: two of the three are gone at the tip and one survives, and which one our call hits is exactly what P1 owes | P1 |
+| pair-tensor L1 residency | `ttnn.matmul` refuses a sharded in0 unless `fuse_batch`. At 0.68.0 that is three separate `TT_FATAL`s in `matmul_device_operation.cpp` (lines 493, 588, 776). See the worked example in `READING_CONTRACT.md`: two of the three are gone at 0.78.0 and one survives, and which one our call hits is exactly what P1 owes | P1 |
 | `minimal_matmul` daisy chain | `K_block == full K` leaves nothing to pipeline; `K_block=2` measured 1.159x | P1 |
 | per-op launch floor, 20.6 µs fixed + 8.3 µs/block | no way to submit many programs as one | P6, P12 |
 | CB depth / prefetch | the producer emits one block, so depth buys nothing | P3 |
@@ -129,5 +134,5 @@ P7 owes what "2_0" is and whether it is reachable from a `generic_op` kernel.
 ## What no agent should be sent to read
 
 `models/`, `tests/`, `tt-train/`, `.github/`, quasar, CCL and fabric, deepseek, moreh, conv, pool,
-sliding_window, FFT, KDA, and the scaleout cabling tooling. That is 75.1 % of the diff by line.
-The full list with line counts is in `DIFF_PACKAGES.md`.
+sliding_window, KDA, and the scaleout cabling tooling. That is 74.4 % of the diff by line. The full
+list with line counts is in `DIFF_PACKAGES.md`.

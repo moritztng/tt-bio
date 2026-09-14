@@ -1,5 +1,10 @@
 # The reading contract
 
+Range `v0.68.0` -> **`v0.78.0`**, the shipped target. `v0.79.0-dev20260913` is tracked as a delta
+column in `DIFF_PACKAGES.md` but is not the target: an unlock that exists only in a nightly has no
+wheel and cannot be paid for. If a capability you find is nightly-only, say so in the row and grade
+it POINTER.
+
 Written once so it does not drift across thirty agents. Every package agent in the TTX diff fan-out
 is held to this.
 
@@ -45,7 +50,7 @@ The dead lever "pair-tensor L1 residency" died because `ttnn.matmul` refuses a s
 where `fuse_batch=False`. The naive check:
 
 ```
-git -C .ttm.git grep -n "Batch fusion must be enabled" v0.79.0-dev20260913 -- ttnn/cpp/ttnn/operations/matmul/
+git -C .ttm.git grep -n "Batch fusion must be enabled" v0.78.0 -- ttnn/cpp/ttnn/operations/matmul/
   -> no output
 ```
 
@@ -57,7 +62,7 @@ matmul_device_operation.cpp:493  TT_FATAL(program_config.fuse_batch, "Error: Bat
 matmul_device_operation.cpp:588  TT_FATAL(program_config.fuse_batch, "Error: Batch fusion must be enabled.");
 matmul_device_operation.cpp:776  TT_FATAL(program_config.fuse_batch, "Batch fusion is required when input A is sharded");
 
-# v0.79.0-dev20260913 -- one fatal
+# v0.78.0 -- one fatal
 matmul_device_operation.cpp:1443 TT_FATAL(program_config.fuse_batch, "{}: Batch fusion is required when input A is sharded", config_name);
 ```
 
@@ -97,7 +102,10 @@ a maintenance win, usually **not** a speedup. Grade it that way explicitly:
   interleaved. The direct-speed hypothesis is refuted; this campaign is about capability. If you
   find yourself timing folds, you have drifted.
 - **No device, no builds.** The reading fan-out is card-free and that is the point. Anything needing
-  a Blackhole measurement goes back to the orchestrator to be queued on qb2, serially.
+  a Blackhole measurement goes back to the orchestrator to be queued on qb2, serially, against the
+  0.78.0 environment `ttx-version-recon` already built: `/home/ttuser/scratch/ttx/venv-new`, opened
+  with `TT_MESH_GRAPH_DESC_PATH=<repo>/perf/ttx/mgd/bh_1x1.textproto TT_VISIBLE_DEVICES=<card>`.
+  Do not rebuild it and do not bump the pin.
 - **STOP is a pass.** "Nothing in this package unlocked anything" is a complete and valuable answer:
   it saves the porting bill. Say it plainly and say what you read.
 
@@ -121,11 +129,12 @@ VERDICT:   GO | NO-GO | PARTIAL | BLOCKED | STOP
 
 `RISKS` is not optional and is not a consolation prize. One is already known and confirmed:
 `tt_metal/hw/inc/experimental/{noc,circular_buffer,tensor}.h`, included by
-`tt_bio/kernels/rfd3_softmax/`, no longer exist. The first two moved to `api/dataflow/`; the third
-has no located successor.
+`tt_bio/kernels/rfd3_softmax/`, no longer exist as of 0.78.0. The first two moved to
+`api/dataflow/`; the third's closest candidate is `experimental/udm/accessor/mesh_tensor_accessor.h`
+and nobody has confirmed that is it.
 
 A second case shows the same lesson from the other side. The `transformer/sdpa_windowed/` directory
-is gone at the tip, which reads as a removal until you grep for the word rather than the path: the
+is gone at 0.78.0, which reads as a removal until you grep for the word rather than the path: the
 op was absorbed into `transformer/sdpa/` as `device/kernels/dataflow/windowed_mask_gen.hpp` and
 `device/kernels/windowed_loop_geometry.hpp`. A vanished directory is not a vanished capability, and
 this one is a candidate unlock for OF3's windowed atom attention rather than a bill.

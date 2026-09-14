@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Package definitions for the 0.68.0 -> current tt-metal diff, plus their measured volume.
+"""Package definitions for the tt-metal version diff, plus their measured volume.
 
 Each package is a set of path prefixes over the tt-metal tree. Volume is computed from
-`git diff --numstat v0.68.0 v0.79.0-dev20260913` (artifacts/ttx/numstat_068_079.tsv) and the
-commit count from `git rev-list --count` over the same paths.
+`git diff --numstat OLD NEW` and the commit count from `git rev-list --count` over the same paths.
+
+The range is the only thing that changes when the campaign's target moves:
+
+    ./packages.py                                  # v0.68.0 -> v0.78.0, the shipped target
+    ./packages.py v0.78.0 v0.79.0-dev20260913      # what the nightly adds on top
+
+Output goes to packages_<OLD>_<NEW>.json; the numstat cache is numstat_<OLD>_<NEW>.tsv.
 """
 import collections, json, subprocess, sys
 from pathlib import Path
@@ -16,7 +22,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 MIRROR = ROOT.parent.parent / ".ttm.git"
-OLD, NEW = "v0.68.0", "v0.79.0-dev20260913"
+OLD, NEW = (sys.argv[1], sys.argv[2]) if len(sys.argv) > 2 else ("v0.68.0", "v0.78.0")
+TAG = f"{OLD}_{NEW}".replace("v", "").replace(".", "")
 
 PACKAGES = {
  "P1-matmul": [
@@ -196,7 +203,7 @@ EXCLUDED = {
 
 def ensure_numstat():
     """The per-file numstat is 1.5 MB and regenerates in ~1.3 s, so it is not committed."""
-    f = ROOT / "numstat_068_079.tsv"
+    f = ROOT / f"numstat_{TAG}.tsv"
     if not f.is_file():
         out = subprocess.run(["git", "-C", str(MIRROR), "diff", "--numstat", "-M", OLD, NEW],
                              capture_output=True, text=True).stdout
@@ -247,8 +254,9 @@ def volume():
 
 
 if __name__ == "__main__":
+    print(f"range {OLD} -> {NEW}")
     v = volume()
-    json.dump(v, open(ROOT / "packages.json", "w"), indent=1)
+    json.dump(v, open(ROOT / f"packages_{TAG}.json", "w"), indent=1)
     t = v.pop("_totals")
     print(f"{'package':26} {'lines':>8} {'files':>6} {'new':>5} {'commits':>8}")
     for k, d in sorted(v.items(), key=lambda x: -x[1]["lines"]):
