@@ -223,6 +223,14 @@ TRANSITION_H_CHUNK_SIZE_BIG = 32  # verified envelope: W<=384 (298-aa W=320). W=
 # bound by a number measured for a wider channel. Named so it can be measured rather than
 # argued: default 384 keeps every shipped shape byte-identical.
 TRANSITION_H_CHUNK_BIG_MAX_W = 384
+# [served, declined] for the raised Transition row chunk, plus the clause that refused it.
+# Every other shipped lever carries one of these and this one did not, so the only evidence a
+# raised chunk had ever reached a real fold was that the fold did not crash -- which cannot tell
+# a lever that served from one that was silently refused back to TRANSITION_H_CHUNK_SIZE.
+# Served means the 4-D path ran a block TALLER than the unconditional base; declined means it
+# ran the base or less. Keyed by (clause, HxWxc) like the six other reject dicts.
+TRANSITION_H_CHUNK_STATS = [0, 0]
+TRANSITION_H_CHUNK_REJECTS: dict = {}
 # Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
 # The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
 # aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
@@ -7979,6 +7987,19 @@ class Transition(Module):
         _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
         if _h:
             transition_h_chunk_size = max(1, min(int(_h), H))
+        # Record what the height actually came out as, AFTER every clause including the screen
+        # hook, because a ladder rung that reads "served" off a constant and not off the call is
+        # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
+        # to shrink it below the value the guard nominally admits.
+        if transition_h_chunk_size > TRANSITION_H_CHUNK_SIZE:
+            TRANSITION_H_CHUNK_STATS[0] += 1
+        else:
+            TRANSITION_H_CHUNK_STATS[1] += 1
+            _why = ("h-clamped-to-H" if transition_h_chunk_size >= H
+                    else "ratio-shrunk" if _rows_at(w_eff) < _base_h
+                    else "base-unraised")
+            _k = (_why, f"{H}x{W}x{x.shape[-1]}")
+            TRANSITION_H_CHUNK_REJECTS[_k] = TRANSITION_H_CHUNK_REJECTS.get(_k, 0) + 1
         if H > SEQ_LEN_MORE_CHUNKING:
             # Tag on ENTRY as well as on exit. The eager branch below tags before its loop, so a
             # long call there is visible as a tag with no successor; this branch only tagged after
