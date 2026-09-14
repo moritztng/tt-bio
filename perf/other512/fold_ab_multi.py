@@ -91,7 +91,7 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2",
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2", "kb2", "mmretune",
         # sizes-recheck. `noqsplit` ablates the SDPA q-split that main ships ON up to
         # 1024 padded tokens; `tr250` restores the pre-227cdb41 transpose headroom.
         "noqsplit", "tr250",
@@ -147,6 +147,24 @@ CKC_HIFI = None            # bound in main() once ttnn is imported
 # (kt, nt), so it cannot see a projection main served at some kt != 8 -- which is exactly the
 # regression this task exists to rule out. OLDKEY_HITS proves the arm actually ran.
 _MM_BLOCK_OLD = {24: (4, 8, 1, 4, 1), 8: (4, 8, 1, 4, 1)}
+
+# `kb2` is catalogue row B4: halve `K_block` on every entry, leaving M, N and the subblocks where
+# they ship. That is the lever the WH gap row measured at 1.159x on an L1 microbenchmark whose M is
+# 1/32 of the fold's. `mmretune` is the control the same screen produced at the PRODUCTION shape
+# (DRAM operands, mt = 8192, BH 11x10, perf/b2z2_mmgap/out/b4_widths_qb2c3.json): the best block
+# that KEEPS `K_block == kt`, so the contraction folds in the shipped order and `torch.equal`
+# holds. Both are written per (kt, nt) key, so an entry with no better candidate keeps its own.
+_MM_BLOCK_RETUNE = {
+    (2, 2): (8, 2, 1, 4, 1),      # 1.3345x, torch.equal
+    (2, 12): (4, 2, 2, 2, 2),     # 1.1581x, torch.equal
+    (4, 4): (8, 4, 1, 4, 1),      # 1.2561x, torch.equal
+    (4, 12): (8, 4, 2, 2, 2),     # 1.0641x, torch.equal
+    (4, 16): (4, 4, 2, 2, 2),     # 1.0891x, torch.equal
+    (4, 17): (8, 4, 1, 4, 1),     # 1.0369x, torch.equal
+    (8, 24): (4, 8, 2, 2, 2),     # 1.4473x, torch.equal
+    # (8, 8), (12, 12) and (12, 36) keep their shipped entry: nothing bit-exact beat it by more
+    # than the screen's own spread.
+}
 OLDKEY_HITS = [0, 0]
 
 
@@ -287,8 +305,11 @@ def main():
             "L1" if mc.buffer_type == ttnn.BufferType.L1 else "DRAM"] += 1
         return mc
 
-    def ln(x, headroom, **kw):
-        out, in_l1 = ORIG_LN(x, headroom, **kw)
+    def ln(x, headroom, *a, **kw):
+        # `*a` for the same reason `ppc` below takes `**kw`: `_l1_layer_norm` gained
+        # `reserve_per_core` as a third positional after this harness was written, and a census
+        # wrapper that pins the signature it wraps kills the fold it was meant to observe.
+        out, in_l1 = ORIG_LN(x, headroom, *a, **kw)
         DEC[f"l1_layer_norm|h={headroom}|{'x'.join(str(int(d)) for d in x.shape)}"][
             "L1" if in_l1 else "DRAM"] += 1
         return out, in_l1
@@ -321,7 +342,12 @@ def main():
     def qkvmm(x, w, *args, **kw):
         cfg = ORIG_QKVMM(x, w, *args, **kw)
         kt, nt = int(x.shape[-1]) // 32, int(w.shape[-1]) // 32
+        mt = 1
+        for d in [int(d) for d in x.shape][:-1]:
+            mt *= d
+        mt = (mt + 31) // 32
         DEC[f"qkv_mm_config|kt={kt},nt={nt}"]["config" if cfg is not None else "None"] += 1
+        DEC[f"qkv_mm_M|kt={kt},nt={nt}"][f"mt={mt}"] += 1
         return cfg
 
     T._qkv_mm_config = qkvmm
@@ -337,6 +363,7 @@ def main():
 
     T._trimul_inproj_group = group_census
 
+    _MM_BLOCK_SHIPPED = dict(T._MM_BLOCK)
     ORIG_MM_BLOCK_FOR = T._mm_block_for
 
     ORIG_TAS = T._tri_att_sdpa
@@ -439,6 +466,9 @@ def main():
 
         T._TRANSPOSE_L1_HEADROOM = {"tr125": 1.25, "tr250": 2.5}.get(
             name, SHIPPED["headroom"])
+        # every arm starts from the shipped table, so no arm can inherit the last one's blocks
+        T._MM_BLOCK.clear()
+        T._MM_BLOCK.update(_MM_BLOCK_SHIPPED)
         T._PAIR_PROJ_MM = name != "nomm"
         T._mm_block_for = _mm_block_old if name == "oldkey" else ORIG_MM_BLOCK_FOR
         OLDKEY_HITS[0] = OLDKEY_HITS[1] = 0
@@ -450,6 +480,15 @@ def main():
                 T._MM_BLOCK.pop(k, None)
             else:
                 T._MM_BLOCK[k] = (4, k[0], 1, 4, 1)
+
+        # B4: `kb2` halves every `K_block`, `mmretune` installs the best block that keeps it.
+        # Written last so they override the re-key loop rather than race it.
+        for k, v in _MM_BLOCK_SHIPPED.items():
+            if name == "kb2":
+                m, kb, n, sh, sw = v
+                T._MM_BLOCK[k] = (m, max(1, kb // 2), n, sh, sw)
+            elif name == "mmretune":
+                T._MM_BLOCK[k] = _MM_BLOCK_RETUNE.get(k, v)
 
         # capacity gates stay at production defaults on every arm: they are not under test here
         # `nofp32`/`nofp32hifi` flip every site except the confidence head, whatever the partition

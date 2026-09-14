@@ -1,0 +1,32 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "model": "boltz2",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "timers_installed": [
+  "stage:Pairformer",
+  "block:PairformerLayer",
+  "body:TriangleMultiplication",
+  "body:TriangleAttention",
+  "body:AttentionPairBias",
+  "body:PairWeightedAveraging"
+ ],
+ "runs": [
+  {
+   "size": 512,
+   "arm": "cold",
+   "error": "TypeError: main.<locals>.tas() takes 5 positional arguments but 7 were given"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "arm_medians": {}
+}
