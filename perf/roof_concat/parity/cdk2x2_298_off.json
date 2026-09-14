@@ -1,0 +1,23 @@
+{
+ "arm": "off",
+ "tag": "cdk2x2_298_off",
+ "fixture": "cdk2x2_298",
+ "seed": 42,
+ "steps": 200,
+ "recycles": 3,
+ "fold_s": 15.754,
+ "plddt": 0.913527,
+ "cif_sha256": "089a801819a0b932513f2a5f9becea1109634f902753aa90a5c6ea25e883e8c8",
+ "concat_heads_stats": [
+  0,
+  5064
+ ],
+ "host": "tt-quietbox2",
+ "card": "0",
+ "loadavg": [
+  30.1201171875,
+  31.50732421875,
+  31.37939453125
+ ],
+ "commit": "cec388cfe175387655589dbb1c70f8652e54cc9a"
+}
