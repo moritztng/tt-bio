@@ -6,7 +6,7 @@
 // C a multiple of 32, Ct = C/32 channel tiles.
 //
 // Each core owns a contiguous range of OUTPUT tile-groups
-// [start_group, start_group + num_groups). A group g -> (it = g/Nt, jt = g%Nt)
+// [first_group, first_group + num_groups). A group g -> (it = g/Nt, jt = g%Nt)
 // owns, for each channel tile ct, the 32 input tiles
 // { (it*32 + il, jt, ct) : il in [0,32) } whose flat page index is
 //   page = ((it*32 + il) * Nt + jt) * Ct + ct
@@ -30,7 +30,7 @@ void kernel_main() {
     // it lives in the common runtime args: everything else is a pure function of the shape and the
     // work split, which lets the host cache the whole ProgramDescriptor and rewrite two scalars.
     const uint32_t src_addr = get_common_arg_val<uint32_t>(0);
-    const uint32_t start_group = get_arg_val<uint32_t>(0);
+    const uint32_t first_group = get_arg_val<uint32_t>(0);
     const uint32_t num_groups = get_arg_val<uint32_t>(1);
     const uint32_t Nt = get_arg_val<uint32_t>(2);
     // D1 is the LOGICAL length of the permuted axis. The fold runs this op at 298, not at a
@@ -44,6 +44,21 @@ void kernel_main() {
     // 97 us op, and the page index is an induction variable (+Nt*Ct per row) once the test is gone.
     const uint32_t D1 = get_arg_val<uint32_t>(3);
     const uint32_t Ct = get_arg_val<uint32_t>(4);
+    // The group walk is (first, stride, wrap), not (start, +1), and that is a bandwidth decision.
+    // Interleaved DRAM puts page p in bank p % 8 and every page of group g is congruent to g, so
+    // the cores running their i-th group together land on banks {first_k + i*stride}. A plain
+    // contiguous block makes first_k = k*w, which covers 8/gcd(w, 8) of them: two of eight at
+    // w = 4, measured 1.71x slower per wave than w = 5 at the same traffic. Two ways out, and the
+    // host picks between them per split (see `tt_bio/reblock_permute.py`):
+    //   stride = num_cores   concurrent groups become consecutive indices;
+    //   wrap                 the block is kept and its START is rotated by the core's own phase,
+    //                        which spreads the banks the same way without scattering the pages.
+    // A core walks `num_groups` steps of `group_stride` from `first_group`, folding back to
+    // `group_wrap_lo` whenever it reaches `group_wrap_hi`. Blocked order is stride 1 and a wrap
+    // that never fires, so all three modes are this one loop.
+    const uint32_t group_stride = get_arg_val<uint32_t>(5);
+    const uint32_t group_wrap_hi = get_arg_val<uint32_t>(6);
+    const uint32_t group_wrap_lo = get_arg_val<uint32_t>(7);
 
     constexpr uint32_t cb_id_in = 0;  // c_0
     constexpr uint32_t TILE_HEIGHT = 32;
@@ -53,8 +68,8 @@ void kernel_main() {
 
     constexpr uint32_t onetile = 1;
     const uint32_t row_stride = Nt * Ct;
-    const uint32_t end_group = start_group + num_groups;
-    for (uint32_t group = start_group; group < end_group; ++group) {
+    uint32_t group = first_group;
+    for (uint32_t gi = 0; gi < num_groups; ++gi) {
         const uint32_t it = group / Nt;
         const uint32_t jt = group % Nt;
         const uint32_t row_base = it * TILE_HEIGHT;
@@ -81,6 +96,11 @@ void kernel_main() {
                 noc_async_read_barrier();
                 cb_push_back(cb_id_in, onetile);
             }
+        }
+
+        group += group_stride;
+        if (group == group_wrap_hi) {
+            group = group_wrap_lo;
         }
     }
 }

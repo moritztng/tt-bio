@@ -1,0 +1,305 @@
+{
+ "tie_window": 0.01,
+ "rows": [
+  {
+   "arch": "bh",
+   "cores": 110,
+   "banks": 8,
+   "leg": "fwd",
+   "N": 640,
+   "C": 32,
+   "cost": {
+    "block": 9920,
+    "stride": 3264,
+    "rotate": 4464
+   },
+   "predicted_ratio": {
+    "stride": 3.0392156862745097,
+    "rotate": 2.2222222222222223
+   },
+   "model_pick": "stride",
+   "device_pick": "stride",
+   "device_ratio": {
+    "stride": 1.438,
+    "rotate": 1.417
+   },
+   "tie": false,
+   "agree": "yes"
+  },
+  {
+   "arch": "bh",
+   "cores": 110,
+   "banks": 8,
+   "leg": "fwd",
+   "N": 960,
+   "C": 32,
+   "cost": {
+    "block": 18720,
+    "stride": 7264,
+    "rotate": 7456
+   },
+   "predicted_ratio": {
+    "stride": 2.5770925110132157,
+    "rotate": 2.5107296137339055
+   },
+   "model_pick": "stride",
+   "device_pick": "stride",
+   "device_ratio": {
+    "stride": 1.128,
+    "rotate": 1.121
+   },
+   "tie": true,
+   "agree": "tie"
+  },
+  {
+   "arch": "bh",
+   "cores": 110,
+   "banks": 8,
+   "leg": "back",
+   "N": 960,
+   "C": 32,
+   "cost": {
+    "block": 18720,
+    "stride": 7264,
+    "rotate": 7456
+   },
+   "predicted_ratio": {
+    "stride": 2.5770925110132157,
+    "rotate": 2.5107296137339055
+   },
+   "model_pick": "stride",
+   "device_pick": "rotate",
+   "device_ratio": {
+    "stride": 1.116,
+    "rotate": 1.144
+   },
+   "tie": false,
+   "agree": "NO"
+  },
+  {
+   "arch": "bh",
+   "cores": 110,
+   "banks": 8,
+   "leg": "fwd",
+   "N": 512,
+   "C": 32,
+   "cost": {
+    "block": 3392,
+    "stride": 2112,
+    "rotate": 3328
+   },
+   "predicted_ratio": {
+    "stride": 1.606060606060606,
+    "rotate": 1.0192307692307692
+   },
+   "model_pick": "stride",
+   "device_pick": "stride",
+   "device_ratio": {
+    "stride": 1.101,
+    "rotate": 0.974
+   },
+   "tie": false,
+   "agree": "yes"
+  },
+  {
+   "arch": "bh",
+   "cores": 110,
+   "banks": 8,
+   "leg": "gated",
+   "N": 512,
+   "C": 512,
+   "cost": {
+    "block": 15072,
+    "stride": 13152,
+    "rotate": 13312
+   },
+   "predicted_ratio": {
+    "stride": 1.145985401459854,
+    "rotate": 1.1322115384615385
+   },
+   "model_pick": "stride",
+   "device_pick": "rotate",
+   "device_ratio": {
+    "stride": 0.964,
+    "rotate": 1.03
+   },
+   "tie": false,
+   "agree": "NO"
+  },
+  {
+   "arch": "bh",
+   "cores": 110,
+   "banks": 8,
+   "leg": "back",
+   "N": 512,
+   "C": 128,
+   "cost": {
+    "block": 9632,
+    "stride": 8992,
+    "rotate": 8928
+   },
+   "predicted_ratio": {
+    "stride": 1.0711743772241993,
+    "rotate": 1.0788530465949822
+   },
+   "model_pick": "rotate",
+   "device_pick": "stride",
+   "device_ratio": {
+    "stride": 1.019,
+    "rotate": 1.018
+   },
+   "tie": true,
+   "agree": "tie"
+  },
+  {
+   "arch": "wh",
+   "cores": 72,
+   "banks": 12,
+   "leg": "fwd",
+   "N": 640,
+   "C": 32,
+   "cost": {
+    "block": 3472,
+    "stride": 2136,
+    "rotate": 2652
+   },
+   "predicted_ratio": {
+    "stride": 1.6254681647940075,
+    "rotate": 1.3092006033182504
+   },
+   "model_pick": "stride",
+   "device_pick": "stride",
+   "device_ratio": {
+    "stride": 1.056,
+    "rotate": 1.036
+   },
+   "tie": false,
+   "agree": "yes"
+  },
+  {
+   "arch": "wh",
+   "cores": 72,
+   "banks": 12,
+   "leg": "fwd",
+   "N": 960,
+   "C": 32,
+   "cost": {
+    "block": 23232,
+    "stride": 4800,
+    "rotate": 5472
+   },
+   "predicted_ratio": {
+    "stride": 4.84,
+    "rotate": 4.245614035087719
+   },
+   "model_pick": "stride",
+   "device_pick": "stride",
+   "device_ratio": {
+    "stride": 1.346,
+    "rotate": 1.33
+   },
+   "tie": false,
+   "agree": "yes"
+  },
+  {
+   "arch": "wh",
+   "cores": 72,
+   "banks": 12,
+   "leg": "back",
+   "N": 960,
+   "C": 32,
+   "cost": {
+    "block": 23232,
+    "stride": 4800,
+    "rotate": 5472
+   },
+   "predicted_ratio": {
+    "stride": 4.84,
+    "rotate": 4.245614035087719
+   },
+   "model_pick": "stride",
+   "device_pick": "rotate",
+   "device_ratio": {
+    "stride": 1.151,
+    "rotate": 1.3
+   },
+   "tie": false,
+   "agree": "NO"
+  },
+  {
+   "arch": "wh",
+   "cores": 72,
+   "banks": 12,
+   "leg": "fwd",
+   "N": 512,
+   "C": 32,
+   "cost": {
+    "block": 3932,
+    "stride": 1369,
+    "rotate": 1432
+   },
+   "predicted_ratio": {
+    "stride": 2.872169466764061,
+    "rotate": 2.7458100558659218
+   },
+   "model_pick": "stride",
+   "device_pick": "stride",
+   "device_ratio": {
+    "stride": 1.273,
+    "rotate": 1.267
+   },
+   "tie": true,
+   "agree": "tie"
+  },
+  {
+   "arch": "wh",
+   "cores": 72,
+   "banks": 12,
+   "leg": "gated",
+   "N": 512,
+   "C": 512,
+   "cost": {
+    "block": 12405,
+    "stride": 8507,
+    "rotate": 10809
+   },
+   "predicted_ratio": {
+    "stride": 1.458210885153403,
+    "rotate": 1.147654732167638
+   },
+   "model_pick": "stride",
+   "device_pick": "stride",
+   "device_ratio": {
+    "stride": 1.03,
+    "rotate": 1.008
+   },
+   "tie": false,
+   "agree": "yes"
+  },
+  {
+   "arch": "wh",
+   "cores": 72,
+   "banks": 12,
+   "leg": "back",
+   "N": 512,
+   "C": 128,
+   "cost": {
+    "block": 7582,
+    "stride": 5773,
+    "rotate": 7318
+   },
+   "predicted_ratio": {
+    "stride": 1.313355274553958,
+    "rotate": 1.036075430445477
+   },
+   "model_pick": "stride",
+   "device_pick": "stride",
+   "device_ratio": {
+    "stride": 1.055,
+    "rotate": 0.98
+   },
+   "tie": false,
+   "agree": "yes"
+  }
+ ]
+}

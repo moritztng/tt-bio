@@ -1,0 +1,31 @@
+{
+ "host": "tt-quietbox2",
+ "fixture": "cdk2x2_512",
+ "fold_s": 16.759,
+ "steps": 200,
+ "recycles": 3,
+ "rows": [
+  {
+   "leg": "gated",
+   "shape": [
+    1,
+    512,
+    512,
+    512
+   ],
+   "eligible": true,
+   "calls": 1120
+  },
+  {
+   "leg": "back",
+   "shape": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "eligible": true,
+   "calls": 560
+  }
+ ]
+}

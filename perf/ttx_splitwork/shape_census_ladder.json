@@ -1,0 +1,80 @@
+{
+ "host": "tt-quietbox2",
+ "steps": 200,
+ "recycles": 3,
+ "folds": [
+  {
+   "fixture": "cdk2x2_298",
+   "fold_s": 12.793,
+   "rows": [
+    {
+     "leg": "fwd",
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "eligible": true,
+     "calls": 4480
+    }
+   ]
+  },
+  {
+   "fixture": "cdk2x2_640",
+   "fold_s": 32.774,
+   "rows": [
+    {
+     "leg": "gated",
+     "shape": [
+      1,
+      640,
+      640,
+      512
+     ],
+     "eligible": true,
+     "calls": 1120
+    },
+    {
+     "leg": "back",
+     "shape": [
+      1,
+      128,
+      640,
+      640
+     ],
+     "eligible": true,
+     "calls": 560
+    }
+   ]
+  },
+  {
+   "fixture": "cdk2x2_1024",
+   "fold_s": 65.466,
+   "rows": [
+    {
+     "leg": "gated",
+     "shape": [
+      1,
+      1024,
+      1024,
+      512
+     ],
+     "eligible": true,
+     "calls": 1120
+    },
+    {
+     "leg": "back",
+     "shape": [
+      1,
+      128,
+      1024,
+      1024
+     ],
+     "eligible": true,
+     "calls": 560
+    }
+   ]
+  }
+ ]
+}
