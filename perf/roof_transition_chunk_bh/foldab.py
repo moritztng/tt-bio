@@ -46,6 +46,9 @@ def main() -> int:
     ap.add_argument("--legs", default="512:h48",
                     help="comma list of <size>:<arm>; the shipped arm is added around each")
     ap.add_argument("--reps", type=int, default=4)
+    ap.add_argument("--ref", default="ship",
+                    help="the arm run on both sides of the test arm; `ship` is the tree's own "
+                         "default, `off` pins the Blackhole row-height raise off")
     ap.add_argument("--steps", type=int, default=AB.SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
     args = ap.parse_args()
@@ -106,8 +109,15 @@ def main() -> int:
     dump()
 
     def fold(size, arm, slot, rep):
-        if arm == "ship":
+        # `ship` leaves the tree alone. `off`/`on` pin the Blackhole per-shape row-height raise,
+        # which is default-on, so the shipped lever is still A/B-able on one build without the
+        # flat-height hook -- the hook forces ONE height for every shape and this lever gives a
+        # different height to the pair track and the MSA track, so it cannot stand in for it.
+        # `hNN` is the old flat-height screen arm, unchanged.
+        if arm in ("ship", "off", "on"):
             os.environ.pop("TT_BIO_TRANSITION_H_CHUNK", None)
+            if arm != "ship":
+                TT._TRANSITION_L1_ROWS = arm == "on"
         else:
             os.environ["TT_BIO_TRANSITION_H_CHUNK"] = str(int(arm.lstrip("h")))
         TT.TRANSITION_H_CHUNK_STATS[:] = [0, 0]
@@ -144,7 +154,7 @@ def main() -> int:
         # either side of the test arm, so a drift in the box shows up as the floor and not as
         # the ratio.
         for rep in range(args.reps):
-            for slot, a in (("shipA", "ship"), ("test", arm), ("shipB", "ship")):
+            for slot, a in (("shipA", args.ref), ("test", arm), ("shipB", args.ref)):
                 out["folds"].append(fold(size, a, slot, rep))
                 dump()
         sel = lambda s: [f["wall_s"] for f in out["folds"]

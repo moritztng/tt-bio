@@ -257,7 +257,30 @@ TRANSITION_H_CHUNK_SHAPES: dict = {}
 # (perf/wh-protenix/wh_transition_h.py). Rescaled to a part's own L1 in _apply_grid_thresholds.
 _TRANSITION_L1_CHUNK_BYTES_BASE = 393216
 _WH_MEASURED_L1_PER_CORE = 1466080  # the L1 the base above was measured at
-TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
+# Blackhole measured the same ceiling on its own part and it is higher: 514,755 B per core,
+# 32.7% of the p300c's unreserved L1. That number reproduces exactly the three heights that ran
+# bit-exact on an 11x10 p300c and refuses the four products that threw -- h=48 at W=512, h=32 at
+# 768, h=24 at 1024, all at c=128/hidden=512, against a static-CB clash at program.cpp:1052 on
+# the third 4-D Transition for every larger product (perf/roof_transition_chunk_bh).
+# _apply_grid_thresholds returns early on a Blackhole grid, so this is the value in force there;
+# a small grid overwrites it with the rescaled Wormhole base a few hundred lines down.
+# = ceil(56,623,104 B / 110 cores). The aggregate is the measured quantity -- one h=48 block at
+# W=512, c=128, hidden=512 in bf16 is 2 * 48 * 512 * (128 + 2*512) = 56,623,104 B live -- and the
+# floor of that per core, 514,755, truncates the derivation one row short of every height it was
+# fitted to (47/31/23 instead of 48/32/24), which costs two extra row blocks at 768 aa and two at
+# 1024 aa for nothing.
+_BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE = 514756
+# ...and never step past a height hardware confirmed. The byte budget scales with the core count,
+# so on a 13x10 p150a it would allow 56 rows at W=512 where 48 is the tallest block anyone has
+# run. `h * W * c <= 3,145,728` is the same statement as the byte budget whenever hidden = 4x
+# channel (both reduce to 3145728/(W*c)), and on a wider grid it pins the height to the extent
+# that was measured instead of extrapolating off it. Applied as a min with the byte budget, which
+# is the physical expression and is the one that binds when hidden exceeds 4x the channel.
+_BH_TRANSITION_CHUNK_ELEMS = 3145728
+TRANSITION_L1_CHUNK_BYTES_PER_CORE = _BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE
+# Screen hook for the Blackhole raise, same pattern as every other lever here: the shipped
+# default has to stay A/B-able on one build without editing a derivation. On by default.
+_TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 
 # A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
 # same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
@@ -8191,6 +8214,24 @@ class Transition(Module):
             # undo that measured raise.
             transition_h_chunk_size = min(transition_h_chunk_size,
                                           max(1, int(_l1_rows_at(w_eff))))
+        elif _TRANSITION_L1_ROWS:
+            # Blackhole: the same per-core budget, read the other way round. On a small grid the
+            # measured L1 ceiling always sits BELOW the tuned base, so it only ever shrinks; on
+            # Blackhole it sits well above it (48 rows against a shipped 16 at 512 aa), and the
+            # base is not a Blackhole measurement -- it is the Wormhole reference height that
+            # nothing on this part ever revisited. So raise to the budget, per shape, and keep
+            # the base as a floor so no shape can come out shorter than it ships today.
+            #
+            # Per shape, not per size: the height is a function of (w_eff, channel, hidden) that
+            # every part and every model evaluates with the same two constants. At c=128 it
+            # reduces to h * W = 24576, which IS the law the ladder measured -- h=48/32/24 at
+            # W=512/768/1024, and worth nothing at and above 1536 tokens where the base already
+            # sits at the cap. A forced constant cannot do this: 768 aa refuses h=48 and 1024 aa
+            # refuses h=28, so every flat value in {24,28,32,40,48} dies on some rung.
+            transition_h_chunk_size = max(
+                transition_h_chunk_size,
+                max(1, int(min(_l1_rows_at(w_eff),
+                               _BH_TRANSITION_CHUNK_ELEMS / (w_eff * _c)))))
         # Screen hook, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING and
         # TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD above: the wall is documented NON-monotonic in
         # this height (h=7/8/9 all fit at W=512 and are all slower than h=6), and the derivation
