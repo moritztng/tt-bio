@@ -1,0 +1,180 @@
+{
+ "ttnn": "0.70.1",
+ "torch": "2.8.0+cpu",
+ "arch": "Arch.BLACKHOLE",
+ "shape": [
+  8,
+  320,
+  320
+ ],
+ "cases": {
+  "large": {
+   "ns_true_ckc": {
+    "max_abs_err": 0.0006510416666666852,
+    "mean_abs_err": 4.769335843854366e-09,
+    "rel_rms": 3.169429950620929e-05,
+    "rowsum_min": 1.0,
+    "rowsum_max": 1.001953125,
+    "rowsum_mean": 1.0000015261857704,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "ns_false_ckc": {
+    "max_abs_err": 1.0,
+    "mean_abs_err": 0.003125,
+    "rel_rms": 1.0,
+    "rowsum_min": 0.0,
+    "rowsum_max": 0.0,
+    "rowsum_mean": 0.0,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "ns_true_default": {
+    "max_abs_err": 0.03125,
+    "mean_abs_err": 9.758949185083819e-05,
+    "rel_rms": 0.031245949176800823,
+    "rowsum_min": 0.96875,
+    "rowsum_max": 0.99609375,
+    "rowsum_mean": 0.9687713626077319,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "default": {
+    "max_abs_err": 0.03125,
+    "mean_abs_err": 9.758949185083819e-05,
+    "rel_rms": 0.031245949176800823,
+    "rowsum_min": 0.96875,
+    "rowsum_max": 0.99609375,
+    "rowsum_mean": 0.9687713626077319,
+    "n_nan": 0,
+    "n_inf": 0
+   }
+  },
+  "mid": {
+   "ns_true_ckc": {
+    "max_abs_err": 0.002405037084561079,
+    "mean_abs_err": 1.7416377829632501e-06,
+    "rel_rms": 0.0008445096173785949,
+    "rowsum_min": 0.9962354596097311,
+    "rowsum_max": 1.0024180738257749,
+    "rowsum_mean": 0.9998994369403944,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "ns_false_ckc": {
+    "max_abs_err": 1.0,
+    "mean_abs_err": 0.003096960685709455,
+    "rel_rms": 0.9965019737987807,
+    "rowsum_min": 0.0,
+    "rowsum_max": 1.0005302685373576,
+    "rowsum_mean": 0.008975048192556054,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "ns_true_default": {
+    "max_abs_err": 0.04105973503587246,
+    "mean_abs_err": 8.600368820142031e-05,
+    "rel_rms": 0.029488111206620947,
+    "rowsum_min": 0.9590454101580055,
+    "rowsum_max": 1.0059358228912776,
+    "rowsum_mean": 0.9744279543877425,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "default": {
+    "max_abs_err": 0.04105973503587246,
+    "mean_abs_err": 8.600368820142031e-05,
+    "rel_rms": 0.029488111206620947,
+    "rowsum_min": 0.9590454101580055,
+    "rowsum_max": 1.0059358228912776,
+    "rowsum_mean": 0.9744279543877425,
+    "n_nan": 0,
+    "n_inf": 0
+   }
+  },
+  "shifted": {
+   "ns_true_ckc": {
+    "max_abs_err": 0.000466177468810669,
+    "mean_abs_err": 5.053082106458218e-06,
+    "rel_rms": 0.0018953649890475043,
+    "rowsum_min": 0.9958014488220215,
+    "rowsum_max": 1.0019330978393555,
+    "rowsum_mean": 0.9989851886406541,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "ns_false_ckc": {
+    "max_abs_err": 0.15131004583925733,
+    "mean_abs_err": 0.003124999999999999,
+    "rel_rms": 1.0,
+    "rowsum_min": 0.0,
+    "rowsum_max": 0.0,
+    "rowsum_mean": 0.0,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "ns_true_default": {
+    "max_abs_err": 0.01101718175580546,
+    "mean_abs_err": 5.860430325748981e-05,
+    "rel_rms": 0.029117307015480758,
+    "rowsum_min": 0.9372284412384033,
+    "rowsum_max": 1.0114250183105469,
+    "rowsum_mean": 0.9858567753341049,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "default": {
+    "max_abs_err": 0.01101718175580546,
+    "mean_abs_err": 5.860430325748981e-05,
+    "rel_rms": 0.029117307015480758,
+    "rowsum_min": 0.9372284412384033,
+    "rowsum_max": 1.0114250183105469,
+    "rowsum_mean": 0.9858567753341049,
+    "n_nan": 0,
+    "n_inf": 0
+   }
+  },
+  "small": {
+   "ns_true_ckc": {
+    "max_abs_err": 0.00031305987210443476,
+    "mean_abs_err": 5.016788645566103e-06,
+    "rel_rms": 0.0018959626214800165,
+    "rowsum_min": 0.9969344139099121,
+    "rowsum_max": 0.9999971389770508,
+    "rowsum_mean": 0.9991698249476031,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "ns_false_ckc": {
+    "max_abs_err": 0.000694023938237559,
+    "mean_abs_err": 5.136132499520172e-06,
+    "rel_rms": 0.0020003055171416077,
+    "rowsum_min": 0.9969367980957031,
+    "rowsum_max": 0.9999556541442871,
+    "rowsum_mean": 0.9990500686923042,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "ns_true_default": {
+    "max_abs_err": 0.008353607288556636,
+    "mean_abs_err": 5.550829253600664e-05,
+    "rel_rms": 0.024760971392164516,
+    "rowsum_min": 0.9566967487335205,
+    "rowsum_max": 1.0122895240783691,
+    "rowsum_mean": 0.9932550736004486,
+    "n_nan": 0,
+    "n_inf": 0
+   },
+   "default": {
+    "max_abs_err": 0.008353607288556636,
+    "mean_abs_err": 5.550829253600664e-05,
+    "rel_rms": 0.024760971392164516,
+    "rowsum_min": 0.9566967487335205,
+    "rowsum_max": 1.0122895240783691,
+    "rowsum_mean": 0.9932550736004486,
+    "n_nan": 0,
+    "n_inf": 0
+   }
+  }
+ }
+}

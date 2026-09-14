@@ -1,0 +1,139 @@
+{
+ "doc": "Lay the two stack arms out under one tag each so `roof_shared/assemble.py` and\n`b2z2_fusebias/score.py` can score them both against the committed upstream fp32 reference.\n\n`fold_shared.py` labels its shared arm `ttshared-s0` whichever stack ran it, so two arms collide.\nThis renames them by ttnn version -- `ttshared68`, `ttshared78` -- and nothing else.\n\n    merge_arms.py --old <old/folds.json> --new <new/folds.json> --out <merged/folds.json>\n",
+ "env": {
+  "ttshared68": {
+   "host": "tt-quietbox2",
+   "grid": [
+    11,
+    10
+   ],
+   "arch": "Arch.BLACKHOLE",
+   "torch": "2.8.0+cpu",
+   "tt_visible_devices": "2",
+   "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-version-recon/tt_bio/__init__.py",
+   "commit": "46180fa6b177afeebe461e913ca1210c6bde39b6",
+   "started_utc": "2026-09-14T11:01:05Z",
+   "protocol": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "seed": 0,
+    "arms": "shared"
+   }
+  },
+  "ttshared78": {
+   "host": "tt-quietbox2",
+   "grid": [
+    11,
+    10
+   ],
+   "arch": "Arch.BLACKHOLE",
+   "torch": "2.8.0+cpu",
+   "tt_visible_devices": "2",
+   "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-version-recon/tt_bio/__init__.py",
+   "commit": "46180fa6b177afeebe461e913ca1210c6bde39b6",
+   "started_utc": "2026-09-14T10:59:30Z",
+   "protocol": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "seed": 0,
+    "arms": "shared"
+   }
+  }
+ },
+ "runs": [
+  {
+   "arm": "ttshared68",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 86.526,
+   "mode": "shared",
+   "sha256": "aacd32c44c59ba85",
+   "shared_draw_seed": "0",
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      2400,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "84c748a64d2a8963"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "0221d7a064b23ef4"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "d4598badfc09f9ba"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.913153,
+   "tag": "ttshared68-s0",
+   "stack": "ttshared68"
+  },
+  {
+   "arm": "ttshared78",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 76.848,
+   "mode": "shared",
+   "sha256": "f5a4b4a1b9b098f2",
+   "shared_draw_seed": "0",
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      2400,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "84c748a64d2a8963"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "0221d7a064b23ef4"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "d4598badfc09f9ba"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.359736,
+   "tag": "ttshared78-s0",
+   "stack": "ttshared78"
+  }
+ ]
+}
