@@ -116,8 +116,35 @@ LEVERS = [
      "tt_bio.softmax_generic.PVSTATS", "stats"),
     ("RFD3_FC1_SPLIT_SILU", "tt_bio.rfd3.model", "_FC1_SPLIT_SILU",
      "tt_bio.rfd3.model.FC1STATS", "stats"),
+    # --- Boltz-2 levers shipped by the b2x / b2z2 / K10 / ROOF campaigns. Added 2026-09-14.
+    # The table referenced 24 of the 37 counters that exist, so the gate built to catch a dark
+    # lever was itself blind to 13 -- including BOTH levers ROOF landed on main
+    # (TRIMUL_MASK_L1, RESIDUAL_L1) and the fused TriAtt in-projection, which is default-on and
+    # carries q/k/v/gate/bias for every triangle attention in the fold.
+    # tests/test_lever_census_coverage.py now fails if a counter is added without a row here.
+    ("TRIMUL_MASK_L1", "tt_bio.tenstorrent", "_TRIMUL_MASK_L1",
+     "tt_bio.tenstorrent.TRIMUL_MASK_L1_STATS", "stats"),
+    ("RESIDUAL_L1", "tt_bio.tenstorrent", "_RESIDUAL_L1",
+     "tt_bio.tenstorrent.RESIDUAL_L1_STATS", "stats"),
+    ("TRIMUL_GP_BANK_SPLIT", "tt_bio.tenstorrent", "_TRIMUL_GP_BANK_SPLIT",
+     "tt_bio.tenstorrent.TRIMUL_GOUT_STATS", "stats"),
+    ("ATOM_SHIFT_GATHER", "tt_bio.tenstorrent", "_ATOM_SHIFT_GATHER_OFF",
+     "tt_bio.tenstorrent.ATOM_SHIFT_GATHER_STATS", "stats"),
+    ("OPM_SMALL_DEPTH", "tt_bio.tenstorrent", "_OPM_SMALL_DEPTH",
+     "tt_bio.tenstorrent.OPM_SMALL_DEPTH_STATS", "stats"),
+    ("PWA_BATCH_HEAD_WEIGHTS", "tt_bio.tenstorrent", "_PWA_BATCH_HEAD_WEIGHTS",
+     "tt_bio.tenstorrent.PWA_BATCH_HEAD_STATS", "stats"),
+    ("SDPA_RAGGED_PAD", "tt_bio.tenstorrent", "_SDPA_RAGGED_PAD",
+     "tt_bio.tenstorrent.SDPA_RAGGED_PAD_STATS", "stats"),
+    ("TRIATT_FUSED_QKVG", "tt_bio.triatt_qkv", "_QKVG_ENABLED",
+     "tt_bio.triatt_qkv.QKVG_STATS", "stats"),
+    ("TRIATT_FUSED_QKVGB", "tt_bio.triatt_qkv", "_QKVGB_ENABLED",
+     "tt_bio.triatt_qkv.QKVGB_STATS", "stats"),
+    ("TRIATT_FUSED_HIFI", "tt_bio.tenstorrent", "_TRIATT_FUSED_HIFI",
+     "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS", "stats-dict"),
+    ("TRIMUL_TAIL_L1", "tt_bio.tenstorrent", "_TRIMUL_TAIL_L1",
+     "tt_bio.tenstorrent.TRIMUL_TAIL_L1_STATS", "stats-dict"),
 ]
-
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
 
 # Six modules already keep a `(reason, shape) -> count` reject dict, and every one of them built it
