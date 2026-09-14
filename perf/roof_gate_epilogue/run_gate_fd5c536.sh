@@ -9,9 +9,9 @@ WT=/home/ttuser/.coworker/wt/roof-gate-epilogue-conflict-remerge
 cd "$WT" || exit 1
 export HF_HUB_OFFLINE=1
 export OPENDDE_DOCKQ_PYTHON=/home/ttuser/dockqenv/bin/python3
-export TT_BIO_LEASE_CARDS=2
+export TT_BIO_LEASE_CARDS=${CARD:-0}
 export TT_BIO_LEASE_HOLDER=worker:roof-gate-epilogue-conflict-remerge
 exec /home/ttuser/tt-bio-dev/env/bin/python3 -u scripts/full_parity_gate.py \
-  --workers tt-quietbox2:2 \
+  --workers tt-quietbox2:${CARD:-0} \
   --workdir "$WT/perf/roof_gate_epilogue/gate-fd5c536" \
   --out "$WT/perf/roof_gate_epilogue/out/gate_fd5c536.json"
