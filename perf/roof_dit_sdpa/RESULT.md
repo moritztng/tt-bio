@@ -97,3 +97,12 @@ this row's card grant; it ranks, and there is nothing left to price.
 ## Parity
 
 No model code changed on this branch. Nothing to gate.
+
+## The brief's third question: does `sdpa_generic.plan_for_shape` refuse this shape?
+
+Moot at this site. `sdpa_generic` has exactly one caller, `tt_bio/triatt_sdpa.py`, and that is the
+triangle attention. The token DiT and the atom transformer both call the stock
+`ttnn.transformer.scaled_dot_product_attention` and never reach it. Routing them through it would
+change nothing either way: `sdpa_generic` is a transcription of the same wheel kernel, and the
+sibling capture measured it accepting the token DiT's shape anyway (19 of 20 chunk pairs, no padded
+mask, 128 of 130 cores, 114 KB of CB). There is no refusal to lift.
